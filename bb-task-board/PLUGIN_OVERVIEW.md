@@ -1,21 +1,11 @@
-Keep a todo list beside the work it belongs to, in the sidebar and in
-your agent threads.
+A project task board in BB with a detail pane and a matching `bb task-board` command.
 
-## What you get
+## Plan work by project
 
-- An **Example todos** page in the left sidebar that adds, completes, and
-  removes todos.
-- A `bb tasks` command that does the same from a terminal.
-- Live updates, so a change made in one place reaches every open page at once.
+Create tasks with descriptions, priority, labels and prerequisites. Move them between Backlog, In progress and Done. Flag in-progress work as Focus or Out of focus. Each task can link to an existing BB thread in the same project.
 
-## How it works
+## Keep tasks close to the work
 
-The todos live in this plugin's own storage on the BB server, one list per
-installation. Nothing leaves the machine, and the plugin needs no account, API
-key, or external service.
+The sidebar board and CLI share a SQLite store on your BB server. Updates appear in open pages without a refresh. The included agent skill explains how to read and update tasks through the CLI.
 
-## For agents
-
-The bundled skill tells an agent to read the list with `bb tasks list`, add
-one todo at a time with `bb tasks add`, and close finished work with
-`bb tasks done`.
+Tasks don't start agent runs or depend on OpenForge. Linking a thread gives you a way back to its conversation without changing its lifecycle.

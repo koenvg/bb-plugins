@@ -1,141 +1,46 @@
-# bb-plugin-tasks
+# Tasks for BB
 
-A BB plugin that keeps a todo list. It shows every surface a plugin can own:
+A local task board inside BB. Tasks belong to BB projects, persist in the plugin's own SQLite database, and can link to existing BB threads. No OpenForge service or account is required.
 
-- `server.ts` — the backend: a todo store in `bb.storage.kv`, RPC methods
-  for the page, a `bb tasks` CLI command, a setting, and a realtime signal
-  that keeps every open page current.
-- `app.tsx` — the frontend: an **Example todos** page in the left sidebar
-  (`app.slots.navPanel`) built from the vendored components.
-- `skills/example-todos/SKILL.md` — a skill that tells agents how to keep the list
-  with `bb tasks`. BB imports it into agent threads automatically.
-- `PLUGIN_OVERVIEW.md` — the store listing text: a longer version of
-  `bb.description` that the plugin detail page shows under it. See
-  [Store listing](#store-listing).
+## Use it
 
-Try it: install the plugin, open **Example todos** in the sidebar, then run
-`bb tasks add "Ship it"` in a terminal. The page updates at once.
+Install from this directory:
 
-## UI components
-
-`components/ui/` is vendored source you own (the shadcn model): edit the
-files freely — they never update out from under you. Add more from the BB
-component registry (the full shadcn set, version-matched to your BB install
-via the pinned ref in `components.json`):
-
-```
-npx shadcn add @bb/select @bb/table
+```sh
+bb plugin build
+bb plugin install . --yes
 ```
 
-Run `npm install` once before `bb plugin build` — the vendored components'
-npm deps bundle into your dist. React, and BB-shimmed packages like the
-radix portal primitives and `sonner` (`import { toast } from "sonner"`
-reaches BB's own toaster), are provided by the BB app at runtime and never
-bundled. Every shimmed package is declared in `devDependencies` at the
-host's version so those imports typecheck; keep them there (never in
-`dependencies`, which would bundle a second copy), and `bb plugin types`
-repins them alongside the SDK. Ship `dist/` (npm tarball or committed for
-git installs) so people installing your plugin never need npm.
+Open **Tasks** in the BB sidebar. Pick a project and fill in a prompt to create a task; priority defaults to normal. Edit the prompt, priority, status, attention flag, labels, prerequisites and linked thread in the detail pane. The board shows an excerpt of each prompt and has Focus, In flight, Out of focus, Backlog and Done views. Focus and Out of focus are manual flags on in-progress tasks; In flight includes both. Each view and search query filters the entire project before paging 200 results at a time. Existing prerequisites can be removed even when they are not on the current page; add a new one by copying its full ID from its task details.
 
-## Manifest
+Agents and scripts can use the same store:
 
-`package.json` is the plugin manifest. Notable fields:
-
-- `bb.server` — backend entry (required).
-- `bb.app` — frontend entry. Delete it, `app.tsx`, `components/`,
-  `hooks/`, and `lib/` for a headless plugin.
-- `bb.skills` — skill roots; omitted here, so BB reads `skills/`. Each
-  directory with a `SKILL.md` is one skill, named after the directory.
-- `bb.name` and `bb.description` — required human-facing identity.
-- `bb.branding` — required; declare `icon` as a BB icon name or a
-  plugin-relative compact SVG, or declare `logo.light` (with optional
-  `logo.dark`). Logo assets must be relative `.svg`, `.png`, or
-  `.webp` files.
-- `engines.bb` — supported bb app version range.
-- `engines.bbPluginSdk` — the lowest plugin SDK you need (scaffold:
-  `>=0.5.9`). BB reads this as a floor, not a ceiling: a later
-  SDK in the same major still loads your plugin.
-- `dependencies` — every package your source imports that BB does not provide.
-  `bb plugin build` inlines them into `dist/`, and git installs resolve this
-  list alone, so a build-required package here rather than in
-  `devDependencies` is what keeps your plugin installable. `devDependencies`
-  is for types and tooling only (BB shims React, the portal primitives, and
-  `@get-bb/plugin-sdk` at runtime — never bundle them).
-
-Run `bb plugin build` before publishing git/npm installs. It writes
-`dist/server.js` + `server.meta.json` and `app.js` / `app.css` /
-`app.meta.json`. Each `*.meta.json` stamps SDK major/version,
-`artifactFormatVersion`, `pluginId`, `pluginVersion`, and
-`builtWith` so managed installs can verify the artifacts.
-
-## Store listing
-
-Two texts describe the plugin in the store. `bb.description` in package.json
-is the one-sentence hook on every browse card and the lead paragraph on the
-detail page; keep it under about 140 characters. `PLUGIN_OVERVIEW.md` is the
-same claim at length, shown in an Overview section under that paragraph.
-Rewrite the scaffold's copy for your plugin, and update it whenever
-`bb.description` changes, so the two never disagree.
-
-The submission to the public BB Community marketplace requires the file. Keep
-it under 4000 characters (aim for 700 to 1800) and use headings, paragraphs,
-emphasis, code, blockquotes, lists, thematic breaks, and absolute https links
-only — raw HTML, images, tables, footnotes, and task lists are rejected. Do
-not open with a `#` title or repeat `bb.description` verbatim; the page
-shows both directly above.
-
-## Install
-
-From this directory (`bb plugin new` already ran the install; a fresh clone
-needs it):
-
+```sh
+bb task-board list --project proj_example
+bb task-board add --project proj_example --prompt "Write the docs" --priority high
+bb task-board update TASK-id --patch '{"status":"doing","focus":"focus","labels":["docs"]}'
+bb task-board update TASK-id --patch '{"threadId":"thr_example","dependsOn":["TASK-other"]}'
+bb task-board update TASK-id --patch '{"status":"done"}'
 ```
+
+CLI responses are JSON. `bb task-board list` supports `--view`, `--query`, `--limit` (1–500) and `--offset`; the result includes filtered `total` and project-wide view counts. `bb task-board show <task-id>` returns one complete task. The detail pane checks `updatedAt` when saving: if another writer changed the task, it keeps your draft and offers an explicit reload instead of overwriting the new version. Scripts may pass `expectedUpdatedAt` in an update patch for the same check. `bb task-board help` shows command usage. The included `project-tasks` skill explains this workflow to BB agents.
+
+Upgrading an existing install combines each task's old title and description into its prompt, with a blank line between them. Existing tasks keep their other fields.
+## Boundaries
+
+- Prerequisites must belong to the same project and form an acyclic graph. They must be done before moving a task to In progress. Deleting a prerequisite clears that link from its dependents.
+- A linked thread must already exist in the same project. Linking does not create, start, or change the thread. Task status and thread status are independent.
+- Task deletion does not delete a linked thread. Project deletion does not automatically delete the plugin's stored task rows; orphaned tasks are hidden when their project is gone.
+- This plugin does not import OpenForge tasks or reproduce its agent runs, PR reviews or attention automation.
+
+## Development
+
+```sh
 npm install
-bb plugin install .
+npx vitest run
+npx tsc --noEmit
+bb plugin build
+bb plugin reload task-board
 ```
 
-After editing sources, reload:
-
-```
-bb plugin reload tasks
-```
-
-Or let `bb plugin dev` rebuild and reload on every save.
-
-## Configure
-
-```
-bb plugin config tasks
-bb plugin config tasks set showDone false
-bb plugin reload tasks
-```
-
-## Types & API reference
-
-The plugin API ships as the npm package `@get-bb/plugin-sdk`, pinned to an
-exact version in `devDependencies` (`0.5.9` — the SDK of the BB
-that scaffolded this plugin). After `npm install`, the full surface is on disk
-at:
-
-```
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
-```
-
-Your editor and `tsc` resolve `@get-bb/plugin-sdk` there through ordinary node
-resolution — no path mapping. These are readable declarations: open them for an
-exact signature.
-
-The SDK surface grows with every BB release, so the pin has to track the BB you
-actually run:
-
-```
-bb plugin types          # sync this plugin's SDK surface to the running BB
-bb plugin types --check  # CI: fail when it does not match
-```
-
-Ask BB to write plugins for you: the `bb-plugin-authoring` skill documents
-the whole surface with examples.
-
-Confused by the API, or need something the types don't explain? Clone the BB
-repo and read the source: <https://github.com/get-bb/bb>.
+The backend is `server.ts` (SQLite, RPC, CLI, realtime); the sidebar page is `app.tsx`. The plugin uses the host's theme tokens and vendored UI controls. Test state with `@get-bb/plugin-sdk/testing` in `server.test.ts`.
