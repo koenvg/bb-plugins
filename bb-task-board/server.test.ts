@@ -24,6 +24,13 @@ async function setup() {
   return host.harness;
 }
 
+
+const selection = (projectId = "proj_one") => ({
+  projectId, providerId: "codex", model: "gpt-5.5", reasoningLevel: "high",
+  permissionMode: "accept-edits", environment: { type: "project-default" },
+  executionInputSources: { providerId: "explicit" },
+  input: [{ type: "text", text: "Use the edited draft", mentions: [] }],
+});
 describe("project task management", () => {
   it("creates tasks per project, updates their fields, and persists through plugin reload", async () => {
     const host = await setup();
@@ -147,5 +154,198 @@ describe("project task management", () => {
     expect(await host.harness.behavior.callRpc("tasks_get", { id: "TASK-title-only" }))
       .toMatchObject({ prompt: "Only a title", status: "done" });
   });
+  it("refuses to start a completed, blocked or cross-project task before creating a thread", async () => {
+    const host = await setup();
+    const dependency = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Prerequisite" }) as { id: string };
+    const blocked = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Blocked work" }) as { id: string };
+    const completed = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Finished work" }) as { id: string };
+    await host.behavior.callRpc("tasks_update", { id: blocked.id, dependsOn: [dependency.id] });
+    await host.behavior.callRpc("tasks_update", { id: completed.id, status: "done" });
+    await expect(host.behavior.callRpc("tasks_start", { id: blocked.id, request: selection() })).rejects.toThrow(/prerequisite/i);
+    await expect(host.behavior.callRpc("tasks_start", { id: completed.id, request: selection() })).rejects.toThrow(/completed|done/i);
+    await expect(host.behavior.callRpc("tasks_start", { id: dependency.id, request: selection("proj_two") })).rejects.toThrow(/project/i);
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
+
+  it("starts from the edited composer request and links the thread without changing the task prompt", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => ({ id: "thr_new", projectId: "proj_one" }) as never);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Original task prompt" }) as { id: string };
+    const request = { ...selection(), environment: { type: "host", hostId: "host_1", workspace: { type: "managed-worktree", baseBranch: { kind: "named", name: "main" } } }, sendAt: 123456789 };
+    expect(await host.behavior.callRpc("tasks_start", { id: task.id, request })).toEqual({ threadId: "thr_new" });
+    expect(host.inspection.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject(request);
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({
+      prompt: "Original task prompt", threadId: "thr_new", status: "doing", focus: "focus",
+    });
+  });
+
+  it("keeps the task available when BB rejects thread creation", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw Object.assign(new Error("BB refused the thread"), { status: 400 }); });
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Retry this work" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/BB refused/i);
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ status: "backlog", threadId: null });
+    expect(await host.behavior.callRpc("tasks_start_state", { id: task.id })).toMatchObject({ canStart: true, pending: false });
+  });
+
+  it("allows only one launch while two composers submit and blocks conflicting edits", async () => {
+    const host = await setup();
+    let finish!: (value: unknown) => void;
+    host.sdk.stub("threads.spawn", async () => await new Promise((resolve) => { finish = resolve; }) as never);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "One launch" }) as { id: string };
+    const first = host.behavior.callRpc("tasks_start", { id: task.id, request: selection() });
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/pending/i);
+    await expect(host.behavior.callRpc("tasks_update", { id: task.id, threadId: "thr_one" })).rejects.toThrow(/pending/i);
+    await expect(host.behavior.callRpc("tasks_update", { id: task.id, status: "done" })).rejects.toThrow(/pending/i);
+    await expect(host.behavior.callRpc("tasks_remove", { id: task.id })).rejects.toThrow(/pending/i);
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+    finish({ id: "thr_new", projectId: "proj_one" });
+    expect(await first).toEqual({ threadId: "thr_new" });
+    expect(await host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).toEqual({ threadId: "thr_new" });
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("recovers a created thread after an interrupted link and a plugin reload", async () => {
+    const host = await setup();
+    let metadata: { taskId: string; launchToken: string } | undefined;
+    host.sdk.stub("threads.spawn", async (args) => {
+      metadata = args.pluginMetadata as typeof metadata;
+      throw new Error("Connection lost after BB created the thread");
+    });
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Recover me" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/connection lost/i);
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ status: "backlog", threadId: null });
+    const replacement = await host.lifecycle.reload(plugin);
+    hosts.pop(); hosts.push(replacement.harness);
+    replacement.harness.sdk.stub("threads.list", async () => [{ id: "thr_recovered", projectId: "proj_one" }] as never);
+    replacement.harness.sdk.stub("threads.getPluginMetadata", async () => metadata as never);
+    expect(await replacement.harness.behavior.callRpc("tasks_start_state", { id: task.id })).toMatchObject({ threadId: "thr_recovered", pending: false });
+    expect(await replacement.harness.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ threadId: "thr_recovered", status: "doing", focus: "focus" });
+    expect(await replacement.harness.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).toEqual({ threadId: "thr_recovered" });
+    expect(replacement.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
+
+  it("holds an uncertain launch instead of silently starting another agent", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw new Error("Transport disconnected"); });
+    host.sdk.stub("threads.list", async () => []);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Uncertain" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/disconnected/i);
+    expect(await host.behavior.callRpc("tasks_start_state", { id: task.id })).toMatchObject({ canStart: false, pending: true });
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/pending/i);
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("opens a thread manually linked while the composer was open instead of starting another", async () => {
+    const host = await setup();
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Existing work" }) as { id: string };
+    await host.behavior.callRpc("tasks_update", { id: task.id, threadId: "thr_one" });
+    expect(await host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).toEqual({ threadId: "thr_one" });
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
+
+  it("releases an unresolved launch only after an explicit confirmation and a fresh search", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw new Error("Connection lost"); });
+    host.sdk.stub("threads.list", async () => []);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Review uncertain launch" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/connection lost/i);
+    const before = await host.behavior.callRpc("tasks_get", { id: task.id });
+    const pending = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string; active: boolean };
+    expect(pending).toMatchObject({ pending: true, active: false });
+    expect(pending.launchToken).toEqual(expect.any(String));
+    await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: pending.launchToken, action: "release", confirmed: false })).rejects.toThrow(/confirm/i);
+    expect(await host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: pending.launchToken, action: "release", confirmed: true })).toMatchObject({ canStart: true, pending: false });
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toEqual(before);
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("links a known same-project thread from an unresolved claim without spawning again", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw new Error("Connection lost"); });
+    host.sdk.stub("threads.list", async () => []);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Link known thread" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/connection lost/i);
+    const state = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string };
+    expect(await host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: state.launchToken, action: "link", threadId: "thr_one" })).toMatchObject({ threadId: "thr_one", pending: false });
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ status: "doing", focus: "focus", threadId: "thr_one" });
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("rejects manual resolution while the launch is active or its token is stale", async () => {
+    const host = await setup();
+    let finish!: (value: unknown) => void;
+    host.sdk.stub("threads.spawn", async () => await new Promise((resolve) => { finish = resolve; }) as never);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Active" }) as { id: string };
+    const first = host.behavior.callRpc("tasks_start", { id: task.id, request: selection() });
+    const pending = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string; active: boolean };
+    expect(pending.active).toBe(true);
+    await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: pending.launchToken, action: "release", confirmed: true })).rejects.toThrow(/active/i);
+    await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: pending.launchToken, action: "link", threadId: "thr_one" })).rejects.toThrow(/active/i);
+    finish({ id: "thr_new", projectId: "proj_one" });
+    await first;
+    await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: pending.launchToken, action: "release", confirmed: true })).rejects.toThrow(/changed/i);
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ threadId: "thr_new" });
+  });
+
+  it("rejects missing or cross-project manual links and preserves the claim", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw new Error("Connection lost"); });
+    host.sdk.stub("threads.list", async () => []);
+    host.sdk.stub("threads.get", async ({ threadId }) => threadId === "thr_other" ? { id: threadId, projectId: "proj_two" } as never : null as never);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Must stay in project" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow();
+    const { launchToken } = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string };
+    for (const threadId of ["thr_missing", "thr_other"]) {
+      await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: launchToken, action: "link", threadId })).rejects.toThrow(/same project/i);
+    }
+    expect(await host.behavior.callRpc("tasks_start_state", { id: task.id })).toMatchObject({ pending: true, launchToken });
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ status: "backlog", threadId: null });
+  });
+
+  it("recovers the claimed thread before applying a manual release", async () => {
+    const host = await setup();
+    let metadata: { taskId: string; launchToken: string } | undefined;
+    host.sdk.stub("threads.spawn", async (args) => { metadata = args.pluginMetadata as typeof metadata; throw new Error("Connection lost"); });
+    host.sdk.stub("threads.list", async () => []);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Find me first" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow();
+    const { launchToken } = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string };
+    host.sdk.stub("threads.list", async () => [{ id: "thr_claimed", projectId: "proj_one" }] as never);
+    host.sdk.stub("threads.getPluginMetadata", async () => metadata as never);
+    expect(await host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: launchToken, action: "release", confirmed: true })).toMatchObject({ threadId: "thr_claimed", pending: false });
+    expect(await host.behavior.callRpc("tasks_get", { id: task.id })).toMatchObject({ threadId: "thr_claimed", status: "doing" });
+    expect(host.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("keeps the claim when BB cannot complete the recovery search", async () => {
+    const host = await setup();
+    host.sdk.stub("threads.spawn", async () => { throw new Error("Connection lost"); });
+    host.sdk.stub("threads.list", async () => []);
+    const task = await host.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Lookup outage" }) as { id: string };
+    await expect(host.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow();
+    const { launchToken } = await host.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string };
+    host.sdk.stub("threads.list", async () => { throw new Error("Thread search unavailable"); });
+    await expect(host.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: launchToken, action: "release", confirmed: true })).rejects.toThrow(/unavailable/i);
+    host.sdk.stub("threads.list", async () => []);
+    expect(await host.behavior.callRpc("tasks_start_state", { id: task.id })).toMatchObject({ pending: true, launchToken });
+  });
+
+  it("can release a claim whose recorded thread was later deleted", async () => {
+    const host = createFakePluginHost({ pluginId: "task-board", sdk: { projects: { list: async () => [{ id: "proj_one", name: "One" }] as never },
+      threads: { spawn: async () => ({ id: "thr_deleted", projectId: "proj_one" }) as never, list: async () => [] } } });
+    hosts.push(host.harness);
+    await plugin(host.bb);
+    const task = await host.harness.behavior.callRpc("tasks_create", { projectId: "proj_one", prompt: "Deleted after creation" }) as { id: string };
+    const db = host.bb.storage.database();
+    db.exec("CREATE TRIGGER fail_link BEFORE UPDATE OF thread_id ON tasks BEGIN SELECT RAISE(ABORT, 'link interrupted'); END");
+    await expect(host.harness.behavior.callRpc("tasks_start", { id: task.id, request: selection() })).rejects.toThrow(/link interrupted/i);
+    db.exec("DROP TRIGGER fail_link");
+    host.harness.sdk.stub("threads.get", async () => { throw Object.assign(new Error("Thread not found"), { status: 404 }); });
+    const claim = await host.harness.behavior.callRpc("tasks_start_state", { id: task.id }) as { launchToken: string };
+    expect(claim.launchToken).toEqual(expect.any(String));
+    expect(await host.harness.behavior.callRpc("tasks_resolve_launch", { id: task.id, expectedLaunchToken: claim.launchToken, action: "release", confirmed: true })).toMatchObject({ canStart: true, pending: false });
+  });
+
 
 });

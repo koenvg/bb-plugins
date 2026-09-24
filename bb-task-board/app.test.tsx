@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Task } from "./server";
 
 let unmount: (() => void) | undefined;
-afterEach(() => { unmount?.(); unmount = undefined; });
+afterEach(() => { unmount?.(); unmount = undefined; vi.restoreAllMocks(); });
 
 const makeTask = (id: string, prompt: string, changes: Partial<Task> = {}): Task => ({
   id, projectId: "proj_one", prompt, priority: "normal", status: "backlog",
   focus: null, labels: [], dependsOn: [], threadId: null,
   createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", ...changes,
 });
+type StartStateFixture = { canStart: boolean; reason: string | null; threadId: string | null; pending: boolean; active: boolean; launchToken: string | null };
 
-async function board(tasks: Task[]) {
+async function board(tasks: Task[], startOverride?: (id: string) => StartStateFixture) {
   const app = await loadPluginApp(() => import("./app"));
   const slot = renderSlot(app.navPanels[0]!, { subPath: "" }, {
     context: { projectId: "proj_one", threadId: null },
@@ -32,6 +33,14 @@ async function board(tasks: Task[]) {
             "out-of-focus": tasks.filter((task) => task.focus === "out-of-focus").length,
             backlog: tasks.filter((task) => task.status === "backlog").length,
             done: tasks.filter((task) => task.status === "done").length } };
+      },
+      tasks_start_state: ({ id }: { id: string }) => {
+        if (startOverride) return startOverride(id);
+        const task = tasks.find((item) => item.id === id)!;
+        const blocked = task.dependsOn.some((dependency) => tasks.find((item) => item.id === dependency)?.status !== "done");
+        return { canStart: !task.threadId && task.status !== "done" && !blocked,
+          threadId: task.threadId, pending: false, active: false, launchToken: null,
+          reason: blocked ? "Finish prerequisites before starting this task" : task.status === "done" ? "Completed tasks cannot start a thread" : null };
       },
       tasks_get: ({ id }: { id: string }) => tasks.find((task) => task.id === id)!,
       tasks_create: (input: { prompt: string; priority?: Task["priority"] }) => {
@@ -142,4 +151,206 @@ it("keeps a draft during realtime updates and refuses to overwrite a newer revis
   expect(tasks[0]).toMatchObject({ prompt: "Changed elsewhere" });
   fireEvent.click(screen.getByRole("button", { name: "Reload details" }));
   expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveProperty("value", "Changed elsewhere");
+});
+
+it("offers Start for a ready task and Open thread for an existing link", async () => {
+  const tasks = [makeTask("TASK-ready", "Ready", { status: "doing", focus: "focus" }),
+    makeTask("TASK-linked", "Linked", { status: "doing", focus: "focus", threadId: "thr_one" })];
+  const slot = await board(tasks);
+  await screen.findByText("Ready");
+  fireEvent.click(screen.getByRole("button", { name: /Ready/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "Start" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "tasks", options: { subPath: "start/TASK-ready" } });
+  fireEvent.click(screen.getByRole("button", { name: /Linked/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open thread" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_one" });
+  expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
+});
+
+it("explains an unfinished prerequisite even when the prerequisite is off-page", async () => {
+  const tasks = [makeTask("TASK-prereq", "Unfinished prerequisite"),
+    ...Array.from({ length: 205 }, (_, index) => makeTask(`TASK-backlog-${index}`, `Backlog ${index}`)),
+    makeTask("TASK-focus", "Blocked focus", { status: "doing", focus: "focus", dependsOn: ["TASK-prereq"] })];
+  await board(tasks);
+  await screen.findByText("Blocked focus");
+  fireEvent.click(screen.getByRole("button", { name: /Blocked focus/i }));
+  expect(await screen.findByText(/Finish prerequisites before starting/i)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
+});
+
+it("loads a task directly by ID on its start route, regardless of the board page", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const target = makeTask("TASK-off-page", "Work off page");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-off-page" }, {
+    rpc: { tasks_get: () => target, tasks_start_state: () => ({ canStart: true, reason: null, threadId: null, pending: false }) },
+    context: { projectId: "proj_one", threadId: null },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  await screen.findByTestId("bb-new-thread-composer");
+  expect(slot.inspection.rpcCalls).toContainEqual({ method: "tasks_get", input: { id: "TASK-off-page" } });
+});
+
+it("seeds BB's full composer and leaves the task unchanged when the user goes back", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const task = makeTask("TASK-compose", "Original task prompt");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-compose" }, {
+    context: { projectId: "proj_two", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => ({ canStart: true, reason: null, threadId: null, pending: false }) },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  const composer = await screen.findByTestId("bb-new-thread-composer");
+  expect(composer.getAttribute("data-default-project-id")).toBe("proj_one");
+  expect(composer.getAttribute("data-draft-key")).toBe("task-board:start:TASK-compose");
+  expect(composer.getAttribute("data-layout")).toBe("document");
+  const input = screen.getByTestId("bb-new-thread-composer-input");
+  expect(input).toHaveProperty("value", "Original task prompt");
+  fireEvent.change(input, { target: { value: "Edited but not submitted" } });
+  fireEvent.click(screen.getByRole("button", { name: "Back to tasks" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "tasks", options: undefined });
+  expect(slot.inspection.rpcCalls.every((call) => call.method !== "tasks_start")).toBe(true);
+  expect(task).toMatchObject({ status: "backlog", threadId: null, prompt: "Original task prompt" });
+});
+
+it("sends the edited composer draft and opens the newly linked thread", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const task = makeTask("TASK-send", "Stored task prompt");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-send" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => ({ canStart: true, reason: null, threadId: null, pending: false }),
+      tasks_start: () => ({ threadId: "thr_new" }) },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  const input = await screen.findByTestId("bb-new-thread-composer-input");
+  fireEvent.change(input, { target: { value: "Edited work request" } });
+  fireEvent.click(screen.getByTestId("bb-new-thread-composer-submit"));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_new" }));
+  expect(slot.inspection.rpcCalls).toContainEqual({ method: "tasks_start", input: expect.objectContaining({
+    id: "TASK-send", request: expect.objectContaining({ input: [{ type: "text", text: "Edited work request", mentions: [] }] }),
+  }) });
+  expect(task.prompt).toBe("Stored task prompt");
+});
+
+it("shows an existing task link on the start route without a second composer", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const task = makeTask("TASK-linked", "Already started", { threadId: "thr_one" });
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-linked" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => ({ canStart: false, reason: null, threadId: "thr_one", pending: false }) },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  fireEvent.click(await screen.findByRole("button", { name: "Open thread" }));
+  expect(screen.queryByTestId("bb-new-thread-composer")).toBeNull();
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_one" });
+});
+
+it("updates a pending start page when another tab links the thread", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  let linked = false;
+  const task = makeTask("TASK-pending", "Work in progress");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-pending" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => ({ ...task, threadId: linked ? "thr_new" : null }),
+      tasks_start_state: () => linked ? { canStart: false, reason: null, threadId: "thr_new", pending: false, active: false, launchToken: null }
+        : { canStart: false, reason: "Thread start is pending", threadId: null, pending: true, active: false, launchToken: "claim_1" } },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  await screen.findByText("Thread start is pending");
+  linked = true;
+  await slot.behavior.emitRealtime("tasks-changed", { projectId: "proj_one" });
+  fireEvent.click(await screen.findByRole("button", { name: "Open thread" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_new" });
+  expect(screen.queryByTestId("bb-new-thread-composer")).toBeNull();
+});
+
+it("lets an operator recheck an unresolved launch without submitting again", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  let linked = false;
+  const task = makeTask("TASK-recheck", "Pending work");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-recheck" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => linked
+      ? { canStart: false, reason: null, threadId: "thr_found", pending: false, active: false, launchToken: null }
+      : { canStart: false, reason: "Thread start is pending", threadId: null, pending: true, active: false, launchToken: "claim_1" } },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  await screen.findByText("Thread start is pending");
+  linked = true;
+  fireEvent.click(screen.getByRole("button", { name: "Recheck" }));
+  expect(await screen.findByRole("button", { name: "Open thread" })).toBeTruthy();
+  expect(slot.inspection.rpcCalls.every((call) => call.method !== "tasks_start")).toBe(true);
+});
+
+it("offers a recovery page from a pending task detail instead of a second Start", async () => {
+  const task = makeTask("TASK-held", "Held work", { status: "doing", focus: "focus" });
+  const slot = await board([task], () => ({ canStart: false, reason: "Thread start is pending",
+    threadId: null, pending: true, active: false, launchToken: "claim_1" }));
+  await screen.findByText("Held work");
+  fireEvent.click(screen.getByRole("button", { name: /Held work/i }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review launch" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "tasks", options: { subPath: "start/TASK-held" } });
+  expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
+});
+
+it("hides manual recovery while the thread launch is still active", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  let active = true;
+  const task = makeTask("TASK-active", "Wait for agent");
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-active" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => ({ canStart: false, reason: "Thread start is pending",
+      threadId: null, pending: true, active, launchToken: "claim_1" }) },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  await screen.findByText("Thread creation is still active.");
+  expect(screen.queryByRole("button", { name: "Release claim" })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "Known thread ID" })).toBeNull();
+  active = false;
+  await slot.behavior.emitRealtime("tasks-changed", { projectId: "proj_one" });
+  expect(await screen.findByRole("textbox", { name: "Known thread ID" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Release claim" })).toBeTruthy();
+});
+
+it("links a known thread from the unresolved launch page without starting another", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const task = makeTask("TASK-manual", "Link the work");
+  let state: StartStateFixture = { canStart: false, reason: "Thread start is pending", threadId: null, pending: true, active: false, launchToken: "claim_1" };
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-manual" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => state, tasks_resolve_launch: () => {
+      task.threadId = "thr_one"; task.status = "doing"; task.focus = "focus";
+      state = { canStart: false, reason: null, threadId: "thr_one", pending: false, active: false, launchToken: null };
+      return state;
+    } },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  const input = await screen.findByRole("textbox", { name: "Known thread ID" });
+  fireEvent.change(input, { target: { value: "thr_one" } });
+  fireEvent.click(screen.getByRole("button", { name: "Link thread" }));
+  expect(await screen.findByRole("button", { name: "Open thread" })).toBeTruthy();
+  expect(slot.inspection.rpcCalls).toContainEqual({ method: "tasks_resolve_launch", input: { id: task.id, expectedLaunchToken: "claim_1", action: "link", threadId: "thr_one" } });
+  expect(slot.inspection.rpcCalls.every((call) => call.method !== "tasks_start")).toBe(true);
+});
+
+it("requires confirmation to release a claim and never auto-starts after release", async () => {
+  const app = await loadPluginApp(() => import("./app"));
+  const task = makeTask("TASK-release", "Retry deliberately");
+  let state: StartStateFixture = { canStart: false, reason: "Thread start is pending", threadId: null, pending: true, active: false, launchToken: "claim_1" };
+  const slot = renderSlot(app.navPanels[0]!, { subPath: "start/TASK-release" }, {
+    context: { projectId: "proj_one", threadId: null },
+    rpc: { tasks_get: () => task, tasks_start_state: () => state, tasks_resolve_launch: () => {
+      state = { canStart: true, reason: null, threadId: null, pending: false, active: false, launchToken: null };
+      return state;
+    } },
+  });
+  unmount = () => slot.lifecycle.unmount();
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  fireEvent.click(await screen.findByRole("button", { name: "Release claim" }));
+  expect(slot.inspection.rpcCalls.some((call) => call.method === "tasks_resolve_launch")).toBe(false);
+  confirm.mockReturnValue(true);
+  fireEvent.click(screen.getByRole("button", { name: "Release claim" }));
+  expect(await screen.findByTestId("bb-new-thread-composer")).toBeTruthy();
+  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(slot.inspection.rpcCalls).toContainEqual({ method: "tasks_resolve_launch", input: { id: task.id, expectedLaunchToken: "claim_1", action: "release", confirmed: true } });
+  expect(slot.inspection.rpcCalls.every((call) => call.method !== "tasks_start")).toBe(true);
+  expect(task).toMatchObject({ status: "backlog", threadId: null });
 });

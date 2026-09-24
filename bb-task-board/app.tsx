@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { definePluginApp, useBbContext, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, experimental_NewThreadComposer as NewThreadComposer, useBbContext, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, Task } from "./server";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -18,8 +18,9 @@ const shortId = (id: string) => id.slice(0, 13);
 const preview = (text: string) => text.trim().replace(/\s+/g, " ").slice(0, 180);
 type TaskPatch = Partial<Pick<Task, "prompt" | "priority" | "status" | "focus" | "labels" | "dependsOn" | "threadId">> & { expectedUpdatedAt?: string };
 
-function TaskForm({ task, tasks, busy, onSave, onDelete, onCancel, onReload }: {
-  task?: Task; tasks: Task[]; busy: boolean; onSave: (input: TaskPatch) => Promise<void>;
+type StartState = { canStart: boolean; reason: string | null; threadId: string | null; pending: boolean; active: boolean; launchToken: string | null };
+function TaskForm({ task, tasks, busy, startState, onSave, onDelete, onCancel, onReload }: {
+  task?: Task; tasks: Task[]; busy: boolean; startState: StartState | null; onSave: (input: TaskPatch) => Promise<void>;
   onDelete?: () => Promise<void>; onCancel: () => void; onReload: () => void;
 }) {
   const original = useRef(task).current;
@@ -61,6 +62,16 @@ function TaskForm({ task, tasks, busy, onSave, onDelete, onCancel, onReload }: {
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Close</Button>
       </div>
+      {task && <div className="flex items-center gap-2">
+        {task.threadId || startState?.threadId ?
+          <Button type="button" variant="outline" onClick={() => navigate.toThread((task.threadId ?? startState?.threadId)!)}>Open thread</Button> :
+          startState?.pending ? <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-muted-foreground">{startState.reason}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => navigate.toPluginPanel("tasks", { subPath: `start/${encodeURIComponent(task.id)}` })}>Review launch</Button>
+          </div> : startState?.canStart ?
+            <Button type="button" onClick={() => navigate.toPluginPanel("tasks", { subPath: `start/${encodeURIComponent(task.id)}` })}>Start</Button> :
+            startState?.reason ? <p className="text-sm text-muted-foreground">{startState.reason}</p> : null}
+      </div>}
       {changedElsewhere && <div className="rounded-md border border-border bg-muted p-3 text-xs">
         <p>This task changed elsewhere. Reload details to use the latest version; your draft will be discarded.</p>
         <Button type="button" variant="outline" size="sm" className="mt-2" onClick={onReload}>Reload details</Button>
@@ -97,7 +108,6 @@ function TaskForm({ task, tasks, busy, onSave, onDelete, onCancel, onReload }: {
           <p className="mt-1 text-xs text-muted-foreground">Paste a task ID from this project. The server checks it when you save.</p>
         </div>
         <label><span className={labelClass}>Linked BB thread ID</span><Input value={threadId} onChange={(event) => setThreadId(event.target.value)} placeholder="thr_…" /></label>
-        {task.threadId && <Button type="button" variant="outline" size="sm" onClick={() => navigate.toThread(task.threadId!)}>Open linked thread</Button>}
       </>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex items-center gap-2 border-t border-border pt-4">
@@ -123,6 +133,7 @@ function TasksPage() {
   const [view, setView] = useState<View>("focus");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Task | null>(null);
+  const [selectedStart, setSelectedStart] = useState<{ id: string; value: StartState } | null>(null);
   const selectedId = useRef<string | null>(null);
   const [formRevision, setFormRevision] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -151,6 +162,15 @@ function TasksPage() {
   useEffect(() => { selectedId.current = null; setSelected(null); setCreating(false); }, [projectId]);
   useEffect(() => { setTasks([]); setTotal(0); setLoading(true); refresh(); }, [refresh]);
   useRealtime("tasks-changed", refresh);
+  useEffect(() => {
+    if (!selected) { setSelectedStart(null); return; }
+    let active = true;
+    setSelectedStart(null);
+    rpc.call("tasks_start_state", { id: selected.id }).then((state) => {
+      if (active && selectedId.current === selected.id) setSelectedStart({ id: selected.id, value: state });
+    }, (cause) => { if (active) report(cause); });
+    return () => { active = false; };
+  }, [rpc, report, selected?.id, selected?.updatedAt]);
   const loadMore = async () => {
     if (!projectId || loadingMore) return;
     const request = refreshRequest.current;
@@ -224,7 +244,7 @@ function TasksPage() {
           </div>
         </main>
         {panelOpen && <aside className="min-h-0 w-full overflow-y-auto border-l border-border bg-card md:w-[min(40%,450px)]">
-          <TaskForm key={`${selected?.id ?? "new"}:${formRevision}`} task={selected ?? undefined} tasks={tasks} busy={busy} onSave={save} onDelete={selected ? remove : undefined}
+          <TaskForm key={`${selected?.id ?? "new"}:${formRevision}`} task={selected ?? undefined} tasks={tasks} busy={busy} startState={selected && selectedStart?.id === selected.id ? selectedStart.value : null} onSave={save} onDelete={selected ? remove : undefined}
             onReload={() => setFormRevision((value) => value + 1)} onCancel={() => { selectedId.current = null; setSelected(null); setCreating(false); }} />
         </aside>}
       </div>
@@ -232,6 +252,96 @@ function TasksPage() {
   );
 }
 
+function StartTaskPage({ id }: { id: string }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
+  const [task, setTask] = useState<Task | null>(null);
+  const [state, setState] = useState<StartState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [knownThreadId, setKnownThreadId] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const refreshRequest = useRef(0);
+  const refresh = useCallback(() => {
+    const request = ++refreshRequest.current;
+    rpc.call("tasks_start_state", { id }).then((result) => rpc.call("tasks_get", { id }).then((detail) => {
+      if (request === refreshRequest.current) { setState(result); setTask(detail); setError(null); }
+    })).catch((cause) => { if (request === refreshRequest.current) setError(cause instanceof Error ? cause.message : String(cause)); });
+  }, [id, rpc]);
+  useEffect(() => {
+    setTask(null); setState(null); setError(null);
+    refresh();
+    return () => { ++refreshRequest.current; };
+  }, [refresh]);
+  useRealtime("tasks-changed", refresh);
+  async function resolvePending(action: "link" | "release") {
+    if (!state?.pending || !state.launchToken || state.active || resolving) return;
+    if (action === "release" && !window.confirm("I verified no task thread was created. Releasing this claim could cause duplicate work if BB is still finishing the first launch. Release it?")) return;
+    setResolving(true); setError(null);
+    try {
+      const input = action === "link"
+        ? { id, expectedLaunchToken: state.launchToken, action, threadId: knownThreadId.trim() } as const
+        : { id, expectedLaunchToken: state.launchToken, action, confirmed: true } as const;
+      await rpc.call("tasks_resolve_launch", input);
+      setKnownThreadId("");
+      refresh();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setResolving(false); }
+  }
+  return <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+    <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 md:px-6">
+      <Button type="button" variant="outline" size="sm" onClick={() => navigate.toPluginPanel("tasks")}>Back to tasks</Button>
+      <h1 className="text-base font-semibold">Start task</h1>
+    </header>
+    <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-6">
+      <div className="mx-auto w-full max-w-5xl space-y-5">
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {!error && !task && <p className="text-sm text-muted-foreground">Loading task…</p>}
+        {task && <><p className="text-sm text-muted-foreground">Task <code className="select-all">{task.id}</code></p>
+          {state?.threadId ? <Button type="button" onClick={() => navigate.toThread(state.threadId!)}>Open thread</Button> :
+            state?.reason ? <p className="text-sm text-muted-foreground">{state.reason}</p> : null}
+          {state?.pending && <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" size="sm" onClick={refresh}>Recheck</Button>
+            {state.active && <span className="text-xs text-muted-foreground">Thread creation is still active.</span>}
+          </div>}
+          {state?.pending && !state.active && <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+            <p className="text-sm">If you know which thread started, link it here. Otherwise, verify BB did not create one before releasing the claim. A delayed thread could still appear; releasing it may allow duplicate work on your next submission. This will not delete a thread.</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="min-w-48 flex-1"><span className={labelClass}>Known thread ID</span><Input aria-label="Known thread ID" value={knownThreadId} onChange={(event) => setKnownThreadId(event.target.value)} placeholder="thr_…" /></label>
+              <Button type="button" variant="outline" size="sm" disabled={resolving || !knownThreadId.trim()} onClick={() => void resolvePending("link")}>Link thread</Button>
+              <Button type="button" variant="outline" size="sm" disabled={resolving} onClick={() => void resolvePending("release")}>Release claim</Button>
+            </div>
+          </div>}
+          {state?.canStart && <>
+            <p className="text-sm text-muted-foreground">This thread must stay in the task's project. Review the prompt, model, environment, and permissions before starting.</p>
+            {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}
+            <NewThreadComposer key={task.id} initialPrompt={task.prompt} defaultProjectId={task.projectId}
+              draftKey={`task-board:start:${task.id}`} layout="document" className="w-full"
+              onSubmit={async (request) => {
+                setSubmitError(null);
+                try {
+                  const result = await rpc.call("tasks_start", { id: task.id, request });
+                  navigate.toThread(result.threadId);
+                } catch (cause) {
+                  setSubmitError(cause instanceof Error ? cause.message : String(cause));
+                  throw cause;
+                }
+              }} />
+          </>}
+        </>}
+      </div>
+    </main>
+  </div>;
+}
+
+function TasksPanel({ subPath }: { subPath: string }) {
+  if (!subPath.startsWith("start/")) return <TasksPage />;
+  let id: string;
+  try { id = decodeURIComponent(subPath.slice("start/".length)); }
+  catch { return <p role="alert">Invalid task link.</p>; }
+  return id ? <StartTaskPage key={id} id={id} /> : <p role="alert">Invalid task link.</p>;
+}
+
 export default definePluginApp((app) => {
-  app.slots.navPanel({ id: "tasks", title: "Tasks", icon: "ListTodo", path: "tasks", component: TasksPage });
+  app.slots.navPanel({ id: "tasks", title: "Tasks", icon: "ListTodo", path: "tasks", component: TasksPanel });
 });

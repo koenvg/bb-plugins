@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { defineRpcContract, PLUGIN_CLI_OUTPUT_MAX_BYTES, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 
 const status = z.enum(["backlog", "doing", "done"]);
 const focus = z.enum(["focus", "out-of-focus"]);
@@ -21,6 +22,14 @@ const patchSchema = z.object({
   dependsOn: ids.optional(), threadId: z.string().min(1).nullable().optional(),
 }).strict();
 
+const composerRequest = z.custom<NewThreadRequest>((value) => z.object({
+  projectId: z.string().min(1), providerId: z.string().min(1), model: z.string().min(1),
+  reasoningLevel: z.string(), permissionMode: z.string(),
+  environment: z.object({ type: z.string() }).passthrough(),
+  input: z.array(z.object({ type: z.string() }).passthrough()).min(1),
+  executionInputSources: z.record(z.string(), z.unknown()),
+}).passthrough().safeParse(value).success, "Invalid thread composer request");
+const startStateSchema = z.object({ canStart: z.boolean(), reason: z.string().nullable(), threadId: z.string().nullable(), pending: z.boolean(), active: z.boolean(), launchToken: z.string().nullable() });
 export const rpcContract = defineRpcContract({
   tasks_projects: { input: z.null(), output: z.object({ projects: z.array(z.object({ id: z.string(), name: z.string() })) }) },
   tasks_list: {
@@ -35,6 +44,12 @@ export const rpcContract = defineRpcContract({
     input: z.object({ projectId: z.string().min(1), prompt, priority: priority.default("normal") }).strict(),
     output: taskSchema,
   },
+  tasks_start_state: { input: z.object({ id: z.string().min(1) }).strict(), output: startStateSchema },
+  tasks_start: { input: z.object({ id: z.string().min(1), request: composerRequest }).strict(), output: z.object({ threadId: z.string().min(1) }) },
+  tasks_resolve_launch: { input: z.discriminatedUnion("action", [
+    z.object({ id: z.string().min(1), expectedLaunchToken: z.string().min(1), action: z.literal("release"), confirmed: z.boolean() }).strict(),
+    z.object({ id: z.string().min(1), expectedLaunchToken: z.string().min(1), action: z.literal("link"), threadId: z.string().min(1) }).strict(),
+  ]), output: startStateSchema },
   tasks_update: { input: z.object({ id: z.string().min(1), expectedUpdatedAt: z.string().optional() }).extend(patchSchema.shape).strict(), output: taskSchema },
   tasks_remove: { input: z.object({ id: z.string().min(1) }).strict(), output: z.object({ removed: z.boolean() }) },
 });
@@ -59,6 +74,7 @@ export default function plugin(bb: BbPluginApi) {
     `UPDATE tasks SET description = title || CASE WHEN description <> '' THEN char(10) || char(10) || description ELSE '' END;
      ALTER TABLE tasks RENAME COLUMN description TO prompt;
      ALTER TABLE tasks DROP COLUMN title`,
+    `CREATE TABLE task_launches (task_id TEXT PRIMARY KEY, token TEXT NOT NULL, thread_id TEXT, created_at TEXT NOT NULL)`,
   ]);
   const rowToTask = (row: Row): Task => ({
     id: row.id, projectId: row.project_id, prompt: row.prompt,
@@ -75,7 +91,63 @@ export default function plugin(bb: BbPluginApi) {
     if (!task) throw new Error(`Task ${id} not found`);
     return task;
   };
+  const startState = (task: Task) => {
+    if (task.threadId) return { canStart: false, reason: null, threadId: task.threadId, pending: false, active: false, launchToken: null };
+    const claim = db.prepare("SELECT token FROM task_launches WHERE task_id = ?").get(task.id) as { token: string } | undefined;
+    if (claim) return { canStart: false, reason: "Thread start is pending. Check again to recover its link.", threadId: null, pending: true, active: inFlight.has(task.id), launchToken: claim.token };
+    if (task.status === "done") return { canStart: false, reason: "Completed tasks cannot start a thread", threadId: null, pending: false, active: false, launchToken: null };
+    if (task.dependsOn.some((id) => get(id)?.status !== "done")) {
+      return { canStart: false, reason: "Finish prerequisites before starting this task", threadId: null, pending: false, active: false, launchToken: null };
+    }
+    return { canStart: true, reason: null, threadId: null, pending: false, active: false, launchToken: null };
+  };
   const notify = (projectId: string) => bb.realtime.publish("tasks-changed", { projectId });
+  const inFlight = new Set<string>();
+  function finishLaunch(id: string, token: string, threadId: string) {
+    const task = db.transaction(() => {
+      const current = requireTask(id);
+      const claim = db.prepare("SELECT token FROM task_launches WHERE task_id = ?").get(id) as { token: string } | undefined;
+      if (claim?.token !== token) throw new Error("Task launch changed. Link needs manual recovery.");
+      if (current.threadId && current.threadId !== threadId) throw new Error("Task has another linked thread. Link needs manual recovery.");
+      if (!current.threadId) {
+        const nextTime = new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString();
+        db.prepare("UPDATE tasks SET thread_id = ?, status = 'doing', focus = 'focus', updated_at = ? WHERE id = ?")
+          .run(threadId, nextTime, id);
+      }
+      db.prepare("DELETE FROM task_launches WHERE task_id = ? AND token = ?").run(id, token);
+      return requireTask(id);
+    })();
+    notify(task.projectId);
+    return task;
+  }
+  async function reconcile(task: Task) {
+    const claim = db.prepare("SELECT token, thread_id FROM task_launches WHERE task_id = ?").get(task.id) as { token: string; thread_id: string | null } | undefined;
+    if (!claim || task.threadId || inFlight.has(task.id)) return startState(task);
+    if (claim.thread_id) {
+      let known;
+      try { known = await bb.sdk.threads.get({ threadId: claim.thread_id }); }
+      catch (cause) { if ((cause as { status?: unknown } | null)?.status !== 404) throw cause; }
+      if (known?.projectId === task.projectId) {
+        finishLaunch(task.id, claim.token, known.id);
+        return startState(requireTask(task.id));
+      }
+    }
+    for (const archived of [false, true]) {
+      for (let offset = 0; ; offset += 100) {
+        const threads = await bb.sdk.threads.list({ projectId: task.projectId, originPluginId: "task-board", archived, includeHidden: true, limit: 100, offset });
+        for (const thread of threads) {
+          if (thread.projectId !== task.projectId) continue;
+          const metadata = await bb.sdk.threads.getPluginMetadata({ threadId: thread.id });
+          if (metadata.taskId === task.id && metadata.launchToken === claim.token) {
+            finishLaunch(task.id, claim.token, thread.id);
+            return startState(requireTask(task.id));
+          }
+        }
+        if (threads.length < 100) break;
+      }
+    }
+    return startState(requireTask(task.id));
+  }
   async function projects() {
     return (await bb.sdk.projects.list({ includePersonal: true })).map(({ id, name }) => ({ id, name }));
   }
@@ -130,6 +202,8 @@ export default function plugin(bb: BbPluginApi) {
     if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) {
       throw new Error("Task changed elsewhere. Reload its details before saving your draft.");
     }
+    if ((patch.threadId !== undefined || patch.status !== undefined || patch.focus !== undefined || patch.dependsOn !== undefined)
+      && startState(current).pending) throw new Error("Thread start is pending. Wait for the task link before changing its status or thread.");
     const nextTime = Math.max(Date.now(), Date.parse(current.updatedAt) + 1);
     const next: Task = { ...current, ...patch, updatedAt: new Date(nextTime).toISOString() };
     if (next.status === "backlog") next.focus = null;
@@ -158,6 +232,7 @@ export default function plugin(bb: BbPluginApi) {
   }
   function remove(id: string) {
     const task = requireTask(id);
+    if (startState(task).pending) throw new Error("Thread start is pending. Wait for the task link before deleting.");
     db.transaction(() => {
       db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
       const dependents = db.prepare("SELECT id, depends_on, updated_at FROM tasks WHERE project_id = ?").all(task.projectId) as Array<Pick<Row, "id" | "depends_on" | "updated_at">>;
@@ -179,6 +254,62 @@ export default function plugin(bb: BbPluginApi) {
     tasks_list: ({ projectId, limit, offset, view: selectedView, query }) => list(projectId, limit, offset, selectedView, query),
     tasks_get: ({ id }) => requireTask(id),
     tasks_create: ({ projectId, prompt, priority }) => create(projectId, prompt, priority),
+    tasks_start_state: ({ id }) => reconcile(requireTask(id)),
+    tasks_start: async ({ id, request }) => {
+      const task = requireTask(id);
+      if (request.projectId !== task.projectId) throw new Error("Thread must start in the task's project");
+      const initial = startState(task);
+      const state = initial.pending && !inFlight.has(id) ? await reconcile(task) : initial;
+      if (state.threadId) return { threadId: state.threadId };
+      if (!state.canStart) throw new Error(state.reason ?? "Task cannot start a thread");
+      const token = randomUUID();
+      db.prepare("INSERT INTO task_launches (task_id, token, created_at) VALUES (?, ?, ?)").run(id, token, new Date().toISOString());
+      inFlight.add(id);
+      try {
+        let thread: { id: string; projectId: string };
+        try {
+          thread = await bb.sdk.threads.spawn({ ...request, pluginMetadata: { taskId: id, launchToken: token } });
+        } catch (cause) {
+          const statusCode = (cause as { status?: unknown } | null)?.status;
+          if (typeof statusCode === "number" && statusCode >= 400 && statusCode < 500 && statusCode !== 408) {
+            db.prepare("DELETE FROM task_launches WHERE task_id = ? AND token = ?").run(id, token);
+          }
+          throw cause;
+        }
+        if (thread.projectId !== task.projectId) throw new Error("BB created a thread in the wrong project. Task link is pending recovery.");
+        db.prepare("UPDATE task_launches SET thread_id = ? WHERE task_id = ? AND token = ?").run(thread.id, id, token);
+        finishLaunch(id, token, thread.id);
+        return { threadId: thread.id };
+      } finally {
+        inFlight.delete(id);
+      }
+    },
+    tasks_resolve_launch: async (input) => {
+      const task = requireTask(input.id);
+      if (input.action === "release" && !input.confirmed) throw new Error("Confirm that no task thread was created before releasing this launch.");
+      if (inFlight.has(task.id)) throw new Error("Thread start is active. Wait before resolving this launch.");
+      const before = startState(task);
+      if (!before.pending || before.launchToken !== input.expectedLaunchToken) throw new Error("Task launch changed. Recheck before resolving it.");
+      const state = await reconcile(task);
+      if (state.threadId) return state;
+      if (!state.pending || state.launchToken !== input.expectedLaunchToken || inFlight.has(task.id)) throw new Error("Task launch changed. Recheck before resolving it.");
+      if (input.action === "link") {
+        const thread = await bb.sdk.threads.get({ threadId: input.threadId });
+        if (!thread || thread.projectId !== task.projectId) throw new Error("Linked thread must exist in the same project");
+        if (inFlight.has(task.id)) throw new Error("Thread start is active. Wait before resolving this launch.");
+        finishLaunch(task.id, input.expectedLaunchToken, thread.id);
+        return startState(requireTask(task.id));
+      }
+      db.transaction(() => {
+        if (inFlight.has(task.id)) throw new Error("Thread start is active. Wait before resolving this launch.");
+        const current = requireTask(task.id);
+        const currentClaim = startState(current);
+        if (!currentClaim.pending || currentClaim.launchToken !== input.expectedLaunchToken) throw new Error("Task launch changed. Recheck before resolving it.");
+        db.prepare("DELETE FROM task_launches WHERE task_id = ? AND token = ?").run(task.id, input.expectedLaunchToken);
+      })();
+      notify(task.projectId);
+      return startState(requireTask(task.id));
+    },
     tasks_update: ({ id, expectedUpdatedAt, ...patch }) => update(id, patch, expectedUpdatedAt),
     tasks_remove: ({ id }) => remove(id),
   });
