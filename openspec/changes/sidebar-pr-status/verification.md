@@ -1,0 +1,9 @@
+# Implementation verification
+
+- SDK: BB 0.43.4, Plugin SDK 0.5.9. `npm test` (36 tests), `npm run typecheck`, `bb plugin types --check`, `bb plugin build`, and `openspec validate sidebar-pr-status --strict` passed after the review fixes.
+- Local path install loaded as `pr-thread-list` without disabling the bundled `thread-list` plugin. Selected **Threads with PRs** in Arc under Settings → Appearance → Sidebar.
+- Live Arc check: BB-owned navigation and footer remain; project, machine, and section grouping render; row menu opens without clipping; archived filter displays six threads and no PR badge for a thread whose lookup is unavailable. Compact drawer displays the list and closes when an archived thread opens.
+- Live PR badge check unavailable: no active or archived thread in this BB instance reports a PR. The seeded slot and badge tests cover linked statuses, absent/pending lookups, status updates, and shared-environment rows. Live next-page archive loading was also unavailable because all six archived threads fit on one page; the paging driver is covered by a fixture test.
+- Rollback: reselected **Thread list** in the same Arc setting; its original sidebar rendered immediately, with no migration or thread write. The new plugin remains installed and selectable. Live active list contained 14 threads; the synthetic 240-thread test scrolled to row 180 with fewer than 40 PR consumers mounted, then collapsed the group without mounting consumers. No live list of that size was available.
+- Parity gaps before daily use are listed in the plugin README: group order/row density, quick archive button, section reorder/delete, and group hide.
+- Completion review findings resolved: large-list grouping now appends to local buckets and caches pinned ancestry, empty section headers remain actionable, and initial archive query failures expose Retry even without a next page. Regression tests cover all three cases.
