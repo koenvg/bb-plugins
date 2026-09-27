@@ -1,6 +1,7 @@
 import type { QuotaStatus } from "./contract.js";
 import type { QuotaWindow } from "./quota.js";
 import { visibleView } from "./freshness.js";
+import { resetCountdown } from "./reset-countdown.js";
 
 const USAGE_URL = "https://chatgpt.com/codex/settings/usage";
 const percentText = (value: number): string => `${value}%`;
@@ -10,12 +11,14 @@ const dateText = (value: string): string => new Intl.DateTimeFormat("en-GB", {
 const observedText = (value: string): string => new Intl.DateTimeFormat("en-GB", {
   day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZoneName: "short",
 }).format(new Date(value));
-function WindowRow({ window }: { window: QuotaWindow }) {
+function WindowRow({ window, now }: { window: QuotaWindow; now: number }) {
+  const hasReset = window.resetAt !== null && Number.isFinite(Date.parse(window.resetAt));
   return (
     <li className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border py-3 last:border-0">
       <div className="min-w-0">
         <div className="text-sm font-medium">{window.name}</div>
-        <div className="text-xs text-muted-foreground">{window.resetAt ? `Resets ${dateText(window.resetAt)}` : "Reset unknown"}</div>
+        <div className="text-xs text-muted-foreground">{resetCountdown(window.resetAt, now)}</div>
+        {hasReset && <div className="text-xs text-muted-foreground">{`Resets ${dateText(window.resetAt!)}`}</div>}
       </div>
       <div className="tabular-nums text-sm font-semibold" aria-label={`${percentText(window.remainingPercent)} remaining`}>{percentText(window.remainingPercent)}</div>
     </li>
@@ -49,8 +52,11 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
   const snapshot = ready ? visible.snapshot : null;
   const binding = snapshot?.general.find((window) => window.id === snapshot.bindingWindowId);
   const status = !ready ? "" : snapshot
-    ? `${snapshot.bindingRemainingPercent == null ? "Allowance unavailable · " : ""}${loading ? `Updating · last checked ${observedText(snapshot.observedAt)}`
-      : `${visible.state === "stale" ? "Stale · updated" : "Updated"} ${observedText(snapshot.observedAt)}`}`
+    ? [
+      snapshot.bindingRemainingPercent == null ? "Allowance unavailable" : "",
+      loading ? `Updating · last checked ${observedText(snapshot.observedAt)}`
+        : visible.state === "stale" ? `Stale · updated ${observedText(snapshot.observedAt)}` : "",
+    ].filter(Boolean).join(" · ")
     : statusText(visible, selectedHostId);
   return (
     <main className="h-full overflow-y-auto bg-background text-foreground">
@@ -73,7 +79,7 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
             ? !ready ? "Allowance pending" : selectedHostId ? "Allowance unavailable" : "No host selected" : undefined}>
             {snapshot?.bindingRemainingPercent != null ? `${percentText(snapshot.bindingRemainingPercent)} remaining` : "—"}
           </h2>
-          <p className="mt-2 min-h-5 text-sm text-muted-foreground">{binding ? `${binding.name} window` : "\u00a0"}</p>
+          <p className="mt-2 min-h-5 text-sm text-muted-foreground">{binding ? `${resetCountdown(binding.resetAt, now)} · ${binding.name} window` : "\u00a0"}</p>
           <p className={`mt-1 min-h-5 text-sm ${visible.state === "stale" && ready && !loading ? "text-destructive" : "text-muted-foreground"}`} role="status">
             {status || "\u00a0"}
           </p>
@@ -81,7 +87,7 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
 
         <section className="min-h-36 border-t border-border py-4" aria-label="General allowance windows">
           <h2 className="text-sm font-semibold">Windows</h2>
-          {snapshot?.general.length ? <ul className="mt-2">{snapshot.general.map((window) => <WindowRow key={window.id} window={window} />)}</ul>
+          {snapshot?.general.length ? <ul className="mt-2">{snapshot.general.map((window) => <WindowRow key={window.id} window={window} now={now} />)}</ul>
             : <div className="flex min-h-16 items-center text-sm text-muted-foreground">
               {ready && selectedHostId && visible.state === "unavailable" ? "No window data available." : "\u00a0"}
             </div>}
@@ -100,7 +106,7 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
           {snapshot.additional.map((group, index) => (
             <section key={`${group.name}-${index}`} className="pt-4" aria-label={`${group.name} allowance`}>
               <h3 className="text-sm font-medium">{group.name}</h3>
-              <ul>{group.windows.map((window) => <WindowRow key={window.id} window={window} />)}</ul>
+              <ul>{group.windows.map((window) => <WindowRow key={window.id} window={window} now={now} />)}</ul>
             </section>
           ))}
         </details>}

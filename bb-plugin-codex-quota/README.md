@@ -8,6 +8,12 @@ Sign in to OpenAI Codex through Pi **on the selected host** before checking quot
 
 The browser gets bounded normalized percentages and reset times, an optional known plan, and a banked-reset count only when the upstream explicitly reports a nonnegative integer. **Unknown** is not zero. The limiting general window is the lowest remaining percentage; additional/model-specific limits stay separate. These percentages are not exact token balances or costs.
 
+## Reset countdown
+
+The summary shows time left until the limiting window resets. Each window also shows its own countdown and exact reset date. Durations use whole days and hours, hours and minutes below one day, and minutes below one hour. Under a minute, the label is "Less than a minute left". Missing reset times remain unknown.
+
+Countdowns advance within a minute while the page is active, without extra quota requests. "Reset due" means the reported reset time has arrived, not that new allowance has been confirmed. The normal fresh dashboard omits the routine "Updated…" line; updating feedback, stale observation timestamps, and sidebar observation metadata remain available.
+
 ## Freshness and limitations
 
 A successful snapshot is fresh for less than five minutes. Older values are labeled stale with their original observation time, even without a refresh failure, and are unavailable at 24 hours. A failed quota GET can retain an explicitly stale observation. On return or focus, the browser marks its observation non-current until the selected host checks Pi's active account; the host cache can answer that check without another quota GET. Offline hosts and changed or uncheckable identities cannot return another account's snapshot as fresh. Host worker memory is the only authoritative quota cache; reload discards it. The private Codex quota endpoint and its response fields can change without notice.

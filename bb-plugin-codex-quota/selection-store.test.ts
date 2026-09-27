@@ -88,6 +88,46 @@ describe("shared badge/dashboard selection", () => {
     expect(store.getSnapshot().ready).toBe(true);
   });
 
+  it("publishes minute ticks for fresh and stale snapshots without fetching", async () => {
+    const start = Date.UTC(2026, 8, 27, 12);
+    const store = new QuotaSelectionStore(() => start);
+    const snapshot = { ...view.snapshot!, observedAt: new Date(start).toISOString() };
+    let reads = 0;
+    const api: QuotaApi = {
+      selection: async () => ({ hostId: "host_a", generation: 1 }),
+      selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
+      read: async () => { reads++; return { state: "fresh", reason: "ok", snapshot }; },
+    };
+    await store.connect(api);
+    await store.refresh(api);
+    let notifications = 0;
+    const unsubscribe = store.subscribe(() => notifications++);
+    const initial = store.getSnapshot();
+    store.tick(start + 1000);
+    expect(store.getSnapshot()).toBe(initial);
+    store.tick(start + 60_000);
+    expect(store.getSnapshot().now).toBe(start + 60_000);
+    expect(store.getSnapshot().view.state).toBe("fresh");
+    expect(notifications).toBe(1);
+    const minuteState = store.getSnapshot();
+    store.tick(start + 60_001);
+    expect(store.getSnapshot()).toBe(minuteState);
+    store.tick(start + 300_000);
+    expect(store.getSnapshot().view.state).toBe("stale");
+    store.tick(start + 360_000);
+    expect(store.getSnapshot().now).toBe(start + 360_000);
+    expect(store.getSnapshot().view.snapshot).toBe(snapshot);
+    expect(store.getSnapshot().view.snapshot?.observedAt).toBe(new Date(start).toISOString());
+    expect(notifications).toBe(3);
+    store.tick(start + 86_400_000);
+    expect(store.getSnapshot().view.snapshot).toBeNull();
+    const expired = store.getSnapshot();
+    store.tick(start + 86_460_000);
+    expect(store.getSnapshot()).toBe(expired);
+    expect(reads).toBe(1);
+    unsubscribe();
+  });
+
   it("labels a mounted view stale at five minutes and removes it at 24 hours without a refresh error", async () => {
     const store = new QuotaSelectionStore(() => 1000000);
     const snapshot = { ...view.snapshot!, observedAt: new Date(1000000).toISOString() };

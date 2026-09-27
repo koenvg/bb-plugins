@@ -42,7 +42,7 @@ describe("BB Codex quota slots", () => {
     const future = Date.now() + 3_000;
     page.lifecycle.unmount();
     const returned = renderSlot(panel, { subPath: "" }, options);
-    await waitFor(() => expect(returned.getByRole("status").textContent).toMatch(/^Updated /));
+    await waitFor(() => expect(returned.getByRole("status").textContent?.trim()).toBe(""));
     expect(returned.getByText("42% remaining")).toBeTruthy();
     expect(badge.container.textContent).toBe("42%");
     expect(reads).toBe(2); // The second host RPC revalidates identity; the host cache avoids a quota GET.

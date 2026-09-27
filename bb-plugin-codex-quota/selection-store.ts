@@ -106,6 +106,9 @@ export class QuotaSelectionStore {
 
   tick(at = this.now()): void {
     const visible = visibleView(this.state.view, at);
-    if (visible !== this.state.view) this.publish({ view: visible, now: at });
+    const minuteChanged = Math.floor(at / 60_000) !== Math.floor(this.state.now / 60_000);
+    if (visible !== this.state.view || (visible.snapshot && minuteChanged)) {
+      this.publish({ view: visible, now: at });
+    }
   }
 }
