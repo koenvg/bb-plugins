@@ -46,8 +46,16 @@ The single fresh-context read-only review approved the change with no blocking o
 
 Review run: `0579aee4-61ce-4116-be5a-a75fe07fc82b`. The full report is saved at `/tmp/bb-github-ci-znUM7P/review.md`. No implementation fixes or second review pass were needed.
 
-## Remaining limits and follow-up
+## Hosted GitHub validation
 
-- No push or pull request was authorized. GitHub event dispatch, hosted cache behavior, and the actual Ubuntu runner checks remain unverified. Task 3.3 remains open.
-- Local Linux validation used Debian on aarch64, not GitHub's Ubuntu x64 runners. The first hosted run must confirm all seven results and the executed Tasks Plus import test.
+After publication was authorized, [PR #9](https://github.com/koenvg/bb-plugins/pull/9) triggered [workflow run 36786040782](https://github.com/koenvg/bb-plugins/actions/runs/36786040782) for commit `92c1ba011cacb10aebae17d8ce28099d27487a64`. The run completed successfully with all seven named plugin checks passing on GitHub-hosted Ubuntu x64 runners, Node 24.21.0, and npm 11.19.0.
+
+The Tasks Plus log confirms `scripts/import-bundled-data.test.ts` ran and passed, followed by all 45 test files and 464 tests passing. The SQLite prerequisite step and npm cache post-steps succeeded. This verifies pull-request dispatch and the hosted runner path in addition to local Linux checks.
+
+Install and test failure propagation remains enabled by the workflow's ordinary step exit handling and `fail-fast: false`; no failure was deliberately injected into the passing hosted run. The push-to-main trigger was checked statically, not by pushing to the default branch.
+
+Task 3.3 is complete. No merge or branch-protection change was performed.
+
+## Remaining follow-up
+
 - Existing dependency audit warnings appeared during clean installs: Code Cleanup reported 2 moderate vulnerabilities, Codex Quota reported 1 high vulnerability, and Tasks Plus reported 33 moderate and 1 high vulnerability. They did not fail installation or tests. Dependency remediation is outside this CI change; no audit fixes or dependency upgrades were applied.
