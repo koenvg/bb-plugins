@@ -16,7 +16,7 @@
     "name": "Codex Quota",
     "description": "Host-local Codex allowance and reset status.",
     "branding": {
-      "icon": "Gauge"
+      "icon": "codex-quota-battery"
     },
     "server": "./server.ts",
     "app": "./app.tsx",

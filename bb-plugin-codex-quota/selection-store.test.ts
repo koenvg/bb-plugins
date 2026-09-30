@@ -159,4 +159,24 @@ describe("shared badge/dashboard selection", () => {
     await store.refresh(api, true);
     expect(store.getSnapshot().view).toMatchObject({ state: "stale", reason: "host-offline", snapshot: view.snapshot });
   });
+
+  it("tracks quota-owner lifetimes independently from passive subscriptions", () => {
+    const store = new QuotaSelectionStore();
+    const changes: boolean[] = [];
+    const unsubscribe = store.subscribe(() => changes.push(store.getSnapshot().hasActiveOwner));
+    expect(store.getSnapshot().hasActiveOwner).toBe(false);
+    const releasePage = store.retainOwner();
+    const releaseBadge = store.retainOwner();
+    expect(store.getSnapshot().hasActiveOwner).toBe(true);
+    releasePage();
+    releasePage();
+    expect(store.getSnapshot().hasActiveOwner).toBe(true);
+    releaseBadge();
+    releaseBadge();
+    expect(store.getSnapshot().hasActiveOwner).toBe(false);
+    const releaseReturningPage = store.retainOwner();
+    releaseReturningPage();
+    expect(changes).toEqual([true, false, true, false]);
+    unsubscribe();
+  });
 });
