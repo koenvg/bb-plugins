@@ -136,7 +136,9 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
           `
             SELECT
               p.id AS project_id,
-              COUNT(DISTINCT t.id) AS task_count,
+              COUNT(DISTINCT CASE
+                WHEN t.status NOT IN ('done', 'canceled') THEN t.id
+              END) AS task_count,
               COUNT(DISTINCT CASE
                 WHEN tt.live_status IN ('starting', 'working') THEN tt.thread_id
               END) AS active_agent_count
