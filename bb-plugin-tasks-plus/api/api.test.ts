@@ -11,6 +11,191 @@ import { tasksRpcContract } from "../shared/contract";
 import { createComment, createStore, registerTasksApi } from ".";
 
 describe("Tasks RPC domain API", () => {
+  it("counts unfinished top-level tasks once across projects", async () => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(bb);
+    registerTasksApi(bb, store);
+    const mixed = store.tasks.createProject({
+      name: "Mixed",
+      prefix: "MIX",
+      color: "blue",
+    });
+    const other = store.tasks.createProject({
+      name: "Other",
+      prefix: "OTH",
+      color: "blue",
+    });
+    const empty = store.tasks.createProject({
+      name: "Empty",
+      prefix: "EMP",
+      color: "blue",
+    });
+    for (const status of [
+      "backlog",
+      "todo",
+      "in_progress",
+      "in_review",
+      "done",
+      "canceled",
+    ] as const) {
+      const task = store.tasks.createTask({
+        projectId: mixed.id,
+        title: status,
+        status,
+      });
+      const subtask = store.tasks.createTask({
+        projectId: mixed.id,
+        parentTaskId: task.id,
+        title: `Unfinished subtask of ${status}`,
+        status: "todo",
+      });
+      store.tasks.upsertTaskThread({
+        taskId: subtask.id,
+        threadId: `thr_subtask_${status}`,
+        presetName: "Default",
+        title: "Subtask worker",
+        liveStatus: "working",
+      });
+      if (status === "todo" || status === "done" || status === "canceled") {
+        store.tasks.upsertTaskThread({
+          taskId: task.id,
+          threadId: `thr_${status}`,
+          presetName: "Default",
+          title: "Worker",
+          liveStatus: "working",
+        });
+      }
+      if (status === "todo") {
+        store.tasks.upsertTaskThread({
+          taskId: task.id,
+          threadId: "thr_second_todo_worker",
+          presetName: "Default",
+          title: "Second worker",
+          liveStatus: "starting",
+        });
+      }
+    }
+    store.tasks.createTask({
+      projectId: other.id,
+      title: "Other project's unfinished task",
+      status: "todo",
+    });
+
+    await expect(
+      harness.behavior.callRpc("sidebarSummary", null),
+    ).resolves.toEqual({
+      projects: [
+        { projectId: empty.id, taskCount: 0, activeAgentCount: 0 },
+        { projectId: mixed.id, taskCount: 4, activeAgentCount: 4 },
+        { projectId: other.id, taskCount: 1, activeAgentCount: 0 },
+      ],
+    });
+    await harness.lifecycle.dispose();
+  });
+
+  it.each(["done", "canceled"] as const)(
+    "keeps a zero count and agent activity for a project with only %s tasks",
+    async (status) => {
+      const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+      const store = createStore(bb);
+      registerTasksApi(bb, store);
+      const project = store.tasks.createProject({
+        name: "Finished",
+        prefix: "FIN",
+        color: "blue",
+      });
+      const task = store.tasks.createTask({
+        projectId: project.id,
+        title: "Finished parent",
+        status,
+      });
+      store.tasks.createTask({
+        projectId: project.id,
+        parentTaskId: task.id,
+        title: "Unfinished subtask",
+        status: "todo",
+      });
+      store.tasks.upsertTaskThread({
+        taskId: task.id,
+        threadId: "thr_working",
+        presetName: "Default",
+        title: "Still working",
+        liveStatus: "working",
+      });
+
+      await expect(
+        harness.behavior.callRpc("sidebarSummary", null),
+      ).resolves.toEqual({
+        projects: [
+          { projectId: project.id, taskCount: 0, activeAgentCount: 1 },
+        ],
+      });
+      await harness.lifecycle.dispose();
+    },
+  );
+
+  it.each(["updateTask", "boardMove"] as const)(
+    "refreshes summary counts after completing, canceling, and reopening through %s",
+    async (method) => {
+      const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+      const store = createStore(bb);
+      registerTasksApi(bb, store);
+      const project = store.tasks.createProject({
+        name: "Transitions",
+        prefix: "TRN",
+        color: "blue",
+      });
+      const task = store.tasks.createTask({
+        projectId: project.id,
+        title: "Changing status",
+        status: "todo",
+      });
+      store.tasks.upsertTaskThread({
+        taskId: task.id,
+        threadId: "thr_working",
+        presetName: "Default",
+        title: "Still working",
+        liveStatus: "working",
+      });
+
+      await expect(
+        harness.behavior.callRpc("sidebarSummary", null),
+      ).resolves.toEqual({
+        projects: [
+          { projectId: project.id, taskCount: 1, activeAgentCount: 1 },
+        ],
+      });
+      for (const [status, taskCount] of [
+        ["done", 0],
+        ["todo", 1],
+        ["canceled", 0],
+        ["in_review", 1],
+      ] as const) {
+        const signalsBefore = harness.inspection.realtimeSignals.length;
+        await expect(
+          harness.behavior.callRpc(method, { taskId: task.id, status }),
+        ).resolves.toMatchObject({ ok: true, task: { status } });
+        await expect(
+          harness.behavior.callRpc("sidebarSummary", null),
+        ).resolves.toEqual({
+          projects: [
+            { projectId: project.id, taskCount, activeAgentCount: 1 },
+          ],
+        });
+        await expect(
+          harness.behavior.callRpc("listTasks", { projectId: project.id }),
+        ).resolves.toMatchObject({ tasks: [{ id: task.id, status }] });
+        expect(
+          harness.inspection.realtimeSignals.slice(signalsBefore),
+        ).toContainEqual({
+          channel: "tasks:changed",
+          payload: { taskId: task.id, projectId: project.id },
+        });
+      }
+      await harness.lifecycle.dispose();
+    },
+  );
+
   it("deletes through the typed RPC policy and rejects saved-description references", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     const store = createStore(bb);
@@ -953,7 +1138,7 @@ describe("Tasks RPC domain API", () => {
       projects: [
         {
           projectId: project.id,
-          taskCount: 3,
+          taskCount: 1,
           activeAgentCount: 1,
         },
       ],

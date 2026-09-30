@@ -949,6 +949,115 @@ describe("tasks app shell", () => {
     });
   });
 
+  it("sums project badges independently of folder visibility and agent activity", async () => {
+    const zeroProjectId = "01HZZZZZZZZZZZZZZZZZZZZZP3";
+    const slot = renderSlot(
+      navigationRegistration,
+      { subPath: PROJECT_ID },
+      {
+        rpc: seededRpc({
+          listProjects: () => ({
+            projects: [
+              project,
+              { ...project, id: OTHER_PROJECT_ID, name: "Other", folderId: null },
+              { ...project, id: zeroProjectId, name: "Finished", folderId: null },
+            ],
+          }),
+          sidebarSummary: () => ({
+            projects: [
+              { projectId: PROJECT_ID, taskCount: 2, activeAgentCount: 0 },
+              { projectId: OTHER_PROJECT_ID, taskCount: 3, activeAgentCount: 0 },
+              { projectId: zeroProjectId, taskCount: 0, activeAgentCount: 1 },
+            ],
+          }),
+          listTasks: () => ({
+            tasks: [makeTask({ projectId: zeroProjectId, status: "done" })],
+          }),
+        }),
+      },
+    );
+
+    await slot.findByRole("button", { name: /^All tasks\s*5$/ });
+    expect(slot.getByRole("button", { name: /^Tasks Plugin\s*2$/ })).toBeDefined();
+    expect(slot.getByRole("button", { name: /^Other\s*3$/ })).toBeDefined();
+    const finished = slot.getByRole("button", { name: /^Finished\s*0$/ });
+    expect(finished.querySelector(".bg-success")).not.toBeNull();
+    expect(slot.getByTitle("Other").querySelector(".bg-success")).toBeNull();
+    expect(
+      slot.getByRole("button", { name: /^Active\s*1$/ }).querySelector(".bg-success"),
+    ).not.toBeNull();
+
+    fireEvent.click(slot.getByRole("button", { name: "bb" }));
+    expect(slot.queryByRole("button", { name: /^Tasks Plugin\s*2$/ })).toBeNull();
+    expect(slot.getByRole("button", { name: /^All tasks\s*5$/ })).toBeDefined();
+    fireEvent.click(finished);
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: zeroProjectId },
+    });
+    fireEvent.click(slot.getByRole("button", { name: /^All tasks\s*5$/ }));
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "all" },
+    });
+  });
+
+  it.each(["all", `${PROJECT_ID}?view=list`, `${PROJECT_ID}?view=board`])(
+    "keeps finished tasks viewable with zero sidebar counts on %s",
+    async (subPath) => {
+      const rpc = seededRpc({
+        sidebarSummary: () => ({
+          projects: [{ projectId: PROJECT_ID, taskCount: 0, activeAgentCount: 0 }],
+        }),
+        listTasks: () => ({
+          tasks: [
+            makeTask({ title: "Completed work", status: "done" }),
+            makeTask({
+              id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
+              number: 2,
+              key: "TSK-2",
+              title: "Canceled work",
+              status: "canceled",
+            }),
+          ],
+        }),
+        listLabels: () => ({ labels: [] }),
+        listTaskThreads: () => ({ taskThreads: [] }),
+        listAttachments: () => ({ attachments: [] }),
+      });
+      const navigation = renderSlot(navigationRegistration, { subPath }, { rpc });
+      const panel = renderSlot(tasksRegistration, { subPath }, { rpc });
+
+      await panel.findByText("Completed work");
+      await panel.findByText("Canceled work");
+      expect(
+        navigation.getByRole("button", { name: /^All tasks\s*0$/ }),
+      ).toBeDefined();
+      expect(
+        navigation.getByRole("button", { name: /^Tasks Plugin\s*0$/ }),
+      ).toBeDefined();
+      if (!subPath.endsWith("board")) {
+        fireEvent.keyDown(panel.getByRole("button", { name: "Status" }), {
+          key: "ArrowDown",
+        });
+        fireEvent.click(
+          await panel.findByRole("menuitemcheckbox", { name: "Done" }),
+        );
+        await waitFor(() => expect(panel.queryByText("Canceled work")).toBeNull());
+        expect(panel.getByText("Completed work")).toBeDefined();
+        fireEvent.keyDown(panel.getByRole("menu"), { key: "Escape" });
+        expect(
+          navigation.getByRole("button", { name: /^All tasks\s*0$/ }),
+        ).toBeDefined();
+        expect(
+          navigation.getByRole("button", { name: /^Tasks Plugin\s*0$/ }),
+        ).toBeDefined();
+      }
+    },
+  );
+
   it("renders right-panel navigation and routes through the plugin panel", async () => {
     const slot = renderSlot(
       navigationRegistration,
@@ -1074,6 +1183,50 @@ describe("tasks app shell", () => {
     expect(slot.getByText("Default env")).toBeDefined();
     expect(slot.getAllByLabelText("Spawns a new worktree")).toHaveLength(1);
   });
+
+  it.each(["done", "canceled"] as const)(
+    "refreshes both badges when a task becomes %s and is reopened",
+    async (finishedStatus) => {
+      let taskCount = 1;
+      let task = makeTask();
+      const slot = renderSlot(
+        navigationRegistration,
+        { subPath: "all" },
+        {
+          rpc: seededRpc({
+            sidebarSummary: () => ({
+              projects: [{ projectId: PROJECT_ID, taskCount, activeAgentCount: 1 }],
+            }),
+            listTasks: () => ({ tasks: [task] }),
+          }),
+        },
+      );
+      await slot.findByRole("button", { name: /^All tasks\s*1$/ });
+      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*1$/ })).toBeDefined();
+
+      task = { ...task, status: finishedStatus };
+      taskCount = 0;
+      await slot.behavior.emitRealtime("tasks:changed", {
+        taskId: task.id,
+        projectId: PROJECT_ID,
+      });
+      await slot.findByRole("button", { name: /^All tasks\s*0$/ });
+      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*0$/ })).toBeDefined();
+      expect(
+        slot.getByRole("button", { name: /^Active\s*1$/ }).querySelector(".bg-success"),
+      ).not.toBeNull();
+      expect(slot.getByTitle("Tasks Plugin").querySelector(".bg-success")).not.toBeNull();
+
+      task = { ...task, status: "todo" };
+      taskCount = 1;
+      await slot.behavior.emitRealtime("tasks:changed", {
+        taskId: task.id,
+        projectId: PROJECT_ID,
+      });
+      await slot.findByRole("button", { name: /^All tasks\s*1$/ });
+      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*1$/ })).toBeDefined();
+    },
+  );
 
   it("refetches sidebar data when invalidation channels fire", async () => {
     let projectCalls = 0;
