@@ -86,7 +86,7 @@ function LabelChips({
       <span className="hidden items-center gap-1.5 @xl:flex">
         <LabelChipRow labels={labels} maxVisible={2} />
       </span>
-      <span className="flex items-center gap-1.5 @xl:hidden">
+      <span className="flex min-w-0 flex-wrap items-center gap-1.5 @md:flex-nowrap @xl:hidden">
         <LabelChipRow labels={labels} maxVisible={1} />
       </span>
     </>
@@ -151,9 +151,9 @@ export function TaskRow({
           onEdit={onEdit}
           open={openMenu === "priority"}
           onOpenChange={(next) => setOpenMenu(next ? "priority" : null)}
-          className="col-start-1 row-start-2"
+          className="col-start-1 row-start-2 @max-md:self-start"
         />
-        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @md:w-14 @md:shrink-0">
+        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @max-md:self-start @md:w-14 @md:shrink-0">
           {task.key}
         </span>
         <StatusEditor
@@ -166,7 +166,7 @@ export function TaskRow({
         <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @md:flex-1">
           {task.title}
         </span>
-        <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground @max-md:overflow-hidden @md:shrink-0">
+        <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground @max-md:w-full @max-md:flex-wrap @max-md:justify-end @max-md:self-start @md:shrink-0">
           <DependencyBadges task={task} className="py-px text-xs" />
           {meta ? <ActiveChip threads={meta.activeThreads} /> : null}
           <LabelChips task={task} labelsById={labelsById} />
