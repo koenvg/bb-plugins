@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QuotaDashboard, QuotaBadge } from "./quota-view.js";
+import { QuotaDashboard, QuotaBadge, QuotaBattery } from "./quota-view.js";
 import { visibleView } from "./freshness.js";
 import type { QuotaStatus } from "./contract.js";
 
@@ -164,5 +164,34 @@ describe("Codex quota UI", () => {
     expect(within(badge.container).getByLabelText(/My Mac.*unavailable.*no observation/i)).toBeTruthy();
     badge.rerender(<QuotaBadge view={absent} hostName={null} now={observedAt} />);
     expect(within(badge.container).getByLabelText(/No selected host.*unavailable/i)).toBeTruthy();
+  });
+
+  it.each([0, 5, 25, 50, 72, 100])("fills the battery proportionally for %i percent remaining", (remaining) => {
+    const icon = render(<QuotaBattery view={fresh(remaining)} now={observedAt} className="size-4" />);
+    const svg = icon.container.querySelector("svg")!;
+    expect(svg.getAttribute("class")).toBe("size-4");
+    expect(svg.getAttribute("aria-hidden")).toBe("true");
+    expect(svg.getAttribute("focusable")).toBe("false");
+    expect(svg.getAttribute("stroke")).toBe("currentColor");
+    const fill = svg.querySelector("[data-battery-fill]")!;
+    expect(Number(fill.getAttribute("width"))).toBeCloseTo(13 * remaining / 100);
+    expect(fill.getAttribute("fill")).toBe("currentColor");
+  });
+
+  it("clears battery fill whenever the badge cannot show a current percentage", () => {
+    const icon = render(<QuotaBattery view={fresh(72)} now={observedAt} />);
+    expect(icon.container.querySelector("[data-battery-fill]")).not.toBeNull();
+    for (const overrides of [
+      { ready: false }, { loading: true }, { now: observedAt + 300_000 },
+      { now: observedAt + 86_400_000 }, { view: absent },
+      { view: { ...fresh(72), state: "stale" as const } },
+      { view: { state: "unavailable" as const, reason: "host-offline" as const, snapshot: null } },
+    ]) {
+      icon.rerender(<QuotaBattery view={fresh(72)} now={observedAt} {...overrides} />);
+      expect(icon.container.querySelector("svg")).not.toBeNull();
+      expect(icon.container.querySelector("[data-battery-fill]")).toBeNull();
+    }
+    icon.rerender(<QuotaBattery view={fresh(25)} now={observedAt} />);
+    expect(icon.container.querySelector("[data-battery-fill]")?.getAttribute("width")).toBe("3.25");
   });
 });

@@ -115,11 +115,24 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
   );
 }
 
-export function QuotaBadge({ view, hostName, now, loading = false, ready = true }: { view: QuotaStatus; hostName: string | null; now: number; loading?: boolean; ready?: boolean }) {
+function freshRemaining(visible: QuotaStatus, ready: boolean, loading: boolean): number | null {
+  return ready && !loading && visible.state === "fresh" ? visible.snapshot?.bindingRemainingPercent ?? null : null;
+}
+
+export function QuotaBattery({ view, now, ready = true, loading = false, className }: { view: QuotaStatus; now: number; ready?: boolean; loading?: boolean; className?: string }) {
+  const remaining = freshRemaining(visibleView(view, now), ready, loading);
+  return <svg className={className} viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true" focusable="false" data-quota-battery="">
+    <rect x="2" y="6" width="18" height="12" rx="2" />
+    <path d="M22 10v4" strokeLinecap="round" />
+    {remaining !== null && <rect data-battery-fill={remaining} x="4.5" y="8.5" width={13 * remaining / 100} height="7" rx=".75" fill="currentColor" stroke="none" />}
+  </svg>;
+}
+
+export function QuotaBadge({ view, hostName, now, loading = false, ready = true, descriptionId }: { view: QuotaStatus; hostName: string | null; now: number; loading?: boolean; ready?: boolean; descriptionId?: string }) {
   const visible = visibleView(view, now);
   const snapshot = ready ? visible.snapshot : null;
   const binding = snapshot?.general.find((window) => window.id === snapshot.bindingWindowId);
-  const remaining = ready && !loading && visible.state === "fresh" ? snapshot?.bindingRemainingPercent ?? null : null;
+  const remaining = freshRemaining(visible, ready, loading);
   const label = [
     hostName ?? "No selected host",
     binding?.name ?? "general window unknown",
@@ -128,5 +141,8 @@ export function QuotaBadge({ view, hostName, now, loading = false, ready = true 
     snapshot ? `observed ${dateText(snapshot.observedAt)}` : "no observation",
   ].filter(Boolean).join("; ");
   const text = remaining !== null ? percentText(remaining) : ready && !loading && visible.state === "stale" ? "Stale" : "—";
-  return <span className="inline-block w-10 truncate text-right text-xs font-semibold tabular-nums text-foreground" aria-label={label} title={label}>{text}</span>;
+  return <>
+    <span className="inline-block w-10 truncate text-right text-xs font-semibold tabular-nums text-foreground" aria-label={label} title={label}>{text}</span>
+    {descriptionId && <span id={descriptionId} className="sr-only">{label}</span>}
+  </>;
 }

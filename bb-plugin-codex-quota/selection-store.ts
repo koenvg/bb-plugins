@@ -7,25 +7,37 @@ export type QuotaApi = {
   selectHost(input: { hostId: string | null }): Promise<Selection>;
   read(input: { hostId: string; generation: number; refresh?: boolean }): Promise<QuotaStatus>;
 };
-type State = { selection: Selection; view: QuotaStatus; loading: boolean; ready: boolean; now: number };
+type State = { selection: Selection; view: QuotaStatus; loading: boolean; ready: boolean; hasActiveOwner: boolean; now: number };
 const unavailable = (reason: "no-selection" | "foreign-host" | "host-offline"): QuotaStatus =>
   ({ state: "unavailable", reason, snapshot: null });
 
 /** App-window memory only. Selection and the bounded view are shared by badge and page. */
 export class QuotaSelectionStore {
   private state: State;
+  private owners = 0;
   private listeners = new Set<() => void>();
   private revision = 0;
   private connecting: Promise<void> | null = null;
   private reading: { key: string; promise: Promise<void> } | null = null;
   constructor(private readonly now: () => number = () => Date.now()) {
-    this.state = { selection: { hostId: null, generation: 0 }, view: unavailable("no-selection"), loading: false, ready: false, now: now() };
+    this.state = { selection: { hostId: null, generation: 0 }, view: unavailable("no-selection"), loading: false, ready: false, hasActiveOwner: false, now: now() };
   }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.state;
   private publish(next: Partial<State>) {
     this.state = { ...this.state, ...next };
     for (const listener of this.listeners) listener();
+  }
+
+  /** An owner supplies clock ticks and revalidation; passive icons are not owners. */
+  retainOwner(): () => void {
+    if (++this.owners === 1) this.publish({ hasActiveOwner: true });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (--this.owners === 0) this.publish({ hasActiveOwner: false });
+    };
   }
 
   async connect(api: QuotaApi): Promise<void> {

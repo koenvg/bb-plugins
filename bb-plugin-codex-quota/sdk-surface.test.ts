@@ -4,7 +4,12 @@ import { experimental_scanPublicSdkOnly } from "@get-bb/plugin-sdk/testing";
 describe("public SDK and quota-only boundary", () => {
   it("imports only public SDK surfaces and declared host/frontend dependencies", () => {
     const scan = experimental_scanPublicSdkOnly(import.meta.dirname, {
-      allow: [/^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/, /^react(\/.*)?$/, /^@testing-library\/react$/, /^vitest$/],
+      allow: [
+        /^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/, /^react(\/.*)?$/, /^react-dom$/,
+        /^@testing-library\/react$/, /^vitest$/,
+        // Existing dev dependency used to exercise BB's real native tooltip.
+        /^@radix-ui\/react-tooltip$/,
+      ],
     });
     expect(scan.privateDependencies).toEqual([]);
     expect(scan.violations).toEqual([]);
