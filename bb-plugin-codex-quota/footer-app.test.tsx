@@ -18,7 +18,12 @@ const options = {
   sdk: { hosts: { list: async () => [] } },
   rpc: { selection: async () => ({ hostId: null, generation: 0 }) },
 };
-
+function mountRefresh(config: Parameters<typeof renderSlot>[2]) {
+  const owner = renderSlot(app.appOverlays.find((slot) => slot.id === "quota-refresh")!, {}, config);
+  disposers.push(() => owner.lifecycle.unmount());
+  return owner;
+}
+const footerSlot = app.appOverlays.find((slot) => slot.id === "quota-footer")!;
 let generation = 0;
 const host = makeHostResponse({ id: "host_1", name: "My Mac", status: "connected" });
 const fresh = (remainingPercent: number) => ({
@@ -37,7 +42,7 @@ describe("Codex quota footer integration", () => {
     const icon = app.icons.find(({ name }) => name === branding.icon);
     expect(icon).toBeDefined();
     const Battery = icon!.component;
-    const timers = vi.spyOn(window, "setInterval");
+    const timers = vi.spyOn(globalThis, "setInterval");
     const rendered = render(<Battery className="size-4" />);
     expect(rendered.container.querySelector('[data-quota-battery]')?.getAttribute("class")).toBe("size-4");
     expect(timers).not.toHaveBeenCalled();
@@ -52,7 +57,7 @@ describe("Codex quota footer integration", () => {
     disposers.push(() => scripts.lifecycle.dispose());
     footer.onActivate({ openPluginDetails: vi.fn() });
     footer.onActivate({ openPluginDetails: vi.fn() });
-    const overlay = renderSlot(app.appOverlays[0]!, {}, options);
+    const overlay = renderSlot(footerSlot, {}, options);
     await waitFor(() => expect(getComputedStyle(row).display).toBe("none"));
     expect(overlay.inspection.navigateCalls).toEqual([{ method: "toPluginPanel", path: "quota" }]);
     act(() => { footer.onActivate({ openPluginDetails: vi.fn() }); });
@@ -63,7 +68,7 @@ describe("Codex quota footer integration", () => {
     footer.onActivate({ openPluginDetails: vi.fn() });
     const next = await mountPluginContentScripts(app, { pluginId: "codex-quota", generation: 2 });
     disposers.push(() => next.lifecycle.dispose());
-    const replacement = renderSlot(app.appOverlays[0]!, {}, options);
+    const replacement = renderSlot(footerSlot, {}, options);
     await waitFor(() => expect(getComputedStyle(row).display).toBe("none"));
     expect(replacement.inspection.navigateCalls).toEqual([]);
   });
@@ -73,10 +78,9 @@ describe("Codex quota footer integration", () => {
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
     disposers.push(() => scripts.lifecycle.dispose());
     const selection = { hostId: host.id, generation: ++generation };
-    renderSlot(app.appOverlays[0]!, {}, {
-      sdk: { hosts: { list: async () => [host] } },
-      rpc: { selection: async () => selection, read: async () => fresh(percentage) },
-    });
+    const config = { sdk: { hosts: { list: async () => [host] } }, rpc: { selection: async () => selection, read: async () => fresh(percentage) } };
+    mountRefresh(config);
+    renderSlot(footerSlot, {}, config);
     await waitFor(() => expect(button.querySelector('[data-codex-quota-badge] > [title]')?.textContent).toBe(`${percentage}%`));
     const Battery = app.icons[0]!.component;
     const icon = render(<Battery />);
@@ -85,20 +89,21 @@ describe("Codex quota footer integration", () => {
     expect(button.querySelector("svg")).toBeTruthy();
   });
 
-  it("shares pending reads with the dashboard and ages the footer without adding quota polling", async () => {
+  it("shares pending reads and clock ticks across footer and dashboard without view-owned polling", async () => {
     const { button } = footerFixture();
     const badge = () => button.querySelector('[data-codex-quota-badge] > [title]')?.textContent;
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
     disposers.push(() => scripts.lifecycle.dispose());
-    const timers = vi.spyOn(window, "setInterval");
-    const clearTimer = vi.spyOn(window, "clearInterval");
+    const timers = vi.spyOn(globalThis, "setInterval");
+    const clearTimer = vi.spyOn(globalThis, "clearInterval");
     const initial = Date.now();
     const result = fresh(72);
     let resolveRead!: (value: ReturnType<typeof fresh>) => void;
     const read = vi.fn(() => new Promise<ReturnType<typeof fresh>>((resolve) => { resolveRead = resolve; }));
     const selection = { hostId: host.id, generation: ++generation };
     const config = { sdk: { hosts: { list: async () => [host] } }, rpc: { selection: async () => selection, read } };
-    const overlay = renderSlot(app.appOverlays[0]!, {}, config);
+    const owner = mountRefresh(config);
+    const overlay = renderSlot(footerSlot, {}, config);
     const Battery = app.icons[0]!.component;
     const icon = render(<Battery />);
     const fill = () => icon.container.querySelector('[data-battery-fill]')?.getAttribute('data-battery-fill') ?? null;
@@ -111,11 +116,14 @@ describe("Codex quota footer integration", () => {
     expect(fill()).toBe("72");
     expect(page.getByText("72% remaining")).toBeTruthy();
     const clock = vi.spyOn(Date, "now").mockReturnValue(initial + 300_000);
-    act(() => { for (const [tick] of timers.mock.calls) (tick as () => void)(); });
+    const ownedTimers = timers.mock.results.filter((_, i) => timers.mock.calls[i]?.[1] === 1000);
+    expect(ownedTimers).toHaveLength(1);
+    const tick = timers.mock.calls.find(([, delay]) => delay === 1000)![0] as () => void;
+    act(tick);
     expect(badge()).toBe("Stale");
     expect(fill()).toBeNull();
     clock.mockReturnValue(initial + 86_400_001);
-    act(() => { for (const [tick] of timers.mock.calls) (tick as () => void)(); });
+    act(tick);
     expect(badge()).not.toMatch(/\d+%/);
     expect(read).toHaveBeenCalledTimes(1);
     act(() => { fireEvent.focus(window); });
@@ -127,7 +135,10 @@ describe("Codex quota footer integration", () => {
     expect(page.getByText("65% remaining")).toBeTruthy();
     overlay.lifecycle.unmount();
     page.lifecycle.unmount();
-    for (const timer of timers.mock.results) expect(clearTimer).toHaveBeenCalledWith(timer.value);
+    expect(fill()).toBe("65"); // Views do not own the app lifetime.
+    owner.lifecycle.unmount();
+    for (const timer of ownedTimers) expect(clearTimer).toHaveBeenCalledWith(timer.value);
+    expect(fill()).toBeNull();
     act(() => { fireEvent.focus(window); });
     expect(read).toHaveBeenCalledTimes(2);
   });
@@ -148,7 +159,8 @@ describe("Codex quota footer integration", () => {
         selectHost: async (input: unknown) => selection = { hostId: (input as { hostId: string }).hostId, generation: ++generation },
       },
     };
-    renderSlot(app.appOverlays[0]!, {}, config);
+    mountRefresh(config);
+    renderSlot(footerSlot, {}, config);
     const Battery = app.icons[0]!.component;
     const icon = render(<Battery />);
     const page = renderSlot(app.navPanels[0]!, { subPath: "" }, config);
@@ -162,19 +174,20 @@ describe("Codex quota footer integration", () => {
     expect(button.querySelector('[id$="-description"]')?.textContent).toMatch(/Other Mac.*25% remaining/);
   });
 
-  it.each([6 * 60_000, 86_400_001])("keeps retained and newly mounted icons neutral without quota owners after %i ms", async (elapsed) => {
+  it.each([6 * 60_000, 86_400_001])("keeps retained and newly mounted icons neutral after app disposal and %i ms", async (elapsed) => {
     footerFixture();
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
     disposers.push(() => scripts.lifecycle.dispose());
     const initial = Date.now();
     const clock = vi.spyOn(Date, "now").mockReturnValue(initial);
-    const timers = vi.spyOn(window, "setInterval");
-    const clearTimer = vi.spyOn(window, "clearInterval");
+    const timers = vi.spyOn(globalThis, "setInterval");
+    const clearTimer = vi.spyOn(globalThis, "clearInterval");
     let resolveRead!: (value: ReturnType<typeof fresh>) => void;
     const read = vi.fn(() => new Promise<ReturnType<typeof fresh>>((resolve) => { resolveRead = resolve; }));
     const selection = { hostId: host.id, generation: ++generation };
     const config = { sdk: { hosts: { list: async () => [host] } }, rpc: { selection: async () => selection, read } };
-    const overlay = renderSlot(app.appOverlays[0]!, {}, config);
+    const owner = mountRefresh(config);
+    const overlay = renderSlot(footerSlot, {}, config);
     const page = renderSlot(app.navPanels[0]!, { subPath: "" }, config);
     const Battery = app.icons[0]!.component;
     const retained = render(<Battery />);
@@ -183,12 +196,13 @@ describe("Codex quota footer integration", () => {
     await act(async () => { resolveRead(fresh(72)); });
     await waitFor(() => expect(fill(retained)).toBe("72"));
     overlay.lifecycle.unmount();
-    expect(fill(retained)).toBe("72"); // The dashboard still maintains the observation.
     page.lifecycle.unmount();
+    expect(fill(retained)).toBe("72"); // Closing quota views does not stop background refresh.
+    owner.lifecycle.unmount();
     expect(fill(retained)).toBeNull();
     for (const timer of timers.mock.results) expect(clearTimer).toHaveBeenCalledWith(timer.value);
     const previousTimerCount = timers.mock.calls.length;
-    clock.mockReturnValue(initial + elapsed); // No tick or rerender of the retained icon.
+    clock.mockReturnValue(initial + elapsed);
     expect(fill(retained)).toBeNull();
     const later = render(<Battery />);
     expect(fill(later)).toBeNull();
@@ -196,7 +210,7 @@ describe("Codex quota footer integration", () => {
     expect(read).toHaveBeenCalledTimes(1);
     expect(timers).toHaveBeenCalledTimes(previousTimerCount);
 
-    const returning = renderSlot(app.navPanels[0]!, { subPath: "" }, config);
+    const returning = mountRefresh(config);
     await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
     expect(fill(retained)).toBeNull();
     expect(fill(later)).toBeNull();
@@ -207,7 +221,7 @@ describe("Codex quota footer integration", () => {
     expect(fill(retained)).toBeNull();
     expect(fill(later)).toBeNull();
 
-    const pending = renderSlot(app.navPanels[0]!, { subPath: "" }, config);
+    const pending = mountRefresh(config);
     await waitFor(() => expect(read).toHaveBeenCalledTimes(3));
     pending.lifecycle.unmount();
     await act(async () => { resolveRead(fresh(99)); });

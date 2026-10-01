@@ -84,3 +84,62 @@ The footer adapter no longer treats `aria-hidden` as visual removal. Modal conte
 The footer indicator, dashboard, and genuine footer-unavailable navigation fallback remain unchanged. No sidebar preferences, OAuth storage, BB core, SDK contracts, or dependencies were changed.
 
 The single fresh-context completion review approved the fix with no blocking findings. It independently reran all 89 tests, typecheck, and diff whitespace checks. No revisions or second review pass were needed. The exact live thread-right-click coverage limit above remains.
+
+## Background refresh installed acceptance
+
+The implementation has been adapted to main at `2c2ecdec5b9100b606fb475f7d40fd57eb82c03d`, preserving the footer adapter, battery branding, countdowns, readiness guards, and context-menu fix. All 42 unrelated changes were preserved at that baseline. Before committing, main was fast-forwarded to `9e274ec` with no quota-package changes. An exact diff against the earlier baseline confirmed the unrelated working files were unchanged; five planning-file deletions were already represented by an upstream archive, leaving 37 unrelated pending entries. Recovery stash `a4b55803db22c00ad76601e5a00b26c07b8c87b0` and `/tmp/codex-quota-before-main-update.tar` are retained.
+
+Local checks ran on Node 24.15.0 with frozen-lockfile dependencies, including Plugin SDK 0.5.29. `npm test` passed 117 tests across 14 files; `npm run typecheck`, `bb plugin types --check`, and `npm run test:bundle` all exited 0. The public-SDK import scan found no private BB imports, and `git diff --check` passed. Private command logs are in `/tmp/codex-quota-background-refresh.ndEsLQ`.
+
+| Check | Expected result | Observed result | Status |
+| --- | --- | --- | --- |
+| Automatic ownership and cadence | Read with no quota views; forced reads 60 seconds after completion; no overlap | Fake-timer store and SDK app tests pass | passed, automated |
+| Retry and selection safety | 60/120/240/300-second backoff; unchanged timestamps on failure; clear old host data; reject disposed work | Deferred-request, failed synchronization, pending selection, cleared selection, and recovery tests pass | passed, automated |
+| Resume and disposal | One overdue read; focus respects backoff; independent windows; no leaked timers/listeners through effect replay or reload | SDK StrictMode and separate-store tests pass, including wall-clock reversal | passed, automated |
+| Refresh presentation | Keep fresh 0%, 42%, and 100%; lose bare percentages at five minutes and expired data at 24 hours | Rendering and SDK pending-read tests pass with battery/text alignment and labelled stale dashboard data | passed, automated |
+| Live source activation | This checkout demonstrably active under the existing plugin ID | Approved local-path move succeeded; enabled/running, bundle `acd64ffbb1fabefc` loaded in Arc | passed, live |
+| Live closed-dashboard/compact refresh | New authenticated observations without mounted dashboard/accessory | At 375px, dashboard and quota label DOM were absent; two automatic forced reads returned new fresh timestamps | passed, live |
+| Live updating/resume/reload/teardown | Retained fresh percentage, bounded catch-up, and independent window lifetimes | Fresh 61% remained during update; one catch-up after a 215-second freeze; reload and owned-window close checks passed | passed, live |
+| Automation cleanup | Restore temporary browser state and close only owned test resources | All three tracked test tabs closed, both named sessions stopped, emulation/throttling restored, and Arc left open | passed, live cleanup |
+
+The SDK 0.5.29 test helper's composer-owner guard skips helper unmount after StrictMode effect replay. The replay test uses public React Testing Library cleanup for the actual React unmount and checks every timer and callback is released. No SDK internals were patched. This helper issue needs a separate SDK follow-up.
+
+Frozen-lockfile setup reported an existing transitive `brace-expansion` high-severity denial-of-service advisory. No dependency declarations or lockfiles changed; dependency maintenance is separate from this refresh change.
+
+The single fresh-context completion review approved the scoped source changes with no code blockers or high-confidence maintainability findings. It independently reran all 117 tests, typecheck, and the scoped whitespace check. SDK type and bundled OAuth checks were inspected in implementation logs, not independently rerun. No source revisions or second review pass were needed. Its report is in `/tmp/codex-quota-background-refresh.ndEsLQ/completion-review.md`.
+
+The operator approved switching sources and leaving this checkout installed, then separately approved closing the peer test tab after it was navigated to another project. All required functional checks and scoped cleanup passed. Task 4.2 is complete within the coverage documented below. Earlier screenshots describe earlier implementations, not this change.
+
+### Activation state ledger
+
+Current BB project `proj_gjz4e6jtmg`, environment `env_p9han5medd`, host `host_dt6w76k4w8`.
+
+| Resource | Original state | Temporary change | Intended final state | Current state |
+| --- | --- | --- | --- | --- |
+| `codex-quota` source | `path:/Users/koen/workspace/bb-codex-quota-fix/bb-plugin-codex-quota` | Approved local-path move, preserving configuration | `path:/Users/koen/workspace/bb-plugins/bb-plugin-codex-quota` | Approved source enabled and running, bundle `acd64ffbb1fabefc` |
+| Provider usage | Disabled | None | Disabled | Unchanged |
+| Selected host | `host_dt6w76k4w8`, generation 1 | Activation reset in-memory selection; original host restored through the dashboard selector | Original host | `host_dt6w76k4w8`, generation 1 |
+| Arc test resources | Existing signed-in browser, no active automation session | Created `quota-refresh-live`, `quota-refresh-peer`, and one owned blank control tab; scoped latency, mobile emulation, and lifecycle freeze | Close only owned resources; preserve concurrent user navigation until approved cleanup | All three tracked tabs closed; both named sessions stopped; Arc and other pages left open |
+
+### Installed observations
+
+Environment: BB 0.44.0 and SDK 0.5.29 in signed-in Arc, connected through the existing local CDP endpoint. The approved install exited 0. The running plugin and both test windows loaded bundle `acd64ffbb1fabefc`. Provider usage stayed disabled. The same host was reselected after activation's pre-existing in-memory reset. No settings, secrets, schedules, OAuth storage, or dependency declarations were removed or changed.
+
+- The dashboard and footer showed a genuine **61% remaining** observation with matching battery fill. The dashboard's reset and banked-reset fields came from the normalized host response. No Pi model turn was started.
+- With temporary 1.8-second transport latency on the owned tab, a native Refresh click left 61% and its battery fill visible. The accessible label changed to `fresh, updating`, the dashboard showed its single updating line, and the original observation label remained unchanged while pending. Latency was restored to zero. This was a real quota RPC, not a substituted response or injected value.
+- Closing the dashboard through native navigation left the app-wide owner active. In the visible 375px compact window with the drawer closed, neither the dashboard nor any quota label was in the DOM. Two forced reads returned `fresh`/`ok` observations at `12:32:44.569Z` and `12:33:45.086Z`, with 61% remaining, while those views stayed absent. Opening the drawer later showed one footer badge and matching fill.
+- The owned window was hidden behind an owned blank control tab and frozen through CDP lifecycle control for 215 seconds. Its read count remained 20 while frozen. Resuming and activating it issued exactly one forced read, returning a new fresh observation. Repeated native focus changes between the owned tabs caused no second quota read during the observation window.
+- A native page reload started exactly one cache-aware read with `refresh: false` and restored confirmed data. No backend CLI reload or no-page-refresh plugin-disable cleanup is claimed by this check.
+- Closing the first owned window stopped its request count at 33. The independent peer window continued with a fresh scheduled forced read more than a minute later. The plugin declares zero server services and zero schedules. Pre-existing BB windows were not closed, so a live trial with every BB window closed was not performed.
+- All 16 pre-existing page targets recorded before teardown remained present during that check. The blank control and first test tab were closed, and viewport/throttle/freeze changes were released. The peer's route changed to another project during the independent-window trial, so it was initially left open with its quota monitor disabled. After separate operator approval, that exact tab was closed. Arc CDP confirmed all three tracked test target IDs were absent, and `browser-use sessions` confirmed both named verification sessions had stopped. Other pages were not targeted.
+
+The quota RPCs used for value evidence returned HTTP 200; the plugin log was empty when inspected. Full browser console collection was not enabled, so no blanket claim about console errors is made. Live OAuth failure, credential switching, and five-minute/24-hour expiry were not induced; those cases remain covered by automated tests. One long browser-use wait hit its CLI socket timeout, but the daemon finished the capture and retained the quota-only result. Later waits used bounded chunks. One pre-reload peer response body was unavailable after reload and was not used as value evidence. During final cleanup, the stale primary automation session could not restart after its target had closed; no managed browser launched. Closure was confirmed directly through Arc's existing CDP endpoint, then both named sessions were stopped.
+
+Safe cropped screenshots:
+
+- [Installed dashboard](../docs/codex-quota-background-refresh/dashboard-live.png)
+- [375px drawer footer](../docs/codex-quota-background-refresh/footer-mobile-live.png)
+
+Private quota-only records are in `/tmp/codex-quota-background-refresh.ndEsLQ`: `install.log`, `fresh-updating.json`, `compact-background.json`, `resume.json`, `reload.json`, `primary-rpc-evidence.json`, `peer-lifetime.json`, `teardown.json`, `peer-cleanup.json`, and `final-cleanup.json`. No headers, tokens, raw upstream claims, or unrelated thread content were retained in these records.
+
+Existing BB windows may need one page refresh to load the new frontend bundle. The updated checkout remains installed, enabled, and running as approved. Provider usage remains disabled, and the original host selection is restored. Functional checks and scoped cleanup passed; task 4.2 is complete.

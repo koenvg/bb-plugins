@@ -17,15 +17,15 @@ function delayed<T>() {
 }
 
 describe("host-owned account cache", () => {
-  it("coalesces simultaneous reads and discards a delayed old-account response", async () => {
+  it("coalesces simultaneous forced reads and discards a delayed old-account response", async () => {
     let now = start;
     const cache = new QuotaCache(() => now);
     const first = delayed<ReturnType<typeof success>>();
     let calls = 0;
     let active = "account-a";
     const loadA = () => { calls++; return first.promise; };
-    const a1 = cache.read("account-a", loadA, async () => active);
-    const a2 = cache.read("account-a", loadA, async () => active);
+    const a1 = cache.read("account-a", loadA, async () => active, true);
+    const a2 = cache.read("account-a", loadA, async () => active, true);
     expect(calls).toBe(1);
     active = "account-b";
     now += 10;

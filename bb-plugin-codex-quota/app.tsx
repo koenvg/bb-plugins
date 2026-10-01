@@ -13,7 +13,7 @@ const QUOTA_ICON = "codex-quota-battery";
 type HostOption = { id: string; name: string; status: "connected" | "disconnected" | "unknown" };
 let cachedHosts: HostOption[] = [];
 
-function useQuota() {
+function useQuotaApi() {
   const rpc = useRpc<typeof rpcContract>();
   const rpcRef = useRef(rpc);
   rpcRef.current = rpc;
@@ -23,18 +23,30 @@ function useQuota() {
     selectHost: (input) => rpcRef.current.call("selectHost", input),
     read: (input) => rpcRef.current.call("read", input),
   };
-  const api = apiRef.current;
+  return apiRef.current;
+}
+
+function useQuota() {
+  const api = useQuotaApi();
   const state = useSyncExternalStore(shared.subscribe, shared.getSnapshot);
-  useLayoutEffect(() => {
-    const releaseOwner = shared.retainOwner();
-    let mounted = true;
-    const sync = () => { void shared.connect(api).then(() => { if (mounted) void shared.refresh(api); }); };
-    sync();
-    const timer = window.setInterval(() => shared.tick(), 1000);
-    window.addEventListener("focus", sync);
-    return () => { mounted = false; window.clearInterval(timer); window.removeEventListener("focus", sync); releaseOwner(); };
-  }, [api]);
   return { state, api };
+}
+
+function QuotaRefreshOwner() {
+  const api = useQuotaApi();
+  useLayoutEffect(() => {
+    const stop = shared.start(api);
+    const resume = () => { void shared.resume(); };
+    const onVisible = () => { if (document.visibilityState === "visible") resume(); };
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", onVisible);
+      stop();
+    };
+  }, [api]);
+  return null;
 }
 
 function useHostOptions() {
@@ -105,6 +117,7 @@ export default definePluginApp((app) => {
     id: "quota", kind: "action", label: "Codex quota", icon: QUOTA_ICON, onActivate: footer.activate,
   });
   app.slots.experimental_appOverlay({ id: "quota-footer", component: QuotaFooter });
+  app.slots.experimental_appOverlay({ id: "quota-refresh", component: QuotaRefreshOwner });
   app.slots.navPanel({
     id: "quota",
     title: "Codex Quota",
