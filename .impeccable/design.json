@@ -1,0 +1,550 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T16:30:21.273678+00:00",
+  "title": "Design System: BB plugins",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "oklch(100% 0 0)",
+        "dark": "oklch(19.5% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(32.11% 0 0)",
+        "dark": "oklch(81% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Graphite Primary",
+        "canonical": "oklch(27% 0 0)",
+        "dark": "oklch(82% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "primary-foreground": {
+        "role": "primary",
+        "displayName": "On Primary",
+        "canonical": "oklch(100% 0 0)",
+        "dark": "oklch(21.78% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Muted Foreground",
+        "canonical": "oklch(44% 0 0)",
+        "dark": "oklch(78% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "subtle-foreground": {
+        "role": "neutral",
+        "displayName": "Subtle Foreground",
+        "canonical": "oklch(50% 0 0)",
+        "dark": "oklch(68% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "secondary": {
+        "role": "neutral",
+        "displayName": "Secondary Fill",
+        "canonical": "ink 8% in canvas",
+        "dark": "ink 13% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Fill",
+        "canonical": "ink 11% in canvas",
+        "dark": "ink 16% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar Wash",
+        "canonical": "ink 2.2% in canvas",
+        "dark": "ink 4.3% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "surface-recessed": {
+        "role": "neutral",
+        "displayName": "Recessed Surface",
+        "canonical": "ink 6% in canvas (oklab)",
+        "dark": "ink 6% in canvas (oklab)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "canonical": "ink 14% in canvas",
+        "dark": "ink 19.4% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "border-hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "ink 14.7% in canvas",
+        "dark": "ink 21% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Input Stroke",
+        "canonical": "ink 29.5% in canvas",
+        "dark": "ink 32.6% in canvas",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "state-hover": {
+        "role": "neutral",
+        "displayName": "Hover Veil",
+        "canonical": "ink 5.9% over transparent",
+        "dark": "ink 13.8% over transparent",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "state-active": {
+        "role": "neutral",
+        "displayName": "Active Veil",
+        "canonical": "ink 11.8% over transparent",
+        "dark": "ink 22.5% over transparent",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(45% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success Green",
+        "canonical": "oklch(70% 0.15 155)",
+        "dark": "oklch(74% 0.15 155)",
+        "tonalRamp": [
+          "oklch(15% 0.15 155)",
+          "oklch(25% 0.15 155)",
+          "oklch(35% 0.15 155)",
+          "oklch(45% 0.15 155)",
+          "oklch(55% 0.15 155)",
+          "oklch(70% 0.15 155)",
+          "oklch(85% 0.15 155)",
+          "oklch(95% 0.15 155)"
+        ]
+      },
+      "attention": {
+        "role": "status",
+        "displayName": "Attention Amber",
+        "canonical": "oklch(74% 0.15 80)",
+        "dark": "oklch(80% 0.15 80)",
+        "tonalRamp": [
+          "oklch(15% 0.15 80)",
+          "oklch(25% 0.15 80)",
+          "oklch(35% 0.15 80)",
+          "oklch(45% 0.15 80)",
+          "oklch(55% 0.15 80)",
+          "oklch(70% 0.15 80)",
+          "oklch(85% 0.15 80)",
+          "oklch(95% 0.15 80)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning Orange",
+        "canonical": "oklch(70% 0.16 50)",
+        "dark": "oklch(75% 0.16 50)",
+        "tonalRamp": [
+          "oklch(15% 0.16 50)",
+          "oklch(25% 0.16 50)",
+          "oklch(35% 0.16 50)",
+          "oklch(45% 0.16 50)",
+          "oklch(55% 0.16 50)",
+          "oklch(70% 0.16 50)",
+          "oklch(85% 0.16 50)",
+          "oklch(95% 0.16 50)"
+        ]
+      },
+      "warning-text": {
+        "role": "status",
+        "displayName": "Warning Text",
+        "canonical": "oklch(55% 0.14 50)",
+        "dark": "oklch(75% 0.16 50)",
+        "tonalRamp": [
+          "oklch(15% 0.14 50)",
+          "oklch(25% 0.14 50)",
+          "oklch(35% 0.14 50)",
+          "oklch(45% 0.14 50)",
+          "oklch(55% 0.14 50)",
+          "oklch(70% 0.14 50)",
+          "oklch(85% 0.14 50)",
+          "oklch(95% 0.14 50)"
+        ]
+      },
+      "destructive": {
+        "role": "status",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(45% 0.19 25.86)",
+        "dark": "oklch(56% 0.19 22.17)",
+        "tonalRamp": [
+          "oklch(15% 0.19 25.86)",
+          "oklch(25% 0.19 25.86)",
+          "oklch(35% 0.19 25.86)",
+          "oklch(45% 0.19 25.86)",
+          "oklch(55% 0.19 25.86)",
+          "oklch(70% 0.19 25.86)",
+          "oklch(85% 0.19 25.86)",
+          "oklch(95% 0.19 25.86)"
+        ]
+      },
+      "timeline-accent": {
+        "role": "status",
+        "displayName": "Timeline Blue",
+        "canonical": "oklch(55% 0.1 250)",
+        "dark": "oklch(72% 0.09 250)",
+        "tonalRamp": [
+          "oklch(15% 0.1 250)",
+          "oklch(25% 0.1 250)",
+          "oklch(35% 0.1 250)",
+          "oklch(45% 0.1 250)",
+          "oklch(55% 0.1 250)",
+          "oklch(70% 0.1 250)",
+          "oklch(85% 0.1 250)",
+          "oklch(95% 0.1 250)"
+        ]
+      },
+      "merged-violet": {
+        "role": "status",
+        "displayName": "Merged Violet",
+        "canonical": "#7c3aed (violet-600)",
+        "dark": "#a78bfa (violet-400)",
+        "tonalRamp": [
+          "oklch(15% 0.2 293)",
+          "oklch(25% 0.2 293)",
+          "oklch(35% 0.2 293)",
+          "oklch(45% 0.2 293)",
+          "oklch(55% 0.2 293)",
+          "oklch(70% 0.2 293)",
+          "oklch(85% 0.2 293)",
+          "oklch(95% 0.2 293)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section, card, and PR titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default panel text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metadata, pills, small buttons."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "Counters and dense badges only."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "SHAs, paths, task keys in code context."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0px 2px 0px 0px #33333326, 0px 2px 4px -1px #33333326",
+        "purpose": "shadow-md: menus, popovers, selects, dragged card. Dark: 0px 2px 0px 0px #0000004d, 0px 2px 4px -1px #00000080."
+      },
+      {
+        "name": "dialog",
+        "value": "0px 2px 0px 0px #33333326, 0px 1px 2px -1px #33333326",
+        "purpose": "shadow-sm: modal dialogs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-hover",
+        "value": "transition-colors 150ms; 0ms on hover-in",
+        "purpose": "Buttons and controls: instant on hover, eased on leave."
+      },
+      {
+        "name": "list-hover",
+        "value": "transition: none",
+        "purpose": "List rows change on hover with no transition."
+      },
+      {
+        "name": "pulse",
+        "value": "animate-pulse",
+        "purpose": "Live and in-progress status dots only."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "coarse-compact",
+        "value": "(width <= 767px) and (pointer: coarse)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Main action. At most one per view.",
+      "html": "<button class=\"ds-btn ds-btn-default\">Delegate</button>",
+      "css": ".ds-btn { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:500; border:none; cursor:pointer; transition:background-color 150ms, color 150ms; } .ds-btn:hover { transition-duration:0ms; } .ds-btn:focus-visible { outline:none; box-shadow:0 0 0 1px var(--ring, oklch(27% 0 0)); } .ds-btn-default { background:var(--foreground, oklch(32.11% 0 0)); color:var(--background, oklch(100% 0 0)); } .ds-btn-default:hover { background:color-mix(in oklab, var(--foreground, oklch(32.11% 0 0)) 90%, transparent); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost-hover",
+      "description": "Most common panel button. Veil on hover, stronger veil when pressed or open.",
+      "html": "<button class=\"ds-btn-ghost\" aria-pressed=\"false\">Refresh</button>",
+      "css": ".ds-btn-ghost { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; align-items:center; gap:8px; height:36px; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:500; border:none; background:transparent; color:var(--foreground, oklch(32.11% 0 0)); cursor:pointer; transition:background-color 150ms; } .ds-btn-ghost:hover { background:var(--state-hover, color-mix(in oklab, oklch(32.11% 0 0) 5.9%, transparent)); transition-duration:0ms; } .ds-btn-ghost:active, .ds-btn-ghost[aria-pressed=true] { background:var(--state-active, color-mix(in oklab, oklch(32.11% 0 0) 11.8%, transparent)); } .ds-btn-ghost:focus-visible { outline:none; box-shadow:0 0 0 1px var(--ring, oklch(27% 0 0)); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action next to a default button.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; align-items:center; height:36px; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:500; border:1px solid var(--input, color-mix(in oklch, oklch(32.11% 0 0) 29.5%, white)); background:transparent; color:var(--foreground, oklch(32.11% 0 0)); cursor:pointer; transition:background-color 150ms; } .ds-btn-outline:hover { background:var(--state-hover, color-mix(in oklab, oklch(32.11% 0 0) 5.9%, transparent)); transition-duration:0ms; } .ds-btn-outline:focus-visible { outline:none; box-shadow:0 0 0 1px var(--ring, oklch(27% 0 0)); }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text field with input stroke and 1px ring on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Filter tasks\" />",
+      "css": ".ds-input { font-family: 'Inter Variable', Inter, sans-serif; height:36px; padding:4px 12px; border-radius:6px; border:1px solid var(--input, color-mix(in oklch, oklch(32.11% 0 0) 29.5%, white)); background:transparent; color:var(--foreground, oklch(32.11% 0 0)); font-size:13px; } .ds-input::placeholder { color:var(--muted-foreground, oklch(44% 0 0)); } .ds-input:focus-visible { outline:none; box-shadow:0 0 0 1px var(--ring, oklch(27% 0 0)); }"
+    },
+    {
+      "name": "Neutral Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "State and label pill.",
+      "html": "<span class=\"ds-pill\">Review required</span>",
+      "css": ".ds-pill { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; align-items:center; border-radius:9999px; border:1px solid var(--border, color-mix(in oklch, oklch(32.11% 0 0) 14%, white)); padding:2px 8px; font-size:12px; color:var(--muted-foreground, oklch(44% 0 0)); }"
+    },
+    {
+      "name": "Urgent Count",
+      "kind": "chip",
+      "refersTo": "pill-urgent",
+      "description": "Tabular count of items that need action.",
+      "html": "<span class=\"ds-count\">3</span>",
+      "css": ".ds-count { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; border-radius:9999px; background:color-mix(in oklab, var(--destructive, oklch(45% 0.19 25.86)) 10%, transparent); color:var(--destructive, oklch(45% 0.19 25.86)); padding:0 6px; font-size:11px; font-weight:500; line-height:16px; font-variant-numeric:tabular-nums; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat bordered card. Hover raises border and adds veil.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-card-status\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M8 12.5l2.5 2.5L16 9.5\"/></svg></span><div><div class=\"ds-card-title\">PROD-12 Fix login</div><div class=\"ds-card-meta\">in progress \u00b7 2m</div></div></div>",
+      "css": ".ds-card { font-family: 'Inter Variable', Inter, sans-serif; display:flex; gap:8px; align-items:flex-start; border-radius:8px; border:1px solid var(--border, color-mix(in oklch, oklch(32.11% 0 0) 14%, white)); background:var(--background, oklch(100% 0 0)); padding:8px 10px; transition:background-color 150ms, border-color 150ms; } .ds-card:hover { border-color:var(--input, color-mix(in oklch, oklch(32.11% 0 0) 29.5%, white)); background:var(--state-hover, color-mix(in oklab, oklch(32.11% 0 0) 5.9%, transparent)); } .ds-card-status { color:var(--success, oklch(70% 0.15 155)); display:inline-flex; margin-top:2px; } .ds-card-title { font-size:13px; font-weight:600; color:var(--foreground, oklch(32.11% 0 0)); } .ds-card-meta { font-size:12px; color:var(--muted-foreground, oklch(44% 0 0)); font-variant-numeric:tabular-nums; }"
+    },
+    {
+      "name": "Error Banner",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Inline error with retry; last good data stays visible below.",
+      "html": "<div class=\"ds-error\"><span>gh not logged in</span><button class=\"ds-error-retry\">Retry</button></div>",
+      "css": ".ds-error { font-family: 'Inter Variable', Inter, sans-serif; display:flex; align-items:center; gap:8px; border-radius:8px; border:1px solid color-mix(in oklab, var(--destructive, oklch(45% 0.19 25.86)) 40%, transparent); background:color-mix(in oklab, var(--destructive, oklch(45% 0.19 25.86)) 5%, transparent); padding:8px 12px; font-size:13px; color:var(--destructive, oklch(45% 0.19 25.86)); } .ds-error-retry { margin-left:auto; height:32px; padding:0 12px; border-radius:6px; border:none; background:transparent; color:var(--foreground, oklch(32.11% 0 0)); font:inherit; font-size:12px; cursor:pointer; } .ds-error-retry:hover { background:var(--state-hover, color-mix(in oklab, oklch(32.11% 0 0) 5.9%, transparent)); }"
+    },
+    {
+      "name": "Live Dot",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "Pulsing status dot for a running worker.",
+      "html": "<span class=\"ds-live\"><span class=\"ds-live-dot\"></span>Worker running</span>",
+      "css": ".ds-live { font-family: 'Inter Variable', Inter, sans-serif; display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted-foreground, oklch(44% 0 0)); } .ds-live-dot { width:6px; height:6px; border-radius:9999px; background:var(--success, oklch(70% 0.15 155)); animation:ds-pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; } @keyframes ds-pulse { 50% { opacity:.5; } } @media (prefers-reduced-motion: reduce) { .ds-live-dot { animation:none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Instrument",
+    "overview": "Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps, not from color. Color appears only when it carries state: a check passed, a task is in progress, a PR is blocked. When nothing needs the user, the plugin is quiet.\n\nThe plugins do not own a palette. Every color, radius, shadow, and font comes from the BB host through CSS custom properties and the host's Tailwind build. The values in the frontmatter are BB's light theme (desktop v0.43.x), recorded so that agents can reason about contrast. Code must reference the token (`text-muted-foreground`, `bg-state-hover`, `var(--canvas)`), never the literal value. This keeps each plugin correct in dark mode and in third-party themes such as Liquid Glass.\n\nEach plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.",
+    "keyCharacteristics": [
+      "Grayscale by default; color only for state.",
+      "Host tokens only, read through Tailwind classes or `var(--token)`.",
+      "Flat surfaces; hairline borders and tonal fills define structure.",
+      "Inter at 13px body, tabular numbers for counts and times.",
+      "Hugeicons at 14px to 16px through the vendored `Icon` component."
+    ],
+    "rules": [
+      {
+        "name": "The Color Is State Rule",
+        "body": "A hue appears only when it reports a state. Decoration, emphasis, and branding use weight and the neutral ramp.",
+        "section": "colors"
+      },
+      {
+        "name": "The Missing Token Rule",
+        "body": "Raw Tailwind hues are allowed only for a status that BB has no token for, and always with a `dark:` pair. When a host token exists for the state, use it. Today `text-amber-500` (running checks, banner alerts) and `text-emerald-500` (passed checks) in GitHub Insight duplicate `attention` and `success`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Count Rule",
+        "body": "Every number that can change (counts, durations, quota, reset countdowns) uses `tabular-nums`, so the layout does not jump on update.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight Not Size Rule",
+        "body": "Make a heading with weight (500 or 600) before you make it larger. Panels live in narrow slots; large type breaks them.",
+        "section": "typography"
+      },
+      {
+        "name": "The Roomy Control Rule",
+        "body": "New controls favor comfortable padding and hit areas: default button height 36px, `px-3` or more inside cards, at least 8px between adjacent targets. Dense status lists may stay compact; interactive controls may not. Many incumbent controls are compact (`h-7`, `h-8`); move them up when you touch them.",
+        "section": "layout"
+      },
+      {
+        "name": "The Floating Layers Only Rule",
+        "body": "A surface at rest has no shadow. Tasks Plus board cards, task embeds, and the comment composer use `shadow-2xs` at rest today; remove it when you touch them.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use host tokens through Tailwind classes or `var(--token)`. Test every surface in light, dark, and Liquid Glass.",
+      "Do keep color for state. Grayscale everything else.",
+      "Do use `tabular-nums` on every number that updates.",
+      "Do use `state-hover` and `state-active` for interaction feedback instead of custom fills.",
+      "Do truncate labels with `min-w-0 truncate` so narrow slots cut, not wrap.",
+      "Do pull new primitives from the `@bb` shadcn registry (`components.json`) before writing your own."
+    ],
+    "donts": [
+      "Don't hard-code a color value. Literal `oklch` or hex in plugin code breaks themes.",
+      "Don't use a raw Tailwind hue when BB has a token for that state.",
+      "Don't put a shadow on a surface at rest.",
+      "Don't add a plugin brand color, logo mark, or custom font. The accent budget is status marks, count pills, a signature row or card shape, and small motion.",
+      "Don't grow type to make hierarchy in a narrow slot. Use weight."
+    ]
+  }
+}

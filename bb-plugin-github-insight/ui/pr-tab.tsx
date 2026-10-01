@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
@@ -7,6 +7,7 @@ import type { PrInsight } from "../core/overview";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { blockerTone } from "./blocker-tone";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
 
@@ -26,8 +27,8 @@ const COLLAPSED_STATUSES: ReadonlySet<CheckStatus> = new Set([
 const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = {
   failed: { name: "CircleX", className: "text-destructive" },
   cancelled: { name: "Unavailable", className: "text-muted-foreground" },
-  running: { name: "Spinner", className: "text-amber-500" },
-  passed: { name: "CircleCheck", className: "text-emerald-500" },
+  running: { name: "Spinner", className: "text-attention" },
+  passed: { name: "CircleCheck", className: "text-success" },
   skipped: { name: "Circle", className: "text-muted-foreground" },
 };
 
@@ -82,7 +83,7 @@ function PrHeader({ pr, action }: { pr: PrInsight["pr"]; action: ReactNode }) {
   return (
     <header className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-mono">#{pr.number}</span>
+        <span className="font-mono tabular-nums">#{pr.number}</span>
         <span className="rounded-full border border-border px-2 py-0.5">
           {PR_STATE_LABEL[pr.state]}
         </span>
@@ -91,7 +92,7 @@ function PrHeader({ pr, action }: { pr: PrInsight["pr"]; action: ReactNode }) {
         </UrlLink>
         {action}
       </div>
-      <h2 className="text-sm font-medium">{pr.title}</h2>
+      <h2 className="break-words text-sm font-semibold">{pr.title}</h2>
     </header>
   );
 }
@@ -109,7 +110,7 @@ function BlockerList({ blockers }: { blockers: readonly Blocker[] }) {
       <ul className="flex flex-col">
         {blockers.map((blocker) => (
           <li key={blocker.code} className="flex items-center gap-2 py-0.5 text-sm">
-            <Icon name="AlertCircle" className="size-4 shrink-0 text-amber-500" />
+            <Icon name="AlertCircle" className={cn("size-4 shrink-0", blockerTone(blocker.code))} />
             {blocker.text}
           </li>
         ))}
@@ -166,7 +167,7 @@ interface CheckGroupProps {
 
 function GroupHeading({ status, checks }: CheckGroupProps) {
   return (
-    <span data-testid="check-group-heading">
+    <span data-testid="check-group-heading" className="tabular-nums">
       {checks.length} {status}
     </span>
   );
@@ -184,9 +185,16 @@ function OpenCheckGroup(props: CheckGroupProps) {
 }
 
 function CollapsedCheckGroup(props: CheckGroupProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <details>
-      <summary className={cn(SECTION_HEADING_CLASS, "cursor-pointer select-none")}>
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary
+        className={cn(
+          SECTION_HEADING_CLASS,
+          "flex w-fit cursor-pointer list-none items-center gap-1 select-none rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        )}
+      >
+        <Icon name={open ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
         <GroupHeading {...props} />
       </summary>
       <CheckRows checks={props.checks} />
