@@ -35,17 +35,19 @@ export function threadMenuItems(thread: PluginSidebarThread, actions: PluginSide
   return items;
 }
 
-export function groupMenuItems(group: Extract<ListItem, { kind: "group" }>,
-  actions: PluginSidebarThreadActions, sdk: PluginBrowserBbSdk): MenuItem[] {
-  const id = group.id;
-  const newThread = id.startsWith("project:") ? { projectId: id.slice(8) }
-    : id.startsWith("section:") ? { sectionId: id.slice(8) } : {};
-  const items: MenuItem[] = [{ label: "New thread", run: () => actions.openNewThread({ ...newThread, focusPrompt: true }) }];
-  if (id.startsWith("section:")) items.push({ label: "Rename section", run: () => {
+export function newThreadScope({ scope }: Extract<ListItem, { kind: "group" }>): { projectId?: string; sectionId?: string } | null {
+  if (scope.kind === "project") return { projectId: scope.projectId };
+  if (scope.kind === "section") return { sectionId: scope.sectionId };
+  return null;
+}
+
+export function groupMenuItems(group: Extract<ListItem, { kind: "group" }>, sdk: PluginBrowserBbSdk): MenuItem[] {
+  const { scope } = group;
+  if (scope.kind !== "section") return [];
+  return [{ label: "Rename section", run: () => {
     const name = askName("Rename section", group.label);
-    if (name) return sdk.threadSections.update({ id: id.slice(8), name });
-  } });
-  return items;
+    if (name) return sdk.threadSections.update({ id: scope.sectionId, name });
+  } }];
 }
 
 export function createSection(sdk: PluginBrowserBbSdk): Promise<unknown> | undefined {

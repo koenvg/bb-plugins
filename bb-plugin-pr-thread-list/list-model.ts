@@ -1,4 +1,5 @@
 import type { PluginSidebarProject, PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import { isBusy, needsAttention } from "./row-cues";
 
 export type Organization = "project" | "machine" | "section";
 export type Lifecycle = "active" | "archived";
@@ -11,12 +12,24 @@ export interface ListOptions {
   collapsedGroups: readonly string[];
   collapsedThreads: readonly string[];
 }
-export type ListItem =
-  | { kind: "group"; id: string; label: string; count: number; collapsed: boolean }
-  | { kind: "thread"; id: string; thread: PluginSidebarThread; depth: number; hasChildren: boolean; collapsed: boolean };
+export type GroupScope =
+  | { kind: "attention" } | { kind: "pinned" } | { kind: "threads" }
+  | { kind: "project"; projectId: string }
+  | { kind: "section"; sectionId: string }
+  | { kind: "machine"; hostId: string; name: string };
 
-const busy = (thread: PluginSidebarThread) =>
-  thread.status === "starting" || thread.status === "active" || thread.status === "stopping";
+const groupKey = (scope: GroupScope): string => {
+  switch (scope.kind) {
+    case "project": return `project:${scope.projectId}`;
+    case "section": return `section:${scope.sectionId}`;
+    case "machine": return `machine:${scope.hostId}`;
+    default: return scope.kind;
+  }
+};
+
+export type ListItem =
+  | { kind: "group"; id: string; scope: GroupScope; label: string; count: number; collapsed: boolean }
+  | { kind: "thread"; id: string; thread: PluginSidebarThread; depth: number; hasChildren: boolean; collapsed: boolean };
 
 function compare(a: PluginSidebarThread, b: PluginSidebarThread, options: ListOptions): number {
   if (a.isPinned && b.isPinned) {
@@ -27,7 +40,7 @@ function compare(a: PluginSidebarThread, b: PluginSidebarThread, options: ListOp
     }
     if (a.pinnedAt !== b.pinnedAt) return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0);
   }
-  if (options.sort === "updated" && busy(a) !== busy(b)) return busy(a) ? -1 : 1;
+  if (options.sort === "updated" && isBusy(a) !== isBusy(b)) return isBusy(a) ? -1 : 1;
   const value = options.sort === "title"
     ? a.displayTitle.localeCompare(b.displayTitle)
     : a[options.sort === "created" ? "createdAt" : "updatedAt"] -
@@ -63,44 +76,56 @@ export function visibleItems(
     for (const id of path) pinnedCache.set(id, pinned);
     return pinned;
   };
-  const groupOf = (thread: PluginSidebarThread): string => {
-    if (belongsToPinned(thread)) return "pinned";
-    if (options.mode === "section") return thread.sectionId && sectionNames.has(thread.sectionId) ? `section:${thread.sectionId}` : "threads";
-    if (options.mode === "machine") return thread.host ? `machine:${thread.host.id}` : "threads";
-    return projectNames.has(thread.projectId) ? `project:${thread.projectId}` : "threads";
+  const scopeOf = (thread: PluginSidebarThread): GroupScope => {
+    if (needsAttention(thread)) return { kind: "attention" };
+    if (belongsToPinned(thread)) return { kind: "pinned" };
+    if (options.mode === "section") return thread.sectionId && sectionNames.has(thread.sectionId)
+      ? { kind: "section", sectionId: thread.sectionId } : { kind: "threads" };
+    if (options.mode === "machine") return thread.host ? { kind: "machine", hostId: thread.host.id, name: thread.host.name } : { kind: "threads" };
+    return projectNames.has(thread.projectId) ? { kind: "project", projectId: thread.projectId } : { kind: "threads" };
   };
-  const groups = new Map<string, PluginSidebarThread[]>();
-  const sectionOrder = new Map(sections.map((section, index) => [`section:${section.id}`, index]));
-  if (options.mode === "section") for (const section of sections) groups.set(`section:${section.id}`, []);
-  for (const thread of filtered) {
-    const key = groupOf(thread);
-    let bucket = groups.get(key);
-    if (!bucket) { bucket = []; groups.set(key, bucket); }
-    bucket.push(thread);
+  const labelOf = (scope: GroupScope): string => {
+    switch (scope.kind) {
+      case "attention": return "Needs you";
+      case "pinned": return "Pinned";
+      case "threads": return "Threads";
+      case "project": return projectNames.get(scope.projectId) ?? "Threads";
+      case "section": return sectionNames.get(scope.sectionId) ?? "Threads";
+      case "machine": return scope.name;
+    }
+  };
+  const groups = new Map<string, { scope: GroupScope; bucket: PluginSidebarThread[] }>();
+  const sectionOrder = new Map(sections.map((section, index) => [section.id, index]));
+  if (options.mode === "section") for (const section of sections) {
+    const scope: GroupScope = { kind: "section", sectionId: section.id };
+    groups.set(groupKey(scope), { scope, bucket: [] });
   }
-  const groupOrder = [...groups.keys()].sort((a, b) => {
-    if (a === "pinned" || b === "pinned") return a === "pinned" ? -1 : 1;
-    if (a === "threads" || b === "threads") return a === "threads" ? 1 : -1;
-    if (options.mode === "section") return (sectionOrder.get(a) ?? 0) - (sectionOrder.get(b) ?? 0);
-    const label = (key: string) => key.startsWith("project:") ? projectNames.get(key.slice(8)) : groups.get(key)?.[0]?.host?.name;
-    return (label(a) ?? a).localeCompare(label(b) ?? b);
+  for (const thread of filtered) {
+    const scope = scopeOf(thread);
+    const key = groupKey(scope);
+    let group = groups.get(key);
+    if (!group) { group = { scope, bucket: [] }; groups.set(key, group); }
+    group.bucket.push(thread);
+  }
+  const rank = (scope: GroupScope) => scope.kind === "attention" ? 0 : scope.kind === "pinned" ? 1 : scope.kind === "threads" ? 3 : 2;
+  const groupOrder = [...groups.values()].sort(({ scope: a }, { scope: b }) => {
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    if (a.kind === "section" && b.kind === "section") return (sectionOrder.get(a.sectionId) ?? 0) - (sectionOrder.get(b.sectionId) ?? 0);
+    return labelOf(a).localeCompare(labelOf(b));
   });
   const result: ListItem[] = [];
-  for (const key of groupOrder) {
-    const bucket = groups.get(key)!;
-    const label = key === "pinned" ? "Pinned" : key === "threads" ? "Threads"
-      : key.startsWith("project:") ? projectNames.get(key.slice(8)) ?? "Threads"
-      : key.startsWith("section:") ? sectionNames.get(key.slice(8)) ?? "Threads"
-      : bucket[0]?.host?.name ?? "Threads";
+  for (const { scope, bucket } of groupOrder) {
+    const key = groupKey(scope);
+    const label = labelOf(scope);
     const collapsed = options.collapsedGroups.includes(key);
-    result.push({ kind: "group", id: key, label, count: bucket.length, collapsed });
+    result.push({ kind: "group", id: key, scope, label, count: bucket.length, collapsed });
     if (collapsed) continue;
     const members = new Map(bucket.map((t) => [t.id, t]));
     const children = new Map<string, PluginSidebarThread[]>();
     const roots: PluginSidebarThread[] = [];
     for (const thread of bucket) {
       const parent = thread.parentThreadId && members.get(thread.parentThreadId);
-      if (parent && parent.id !== thread.id && !(thread.isPinned && key === "pinned")) {
+      if (parent && parent.id !== thread.id && scope.kind !== "attention" && !(thread.isPinned && scope.kind === "pinned")) {
         let siblings = children.get(parent.id);
         if (!siblings) { siblings = []; children.set(parent.id, siblings); }
         siblings.push(thread);
@@ -131,3 +156,4 @@ export function visibleItems(
   }
   return result;
 }
+
