@@ -1,0 +1,93 @@
+{
+  "result": "passed",
+  "scope": "Bounded pr-thread-list list-preference persistence/reset smoke test, not complete PR-badge verification",
+  "recordedAt": "2026-10-01T08:39:43.815356+00:00",
+  "browser": "HeadlessChrome/148.0.7778.96",
+  "session": "verify-pr-thread-list-retry-Bntajo",
+  "temporarySource": "path:/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_yhetcecc7f-1/bb-plugins/bb-plugin-pr-thread-list",
+  "finalSource": "path:/Users/koen/workspace/bb-plugins/bb-plugin-pr-thread-list",
+  "finalEnabled": true,
+  "activation": {
+    "source": "path:/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_yhetcecc7f-1/bb-plugins/bb-plugin-pr-thread-list",
+    "status": "running",
+    "enabled": true,
+    "bundle": {
+      "jsUrl": "/api/v1/plugin-app-assets/2b0f3fe7e33e18f0/app.js",
+      "cssUrl": "/api/v1/plugin-app-assets/2b0f3fe7e33e18f0/app.css",
+      "jsBytes": 21712,
+      "hash": "2b0f3fe7e33e18f0",
+      "sdkMajor": 0,
+      "sdkVersion": "0.5.29",
+      "compatible": true
+    },
+    "localSha256": "2c3528dc0e9284b47128ca9f1e97881fa0960e67b9f065adbdb8fc16e9e826a3",
+    "servedSha256": "2c3528dc0e9284b47128ca9f1e97881fa0960e67b9f065adbdb8fc16e9e826a3",
+    "bytesEqual": true
+  },
+  "browserLoadedAssets": [
+    {
+      "url": "http://127.0.0.1:38886/api/v1/plugin-app-assets/2b0f3fe7e33e18f0/app.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:38886/api/v1/plugin-app-assets/2b0f3fe7e33e18f0/app.css",
+      "status": 200
+    }
+  ],
+  "checks": {
+    "initialPreferences": {
+      "mode": "project",
+      "sort": "updated",
+      "direction": "desc",
+      "stored": "{\"version\":1,\"mode\":\"project\",\"lifecycles\":[\"active\"],\"sort\":\"updated\",\"direction\":\"desc\",\"collapsedGroups\":[],\"collapsedThreads\":[]}"
+    },
+    "machineBeforeReload": {
+      "mode": "machine",
+      "sort": "updated",
+      "direction": "desc",
+      "stored": "{\"version\":1,\"mode\":\"machine\",\"lifecycles\":[\"active\"],\"sort\":\"updated\",\"direction\":\"desc\",\"collapsedGroups\":[],\"collapsedThreads\":[]}"
+    },
+    "machineAfterReload": {
+      "mode": "machine",
+      "sort": "updated",
+      "direction": "desc",
+      "stored": "{\"version\":1,\"mode\":\"machine\",\"lifecycles\":[\"active\"],\"sort\":\"updated\",\"direction\":\"desc\",\"collapsedGroups\":[],\"collapsedThreads\":[]}"
+    },
+    "resetAfterReload": {
+      "mode": "project",
+      "sort": "updated",
+      "direction": "desc",
+      "stored": "{\"version\":1,\"mode\":\"project\",\"lifecycles\":[\"active\"],\"sort\":\"updated\",\"direction\":\"desc\",\"collapsedGroups\":[],\"collapsedThreads\":[]}"
+    },
+    "persistencePassed": true,
+    "resetPassed": true
+  },
+  "diagnostics": {
+    "uncaughtRuntimeExceptions": 0,
+    "observerPositiveProbeEvents": 1,
+    "selectedPluginLogLinesBefore": 0,
+    "selectedPluginLogLinesAfter": 0,
+    "hostWarning": {
+      "plugin": "tenet-status",
+      "status": 404,
+      "asset": "/api/v1/plugin-app-assets/0a89cb5240a85678/app.js",
+      "note": "Separate installed plugin; the verified pr-thread-list JS/CSS assets returned 200. Not repaired as part of this task."
+    }
+  },
+  "cleanup": {
+    "sidebarRestored": "Dockside (projects)",
+    "sidebarRestorationSurvivedReload": true,
+    "sourceRestored": true,
+    "originalDependencyFilesUnchanged": {
+      "package.json": true,
+      "package-lock.json": true
+    },
+    "ownedBrowserClosed": true,
+    "temporaryProfileAndRawSnapshots": "removed after writing this sanitized record",
+    "userRecordsCreated": false
+  },
+  "screenshots": [
+    "preferences-machine-after-reload.png",
+    "preferences-reset.png"
+  ]
+}
