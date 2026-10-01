@@ -1,12 +1,11 @@
 import { useId, useState } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
-import type { Draft } from "../core/drafts";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
-export function ReviewThreadCard({ thread, draft }: { thread: ReviewThread; draft: Draft | undefined }) {
+export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
   const [expanded, setExpanded] = useState(false);
   const firstAuthor = thread.comments[0]?.author;
   return (
@@ -30,7 +29,6 @@ export function ReviewThreadCard({ thread, draft }: { thread: ReviewThread; draf
             <CommentView key={comment.id} comment={comment} />
           ))}
           {thread.hasMoreComments && <MoreCommentsLink thread={thread} />}
-          {draft !== undefined && <DraftView draft={draft} />}
           <ThreadActionsView thread={thread} />
         </>
       )}
@@ -79,27 +77,24 @@ function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
   );
 }
 
-function DraftView({ draft }: { draft: Draft }) {
-  const headingId = useId();
-  return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-1 border-t border-border bg-muted/50 px-3 py-2">
-      <h3 id={headingId} className="text-xs font-medium text-muted-foreground">
-        Draft from agent
-      </h3>
-      <p className="whitespace-pre-wrap">{draft.body}</p>
-    </section>
-  );
-}
-
 const ACTION_BUTTON_CLASS =
   "inline-flex shrink-0 items-center rounded-md border border-border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-60";
 
 function ThreadActionsView({ thread }: { thread: ReviewThread }) {
   const actions = useThreadActions();
-  const { replyText, busy, error, pendingReviewUrl } = actions.stateOf(thread.id);
+  const headingId = useId();
+  const { replyText, hasDraft, busy, error, pendingReviewUrl } = actions.stateOf(thread.id);
   const canPost = !busy && replyText.trim() !== "";
   return (
-    <div className="flex flex-col gap-1.5 border-t border-border px-3 py-2">
+    <section
+      aria-labelledby={hasDraft ? headingId : undefined}
+      className={`flex flex-col gap-1.5 border-t border-border px-3 py-2 ${hasDraft ? "bg-muted/50" : ""}`}
+    >
+      {hasDraft && (
+        <h3 id={headingId} className="text-xs font-medium text-muted-foreground">
+          Draft from agent
+        </h3>
+      )}
       {!thread.resolved && (
         <textarea
           aria-label="Reply"
@@ -137,12 +132,17 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
             <button type="button" className={ACTION_BUTTON_CLASS} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: true })}>
               Post + resolve
             </button>
+            {hasDraft && (
+              <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy} onClick={() => void actions.discardDraft(thread.id)}>
+                Discard
+              </button>
+            )}
             <button type="button" className={`${ACTION_BUTTON_CLASS} ml-auto`} disabled={busy} onClick={() => void actions.setResolved(thread.id, true)}>
               Resolve
             </button>
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

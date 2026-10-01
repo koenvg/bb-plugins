@@ -5,7 +5,7 @@ import {
   type InsightUpdated,
 } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
-import { REVIEW_UPDATED_CHANNEL } from "./core/review-updated";
+import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { createPrLookup } from "./pr-lookup";
@@ -52,13 +52,16 @@ export default async function plugin(bb: BbPluginApi) {
     warn: (message) => bb.log.warn(message),
   });
 
+  const drafts = createDraftStore(bb.storage.kv);
+  const publishReviewUpdate = (update: ReviewUpdated) => bb.realtime.publish(REVIEW_UPDATED_CHANNEL, update);
+
   const review = createReviewService({
     resolvePr,
     fetchPrFiles: async ({ ref, hostId }) => unwrap(await host.call("fetchPrFiles", ref, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
-    drafts: createDraftStore(bb.storage.kv),
-    publish: (update) => bb.realtime.publish(REVIEW_UPDATED_CHANNEL, update),
+    drafts,
+    publish: publishReviewUpdate,
     sendMessage: async (threadId, text) => {
       const result = await bb.sdk.threads.send({ threadId, mode: "auto", input: [{ type: "text", text, mentions: [] }] });
       return result.delivery;
@@ -71,6 +74,10 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("replyToThread", { threadId, body }, { hostId })),
     setThreadResolved: async ({ hostId }, threadId, resolved) =>
       unwrap(await host.call("setThreadResolved", { threadId, resolved }, { hostId })),
+    drafts,
+    publish: publishReviewUpdate,
+    now: Date.now,
+    warn: (message) => bb.log.warn(message),
   });
 
   async function getReview(threadId: string): Promise<ReviewResult> {
@@ -85,6 +92,8 @@ export default async function plugin(bb: BbPluginApi) {
     sendToAgent: ({ threadId, reviewThreadIds }) => review.sendToAgent(threadId, reviewThreadIds),
     reply: (request) => writes.reply(request),
     setResolved: (request) => writes.setResolved(request),
+    saveDraft: (request) => writes.saveDraft(request),
+    discardDraft: (request) => writes.discardDraft(request),
   });
 
   bb.cli.register(

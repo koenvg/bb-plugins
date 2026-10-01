@@ -22,7 +22,7 @@
 
 - [x] 4.1 Implement draft storage in `bb.storage.kv` (key per PR and review thread, value body, updatedAt, source) with get, save, delete, and list-for-PR; verify unit tests with a fake kv
 - [ ] 4.2 Implement RPC `getReview({ threadId })`: resolve the PR, fetch files and threads in parallel, place threads, attach drafts, and delete drafts of resolved or missing threads; verify tests with fake host calls: "no PR", gh error, and the fixture result
-- [ ] 4.3 Implement RPCs `reply`, `setResolved`, `saveDraft`, and `discardDraft`; "Post + resolve" runs reply then resolve, and a successful post deletes the draft; verify unit tests, also for "resolve fails after reply"
+- [x] 4.3 Implement RPCs `reply`, `setResolved`, `saveDraft`, and `discardDraft`; "Post + resolve" runs reply then resolve, and a successful post deletes the draft; verify unit tests, also for "resolve fails after reply"
 - [ ] 4.4 Publish `review.updated` with the thread id after each draft write or delete and after each GitHub write; verify a unit test with a fake realtime
 
 ## 5. Agent flow

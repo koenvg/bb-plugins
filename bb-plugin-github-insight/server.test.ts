@@ -975,3 +975,94 @@ describe("reply and resolve", () => {
     expect(result).toEqual({ kind: "error", message: "rate limited" });
   });
 });
+
+describe("drafts from the tab", () => {
+  const REVIEW_THREAD = "PRRT_kwDOHI7l-86jxula";
+
+  function reviewHost(reply: unknown = ok({ data: { addPullRequestReviewThreadReply: { comment: { id: "PRRC_1", state: "SUBMITTED" } } } })) {
+    return ({ method }: HostCall) => {
+      if (method === "fetchPrFiles") return ok(prFiles);
+      if (method === "fetchReviewThreads") return ok(reviewThreads);
+      if (method === "replyToThread") return reply;
+      if (method === "setThreadResolved") return ok({ data: {} });
+      throw new Error(`unexpected host call ${method}`);
+    };
+  }
+
+  function setupWithPr(host = reviewHost()) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host,
+    });
+  }
+
+  async function draftsOf(harness: Awaited<ReturnType<typeof setup>>) {
+    const result = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as ReviewResult;
+    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    return result.drafts;
+  }
+
+  async function saveDraft(harness: Awaited<ReturnType<typeof setup>>, body: string) {
+    return harness.behavior.callRpc("saveDraft", { threadId: "thr_1", reviewThreadId: REVIEW_THREAD, body });
+  }
+
+  async function post(harness: Awaited<ReturnType<typeof setup>>, resolve: boolean) {
+    return harness.behavior.callRpc("reply", { threadId: "thr_1", reviewThreadId: REVIEW_THREAD, body: "Edited", resolve });
+  }
+
+  it("saves the edited text as the user's draft without a GitHub write or a review update", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1_700_000_000_000);
+    const harness = await setupWithPr();
+
+    const result = await saveDraft(harness, "Edited");
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+    expect(harness.realtimeSignals).toHaveLength(0);
+    expect(await draftsOf(harness)).toEqual({
+      [REVIEW_THREAD]: { body: "Edited", updatedAt: 1_700_000_000_000, source: "user" },
+    });
+  });
+
+  it.each([false, true])("deletes the draft after a successful post (resolve: %s)", async (resolve) => {
+    const harness = await setupWithPr();
+    await saveDraft(harness, "Edited");
+
+    await post(harness, resolve);
+
+    expect(await draftsOf(harness)).toEqual({});
+  });
+
+  it("keeps the draft when the post fails", async () => {
+    const harness = await setupWithPr(reviewHost(failed({ kind: "gh_logged_out" })));
+    await saveDraft(harness, "Edited");
+
+    await post(harness, false);
+
+    expect(Object.keys(await draftsOf(harness))).toEqual([REVIEW_THREAD]);
+  });
+
+  it("discards the draft without a GitHub write and tells the open tab", async () => {
+    const harness = await setupWithPr();
+    await saveDraft(harness, "Edited");
+
+    const result = await harness.behavior.callRpc("discardDraft", { threadId: "thr_1", reviewThreadId: REVIEW_THREAD });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+    expect(harness.realtimeSignals).toEqual([{ channel: "review.updated", payload: { threadId: "thr_1" } }]);
+    expect(await draftsOf(harness)).toEqual({});
+  });
+
+  it("does not save or discard a draft when the thread has no PR", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: null }], host: reviewHost() });
+
+    const saved = await saveDraft(harness, "Edited");
+    const discarded = await harness.behavior.callRpc("discardDraft", { threadId: "thr_1", reviewThreadId: REVIEW_THREAD });
+
+    expect(saved).toEqual({ kind: "error", message: "No pull request for this thread" });
+    expect(discarded).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});

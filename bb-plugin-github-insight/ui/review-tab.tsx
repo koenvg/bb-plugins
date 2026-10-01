@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
-import type { Drafts } from "../core/drafts";
 import type { ReviewFile } from "../core/pr-files";
 import { isReviewUpdateFor, REVIEW_UPDATED_CHANNEL } from "../core/review-updated";
 import {
@@ -46,12 +45,11 @@ export function ReviewTab({ threadId }: { threadId: string }) {
     );
   }
   return (
-    <ThreadActionsProvider key={threadId} threadId={threadId} onWritten={reload}>
+    <ThreadActionsProvider key={threadId} threadId={threadId} drafts={result.drafts} onWritten={reload}>
       <ReviewContent
         threadId={threadId}
         files={result.files}
         threads={result.threads}
-        drafts={result.drafts}
         refreshing={refreshing}
         refresh={refresh}
       />
@@ -63,12 +61,11 @@ interface ReviewContentProps {
   threadId: string;
   files: readonly ReviewFile[];
   threads: ThreadPlacement;
-  drafts: Drafts;
   refreshing: boolean;
   refresh: () => void;
 }
 
-function ReviewContent({ threadId, files, threads, drafts, refreshing, refresh }: ReviewContentProps) {
+function ReviewContent({ threadId, files, threads, refreshing, refresh }: ReviewContentProps) {
   const [showResolved, setShowResolved] = useState(false);
   const openIds = useMemo(() => openThreads(threads).map(({ thread }) => thread.id), [threads]);
   const { selection, selectedIds, deselect } = useThreadSelectionState(openIds);
@@ -107,13 +104,12 @@ function ReviewContent({ threadId, files, threads, drafts, refreshing, refresh }
       )}
       <ThreadSelectionContext.Provider value={selection}>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <OutdatedThreads threads={visible.outdated} drafts={drafts} />
+          <OutdatedThreads threads={visible.outdated} />
           {files.map((file) => (
             <PrFileDiff
               key={file.path}
               file={file}
               threads={placedByPath.get(file.path) ?? NO_THREADS}
-              drafts={drafts}
             />
           ))}
         </div>

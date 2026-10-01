@@ -14,6 +14,8 @@ export function createDraftStore(kv: PluginKvStorage) {
     save: (pr: PullRequestRef, reviewThreadId: string, draft: Draft) =>
       kv.set(prefixOf(pr) + reviewThreadId, draft),
 
+    delete: (pr: PullRequestRef, reviewThreadId: string) => kv.delete(prefixOf(pr) + reviewThreadId),
+
     async liveDrafts(pr: PullRequestRef, { threads, complete }: CollectedReviewThreads): Promise<Drafts> {
       const prefix = prefixOf(pr);
       const resolvedById = new Map(threads.map((thread) => [thread.id, thread.resolved]));

@@ -5,7 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
-import type { ReplyResult, ReviewResult, rpcContract, SendToAgentResult, SetResolvedResult } from "../contract";
+import type { ActionResult, ReplyResult, ReviewResult, rpcContract, SendToAgentResult } from "../contract";
 import { parsePrFiles } from "../core/pr-files";
 import { parseReviewThreads } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
@@ -72,7 +72,9 @@ const threaded = {
 interface RpcHandlers {
   sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
   reply?: () => ReplyResult | Promise<ReplyResult>;
-  setResolved?: () => SetResolvedResult | Promise<SetResolvedResult>;
+  setResolved?: () => ActionResult | Promise<ActionResult>;
+  saveDraft?: () => ActionResult | Promise<ActionResult>;
+  discardDraft?: () => ActionResult | Promise<ActionResult>;
 }
 
 function renderTab(...results: ReviewResult[]) {
@@ -97,6 +99,8 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         refresh: () => ({ kind: "no_pr" }),
         reply: handlers.reply ?? (() => ({ kind: "posted", pendingReviewUrl: null, resolveError: null })),
         setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
+        saveDraft: handlers.saveDraft ?? (() => ({ kind: "ok" })),
+        discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
       },
     },
   );
@@ -306,11 +310,24 @@ describe("Review tab drafts", () => {
     return { ...threaded, drafts: { [reviewThreadId]: draft } };
   }
 
-  it("shows a draft below the comments of its thread as 'Draft from agent'", async () => {
+  async function findDraft(slot: ReturnType<typeof renderTab>) {
+    const section = await slot.findByRole("region", { name: "Draft from agent" });
+    return { section, box: within(section).getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement };
+  }
+
+  function methods(slot: ReturnType<typeof renderTab>) {
+    return slot.inspection.rpcCalls.map((call) => call.method);
+  }
+
+  function callsTo(slot: ReturnType<typeof renderTab>, method: string) {
+    return slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
+  }
+
+  it("puts the draft in the reply box below the comments of its thread, as 'Draft from agent'", async () => {
     const slot = renderTab(withDraft(PLACED));
 
-    const section = await slot.findByRole("region", { name: "Draft from agent" });
-    expect(section.textContent).toContain("Renamed in abc123");
+    const { section, box } = await findDraft(slot);
+    expect(box.value).toBe("Renamed in abc123");
     const card = section.closest("article")!;
     expect(card.textContent).toContain("There's no wait for the new row to mount");
     const lastComment = within(card).getAllByTestId("bb-markdown").at(-1)!;
@@ -321,7 +338,8 @@ describe("Review tab drafts", () => {
     const slot = renderTab(withDraft(OUTDATED));
 
     const outdated = within(await slot.findByRole("region", { name: "Outdated" }));
-    expect(outdated.getByRole("region", { name: "Draft from agent" }).textContent).toContain(
+    const section = outdated.getByRole("region", { name: "Draft from agent" });
+    expect((within(section).getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe(
       "Renamed in abc123",
     );
   });
@@ -329,9 +347,9 @@ describe("Review tab drafts", () => {
   it("shows the draft text as written, not as Markdown", async () => {
     const slot = renderTab({ ...threaded, drafts: { [PLACED]: { ...draft, body: "**bold**\nnext" } } });
 
-    const section = await slot.findByRole("region", { name: "Draft from agent" });
+    const { section, box } = await findDraft(slot);
     expect(within(section).queryByTestId("bb-markdown")).toBeNull();
-    expect(section.textContent).toContain("**bold**\nnext");
+    expect(box.value).toBe("**bold**\nnext");
   });
 
   it("shows a draft saved while the tab is open", async () => {
@@ -340,8 +358,7 @@ describe("Review tab drafts", () => {
 
     await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
 
-    const section = await slot.findByRole("region", { name: "Draft from agent" });
-    expect(section.textContent).toContain("Renamed in abc123");
+    expect((await findDraft(slot)).box.value).toBe("Renamed in abc123");
   });
 
   it("ignores a review update of another thread", async () => {
@@ -350,7 +367,146 @@ describe("Review tab drafts", () => {
 
     await slot.behavior.emitRealtime("review.updated", { threadId: "thr_2" });
 
-    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview"]);
+    expect(methods(slot)).toEqual(["getReview"]);
+  });
+
+  it("has 'Discard' only on a thread with a draft", async () => {
+    const slot = renderTab(withDraft(PLACED));
+
+    const card = within((await findDraft(slot)).section.closest("article")!);
+    const discard = card.getByRole("button", { name: "Discard" });
+    expect(slot.getAllByRole("button", { name: "Discard" })).toEqual([discard]);
+  });
+
+  it("posts the edited draft, saves the edit first, and drops the draft", async () => {
+    const slot = renderTab(withDraft(PLACED), threaded);
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Post" }));
+
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull());
+    expect(methods(slot)).toEqual(["getReview", "saveDraft", "reply", "getReview"]);
+    expect(callsTo(slot, "reply")).toEqual([
+      { threadId: "thr_1", reviewThreadId: PLACED, body: "Renamed in def456", resolve: false },
+    ]);
+  });
+
+  it("posts and resolves the draft on 'Post + resolve'", async () => {
+    const slot = renderTab(withDraft(PLACED), threaded);
+    const { box } = await findDraft(slot);
+
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Post + resolve" }));
+
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull());
+    expect(callsTo(slot, "reply")).toEqual([
+      { threadId: "thr_1", reviewThreadId: PLACED, body: "Renamed in abc123", resolve: true },
+    ]);
+  });
+
+  it("discards the draft without a GitHub write, and loads the thread again", async () => {
+    const slot = renderTab(withDraft(PLACED), threaded);
+    const { box } = await findDraft(slot);
+    const card = within(box.closest("article")!);
+
+    fireEvent.click(card.getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull());
+    expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("");
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getReview"]));
+    expect(callsTo(slot, "discardDraft")).toEqual([{ threadId: "thr_1", reviewThreadId: PLACED }]);
+  });
+
+  it("keeps the draft and shows the error when the discard fails", async () => {
+    const slot = renderTabWith({ discardDraft: () => ({ kind: "error", message: "No pull request for this thread" }) }, withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Discard" }));
+
+    expect((await slot.findByRole("alert")).textContent).toBe("No pull request for this thread");
+    expect((await findDraft(slot)).box.value).toBe("Renamed in abc123");
+  });
+
+  it("keeps the edited draft and shows the error when the post fails", async () => {
+    const slot = renderTabWith({ reply: () => ({ kind: "post_failed", message: "gh not logged in" }) }, withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Post" }));
+
+    expect((await slot.findByRole("alert")).textContent).toBe("gh not logged in");
+    expect((await findDraft(slot)).box.value).toBe("Renamed in def456");
+    expect(methods(slot)).toEqual(["getReview", "saveDraft", "reply"]);
+  });
+
+  it("saves the last edit of a draft once the typing stops", async () => {
+    const slot = renderTab(withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed" } });
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+
+    await waitFor(() => expect(callsTo(slot, "saveDraft")).toHaveLength(1));
+    expect(callsTo(slot, "saveDraft")).toEqual([
+      { threadId: "thr_1", reviewThreadId: PLACED, body: "Renamed in def456" },
+    ]);
+  });
+
+  it("saves an unsaved edit when the tab closes", async () => {
+    const slot = renderTab(withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+    slot.unmount();
+
+    await waitFor(() =>
+      expect(callsTo(slot, "saveDraft")).toEqual([
+        { threadId: "thr_1", reviewThreadId: PLACED, body: "Renamed in def456" },
+      ]),
+    );
+  });
+
+  it("shows the error when an edit cannot be saved", async () => {
+    const slot = renderTabWith({ saveDraft: () => ({ kind: "error", message: "No pull request for this thread" }) }, withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+
+    expect((await slot.findByRole("alert")).textContent).toBe("No pull request for this thread");
+  });
+
+  it("saves an unsaved edit before it resolves the thread", async () => {
+    const slot = renderTab(withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Resolve" }));
+
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "saveDraft", "setResolved", "getReview"]));
+  });
+
+  it("does not save a reply on a thread without a draft", async () => {
+    const slot = renderTab(withDraft(OUTDATED));
+    const annotation = (await slot.findAllByTestId("line-annotation")).find((candidate) =>
+      candidate.textContent?.includes("There's no wait"),
+    )!;
+
+    fireEvent.change(within(annotation).getByRole("textbox", { name: "Reply" }), { target: { value: "Half written" } });
+    slot.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(callsTo(slot, "saveDraft")).toEqual([]);
+  });
+
+  it("keeps the edited text when the tab loads the stored draft again", async () => {
+    const slot = renderTab(withDraft(PLACED));
+    const { box } = await findDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Renamed in def456" } });
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    await waitFor(() => expect(methods(slot).filter((method) => method === "getReview")).toHaveLength(2));
+    expect((await findDraft(slot)).box.value).toBe("Renamed in def456");
   });
 });
 
