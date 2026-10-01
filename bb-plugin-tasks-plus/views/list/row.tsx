@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef } from "react";
 import type {
   Label,
   Project,
@@ -12,11 +12,18 @@ import type { TaskRowMeta } from "./data.js";
 import { activeWorkLabel, formatDueDate, partitionLabels } from "./lib.js";
 import type { EditFn } from "./property-menus.js";
 import {
-  isBareKey,
   PriorityEditor,
   StatusEditor,
   TaskContextMenu,
 } from "./property-menus.js";
+import { LabelsPicker } from "../labels-picker.js";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+
+export type RowMenu = "status" | "priority" | "labels";
 
 const RAIL_CHIP_CLASS =
   "flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground";
@@ -108,6 +115,8 @@ interface TaskRowProps {
   expanded?: boolean;
   onToggleExpanded?: () => void;
   subProgress?: { done: number; total: number };
+  openMenu: RowMenu | null;
+  onOpenMenuChange: (menu: RowMenu | null) => void;
 }
 
 export function TaskRow({
@@ -125,8 +134,18 @@ export function TaskRow({
   expanded = false,
   onToggleExpanded,
   subProgress,
+  openMenu,
+  onOpenMenuChange,
 }: TaskRowProps) {
-  const [openMenu, setOpenMenu] = useState<"status" | "priority" | null>(null);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const menuProps = (menu: RowMenu) => ({
+    open: openMenu === menu,
+    onOpenChange: (open: boolean) => onOpenMenuChange(open ? menu : null),
+  });
+  const focusRowOnClose = (event: Event) => {
+    event.preventDefault();
+    openButtonRef.current?.focus();
+  };
 
   return (
     <TaskContextMenu task={task} onEdit={onEdit} projectLabels={projectLabels}>
@@ -143,20 +162,11 @@ export function TaskRow({
         )}
       >
         <button
+          ref={openButtonRef}
           type="button"
+          data-nav-item
           aria-label={`Open ${task.key}: ${task.title}`}
           onClick={onOpen}
-          onKeyDown={(event) => {
-            if (!isBareKey(event)) return;
-            const key = event.key.toLowerCase();
-            if (key === "s") {
-              event.preventDefault();
-              setOpenMenu("status");
-            } else if (key === "p") {
-              event.preventDefault();
-              setOpenMenu("priority");
-            }
-          }}
           className="absolute inset-0 rounded-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
         />
         {onToggleExpanded !== undefined ? (
@@ -182,8 +192,8 @@ export function TaskRow({
         <PriorityEditor
           task={task}
           onEdit={onEdit}
-          open={openMenu === "priority"}
-          onOpenChange={(next) => setOpenMenu(next ? "priority" : null)}
+          {...menuProps("priority")}
+          onCloseAutoFocus={focusRowOnClose}
           className="col-start-1 row-start-2 @max-md:self-start"
         />
         <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @max-md:self-start @md:w-14 @md:shrink-0">
@@ -192,13 +202,29 @@ export function TaskRow({
         <StatusEditor
           task={task}
           onEdit={onEdit}
-          open={openMenu === "status"}
-          onOpenChange={(next) => setOpenMenu(next ? "status" : null)}
+          {...menuProps("status")}
+          onCloseAutoFocus={focusRowOnClose}
           className="col-start-1 row-start-1"
         />
-        <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @md:flex-1">
-          {task.title}
-        </span>
+        <Popover {...menuProps("labels")}>
+          <PopoverAnchor asChild>
+            <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @md:flex-1">
+              {task.title}
+            </span>
+          </PopoverAnchor>
+          <PopoverContent
+            className="w-56 p-0"
+            align="start"
+            mobileTitle="Edit labels"
+            onCloseAutoFocus={focusRowOnClose}
+          >
+            <LabelsPicker
+              task={task}
+              labels={projectLabels}
+              onChange={(labelIds) => onEdit(task, { labelIds })}
+            />
+          </PopoverContent>
+        </Popover>
         <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground @max-md:w-full @max-md:flex-wrap @max-md:justify-end @max-md:self-start @md:shrink-0">
           {subProgress !== undefined && subProgress.total > 0 ? (
             <span

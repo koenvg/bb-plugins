@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import {
   TASK_STATUSES,
   type Label,
@@ -125,13 +125,17 @@ export function StatusEditor({
   onEdit,
   open,
   onOpenChange,
+  onCloseAutoFocus,
   className,
+  trigger,
 }: {
   task: Task;
   onEdit: EditFn;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus?: (event: Event) => void;
   className?: string;
+  trigger?: ReactElement;
 }) {
   const select = (status: TaskStatus) => {
     if (status !== task.status) onEdit(task, { status });
@@ -139,18 +143,21 @@ export function StatusEditor({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Change status, currently ${STATUS_LABELS[task.status]}`}
-          className={cn(TRIGGER_CLASS, className)}
-        >
-          <StatusIcon status={task.status} />
-        </button>
+        {trigger ?? (
+          <button
+            type="button"
+            aria-label={`Change status, currently ${STATUS_LABELS[task.status]}`}
+            className={cn(TRIGGER_CLASS, className)}
+          >
+            <StatusIcon status={task.status} />
+          </button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         className="min-w-56"
         mobileTitle="Change status"
+        onCloseAutoFocus={onCloseAutoFocus}
         onKeyDown={(event) => {
           const status = statusForShortcut(event.key);
           if (status !== null && isBareKey(event)) {
@@ -185,13 +192,17 @@ export function PriorityEditor({
   onEdit,
   open,
   onOpenChange,
+  onCloseAutoFocus,
   className,
+  trigger,
 }: {
   task: Task;
   onEdit: EditFn;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus?: (event: Event) => void;
   className?: string;
+  trigger?: ReactElement;
 }) {
   const select = (priority: TaskPriority) => {
     if (priority !== task.priority) onEdit(task, { priority });
@@ -199,18 +210,21 @@ export function PriorityEditor({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Set priority, currently ${PRIORITY_LABELS[task.priority]}`}
-          className={cn(TRIGGER_CLASS, className)}
-        >
-          <PriorityIcon priority={task.priority} />
-        </button>
+        {trigger ?? (
+          <button
+            type="button"
+            aria-label={`Set priority, currently ${PRIORITY_LABELS[task.priority]}`}
+            className={cn(TRIGGER_CLASS, className)}
+          >
+            <PriorityIcon priority={task.priority} />
+          </button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         className="min-w-52"
         mobileTitle="Set priority"
+        onCloseAutoFocus={onCloseAutoFocus}
         onKeyDown={(event) => {
           const priority = priorityForShortcut(event.key);
           if (priority !== null && isBareKey(event)) {

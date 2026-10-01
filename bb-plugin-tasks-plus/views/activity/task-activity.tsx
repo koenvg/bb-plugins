@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import type { Editor } from "@tiptap/core";
 import { HugeiconsIcon } from "@hugeicons/react";
 import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
 import AttachmentIcon from "@hugeicons/core-free-icons/AttachmentIcon";
@@ -280,9 +281,14 @@ function CommentCard({ entry, nowMs }: { entry: FeedEntry; nowMs: number }) {
 interface ComposerProps {
   taskId: string;
   notificationTarget: AgentNotificationTarget;
+  onEditorReady?: (editor: Editor) => void;
 }
 
-export function CommentComposer({ taskId, notificationTarget }: ComposerProps) {
+export function CommentComposer({
+  taskId,
+  notificationTarget,
+  onEditorReady,
+}: ComposerProps) {
   const rpc = useTasksRpc();
   const navigate = useBbNavigate();
   const mentionItems = useMentionItems();
@@ -348,6 +354,7 @@ export function CommentComposer({ taskId, notificationTarget }: ComposerProps) {
         mentionItems={mentionItems}
         onOpenThread={(threadId) => navigate.toThread(threadId)}
         onSubmit={() => void send()}
+        onEditorReady={onEditorReady}
       />
       {pendingFiles.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -464,9 +471,13 @@ export function AgentNotificationControl({
 
 interface TaskActivityProps {
   taskId: string;
+  onCommentEditorReady?: (editor: Editor) => void;
 }
 
-export function TaskActivity({ taskId }: TaskActivityProps) {
+export function TaskActivity({
+  taskId,
+  onCommentEditorReady,
+}: TaskActivityProps) {
   const feed = useActivityFeed(taskId);
   const nowMs = useNowTick();
   const entries = useMemo(() => feed.data ?? [], [feed.data]);
@@ -507,6 +518,7 @@ export function TaskActivity({ taskId }: TaskActivityProps) {
       <CommentComposer
         taskId={taskId}
         notificationTarget={notificationTarget}
+        onEditorReady={onCommentEditorReady}
       />
     </section>
   );

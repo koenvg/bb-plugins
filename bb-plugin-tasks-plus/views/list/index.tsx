@@ -38,9 +38,11 @@ import {
 import { editedTasks, matchesFilters } from "./optimistic.js";
 import { useListTaskEdits } from "./use-task-edits.js";
 import { useExpandedTasks } from "./expanded-tasks.js";
-import { TaskRow } from "./row.js";
+import { TaskRow, type RowMenu } from "./row.js";
 import type { EditFn } from "./property-menus.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
+import { useShortcuts } from "../../shell/shortcut-provider.js";
+import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
 
 interface ListViewProps {
   projectId: string | null;
@@ -242,6 +244,25 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
     revision: visibleTasks.length,
   });
 
+  const [openRowMenu, setOpenRowMenu] = useState<{
+    taskKey: string;
+    menu: RowMenu;
+  } | null>(null);
+  const forFocusedRow = (act: (taskKey: string) => void) =>
+    forFocusedTask(() => scrollRef.current, act);
+  const openRowMenuFromShortcut = (menu: RowMenu) =>
+    forFocusedRow((taskKey) => setOpenRowMenu({ taskKey, menu }));
+  useShortcuts({
+    "list.next": () => moveFocusInList(scrollRef.current, 1),
+    "list.previous": () => moveFocusInList(scrollRef.current, -1),
+    "list.open": forFocusedRow((taskKey) =>
+      navigation.go({ kind: "task", taskKey }),
+    ),
+    "list.status": openRowMenuFromShortcut("status"),
+    "list.priority": openRowMenuFromShortcut("priority"),
+    "list.labels": openRowMenuFromShortcut("labels"),
+  });
+
   const loadError = tasksQuery.error ?? (needsScope ? scopeQuery.error : null);
   const renderRow = (
     task: Task,
@@ -261,6 +282,10 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       onEdit={edit}
       onOpen={() => navigation.go({ kind: "task", taskKey: task.key })}
       pending={edits.pending.has(task.id)}
+      openMenu={openRowMenu?.taskKey === task.key ? openRowMenu.menu : null}
+      onOpenMenuChange={(menu) =>
+        setOpenRowMenu(menu === null ? null : { taskKey: task.key, menu })
+      }
       {...extra}
     />
   );

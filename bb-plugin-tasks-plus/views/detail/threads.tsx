@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UrlLink, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import type {
@@ -148,6 +148,8 @@ interface DispatchControlProps {
   onError: (message: string) => void;
   align?: "start" | "end";
   className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function DispatchControl({
@@ -156,6 +158,8 @@ export function DispatchControl({
   onError,
   align = "end",
   className,
+  open,
+  onOpenChange,
 }: DispatchControlProps) {
   const rpc = useRpc<DelegationRpcContract>();
   const tasksRpc = useTasksRpc();
@@ -185,6 +189,17 @@ export function DispatchControl({
   const primarySegment =
     "bg-primary text-primary-foreground hover:bg-primary/90";
 
+  const current =
+    presets?.find((preset) => preset.id === lastPresetId) ??
+    (presets
+      ? [...presets].sort((a, b) => a.name.localeCompare(b.name))[0]
+      : undefined);
+
+  const menuAvailable = !dispatching && current !== undefined;
+  useEffect(() => {
+    if (open && !menuAvailable) onOpenChange(false);
+  }, [open, menuAvailable, onOpenChange]);
+
   if (presets !== undefined && presets.length === 0) {
     return (
       <>
@@ -211,12 +226,6 @@ export function DispatchControl({
     );
   }
 
-  const current =
-    presets?.find((preset) => preset.id === lastPresetId) ??
-    (presets
-      ? [...presets].sort((a, b) => a.name.localeCompare(b.name))[0]
-      : undefined);
-
   return (
     <>
       <div className={cn("flex min-w-0", className)}>
@@ -235,7 +244,7 @@ export function DispatchControl({
             {dispatching ? "Dispatching…" : (current?.name ?? "Dispatch")}
           </span>
         </Button>
-        <DropdownMenu>
+        <DropdownMenu open={open && menuAvailable} onOpenChange={onOpenChange}>
           <DropdownMenuTrigger asChild disabled={dispatching || !current}>
             <Button
               size="sm"

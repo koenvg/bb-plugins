@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
@@ -20,25 +20,15 @@ import { EmptyState } from "../components/empty-state.js";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TasksRefreshProvider } from "./refresh.js";
+import { ShortcutProvider, useShortcuts } from "./shortcut-provider.js";
+import { ShortcutHelpDialog } from "./shortcut-help-dialog.js";
+import {
+  useCommandNavigator,
+  usePanelIntents,
+  type PanelIntent,
+} from "./command-bridge.js";
 
 const BOARD_MIN_WIDTH = 448;
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target.isContentEditable
-  );
-}
-
-function hasOpenOverlay(): boolean {
-  return (
-    document.querySelector(
-      '[role="dialog"], [role="menu"], [role="listbox"]',
-    ) !== null
-  );
-}
 
 function RouteOutlet({
   route,
@@ -110,37 +100,30 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
   }, [subPath]);
   const backFromTask = () =>
     navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
-  const onTaskRoute = route.kind === "task";
-  const backRef = useRef(backFromTask);
-  backRef.current = backFromTask;
-  useEffect(() => {
-    if (!onTaskRoute) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (isEditableTarget(event.target)) return;
-      if (hasOpenOverlay()) return;
-      backRef.current();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onTaskRoute]);
-
   const noProjects = projects.data !== undefined && projects.data.length === 0;
   const newTaskProjectId = route.kind === "project" ? route.projectId : null;
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "c" || event.metaKey || event.ctrlKey || event.altKey)
-        return;
-      if (event.defaultPrevented || event.repeat) return;
-      if (isEditableTarget(event.target)) return;
-      if (hasOpenOverlay()) return;
-      event.preventDefault();
-      setNewTaskOpen(true);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const [helpOpen, setHelpOpen] = useState(false);
+  useCommandNavigator();
+  usePanelIntents(
+    useCallback((intent: PanelIntent) => {
+      if (intent === "new-task") setNewTaskOpen(true);
+      else setHelpOpen(true);
+    }, []),
+  );
+  useShortcuts({
+    "panel.newTask": () => setNewTaskOpen(true),
+    "panel.help": () => setHelpOpen(true),
+    "panel.toggleView":
+      route.kind === "project" && boardUsable
+        ? () =>
+            navigation.go({
+              ...route,
+              view: route.view === "board" ? "list" : "board",
+            })
+        : null,
+    "detail.back": route.kind === "task" ? backFromTask : null,
+  });
 
   return (
     <div className="relative flex h-full min-h-0 bg-background text-foreground">
@@ -189,14 +172,20 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
         open={newProjectOpen}
         onOpenChange={setNewProjectOpen}
       />
+      <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }
 
 export function TasksAppShell(props: PluginNavPanelProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   return (
     <TasksRefreshProvider>
-      <TasksAppShellContent {...props} />
+      <ShortcutProvider rootRef={rootRef}>
+        <div ref={rootRef} className="contents">
+          <TasksAppShellContent {...props} />
+        </div>
+      </ShortcutProvider>
     </TasksRefreshProvider>
   );
 }

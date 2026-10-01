@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { Editor } from "@tiptap/core";
 import { HugeiconsIcon } from "@hugeicons/react";
 import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
 import type { Task } from "../../shared/contract.js";
@@ -24,8 +25,10 @@ import { STATUS_LABELS } from "../list/lib.js";
 import {
   InlineProperties,
   PropertiesRail,
+  type DetailMenu,
   type TaskPropertyUpdate,
 } from "./rail.js";
+import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { DependencyBadges, useBlockedWorkConfirm } from "../dependencies.js";
 import { DependencySections } from "./dependencies.js";
 import { ThreadsSection } from "./threads.js";
@@ -36,6 +39,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface DetailViewProps {
   taskKey: string;
+}
+
+type PropertiesLayout = "inline" | "rail";
+
+function shownPropertiesLayout(root: HTMLElement | null): PropertiesLayout {
+  const layouts = [
+    ...(root?.querySelectorAll<HTMLElement>("[data-properties-layout]") ?? []),
+  ];
+  const shown =
+    layouts.find((layout) => layout.getClientRects().length > 0) ?? layouts[0];
+  return shown?.dataset.propertiesLayout === "rail" ? "rail" : "inline";
 }
 
 const DESCRIPTION_SAVE_DELAY_MS = 800;
@@ -295,6 +309,33 @@ function TaskDetail({
 
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
+  const detailRef = useRef<HTMLDivElement>(null);
+  const commentEditorRef = useRef<Editor | null>(null);
+  const [openMenu, setOpenMenu] = useState<{
+    menu: DetailMenu;
+    layout: PropertiesLayout;
+  } | null>(null);
+  const menuControl = (layout: PropertiesLayout) => ({
+    openMenu: openMenu?.layout === layout ? openMenu.menu : null,
+    onOpenMenuChange: (menu: DetailMenu | null) =>
+      setOpenMenu(menu === null ? null : { menu, layout }),
+  });
+  const openFromShortcut = (menu: DetailMenu) => () =>
+    setOpenMenu({ menu, layout: shownPropertiesLayout(detailRef.current) });
+  useShortcuts({
+    "detail.status": openFromShortcut("status"),
+    "detail.priority": openFromShortcut("priority"),
+    "detail.labels": openFromShortcut("labels"),
+    "detail.dispatch": presets.data?.length
+      ? openFromShortcut("dispatch")
+      : null,
+    "detail.comment": () => {
+      const editor = commentEditorRef.current;
+      if (editor === null) return false;
+      editor.commands.focus("end");
+    },
+  });
+
   const updateTask = async (
     input: TaskPropertyUpdate & { title?: string; description?: string },
   ) => {
@@ -370,7 +411,10 @@ function TaskDetail({
   const parentTask = parent.data ?? null;
 
   return (
-    <div className="@container flex min-h-full flex-col bg-surface-recessed-solid p-3">
+    <div
+      ref={detailRef}
+      className="@container flex min-h-full flex-col bg-surface-recessed-solid p-3"
+    >
       <div className="flex flex-1 items-stretch rounded-lg border border-border bg-card shadow-2xs">
         <div className="mx-auto w-full min-w-0 max-w-[55rem] flex-1 px-7 pb-16 pt-8 @3xl:px-13 @3xl:pt-11">
           {parentTask || subtasks.data?.length ? (
@@ -415,6 +459,7 @@ function TaskDetail({
             onUpdate={(update) => void updateTask(update)}
             onError={(message) => push(message)}
             className="mb-4 @[45rem]:hidden"
+            {...menuControl("inline")}
           />
 
           <TasksEditor
@@ -507,7 +552,12 @@ function TaskDetail({
           ) : null}
 
           <div className="mt-1">
-            <TaskActivity taskId={task.id} />
+            <TaskActivity
+              taskId={task.id}
+              onCommentEditorReady={(editor) => {
+                commentEditorRef.current = editor;
+              }}
+            />
           </div>
         </div>
 
@@ -520,6 +570,7 @@ function TaskDetail({
           onUpdate={(update) => void updateTask(update)}
           onError={(message) => push(message)}
           className="hidden @[45rem]:block"
+          {...menuControl("rail")}
         />
       </div>
       <DetailToasts toasts={toasts} onDismiss={dismiss} />

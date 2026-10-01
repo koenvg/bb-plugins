@@ -17,6 +17,17 @@ import {
   useTasksRpc,
   type TasksRpc,
 } from "../../shell/data.js";
+import { useShortcuts } from "../../shell/shortcut-provider.js";
+import {
+  PriorityEditor,
+  StatusEditor,
+  type EditFn,
+} from "../list/property-menus.js";
+import {
+  forFocusedTask,
+  moveFocusAcrossColumns,
+  moveFocusInColumn,
+} from "../keyboard-navigation.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { NewTaskDialog } from "../manage/new-task-dialog.js";
 import {
@@ -179,6 +190,7 @@ interface TaskCardProps {
   cardRef?: (element: HTMLDivElement | null) => void;
   onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onClick?: () => void;
+  menu?: ReactNode;
 }
 
 function TaskCard({
@@ -190,18 +202,37 @@ function TaskCard({
   cardRef,
   onPointerDown,
   onClick,
+  menu,
 }: TaskCardProps) {
   const labels = task.labelIds
     .map((labelId) => labelsById.get(labelId))
     .filter((label): label is Label => label !== undefined);
+  const interactive = onClick !== undefined;
   return (
     <div
       ref={cardRef}
       data-task-key={task.key}
-      onPointerDown={onPointerDown}
-      onClick={onClick}
+      data-nav-item={interactive || undefined}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Open ${task.key}: ${task.title}` : undefined}
+      onPointerDown={(event) => {
+        if (event.currentTarget.contains(event.target as Node)) {
+          onPointerDown?.(event);
+        }
+      }}
+      onClick={(event) => {
+        if (event.currentTarget.contains(event.target as Node)) onClick?.();
+      }}
+      onKeyDown={(event) => {
+        if (!interactive || event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       className={cn(
-        "shrink-0 rounded-lg border border-border bg-card px-2.5 py-2 shadow-2xs select-none",
+        "relative shrink-0 rounded-lg border border-border bg-card px-2.5 py-2 shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         ghost
           ? "rotate-2 shadow-md"
           : "cursor-pointer touch-none hover:border-input",
@@ -245,7 +276,47 @@ function TaskCard({
           />
         ) : null}
       </div>
+      {menu}
     </div>
+  );
+}
+
+type CardMenu = "status" | "priority";
+
+function CardMenuAnchor({
+  task,
+  menu,
+  onEdit,
+  onClose,
+  onReturnFocus,
+}: {
+  task: Task;
+  menu: CardMenu;
+  onEdit: EditFn;
+  onClose: () => void;
+  onReturnFocus: () => void;
+}) {
+  const Editor = menu === "status" ? StatusEditor : PriorityEditor;
+  return (
+    <Editor
+      task={task}
+      onEdit={onEdit}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      onCloseAutoFocus={(event) => {
+        event.preventDefault();
+        onReturnFocus();
+      }}
+      trigger={
+        <span
+          aria-hidden
+          tabIndex={-1}
+          className="pointer-events-none absolute bottom-0 left-2 size-0"
+        />
+      }
+    />
   );
 }
 
@@ -469,6 +540,36 @@ export function BoardView({ projectId }: BoardViewProps) {
     navigation.go({ kind: "task", taskKey: task.key });
   };
 
+  const [cardMenu, setCardMenu] = useState<{
+    taskKey: string;
+    menu: CardMenu;
+  } | null>(null);
+  const forFocusedCard = (act: (taskKey: string) => void) =>
+    forFocusedTask(() => boardRef.current, act);
+  const openCardMenu = (menu: CardMenu) =>
+    forFocusedCard((taskKey) => setCardMenu({ taskKey, menu }));
+  const editCard: EditFn = (task, patch) => {
+    if (patch.status !== undefined) {
+      void commitDrop(task.id, patch.status, columns?.[patch.status].length ?? 0);
+      return;
+    }
+    void rpc
+      .call("updateTask", { taskId: task.id, ...patch })
+      .then(board.refresh, board.refresh);
+  };
+
+  useShortcuts({
+    "board.status": openCardMenu("status"),
+    "board.priority": openCardMenu("priority"),
+    "board.down": () => moveFocusInColumn(boardRef.current, 1),
+    "board.up": () => moveFocusInColumn(boardRef.current, -1),
+    "board.right": () => moveFocusAcrossColumns(boardRef.current, 1),
+    "board.left": () => moveFocusAcrossColumns(boardRef.current, -1),
+    "board.open": forFocusedCard((taskKey) =>
+      navigation.go({ kind: "task", taskKey }),
+    ),
+  });
+
   if (columns === undefined) {
     if (board.error) {
       return (
@@ -523,6 +624,17 @@ export function BoardView({ projectId }: BoardViewProps) {
           }}
           onPointerDown={(event) => handleCardPointerDown(event, task)}
           onClick={() => openTask(task)}
+          menu={
+            cardMenu?.taskKey === task.key ? (
+              <CardMenuAnchor
+                task={task}
+                menu={cardMenu.menu}
+                onEdit={editCard}
+                onClose={() => setCardMenu(null)}
+                onReturnFocus={() => cardRefs.current.get(task.id)?.focus()}
+              />
+            ) : null
+          }
         />,
       );
     }
