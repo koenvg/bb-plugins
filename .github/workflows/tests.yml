@@ -27,7 +27,6 @@ jobs:
           - bb-plugin-liquid-glass
           - bb-plugin-pr-thread-list
           - bb-plugin-tasks-plus
-          - bb-task-board
     defaults:
       run:
         shell: bash
