@@ -137,20 +137,40 @@ describe("Codex quota UI", () => {
     badge.rerender(<QuotaBadge view={visibleView(fresh(25), observedAt + 86_400_000)} hostName="My Mac" now={observedAt + 86_400_000} />);
     expect(badge.container.textContent).not.toMatch(/25%/);
   });
-  it("shows no spinner or fresh badge while a read is in progress", () => {
-    const page = render(<QuotaDashboard {...props} view={fresh(25)} loading />);
+  it.each(["initial", "separate"] as const)("shows no binding percentage during %s loading", (mode) => {
+    const ready = mode === "separate";
+    const view: QuotaStatus = ready ? { ...fresh(42), snapshot: { ...snapshot(42), general: [], bindingWindowId: null, bindingRemainingPercent: null } } : fresh(42);
+    const page = render(<QuotaDashboard {...props} view={view} ready={ready} loading />);
+    const badge = render(<QuotaBadge view={view} hostName="My Mac" now={observedAt} ready={ready} loading />);
+    const battery = render(<QuotaBattery view={view} now={observedAt} ready={ready} loading />);
+    expect(page.getByRole("region", { name: "Codex allowance summary" }).querySelector("h2")?.textContent).toBe("—");
+    expect(badge.container.textContent).toBe("—");
+    expect(battery.container.querySelector('[data-battery-fill]')).toBeNull();
+  });
+  it.each([0, 42, 100])("retains %i percent and battery fill while fresh, then labels staleness during the same update", (remaining) => {
+    const page = render(<QuotaDashboard {...props} view={fresh(remaining)} loading />);
     expect(page.getByRole("status").textContent).toMatch(/^Updating · last checked /);
-    expect(page.container.textContent).not.toMatch(/Checking quota|Fresh observation/);
+    expect(page.getByText(`${remaining}% remaining`)).toBeTruthy();
     expect(page.container.querySelector('[role="progressbar"], .animate-spin')).toBeNull();
-    const badge = render(<QuotaBadge view={fresh(25)} hostName="My Mac" now={observedAt} loading />);
-    page.rerender(<QuotaDashboard {...props} view={visibleView(fresh(25), observedAt + 300_000)} now={observedAt + 300_000} loading />);
-    expect(page.getByRole("status").className).not.toContain("text-destructive");
-    expect(badge.container.textContent).toBe("—");
-    expect(within(badge.container).getByLabelText(/My Mac.*updating/i)).toBeTruthy();
-    badge.rerender(<QuotaBadge view={visibleView(fresh(25), observedAt + 300_000)} hostName="My Mac" now={observedAt + 300_000} loading />);
-    expect(badge.container.textContent).toBe("—");
-    badge.rerender(<QuotaBadge view={fresh(25)} hostName="My Mac" now={observedAt} />);
-    expect(badge.container.textContent).toBe("25%");
+    const badge = render(<QuotaBadge view={fresh(remaining)} hostName="My Mac" now={observedAt} loading />);
+    const icon = render(<QuotaBattery view={fresh(remaining)} now={observedAt} loading />);
+    expect(badge.container.textContent).toBe(`${remaining}%`);
+    expect(within(badge.container).getByLabelText(new RegExp(`My Mac.*updating.*${remaining}% remaining.*observed`))).toBeTruthy();
+    expect(icon.container.querySelector('[data-battery-fill]')?.getAttribute('data-battery-fill')).toBe(String(remaining));
+    page.rerender(<QuotaDashboard {...props} view={fresh(remaining)} now={observedAt + 300_000} loading />);
+    expect(page.getByRole("status").textContent).toMatch(/^Stale · updating/i);
+    badge.rerender(<QuotaBadge view={fresh(remaining)} hostName="My Mac" now={observedAt + 300_000} loading />);
+    icon.rerender(<QuotaBattery view={fresh(remaining)} now={observedAt + 300_000} loading />);
+    expect(badge.container.textContent).toBe("Stale");
+    expect(icon.container.querySelector('[data-battery-fill]')).toBeNull();
+    for (const overrides of [{ ready: false }, { now: observedAt + 86_400_000 }, { view: absent }]) {
+      badge.rerender(<QuotaBadge view={fresh(remaining)} hostName="My Mac" now={observedAt} loading {...overrides} />);
+      icon.rerender(<QuotaBattery view={fresh(remaining)} now={observedAt} loading {...overrides} />);
+      expect(badge.container.textContent).toBe("—");
+      expect(icon.container.querySelector('[data-battery-fill]')).toBeNull();
+    }
+    page.rerender(<QuotaDashboard {...props} view={fresh(remaining)} now={observedAt + 86_400_000} loading />);
+    expect(page.queryByText(`${remaining}% remaining`)).toBeNull();
   });
   it("labels a tied binding window and hides percentages for offline or unselected hosts", () => {
     const tied: QuotaStatus = { state: "fresh", reason: "ok", snapshot: { ...snapshot(30), general: [
@@ -182,7 +202,7 @@ describe("Codex quota UI", () => {
     const icon = render(<QuotaBattery view={fresh(72)} now={observedAt} />);
     expect(icon.container.querySelector("[data-battery-fill]")).not.toBeNull();
     for (const overrides of [
-      { ready: false }, { loading: true }, { now: observedAt + 300_000 },
+      { ready: false }, { now: observedAt + 300_000 },
       { now: observedAt + 86_400_000 }, { view: absent },
       { view: { ...fresh(72), state: "stale" as const } },
       { view: { state: "unavailable" as const, reason: "host-offline" as const, snapshot: null } },

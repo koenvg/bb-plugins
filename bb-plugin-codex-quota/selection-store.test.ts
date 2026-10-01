@@ -32,7 +32,7 @@ describe("shared badge/dashboard selection", () => {
     expect(store.getSnapshot().selection.hostId).toBe("host_b");
     expect(reads).toBe(2);
   });
-  it("revalidates a fresh observation on return without presenting it as current during the check", async () => {
+  it("keeps a valid observation fresh while synchronizing the unchanged selection", async () => {
     const store = new QuotaSelectionStore();
     let reads = 0;
     const api: QuotaApi = {
@@ -45,14 +45,14 @@ describe("shared badge/dashboard selection", () => {
     await store.refresh(api);
     expect(store.getSnapshot().view.state).toBe("fresh");
     const returning = store.connect(api);
-    expect(store.getSnapshot().view.state).toBe("stale");
-    expect(store.getSnapshot().loading).toBe(true);
+    expect(store.getSnapshot().view.state).toBe("fresh");
+    expect(store.getSnapshot().loading).toBe(false);
     await returning;
     await store.refresh(api);
     expect(reads).toBe(2); // The host cache can answer the second RPC without another quota GET.
     expect(store.getSnapshot().view.state).toBe("fresh");
   });
-  it("does not publish a previous account's percentage as fresh while the host checks a switch", async () => {
+  it("discards the retained percentage when a host read reports an account switch", async () => {
     const store = new QuotaSelectionStore();
     const switched = deferred<QuotaStatus>();
     let reads = 0;
@@ -64,7 +64,7 @@ describe("shared badge/dashboard selection", () => {
     await store.connect(api);
     await store.refresh(api);
     const returning = store.connect(api);
-    expect(store.getSnapshot().view.state).toBe("stale");
+    expect(store.getSnapshot().view.state).toBe("fresh");
     await returning;
     const recheck = store.refresh(api);
     expect(store.getSnapshot().loading).toBe(true);

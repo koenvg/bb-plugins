@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Give agents project-selected guidance to log substantial cleanup discovered beside their current work as separate BB tasks, without distracting them with minor nits or leaving guidance active after the plugin is disabled.
+Give agents project-selected guidance to report substantial cleanup discovered beside their current work to the user, without distracting them with minor nits or leaving guidance active after the plugin is disabled.
 
 ## Requirements
 
@@ -17,27 +17,23 @@ The Code Cleanup plugin SHALL contribute cleanup instructions only to newly cons
 - **WHEN** a fresh agent session starts for an unconfigured or disabled project, a personal or projectless context, or a side chat
 - **THEN** it receives no Code Cleanup guidance
 
-### Requirement: Agent-judged follow-up tasks
-The default guidance SHALL tell the agent to notice substantial, actionable cleanup in files it edits or adjacent code it reads, create a separate follow-up task when warranted, and stay focused on the current task. It SHALL explicitly exclude minor style preferences and trivial nits. The plugin SHALL NOT create tasks automatically.
+### Requirement: Agent-judged follow-ups
+The default guidance SHALL tell the agent to notice substantial, actionable cleanup in files it edits or adjacent code it reads, report a separate follow-up candidate to the user when warranted, and stay focused on the current task. It SHALL explicitly exclude minor style preferences and trivial nits. The plugin SHALL NOT create tasks automatically.
 
 #### Scenario: Substantial adjacent cleanup
 - **WHEN** an agent finds a separate, worthwhile cleanup issue while carrying out an existing task
-- **THEN** the guidance directs the agent to judge whether to record it as a follow-up rather than perform unrelated cleanup in the current task
+- **THEN** the guidance directs the agent to judge whether to report it as a follow-up rather than perform unrelated cleanup in the current task
 
 #### Scenario: Minor nit
 - **WHEN** the only finding is a trivial formatting or style preference
-- **THEN** the guidance directs the agent not to open a cleanup task for it
+- **THEN** the guidance directs the agent not to report a cleanup candidate for it
 
-### Requirement: BB task-board instructions
-The default guidance SHALL use the installed BB task-board command and the current project's ID when describing how to create a follow-up task. It SHALL NOT refer to OpenForge commands, fabricate a cleanup-specific task command, or direct the agent to create a task when the task-board command is unavailable. It SHALL ask the agent to check for an existing matching task before creating a new one and to write an actionable task prompt.
+### Requirement: Report follow-up candidates
+The default guidance SHALL direct the agent to report a worthwhile follow-up to the user with its location, problem, and desired outcome. It SHALL NOT direct the agent to use a task CLI or claim to have created a task.
 
-#### Scenario: Task board available
-- **WHEN** the agent judges that a substantive, nonduplicate follow-up is warranted and `bb task-board` is available
-- **THEN** the guidance names `bb task-board add --project <project-id> --prompt <actionable-text>` as the task-creation command
-
-#### Scenario: Task board unavailable
-- **WHEN** `bb task-board` is unavailable to the agent
-- **THEN** the guidance tells the agent to report the candidate follow-up to the user instead of claiming to have created a task
+#### Scenario: Substantial cleanup worth reporting
+- **WHEN** the agent judges that a substantial follow-up is warranted
+- **THEN** the guidance asks the agent to report an actionable candidate to the user without creating a task
 
 ### Requirement: Project configuration and overrides
 A user SHALL be able to enable or disable Code Cleanup separately for each standard project, view its effective state, replace its default guidance with a nonblank project-specific instruction, and restore the default. Project choices and overrides SHALL persist across plugin reloads and global disable/re-enable without affecting other projects. Invalid or oversized custom instructions SHALL be rejected without changing the saved value.
