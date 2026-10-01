@@ -77,6 +77,30 @@ describe("quota footer attachment", () => {
     expect(document.querySelector('[data-codex-quota-style]')).toBeNull();
   });
 
+  it("keeps the upper quota entry suppressed while a context menu hides the background from screen readers", async () => {
+    const { sidebar, row, button } = footerFixture();
+    const adapter = mount();
+    adapter.setNavigationReady(true);
+    const target = adapter.getSnapshot()[0]!;
+    target.commit();
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    document.body.append(menu);
+
+    // Radix modal menus isolate the background with aria-hidden, not display:none.
+    sidebar.setAttribute("aria-hidden", "true");
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(adapter.getSnapshot()[0]).toBe(target);
+    expect(target.container.parentElement).toBe(button);
+    expect(sidebar.getAttribute("aria-hidden")).toBe("true");
+    expect(getComputedStyle(row).display).toBe("none");
+
+    sidebar.removeAttribute("aria-hidden");
+    menu.remove();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(adapter.getSnapshot()[0]).toBe(target);
+    expect(getComputedStyle(row).display).toBe("none");
+  });
   it.each(["hidden", "display", "duplicate", "remove"])("restores navigation when its footer becomes %s", async (mode) => {
     const { sidebar, row, item } = footerFixture();
     const adapter = mount();

@@ -70,3 +70,17 @@ The battery's single completion review found that app-wide icons could retain a 
 Three regression cases failed before the fix and pass afterward. They cover owner reference counting and idempotent release, retained and newly mounted icons beyond freshness and expiry, continued fill while one owner remains, revalidation on return, and pending reads that finish after teardown. Icons add no requests, intervals, or focus listeners.
 
 Post-review validation passed **88 tests across 12 files**, typecheck, SDK pin/public-import checks, build, and both synthetic bundled OAuth checks. The rebuilt plugin was reloaded and the Arc page refreshed. After reselecting the same host, its installed footer showed matching `69%` text and battery fill. Ownerless-icon transitions are established by lifecycle tests, not a new live disable/re-enable claim. The review finding is resolved, with no second review pass.
+
+## Context-menu fix and stable source recovery, 1 October 2026
+
+The installed temporary worktree disappeared during the first verification attempt. Its last committed plugin version was recovered from `e9c1e4aa36e6454483bce959f86e669f0792965f` into `/Users/koen/workspace/bb-codex-quota-fix`. The existing `codex-quota` local-path installation was moved to that stable checkout without removing the plugin or its stored configuration. The same host was reselected after backend reload, which resets the pre-existing in-memory selection.
+
+The footer adapter no longer treats `aria-hidden` as visual removal. Modal context menus isolate the background from screen readers without removing its controls; that isolation had detached the footer badge and restored the duplicate upper quota entry. The adapter still falls back when the footer is hidden, inert, disabled, visually hidden, removed, or ambiguous. It does not change the host's accessibility attributes.
+
+- The existing DOM-adapter regression failed before the fix and passed afterward. Background isolation and its removal keep the same badge target attached and the upper entry suppressed, while preserving `aria-hidden`.
+- All **89 tests across 12 files**, `npm run typecheck`, `bb plugin types --check`, the public-SDK scan, build, and synthetic bundled OAuth fresh-token/refresh checks passed.
+- In signed-in Arc at 1280px, the installed dashboard and footer showed matching `65%` allowance and battery fill. A native sidebar right-click menu opened while the upper quota entry remained `display: none` and exactly one footer badge stayed attached. This menu did not itself isolate the sidebar; adding its original bug-triggering `aria-hidden` state temporarily while the menu was open preserved suppression and the attachment. The original accessibility state was restored and the menu dismissed. The current thread-list replacement did not open a menu on thread right-click, so that exact gesture is covered by the background-isolation regression rather than claimed as a live reproduction.
+
+The footer indicator, dashboard, and genuine footer-unavailable navigation fallback remain unchanged. No sidebar preferences, OAuth storage, BB core, SDK contracts, or dependencies were changed.
+
+The single fresh-context completion review approved the fix with no blocking findings. It independently reran all 89 tests, typecheck, and diff whitespace checks. No revisions or second review pass were needed. The exact live thread-right-click coverage limit above remains.

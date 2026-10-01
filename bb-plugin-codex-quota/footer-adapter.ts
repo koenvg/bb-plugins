@@ -13,7 +13,9 @@ const styles = `
 function isAvailable(button: HTMLButtonElement): boolean {
   if (!button.isConnected || button.disabled || button.getAttribute("aria-disabled") === "true") return false;
   for (let node: HTMLElement | null = button; node; node = node.parentElement) {
-    if (node.hidden || node.inert || node.getAttribute("aria-hidden") === "true") return false;
+    // Modal menus set aria-hidden on the background without removing the footer.
+    // Keep its attachment and navigation suppression until it is actually hidden.
+    if (node.hidden || node.inert) return false;
     const style = node.ownerDocument.defaultView?.getComputedStyle(node);
     if (style?.display === "none" || style?.visibility === "hidden") return false;
   }
