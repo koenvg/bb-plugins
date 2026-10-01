@@ -1,6 +1,6 @@
 # Code Cleanup
 
-This headless BB plugin reminds agents to log substantial adjacent cleanup as a separate task without abandoning the work at hand. It does not inspect code or create tasks on its own.
+This headless BB plugin reminds agents to report substantial adjacent cleanup to the user without abandoning the work at hand. It does not inspect code or create tasks.
 
 ## Set up a project
 
@@ -25,6 +25,6 @@ The custom text **replaces** the default, rather than being appended to it. It m
 
 BB has no OpenForge-style per-project plugin enable switch. `bb plugin disable code-cleanup` unloads the plugin globally, so its guidance stops being contributed to **new sessions**. A provider session that was already constructed may keep its earlier instructions until BB constructs another session. You must re-enable the plugin globally before its `bb code-cleanup` command is available again.
 
-The default instructions use the existing `bb task-board` CLI to check for duplicates and add a follow-up only when the agent judges it worthwhile. If task-board is unavailable, the agent reports the candidate to the user instead of claiming a task exists. No task-board plugin state is modified just by enabling Code Cleanup.
+The default instructions ask agents to report worthwhile follow-up candidates to the user. Code Cleanup does not create tasks or depend on a task plugin.
 
 The [command reference](skills/code-cleanup/SKILL.md) is not auto-imported into agent sessions. `bb.skills: []` keeps the dynamic instruction block in one place.
