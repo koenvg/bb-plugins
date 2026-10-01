@@ -3,7 +3,7 @@ import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 export const isBusy = (thread: PluginSidebarThread) =>
   thread.status === "starting" || thread.status === "active" || thread.status === "stopping";
 
-const hasActivity = ({ activity }: PluginSidebarThread) =>
+export const hasActivity = ({ activity }: PluginSidebarThread) =>
   activity.workflows + activity.backgroundAgents + activity.backgroundCommands + activity.planMode + activity.goals > 0;
 
 export function needsAttention(thread: PluginSidebarThread): boolean {

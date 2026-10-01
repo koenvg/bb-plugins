@@ -1,21 +1,6 @@
-# sidebar-thread-list Specification
+# Spec Delta
 
-## Purpose
-
-Provide a selectable BB thread list that keeps everyday sidebar navigation intact and makes each thread's branch pull request status visible without opening the thread.
-
-## Requirements
-
-### Requirement: Selectable replacement list
-The system SHALL provide a selectable replacement for the scrolling sidebar thread list while leaving BB-owned navigation, new-thread controls, and footer available. The existing bundled list SHALL remain selectable.
-
-#### Scenario: User selects the replacement
-- **WHEN** a user chooses the new list under sidebar appearance settings
-- **THEN** its thread rows occupy the scrolling list area without replacing the surrounding sidebar controls
-
-#### Scenario: User switches back
-- **WHEN** a user selects BB's bundled thread list again
-- **THEN** the bundled list displays without uninstalling the replacement plugin
+## MODIFIED Requirements
 
 ### Requirement: Familiar organization and visibility
 The replacement SHALL support the existing list's active and archived visibility, pinned threads, thread nesting, grouping by project, machine, or user section, and collapse and sorting controls. The active and archived selection SHALL be in List options and SHALL apply only to the All tab. It SHALL keep the user's choices for the replacement across reloads and SHALL not show hidden threads as ordinary rows.
@@ -35,21 +20,6 @@ The replacement SHALL support the existing list's active and archived visibility
 #### Scenario: Hidden thread
 - **WHEN** a thread is marked hidden
 - **THEN** it does not appear as an ordinary navigable row
-
-### Requirement: Existing thread interactions remain available
-The replacement SHALL preserve navigation, the selected-thread and activity indicators, unread and draft cues, the thread context actions, split navigation where supported, and keyboard and compact-viewport behavior. Destructive actions SHALL use BB's confirmation flow.
-
-#### Scenario: Open a thread on a compact viewport
-- **WHEN** a user opens a thread from the replacement on a compact viewport
-- **THEN** BB navigates to the thread and closes the sidebar drawer
-
-#### Scenario: Thread actions
-- **WHEN** a user uses a row's menu to pin, mark read or unread, rename, archive, or request deletion
-- **THEN** the action operates on that thread and deletion requires BB's confirmation
-
-#### Scenario: Keyboard and split navigation
-- **WHEN** a user invokes BB's thread-row keyboard shortcut or drags a row into a split where supported
-- **THEN** the replacement targets the same thread and respects BB's split behavior
 
 ### Requirement: Pull request status per thread
 For a thread whose environment branch has a pull request, the replacement SHALL show a compact status and an accessible link to that pull request on the thread row. The status SHALL come from the github-insight PR summary of the thread, not from BB's per-row PR lookup. It SHALL distinguish draft, open with no special attention, checks pending or failed, review requested or changes requested, conflicts or blocked merge, ready to merge, merged, and closed states. The status SHALL not be mistaken for the thread's execution status.

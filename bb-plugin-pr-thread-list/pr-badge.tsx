@@ -1,14 +1,14 @@
-import { experimental_Icon as Icon, type PluginSidebarThreadPullRequestState } from "@get-bb/plugin-sdk/app";
-import type { PrInsight } from "./pr-insight";
+import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
+import type { PrSummary } from "./pr-insight";
 import { presentPullRequest } from "./pr-status";
 import { Tip } from "./tip";
 
 const CHECKS_TONE = { passed: "text-success", running: "text-warning-text", failed: "text-destructive", unknown: "text-muted-foreground" };
 const TONE = { merged: "text-violet-600 dark:text-violet-400", problem: "text-destructive", ready: "text-primary", waiting: "text-muted-foreground", neutral: "text-muted-foreground" };
 
-export function PrBadgeView({ isLoading, pullRequest, insight }: PluginSidebarThreadPullRequestState & { insight: PrInsight | null }) {
-  if (isLoading || !pullRequest) return <span data-testid="pr-hook-consumer" hidden />;
-  const view = presentPullRequest(pullRequest, insight);
+export function PrBadgeView({ pullRequest }: { pullRequest: PrSummary | null }) {
+  if (!pullRequest) return <span data-testid="pr-hook-consumer" hidden />;
+  const view = presentPullRequest(pullRequest);
   const content = <>
     <span className="sr-only">{view.label}</span>
     <span aria-hidden className="contents">

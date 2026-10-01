@@ -1,10 +1,13 @@
 import type { PluginSidebarProject, PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { isBusy, needsAttention } from "./row-cues";
+import { tabFor, type Tab } from "./tabs";
+import type { PrSummary } from "./pr-insight";
 
 export type Organization = "project" | "machine" | "section";
 export type Lifecycle = "active" | "archived";
 export type SortField = "updated" | "created" | "title";
 export interface ListOptions {
+  tab: Tab;
   mode: Organization;
   lifecycles: readonly Lifecycle[];
   sort: SortField;
@@ -54,8 +57,12 @@ export function visibleItems(
   projects: readonly PluginSidebarProject[],
   sections: readonly PluginSidebarSection[],
   options: ListOptions,
+  pullRequests: ReadonlyMap<string, PrSummary | null> = new Map(),
 ): ListItem[] {
-  const filtered = threads.filter((t) => !t.isHidden && options.lifecycles.includes(t.isArchived ? "archived" : "active"));
+  const { tab } = options;
+  const filtered = threads.filter((t) => !t.isHidden && (tab === "all"
+    ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
+    : !t.isArchived && tabFor(t, pullRequests.get(t.id) ?? null) === tab));
   const byId = new Map(filtered.map((t) => [t.id, t]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
@@ -77,7 +84,7 @@ export function visibleItems(
     return pinned;
   };
   const scopeOf = (thread: PluginSidebarThread): GroupScope => {
-    if (needsAttention(thread)) return { kind: "attention" };
+    if (tab === "all" && needsAttention(thread)) return { kind: "attention" };
     if (belongsToPinned(thread)) return { kind: "pinned" };
     if (options.mode === "section") return thread.sectionId && sectionNames.has(thread.sectionId)
       ? { kind: "section", sectionId: thread.sectionId } : { kind: "threads" };

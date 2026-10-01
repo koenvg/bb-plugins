@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
@@ -11,8 +11,12 @@ const app = await loadPluginApp(() => import("./app"));
 let mounted: ReturnType<typeof renderSlot> | undefined;
 afterEach(() => { mounted?.lifecycle.unmount(); mounted = undefined; localStorage.clear(); });
 
+function showTab(slot: ReturnType<typeof renderSlot>, name: string) {
+  fireEvent.click(slot.getByRole("tab", { name }));
+}
 function showLifecycle(slot: ReturnType<typeof renderSlot>, name: string) {
-  fireEvent.click(slot.getByRole("radio", { name }));
+  showTab(slot, "All");
+  chooseOption(slot, name);
 }
 function chooseOption(slot: ReturnType<typeof renderSlot>, name: string) {
   fireEvent.click(slot.getByRole("button", { name: "List options" }));
@@ -23,6 +27,17 @@ function optionChecked(slot: ReturnType<typeof renderSlot>, name: string) {
   const checked = screen.getByRole("menuitemradio", { name }).getAttribute("aria-checked") === "true";
   fireEvent.keyDown(document, { key: "Escape" });
   return checked;
+}
+
+function prSummary(overrides: Record<string, unknown> = {}) {
+  return { version: 1, updatedAt: new Date().toISOString(),
+    pr: { number: 42, url: "https://example.com/pull/42", state: "open" },
+    checks: { failed: 0, running: 0, cancelled: 0, passed: 0, skipped: 0, failedNames: [] },
+    reviewers: { pending: 0, approved: 0, changesRequested: 0, pendingNames: [] },
+    blockers: [], error: null, ...overrides };
+}
+function withSummaries(summaries: Record<string, unknown>): Partial<RenderSlotOptions> {
+  return { rpc: { listSummaries: () => ({ insightAvailable: true, summaries }) } };
 }
 
 function tip(slot: ReturnType<typeof renderSlot>, text: string) {
@@ -55,7 +70,8 @@ describe("thread list slot", () => {
     mounted = undefined;
     const second = mount();
     expect(optionChecked(second, "Machine")).toBe(true);
-    expect(second.getByRole("radio", { name: "Both" })).toHaveProperty("checked", true);
+    expect(second.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
+    expect(optionChecked(second, "Both")).toBe(true);
     expect(optionChecked(second, "Title")).toBe(true);
     fireEvent.click(second.getByRole("button", { name: "Collapse Threads" }));
     expect(second.queryByRole("link", { name: /Prepare release/ })).toBeNull();
@@ -66,6 +82,7 @@ describe("thread list slot", () => {
     fireEvent.click(third.getByRole("button", { name: "List options" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Reset list preferences" }));
     expect(optionChecked(third, "Project")).toBe(true);
+    expect(third.getByRole("tab", { name: "Needs attention" }).getAttribute("aria-selected")).toBe("true");
   });
   it("pages archived threads and handles loading, errors, emptiness and exhaustion", () => {
     const fetchNextPage = vi.fn().mockResolvedValue(undefined);
@@ -122,6 +139,7 @@ describe("thread list slot", () => {
       sidebarRowStatuses: { t1: { icon: "Clock", label: "Scheduled", tone: "running" } },
       sidebarShortcuts: { t1: { label: "⌘1", ariaKeyshortcuts: "Meta+1" } },
     }, { activeThreadId: "t1" });
+    showTab(slot, "All");
     const link = slot.getByRole("link", { name: /Prepare release/ });
     expect(link.getAttribute("aria-current")).toBe("page");
     expect(link.getAttribute("aria-keyshortcuts")).toBe("Meta+1");
@@ -139,6 +157,7 @@ describe("thread list slot", () => {
     const environment = { id: "e1", name: "Worktree", branchName: "feature/sidebar", path: "/tmp/feature",
       isWorktree: true, providerId: null, workspaceDisplayKind: null };
     const slot = mount([thread({ status: "active", runtimeStatus: "active", environment })]);
+    showTab(slot, "All");
     const working = slot.getByTitle("Thread active");
     expect(working.querySelector(".sr-only")?.textContent).toBe("Working");
     expect(working.textContent).toBe("Working");
@@ -185,6 +204,7 @@ describe("thread list slot", () => {
   });
   it("lists quiet threads with the others and counts only the Needs you group", () => {
     const slot = mount([thread(), thread({ id: "t2", displayTitle: "Asks", hasPendingInteraction: true })]);
+    showTab(slot, "All");
     expect(slot.getByRole("link", { name: /Prepare release/ })).toBeTruthy();
     expect(slot.queryByRole("button", { name: /settled/ })).toBeNull();
     expect(slot.getByRole("button", { name: "Collapse Needs you" }).parentElement?.textContent).toContain("1");
@@ -267,71 +287,124 @@ describe("thread list slot", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Open in split" }));
     expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "open", threadId: "t1", options: { split: true } });
   });
-  it("renders a linked PR badge without opening the thread", () => {
+  it("renders a linked PR badge without opening the thread", async () => {
     const onNavigate = vi.fn();
-    const slot = mount([thread()], {}, { sidebarPullRequests: {
-      t1: { number: 42, title: "Ship it", url: "https://example.com/pull/42", state: "open", attention: "checks_failed" },
-    } }, { onNavigate });
-    const pr = slot.getByRole("link", { name: "PR #42: checks failed" });
+    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({ blockers: ["checks_failed"] }) }), { onNavigate });
+    const pr = await slot.findByRole("link", { name: "PR #42: checks failed" });
     expect(pr.getAttribute("href")).toBe("https://example.com/pull/42");
     expect(slot.queryByText("#42")).toBeNull();
     expect(pr.textContent).toContain("Checks failed");
-    expect(slot.getByRole("link", { name: "PR #42: checks failed" })).toBe(pr);
     fireEvent.click(pr);
     expect(slot.inspection.sidebarActionCalls).toHaveLength(0);
     expect(onNavigate).not.toHaveBeenCalled();
   });
-  it("shows one environment PR on both visible threads and none on an unrelated row", () => {
-    const environment = { id: "e1", name: "Worktree", branchName: "feature", path: "/tmp/feature",
-      isWorktree: true, providerId: null, workspaceDisplayKind: null };
-    const shared = { number: 42, title: "Ship it", url: "https://example.com/pull/42",
-      state: "open" as const, attention: "review_requested" as const };
-    const slot = mount([thread({ id: "t1", environment }),
-      thread({ id: "t2", displayTitle: "Second", environment }),
-      thread({ id: "t3", displayTitle: "No PR" })], {}, { sidebarPullRequests: { t1: shared, t2: shared } });
-    expect(slot.getAllByRole("link", { name: "PR #42: awaiting review" })).toHaveLength(2);
-    expect(slot.queryByRole("link", { name: /PR #3/ })).toBeNull();
+  it("shows a badge only on rows with a summary", async () => {
+    const shared = prSummary({ blockers: ["review_required"] });
+    const slot = mount([thread({ id: "t1" }), thread({ id: "t2", displayTitle: "Second" }),
+      thread({ id: "t3", displayTitle: "No PR" })], {}, withSummaries({ t1: shared, t2: shared }));
+    showTab(slot, "All");
+    await vi.waitFor(() => expect(slot.getAllByRole("link", { name: "PR #42: awaiting review" })).toHaveLength(2));
     expect(slot.getByRole("link", { name: "No PR" })).toBeTruthy();
+    expect(slot.getAllByRole("link", { name: /^PR #/ })).toHaveLength(2);
   });
-  it("names the reason behind a blocked PR and counts pending reviews from github-insight", async () => {
-    const summary = { version: 1, updatedAt: new Date().toISOString(),
-      pr: { number: 42, url: "https://example.com/pull/42", state: "open" },
+  it("names pending reviewers and the checks state from github-insight", async () => {
+    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({ blockers: ["review_required"],
       checks: { failed: 0, running: 0, cancelled: 0, passed: 4, skipped: 0, failedNames: [] },
-      reviewers: { pending: 1, approved: 0, changesRequested: 0, pendingNames: ["ana"] },
-      blockers: ["review_required"], error: null };
-    const getPluginMetadata = vi.fn(async ({ pluginId }: { pluginId?: string }): Promise<Record<string, typeof summary>> =>
-      pluginId === "github-insight" ? { prSummary: summary } : {});
-    const slot = mount([thread()], {}, {
-      sidebarPullRequests: { t1: { number: 42, title: "Ship it", url: "https://example.com/pull/42", state: "open", attention: "blocked" } },
-      sdk: { threads: { getPluginMetadata } },
-    });
-    const pr = await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+      reviewers: { pending: 1, approved: 0, changesRequested: 0, pendingNames: ["ana"] } }) }));
+    showTab(slot, "All");
+    await slot.findByRole("link", { name: "PR #42: 1 review pending" });
     expect(tip(slot, "1 review pending\nWaiting on: ana")).toBeTruthy();
-    expect(tip(slot, "PR #42: Ship it\nAll checks passed")).toBeTruthy();
-    expect(slot.queryByText("Blocked")).toBeNull();
-    expect(getPluginMetadata).toHaveBeenCalledTimes(1);
-    expect(getPluginMetadata).toHaveBeenCalledWith(expect.objectContaining({ threadId: "t1", pluginId: "github-insight" }));
+    expect(tip(slot, "PR #42\nAll checks passed")).toBeTruthy();
   });
-  it("keeps BB's word when github-insight has no summary", () => {
-    const slot = mount([thread()], {}, { sidebarPullRequests: {
-      t1: { number: 42, title: "Ship it", url: "https://example.com/pull/42", state: "open", attention: "blocked" } } });
-    expect(slot.getByRole("link", { name: "PR #42: merge blocked" }).textContent).toContain("Blocked");
+  it("updates the badge after the next poll", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      let summary = prSummary({ blockers: ["checks_running"] });
+      const slot = mount([thread()], {}, { rpc: { listSummaries: () => ({ insightAvailable: true, summaries: { t1: summary } }) } });
+      showTab(slot, "All");
+      await slot.findByRole("link", { name: "PR #42: checks running" });
+      summary = prSummary({ blockers: [] });
+      await act(async () => { vi.advanceTimersByTime(60_000); });
+      await slot.findByRole("link", { name: "PR #42: ready to merge" });
+    } finally { vi.useRealTimers(); }
   });
-  it("asks github-insight only about open PRs, and reuses a fresh answer after a remount", async () => {
-    const getPluginMetadata = vi.fn(async (): Promise<Record<string, never>> => ({}));
-    const merged = { number: 7, title: "Old", url: "https://example.com/pull/7", state: "merged" as const, attention: "merged" as const };
-    const open = { number: 42, title: "Ship it", url: "https://example.com/pull/42", state: "open" as const, attention: "none" as const };
-    const slot = mount([thread(), thread({ id: "t2", displayTitle: "Old work" })], {}, {
-      sidebarPullRequests: { t1: open, t2: merged }, sdk: { threads: { getPluginMetadata } } });
-    await vi.waitFor(() => expect(getPluginMetadata).toHaveBeenCalledTimes(1));
-    expect(getPluginMetadata).toHaveBeenCalledWith(expect.objectContaining({ threadId: "t1" }));
-    fireEvent.click(slot.getByRole("button", { name: "Collapse Sample project" }));
-    fireEvent.click(slot.getByRole("button", { name: "Expand Sample project" }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(getPluginMetadata).toHaveBeenCalledTimes(1);
+  it("reloads summaries when the realtime connection comes back", async () => {
+    const slot = mount([thread()], {}, withSummaries({}));
+    await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+    await slot.behavior.setRealtimeConnectionState("reconnecting");
+    await slot.behavior.setRealtimeConnectionState("connected");
+    await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+  });
+  it("tells the user when github-insight is not available", async () => {
+    const slot = mount([thread()], {}, { rpc: { listSummaries: () => ({ insightAvailable: false, summaries: {} }) } });
+    expect((await slot.findByRole("note")).textContent).toContain("GitHub Insight");
+    slot.lifecycle.unmount();
+    const available = mount([thread()], {}, withSummaries({ t1: prSummary() }));
+    await available.findByRole("link", { name: "PR #42: ready to merge" });
+    expect(available.queryByRole("note")).toBeNull();
+  });
+  it("shows three tabs without counts and only the threads of the selected tab", async () => {
+    const slot = mount([thread({ id: "t1", displayTitle: "Idle" }), thread({ id: "t2", displayTitle: "Busy", status: "active" }),
+      thread({ id: "t3", displayTitle: "Waits on CI" })], {}, withSummaries({ t3: prSummary({ blockers: ["checks_running"] }) }));
+    expect(slot.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Needs attention", "In flight", "All"]);
+    expect(slot.getByRole("tab", { name: "Needs attention" }).getAttribute("aria-selected")).toBe("true");
+    await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Waits on CI" })).toBeNull());
+    expect(slot.getByRole("link", { name: "Idle" })).toBeTruthy();
+    expect(slot.queryByRole("link", { name: "Busy" })).toBeNull();
+    showTab(slot, "In flight");
+    expect(slot.getByRole("tab", { name: "In flight" }).getAttribute("aria-selected")).toBe("true");
+    expect(slot.getAllByRole("link", { name: /^(Idle|Busy|Waits on CI)$/ }).map((link) => link.textContent)).toEqual(["Busy", "Waits on CI"]);
+    expect(slot.getByRole("tabpanel", { name: "In flight" })).toBeTruthy();
+  });
+  it("moves between tabs with the arrow keys", () => {
+    const slot = mount();
+    const tablist = slot.getByRole("tablist", { name: "Threads" });
+    fireEvent.keyDown(tablist, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(slot.getByRole("tab", { name: "In flight" }));
+    expect(slot.getByRole("tab", { name: "In flight" }).getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(tablist, { key: "End" });
+    expect(slot.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tablist, { key: "ArrowRight" });
+    expect(slot.getByRole("tab", { name: "Needs attention" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tablist, { key: "ArrowLeft" });
+    expect(slot.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
+  });
+  it("names the tab state when a tab is empty", () => {
+    const slot = mount([thread({ status: "active" })]);
+    expect(slot.getByText("Nothing needs you.")).toBeTruthy();
+    showTab(slot, "In flight");
+    expect(slot.queryByText("Nothing in flight.")).toBeNull();
+    slot.lifecycle.unmount();
+    const idle = mount();
+    showTab(idle, "In flight");
+    expect(idle.getByText("Nothing in flight.")).toBeTruthy();
+  });
+  it("moves a thread to In flight when its summary arrives", async () => {
+    const slot = mount([thread({ displayTitle: "Waits on CI" })], {}, withSummaries({ t1: prSummary({ blockers: ["checks_running"] }) }));
+    expect(slot.getByRole("link", { name: "Waits on CI" })).toBeTruthy();
+    await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Waits on CI" })).toBeNull());
+    showTab(slot, "In flight");
+    expect(slot.getByRole("link", { name: "Waits on CI" })).toBeTruthy();
+  });
+  it("offers the archived selection only in All, and ignores it in the other tabs", () => {
+    const rows = [thread({ id: "t1", displayTitle: "Active work" }), thread({ id: "t2", displayTitle: "Old work", isArchived: true })];
+    const slot = mount(rows);
+    fireEvent.click(slot.getByRole("button", { name: "List options" }));
+    expect(screen.queryByRole("menuitemradio", { name: "Archived" })).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    showLifecycle(slot, "Archived");
+    expect(slot.getByRole("link", { name: "Old work" })).toBeTruthy();
+    expect(slot.queryByRole("link", { name: "Active work" })).toBeNull();
+    slot.lifecycle.unmount();
+    const again = mount(rows);
+    expect(optionChecked(again, "Archived")).toBe(true);
+    showTab(again, "Needs attention");
+    expect(again.getByRole("link", { name: "Active work" })).toBeTruthy();
+    expect(again.queryByRole("link", { name: "Old work" })).toBeNull();
   });
   it("shows the agent's logo on every row, quiet or busy", () => {
     const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active" })]);
+    showTab(slot, "All");
     expect(slot.container.querySelectorAll("[data-provider-glyph]")).toHaveLength(2);
   });
 });
