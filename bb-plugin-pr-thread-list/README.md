@@ -27,7 +27,7 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 
 **All** shows every thread, with the **Needs you** group on top.
 
-The tab of a thread does not depend on whether its row is on screen. The list asks its own server once a minute, and when the connection comes back, for the github-insight summary of every active thread. github-insight also polls once a minute, so a PR change can take up to two minutes to move a thread.
+The tab of a thread does not depend on whether its row is on screen. The list asks its own server once a minute, and when the connection comes back, for the github-insight summary of every active thread. github-insight also polls once a minute, so a PR change can take up to two minutes to move a thread. When you resolve or unresolve a review thread in github-insight's Review tab, the list asks at once.
 
 ## List preferences
 

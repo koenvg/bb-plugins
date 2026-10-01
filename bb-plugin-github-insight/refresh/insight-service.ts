@@ -261,6 +261,13 @@ export function createInsightService(deps: InsightServiceDeps) {
       return toResult(await refreshThread(threadId, resolution.target));
     },
 
+    async refreshAfterWrite(threadId: string): Promise<void> {
+      const resolution = await deps.resolvePr(threadId);
+      if (resolution.kind !== "pr") return;
+      await running.get(prKey(resolution.target.ref))?.done;
+      await refreshThread(threadId, resolution.target);
+    },
+
     async run(signal: AbortSignal): Promise<void> {
       while (!signal.aborted) {
         try {

@@ -803,10 +803,12 @@ describe("reply and resolve", () => {
   }
 
   function writeHost(results: { reply?: unknown; resolve?: unknown } = {}) {
-    return ({ method }: HostCall) => {
-      if (method === "replyToThread") return results.reply ?? replyResponse("SUBMITTED");
-      if (method === "setThreadResolved") return results.resolve ?? ok({ data: {} });
-      throw new Error(`unexpected host call ${method}`);
+    const overview = pages();
+    return (call: HostCall) => {
+      if (call.method === "replyToThread") return results.reply ?? replyResponse("SUBMITTED");
+      if (call.method === "setThreadResolved") return results.resolve ?? ok({ data: {} });
+      if (call.method === "fetchOverviewPage" || call.method === "fetchCheckRunDetails") return overview(call);
+      throw new Error(`unexpected host call ${call.method}`);
     };
   }
 
@@ -819,7 +821,9 @@ describe("reply and resolve", () => {
   }
 
   function writes(harness: Awaited<ReturnType<typeof setup>>) {
-    return harness.experimental_hostRpcCalls.map(({ method, input, hostId }) => ({ method, input, hostId }));
+    return harness.experimental_hostRpcCalls
+      .filter(({ method }) => method === "replyToThread" || method === "setThreadResolved")
+      .map(({ method, input, hostId }) => ({ method, input, hostId }));
   }
 
   it("posts the reply through the thread's host and makes no other write", async () => {
@@ -961,6 +965,59 @@ describe("reply and resolve", () => {
     expect(writes(harness)).toEqual([
       { method: "setThreadResolved", input: { threadId: REVIEW_THREAD, resolved }, hostId: "host-1" },
     ]);
+  });
+
+  it("writes the new PR summary before the resolve returns", async () => {
+    const harness = await setupWithPr();
+
+    await harness.behavior.callRpc("setResolved", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      resolved: true,
+    });
+
+    expect(metadataUpdates(harness)).toEqual([
+      expect.objectContaining({ threadId: "thr_1", set: { prSummary: expect.objectContaining({ version: 1 }) } }),
+    ]);
+  });
+
+  it("reads the PR again after the resolve when a refresh was already running", async () => {
+    let releaseFirst: () => void = () => {};
+    const write = writeHost();
+    const harness = await setupWithPr((call) => {
+      const firstPage = call.method === "fetchOverviewPage" && (call.input as { after: string | null }).after === null;
+      if (!firstPage || overviewRefreshes(harness).length > 1) return write(call);
+      return new Promise((resolve) => { releaseFirst = () => resolve(write(call)); });
+    });
+    const running = harness.behavior.callRpc("refresh", { threadId: "thr_1" });
+    await settle();
+
+    const resolving = harness.behavior.callRpc("setResolved", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      resolved: true,
+    });
+    await settle();
+    releaseFirst();
+    await Promise.all([running, resolving]);
+
+    const refreshes = overviewRefreshes(harness);
+    expect(harness.experimental_hostRpcCalls
+      .filter((call) => call.method === "setThreadResolved" || refreshes.includes(call))
+      .map((call) => call.method)).toEqual(["fetchOverviewPage", "setThreadResolved", "fetchOverviewPage"]);
+  });
+
+  it("writes the new PR summary before a post and resolve returns", async () => {
+    const harness = await setupWithPr();
+
+    await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+
+    expect(metadataUpdates(harness)).toHaveLength(1);
   });
 
   it("reports a failed resolve", async () => {

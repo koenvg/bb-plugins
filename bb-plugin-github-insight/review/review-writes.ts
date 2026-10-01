@@ -19,6 +19,7 @@ interface ReviewWritesDeps {
   setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
   drafts: DraftStore;
   publish(update: ReviewUpdated): void;
+  refreshAfterWrite(threadId: string): Promise<void>;
   now(): number;
   warn(message: string): void;
 }
@@ -44,6 +45,12 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     return { ok: false, message: resolution.kind === "error" ? resolution.message : NO_PR_MESSAGE };
   }
 
+  async function refreshAfterWrite(threadId: string) {
+    await deps.refreshAfterWrite(threadId).catch((error: unknown) => {
+      deps.warn(`Could not refresh the PR insight of thread ${threadId}: ${String(error)}`);
+    });
+  }
+
   async function reply({ threadId, reviewThreadId, body, resolve }: ReplyRequest): Promise<ReplyResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "post_failed", message: target.message };
@@ -55,6 +62,7 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     const pendingReviewUrl = isPendingReply(posted.value) ? pullRequestUrl(target.value.ref) : null;
     if (!resolve) return { kind: "posted", pendingReviewUrl, resolveError: null };
     const resolved = await write(() => deps.setThreadResolved(target.value, reviewThreadId, true));
+    if (resolved.ok) await refreshAfterWrite(threadId);
     return { kind: "posted", pendingReviewUrl, resolveError: resolved.ok ? null : resolved.message };
   }
 
@@ -62,6 +70,7 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     const written = await write(() => deps.setThreadResolved(target.value, reviewThreadId, resolved));
+    if (written.ok) await refreshAfterWrite(threadId);
     return written.ok ? { kind: "ok" } : { kind: "error", message: written.message };
   }
 

@@ -77,6 +77,22 @@ interface RpcHandlers {
   discardDraft?: () => ActionResult | Promise<ActionResult>;
 }
 
+let summaryListener: BroadcastChannel | undefined;
+
+function listenForSummaries(): unknown[] {
+  const signals: unknown[] = [];
+  summaryListener = new BroadcastChannel("github-insight.summary-written");
+  summaryListener.onmessage = (event) => signals.push(event.data);
+  return signals;
+}
+
+function stopListening() {
+  summaryListener?.close();
+  summaryListener = undefined;
+}
+
+const quietly = () => new Promise((resolve) => setTimeout(resolve, 20));
+
 function renderTab(...results: ReviewResult[]) {
   return renderTabWith({}, ...results);
 }
@@ -415,6 +431,19 @@ describe("Review tab drafts", () => {
     expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("");
     await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getReview"]));
     expect(callsTo(slot, "discardDraft")).toEqual([{ threadId: "thr_1", reviewThreadId: PLACED }]);
+  });
+
+  it("does not announce a new summary after a discard", async () => {
+    const signals = listenForSummaries();
+    const slot = renderTab(withDraft(PLACED), threaded);
+    const { box } = await findDraft(slot);
+
+    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getReview"]));
+    await quietly();
+    stopListening();
+    expect(signals).toEqual([]);
   });
 
   it("keeps the draft and shows the error when the discard fails", async () => {
@@ -815,6 +844,84 @@ describe("Review tab thread actions", () => {
     await waitFor(() => expect(writeCalls(slot).map((call) => call.input)).toEqual([
       { threadId: "thr_1", reviewThreadId: PLACED, resolved: false },
     ]));
+  });
+
+  describe("summary signal", () => {
+    let signals: unknown[];
+
+    afterEach(stopListening);
+
+    async function noSignalAfter(slot: ReturnType<typeof renderTab>, calls: number) {
+      await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(calls));
+      await quietly();
+      expect(signals).toEqual([]);
+    }
+
+    it("announces the new summary after a resolve", async () => {
+      signals = listenForSummaries();
+      const card = await openCard(renderTab(threaded, resolvedPlaced()));
+
+      fireEvent.click(card.getByRole("button", { name: "Resolve" }));
+
+      await waitFor(() => expect(signals).toEqual([{ threadId: "thr_1" }]));
+    });
+
+    it("announces the new summary after an unresolve", async () => {
+      signals = listenForSummaries();
+      const slot = renderTab(resolvedPlaced());
+      fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
+      fireEvent.click(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }));
+      const card = within(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article")!);
+
+      fireEvent.click(card.getByRole("button", { name: "Unresolve" }));
+
+      await waitFor(() => expect(signals).toEqual([{ threadId: "thr_1" }]));
+    });
+
+    it("announces the new summary after a post and resolve", async () => {
+      signals = listenForSummaries();
+      const card = await openCard(renderTab(threaded));
+
+      typeReply(card);
+      fireEvent.click(card.getByRole("button", { name: "Post + resolve" }));
+
+      await waitFor(() => expect(signals).toEqual([{ threadId: "thr_1" }]));
+    });
+
+    it("does not announce after a post without resolve", async () => {
+      signals = listenForSummaries();
+      const slot = renderTab(threaded);
+      const card = await openCard(slot);
+
+      typeReply(card);
+      fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+      await noSignalAfter(slot, 3);
+    });
+
+    it("does not announce when the resolve fails", async () => {
+      signals = listenForSummaries();
+      const slot = renderTabWith({ setResolved: () => ({ kind: "error", message: "rate limited" }) }, threaded);
+      const card = await openCard(slot);
+
+      fireEvent.click(card.getByRole("button", { name: "Resolve" }));
+
+      await noSignalAfter(slot, 2);
+    });
+
+    it("does not announce when the resolve after a post fails", async () => {
+      signals = listenForSummaries();
+      const slot = renderTabWith(
+        { reply: () => ({ kind: "posted", pendingReviewUrl: null, resolveError: "rate limited" }) },
+        threaded,
+      );
+      const card = await openCard(slot);
+
+      typeReply(card);
+      fireEvent.click(card.getByRole("button", { name: "Post + resolve" }));
+
+      await noSignalAfter(slot, 3);
+    });
   });
 
   it("keeps the reply text when a thread above it in the file gets resolved", async () => {

@@ -1,5 +1,6 @@
 export const INSIGHT_PLUGIN_ID = "github-insight";
 export const INSIGHT_METADATA_KEY = "prSummary";
+export const SUMMARY_WRITTEN_CHANNEL = "github-insight.summary-written";
 const MAX_OPEN_AGE_MS = 60 * 60_000;
 
 const BLOCKERS = ["conflicts", "checks_failed", "changes_requested", "behind", "review_required",
