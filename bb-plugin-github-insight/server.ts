@@ -76,6 +76,7 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("setThreadResolved", { threadId, resolved }, { hostId })),
     drafts,
     publish: publishReviewUpdate,
+    refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
     now: Date.now,
     warn: (message) => bb.log.warn(message),
   });

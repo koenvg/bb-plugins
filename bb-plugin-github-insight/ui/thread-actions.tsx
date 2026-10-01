@@ -4,6 +4,7 @@ import type { rpcContract } from "../contract";
 import type { Draft, Drafts } from "../core/drafts";
 import { useDraftSaves } from "./draft-saves";
 import { messageOf } from "./error-message";
+import { announceSummaryWritten } from "./summary-written";
 
 export interface ThreadActionState {
   replyText: string;
@@ -97,6 +98,7 @@ export function ThreadActionsProvider({
           .catch((error: unknown) => ({ kind: "post_failed" as const, message: messageOf(error) }));
         if (result.kind === "post_failed") return { error: result.message, pendingReviewUrl: null };
         onWritten();
+        if (resolve && result.resolveError === null) announceSummaryWritten(threadId);
         return {
           typedText: null,
           dismissedDraftAt: draft?.updatedAt ?? null,
@@ -117,6 +119,7 @@ export function ThreadActionsProvider({
           .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
         if (result.kind === "error") return { error: result.message };
         onWritten();
+        announceSummaryWritten(threadId);
         return { error: null };
       }),
     [rpc, threadId, runExclusive, draftSaves, onWritten],

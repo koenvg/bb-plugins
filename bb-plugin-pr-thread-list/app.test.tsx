@@ -402,6 +402,64 @@ describe("thread list slot", () => {
     expect(again.getByRole("link", { name: "Active work" })).toBeTruthy();
     expect(again.queryByRole("link", { name: "Old work" })).toBeNull();
   });
+
+  describe("when github-insight announces a new summary", () => {
+    const pending = (count: number) => prSummary({ blockers: ["review_required"],
+      reviewers: { pending: count, approved: 0, changesRequested: 0, pendingNames: [] } });
+    const announce = () => {
+      const channel = new BroadcastChannel("github-insight.summary-written");
+      channel.postMessage({ threadId: "t1" });
+      channel.close();
+    };
+    const quietly = () => new Promise((resolve) => setTimeout(resolve, 20));
+    const answers = (...results: Array<unknown | Promise<unknown>>) => {
+      let call = 0;
+      return { rpc: { listSummaries: () => results[Math.min(call++, results.length - 1)] } } as Partial<RenderSlotOptions>;
+    };
+    const summariesOf = (summary: unknown) => ({ insightAvailable: true, summaries: { t1: summary } });
+
+    it("loads the summaries again and shows the new badge", async () => {
+      const slot = mount([thread()], {}, answers(summariesOf(pending(1)), summariesOf(pending(2))));
+      showTab(slot, "All");
+      await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+
+      announce();
+
+      expect(await slot.findByRole("link", { name: "PR #42: 2 reviews pending" })).toBeTruthy();
+      expect(slot.inspection.rpcCalls).toHaveLength(2);
+    });
+
+    it("keeps the newest summaries when an older load finishes after them", async () => {
+      let finishOlder: (value: unknown) => void = () => {};
+      const older = new Promise((resolve) => { finishOlder = resolve; });
+      const slot = mount([thread()], {}, answers(summariesOf(pending(1)), older, summariesOf(pending(2))));
+      showTab(slot, "All");
+      await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+      announce();
+      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+
+      announce();
+      await slot.findByRole("link", { name: "PR #42: 2 reviews pending" });
+      finishOlder(summariesOf(pending(1)));
+      await quietly();
+
+      expect(slot.getByRole("link", { name: "PR #42: 2 reviews pending" })).toBeTruthy();
+    });
+
+    it("stops listening once the list unmounts", async () => {
+      const slot = mount([thread()], {}, withSummaries({}));
+      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+      const calls = slot.inspection.rpcCalls;
+      slot.lifecycle.unmount();
+      mounted = undefined;
+
+      announce();
+      await quietly();
+
+      expect(calls).toHaveLength(1);
+    });
+  });
+
   it("shows the agent's logo on every row, quiet or busy", () => {
     const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active" })]);
     showTab(slot, "All");

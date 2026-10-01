@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, Summaries } from "./contract";
+import { SUMMARY_WRITTEN_CHANNEL } from "./pr-insight";
 
 const POLL_MS = 60_000;
 
@@ -22,12 +23,18 @@ export function useSummaries(): SummariesState {
   }, [connection]);
   useEffect(() => {
     let current = true;
-    const load = () => rpc.call("listSummaries", {})
-      .then((result) => { if (current) setState({ loaded: true, ...result }); })
-      .catch(() => {});
+    let latestLoad = 0;
+    const load = () => {
+      const thisLoad = ++latestLoad;
+      return rpc.call("listSummaries", {})
+        .then((result) => { if (current && thisLoad === latestLoad) setState({ loaded: true, ...result }); })
+        .catch(() => {});
+    };
     void load();
     const timer = setInterval(load, POLL_MS);
-    return () => { current = false; clearInterval(timer); };
+    const announcements = new BroadcastChannel(SUMMARY_WRITTEN_CHANNEL);
+    announcements.onmessage = () => void load();
+    return () => { current = false; clearInterval(timer); announcements.close(); };
   }, [rpc, reconnects]);
   return state;
 }
