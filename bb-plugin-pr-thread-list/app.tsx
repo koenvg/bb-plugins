@@ -1,31 +1,129 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  definePluginApp, experimental_Icon as Icon, experimental_useSidebarThreads, experimental_useSidebarThreadPullRequest,
-  experimental_useSidebarThreadSplit,
+  definePluginApp, experimental_Icon as Icon, experimental_ProviderIcon as ProviderIcon, experimental_useProviders,
+  experimental_useSidebarThreads, experimental_useSidebarThreadPullRequest, experimental_useSidebarThreadSplit,
   experimental_useSidebarThreadActions, useSdk,
   useSidebarThreadDraft, useSidebarThreadRowStatus, useSidebarThreadShortcut,
-  type PluginBrowserBbSdk, type PluginSidebarSection, type PluginSidebarThread, type PluginSidebarThreadActions, type PluginThreadListProps,
+  type PluginBrowserBbSdk, type PluginSidebarSection, type PluginSidebarThread, type PluginSidebarThreadActions,
+  type PluginSidebarThreadRowStatus, type PluginThreadListProps, type ExperimentalProviderIconProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { ActionMenu } from "./action-menu";
-import { createSection, groupMenuItems, threadMenuItems } from "./thread-actions";
+import { ActionMenu, FOCUS_RING, TOOL_BUTTON, type MenuItem } from "./action-menu";
+import { createSection, groupMenuItems, newThreadScope, threadMenuItems } from "./thread-actions";
+import { projectBadge } from "./project-badge";
+import { Tip } from "./tip";
 import { PrBadgeView } from "./pr-badge";
-import { visibleItems, type Lifecycle, type ListItem, type ListOptions, type Organization, type SortField } from "./list-model";
+import { INSIGHT_METADATA_KEY, INSIGHT_PLUGIN_ID, readInsight } from "./pr-insight";
+import { visibleItems, type ListItem, type ListOptions, type SortField } from "./list-model";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
-import { describeActivity, describeIndicator } from "./row-cues";
+import { isSettled, needsAttention, relativeTime, rowState, workItems } from "./row-cues";
 
-const ROW_HEIGHT = 32;
+
 const OVERSCAN = 5;
+const MINUTE = 60_000;
 
-/** One opt-in host lookup for each mounted, visible row. */
-function PullRequestConsumer({ threadId }: { threadId: string }) {
-  const facts = experimental_useSidebarThreadPullRequest(threadId);
-  return <PrBadgeView {...facts} />;
+const HEIGHTS: Record<ListItem["kind"], number> = { group: 36, thread: 48 };
+
+function useNow(): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), MINUTE);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
 }
 
-function ThreadRow({ item, activeThreadId, onToggle, onNavigate, actions, sdk, sections, pinned }: {
+type Provider = ExperimentalProviderIconProps["provider"] & { displayName?: string };
+
+type InsightCache = Map<string, { at: number; summary: unknown }>;
+const InsightCacheContext = createContext<InsightCache>(new Map());
+
+/** Metadata writes do not reach the sidebar live; each row polls on its own timer so rows do not fetch in one burst. */
+function useInsightSummary(threadId: string, enabled: boolean): unknown {
+  const sdk = useSdk();
+  const cache = useContext(InsightCacheContext);
+  const [summary, setSummary] = useState(() => cache.get(threadId)?.summary);
+  useEffect(() => {
+    if (!enabled) return;
+    let current = true;
+    const load = () => Promise.resolve()
+      .then(() => sdk.threads.getPluginMetadata({ threadId, pluginId: INSIGHT_PLUGIN_ID }))
+      .then((metadata) => {
+        cache.set(threadId, { at: Date.now(), summary: metadata[INSIGHT_METADATA_KEY] });
+        if (current) setSummary(metadata[INSIGHT_METADATA_KEY]);
+      })
+      .catch(() => {});
+    const cached = cache.get(threadId);
+    let timer = setTimeout(function poll() {
+      void load();
+      timer = setTimeout(poll, MINUTE);
+    }, cached ? Math.max(0, cached.at + MINUTE - Date.now()) : 0);
+    return () => { current = false; clearTimeout(timer); };
+  }, [sdk, cache, threadId, enabled]);
+  return enabled ? summary : undefined;
+}
+
+function PullRequestConsumer({ thread, now }: { thread: PluginSidebarThread; now: number }) {
+  const facts = experimental_useSidebarThreadPullRequest(thread.id);
+  const openPr = facts.pullRequest?.state === "open" ? facts.pullRequest : null;
+  const summary = useInsightSummary(thread.id, openPr !== null);
+  return <PrBadgeView {...facts} insight={openPr ? readInsight(summary, openPr.number, now) : null} />;
+}
+
+function ProviderGlyph({ thread, provider, quiet }: { thread: PluginSidebarThread; provider: Provider; quiet: boolean }) {
+  const dot = needsAttention(thread) ? "bg-destructive" : thread.isUnread ? "bg-primary" : null;
+  return <Tip text={provider.displayName ?? provider.id} className="z-10 row-start-1 flex size-4 items-center justify-center">
+    <span data-provider-glyph="" className="relative flex size-4 items-center justify-center">
+      <ProviderIcon providerKind="agent" provider={provider} aria-hidden className={`size-4 ${quiet ? "opacity-50" : ""}`} />
+      {dot ? <span aria-hidden className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-sidebar ${dot}`} /> : null}
+    </span>
+  </Tip>;
+}
+
+const STATE_TONE = { danger: "bg-destructive/10 text-destructive", live: "text-primary", muted: "text-muted-foreground" };
+
+function StateOrTime({ thread, hasDraft, now }: { thread: PluginSidebarThread; hasDraft: boolean; now: number }) {
+  const state = rowState(thread, hasDraft);
+  const fade = "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0 group-has-[[aria-haspopup=menu][aria-expanded=true]]/row:opacity-0 [@media(hover:none)]:hidden";
+  if (!state) return <time dateTime={new Date(thread.updatedAt).toISOString()}
+    className={`text-[11px] tabular-nums text-muted-foreground ${fade}`}>
+    {relativeTime(thread.updatedAt, now)}
+  </time>;
+  return <span title={state.title}
+    className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-1 text-[11px] font-medium leading-4 ${STATE_TONE[state.tone]} ${fade}`}>
+    {state.tone === "live" ? <Icon name="Spinner" aria-hidden className="size-3 motion-safe:animate-spin" /> : null}
+    {state.label === "Working" ? <span className="sr-only">{state.label}</span> : state.label}
+  </span>;
+}
+
+function RowDetail({ thread, rowStatus }: {
+  thread: PluginSidebarThread;
+  rowStatus: PluginSidebarThreadRowStatus | null;
+}) {
+  const items = workItems(thread);
+  if (rowStatus) items.unshift({ key: "status", icon: rowStatus.icon, text: rowStatus.label, title: rowStatus.label,
+    error: rowStatus.tone === "error" });
+  const branch = thread.environment?.branchName;
+  const cell = "col-start-2 row-start-2 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground";
+  if (items.length === 0) return branch ? <span className={`${cell} gap-1`} title={branch}>
+    <Icon name="GitBranch" className="size-3 shrink-0" aria-hidden />
+    <span className="truncate font-mono text-[11px]">{branch}</span>
+  </span> : <span className={cell} />;
+  return <span className={cell}>
+    {items.map((item) => <Tip key={item.key} text={item.title}
+      className={`z-10 inline-flex min-w-0 shrink-0 items-center gap-0.5 tabular-nums last:shrink ${item.error ? "text-destructive" : ""}`}>
+      <Icon name={item.icon} className="size-3 shrink-0" aria-hidden />
+      <span aria-hidden className="truncate">{item.text}</span>
+      <span className="sr-only">{item.title}</span>
+    </Tip>)}
+  </span>;
+}
+
+function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, actions, sdk, sections, pinned }: {
+  provider: Provider;
   item: Extract<ListItem, { kind: "thread" }>;
   activeThreadId: string | null;
+  now: number;
   onToggle: (id: string) => void;
   onNavigate: () => void;
   actions: PluginSidebarThreadActions;
@@ -38,57 +136,118 @@ function ThreadRow({ item, activeThreadId, onToggle, onNavigate, actions, sdk, s
   const rowStatus = useSidebarThreadRowStatus(thread.id);
   const shortcut = useSidebarThreadShortcut(thread.id);
   const { splitProps, isAvailable: splitAvailable } = experimental_useSidebarThreadSplit(thread.id);
-  const indicator = describeIndicator(thread);
-  const activity = describeActivity(thread);
-  const active = thread.status === "active" || thread.status === "starting" || thread.status === "stopping";
+  const hasDraft = hasUnsubmittedDraft && !rowStatus && thread.indicator !== "draft" && thread.indicator !== "working-draft";
   const selected = thread.id === activeThreadId;
+  const quiet = isSettled(thread) && !selected;
   return (
-    <div className="flex h-8 min-w-0 items-center" style={{ paddingLeft: `${item.depth * 12}px` }}>
+    <div className="group/row relative flex min-w-0 items-start" style={{ height: HEIGHTS.thread, paddingLeft: `${item.depth * 12}px` }}>
       {item.hasChildren ? <button type="button" aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${thread.displayTitle}`}
-        aria-expanded={!item.collapsed} className="shrink-0 px-1 text-muted-foreground"
-        onClick={() => onToggle(item.id)}>{item.collapsed ? "▸" : "▾"}</button> : null}
-      <a {...splitProps} href={thread.href} data-sidebar-thread-shortcut-target="" data-sidebar-thread-id={thread.id}
-        aria-current={selected ? "page" : undefined} aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
-        onClick={(event) => {
-          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          actions.open(thread.id);
-          onNavigate();
-        }}
-        className={`flex h-8 min-w-0 flex-1 items-center truncate rounded-md px-2 hover:bg-accent ${selected ? "bg-accent" : ""} ${thread.isUnread ? "font-semibold" : ""}`}>
-        <span className="truncate">{thread.displayTitle}</span>
-      </a>
-      {active ? <span role="img" aria-label={`Thread ${thread.runtimeStatus}`} title={`Thread ${thread.runtimeStatus}`}
-        className="shrink-0 text-primary">●</span> : null}
-      {activity ? <span role="img" aria-label={activity} title={activity}
-        className="shrink-0 px-0.5 text-xs text-muted-foreground">↻</span> : null}
-      {indicator ? <span role="img" aria-label={indicator} title={indicator}
-        className="shrink-0 px-0.5 text-muted-foreground">●</span> : null}
-      {thread.queuedWork !== "none" && !thread.indicator.startsWith("queued-") ?
-        <span role="img" aria-label={thread.queuedWork === "failed" ? "Queued message failed" : "Queued message waiting"}
-          className="shrink-0 text-muted-foreground">◷</span> : null}
-      {rowStatus ? <span role="img" aria-label={rowStatus.label} title={rowStatus.label}
-        className={`shrink-0 ${rowStatus.tone === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-        <Icon name={rowStatus.icon} className="size-3.5" aria-hidden />
-      </span> : hasUnsubmittedDraft && thread.indicator !== "draft" && thread.indicator !== "working-draft" ?
-        <span role="img" aria-label="Unsent draft" title="Unsent draft" className="shrink-0 text-muted-foreground">✎</span> : null}
-      {shortcut ? <span className="shrink-0 rounded border border-border px-1 text-xs text-muted-foreground">{shortcut.label}</span> : null}
-      <ActionMenu label={`Actions for ${thread.displayTitle}`}
-        items={threadMenuItems(thread, actions, sdk, sections, pinned, splitAvailable, onNavigate)} />
-      <PullRequestConsumer threadId={thread.id} />
+        aria-expanded={!item.collapsed}
+        className={`relative z-10 mt-2 flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground ${FOCUS_RING}`}
+        onClick={() => onToggle(item.id)}>
+        <Icon name={item.collapsed ? "ChevronRight" : "ChevronDown"} className="size-3.5" aria-hidden />
+      </button> : null}
+      <div className={`grid h-full min-w-0 flex-1 grid-cols-[1rem_minmax(0,1fr)_auto] grid-rows-[1.25rem_1.25rem] content-center items-center gap-x-2 rounded-lg px-2 ${selected ? "bg-sidebar-accent" : "group-hover/row:bg-sidebar-accent/60"}`}>
+        <ProviderGlyph thread={thread} provider={provider} quiet={quiet} />
+        <a {...splitProps} href={thread.href} data-sidebar-thread-shortcut-target="" data-sidebar-thread-id={thread.id}
+          aria-current={selected ? "page" : undefined} aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
+          onClick={(event) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            actions.open(thread.id);
+            onNavigate();
+          }}
+          className={`col-start-2 row-start-1 truncate text-[13px] after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring ${quiet ? "text-muted-foreground" : "text-foreground"} ${thread.isUnread ? "font-semibold" : ""}`}>
+          {thread.displayTitle}
+        </a>
+        <span className="relative z-10 col-start-3 row-start-1 flex items-center justify-end gap-1.5">
+          {shortcut ? <kbd className="rounded border border-border px-1 font-sans text-[10px] leading-4 text-muted-foreground">{shortcut.label}</kbd> : null}
+          <span className="relative flex h-5 min-w-7 items-center justify-end">
+            <StateOrTime thread={thread} hasDraft={hasDraft} now={now} />
+            <span className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 has-[[aria-expanded=true]]:opacity-100 [@media(hover:none)]:opacity-100">
+              <ActionMenu label={`Actions for ${thread.displayTitle}`}
+                items={threadMenuItems(thread, actions, sdk, sections, pinned, splitAvailable, onNavigate)} />
+            </span>
+          </span>
+        </span>
+        <RowDetail thread={thread} rowStatus={rowStatus} />
+        <span className="relative z-10 col-start-3 row-start-2 flex justify-end"><PullRequestConsumer thread={thread} now={now} /></span>
+      </div>
     </div>
   );
 }
 
-function ThreadList(_props: PluginThreadListProps) {
+const LIFECYCLES = [
+  { value: "active", label: "Active" }, { value: "archived", label: "Archived" }, { value: "both", label: "Both" },
+] as const;
+
+const BY_DATE: [ListOptions["direction"], string][] = [["desc", "Newest first"], ["asc", "Oldest first"]];
+const DIRECTIONS: Record<SortField, [ListOptions["direction"], string][]> = {
+  updated: BY_DATE, created: BY_DATE, title: [["asc", "A to Z"], ["desc", "Z to A"]],
+};
+
+function listOptionItems(prefs: ListOptions, update: (change: Partial<ListOptions>) => void, reset: () => void): MenuItem[] {
+  const radio = <K extends "mode" | "sort" | "direction">(section: string, key: K, choices: [ListOptions[K], string][]) =>
+    choices.map(([value, label]): MenuItem => ({ section, label, checked: prefs[key] === value, run: () => update({ [key]: value }) }));
+  return [
+    ...radio("Group by", "mode", [["project", "Project"], ["machine", "Machine"], ["section", "Section"]]),
+    ...radio("Sort by", "sort", [["updated", "Last updated"], ["created", "Created"], ["title", "Title"]]),
+    ...radio("Order", "direction", DIRECTIONS[prefs.sort]),
+    { label: "Reset list preferences", run: reset },
+  ];
+}
+
+function GroupHeader({ item, onToggle, onNewThread, menu }: {
+  item: Extract<ListItem, { kind: "group" }>;
+  onToggle: () => void;
+  onNewThread: (() => void) | null;
+  menu: MenuItem[];
+}) {
+  const urgent = item.scope.kind === "attention";
+  const badge = item.scope.kind === "project" ? projectBadge(item.scope.projectId, item.label) : null;
+  return (
+    <div className="flex items-end" style={{ height: HEIGHTS.group }}>
+      <div className="group/header relative flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 hover:bg-sidebar-accent/60">
+        <button type="button" aria-expanded={!item.collapsed}
+          aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${item.label}`} aria-description={`${item.count} threads`}
+          className={`absolute inset-0 rounded-md ${FOCUS_RING}`}
+          onClick={onToggle} />
+        {badge ? <span aria-hidden data-project-badge="" className="pointer-events-none flex size-5 shrink-0 items-center justify-center rounded-md border border-black/15 text-[11px] font-semibold shadow-sm"
+          style={{ backgroundColor: badge.background, color: badge.foreground }}>{badge.letter}</span> : null}
+        <span className={`pointer-events-none min-w-0 flex-1 truncate text-[13px] font-semibold ${urgent ? "text-destructive" : "text-foreground/90"}`}>
+          {item.label}
+        </span>
+        {urgent ? <span className="pointer-events-none shrink-0 rounded-full bg-destructive/10 px-1.5 text-[11px] font-medium leading-4 tabular-nums text-destructive">
+          {item.count}</span> : null}
+        {onNewThread ? <button type="button" aria-label={`New thread in ${item.label}`} title={`New thread in ${item.label}`}
+          className={`${TOOL_BUTTON} relative z-10 opacity-0 transition-opacity group-focus-within/header:opacity-100 group-hover/header:opacity-100`}
+          onClick={onNewThread}>
+          <Icon name="Plus" className="size-3.5" aria-hidden />
+        </button> : null}
+        {menu.length > 0 ? <span className="relative z-10 opacity-0 transition-opacity group-focus-within/header:opacity-100 group-hover/header:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+          <ActionMenu label={`More for ${item.label}`} items={menu} />
+        </span> : null}
+        <Icon name="ChevronDown" aria-hidden
+          className={`pointer-events-none size-3 shrink-0 text-muted-foreground transition-transform ${item.collapsed ? "-rotate-90" : ""}`} />
+      </div>
+    </div>
+  );
+}
+
+function ThreadList(props: PluginThreadListProps) {
   const [prefs, setPrefs] = useState(readPreferences);
   const { status, threads, projects, sections, experimental_archived: archived } = experimental_useSidebarThreads({ experimental_lifecycles: prefs.lifecycles });
   const actions = experimental_useSidebarThreadActions();
   const sdk = useSdk();
+  const now = useNow();
+  const { providers } = experimental_useProviders();
+  const [insightCache] = useState<InsightCache>(() => new Map());
+  const providerById = useMemo(() => new Map<string, Provider>(providers.map((provider) => [provider.id, provider])), [providers]);
   const pinned = useMemo(() => threads.filter((row) => row.isPinned && !row.isHidden && !row.isArchived)
     .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
       : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey)), [threads]);
-  const items = useMemo(() => visibleItems(threads, projects, sections, prefs), [threads, projects, sections, prefs]);
+  const items = useMemo(() => visibleItems(threads, projects, sections, prefs),
+    [threads, projects, sections, prefs]);
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -102,61 +261,57 @@ function ThreadList(_props: PluginThreadListProps) {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  const windowSize = Math.ceil(viewportHeight / ROW_HEIGHT) + 2 * OVERSCAN;
-  const start = Math.max(0, Math.min(items.length - windowSize, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN));
-  const end = Math.min(items.length, start + windowSize);
+  const offsets = useMemo(() => {
+    const tops = [0];
+    for (const item of items) tops.push(tops.at(-1)! + HEIGHTS[item.kind]);
+    return tops;
+  }, [items]);
+  const indexAt = (y: number) => {
+    let low = 0;
+    let high = items.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (offsets[mid + 1]! <= y) low = mid + 1; else high = mid;
+    }
+    return Math.min(low, Math.max(0, items.length - 1));
+  };
+  const start = Math.max(0, indexAt(scrollTop) - OVERSCAN);
+  const end = Math.min(items.length, indexAt(scrollTop + viewportHeight) + 1 + OVERSCAN);
   const windowItems = items.slice(start, end);
   useEffect(() => savePreferences(prefs), [prefs]);
   const update = (change: Partial<ListOptions>) => setPrefs((current) => ({ ...current, ...change }));
-  const toggle = (field: "collapsedGroups" | "collapsedThreads", id: string) => {
+  const toggle = (field: keyof Pick<ListOptions, "collapsedGroups" | "collapsedThreads">, id: string) => {
     setPrefs((current) => ({ ...current,
       [field]: current[field].includes(id) ? current[field].filter((entry) => entry !== id) : [...current[field], id],
     }));
   };
-  const lifecycles = prefs.lifecycles.join(",") === "active,archived" ? "both" : prefs.lifecycles[0];
+  const newThreadAction = (group: Extract<ListItem, { kind: "group" }>) => {
+    const scope = newThreadScope(group);
+    return scope ? () => { actions.openNewThread({ ...scope, focusPrompt: true }); props.onNavigate(); } : null;
+  };
+  const lifecycleName = useId();
+  const lifecycle = prefs.lifecycles.join(",") === "active,archived" ? "both" : prefs.lifecycles[0];
   const showArchive = prefs.lifecycles.includes("archived");
   const archiveLoading = showArchive && archived?.status === "loading";
   const archiveError = showArchive && archived?.status === "error";
   return (
+    <InsightCacheContext.Provider value={insightCache}>
     <div className="flex h-full min-h-0 flex-col p-2 text-sm text-foreground">
-      <div className="mb-2 shrink-0 space-y-1 border-b border-border pb-2">
-        <label className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-          Threads
-          <select aria-label="Threads" value={lifecycles} className="min-w-0 rounded border border-border bg-background px-1 py-1 text-foreground"
-            onChange={(event) => update({ lifecycles: event.target.value === "both" ? ["active", "archived"] : [event.target.value as Lifecycle] })}>
-            <option value="active">Active</option><option value="archived">Archived</option><option value="both">Both</option>
-          </select>
-        </label>
-        <details className="px-1 text-xs">
-          <summary className="cursor-pointer text-muted-foreground">List options</summary>
-          <div className="space-y-2 py-2">
-            <label className="flex items-center justify-between gap-2">Group by
-              <select aria-label="Group by" value={prefs.mode} className="rounded border border-border bg-background px-1 py-1"
-                onChange={(event) => update({ mode: event.target.value as Organization })}>
-                <option value="project">Project</option><option value="machine">Machine</option><option value="section">Section</option>
-              </select>
-            </label>
-            <label className="flex items-center justify-between gap-2">Sort by
-              <select aria-label="Sort by" value={prefs.sort} className="rounded border border-border bg-background px-1 py-1"
-                onChange={(event) => update({ sort: event.target.value as SortField })}>
-                <option value="updated">Last updated</option><option value="created">Created</option><option value="title">Title</option>
-              </select>
-            </label>
-            <label className="flex items-center justify-between gap-2">Direction
-              <select aria-label="Direction" value={prefs.direction} className="rounded border border-border bg-background px-1 py-1"
-                onChange={(event) => update({ direction: event.target.value as ListOptions["direction"] })}>
-                <option value="desc">Descending</option><option value="asc">Ascending</option>
-              </select>
-            </label>
-            <button type="button" className="text-muted-foreground underline" onClick={() => setPrefs(DEFAULT_PREFERENCES)}>
-              Reset list preferences
-            </button>
-          </div>
-        </details>
-        {prefs.mode === "section" ? <button type="button" className="px-1 text-xs text-muted-foreground underline"
+      <div className="mb-1 flex h-8 shrink-0 items-center gap-1">
+        <div role="radiogroup" aria-label="Threads" className="flex h-7 min-w-0 flex-1 items-center rounded-md bg-sidebar-accent/60 p-0.5">
+          {LIFECYCLES.map(({ value, label }) => <label key={value}
+            className="relative flex h-6 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-[5px] px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-[0_1px_2px_rgb(0_0_0/0.08)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+            <input type="radio" name={lifecycleName} value={value} checked={lifecycle === value}
+              className="sr-only" onChange={() => update({ lifecycles: value === "both" ? ["active", "archived"] : [value] })} />
+            <span className="truncate">{label}</span>
+          </label>)}
+        </div>
+        {prefs.mode === "section" ? <button type="button" aria-label="Create section" title="Create section" className={TOOL_BUTTON}
           onClick={() => { void createSection(sdk)?.catch(() => toast.error("Could not create section.")); }}>
-          Create section
+          <Icon name="FolderPlus" className="size-3.5" aria-hidden />
         </button> : null}
+        <ActionMenu label="List options" items={listOptionItems(prefs, update, () => setPrefs(DEFAULT_PREFERENCES))}
+          icon={<Icon name="SlidersHorizontal" className="size-3.5" aria-hidden />} />
       </div>
       <div ref={scroller} data-testid="thread-scroll" className="min-h-0 flex-1 overflow-y-auto"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
@@ -165,23 +320,16 @@ function ThreadList(_props: PluginThreadListProps) {
       {archiveLoading ? <p role="status" className="p-2 text-muted-foreground">Loading archived threads…</p> : null}
       {archiveError ? <p role="alert" className="p-2 text-destructive">Archived threads are unavailable.</p> : null}
       {status === "ready" && !archiveLoading && !archiveError && items.length === 0 ? <p className="p-2 text-muted-foreground">No threads</p> : null}
-      {status === "ready" ? <div aria-hidden="true" style={{ height: start * ROW_HEIGHT }} /> : null}
+      {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[start] }} /> : null}
       {status === "ready" ? windowItems.map((item) => item.kind === "group" ? (
-        <div key={item.id} className="flex h-8 min-w-0 items-center">
-          <button type="button" aria-expanded={!item.collapsed}
-            aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${item.label}`}
-            className="flex h-8 min-w-0 flex-1 items-center justify-between rounded-md px-2 text-left text-xs font-semibold text-muted-foreground hover:bg-accent"
-            onClick={() => toggle("collapsedGroups", item.id)}>
-            <span className="truncate">{item.collapsed ? "▸" : "▾"} {item.label}</span><span>{item.count}</span>
-          </button>
-          <ActionMenu label={`More for ${item.label}`} items={groupMenuItems(item, actions, sdk)} />
-        </div>
+        <GroupHeader key={item.id} item={item} onToggle={() => toggle("collapsedGroups", item.id)}
+          onNewThread={newThreadAction(item)} menu={groupMenuItems(item, sdk)} />
       ) : (
-        <ThreadRow key={item.id} item={item} activeThreadId={_props.activeThreadId}
-          onToggle={(id) => toggle("collapsedThreads", id)} onNavigate={_props.onNavigate}
+        <ThreadRow key={item.id} item={item} provider={providerById.get(item.thread.providerId) ?? { id: item.thread.providerId }} activeThreadId={props.activeThreadId} now={now}
+          onToggle={(id) => toggle("collapsedThreads", id)} onNavigate={props.onNavigate}
           actions={actions} sdk={sdk} sections={sections} pinned={pinned} />
       )) : null}
-      {status === "ready" ? <div aria-hidden="true" style={{ height: (items.length - end) * ROW_HEIGHT }} /> : null}
+      {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[items.length]! - offsets[end]! }} /> : null}
       {showArchive && archived && (archiveError || (status === "ready" && archived.hasNextPage)) ? (
         <button type="button" disabled={archived.isFetchingNextPage}
           className="mt-2 w-full rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent disabled:opacity-50"
@@ -191,6 +339,7 @@ function ThreadList(_props: PluginThreadListProps) {
       ) : null}
       </div>
     </div>
+    </InsightCacheContext.Provider>
   );
 }
 

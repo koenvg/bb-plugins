@@ -73,4 +73,18 @@ describe("visibleItems", () => {
     expect(items[1]).toMatchObject({ kind: "thread", id: "t2999" });
     expect(many[0]?.id).toBe("t0");
   });
+  it("lifts threads that need the user into a first Needs you group, flattened out of their parents", () => {
+    const other = { ...project, id: "p2", name: "Other project" };
+    const items = visibleItems([
+      thread({ id: "parent", displayTitle: "Parent", isUnread: true }),
+      thread({ id: "asks", displayTitle: "Asks", parentThreadId: "parent", indicator: "waiting-for-input" }),
+      thread({ id: "failed", displayTitle: "Failed", projectId: "p2", queuedWork: "failed" }),
+      thread({ id: "approval", displayTitle: "Approval", isPinned: true, pinnedAt: 1, hasPendingInteraction: true }),
+    ], [project, other], [], defaults);
+    expect(items[0]).toMatchObject({ kind: "group", id: "attention", label: "Needs you", count: 3 });
+    expect(items.slice(1, 4).map((item) => item.kind === "thread" ? [item.thread.id, item.depth] : null))
+      .toEqual([["approval", 0], ["asks", 0], ["failed", 0]]);
+    expect(items.filter((item) => item.kind === "group").map((item) => item.id))
+      .toEqual(["attention", "project:p1"]);
+  });
 });
