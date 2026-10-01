@@ -24,7 +24,6 @@ jobs:
           - bb-plugin-code-cleanup
           - bb-plugin-codex-quota
           - bb-plugin-github-insight
-          - bb-plugin-liquid-glass
           - bb-plugin-pr-thread-list
           - bb-plugin-tasks-plus
     defaults:
