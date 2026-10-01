@@ -11,7 +11,9 @@ import {
 } from "./github/gh-failure";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
+import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
+import { readTextFile } from "./read-text-file";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +27,10 @@ export default experimental_defineHostEntry({
     fetchPrFiles: (request, context) => runGhJson(prFilesArgs(request), context.signal),
     fetchReviewThreads: (request, context) =>
       runGhJson(reviewThreadsPageArgs(request), context.signal),
+    readTextFile: (request) => readTextFile(request),
+    replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
+    setThreadResolved: (request, context) =>
+      runGhJson(setThreadResolvedArgs(request), context.signal),
   },
 });
 

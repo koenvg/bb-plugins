@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const MAX_THREAD_PAGES = 5;
+export const MAX_COMMENT_BODY_CHARS = 4000;
 
 const threadsPageSchema = z.object({
   data: z.object({
@@ -62,6 +63,11 @@ export const reviewThreadSchema = z.object({
 });
 export type ReviewThread = z.infer<typeof reviewThreadSchema>;
 
+export function capCommentBody(body: string): string {
+  if (body.length <= MAX_COMMENT_BODY_CHARS) return body;
+  return `${body.slice(0, MAX_COMMENT_BODY_CHARS)}\n[cut at ${MAX_COMMENT_BODY_CHARS} characters]`;
+}
+
 const GHOST_AUTHOR = "ghost";
 
 type ThreadNode = ThreadsPage["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"][number];
@@ -91,9 +97,14 @@ export function parseReviewThreads(pages: unknown[]): ReviewThread[] {
   return pages.flatMap((page) => threadsOf(threadsPageSchema.parse(page)).nodes.map(toReviewThread));
 }
 
+export interface CollectedReviewThreads {
+  threads: ReviewThread[];
+  complete: boolean;
+}
+
 export async function collectReviewThreads(
   fetchPage: (after: string | null) => Promise<unknown>,
-): Promise<ReviewThread[]> {
+): Promise<CollectedReviewThreads> {
   const pages: ThreadsPage[] = [];
   let after: string | null = null;
   do {
@@ -102,5 +113,8 @@ export async function collectReviewThreads(
     const { pageInfo } = threadsOf(page);
     after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
   } while (after !== null && pages.length < MAX_THREAD_PAGES);
-  return pages.flatMap((page) => threadsOf(page).nodes.map(toReviewThread));
+  return {
+    threads: pages.flatMap((page) => threadsOf(page).nodes.map(toReviewThread)),
+    complete: after === null,
+  };
 }

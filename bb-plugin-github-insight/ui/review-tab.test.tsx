@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
-import type { ReviewResult, rpcContract } from "../contract";
+import type { ReplyResult, ReviewResult, rpcContract, SendToAgentResult, SetResolvedResult } from "../contract";
 import { parsePrFiles } from "../core/pr-files";
 import { parseReviewThreads } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
@@ -59,16 +59,31 @@ const reviewTab = app.threadPanelActions.find((action) => action.id === "review"
 afterEach(cleanup);
 
 const noThreads: ThreadPlacement = { placed: [], outdated: [] };
-const recorded: ReviewResult = { kind: "ok", files: parsePrFiles(prFiles), threads: noThreads };
+const recorded: ReviewResult = { kind: "ok", files: parsePrFiles(prFiles), threads: noThreads, drafts: {} };
 
 const threadedFiles = parsePrFiles(threadedPrFiles);
 const threaded = {
   kind: "ok",
   files: threadedFiles,
   threads: placeThreads(threadedFiles, parseReviewThreads([reviewThreads])),
+  drafts: {},
 } satisfies ReviewResult;
 
+interface RpcHandlers {
+  sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
+  reply?: () => ReplyResult | Promise<ReplyResult>;
+  setResolved?: () => SetResolvedResult | Promise<SetResolvedResult>;
+}
+
 function renderTab(...results: ReviewResult[]) {
+  return renderTabWith({}, ...results);
+}
+
+function renderTabSending(sendToAgent: () => SendToAgentResult | Promise<SendToAgentResult>, ...results: ReviewResult[]) {
+  return renderTabWith({ sendToAgent }, ...results);
+}
+
+function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
   let call = 0;
   const getReview = () => results[Math.min(call++, results.length - 1)]!;
   return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
@@ -77,8 +92,11 @@ function renderTab(...results: ReviewResult[]) {
     {
       rpc: {
         getReview,
+        sendToAgent: handlers.sendToAgent ?? (() => ({ kind: "sent", delivery: "sent", threadCount: 1 })),
         getInsight: () => ({ kind: "no_pr" }),
         refresh: () => ({ kind: "no_pr" }),
+        reply: handlers.reply ?? (() => ({ kind: "posted", pendingReviewUrl: null, resolveError: null })),
+        setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
       },
     },
   );
@@ -276,5 +294,389 @@ describe("Review tab threads", () => {
 
     await slot.findByText("2 open");
     expect(slot.queryByRole("region", { name: "Outdated" })).toBeNull();
+  });
+});
+
+describe("Review tab drafts", () => {
+  const PLACED = "PRRT_kwDOHI7l-86jxula";
+  const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
+  const draft = { body: "Renamed in abc123", updatedAt: 1, source: "agent" as const };
+
+  function withDraft(reviewThreadId: string): ReviewResult {
+    return { ...threaded, drafts: { [reviewThreadId]: draft } };
+  }
+
+  it("shows a draft below the comments of its thread as 'Draft from agent'", async () => {
+    const slot = renderTab(withDraft(PLACED));
+
+    const section = await slot.findByRole("region", { name: "Draft from agent" });
+    expect(section.textContent).toContain("Renamed in abc123");
+    const card = section.closest("article")!;
+    expect(card.textContent).toContain("There's no wait for the new row to mount");
+    const lastComment = within(card).getAllByTestId("bb-markdown").at(-1)!;
+    expect(lastComment.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the draft of an outdated thread", async () => {
+    const slot = renderTab(withDraft(OUTDATED));
+
+    const outdated = within(await slot.findByRole("region", { name: "Outdated" }));
+    expect(outdated.getByRole("region", { name: "Draft from agent" }).textContent).toContain(
+      "Renamed in abc123",
+    );
+  });
+
+  it("shows the draft text as written, not as Markdown", async () => {
+    const slot = renderTab({ ...threaded, drafts: { [PLACED]: { ...draft, body: "**bold**\nnext" } } });
+
+    const section = await slot.findByRole("region", { name: "Draft from agent" });
+    expect(within(section).queryByTestId("bb-markdown")).toBeNull();
+    expect(section.textContent).toContain("**bold**\nnext");
+  });
+
+  it("shows a draft saved while the tab is open", async () => {
+    const slot = renderTab(threaded, withDraft(PLACED));
+    await slot.findByText("3 open");
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    const section = await slot.findByRole("region", { name: "Draft from agent" });
+    expect(section.textContent).toContain("Renamed in abc123");
+  });
+
+  it("ignores a review update of another thread", async () => {
+    const slot = renderTab(threaded, withDraft(PLACED));
+    await slot.findByText("3 open");
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_2" });
+
+    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview"]);
+  });
+});
+
+describe("Review tab send to agent", () => {
+  const PLACED = "PRRT_kwDOHI7l-86jxula";
+  const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
+  const PLACED_TEXT = "There's no wait for the new row to mount";
+
+  function checkboxOf(slot: ReturnType<typeof renderTab>, text: string) {
+    const card = slot.getAllByRole("article").find((article) => article.textContent?.includes(text))!;
+    return within(card).getByRole("checkbox", { name: "Select for agent" }) as HTMLInputElement;
+  }
+
+  function outdatedCheckbox(slot: ReturnType<typeof renderTab>) {
+    return within(slot.getByRole("region", { name: "Outdated" })).getByRole("checkbox", {
+      name: "Select for agent",
+    }) as HTMLInputElement;
+  }
+
+  async function selectTwo(slot: ReturnType<typeof renderTab>) {
+    await slot.findAllByTestId("line-annotation");
+    fireEvent.click(checkboxOf(slot, PLACED_TEXT));
+    fireEvent.click(outdatedCheckbox(slot));
+  }
+
+  function sendCalls(slot: ReturnType<typeof renderTab>) {
+    return slot.inspection.rpcCalls.filter((call) => call.method === "sendToAgent");
+  }
+
+  it("has a checkbox on each open thread and a disabled 'Send 0 to agent'", async () => {
+    const slot = renderTab(threaded);
+
+    await slot.findAllByTestId("line-annotation");
+    expect(slot.getAllByRole("checkbox", { name: "Select for agent" })).toHaveLength(3);
+    expect((slot.getByRole("button", { name: "Send 0 to agent" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("counts the selected threads", async () => {
+    const slot = renderTab(threaded);
+
+    await selectTwo(slot);
+    expect((slot.getByRole("button", { name: "Send 2 to agent" }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(outdatedCheckbox(slot));
+    expect(slot.getByRole("button", { name: "Send 1 to agent" })).toBeTruthy();
+  });
+
+  it("has no checkbox on a resolved thread", async () => {
+    const slot = renderTab(threaded);
+
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
+    const resolved = within(slot.getByRole("region", { name: "Outdated" })).getByRole("button", {
+      name: /wiz-22f56a2082.*Resolved/,
+    });
+    fireEvent.click(resolved);
+
+    expect(within(resolved.closest("article")!).queryByRole("checkbox")).toBeNull();
+    expect(slot.getAllByRole("checkbox", { name: "Select for agent" })).toHaveLength(3);
+  });
+
+  it("sends the selected threads of its own thread, then clears the selection", async () => {
+    const slot = renderTabSending(() => ({ kind: "sent", delivery: "sent", threadCount: 2 }), threaded);
+    await selectTwo(slot);
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
+
+    expect(await slot.findByRole("button", { name: "Send 0 to agent" })).toBeTruthy();
+    expect(sendCalls(slot)).toEqual([
+      expect.objectContaining({ input: { threadId: "thr_1", reviewThreadIds: [PLACED, OUTDATED] } }),
+    ]);
+    expect(checkboxOf(slot, PLACED_TEXT).checked).toBe(false);
+    expect(slot.getByText("Sent to agent")).toBeTruthy();
+  });
+
+  it("says when the message waits for a busy agent", async () => {
+    const slot = renderTabSending(() => ({ kind: "sent", delivery: "queued", threadCount: 2 }), threaded);
+    await selectTwo(slot);
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
+
+    expect(await slot.findByText("Queued until the agent is idle")).toBeTruthy();
+  });
+
+  it("says how many threads were sent when some got resolved in the meantime", async () => {
+    const slot = renderTabSending(() => ({ kind: "sent", delivery: "sent", threadCount: 1 }), threaded);
+    await selectTwo(slot);
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
+
+    expect(await slot.findByText("Sent 1 of 2 to agent")).toBeTruthy();
+  });
+
+  it("keeps a thread selected during the send, which was not sent", async () => {
+    let finish: (result: SendToAgentResult) => void = () => {};
+    const slot = renderTabSending(() => new Promise((resolve) => (finish = resolve)), threaded);
+    await slot.findAllByTestId("line-annotation");
+    fireEvent.click(checkboxOf(slot, PLACED_TEXT));
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 1 to agent" }));
+    fireEvent.click(outdatedCheckbox(slot));
+    await act(async () => finish({ kind: "sent", delivery: "sent", threadCount: 1 }));
+
+    expect(outdatedCheckbox(slot).checked).toBe(true);
+    expect(checkboxOf(slot, PLACED_TEXT).checked).toBe(false);
+  });
+
+  it("shows the error and keeps the selection when the send fails", async () => {
+    const slot = renderTabSending(() => ({ kind: "error", message: "gh not logged in" }), threaded);
+    await selectTwo(slot);
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
+
+    const alert = await slot.findByRole("alert");
+    expect(alert.textContent).toContain("gh not logged in");
+    expect(slot.getByRole("button", { name: "Send 2 to agent" })).toBeTruthy();
+    expect(checkboxOf(slot, PLACED_TEXT).checked).toBe(true);
+  });
+
+  it("shows the error and keeps the selection when the call throws", async () => {
+    const slot = renderTabSending(() => {
+      throw new Error("Thread is archived");
+    }, threaded);
+    await selectTwo(slot);
+
+    fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
+
+    expect((await slot.findByRole("alert")).textContent).toContain("Thread is archived");
+    expect(slot.getByRole("button", { name: "Send 2 to agent" })).toBeTruthy();
+  });
+
+  it("stops counting a selected thread that got resolved", async () => {
+    const resolved = {
+      ...threaded,
+      threads: {
+        ...threaded.threads,
+        outdated: threaded.threads.outdated.map((thread) => ({ ...thread, resolved: true })),
+      },
+    };
+    const slot = renderTab(threaded, resolved);
+    await selectTwo(slot);
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    expect(await slot.findByRole("button", { name: "Send 1 to agent" })).toBeTruthy();
+  });
+});
+
+describe("Review tab thread actions", () => {
+  const PLACED = "PRRT_kwDOHI7l-86jxula";
+  const OPEN_THREAD = "There's no wait for the new row to mount";
+  const REPLY = 'Fixed in "abc123"\nThanks';
+
+  async function openCard(slot: ReturnType<typeof renderTab>) {
+    await slot.findAllByTestId("line-annotation");
+    const annotation = slot
+      .getAllByTestId("line-annotation")
+      .find((candidate) => candidate.textContent?.includes(OPEN_THREAD))!;
+    return within(annotation.querySelector("article")!);
+  }
+
+  function typeReply(card: Awaited<ReturnType<typeof openCard>>, text = REPLY) {
+    fireEvent.change(card.getByRole("textbox", { name: "Reply" }), { target: { value: text } });
+  }
+
+  function writeCalls(slot: ReturnType<typeof renderTab>) {
+    return slot.inspection.rpcCalls.filter((call) => call.method !== "getReview");
+  }
+
+  function resolvedPlaced(): ReviewResult {
+    return {
+      ...threaded,
+      threads: {
+        ...threaded.threads,
+        placed: threaded.threads.placed.map((placed) =>
+          placed.thread.id === PLACED ? { ...placed, thread: { ...placed.thread, resolved: true } } : placed,
+        ),
+      },
+    };
+  }
+
+  it("does not post an empty reply", async () => {
+    const card = await openCard(renderTab(threaded));
+
+    expect(card.getByRole("button", { name: "Post" }).hasAttribute("disabled")).toBe(true);
+    typeReply(card, "   ");
+    expect(card.getByRole("button", { name: "Post + resolve" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("posts the reply, clears the box, and loads the thread again", async () => {
+    const slot = renderTab(threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+    await waitFor(() => expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview", "reply", "getReview"]));
+    expect(writeCalls(slot)[0]!.input).toEqual({ threadId: "thr_1", reviewThreadId: PLACED, body: REPLY, resolve: false });
+    expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("asks to post and resolve on 'Post + resolve'", async () => {
+    const slot = renderTab(threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post + resolve" }));
+
+    await waitFor(() => expect(writeCalls(slot)).toHaveLength(1));
+    expect(writeCalls(slot)[0]!.input).toMatchObject({ reviewThreadId: PLACED, resolve: true });
+  });
+
+  it("shows the error and keeps the text when the post fails", async () => {
+    const slot = renderTabWith({ reply: () => ({ kind: "post_failed", message: "gh not logged in" }) }, threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+    expect((await card.findByRole("alert")).textContent).toBe("gh not logged in");
+    expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe(REPLY);
+    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview", "reply"]);
+  });
+
+  it("keeps the text when the reply call itself fails", async () => {
+    const slot = renderTabWith({ reply: () => Promise.reject(new Error("host unreachable")) }, threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+    expect((await card.findByRole("alert")).textContent).toBe("host unreachable");
+    expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe(REPLY);
+  });
+
+  it("disables the box and the actions while a post runs", async () => {
+    const slot = renderTabWith({ reply: () => new Promise<ReplyResult>(() => {}) }, threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+    await waitFor(() => expect(card.getByRole("textbox", { name: "Reply" }).hasAttribute("disabled")).toBe(true));
+    for (const name of ["Post", "Post + resolve", "Resolve"]) {
+      expect(card.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+    }
+  });
+
+  it("shows the resolve error after the reply was posted", async () => {
+    const slot = renderTabWith(
+      { reply: () => ({ kind: "posted", pendingReviewUrl: null, resolveError: "rate limited" }) },
+      threaded,
+    );
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post + resolve" }));
+
+    expect((await card.findByRole("alert")).textContent).toBe("rate limited");
+    expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("");
+    await waitFor(() => expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview", "reply", "getReview"]));
+  });
+
+  it("says when the reply went into the user's pending review", async () => {
+    const prUrl = "https://github.com/collibra/frontend/pull/25259";
+    const slot = renderTabWith({ reply: () => ({ kind: "posted", pendingReviewUrl: prUrl, resolveError: null }) }, threaded);
+    const card = await openCard(slot);
+
+    typeReply(card);
+    fireEvent.click(card.getByRole("button", { name: "Post" }));
+
+    const notice = await card.findByText("Reply added to your pending review.", { exact: false });
+    expect(within(notice).getByRole("link", { name: "Open the PR" }).getAttribute("href")).toBe(prUrl);
+  });
+
+  it("resolves the thread and loads again", async () => {
+    const slot = renderTab(threaded, resolvedPlaced());
+    const card = await openCard(slot);
+
+    fireEvent.click(card.getByRole("button", { name: "Resolve" }));
+
+    await waitFor(() => expect(slot.queryByText(OPEN_THREAD, { exact: false })).toBeNull());
+    expect(writeCalls(slot).map((call) => call.input)).toEqual([
+      { threadId: "thr_1", reviewThreadId: PLACED, resolved: true },
+    ]);
+  });
+
+  it("shows the error when the resolve fails", async () => {
+    const slot = renderTabWith({ setResolved: () => ({ kind: "error", message: "rate limited" }) }, threaded);
+    const card = await openCard(slot);
+
+    fireEvent.click(card.getByRole("button", { name: "Resolve" }));
+
+    expect((await card.findByRole("alert")).textContent).toBe("rate limited");
+    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getReview", "setResolved"]);
+  });
+
+  it("unresolves a resolved thread, which has no reply box", async () => {
+    const slot = renderTab(resolvedPlaced());
+
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
+    fireEvent.click(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }));
+    const card = within(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article")!);
+    expect(card.queryByRole("textbox", { name: "Reply" })).toBeNull();
+    fireEvent.click(card.getByRole("button", { name: "Unresolve" }));
+
+    await waitFor(() => expect(writeCalls(slot).map((call) => call.input)).toEqual([
+      { threadId: "thr_1", reviewThreadId: PLACED, resolved: false },
+    ]));
+  });
+
+  it("keeps the reply text when a thread above it in the file gets resolved", async () => {
+    const [first, second] = threaded.threads.placed;
+    const sameFile = { ...second!, thread: { ...second!.thread, path: first!.thread.path } };
+    const before: ReviewResult = { ...threaded, threads: { ...threaded.threads, placed: [first!, sameFile] } };
+    const after: ReviewResult = {
+      ...before,
+      threads: { ...before.threads, placed: [{ ...first!, thread: { ...first!.thread, resolved: true } }, sameFile] },
+    };
+    const slot = renderTab(before, after);
+    const card = await openCard(slot);
+    typeReply(card, "Half written");
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    await waitFor(() => expect(slot.getAllByTestId("line-annotation")).toHaveLength(1));
+    const moved = within(slot.getByTestId("line-annotation"));
+    expect((moved.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("Half written");
   });
 });

@@ -1,6 +1,6 @@
 # BB plugins
 
-Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins](https://github.com/koenvangeert/bb-plugins) at commit `b6bd25a2f94a6390313e464826aecd13f456f186`.
+Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins-collibra](https://github.com/koenvangeert/bb-plugins-collibra) at commit `178c5c8e8dafa2f8f4f2567e855cbad7bd869836`.
 
 | Plugin | Directory |
 | --- | --- |

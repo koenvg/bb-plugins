@@ -1,65 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import pageOne from "./test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "./test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
-import type { GhFailure } from "./github/gh-failure";
 import type { ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
-import plugin from "./server";
-
-type PullRequestResult = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>
->;
-type AvailablePullRequest = Extract<PullRequestResult, { outcome: "available" }>;
-type Environment = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["get"]>
->;
-type ThreadListItem = Awaited<
-  ReturnType<BbPluginApi["sdk"]["threads"]["list"]>
->[number];
-interface HostCall {
-  method: string;
-  input: unknown;
-}
-
-function linkedPr(
-  number: number,
-  state: AvailablePullRequest["pullRequest"]["state"] = "open",
-): AvailablePullRequest {
-  return {
-    outcome: "available",
-    pullRequest: {
-      attention: "checks_failed",
-      baseRefName: "main",
-      checks: {
-        failedCount: 1,
-        passedCount: 98,
-        pendingCount: 0,
-        state: "failing",
-        totalCount: 108,
-      },
-      headRefName: "feature",
-      mergeability: {
-        mergeStateStatus: "BLOCKED",
-        mergeable: "MERGEABLE",
-        state: "blocked",
-      },
-      number,
-      review: { reviewRequestCount: 1, state: "review_required" },
-      state,
-      title: "feat(*): add ootbDomainTypesIds constants",
-      updatedAt: "2026-09-24T10:00:00Z",
-      url: `https://github.com/collibra/frontend/pull/${number}`,
-    },
-  };
-}
+import { failed, linkedPr, ok, setup, type HostCall, type PullRequestResult } from "./test/plugin-harness";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
   return {
@@ -72,55 +19,12 @@ function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
   };
 }
 
-function ok(data: unknown) {
-  return { ok: true as const, data };
-}
-
-function failed(failure: GhFailure) {
-  return { ok: false as const, failure };
-}
-
 function pages(first: unknown = pageOne) {
   return ({ method, input }: HostCall) => {
     if (method === "fetchCheckRunDetails") return ok(checkRunDetails);
     const { after } = input as { after: string | null };
     return ok(after === null ? first : pageTwo);
   };
-}
-
-async function setup(options: {
-  threads: { id: string; environmentId: string | null }[];
-  pullRequests?: Record<string, PullRequestResult>;
-  host?: (call: HostCall) => unknown;
-}) {
-  const threadResponse = (id: string) => {
-    const thread = options.threads.find((candidate) => candidate.id === id)!;
-    return makeThreadResponse(thread);
-  };
-  const { bb, harness } = createFakePluginHost({
-    pluginId: "github-insight",
-    sdk: {
-      threads: {
-        get: async ({ threadId }) => threadResponse(threadId),
-        list: async () =>
-          options.threads.map(
-            ({ id }) => threadResponse(id) as unknown as ThreadListItem,
-          ),
-        updatePluginMetadata: async () => ({}),
-      },
-      environments: {
-        pullRequest: async ({ environmentId }) =>
-          options.pullRequests?.[environmentId] ?? { outcome: "absent" as const },
-        get: async () => ({ hostId: "host-1" }) as Environment,
-      },
-    },
-    experimental_callHostRpc: (call) => {
-      if (options.host === undefined) throw new Error("unexpected call");
-      return options.host(call);
-    },
-  });
-  await plugin(bb);
-  return harness;
 }
 
 function overviewRefreshes(harness: Awaited<ReturnType<typeof setup>>) {
@@ -887,5 +791,187 @@ describe("getReview", () => {
     await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
 
     expect(harness.experimental_hostRpcCalls).toHaveLength(4);
+  });
+});
+
+describe("reply and resolve", () => {
+  const REVIEW_THREAD = "PRRT_kwDOHI7l-86jxula";
+  const BODY = 'Fixed in "abc123"\nThanks';
+
+  function replyResponse(state: "SUBMITTED" | "PENDING") {
+    return ok({ data: { addPullRequestReviewThreadReply: { comment: { id: "PRRC_1", state } } } });
+  }
+
+  function writeHost(results: { reply?: unknown; resolve?: unknown } = {}) {
+    return ({ method }: HostCall) => {
+      if (method === "replyToThread") return results.reply ?? replyResponse("SUBMITTED");
+      if (method === "setThreadResolved") return results.resolve ?? ok({ data: {} });
+      throw new Error(`unexpected host call ${method}`);
+    };
+  }
+
+  function setupWithPr(host = writeHost()) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host,
+    });
+  }
+
+  function writes(harness: Awaited<ReturnType<typeof setup>>) {
+    return harness.experimental_hostRpcCalls.map(({ method, input, hostId }) => ({ method, input, hostId }));
+  }
+
+  it("posts the reply through the thread's host and makes no other write", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: false,
+    });
+
+    expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
+    expect(writes(harness)).toEqual([
+      { method: "replyToThread", input: { threadId: REVIEW_THREAD, body: BODY }, hostId: "host-1" },
+    ]);
+  });
+
+  it("posts the reply and then resolves the thread on 'Post + resolve'", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+
+    expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
+    expect(writes(harness).map(({ method, input }) => [method, input])).toEqual([
+      ["replyToThread", { threadId: REVIEW_THREAD, body: BODY }],
+      ["setThreadResolved", { threadId: REVIEW_THREAD, resolved: true }],
+    ]);
+  });
+
+  it("reports a failed post and does not resolve", async () => {
+    const harness = await setupWithPr(writeHost({ reply: failed({ kind: "failed", message: "Could not resolve to a node" }) }));
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+
+    expect(result).toEqual({ kind: "post_failed", message: "Could not resolve to a node" });
+    expect(writes(harness).map(({ method }) => method)).toEqual(["replyToThread"]);
+  });
+
+  it("keeps the posted reply and reports the error when the resolve after it fails", async () => {
+    const harness = await setupWithPr(writeHost({ resolve: failed({ kind: "gh_logged_out" }) }));
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+
+    expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: "gh not logged in" });
+  });
+
+  it("keeps the posted reply when the resolve after it throws", async () => {
+    const harness = await setupWithPr(({ method }) => {
+      if (method === "replyToThread") return replyResponse("SUBMITTED");
+      throw new Error("host call timed out");
+    });
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+
+    expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: expect.stringContaining("host call timed out") });
+  });
+
+  it("reports the reply as posted when GitHub's response has an unknown shape", async () => {
+    const harness = await setupWithPr(writeHost({ reply: ok({ data: null }) }));
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: false,
+    });
+
+    expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
+  });
+
+  it("links the PR when GitHub puts the reply in the user's pending review", async () => {
+    const harness = await setupWithPr(writeHost({ reply: replyResponse("PENDING") }));
+
+    const result = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: false,
+    });
+
+    expect(result).toEqual({
+      kind: "posted",
+      pendingReviewUrl: "https://github.com/collibra/frontend/pull/25259",
+      resolveError: null,
+    });
+  });
+
+  it("does not write when the thread has no PR", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: null }], host: writeHost() });
+
+    const reply = await harness.behavior.callRpc("reply", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      body: BODY,
+      resolve: true,
+    });
+    const resolve = await harness.behavior.callRpc("setResolved", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      resolved: true,
+    });
+
+    expect(reply).toEqual({ kind: "post_failed", message: "No pull request for this thread" });
+    expect(resolve).toEqual({ kind: "error", message: "No pull request for this thread" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it.each([true, false])("sets the thread resolved to %s", async (resolved) => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("setResolved", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      resolved,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(writes(harness)).toEqual([
+      { method: "setThreadResolved", input: { threadId: REVIEW_THREAD, resolved }, hostId: "host-1" },
+    ]);
+  });
+
+  it("reports a failed resolve", async () => {
+    const harness = await setupWithPr(writeHost({ resolve: failed({ kind: "rate_limited", resetAt: null }) }));
+
+    const result = await harness.behavior.callRpc("setResolved", {
+      threadId: "thr_1",
+      reviewThreadId: REVIEW_THREAD,
+      resolved: true,
+    });
+
+    expect(result).toEqual({ kind: "error", message: "rate limited" });
   });
 });
