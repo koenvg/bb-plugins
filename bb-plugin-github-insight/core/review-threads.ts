@@ -23,7 +23,7 @@ const threadsPageSchema = z.object({
                 nodes: z.array(
                   z.object({
                     id: z.string(),
-                    author: z.object({ login: z.string() }).nullable(),
+                    author: z.object({ login: z.string(), avatarUrl: z.string().optional() }).nullable(),
                     body: z.string(),
                     createdAt: z.string(),
                     url: z.string(),
@@ -43,6 +43,7 @@ type ThreadsPage = z.infer<typeof threadsPageSchema>;
 export const reviewCommentSchema = z.object({
   id: z.string(),
   author: z.string(),
+  avatarUrl: z.string().nullable(),
   body: z.string(),
   createdAt: z.string(),
   url: z.string(),
@@ -84,6 +85,7 @@ function toReviewThread(node: ThreadNode): ReviewThread {
     comments: node.comments.nodes.map((comment) => ({
       ...comment,
       author: comment.author?.login ?? GHOST_AUTHOR,
+      avatarUrl: comment.author?.avatarUrl ?? null,
     })),
     hasMoreComments: node.comments.totalCount > node.comments.nodes.length,
   };

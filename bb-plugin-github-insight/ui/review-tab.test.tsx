@@ -517,12 +517,12 @@ describe("Review tab send to agent", () => {
 
   function checkboxOf(slot: ReturnType<typeof renderTab>, text: string) {
     const card = slot.getAllByRole("article").find((article) => article.textContent?.includes(text))!;
-    return within(card).getByRole("checkbox", { name: "Select for agent" }) as HTMLInputElement;
+    return within(card).getByRole("checkbox", { name: "Add to agent" }) as HTMLInputElement;
   }
 
   function outdatedCheckbox(slot: ReturnType<typeof renderTab>) {
     return within(slot.getByRole("region", { name: "Outdated" })).getByRole("checkbox", {
-      name: "Select for agent",
+      name: "Add to agent",
     }) as HTMLInputElement;
   }
 
@@ -536,12 +536,12 @@ describe("Review tab send to agent", () => {
     return slot.inspection.rpcCalls.filter((call) => call.method === "sendToAgent");
   }
 
-  it("has a checkbox on each open thread and a disabled 'Send 0 to agent'", async () => {
+  it("has a checkbox on each open thread and no send button before a selection", async () => {
     const slot = renderTab(threaded);
 
     await slot.findAllByTestId("line-annotation");
-    expect(slot.getAllByRole("checkbox", { name: "Select for agent" })).toHaveLength(3);
-    expect((slot.getByRole("button", { name: "Send 0 to agent" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(slot.getAllByRole("checkbox", { name: "Add to agent" })).toHaveLength(3);
+    expect(slot.queryByRole("button", { name: /to agent/ })).toBeNull();
   });
 
   it("counts the selected threads", async () => {
@@ -564,7 +564,7 @@ describe("Review tab send to agent", () => {
     fireEvent.click(resolved);
 
     expect(within(resolved.closest("article")!).queryByRole("checkbox")).toBeNull();
-    expect(slot.getAllByRole("checkbox", { name: "Select for agent" })).toHaveLength(3);
+    expect(slot.getAllByRole("checkbox", { name: "Add to agent" })).toHaveLength(3);
   });
 
   it("sends the selected threads of its own thread, then clears the selection", async () => {
@@ -573,7 +573,7 @@ describe("Review tab send to agent", () => {
 
     fireEvent.click(slot.getByRole("button", { name: "Send 2 to agent" }));
 
-    expect(await slot.findByRole("button", { name: "Send 0 to agent" })).toBeTruthy();
+    await waitFor(() => expect(slot.queryByRole("button", { name: /to agent/ })).toBeNull());
     expect(sendCalls(slot)).toEqual([
       expect.objectContaining({ input: { threadId: "thr_1", reviewThreadIds: [PLACED, OUTDATED] } }),
     ]);

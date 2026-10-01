@@ -1,33 +1,38 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
+import { relativeTime } from "../core/relative-time";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
 export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
+  const selection = useThreadSelection();
   const [expanded, setExpanded] = useState(false);
-  const firstAuthor = thread.comments[0]?.author;
+  const selected = !thread.resolved && selection.isSelected(thread.id);
+  const open = !thread.resolved || expanded;
   return (
-    <article className="my-1 flex flex-col rounded-md border border-border bg-background font-sans text-sm">
-      {!thread.resolved && <SelectForAgent reviewThreadId={thread.id} />}
-      {thread.resolved && (
-        <button
-          type="button"
-          aria-expanded={expanded}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
-          onClick={() => setExpanded((current) => !current)}
-        >
-          <Icon name={expanded ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
-          <span className="font-medium text-foreground">{firstAuthor}</span>
-          <span>Resolved</span>
-        </button>
+    <article
+      className={cn(
+        "mx-2 my-2 flex flex-col overflow-hidden rounded-lg border bg-background font-sans text-sm shadow-[0_1px_2px_rgb(0_0_0/0.04),0_2px_8px_-2px_rgb(0_0_0/0.06)] transition-[border-color,box-shadow] duration-200",
+        selected ? "border-primary/50 ring-1 ring-primary/25" : "border-border",
       )}
-      {(!thread.resolved || expanded) && (
+    >
+      {thread.resolved && (
+        <ResolvedSummary thread={thread} expanded={expanded} toggle={() => setExpanded((current) => !current)} />
+      )}
+      {open && (
         <>
-          {thread.comments.map((comment) => (
-            <CommentView key={comment.id} comment={comment} />
-          ))}
+          <div className="flex flex-col divide-y divide-border/70">
+            {thread.comments.map((comment, index) => (
+              <CommentView
+                key={comment.id}
+                comment={comment}
+                trailing={index === 0 && !thread.resolved ? <AgentToggle reviewThreadId={thread.id} /> : null}
+              />
+            ))}
+          </div>
           {thread.hasMoreComments && <MoreCommentsLink thread={thread} />}
           <ThreadActionsView thread={thread} />
         </>
@@ -36,34 +41,99 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
   );
 }
 
-function SelectForAgent({ reviewThreadId }: { reviewThreadId: string }) {
-  const selection = useThreadSelection();
+function ResolvedSummary({ thread, expanded, toggle }: { thread: ReviewThread; expanded: boolean; toggle: () => void }) {
+  const first = thread.comments[0];
   return (
-    <label className="flex items-center gap-1.5 px-3 py-1 text-xs text-muted-foreground">
+    <button
+      type="button"
+      aria-expanded={expanded}
+      className={cn(
+        "flex min-w-0 items-center gap-2 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none",
+        expanded && "border-b border-border/70",
+      )}
+      onClick={toggle}
+    >
+      <Icon name="CircleCheck" className="size-3.5 shrink-0" />
+      <span className="shrink-0 font-medium text-foreground">{first?.author}</span>
+      <span className="shrink-0">Resolved</span>
+      {!expanded && first !== undefined && <span className="min-w-0 truncate opacity-80">{firstLine(first.body)}</span>}
+      <Icon name={expanded ? "ChevronDown" : "ChevronRight"} className="ml-auto size-3.5 shrink-0" />
+    </button>
+  );
+}
+
+function AgentToggle({ reviewThreadId }: { reviewThreadId: string }) {
+  const selection = useThreadSelection();
+  const selected = selection.isSelected(reviewThreadId);
+  return (
+    <label
+      className={cn(
+        "inline-flex h-6 cursor-pointer select-none items-center gap-1 rounded-full border px-2 text-xs font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50",
+        selected
+          ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+          : "border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted hover:text-foreground",
+      )}
+    >
       <input
         type="checkbox"
-        checked={selection.isSelected(reviewThreadId)}
+        className="sr-only"
+        checked={selected}
         onChange={() => selection.toggle(reviewThreadId)}
       />
-      Select for agent
+      <Icon name={selected ? "Check" : "Bot"} className="size-3.5" />
+      Add to agent
     </label>
   );
 }
 
-function CommentView({ comment }: { comment: ReviewComment }) {
+function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: ReactNode }) {
   const createdAt = new Date(comment.createdAt);
   return (
-    <div className="flex flex-col gap-1 border-t border-border px-3 py-2 first:border-t-0">
-      <div className="flex items-baseline gap-2 text-xs">
-        <span className="font-medium">{comment.author}</span>
-        <a href={comment.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:underline">
-          <time dateTime={createdAt.toISOString()}>
-            {createdAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+    <div className="flex flex-col gap-1.5 px-3 pb-2.5 pt-2">
+      <div className="flex min-h-6 items-center gap-2 text-xs">
+        <Avatar login={comment.author} url={comment.avatarUrl} />
+        <span className="truncate font-semibold text-foreground">{comment.author}</span>
+        <a
+          href={comment.url}
+          target="_blank"
+          rel="noreferrer"
+          className="shrink-0 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          <time
+            dateTime={createdAt.toISOString()}
+            title={createdAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+          >
+            {relativeTime(createdAt, new Date())}
           </time>
         </a>
+        {trailing !== null && <div className="ml-auto shrink-0">{trailing}</div>}
       </div>
-      <Markdown content={comment.body} />
+      <div className="pl-7 leading-relaxed">
+        <Markdown content={comment.body} />
+      </div>
     </div>
+  );
+}
+
+function Avatar({ login, url }: { login: string; url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (url === null || failed) {
+    return (
+      <span
+        aria-hidden
+        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase text-muted-foreground"
+      >
+        {login.slice(0, 1)}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      className="size-5 shrink-0 rounded-full bg-muted ring-1 ring-border"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -71,14 +141,23 @@ function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
   const url = thread.comments.at(-1)?.url;
   if (url === undefined) return null;
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground hover:underline">
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-1 border-t border-border/70 px-3 py-1.5 pl-10 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+    >
       More comments on GitHub
+      <Icon name="ArrowUpRight" className="size-3" />
     </a>
   );
 }
 
-const ACTION_BUTTON_CLASS =
-  "inline-flex shrink-0 items-center rounded-md border border-border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-60";
+const BUTTON_BASE =
+  "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50";
+const PRIMARY_BUTTON = cn(BUTTON_BASE, "bg-primary text-primary-foreground shadow-[0_1px_1px_rgb(0_0_0/0.08)] hover:bg-primary/90");
+const SECONDARY_BUTTON = cn(BUTTON_BASE, "border border-border bg-background hover:bg-muted");
+const QUIET_BUTTON = cn(BUTTON_BASE, "text-muted-foreground hover:bg-muted hover:text-foreground");
 
 function ThreadActionsView({ thread }: { thread: ReviewThread }) {
   const actions = useThreadActions();
@@ -88,10 +167,11 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
   return (
     <section
       aria-labelledby={hasDraft ? headingId : undefined}
-      className={`flex flex-col gap-1.5 border-t border-border px-3 py-2 ${hasDraft ? "bg-muted/50" : ""}`}
+      className={cn("flex flex-col gap-2 border-t border-border/70 px-3 py-2.5", hasDraft ? "bg-primary/[0.04]" : "bg-muted/30")}
     >
       {hasDraft && (
-        <h3 id={headingId} className="text-xs font-medium text-muted-foreground">
+        <h3 id={headingId} className="flex items-center gap-1.5 text-xs font-medium text-primary">
+          <Icon name="Bot" className="size-3.5" />
           Draft from agent
         </h3>
       )}
@@ -100,44 +180,49 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
           aria-label="Reply"
           placeholder="Reply…"
           rows={2}
-          className="w-full resize-y rounded-md border border-border bg-background px-2 py-1 text-sm"
+          className={cn(
+            "max-h-64 min-h-14 w-full resize-none rounded-md border bg-background px-2.5 py-1.5 text-sm leading-relaxed transition-[border-color,box-shadow] [field-sizing:content] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-60",
+            hasDraft ? "border-primary/30" : "border-border",
+          )}
           value={replyText}
           disabled={busy}
           onChange={(event) => actions.setReplyText(thread.id, event.target.value)}
         />
       )}
       {error !== null && (
-        <p role="alert" className="break-words text-xs text-destructive">
+        <p role="alert" className="flex items-start gap-1.5 break-words text-xs text-destructive">
+          <Icon name="AlertCircle" className="mt-px size-3.5 shrink-0" />
           {error}
         </p>
       )}
       {pendingReviewUrl !== null && (
         <p role="status" className="text-xs text-muted-foreground">
           Reply added to your pending review.{" "}
-          <a href={pendingReviewUrl} target="_blank" rel="noreferrer" className="hover:underline">
+          <a href={pendingReviewUrl} target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-2 hover:underline">
             Open the PR
           </a>
         </p>
       )}
-      <div className="flex gap-1.5">
+      <div className="flex items-center gap-1.5">
         {thread.resolved ? (
-          <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy} onClick={() => void actions.setResolved(thread.id, false)}>
+          <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void actions.setResolved(thread.id, false)}>
             Unresolve
           </button>
         ) : (
           <>
-            <button type="button" className={ACTION_BUTTON_CLASS} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: false })}>
+            <button type="button" className={PRIMARY_BUTTON} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: false })}>
               Post
             </button>
-            <button type="button" className={ACTION_BUTTON_CLASS} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: true })}>
+            <button type="button" className={SECONDARY_BUTTON} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: true })}>
               Post + resolve
             </button>
             {hasDraft && (
-              <button type="button" className={ACTION_BUTTON_CLASS} disabled={busy} onClick={() => void actions.discardDraft(thread.id)}>
+              <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void actions.discardDraft(thread.id)}>
                 Discard
               </button>
             )}
-            <button type="button" className={`${ACTION_BUTTON_CLASS} ml-auto`} disabled={busy} onClick={() => void actions.setResolved(thread.id, true)}>
+            <button type="button" className={cn(QUIET_BUTTON, "ml-auto")} disabled={busy} onClick={() => void actions.setResolved(thread.id, true)}>
+              <Icon name="Check" className="size-3.5" />
               Resolve
             </button>
           </>
@@ -145,4 +230,8 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
       </div>
     </section>
   );
+}
+
+function firstLine(body: string): string {
+  return body.trimStart().split("\n", 1)[0] ?? "";
 }

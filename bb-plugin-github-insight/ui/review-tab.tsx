@@ -9,6 +9,7 @@ import {
   type PlacedThread,
   type ThreadPlacement,
 } from "../core/thread-placement";
+import { cn } from "@/lib/utils";
 import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedback";
 import { PrFileDiff } from "./file-diff";
 import { OutdatedThreads } from "./outdated-threads";
@@ -75,27 +76,26 @@ function ReviewContent({ threadId, files, threads, refreshing, refresh }: Review
   const counts = useMemo(() => openThreadCounts(threads), [threads]);
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2 text-xs text-muted-foreground">
-        <span>{filesChangedText(files)}</span>
-        <span>{counts.open} open</span>
-        <span>{counts.outdated} outdated</span>
-        <label className="ml-auto flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={showResolved}
-            onChange={(event) => setShowResolved(event.target.checked)}
-          />
-          Show resolved
-        </label>
-        {agent.outcome?.result.kind === "sent" && (
-          <span role="status">{sentText(agent.outcome.result, agent.outcome.requested)}</span>
-        )}
-        <SendToAgentButton
-          count={selectedIds.length}
-          sending={agent.sending}
-          send={() => agent.send(selectedIds)}
-        />
-        <RefreshButton refreshing={refreshing} refresh={refresh} />
+      <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2 text-xs">
+        <span className="mr-1 text-muted-foreground">{filesChangedText(files)}</span>
+        <CountPill emphasis={counts.open > 0}>{counts.open} open</CountPill>
+        <CountPill emphasis={false}>{counts.outdated} outdated</CountPill>
+        <div className="ml-auto flex items-center gap-2">
+          {agent.outcome?.result.kind === "sent" && (
+            <span role="status" className="text-muted-foreground">
+              {sentText(agent.outcome.result, agent.outcome.requested)}
+            </span>
+          )}
+          <ShowResolvedSwitch checked={showResolved} onChange={setShowResolved} />
+          {selectedIds.length > 0 && (
+            <SendToAgentButton
+              count={selectedIds.length}
+              sending={agent.sending}
+              send={() => agent.send(selectedIds)}
+            />
+          )}
+          <RefreshButton refreshing={refreshing} refresh={refresh} />
+        </div>
       </header>
       {agent.outcome?.result.kind === "error" && (
         <div role="alert" className="shrink-0 border-b border-destructive/40 px-3 py-2 text-sm text-destructive">
@@ -169,6 +169,37 @@ function groupByPath(placed: readonly PlacedThread[]): Map<string, PlacedThread[
 
 function filesChangedText(files: readonly ReviewFile[]): string {
   return files.length === 1 ? "1 file changed" : `${files.length} files changed`;
+}
+
+function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 items-center rounded-full px-2 tabular-nums",
+        emphasis ? "bg-foreground/[0.07] font-medium text-foreground" : "bg-muted text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ShowResolvedSwitch({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer select-none items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
+      <input
+        type="checkbox"
+        className="peer sr-only"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span
+        aria-hidden
+        className="relative h-3.5 w-6 shrink-0 rounded-full bg-muted-foreground/25 transition-colors duration-200 after:absolute after:left-0.5 after:top-0.5 after:size-2.5 after:rounded-full after:bg-background after:shadow-[0_1px_2px_rgb(0_0_0/0.2)] after:transition-transform after:duration-200 after:ease-out peer-checked:bg-primary peer-checked:after:translate-x-2.5 peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50"
+      />
+      Show resolved
+    </label>
+  );
 }
 
 function Padded({ children }: { children: ReactNode }) {

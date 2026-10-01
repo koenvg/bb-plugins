@@ -3,7 +3,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
 const BUTTON_CLASS =
-  "inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-60";
+  "inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border px-2 text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
 export function RefreshButton({ refreshing, refresh }: { refreshing: boolean; refresh: () => void }) {
   return (
@@ -25,7 +25,13 @@ interface SendToAgentButtonProps {
 
 export function SendToAgentButton({ count, sending, send }: SendToAgentButtonProps) {
   return (
-    <button type="button" className={BUTTON_CLASS} onClick={send} disabled={count === 0 || sending}>
+    <button
+      type="button"
+      className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground shadow-[0_1px_1px_rgb(0_0_0/0.08)] transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
+      onClick={send}
+      disabled={count === 0 || sending}
+    >
+      <Icon name="Bot" className="size-3.5" />
       Send {count} to agent
     </button>
   );
