@@ -4,7 +4,7 @@ import type { ReviewComment, ReviewThread } from "./review-threads";
 import type { OpenThread } from "./thread-placement";
 
 function comment(author: string, body: string, diffHunk = ""): ReviewComment {
-  return { id: `c_${author}`, author, body, createdAt: "2026-09-18T14:31:50Z", url: `https://github.com/o/r/pull/1#${author}`, diffHunk };
+  return { id: `c_${author}`, author, avatarUrl: null, body, createdAt: "2026-09-18T14:31:50Z", url: `https://github.com/o/r/pull/1#${author}`, diffHunk };
 }
 
 function thread(overrides: Partial<ReviewThread> = {}): ReviewThread {
