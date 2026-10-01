@@ -190,6 +190,23 @@ portable in task content.
 Mentioning a task key such as `PROD-1` in an agent request also activates the
 Tasks skill, which directs the worker to read and update the tracked task.
 
+## Keyboard shortcuts
+
+Press `?` in the Tasks panel to see every shortcut. Single keys work when you
+are not typing and no menu or dialog is open.
+
+| Where | Keys |
+| --- | --- |
+| Anywhere | `c` new task, `?` shortcuts, `v` list or board (project only) |
+| List | `j` `k` / `↓` `↑` move, `Enter` `o` open, `s` status, `p` priority, `l` labels |
+| Board | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority |
+| Task | `Esc` back, `[` `]` previous or next task, `s` `p` `l` properties, `d` dispatch preset, `m` comment |
+
+The bb command palette (`Mod+Shift+P`) also lists **Tasks: New task**,
+**Tasks: Go to All tasks**, **Tasks: Go to Active tasks**, **Tasks: Go to
+Manage**, and **Tasks: Show keyboard shortcuts**. They have no default keys;
+bind your own in bb.
+
 ## Known limitations
 
 - The **Auto** delegation preset is deferred; choose an explicit preset.

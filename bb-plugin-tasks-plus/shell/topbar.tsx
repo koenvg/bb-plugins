@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTasksRefresh } from "./refresh.js";
+import { useShortcuts } from "./shortcut-provider.js";
 
 const REFRESH_TASKS_LABEL = "Refresh tasks";
 
@@ -61,6 +62,12 @@ function TaskPager({
     () => (siblings.data ? pagerPosition(siblings.data, taskKey) : null),
     [siblings.data, taskKey],
   );
+  const stepTo = (key: string | null | undefined) =>
+    key == null ? null : () => onNavigate({ kind: "task", taskKey: key });
+  useShortcuts({
+    "detail.previous": stepTo(position?.prevKey),
+    "detail.next": stepTo(position?.nextKey),
+  });
   if (!position) return null;
   const step = (key: string | null) => {
     if (key !== null) onNavigate({ kind: "task", taskKey: key });

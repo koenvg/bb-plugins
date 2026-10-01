@@ -24,7 +24,7 @@ import {
   STATUS_LABELS,
 } from "../list/lib.js";
 import { DispatchControl } from "./threads.js";
-import { DEFAULT_COLOR } from "../manage/shared.js";
+import { LabelsPicker } from "../labels-picker.js";
 import { BbProjectLinkPicker } from "../manage/bb-project-link.js";
 import type { BbProjectOption } from "../../shared/contract.js";
 import { Button } from "@/components/ui/button";
@@ -35,20 +35,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+
+export type DetailMenu = "status" | "priority" | "labels" | "dispatch";
+
+interface MenuControl {
+  openMenu: DetailMenu | null;
+  onOpenMenuChange: (menu: DetailMenu | null) => void;
+}
+
+function menuProps(control: MenuControl, menu: DetailMenu) {
+  return {
+    open: control.openMenu === menu,
+    onOpenChange: (open: boolean) =>
+      control.onOpenMenuChange(open ? menu : null),
+  };
+}
 
 export interface TaskPropertyUpdate {
   status?: TaskStatus;
@@ -82,13 +89,17 @@ function StatusMenu({
   task,
   onUpdate,
   triggerClassName,
+  open,
+  onOpenChange,
 }: {
   task: Task;
   onUpdate: (update: TaskPropertyUpdate) => void;
   triggerClassName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <button type="button" className={triggerClassName}>
           <StatusIcon status={task.status} />
@@ -114,13 +125,17 @@ function PriorityMenu({
   task,
   onUpdate,
   triggerClassName,
+  open,
+  onOpenChange,
 }: {
   task: Task;
   onUpdate: (update: TaskPropertyUpdate) => void;
   triggerClassName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <button type="button" className={triggerClassName}>
           <PriorityIcon priority={task.priority} />
@@ -211,106 +226,26 @@ function LabelsMenu({
   task,
   labels,
   onUpdate,
+  open,
+  onOpenChange,
   children,
 }: {
   task: Task;
   labels: Label[] | undefined;
   onUpdate: (update: TaskPropertyUpdate) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
-  const rpc = useTasksRpc();
-  const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  const toggle = (labelId: string) => {
-    const next = task.labelIds.includes(labelId)
-      ? task.labelIds.filter((id) => id !== labelId)
-      : [...task.labelIds, labelId];
-    onUpdate({ labelIds: next });
-  };
-
-  const createLabel = async (name: string) => {
-    if (!name || creating) return;
-    setCreating(true);
-    try {
-      const { label } = await rpc.call("createLabel", {
-        projectId: task.projectId,
-        name,
-        color: DEFAULT_COLOR,
-      });
-      onUpdate({ labelIds: [...task.labelIds, label.id] });
-      setQuery("");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const labelList = labels ?? [];
   return (
-    <Popover onOpenChange={(open) => open || setQuery("")}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-56 p-0" align="start">
-        <Command>
-          <CommandInput
-            placeholder="Add labels…"
-            value={query}
-            onValueChange={setQuery}
-          />
-          <CommandList>
-            <CommandEmpty
-              className={query.trim() !== "" ? "p-1 text-left" : undefined}
-            >
-              {query.trim() !== "" ? (
-                <button
-                  type="button"
-                  disabled={creating}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => void createLabel(query.trim())}
-                >
-                  <Icon name="Plus" className="size-3.5" />
-                  Create “{query.trim()}”
-                </button>
-              ) : (
-                "No labels in this project."
-              )}
-            </CommandEmpty>
-            {labels !== undefined && labelList.length === 0 ? (
-              <CommandGroup>
-                <CommandItem
-                  disabled={creating}
-                  onSelect={() => {
-                    const name = query.trim();
-                    if (name) void createLabel(name);
-                  }}
-                >
-                  <Icon name="Plus" className="size-3.5" />
-                  New label{query.trim() ? ` “${query.trim()}”` : "…"}
-                </CommandItem>
-              </CommandGroup>
-            ) : null}
-            {labelList.length > 0 ? (
-              <CommandGroup>
-                {labelList.map((label) => (
-                  <CommandItem
-                    key={label.id}
-                    value={label.name}
-                    onSelect={() => toggle(label.id)}
-                  >
-                    <span
-                      aria-hidden
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: label.color }}
-                    />
-                    <span className="flex-1">{label.name}</span>
-                    {task.labelIds.includes(label.id) ? (
-                      <Icon name="Check" className="size-3.5" />
-                    ) : null}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ) : null}
-          </CommandList>
-        </Command>
+        <LabelsPicker
+          task={task}
+          labels={labels}
+          onChange={(labelIds) => onUpdate({ labelIds })}
+        />
       </PopoverContent>
     </Popover>
   );
@@ -426,11 +361,13 @@ export function PropertiesRail({
   onUpdate,
   onError,
   className,
-}: TaskPropertiesProps & {
-  presets: Preset[] | undefined;
-  onError: (message: string) => void;
-  className?: string;
-}) {
+  ...control
+}: TaskPropertiesProps &
+  MenuControl & {
+    presets: Preset[] | undefined;
+    onError: (message: string) => void;
+    className?: string;
+  }) {
   const taskLabels = (labels ?? []).filter((label) =>
     task.labelIds.includes(label.id),
   );
@@ -440,7 +377,10 @@ export function PropertiesRail({
     ["projects:changed"],
   );
   return (
-    <aside className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}>
+    <aside
+      data-properties-layout="rail"
+      className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}
+    >
       <h2 className="mb-1.5 text-xs font-semibold text-muted-foreground">
         Properties
       </h2>
@@ -448,11 +388,13 @@ export function PropertiesRail({
         task={task}
         onUpdate={onUpdate}
         triggerClassName={RAIL_ROW_CLASS}
+        {...menuProps(control, "status")}
       />
       <PriorityMenu
         task={task}
         onUpdate={onUpdate}
         triggerClassName={RAIL_ROW_CLASS}
+        {...menuProps(control, "priority")}
       />
       <DueDateMenu
         task={task}
@@ -467,7 +409,12 @@ export function PropertiesRail({
         {taskLabels.map((label) => (
           <LabelChip key={label.id} label={label} />
         ))}
-        <LabelsMenu task={task} labels={labels} onUpdate={onUpdate}>
+        <LabelsMenu
+          task={task}
+          labels={labels}
+          onUpdate={onUpdate}
+          {...menuProps(control, "labels")}
+        >
           <button
             type="button"
             aria-label="Edit labels"
@@ -511,6 +458,7 @@ export function PropertiesRail({
           onError={onError}
           align="start"
           className="w-full"
+          {...menuProps(control, "dispatch")}
         />
       </div>
 
@@ -552,25 +500,32 @@ export function InlineProperties({
   onUpdate,
   onError,
   className,
-}: Omit<TaskPropertiesProps, "project" | "threads"> & {
-  presets: Preset[] | undefined;
-  onError: (message: string) => void;
-  className?: string;
-}) {
+  ...control
+}: Omit<TaskPropertiesProps, "project" | "threads"> &
+  MenuControl & {
+    presets: Preset[] | undefined;
+    onError: (message: string) => void;
+    className?: string;
+  }) {
   const taskLabels = (labels ?? []).filter((label) =>
     task.labelIds.includes(label.id),
   );
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+    <div
+      data-properties-layout="inline"
+      className={cn("flex flex-wrap items-center gap-1.5", className)}
+    >
       <StatusMenu
         task={task}
         onUpdate={onUpdate}
         triggerClassName={CHIP_CLASS}
+        {...menuProps(control, "status")}
       />
       <PriorityMenu
         task={task}
         onUpdate={onUpdate}
         triggerClassName={CHIP_CLASS}
+        {...menuProps(control, "priority")}
       />
       <DueDateMenu
         task={task}
@@ -580,7 +535,12 @@ export function InlineProperties({
       {taskLabels.map((label) => (
         <LabelChip key={label.id} label={label} />
       ))}
-      <LabelsMenu task={task} labels={labels} onUpdate={onUpdate}>
+      <LabelsMenu
+        task={task}
+        labels={labels}
+        onUpdate={onUpdate}
+        {...menuProps(control, "labels")}
+      >
         <button
           type="button"
           aria-label="Edit labels"
@@ -594,6 +554,7 @@ export function InlineProperties({
         presets={presets}
         onError={onError}
         className="ml-auto max-w-56"
+        {...menuProps(control, "dispatch")}
       />
     </div>
   );

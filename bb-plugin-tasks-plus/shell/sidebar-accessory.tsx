@@ -4,8 +4,10 @@ import {
   useRealtimeConnectionState,
 } from "@get-bb/plugin-sdk/app";
 import { useTasksRpc } from "./data.js";
+import { useCommandNavigator } from "./command-bridge.js";
 
 export function TasksSidebarAccessory() {
+  useCommandNavigator();
   const rpc = useTasksRpc();
   const rpcRef = useRef(rpc);
   rpcRef.current = rpc;

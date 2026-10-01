@@ -69,6 +69,8 @@ function railProps(linkedBbProjectId: string | null) {
     presets: [],
     onUpdate: () => {},
     onError: () => {},
+    openMenu: null,
+    onOpenMenuChange: () => {},
   };
 }
 

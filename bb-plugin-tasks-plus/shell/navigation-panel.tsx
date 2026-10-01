@@ -11,6 +11,7 @@ import { parseTasksRoute, useTasksNavigation } from "./routes.js";
 import { TasksSidebar } from "./sidebar.js";
 import { NewProjectDialog } from "../views/manage/new-project-dialog.js";
 import { useState } from "react";
+import { useCommandNavigator } from "./command-bridge.js";
 
 function isAwaitingFirstResult(query: {
   data: unknown;
@@ -20,6 +21,7 @@ function isAwaitingFirstResult(query: {
 }
 
 function TasksNavigationPanelContent({ subPath }: PluginNavPanelProps) {
+  useCommandNavigator();
   const route = parseTasksRoute(subPath);
   const navigation = useTasksNavigation();
   const folders = useFolders();
