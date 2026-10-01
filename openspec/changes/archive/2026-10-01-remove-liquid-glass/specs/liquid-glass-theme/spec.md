@@ -1,10 +1,24 @@
-# liquid-glass-theme Specification
+# Spec delta
 
-## Purpose
+## REMOVED Requirements
 
-Provide an optional, light Liquid Glass-inspired BB appearance with shiny translucent controls while preserving readable working content and normal app behavior.
+### Requirement: Selectable and reversible appearance
+**Reason**: The collection retires Liquid Glass instead of continuing to offer its theme.
+**Migration**: Remove the local plugin if installed. Preserve a selected non-glass theme; select BB's built-in default before removal if Liquid Glass is selected. Reload an open client if its appearance is stale.
 
-## Requirements
+### Requirement: Pearly glass composition
+**Reason**: Liquid Glass's wallpaper and visual treatments are no longer provided by this collection.
+**Migration**: Use an available built-in or separately installed theme. No replacement glass theme is introduced.
+
+### Requirement: Readable and usable content
+**Reason**: The retired theme no longer supplies content styling or layout overrides.
+**Migration**: Rely on the selected remaining theme and BB's normal content rendering. Preserve thread data and other plugins.
+
+### Requirement: Graceful rendering fallbacks
+**Reason**: Rendering fallbacks for the retired Liquid Glass theme are no longer maintained.
+**Migration**: Use the remaining selected theme without changing the client's light/dark preference.
+
+## ADDED Requirements
 
 ### Requirement: Retired theme is absent from the collection
 The collection SHALL NOT distribute the Liquid Glass plugin package or advertise it as an available plugin. Archived changes and historical verification records SHALL remain intact as records of past behavior.

@@ -5,7 +5,6 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Plugin | Directory |
 | --- | --- |
 | Code Cleanup | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup) |
-| Liquid Glass | [`bb-plugin-liquid-glass`](bb-plugin-liquid-glass) |
 | Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list) |
 | Task Board | [`bb-task-board`](bb-task-board) |
 | GitHub Insight | [`bb-plugin-github-insight`](bb-plugin-github-insight) |
@@ -35,7 +34,7 @@ Use the same commands in any other plugin directory. Tests run once rather than 
 
 ## GitHub Actions
 
-The [Tests workflow](.github/workflows/tests.yml) runs all seven plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci` and `npm test` commands shown above. CI installs the SQLite CLI for Tasks Plus.
+The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci` and `npm test` commands shown above. CI installs the SQLite CLI for Tasks Plus.
 
 A failed plugin check does not cancel the other plugin checks. New commits cancel superseded runs for the same pull request or branch. Approved fork pull requests run without repository secrets or write permissions; GitHub may require maintainer approval before they start.
 
