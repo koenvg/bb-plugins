@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { Markdown } from "@get-bb/plugin-sdk/app";
+import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "../core/relative-time";
@@ -93,10 +93,8 @@ function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: 
       <div className="flex min-h-6 items-center gap-2 text-xs">
         <Avatar login={comment.author} url={comment.avatarUrl} />
         <span className="truncate font-semibold text-foreground">{comment.author}</span>
-        <a
+        <UrlLink
           href={comment.url}
-          target="_blank"
-          rel="noreferrer"
           className="shrink-0 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
           <time
@@ -105,7 +103,7 @@ function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: 
           >
             {relativeTime(createdAt, new Date())}
           </time>
-        </a>
+        </UrlLink>
         {trailing !== null && <div className="ml-auto shrink-0">{trailing}</div>}
       </div>
       <div className="pl-7 leading-relaxed">
@@ -141,15 +139,13 @@ function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
   const url = thread.comments.at(-1)?.url;
   if (url === undefined) return null;
   return (
-    <a
+    <UrlLink
       href={url}
-      target="_blank"
-      rel="noreferrer"
       className="flex items-center gap-1 border-t border-border/70 px-3 py-1.5 pl-10 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
     >
       More comments on GitHub
       <Icon name="ArrowUpRight" className="size-3" />
-    </a>
+    </UrlLink>
   );
 }
 
@@ -198,9 +194,9 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
       {pendingReviewUrl !== null && (
         <p role="status" className="text-xs text-muted-foreground">
           Reply added to your pending review.{" "}
-          <a href={pendingReviewUrl} target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-2 hover:underline">
+          <UrlLink href={pendingReviewUrl} className="font-medium text-foreground underline-offset-2 hover:underline">
             Open the PR
-          </a>
+          </UrlLink>
         </p>
       )}
       <div className="flex items-center gap-1.5">

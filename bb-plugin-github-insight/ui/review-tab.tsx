@@ -98,7 +98,7 @@ function ReviewContent({ threadId, files, threads, refreshing, refresh }: Review
         </div>
       </header>
       {agent.outcome?.result.kind === "error" && (
-        <div role="alert" className="shrink-0 border-b border-destructive/40 px-3 py-2 text-sm text-destructive">
+        <div role="alert" className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {agent.outcome.result.message}
         </div>
       )}

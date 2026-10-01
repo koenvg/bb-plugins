@@ -10,7 +10,7 @@ export function RefreshButton({ refreshing, refresh }: { refreshing: boolean; re
     <button type="button" className={BUTTON_CLASS} onClick={refresh} disabled={refreshing}>
       <Icon
         name="ArrowReloadHorizontal"
-        className={cn("size-3.5", refreshing && "animate-spin")}
+        className={cn("size-3.5", refreshing && "animate-spin motion-reduce:animate-none")}
       />
       {refreshing ? "Refreshing…" : "Refresh"}
     </button>
@@ -48,13 +48,13 @@ export function RefreshError({ message, refreshedAt, retry, busy }: RefreshError
   return (
     <div
       role="alert"
-      className="flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm"
+      className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
     >
       <Icon name="AlertCircle" className="size-4 shrink-0 text-destructive" />
       <div className="flex min-w-0 flex-col">
         <span className="break-words text-destructive">{message}</span>
         {refreshedAt !== null && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs tabular-nums text-muted-foreground">
             Last updated{" "}
             <time dateTime={new Date(refreshedAt).toISOString()}>
               {new Date(refreshedAt).toLocaleTimeString([], {
