@@ -148,11 +148,21 @@ const setResolvedRequestSchema = z
   .strict();
 export type SetResolvedRequest = z.infer<typeof setResolvedRequestSchema>;
 
-export const setResolvedResultSchema = z.discriminatedUnion("kind", [
+export const actionResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("ok") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
 ]);
-export type SetResolvedResult = z.infer<typeof setResolvedResultSchema>;
+export type ActionResult = z.infer<typeof actionResultSchema>;
+
+const saveDraftRequestSchema = z
+  .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1), body: z.string() })
+  .strict();
+export type SaveDraftRequest = z.infer<typeof saveDraftRequestSchema>;
+
+const discardDraftRequestSchema = z
+  .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1) })
+  .strict();
+export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
 export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
@@ -160,5 +170,7 @@ export const rpcContract = defineRpcContract({
   getReview: { input: threadRequestSchema, output: reviewResultSchema },
   sendToAgent: { input: sendToAgentRequestSchema, output: sendToAgentResultSchema },
   reply: { input: replyRequestSchema, output: replyResultSchema },
-  setResolved: { input: setResolvedRequestSchema, output: setResolvedResultSchema },
+  setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
+  saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
+  discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
 });

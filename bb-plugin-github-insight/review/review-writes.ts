@@ -1,13 +1,26 @@
-import type { ReplyRequest, ReplyResult, SetResolvedRequest, SetResolvedResult } from "../contract";
+import type {
+  ActionResult,
+  DiscardDraftRequest,
+  ReplyRequest,
+  ReplyResult,
+  SaveDraftRequest,
+  SetResolvedRequest,
+} from "../contract";
 import { pullRequestUrl } from "../core/pr-ref";
+import type { ReviewUpdated } from "../core/review-updated";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import { isPendingReply } from "../github/review-thread-mutations";
 import type { PrResolution, PrTarget } from "../pr-lookup";
+import type { DraftStore } from "./draft-store";
 
 interface ReviewWritesDeps {
   resolvePr(threadId: string): Promise<PrResolution>;
   replyToThread(target: PrTarget, reviewThreadId: string, body: string): Promise<unknown>;
   setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
+  drafts: DraftStore;
+  publish(update: ReviewUpdated): void;
+  now(): number;
+  warn(message: string): void;
 }
 
 type Written<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -36,18 +49,36 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     if (!target.ok) return { kind: "post_failed", message: target.message };
     const posted = await write(() => deps.replyToThread(target.value, reviewThreadId, body));
     if (!posted.ok) return { kind: "post_failed", message: posted.message };
+    await deps.drafts.delete(target.value.ref, reviewThreadId).catch((error: unknown) => {
+      deps.warn(`Posted a reply to ${reviewThreadId}, but could not delete its draft: ${String(error)}`);
+    });
     const pendingReviewUrl = isPendingReply(posted.value) ? pullRequestUrl(target.value.ref) : null;
     if (!resolve) return { kind: "posted", pendingReviewUrl, resolveError: null };
     const resolved = await write(() => deps.setThreadResolved(target.value, reviewThreadId, true));
     return { kind: "posted", pendingReviewUrl, resolveError: resolved.ok ? null : resolved.message };
   }
 
-  async function setResolved({ threadId, reviewThreadId, resolved }: SetResolvedRequest): Promise<SetResolvedResult> {
+  async function setResolved({ threadId, reviewThreadId, resolved }: SetResolvedRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     const written = await write(() => deps.setThreadResolved(target.value, reviewThreadId, resolved));
     return written.ok ? { kind: "ok" } : { kind: "error", message: written.message };
   }
 
-  return { reply, setResolved };
+  async function saveDraft({ threadId, reviewThreadId, body }: SaveDraftRequest): Promise<ActionResult> {
+    const target = await targetOf(threadId);
+    if (!target.ok) return { kind: "error", message: target.message };
+    await deps.drafts.save(target.value.ref, reviewThreadId, { body, updatedAt: deps.now(), source: "user" });
+    return { kind: "ok" };
+  }
+
+  async function discardDraft({ threadId, reviewThreadId }: DiscardDraftRequest): Promise<ActionResult> {
+    const target = await targetOf(threadId);
+    if (!target.ok) return { kind: "error", message: target.message };
+    await deps.drafts.delete(target.value.ref, reviewThreadId);
+    deps.publish({ threadId });
+    return { kind: "ok" };
+  }
+
+  return { reply, setResolved, saveDraft, discardDraft };
 }
