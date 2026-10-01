@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { project, thread } from "./fixtures";
 import { visibleItems, type ListOptions } from "./list-model";
+import type { PrSummary } from "./pr-insight";
 
 const defaults: ListOptions = {
-  mode: "project", lifecycles: ["active"], sort: "updated",
+  tab: "all", mode: "project", lifecycles: ["active"], sort: "updated",
   direction: "desc", collapsedGroups: [], collapsedThreads: [],
 };
 const titles = (items: ReturnType<typeof visibleItems>) =>
@@ -86,5 +87,38 @@ describe("visibleItems", () => {
       .toEqual([["approval", 0], ["asks", 0], ["failed", 0]]);
     expect(items.filter((item) => item.kind === "group").map((item) => item.id))
       .toEqual(["attention", "project:p1"]);
+  });
+
+  describe("attention tabs", () => {
+    const running: PrSummary = { number: 1, url: "https://example.com/pull/1", state: "open", failedChecks: 0, passedChecks: 0,
+      runningChecks: 1, pendingReviews: 0, blockers: ["checks_running"], failedNames: [], pendingNames: [] };
+    const other = { ...project, id: "p2", name: "Other project" };
+    const tabRows = [
+      thread({ id: "idle", displayTitle: "Idle" }),
+      thread({ id: "busy", displayTitle: "Busy", status: "active" }),
+      thread({ id: "waits", displayTitle: "Waits on CI", projectId: "p2" }),
+      thread({ id: "child", displayTitle: "Child asks", parentThreadId: "busy", indicator: "waiting-for-input" }),
+      thread({ id: "pin", displayTitle: "Pin", isPinned: true, pinnedAt: 1, isUnread: true }),
+      thread({ id: "arch", displayTitle: "Archived", isArchived: true, archivedAt: 1 }),
+      thread({ id: "hidden", displayTitle: "Hidden", isHidden: true }),
+    ];
+    const prs = new Map([["waits", running]]);
+    const tab = (name: "attention" | "inflight", extra: Partial<ListOptions> = {}) =>
+      visibleItems(tabRows, [project, other], [], { ...defaults, tab: name, ...extra }, prs);
+
+    it("puts each active thread in one tab and keeps archived and hidden threads out", () => {
+      expect(titles(tab("attention"))).toEqual(["Pin", "Child asks", "Idle"]);
+      expect(titles(tab("inflight"))).toEqual(["Waits on CI", "Busy"]);
+      expect(titles(tab("attention", { lifecycles: ["archived"] }))).not.toContain("Archived");
+    });
+    it("keeps pinned first, flattens a child whose parent is in the other tab, and shows no Needs you group", () => {
+      const items = tab("attention");
+      expect(items.filter((item) => item.kind === "group").map((item) => item.id)).toEqual(["pinned", "project:p1"]);
+      expect(items.find((item) => item.kind === "thread" && item.id === "child")).toMatchObject({ depth: 0 });
+    });
+    it("groups the threads of a tab by project", () => {
+      expect(tab("inflight").map((item) => item.kind === "group" ? item.label : item.id))
+        .toEqual(["Other project", "waits", "Sample project", "busy"]);
+    });
   });
 });

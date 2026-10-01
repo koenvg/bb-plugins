@@ -1,0 +1,122 @@
+# Spec Delta
+
+## Purpose
+
+Split the sidebar thread list into Needs attention, In flight, and All tabs, so the user sees first the threads that wait for them and not the threads that still do work.
+
+## ADDED Requirements
+
+### Requirement: Thread list tabs
+The replacement list SHALL show three tabs above the rows, in this order: Needs attention, In flight, and All. Exactly one tab SHALL be selected. A tab SHALL NOT show a count. The tabs SHALL be keyboard accessible and SHALL expose the selected tab to assistive technology.
+
+#### Scenario: User changes tab
+- **WHEN** the user selects the In flight tab
+- **THEN** the list shows only the threads that the In flight rules select, and the In flight tab shows as selected
+
+#### Scenario: Tabs have no count
+- **WHEN** three threads need attention
+- **THEN** the Needs attention tab label shows no number
+
+### Requirement: Selected tab persists
+The replacement SHALL save the selected tab with the other list preferences on the client. When no saved tab exists or the saved value is not valid, the replacement SHALL open on Needs attention. Reset list preferences SHALL select Needs attention.
+
+#### Scenario: Reload keeps the tab
+- **WHEN** the user selects All and reloads BB
+- **THEN** the list opens on All
+
+#### Scenario: First use
+- **WHEN** no saved preference exists
+- **THEN** the list opens on Needs attention
+
+### Requirement: Attention tabs show only active threads
+The Needs attention and In flight tabs SHALL show only active, non-hidden threads, whatever the archived selection in List options is. Each active thread SHALL be in exactly one of the two tabs.
+
+#### Scenario: Archived thread
+- **WHEN** a thread is archived and the archived selection is Both
+- **THEN** the thread does not show in Needs attention or In flight, and it shows in All
+
+#### Scenario: Every active thread has one tab
+- **WHEN** the list has active threads
+- **THEN** each active thread shows in either Needs attention or In flight, and not in both
+
+### Requirement: Thread signals decide the tab first
+The replacement SHALL apply these rules in order, and the first match SHALL decide. A thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send SHALL be in Needs attention. Next, a thread with unread output SHALL be in Needs attention. Next, a thread that runs, has background work, or has a queued message that waits SHALL be in In flight.
+
+#### Scenario: Thread waits for an approval
+- **WHEN** a thread waits for an approval and its PR has checks running
+- **THEN** the thread is in Needs attention
+
+#### Scenario: Unread output on a waiting PR
+- **WHEN** a thread is idle with unread output and its PR waits for review
+- **THEN** the thread is in Needs attention
+
+#### Scenario: Thread runs
+- **WHEN** a thread runs and its PR has failed checks
+- **THEN** the thread is in In flight
+
+#### Scenario: Background work
+- **WHEN** an idle, read thread has a background agent running
+- **THEN** the thread is in In flight
+
+### Requirement: PR status decides the tab of an idle thread
+When no thread signal rule matches, the replacement SHALL use the github-insight PR summary. A PR with failed checks, requested changes, merge conflicts, or unresolved review comments SHALL put the thread in Needs attention. Otherwise, a PR with checks running or a required review SHALL put the thread in In flight. Every other PR state SHALL put the thread in Needs attention.
+
+#### Scenario: Problem wins over waiting
+- **WHEN** an idle, read thread has a PR with failed checks and a required review
+- **THEN** the thread is in Needs attention
+
+#### Scenario: Checks running
+- **WHEN** an idle, read thread has a PR with checks running and no problem
+- **THEN** the thread is in In flight
+
+#### Scenario: Review required
+- **WHEN** an idle, read thread has a PR that waits for a required review and has no problem
+- **THEN** the thread is in In flight
+
+#### Scenario: Ready, draft, merged, or closed PR
+- **WHEN** an idle, read thread has a PR that is ready to merge, a draft, merged, or closed
+- **THEN** the thread is in Needs attention
+
+### Requirement: Idle thread without PR data needs attention
+An idle, read thread with no PR, or with no usable PR summary, SHALL be in Needs attention. When a usable summary arrives later, the replacement SHALL move the thread to the tab that the PR rules select, without a reload.
+
+#### Scenario: Idle thread without PR
+- **WHEN** an idle, read thread has no PR
+- **THEN** the thread is in Needs attention
+
+#### Scenario: Summary arrives
+- **WHEN** an idle, read thread is in Needs attention without a summary, and then a summary arrives that shows checks running
+- **THEN** the thread moves to In flight within the next refresh
+
+### Requirement: Tab rules use the PR status of all active threads
+The tab of a thread SHALL NOT depend on whether its row is on screen. The replacement SHALL use the github-insight PR summary of each active thread, and it SHALL refresh these summaries at least once each minute while the list is open.
+
+#### Scenario: Thread off screen
+- **WHEN** an idle, read thread is scrolled out of view and its PR has checks running
+- **THEN** the thread is in In flight and not in Needs attention
+
+### Requirement: Tabs keep grouping, sort, and pinned order
+Each tab SHALL use the selected organization, sort, collapse state, and pinned order. Pinned threads SHALL show at the top of the tab that their rules select. A child thread whose parent is not in the same tab SHALL show as a top-level row. The Needs you group SHALL show only in All.
+
+#### Scenario: Grouping inside a tab
+- **WHEN** the organization is project and the In flight tab is selected
+- **THEN** In flight threads show under their project groups
+
+#### Scenario: Pinned thread
+- **WHEN** a pinned thread needs attention
+- **THEN** it shows in the Pinned group at the top of Needs attention
+
+#### Scenario: Parent in the other tab
+- **WHEN** a child thread needs attention and its parent is in flight
+- **THEN** the child shows as a top-level row in Needs attention
+
+#### Scenario: No Needs you group in Needs attention
+- **WHEN** the Needs attention tab is selected
+- **THEN** the list shows no Needs you group header
+
+### Requirement: Empty tab
+A tab with no threads SHALL show a short message that names the tab state, and the tab SHALL stay selectable.
+
+#### Scenario: Nothing needs attention
+- **WHEN** no active thread needs attention
+- **THEN** the Needs attention tab shows a message that nothing needs the user

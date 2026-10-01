@@ -1,26 +1,53 @@
 # Threads with PRs
 
-A selectable BB sidebar thread list. It uses BB's branch PR lookup to show PR status beside each thread; no Git host credentials are stored by this plugin.
+A selectable BB sidebar thread list. It shows threads in three tabs and the PR status beside each thread. The PR status comes from the **github-insight** plugin. This plugin stores no Git host credentials.
 
 Build: `npm install && bb plugin types && bb plugin build`. Install locally: `bb plugin install .`. Choose **Threads with PRs** in Settings → Appearance → Sidebar. The bundled **Thread list** stays installed and can be selected again at any time.
 
+## Requirements
+
+- Install and enable the **github-insight** plugin. It needs the GitHub CLI (`gh`), signed in.
+- Without github-insight, rows show no PR badge, the tabs use only thread signals, and a notice above the rows says that PR status needs it.
+
+## Tabs
+
+The tabs above the rows are **Needs attention**, **In flight**, and **All**. They show no counts. Use the arrow keys to move between them. The list opens on the tab you used last, or on **Needs attention** the first time.
+
+**Needs attention** and **In flight** show only active threads. Each active thread is in one of them. The first rule that matches decides:
+
+| Rule | Tab |
+|---|---|
+| Waits for an approval or an answer, has an unread error, or has a queued message that failed to send | Needs attention |
+| Has unread output | Needs attention |
+| Runs, has background work, or has a queued message that waits | In flight |
+| Has no PR, or no usable PR summary | Needs attention |
+| PR has failed checks, requested changes, conflicts, or unresolved comments | Needs attention |
+| Open PR has checks running or waits for a required review | In flight |
+| Any other PR (ready, draft, behind, blocked, merged, closed) | Needs attention |
+
+**All** shows every thread, with the **Needs you** group on top.
+
+The tab of a thread does not depend on whether its row is on screen. The list asks its own server once a minute, and when the connection comes back, for the github-insight summary of every active thread. github-insight also polls once a minute, so a PR change can take up to two minutes to move a thread.
+
 ## List preferences
 
-Use the lifecycle selector above the rows for Active, Archived, or Both. Open **List options** to group by project, machine, or custom section and change the sort order. Group and parent-thread headers collapse their descendants. These choices are saved on this client under a versioned plugin key; they do not migrate from BB's bundled list, so the first selection starts at project/active/newest-first defaults. **Reset list preferences** restores those defaults. If browser storage is unavailable, the list still works, but choices last only until reload.
+Open **List options** to group by project, machine, or custom section and to change the sort order. In **All**, List options also selects Active, Archived, or Both. The other tabs ignore this choice. Group and parent-thread headers collapse their descendants. Pinned threads stay at the top of their tab. A child thread whose parent is in the other tab shows as a top-level row.
+
+These choices, and the selected tab, are saved on this client under a versioned plugin key. They do not migrate from BB's bundled list. **Reset list preferences** restores the defaults: Needs attention, project grouping, active threads, newest first. If browser storage is unavailable, the list still works, but choices last only until reload.
 
 ## Triage
 
-**Needs you** sits above all other groups. It holds every thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send. These signals come from the thread list itself, so the group is complete even for rows that are scrolled out of view. PR problems do not move a thread into this group, because BB looks up PRs only for visible rows; they show on the row instead.
+In **All**, **Needs you** sits above all other groups. It holds every thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send.
 
-Each row starts with the logo of the agent that runs it. A red dot on the logo means the thread needs you; a blue dot means it is unread. The top right shows what the thread does now (**Needs you**, **Failed**, **Not sent**, **Working**, **Planning**, **Draft**, and similar), or its age when it does nothing.
+Each row starts with the logo of the agent that runs it. A red dot on the logo means the thread needs you. A blue dot means it is unread. The top right shows what the thread does now (**Needs you**, **Failed**, **Not sent**, **Working**, **Planning**, **Draft**, and similar), or its age when it does nothing.
 
 ## PR badges
 
-Each visible thread row with a branch PR shows a PR icon and an icon for BB's status on the right of the second line. The PR icon is draft, merged, or closed, and for an open PR its colour shows checks: green when all passed, amber while running, red when one failed, grey when unknown. Hover it for the PR number and title. Checks running, checks failed, awaiting review, changes requested, and conflicts each have their own icon. Only problems (**Checks failed**, **Changes requested**, **Conflicts**, **Blocked**), **Ready**, and **Merged** also show a word. A merged PR shows its icon and word in purple. The tooltip gives the full status.
+A thread row with a PR shows a PR icon on the right of the second line. The PR icon is draft, merged, or closed. For an open or draft PR, its colour shows checks: green when all passed, amber while running, red when one failed, grey when unknown. Hover it for the PR number. Each merge blocker that github-insight reports has an icon: conflicts, checks failed, changes requested, blocked, checks running, awaiting review, and unresolved comments. Problems come first. Failed checks, running checks, and pending reviews show a count, and the tooltip names them. Only problems (**Checks failed**, **Changes requested**, **Conflicts**, **Blocked**), **Ready**, and **Merged** also show a word. A branch that is out of date gets no icon. It shows only in the tooltip. A merged PR shows its icon and word in purple.
 
-The left of the second line shows queued messages and background work (workflows, agents, commands, plan mode, goals) as icons with counts. When there is none, it shows the branch. The badge opens the PR without opening the thread. This is the branch PR of the thread's environment: threads sharing an environment can show the same PR. BB owns the Git-host lookup, caching, and refresh; the plugin does not run `gh`. There is no badge while the first lookup is pending, when there is no PR, or when the lookup cannot run. Absence of a badge does not mean checks passed or that a PR was closed.
+The left of the second line shows queued messages and background work (workflows, agents, commands, plan mode, goals) as icons with counts. When there is none, it shows the branch. The badge opens the PR without opening the thread. Threads that share an environment show the same PR.
 
-If the **github-insight** plugin is installed, each visible row with an open PR reads its summary once a minute. The badge then counts failed checks, running checks, or pending reviews when they match BB's status, and the tooltip names them. When BB reports **Blocked**, the badge shows an icon for every reason BB cannot report itself: checks running, awaiting review, and unresolved comments. A branch that is out of date gets no icon; it shows only in the tooltip. Hover an icon to see its detail. github-insight refreshes once a minute, so a new PR can show **Blocked** for a minute or two. A summary older than one hour, or for another PR, is ignored.
+There is no badge while the summaries load, when there is no PR, or when the summary is not usable. An open or draft PR summary older than one hour is not usable. A merged or closed PR summary stays usable at any age. No badge does not mean that checks passed or that a PR was closed.
 
 ## Rollout and fallback
 

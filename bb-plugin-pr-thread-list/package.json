@@ -51,5 +51,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   }
 }

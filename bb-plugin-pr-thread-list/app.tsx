@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   definePluginApp, experimental_Icon as Icon, experimental_ProviderIcon as ProviderIcon, experimental_useProviders,
-  experimental_useSidebarThreads, experimental_useSidebarThreadPullRequest, experimental_useSidebarThreadSplit,
+  experimental_useSidebarThreads, experimental_useSidebarThreadSplit,
   experimental_useSidebarThreadActions, useSdk,
   useSidebarThreadDraft, useSidebarThreadRowStatus, useSidebarThreadShortcut,
   type PluginBrowserBbSdk, type PluginSidebarSection, type PluginSidebarThread, type PluginSidebarThreadActions,
@@ -13,8 +13,10 @@ import { createSection, groupMenuItems, newThreadScope, threadMenuItems } from "
 import { projectBadge } from "./project-badge";
 import { Tip } from "./tip";
 import { PrBadgeView } from "./pr-badge";
-import { INSIGHT_METADATA_KEY, INSIGHT_PLUGIN_ID, readInsight } from "./pr-insight";
-import { visibleItems, type ListItem, type ListOptions, type SortField } from "./list-model";
+import { readSummary, type PrSummary } from "./pr-insight";
+import { useSummaries } from "./use-summaries";
+import { visibleItems, type Lifecycle, type ListItem, type ListOptions, type SortField } from "./list-model";
+import type { Tab } from "./tabs";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
 import { isSettled, needsAttention, relativeTime, rowState, workItems } from "./row-cues";
 
@@ -34,41 +36,6 @@ function useNow(): number {
 }
 
 type Provider = ExperimentalProviderIconProps["provider"] & { displayName?: string };
-
-type InsightCache = Map<string, { at: number; summary: unknown }>;
-const InsightCacheContext = createContext<InsightCache>(new Map());
-
-/** Metadata writes do not reach the sidebar live; each row polls on its own timer so rows do not fetch in one burst. */
-function useInsightSummary(threadId: string, enabled: boolean): unknown {
-  const sdk = useSdk();
-  const cache = useContext(InsightCacheContext);
-  const [summary, setSummary] = useState(() => cache.get(threadId)?.summary);
-  useEffect(() => {
-    if (!enabled) return;
-    let current = true;
-    const load = () => Promise.resolve()
-      .then(() => sdk.threads.getPluginMetadata({ threadId, pluginId: INSIGHT_PLUGIN_ID }))
-      .then((metadata) => {
-        cache.set(threadId, { at: Date.now(), summary: metadata[INSIGHT_METADATA_KEY] });
-        if (current) setSummary(metadata[INSIGHT_METADATA_KEY]);
-      })
-      .catch(() => {});
-    const cached = cache.get(threadId);
-    let timer = setTimeout(function poll() {
-      void load();
-      timer = setTimeout(poll, MINUTE);
-    }, cached ? Math.max(0, cached.at + MINUTE - Date.now()) : 0);
-    return () => { current = false; clearTimeout(timer); };
-  }, [sdk, cache, threadId, enabled]);
-  return enabled ? summary : undefined;
-}
-
-function PullRequestConsumer({ thread, now }: { thread: PluginSidebarThread; now: number }) {
-  const facts = experimental_useSidebarThreadPullRequest(thread.id);
-  const openPr = facts.pullRequest?.state === "open" ? facts.pullRequest : null;
-  const summary = useInsightSummary(thread.id, openPr !== null);
-  return <PrBadgeView {...facts} insight={openPr ? readInsight(summary, openPr.number, now) : null} />;
-}
 
 function ProviderGlyph({ thread, provider, quiet }: { thread: PluginSidebarThread; provider: Provider; quiet: boolean }) {
   const dot = needsAttention(thread) ? "bg-destructive" : thread.isUnread ? "bg-primary" : null;
@@ -119,8 +86,9 @@ function RowDetail({ thread, rowStatus }: {
   </span>;
 }
 
-function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, actions, sdk, sections, pinned }: {
+function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, actions, sdk, sections, pinned, pullRequest }: {
   provider: Provider;
+  pullRequest: PrSummary | null;
   item: Extract<ListItem, { kind: "thread" }>;
   activeThreadId: string | null;
   now: number;
@@ -171,15 +139,19 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
           </span>
         </span>
         <RowDetail thread={thread} rowStatus={rowStatus} />
-        <span className="relative z-10 col-start-3 row-start-2 flex justify-end"><PullRequestConsumer thread={thread} now={now} /></span>
+        <span className="relative z-10 col-start-3 row-start-2 flex justify-end"><PrBadgeView pullRequest={pullRequest} /></span>
       </div>
     </div>
   );
 }
 
-const LIFECYCLES = [
-  { value: "active", label: "Active" }, { value: "archived", label: "Archived" }, { value: "both", label: "Both" },
-] as const;
+const TABS: { value: Tab; label: string; empty: string }[] = [
+  { value: "attention", label: "Needs attention", empty: "Nothing needs you." },
+  { value: "inflight", label: "In flight", empty: "Nothing in flight." },
+  { value: "all", label: "All", empty: "No threads" },
+];
+const ACTIVE_ONLY: readonly Lifecycle[] = ["active"];
+const LIFECYCLES: [readonly Lifecycle[], string][] = [[["active"], "Active"], [["archived"], "Archived"], [["active", "archived"], "Both"]];
 
 const BY_DATE: [ListOptions["direction"], string][] = [["desc", "Newest first"], ["asc", "Oldest first"]];
 const DIRECTIONS: Record<SortField, [ListOptions["direction"], string][]> = {
@@ -189,12 +161,37 @@ const DIRECTIONS: Record<SortField, [ListOptions["direction"], string][]> = {
 function listOptionItems(prefs: ListOptions, update: (change: Partial<ListOptions>) => void, reset: () => void): MenuItem[] {
   const radio = <K extends "mode" | "sort" | "direction">(section: string, key: K, choices: [ListOptions[K], string][]) =>
     choices.map(([value, label]): MenuItem => ({ section, label, checked: prefs[key] === value, run: () => update({ [key]: value }) }));
+  const lifecycles = prefs.tab === "all" ? LIFECYCLES.map(([value, label]): MenuItem => ({ section: "Show", label,
+    checked: prefs.lifecycles.join(",") === value.join(","), run: () => update({ lifecycles: value }) })) : [];
   return [
+    ...lifecycles,
     ...radio("Group by", "mode", [["project", "Project"], ["machine", "Machine"], ["section", "Section"]]),
     ...radio("Sort by", "sort", [["updated", "Last updated"], ["created", "Created"], ["title", "Title"]]),
     ...radio("Order", "direction", DIRECTIONS[prefs.sort]),
     { label: "Reset list preferences", run: reset },
   ];
+}
+
+function TabBar({ tab, panelId, onSelect }: { tab: Tab; panelId: string; onSelect: (tab: Tab) => void }) {
+  const ids = useId();
+  const move = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = TABS.findIndex(({ value }) => value === tab);
+    const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: TABS.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    const target = TABS[(next + TABS.length) % TABS.length]!;
+    onSelect(target.value);
+    event.currentTarget.querySelector<HTMLButtonElement>(`[data-tab="${target.value}"]`)?.focus();
+  };
+  return <div role="tablist" aria-label="Threads" onKeyDown={move}
+    className="flex h-7 min-w-0 flex-1 items-center rounded-md bg-sidebar-accent/60 p-0.5">
+    {TABS.map(({ value, label }) => <button key={value} type="button" role="tab" id={`${ids}-${value}`} data-tab={value}
+      aria-selected={tab === value} aria-controls={panelId} tabIndex={tab === value ? 0 : -1} onClick={() => onSelect(value)}
+      className={`relative flex h-6 min-w-0 flex-1 items-center justify-center rounded-[5px] px-2 text-xs font-medium transition-colors ${FOCUS_RING} ${tab === value
+        ? "bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08)]" : "text-muted-foreground hover:text-foreground"}`}>
+      <span className="truncate">{label}</span>
+    </button>)}
+  </div>;
 }
 
 function GroupHeader({ item, onToggle, onNewThread, menu }: {
@@ -236,18 +233,21 @@ function GroupHeader({ item, onToggle, onNewThread, menu }: {
 
 function ThreadList(props: PluginThreadListProps) {
   const [prefs, setPrefs] = useState(readPreferences);
-  const { status, threads, projects, sections, experimental_archived: archived } = experimental_useSidebarThreads({ experimental_lifecycles: prefs.lifecycles });
+  const lifecycles = prefs.tab === "all" ? prefs.lifecycles : ACTIVE_ONLY;
+  const { status, threads, projects, sections, experimental_archived: archived } = experimental_useSidebarThreads({ experimental_lifecycles: lifecycles });
   const actions = experimental_useSidebarThreadActions();
   const sdk = useSdk();
   const now = useNow();
   const { providers } = experimental_useProviders();
-  const [insightCache] = useState<InsightCache>(() => new Map());
+  const insight = useSummaries();
+  const pullRequests = useMemo(() => new Map(Object.entries(insight.summaries)
+    .map(([id, value]) => [id, readSummary(value, now)] as const)), [insight.summaries, now]);
   const providerById = useMemo(() => new Map<string, Provider>(providers.map((provider) => [provider.id, provider])), [providers]);
   const pinned = useMemo(() => threads.filter((row) => row.isPinned && !row.isHidden && !row.isArchived)
     .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
       : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey)), [threads]);
-  const items = useMemo(() => visibleItems(threads, projects, sections, prefs),
-    [threads, projects, sections, prefs]);
+  const items = useMemo(() => visibleItems(threads, projects, sections, prefs, pullRequests),
+    [threads, projects, sections, prefs, pullRequests]);
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -289,23 +289,14 @@ function ThreadList(props: PluginThreadListProps) {
     const scope = newThreadScope(group);
     return scope ? () => { actions.openNewThread({ ...scope, focusPrompt: true }); props.onNavigate(); } : null;
   };
-  const lifecycleName = useId();
-  const lifecycle = prefs.lifecycles.join(",") === "active,archived" ? "both" : prefs.lifecycles[0];
-  const showArchive = prefs.lifecycles.includes("archived");
+  const panelId = useId();
+  const showArchive = lifecycles.includes("archived");
   const archiveLoading = showArchive && archived?.status === "loading";
   const archiveError = showArchive && archived?.status === "error";
   return (
-    <InsightCacheContext.Provider value={insightCache}>
     <div className="flex h-full min-h-0 flex-col p-2 text-sm text-foreground">
       <div className="mb-1 flex h-8 shrink-0 items-center gap-1">
-        <div role="radiogroup" aria-label="Threads" className="flex h-7 min-w-0 flex-1 items-center rounded-md bg-sidebar-accent/60 p-0.5">
-          {LIFECYCLES.map(({ value, label }) => <label key={value}
-            className="relative flex h-6 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-[5px] px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-[0_1px_2px_rgb(0_0_0/0.08)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
-            <input type="radio" name={lifecycleName} value={value} checked={lifecycle === value}
-              className="sr-only" onChange={() => update({ lifecycles: value === "both" ? ["active", "archived"] : [value] })} />
-            <span className="truncate">{label}</span>
-          </label>)}
-        </div>
+        <TabBar tab={prefs.tab} panelId={panelId} onSelect={(tab) => update({ tab })} />
         {prefs.mode === "section" ? <button type="button" aria-label="Create section" title="Create section" className={TOOL_BUTTON}
           onClick={() => { void createSection(sdk)?.catch(() => toast.error("Could not create section.")); }}>
           <Icon name="FolderPlus" className="size-3.5" aria-hidden />
@@ -313,13 +304,17 @@ function ThreadList(props: PluginThreadListProps) {
         <ActionMenu label="List options" items={listOptionItems(prefs, update, () => setPrefs(DEFAULT_PREFERENCES))}
           icon={<Icon name="SlidersHorizontal" className="size-3.5" aria-hidden />} />
       </div>
-      <div ref={scroller} data-testid="thread-scroll" className="min-h-0 flex-1 overflow-y-auto"
+      {insight.loaded && !insight.insightAvailable ? <p role="note" className="mb-1 px-2 text-[11px] text-muted-foreground">
+        PR status needs the GitHub Insight plugin.</p> : null}
+      <div ref={scroller} id={panelId} role="tabpanel" aria-label={TABS.find(({ value }) => value === prefs.tab)!.label}
+        data-testid="thread-scroll" className="min-h-0 flex-1 overflow-y-auto"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
       {status === "loading" ? <p role="status">Loading threads…</p> : null}
       {status === "error" ? <p role="alert">Threads are unavailable.</p> : null}
       {archiveLoading ? <p role="status" className="p-2 text-muted-foreground">Loading archived threads…</p> : null}
       {archiveError ? <p role="alert" className="p-2 text-destructive">Archived threads are unavailable.</p> : null}
-      {status === "ready" && !archiveLoading && !archiveError && items.length === 0 ? <p className="p-2 text-muted-foreground">No threads</p> : null}
+      {status === "ready" && !archiveLoading && !archiveError && items.length === 0 ? <p className="p-2 text-muted-foreground">
+        {TABS.find(({ value }) => value === prefs.tab)!.empty}</p> : null}
       {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[start] }} /> : null}
       {status === "ready" ? windowItems.map((item) => item.kind === "group" ? (
         <GroupHeader key={item.id} item={item} onToggle={() => toggle("collapsedGroups", item.id)}
@@ -327,7 +322,7 @@ function ThreadList(props: PluginThreadListProps) {
       ) : (
         <ThreadRow key={item.id} item={item} provider={providerById.get(item.thread.providerId) ?? { id: item.thread.providerId }} activeThreadId={props.activeThreadId} now={now}
           onToggle={(id) => toggle("collapsedThreads", id)} onNavigate={props.onNavigate}
-          actions={actions} sdk={sdk} sections={sections} pinned={pinned} />
+          actions={actions} sdk={sdk} sections={sections} pinned={pinned} pullRequest={pullRequests.get(item.thread.id) ?? null} />
       )) : null}
       {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[items.length]! - offsets[end]! }} /> : null}
       {showArchive && archived && (archiveError || (status === "ready" && archived.hasNextPage)) ? (
@@ -339,7 +334,6 @@ function ThreadList(props: PluginThreadListProps) {
       ) : null}
       </div>
     </div>
-    </InsightCacheContext.Provider>
   );
 }
 

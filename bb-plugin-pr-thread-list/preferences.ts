@@ -2,7 +2,7 @@ import type { ListOptions } from "./list-model";
 
 export const STORAGE_KEY = "bb-plugin-pr-thread-list:preferences:v1";
 export const DEFAULT_PREFERENCES: ListOptions = {
-  mode: "project", lifecycles: ["active"], sort: "updated", direction: "desc",
+  tab: "attention", mode: "project", lifecycles: ["active"], sort: "updated", direction: "desc",
   collapsedGroups: [], collapsedThreads: [],
 };
 
@@ -24,6 +24,7 @@ export function readPreferences(storage: Store | undefined = localStore()): List
     const lifecycles = Array.isArray(value.lifecycles)
       ? value.lifecycles.filter((v): v is "active" | "archived" => oneOf(v, ["active", "archived"])) : [];
     return {
+      tab: oneOf(value.tab, ["attention", "inflight", "all"]) ? value.tab : DEFAULT_PREFERENCES.tab,
       mode: oneOf(value.mode, ["project", "machine", "section"]) ? value.mode : DEFAULT_PREFERENCES.mode,
       lifecycles: lifecycles.length > 0 ? [...new Set(lifecycles)] : DEFAULT_PREFERENCES.lifecycles,
       sort: oneOf(value.sort, ["updated", "created", "title"]) ? value.sort : DEFAULT_PREFERENCES.sort,

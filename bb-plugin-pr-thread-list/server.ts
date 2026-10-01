@@ -1,4 +1,9 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { rpcContract } from "./contract";
+import { listSummaries } from "./summaries";
 
-// BB requires a server entry; this plugin only contributes frontend UI.
-export default function plugin(_bb: BbPluginApi): void {}
+export type { rpcContract } from "./contract";
+
+export default function plugin(bb: BbPluginApi): void {
+  bb.rpc.register(rpcContract, { listSummaries: () => listSummaries(bb.sdk) });
+}
