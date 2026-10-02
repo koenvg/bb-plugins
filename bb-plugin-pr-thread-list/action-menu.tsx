@@ -7,6 +7,7 @@ export const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus
 export const TOOL_BUTTON = `flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground ${FOCUS_RING}`;
 const PANEL_WIDTH = 208;
 const EDGE = 8;
+const GAP = 4;
 
 export interface MenuItem {
   label: string;
@@ -22,7 +23,7 @@ export function ActionMenu({ label, items, icon = "⋯" }: { label: string; item
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0, maxHeight: 0 });
+  const [position, setPosition] = useState<{ top?: number; bottom?: number; left: number; maxHeight: number }>({ left: 0, maxHeight: 0 });
   useEffect(() => {
     if (!open) return;
     panel.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
@@ -45,13 +46,12 @@ export function ActionMenu({ label, items, icon = "⋯" }: { label: string; item
   const toggle = () => {
     if (!open && trigger.current) {
       const rect = trigger.current.getBoundingClientRect();
-      const below = window.innerHeight - rect.bottom - 4 - EDGE;
-      const top = below >= 240 ? rect.bottom + 4 : EDGE;
-      setPosition({
-        top,
-        left: Math.max(EDGE, Math.min(rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - EDGE)),
-        maxHeight: window.innerHeight - top - EDGE,
-      });
+      const below = window.innerHeight - rect.bottom - GAP - EDGE;
+      const above = rect.top - GAP - EDGE;
+      const left = Math.max(EDGE, Math.min(rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - EDGE));
+      setPosition(below >= 240 || below >= above
+        ? { top: rect.bottom + GAP, left, maxHeight: below }
+        : { bottom: window.innerHeight - rect.top + GAP, left, maxHeight: above });
     }
     setOpen(!open);
   };
