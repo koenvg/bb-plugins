@@ -55,6 +55,18 @@ function mount(threads = [thread()], state: Partial<PluginSidebarThreadsState> =
 }
 
 describe("thread list slot", () => {
+  it("keeps a parent aligned with its siblings and indents its child under the parent title", () => {
+    const slot = mount([
+      thread({ id: "parent", displayTitle: "Parent" }),
+      thread({ id: "child", displayTitle: "Child", parentThreadId: "parent" }),
+      thread({ id: "sibling", displayTitle: "Sibling" }),
+    ]);
+    const row = (title: string) => slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row")!;
+    expect(row("Parent").style.paddingLeft).toBe(row("Sibling").style.paddingLeft);
+    expect(row("Child").style.paddingLeft).toBe("24px");
+    expect(slot.getByRole("button", { name: "Collapse Parent" }).parentElement?.querySelector("[data-provider-glyph]")).toBeTruthy();
+  });
+
   it("registers one selectable list and renders a seeded thread", () => {
     expect(app.threadLists).toHaveLength(1);
     expect(app.threadLists[0]?.title).toBe("Threads with PRs");
