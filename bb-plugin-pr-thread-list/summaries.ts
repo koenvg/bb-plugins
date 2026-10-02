@@ -35,3 +35,13 @@ export async function listSummaries(sdk: Sdk): Promise<Summaries> {
   });
   return { insightAvailable: true, summaries };
 }
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical((value as Record<string, unknown>)[key])]));
+}
+
+export function summariesFingerprint(summaries: Summaries): string {
+  return JSON.stringify(canonical(summaries));
+}

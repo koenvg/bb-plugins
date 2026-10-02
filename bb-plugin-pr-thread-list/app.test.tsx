@@ -460,6 +460,42 @@ describe("thread list slot", () => {
     });
   });
 
+  describe("when the server reports changed summaries", () => {
+    const answers = (...results: Array<unknown | Promise<unknown>>) => {
+      let call = 0;
+      return { rpc: { listSummaries: () => results[Math.min(call++, results.length - 1)] } } as Partial<RenderSlotOptions>;
+    };
+    const none = { insightAvailable: true, summaries: {} };
+    const running = { insightAvailable: true, summaries: { t1: prSummary({ blockers: ["checks_running"] }) } };
+
+    it("loads the summaries again and moves the row to its new tab", async () => {
+      const slot = mount([thread({ displayTitle: "Opened a PR" })], {}, answers(none, running));
+      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+      expect(slot.getByRole("link", { name: "Opened a PR" })).toBeTruthy();
+
+      await slot.behavior.emitRealtime("summaries.changed", {});
+
+      await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull());
+      showTab(slot, "In flight");
+      expect(slot.getByRole("link", { name: "Opened a PR" })).toBeTruthy();
+      expect(slot.getByRole("link", { name: /^PR #42/ })).toBeTruthy();
+    });
+
+    it("keeps the newest summaries when a load from before the signal finishes last", async () => {
+      let finishOlder: (value: unknown) => void = () => {};
+      const older = new Promise((resolve) => { finishOlder = resolve; });
+      const slot = mount([thread({ displayTitle: "Opened a PR" })], {}, answers(older, running));
+      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+
+      await slot.behavior.emitRealtime("summaries.changed", {});
+      await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull());
+      finishOlder(none);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull();
+    });
+  });
+
   it("shows the agent's logo on every row, quiet or busy", () => {
     const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active" })]);
     showTab(slot, "All");

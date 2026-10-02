@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
+import { useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, Summaries } from "./contract";
 import { SUMMARY_WRITTEN_CHANNEL } from "./pr-insight";
+import { SUMMARIES_CHANGED_CHANNEL } from "./summary-watch";
 
 const POLL_MS = 60_000;
 
@@ -17,6 +18,8 @@ export function useSummaries(): SummariesState {
   const [state, setState] = useState(INITIAL);
   const [reconnects, setReconnects] = useState(0);
   const lastConnection = useRef(connection);
+  const reload = useRef(() => {});
+  useRealtime(SUMMARIES_CHANGED_CHANNEL, () => reload.current());
   useEffect(() => {
     if (connection === "connected" && lastConnection.current === "reconnecting") setReconnects((count) => count + 1);
     lastConnection.current = connection;
@@ -30,11 +33,12 @@ export function useSummaries(): SummariesState {
         .then((result) => { if (current && thisLoad === latestLoad) setState({ loaded: true, ...result }); })
         .catch(() => {});
     };
+    reload.current = () => void load();
     void load();
     const timer = setInterval(load, POLL_MS);
     const announcements = new BroadcastChannel(SUMMARY_WRITTEN_CHANNEL);
     announcements.onmessage = () => void load();
-    return () => { current = false; clearInterval(timer); announcements.close(); };
+    return () => { current = false; reload.current = () => {}; clearInterval(timer); announcements.close(); };
   }, [rpc, reconnects]);
   return state;
 }
