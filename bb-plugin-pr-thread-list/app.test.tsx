@@ -7,10 +7,12 @@ import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
 import type { PluginSidebarThreadRowStatus, PluginSidebarThreadShortcut, PluginThreadListProps } from "@get-bb/plugin-sdk/app";
 import { project, thread } from "./fixtures";
 import { snoozePresets, wakeLabel } from "./snooze-model";
+import { cancelPrPanelRequest, receivePrPanel, requestPrPanel } from "../bb-plugin-github-insight/pr-panel-navigation";
 
 const app = await loadPluginApp(() => import("./app"));
 let mounted: ReturnType<typeof renderSlot> | undefined;
-afterEach(() => { mounted?.lifecycle.unmount(); mounted = undefined; localStorage.clear(); });
+const receivers: (() => void)[] = [];
+afterEach(() => { mounted?.lifecycle.unmount(); mounted = undefined; localStorage.clear(); receivers.splice(0).forEach((dispose) => dispose()); cancelPrPanelRequest(); });
 
 function showTab(slot: ReturnType<typeof renderSlot>, name: string) {
   fireEvent.click(slot.getByRole("tab", { name }));
@@ -333,32 +335,93 @@ describe("thread list slot", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Open in split" }));
     expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "open", threadId: "t1", options: { split: true } });
   });
-  it("renders a linked PR badge without opening the thread", async () => {
+  it("opens the badge's thread and requests its PR tab without an external link", async () => {
     const onNavigate = vi.fn();
-    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({ blockers: ["checks_failed"] }) }), { onNavigate });
-    const pr = await slot.findByRole("link", { name: "PR #42: checks failed" });
-    expect(pr.getAttribute("href")).toBe("https://example.com/pull/42");
+    const open = vi.fn(() => true);
+    receivers.push(receivePrPanel("t1", open));
+    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({ blockers: ["checks_failed"] }) }),
+      { activeThreadId: "another-thread", isCompactViewport: true, onNavigate });
+    const pr = await slot.findByRole("button", { name: "Open PR tab, PR #42: checks failed" });
+    expect(pr.hasAttribute("href")).toBe(false);
     expect(slot.queryByText("#42")).toBeNull();
     expect(pr.textContent).toContain("Checks failed");
     fireEvent.click(pr);
-    expect(slot.inspection.sidebarActionCalls).toHaveLength(0);
-    expect(onNavigate).not.toHaveBeenCalled();
+    expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
+    expect(onNavigate).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledOnce();
+  });
+  it("makes every icon, count, label, and the badge background activate the same thread", async () => {
+    const onNavigate = vi.fn();
+    const open = vi.fn(() => true);
+    receivers.push(receivePrPanel("t1", open));
+    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({
+      blockers: ["conflicts", "checks_running", "review_required"],
+      checks: { failed: 0, running: 1, cancelled: 0, passed: 0, skipped: 0, failedNames: [] },
+      reviewers: { pending: 2, approved: 0, changesRequested: 0, pendingNames: ["ana", "bob"] },
+    }) }), { onNavigate });
+    showTab(slot, "All");
+    const badge = await slot.findByRole("button", { name: "Open PR tab, PR #42: merge conflicts, 1 check running, 2 reviews pending" });
+    const tips = Array.from(badge.querySelectorAll("[data-tip]"));
+    expect(tips).toHaveLength(4);
+    const count = tips.find((node) => node.textContent?.includes("2"))!;
+    expect(count).toBeTruthy();
+    const label = Array.from(badge.querySelectorAll("span")).find((node) => node.textContent === "Conflicts")!;
+    expect(label).toBeTruthy();
+    const targets = [badge, ...tips, count, label];
+    for (const target of targets) fireEvent.click(target);
+    expect(open).toHaveBeenCalledTimes(targets.length);
+    expect(onNavigate).toHaveBeenCalledTimes(targets.length);
+    expect(slot.inspection.sidebarActionCalls).toEqual(targets.map(() => ({ method: "open", threadId: "t1" })));
+  });
+  it.each(["draft", "merged", "closed"])("keeps the whole %s badge actionable with its accessible status", async (state) => {
+    const slot = mount([thread()], {}, withSummaries({ t1: prSummary({
+      pr: { number: 42, state, url: "https://example.com/pull/42" },
+    }) }));
+    const badge = await slot.findByRole("button", { name: `Open PR tab, PR #42: ${state}` });
+    expect(badge.getAttribute("type")).toBe("button");
+    fireEvent.click(badge);
+    expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
+  });
+  it("targets the clicked row when several threads share a PR", async () => {
+    const shared = prSummary({ blockers: ["checks_failed"] });
+    const slot = mount([thread({ id: "t1" }), thread({ id: "t2", displayTitle: "Second" })], {},
+      withSummaries({ t1: shared, t2: shared }));
+    const first = vi.fn(() => true);
+    const second = vi.fn(() => true);
+    receivers.push(receivePrPanel("t1", first), receivePrPanel("t2", second));
+    await vi.waitFor(() => expect(slot.getAllByRole("button", { name: /^Open PR tab/ })).toHaveLength(2));
+    fireEvent.click(slot.getAllByRole("button", { name: /^Open PR tab/ })[1]!);
+    expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t2" }]);
+    expect(second).toHaveBeenCalledOnce();
+    expect(first).not.toHaveBeenCalled();
+  });
+  it.each(["title", "split"])("cancels a pending badge request on ordinary %s navigation", async (kind) => {
+    const slot = mount();
+    requestPrPanel("t1", () => {});
+    if (kind === "title") fireEvent.click(slot.getByRole("link", { name: /Prepare release/ }));
+    else {
+      fireEvent.click(slot.getByRole("button", { name: "Actions for Prepare release" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Open in split" }));
+    }
+    const open = vi.fn(() => true);
+    receivers.push(receivePrPanel("t1", open));
+    expect(open).not.toHaveBeenCalled();
   });
   it("shows a badge only on rows with a summary", async () => {
     const shared = prSummary({ blockers: ["review_required"] });
     const slot = mount([thread({ id: "t1" }), thread({ id: "t2", displayTitle: "Second" }),
       thread({ id: "t3", displayTitle: "No PR" })], {}, withSummaries({ t1: shared, t2: shared }));
     showTab(slot, "All");
-    await vi.waitFor(() => expect(slot.getAllByRole("link", { name: "PR #42: awaiting review" })).toHaveLength(2));
+    await vi.waitFor(() => expect(slot.getAllByRole("button", { name: "Open PR tab, PR #42: awaiting review" })).toHaveLength(2));
     expect(slot.getByRole("link", { name: "No PR" })).toBeTruthy();
-    expect(slot.getAllByRole("link", { name: /^PR #/ })).toHaveLength(2);
+    expect(slot.getAllByRole("button", { name: /^Open PR tab, PR #/ })).toHaveLength(2);
   });
   it("names pending reviewers and the checks state from github-insight", async () => {
     const slot = mount([thread()], {}, withSummaries({ t1: prSummary({ blockers: ["review_required"],
       checks: { failed: 0, running: 0, cancelled: 0, passed: 4, skipped: 0, failedNames: [] },
       reviewers: { pending: 1, approved: 0, changesRequested: 0, pendingNames: ["ana"] } }) }));
     showTab(slot, "All");
-    await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+    await slot.findByRole("button", { name: "Open PR tab, PR #42: 1 review pending" });
     expect(tip(slot, "1 review pending\nWaiting on: ana")).toBeTruthy();
     expect(tip(slot, "PR #42\nAll checks passed")).toBeTruthy();
   });
@@ -368,10 +431,10 @@ describe("thread list slot", () => {
       let summary = prSummary({ blockers: ["checks_running"] });
       const slot = mount([thread()], {}, { rpc: { listSummaries: () => ({ insightAvailable: true, summaries: { t1: summary } }) } });
       showTab(slot, "All");
-      await slot.findByRole("link", { name: "PR #42: checks running" });
+      await slot.findByRole("button", { name: "Open PR tab, PR #42: checks running" });
       summary = prSummary({ blockers: [] });
       await act(async () => { vi.advanceTimersByTime(60_000); });
-      await slot.findByRole("link", { name: "PR #42: ready to merge" });
+      await slot.findByRole("button", { name: "Open PR tab, PR #42: ready to merge" });
     } finally { vi.useRealTimers(); }
   });
   it("reloads summaries when the realtime connection comes back", async () => {
@@ -386,7 +449,7 @@ describe("thread list slot", () => {
     expect((await slot.findByRole("note")).textContent).toContain("GitHub Insight");
     slot.lifecycle.unmount();
     const available = mount([thread()], {}, withSummaries({ t1: prSummary() }));
-    await available.findByRole("link", { name: "PR #42: ready to merge" });
+    await available.findByRole("button", { name: "Open PR tab, PR #42: ready to merge" });
     expect(available.queryByRole("note")).toBeNull();
   });
   it("shows three tabs without counts and only the threads of the selected tab", async () => {
@@ -479,11 +542,11 @@ describe("thread list slot", () => {
     it("loads the summaries again and shows the new badge", async () => {
       const slot = mount([thread()], {}, answers(summariesOf(pending(1)), summariesOf(pending(2))));
       showTab(slot, "All");
-      await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+      await slot.findByRole("button", { name: "Open PR tab, PR #42: 1 review pending" });
 
       announce();
 
-      expect(await slot.findByRole("link", { name: "PR #42: 2 reviews pending" })).toBeTruthy();
+      expect(await slot.findByRole("button", { name: "Open PR tab, PR #42: 2 reviews pending" })).toBeTruthy();
       expect(summaryLoads(slot)).toHaveLength(2);
     });
 
@@ -492,16 +555,16 @@ describe("thread list slot", () => {
       const older = new Promise((resolve) => { finishOlder = resolve; });
       const slot = mount([thread()], {}, answers(summariesOf(pending(1)), older, summariesOf(pending(2))));
       showTab(slot, "All");
-      await slot.findByRole("link", { name: "PR #42: 1 review pending" });
+      await slot.findByRole("button", { name: "Open PR tab, PR #42: 1 review pending" });
       announce();
       await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(2));
 
       announce();
-      await slot.findByRole("link", { name: "PR #42: 2 reviews pending" });
+      await slot.findByRole("button", { name: "Open PR tab, PR #42: 2 reviews pending" });
       finishOlder(summariesOf(pending(1)));
       await quietly();
 
-      expect(slot.getByRole("link", { name: "PR #42: 2 reviews pending" })).toBeTruthy();
+      expect(slot.getByRole("button", { name: "Open PR tab, PR #42: 2 reviews pending" })).toBeTruthy();
     });
 
     it("stops listening once the list unmounts", async () => {
@@ -535,7 +598,7 @@ describe("thread list slot", () => {
       await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull());
       showTab(slot, "In flight");
       expect(slot.getByRole("link", { name: "Opened a PR" })).toBeTruthy();
-      expect(slot.getByRole("link", { name: /^PR #42/ })).toBeTruthy();
+      expect(slot.getByRole("button", { name: /^Open PR tab, PR #42/ })).toBeTruthy();
     });
 
     it("keeps the newest summaries when a load from before the signal finishes last", async () => {

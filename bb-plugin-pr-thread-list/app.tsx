@@ -8,6 +8,7 @@ import {
   type PluginSidebarThreadRowStatus, type PluginThreadListProps, type ExperimentalProviderIconProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { cancelPrPanelRequest, requestPrPanel } from "../bb-plugin-github-insight/pr-panel-navigation";
 import { ActionMenu, FOCUS_RING, TOOL_BUTTON, type MenuItem } from "./action-menu";
 import { createSection, groupMenuItems, newThreadScope, snoozeMenuItems, threadMenuItems } from "./thread-actions";
 import { projectBadge } from "./project-badge";
@@ -133,9 +134,11 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
         </span> : <ProviderGlyph thread={thread} provider={provider} quiet={quiet} />}
         <a {...splitProps} href={thread.href} data-sidebar-thread-shortcut-target="" data-sidebar-thread-id={thread.id}
           aria-current={selected ? "page" : undefined} aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
+          onPointerDownCapture={() => cancelPrPanelRequest()}
           onClick={(event) => {
             if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
+            cancelPrPanelRequest();
             actions.open(thread.id);
             onNavigate();
           }}
@@ -154,7 +157,12 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
           </span>
         </span>
         <RowDetail thread={thread} rowStatus={rowStatus} />
-        <span className="relative z-10 col-start-3 row-start-2 flex justify-end"><PrBadgeView pullRequest={pullRequest} /></span>
+        <span className="relative z-10 col-start-3 row-start-2 flex justify-end">
+          <PrBadgeView pullRequest={pullRequest} onActivate={() => requestPrPanel(thread.id, () => {
+            actions.open(thread.id);
+            onNavigate();
+          })} />
+        </span>
       </div>
     </div>
   );

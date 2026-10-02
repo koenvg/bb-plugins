@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
+import { usePrPanelNavigation } from "./use-pr-panel-navigation";
 
 const TEXT_BUTTON_CLASS =
   "flex min-h-8 w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
@@ -16,6 +17,7 @@ export function ComposerBanner() {
 }
 
 function ThreadBanner({ threadId }: { threadId: string }) {
+  usePrPanelNavigation(threadId);
   const { result } = useInsight(threadId);
   const navigate = useBbNavigate();
   if (result?.kind !== "ok") return null;
