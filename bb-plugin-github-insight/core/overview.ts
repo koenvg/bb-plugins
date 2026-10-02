@@ -17,6 +17,7 @@ import {
   reviewDecisionSchema,
 } from "./blockers";
 import { parseFailureAnnotations, type Annotation } from "./failure";
+import { mergeQueueEntrySchema, mergeQueueSchema, toMergeQueue } from "./merge-queue";
 import {
   buildReviewers,
   reviewerSchema,
@@ -71,6 +72,7 @@ const reviewStateSchema = z.object({
       pullRequest: z.object({
         mergeable: mergeableSchema,
         mergeStateStatus: mergeStateStatusSchema,
+        mergeQueueEntry: mergeQueueEntrySchema,
         reviewDecision: reviewDecisionSchema,
         reviewRequests: z.object({ nodes: z.array(reviewRequestNodeSchema) }),
         latestOpinionatedReviews: z.object({ nodes: z.array(reviewNodeSchema) }),
@@ -102,6 +104,7 @@ export const prInsightSchema = z.object({
   blockers: z.array(blockerSchema),
   reviewers: z.array(reviewerSchema),
   checks: z.array(checkSchema),
+  mergeQueue: mergeQueueSchema,
 });
 export type PrInsight = z.infer<typeof prInsightSchema>;
 
@@ -155,9 +158,11 @@ function blockers(
   reviewState: ReviewState,
   prState: PrInsight["pr"]["state"],
   checks: readonly Check[],
+  mergeQueue: PrInsight["mergeQueue"],
 ): Blocker[] {
   return buildBlockers({
     prState,
+    mergeQueue,
     mergeable: reviewState.mergeable,
     mergeStateStatus: reviewState.mergeStateStatus,
     reviewDecision: reviewState.reviewDecision,
@@ -179,13 +184,15 @@ export async function collectInsight(github: GitHubReader): Promise<PrInsight> {
   );
   const pr = prHeader(pages[0]);
   const checks = latest.map((candidate) => toCheck(candidate, annotations));
+  const mergeQueue = toMergeQueue(reviewState.mergeQueueEntry);
   return {
     pr,
-    blockers: blockers(reviewState, pr.state, checks),
+    blockers: blockers(reviewState, pr.state, checks, mergeQueue),
     reviewers: buildReviewers(
       reviewState.reviewRequests.nodes,
       reviewState.latestOpinionatedReviews.nodes,
     ),
     checks,
+    mergeQueue,
   };
 }

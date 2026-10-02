@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bannerParts } from "./banner";
-import type { Blocker } from "./blockers";
+import { buildBlockers, type Blocker } from "./blockers";
 import type { PrInsight } from "./overview";
 import type { Reviewer } from "./reviewers";
 
@@ -16,7 +16,7 @@ function pending(name: string): Reviewer {
 }
 
 function insight(blockers: Blocker[], reviewers: Reviewer[] = []): PrInsight {
-  return { pr, blockers, reviewers, checks: [] };
+  return { pr, blockers, reviewers, checks: [], mergeQueue: null };
 }
 
 const failed: Blocker = { code: "checks_failed", text: "2 checks failed" };
@@ -58,6 +58,20 @@ describe("bannerParts", () => {
 
   it("is empty for a PR without blockers", () => {
     expect(bannerParts(insight([], [pending("a")]))).toEqual([]);
+  });
+
+  it("is empty for a queued PR whose GitHub state reports blockers", () => {
+    const queued = buildBlockers({
+      prState: "open",
+      mergeable: "MERGEABLE",
+      mergeStateStatus: "BLOCKED",
+      reviewDecision: "REVIEW_REQUIRED",
+      unresolvedThreads: 0,
+      checkStatuses: ["running"],
+      mergeQueue: { position: 2, state: "queued" },
+    });
+
+    expect(bannerParts(insight(queued, [pending("a")]))).toEqual([]);
   });
 
   it.each(["merged", "closed"] as const)("is empty for a %s PR", (state) => {

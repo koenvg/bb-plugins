@@ -2,15 +2,15 @@
 
 ## 1. github-insight: detect the queue entry
 
-- [ ] 1.1 Add `mergeQueueEntry { position state }` to the first-page block in `github/overview-query.ts`, and verify `github/overview-query.test.ts` asserts the field is in the query
-- [ ] 1.2 Parse the entry in `core/overview.ts` and map it to `PrInsight.mergeQueue` (`QUEUED`, `AWAITING_CHECKS`, `MERGEABLE`/`LOCKED`, `UNMERGEABLE`, null), and verify each mapping with a test in `core/overview.test.ts`
-- [ ] 1.3 Add `mergeQueue` to `BlockerInput` and return `[]` from `buildBlockers` while it is not null, and verify a test in `core/blockers.test.ts` for a queued PR with `BLOCKED` and `REVIEW_REQUIRED`
-- [ ] 1.4 Verify in `core/banner.test.ts` that a queued PR gets no banner
+- [x] 1.1 Add `mergeQueueEntry { position state }` to the first-page block in `github/overview-query.ts`, and verify `github/overview-query.test.ts` asserts the field is in the query
+- [x] 1.2 Parse the entry in `core/overview.ts` and map it to `PrInsight.mergeQueue` (`QUEUED`, `AWAITING_CHECKS`, `MERGEABLE`/`LOCKED`, `UNMERGEABLE`, null), and verify each mapping with a test in `core/overview.test.ts`
+- [x] 1.3 Add `mergeQueue` to `BlockerInput` and return `[]` from `buildBlockers` while it is not null, and verify a test in `core/blockers.test.ts` for a queued PR with `BLOCKED` and `REVIEW_REQUIRED`
+- [x] 1.4 Verify in `core/banner.test.ts` that a queued PR gets no banner
 
 ## 2. github-insight: summary and PR tab
 
 - [ ] 2.1 Add the optional `mergeQueue` field to `PrSummary` in `core/summary.ts`, and verify `core/summary.test.ts` covers a queued PR (`{ position, state }`, `blockers: []`, `version: 1`) and a PR not in a queue (`null`)
-- [ ] 2.2 Show the queue text in `ui/pr-tab.tsx` ("In merge queue (#N)", "Merge queue checks running (#N)", "Merging", "Merge queue failed" in the problem tone), and verify with a test in `app.test.tsx`
+- [x] 2.2 Show the queue text in `ui/pr-tab.tsx` ("In merge queue (#N)", "Merge queue checks running (#N)", "Merging", "Merge queue failed" in the problem tone), and verify with a test in `app.test.tsx`
 - [ ] 2.3 Document the `mergeQueue` summary field and the queue states in `bb-plugin-github-insight/README.md`, and verify the README field list matches `PrSummary`
 
 ## 3. pr-thread-list: read and show the queue state

@@ -27,7 +27,13 @@ const pr = {
   url: "https://github.com/collibra/frontend/pull/25337",
 } as const;
 
-const emptyInsight: PrInsight = { pr, blockers: [], reviewers: [], checks: [] };
+const emptyInsight: PrInsight = {
+  pr,
+  blockers: [],
+  reviewers: [],
+  checks: [],
+  mergeQueue: null,
+};
 
 const unusedReviewRpc = {
   getReview: () => ({ kind: "no_pr" as const }),
@@ -68,6 +74,7 @@ const insight = ok({
       check("container", "skipped"),
       check("typecheck", "passed"),
     ],
+    mergeQueue: null,
 });
 
 function renderTab(
@@ -319,6 +326,35 @@ describe("PR tab", () => {
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_2"] });
 
     expect(slot.inspection.rpcCalls).toHaveLength(1);
+  });
+
+  it.each([
+    ["queued", "In merge queue (#3)"],
+    ["awaiting_checks", "Merge queue checks running (#3)"],
+    ["merging", "Merging"],
+    ["failed", "Merge queue failed"],
+  ] as const)("shows the %s queue state as text instead of merge blockers", async (state, text) => {
+    const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 3, state } }));
+
+    const queue = await slot.findByRole("region", { name: "Merge queue" });
+    expect(within(queue).getByRole("listitem").textContent).toBe(text);
+    expect(slot.queryByRole("region", { name: "Merge blockers" })).toBeNull();
+  });
+
+  it("shows a failed queue entry in the problem tone", async () => {
+    const slot = renderTab(
+      ok({ ...emptyInsight, mergeQueue: { position: 1, state: "failed" } }),
+    );
+
+    const queue = await slot.findByRole("region", { name: "Merge queue" });
+    expect(within(queue).getByRole("listitem").className).toContain("text-destructive");
+  });
+
+  it("leaves out the merge queue of a PR that is not queued", async () => {
+    const slot = renderTab(insight);
+
+    await slot.findByRole("region", { name: "Merge blockers" });
+    expect(slot.queryByRole("region", { name: "Merge queue" })).toBeNull();
   });
 
   it("says so when the PR has no checks", async () => {

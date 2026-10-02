@@ -3,6 +3,7 @@ import { UrlLink } from "@get-bb/plugin-sdk/app";
 import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { CheckFailure } from "../core/failure";
+import type { MergeQueue } from "../core/merge-queue";
 import type { PrInsight } from "../core/overview";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -30,6 +31,34 @@ const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = 
   running: { name: "Spinner", className: "text-attention" },
   passed: { name: "CircleCheck", className: "text-success" },
   skipped: { name: "Circle", className: "text-muted-foreground" },
+};
+
+const QUEUE_ROW: Record<
+  NonNullable<MergeQueue>["state"],
+  {
+    text: (position: number) => string;
+    icon: IconName;
+    iconClassName: string;
+    textClassName?: string;
+  }
+> = {
+  queued: {
+    text: (position) => `In merge queue (#${position})`,
+    icon: "Circle",
+    iconClassName: "text-muted-foreground",
+  },
+  awaiting_checks: {
+    text: (position) => `Merge queue checks running (#${position})`,
+    icon: "Spinner",
+    iconClassName: "text-attention",
+  },
+  merging: { text: () => "Merging", icon: "CircleCheck", iconClassName: "text-success" },
+  failed: {
+    text: () => "Merge queue failed",
+    icon: "CircleX",
+    iconClassName: "text-destructive",
+    textClassName: "text-destructive",
+  },
 };
 
 const PR_STATE_LABEL: Record<PrInsight["pr"]["state"], string> = {
@@ -72,6 +101,7 @@ export function PrTab({ threadId }: { threadId: string }) {
           busy={refreshing}
         />
       )}
+      <MergeQueueStatus mergeQueue={result.insight.mergeQueue} />
       <BlockerList blockers={result.insight.blockers} />
       <ReviewerList reviewers={result.insight.reviewers} />
       <CheckList checks={result.insight.checks} />
@@ -101,6 +131,22 @@ const SECTION_HEADING_CLASS = "text-xs font-medium text-muted-foreground";
 
 const LABEL_CLASS =
   "shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground";
+
+function MergeQueueStatus({ mergeQueue }: { mergeQueue: MergeQueue }) {
+  if (mergeQueue === null) return null;
+  const row = QUEUE_ROW[mergeQueue.state];
+  return (
+    <section aria-label="Merge queue" className="flex flex-col gap-1">
+      <h3 className={SECTION_HEADING_CLASS}>Merge queue</h3>
+      <ul className="flex flex-col">
+        <li className={cn("flex items-center gap-2 py-0.5 text-sm", row.textClassName)}>
+          <Icon name={row.icon} className={cn("size-4 shrink-0", row.iconClassName)} />
+          {row.text(mergeQueue.position)}
+        </li>
+      </ul>
+    </section>
+  );
+}
 
 function BlockerList({ blockers }: { blockers: readonly Blocker[] }) {
   if (blockers.length === 0) return null;

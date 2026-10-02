@@ -10,6 +10,7 @@ function input(overrides: Partial<BlockerInput> = {}): BlockerInput {
     reviewDecision: null,
     unresolvedThreads: 0,
     checkStatuses: [],
+    mergeQueue: null,
     ...overrides,
   };
 }
@@ -40,6 +41,26 @@ describe("buildBlockers", () => {
   it("gives an empty list for a merged or closed PR", () => {
     expect(codes({ prState: "merged", mergeStateStatus: "DIRTY" })).toEqual([]);
     expect(codes({ prState: "closed", mergeStateStatus: "DIRTY" })).toEqual([]);
+  });
+
+  it("gives an empty list for a queued PR that GitHub reports as blocked", () => {
+    expect(
+      codes({
+        mergeQueue: { position: 1, state: "queued" },
+        mergeStateStatus: "BLOCKED",
+        reviewDecision: "REVIEW_REQUIRED",
+      }),
+    ).toEqual([]);
+  });
+
+  it("gives an empty list for a failed queue entry", () => {
+    expect(
+      codes({
+        mergeQueue: { position: 1, state: "failed" },
+        mergeable: "CONFLICTING",
+        checkStatuses,
+      }),
+    ).toEqual([]);
   });
 
   it("gives blocked only when no other code explains it", () => {
