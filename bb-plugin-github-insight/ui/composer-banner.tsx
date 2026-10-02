@@ -7,7 +7,7 @@ import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 
 const TEXT_BUTTON_CLASS =
-  "flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
+  "flex min-h-8 w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
 export function ComposerBanner() {
   const { scope } = useComposerView();
@@ -46,14 +46,14 @@ function ThreadBanner({ threadId }: { threadId: string }) {
       );
     case "ready":
       return (
-        <div className="flex min-w-0 items-center gap-2 pr-3">
+        <div className="flex min-w-0 items-center gap-2 pr-1">
           <BannerText
             icon="CircleCheck"
             iconClassName="text-success"
             text={state.action.kind === "enqueue" ? "Ready to enqueue" : "Ready to merge"}
             onClick={openPrTab}
           />
-          <MergeActionButton threadId={threadId} pr={insight.pr} action={state.action} />
+          <MergeActionButton threadId={threadId} pr={insight.pr} action={state.action} size="compact" />
         </div>
       );
   }
@@ -69,7 +69,7 @@ interface BannerTextProps {
 function BannerText({ icon, iconClassName, text, onClick }: BannerTextProps) {
   return (
     <button type="button" className={TEXT_BUTTON_CLASS} onClick={onClick}>
-      <Icon name={icon} className={cn("size-4 shrink-0", iconClassName)} />
+      <Icon name={icon} className={cn("size-3.5 shrink-0", iconClassName)} />
       <span className="truncate">{text}</span>
     </button>
   );

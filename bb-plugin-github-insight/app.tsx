@@ -1,5 +1,6 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { ComposerBanner } from "./ui/composer-banner";
+import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
 import { PrTab } from "./ui/pr-tab";
 import { PullRequestsPanel } from "./ui/pull-requests-panel";
 import { PANEL_PATH } from "./ui/pull-requests-routes";
@@ -30,4 +31,5 @@ export default definePluginApp((app) => {
     scopes: ["thread"],
     banners: [{ id: "merge-blockers", component: ComposerBanner }],
   });
+  app.contentScripts.register(hideHostPrStrip);
 });
