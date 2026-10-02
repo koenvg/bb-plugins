@@ -9,12 +9,14 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import { ActionMenu, FOCUS_RING, TOOL_BUTTON, type MenuItem } from "./action-menu";
-import { createSection, groupMenuItems, newThreadScope, threadMenuItems } from "./thread-actions";
+import { createSection, groupMenuItems, newThreadScope, snoozeMenuItems, threadMenuItems } from "./thread-actions";
 import { projectBadge } from "./project-badge";
 import { Tip } from "./tip";
 import { PrBadgeView } from "./pr-badge";
 import { readSummary, type PrSummary } from "./pr-insight";
 import { useSummaries } from "./use-summaries";
+import { useSnoozes } from "./use-snoozes";
+import { wakeLabel, wakeTitle, type SnoozeControls } from "./snooze-model";
 import { visibleItems, type Lifecycle, type ListItem, type ListOptions, type SortField } from "./list-model";
 import type { Tab } from "./tabs";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
@@ -50,11 +52,16 @@ function ProviderGlyph({ thread, provider, quiet }: { thread: PluginSidebarThrea
 
 const STATE_TONE = { danger: "bg-destructive/10 text-destructive", live: "text-primary", muted: "text-muted-foreground" };
 
-function StateOrTime({ thread, hasDraft, now }: { thread: PluginSidebarThread; hasDraft: boolean; now: number }) {
+function StateOrTime({ thread, hasDraft, now, wakeAt }: {
+  thread: PluginSidebarThread; hasDraft: boolean; now: number; wakeAt: number | undefined;
+}) {
   const state = rowState(thread, hasDraft);
   const fade = "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0 group-has-[[aria-haspopup=menu][aria-expanded=true]]/row:opacity-0 [@media(hover:none)]:hidden";
-  if (!state) return <time dateTime={new Date(thread.updatedAt).toISOString()}
-    className={`text-[11px] tabular-nums text-muted-foreground ${fade}`}>
+  const timeClass = `text-[11px] tabular-nums text-muted-foreground ${fade}`;
+  if (!state && wakeAt !== undefined) return <time dateTime={new Date(wakeAt).toISOString()} title={wakeTitle(wakeAt)} className={timeClass}>
+    {wakeLabel(wakeAt)}
+  </time>;
+  if (!state) return <time dateTime={new Date(thread.updatedAt).toISOString()} className={timeClass}>
     {relativeTime(thread.updatedAt, now)}
   </time>;
   return <span title={state.title}
@@ -87,8 +94,10 @@ function RowDetail({ thread, rowStatus }: {
   </span>;
 }
 
-function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, actions, sdk, sections, pinned, pullRequest }: {
+function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, actions, sdk, sections, pinned, pullRequest, wakeAt, snoozes }: {
   provider: Provider;
+  wakeAt: number | undefined;
+  snoozes: SnoozeControls;
   pullRequest: PrSummary | null;
   item: Extract<ListItem, { kind: "thread" }>;
   activeThreadId: string | null;
@@ -136,10 +145,11 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
         <span className="relative z-10 col-start-3 row-start-1 flex items-center justify-end gap-1.5">
           {shortcut ? <kbd className="rounded border border-border px-1 font-sans text-[10px] leading-4 text-muted-foreground">{shortcut.label}</kbd> : null}
           <span className="relative flex h-5 min-w-7 items-center justify-end">
-            <StateOrTime thread={thread} hasDraft={hasDraft} now={now} />
+            <StateOrTime thread={thread} hasDraft={hasDraft} now={now} wakeAt={wakeAt} />
             <span className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 has-[[aria-expanded=true]]:opacity-100 [@media(hover:none)]:opacity-100">
               <ActionMenu label={`Actions for ${thread.displayTitle}`}
-                items={threadMenuItems(thread, actions, sdk, sections, pinned, splitAvailable, onNavigate)} />
+                items={[...snoozeMenuItems(thread, wakeAt, snoozes),
+                  ...threadMenuItems(thread, actions, sdk, sections, pinned, splitAvailable, onNavigate)]} />
             </span>
           </span>
         </span>
@@ -251,8 +261,9 @@ function ThreadList(props: PluginThreadListProps) {
   const pinned = useMemo(() => threads.filter((row) => row.isPinned && !row.isHidden && !row.isArchived)
     .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
       : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey)), [threads]);
-  const items = useMemo(() => visibleItems(threads, projects, sections, prefs, pullRequests),
-    [threads, projects, sections, prefs, pullRequests]);
+  const snoozes = useSnoozes(threads, now);
+  const items = useMemo(() => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed),
+    [threads, projects, sections, prefs, pullRequests, snoozes.snoozed]);
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -327,7 +338,8 @@ function ThreadList(props: PluginThreadListProps) {
       ) : (
         <ThreadRow key={item.id} item={item} provider={providerById.get(item.thread.providerId) ?? { id: item.thread.providerId }} activeThreadId={props.activeThreadId} now={now}
           onToggle={(id) => toggle("collapsedThreads", id)} onNavigate={props.onNavigate}
-          actions={actions} sdk={sdk} sections={sections} pinned={pinned} pullRequest={pullRequests.get(item.thread.id) ?? null} />
+          actions={actions} sdk={sdk} sections={sections} pinned={pinned} pullRequest={pullRequests.get(item.thread.id) ?? null}
+          wakeAt={snoozes.snoozed.get(item.thread.id)} snoozes={snoozes} />
       )) : null}
       {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[items.length]! - offsets[end]! }} /> : null}
       {showArchive && archived && (archiveError || (status === "ready" && archived.hasNextPage)) ? (

@@ -14,6 +14,7 @@ export interface MenuItem {
   disabled?: boolean;
   checked?: boolean;
   section?: string;
+  failure?: string;
 }
 
 /** Portals above the scrolling list, so menus at its lower edge stay visible. */
@@ -75,8 +76,9 @@ export function ActionMenu({ label, items, icon = "⋯" }: { label: string; item
           onClick={() => {
             setOpen(false);
             trigger.current?.focus();
-            try { void Promise.resolve(item.run()).catch(() => toast.error(`Could not ${item.label.toLowerCase()}.`)); }
-            catch { toast.error(`Could not ${item.label.toLowerCase()}.`); }
+            const failure = item.failure ?? `Could not ${item.label.toLowerCase()}.`;
+            try { void Promise.resolve(item.run()).catch(() => toast.error(failure)); }
+            catch { toast.error(failure); }
           }}>
           {item.checked !== undefined ? <span className="flex size-3.5 shrink-0 items-center justify-center">
             {item.checked ? <Icon name="Check" className="size-3.5" aria-hidden /> : null}

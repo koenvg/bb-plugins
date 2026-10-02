@@ -16,7 +16,7 @@ export interface ListOptions {
   collapsedThreads: readonly string[];
 }
 export type GroupScope =
-  | { kind: "attention" } | { kind: "pinned" } | { kind: "threads" }
+  | { kind: "attention" } | { kind: "pinned" } | { kind: "threads" } | { kind: "snoozed" }
   | { kind: "project"; projectId: string }
   | { kind: "section"; sectionId: string }
   | { kind: "machine"; hostId: string; name: string };
@@ -28,6 +28,10 @@ const groupKey = (scope: GroupScope): string => {
     case "machine": return `machine:${scope.hostId}`;
     default: return scope.kind;
   }
+};
+
+const GROUP_RANKS: Record<GroupScope["kind"], number> = {
+  attention: 0, pinned: 1, project: 2, section: 2, machine: 2, threads: 3, snoozed: 4,
 };
 
 export type ListItem =
@@ -58,12 +62,13 @@ export function visibleItems(
   sections: readonly PluginSidebarSection[],
   options: ListOptions,
   pullRequests: ReadonlyMap<string, PrSummary | null> = new Map(),
+  snoozed: ReadonlyMap<string, number> = new Map(),
 ): ListItem[] {
   const { tab } = options;
   const withActiveDescendant = tab === "all" ? new Set<string>() : threadsWithActiveDescendant(threads);
   const filtered = threads.filter((t) => !t.isHidden && (tab === "all"
     ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
-    : !t.isArchived && tabFor(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id)) === tab));
+    : !t.isArchived && !snoozed.has(t.id) && tabFor(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id)) === tab));
   const byId = new Map(filtered.map((t) => [t.id, t]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
@@ -85,6 +90,7 @@ export function visibleItems(
     return pinned;
   };
   const scopeOf = (thread: PluginSidebarThread): GroupScope => {
+    if (snoozed.has(thread.id)) return { kind: "snoozed" };
     if (tab === "all" && needsAttention(thread)) return { kind: "attention" };
     if (belongsToPinned(thread)) return { kind: "pinned" };
     if (options.mode === "section") return thread.sectionId && sectionNames.has(thread.sectionId)
@@ -97,6 +103,7 @@ export function visibleItems(
       case "attention": return "Needs you";
       case "pinned": return "Pinned";
       case "threads": return "Threads";
+      case "snoozed": return "Snoozed";
       case "project": return projectNames.get(scope.projectId) ?? "Threads";
       case "section": return sectionNames.get(scope.sectionId) ?? "Threads";
       case "machine": return scope.name;
@@ -115,7 +122,7 @@ export function visibleItems(
     if (!group) { group = { scope, bucket: [] }; groups.set(key, group); }
     group.bucket.push(thread);
   }
-  const rank = (scope: GroupScope) => scope.kind === "attention" ? 0 : scope.kind === "pinned" ? 1 : scope.kind === "threads" ? 3 : 2;
+  const rank = (scope: GroupScope) => GROUP_RANKS[scope.kind];
   const groupOrder = [...groups.values()].sort(({ scope: a }, { scope: b }) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     if (a.kind === "section" && b.kind === "section") return (sectionOrder.get(a.sectionId) ?? 0) - (sectionOrder.get(b.sectionId) ?? 0);
