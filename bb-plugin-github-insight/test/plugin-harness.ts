@@ -75,6 +75,7 @@ export async function setup(options: {
   projects?: Pick<ProjectListItem, "id" | "kind" | "gitRemoteUrl" | "updatedAt">[];
   primaryHostId?: string | null;
   spawn?: BbPluginApi["sdk"]["threads"]["spawn"];
+  pluginMetadata?: Record<string, unknown>;
 }) {
   const threadResponse = (id: string) => {
     const thread = options.threads.find((candidate) => candidate.id === id)!;
@@ -85,10 +86,19 @@ export async function setup(options: {
     sdk: {
       threads: {
         get: async ({ threadId }) => threadResponse(threadId),
-        list: async () =>
-          options.threads.map(
-            ({ id }) => threadResponse(id) as unknown as ThreadListItem,
-          ),
+        list: async (args) =>
+          options.threads
+            .filter((thread) => args?.includeHidden === true || thread.visibility !== "hidden")
+            .filter(
+              (thread) =>
+                args?.originPluginId === undefined || thread.originPluginId === args.originPluginId,
+            )
+            .map(({ id }) => threadResponse(id) as unknown as ThreadListItem),
+        getPluginMetadata: async ({ threadId }) =>
+          (options.pluginMetadata?.[threadId] ?? {}) as Awaited<
+            ReturnType<BbPluginApi["sdk"]["threads"]["getPluginMetadata"]>
+          >,
+        archive: async ({ threadId }) => threadResponse(threadId),
         spawn: options.spawn ?? (async () => makeThreadResponse({ id: "thr_spawned" })),
         updatePluginMetadata: async () => ({}),
         send: async () => ({ ok: true as const, delivery: "sent" as const }),

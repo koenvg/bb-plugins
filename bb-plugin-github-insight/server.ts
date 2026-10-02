@@ -6,6 +6,7 @@ import {
 } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
+import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
@@ -30,7 +31,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   const service = createInsightService({
     listThreads: async () =>
-      (await bb.sdk.threads.list()).filter((thread) => thread.archivedAt === null),
+      (await bb.sdk.threads.list({ includeHidden: true })).filter((thread) => thread.archivedAt === null),
     resolvePr,
     resolveEnvironmentPr,
     fetchInsight: ({ ref, hostId }) =>
@@ -88,7 +89,12 @@ export default async function plugin(bb: BbPluginApi) {
     fetchReviewQueue: async (hostId) =>
       parseReviewQueue(unwrap(await host.call("fetchReviewQueue", {}, { hostId }))),
     listProjects: () => bb.sdk.projects.list(),
-    listThreads: () => bb.sdk.threads.list(),
+    listThreads: () => bb.sdk.threads.list({ includeHidden: true }),
+    listReviewThreads: () => bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
+    readPluginMetadata: (threadId) => bb.sdk.threads.getPluginMetadata({ threadId }),
+    archiveThread: async (threadId) => {
+      await bb.sdk.threads.archive({ threadId });
+    },
     resolveEnvironmentPr,
     now: Date.now,
   });
@@ -108,7 +114,15 @@ export default async function plugin(bb: BbPluginApi) {
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
-    startReview: async (request) => ({ threadId: (await bb.sdk.threads.spawn(request)).id }),
+    startReview: async ({ pr, request }) => {
+      const thread = await bb.sdk.threads.spawn({
+        ...request,
+        visibility: "hidden",
+        pluginMetadata: reviewPrMetadata(pr),
+      });
+      return { threadId: thread.id };
+    },
+    archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
   });
 
   bb.cli.register(

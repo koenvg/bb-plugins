@@ -119,6 +119,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
         getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         startReview: () => ({ threadId: "unused" }),
+        archiveReview: () => ({ kind: "error", message: "unused" }),
       },
     },
   );

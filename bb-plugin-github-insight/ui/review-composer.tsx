@@ -74,7 +74,8 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
   async function submit(request: NewThreadRequest) {
     setError(null);
     try {
-      const { threadId } = await rpc.call("startReview", request);
+      const { repo, number, title, url } = pr;
+      const { threadId } = await rpc.call("startReview", { pr: { repo, number, title, url }, request });
       navigation.toThread(threadId);
     } catch (failure) {
       setError(messageOf(failure));

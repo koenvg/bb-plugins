@@ -3,6 +3,7 @@ import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
+import { reviewPrSchema } from "./core/review-pr";
 import { queueListSchema, queuePrSchema } from "./core/review-queue";
 import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
@@ -180,7 +181,17 @@ const linkedQueueListSchema = queueListSchema.extend({
 });
 export type LinkedQueueList = z.infer<typeof linkedQueueListSchema>;
 
+export const reviewThreadStatusSchema = z.enum(["running", "needs_you", "idle", "error"]);
+export type ReviewThreadStatus = z.infer<typeof reviewThreadStatusSchema>;
+
+const myReviewSchema = reviewPrSchema.extend({
+  threadId: z.string(),
+  status: reviewThreadStatusSchema,
+});
+export type MyReview = z.infer<typeof myReviewSchema>;
+
 const reviewQueueViewSchema = z.object({
+  myReviews: z.array(myReviewSchema),
   reviewRequests: linkedQueueListSchema,
   myPrs: linkedQueueListSchema,
   loadedAt: z.number(),
@@ -201,6 +212,11 @@ const newThreadRequestSchema = z.custom<NewThreadRequest>(
   (value) => typeof value === "object" && value !== null,
 );
 
+const startReviewRequestSchema = z
+  .object({ pr: reviewPrSchema, request: newThreadRequestSchema })
+  .strict();
+export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
+
 export const startReviewResultSchema = z.object({ threadId: z.string() });
 export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
 
@@ -214,5 +230,6 @@ export const rpcContract = defineRpcContract({
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
-  startReview: { input: newThreadRequestSchema, output: startReviewResultSchema },
+  startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
+  archiveReview: { input: threadRequestSchema, output: actionResultSchema },
 });

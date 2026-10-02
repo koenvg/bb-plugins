@@ -4,13 +4,17 @@ import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { NewThreadComposerProps, PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import type {
+  ActionResult,
   LinkedQueueList,
   LinkedQueuePr,
+  MyReview,
   ReviewQueueResult,
   ReviewQueueView,
   rpcContract,
 } from "../contract";
 import { buildReviewPrompt } from "../core/review-prompt";
+import { isBuiltinIconName } from "../components/ui/icon";
+import manifest from "../package.json";
 
 const submitOutcomes: Promise<"cleared" | "kept">[] = [];
 
@@ -75,8 +79,24 @@ function list(prs: LinkedQueuePr[], truncated = false): LinkedQueueList {
 
 const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
 
-function view(reviewRequests: LinkedQueuePr[], myPrs: LinkedQueuePr[] = []): ReviewQueueView {
-  return { reviewRequests: list(reviewRequests), myPrs: list(myPrs), loadedAt: LOADED_AT };
+function view(
+  reviewRequests: LinkedQueuePr[],
+  myPrs: LinkedQueuePr[] = [],
+  myReviews: MyReview[] = [],
+): ReviewQueueView {
+  return { myReviews, reviewRequests: list(reviewRequests), myPrs: list(myPrs), loadedAt: LOADED_AT };
+}
+
+function myReview(overrides: Partial<MyReview> = {}): MyReview {
+  return {
+    threadId: "thr_review",
+    repo: "acme/api",
+    number: 15,
+    title: "Add rate limits",
+    url: "https://github.com/acme/api/pull/15",
+    status: "running",
+    ...overrides,
+  };
 }
 
 function ok(queueView: ReviewQueueView): ReviewQueueResult {
@@ -96,17 +116,24 @@ const unusedRpc = {
 
 type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;
 
-function renderPanel(
-  subPath: string,
-  getReviewQueue: QueueHandler,
-  startReview: () => { threadId: string } | Promise<{ threadId: string }> = () => ({
-    threadId: "thr_new",
-  }),
-) {
+interface PanelRpc {
+  startReview: () => { threadId: string } | Promise<{ threadId: string }>;
+  archiveReview: () => ActionResult | Promise<ActionResult>;
+}
+
+function renderPanel(subPath: string, getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = {}) {
   return renderSlot<PluginNavPanelProps, typeof rpcContract>(
     panel,
     { subPath },
-    { rpc: { ...unusedRpc, getReviewQueue, startReview } },
+    {
+      rpc: {
+        ...unusedRpc,
+        getReviewQueue,
+        startReview: () => ({ threadId: "thr_new" }),
+        archiveReview: () => ({ kind: "ok" }),
+        ...rpc,
+      },
+    },
   );
 }
 
@@ -122,6 +149,18 @@ function rpcMethods(slot: ReturnType<typeof renderPanel>) {
 describe("Pull Requests panel routes", () => {
   it("registers the Pull Requests nav panel", () => {
     expect(panel).toMatchObject({ title: "Pull Requests", path: "pull-requests" });
+  });
+
+  it("uses a bb icon name for the nav panel and the plugin branding, which bb shows in its place", () => {
+    expect(isBuiltinIconName(panel.icon)).toBe(true);
+    expect(manifest.bb.branding.icon).toBe(panel.icon);
+  });
+
+  it("leaves the panel title to the host header", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    await findCard(slot, "Review requests", "acme/api#15");
+    expect(slot.queryByRole("heading", { name: "Pull Requests" })).toBeNull();
   });
 
   it("renders the lists at the panel root", async () => {
@@ -176,16 +215,53 @@ describe("Pull Requests lists", () => {
     ).toEqual(["acme/api", "acme/web"]);
   });
 
-  it("shows the repo, number, title, author, and age on a card", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr()])));
+  it("shows the number, title, author, and age on a card", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ updatedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() })])),
+    );
 
     const card = await findCard(slot, "Review requests", "acme/api#15");
-    expect(within(card).getByText("acme/api")).toBeTruthy();
-    expect(within(card).getByText("#15")).toBeTruthy();
-    expect(within(card).getByText("Add rate limits")).toBeTruthy();
+    expect(within(card).getByRole("heading").textContent).toBe("#15 Add rate limits");
     expect(within(card).getByText("alice")).toBeTruthy();
     expect(within(card).getByText("2 hours ago")).toBeTruthy();
     expect(within(card).queryByText("Draft")).toBeNull();
+  });
+
+  it("shows the repository on the group header and not on each card", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr(), queuePr({ number: 12 }), queuePr({ number: 9 })])));
+
+    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    expect(within(reviews).getAllByText("acme/api")).toHaveLength(1);
+    expect(within(reviews).getByTestId("queue-group").textContent).toBe("acme/api");
+  });
+
+  it("shows the time since the last update, not since creation", async () => {
+    const slot = renderPanel("", () =>
+      ok(
+        view([
+          queuePr({
+            createdAt: new Date(Date.now() - 150 * 86_400_000).toISOString(),
+            updatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+          }),
+        ]),
+      ),
+    );
+
+    const card = await findCard(slot, "Review requests", "acme/api#15");
+    expect(within(card).getByText("2 days ago")).toBeTruthy();
+  });
+
+  it("puts the author, CI, review decision, and actions in one meta row", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ draft: true })])));
+
+    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const meta = within(card).getByTestId("queue-meta");
+    expect(within(meta).getByText("alice")).toBeTruthy();
+    expect(within(meta).getByTestId("queue-ci")).toBeTruthy();
+    expect(within(meta).getByTestId("queue-review-decision")).toBeTruthy();
+    expect(within(meta).getByText("Draft")).toBeTruthy();
+    expect(within(meta).getByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(within(meta).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
   });
 
   it("shows Draft on a draft card", async () => {
@@ -295,13 +371,29 @@ describe("Pull Requests card actions", () => {
     ]);
   });
 
-  it("shows a hint instead of Review in thread when no project matches", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr({ projectIds: [] })])));
+  it("shows the no project hint once on the group header and only Open on GitHub on its cards", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ projectIds: [] }), queuePr({ number: 12, projectIds: [] })])),
+    );
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
-    expect(within(card).getByText("No bb project for this repository")).toBeTruthy();
-    expect(within(card).queryByRole("button")).toBeNull();
-    expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
+    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    expect(within(reviews).getAllByText("No bb project for this repository")).toHaveLength(1);
+    for (const name of ["acme/api#15", "acme/api#12"]) {
+      const card = within(reviews).getByRole("listitem", { name });
+      expect(within(card).queryByText("No bb project for this repository")).toBeNull();
+      expect(within(card).queryByRole("button")).toBeNull();
+      expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
+    }
+  });
+
+  it("shows no project hint on a group that has a project", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr(), queuePr({ repo: "acme/web", number: 3, projectIds: [] })])),
+    );
+
+    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    expect(within(reviews).getAllByText("No bb project for this repository")).toHaveLength(1);
+    expect(within(await findCard(slot, "Review requests", "acme/api#15")).getByRole("button", { name: "Review in thread" })).toBeTruthy();
   });
 
   it("offers Open thread on a review request with a linked thread", async () => {
@@ -448,21 +540,27 @@ describe("Review composer", () => {
     expect(await submitOutcomes[0]).toBe("cleared");
     const start = slot.inspection.rpcCalls.find((call) => call.method === "startReview");
     expect(start?.input).toMatchObject({
-      projectId: "prj_api",
-      environment: { type: "host", workspace: { type: "managed-worktree" } },
-      input: [{ type: "text", text: buildReviewPrompt(queuePr()) }],
+      pr: {
+        repo: "acme/api",
+        number: 15,
+        title: "Add rate limits",
+        url: "https://github.com/acme/api/pull/15",
+      },
+      request: {
+        projectId: "prj_api",
+        environment: { type: "host", workspace: { type: "managed-worktree" } },
+        input: [{ type: "text", text: buildReviewPrompt(queuePr()) }],
+      },
     });
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_new" }]);
   });
 
   it("keeps the draft and shows the error when the start fails", async () => {
-    const slot = renderPanel(
-      "review/acme/api/15",
-      () => ok(view([queuePr()])),
-      () => {
+    const slot = renderPanel("review/acme/api/15", () => ok(view([queuePr()])), {
+      startReview: () => {
         throw new Error("spawn failed");
       },
-    );
+    });
 
     fireEvent.click(await slot.findByTestId("bb-new-thread-composer-submit"));
 
@@ -525,5 +623,109 @@ describe("Review composer", () => {
 
     expect(await slot.findByText("This pull request is not in your review requests")).toBeTruthy();
     expect(slot.queryByTestId("bb-new-thread-composer")).toBeNull();
+  });
+});
+
+describe("My reviews", () => {
+  async function findReviewRow(slot: ReturnType<typeof renderPanel>, name: string) {
+    const section = await slot.findByRole("region", { name: "My reviews" });
+    return within(section).getByRole("listitem", { name });
+  }
+
+  it("shows My reviews above the two lists", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()], [], [myReview()])));
+
+    await findReviewRow(slot, "acme/api#15");
+    expect(slot.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
+      "My reviews",
+      "Review requests",
+      "My PRs",
+    ]);
+  });
+
+  it("shows the repo, number, title, status, and count of each review thread", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([], [], [myReview(), myReview({ threadId: "thr_web", repo: "acme/web", number: 3, title: "Fix login" })])),
+    );
+
+    const row = await findReviewRow(slot, "acme/api#15");
+    expect(within(row).getByText("acme/api")).toBeTruthy();
+    expect(within(row).getByText("#15")).toBeTruthy();
+    expect(within(row).getByText("Add rate limits")).toBeTruthy();
+    expect(within(row).getByTestId("review-status").textContent).toBe("Running");
+    const section = slot.getByRole("region", { name: "My reviews" });
+    expect(within(section).getByTestId("queue-count").textContent).toBe("2");
+  });
+
+  it.each([
+    ["running", "Running"],
+    ["needs_you", "Needs you"],
+    ["idle", "Idle"],
+    ["error", "Error"],
+  ] as const)("shows thread status %s", async (status, text) => {
+    const slot = renderPanel("", () => ok(view([], [], [myReview({ status })])));
+
+    const row = await findReviewRow(slot, "acme/api#15");
+    expect(within(row).getByTestId("review-status").textContent).toBe(text);
+  });
+
+  it("opens the review thread", async () => {
+    const slot = renderPanel("", () => ok(view([], [], [myReview()])));
+
+    const row = await findReviewRow(slot, "acme/api#15");
+    fireEvent.click(within(row).getByRole("button", { name: "Open thread" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_review" }]);
+  });
+
+  it("archives the review thread, removes its row, and reloads the lists", async () => {
+    const slot = renderPanel("", () => ok(view([], [], [myReview()])));
+
+    const row = await findReviewRow(slot, "acme/api#15");
+    fireEvent.click(within(row).getByRole("button", { name: "Archive" }));
+
+    const section = slot.getByRole("region", { name: "My reviews" });
+    expect(await within(section).findByText("No review threads")).toBeTruthy();
+    const archive = slot.inspection.rpcCalls.find((call) => call.method === "archiveReview");
+    expect(archive?.input).toEqual({ threadId: "thr_review" });
+    expect(rpcMethods(slot)).toEqual(["getReviewQueue", "archiveReview", "getReviewQueue"]);
+  });
+
+  it("keeps the row and shows the reason when the archive is refused", async () => {
+    const slot = renderPanel("", () => ok(view([], [], [myReview()])), {
+      archiveReview: () => ({ kind: "error", message: "This thread is not a review thread" }),
+    });
+
+    const row = await findReviewRow(slot, "acme/api#15");
+    fireEvent.click(within(row).getByRole("button", { name: "Archive" }));
+
+    const section = slot.getByRole("region", { name: "My reviews" });
+    expect(await within(section).findByText("This thread is not a review thread")).toBeTruthy();
+    expect(within(section).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
+  });
+
+  it("collapses and expands the list", async () => {
+    const slot = renderPanel("", () => ok(view([], [], [myReview()])));
+
+    await findReviewRow(slot, "acme/api#15");
+    const section = slot.getByRole("region", { name: "My reviews" });
+    const toggle = within(section).getByRole("button", { name: /My reviews/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(within(section).queryByRole("listitem")).toBeNull();
+    expect(within(section).getByTestId("queue-count").textContent).toBe("1");
+
+    fireEvent.click(toggle);
+    expect(within(section).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
+  });
+
+  it("says when there are no review threads", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const section = await slot.findByRole("region", { name: "My reviews" });
+    expect(within(section).getByText("No review threads")).toBeTruthy();
+    expect(within(section).getByTestId("queue-count").textContent).toBe("0");
   });
 });

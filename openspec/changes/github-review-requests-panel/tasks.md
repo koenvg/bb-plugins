@@ -40,10 +40,10 @@
 
 ## 8. Hidden review threads and card layout
 
-- [ ] 8.1 Add the versioned `review-pr` metadata schema next to `core/summary.ts` (decision 8); verify unit tests that a valid entry parses and that a missing, malformed, or wrong-version entry reads as none
-- [ ] 8.2 Change `startReview` to take `{ pr, request }` and spawn with `visibility: "hidden"` and the `review-pr` metadata; add `archiveReview({ threadId })` that refuses threads without `review-pr`; verify server tests for both, including a refused archive
-- [ ] 8.3 Pass `includeHidden: true` in the queue service and the `pr-poller` thread lists; add `myReviews` to `getReviewQueue` and link `threadId` by metadata as well as by resolved PR; verify unit tests for: hidden thread linked, metadata link before checkout, `myReviews` order, archived thread excluded, PR no longer requested still in `myReviews`
-- [ ] 8.4 Build the collapsible "My reviews" list (repo, number, title, status, "Open thread", "Archive", empty state) at the top of the panel; verify `renderSlot` tests for each field, both actions, collapse, and the empty state
-- [ ] 8.5 Apply the card layout of decision 9 (repo only on group header, group-level "No bb project" hint, `updatedAt` age, one meta row, no duplicate title, valid icon); verify `renderSlot` tests for each point and check the icon name against the SDK icon list
+- [x] 8.1 Add the versioned `review-pr` metadata schema next to `core/summary.ts` (decision 8); verify unit tests that a valid entry parses and that a missing, malformed, or wrong-version entry reads as none
+- [x] 8.2 Change `startReview` to take `{ pr, request }` and spawn with `visibility: "hidden"` and the `review-pr` metadata; add `archiveReview({ threadId })` that refuses threads without `review-pr`; verify server tests for both, including a refused archive
+- [x] 8.3 Pass `includeHidden: true` in the queue service and the `pr-poller` thread lists; add `myReviews` to `getReviewQueue` and link `threadId` by metadata as well as by resolved PR; verify unit tests for: hidden thread linked, metadata link before checkout, `myReviews` order, archived thread excluded, PR no longer requested still in `myReviews`
+- [x] 8.4 Build the collapsible "My reviews" list (repo, number, title, status, "Open thread", "Archive", empty state) at the top of the panel; verify `renderSlot` tests for each field, both actions, collapse, and the empty state
+- [x] 8.5 Apply the card layout of decision 9 (repo only on group header, group-level "No bb project" hint, `updatedAt` age, one meta row, no duplicate title, valid icon); verify `renderSlot` tests for each point and check the icon name against the SDK icon list
 - [ ] 8.6 In a running bb, start a hidden review thread and let its agent stop; record in design.md (Risks) whether bb shows "Needs you" or a notice for it; verify the "My reviews" row shows its status
 - [ ] 8.7 Update `README.md` and `PLUGIN_OVERVIEW.md` for hidden review threads, "My reviews", and how to find a hidden thread without the plugin (`bb thread list --include-hidden`); verify `npm test`, `npm run typecheck`, and `openspec validate github-review-requests-panel --strict` pass

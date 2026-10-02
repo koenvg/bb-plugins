@@ -27,8 +27,8 @@ export function useReviewQueue(): ReviewQueueState {
       const result = await rpc.call("getReviewQueue", {});
       if (!isLatest()) return;
       if (result.kind === "ok") {
-        const { reviewRequests, myPrs, loadedAt } = result;
-        setView({ reviewRequests, myPrs, loadedAt });
+        const { kind: _, ...loaded } = result;
+        setView(loaded);
         setError(null);
       } else {
         if (result.lastGood !== null) setView(result.lastGood);
