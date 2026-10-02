@@ -21,12 +21,12 @@
 
 ## 5. Panel UI
 
-- [ ] 5.1 Register the "Pull Requests" nav panel in `app.tsx` with a `subPath` router for `""` and `review/<owner>/<repo>/<number>`; verify a `renderSlot` test that each route renders its page
-- [ ] 5.2 Build the list page: two columns with counts, repo groups, cards (repo, number, title, author, age, Draft, CI, review decision), "Open on GitHub", Refresh, and "Showing first 50"; verify `renderSlot` tests against a fake RPC for each card field and the counts
-- [ ] 5.3 Add card actions: "Review in thread" when `projectIds` is not empty, "Open thread" when `threadId` is set, and the "No bb project for this repository" hint otherwise; verify `renderSlot` tests for all three cases, on both lists for "Open thread"
-- [ ] 5.4 Add loading on mount, the 5-minute interval, and cleanup on unmount (decision 5); verify a fake-timer test that the RPC is called on mount, after 5 minutes, and not after unmount
-- [ ] 5.5 Add error states: the reason text, a retry action, and the last good lists with their load time; verify `renderSlot` tests for "gh not logged in" with and without earlier data
-- [ ] 5.6 Build the composer page with `experimental_NewThreadComposer` seeded per decision 6, a Back action, and navigation to the new thread after `startReview`; verify `renderSlot` tests that the seeds reach the composer, Back starts nothing, and submit navigates to the returned thread
+- [x] 5.1 Register the "Pull Requests" nav panel in `app.tsx` with a `subPath` router for `""` and `review/<owner>/<repo>/<number>`; verify a `renderSlot` test that each route renders its page
+- [x] 5.2 Build the list page: two columns with counts, repo groups, cards (repo, number, title, author, age, Draft, CI, review decision), "Open on GitHub", Refresh, and "Showing first 50"; verify `renderSlot` tests against a fake RPC for each card field and the counts
+- [x] 5.3 Add card actions: "Review in thread" when `projectIds` is not empty, "Open thread" when `threadId` is set, and the "No bb project for this repository" hint otherwise; verify `renderSlot` tests for all three cases, on both lists for "Open thread"
+- [x] 5.4 Add loading on mount, the 5-minute interval, and cleanup on unmount (decision 5); verify a fake-timer test that the RPC is called on mount, after 5 minutes, and not after unmount
+- [x] 5.5 Add error states: the reason text, a retry action, and the last good lists with their load time; verify `renderSlot` tests for "gh not logged in" with and without earlier data
+- [x] 5.6 Build the composer page with `experimental_NewThreadComposer` seeded per decision 6, a Back action, and navigation to the new thread after `startReview`; verify `renderSlot` tests that the seeds reach the composer, Back starts nothing, and submit navigates to the returned thread
 - [ ] 5.7 Check the panel in light and dark themes and with Liquid Glass against `DESIGN.md`; verify by screenshots in the PR
 
 ## 6. Docs
