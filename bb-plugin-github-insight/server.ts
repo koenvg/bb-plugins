@@ -7,6 +7,7 @@ import {
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
+import { newCommentDraftId } from "./core/review-drafts";
 import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
@@ -65,6 +66,7 @@ export default async function plugin(bb: BbPluginApi) {
     fetchPrFiles: async ({ ref, hostId }) => unwrap(await host.call("fetchPrFiles", ref, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
+    fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
     drafts,
     publish: publishReviewUpdate,
     sendMessage: async (threadId, text) => {
@@ -79,6 +81,8 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("replyToThread", { threadId, body }, { hostId })),
     setThreadResolved: async ({ hostId }, threadId, resolved) =>
       unwrap(await host.call("setThreadResolved", { threadId, resolved }, { hostId })),
+    loadReview: (threadId) => review.load(threadId),
+    submitReview: async ({ hostId }, request) => unwrap(await host.call("submitReview", request, { hostId })),
     drafts,
     publish: publishReviewUpdate,
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
@@ -136,6 +140,10 @@ export default async function plugin(bb: BbPluginApi) {
     setResolved: (request) => writes.setResolved(request),
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
+    saveCommentDraft: (request) => writes.saveCommentDraft(request),
+    deleteCommentDraft: (request) => writes.deleteCommentDraft(request),
+    saveSummaryDraft: (request) => writes.saveSummaryDraft(request),
+    submitReview: (request) => writes.submitReview(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
     startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
@@ -148,6 +156,7 @@ export default async function plugin(bb: BbPluginApi) {
       review,
       readTextFile: (hostId, request) => host.call("readTextFile", request, { hostId }),
       now: Date.now,
+      newDraftId: newCommentDraftId,
     }),
   );
 

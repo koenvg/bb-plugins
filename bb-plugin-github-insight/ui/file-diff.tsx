@@ -3,22 +3,29 @@ import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from 
 import { FileDiff } from "@pierre/diffs/react";
 import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
 import { gitPatch, type ReviewFile } from "../core/pr-files";
+import type { ListedCommentDraft } from "../core/review-drafts";
 import type { ReviewThread } from "../core/review-threads";
 import type { PlacedThread } from "../core/thread-placement";
 import { Icon } from "@/components/ui/icon";
+import { CommentDraftCard } from "./comment-drafts";
 import { ReviewThreadCard } from "./review-thread";
 
 interface ThreadsProps {
   threads: readonly PlacedThread[];
+  commentDrafts: readonly ListedCommentDraft[];
 }
 
-export function PrFileDiff({ file, threads }: ThreadsProps & { file: ReviewFile }) {
+type Annotation =
+  | { kind: "thread"; thread: ReviewThread }
+  | { kind: "comment-draft"; draft: ListedCommentDraft };
+
+export function PrFileDiff({ file, threads, commentDrafts }: ThreadsProps & { file: ReviewFile }) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
-  if (fileDiff === null) return <UnavailableFileDiff path={file.path} threads={threads} />;
-  return <LazyFileDiff fileDiff={fileDiff} threads={threads} />;
+  if (fileDiff === null) return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
+  return <LazyFileDiff fileDiff={fileDiff} threads={threads} commentDrafts={commentDrafts} />;
 }
 
-function UnavailableFileDiff({ path, threads }: ThreadsProps & { path: string }) {
+function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { path: string }) {
   return (
     <section className="flex flex-col gap-1 border-b border-border px-3 py-2 text-sm">
       <span className="font-mono text-xs">{path}</span>
@@ -26,21 +33,30 @@ function UnavailableFileDiff({ path, threads }: ThreadsProps & { path: string })
       {threads.map(({ thread }) => (
         <ReviewThreadCard key={thread.id} thread={thread} />
       ))}
+      {commentDrafts.map((draft) => (
+        <CommentDraftCard key={draft.id} draft={draft} />
+      ))}
     </section>
   );
 }
 
-function LazyFileDiff({ fileDiff, threads }: ThreadsProps & { fileDiff: FileDiffMetadata }) {
+function LazyFileDiff({ fileDiff, threads, commentDrafts }: ThreadsProps & { fileDiff: FileDiffMetadata }) {
   const { visible, ref } = useVisibleOnce<HTMLElement>();
   const theme = useCodeTheme();
   const lineAnnotations = useMemo(
-    () =>
-      threads.map(({ thread, side, lineNumber }): DiffLineAnnotation<ReviewThread> => ({
+    (): DiffLineAnnotation<Annotation>[] => [
+      ...threads.map(({ thread, side, lineNumber }) => ({
         side,
         lineNumber,
-        metadata: thread,
+        metadata: { kind: "thread" as const, thread },
       })),
-    [threads],
+      ...commentDrafts.map((draft) => ({
+        side: draft.side === "RIGHT" ? ("additions" as const) : ("deletions" as const),
+        lineNumber: draft.line,
+        metadata: { kind: "comment-draft" as const, draft },
+      })),
+    ],
+    [threads, commentDrafts],
   );
   return (
     <section ref={ref} className="min-h-10 border-b border-border">
@@ -50,9 +66,13 @@ function LazyFileDiff({ fileDiff, threads }: ThreadsProps & { fileDiff: FileDiff
           options={{ theme: theme.name, themeType: theme.mode, overflow: "wrap", stickyHeader: true }}
           lineAnnotations={lineAnnotations}
           renderHeaderMetadata={() => <ThreadCount count={threads.length} />}
-          renderAnnotation={({ metadata }) => (
-            <ReviewThreadCard key={metadata.id} thread={metadata} />
-          )}
+          renderAnnotation={({ metadata }) =>
+            metadata.kind === "thread" ? (
+              <ReviewThreadCard key={metadata.thread.id} thread={metadata.thread} />
+            ) : (
+              <CommentDraftCard key={metadata.draft.id} draft={metadata.draft} />
+            )
+          }
         />
       )}
     </section>

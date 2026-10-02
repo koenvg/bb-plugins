@@ -4,6 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "../core/relative-time";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
+import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA } from "./controls";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
@@ -149,12 +150,6 @@ function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
   );
 }
 
-const BUTTON_BASE =
-  "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50";
-const PRIMARY_BUTTON = cn(BUTTON_BASE, "bg-primary text-primary-foreground shadow-[0_1px_1px_rgb(0_0_0/0.08)] hover:bg-primary/90");
-const SECONDARY_BUTTON = cn(BUTTON_BASE, "border border-border bg-background hover:bg-muted");
-const QUIET_BUTTON = cn(BUTTON_BASE, "text-muted-foreground hover:bg-muted hover:text-foreground");
-
 function ThreadActionsView({ thread }: { thread: ReviewThread }) {
   const actions = useThreadActions();
   const headingId = useId();
@@ -177,7 +172,7 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
           placeholder="Reply…"
           rows={2}
           className={cn(
-            "max-h-64 min-h-14 w-full resize-none rounded-md border bg-background px-2.5 py-1.5 text-sm leading-relaxed transition-[border-color,box-shadow] [field-sizing:content] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-60",
+            TEXTAREA,
             hasDraft ? "border-primary/30" : "border-border",
           )}
           value={replyText}

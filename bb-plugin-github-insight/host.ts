@@ -12,7 +12,9 @@ import {
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
+import { prHeadArgs } from "./github/pr-head-query";
 import { reviewQueueArgs } from "./github/review-queue-query";
+import { ADD_REVIEW_ARGS, addPullRequestReviewInput } from "./github/review-mutations";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
 import { readTextFile } from "./read-text-file";
@@ -29,6 +31,7 @@ export default experimental_defineHostEntry({
     fetchPrFiles: (request, context) => runGhJson(prFilesArgs(request), context.signal),
     fetchReviewThreads: (request, context) =>
       runGhJson(reviewThreadsPageArgs(request), context.signal),
+    fetchPrHead: (request, context) => runGhJson(prHeadArgs(request), context.signal),
     readTextFile: (request) => readTextFile(request),
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
     setThreadResolved: (request, context) =>
@@ -38,20 +41,24 @@ export default experimental_defineHostEntry({
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>
       runGhJson(enqueuePullRequestArgs(request), context.signal),
+    submitReview: (request, context) =>
+      runGhJson(ADD_REVIEW_ARGS, context.signal, addPullRequestReviewInput(request)),
   },
 });
 
-async function gh(args: string[], signal: AbortSignal): Promise<unknown> {
-  const { stdout } = await execFileAsync("gh", args, {
+async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<unknown> {
+  const run = execFileAsync("gh", args, {
     signal,
     maxBuffer: 64 * 1024 * 1024,
   });
+  run.child.stdin?.end(stdin);
+  const { stdout } = await run;
   return JSON.parse(stdout) as unknown;
 }
 
-async function runGhJson(args: string[], signal: AbortSignal): Promise<GhResult> {
+async function runGhJson(args: string[], signal: AbortSignal, stdin?: string): Promise<GhResult> {
   try {
-    return { ok: true, data: await gh(args, signal) };
+    return { ok: true, data: await gh(args, signal, stdin) };
   } catch (error) {
     const failure = classifyGhFailure(processError(error));
     if (failure.kind !== "rate_limited") return { ok: false, failure };
