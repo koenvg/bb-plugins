@@ -7,6 +7,7 @@ import { act, waitFor } from "@testing-library/react";
 import { makeTask } from "../test-fixtures.js";
 import { storeListPreference } from "../views/list/list-preference.js";
 import { BROWSE_PREFERENCE_STORAGE_KEY } from "./browse-preference.js";
+import { CompactViewportOverrideProvider } from "../components/ui/hooks/use-compact-viewport.js";
 
 const app = await loadPluginApp(() => import("../app"));
 const panel = app.navPanels[0]!;
@@ -49,6 +50,150 @@ function openMenu(trigger: HTMLElement) {
   fireEvent.keyDown(trigger, { key: "ArrowDown" });
 }
 
+const CompactPanel = ({ subPath }: { subPath: string }) => {
+  const Panel = panel.component;
+  return (
+    <CompactViewportOverrideProvider isCompactViewport>
+      <Panel subPath={subPath} />
+    </CompactViewportOverrideProvider>
+  );
+};
+const compactPanel = { ...panel, component: CompactPanel };
+
+describe("compact Tasks navigation drawers", () => {
+  it("shows nested folders, selected scope and All, and switches projects through the drawer", async () => {
+    const slot = renderSlot(
+      compactPanel,
+      { subPath: project.id },
+      {
+        rpc: {
+          ...rpc,
+          listFolders: () => ({
+            folders: [
+              {
+                id: "parent",
+                name: "Work",
+                parentFolderId: null,
+                createdAt: project.createdAt,
+              },
+              {
+                id: project.folderId,
+                name: "Products",
+                parentFolderId: "parent",
+                createdAt: project.createdAt,
+              },
+            ],
+          }),
+        },
+      },
+    );
+    fireEvent.click(
+      await slot.findByRole("button", { name: "Project: Tenet" }),
+    );
+    const drawer = await slot.findByRole("dialog", { name: "Choose project" });
+    const group = await within(drawer).findByRole("group", {
+      name: "Work / Products",
+    });
+    expect(
+      within(group).getByRole("menuitemradio", {
+        name: "Tenet",
+        checked: true,
+      }),
+    ).toBeDefined();
+    fireEvent.click(
+      within(drawer).getByRole("menuitemradio", { name: "ClassSpotter" }),
+    );
+    expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
+      options: { subPath: other.id },
+    });
+    await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+    slot.lifecycle.rerender(<CompactPanel subPath={other.id} />);
+    fireEvent.click(
+      await slot.findByRole("button", { name: "Project: ClassSpotter" }),
+    );
+    fireEvent.click(
+      await slot.findByRole("menuitemradio", { name: "All projects" }),
+    );
+    expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
+      options: { subPath: "all" },
+    });
+    await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+    slot.lifecycle.rerender(<CompactPanel subPath="all" />);
+    fireEvent.click(
+      await slot.findByRole("button", { name: "Project: All projects" }),
+    );
+    expect(
+      await slot.findByRole("menuitemradio", {
+        name: "All projects",
+        checked: true,
+      }),
+    ).toBeDefined();
+  });
+
+  it("offers project-inventory retry in the compact drawer", async () => {
+    let failed = true;
+    const slot = renderSlot(
+      compactPanel,
+      { subPath: "all" },
+      {
+        rpc: {
+          ...rpc,
+          listProjects: () =>
+            failed
+              ? Promise.reject(new Error("offline"))
+              : { projects: [project] },
+        },
+      },
+    );
+    fireEvent.click(
+      await slot.findByRole("button", { name: "Project: All projects" }),
+    );
+    const retry = await slot.findByRole("menuitem", { name: "Retry projects" });
+    failed = false;
+    fireEvent.click(retry);
+    await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+    fireEvent.click(
+      slot.getByRole("button", { name: "Project: All projects" }),
+    );
+    expect(
+      await slot.findByRole("menuitemradio", { name: "Tenet" }),
+    ).toBeDefined();
+  });
+
+  it.each(["list", "board"])(
+    "offers the alternate project view from the %s drawer",
+    async (view) => {
+      const slot = renderSlot(
+        compactPanel,
+        { subPath: `${project.id}?view=${view}` },
+        { rpc },
+      );
+      fireEvent.click(
+        await slot.findByRole("button", { name: "Tasks navigation" }),
+      );
+      const drawer = await slot.findByRole("dialog", {
+        name: "Tasks navigation",
+      });
+      expect(
+        await within(drawer).findByRole("menuitemradio", {
+          name: view === "list" ? "List" : "Board",
+          checked: true,
+        }),
+      ).toBeDefined();
+      fireEvent.click(
+        within(drawer).getByRole("menuitemradio", {
+          name: view === "list" ? "Board" : "List",
+        }),
+      );
+      expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
+        options: {
+          subPath: `${project.id}?view=${view === "list" ? "board" : "list"}`,
+        },
+      });
+      await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+    },
+  );
+});
 describe("inline Tasks navigation", () => {
   it("shows the current project above the list and groups picker choices by folder", async () => {
     const slot = renderSlot(panel, { subPath: project.id }, { rpc });

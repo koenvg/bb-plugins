@@ -65,6 +65,7 @@ describe("save-before-switch with remembered browse scope", () => {
     { source: "host", destination: "all" },
     { source: "internal", destination: "project" },
     { source: "internal", destination: "all" },
+    { source: "menu", destination: "all" },
   ] as const)(
     "keeps the committed task and scope through a failed $source request to $destination, then retries",
     async ({ source, destination }) => {
@@ -146,6 +147,14 @@ describe("save-before-switch with remembered browse scope", () => {
         if (destination === "all")
           slot.lifecycle.rerender(<Panel subPath={taskProject.id} />);
         slot.lifecycle.rerender(<Panel subPath={target} />);
+      } else if (source === "menu") {
+        fireEvent.keyDown(
+          slot.getByRole("button", { name: "Tasks navigation" }),
+          { key: "ArrowDown" },
+        );
+        fireEvent.click(
+          await slot.findByRole("menuitem", { name: "All projects" }),
+        );
       } else {
         fireEvent.click(
           slot.getByRole("button", {
@@ -180,7 +189,7 @@ describe("save-before-switch with remembered browse scope", () => {
           task: { ...task, description: "Retained latest description" },
         }),
       );
-      if (source === "internal") {
+      if (source !== "host") {
         expect(slot.inspection.navigateCalls).toEqual([
           {
             method: "toPluginPanel",
@@ -214,7 +223,7 @@ describe("save-before-switch with remembered browse scope", () => {
       for (const [, value] of committedWrites)
         expect(JSON.parse(value).scope).toEqual(expectedScope);
       if (destination === "all") {
-        expect(slot.getByText("All tasks")).toBeTruthy();
+        expect(slot.getByText("All projects")).toBeTruthy();
       } else {
         expect(
           slot

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Folder, Project } from "../shared/contract.js";
 import { useFolders, type useProjects } from "./data.js";
 import type { ResolvedTasksRoute, TasksRoute } from "./routes.js";
@@ -9,8 +10,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -20,6 +19,36 @@ interface NavigationActions {
   onNewProject: () => void;
 }
 
+// The vendored radio primitives are desktop-only. Keep one choice renderer
+// using the responsive Item contract for both floating menus and drawers.
+function NavigationChoice({
+  selected,
+  onSelect,
+  textValue,
+  children,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  textValue?: string;
+  children: ReactNode;
+}) {
+  return (
+    <DropdownMenuItem
+      role="menuitemradio"
+      aria-checked={selected}
+      onSelect={onSelect}
+      textValue={textValue}
+      className="min-h-9 gap-2 pr-8"
+    >
+      {children}
+      {selected ? (
+        <span aria-hidden className="absolute right-2">
+          <Icon name="Check" className="size-4" />
+        </span>
+      ) : null}
+    </DropdownMenuItem>
+  );
+}
 // Full paths keep nested folders legible without hover-only submenus. Projects
 // with a missing folder stay reachable in the ungrouped section.
 function folderPath(folder: Folder, folders: Folder[]): string {
@@ -59,10 +88,12 @@ export function ProjectPicker({
   );
   const choices = (items: Project[]) =>
     items.map((item) => (
-      <DropdownMenuRadioItem
+      <NavigationChoice
         key={item.id}
-        value={item.id}
-        className="min-h-9 gap-2"
+        selected={projectId === item.id}
+        onSelect={() =>
+          onNavigate({ kind: "project", projectId: item.id, view: null })
+        }
         textValue={item.name}
       >
         <span
@@ -73,7 +104,7 @@ export function ProjectPicker({
         <span className="min-w-0 truncate" title={item.name}>
           {item.name}
         </span>
-      </DropdownMenuRadioItem>
+      </NavigationChoice>
     ));
 
   if (projects?.length === 0 && inventory.error === null) {
@@ -118,19 +149,13 @@ export function ProjectPicker({
         mobileTitle="Choose project"
         className="max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height,28rem))] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto"
       >
-        <DropdownMenuRadioGroup
-          value={projectId ?? "all"}
-          onValueChange={(value) =>
-            onNavigate(
-              value === "all"
-                ? { kind: "all" }
-                : { kind: "project", projectId: value, view: null },
-            )
-          }
-        >
-          <DropdownMenuRadioItem value="all" className="min-h-9">
+        <DropdownMenuGroup>
+          <NavigationChoice
+            selected={projectId === null}
+            onSelect={() => onNavigate({ kind: "all" })}
+          >
             All projects
-          </DropdownMenuRadioItem>
+          </NavigationChoice>
           <DropdownMenuSeparator />
           {choices(ungrouped)}
           {folderList.map((folder) => {
@@ -158,7 +183,7 @@ export function ProjectPicker({
           ) : projects === undefined ? (
             <DropdownMenuItem disabled>Loading projects…</DropdownMenuItem>
           ) : null}
-        </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="min-h-9" onSelect={onNewProject}>
           <Icon name="Plus" />
@@ -220,20 +245,20 @@ export function TasksNavigationMenu({
         {route.kind === "project" ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup
-              value={route.view}
-              onValueChange={(view) => {
-                if (view === "list" || view === "board")
-                  onNavigate({ ...route, view });
-              }}
-            >
-              <DropdownMenuRadioItem value="list" className="min-h-9">
+            <DropdownMenuGroup>
+              <NavigationChoice
+                selected={route.view === "list"}
+                onSelect={() => onNavigate({ ...route, view: "list" })}
+              >
                 List
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="board" className="min-h-9">
+              </NavigationChoice>
+              <NavigationChoice
+                selected={route.view === "board"}
+                onSelect={() => onNavigate({ ...route, view: "board" })}
+              >
                 Board
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
+              </NavigationChoice>
+            </DropdownMenuGroup>
           </>
         ) : null}
       </DropdownMenuContent>
