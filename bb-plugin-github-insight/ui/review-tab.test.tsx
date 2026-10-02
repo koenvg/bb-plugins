@@ -117,6 +117,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
         saveDraft: handlers.saveDraft ?? (() => ({ kind: "ok" })),
         discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
+        runMergeAction: () => ({ kind: "error", message: "unused" }),
       },
     },
   );

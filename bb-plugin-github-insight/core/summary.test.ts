@@ -16,11 +16,12 @@ import {
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
 const refreshedAt = Date.parse("2026-09-24T10:00:00Z");
 
-function recordedInsight(): Promise<PrInsight> {
-  return collectInsight({
+async function recordedInsight(): Promise<PrInsight> {
+  const { insight } = await collectInsight({
     fetchOverviewPage: async (after) => recordedPages[after ?? "start"],
     fetchCheckRunDetails: async () => checkRunDetails,
   });
+  return insight;
 }
 
 function check(name: string, status: Check["status"]): Check {
@@ -33,7 +34,8 @@ function reviewer(name: string, overrides: Partial<Reviewer> = {}): Reviewer {
 
 function insight(overrides: Partial<PrInsight> = {}): PrInsight {
   return {
-    pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1" },
+    pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+    mergeAction: { kind: "none" },
     blockers: [],
     reviewers: [],
     checks: [],

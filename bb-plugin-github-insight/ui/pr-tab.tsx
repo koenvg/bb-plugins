@@ -9,6 +9,7 @@ import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
+import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
 
@@ -102,6 +103,11 @@ export function PrTab({ threadId }: { threadId: string }) {
         />
       )}
       <MergeQueueStatus mergeQueue={result.insight.mergeQueue} />
+      <MergeActionButton
+        threadId={threadId}
+        pr={result.insight.pr}
+        action={result.insight.mergeAction}
+      />
       <BlockerList blockers={result.insight.blockers} />
       <ReviewerList reviewers={result.insight.reviewers} />
       <CheckList checks={result.insight.checks} />

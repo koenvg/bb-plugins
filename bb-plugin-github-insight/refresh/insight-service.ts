@@ -1,5 +1,5 @@
 import type { InsightResult } from "../contract";
-import type { PrInsight } from "../core/overview";
+import type { PrInsight, PrReading } from "../core/overview";
 import type { PullRequestRef } from "../core/pr-ref";
 import {
   buildSummary,
@@ -24,7 +24,7 @@ export interface InsightServiceDeps {
   listThreads(): Promise<ThreadRef[]>;
   resolvePr(threadId: string): Promise<PrResolution>;
   resolveEnvironmentPr(environmentId: string): Promise<PrResolution>;
-  fetchInsight(target: PrTarget): Promise<PrInsight>;
+  fetchInsight(target: PrTarget): Promise<PrReading>;
   publish(threadIds: string[]): void;
   writeSummary(threadId: string, summary: PrSummary): Promise<void>;
   removeSummary(threadId: string): Promise<void>;
@@ -32,9 +32,14 @@ export interface InsightServiceDeps {
 }
 
 type CacheEntry = (
-  | { good: { insight: PrInsight; refreshedAt: number }; error: string | null }
+  | { good: PrReading & { refreshedAt: number }; error: string | null }
   | { good: null; error: string }
 ) & { summaryError: string | null; threadIds: Set<string> };
+
+export type CachedPr =
+  | Exclude<PrResolution, { kind: "pr" }>
+  | { kind: "not_cached" }
+  | { kind: "cached"; target: PrTarget; insight: PrInsight; pullRequestId: string };
 
 interface PrGroup {
   target: PrTarget;
@@ -52,7 +57,8 @@ function prKey({ owner, repo, number }: PullRequestRef): string {
 
 function toResult(entry: CacheEntry): InsightResult {
   if (entry.good === null) return { kind: "error", message: entry.error };
-  return { kind: "ok", ...entry.good, error: entry.error };
+  const { insight, refreshedAt } = entry.good;
+  return { kind: "ok", insight, refreshedAt, error: entry.error };
 }
 
 function sameData(previous: CacheEntry | undefined, next: CacheEntry): boolean {
@@ -157,9 +163,9 @@ export function createInsightService(deps: InsightServiceDeps) {
     const previous = entries.get(key);
     let next: CacheEntry;
     try {
-      const insight = await deps.fetchInsight(group.target);
+      const reading = await deps.fetchInsight(group.target);
       next = {
-        good: { insight, refreshedAt: Date.now() },
+        good: { ...reading, refreshedAt: Date.now() },
         error: null,
         summaryError: null,
         threadIds: group.threadIds,
@@ -260,6 +266,19 @@ export function createInsightService(deps: InsightServiceDeps) {
       const resolution = await deps.resolvePr(threadId);
       if (resolution.kind !== "pr") return resolution;
       return toResult(await refreshThread(threadId, resolution.target));
+    },
+
+    async cachedPr(threadId: string): Promise<CachedPr> {
+      const resolution = await deps.resolvePr(threadId);
+      if (resolution.kind !== "pr") return resolution;
+      const entry = entries.get(prKey(resolution.target.ref));
+      if (entry === undefined || entry.good === null) return { kind: "not_cached" };
+      return {
+        kind: "cached",
+        target: resolution.target,
+        insight: entry.good.insight,
+        pullRequestId: entry.good.pullRequestId,
+      };
     },
 
     async refreshAfterWrite(threadId: string): Promise<void> {
