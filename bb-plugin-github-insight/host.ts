@@ -9,7 +9,7 @@ import {
   RATE_LIMIT_ARGS,
   type GhProcessError,
 } from "./github/gh-failure";
-import { mergePullRequestArgs } from "./github/merge-mutations";
+import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
@@ -34,6 +34,8 @@ export default experimental_defineHostEntry({
       runGhJson(setThreadResolvedArgs(request), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
+    enqueuePullRequest: (request, context) =>
+      runGhJson(enqueuePullRequestArgs(request), context.signal),
   },
 });
 

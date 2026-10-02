@@ -86,6 +86,8 @@ export default async function plugin(bb: BbPluginApi) {
     cachedPr: (threadId) => service.cachedPr(threadId),
     mergePullRequest: async ({ hostId }, request) =>
       unwrap(await host.call("mergePullRequest", request, { hostId })),
+    enqueuePullRequest: async ({ hostId }, request) =>
+      unwrap(await host.call("enqueuePullRequest", request, { hostId })),
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
     warn: (message) => bb.log.warn(message),
   });
