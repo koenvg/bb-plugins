@@ -25,6 +25,7 @@ const OVERSCAN = 5;
 const MINUTE = 60_000;
 
 const HEIGHTS: Record<ListItem["kind"], number> = { group: 36, thread: 48 };
+const CHILD_INDENT = 24;
 
 function useNow(): number {
   const [now, setNow] = useState(Date.now);
@@ -108,15 +109,19 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
   const selected = thread.id === activeThreadId;
   const quiet = isSettled(thread) && !selected;
   return (
-    <div className="group/row relative flex min-w-0 items-start" style={{ height: HEIGHTS.thread, paddingLeft: `${item.depth * 12}px` }}>
-      {item.hasChildren ? <button type="button" aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${thread.displayTitle}`}
-        aria-expanded={!item.collapsed}
-        className={`relative z-10 mt-2 flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground ${FOCUS_RING}`}
-        onClick={() => onToggle(item.id)}>
-        <Icon name={item.collapsed ? "ChevronRight" : "ChevronDown"} className="size-3.5" aria-hidden />
-      </button> : null}
+    <div className="group/row relative flex min-w-0 items-start" style={{ height: HEIGHTS.thread, paddingLeft: `${item.depth * CHILD_INDENT}px` }}>
       <div className={`grid h-full min-w-0 flex-1 grid-cols-[1rem_minmax(0,1fr)_auto] grid-rows-[1.25rem_1.25rem] content-center items-center gap-x-2 rounded-lg px-2 ${selected ? "bg-sidebar-accent" : "group-hover/row:bg-sidebar-accent/60"}`}>
-        <ProviderGlyph thread={thread} provider={provider} quiet={quiet} />
+        {item.hasChildren ? <span className="relative col-start-1 row-start-1 flex size-4">
+          <span className={`flex transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0 [@media(hover:none)]:opacity-0 ${item.collapsed ? "opacity-0" : ""}`}>
+            <ProviderGlyph thread={thread} provider={provider} quiet={quiet} />
+          </span>
+          <button type="button" aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${thread.displayTitle}`}
+            aria-expanded={!item.collapsed}
+            className={`absolute inset-0 z-10 flex items-center justify-center rounded text-muted-foreground transition-opacity hover:text-foreground group-focus-within/row:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 ${item.collapsed ? "" : "opacity-0"} ${FOCUS_RING}`}
+            onClick={() => onToggle(item.id)}>
+            <Icon name={item.collapsed ? "ChevronRight" : "ChevronDown"} className="size-3.5" aria-hidden />
+          </button>
+        </span> : <ProviderGlyph thread={thread} provider={provider} quiet={quiet} />}
         <a {...splitProps} href={thread.href} data-sidebar-thread-shortcut-target="" data-sidebar-thread-id={thread.id}
           aria-current={selected ? "page" : undefined} aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
           onClick={(event) => {
