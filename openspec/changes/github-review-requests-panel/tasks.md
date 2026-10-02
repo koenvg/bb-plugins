@@ -1,7 +1,7 @@
 ## 1. Spike
 
-- [ ] 1.1 Start a worktree thread in a project with an open PR from another author, run `gh pr checkout <n>` in it, and check that the GitHub Insight PR tab shows that PR within one poll; record the result and the delay in design.md (Risks). If the PR tab does not show it, stop and update this change (design decision 7) before task 2.1
-- [ ] 1.2 Find the SDK call that returns bb's primary host ID on the server; record it in design.md (decision 2) and verify it returns a host ID in a running bb
+- [x] 1.1 Start a worktree thread in a project with an open PR from another author, run `gh pr checkout <n>` in it, and check that the GitHub Insight PR tab shows that PR within one poll; record the result and the delay in design.md (Risks). If the PR tab does not show it, stop and update this change (design decision 7) before task 2.1
+- [x] 1.2 Find the SDK call that returns bb's primary host ID on the server; record it in design.md (decision 2) and verify it returns a host ID in a running bb
 
 ## 2. Core
 

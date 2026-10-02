@@ -32,7 +32,7 @@ Alternative: `gh search prs --json`. It has no CI state or review decision, so e
 
 ### 2. `gh` runs on the primary host
 
-The panel is not tied to a thread, so there is no thread host. The server calls the new host handler `fetchReviewQueue` on bb's primary host. If bb reports no primary host, the panel shows the error "No host available".
+The panel is not tied to a thread, so there is no thread host. The server calls the new host handler `fetchReviewQueue` on bb's primary host: `(await bb.sdk.system.config()).primaryHostId`, as `bb-plugin-tasks-plus/delegate/index.ts` does. It can be `null`; then the panel shows the error "No host available".
 
 ### 3. Pure core module for mapping and grouping
 
@@ -82,7 +82,7 @@ Alternative: a worktree from `origin/<headRefName>`. bb makes a new local branch
 
 ## Risks / Trade-offs
 
-- [bb may not link the PR after the branch changes inside a running worktree] → Task 1 is a spike. If it fails, store the PR ref in thread plugin metadata at `startReview` and add a metadata fallback in `pr-lookup.ts`. That would change the design, so stop and update this change first.
+- [bb may not link the PR after the branch changes inside a running worktree] → Spike 1.1 (2026-10-02, PR #1): bb linked the PR within 7 seconds of `gh pr checkout`. bb reads the real git HEAD. `environment.branchName` keeps the old bb branch name, so code must use the linked PR (`environments.pullRequest`), never `branchName`.
 - ["Open thread" only appears after the agent ran `gh pr checkout`] → For a short time, a new thread is not linked yet, and the card still shows "Review in thread". Accepted for v1.
 - [Only the first 50 results per list] → The list shows "Showing first 50" when GitHub reports more. Pagination can come later.
 - [Resolving the PR for every thread on each refresh costs one SDK call per environment] → Per-refresh cache, and refresh runs only while the panel is open.
