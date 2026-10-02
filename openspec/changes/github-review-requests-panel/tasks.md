@@ -31,9 +31,9 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Update `bb-plugin-github-insight/README.md`, `PLUGIN_OVERVIEW.md`, the plugin description in `package.json`, and the GitHub Insight row in `PRODUCT.md` with the Pull Requests panel; verify the README steps work on a fresh install
+- [x] 6.1 Update `bb-plugin-github-insight/README.md`, `PLUGIN_OVERVIEW.md`, the plugin description in `package.json`, and the GitHub Insight row in `PRODUCT.md` with the Pull Requests panel; verify the README steps work on a fresh install
 
 ## 7. Integration
 
 - [ ] 7.1 In a running bb, open the panel, start a review thread from a real review request, and check that the agent checks out the PR, the PR and Review tabs show it, and the card then shows "Open thread"
-- [ ] 7.2 Run `npm test` and `npm run typecheck` in `bb-plugin-github-insight` and `openspec validate github-review-requests-panel --strict`; verify all pass
+- [x] 7.2 Run `npm test` and `npm run typecheck` in `bb-plugin-github-insight` and `openspec validate github-review-requests-panel --strict`; verify all pass

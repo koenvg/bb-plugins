@@ -1,6 +1,6 @@
 # bb-plugin-github-insight
 
-Shows the merge blockers, reviewers, and checks of a thread's pull request in a **PR** tab in the thread's right panel. A **Review** tab shows the PR's diff from GitHub, with the review threads on their lines.
+Shows the merge blockers, reviewers, and checks of a thread's pull request in a **PR** tab in the thread's right panel. A **Review** tab shows the PR's diff from GitHub, with the review threads on their lines. A **Pull Requests** nav panel lists the open PRs that wait for your review and your own open PRs, and starts a review thread for a PR.
 
 ## How it works
 
@@ -28,7 +28,34 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
   | `UNMERGEABLE` | `failed` | Merge queue failed (problem tone) |
   | no entry | none | none |
 - `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state or the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
+- `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). It calls `fetchReviewQueue` on bb's primary host, adds the matching projects and the linked thread to each PR, and keeps the last good result in memory.
 - `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
+
+## Pull Requests panel
+
+```
+app (Pull Requests panel) --getReviewQueue--> server --fetchReviewQueue--> primary host (gh api graphql)
+            |
+            +--startReview--> server --> bb.sdk.threads.spawn
+```
+
+- One `gh api graphql` call per load with two searches (`github/review-queue-query.ts`): `is:pr is:open review-requested:@me` and `is:pr is:open author:@me`, first 50 results each. `review-requested:@me` also matches requests to your teams.
+- `core/review-queue.ts` groups the PRs by repo and sorts each group by last update, newest first. When GitHub reports more than 50, the list shows "Showing first 50".
+- The panel loads when it opens, on Refresh, and every 5 minutes while it is open. It makes no GitHub calls while it is closed.
+- A failed load shows the reason and "Retry". The last good lists stay visible with their load time. With no primary host, the panel shows "No host available".
+- A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
+- A card shows "Open thread" when an unarchived thread is linked to the PR (newest first). Else a review request shows "Review in thread", or "No bb project for this repository" when no project matches.
+- "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree from the default branch, and the prompt from `core/review-prompt.ts`. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, and not post to GitHub. Submit starts the thread and opens it. After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
+
+### Check it on a fresh install
+
+1. Run `gh auth status` on the primary host. It must show a logged-in user.
+2. Install the plugin (see "Develop") and open **Pull Requests** in the bb sidebar.
+3. "Review requests" and "My PRs" show the same PRs as `https://github.com/pulls/review-requested` and `https://github.com/pulls`, each with its count.
+4. On a review request in a repo that has a bb project, select "Review in thread". The composer shows that project, a new worktree, and the review prompt. Submit it.
+5. bb opens the new thread. The agent runs `gh pr checkout <n>`. Then the PR and Review tabs show that PR.
+6. Go back to **Pull Requests** and select Refresh. The card shows "Open thread".
+7. Run `gh auth logout` on the primary host and select Refresh. The panel shows "gh not logged in", "Retry", and the last lists with their load time. Log in again and select "Retry".
 
 ## Review threads
 
@@ -53,6 +80,7 @@ bb github-insight review draft <thread-id> --body-file <path>
 ## Requirements
 
 - `gh` 2.48 or later (for `--slurp`), installed and logged in on each host that runs threads.
+- For the Pull Requests panel: `gh` logged in on bb's primary host.
 
 ## Develop
 
