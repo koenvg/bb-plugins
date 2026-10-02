@@ -9,8 +9,8 @@
 ## 2. Host and GitHub
 
 - [x] 2.1 Add `github/pr-head-query.ts` (`id`, `headRefOid`, `state`, `viewerDidAuthor`) and host handler `fetchPrHead` (D2); verify an args snapshot test and a parse test on a recorded response
-- [ ] 2.2 Add `github/review-mutations.ts` with `addPullRequestReview` and a `gh` call that sends the variables as JSON on stdin with `gh api graphql --input -`, and host handler `submitReview` (D1, risk "argument length"); verify a test that builds the JSON for 3 comments with one range, and verify against a test PR from `bb plugin dev` that one review with 3 comments is created
-- [ ] 2.3 Map the "one pending review" GitHub error to a message with the PR URL; verify a unit test on the recorded error text
+- [x] 2.2 Add `github/review-mutations.ts` with `addPullRequestReview` and a `gh` call that sends the variables as JSON on stdin with `gh api graphql --input -`, and host handler `submitReview` (D1, risk "argument length"); verify a test that builds the JSON for 3 comments with one range, and verify against a test PR from `bb plugin dev` that one review with 3 comments is created
+- [x] 2.3 Map the "one pending review" GitHub error to a message with the PR URL; verify a unit test on the recorded error text
 
 ## 3. Storage and service
 
@@ -24,7 +24,7 @@
 - [x] 4.1 Add `review comment <path> --line [--side] [--start-line] --body|--body-file` with `checkAnchor` and the one-commit rule (D3, D4); verify `review-cli.test.ts` for success, line outside the diff, unknown file, empty body, other commit, and not in a thread
 - [x] 4.2 Add `review summary --body|--body-file` and extend `review list` text and `--json` with `comments` and `summary`; verify `review-cli.test.ts`
 - [x] 4.3 Update `core/review-prompt.ts` (D7); verify `review-prompt.test.ts` checks for both command names and the "do not post" rule
-- [ ] 4.4 Document the new commands, the kv keys, and the submit flow in `README.md` under "Review threads"; verify every command in the README runs as written from an agent in a bb thread
+- [x] 4.4 Document the new commands, the kv keys, and the submit flow in `README.md` under "Review threads"; verify every command in the README runs as written from an agent in a bb thread
 
 ## 5. Review tab
 
@@ -32,9 +32,9 @@
 - [x] 5.2 Show comment drafts at the head commit as line annotations in `ui/file-diff.tsx`, marked "Draft from agent", with edit and delete (D5); verify `renderSlot` tests on the fixture and that a `review.updated` event shows a new draft without a refresh
 - [x] 5.3 Add the "Drafts on an older commit" section with the commit warning (D5); verify a `renderSlot` test with drafts at `abc123` and head `def456`
 - [x] 5.4 Add the submit panel with the summary body, the draft count, the verdicts from `submitRules`, the disabled reasons, and the error with the PR link; verify `renderSlot` tests for own PR, other PR, empty body, a failed submit that keeps the drafts, and a merged PR
-- [ ] 5.5 Update the "Review tab" part of `README.md` with the draft and submit UI; verify it matches the running tab
+- [x] 5.5 Update the "Review tab" part of `README.md` with the draft and submit UI; verify it matches the running tab
 
 ## 6. End-to-end check
 
-- [ ] 6.1 From the Pull Requests panel, start "Review in thread" on a test PR of another person. Let the agent save 2 comments (one a range) and a summary. In the tab, edit one comment, delete the other, and submit Request changes. Verify on GitHub that exactly one review with 1 comment and the edited summary was created, and that the tab and `review list` show no drafts
-- [ ] 6.2 Save a comment draft, push a commit to the test PR, and open the tab. Verify the older-commit warning shows, submit Comment, and verify on GitHub that the comment is on the line of the old commit
+- [x] 6.1 From the Pull Requests panel, start "Review in thread" on a test PR of another person. Let the agent save 2 comments (one a range) and a summary. In the tab, edit one comment, delete the other, and submit Request changes. Verify on GitHub that exactly one review with 1 comment and the edited summary was created, and that the tab and `review list` show no drafts
+- [x] 6.2 Save a comment draft, push a commit to the test PR, and open the tab. Verify the older-commit warning shows, submit Comment, and verify on GitHub that the comment is on the line of the old commit
