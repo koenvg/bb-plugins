@@ -53,5 +53,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install PR thread list integration dependencies
+        if: matrix.plugin == 'bb-plugin-github-insight'
+        run: npm ci --prefix ../bb-plugin-pr-thread-list
+
       - name: Run tests
         run: npm test
