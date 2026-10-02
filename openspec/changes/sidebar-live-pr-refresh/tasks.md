@@ -31,4 +31,4 @@
 
 ## 4. End-to-end check
 
-- [ ] 4.1 In the running app, ask an agent in a thread to push a commit to its open PR. When the turn ends, verify that the row shows checks running and moves to In flight within about 15s. Then ask an agent to open a new PR, and verify that the badge shows within about 15s. Run `npm test` in both plugins and verify that they pass.
+- [x] 4.1 In the running app, ask an agent in a thread to push a commit to its open PR. When the turn ends, verify that the row shows checks running and moves to In flight within about 15s. Then ask an agent to open a new PR, and verify that the badge shows within about 15s. Run `npm test` in both plugins and verify that they pass.
