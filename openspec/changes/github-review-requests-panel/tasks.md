@@ -16,8 +16,8 @@
 
 ## 4. Server RPC
 
-- [ ] 4.1 Add `getReviewQueue()` to `rpcContract` and `server.ts` (decision 4): call the host on the primary host, add `projectIds` and `threadId`, and keep the last good result; verify unit tests with fake SDK and host for: project match order, personal project ignored, no match, linked thread picked by newest update, archived thread ignored, gh failure returns the failure with the last good result, and no primary host
-- [ ] 4.2 Add `startReview(request)` that passes the composer request to `bb.sdk.threads.spawn` and returns the thread ID (decision 6); verify a unit test that the request reaches `spawn` unchanged and that a spawn error rejects
+- [x] 4.1 Add `getReviewQueue()` to `rpcContract` and `server.ts` (decision 4): call the host on the primary host, add `projectIds` and `threadId`, and keep the last good result; verify unit tests with fake SDK and host for: project match order, personal project ignored, no match, linked thread picked by newest update, archived thread ignored, gh failure returns the failure with the last good result, and no primary host
+- [x] 4.2 Add `startReview(request)` that passes the composer request to `bb.sdk.threads.spawn` and returns the thread ID (decision 6); verify a unit test that the request reaches `spawn` unchanged and that a spawn error rejects
 
 ## 5. Panel UI
 

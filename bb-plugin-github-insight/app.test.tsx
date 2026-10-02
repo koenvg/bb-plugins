@@ -42,6 +42,8 @@ const unusedReviewRpc = {
   setResolved: () => ({ kind: "error" as const, message: "unused" }),
   saveDraft: () => ({ kind: "error" as const, message: "unused" }),
   discardDraft: () => ({ kind: "error" as const, message: "unused" }),
+  getReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
+  startReview: () => ({ threadId: "unused" }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");

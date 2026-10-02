@@ -1,8 +1,9 @@
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
+import { queueListSchema, queuePrSchema } from "./core/review-queue";
 import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
 
@@ -168,6 +169,41 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
+const linkedQueuePrSchema = queuePrSchema.extend({
+  projectIds: z.array(z.string()),
+  threadId: z.string().nullable(),
+});
+export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
+
+const linkedQueueListSchema = queueListSchema.extend({
+  groups: z.array(z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) })),
+});
+export type LinkedQueueList = z.infer<typeof linkedQueueListSchema>;
+
+const reviewQueueViewSchema = z.object({
+  reviewRequests: linkedQueueListSchema,
+  myPrs: linkedQueueListSchema,
+  loadedAt: z.number(),
+});
+export type ReviewQueueView = z.infer<typeof reviewQueueViewSchema>;
+
+export const reviewQueueResultSchema = z.discriminatedUnion("kind", [
+  reviewQueueViewSchema.extend({ kind: z.literal("ok") }),
+  z.object({
+    kind: z.literal("error"),
+    message: z.string(),
+    lastGood: reviewQueueViewSchema.nullable(),
+  }),
+]);
+export type ReviewQueueResult = z.infer<typeof reviewQueueResultSchema>;
+
+const newThreadRequestSchema = z.custom<NewThreadRequest>(
+  (value) => typeof value === "object" && value !== null,
+);
+
+export const startReviewResultSchema = z.object({ threadId: z.string() });
+export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
+
 export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
@@ -177,4 +213,6 @@ export const rpcContract = defineRpcContract({
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
+  getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
+  startReview: { input: newThreadRequestSchema, output: startReviewResultSchema },
 });

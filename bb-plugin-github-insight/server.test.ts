@@ -4,7 +4,9 @@ import pageTwo from "./test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
-import type { ReviewResult } from "./contract";
+import reviewQueue from "./test/fixtures/review-queue.json";
+import type { NewThreadRequest } from "@get-bb/plugin-sdk";
+import type { ReviewQueueResult, ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { failed, linkedPr, ok, setup, type HostCall, type PullRequestResult } from "./test/plugin-harness";
@@ -1292,5 +1294,86 @@ describe("drafts from the tab", () => {
 
     expect(saved).toEqual({ kind: "error", message: "No pull request for this thread" });
     expect(discarded).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});
+
+describe("getReviewQueue", () => {
+  it("fetches the queue on the primary host and links projects and threads", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1", archivedAt: null, updatedAt: 1 }],
+      pullRequests: { env_1: linkedPr(15) },
+      projects: [{ id: "prj_api", kind: "standard", gitRemoteUrl: "git@github.com:Acme/API.git", updatedAt: 1 }],
+      primaryHostId: "host-7",
+      host: () => ok(reviewQueue),
+    });
+
+    const result = (await harness.behavior.callRpc("getReviewQueue", {})) as ReviewQueueResult;
+
+    expect(harness.experimental_hostRpcCalls).toEqual([
+      expect.objectContaining({ method: "fetchReviewQueue", input: {}, hostId: "host-7" }),
+    ]);
+    if (result.kind !== "ok") throw new Error(result.message);
+    const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
+    expect(api.prs.map(({ number, projectIds, threadId }) => ({ number, projectIds, threadId }))).toEqual([
+      { number: 15, projectIds: ["prj_api"], threadId: null },
+      { number: 12, projectIds: ["prj_api"], threadId: null },
+    ]);
+  });
+
+  it("reports the gh failure text", async () => {
+    const harness = await setup({ threads: [], host: () => failed({ kind: "gh_logged_out" }) });
+
+    const result = await harness.behavior.callRpc("getReviewQueue", {});
+
+    expect(result).toEqual({ kind: "error", message: "gh not logged in", lastGood: null });
+  });
+
+  it("reports no host available without a primary host", async () => {
+    const harness = await setup({ threads: [], primaryHostId: null });
+
+    const result = await harness.behavior.callRpc("getReviewQueue", {});
+
+    expect(result).toEqual({ kind: "error", message: "No host available", lastGood: null });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+});
+
+describe("startReview", () => {
+  const request = {
+    projectId: "prj_api",
+    providerId: "claude-code",
+    model: "opus",
+    reasoningLevel: "high",
+    permissionMode: "default",
+    executionInputSources: {},
+    environment: { type: "host", hostId: "host-1", workspace: { type: "managed-worktree", baseBranch: { kind: "default" } } },
+    input: [{ type: "text", text: "gh pr checkout 15", mentions: [] }],
+  } as unknown as NewThreadRequest;
+
+  it("passes the composer request to spawn unchanged and returns the thread", async () => {
+    const spawned: unknown[] = [];
+    const harness = await setup({
+      threads: [],
+      spawn: async (args) => {
+        spawned.push(args);
+        return makeThreadResponse({ id: "thr_review" });
+      },
+    });
+
+    const result = await harness.behavior.callRpc("startReview", request);
+
+    expect(spawned).toEqual([{ ...request, origin: "plugin", originPluginId: "github-insight" }]);
+    expect(result).toEqual({ threadId: "thr_review" });
+  });
+
+  it("rejects when spawn fails", async () => {
+    const harness = await setup({
+      threads: [],
+      spawn: async () => {
+        throw new Error("project not found");
+      },
+    });
+
+    await expect(harness.behavior.callRpc("startReview", request)).rejects.toThrow("project not found");
   });
 });

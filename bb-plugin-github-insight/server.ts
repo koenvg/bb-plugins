@@ -8,7 +8,9 @@ import { collectInsight } from "./core/overview";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
+import { parseReviewQueue } from "./core/review-queue";
 import { createPrLookup } from "./pr-lookup";
+import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
 import { createDraftStore } from "./review/draft-store";
 import { createReviewCli } from "./review/review-cli";
@@ -81,6 +83,16 @@ export default async function plugin(bb: BbPluginApi) {
     warn: (message) => bb.log.warn(message),
   });
 
+  const reviewQueue = createReviewQueueService({
+    primaryHostId: async () => (await bb.sdk.system.config()).primaryHostId,
+    fetchReviewQueue: async (hostId) =>
+      parseReviewQueue(unwrap(await host.call("fetchReviewQueue", {}, { hostId }))),
+    listProjects: () => bb.sdk.projects.list(),
+    listThreads: () => bb.sdk.threads.list(),
+    resolveEnvironmentPr,
+    now: Date.now,
+  });
+
   async function getReview(threadId: string): Promise<ReviewResult> {
     const load = await review.load(threadId);
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
@@ -95,6 +107,8 @@ export default async function plugin(bb: BbPluginApi) {
     setResolved: (request) => writes.setResolved(request),
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
+    getReviewQueue: () => reviewQueue.getReviewQueue(),
+    startReview: async (request) => ({ threadId: (await bb.sdk.threads.spawn(request)).id }),
   });
 
   bb.cli.register(

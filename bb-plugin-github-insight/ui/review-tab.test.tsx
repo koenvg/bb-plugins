@@ -117,6 +117,8 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
         saveDraft: handlers.saveDraft ?? (() => ({ kind: "ok" })),
         discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
+        getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
+        startReview: () => ({ threadId: "unused" }),
       },
     },
   );
