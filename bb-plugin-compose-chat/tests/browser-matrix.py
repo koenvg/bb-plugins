@@ -4,6 +4,8 @@ fixture controls are exercised. No BB plugin is installed or configured.
 """
 import base64
 import json
+import hashlib
+import struct
 from pathlib import Path
 
 base = "http://127.0.0.1:56429/tests/preview.html"
@@ -44,16 +46,23 @@ results = []
 try:
     # Always exercise the latest build, not cached assets from a prior run.
     send("Network", "setCacheDisabled", {"cacheDisabled": True})
+    # Match the client's backing scale. Arc's forced 1x surface was empty at
+    # 1615px; view captures clipped the viewport to the narrower Arc window.
+    native_scale = send("Runtime", "evaluate", {"expression": "window.devicePixelRatio", "returnByValue": True})["result"]["value"]
+    send("Page", "bringToFront", {})
     for name, width, height, theme, layout, touch, reduced, disabled, screenshot in cases:
-        send("Emulation", "setDeviceMetricsOverride", {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": touch})
+        send("Emulation", "setDeviceMetricsOverride", {"width": width, "height": height, "deviceScaleFactor": native_scale, "mobile": touch})
         send("Emulation", "setTouchEmulationEnabled", {"enabled": touch, "maxTouchPoints": 1})
         send("Emulation", "setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce" if reduced else "no-preference"}]})
         browser.goto(base + f"?theme={theme}&layout={layout}" + ("&disabled=1" if disabled else "") + ("&long=1" if name == "long-draft" else "") + (f"&split={name.removeprefix('split-send-')}" if name.startswith('split-send-') else ""))
+        send("Page", "bringToFront", {})
         result = send("Runtime", "evaluate", {"expression": "(async()=>{const deadline=performance.now()+5000;while(!window.fixture?.ready){if(performance.now()>deadline)throw new Error('fixture did not become ready');await new Promise(r=>setTimeout(r,50));}return await window.fixture.check();})()", "awaitPromise": True, "returnByValue": True})
         if "exceptionDetails" in result:
             error = result["exceptionDetails"].get("exception", {}).get("description", "browser assertion failed")
             raise AssertionError(f"{name}: {error}")
         value = result["result"]["value"]
+        if value["theme"] != theme or value["mode"] != layout or value["viewport"] != [width, height]:
+            raise AssertionError(f"{name}: fixture state does not match the requested case")
         value["name"] = name
         send("Runtime", "evaluate", {"expression": "window.fixture.originalInput.focus()", "returnByValue": True})
         for kind in ("keyDown", "keyUp"):
@@ -69,11 +78,19 @@ try:
         print(f"PASS {name}: {value['checks']} checks; {width}x{height}")
         if screenshot and not globals().get("skip_screenshots"):
             send("Runtime", "evaluate", {"expression": "(async()=>{scrollTo(0,0);document.querySelector('.thread').scrollTop=0;document.activeElement.blur();await new Promise(r=>setTimeout(r,200));})()", "awaitPromise": True, "returnByValue": True})
-            capture = send("Page", "captureScreenshot", {"format": "png", "captureBeyondViewport": True, "fromSurface": True})
-            png = base64.b64decode(capture["data"])
-            if not png.startswith(b"\x89PNG\r\n\x1a\n"):
-                raise AssertionError(f"{name}: screenshot returned no valid PNG")
+            capture = send("Page", "captureScreenshot", {"format": "png", "captureBeyondViewport": False, "fromSurface": True})
+            png = base64.b64decode(capture["data"], validate=True)
+            if len(png) < 33 or not png.startswith(b"\x89PNG\r\n\x1a\n") or not png.endswith(b"\x00\x00\x00\x00IEND\xaeB\x60\x82"):
+                raise AssertionError(f"{name}: screenshot returned no complete PNG")
+            pixels = struct.unpack(">II", png[16:24])
+            expected_pixels = (round(width * native_scale), round(height * native_scale))
+            if pixels != expected_pixels:
+                raise AssertionError(f"{name}: screenshot dimensions {pixels} do not match {expected_pixels}")
+            value["capture"] = {"file": screenshot, "method": "surface", "pixels": pixels, "pixelScale": native_scale, "sha256": hashlib.sha256(png).hexdigest()}
             (evidence / screenshot).write_bytes(png)
+            package = Path(__file__).resolve().parents[1]
+            sources = {path: hashlib.sha256((package / path).read_bytes()).hexdigest() for path in ("dist/app.js", "dist/app.css", "tests/preview.html", "tests/browser-checks.js", "tests/browser-matrix.py", "tests/browser-checks.sh")}
+            (evidence / (screenshot + ".provenance.json")).write_text(json.dumps({"synthetic": True, "case": name, "viewport": [width, height], "capture": value["capture"], "sources": sources}, indent=2))
 finally:
     send("Emulation", "clearDeviceMetricsOverride", {})
     send("Emulation", "setTouchEmulationEnabled", {"enabled": False})

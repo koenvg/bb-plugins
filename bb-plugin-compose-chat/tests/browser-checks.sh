@@ -8,6 +8,8 @@ path=str(pathlib.Path(sys.argv[1]).resolve())
 source=pathlib.Path(path).read_text()
 names=list(filter(None,os.environ.get('COMPOSE_CHAT_BROWSER_CASES','').split(',')))
 evidence_dir=os.environ.get('COMPOSE_CHAT_BROWSER_EVIDENCE_DIR','')
+if evidence_dir:
+    evidence_dir=str(pathlib.Path(evidence_dir).resolve())
 skip_screenshots=os.environ.get('COMPOSE_CHAT_BROWSER_SKIP_SCREENSHOTS')=='1'
 print(f"exec(compile({source!r}, {path!r}, 'exec'), {{'browser': browser, '__file__': {path!r}, 'case_names': {names!r}, 'evidence_dir': {evidence_dir!r}, 'skip_screenshots': {skip_screenshots!r}}})")
 PY

@@ -1,18 +1,12 @@
 # Compose Chat verification
 
-Compose Chat is enabled from the durable preview at `/Users/koen/workspace/bb-plugin-compose-chat`; Beautiful Chat is disabled. The approved quieter-frame revision passed 12 unit tests and 494 fixture assertions. Native new-thread measurements and a crop confirm a faint border, soft shadow, and no separate input outline while idle or focused. The full fixture screenshot run remains blocked at the user-width capture. The earlier native hot-disable gap remains unresolved.
+The review-preparation run passed 12 unit tests and the complete synthetic browser matrix: 16 cases, 494 assertions, and all six requested screenshots. The screenshots were inspected for clipped edges, missing controls, wrapping, and framing. Native cleanup passed in a visible Arc tab and after resuming a hidden tab. No runtime styling or lifecycle code changed during this follow-up.
 
-## Quieter-frame feedback revision
-
-The user approved ChatGPT-like framing without replacing BB's controls. The fill now mixes 2% host ink into the canvas. Shadows use the host shadow-color token with a theme-derived fallback. The expanded follow-up owns one shadow; the new-thread form and sibling footer keep their native structure and use outward shadows. Sibling plugin banners remain outside the frame. Button keyboard outlines remain visible, but the writing field and its frame have no separate dark outline.
-
-The native idle and focused checks measured the same `1px solid rgb(233, 233, 230)` border, no input/form outline, an unchanged font, and the latest installed bundle `27997dcbdad81eea`. No drafts or controls were edited. Local evidence is under `.impeccable/review/quiet-frame/`: `native-new-thread.png`, `native-quiet-frame.json`, and `browser-checks.json`. These artifacts are not included in this PR.
-
-The screenshot-enabled matrix could not capture the 1615px user-width case in Arc. Assertions were rerun with an explicit skip flag, recorded on all 16 results. Representative desktop fixture images and the native composer crop are available, but the complete screenshot gate is not passed. Earlier evidence below is historical and remains unchanged. The one-review limit was respected; this feedback revision was not reviewed again.
+Compose Chat remains enabled from `/Users/koen/workspace/bb-plugin-compose-chat`; Beautiful Chat remains disabled. Codex Inspired is the selected, independently installed theme.
 
 ## Checks performed
 
-Baseline: `68daf5555cdd169df39f2681eebdcdb88e7ea231`. Environment: BB 0.44.0, plugin SDK 0.5.29, Node 24.14.0.
+Original implementation baseline: `68daf5555cdd169df39f2681eebdcdb88e7ea231`. Review-preparation baseline: `5c82bba84405684d8a8a7e9584ff2e9e729d6fb1`. Native host: BB 0.44.0, SDK 0.5.29.
 
 | Check | Result |
 | --- | --- |
@@ -20,70 +14,52 @@ Baseline: `68daf5555cdd169df39f2681eebdcdb88e7ea231`. Environment: BB 0.44.0, pl
 | `npm run typecheck` | Passed |
 | `bb plugin types . --check` | SDK pin matches the host |
 | `npm run build` | App, CSS, backend, and metadata bundles produced |
-| `npm run test:browser` | 16 cases, 494 assertions passed with screenshots explicitly skipped; screenshot-enabled run blocked at user-width |
-| Impeccable detector on runtime CSS/entry | No findings before review; not rerun after the targeted fix |
-| Read-only native DOM/frontend inspection | Composer and message hooks checked against BB 0.44 |
-| Installed native activation | Durable preview enabled; latest new-thread idle/focused styling verified in Arc. Hot-disable remains unresolved |
-| Fresh completion review | Requested changes; its P1 was fixed and regression-tested by the implementation agent. No second review |
+| `npm run test:browser` | 16 cases, 494 assertions, six complete screenshots; captures not skipped |
+| Screenshot inspection | All six final surface captures show the complete viewport, including right-side controls |
+| Native visible-tab disable/re-enable | Marker and CSS removed without refreshing; editor identity preserved |
+| Native hidden-tab disable/resume | Update deferred while hidden; marker and CSS removed after visibility returned, with editor and draft unchanged |
+| Single completion review | Requested changes for split-send geometry; P1 fixed and regression-tested. No second review or new reviewer approval |
 
-The browser matrix mounts the actual built app entry through a minimal fixture runtime. It checks light, dark, custom host tokens, expanded, compact, new-thread, touch, disabled, reduced-motion, long-draft, and coarse-desktop split-send empty/populated cases. It tests real Tab-key focus movement, hit areas, input identity, draft preservation, submit events, abort/re-enable, and document overflow. Minimum measured body contrast was 12.63:1; placeholder contrast was 5.15:1. These values describe the fixture palettes, not every installed theme.
+The fixture mounts the actual built app entry through a minimal runtime. Its cases cover light, dark, custom host tokens, expanded, compact, new-thread, touch, disabled actions, reduced motion, long drafts, and coarse-desktop split-send empty/populated states. Assertions check real Tab-key focus, hit areas, input identity, draft preservation, submit events, abort/re-enable, geometry, contrast, and overflow. Fixture body contrast was at least 12.63:1 and placeholder contrast at least 5.15:1. These are fixture measurements, not guarantees for every installed theme.
 
-The runner initially stalled on animation frames in a hidden Arc tab. Its capture wait now uses a bounded delay and rejects invalid PNGs. It also checks an explicit completion marker because browser-use can return exit zero for a Python exception. Final checks passed after these test-runner fixes.
+## Screenshot runner correction
 
-## Completion-review fix
+The original screenshot-enabled run reproduced an empty PNG payload at the 1615px user-width case. A view-capture experiment returned valid PNG files but clipped wide pages to Arc's narrower content area. Those images were rejected after inspection.
 
-The single completion review, recorded locally in `.impeccable/review/completion-review.md`, requested changes because blanket touch sizing revealed a native hidden Send options segment. The implementation agent excluded the entire native split-send compound control from geometry rules, including the reduced-motion selector's matching specificity. No native width reset was added.
+The final runner keeps surface capture, uses the client's native pixel ratio instead of forcing 1x, and activates its owned fixture after navigation. It validates requested theme/layout/viewport, complete PNG framing, and pixel dimensions. Each image records its scale, SHA256, and source hashes. The final run used 2x pixels: for example, the 1615 × 990 CSS viewport produced a complete 3230 × 1980 PNG. Browser assertions still measure CSS pixels. No browser window resize or alternate browser was used.
 
-A new unit guard and a native-shaped coarse-desktop fixture reproduced the failure before the fix. Empty and populated split-send cases now preserve the options width at 0px and 24px, the native primary/compound dimensions, clipping, joined corners, and document overflow. Standalone hit-area assertions now check width as well as height. The targeted cases passed 76 assertions, followed by the full 16-case, 444-assertion matrix.
+The earlier 494-assertion run with screenshots explicitly skipped remains historical assertion-only evidence. It is not the final screenshot-validation run.
 
-The runner now bypasses cached assets while checking its owned fixture tab. Without that bypass, the browser initially retained the prior build's CSS. The full matrix also caught a reduced-motion specificity mismatch introduced by the exclusion; the final matching selector restored zero-duration transitions.
+## Native lifecycle behavior
 
-The original reviewer verdict remains "request changes". The implementation agent verified this fix; there was no second review or new reviewer approval.
+The earlier check saw styling remain after CLI disable for at least ten seconds. Current controlled checks explain the visibility boundary. BB 0.44 buffers system/plugin changes while a document is hidden, then reconciles them when it becomes visible. This behavior is present in the shipped host's realtime invalidation code, not a polling workaround in Compose Chat.
 
-## Evidence
+In the visible local-BB Arc tab, disable removed the marker and stylesheet within the first measured 197ms; re-enable restored them without replacing the editor. In a separate hidden-tab check, both remained after two seconds while hidden. Returning to the tab removed them within 433ms without a reload, preserving the editor and draft. Re-enable restored the marker and stylesheet within 304ms. These are observations, not timing guarantees. Refresh remains a recovery option for a disconnected or stale client.
 
-Evidence artifacts remain in the local working tree under `.impeccable/review/`. They are intentionally not published with this PR, including signed-in native browser records. A fresh checkout contains the fixture and runner needed to produce new synthetic results, not these historical captures.
+The remote BB Connect URL was offline during this follow-up. Native checks used the same Arc browser against the local BB origin. No prompts were sent, threads or agent runs created, attachments added, voice recordings started, or draft contents edited. The active theme was not changed.
 
-The following local screenshots show synthetic content, not an installed BB session:
+## Original completion-review fix
 
-- `desktop.png`, dark, 1440 × 1046
-- `desktop-light.png`, light, 1440 × 1046
-- `mobile.png`, dark, 390 × 844
-- `mobile-light.png`, light, 390 × 844
-- `user-1615.png`, 1615 × 990
-- `hero-repro.png`, comp-sized, 1504 × 1046
+The single reviewer requested changes because blanket touch sizing revealed BB's hidden Send options segment. The implementation agent excluded the native split-send compound from geometry overrides and corrected reduced-motion selector specificity. A regression fixture reproduced the failure before the fix.
 
-Historical results are in `browser-checks.json`, `detector.json`, and `diff/final/report.json` under that same local directory.
+Empty/populated options widths remain 0px/24px; primary and compound dimensions, clipping, joined corners, and overflow remain native. The targeted cases passed 76 assertions before the broader matrices. The original reviewer verdict remains "request changes"; the implementation agent resolved and verified the P1 without a second reviewer pass.
 
-Native evidence is separate under `.impeccable/review/native-check-20261002/`: `report.md`, `native-desktop-empty.png`, and `native-mobile.png`. These show the actual installed plugin during the temporary check, not the fixture.
+## Quieter-frame native evidence
 
-## Visual scope and limits
+The approved revision uses 2% host ink, a faint host border, and host-derived soft shadows. Expanded follow-ups own one shared shadow. New-thread form/footer siblings retain their structure, and plugin banners remain outside the frame. Writing-field outlines stay absent; button keyboard focus remains visible.
 
-The implementation follows the selected Compose-inspired frame, divider, neutral surfaces, and flat replies. It preserves native provider/voice controls and the native action row rather than copying the generated mockup's simplified controls. Font family, font size, widths, and responsive layout remain host-owned. The fixture's sample typography and surrounding app chrome are illustrative.
+Earlier native idle/focused measurements recorded the same `1px solid rgb(233, 233, 230)` border, no editor/form outline, unchanged font, and installed bundle `27997dcbdad81eea`. Earlier expanded and emulated 390px/320px native checks covered focus, draft preservation, footer hiding, split-send sizing, and reduced motion. They do not establish physical-device behavior.
 
-The pre-review image comparison of the 1440px desktop fixture against the 1504px comp scored 77% overall and reported regional drift/missing-detail findings, including the composer. It is not a pixel-fidelity pass. Surrounding navigation is fixture markup outside the plugin's styling boundary. The Impeccable build-state hero gate has not been closed; no gate was forced or silently declared complete.
+## Evidence boundaries and remaining coverage
 
-The existing repository `DESIGN.md` and its sidecar remain untouched. Runtime colors use host variables, shape derives from the host radius, and interactions use host state tokens. The pre-existing sidecar drift was not repaired as part of this feature. No generated image or reference component ships in the runtime bundle.
+Evidence stays in the local working tree, outside this public PR. The latest fixture PNGs, provenance sidecars, `browser-checks.json`, and `native-lifecycle.json` are under `.impeccable/review/ready-for-review/`. Earlier evidence remains under `quiet-frame/` and `native-check-20261002/`. A fresh checkout includes the fixture and runner, not signed-in native browser records or historical captures.
 
-## Native results and remaining checks
+Ready for code review does not mean every product/release check has passed:
 
-The approved check used the exact checkout in a dedicated Arc tab. BB served CSS matching the local build byte-for-byte. The shared expanded frame, inherited system font, keyboard focus, and unsent draft preservation passed. At 1440px with a coarse pointer, the native split-send primary stayed 32px wide, its options stayed 24px, and the compound stayed 56px. Visible standalone touch controls measured at least 44px in both dimensions.
+- Native timeline/user/assistant/code transitions and working/tool-row collapse still need functional coverage.
+- Native new-thread editing, long drafts, attachment/voice pickers, project/access controls, live send/stop, approvals, and errors are not fully exercised.
+- Physical mobile keyboards/drawers, narrow desktop panes, and other named themes including Liquid Glass remain unverified.
+- Direct native-desktop inspection was not performed; native application checks here ran in Arc.
+- Exact generated-mockup fidelity and the Impeccable hero gate remain open. The historical 77% comparison is not a fidelity pass. Native control preservation and the subsequently approved quieter frame remain the implementation priorities.
 
-Emulated 390px and 320px layouts used BB's native compact state with no footer and no horizontal overflow. The draft survived viewport changes. Reduced-motion emulation removed transitions from the form and visible standalone actions. These checks do not prove physical-device keyboard or drawer behavior.
-
-Hot-disable did not remove the activation marker or stylesheet within the 10-second observation window. Refreshing the owned page removed both while preserving the draft. The cause could be host refresh behavior or lifecycle wiring; this check did not establish it. A fresh-page deactivation pass does not prove live teardown. Do not treat native lifecycle acceptance as complete.
-
-The original Beautiful Chat source, enabled state, and bundle hash were restored. Compose Chat was removed. The controlled unsent draft was cleared back to its original empty state, browser emulation was reset, and the owned native tab was closed. No prompts were sent, no threads or agent runs were created, and no theme settings were changed.
-
-Still unverified natively:
-
-- New-thread input, idle empty split-send hiding, and long drafts.
-- Timeline user/assistant/code styling and working/tool-row collapse transitions.
-- Attachment, voice, project/branch/access, live send/stop, approvals, and errors.
-- Dark and named third-party themes, including Liquid Glass. Dark media emulation did not change the host's selected light palette.
-- Mobile drawers, physical-device virtual keyboards, and narrow desktop panes.
-- Reliable hot-disable cleanup without a page refresh.
-
-The earlier fixture server and preview tab are also closed. Evidence remains in the local working tree, outside this PR. The mockup fidelity and hero gates remain open, and no second completion review was run.
-
-Native DOM selectors are not a public BB API and can require updates in later releases.
+The repository's existing `DESIGN.md` and sidecar remain untouched. Native DOM selectors are not a public BB API and may require updates after host releases. No generated image, reference component implementation, or private palette ships at runtime.

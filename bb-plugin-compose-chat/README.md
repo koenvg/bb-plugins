@@ -17,13 +17,13 @@ bb plugin install .
 
 Before enabling Compose Chat, disable Beautiful Chat or another chat restyler yourself. Both plugins target BB's markup; their overlapping CSS is not a supported combination. Compose Chat does not disable or replace any other plugin.
 
-Disable it with the CLI, then reload your BB window if styling remains:
+Disable it with the CLI. A visible, connected BB window removes the styling live:
 
 ```sh
 bb plugin disable compose-chat
 ```
 
-During the native BB 0.44 check, hot-disable left the styling active for at least 10 seconds. Reloading cleared it. The cause remains unresolved; do not assume live cleanup works without a refresh. See [ACCEPTANCE.md](ACCEPTANCE.md).
+BB defers plugin updates in hidden tabs until they become visible. Current native checks confirmed cleanup on visibility return without refreshing. Reload remains a recovery option for a stale or disconnected client. See [ACCEPTANCE.md](ACCEPTANCE.md).
 
 A local installation points to this checkout. Do not retire its worktree while you still use it; install from a durable checkout instead.
 
@@ -33,7 +33,7 @@ A local installation points to this checkout. Do not retire its worktree while y
 - Preserves native compact mode, footer visibility, input layout, focus order, and mobile drawer/keyboard behavior.
 - Adds no autocomplete, character counter, new commands, or replacement composer.
 - Reads no messages or drafts. No settings, network calls, persistent storage, RPC, timers, or observers.
-- A public SDK content script owns only an activation attribute. Its abort and cleanup handlers remove the attribute. Native hot-disable did not trigger observable cleanup in the recorded check; refreshing removed the styling.
+- A public SDK content script owns only an activation attribute. Abort and cleanup remove it. Native checks confirm live cleanup in visible tabs and after hidden tabs resume; BB owns when frontend generations reconcile.
 
 BB's chat DOM is not a public API. The selectors were checked against the native BB 0.44 frontend. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
 
@@ -53,9 +53,11 @@ browser-use --session compose-chat-preview --cdp-url http://127.0.0.1:9222 tab n
 npm run test:browser
 ```
 
-This requires Python 3, the browser-use CLI, and an existing Arc debugging connection. Use `COMPOSE_CHAT_BROWSER_SESSION` for another owned session. The runner refuses an unrelated tab, checks 16 desktop/touch/state cases, and writes synthetic screenshots and JSON results to the repository's `.impeccable/review/` directory. Stop the local server after inspection.
+This requires Python 3, the browser-use CLI, and an existing Arc debugging connection. Use `COMPOSE_CHAT_BROWSER_SESSION` for another owned session. The runner refuses an unrelated tab, activates only its owned fixture tab, checks 16 desktop/touch/state cases, and writes six synthetic screenshots with provenance plus JSON results to the repository's `.impeccable/review/` directory. Stop the local server after inspection.
 
 Set `COMPOSE_CHAT_BROWSER_EVIDENCE_DIR` to keep a revision's evidence separate. `COMPOSE_CHAT_BROWSER_SKIP_SCREENSHOTS=1` runs assertions only and marks every result as screenshot-skipped. This is not a screenshot-validation pass; the default run still rejects invalid PNGs.
+
+Relative evidence paths resolve from the CLI's working directory. Captures use the client's native pixel ratio, so a 1615 × 990 CSS viewport can produce a 3230 × 1980 PNG on a 2x display. The runner records and validates both sizes. Inspect the six images for clipping; a valid PNG alone does not prove visual acceptance.
 
 To rerun only the split-send regression cases:
 
