@@ -106,4 +106,10 @@ export default async function plugin(bb: BbPluginApi) {
   );
 
   bb.background.service("pr-poller", { start: (signal) => service.run(signal) });
+
+  const unloaded = new AbortController();
+  bb.onDispose(() => unloaded.abort());
+  bb.events.on("thread.idle", ({ thread }) => {
+    void service.refreshOnIdle(thread.id, unloaded.signal);
+  });
 }

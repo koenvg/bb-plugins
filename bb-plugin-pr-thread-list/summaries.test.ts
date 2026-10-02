@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { listSummaries } from "./summaries";
+import { listSummaries, summariesFingerprint } from "./summaries";
 
 type Sdk = Parameters<typeof listSummaries>[0];
 
@@ -50,5 +50,18 @@ describe("listSummaries", () => {
   it("still reads summaries when the plugin list cannot be read", async () => {
     const { sdk } = fakeSdk({ listPlugins: () => Promise.reject(new Error("forbidden")) });
     await expect(listSummaries(sdk)).resolves.toMatchObject({ insightAvailable: true, summaries: { withPr: {} } });
+  });
+});
+
+describe("summariesFingerprint", () => {
+  it("is the same for the same summaries in a different key order", () => {
+    const one = { insightAvailable: true, summaries: { a: { version: 1, pr: { number: 1, url: "u" } }, b: { version: 1 } } };
+    const two = { insightAvailable: true, summaries: { b: { version: 1 }, a: { pr: { url: "u", number: 1 }, version: 1 } } };
+    expect(summariesFingerprint(one)).toBe(summariesFingerprint(two));
+  });
+  it("differs when a summary or the insight availability changes", () => {
+    const base = { insightAvailable: true, summaries: { a: { version: 1 } } };
+    expect(summariesFingerprint({ ...base, summaries: { a: { version: 2 } } })).not.toBe(summariesFingerprint(base));
+    expect(summariesFingerprint({ ...base, insightAvailable: false })).not.toBe(summariesFingerprint(base));
   });
 });

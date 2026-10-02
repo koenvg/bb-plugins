@@ -13,6 +13,7 @@ import type { PrResolution, PrTarget } from "../pr-lookup";
 export const POLL_INTERVAL_MS = 60_000;
 export const MAX_PARALLEL_REFRESHES = 4;
 export const RATE_LIMIT_FALLBACK_MS = 5 * 60_000;
+export const IDLE_RETRY_MS = 10_000;
 
 export interface ThreadRef {
   id: string;
@@ -266,6 +267,24 @@ export function createInsightService(deps: InsightServiceDeps) {
       if (resolution.kind !== "pr") return;
       await running.get(prKey(resolution.target.ref))?.done;
       await refreshThread(threadId, resolution.target);
+    },
+
+    async refreshOnIdle(threadId: string, signal: AbortSignal): Promise<void> {
+      try {
+        if (isPaused()) return;
+        let resolution = await deps.resolvePr(threadId);
+        // BB can link a PR that the agent just opened a few seconds after the turn ends.
+        if (resolution.kind === "no_pr") {
+          await sleep(IDLE_RETRY_MS, signal);
+          if (signal.aborted || isPaused()) return;
+          resolution = await deps.resolvePr(threadId);
+        }
+        if (resolution.kind === "error") throw new Error(resolution.message);
+        if (resolution.kind !== "pr" || isSettled(resolution.target) || isPaused()) return;
+        await refreshThread(threadId, resolution.target);
+      } catch (error) {
+        deps.warn(`PR refresh on idle for thread ${threadId} failed: ${errorText(error)}`);
+      }
     },
 
     async run(signal: AbortSignal): Promise<void> {

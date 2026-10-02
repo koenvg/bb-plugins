@@ -6,6 +6,7 @@ import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import type { ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
+import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { failed, linkedPr, ok, setup, type HostCall, type PullRequestResult } from "./test/plugin-harness";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
@@ -524,6 +525,158 @@ describe("pr-poller", () => {
     run.controller.abort();
 
     await expect(run.done).resolves.toBeUndefined();
+  });
+});
+
+describe("refresh on idle", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "Date"],
+      now: new Date("2026-09-24T10:00:00Z"),
+    });
+  });
+
+  async function advance(ms: number) {
+    await vi.advanceTimersByTimeAsync(ms);
+    await settle();
+  }
+
+  async function goIdle(harness: Awaited<ReturnType<typeof setup>>, threadId: string) {
+    await harness.behavior.emitThreadEvent("thread.idle", {
+      thread: makeThreadResponse({ id: threadId }),
+      lastAssistantText: null,
+    });
+    await settle();
+  }
+
+  it("refreshes the PR and writes the summary when its thread goes idle", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+
+    await goIdle(harness, "thr_1");
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+    expect(metadataUpdates(harness)).toEqual([
+      expect.objectContaining({ threadId: "thr_1", set: { prSummary: expect.objectContaining({ version: 1 }) } }),
+    ]);
+  });
+
+  it("joins a poll of the same PR instead of fetching again", async () => {
+    let release: () => void = () => {};
+    const answer = pages();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: (call) => {
+        if (overviewRefreshes(harness).length > 1 || call.method !== "fetchOverviewPage") return answer(call);
+        return new Promise((resolve) => { release = () => resolve(answer(call)); });
+      },
+    });
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+
+    await goIdle(harness, "thr_1");
+    release();
+    await settle();
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+    run.controller.abort();
+  });
+
+  it("tries once more after 10 seconds when bb links the PR late", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {};
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests,
+      host: pages(),
+    });
+
+    await goIdle(harness, "thr_1");
+    pullRequests.env_1 = linkedPr(25337);
+    await advance(9_999);
+    expect(overviewRefreshes(harness)).toHaveLength(0);
+
+    await advance(1);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("stops after the second try when bb still links no PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      host: pages(),
+    });
+
+    await goIdle(harness, "thr_1");
+    await advance(60_000);
+
+    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(2);
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("makes no GitHub request while the service waits on a rate limit", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => failed({ kind: "rate_limited", resetAt: null }),
+    });
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    const callsBefore = harness.experimental_hostRpcCalls.length;
+
+    await goIdle(harness, "thr_1");
+
+    expect(harness.experimental_hostRpcCalls).toHaveLength(callsBefore);
+    run.controller.abort();
+  });
+
+  it("makes no GitHub request for a PR that is merged on GitHub and on bb", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337, "merged") },
+      host: pages(withPrState("MERGED")),
+    });
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+
+    await goIdle(harness, "thr_1");
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+    run.controller.abort();
+  });
+
+  it("logs a warning and does not throw when bb cannot read the PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: { outcome: "unavailable", message: "gh is not signed in" } as PullRequestResult },
+    });
+
+    const { errors } = await harness.behavior.emitThreadEvent("thread.idle", {
+      thread: makeThreadResponse({ id: "thr_1" }),
+      lastAssistantText: null,
+    });
+    await settle();
+
+    expect(errors).toEqual([]);
+    expect(harness.logEntries).toContainEqual({
+      level: "warn",
+      message: "PR refresh on idle for thread thr_1 failed: gh is not signed in",
+    });
+  });
+
+  it("does not try again after the plugin unloads during the wait", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      host: pages(),
+    });
+
+    await goIdle(harness, "thr_1");
+    await harness.dispose();
+    await advance(10_000);
+
+    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(1);
   });
 });
 
