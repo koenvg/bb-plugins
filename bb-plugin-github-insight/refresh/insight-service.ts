@@ -269,12 +269,17 @@ export function createInsightService(deps: InsightServiceDeps) {
     },
 
     async run(signal: AbortSignal): Promise<void> {
+      const aborted = new Promise<void>((resolve) =>
+        signal.addEventListener("abort", () => resolve(), { once: true }),
+      );
       while (!signal.aborted) {
-        try {
-          await poll();
-        } catch (error) {
-          deps.warn(`PR poll failed: ${errorText(error)}`);
-        }
+        // A GitHub call through a disconnected host can hang, and BB marks the
+        // plugin degraded if the service does not return after abort.
+        await Promise.race([
+          poll().catch((error) => deps.warn(`PR poll failed: ${errorText(error)}`)),
+          aborted,
+        ]);
+        if (signal.aborted) return;
         await sleep(Math.max(POLL_INTERVAL_MS, pausedUntil - Date.now()), signal);
       }
     },
