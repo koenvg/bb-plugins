@@ -16,6 +16,13 @@ type Environment = Awaited<
 type ThreadListItem = Awaited<
   ReturnType<BbPluginApi["sdk"]["threads"]["list"]>
 >[number];
+type ProjectListItem = Awaited<
+  ReturnType<BbPluginApi["sdk"]["projects"]["list"]>
+>[number];
+type SystemConfig = Awaited<ReturnType<BbPluginApi["sdk"]["system"]["config"]>>;
+type ThreadOptions = { id: string; environmentId: string | null } & Parameters<
+  typeof makeThreadResponse
+>[0];
 export interface HostCall {
   method: string;
   input: unknown;
@@ -62,9 +69,13 @@ export function failed(failure: GhFailure) {
 }
 
 export async function setup(options: {
-  threads: { id: string; environmentId: string | null }[];
+  threads: ThreadOptions[];
   pullRequests?: Record<string, PullRequestResult>;
   host?: (call: HostCall) => unknown;
+  projects?: Pick<ProjectListItem, "id" | "kind" | "gitRemoteUrl" | "updatedAt">[];
+  primaryHostId?: string | null;
+  spawn?: BbPluginApi["sdk"]["threads"]["spawn"];
+  pluginMetadata?: Record<string, unknown>;
 }) {
   const threadResponse = (id: string) => {
     const thread = options.threads.find((candidate) => candidate.id === id)!;
@@ -75,10 +86,20 @@ export async function setup(options: {
     sdk: {
       threads: {
         get: async ({ threadId }) => threadResponse(threadId),
-        list: async () =>
-          options.threads.map(
-            ({ id }) => threadResponse(id) as unknown as ThreadListItem,
-          ),
+        list: async (args) =>
+          options.threads
+            .filter((thread) => args?.includeHidden === true || thread.visibility !== "hidden")
+            .filter(
+              (thread) =>
+                args?.originPluginId === undefined || thread.originPluginId === args.originPluginId,
+            )
+            .map(({ id }) => threadResponse(id) as unknown as ThreadListItem),
+        getPluginMetadata: async ({ threadId }) =>
+          (options.pluginMetadata?.[threadId] ?? {}) as Awaited<
+            ReturnType<BbPluginApi["sdk"]["threads"]["getPluginMetadata"]>
+          >,
+        archive: async ({ threadId }) => threadResponse(threadId),
+        spawn: options.spawn ?? (async () => makeThreadResponse({ id: "thr_spawned" })),
         updatePluginMetadata: async () => ({}),
         send: async () => ({ ok: true as const, delivery: "sent" as const }),
       },
@@ -86,6 +107,13 @@ export async function setup(options: {
         pullRequest: async ({ environmentId }) =>
           options.pullRequests?.[environmentId] ?? { outcome: "absent" as const },
         get: async () => ({ hostId: "host-1" }) as Environment,
+      },
+      projects: {
+        list: async () => (options.projects ?? []) as ProjectListItem[],
+      },
+      system: {
+        config: async () =>
+          ({ primaryHostId: options.primaryHostId === undefined ? "host-1" : options.primaryHostId }) as SystemConfig,
       },
     },
     experimental_callHostRpc: (call) => {

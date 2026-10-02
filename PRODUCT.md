@@ -34,7 +34,7 @@ Current plugins:
 
 | Plugin | Gap it fills | UI surface |
 | --- | --- | --- |
-| GitHub Insight | PR checks, blockers, and review threads inside a thread | Thread right-panel PR and Review tabs |
+| GitHub Insight | PR checks, blockers, and review threads inside a thread; review requests and review threads started from them | Thread right-panel PR and Review tabs, Pull Requests panel |
 | Threads with PRs | PR status beside each thread | Sidebar thread list |
 | Codex Quota | Codex allowance and reset times | Sidebar badge, footer, dashboard |
 | Tasks Plus | Tracked tasks delegated to agent threads | Tasks panel (list, board, detail) |

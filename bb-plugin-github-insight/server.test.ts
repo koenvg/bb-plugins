@@ -5,9 +5,12 @@ import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
 import readyToEnqueuePage from "./test/fixtures/pr-25693-overview-ready-to-enqueue.json";
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
-import type { ReviewResult } from "./contract";
+import reviewQueue from "./test/fixtures/review-queue.json";
+import type { NewThreadRequest } from "@get-bb/plugin-sdk";
+import type { LoadedReviewQueue, ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import plugin from "./server";
 import { failed, linkedPr, ok, setup, type HostCall, type PullRequestResult } from "./test/plugin-harness";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
@@ -248,6 +251,20 @@ describe("pr-poller", () => {
 
     await advance(1);
     expect(overviewRefreshes(harness)).toHaveLength(2);
+    run.controller.abort();
+  });
+
+  it("refreshes the PR of a hidden thread", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1", visibility: "hidden" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
     run.controller.abort();
   });
 
@@ -1294,6 +1311,225 @@ describe("drafts from the tab", () => {
 
     expect(saved).toEqual({ kind: "error", message: "No pull request for this thread" });
     expect(discarded).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});
+
+function acmeApiPr(number: number): PullRequestResult {
+  const linked = linkedPr(number);
+  return { ...linked, pullRequest: { ...linked.pullRequest, url: `https://github.com/acme/api/pull/${number}` } };
+}
+
+describe("review queue", () => {
+  it("reports loading before the first load and makes no GitHub call", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+
+    expect(await harness.behavior.callRpc("getReviewQueue", {})).toEqual({ kind: "loading" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("loads in the review-queue service, stores and publishes the view, and serves it", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+
+    const run = harness.behavior.runService("review-queue");
+    await settle();
+    run.controller.abort();
+
+    expect(harness.experimental_hostRpcCalls.map((call) => call.method)).toEqual(["fetchReviewQueue"]);
+    const stored = await harness.behavior.callRpc("getReviewQueue", {});
+    expect(stored).toMatchObject({ kind: "ok" });
+    expect(harness.realtimeSignals).toEqual([{ channel: "review-queue.updated", payload: stored }]);
+    expect(harness.experimental_hostRpcCalls).toHaveLength(1);
+  });
+
+  it("serves the stored view after a plugin reload", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const loaded = await harness.behavior.callRpc("refreshReviewQueue", {});
+
+    const reloaded = await harness.lifecycle.reload(plugin);
+
+    expect(await reloaded.harness.behavior.callRpc("getReviewQueue", {})).toEqual(loaded);
+  });
+
+  it("fetches the queue on the primary host and links projects and threads", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1", archivedAt: null, updatedAt: 1 }],
+      pullRequests: { env_1: linkedPr(15) },
+      projects: [{ id: "prj_api", kind: "standard", gitRemoteUrl: "git@github.com:Acme/API.git", updatedAt: 1 }],
+      primaryHostId: "host-7",
+      host: () => ok(reviewQueue),
+    });
+
+    const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
+
+    expect(harness.experimental_hostRpcCalls).toEqual([
+      expect.objectContaining({ method: "fetchReviewQueue", input: {}, hostId: "host-7" }),
+    ]);
+    if (result.kind !== "ok") throw new Error(result.message);
+    const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
+    expect(api.prs.map(({ number, projectIds, threadId }) => ({ number, projectIds, threadId }))).toEqual([
+      { number: 15, projectIds: ["prj_api"], threadId: null },
+      { number: 12, projectIds: ["prj_api"], threadId: null },
+    ]);
+  });
+
+  it("links a hidden thread and lists the hidden review threads of this plugin", async () => {
+    const harness = await setup({
+      threads: [
+        { id: "thr_hidden", environmentId: "env_1", visibility: "hidden", updatedAt: 2 },
+        {
+          id: "thr_review",
+          environmentId: "env_2",
+          visibility: "hidden",
+          originPluginId: "github-insight",
+          createdAt: 5,
+          updatedAt: 1,
+          status: "idle",
+        },
+        { id: "thr_foreign", environmentId: null, visibility: "hidden", originPluginId: "other-plugin" },
+      ],
+      pullRequests: { env_1: acmeApiPr(15) },
+      pluginMetadata: {
+        thr_review: { "review-pr": { v: 1, repo: "acme/api", number: 12, title: "Add caching", url: "https://github.com/acme/api/pull/12" } },
+        thr_foreign: { "review-pr": { v: 1, repo: "acme/api", number: 9, title: "x", url: "https://github.com/acme/api/pull/9" } },
+      },
+      projects: [{ id: "prj_api", kind: "standard", gitRemoteUrl: "git@github.com:Acme/API.git", updatedAt: 1 }],
+      host: () => ok(reviewQueue),
+    });
+
+    const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
+
+    if (result.kind !== "ok") throw new Error(result.message);
+    const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
+    expect(api.prs.map(({ number, threadId }) => ({ number, threadId }))).toEqual([
+      { number: 15, threadId: "thr_hidden" },
+      { number: 12, threadId: "thr_review" },
+    ]);
+    expect(result.myReviews).toEqual([
+      {
+        threadId: "thr_review",
+        repo: "acme/api",
+        number: 12,
+        title: "Add caching",
+        url: "https://github.com/acme/api/pull/12",
+        status: "idle",
+      },
+    ]);
+  });
+
+  it("reports the gh failure text", async () => {
+    const harness = await setup({ threads: [], host: () => failed({ kind: "gh_logged_out" }) });
+
+    const result = await harness.behavior.callRpc("refreshReviewQueue", {});
+
+    expect(result).toEqual({ kind: "error", message: "gh not logged in", lastGood: null });
+  });
+
+  it("reports no host available without a primary host", async () => {
+    const harness = await setup({ threads: [], primaryHostId: null });
+
+    const result = await harness.behavior.callRpc("refreshReviewQueue", {});
+
+    expect(result).toEqual({ kind: "error", message: "No host available", lastGood: null });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+});
+
+describe("startReview", () => {
+  const request = {
+    projectId: "prj_api",
+    providerId: "claude-code",
+    model: "opus",
+    reasoningLevel: "high",
+    permissionMode: "default",
+    executionInputSources: {},
+    environment: { type: "host", hostId: "host-1", workspace: { type: "managed-worktree", baseBranch: { kind: "default" } } },
+    input: [{ type: "text", text: "gh pr checkout 15", mentions: [] }],
+  } as unknown as NewThreadRequest;
+  const pr = { repo: "acme/api", number: 15, title: "Add rate limits", url: "https://github.com/acme/api/pull/15" };
+
+  it("spawns a hidden thread from the composer request with the review-pr metadata", async () => {
+    const spawned: unknown[] = [];
+    const harness = await setup({
+      threads: [],
+      spawn: async (args) => {
+        spawned.push(args);
+        return makeThreadResponse({ id: "thr_review" });
+      },
+    });
+
+    const result = await harness.behavior.callRpc("startReview", { pr, request });
+
+    expect(spawned).toEqual([
+      {
+        ...request,
+        visibility: "hidden",
+        pluginMetadata: { "review-pr": { v: 1, ...pr } },
+        origin: "plugin",
+        originPluginId: "github-insight",
+      },
+    ]);
+    expect(result).toEqual({ threadId: "thr_review" });
+  });
+
+  it("publishes the queue with the new thread in My reviews without a GitHub call", async () => {
+    const harness = await setup({
+      threads: [],
+      host: () => ok(reviewQueue),
+      spawn: async () => makeThreadResponse({ id: "thr_review" }),
+    });
+    await harness.behavior.callRpc("refreshReviewQueue", {});
+    harness.sdk.stub("threads.list", async () => [
+      makeThreadResponse({ id: "thr_review", originPluginId: "github-insight", visibility: "hidden" }),
+    ]);
+    harness.sdk.stub("threads.getPluginMetadata", async () => ({ "review-pr": { v: 1, ...pr } }));
+
+    await harness.behavior.callRpc("startReview", { pr, request });
+    await settle();
+
+    expect(harness.experimental_hostRpcCalls).toHaveLength(1);
+    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    expect(update.kind === "ok" && update.myReviews.map((review) => review.threadId)).toEqual(["thr_review"]);
+  });
+
+  it("rejects when spawn fails", async () => {
+    const harness = await setup({
+      threads: [],
+      spawn: async () => {
+        throw new Error("project not found");
+      },
+    });
+
+    await expect(harness.behavior.callRpc("startReview", { pr, request })).rejects.toThrow("project not found");
+  });
+});
+
+describe("archiveReview", () => {
+  const reviewPr = { v: 1, repo: "acme/api", number: 15, title: "Add rate limits", url: "https://github.com/acme/api/pull/15" };
+
+  it("archives a thread with review-pr metadata", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_review", environmentId: null }],
+      pluginMetadata: { thr_review: { "review-pr": reviewPr } },
+    });
+
+    const result = await harness.behavior.callRpc("archiveReview", { threadId: "thr_review" });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(harness.sdk.callsTo("threads.archive").map(([args]) => args)).toEqual([
+      expect.objectContaining({ threadId: "thr_review" }),
+    ]);
+  });
+
+  it("refuses a thread without review-pr metadata", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_other", environmentId: null }],
+      pluginMetadata: { thr_other: { prSummary: {} } },
+    });
+
+    const result = await harness.behavior.callRpc("archiveReview", { threadId: "thr_other" });
+
+    expect(result).toEqual({ kind: "error", message: "This thread is not a review thread" });
+    expect(harness.sdk.callsTo("threads.archive")).toHaveLength(0);
   });
 });
 

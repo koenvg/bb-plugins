@@ -12,6 +12,7 @@ import {
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
+import { reviewQueueArgs } from "./github/review-queue-query";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
 import { readTextFile } from "./read-text-file";
@@ -32,6 +33,7 @@ export default experimental_defineHostEntry({
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
     setThreadResolved: (request, context) =>
       runGhJson(setThreadResolvedArgs(request), context.signal),
+    fetchReviewQueue: (_request, context) => runGhJson(reviewQueueArgs(), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>

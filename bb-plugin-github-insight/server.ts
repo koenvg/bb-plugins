@@ -5,11 +5,15 @@ import {
   type InsightUpdated,
 } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
+import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
+import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
+import { parseReviewQueue } from "./core/review-queue";
 import { createMergeWrites } from "./merge/merge-writes";
 import { createPrLookup } from "./pr-lookup";
+import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
 import { createDraftStore } from "./review/draft-store";
 import { createReviewCli } from "./review/review-cli";
@@ -29,7 +33,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   const service = createInsightService({
     listThreads: async () =>
-      (await bb.sdk.threads.list()).filter((thread) => thread.archivedAt === null),
+      (await bb.sdk.threads.list({ includeHidden: true })).filter((thread) => thread.archivedAt === null),
     resolvePr,
     resolveEnvironmentPr,
     fetchInsight: ({ ref, hostId }) =>
@@ -82,6 +86,32 @@ export default async function plugin(bb: BbPluginApi) {
     warn: (message) => bb.log.warn(message),
   });
 
+  const reviewQueue = createReviewQueueService({
+    primaryHostId: async () => (await bb.sdk.system.config()).primaryHostId,
+    fetchReviewQueue: async (hostId) =>
+      parseReviewQueue(unwrap(await host.call("fetchReviewQueue", {}, { hostId }))),
+    listProjects: () => bb.sdk.projects.list(),
+    listThreads: () => bb.sdk.threads.list({ includeHidden: true }),
+    listReviewThreads: () => bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
+    readPluginMetadata: (threadId) => bb.sdk.threads.getPluginMetadata({ threadId }),
+    spawnReviewThread: async (pr, request) => {
+      const thread = await bb.sdk.threads.spawn({
+        ...request,
+        visibility: "hidden",
+        pluginMetadata: reviewPrMetadata(pr),
+      });
+      return thread.id;
+    },
+    archiveThread: async (threadId) => {
+      await bb.sdk.threads.archive({ threadId });
+    },
+    resolveEnvironmentPr,
+    kv: bb.storage.kv,
+    publish: (result) => bb.realtime.publish(REVIEW_QUEUE_UPDATED_CHANNEL, result),
+    warn: (message) => bb.log.warn(message),
+    now: Date.now,
+  });
+
   const merges = createMergeWrites({
     cachedPr: (threadId) => service.cachedPr(threadId),
     mergePullRequest: async ({ hostId }, request) =>
@@ -106,6 +136,10 @@ export default async function plugin(bb: BbPluginApi) {
     setResolved: (request) => writes.setResolved(request),
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
+    getReviewQueue: () => reviewQueue.getReviewQueue(),
+    refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
+    startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
+    archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     runMergeAction: (request) => merges.runMergeAction(request),
   });
 
@@ -118,6 +152,7 @@ export default async function plugin(bb: BbPluginApi) {
   );
 
   bb.background.service("pr-poller", { start: (signal) => service.run(signal) });
+  bb.background.service("review-queue", { start: (signal) => reviewQueue.run(signal) });
 
   const unloaded = new AbortController();
   bb.onDispose(() => unloaded.abort());

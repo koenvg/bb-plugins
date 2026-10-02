@@ -1,6 +1,6 @@
 # bb-plugin-github-insight
 
-Shows the merge blockers, reviewers, and checks of a thread's pull request in a **PR** tab in the thread's right panel. A **Review** tab shows the PR's diff from GitHub, with the review threads on their lines.
+Shows the merge blockers, reviewers, and checks of a thread's pull request in a **PR** tab in the thread's right panel. A **Review** tab shows the PR's diff from GitHub, with the review threads on their lines. A **Pull Requests** nav panel lists the open PRs that wait for your review, starts a hidden review thread for a PR, and lists your review threads in "My reviews".
 
 ## How it works
 
@@ -30,7 +30,53 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
   | no entry | none | none |
 - `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`, or a "Queued" label), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `bannerState` in `core/banner.ts` picks the row (see "Merge and enqueue"). The text opens the PR tab.
+- `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects and the linked thread to each PR, and keeps the result in plugin kv storage.
 - `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
+
+## Pull Requests panel
+
+```
+review-queue service --fetchReviewQueue--> primary host (gh api graphql)
+      |  (at start, every 5 minutes, and on refreshReviewQueue)
+      +--> kv "review-queue" --getReviewQueue--> app (Pull Requests panel)
+      +--> review-queue.updated -------------------^
+
+app --startReview--> server --> bb.sdk.threads.spawn (hidden, review-pr metadata)
+app --archiveReview--> server --> bb.sdk.threads.archive
+```
+
+- One `gh api graphql` call per load with one search (`github/review-queue-query.ts`): `is:pr is:open review-requested:@me`, first 50 results. It also matches requests to your teams.
+- `core/review-queue.ts` groups the PRs by repo and sorts each group by last update, newest first. When GitHub reports more than 50, the list shows "Showing first 50".
+- The `review-queue` background service loads at start and then every 5 minutes, also while the panel is closed. Only one load runs at a time. A Refresh during a load waits for it and then starts one more.
+- After each load, the service writes the result to the kv entry `review-queue` (`{ v: 1, result }`) and publishes it on `review-queue.updated`. A failed load keeps the last good lists in the entry. The entry stays after a bb restart. An entry of another version reads as no entry.
+- `getReviewQueue` returns the stored result at once and never waits for GitHub. Before the first load, it returns `loading`, and the panel shows "Loading pull requests…" until the first result is published.
+- The panel reads the stored result when it opens and shows each published result. It has no timer of its own. Refresh calls `refreshReviewQueue`, which loads at once. The old lists stay visible until the new result arrives.
+- `startReview` and `archiveReview` build "My reviews" and the thread links again from the stored GitHub data, with no `gh` call, then store and publish the result.
+- A failed load shows the reason and "Retry". The last good lists stay visible with their load time. With no primary host, the panel shows "No host available".
+- A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
+- The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions.
+- A card shows "Open thread" when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. Else a review request in a repo with a bb project shows "Review in thread". Every card has "Open on GitHub".
+- "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree from the default branch, and the prompt from `core/review-prompt.ts`. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, and not post to GitHub. Submit starts the thread and opens it. After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
+
+### Hidden review threads
+
+- `startReview` spawns the thread with `visibility: "hidden"`, so it is not in the sidebar thread list. It also writes the plugin metadata key `review-pr`: `{ v: 1, repo, number, title, url }` (`core/review-pr.ts`). A missing entry, a malformed entry, or another version reads as no review thread.
+- "My reviews", at the top of the panel, lists the unarchived threads this plugin started that have a valid `review-pr` entry, newest first. It keeps a thread after its PR leaves "Review requests". Each row shows the repo, number, title, and thread status (Running, Needs you, Idle, or Error), with "Open thread" and "Archive". The list is collapsible and shows "No review threads" when empty.
+- "Archive" calls `archiveReview`. The server archives the thread only when it has a `review-pr` entry, so the panel cannot archive other threads.
+- The queue service and the `pr-poller` list threads with `includeHidden: true`, so the PR and Review tabs of a hidden thread refresh like on a visible thread.
+- To find a review thread without the plugin, run `bb thread list --include-hidden`. To show it in the sidebar again, run `bb thread update <thread-id> --visibility visible`.
+
+### Check it on a fresh install
+
+1. Run `gh auth status` on the primary host. It must show a logged-in user.
+2. Install the plugin (see "Develop") and open **Pull Requests** in the bb sidebar.
+3. "Review requests" shows the same PRs as `https://github.com/pulls/review-requested`, with its count. The "My reviews" header row shows Refresh and "Updated <time> ago".
+4. On a review request in a repo that has a bb project, select "Review in thread". The composer shows that project, a new worktree, and the review prompt. Submit it.
+5. bb opens the new thread. It is not in the sidebar thread list. The agent runs `gh pr checkout <n>`. Then the PR and Review tabs show that PR.
+6. Go back to **Pull Requests**. "My reviews" shows the thread with its status, and the card shows "Open thread".
+7. Select "Archive" on the row. bb archives the thread, and the row leaves "My reviews".
+8. Run `gh auth logout` on the primary host and select Refresh. The panel shows "gh not logged in", "Retry", and the last lists with their load time. Log in again and select "Retry".
+9. Restart bb and open **Pull Requests** at once. The panel shows the lists from before the restart.
 
 ## PR summary
 
@@ -119,6 +165,7 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 ## Requirements
 
 - `gh` 2.48 or later (for `--slurp`), installed and logged in on each host that runs threads.
+- For the Pull Requests panel: `gh` logged in on bb's primary host.
 
 ## Develop
 

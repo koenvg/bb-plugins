@@ -1,11 +1,23 @@
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
 import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
+import { reviewPrSchema } from "./core/review-pr";
+import { loadedReviewQueueSchema, reviewQueueResultSchema } from "./core/review-queue-view";
 import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
+
+export type {
+  LinkedQueueList,
+  LinkedQueuePr,
+  LoadedReviewQueue,
+  MyReview,
+  ReviewQueueResult,
+  ReviewQueueView,
+  ReviewThreadStatus,
+} from "./core/review-queue-view";
 
 const prRequestFields = {
   owner: z.string().min(1),
@@ -92,6 +104,10 @@ export const hostContract = defineRpcContract({
   },
   setThreadResolved: {
     input: setThreadResolvedRequestSchema,
+    output: ghResultSchema,
+  },
+  fetchReviewQueue: {
+    input: z.object({}).strict(),
     output: ghResultSchema,
   },
   mergePullRequest: {
@@ -185,6 +201,18 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
+const newThreadRequestSchema = z.custom<NewThreadRequest>(
+  (value) => typeof value === "object" && value !== null,
+);
+
+const startReviewRequestSchema = z
+  .object({ pr: reviewPrSchema, request: newThreadRequestSchema })
+  .strict();
+export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
+
+export const startReviewResultSchema = z.object({ threadId: z.string() });
+export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
+
 const runMergeActionRequestSchema = z
   .object({
     threadId: z.string().min(1),
@@ -203,5 +231,9 @@ export const rpcContract = defineRpcContract({
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
+  getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
+  refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
+  startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
+  archiveReview: { input: threadRequestSchema, output: actionResultSchema },
   runMergeAction: { input: runMergeActionRequestSchema, output: actionResultSchema },
 });

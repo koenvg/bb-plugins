@@ -1,0 +1,31 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`reviewQueueArgs > asks for the review requests in one GraphQL search 1`] = `
+[
+  "api",
+  "graphql",
+  "-f",
+  "query=
+query {
+  reviewRequests: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
+  issueCount
+  nodes {
+    ... on PullRequest {
+      number
+      title
+      url
+      isDraft
+      createdAt
+      updatedAt
+      author { login }
+      repository { nameWithOwner }
+      headRefName
+      reviewDecision
+      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+    }
+  }
+}
+}
+",
+]
+`;
