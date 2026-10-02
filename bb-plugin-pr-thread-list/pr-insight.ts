@@ -10,6 +10,10 @@ export type BlockerCode = typeof BLOCKERS[number];
 const STATES = ["open", "draft", "merged", "closed"] as const;
 export type PrState = typeof STATES[number];
 
+const QUEUE_STATES = ["queued", "awaiting_checks", "merging", "failed"] as const;
+export type MergeQueueState = typeof QUEUE_STATES[number];
+export interface MergeQueue { position: number; state: MergeQueueState }
+
 export interface PrSummary {
   number: number;
   url: string;
@@ -21,6 +25,7 @@ export interface PrSummary {
   blockers: BlockerCode[];
   failedNames: string[];
   pendingNames: string[];
+  mergeQueue: MergeQueue | null;
 }
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -29,6 +34,13 @@ const count = (value: unknown) => typeof value === "number" && Number.isInteger(
 const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 const isBlocker = (value: unknown): value is BlockerCode => BLOCKERS.includes(value as BlockerCode);
 const isState = (value: unknown): value is PrState => STATES.includes(value as PrState);
+const isQueueState = (value: unknown): value is MergeQueueState => QUEUE_STATES.includes(value as MergeQueueState);
+
+function readMergeQueue(value: unknown): MergeQueue | null {
+  const entry = record(value);
+  const position = count(entry?.position);
+  return position !== null && isQueueState(entry?.state) ? { position, state: entry.state } : null;
+}
 
 export function readSummary(value: unknown, now: number): PrSummary | null {
   const summary = record(value);
@@ -48,5 +60,6 @@ export function readSummary(value: unknown, now: number): PrSummary | null {
     failedChecks, passedChecks, runningChecks, pendingReviews,
     blockers: blockers.filter(isBlocker),
     failedNames: strings(checks.failedNames), pendingNames: strings(reviewers.pendingNames),
+    mergeQueue: pr.state === "open" ? readMergeQueue(summary.mergeQueue) : null,
   };
 }

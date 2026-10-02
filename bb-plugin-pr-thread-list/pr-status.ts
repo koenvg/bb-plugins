@@ -1,8 +1,9 @@
-import type { BlockerCode, PrSummary } from "./pr-insight";
+import type { BlockerCode, MergeQueueState, PrSummary } from "./pr-insight";
 
 type Tone = "neutral" | "waiting" | "problem" | "ready" | "merged";
 type Reason = "draft" | "merged" | "closed" | "checks_running" | "checks_failed" | "review" | "changes_requested"
-  | "unresolved_threads" | "conflicts" | "behind" | "blocked" | "ready";
+  | "unresolved_threads" | "conflicts" | "behind" | "blocked" | "ready"
+  | "queued" | "queue_checks_running" | "merging" | "queue_failed";
 
 export interface PrMark {
   icon: string;
@@ -24,7 +25,9 @@ export interface PrView {
   label: string;
 }
 
-const REASONS: Record<Reason, { status: string; tone: Tone; lead?: string; mark?: string; word?: string; spin?: true }> = {
+const REASONS: Record<Reason, {
+  status: string; tone: Tone; lead?: string; mark?: string; word?: string; spin?: true; numbered?: true;
+}> = {
   draft: { status: "draft", tone: "neutral", lead: "GitPullRequestDraft" },
   merged: { status: "merged", tone: "merged", lead: "GitMerge", word: "Merged" },
   closed: { status: "closed", tone: "neutral", lead: "GitPullRequestClosed" },
@@ -37,6 +40,14 @@ const REASONS: Record<Reason, { status: string; tone: Tone; lead?: string; mark?
   behind: { status: "branch out of date", tone: "waiting" },
   blocked: { status: "merge blocked", tone: "problem", mark: "Lock", word: "Blocked" },
   ready: { status: "ready to merge", tone: "ready", word: "Ready" },
+  queued: { status: "queued", tone: "waiting", word: "Queued", numbered: true },
+  queue_checks_running: { status: "queue checks running", tone: "waiting", mark: "Spinner", spin: true, word: "Queued", numbered: true },
+  merging: { status: "merging", tone: "ready", word: "Merging" },
+  queue_failed: { status: "merge queue failed", tone: "problem", mark: "CircleX", word: "Queue failed" },
+};
+
+const QUEUE_REASON: Record<MergeQueueState, Reason> = {
+  queued: "queued", awaiting_checks: "queue_checks_running", merging: "merging", failed: "queue_failed",
 };
 
 const BLOCKER_REASON: Record<BlockerCode, Reason> = {
@@ -49,6 +60,7 @@ const REASON_ORDER: Reason[] = ["conflicts", "checks_failed", "changes_requested
 
 function reasonsFor(pr: PrSummary): Reason[] {
   if (pr.state !== "open") return [pr.state];
+  if (pr.mergeQueue) return [QUEUE_REASON[pr.mergeQueue.state]];
   const named = new Set(pr.blockers.map((code) => BLOCKER_REASON[code]));
   const reasons = REASON_ORDER.filter((reason) => named.has(reason));
   return reasons.length ? reasons : ["ready"];
@@ -57,6 +69,10 @@ function reasonsFor(pr: PrSummary): Reason[] {
 const plural = (value: number, one: string, many: string) => `${value} ${value === 1 ? one : many}`;
 const names = (prefix: string, list: string[]) => list.length ? [`${prefix}: ${list.join(", ")}`] : [];
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+function numbered(reason: Reason, text: string, pr: PrSummary): string {
+  return REASONS[reason].numbered && pr.mergeQueue ? `${text} #${pr.mergeQueue.position}` : text;
+}
 
 type Counted = { count: number; text: string; details: string[] };
 
@@ -87,11 +103,12 @@ function checksState(pr: PrSummary): ChecksState {
 
 export function presentPullRequest(pr: PrSummary): PrView {
   const reasons = reasonsFor(pr);
-  const first = REASONS[reasons[0]!];
+  const firstReason = reasons[0]!;
+  const first = REASONS[firstReason];
   const parts = reasons.map((reason) => {
     const { status, tone, mark, spin = false } = REASONS[reason];
     const count = counted(reason, pr);
-    const text = count?.text ?? status;
+    const text = count?.text ?? numbered(reason, status, pr);
     return { text, mark: mark ? { icon: mark, count: count?.count ?? null, spin, tone,
       title: [sentence(text), ...count?.details ?? []].join("\n") } : null };
   });
@@ -99,7 +116,7 @@ export function presentPullRequest(pr: PrSummary): PrView {
   return {
     lead: first.lead ?? "GitPullRequest", checks,
     leadTitle: [`PR #${pr.number}`, CHECKS_TEXT[checks]].filter(Boolean).join("\n"),
-    word: first.word ?? null, tone: first.tone,
+    word: first.word ? numbered(firstReason, first.word, pr) : null, tone: first.tone,
     marks: parts.flatMap((part) => part.mark ? [part.mark] : []),
     label: `PR #${pr.number}: ${parts.map((part) => part.text).join(", ")}`,
   };

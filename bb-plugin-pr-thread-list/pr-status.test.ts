@@ -5,7 +5,7 @@ import type { BlockerCode, PrState, PrSummary } from "./pr-insight";
 const pr = (state: PrState, blockers: BlockerCode[] = [], overrides: Partial<PrSummary> = {}): PrSummary => ({
   number: 42, url: "https://example.com/pull/42", state,
   failedChecks: 0, passedChecks: 0, runningChecks: 0, pendingReviews: 0,
-  blockers, failedNames: [], pendingNames: [], ...overrides,
+  blockers, failedNames: [], pendingNames: [], mergeQueue: null, ...overrides,
 });
 
 const icons = (view: ReturnType<typeof presentPullRequest>) => view.marks.map((mark) => mark.icon);
@@ -51,6 +51,26 @@ describe("pull request presentation", () => {
       { icon: "Spinner", count: 6, spin: true, tone: "waiting", title: "6 checks running" },
       { icon: "Eye", count: 2, spin: false, tone: "waiting", title: "2 reviews pending\nWaiting on: ana, core-team (team)" },
     ]);
+  });
+  it.each([
+    ["queued", "Queued #3", "waiting", [], "queued #3"],
+    ["awaiting_checks", "Queued #3", "waiting", ["Spinner"], "queue checks running #3"],
+    ["merging", "Merging", "ready", [], "merging"],
+    ["failed", "Queue failed", "problem", ["CircleX"], "merge queue failed"],
+  ] as const)("maps merge queue state %s to its word, tone, and marks", (state, word, tone, marks, status) => {
+    const view = presentPullRequest(pr("open", [], { passedChecks: 4, mergeQueue: { position: 3, state } }));
+    expect(view).toMatchObject({ lead: "GitPullRequest", word, tone, label: `PR #42: ${status}` });
+    expect(icons(view)).toEqual(marks);
+  });
+  it("gives the queue marks their tooltips", () => {
+    const running = presentPullRequest(pr("open", [], { mergeQueue: { position: 3, state: "awaiting_checks" } }));
+    const failed = presentPullRequest(pr("open", [], { mergeQueue: { position: 3, state: "failed" } }));
+    expect(running.marks).toEqual([{ icon: "Spinner", count: null, spin: true, tone: "waiting", title: "Queue checks running #3" }]);
+    expect(failed.marks).toEqual([{ icon: "CircleX", count: null, spin: false, tone: "problem", title: "Merge queue failed" }]);
+  });
+  it("shows a queued PR as queued, not ready or blocked", () => {
+    const view = presentPullRequest(pr("open", ["blocked", "review_required"], { mergeQueue: { position: 1, state: "queued" } }));
+    expect(view).toMatchObject({ word: "Queued #1", tone: "waiting", marks: [], label: "PR #42: queued #1" });
   });
   it("counts failed checks and lists their names", () => {
     const failed = presentPullRequest(pr("open", ["checks_failed"], { failedChecks: 2, failedNames: ["lint", "e2e"] }));

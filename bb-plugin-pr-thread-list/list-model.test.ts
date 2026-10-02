@@ -91,7 +91,7 @@ describe("visibleItems", () => {
 
   describe("attention tabs", () => {
     const running: PrSummary = { number: 1, url: "https://example.com/pull/1", state: "open", failedChecks: 0, passedChecks: 0,
-      runningChecks: 1, pendingReviews: 0, blockers: ["checks_running"], failedNames: [], pendingNames: [] };
+      runningChecks: 1, pendingReviews: 0, blockers: ["checks_running"], failedNames: [], pendingNames: [], mergeQueue: null };
     const other = { ...project, id: "p2", name: "Other project" };
     const tabRows = [
       thread({ id: "idle", displayTitle: "Idle" }),
