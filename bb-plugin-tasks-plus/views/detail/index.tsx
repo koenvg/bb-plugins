@@ -48,7 +48,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface DetailViewProps {
   taskKey: string;
-  onMissing?: (taskKey: string) => void;
+  onMissing?: (taskKey: string, stillMissing: () => boolean) => void;
+  reconcileRevision?: number;
 }
 
 type PropertiesLayout = "inline" | "rail";
@@ -637,23 +638,36 @@ export function DetailView(props: DetailViewProps) {
   );
 }
 
-function SessionDetailView({ taskKey, onMissing }: DetailViewProps) {
+function SessionDetailView({
+  taskKey,
+  onMissing,
+  reconcileRevision,
+}: DetailViewProps) {
   const committedKey = useSafeTaskTarget(taskKey);
   return (
     <DetailQuery
       key={committedKey}
       taskKey={committedKey}
       onMissing={onMissing}
+      reconcileRevision={reconcileRevision}
     />
   );
 }
-function DetailQuery({ taskKey, onMissing }: DetailViewProps) {
+function DetailQuery({
+  taskKey,
+  onMissing,
+  reconcileRevision,
+}: DetailViewProps) {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
     ["tasks:changed"],
     [taskKey],
   );
 
+  const latestQuery = useRef(query);
+  useLayoutEffect(() => {
+    latestQuery.current = query;
+  });
   // A confirmed deletion still crosses the save barrier. Keep this keyed query's
   // originating editor mounted until the workspace accepts clearing its identity.
   const previousTask = useRef<Task | null>(null);
@@ -665,8 +679,20 @@ function DetailQuery({ taskKey, onMissing }: DetailViewProps) {
     (onMissing && query.data === null ? previousTask.current : null);
   useEffect(() => {
     if (!query.isLoading && query.error === null && query.data === null)
-      onMissing?.(taskKey);
-  }, [query.isLoading, query.error, query.data, onMissing, taskKey]);
+      onMissing?.(taskKey, () => {
+        const latest = latestQuery.current;
+        return (
+          !latest.isLoading && latest.error === null && latest.data === null
+        );
+      });
+  }, [
+    query.isLoading,
+    query.error,
+    query.data,
+    onMissing,
+    taskKey,
+    reconcileRevision,
+  ]);
   if (query.data === undefined) {
     return query.error ? (
       <div className="flex h-full items-center justify-center p-6 text-sm text-destructive">

@@ -48,10 +48,12 @@ function RouteOutlet({
   route,
   splitUsable,
   boardUsable,
+  noProjects,
 }: {
   route: ResolvedTasksRoute;
   splitUsable: boolean;
   boardUsable: boolean;
+  noProjects: boolean;
 }) {
   switch (route.kind) {
     case "entry":
@@ -59,7 +61,12 @@ function RouteOutlet({
     case "all":
     case "active":
       return (
-        <BrowseWorkspace key={route.kind} route={route} split={splitUsable} />
+        <BrowseWorkspace
+          key={route.kind}
+          route={route}
+          split={splitUsable}
+          noProjects={noProjects}
+        />
       );
     case "manage":
       return <ManagePanel />;
@@ -75,6 +82,7 @@ function RouteOutlet({
           key={route.projectId}
           route={route}
           split={splitUsable}
+          noProjects={noProjects}
         />
       );
   }
@@ -128,7 +136,17 @@ function TasksAppShellContent({
   }, [route]);
   const backFromTask = () =>
     navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
-  const noProjects = projects.data !== undefined && projects.data.length === 0;
+  const noProjects =
+    !projects.isLoading &&
+    projects.error === null &&
+    projects.data?.length === 0;
+  // A selected browse editor must accept clearing before inventory can replace
+  // its outlet. Stale/failed inventory is never evidence of project removal.
+  const hasBrowseSelection =
+    (route.kind === "all" ||
+      route.kind === "active" ||
+      route.kind === "project") &&
+    route.taskKey !== undefined;
   const newTaskProjectId = route.kind === "project" ? route.projectId : null;
 
   const [helpOpen, setHelpOpen] = useState(false);
@@ -177,7 +195,10 @@ function TasksAppShellContent({
         <div className="min-h-0 flex-1 overflow-auto">
           {route.kind === "entry" ? (
             <BrowseEntryState projects={projects} />
-          ) : noProjects && route.kind !== "task" && route.kind !== "manage" ? (
+          ) : noProjects &&
+            !hasBrowseSelection &&
+            route.kind !== "task" &&
+            route.kind !== "manage" ? (
             <EmptyState
               icon="ListTodo"
               title="No projects yet"
@@ -194,6 +215,7 @@ function TasksAppShellContent({
               route={route}
               boardUsable={boardUsable}
               splitUsable={splitUsable}
+              noProjects={noProjects}
             />
           )}
         </div>

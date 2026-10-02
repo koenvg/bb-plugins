@@ -15,9 +15,35 @@ owned by `useBrowseRoute`, downstream of the shell's `useSafeTaskTarget`.
 
 Initial route selection waits for a settled visible list. `validatedKey` records
 that validation, not another focused or pending selection. Detail lookup stays in
-the existing keyed `DetailView`. Confirmed absence requests safe clearing. If a
-loaded ticket disappears while saving, its originating editor remains mounted
-until clearing succeeds, including failed-draft retry.
+the existing keyed `DetailView`. The list then reports ongoing removal through
+`onSelectionUnavailable(key, stillUnavailable)`. The workspace requests clearing
+through the existing session and rechecks that predicate inside the accepted
+callback. A newer loading, failed, or restored snapshot cannot clear selection.
+List and detail confirmations of the same removal produce one route replacement.
+
+`onRequestContextChange(commit)` stages filters, sort, expansion, preference
+writes, and row edits behind the same barrier. It never calls guarded navigation
+inside an accepted callback. Scope changes still use the shell's accepted route.
+A failed save leaves the original controls, selected row, and editor available.
+Each accepted non-selection context commit increments `reconcileRevision`, passed
+to list and detail. Their effects then re-evaluate confirmed absence. This keeps a
+later collapse or filter from consuming the session's latest-destination slot and
+silently losing an earlier removal condition. Failed commits do not increment it,
+so reconciliation cannot create an automatic failed-save retry loop. Explicit
+selection and destination changes still win; they do not trigger this signal.
+
+The shell only accepts empty project inventory after a successful settled result.
+If a browse selection exists, it keeps that outlet mounted and passes `noProjects`
+to the workspace instead of replacing the editor. The workspace requests safe
+clearing; the shell shows its no-project state only after the route accepts it.
+The list's `scopeUnavailable` flag marks these retained rows as unsettled.
+
+For server-driven removal, `views/list/selection-tree.ts` retains the last rendered
+grouped tree containing the committed key until the shell accepts clearing.
+It does not cache queries or choose a replacement ticket. While retained, the
+reported order is unsettled. A newer result restoring the row releases the tree
+and invalidates a pending removal. Detail similarly retains its originating
+editor and rechecks confirmed absence before clearing.
 
 `TaskLinkNavigationContext` is scoped to the embedded detail. Existing subtask,
 parent, and dependency navigation uses it through `useTasksNavigation`. A visible
@@ -71,8 +97,10 @@ A pane registration only runs when focus belongs to that pane; visible list
 movement also retains the old unfocused-panel default. Existing global editing,
 modifier, composition, overlay, and outside-panel guards are unchanged.
 
-- BBP-13 owns ongoing selection reconciliation after filtering, collapse, edits,
-  refresh, deletion, and scope changes, including staging list context mutations.
+- BBP-13 supplies ongoing reconciliation and staged list context changes. The
+  BBP-14 contract remains `onVisibleOrderChange({ keys, settled })`; keys always
+  match rendered rows. Use only settled reports for movement and ordered paging.
+  Retained origin rows during a blocked removal are deliberately unsettled.
 - BBP-14 owns preview movement, Enter/Escape focus transfer, selected-row focus
   rules, ordered paging, and updated shortcut help. Existing j/k still move row
   focus until that slice; they do not invent a separate selected index here.

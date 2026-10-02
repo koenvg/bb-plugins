@@ -111,3 +111,64 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
   );
   await waitFor(() => expect(report.mock.calls.at(-1)?.[0].settled).toBe(true));
 });
+
+it("reports only the retained rendered tree as unsettled while removal waits for acceptance", async () => {
+  const a = makeTask({ id: "a", key: "TSK-1", title: "Origin" });
+  const b = makeTask({ id: "b", key: "TSK-2", title: "Other" });
+  let records = [a, b];
+  const report = vi.fn<(order: VisibleTaskOrder) => void>();
+  const unavailable = vi.fn();
+  const props = {
+    projectId: null,
+    selectedTaskKey: "TSK-1" as string | null,
+    onVisibleOrderChange: report,
+    onSelectionUnavailable: unavailable,
+  };
+  const slot = renderSlot({ component: List }, props, {
+    rpc: {
+      listProjects: () => ({ projects: [] }),
+      listLabels: () => ({ labels: [] }),
+      listTaskThreads: () => ({ taskThreads: [] }),
+      listTasks: () => ({ tasks: records, nextCursor: null }),
+    },
+  });
+  await waitFor(() =>
+    expect(report.mock.calls.at(-1)?.[0]).toEqual({
+      keys: ["TSK-1", "TSK-2"],
+      settled: true,
+    }),
+  );
+  slot.lifecycle.rerender(<List {...props} scopeUnavailable />);
+  await waitFor(() =>
+    expect(report.mock.calls.at(-1)?.[0]).toEqual({
+      keys: ["TSK-1", "TSK-2"],
+      settled: false,
+    }),
+  );
+  expect(unavailable).not.toHaveBeenCalled();
+  slot.lifecycle.rerender(<List {...props} />);
+  records = [b];
+  await slot.behavior.emitRealtime("tasks:changed", {});
+  await waitFor(() => expect(unavailable).toHaveBeenCalledTimes(1));
+  expect(unavailable.mock.calls[0]![0]).toBe("TSK-1");
+  const stillUnavailable = unavailable.mock.calls[0]![1] as () => boolean;
+  expect(stillUnavailable()).toBe(true);
+  expect(
+    slot
+      .getByRole("button", { name: "Open TSK-1: Origin" })
+      .getAttribute("aria-current"),
+  ).toBe("true");
+  expect(report.mock.calls.at(-1)?.[0]).toEqual({
+    keys: ["TSK-1", "TSK-2"],
+    settled: false,
+  });
+  slot.lifecycle.rerender(<List {...props} selectedTaskKey={null} />);
+  await waitFor(() =>
+    expect(report.mock.calls.at(-1)?.[0]).toEqual({
+      keys: ["TSK-2"],
+      settled: true,
+    }),
+  );
+  expect(stillUnavailable()).toBe(false);
+  expect(slot.queryByRole("button", { name: "Open TSK-1: Origin" })).toBeNull();
+});

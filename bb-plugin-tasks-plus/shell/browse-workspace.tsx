@@ -30,9 +30,11 @@ export type BrowseRoute = Extract<
 export function BrowseWorkspace({
   route,
   split,
+  noProjects = false,
 }: {
   route: BrowseRoute;
   split: boolean;
+  noProjects?: boolean;
 }) {
   const navigate = useBbNavigate();
   const navigation = useTasksNavigation();
@@ -42,28 +44,55 @@ export function BrowseWorkspace({
     settled: false,
   });
   const selectedKey = route.taskKey ?? null;
-  // Validate a route target once against a settled list. Dynamic reconciliation
-  // after filter/refresh/collapse belongs to the next slice, not this proof.
+  // Validation gates first lookup; the list reconciles subsequent removals while
+  // retaining the originating rendered tree until safe clearing is accepted.
   const [validatedKey, setValidatedKey] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  const [contextRevision, setContextRevision] = useState(0);
+  const latestNoProjects = useRef(noProjects);
+  useLayoutEffect(() => {
+    latestNoProjects.current = noProjects;
+  }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   const returnFocus = useRef(false);
+  // List and detail can confirm the same removal in one refresh.
+  const clearing = useRef(false);
+  useLayoutEffect(() => {
+    clearing.current = false;
+  }, [selectedKey]);
 
-  const requestSelection = useCallback(
+  const commitSelection = useCallback(
     (taskKey: string | null) => {
-      void session.request(() => {
-        setShowList(false);
-        navigate.toPluginPanel(PANEL_PATH, {
-          subPath: tasksRouteToSubPath({
-            ...route,
-            taskKey: taskKey ?? undefined,
-          }),
-          replace: true,
-        });
+      setShowList(false);
+      if (taskKey === null && clearing.current) return;
+      clearing.current = taskKey === null;
+      navigate.toPluginPanel(PANEL_PATH, {
+        subPath: tasksRouteToSubPath({
+          ...route,
+          taskKey: taskKey ?? undefined,
+        }),
+        replace: true,
       });
     },
-    [session, navigate, route],
+    [navigate, route],
+  );
+  const requestContextChange = useCallback(
+    (commit: () => void) => {
+      void session.request(() => {
+        commit();
+        // Re-evaluate durable absence after an accepted non-selection context
+        // change, even when it replaced a previously failed removal request.
+        setContextRevision((revision) => revision + 1);
+      });
+    },
+    [session],
+  );
+  const requestSelection = useCallback(
+    (taskKey: string | null) => {
+      void session.request(() => commitSelection(taskKey));
+    },
+    [session, commitSelection],
   );
 
   useEffect(() => {
@@ -85,14 +114,21 @@ export function BrowseWorkspace({
     [order.keys, requestSelection, navigation],
   );
   const onMissing = useCallback(
-    (taskKey: string) => {
-      if (taskKey === selectedKey) requestSelection(null);
+    (taskKey: string, stillUnavailable: () => boolean = () => true) => {
+      if (taskKey !== selectedKey) return;
+      void session.request(() => {
+        if (stillUnavailable()) commitSelection(null);
+      });
     },
-    [selectedKey, requestSelection],
+    [selectedKey, session, commitSelection],
   );
   // An external accepted browse selection opens detail too. Back only changes
   // presentation for the current route; it cannot hide a later route target.
   useLayoutEffect(() => setShowList(false), [selectedKey]);
+  useEffect(() => {
+    if (noProjects && selectedKey)
+      onMissing(selectedKey, () => latestNoProjects.current);
+  }, [noProjects, selectedKey, onMissing, contextRevision]);
   const readyKey = selectedKey === validatedKey ? selectedKey : null;
   const listHidden = !split && selectedKey !== null && !showList;
   const detailHidden = !split && !listHidden;
@@ -147,6 +183,10 @@ export function BrowseWorkspace({
             selectedTaskKey={readyKey}
             onRequestSelection={requestSelection}
             onVisibleOrderChange={setOrder}
+            onRequestContextChange={requestContextChange}
+            onSelectionUnavailable={onMissing}
+            reconcileRevision={contextRevision}
+            scopeUnavailable={noProjects}
           />
         </ShortcutOwner>
       </section>
@@ -168,7 +208,7 @@ export function BrowseWorkspace({
                     size="sm"
                     className="pointer-coarse:min-h-11"
                     onClick={() => {
-                      void session.request(() => {
+                      requestContextChange(() => {
                         returnFocus.current = true;
                         setShowList(true);
                       });
@@ -193,7 +233,11 @@ export function BrowseWorkspace({
               </div>
               {readyKey ? (
                 <TaskLinkNavigationContext.Provider value={openTaskLink}>
-                  <DetailView taskKey={readyKey} onMissing={onMissing} />
+                  <DetailView
+                    taskKey={readyKey}
+                    onMissing={onMissing}
+                    reconcileRevision={contextRevision}
+                  />
                 </TaskLinkNavigationContext.Provider>
               ) : (
                 <p role="status" className="p-6 text-sm text-muted-foreground">

@@ -218,6 +218,13 @@ editable, with a visible **Retry** button. Clean navigation needs no confirmatio
 The remembered project or All choice changes only after saving succeeds and the
 requested Tasks route is accepted, not when navigation is first requested.
 
+Filters, sort, subtask expansion, and row-property writes also wait for pending
+editor saves before changing the list or its saved preferences. If a refresh
+removes the selected row while saving fails, the originating row and editor stay
+accessible until Retry succeeds.
+Removing the last project follows the same rule: the empty-project screen waits
+until pending saves succeed and the selected route clears.
+
 Unsent comment text, staged files, and the notification switch stay with each
 ticket while the Tasks panel remains mounted. Switching never posts a comment,
 uploads staged files, notifies an agent, or delegates work. An explicit send or
@@ -366,6 +373,10 @@ selection changes. Retry a failed save without leaving the originating draft.
 Browse links carry optional selection, for example `all?task=TSK-2` or
 `PROJECT_ID?view=list&task=TSK-2`. Selection replaces the current history entry.
 A reopened browse link selects only a task present in the settled visible list.
+Selection follows the rendered filtered/sorted groups, including expanded children
+and dimmed parents. Loading and failed refreshes keep it. A settled filter, collapse,
+edit, or deletion that removes the row safely clears selection and returns to the
+selection prompt. Changing projects clears the old selection after pending saves.
 Embedded subtask and dependency links select visible rows in place. Other task
 links open standalone detail without changing remembered scope. Board routes,
 standalone task links, mentions, CLI commands, and thread-side embeds keep their
