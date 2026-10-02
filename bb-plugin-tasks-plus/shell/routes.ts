@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useTasksSession } from "../views/detail/task-session.js";
 
 export const PANEL_PATH = "tasks";
 
@@ -74,16 +75,20 @@ export interface TasksNavigation {
 
 export function useTasksNavigation(): TasksNavigation {
   const navigate = useBbNavigate();
+  const transition = useTasksSession();
   return useMemo(
     () => ({
       go: (route, options) => {
-        navigate.toPluginPanel(PANEL_PATH, {
-          subPath: tasksRouteToSubPath(route),
-          ...(options?.replace ? { replace: true } : {}),
-        });
+        const commit = () =>
+          navigate.toPluginPanel(PANEL_PATH, {
+            subPath: tasksRouteToSubPath(route),
+            ...(options?.replace ? { replace: true } : {}),
+          });
+        if (transition) void transition.request(commit);
+        else commit();
       },
     }),
-    [navigate],
+    [navigate, transition],
   );
 }
 

@@ -209,6 +209,23 @@ controls, selection and subtask expansion still work. These summaries apply equa
 to All tasks, project lists, Active tasks and visible filtered subtasks. Dense metadata
 wraps beneath readable titles and retains thread failure/archive cues using BB theme tokens.
 
+## Save and draft safety
+
+Switching tickets or leaving detail for another Tasks destination waits for the
+current ticket's pending description, title, and property saves. Rapid destination
+changes use the latest request. A failed save keeps the ticket and latest draft
+editable, with a visible **Retry** button. Clean navigation needs no confirmation.
+
+Unsent comment text, staged files, and the notification switch stay with each
+ticket while the Tasks panel remains mounted. Switching never posts a comment,
+uploads staged files, notifies an agent, or delegates work. An explicit send or
+upload that finishes after switching still belongs to the original ticket.
+
+Comment drafts are memory-only. Closing the panel or reloading the browser can
+lose them. Leaving BB or closing the panel is not an awaited-save guarantee.
+Standalone links and thread-side detail keep the same editor and explicit actions.
+See [the transition contract](views/detail/README.md) for workspace integration.
+
 ## CLI reference
 
 Run `bb tasks --help` or `bb tasks <command> --help` for exact options; help

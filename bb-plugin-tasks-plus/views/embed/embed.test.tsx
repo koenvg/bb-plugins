@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { makeTask } from "../../test-fixtures.js";
+import { makeTask, rpcInput } from "../../test-fixtures.js";
 
 if (!window.matchMedia) {
   window.matchMedia = (query: string) => ({
@@ -293,6 +293,112 @@ describe("Task embed panel", () => {
     });
   });
 
+  it("keeps the thread header, open link and detail on A after a rejected switch, then retries to B", async () => {
+    const Panel = app.threadPanelActions[0]!.component;
+    const other = makeTask({
+      id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
+      key: "TSK-5",
+      title: "Other ticket",
+    });
+    let finishSave!: (result: unknown) => void;
+    const updateTask = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishSave = resolve;
+          }),
+      )
+      .mockResolvedValue({ ok: true, task: { ...task, title: "Edited A" } });
+    const slot = renderSlot(
+      app.threadPanelActions[0]!,
+      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      {
+        rpc: {
+          ...taskDetailRpc(() => ({ task })),
+          getTaskByKey: (raw) => ({
+            task: rpcInput(raw).taskKey === "TSK-4" ? task : other,
+          }),
+          updateTask,
+        },
+      },
+    );
+    const title = await slot.findByRole("textbox", { name: "Task title" });
+    fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "task/TSK-4" },
+    });
+    title.textContent = "Edited A";
+    fireEvent.input(title);
+    slot.lifecycle.rerender(
+      <Panel threadId="thr_1" params={{ taskKey: "TSK-5" }} />,
+    );
+    await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
+    expect(slot.queryByText("TSK-5")).toBeNull();
+    expect(slot.getByText("TSK-4")).toBeTruthy();
+    await act(async () =>
+      finishSave({ ok: false, error: { message: "Save rejected" } }),
+    );
+    expect((await slot.findByRole("alert")).textContent).toContain(
+      "Save rejected",
+    );
+    expect(
+      slot.getByRole("button", { name: "Open TSK-4 in Tasks" }),
+    ).toBeTruthy();
+    expect(
+      slot.queryByRole("button", { name: "Open TSK-5 in Tasks" }),
+    ).toBeNull();
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+      "Edited A",
+    );
+    fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
+    await waitFor(() =>
+      expect(
+        slot.getByRole("textbox", { name: "Task title" }).textContent,
+      ).toBe("Other ticket"),
+    );
+    expect(slot.getByText("TSK-5")).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: "Open TSK-5 in Tasks" }));
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "task/TSK-5" },
+    });
+  });
+  it("waits for thread-side edits before opening the ticket in Tasks", async () => {
+    let finishSave!: (result: unknown) => void;
+    const slot = renderSlot(
+      app.threadPanelActions[0]!,
+      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      {
+        rpc: {
+          ...taskDetailRpc(() => ({ task })),
+          updateTask: () =>
+            new Promise((resolve) => {
+              finishSave = resolve;
+            }),
+        },
+      },
+    );
+    const title = await slot.findByRole("textbox", { name: "Task title" });
+    title.textContent = "Edited before opening";
+    fireEvent.input(title);
+    fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    await act(async () =>
+      finishSave({
+        ok: true,
+        task: { ...task, title: "Edited before opening" },
+      }),
+    );
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "task/TSK-4" },
+    });
+  });
   it("resyncs the embedded task detail after reconnect", async () => {
     let title = "Stale embedded detail";
     const slot = renderSlot(

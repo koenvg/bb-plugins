@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -20,6 +21,7 @@ import {
   CommentComposer,
 } from "./task-activity.js";
 
+import { CommentDraftsProvider } from "./comment-drafts.js";
 const { rpcCall } = vi.hoisted(() => ({ rpcCall: vi.fn() }));
 
 vi.mock("../../shell/data.js", () => ({
@@ -56,6 +58,7 @@ vi.mock("../../editor/tasks-editor.js", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   rpcCall.mockReset();
 });
 
@@ -79,6 +82,158 @@ function comment(
   };
 }
 
+describe("mounted-session comment ownership", () => {
+  it("retains A text, files and notification choice across A-B-A without side effects", () => {
+    const upload = vi.fn();
+    vi.stubGlobal("fetch", upload);
+    const view = (taskId: string) => (
+      <CommentDraftsProvider>
+        <CommentComposer
+          taskId={taskId}
+          notificationTarget={{ kind: "ready", title: "Agent" }}
+        />
+      </CommentDraftsProvider>
+    );
+    const slot = render(view("A"));
+    fireEvent.change(screen.getByLabelText("Comment body"), {
+      target: { value: "Only A" },
+    });
+    fireEvent.click(screen.getByRole("switch"));
+    fireEvent.change(slot.container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["A"], "a.txt")] },
+    });
+    slot.rerender(view("B"));
+    expect(
+      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
+    ).toBe("");
+    expect(screen.queryByText("a.txt")).toBeNull();
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    fireEvent.change(screen.getByLabelText("Comment body"), {
+      target: { value: "Only B" },
+    });
+    slot.rerender(view("A"));
+    expect(
+      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
+    ).toBe("Only A");
+    expect(screen.getByText("a.txt")).toBeTruthy();
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe(
+      "false",
+    );
+    expect(rpcCall).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Remove a.txt" }));
+    slot.rerender(view("B"));
+    slot.rerender(view("A"));
+    expect(screen.queryByText("a.txt")).toBeNull();
+    slot.unmount();
+    render(view("A"));
+    expect(
+      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
+    ).toBe("");
+  });
+  it("keeps explicit send and failed-upload completion with A across a switch, without clearing newer text", async () => {
+    let finishSend!: (result: unknown) => void;
+    let finishUpload!: (response: Response) => void;
+    rpcCall.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSend = resolve;
+        }),
+    );
+    const fetchMock = vi.fn((url: string) =>
+      url.endsWith("/token")
+        ? Promise.resolve(new Response(JSON.stringify({ token: "test" })))
+        : new Promise<Response>((resolve) => {
+            finishUpload = resolve;
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const view = (taskId: string) => (
+      <CommentDraftsProvider>
+        <CommentComposer
+          taskId={taskId}
+          notificationTarget={{ kind: "ready", title: "Agent" }}
+        />
+      </CommentDraftsProvider>
+    );
+    const slot = render(view("A"));
+    try {
+      fireEvent.change(screen.getByLabelText("Comment body"), {
+        target: { value: "Send A" },
+      });
+      fireEvent.change(slot.container.querySelector('input[type="file"]')!, {
+        target: { files: [new File(["A"], "a.txt")] },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+      slot.rerender(view("B"));
+      fireEvent.change(screen.getByLabelText("Comment body"), {
+        target: { value: "Keep B" },
+      });
+      slot.rerender(view("A"));
+      expect(
+        (screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      fireEvent.change(screen.getByLabelText("Comment body"), {
+        target: { value: "New A" },
+      });
+      slot.rerender(view("B"));
+      await act(async () =>
+        finishSend({ comment: { ...comment("user"), id: "comment-A" } }),
+      );
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            url.includes("commentId=comment-A"),
+          ),
+        ).toBe(true),
+      );
+      await act(async () =>
+        finishUpload(
+          new Response(JSON.stringify({ error: "Offline" }), { status: 500 }),
+        ),
+      );
+      expect(
+        (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
+      ).toBe("Keep B");
+      expect(screen.queryByText("a.txt")).toBeNull();
+      slot.rerender(view("A"));
+      expect(
+        (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
+      ).toBe("New A");
+      expect(
+        screen.getByRole("button", { name: "Retry upload of a.txt" }),
+      ).toBeTruthy();
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({ attachmentId: "file-A", url: "/file-A" }),
+        ),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Retry upload of a.txt" }),
+      );
+      slot.rerender(view("B"));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+      slot.rerender(view("A"));
+      await waitFor(() => expect(screen.queryByText("a.txt")).toBeNull());
+      expect(rpcCall).toHaveBeenCalledExactlyOnceWith("createComment", {
+        taskId: "A",
+        body: "Send A",
+        notify: true,
+        allowEmptyBody: false,
+      });
+      expect(
+        fetchMock.mock.calls
+          .filter(([url]) => url.includes("upload"))
+          .every(([url]) => url.includes("commentId=comment-A")),
+      ).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
 describe("AttachmentTracks", () => {
   const attachment = (
     id: string,

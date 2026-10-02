@@ -13,6 +13,10 @@ import { TasksTopbar } from "./topbar.js";
 import { ListView } from "../views/list/index.js";
 import { BoardView } from "../views/board/index.js";
 import { DetailView } from "../views/detail/index.js";
+import {
+  TasksSessionProvider,
+  useSafeTaskTarget,
+} from "../views/detail/task-session.js";
 import { NewTaskDialog } from "../views/manage/new-task-dialog.js";
 import { NewProjectDialog } from "../views/manage/new-project-dialog.js";
 import { ManagePanel } from "../views/manage/manage-panel.js";
@@ -57,7 +61,10 @@ function RouteOutlet({
   }
 }
 
-function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
+function TasksAppShellContent({
+  subPath: requestedSubPath,
+}: PluginNavPanelProps) {
+  const subPath = useSafeTaskTarget(requestedSubPath);
   const tasksNavigation = useTasksNavigation();
   const projects = useProjects();
   const route = useBrowseRoute(subPath, projects, tasksNavigation);
@@ -183,7 +190,9 @@ export function TasksAppShell(props: PluginNavPanelProps) {
     <TasksRefreshProvider>
       <ShortcutProvider rootRef={rootRef}>
         <div ref={rootRef} className="contents">
-          <TasksAppShellContent {...props} />
+          <TasksSessionProvider>
+            <TasksAppShellContent {...props} />
+          </TasksSessionProvider>
         </div>
       </ShortcutProvider>
     </TasksRefreshProvider>

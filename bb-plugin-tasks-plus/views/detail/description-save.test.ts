@@ -39,6 +39,25 @@ const flushMicrotasks = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe("createDescriptionSaver", () => {
+  it("flush waits for confirmation and retains a server-rejected draft for retry", async () => {
+    let confirm!: (outcome: DescriptionSaveOutcome) => void;
+    const { saver } = setup(
+      () =>
+        new Promise((resolve) => {
+          confirm = resolve;
+        }),
+    );
+    saver.onChange("task-1", "latest draft");
+    const pending = saver.flush("task-1");
+    expect(pending).toBeInstanceOf(Promise);
+    confirm({ ok: false, errorMessage: "Rejected" });
+    expect(await pending).toEqual({ ok: false, errorMessage: "Rejected" });
+    expect(saver.hasPending()).toBe(true);
+    const retry = saver.flush("task-1");
+    confirm({ ok: true });
+    expect(await retry).toEqual({ ok: true });
+    expect(saver.hasPending()).toBe(false);
+  });
   it("clears the pending draft only after the server confirms the save", async () => {
     const calls: string[] = [];
     const { timer, errors, saver } = setup(async (_taskId, markdown) => {

@@ -1,67 +1,50 @@
-import { errorMessage } from "../../shared/errors.js";
+import { createTaskEditSession, type TaskEditSession } from "./edit-session.js";
 
 export interface DescriptionSaveOutcome {
   ok: boolean;
   errorMessage?: string;
 }
-
 interface DescriptionSaverOptions {
   save(taskId: string, markdown: string): Promise<DescriptionSaveOutcome>;
   onError(message: string): void;
   delayMs: number;
   schedule?(run: () => void, delayMs: number): () => void;
 }
-
 export interface DescriptionSaver {
   onChange(taskId: string, markdown: string): void;
-  flush(taskId: string): void;
+  flush(taskId: string): Promise<DescriptionSaveOutcome>;
   hasPending(): boolean;
 }
 
+/** Description-only adapter. Detail uses the same queue for all autosaved fields. */
 export function createDescriptionSaver(
   options: DescriptionSaverOptions,
 ): DescriptionSaver {
-  const schedule =
-    options.schedule ??
-    ((run: () => void, delayMs: number) => {
-      const timer = setTimeout(run, delayMs);
-      return () => clearTimeout(timer);
-    });
-
-  let cancelTimer: (() => void) | undefined;
-  let pending: { taskId: string; markdown: string } | undefined;
-
-  const runSave = async (attempt: { taskId: string; markdown: string }) => {
-    try {
-      const result = await options.save(attempt.taskId, attempt.markdown);
-      if (pending === attempt) pending = undefined;
-      if (!result.ok && result.errorMessage !== undefined) {
-        options.onError(result.errorMessage);
-      }
-    } catch (error) {
-      options.onError(errorMessage(error));
-    }
-  };
-
+  const sessions = new Map<string, TaskEditSession>();
   return {
     onChange(taskId, markdown) {
-      pending = { taskId, markdown };
-      cancelTimer?.();
-      const attempt = pending;
-      cancelTimer = schedule(() => {
-        void runSave(pending ?? attempt);
-      }, options.delayMs);
+      let session = sessions.get(taskId);
+      if (!session) {
+        session = createTaskEditSession(taskId, {
+          ...options,
+          save: async (id, patch) => {
+            const result = await options.save(id, patch.description!);
+            return result.ok
+              ? { ok: true }
+              : {
+                  ok: false,
+                  errorMessage:
+                    result.errorMessage ?? "Could not save description.",
+                };
+          },
+        });
+        sessions.set(taskId, session);
+      }
+      session.stage({ description: markdown }, options.delayMs);
     },
-    flush(taskId) {
-      cancelTimer?.();
-      cancelTimer = undefined;
-      if (pending === undefined || pending.taskId !== taskId) return;
-      const attempt = pending;
-      pending = undefined;
-      void options
-        .save(attempt.taskId, attempt.markdown)
-        .catch(() => undefined);
-    },
-    hasPending: () => pending !== undefined,
+    flush: (taskId) =>
+      sessions.get(taskId)?.flush() ?? Promise.resolve({ ok: true }),
+    hasPending: () =>
+      [...sessions.values()].some((session) => session.getSnapshot().pending),
   };
 }
