@@ -597,13 +597,16 @@ const banner = app.composerCustomizations
   .find((customization) => customization.id === "pr-insight")!
   .banners!.find((entry) => entry.id === "merge-blockers")!;
 
-function renderBanner(result: InsightResult | (() => InsightResult)) {
+function renderBanner(
+  result: InsightResult | (() => InsightResult),
+  runMergeAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
+) {
   const getInsight = typeof result === "function" ? result : () => result;
   return renderSlot<object, typeof rpcContract>(
     banner,
     {},
     {
-      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc },
+      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runMergeAction },
       composer: { scope: { kind: "thread", threadId: "thr_1" } },
       openThreadPanel: () => true,
     },
@@ -662,7 +665,7 @@ describe("Composer banner", () => {
     ]);
   });
 
-  it("is hidden for a PR that is ready to merge", async () => {
+  it("is hidden for an open PR without blockers that offers no action", async () => {
     const slot = renderBanner(ok(emptyInsight));
 
     await settled(slot);
@@ -705,5 +708,108 @@ describe("Composer banner", () => {
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
     expect(slot.queryByRole("button")).toBeNull();
+  });
+});
+
+const readyBanner = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
+
+function bannerMergeCalls(slot: ReturnType<typeof renderBanner>) {
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+}
+
+describe("Composer banner merge action", () => {
+  it("shows Ready to merge and the merge button for a ready PR", async () => {
+    const slot = renderBanner(readyBanner);
+
+    expect(await slot.findByRole("button", { name: "Ready to merge" })).toBeTruthy();
+    expect(slot.getByRole("button", { name: "Squash and merge" })).toBeTruthy();
+  });
+
+  it("opens the PR tab and sends no write when the user clicks the text", async () => {
+    const slot = renderBanner(readyBanner);
+
+    fireEvent.click(await slot.findByRole("button", { name: "Ready to merge" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]);
+    expect(bannerMergeCalls(slot)).toEqual([]);
+  });
+
+  it("sends one merge with the shown head commit when the user confirms", async () => {
+    const slot = renderBanner(readyBanner);
+
+    fireEvent.click(await slot.findByRole("button", { name: "Squash and merge" }));
+    const dialog = await slot.findByRole("alertdialog");
+    expect(bannerMergeCalls(slot)).toEqual([]);
+    const confirm = within(dialog).getByRole("button", { name: "Squash and merge" });
+    await act(async () => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+
+    expect(bannerMergeCalls(slot)).toEqual([
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "merge", expectedHeadOid: pr.headOid },
+      }),
+    ]);
+  });
+
+  it("sends one enqueue without a dialog for a ready PR on a merge queue branch", async () => {
+    const slot = renderBanner(ok({ ...emptyInsight, mergeAction: { kind: "enqueue" } }));
+
+    expect(await slot.findByRole("button", { name: "Ready to enqueue" })).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: "Enqueue" }));
+    await act(async () => {});
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(bannerMergeCalls(slot)).toEqual([
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid },
+      }),
+    ]);
+  });
+
+  it("shows Queued and no merge or enqueue button for a queued PR", async () => {
+    const slot = renderBanner(
+      ok({
+        ...emptyInsight,
+        mergeAction: { kind: "queued" },
+        checks: [check("build", "running")],
+        mergeQueue: { position: 2, state: "awaiting_checks" },
+      }),
+    );
+
+    expect(await slot.findByRole("button", { name: "Queued" })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: /enqueue|merge/i })).toBeNull();
+  });
+
+  it("shows the blockers and no merge button for a PR with blockers", async () => {
+    const slot = renderBanner(blockedInsight);
+
+    expect((await slot.findByRole("button")).textContent).toContain("2 checks failed");
+    expect(slot.queryByRole("button", { name: /merge|enqueue/i })).toBeNull();
+  });
+
+  it("is hidden once the PR is merged", async () => {
+    let current: InsightResult = readyBanner;
+    const slot = renderBanner(() => current);
+    await slot.findByRole("button", { name: "Ready to merge" });
+
+    current = ok({ ...emptyInsight, pr: { ...pr, state: "merged" } });
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
+
+    expect(slot.queryByRole("button")).toBeNull();
+  });
+
+  it.each([
+    ["ready", readyBanner],
+    ["queued", ok({ ...emptyInsight, mergeAction: { kind: "queued" } })],
+    ["blocked", blockedInsight],
+  ])("puts no button inside another button for a %s PR", async (_, result) => {
+    const slot = renderBanner(result);
+
+    await slot.findAllByRole("button");
+    expect(slot.container.querySelector("button button")).toBeNull();
   });
 });
