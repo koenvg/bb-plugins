@@ -68,6 +68,7 @@ describe("buildSummary on PR 25337", () => {
           "skipped": 8,
         },
         "error": null,
+        "mergeQueue": null,
         "pr": {
           "number": 25337,
           "state": "open",
@@ -159,6 +160,24 @@ describe("buildSummary", () => {
     expect(new TextEncoder().encode(JSON.stringify(summary)).length).toBeLessThan(
       MAX_SUMMARY_BYTES,
     );
+  });
+
+  it("gives the queue entry and no blockers for a queued PR", () => {
+    const summary = buildSummary({
+      insight: insight({ mergeQueue: { position: 2, state: "queued" } }),
+      refreshedAt,
+      error: null,
+    });
+
+    expect(summary).toMatchObject({
+      version: 1,
+      mergeQueue: { position: 2, state: "queued" },
+      blockers: [],
+    });
+  });
+
+  it("gives a null queue entry for a PR not in a queue", () => {
+    expect(buildSummary({ insight: insight(), refreshedAt, error: null }).mergeQueue).toBeNull();
   });
 
   it("keeps the time of the last good refresh and the error", () => {

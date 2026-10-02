@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { thread } from "./fixtures";
-import type { BlockerCode, PrState, PrSummary } from "./pr-insight";
+import type { BlockerCode, MergeQueueState, PrState, PrSummary } from "./pr-insight";
 import { tabFor } from "./tabs";
 
 const pr = (blockers: BlockerCode[], state: PrState = "open", overrides: Partial<PrSummary> = {}): PrSummary => ({
   number: 42, url: "https://example.com/pull/42", state,
   failedChecks: 0, passedChecks: 0, runningChecks: 0, pendingReviews: 0,
-  blockers, failedNames: [], pendingNames: [], ...overrides,
+  blockers, failedNames: [], pendingNames: [], mergeQueue: null, ...overrides,
 });
+const queued = (state: MergeQueueState, blockers: BlockerCode[] = []) => pr(blockers, "open", { mergeQueue: { position: 2, state } });
 const activity = { workflows: 0, backgroundAgents: 1, backgroundCommands: 0, planMode: 0, goals: 0 };
 
 describe("tabFor", () => {
@@ -31,6 +32,12 @@ describe("tabFor", () => {
     ["is ready to merge", {}, pr([]), "attention"],
     ["is only behind", {}, pr(["behind"]), "attention"],
     ["is only blocked", {}, pr(["blocked"]), "attention"],
+    ["has a queued PR", {}, queued("queued"), "inflight"],
+    ["has a PR whose queue checks run", {}, queued("awaiting_checks"), "inflight"],
+    ["has a merging PR", {}, queued("merging"), "inflight"],
+    ["has a queued PR with stale blockers", {}, queued("queued", ["checks_failed"]), "inflight"],
+    ["has a failed queue entry", {}, queued("failed"), "attention"],
+    ["has unread output and a queued PR", { isUnread: true }, queued("queued"), "attention"],
     ["has a draft PR", {}, pr([], "draft", { runningChecks: 1 }), "attention"],
     ["has a merged PR", {}, pr([], "merged"), "attention"],
     ["has a closed PR", {}, pr([], "closed"), "attention"],

@@ -20,6 +20,7 @@ export type PrSummary = {
     pendingNames: string[];
   };
   blockers: PrInsight["blockers"][number]["code"][];
+  mergeQueue: PrInsight["mergeQueue"];
   error: string | null;
 };
 
@@ -56,7 +57,7 @@ export function buildSummary({
   refreshedAt: number;
   error: string | null;
 }): PrSummary {
-  const { pr, checks, reviewers, blockers } = insight;
+  const { pr, checks, reviewers, blockers, mergeQueue } = insight;
   const countChecks = (status: CheckStatus) => countWhere(checks, (check) => check.status === status);
   const countReviewers = (state: Reviewer["state"]) =>
     countWhere(reviewers, (reviewer) => reviewer.state === state);
@@ -84,6 +85,7 @@ export function buildSummary({
       pendingNames: pending.slice(0, MAX_NAMES).map(reviewerLabel),
     },
     blockers: blockers.map((blocker) => blocker.code),
+    mergeQueue,
     error: error === null ? null : shorten(error),
   };
 

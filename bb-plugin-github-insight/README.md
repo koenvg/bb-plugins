@@ -30,6 +30,21 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state or the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
 
+## PR summary
+
+After each refresh, the plugin writes a `prSummary` metadata entry on each thread of the PR (`core/summary.ts`, max 4 KiB). Other plugins, such as pr-thread-list, read it.
+
+| Field | Value |
+|---|---|
+| `version` | `1` |
+| `updatedAt` | ISO time of the last good refresh |
+| `pr` | `{ number, url, state }`, `state` is `open`, `draft`, `merged`, or `closed` |
+| `checks` | counts per status (`failed`, `running`, `cancelled`, `passed`, `skipped`) and `failedNames` (max 5) |
+| `reviewers` | `pending`, `approved`, `changesRequested` counts and `pendingNames` (max 5) |
+| `blockers` | blocker codes, `[]` while the PR is in a merge queue |
+| `mergeQueue` | `{ position, state }` with `state` `queued`, `awaiting_checks`, `merging`, or `failed`, or `null` when the PR is not in a queue. Optional: a reader treats a missing field as `null` |
+| `error` | the last refresh error, or `null` |
+
 ## Review threads
 
 The agent of a thread can read the review threads of the thread's PR and save a draft reply for each one:

@@ -21,6 +21,7 @@ describe("github-insight PR summary", () => {
       number: 42, url: "https://example.com/pull/42", state: "open",
       failedChecks: 1, passedChecks: 5, runningChecks: 2, pendingReviews: 1,
       blockers: ["checks_failed", "review_required"], failedNames: ["lint"], pendingNames: ["ana"],
+      mergeQueue: null,
     });
   });
   it("rejects an open or draft summary older than one hour", () => {
@@ -39,6 +40,22 @@ describe("github-insight PR summary", () => {
     expect(readSummary(summary({}, { number: "42" }), NOW)).toBeNull();
     expect(readSummary(summary({ checks: { failed: -1, running: 0, passed: 0 } }), NOW)).toBeNull();
     expect(readSummary(summary({ reviewers: { pending: 1.5 } }), NOW)).toBeNull();
+  });
+  it("reads the merge queue entry", () => {
+    expect(readSummary(summary({ blockers: [], mergeQueue: { position: 3, state: "awaiting_checks" } }), NOW)?.mergeQueue)
+      .toEqual({ position: 3, state: "awaiting_checks" });
+  });
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+    ["bad state", { position: 3, state: "stuck" }],
+    ["bad position", { position: "3", state: "queued" }],
+    ["non-object", "queued"],
+  ])("reads a %s merge queue entry as not queued", (_name, mergeQueue) => {
+    expect(readSummary(summary({ mergeQueue }), NOW)?.mergeQueue).toBeNull();
+  });
+  it("drops the merge queue entry of a merged PR", () => {
+    expect(readSummary(summary({ mergeQueue: { position: 1, state: "merging" } }, { state: "merged" }), NOW)?.mergeQueue).toBeNull();
   });
   it("skips blocker codes it does not know", () => {
     expect(readSummary(summary({ blockers: ["future", "review_required"] }), NOW)?.blockers).toEqual(["review_required"]);

@@ -11,7 +11,9 @@ const WAITING: readonly BlockerCode[] = ["checks_running", "review_required"];
 export function tabFor(thread: PluginSidebarThread, pr: PrSummary | null): AttentionTab {
   if (needsAttention(thread) || thread.isUnread) return "attention";
   if (isBusy(thread) || hasActivity(thread) || thread.queuedWork !== "none") return "inflight";
-  if (!pr || pr.blockers.some((code) => PROBLEMS.includes(code))) return "attention";
+  if (!pr) return "attention";
+  if (pr.mergeQueue) return pr.mergeQueue.state === "failed" ? "attention" : "inflight";
+  if (pr.blockers.some((code) => PROBLEMS.includes(code))) return "attention";
   if (pr.state === "open" && (pr.runningChecks > 0 || pr.blockers.some((code) => WAITING.includes(code)))) return "inflight";
   return "attention";
 }
