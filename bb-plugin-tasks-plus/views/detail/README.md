@@ -28,11 +28,15 @@ It does not select rows, reconcile visible order, or own project preferences.
   open-in-Tasks action, and detail with the same committed key. It cannot prevent
   the host from changing its URL before delivering props. It holds the rendered
   origin instead, including its topbar in the main panel. Host URL rollback/history
-  interception is not an SDK
-  contract provided here.
+  interception is not an SDK contract provided here.
 - `useTasksNavigation().go` requests before changing the host route when inside the
   provider. BBP-12 can request its own in-workspace selection through the same
   interface. Keep the existing task-link navigation adapter for off-list targets.
+- Pass only the accepted subpath returned by `useSafeTaskTarget` into
+  `useBrowseRoute`. That hook owns remembered project-or-All writes after the route
+  is accepted. Do not write browse scope in `navigation.go`: requesting a route,
+  even one whose save has succeeded, is not the host accepting that route. Keep
+  entry inventory checks and history replacement inside `useBrowseRoute`.
 
 ## Autosaves
 

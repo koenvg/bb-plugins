@@ -67,6 +67,7 @@ function TasksAppShellContent({
   const subPath = useSafeTaskTarget(requestedSubPath);
   const tasksNavigation = useTasksNavigation();
   const projects = useProjects();
+  // Remember scope only from the accepted route, never a pending save target.
   const route = useBrowseRoute(subPath, projects, tasksNavigation);
   const navigation = useMemo<TasksNavigation>(
     () => ({

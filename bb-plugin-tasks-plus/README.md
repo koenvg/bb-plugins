@@ -215,6 +215,8 @@ Switching tickets or leaving detail for another Tasks destination waits for the
 current ticket's pending description, title, and property saves. Rapid destination
 changes use the latest request. A failed save keeps the ticket and latest draft
 editable, with a visible **Retry** button. Clean navigation needs no confirmation.
+The remembered project or All choice changes only after saving succeeds and the
+requested Tasks route is accepted, not when navigation is first requested.
 
 Unsent comment text, staged files, and the notification switch stay with each
 ticket while the Tasks panel remains mounted. Switching never posts a comment,
