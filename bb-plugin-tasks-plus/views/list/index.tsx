@@ -54,6 +54,7 @@ interface ListViewProps {
   projectId: string | null;
   activeOnly?: boolean;
   selectedTaskKey?: string | null;
+  visible?: boolean;
   onRequestSelection?: (taskKey: string) => void;
   onVisibleOrderChange?: (order: VisibleTaskOrder) => void;
 }
@@ -83,6 +84,7 @@ export function ListView({
   projectId,
   activeOnly = false,
   selectedTaskKey = null,
+  visible = true,
   onRequestSelection,
   onVisibleOrderChange,
 }: ListViewProps) {
@@ -260,6 +262,7 @@ export function ListView({
     }
   }, [routeScope, tasksQuery.isLoading, tasksQuery.data]);
   useListScrollRestoration(scrollRef, scopeKey, {
+    visible,
     contentReady: tree !== undefined && visibleTasks.length > 0,
     loading: tasksQuery.isLoading || scopeChanged,
     revision: visibleTasks.length,

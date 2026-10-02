@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -42,6 +48,7 @@ export function BrowseWorkspace({
   const [showList, setShowList] = useState(false);
   const listRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLElement>(null);
+  const returnFocus = useRef(false);
 
   const requestSelection = useCallback(
     (taskKey: string | null) => {
@@ -83,8 +90,34 @@ export function BrowseWorkspace({
     },
     [selectedKey, requestSelection],
   );
+  // An external accepted browse selection opens detail too. Back only changes
+  // presentation for the current route; it cannot hide a later route target.
+  useLayoutEffect(() => setShowList(false), [selectedKey]);
   const readyKey = selectedKey === validatedKey ? selectedKey : null;
   const listHidden = !split && selectedKey !== null && !showList;
+  const detailHidden = !split && !listHidden;
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const detail = detailRef.current;
+    if (!list || !detail) return;
+    // Hiding a mounted pane must not leave its controls holding keyboard focus.
+    // Resize never focuses an editor, nor steals focus from another BB pane.
+    if (
+      !listHidden &&
+      (returnFocus.current ||
+        (detailHidden && detail.contains(document.activeElement)))
+    ) {
+      returnFocus.current = false;
+      const target =
+        list.querySelector<HTMLElement>(
+          '[data-nav-item][aria-current="true"]',
+        ) ?? list;
+      target.focus({ preventScroll: true });
+    } else if (listHidden && list.contains(document.activeElement)) {
+      detail.focus({ preventScroll: true });
+    }
+  }, [listHidden, detailHidden, showList]);
 
   return (
     <div
@@ -95,6 +128,8 @@ export function BrowseWorkspace({
         ref={listRef}
         aria-label="Ticket list"
         hidden={listHidden}
+        inert={listHidden}
+        tabIndex={-1}
         className={
           split
             ? "h-full min-h-0 min-w-0 shrink-0 border-r border-border-hairline"
@@ -108,6 +143,7 @@ export function BrowseWorkspace({
           <ListView
             projectId={route.kind === "project" ? route.projectId : null}
             activeOnly={route.kind === "active"}
+            visible={!listHidden}
             selectedTaskKey={readyKey}
             onRequestSelection={requestSelection}
             onVisibleOrderChange={setOrder}
@@ -117,19 +153,25 @@ export function BrowseWorkspace({
       <section
         ref={detailRef}
         aria-label="Selected ticket"
-        hidden={!split && !listHidden}
+        hidden={detailHidden}
+        inert={detailHidden}
+        tabIndex={-1}
         className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
       >
         <ShortcutOwner value={{ rootRef: detailRef }}>
           {selectedKey ? (
             <>
-              <div className="flex min-h-10 items-center gap-2 border-b border-border-hairline px-3 text-xs text-muted-foreground">
+              <div className="sticky top-0 z-10 flex min-h-10 bg-background items-center gap-2 border-b border-border-hairline px-3 text-xs text-muted-foreground">
                 {!split ? (
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="pointer-coarse:min-h-11"
                     onClick={() => {
-                      void session.request(() => setShowList(true));
+                      void session.request(() => {
+                        returnFocus.current = true;
+                        setShowList(true);
+                      });
                     }}
                   >
                     <Icon name="ChevronLeft" className="size-3.5" />
@@ -140,6 +182,7 @@ export function BrowseWorkspace({
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                   aria-label="Open standalone ticket"
                   onClick={() =>
                     navigation.go({ kind: "task", taskKey: selectedKey })

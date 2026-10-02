@@ -371,11 +371,29 @@ links open standalone detail without changing remembered scope. Board routes,
 standalone task links, mentions, CLI commands, and thread-side embeds keep their
 existing destinations.
 
-In a compact panel, selection shows detail with Back to list. The hidden list
-stays mounted. Unsent comments and staged files remain task-owned for this mounted
-session, not after closing the panel or reloading the browser. Full dynamic
-selection reconciliation, keyboard preview movement, and compact focus/context
-refinements are follow-up slices.
+In a compact panel, selection shows detail with a sticky **Back to list** action.
+Back waits for pending saves, then returns to the same scope, filters, sort,
+expansion, selected row, and scroll position. If saving fails, detail stays open
+with its draft and Retry action. Back focuses the selected row without scrolling
+it into a different position; it does not clear selection or change the URL.
+
+Resize keeps the list and selected editor mounted. A narrow slot stays compact
+even in a wide browser window. Hidden panes are excluded from tab navigation and
+pane shortcuts. Resize only transfers focus when its current pane becomes hidden,
+to a non-editable pane or selected row, never into an editor. Widening does not
+move focus. After Back, resizing preserves the list-first compact presentation
+until another ticket is selected.
+
+Long row titles and important metadata wrap in constrained list containers.
+Status, priority, expansion, and Back controls have larger coarse-pointer targets.
+Board and thread-side detail layouts are unchanged.
+
+Unsent comment text, staged files, and notification choice stay task-owned for the
+mounted Tasks session. Back and resize do not submit, upload, notify, or delegate.
+Explicit operations finishing later still belong to their originating task.
+This does not promise draft persistence after panel closure or browser reload.
+Dynamic selection reconciliation and keyboard preview movement remain separate
+slices.
 
 ## Remembered project scope
 

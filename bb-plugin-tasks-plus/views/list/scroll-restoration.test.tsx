@@ -144,6 +144,7 @@ function Harness({
   scopeKey,
   contentReady,
   scrollHeight,
+  visible = true,
   loading = false,
   revision = 0,
   onReady,
@@ -151,12 +152,18 @@ function Harness({
   scopeKey: string;
   contentReady: boolean;
   scrollHeight: number;
+  visible?: boolean;
   loading?: boolean;
   revision?: number;
   onReady: (el: HTMLDivElement) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  useListScrollRestoration(ref, scopeKey, { contentReady, loading, revision });
+  useListScrollRestoration(ref, scopeKey, {
+    contentReady,
+    loading,
+    revision,
+    visible,
+  });
   return (
     <div
       ref={(el) => {
@@ -175,6 +182,37 @@ function Harness({
 
 describe("useListScrollRestoration", () => {
   beforeEach(() => window.sessionStorage.clear());
+  it("waits for a hidden compact list to become measurable and ignores hidden scroll events", () => {
+    const scopeKey = "compact-visibility|";
+    writeListScroll(scopeKey, 680);
+    let node!: HTMLDivElement;
+    const props = {
+      scopeKey,
+      contentReady: true,
+      onReady: (el: HTMLDivElement) => {
+        node = el;
+      },
+    };
+    const view = render(
+      <Harness {...props} visible={false} scrollHeight={0} />,
+    );
+    expect(readListScroll(scopeKey)).toBe(680);
+    view.rerender(<Harness {...props} visible scrollHeight={2000} />);
+    expect(node.scrollTop).toBe(680);
+    act(() => {
+      node.scrollTop = 710;
+      node.dispatchEvent(new Event("scroll"));
+    });
+    view.rerender(<Harness {...props} visible={false} scrollHeight={0} />);
+    act(() => {
+      node.scrollTop = 0;
+      node.dispatchEvent(new Event("scroll"));
+    });
+    view.rerender(<Harness {...props} visible scrollHeight={2000} />);
+    expect(node.scrollTop).toBe(710);
+    expect(readListScroll(scopeKey)).toBe(710);
+    view.unmount();
+  });
 
   it("persists on scroll and restores on remount, clamped to content", () => {
     let el: HTMLDivElement | null = null;

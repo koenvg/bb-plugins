@@ -46,8 +46,25 @@ The shell measures its main panel before paint and observes it with ResizeObserv
 At 880px, the workspace uses a minimum 320px list and flexible detail. Each pane
 has its own constrained scroll area. The editor's own container chooses inline
 properties or its internal rail. There is no external property rail or splitter.
-Compact mode hides rather than unmounts the list and provides a basic safe Back
-to list action. Selection and resize do not focus an editor.
+Compact mode hides rather than unmounts both panes. Its sticky Back to list action
+runs through `session.request(commit)`, changes only presentation, and focuses the
+current selected row with `preventScroll`. A failed Back leaves detail accessible.
+A newly accepted route selection opens detail; Back never owns a second identity.
+Both pane roots use `hidden` and `inert`. A layout effect moves focus only out of a
+pane being hidden, or after explicit Back, to a non-editable detail root or the
+selected row. Widening preserves focus; neither direction autofocusses an editor.
+`ShortcutOwner` remains the sole pane shortcut gate. BBP-14 can reuse these roots
+for explicit keyboard focus actions without changing the route identity.
+
+`ListView.visible`, default true, is a measurement signal, not query readiness or
+selection reconciliation. Its scroll hook defers hidden restoration, cancels queued
+scroll writes when hidden, and restores the last visible offset before Back focus.
+Do not feed visibility into settled-order reports. Filters, sort, expansion, and
+scope remain owned by the retained list and accepted shell route.
+
+Rows use their list container width, wrap titles and metadata below 672px, and give
+row status/priority/expansion controls 44px coarse-pointer targets regardless of
+viewport width. These classes are list-only; board and detail layouts are untouched.
 
 `ShortcutOwner` is a narrow prerequisite for mounting both existing shortcut sets.
 A pane registration only runs when focus belongs to that pane; visible list
@@ -59,8 +76,11 @@ modifier, composition, overlay, and outside-panel guards are unchanged.
 - BBP-14 owns preview movement, Enter/Escape focus transfer, selected-row focus
   rules, ordered paging, and updated shortcut help. Existing j/k still move row
   focus until that slice; they do not invent a separate selected index here.
-- BBP-15 owns complete compact Back/focus/resize/context restoration and theme
-  acceptance. The current Back flag is workspace-local and deliberately small.
+- BBP-15 completes compact Back/focus/resize/context retention. BBP-13 overlap is
+  bounded to workspace presentation, the ListView visibility prop, and README.
+  It adds no removal-producing context staging or visible-order reconciliation.
+  Task-owned comment records still live in the one mounted TasksSessionProvider.
+  Retention ends with that session; no closure/reload persistence is promised.
 
 Local markup fixtures and SDK tests do not establish installed-host routing,
 scroll/focus behavior, removal of the old Navigation tab, or SDK compatibility.

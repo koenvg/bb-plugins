@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { ListFilterState } from "./filter-bar.js";
 import type { TaskSort } from "../../shared/pagination.js";
 
@@ -72,6 +72,8 @@ export function resolveRestoreTarget(
 }
 
 interface ListScrollState {
+  /** Hidden mounted panes have no measurable scroll range. */
+  visible?: boolean;
   contentReady: boolean;
   loading: boolean;
   revision: number;
@@ -82,7 +84,7 @@ export function useListScrollRestoration(
   scopeKey: string,
   state: ListScrollState,
 ): void {
-  const { contentReady, loading, revision } = state;
+  const { contentReady, loading, revision, visible = true } = state;
   const restoredScope = useRef<string | null>(null);
   const pending = useRef<number | null>(null);
   const lastApplied = useRef<number | null>(null);
@@ -91,6 +93,10 @@ export function useListScrollRestoration(
   useLayoutEffect(() => {
     const el = ref.current;
     if (el === null) return;
+    if (!visible) {
+      restoredScope.current = null;
+      return;
+    }
     if (restoredScope.current === scopeKey) return;
     if (!contentReady) {
       el.scrollTop = 0;
@@ -112,12 +118,12 @@ export function useListScrollRestoration(
     el.scrollTop = clamped;
     lastApplied.current = clamped;
     pending.current = clamped < saved && loading ? saved : null;
-  }, [ref, scopeKey, contentReady, loading]);
+  }, [ref, scopeKey, contentReady, loading, visible]);
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (el === null) return;
-    if (restoredScope.current !== scopeKey) return;
+    if (!visible || restoredScope.current !== scopeKey) return;
     if (pending.current === null) return;
     const clamped = resolveRestoreTarget(
       pending.current,
@@ -127,11 +133,11 @@ export function useListScrollRestoration(
     el.scrollTop = clamped;
     lastApplied.current = clamped;
     if (clamped >= pending.current || !loading) pending.current = null;
-  }, [ref, scopeKey, revision, loading]);
+  }, [ref, scopeKey, revision, loading, visible]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
-    if (el === null) return;
+    if (el === null || !visible) return;
     lastOffset.current = null;
     let raf = 0;
     const onScroll = () => {
@@ -156,5 +162,5 @@ export function useListScrollRestoration(
         writeListScroll(scopeKey, lastOffset.current);
       }
     };
-  }, [ref, scopeKey]);
+  }, [ref, scopeKey, visible]);
 }
