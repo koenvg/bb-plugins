@@ -26,11 +26,6 @@ const { querySnapshotStorageKey, resetQuerySnapshotStateForTest } =
   await import("./query-snapshot.js");
 
 const tasksRegistration = app.navPanels[0]!;
-const navigationView = tasksRegistration.fixedTabs?.[0]!;
-const navigationRegistration = {
-  ...tasksRegistration,
-  component: navigationView.component,
-};
 
 beforeEach(() => window.localStorage.clear());
 afterEach(() => {
@@ -151,20 +146,6 @@ describe("project view preference", () => {
     expect(loadViewMode(PROJECT_ID)).toBe("board");
   });
 
-  it("navigates from the sidebar without pinning a view", async () => {
-    const slot = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      { rpc: seededRpc({ listLabels: () => ({ labels: [] }) }) },
-    );
-    fireEvent.click(await slot.findByText("Tasks Plugin"));
-    expect(slot.navigateCalls).toContainEqual({
-      method: "toPluginPanel",
-      path: "tasks",
-      options: { subPath: PROJECT_ID },
-    });
-  });
-
   it("still toggles when client storage rejects writes", async () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("Storage is disabled", "SecurityError");
@@ -246,15 +227,8 @@ describe("task pager", () => {
 });
 
 describe("tasks app shell", () => {
-  it("registers navigation as a BB-owned fixed panel tab", () => {
-    expect(tasksRegistration.fixedTabs).toMatchObject([
-      {
-        id: "navigation",
-        title: "Navigation",
-        icon: "ListView",
-        layout: "flush",
-      },
-    ]);
+  it("keeps navigation in the main panel rather than a fixed host tab", () => {
+    expect(tasksRegistration.fixedTabs ?? []).toEqual([]);
   });
 
   it("does not treat the first connection as a reconnect", async () => {
@@ -367,13 +341,12 @@ describe("tasks app shell", () => {
     await slot.findByText("Manually refreshed list title");
   });
 
-  it("shares manual refresh across the page and right-panel queries", async () => {
+  it("shares manual refresh across the list and header folder inventory", async () => {
     let listTaskCalls = 0;
-    let listProjectCalls = 0;
-    let holdProjects = false;
-    let releaseProjects: (() => void) | undefined;
-    const page = renderSlot(
-      app.navPanels[0]!,
+    let holdFolders = false;
+    let releaseFolders: (() => void) | undefined;
+    const slot = renderSlot(
+      tasksRegistration,
       { subPath: "all" },
       {
         rpc: seededRpc({
@@ -381,50 +354,27 @@ describe("tasks app shell", () => {
             listTaskCalls += 1;
             return { tasks: [] };
           },
-        }),
-      },
-    );
-    const panel = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      {
-        rpc: seededRpc({
-          listProjects: async () => {
-            listProjectCalls += 1;
-            if (holdProjects) {
+          listFolders: async () => {
+            if (holdFolders)
               await new Promise<void>((resolve) => {
-                releaseProjects = resolve;
+                releaseFolders = resolve;
               });
-            }
-            return { projects: [project] };
+            return { folders: [folder] };
           },
         }),
       },
     );
-    await page.findByRole("button", { name: "Refresh tasks" });
-    await panel.findByText("Tasks Plugin");
+    await slot.findByRole("button", { name: "Project: All projects" });
     const initialTaskCalls = listTaskCalls;
-    const initialProjectCalls = listProjectCalls;
-
-    holdProjects = true;
-    const refresh = page.getByRole("button", {
+    holdFolders = true;
+    const refresh = slot.getByRole("button", {
       name: "Refresh tasks",
     }) as HTMLButtonElement;
     fireEvent.click(refresh);
-
-    await waitFor(() =>
-      expect(listTaskCalls).toBeGreaterThan(initialTaskCalls),
-    );
-    await waitFor(() =>
-      expect(listProjectCalls).toBeGreaterThan(initialProjectCalls),
-    );
+    await waitFor(() => expect(releaseFolders).toBeDefined());
+    expect(listTaskCalls).toBeGreaterThan(initialTaskCalls);
     expect(refresh.disabled).toBe(true);
-    const taskCallsWhilePanelPending = listTaskCalls;
-    fireEvent.click(refresh);
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(listTaskCalls).toBe(taskCallsWhilePanelPending);
-
-    releaseProjects?.();
+    releaseFolders?.();
     await waitFor(() => expect(refresh.disabled).toBe(false));
   });
 
@@ -458,7 +408,7 @@ describe("tasks app shell", () => {
 
     expect(refresh.textContent?.trim() ?? "").not.toMatch(/Refresh/i);
     expect(refresh.getAttribute("aria-label")).toBe("Refresh tasks");
-    expect(refresh.className).toMatch(/size-7/);
+    expect(refresh.className).toMatch(/size-9/);
 
     expect(
       refresh.compareDocumentPosition(newTask) &
@@ -522,7 +472,7 @@ describe("tasks app shell", () => {
       name: "Refresh tasks",
     }) as HTMLButtonElement;
     const idleClassName = refresh.className;
-    expect(idleClassName).toMatch(/size-7/);
+    expect(idleClassName).toMatch(/size-9/);
     expect(refresh.getAttribute("aria-busy")).not.toBe("true");
     expect(refresh.disabled).toBe(false);
     expect(idleClassName).toMatch(/active:bg-state-active/);
@@ -580,7 +530,7 @@ describe("tasks app shell", () => {
     expect(
       (slot.getByRole("button", { name: "Refresh tasks" }) as HTMLButtonElement)
         .className,
-    ).toMatch(/size-7/);
+    ).toMatch(/size-9/);
   });
 
   it("retains stale list data when a manual refresh fails, then recovers", async () => {
@@ -673,12 +623,6 @@ describe("tasks app shell", () => {
   describe("last-known snapshot", () => {
     const projectsKey = querySnapshotStorageKey("projects");
     const foldersKey = querySnapshotStorageKey("folders");
-    const summaryKey = querySnapshotStorageKey("sidebar-summary");
-    const summary = {
-      projectId: PROJECT_ID,
-      taskCount: 3,
-      activeAgentCount: 1,
-    };
     function deferred<T>() {
       let resolve!: (value: T) => void;
       const promise = new Promise<T>((r) => {
@@ -687,166 +631,97 @@ describe("tasks app shell", () => {
       return { promise, resolve };
     }
 
-    it("never paints the empty state while projects are unknown", async () => {
-      const projects = deferred<{ projects: never[] }>();
-      const slot = renderSlot(
-        app.navPanels[0]!,
-        { subPath: "" },
-        {
-          rpc: seededRpc({
-            listProjects: () => projects.promise,
-            sidebarSummary: () => ({ projects: [] }),
-          }),
-        },
-      );
-      expect(slot.queryByText("No projects yet")).toBeNull();
-      projects.resolve({ projects: [] });
-      await slot.findByText("No projects yet");
-    });
-
-    it("does not resolve undirected entry from a last-known empty snapshot", () => {
+    it("never treats unknown or stale empty projects as settled undirected entry", async () => {
       window.localStorage.setItem(projectsKey, JSON.stringify([]));
-      window.localStorage.setItem(foldersKey, JSON.stringify([]));
-      window.localStorage.setItem(summaryKey, JSON.stringify([]));
       const projects = deferred<{ projects: never[] }>();
       const slot = renderSlot(
-        app.navPanels[0]!,
+        tasksRegistration,
         { subPath: "" },
         {
-          rpc: seededRpc({
-            listProjects: () => projects.promise,
-            sidebarSummary: () => ({ projects: [] }),
-          }),
+          rpc: seededRpc({ listProjects: () => projects.promise }),
         },
       );
       expect(slot.queryByText("No projects yet")).toBeNull();
       expect(slot.getByRole("status").textContent).toBe("Loading projects…");
-    });
-
-    it("paints last-known projects before listProjects resolves and never flashes empty", async () => {
-      window.localStorage.setItem(projectsKey, JSON.stringify([project]));
-      window.localStorage.setItem(foldersKey, JSON.stringify([folder]));
-      window.localStorage.setItem(summaryKey, JSON.stringify([summary]));
-      const projects = deferred<{ projects: (typeof project)[] }>();
-      const rpc = seededRpc({ listProjects: () => projects.promise });
-      const panel = renderSlot(
-        navigationRegistration,
-        { subPath: "" },
-        { rpc },
-      );
-      const page = renderSlot(app.navPanels[0]!, { subPath: "" }, { rpc });
-      expect(panel.getByText(project.name)).toBeTruthy();
-      expect(page.queryByText("No projects yet")).toBeNull();
-      projects.resolve({ projects: [project] });
-      await waitFor(() => expect(panel.getByText(project.name)).toBeTruthy());
-      expect(page.queryByText("No projects yet")).toBeNull();
-    });
-
-    it("ignores a malformed snapshot and loads normally", async () => {
-      window.localStorage.setItem(projectsKey, "{not json");
-      window.localStorage.setItem(
-        summaryKey,
-        JSON.stringify([{ projectId: 1 }]),
-      );
-      const slot = renderSlot(
-        app.navPanels[0]!,
-        { subPath: "" },
-        { rpc: emptyRpc },
-      );
-      expect(slot.queryByText("No projects yet")).toBeNull();
+      act(() => projects.resolve({ projects: [] }));
       await slot.findByText("No projects yet");
     });
 
-    it("prunes snapshots written under an older storage version", async () => {
-      resetQuerySnapshotStateForTest();
-      window.localStorage.setItem(
-        "bb-tasks:query-snapshot:v0:projects",
-        JSON.stringify([]),
-      );
+    it("paints last-known projects in the picker before inventory resolves", async () => {
+      window.localStorage.setItem(projectsKey, JSON.stringify([project]));
+      window.localStorage.setItem(foldersKey, JSON.stringify([folder]));
+      const projects = deferred<{ projects: (typeof project)[] }>();
       const slot = renderSlot(
-        navigationRegistration,
-        { subPath: "" },
+        tasksRegistration,
+        { subPath: "all" },
+        {
+          rpc: seededRpc({ listProjects: () => projects.promise }),
+        },
+      );
+      fireEvent.keyDown(
+        slot.getByRole("button", { name: "Project: All projects" }),
+        { key: "ArrowDown" },
+      );
+      expect(
+        slot.getByRole("menuitemradio", { name: project.name }),
+      ).toBeDefined();
+      expect(slot.queryByText("No projects yet")).toBeNull();
+      act(() => projects.resolve({ projects: [project] }));
+      await waitFor(() =>
+        expect(
+          slot.getByRole("menuitemradio", { name: project.name }),
+        ).toBeDefined(),
+      );
+    });
+
+    it("ignores malformed snapshots and prunes older versions", async () => {
+      resetQuerySnapshotStateForTest();
+      window.localStorage.setItem(projectsKey, "{not json");
+      window.localStorage.setItem("bb-tasks:query-snapshot:v0:projects", "[]");
+      const slot = renderSlot(
+        tasksRegistration,
+        { subPath: "all" },
         { rpc: seededRpc() },
       );
-      await slot.findByText(project.name);
+      fireEvent.keyDown(
+        await slot.findByRole("button", { name: "Project: All projects" }),
+        { key: "ArrowDown" },
+      );
+      await slot.findByRole("menuitemradio", { name: project.name });
       expect(
         window.localStorage.getItem("bb-tasks:query-snapshot:v0:projects"),
       ).toBeNull();
-      expect(window.localStorage.getItem(projectsKey)).not.toBeNull();
+      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
+        project,
+      ]);
+      expect(JSON.parse(window.localStorage.getItem(foldersKey)!)).toEqual([
+        folder,
+      ]);
     });
 
-    it("records the fetched projects and counts for the next mount", async () => {
-      const slot = renderSlot(
-        navigationRegistration,
-        { subPath: "" },
-        { rpc: seededRpc() },
-      );
-      await slot.findByText(project.name);
-      await waitFor(() => {
-        expect(
-          JSON.parse(window.localStorage.getItem(projectsKey) ?? "null"),
-        ).toEqual([project]);
-        expect(
-          JSON.parse(window.localStorage.getItem(foldersKey) ?? "null"),
-        ).toEqual([folder]);
-        expect(
-          JSON.parse(window.localStorage.getItem(summaryKey) ?? "null"),
-        ).toEqual([summary]);
-      });
-    });
-
-    it("keeps the newer projects snapshot when an older request resolves later", async () => {
+    it("keeps the newer project snapshot when an older request resolves later", async () => {
       const olderProject = { ...project, name: "Older truth" };
       const newerProject = { ...project, name: "Newer truth" };
       const older = deferred<{ projects: (typeof project)[] }>();
       let calls = 0;
       const rpc = seededRpc({
-        listProjects: () => {
-          calls += 1;
-          return calls === 1 ? older.promise : { projects: [newerProject] };
-        },
+        listProjects: () =>
+          ++calls === 1 ? older.promise : { projects: [newerProject] },
       });
-      renderSlot(navigationRegistration, { subPath: "" }, { rpc });
-      const second = renderSlot(
-        navigationRegistration,
-        { subPath: "" },
-        { rpc },
-      );
-      await second.findByText("Newer truth");
+      renderSlot(tasksRegistration, { subPath: PROJECT_ID }, { rpc });
       await waitFor(() =>
-        expect(
-          JSON.parse(window.localStorage.getItem(projectsKey) ?? "null"),
-        ).toEqual([newerProject]),
+        expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
+          newerProject,
+        ]),
       );
-      older.resolve({ projects: [olderProject] });
       await act(async () => {
+        older.resolve({ projects: [olderProject] });
         await older.promise;
       });
-      expect(
-        JSON.parse(window.localStorage.getItem(projectsKey) ?? "null"),
-      ).toEqual([newerProject]);
+      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
+        newerProject,
+      ]);
     });
-
-    it.each(["listFolders", "sidebarSummary"])(
-      "keeps loaded projects navigable when %s fails",
-      async (method) => {
-        const slot = renderSlot(
-          navigationRegistration,
-          { subPath: "all" },
-          {
-            rpc: seededRpc({
-              [method]: () => Promise.reject(new Error("boom")),
-            }),
-          },
-        );
-        fireEvent.click(await slot.findByText(project.name));
-        expect(slot.navigateCalls).toContainEqual({
-          method: "toPluginPanel",
-          path: "tasks",
-          options: { subPath: PROJECT_ID },
-        });
-      },
-    );
   });
 
   it("shows the error, not the previous route's rows, when a route change fails", async () => {
@@ -884,7 +759,7 @@ describe("tasks app shell", () => {
       },
     );
     await slot.findByText("No projects yet");
-    fireEvent.click(slot.getByRole("button", { name: /New project/ }));
+    fireEvent.click(slot.getAllByRole("button", { name: /New project/ })[0]!);
     await slot.findByText("Projects group tasks under a shared key prefix.");
   });
 
@@ -951,305 +826,59 @@ describe("tasks app shell", () => {
     });
   });
 
-  it("sums project badges independently of folder visibility and agent activity", async () => {
-    const zeroProjectId = "01HZZZZZZZZZZZZZZZZZZZZZP3";
-    const slot = renderSlot(
-      navigationRegistration,
-      { subPath: PROJECT_ID },
-      {
-        rpc: seededRpc({
-          listProjects: () => ({
-            projects: [
-              project,
-              { ...project, id: OTHER_PROJECT_ID, name: "Other", folderId: null },
-              { ...project, id: zeroProjectId, name: "Finished", folderId: null },
-            ],
-          }),
-          sidebarSummary: () => ({
-            projects: [
-              { projectId: PROJECT_ID, taskCount: 2, activeAgentCount: 0 },
-              { projectId: OTHER_PROJECT_ID, taskCount: 3, activeAgentCount: 0 },
-              { projectId: zeroProjectId, taskCount: 0, activeAgentCount: 1 },
-            ],
-          }),
-          listTasks: () => ({
-            tasks: [makeTask({ projectId: zeroProjectId, status: "done" })],
-          }),
-        }),
-      },
-    );
-
-    await slot.findByRole("button", { name: /^All tasks\s*5$/ });
-    expect(slot.getByRole("button", { name: /^Tasks Plugin\s*2$/ })).toBeDefined();
-    expect(slot.getByRole("button", { name: /^Other\s*3$/ })).toBeDefined();
-    const finished = slot.getByRole("button", { name: /^Finished\s*0$/ });
-    expect(finished.querySelector(".bg-success")).not.toBeNull();
-    expect(slot.getByTitle("Other").querySelector(".bg-success")).toBeNull();
-    expect(
-      slot.getByRole("button", { name: /^Active\s*1$/ }).querySelector(".bg-success"),
-    ).not.toBeNull();
-
-    fireEvent.click(slot.getByRole("button", { name: "bb" }));
-    expect(slot.queryByRole("button", { name: /^Tasks Plugin\s*2$/ })).toBeNull();
-    expect(slot.getByRole("button", { name: /^All tasks\s*5$/ })).toBeDefined();
-    fireEvent.click(finished);
-    expect(slot.inspection.navigateCalls).toContainEqual({
-      method: "toPluginPanel",
-      path: "tasks",
-      options: { subPath: zeroProjectId },
-    });
-    fireEvent.click(slot.getByRole("button", { name: /^All tasks\s*5$/ }));
-    expect(slot.inspection.navigateCalls).toContainEqual({
-      method: "toPluginPanel",
-      path: "tasks",
-      options: { subPath: "all" },
-    });
-  });
-
   it.each(["all", `${PROJECT_ID}?view=list`, `${PROJECT_ID}?view=board`])(
-    "keeps finished tasks viewable with zero sidebar counts on %s",
+    "keeps finished tasks viewable on %s",
     async (subPath) => {
-      const rpc = seededRpc({
-        sidebarSummary: () => ({
-          projects: [{ projectId: PROJECT_ID, taskCount: 0, activeAgentCount: 0 }],
-        }),
-        listTasks: () => ({
-          tasks: [
-            makeTask({ title: "Completed work", status: "done" }),
-            makeTask({
-              id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
-              number: 2,
-              key: "TSK-2",
-              title: "Canceled work",
-              status: "canceled",
+      const slot = renderSlot(
+        tasksRegistration,
+        { subPath },
+        {
+          rpc: seededRpc({
+            listTasks: () => ({
+              tasks: [
+                makeTask({ title: "Completed work", status: "done" }),
+                makeTask({
+                  id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
+                  number: 2,
+                  key: "TSK-2",
+                  title: "Canceled work",
+                  status: "canceled",
+                }),
+              ],
             }),
-          ],
-        }),
-        listLabels: () => ({ labels: [] }),
-        listTaskThreads: () => ({ taskThreads: [] }),
-        listAttachments: () => ({ attachments: [] }),
-      });
-      const navigation = renderSlot(navigationRegistration, { subPath }, { rpc });
-      const panel = renderSlot(tasksRegistration, { subPath }, { rpc });
-
-      await panel.findByText("Completed work");
-      await panel.findByText("Canceled work");
-      expect(
-        navigation.getByRole("button", { name: /^All tasks\s*0$/ }),
-      ).toBeDefined();
-      expect(
-        navigation.getByRole("button", { name: /^Tasks Plugin\s*0$/ }),
-      ).toBeDefined();
+            listLabels: () => ({ labels: [] }),
+            listTaskThreads: () => ({ taskThreads: [] }),
+            listAttachments: () => ({ attachments: [] }),
+          }),
+        },
+      );
+      await slot.findByText("Completed work");
+      await slot.findByText("Canceled work");
       if (!subPath.endsWith("board")) {
-        fireEvent.keyDown(panel.getByRole("button", { name: "Status" }), {
+        fireEvent.keyDown(slot.getByRole("button", { name: "Status" }), {
           key: "ArrowDown",
         });
         fireEvent.click(
-          await panel.findByRole("menuitemcheckbox", { name: "Done" }),
+          await slot.findByRole("menuitemcheckbox", { name: "Done" }),
         );
-        await waitFor(() => expect(panel.queryByText("Canceled work")).toBeNull());
-        expect(panel.getByText("Completed work")).toBeDefined();
-        fireEvent.keyDown(panel.getByRole("menu"), { key: "Escape" });
-        expect(
-          navigation.getByRole("button", { name: /^All tasks\s*0$/ }),
-        ).toBeDefined();
-        expect(
-          navigation.getByRole("button", { name: /^Tasks Plugin\s*0$/ }),
-        ).toBeDefined();
+        await waitFor(() =>
+          expect(slot.queryByText("Canceled work")).toBeNull(),
+        );
+        expect(slot.getByText("Completed work")).toBeDefined();
       }
     },
   );
 
-  it("renders right-panel navigation and routes through the plugin panel", async () => {
+  it("opens quick-create on bare 'c' only once with its dialog open", async () => {
     const slot = renderSlot(
-      navigationRegistration,
+      tasksRegistration,
       { subPath: "all" },
-      {
-        rpc: seededRpc(),
-      },
+      { rpc: seededRpc() },
     );
-    await slot.findByText("Tasks Plugin");
-    expect(slot.getByRole("button", { name: /^All tasks/ })).toBeDefined();
-    expect(slot.getByRole("button", { name: "Manage" })).toBeDefined();
-
-    fireEvent.click(slot.getByTitle("Tasks Plugin"));
-    expect(slot.navigateCalls).toContainEqual({
-      method: "toPluginPanel",
-      path: "tasks",
-      options: { subPath: PROJECT_ID },
-    });
-  });
-
-  it("does not mount New project queries until the dialog opens", async () => {
-    let bbProjectCalls = 0;
-    const slot = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      {
-        rpc: seededRpc({
-          listBbProjects: () => {
-            bbProjectCalls += 1;
-            return { bbProjects: [] };
-          },
-        }),
-      },
-    );
-    await slot.findByRole("button", { name: "New project" });
-    expect(bbProjectCalls).toBe(0);
-
-    fireEvent.click(slot.getByRole("button", { name: "New project" }));
-
-    await slot.findByText("Projects group tasks under a shared key prefix.");
-    expect(bbProjectCalls).toBeGreaterThan(0);
-  });
-
-  it("routes 'manage' to the manage panel from right-panel navigation", async () => {
-    const panel = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      {
-        rpc: seededRpc(),
-      },
-    );
-    await panel.findByRole("button", { name: "Manage" });
-    fireEvent.click(panel.getByRole("button", { name: "Manage" }));
-    expect(panel.navigateCalls).toContainEqual({
-      method: "toPluginPanel",
-      path: "tasks",
-      options: { subPath: "manage" },
-    });
-    cleanup();
-
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: "manage" },
-      {
-        rpc: seededRpc({ listLabels: () => ({ labels: [] }) }),
-      },
-    );
-    await slot.findByText("Labels, agent presets, and folders.");
-  });
-
-  it("opens quick-create on bare 'c' but not from editable targets or dialogs", async () => {
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: "all" },
-      {
-        rpc: seededRpc(),
-      },
-    );
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     fireEvent.keyDown(window, { key: "c" });
     await slot.findByRole("dialog");
     fireEvent.keyDown(window, { key: "c" });
     expect(slot.getAllByRole("dialog")).toHaveLength(1);
-  });
-
-  it("marks only new-worktree presets with the worktree hint", async () => {
-    const basePreset = {
-      id: "01HZZZZZZZZZZZZZZZZZZZZZE1",
-      name: "Default env",
-      providerId: "claude-code",
-      modelId: "claude-sonnet-5",
-      reasoningLevel: "medium",
-      serviceTier: null,
-      permissionMode: "accept-edits",
-      environmentKind: "project-default",
-      baseBranch: null,
-      machineId: null,
-      instructions: "",
-      builtin: false,
-      createdAt: "2026-07-15T00:00:00.000Z",
-    };
-    const slot = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      {
-        rpc: seededRpc({
-          listPresets: () => ({
-            presets: [
-              basePreset,
-              {
-                ...basePreset,
-                id: "01HZZZZZZZZZZZZZZZZZZZZZE2",
-                name: "Worktree env",
-                environmentKind: "new-worktree",
-                baseBranch: "main",
-              },
-            ],
-          }),
-        }),
-      },
-    );
-    await slot.findByText("Worktree env");
-    expect(slot.getByText("Default env")).toBeDefined();
-    expect(slot.getAllByLabelText("Spawns a new worktree")).toHaveLength(1);
-  });
-
-  it.each(["done", "canceled"] as const)(
-    "refreshes both badges when a task becomes %s and is reopened",
-    async (finishedStatus) => {
-      let taskCount = 1;
-      let task = makeTask();
-      const slot = renderSlot(
-        navigationRegistration,
-        { subPath: "all" },
-        {
-          rpc: seededRpc({
-            sidebarSummary: () => ({
-              projects: [{ projectId: PROJECT_ID, taskCount, activeAgentCount: 1 }],
-            }),
-            listTasks: () => ({ tasks: [task] }),
-          }),
-        },
-      );
-      await slot.findByRole("button", { name: /^All tasks\s*1$/ });
-      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*1$/ })).toBeDefined();
-
-      task = { ...task, status: finishedStatus };
-      taskCount = 0;
-      await slot.behavior.emitRealtime("tasks:changed", {
-        taskId: task.id,
-        projectId: PROJECT_ID,
-      });
-      await slot.findByRole("button", { name: /^All tasks\s*0$/ });
-      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*0$/ })).toBeDefined();
-      expect(
-        slot.getByRole("button", { name: /^Active\s*1$/ }).querySelector(".bg-success"),
-      ).not.toBeNull();
-      expect(slot.getByTitle("Tasks Plugin").querySelector(".bg-success")).not.toBeNull();
-
-      task = { ...task, status: "todo" };
-      taskCount = 1;
-      await slot.behavior.emitRealtime("tasks:changed", {
-        taskId: task.id,
-        projectId: PROJECT_ID,
-      });
-      await slot.findByRole("button", { name: /^All tasks\s*1$/ });
-      expect(slot.getByRole("button", { name: /^Tasks Plugin\s*1$/ })).toBeDefined();
-    },
-  );
-
-  it("refetches sidebar data when invalidation channels fire", async () => {
-    let projectCalls = 0;
-    const slot = renderSlot(
-      navigationRegistration,
-      { subPath: "all" },
-      {
-        rpc: seededRpc({
-          listProjects: () => {
-            projectCalls += 1;
-            return { projects: [project] };
-          },
-        }),
-      },
-    );
-    await slot.findByText("Tasks Plugin");
-    const before = projectCalls;
-    await slot.emitRealtime("projects:changed", { projectId: null });
-    await waitFor(() => expect(projectCalls).toBeGreaterThan(before));
-    const settled = projectCalls;
-    await slot.emitRealtime("comments:changed", { taskId: "x" });
-    expect(projectCalls).toBe(settled);
   });
 });

@@ -79,7 +79,7 @@ function open(subPath: string, tasks: Task[] = []) {
 describe("panel shortcuts", () => {
   it("opens the help dialog on ? and lists every shortcut by scope", async () => {
     const slot = open("all");
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     fireEvent.keyDown(window, { key: "?", shiftKey: true });
     const dialog = await slot.findByRole("dialog", {
       name: "Keyboard shortcuts",
@@ -105,7 +105,7 @@ describe("panel shortcuts", () => {
 
   it("does not open the new-task dialog when Cmd is held", async () => {
     const slot = open("all");
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     fireEvent.keyDown(window, { key: "c", metaKey: true });
     expect(slot.queryByRole("dialog")).toBeNull();
   });
@@ -124,14 +124,14 @@ describe("panel shortcuts", () => {
 
   it("ignores v where there is no board", async () => {
     const slot = open("all");
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     fireEvent.keyDown(window, { key: "v" });
     expect(slot.navigateCalls).toEqual([]);
   });
 
   it("ignores keys pressed while focus is in another pane", async () => {
     const slot = open("all");
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     const otherPane = document.createElement("button");
     document.body.append(otherPane);
     otherPane.focus();

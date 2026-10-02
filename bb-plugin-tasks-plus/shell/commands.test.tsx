@@ -24,12 +24,12 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 const tasksPanel = app.navPanels[0]!;
-const navigationPanel = {
-  ...tasksPanel,
-  component: tasksPanel.fixedTabs![0]!.component,
+const sidebarAccessory = {
+  component: tasksPanel.experimental_sidebarAccessory!,
 };
 
 const rpc = {
+  sidebarOpenTaskCount: () => ({ openTaskCount: 0 }),
   listProjects: () => ({ projects: [] }),
   listFolders: () => ({ folders: [] }),
   listPresets: () => ({ presets: [] }),
@@ -69,7 +69,7 @@ describe("tasks palette commands", () => {
 
   it("are hidden until a tasks surface can navigate", () => {
     expect(command("go-all").isAvailable?.(context)).toBe(false);
-    renderSlot(navigationPanel, { subPath: "all" }, { rpc });
+    renderSlot(sidebarAccessory, {}, { rpc });
     expect(command("go-all").isAvailable?.(context)).toBe(true);
   });
 
@@ -78,7 +78,7 @@ describe("tasks palette commands", () => {
     ["go-active", "active"],
     ["go-manage", "manage"],
   ])("%s opens the tasks panel on %s", (id, subPath) => {
-    const slot = renderSlot(navigationPanel, { subPath: "all" }, { rpc });
+    const slot = renderSlot(sidebarAccessory, {}, { rpc });
     run(id);
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -88,7 +88,7 @@ describe("tasks palette commands", () => {
   });
 
   it("opens the panel and then the new-task dialog once when the panel was closed", async () => {
-    const sidebar = renderSlot(navigationPanel, { subPath: "all" }, { rpc });
+    const sidebar = renderSlot(sidebarAccessory, {}, { rpc });
     run("new-task");
     expect(sidebar.navigateCalls).toContainEqual(
       expect.objectContaining({ method: "toPluginPanel", path: "tasks" }),
@@ -100,7 +100,7 @@ describe("tasks palette commands", () => {
 
   it("shows the help dialog in an open panel without navigating", async () => {
     const panel = renderSlot(tasksPanel, { subPath: "all" }, { rpc });
-    await panel.findByText("All tasks");
+    await panel.findByText("No projects yet");
     run("show-shortcuts");
     expect(
       await panel.findByRole("dialog", { name: "Keyboard shortcuts" }),

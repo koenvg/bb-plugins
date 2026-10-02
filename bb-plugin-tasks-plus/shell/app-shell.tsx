@@ -34,6 +34,8 @@ import {
 
 const BOARD_MIN_WIDTH = 448;
 
+// Scope identity resets list-local query snapshots and controls together. Do
+// not key this outlet by a future selected ticket: selection must retain the list.
 function RouteOutlet({
   route,
   boardUsable,
@@ -45,9 +47,9 @@ function RouteOutlet({
     case "entry":
       return null;
     case "all":
-      return <ListView projectId={null} />;
+      return <ListView key="all" projectId={null} />;
     case "active":
-      return <ListView projectId={null} activeOnly />;
+      return <ListView key="active" projectId={null} activeOnly />;
     case "manage":
       return <ManagePanel />;
     case "task":
@@ -56,7 +58,7 @@ function RouteOutlet({
       return route.view === "board" && boardUsable ? (
         <BoardView projectId={route.projectId} />
       ) : (
-        <ListView projectId={route.projectId} />
+        <ListView key={route.projectId} projectId={route.projectId} />
       );
   }
 }
@@ -136,7 +138,7 @@ function TasksAppShellContent({
       <main ref={mainRef} className="@container flex min-w-0 flex-1 flex-col">
         <TasksTopbar
           route={route}
-          projects={projects.data}
+          projects={projects}
           pagerScope={
             lastBrowseRouteRef.current === null
               ? null
@@ -149,6 +151,7 @@ function TasksAppShellContent({
           }
           onNavigate={navigation.go}
           onNewTask={() => setNewTaskOpen(true)}
+          onNewProject={() => setNewProjectOpen(true)}
           onBack={backFromTask}
         />
         <div className="min-h-0 flex-1 overflow-auto">
@@ -171,15 +174,16 @@ function TasksAppShellContent({
           )}
         </div>
       </main>
-      <NewTaskDialog
-        open={newTaskOpen}
-        onOpenChange={setNewTaskOpen}
-        projectId={newTaskProjectId}
-      />
-      <NewProjectDialog
-        open={newProjectOpen}
-        onOpenChange={setNewProjectOpen}
-      />
+      {newTaskOpen ? (
+        <NewTaskDialog
+          open
+          onOpenChange={setNewTaskOpen}
+          projectId={newTaskProjectId}
+        />
+      ) : null}
+      {newProjectOpen ? (
+        <NewProjectDialog open onOpenChange={setNewProjectOpen} />
+      ) : null}
       <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );

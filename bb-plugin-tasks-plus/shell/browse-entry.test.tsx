@@ -116,16 +116,16 @@ describe("remembered Tasks entry", () => {
   });
   it("defaults first use to All after authoritative inventory and preserves explicit All on reopen", async () => {
     const slot = open();
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     expect(slot.navigateCalls).toEqual([destination("all", true)]);
     slot.lifecycle.unmount();
     rememberProject();
     const all = open("all");
-    await all.findByText("All tasks");
+    await all.findByText("All projects");
     expect(remembered()).toEqual({ kind: "all" });
     all.lifecycle.unmount();
     const reopened = open();
-    await reopened.findByText("All tasks");
+    await reopened.findByText("All projects");
     expect(reopened.navigateCalls).toEqual([destination("all", true)]);
   });
 
@@ -161,7 +161,7 @@ describe("remembered Tasks entry", () => {
     const slot = open("", { listProjects: () => inventory.promise });
     expect(slot.navigateCalls).toEqual([]);
     await act(async () => inventory.resolve({ projects: [other] }));
-    await slot.findByText("All tasks");
+    await slot.findByText("All projects");
     expect(remembered()).toEqual({ kind: "all" });
     expect(slot.navigateCalls).toEqual([destination("all", true)]);
     slot.lifecycle.rerender(<Panel subPath="all" />);
@@ -292,10 +292,10 @@ describe("remembered Tasks entry", () => {
       ]);
       restored.lifecycle.unmount();
       const all = open("all");
-      await all.findByText("All tasks");
+      await all.findByText("All projects");
       all.lifecycle.unmount();
       const reopened = open();
-      await reopened.findByText("All tasks");
+      await reopened.findByText("All projects");
       expect(reopened.navigateCalls).toEqual([destination("all", true)]);
     },
   );
@@ -311,7 +311,7 @@ describe("remembered Tasks entry", () => {
     async (raw) => {
       window.localStorage.setItem(storageKey, raw);
       const initial = open();
-      await initial.findByText("All tasks");
+      await initial.findByText("All projects");
       initial.lifecycle.rerender(<Panel subPath={other.id} />);
       await initial.findByText("ClassSpotter");
       initial.lifecycle.unmount();
@@ -350,7 +350,7 @@ describe("remembered Tasks entry", () => {
   });
 
   it.each([
-    ["go-all", "all", "All tasks"],
+    ["go-all", "all", "All projects"],
     ["go-active", "active", "Active"],
     ["go-manage", "manage", "Manage"],
   ])(
@@ -380,23 +380,15 @@ describe("remembered Tasks entry", () => {
 
   it("the project navigation command wins over remembered All", async () => {
     const slot = open("all");
-    await slot.findByText("All tasks");
-    const navigationPanel = {
-      ...panel,
-      component: panel.fixedTabs![0]!.component,
-    };
-    const navigation = renderSlot(
-      navigationPanel,
-      { subPath: "all" },
-      {
-        rpc: {
-          ...rpc,
-          sidebarSummary: () => ({ projects: [] }),
-        },
-      },
+    await slot.findByText("All projects");
+    fireEvent.keyDown(
+      slot.getByRole("button", { name: "Project: All projects" }),
+      { key: "ArrowDown" },
     );
-    fireEvent.click(await navigation.findByText("ClassSpotter"));
-    expect(navigation.navigateCalls).toEqual([destination(other.id)]);
+    fireEvent.click(
+      await slot.findByRole("menuitemradio", { name: "ClassSpotter" }),
+    );
+    expect(slot.navigateCalls).toEqual([destination(other.id)]);
     slot.lifecycle.rerender(<Panel subPath={other.id} />);
     expect(remembered()).toEqual({ kind: "project", projectId: other.id });
   });

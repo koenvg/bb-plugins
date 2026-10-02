@@ -332,6 +332,27 @@ portable in task content.
 Mentioning a task key such as `PROD-1` in an agent request also activates the
 Tasks skill, which directs the worker to read and update the tracked task.
 
+## Project navigation
+
+Choose a project or **All projects** from the picker above the ticket list or
+board. The picker shows the current scope and groups projects by folder. Nested
+folders use a full path such as `Work / Products`. Changing scope restores that
+scope's saved filters and sort, updates its label choices and New task default,
+and remembers the accepted project or All choice.
+
+The **Tasks navigation** menu beside New task opens **Active**, **Manage**, and
+**New project**. Active always spans all projects and does not replace the
+remembered scope. Under **Manage**, use **Presets** to create or edit agent presets
+and **Folders** to organize projects. With no projects, the header and empty
+state offer New project instead of an empty picker.
+
+The permanent right-hand Navigation pane is no longer registered. The sidebar
+count and command-palette entry points remain available. On narrow panels, long
+project names truncate, New task becomes icon-only, and List/Board stays available
+in Tasks navigation when the inline toggle does not fit. Ticket opening still
+uses the existing standalone detail view; this navigation change does not add a
+split view.
+
 ## Remembered project scope
 
 Opening Tasks without a destination restores the last Tasks project or your

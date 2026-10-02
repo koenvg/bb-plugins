@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
-import type { Project, Task } from "../shared/contract.js";
+import type { Task } from "../shared/contract.js";
 import { groupTasksByStatus } from "../views/list/lib.js";
-import { listAllTasks, useTasksQuery } from "./data.js";
+import { listAllTasks, useTasksQuery, type useProjects } from "./data.js";
 import type { ResolvedTasksRoute, TaskViewMode, TasksRoute } from "./routes.js";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useTasksRefresh } from "./refresh.js";
 import { useShortcuts } from "./shortcut-provider.js";
+import { ProjectPicker, TasksNavigationMenu } from "./browse-navigation.js";
 
 const REFRESH_TASKS_LABEL = "Refresh tasks";
 
@@ -114,9 +115,9 @@ function ViewToggle({
       onClick={() => onChange(mode)}
       aria-pressed={view === mode}
       className={cn(
-        "rounded-sm px-2.5 py-0.5 text-xs max-md:pointer-coarse:py-1.5",
+        "min-h-8 rounded-sm px-3 text-xs",
         view === mode
-          ? "bg-background text-foreground shadow-2xs"
+          ? "bg-background text-foreground"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -147,7 +148,7 @@ function RefreshTasksButton() {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0 text-muted-foreground hover:text-foreground active:bg-state-active active:text-foreground max-md:pointer-coarse:size-9"
+            className="size-9 shrink-0 text-muted-foreground hover:text-foreground active:bg-state-active active:text-foreground"
             aria-label={REFRESH_TASKS_LABEL}
             aria-busy={isRefreshing}
             disabled={isRefreshing}
@@ -167,21 +168,24 @@ function RefreshTasksButton() {
 
 interface TasksTopbarProps {
   route: ResolvedTasksRoute;
-  projects: Project[] | undefined;
+  projects: ReturnType<typeof useProjects>;
   pagerScope: { projectId: string | null } | null;
   onNavigate: (route: TasksRoute) => void;
   onNewTask: () => void;
+  onNewProject: () => void;
   onBack: () => void;
 }
 
 export function TasksTopbar({
   route,
-  projects,
+  projects: projectInventory,
   pagerScope,
   onNavigate,
   onNewTask,
+  onNewProject,
   onBack,
 }: TasksTopbarProps) {
+  const projects = projectInventory.data;
   const project = useMemo(() => {
     if (route.kind === "project") {
       return (projects ?? []).find((p) => p.id === route.projectId) ?? null;
@@ -197,18 +201,23 @@ export function TasksTopbar({
     switch (route.kind) {
       case "entry":
         return <span className="font-semibold">Tasks</span>;
+      case "project":
       case "all":
-        return (
-          <span className="whitespace-nowrap font-semibold">All tasks</span>
-        );
       case "active":
         return (
-          <span className="flex items-center gap-2">
-            <span className="whitespace-nowrap font-semibold">Active</span>
-            <span className="hidden text-xs font-normal text-muted-foreground @md:inline">
-              agents working now
-            </span>
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            {route.kind === "active" ? (
+              <span className="shrink-0 font-semibold">Active</span>
+            ) : null}
+            <div className="min-w-0">
+              <ProjectPicker
+                route={route}
+                projects={projectInventory}
+                onNavigate={onNavigate}
+                onNewProject={onNewProject}
+              />
+            </div>
+          </div>
         );
       case "manage":
         return (
@@ -216,21 +225,6 @@ export function TasksTopbar({
             <span className="whitespace-nowrap font-semibold">Manage</span>
             <span className="hidden text-xs font-normal text-muted-foreground @md:inline">
               labels, presets, folders
-            </span>
-          </span>
-        );
-      case "project":
-        return (
-          <span className="flex min-w-0 items-center gap-2">
-            {project ? (
-              <span
-                aria-hidden
-                className="size-3 shrink-0 rounded-sm"
-                style={{ backgroundColor: project.color }}
-              />
-            ) : null}
-            <span className="truncate font-semibold">
-              {project?.name ?? "Project"}
             </span>
           </span>
         );
@@ -281,7 +275,7 @@ export function TasksTopbar({
   })();
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2.5 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14">
       <div className="min-w-0 flex-1 overflow-hidden">{breadcrumb}</div>
       {route.kind === "task" &&
       (pagerScope !== null || projects !== undefined) ? (
@@ -302,10 +296,13 @@ export function TasksTopbar({
         </span>
       ) : null}
       <RefreshTasksButton />
-      {route.kind !== "entry" && route.kind !== "task" && route.kind !== "manage" ? (
+      {projects?.length !== 0 &&
+      route.kind !== "entry" &&
+      route.kind !== "task" &&
+      route.kind !== "manage" ? (
         <Button
           size="sm"
-          className="h-7 gap-1.5 max-md:pointer-coarse:h-9"
+          className="h-9 shrink-0 gap-2"
           aria-label="New task"
           onClick={onNewTask}
         >
@@ -313,6 +310,11 @@ export function TasksTopbar({
           <span className="hidden @lg:inline">New task</span>
         </Button>
       ) : null}
+      <TasksNavigationMenu
+        route={route}
+        onNavigate={onNavigate}
+        onNewProject={onNewProject}
+      />
     </header>
   );
 }

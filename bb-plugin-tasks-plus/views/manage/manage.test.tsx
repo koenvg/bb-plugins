@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Task } from "../../shared/contract.js";
@@ -32,8 +32,9 @@ if (!window.matchMedia) {
 
 const app = await loadPluginApp(() => import("../../app"));
 const { derivePrefix } = await import("./shared.js");
-const { describePresetEnvironment, savePresetDraft } =
-  await import("./preset-dialog.js");
+const { describePresetEnvironment, savePresetDraft } = await import(
+  "./preset-dialog.js"
+);
 
 afterEach(cleanup);
 
@@ -1052,7 +1053,11 @@ describe("NewProjectDialog", () => {
         return { project: { ...project, ...input, id: PROJECT_ID } };
       },
     });
-    fireEvent.click(await slot.findByRole("button", { name: /New project/ }));
+    fireEvent.click(
+      await within(slot.getByRole("banner")).findByRole("button", {
+        name: "New project",
+      }),
+    );
     fireEvent.change(await slot.findByPlaceholderText("e.g. Tasks Plugin"), {
       target: { value: "Home Lab" },
     });
@@ -1078,7 +1083,11 @@ describe("NewProjectDialog", () => {
 
   it("flags malformed prefixes before submit", async () => {
     const slot = renderEmptyState();
-    fireEvent.click(await slot.findByRole("button", { name: /New project/ }));
+    fireEvent.click(
+      await within(slot.getByRole("banner")).findByRole("button", {
+        name: "New project",
+      }),
+    );
     const prefix = slot.getByPlaceholderText("TSK");
     fireEvent.change(prefix, { target: { value: "9x" } });
     expect((prefix as HTMLInputElement).value).toBe("9X");
@@ -1105,7 +1114,11 @@ describe("NewProjectDialog", () => {
         return { project: { ...project, ...input, id: PROJECT_ID } };
       },
     });
-    fireEvent.click(await slot.findByRole("button", { name: /New project/ }));
+    fireEvent.click(
+      await within(slot.getByRole("banner")).findByRole("button", {
+        name: "New project",
+      }),
+    );
     fireEvent.change(await slot.findByPlaceholderText("e.g. Tasks Plugin"), {
       target: { value: "Personal Tasks" },
     });
