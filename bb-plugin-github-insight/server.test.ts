@@ -315,6 +315,24 @@ describe("pr-poller", () => {
     run.controller.abort();
   });
 
+  it("stops when aborted while a GitHub call never answers", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => new Promise(() => {}),
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    let stopped = false;
+    void run.done.then(() => (stopped = true));
+
+    run.controller.abort();
+    await settle();
+
+    expect(stopped).toBe(true);
+  });
+
   it("stops refreshing a merged PR after one last refresh that records it", async () => {
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1" }],
