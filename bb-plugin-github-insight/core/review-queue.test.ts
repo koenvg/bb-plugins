@@ -41,7 +41,7 @@ describe("parseReviewQueue", () => {
   const queue = parseReviewQueue(fixture);
 
   it("maps a node to a QueuePr", () => {
-    expect(byNumber(queue.reviewRequests, 12)).toEqual({
+    expect(byNumber(queue, 12)).toEqual({
       repo: "acme/api",
       number: 12,
       title: "Add retries",
@@ -61,11 +61,11 @@ describe("parseReviewQueue", () => {
     [7, "failed"],
     [15, "running"],
   ] as const)("maps the CI state of #%i to %s", (number, ci) => {
-    expect(byNumber(queue.reviewRequests, number).ci).toBe(ci);
+    expect(byNumber(queue, number).ci).toBe(ci);
   });
 
   it("maps a missing status rollup to no CI state", () => {
-    expect(byNumber(queue.myPrs, 3).ci).toBe("none");
+    expect(byNumber(queue, 3).ci).toBe("none");
   });
 
   it.each([
@@ -73,43 +73,46 @@ describe("parseReviewQueue", () => {
     [7, "CHANGES_REQUESTED"],
     [15, "APPROVED"],
   ] as const)("keeps the review decision of #%i", (number, decision) => {
-    expect(byNumber(queue.reviewRequests, number).reviewDecision).toBe(decision);
+    expect(byNumber(queue, number).reviewDecision).toBe(decision);
   });
 
   it("keeps a missing review decision as null", () => {
-    expect(byNumber(queue.myPrs, 3).reviewDecision).toBeNull();
+    expect(byNumber(queue, 3).reviewDecision).toBeNull();
   });
 
   it("marks drafts", () => {
-    expect(byNumber(queue.reviewRequests, 7).draft).toBe(true);
-    expect(byNumber(queue.reviewRequests, 12).draft).toBe(false);
+    expect(byNumber(queue, 7).draft).toBe(true);
+    expect(byNumber(queue, 12).draft).toBe(false);
   });
 
   it("maps a deleted author to null", () => {
-    expect(byNumber(queue.reviewRequests, 15).author).toBeNull();
+    expect(byNumber(queue, 15).author).toBeNull();
   });
 
   it("orders groups by repo and PRs inside a group newest update first", () => {
     expect(
-      queue.reviewRequests.groups.map((group) => [group.repo, group.prs.map((pr) => pr.number)]),
+      queue.groups.map((group) => [group.repo, group.prs.map((pr) => pr.number)]),
     ).toEqual([
       ["acme/api", [15, 12]],
+      ["acme/docs", [3]],
       ["acme/web", [7]],
     ]);
   });
 
-  it("flags a list as truncated only when GitHub reports more than 50", () => {
-    expect(queue.reviewRequests.truncated).toBe(false);
-    expect(queue.myPrs.truncated).toBe(true);
+  function withIssueCount(issueCount: number) {
+    return { data: { reviewRequests: { ...fixture.data.reviewRequests, issueCount } } };
+  }
+
+  it("flags the list as truncated when GitHub reports more than 50", () => {
+    expect(queue.truncated).toBe(false);
+    expect(parseReviewQueue(withIssueCount(70)).truncated).toBe(true);
   });
 
   it("flags 50 results as complete", () => {
-    const fifty = { data: { ...fixture.data, myPrs: { ...fixture.data.myPrs, issueCount: 50 } } };
-
-    expect(parseReviewQueue(fifty).myPrs.truncated).toBe(false);
+    expect(parseReviewQueue(withIssueCount(50)).truncated).toBe(false);
   });
 
-  it("rejects a response without both searches", () => {
-    expect(() => parseReviewQueue({ data: { reviewRequests: fixture.data.reviewRequests } })).toThrow();
+  it("rejects a response without the review requests search", () => {
+    expect(() => parseReviewQueue({ data: {} })).toThrow();
   });
 });

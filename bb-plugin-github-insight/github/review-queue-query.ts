@@ -22,7 +22,6 @@ const PR_FIELDS = `
 const REVIEW_QUEUE_QUERY = `
 query {
   reviewRequests: search(type: ISSUE, first: ${REVIEW_QUEUE_PAGE_SIZE}, query: "is:pr is:open review-requested:@me") {${PR_FIELDS}}
-  myPrs: search(type: ISSUE, first: ${REVIEW_QUEUE_PAGE_SIZE}, query: "is:pr is:open author:@me") {${PR_FIELDS}}
 }
 `;
 

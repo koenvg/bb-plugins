@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
-import type { ReviewQueueView, rpcContract } from "../contract";
+import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import type { ReviewQueueResult, ReviewQueueView, rpcContract } from "../contract";
+import { readReviewQueueUpdate, REVIEW_QUEUE_UPDATED_CHANNEL } from "../core/review-queue-updated";
 import { messageOf } from "./error-message";
-
-export const REVIEW_QUEUE_POLL_MS = 5 * 60_000;
 
 export interface ReviewQueueState {
   view: ReviewQueueView | null;
   error: string | null;
-  loading: boolean;
+  refreshing: boolean;
   refresh: () => void;
 }
 
@@ -16,40 +15,53 @@ export function useReviewQueue(): ReviewQueueState {
   const rpc = useRpc<typeof rpcContract>();
   const [view, setView] = useState<ReviewQueueView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const latestRequest = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const latestResult = useRef(0);
 
-  const load = useCallback(async () => {
-    const request = ++latestRequest.current;
-    const isLatest = () => request === latestRequest.current;
-    setLoading(true);
-    try {
-      const result = await rpc.call("getReviewQueue", {});
-      if (!isLatest()) return;
-      if (result.kind === "ok") {
-        const { kind: _, ...loaded } = result;
-        setView(loaded);
-        setError(null);
-      } else {
-        if (result.lastGood !== null) setView(result.lastGood);
-        setError(result.message);
-      }
-    } catch (failure) {
-      if (isLatest()) setError(messageOf(failure));
-    } finally {
-      if (isLatest()) setLoading(false);
+  const apply = useCallback((result: ReviewQueueResult) => {
+    if (result.kind === "loading") return;
+    if (result.kind === "ok") {
+      const { kind: _, ...loaded } = result;
+      setView(loaded);
+      setError(null);
+    } else {
+      if (result.lastGood !== null) setView(result.lastGood);
+      setError(result.message);
     }
-  }, [rpc]);
+  }, []);
+
+  const track = useCallback(
+    async (call: () => Promise<ReviewQueueResult>) => {
+      const request = ++latestResult.current;
+      const isLatest = () => request === latestResult.current;
+      try {
+        const result = await call();
+        if (isLatest()) apply(result);
+      } catch (failure) {
+        if (isLatest()) setError(messageOf(failure));
+      }
+    },
+    [apply],
+  );
 
   useEffect(() => {
-    void load();
-    const interval = setInterval(() => void load(), REVIEW_QUEUE_POLL_MS);
+    void track(() => rpc.call("getReviewQueue", {}));
     return () => {
-      clearInterval(interval);
-      latestRequest.current++;
+      latestResult.current++;
     };
-  }, [load]);
+  }, [rpc, track]);
 
-  const refresh = useCallback(() => void load(), [load]);
-  return { view, error, loading, refresh };
+  useRealtime(REVIEW_QUEUE_UPDATED_CHANNEL, (payload) => {
+    const update = readReviewQueueUpdate(payload);
+    if (update === null) return;
+    latestResult.current++;
+    apply(update);
+  });
+
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void track(() => rpc.call("refreshReviewQueue", {})).finally(() => setRefreshing(false));
+  }, [rpc, track]);
+
+  return { view, error, refreshing, refresh };
 }

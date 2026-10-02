@@ -1,7 +1,7 @@
 {
   "data": {
     "reviewRequests": {
-      "issueCount": 3,
+      "issueCount": 4,
       "nodes": [
         {
           "number": 12,
@@ -41,12 +41,7 @@
           "headRefName": "rate-limits",
           "reviewDecision": "APPROVED",
           "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "PENDING" } } }] }
-        }
-      ]
-    },
-    "myPrs": {
-      "issueCount": 70,
-      "nodes": [
+        },
         {
           "number": 3,
           "title": "Fix typo",

@@ -43,6 +43,7 @@ const unusedReviewRpc = {
   saveDraft: () => ({ kind: "error" as const, message: "unused" }),
   discardDraft: () => ({ kind: "error" as const, message: "unused" }),
   getReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
+  refreshReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   startReview: () => ({ threadId: "unused" }),
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
 };

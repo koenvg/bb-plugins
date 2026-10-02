@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { reviewQueueArgs } from "./review-queue-query";
 
 describe("reviewQueueArgs", () => {
-  it("asks both searches in one GraphQL call", () => {
+  it("asks for the review requests in one GraphQL search", () => {
     expect(reviewQueueArgs()).toMatchSnapshot();
   });
 

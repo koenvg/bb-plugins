@@ -50,9 +50,9 @@
 
 ## 9. Remove My PRs, compact header, background cache
 
-- [ ] 9.1 Remove the `author:@me` search, `myPrs` from the core, contract, service, and UI, and their tests; verify the query snapshot has one search and `npm test` passes
-- [ ] 9.2 Add the `review-queue` background service, the versioned kv entry, the `review-queue.updated` channel, `refreshReviewQueue()`, and `getReviewQueue()` reading the stored view (decision 5); verify unit tests with fake timers, kv, and realtime for: first load, 5-minute repeat, one load at a time, Refresh during a load, stored view after a simulated restart, failure keeps the last good view, `loading` before the first load
-- [ ] 9.3 Make `startReview` and `archiveReview` re-link from stored GitHub data without a `gh` call, then store and publish; verify unit tests that no host call happens and the published view has the new thread or drops the archived one
-- [ ] 9.4 Make the panel read the stored view on mount, subscribe to `review-queue.updated`, call `refreshReviewQueue()` on Refresh, and drop its interval; verify `renderSlot` tests for: instant render from the stored view, update on a published event, Refresh calls the new RPC, `loading` state
-- [ ] 9.5 Full-width Review requests list, and Refresh with "Updated <time> ago" on the "My reviews" header row with no row of its own; verify `renderSlot` tests and a screenshot check by the user
+- [x] 9.1 Remove the `author:@me` search, `myPrs` from the core, contract, service, and UI, and their tests; verify the query snapshot has one search and `npm test` passes
+- [x] 9.2 Add the `review-queue` background service, the versioned kv entry, the `review-queue.updated` channel, `refreshReviewQueue()`, and `getReviewQueue()` reading the stored view (decision 5); verify unit tests with fake timers, kv, and realtime for: first load, 5-minute repeat, one load at a time, Refresh during a load, stored view after a simulated restart, failure keeps the last good view, `loading` before the first load
+- [x] 9.3 Make `startReview` and `archiveReview` re-link from stored GitHub data without a `gh` call, then store and publish; verify unit tests that no host call happens and the published view has the new thread or drops the archived one
+- [x] 9.4 Make the panel read the stored view on mount, subscribe to `review-queue.updated`, call `refreshReviewQueue()` on Refresh, and drop its interval; verify `renderSlot` tests for: instant render from the stored view, update on a published event, Refresh calls the new RPC, `loading` state
+- [x] 9.5 Full-width Review requests list, and Refresh with "Updated <time> ago" on the "My reviews" header row with no row of its own; verify `renderSlot` tests and a screenshot check by the user
 - [ ] 9.6 Update `README.md` and `PLUGIN_OVERVIEW.md` (no My PRs, background refresh, kept result); verify `npm test`, `npm run typecheck`, and `openspec validate github-review-requests-panel --strict` pass

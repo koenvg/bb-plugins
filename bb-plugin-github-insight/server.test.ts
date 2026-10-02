@@ -6,9 +6,10 @@ import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import reviewQueue from "./test/fixtures/review-queue.json";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
-import type { ReviewQueueResult, ReviewResult } from "./contract";
+import type { LoadedReviewQueue, ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import plugin from "./server";
 import { failed, linkedPr, ok, setup, type HostCall, type PullRequestResult } from "./test/plugin-harness";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
@@ -1316,7 +1317,37 @@ function acmeApiPr(number: number): PullRequestResult {
   return { ...linked, pullRequest: { ...linked.pullRequest, url: `https://github.com/acme/api/pull/${number}` } };
 }
 
-describe("getReviewQueue", () => {
+describe("review queue", () => {
+  it("reports loading before the first load and makes no GitHub call", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+
+    expect(await harness.behavior.callRpc("getReviewQueue", {})).toEqual({ kind: "loading" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("loads in the review-queue service, stores and publishes the view, and serves it", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+
+    const run = harness.behavior.runService("review-queue");
+    await settle();
+    run.controller.abort();
+
+    expect(harness.experimental_hostRpcCalls.map((call) => call.method)).toEqual(["fetchReviewQueue"]);
+    const stored = await harness.behavior.callRpc("getReviewQueue", {});
+    expect(stored).toMatchObject({ kind: "ok" });
+    expect(harness.realtimeSignals).toEqual([{ channel: "review-queue.updated", payload: stored }]);
+    expect(harness.experimental_hostRpcCalls).toHaveLength(1);
+  });
+
+  it("serves the stored view after a plugin reload", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const loaded = await harness.behavior.callRpc("refreshReviewQueue", {});
+
+    const reloaded = await harness.lifecycle.reload(plugin);
+
+    expect(await reloaded.harness.behavior.callRpc("getReviewQueue", {})).toEqual(loaded);
+  });
+
   it("fetches the queue on the primary host and links projects and threads", async () => {
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1", archivedAt: null, updatedAt: 1 }],
@@ -1326,7 +1357,7 @@ describe("getReviewQueue", () => {
       host: () => ok(reviewQueue),
     });
 
-    const result = (await harness.behavior.callRpc("getReviewQueue", {})) as ReviewQueueResult;
+    const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
 
     expect(harness.experimental_hostRpcCalls).toEqual([
       expect.objectContaining({ method: "fetchReviewQueue", input: {}, hostId: "host-7" }),
@@ -1363,7 +1394,7 @@ describe("getReviewQueue", () => {
       host: () => ok(reviewQueue),
     });
 
-    const result = (await harness.behavior.callRpc("getReviewQueue", {})) as ReviewQueueResult;
+    const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
 
     if (result.kind !== "ok") throw new Error(result.message);
     const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
@@ -1386,7 +1417,7 @@ describe("getReviewQueue", () => {
   it("reports the gh failure text", async () => {
     const harness = await setup({ threads: [], host: () => failed({ kind: "gh_logged_out" }) });
 
-    const result = await harness.behavior.callRpc("getReviewQueue", {});
+    const result = await harness.behavior.callRpc("refreshReviewQueue", {});
 
     expect(result).toEqual({ kind: "error", message: "gh not logged in", lastGood: null });
   });
@@ -1394,7 +1425,7 @@ describe("getReviewQueue", () => {
   it("reports no host available without a primary host", async () => {
     const harness = await setup({ threads: [], primaryHostId: null });
 
-    const result = await harness.behavior.callRpc("getReviewQueue", {});
+    const result = await harness.behavior.callRpc("refreshReviewQueue", {});
 
     expect(result).toEqual({ kind: "error", message: "No host available", lastGood: null });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
@@ -1436,6 +1467,26 @@ describe("startReview", () => {
       },
     ]);
     expect(result).toEqual({ threadId: "thr_review" });
+  });
+
+  it("publishes the queue with the new thread in My reviews without a GitHub call", async () => {
+    const harness = await setup({
+      threads: [],
+      host: () => ok(reviewQueue),
+      spawn: async () => makeThreadResponse({ id: "thr_review" }),
+    });
+    await harness.behavior.callRpc("refreshReviewQueue", {});
+    harness.sdk.stub("threads.list", async () => [
+      makeThreadResponse({ id: "thr_review", originPluginId: "github-insight", visibility: "hidden" }),
+    ]);
+    harness.sdk.stub("threads.getPluginMetadata", async () => ({ "review-pr": { v: 1, ...pr } }));
+
+    await harness.behavior.callRpc("startReview", { pr, request });
+    await settle();
+
+    expect(harness.experimental_hostRpcCalls).toHaveLength(1);
+    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    expect(update.kind === "ok" && update.myReviews.map((review) => review.threadId)).toEqual(["thr_review"]);
   });
 
   it("rejects when spawn fails", async () => {

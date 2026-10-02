@@ -10,8 +10,6 @@ import { usePullRequestsNavigation } from "./pull-requests-routes";
 import { ACTION_CLASS, COUNT_CLASS, LABEL_CLASS } from "./queue-styles";
 import type { ReviewQueueState } from "./use-review-queue";
 
-type ListKind = "review-requests" | "my-prs";
-
 const CI_LABEL: Record<CiState, { text: string; icon: IconName | null; className: string }> = {
   passed: { text: "CI passed", icon: "CircleCheck", className: "text-success" },
   failed: { text: "CI failed", icon: "CircleX", className: "text-destructive" },
@@ -29,64 +27,57 @@ const REVIEW_DECISION_LABEL: Record<
 };
 
 export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
-  const { view, error, loading, refresh } = queue;
+  const { view, error, refreshing, refresh } = queue;
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex items-center justify-end">
-        <RefreshButton refreshing={loading} refresh={refresh} />
-      </header>
       {error !== null && (
         <RefreshError
           message={error}
           refreshedAt={view?.loadedAt ?? null}
           retry={refresh}
-          busy={loading}
+          busy={refreshing}
         />
       )}
       {view === null ? (
         error === null && <Notice>Loading pull requests…</Notice>
       ) : (
         <>
-          <MyReviews reviews={view.myReviews} refresh={refresh} />
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] items-start gap-6">
-            <QueueColumn
-              title="Review requests"
-              kind="review-requests"
-              list={view.reviewRequests}
-              emptyText="No review requests"
-            />
-            <QueueColumn
-              title="My PRs"
-              kind="my-prs"
-              list={view.myPrs}
-              emptyText="No open pull requests"
-            />
-          </div>
+          <MyReviews
+            reviews={view.myReviews}
+            headerEnd={
+              <>
+                <span className="text-xs tabular-nums text-subtle-foreground">
+                  Updated{" "}
+                  <time
+                    dateTime={new Date(view.loadedAt).toISOString()}
+                    title={new Date(view.loadedAt).toLocaleString()}
+                  >
+                    {relativeTime(new Date(view.loadedAt), new Date())}
+                  </time>
+                </span>
+                <RefreshButton refreshing={refreshing} refresh={refresh} />
+              </>
+            }
+          />
+          <ReviewRequests list={view.reviewRequests} />
         </>
       )}
     </div>
   );
 }
 
-interface QueueColumnProps {
-  title: string;
-  kind: ListKind;
-  list: LinkedQueueList;
-  emptyText: string;
-}
-
-function QueueColumn({ title, kind, list, emptyText }: QueueColumnProps) {
+function ReviewRequests({ list }: { list: LinkedQueueList }) {
   const count = list.groups.reduce((sum, group) => sum + group.prs.length, 0);
   return (
-    <section aria-label={title} className="flex min-w-0 flex-col gap-3">
+    <section aria-label="Review requests" className="flex min-w-0 flex-col gap-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
-        {title}
+        Review requests
         <span data-testid="queue-count" className={COUNT_CLASS}>
           {count}
         </span>
       </h2>
       {count === 0 ? (
-        <Notice>{emptyText}</Notice>
+        <Notice>No review requests</Notice>
       ) : (
         list.groups.map((group) => (
           <div key={group.repo} className="flex min-w-0 flex-col gap-2">
@@ -94,7 +85,7 @@ function QueueColumn({ title, kind, list, emptyText }: QueueColumnProps) {
               <h3 data-testid="queue-group" className="min-w-0 truncate font-medium text-muted-foreground">
                 {group.repo}
               </h3>
-              {kind === "review-requests" && !group.prs.some((pr) => pr.projectIds.length > 0) && (
+              {!group.prs.some((pr) => pr.projectIds.length > 0) && (
                 <span className="ml-auto shrink-0 text-subtle-foreground">
                   No bb project for this repository
                 </span>
@@ -102,7 +93,7 @@ function QueueColumn({ title, kind, list, emptyText }: QueueColumnProps) {
             </div>
             <ul className="flex flex-col gap-2">
               {group.prs.map((pr) => (
-                <QueueCard key={pr.number} pr={pr} kind={kind} />
+                <QueueCard key={pr.number} pr={pr} />
               ))}
             </ul>
           </div>
@@ -113,7 +104,7 @@ function QueueColumn({ title, kind, list, emptyText }: QueueColumnProps) {
   );
 }
 
-function QueueCard({ pr, kind }: { pr: LinkedQueuePr; kind: ListKind }) {
+function QueueCard({ pr }: { pr: LinkedQueuePr }) {
   const ci = CI_LABEL[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
   return (
@@ -149,13 +140,13 @@ function QueueCard({ pr, kind }: { pr: LinkedQueuePr; kind: ListKind }) {
           </span>
         )}
         {pr.draft && <span className={LABEL_CLASS}>Draft</span>}
-        <CardActions pr={pr} kind={kind} />
+        <CardActions pr={pr} />
       </div>
     </li>
   );
 }
 
-function CardActions({ pr, kind }: { pr: LinkedQueuePr; kind: ListKind }) {
+function CardActions({ pr }: { pr: LinkedQueuePr }) {
   const navigation = usePullRequestsNavigation();
   const threadId = pr.threadId;
   return (
@@ -170,7 +161,6 @@ function CardActions({ pr, kind }: { pr: LinkedQueuePr; kind: ListKind }) {
           Open thread
         </button>
       ) : (
-        kind === "review-requests" &&
         pr.projectIds.length > 0 && (
           <button
             type="button"

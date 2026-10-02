@@ -4,9 +4,19 @@ import { draftsSchema } from "./core/drafts";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
 import { reviewPrSchema } from "./core/review-pr";
-import { queueListSchema, queuePrSchema } from "./core/review-queue";
+import { loadedReviewQueueSchema, reviewQueueResultSchema } from "./core/review-queue-view";
 import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
+
+export type {
+  LinkedQueueList,
+  LinkedQueuePr,
+  LoadedReviewQueue,
+  MyReview,
+  ReviewQueueResult,
+  ReviewQueueView,
+  ReviewThreadStatus,
+} from "./core/review-queue-view";
 
 const prRequestFields = {
   owner: z.string().min(1),
@@ -170,44 +180,6 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
-const linkedQueuePrSchema = queuePrSchema.extend({
-  projectIds: z.array(z.string()),
-  threadId: z.string().nullable(),
-});
-export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
-
-const linkedQueueListSchema = queueListSchema.extend({
-  groups: z.array(z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) })),
-});
-export type LinkedQueueList = z.infer<typeof linkedQueueListSchema>;
-
-export const reviewThreadStatusSchema = z.enum(["running", "needs_you", "idle", "error"]);
-export type ReviewThreadStatus = z.infer<typeof reviewThreadStatusSchema>;
-
-const myReviewSchema = reviewPrSchema.extend({
-  threadId: z.string(),
-  status: reviewThreadStatusSchema,
-});
-export type MyReview = z.infer<typeof myReviewSchema>;
-
-const reviewQueueViewSchema = z.object({
-  myReviews: z.array(myReviewSchema),
-  reviewRequests: linkedQueueListSchema,
-  myPrs: linkedQueueListSchema,
-  loadedAt: z.number(),
-});
-export type ReviewQueueView = z.infer<typeof reviewQueueViewSchema>;
-
-export const reviewQueueResultSchema = z.discriminatedUnion("kind", [
-  reviewQueueViewSchema.extend({ kind: z.literal("ok") }),
-  z.object({
-    kind: z.literal("error"),
-    message: z.string(),
-    lastGood: reviewQueueViewSchema.nullable(),
-  }),
-]);
-export type ReviewQueueResult = z.infer<typeof reviewQueueResultSchema>;
-
 const newThreadRequestSchema = z.custom<NewThreadRequest>(
   (value) => typeof value === "object" && value !== null,
 );
@@ -230,6 +202,7 @@ export const rpcContract = defineRpcContract({
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
+  refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
   startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
 });

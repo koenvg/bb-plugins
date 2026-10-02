@@ -1,18 +1,24 @@
-import type {
-  ActionResult,
-  LinkedQueueList,
-  MyReview,
-  ReviewQueueResult,
-  ReviewQueueView,
-  ReviewThreadStatus,
-} from "../contract";
+import type { NewThreadRequest, PluginKvStorage } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+import type { ActionResult } from "../contract";
 import type { PullRequestRef } from "../core/pr-ref";
 import { readReviewPr, type ReviewPr } from "../core/review-pr";
-import { parseGithubRepo, type QueueList, type ReviewQueue } from "../core/review-queue";
+import { parseGithubRepo, type QueueList } from "../core/review-queue";
+import {
+  loadedReviewQueueSchema,
+  type LinkedQueueList,
+  type LoadedReviewQueue,
+  type MyReview,
+  type ReviewQueueResult,
+  type ReviewQueueView,
+  type ReviewThreadStatus,
+} from "../core/review-queue-view";
 import type { PrResolution } from "../pr-lookup";
 
 export const NO_HOST_MESSAGE = "No host available";
 export const NOT_A_REVIEW_THREAD_MESSAGE = "This thread is not a review thread";
+export const REVIEW_QUEUE_INTERVAL_MS = 5 * 60_000;
+export const REVIEW_QUEUE_STORAGE_KEY = "review-queue";
 
 export interface QueueProject {
   id: string;
@@ -39,13 +45,17 @@ export interface QueueReviewThread {
 
 export interface ReviewQueueServiceDeps {
   primaryHostId(): Promise<string | null>;
-  fetchReviewQueue(hostId: string): Promise<ReviewQueue>;
+  fetchReviewQueue(hostId: string): Promise<QueueList>;
   listProjects(): Promise<QueueProject[]>;
   listThreads(): Promise<QueueThread[]>;
   listReviewThreads(): Promise<QueueReviewThread[]>;
   readPluginMetadata(threadId: string): Promise<unknown>;
+  spawnReviewThread(pr: ReviewPr, request: NewThreadRequest): Promise<string>;
   archiveThread(threadId: string): Promise<void>;
   resolveEnvironmentPr(environmentId: string): Promise<PrResolution>;
+  kv: Pick<PluginKvStorage, "get" | "set">;
+  publish(result: LoadedReviewQueue): void;
+  warn(message: string): void;
   now(): number;
 }
 
@@ -77,8 +87,49 @@ function toMyReview({ thread, pr }: StartedReview): MyReview {
   return { ...pr, threadId: thread.id, status: reviewThreadStatus(thread) };
 }
 
+const storedReviewQueueSchema = z.object({ v: z.literal(1), result: loadedReviewQueueSchema });
+
+function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
+  if (result.kind === "error") return result.lastGood;
+  const { kind: _, ...view } = result;
+  return view;
+}
+
+function unlinked(list: LinkedQueueList): QueueList {
+  return {
+    truncated: list.truncated,
+    groups: list.groups.map((group) => ({
+      repo: group.repo,
+      prs: group.prs.map(({ projectIds: _, threadId: __, ...pr }) => pr),
+    })),
+  };
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+  });
+}
+
 export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
-  let lastGood: ReviewQueueView | null = null;
+  let running: Promise<LoadedReviewQueue> | null = null;
+  let queued: Promise<LoadedReviewQueue> | null = null;
+
+  async function readStored(): Promise<LoadedReviewQueue | null> {
+    const parsed = storedReviewQueueSchema.safeParse(await deps.kv.get(REVIEW_QUEUE_STORAGE_KEY));
+    return parsed.success ? parsed.data.result : null;
+  }
+
+  async function store(result: LoadedReviewQueue): Promise<void> {
+    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 1, result });
+    deps.publish(result);
+  }
 
   async function projectIdsByRepo(): Promise<Map<string, string[]>> {
     const projects = (await deps.listProjects())
@@ -153,31 +204,77 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     };
   }
 
-  async function load(): Promise<ReviewQueueView> {
-    const hostId = await deps.primaryHostId();
-    if (hostId === null) throw new Error(NO_HOST_MESSAGE);
+  async function linkView(reviewRequests: QueueList, loadedAt: number): Promise<ReviewQueueView> {
     const loadingReviews = startedReviews();
-    const [queue, projectIds, reviews, threadIds] = await Promise.all([
-      deps.fetchReviewQueue(hostId),
+    const [projectIds, reviews, threadIds] = await Promise.all([
       projectIdsByRepo(),
       loadingReviews,
       loadingReviews.then(threadIdsByPr),
     ]);
     return {
       myReviews: reviews.map(toMyReview),
-      reviewRequests: link(queue.reviewRequests, projectIds, threadIds),
-      myPrs: link(queue.myPrs, projectIds, threadIds),
-      loadedAt: deps.now(),
+      reviewRequests: link(reviewRequests, projectIds, threadIds),
+      loadedAt,
     };
   }
 
-  async function getReviewQueue(): Promise<ReviewQueueResult> {
+  async function load(): Promise<ReviewQueueView> {
+    const hostId = await deps.primaryHostId();
+    if (hostId === null) throw new Error(NO_HOST_MESSAGE);
+    const reviewRequests = await deps.fetchReviewQueue(hostId);
+    return linkView(reviewRequests, deps.now());
+  }
+
+  async function runLoad(): Promise<LoadedReviewQueue> {
+    let result: LoadedReviewQueue;
     try {
-      lastGood = await load();
-      return { kind: "ok", ...lastGood };
+      result = { kind: "ok", ...(await load()) };
     } catch (error) {
-      return { kind: "error", message: errorText(error), lastGood };
+      const previous = await readStored().catch(() => null);
+      result = { kind: "error", message: errorText(error), lastGood: previous && viewOf(previous) };
     }
+    await store(result).catch((error) => deps.warn(`Review queue store failed: ${errorText(error)}`));
+    return result;
+  }
+
+  function refreshReviewQueue(): Promise<LoadedReviewQueue> {
+    if (running === null) {
+      running = runLoad().finally(() => {
+        running = null;
+      });
+      return running;
+    }
+    queued ??= running.then(() => {
+      queued = null;
+      return refreshReviewQueue();
+    });
+    return queued;
+  }
+
+  async function getReviewQueue(): Promise<ReviewQueueResult> {
+    return (await readStored()) ?? { kind: "loading" };
+  }
+
+  async function relink(): Promise<void> {
+    try {
+      await running;
+      const stored = await readStored();
+      const view = stored && viewOf(stored);
+      if (stored === null || view === null) return;
+      const next = await linkView(unlinked(view.reviewRequests), view.loadedAt);
+      // A load that finished meanwhile has newer GitHub data; keep it over this re-link.
+      const current = await readStored();
+      if (current === null || viewOf(current)?.loadedAt !== view.loadedAt) return;
+      await store(current.kind === "ok" ? { kind: "ok", ...next } : { ...current, lastGood: next });
+    } catch (error) {
+      deps.warn(`Review queue update failed: ${errorText(error)}`);
+    }
+  }
+
+  async function startReview(pr: ReviewPr, request: NewThreadRequest): Promise<string> {
+    const threadId = await deps.spawnReviewThread(pr, request);
+    void relink();
+    return threadId;
   }
 
   async function archiveReview(threadId: string): Promise<ActionResult> {
@@ -186,11 +283,23 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
         return { kind: "error", message: NOT_A_REVIEW_THREAD_MESSAGE };
       }
       await deps.archiveThread(threadId);
-      return { kind: "ok" };
     } catch (error) {
       return { kind: "error", message: errorText(error) };
     }
+    void relink();
+    return { kind: "ok" };
   }
 
-  return { getReviewQueue, archiveReview };
+  async function run(signal: AbortSignal): Promise<void> {
+    const aborted = new Promise<void>((resolve) =>
+      signal.addEventListener("abort", () => resolve(), { once: true }),
+    );
+    while (!signal.aborted) {
+      await Promise.race([refreshReviewQueue(), aborted]);
+      if (signal.aborted) return;
+      await sleep(REVIEW_QUEUE_INTERVAL_MS, signal);
+    }
+  }
+
+  return { getReviewQueue, refreshReviewQueue, startReview, archiveReview, run };
 }

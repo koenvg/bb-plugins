@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { MyReview, ReviewThreadStatus, rpcContract } from "../contract";
 import { Icon } from "@/components/ui/icon";
@@ -17,10 +17,10 @@ const STATUS_LABEL: Record<ReviewThreadStatus, { text: string; dotClass: string 
 
 interface MyReviewsProps {
   reviews: MyReview[];
-  refresh: () => void;
+  headerEnd: ReactNode;
 }
 
-export function MyReviews({ reviews, refresh }: MyReviewsProps) {
+export function MyReviews({ reviews, headerEnd }: MyReviewsProps) {
   const rpc = useRpc<typeof rpcContract>();
   const [expanded, setExpanded] = useState(true);
   const [archiving, setArchiving] = useState<ReadonlySet<string>>(new Set());
@@ -35,7 +35,6 @@ export function MyReviews({ reviews, refresh }: MyReviewsProps) {
       const result = await rpc.call("archiveReview", { threadId });
       if (result.kind === "ok") {
         setArchived((ids) => new Set(ids).add(threadId));
-        refresh();
       } else {
         setError(result.message);
       }
@@ -52,23 +51,26 @@ export function MyReviews({ reviews, refresh }: MyReviewsProps) {
 
   return (
     <section aria-label="My reviews" className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-sm font-semibold">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          className="-mx-2 inline-flex h-8 items-center gap-2 rounded-md px-2 transition-colors duration-150 hover:bg-state-hover hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onClick={() => setExpanded((open) => !open)}
-        >
-          <Icon
-            name="ChevronRight"
-            className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-90")}
-          />
-          My reviews
-          <span data-testid="queue-count" className={COUNT_CLASS}>
-            {visible.length}
-          </span>
-        </button>
-      </h2>
+      <div className="flex min-w-0 items-center gap-2">
+        <h2 className="min-w-0 text-sm font-semibold">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            className="-mx-2 inline-flex h-8 items-center gap-2 rounded-md px-2 transition-colors duration-150 hover:bg-state-hover hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <Icon
+              name="ChevronRight"
+              className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-90")}
+            />
+            My reviews
+            <span data-testid="queue-count" className={COUNT_CLASS}>
+              {visible.length}
+            </span>
+          </button>
+        </h2>
+        <div className="ml-auto flex shrink-0 items-center gap-2">{headerEnd}</div>
+      </div>
       {expanded && (
         <>
           {error !== null && (

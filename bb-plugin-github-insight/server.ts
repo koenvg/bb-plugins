@@ -5,6 +5,7 @@ import {
   type InsightUpdated,
 } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
+import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
 import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
@@ -92,10 +93,21 @@ export default async function plugin(bb: BbPluginApi) {
     listThreads: () => bb.sdk.threads.list({ includeHidden: true }),
     listReviewThreads: () => bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
     readPluginMetadata: (threadId) => bb.sdk.threads.getPluginMetadata({ threadId }),
+    spawnReviewThread: async (pr, request) => {
+      const thread = await bb.sdk.threads.spawn({
+        ...request,
+        visibility: "hidden",
+        pluginMetadata: reviewPrMetadata(pr),
+      });
+      return thread.id;
+    },
     archiveThread: async (threadId) => {
       await bb.sdk.threads.archive({ threadId });
     },
     resolveEnvironmentPr,
+    kv: bb.storage.kv,
+    publish: (result) => bb.realtime.publish(REVIEW_QUEUE_UPDATED_CHANNEL, result),
+    warn: (message) => bb.log.warn(message),
     now: Date.now,
   });
 
@@ -114,14 +126,8 @@ export default async function plugin(bb: BbPluginApi) {
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
-    startReview: async ({ pr, request }) => {
-      const thread = await bb.sdk.threads.spawn({
-        ...request,
-        visibility: "hidden",
-        pluginMetadata: reviewPrMetadata(pr),
-      });
-      return { threadId: thread.id };
-    },
+    refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
+    startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
   });
 
@@ -134,6 +140,7 @@ export default async function plugin(bb: BbPluginApi) {
   );
 
   bb.background.service("pr-poller", { start: (signal) => service.run(signal) });
+  bb.background.service("review-queue", { start: (signal) => reviewQueue.run(signal) });
 
   const unloaded = new AbortController();
   bb.onDispose(() => unloaded.abort());

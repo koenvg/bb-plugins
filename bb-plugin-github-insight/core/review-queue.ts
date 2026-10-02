@@ -41,7 +41,7 @@ const searchSchema = z.object({ issueCount: z.number(), nodes: z.array(prNodeSch
 type Search = z.infer<typeof searchSchema>;
 
 const reviewQueueResponseSchema = z.object({
-  data: z.object({ reviewRequests: searchSchema, myPrs: searchSchema }),
+  data: z.object({ reviewRequests: searchSchema }),
 });
 
 export const ciStateSchema = z.enum(["passed", "failed", "running", "none"]);
@@ -76,14 +76,8 @@ export const queueListSchema = z.object({
 });
 export type QueueList = z.infer<typeof queueListSchema>;
 
-export interface ReviewQueue {
-  reviewRequests: QueueList;
-  myPrs: QueueList;
-}
-
-export function parseReviewQueue(response: unknown): ReviewQueue {
-  const { data } = reviewQueueResponseSchema.parse(response);
-  return { reviewRequests: toQueueList(data.reviewRequests), myPrs: toQueueList(data.myPrs) };
+export function parseReviewQueue(response: unknown): QueueList {
+  return toQueueList(reviewQueueResponseSchema.parse(response).data.reviewRequests);
 }
 
 function toQueuePr(node: PrNode): QueuePr {
