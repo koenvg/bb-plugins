@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 import { parsePrFiles } from "./pr-files";
-import { formatReviewList, reviewListEntries, type ReviewListEntry } from "./review-list";
+import type { ListedCommentDraft } from "./review-drafts";
+import { formatReviewDrafts, formatReviewList, reviewListEntries, type ReviewListEntry } from "./review-list";
 import { MAX_COMMENT_BODY_CHARS, parseReviewThreads } from "./review-threads";
 import { placeThreads } from "./thread-placement";
 
@@ -97,5 +98,46 @@ describe("formatReviewList", () => {
 
   it("says when no thread is open", () => {
     expect(formatReviewList([])).toBe("No unresolved review threads\n");
+  });
+});
+
+describe("formatReviewDrafts", () => {
+  const comment: ListedCommentDraft = {
+    id: "a1b2c3d4",
+    path: "src/a.ts",
+    side: "RIGHT",
+    line: 42,
+    startLine: null,
+    body: "Null check missing.\nSee below.",
+    commitOid: "abc123",
+    updatedAt: 1,
+    source: "agent",
+  };
+
+  it("prints nothing without drafts", () => {
+    expect(formatReviewDrafts([], null)).toBe("");
+  });
+
+  it("prints each comment draft with its id, path, line or range, side, and body, then the summary", () => {
+    const range = { ...comment, id: "e5f6a7b8", side: "LEFT" as const, startLine: 10, line: 12, body: "Why?" };
+
+    expect(formatReviewDrafts([comment, range], { body: "Looks good.", updatedAt: 1, source: "agent" })).toBe(
+      [
+        "Comment drafts:",
+        "a1b2c3d4  src/a.ts:42  RIGHT",
+        "    Null check missing.",
+        "    See below.",
+        "e5f6a7b8  src/a.ts:10-12  LEFT",
+        "    Why?",
+        "",
+        "Summary draft:",
+        "    Looks good.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("prints only the summary when there are no comment drafts", () => {
+    expect(formatReviewDrafts([], { body: "LGTM", updatedAt: 1, source: "user" })).toBe("Summary draft:\n    LGTM\n");
   });
 });

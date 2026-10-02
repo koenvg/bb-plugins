@@ -29,6 +29,8 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 | Open PR has checks running or waits for a required review | In flight |
 | Any other PR (ready, draft, behind, blocked, merged, closed) | Needs attention |
 
+A thread tree moves as one unit. The whole tree shows in **Needs attention** when the top thread goes there, or when a child needs you, has unread output, or has a PR problem (failed checks, requested changes, conflicts, unresolved comments, or a failed merge queue entry). A finished child with no PR, or with a ready, draft, merged, or closed PR, does not move its tree. Else the whole tree shows in **In flight**. Each child stays under its parent.
+
 **All** shows every thread, with the **Needs you** group on top and the **Snoozed** group at the bottom.
 
 The tab of a thread does not depend on whether its row is on screen. The `summary-watch` service on the plugin server reads the github-insight summary of every active thread every 5 seconds. When a summary changes, it sends a `summaries.changed` realtime signal, and the list loads the summaries again. github-insight refreshes a PR when its thread goes idle, so a PR that an agent opens or pushes to shows within seconds. Changes on GitHub only, such as a finished check, come from github-insight's 60 second poll. When you resolve or unresolve a review thread in github-insight's Review tab, the list asks at once. As a fallback, the list also asks once a minute and when the connection comes back.
@@ -37,7 +39,7 @@ The tab of a thread does not depend on whether its row is on screen. The `summar
 
 Open the thread menu and select **Tomorrow** (9:00 the next day) or **Next week** (9:00 next Monday). The times use the clock of the client. On Sunday, the menu shows only **Tomorrow**. You cannot snooze an archived thread, or a thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send.
 
-Snooze marks the thread read. The thread leaves **Needs attention** and **In flight**. In **All**, it shows in the **Snoozed** group with its wake time in place of its age. A snoozed thread can still run.
+Snooze marks the thread read. The thread leaves **Needs attention** and **In flight**. In **All**, it shows in the **Snoozed** group with its wake time in place of its age. A snoozed thread can still run. A snoozed thread does not move its tree. When its parent or child is awake, the snoozed thread shows as a dimmed row in that tree, and the awake thread shows as a dimmed row in **Snoozed**.
 
 The thread wakes and goes back to its tab when:
 
@@ -55,13 +57,13 @@ Snoozes are stored in the plugin's database on the BB server, so all clients sho
 
 ## List preferences
 
-Open **List options** to group by project, machine, or custom section and to change the sort order. In **All**, List options also selects Active, Archived, or Both. The other tabs ignore this choice. Group and parent-thread headers collapse their descendants. Pinned threads stay at the top of their tab. A child thread whose parent is in the other tab shows as a top-level row.
+Open **List options** to group by project, machine, or custom section and to change the sort order. In **All**, List options also selects Active, Archived, or Both. The other tabs ignore this choice. Group and parent-thread headers collapse their descendants. The top thread of a tree decides its group and its pin: a tree shows in the project, section, or machine of its top thread, and in **Pinned** only when the top thread is pinned. Pinned trees stay at the top of their tab. When the archived selection leaves out the parent of a shown thread, and the list has that parent loaded, the parent shows as a dimmed row. It does not count in the group count. A child of a hidden or not loaded parent shows as a top-level row.
 
 These choices, and the selected tab, are saved on this client under a versioned plugin key. They do not migrate from BB's bundled list. **Reset list preferences** restores the defaults: Needs attention, project grouping, active threads, newest first. If browser storage is unavailable, the list still works, but choices last only until reload.
 
 ## Triage
 
-In **All**, **Needs you** sits above all other groups. It holds every thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send.
+In **All**, **Needs you** sits above all other groups. It holds every tree with one or more threads that wait for an approval or an answer, have an unread error, or have a queued message that failed to send. The whole tree shows there, with its nesting.
 
 Each row starts with the logo of the agent that runs it. A red dot on the logo means the thread needs you. A blue dot means it is unread. The top right shows what the thread does now (**Needs you**, **Failed**, **Not sent**, **Working**, **Planning**, **Draft**, and similar), or its age when it does nothing.
 

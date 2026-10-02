@@ -71,7 +71,11 @@ export function ThreadActionsProvider({
   );
 
   const reportSaveError = useCallback((reviewThreadId: string, error: string) => update(reviewThreadId, { error }), [update]);
-  const draftSaves = useDraftSaves(threadId, reportSaveError);
+  const saveDraft = useCallback(
+    (reviewThreadId: string, body: string) => rpc.call("saveDraft", { threadId, reviewThreadId, body }),
+    [rpc, threadId],
+  );
+  const draftSaves = useDraftSaves(saveDraft, reportSaveError);
 
   const runExclusive = useCallback(
     async (reviewThreadId: string, run: () => Promise<Partial<LocalState>>) => {

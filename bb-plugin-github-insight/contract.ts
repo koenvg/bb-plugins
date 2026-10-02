@@ -4,7 +4,10 @@ import { draftsSchema } from "./core/drafts";
 import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
+import { prHeadSchema } from "./core/pr-head";
+import { commentDraftSchema, listedCommentDraftSchema, summaryDraftSchema } from "./core/review-drafts";
 import { reviewPrSchema } from "./core/review-pr";
+import { reviewEventSchema } from "./core/review-submit";
 import { loadedReviewQueueSchema, reviewQueueResultSchema } from "./core/review-queue-view";
 import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
@@ -77,6 +80,22 @@ export type MergePullRequestRequest = z.infer<typeof mergePullRequestRequestSche
 const enqueuePullRequestRequestSchema = mergePullRequestRequestSchema.omit({ mergeMethod: true });
 export type EnqueuePullRequestRequest = z.infer<typeof enqueuePullRequestRequestSchema>;
 
+const addPullRequestReviewRequestSchema = z
+  .object({
+    pullRequestId: z.string().min(1),
+    commitOid: z.string().min(1),
+    event: reviewEventSchema,
+    body: z.string(),
+    threads: z.array(
+      commentDraftSchema
+        .pick({ path: true, side: true, line: true, startLine: true })
+        .extend({ body: z.string().min(1) })
+        .strict(),
+    ),
+  })
+  .strict();
+export type AddPullRequestReviewRequest = z.infer<typeof addPullRequestReviewRequestSchema>;
+
 export const hostContract = defineRpcContract({
   fetchOverviewPage: {
     input: prPageRequestSchema,
@@ -92,6 +111,10 @@ export const hostContract = defineRpcContract({
   },
   fetchReviewThreads: {
     input: prPageRequestSchema,
+    output: ghResultSchema,
+  },
+  fetchPrHead: {
+    input: prFilesRequestSchema,
     output: ghResultSchema,
   },
   readTextFile: {
@@ -118,6 +141,10 @@ export const hostContract = defineRpcContract({
     input: enqueuePullRequestRequestSchema,
     output: ghResultSchema,
   },
+  submitReview: {
+    input: addPullRequestReviewRequestSchema,
+    output: ghResultSchema,
+  },
 });
 
 export const insightResultSchema = z.discriminatedUnion("kind", [
@@ -137,9 +164,12 @@ export const reviewResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("error"), message: z.string() }),
   z.object({
     kind: z.literal("ok"),
+    head: prHeadSchema,
     files: z.array(reviewFileSchema),
     threads: threadPlacementSchema,
     drafts: draftsSchema,
+    commentDrafts: z.array(listedCommentDraftSchema),
+    summaryDraft: summaryDraftSchema.nullable(),
   }),
 ]);
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
@@ -201,6 +231,30 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
+const saveCommentDraftRequestSchema = z
+  .object({ threadId: z.string().min(1), draftId: z.string().min(1), body: z.string() })
+  .strict();
+export type SaveCommentDraftRequest = z.infer<typeof saveCommentDraftRequestSchema>;
+
+const deleteCommentDraftRequestSchema = z
+  .object({ threadId: z.string().min(1), draftId: z.string().min(1) })
+  .strict();
+export type DeleteCommentDraftRequest = z.infer<typeof deleteCommentDraftRequestSchema>;
+
+const saveSummaryDraftRequestSchema = z.object({ threadId: z.string().min(1), body: z.string() }).strict();
+export type SaveSummaryDraftRequest = z.infer<typeof saveSummaryDraftRequestSchema>;
+
+const submitReviewRequestSchema = z
+  .object({ threadId: z.string().min(1), event: reviewEventSchema, body: z.string() })
+  .strict();
+export type SubmitReviewRequest = z.infer<typeof submitReviewRequestSchema>;
+
+export const submitReviewResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("submitted") }),
+  z.object({ kind: z.literal("error"), message: z.string(), url: z.string().nullable() }),
+]);
+export type SubmitReviewResult = z.infer<typeof submitReviewResultSchema>;
+
 const newThreadRequestSchema = z.custom<NewThreadRequest>(
   (value) => typeof value === "object" && value !== null,
 );
@@ -231,6 +285,10 @@ export const rpcContract = defineRpcContract({
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
+  saveCommentDraft: { input: saveCommentDraftRequestSchema, output: actionResultSchema },
+  deleteCommentDraft: { input: deleteCommentDraftRequestSchema, output: actionResultSchema },
+  saveSummaryDraft: { input: saveSummaryDraftRequestSchema, output: actionResultSchema },
+  submitReview: { input: submitReviewRequestSchema, output: submitReviewResultSchema },
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
   startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },

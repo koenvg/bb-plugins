@@ -9,9 +9,11 @@ export function buildReviewPrompt(pr: Pick<QueuePr, "number" | "title" | "url">)
       `1. Run \`gh pr checkout ${pr.number}\`.`,
       "2. Read the PR description and the diff against its base branch.",
       "3. Review the change for correctness, design, tests, and readability.",
-      "4. Report your findings here, most severe first, each with its file and line.",
+      "4. Save each finding as a comment draft on its file and line: `bb github-insight review comment <path> --line <n> --body-file <file>`. Add `--start-line <n>` for a range, and `--side LEFT` for a removed line. When the command fails, read the diff ranges in its message and pick a line in them.",
+      "5. Save one review summary: `bb github-insight review summary --body-file <file>`.",
+      "6. Run `bb github-insight review list` to check the drafts. Then tell the user that the drafts are ready in the Review tab.",
     ].join("\n"),
     "## Rules",
-    "- Do not post comments or reviews to GitHub. The user reads your findings and posts them.",
+    "- Do not post comments or reviews to GitHub. The user edits the drafts and submits the review from the Review tab.",
   ].join("\n\n") + "\n";
 }

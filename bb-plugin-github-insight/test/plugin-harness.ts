@@ -4,6 +4,7 @@ import {
 } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { GhFailure } from "../github/gh-failure";
+import prHead from "./fixtures/pr-43-head.json";
 import plugin from "../server";
 
 export type PullRequestResult = Awaited<
@@ -68,6 +69,15 @@ export function failed(failure: GhFailure) {
   return { ok: false as const, failure };
 }
 
+export function prHeadResponse({
+  oid = "def456",
+  state = "OPEN",
+  viewerDidAuthor = false,
+}: { oid?: string; state?: "OPEN" | "CLOSED" | "MERGED"; viewerDidAuthor?: boolean } = {}) {
+  const { pullRequest } = prHead.data.repository;
+  return { data: { repository: { pullRequest: { ...pullRequest, headRefOid: oid, state, viewerDidAuthor } } } };
+}
+
 export async function setup(options: {
   threads: ThreadOptions[];
   pullRequests?: Record<string, PullRequestResult>;
@@ -76,6 +86,7 @@ export async function setup(options: {
   primaryHostId?: string | null;
   spawn?: BbPluginApi["sdk"]["threads"]["spawn"];
   pluginMetadata?: Record<string, unknown>;
+  kv?: Record<string, unknown>;
 }) {
   const threadResponse = (id: string) => {
     const thread = options.threads.find((candidate) => candidate.id === id)!;
@@ -121,6 +132,7 @@ export async function setup(options: {
       return options.host(call);
     },
   });
+  for (const [key, value] of Object.entries(options.kv ?? {})) await bb.storage.kv.set(key, value);
   await plugin(bb);
   return harness;
 }

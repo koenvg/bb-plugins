@@ -29,7 +29,7 @@ The replacement SHALL save the selected tab with the other list preferences on t
 - **THEN** the list opens on Needs attention
 
 ### Requirement: Attention tabs show only active threads
-The Needs attention and In flight tabs SHALL show only active, non-hidden, non-snoozed threads, whatever the archived selection in List options is. Each active, non-snoozed thread SHALL be in exactly one of the two tabs.
+The Needs attention and In flight tabs SHALL show only active, non-hidden, non-snoozed threads, whatever the archived selection in List options is. A snoozed thread MAY show there only as a dimmed context row of an awake thread in its tree. Each active, non-snoozed thread SHALL be in exactly one of the two tabs.
 
 #### Scenario: Archived thread
 - **WHEN** a thread is archived and the archived selection is Both
@@ -83,7 +83,8 @@ A descendant thread SHALL be active when it is not archived, not hidden, and it 
 
 #### Scenario: Child needs the user
 - **WHEN** an idle, read parent thread has a child thread that waits for an approval
-- **THEN** the child is in Needs attention and the parent is in In flight
+- **THEN** the own tab of the child is Needs attention and the own tab of the parent is In flight
+- **AND** the tree, with the parent and the child, shows in Needs attention
 
 #### Scenario: Archived child
 - **WHEN** an idle, read thread has no PR and its only running child is archived
@@ -96,6 +97,38 @@ A descendant thread SHALL be active when it is not archived, not hidden, and it 
 #### Scenario: Child stops
 - **WHEN** a parent is in In flight only because its child runs, and the child becomes idle
 - **THEN** the parent moves to the tab that its other rules select
+
+### Requirement: Thread tree decides the tab
+The tab rules SHALL give each active thread its own tab. A thread tree is a top thread and all its active, non-hidden descendants. The tree SHALL be in Needs attention when the own tab of the top thread is Needs attention, or when a lower member is in Needs attention because it needs the user, has unread output, or has a PR problem. Else the tree SHALL be in In flight. Each member SHALL show only in the tab of its tree, under its parent.
+
+#### Scenario: Child needs attention under a parent in flight
+- **WHEN** a parent thread runs and its child thread waits for an approval
+- **THEN** the parent and the child both show in Needs attention, with the child under the parent
+- **AND** neither shows in In flight
+
+#### Scenario: Whole tree in flight
+- **WHEN** a parent thread runs and its only child has checks running on its PR
+- **THEN** the parent and the child both show in In flight
+
+#### Scenario: Grandchild needs attention
+- **WHEN** a top thread and its child run, and a grandchild has unread output
+- **THEN** all three show in Needs attention, nested at their depths
+
+#### Scenario: Finished children do not pull a running parent
+- **WHEN** a parent thread runs a command, one child runs, and two children are idle and read with no PR or with a merged PR
+- **THEN** the whole tree shows in In flight
+
+#### Scenario: Child PR problem pulls the tree
+- **WHEN** a parent thread runs and an idle, read child has a PR with failed checks
+- **THEN** the whole tree shows in Needs attention
+
+#### Scenario: Idle top thread without a PR
+- **WHEN** an idle, read top thread has no PR and its only child is idle and read with no PR
+- **THEN** the whole tree shows in Needs attention
+
+#### Scenario: Tree moves when the last attention member clears
+- **WHEN** a tree is in Needs attention only because one child has unread output, and the user reads that child while the parent still runs
+- **THEN** the whole tree moves to In flight without a reload
 
 ### Requirement: PR status decides the tab of an idle thread
 When no thread signal rule matches, the replacement SHALL use the github-insight PR summary. A PR with failed checks, requested changes, merge conflicts, or unresolved review comments SHALL put the thread in Needs attention. Otherwise, a PR with checks running or a required review SHALL put the thread in In flight. Every other PR state SHALL put the thread in Needs attention.
@@ -135,19 +168,19 @@ The tab of a thread SHALL NOT depend on whether its row is on screen. The replac
 - **THEN** the thread is in In flight and not in Needs attention
 
 ### Requirement: Tabs keep grouping, sort, and pinned order
-Each tab SHALL use the selected organization, sort, collapse state, and pinned order. Pinned threads SHALL show at the top of the tab that their rules select. A child thread whose parent is not in the same tab SHALL show as a top-level row. The Needs you group SHALL show only in All.
+Each tab SHALL use the selected organization, sort, collapse state, and pinned order. Pinned top threads SHALL show at the top of the tab that their tree selects. A child thread SHALL show under its parent in the tab of their tree. The Needs you group SHALL show only in All.
 
 #### Scenario: Grouping inside a tab
 - **WHEN** the organization is project and the In flight tab is selected
 - **THEN** In flight threads show under their project groups
 
 #### Scenario: Pinned thread
-- **WHEN** a pinned thread needs attention
+- **WHEN** a pinned top thread needs attention
 - **THEN** it shows in the Pinned group at the top of Needs attention
 
 #### Scenario: Parent in the other tab
-- **WHEN** a child thread needs attention and its parent is in flight
-- **THEN** the child shows as a top-level row in Needs attention
+- **WHEN** a child thread needs attention and the own tab of its parent is In flight
+- **THEN** the parent shows in Needs attention and the child shows under it
 
 #### Scenario: No Needs you group in Needs attention
 - **WHEN** the Needs attention tab is selected

@@ -30,8 +30,11 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
   | no entry | none | none |
 - `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`, or a "Queued" label), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `bannerState` in `core/banner.ts` picks the row (see "Merge and enqueue"). The text opens the PR tab.
+- `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects and the linked thread to each PR, and keeps the result in plugin kv storage.
 - `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
+- Comment drafts in the Review tab (see "Review drafts"): a draft at the PR head shows below its line, on its side, marked "Draft from agent", with the line or range. Drafts at another commit show in "Drafts on an older commit" at the top, with "PR has new commits since these drafts (<draft commit> -> <head>)", the path, side, line, and body. The user can edit or delete each draft. Edits are saved 500 ms after the last key press and when the tab closes (`ui/draft-saves.ts`, shared with reply drafts). "Delete" writes nothing to GitHub.
+- "Submit review" in the tab header opens the submit panel (`ui/submit-panel.tsx`). It opens at once when the PR has drafts. It shows the summary draft as an editable body, the number of comment drafts, and the verdicts from `submitRules` (`core/review-submit.ts`): Comment, Approve, and Request changes, or only Comment on your own PR. A disabled submit shows the reason, for example "Add a summary to request changes" or "Pull request is merged". Submit saves the open edits first, then calls `submitReview`. After success the tab shows "Review submitted" and no drafts. A failed submit shows the GitHub error, with "Open the PR" when you have a pending review on GitHub, and keeps all drafts and the body.
 
 ## Pull Requests panel
 
@@ -56,7 +59,7 @@ app --archiveReview--> server --> bb.sdk.threads.archive
 - A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
 - The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions.
 - A card shows "Open thread" when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. Else a review request in a repo with a bb project shows "Review in thread". Every card has "Open on GitHub".
-- "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree from the default branch, and the prompt from `core/review-prompt.ts`. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, and not post to GitHub. Submit starts the thread and opens it. After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
+- "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree from the default branch, and the prompt from `core/review-prompt.ts`. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
 
 ### Hidden review threads
 
@@ -112,6 +115,48 @@ bb github-insight review draft <thread-id> --body-file <path>
 - In the Review tab, select open threads and click "Send N to agent". The server loads the threads again and sends one message to the thread's chat (`bb.sdk.threads.send`, `auto` mode: it starts a turn, or it waits until the agent is idle). The message holds each thread's id, path, line, the last 10 lines of its diff hunk, and the comments. It tells the agent to fix the code, save a draft per thread, and not post or resolve. Threads that were resolved in the meantime are left out (`core/agent-prompt.ts`).
 
 **Rule for the agent: never post or resolve with `gh`.** The plugin cannot block `gh`. Only the user posts a reply, from the Review tab.
+
+### Review drafts
+
+The agent saves its own review of the PR as drafts. The user submits them from the Review tab as one GitHub review.
+
+```bash
+bb github-insight review comment <path> --line <n> --body <text>
+bb github-insight review comment <path> --line <n> --start-line <n> --side LEFT --body-file <path>
+bb github-insight review summary --body <text>
+bb github-insight review summary --body-file <path>
+```
+
+- `review comment` saves a comment draft on a line, or on a range with `--start-line`. `--side` is `RIGHT` (new file, the default) or `LEFT` (old file). It prints the new draft id.
+- It fails, and saves nothing, when the path is not a file of the PR, when a line of the range is not in the file's diff on that side (the message names the diff ranges), when the start line is after the line, or when the body is empty.
+- Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` fails and names both commits: submit or delete the old drafts first.
+- `review summary` saves the review body. A new summary replaces the old one.
+- `review list` prints the comment drafts (id, path, line or range, side, body) and the summary draft after the threads. With `--json`, they are `comments` and `summary` (text or `null`) next to `threads`.
+- Both commands publish `review.updated`, so an open Review tab shows the new draft at once. They never write to GitHub.
+
+Plugin kv keys (`review/draft-store.ts`, schemas in `core/review-drafts.ts`). An entry of another version reads as no draft.
+
+| Key | Value |
+|---|---|
+| `draft:<owner>/<repo>#<n>:<reviewThreadId>` | reply draft: `{ body, updatedAt, source }` |
+| `comment:<owner>/<repo>#<n>:<draftId>` | comment draft: `{ v: 1, path, side, line, startLine, body, commitOid, updatedAt, source }` |
+| `summary:<owner>/<repo>#<n>` | summary draft: `{ v: 1, body, updatedAt, source }` |
+
+Submit (RPC `submitReview({ threadId, event, body })`, only from the Review tab):
+
+```
+submitReview --> server: load the review again (files, threads, head, drafts from kv)
+   submitRules: verdict allowed? (own PR: Comment only; merged or closed: all disabled)
+   body needed? (Request changes, or Comment with 0 comment drafts)
+   host: gh api graphql --input -  addPullRequestReview(pullRequestId, commitOID, event, body, threads)
+      commitOID = commit of the comment drafts, or the PR head when there are none
+   ok    --> delete the comment drafts and the summary, publish review.updated, refresh the PR insight
+   error --> keep all drafts; a pending review on GitHub gives a message with the PR link
+```
+
+- The server builds the review from kv. It does not use the tab's copy of the drafts.
+- The variables go to `gh` as JSON on stdin, so a large review does not hit the argument length limit.
+- One submit is one GitHub write. The CLI never submits.
 
 ## Merge and enqueue
 
@@ -179,4 +224,4 @@ bb plugin dev
 
 ## Test fixtures
 
-`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. Re-record with the queries in `github/`.
+`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. `test/fixtures/pr-43-head.json` is the `github/pr-head-query.ts` response for the merged `koenvg/bb-plugins#43`. Re-record with the queries in `github/`.

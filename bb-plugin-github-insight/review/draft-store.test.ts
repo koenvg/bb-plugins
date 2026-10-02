@@ -1,6 +1,7 @@
 import type { PluginKvStorage } from "@get-bb/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import type { Draft } from "../core/drafts";
+import type { CommentDraft, SummaryDraft } from "../core/review-drafts";
 import type { ReviewThread } from "../core/review-threads";
 import { createDraftStore } from "./draft-store";
 
@@ -111,5 +112,137 @@ describe("draft store", () => {
 
     expect(await createDraftStore(kv).liveDrafts(pr, allThreads(thread("PRRT_a")))).toEqual({});
     expect(data.size).toBe(0);
+  });
+});
+
+const comment: CommentDraft = {
+  path: "src/a.ts",
+  side: "RIGHT",
+  line: 42,
+  startLine: null,
+  body: "Null check missing",
+  commitOid: "abc123",
+  updatedAt: 1,
+  source: "agent",
+};
+const summary: SummaryDraft = { body: "Two issues", updatedAt: 1, source: "agent" };
+
+describe("comment drafts", () => {
+  it("keys a comment draft by PR and draft id, as a version 1 entry", async () => {
+    const { kv, data } = fakeKv();
+
+    await createDraftStore(kv).saveComment(pr, "d1", comment);
+
+    expect(Object.fromEntries(data)).toEqual({ "comment:collibra/frontend#25259:d1": { v: 1, ...comment } });
+  });
+
+  it("lists the comment drafts of the PR with their ids, by path and line", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveComment(pr, "d2", { ...comment, line: 50 });
+    await store.saveComment(pr, "d3", { ...comment, path: "src/0.ts" });
+    await store.saveComment(pr, "d1", comment);
+    await store.saveComment(otherPr, "d4", comment);
+
+    expect(await store.comments(pr)).toEqual([
+      { id: "d3", ...comment, path: "src/0.ts" },
+      { id: "d1", ...comment },
+      { id: "d2", ...comment, line: 50 },
+    ]);
+  });
+
+  it("replaces the comment draft of the same id", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveComment(pr, "d1", comment);
+
+    await store.saveComment(pr, "d1", { ...comment, body: "Edited", source: "user" });
+
+    expect(await store.comments(pr)).toEqual([{ id: "d1", ...comment, body: "Edited", source: "user" }]);
+  });
+
+  it("reads one comment draft by id, or null when it is gone", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveComment(pr, "d1", comment);
+
+    expect(await store.comment(pr, "d1")).toEqual(comment);
+    expect(await store.comment(pr, "d2")).toBeNull();
+  });
+
+  it("deletes one comment draft", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveComment(pr, "d1", comment);
+    await store.saveComment(pr, "d2", comment);
+
+    await store.deleteComment(pr, "d1");
+
+    expect((await store.comments(pr)).map(({ id }) => id)).toEqual(["d2"]);
+  });
+
+  it("does not list a malformed entry or an entry of another version", async () => {
+    const { kv } = fakeKv({
+      "comment:collibra/frontend#25259:bad": { v: 1, body: 3 },
+      "comment:collibra/frontend#25259:v2": { ...comment, v: 2 },
+    });
+
+    expect(await createDraftStore(kv).comments(pr)).toEqual([]);
+  });
+
+  it("does not match a PR whose number starts with the same digits", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveComment({ ...pr, number: 252590 }, "d1", comment);
+
+    expect(await store.comments(pr)).toEqual([]);
+  });
+});
+
+describe("summary draft", () => {
+  it("keys the summary by PR, as a version 1 entry", async () => {
+    const { kv, data } = fakeKv();
+
+    await createDraftStore(kv).saveSummary(pr, summary);
+
+    expect(Object.fromEntries(data)).toEqual({ "summary:collibra/frontend#25259": { v: 1, ...summary } });
+  });
+
+  it("keeps only the last summary", async () => {
+    const { kv } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.saveSummary(pr, summary);
+
+    await store.saveSummary(pr, { ...summary, body: "Second" });
+
+    expect(await store.summary(pr)).toEqual({ ...summary, body: "Second" });
+  });
+
+  it("reads no summary for another PR, or for a malformed entry", async () => {
+    const { kv } = fakeKv({ "summary:collibra/frontend#25259": { v: 2, ...summary } });
+    const store = createDraftStore(kv);
+
+    expect(await store.summary(pr)).toBeNull();
+    expect(await store.summary(otherPr)).toBeNull();
+  });
+});
+
+describe("deleting the review drafts of a PR", () => {
+  it("deletes the comment drafts and the summary of that PR only", async () => {
+    const { kv, data } = fakeKv({ "comment:collibra/frontend#25259:bad": "not a draft" });
+    const store = createDraftStore(kv);
+    await store.saveComment(pr, "d1", comment);
+    await store.saveSummary(pr, summary);
+    await store.save(pr, "PRRT_a", draft);
+    await store.saveComment(otherPr, "d2", comment);
+    await store.saveSummary(otherPr, summary);
+
+    await store.deleteReviewDrafts(pr);
+
+    expect([...data.keys()].sort()).toEqual([
+      "comment:collibra/frontend#1:d2",
+      "draft:collibra/frontend#25259:PRRT_a",
+      "summary:collibra/frontend#1",
+    ]);
   });
 });

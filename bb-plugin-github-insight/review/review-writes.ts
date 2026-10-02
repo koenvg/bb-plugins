@@ -1,22 +1,34 @@
 import type {
   ActionResult,
+  AddPullRequestReviewRequest,
+  DeleteCommentDraftRequest,
   DiscardDraftRequest,
   ReplyRequest,
   ReplyResult,
+  SaveCommentDraftRequest,
   SaveDraftRequest,
+  SaveSummaryDraftRequest,
   SetResolvedRequest,
+  SubmitReviewRequest,
+  SubmitReviewResult,
 } from "../contract";
 import { pullRequestUrl } from "../core/pr-ref";
+import type { ListedCommentDraft } from "../core/review-drafts";
+import { submitRules, type ReviewEvent } from "../core/review-submit";
 import type { ReviewUpdated } from "../core/review-updated";
 import { write, type Written } from "../github/gh-write";
+import { submitReviewError } from "../github/review-mutations";
 import { isPendingReply } from "../github/review-thread-mutations";
 import type { PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
+import type { PrReview, ReviewLoad } from "./review-service";
 
 interface ReviewWritesDeps {
   resolvePr(threadId: string): Promise<PrResolution>;
   replyToThread(target: PrTarget, reviewThreadId: string, body: string): Promise<unknown>;
   setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
+  loadReview(threadId: string): Promise<ReviewLoad>;
+  submitReview(target: PrTarget, request: AddPullRequestReviewRequest): Promise<unknown>;
   drafts: DraftStore;
   publish(update: ReviewUpdated): void;
   refreshAfterWrite(threadId: string): Promise<void>;
@@ -25,6 +37,43 @@ interface ReviewWritesDeps {
 }
 
 const NO_PR_MESSAGE = "No pull request for this thread";
+const OWN_PR_MESSAGE = "On your own pull request you can only comment";
+
+function draftsCommit(drafts: readonly ListedCommentDraft[], headOid: string): Written<string> {
+  const commits = [...new Set(drafts.map(({ commitOid }) => commitOid))];
+  if (commits.length > 1) {
+    return { ok: false, message: `Comment drafts are on more than one commit (${commits.join(", ")}). Delete the older ones.` };
+  }
+  return { ok: true, value: commits[0] ?? headOid };
+}
+
+function reviewInput(
+  { head, commentDrafts }: PrReview,
+  event: ReviewEvent,
+  body: string,
+): Written<AddPullRequestReviewRequest> {
+  const { viewerIsAuthor, state } = head;
+  const rule = submitRules({ viewerIsAuthor, state, body, commentCount: commentDrafts.length })
+    .find((candidate) => candidate.event === event);
+  if (rule === undefined) return { ok: false, message: OWN_PR_MESSAGE };
+  if (rule.disabledReason !== null) return { ok: false, message: rule.disabledReason };
+  const empty = commentDrafts.find((draft) => draft.body.trim() === "");
+  if (empty !== undefined) {
+    return { ok: false, message: `Comment draft on ${empty.path}:${empty.line} is empty. Add text or delete it.` };
+  }
+  const commit = draftsCommit(commentDrafts, head.oid);
+  if (!commit.ok) return commit;
+  return {
+    ok: true,
+    value: {
+      pullRequestId: head.prNodeId,
+      commitOid: commit.value,
+      event,
+      body,
+      threads: commentDrafts.map(({ path, side, line, startLine, body }) => ({ path, side, line, startLine, body })),
+    },
+  };
+}
 
 export function createReviewWrites(deps: ReviewWritesDeps) {
   async function targetOf(threadId: string): Promise<Written<PrTarget>> {
@@ -77,5 +126,56 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     return { kind: "ok" };
   }
 
-  return { reply, setResolved, saveDraft, discardDraft };
+  async function saveCommentDraft({ threadId, draftId, body }: SaveCommentDraftRequest): Promise<ActionResult> {
+    const target = await targetOf(threadId);
+    if (!target.ok) return { kind: "error", message: target.message };
+    const draft = await deps.drafts.comment(target.value.ref, draftId);
+    if (draft === null) return { kind: "error", message: `Comment draft ${draftId} is gone` };
+    await deps.drafts.saveComment(target.value.ref, draftId, { ...draft, body, updatedAt: deps.now(), source: "user" });
+    return { kind: "ok" };
+  }
+
+  async function deleteCommentDraft({ threadId, draftId }: DeleteCommentDraftRequest): Promise<ActionResult> {
+    const target = await targetOf(threadId);
+    if (!target.ok) return { kind: "error", message: target.message };
+    await deps.drafts.deleteComment(target.value.ref, draftId);
+    deps.publish({ threadId });
+    return { kind: "ok" };
+  }
+
+  async function saveSummaryDraft({ threadId, body }: SaveSummaryDraftRequest): Promise<ActionResult> {
+    const target = await targetOf(threadId);
+    if (!target.ok) return { kind: "error", message: target.message };
+    await deps.drafts.saveSummary(target.value.ref, { body, updatedAt: deps.now(), source: "user" });
+    return { kind: "ok" };
+  }
+
+  async function submitReview({ threadId, event, body }: SubmitReviewRequest): Promise<SubmitReviewResult> {
+    const loaded = await deps.loadReview(threadId);
+    if (loaded.kind !== "ok") {
+      return { kind: "error", message: loaded.kind === "error" ? loaded.message : NO_PR_MESSAGE, url: null };
+    }
+    const input = reviewInput(loaded.review, event, body);
+    if (!input.ok) return { kind: "error", message: input.message, url: null };
+    const { ref } = loaded.target;
+    const submitted = await write(() => deps.submitReview(loaded.target, input.value));
+    if (!submitted.ok) return { kind: "error", ...submitReviewError(submitted.message, pullRequestUrl(ref)) };
+    await deps.drafts.deleteReviewDrafts(ref).catch((error: unknown) => {
+      deps.warn(`Submitted a review on thread ${threadId}, but could not delete its drafts: ${String(error)}`);
+    });
+    deps.publish({ threadId });
+    await refreshAfterWrite(threadId);
+    return { kind: "submitted" };
+  }
+
+  return {
+    reply,
+    setResolved,
+    saveDraft,
+    discardDraft,
+    saveCommentDraft,
+    deleteCommentDraft,
+    saveSummaryDraft,
+    submitReview,
+  };
 }

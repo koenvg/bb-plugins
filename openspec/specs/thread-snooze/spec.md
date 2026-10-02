@@ -51,7 +51,7 @@ The snooze state SHALL be stored on the BB server and SHALL be the same on all c
 - **THEN** the phone shows the thread as snoozed
 
 ### Requirement: Snoozed group in All
-In All, every snoozed thread SHALL show in a Snoozed group below all other groups, and SHALL NOT show in any other group. A pinned thread that is snoozed SHALL show in the Snoozed group. The Snoozed group SHALL not show when no thread is snoozed. Needs attention and In flight SHALL NOT show snoozed threads.
+In All, every snoozed thread SHALL show in a Snoozed group below all other groups. A pinned thread that is snoozed SHALL show in the Snoozed group. The Snoozed group SHALL not show when no thread is snoozed. A snoozed thread SHALL show outside the Snoozed group only as a dimmed context row in the tree of an awake thread, and SHALL NOT move that tree.
 
 #### Scenario: Snoozed thread in All
 - **WHEN** a thread is snoozed and the All tab is selected
@@ -60,6 +60,10 @@ In All, every snoozed thread SHALL show in a Snoozed group below all other group
 #### Scenario: Pinned thread snoozed
 - **WHEN** a pinned thread is snoozed
 - **THEN** it shows in the Snoozed group and not in the Pinned group
+
+#### Scenario: Snoozed parent of an awake child
+- **WHEN** a snoozed parent has a child with unread output and the Needs attention tab is selected
+- **THEN** the parent shows as a dimmed row above the child, and the Snoozed group in All still holds the parent
 
 #### Scenario: No snoozed threads
 - **WHEN** no thread is snoozed

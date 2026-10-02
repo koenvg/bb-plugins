@@ -1,4 +1,5 @@
 import type { Drafts } from "./drafts";
+import type { ListedCommentDraft, SummaryDraft } from "./review-drafts";
 import { capCommentBody } from "./review-threads";
 import { openThreads, type ThreadPlacement } from "./thread-placement";
 
@@ -54,4 +55,27 @@ function formatEntry(entry: ReviewListEntry): string {
   }
   if (entry.hasMoreComments) lines.push("  More comments on GitHub");
   return `${lines.join("\n")}\n`;
+}
+
+export type ReviewCommentEntry = Omit<ListedCommentDraft, "updatedAt" | "source">;
+
+export function reviewCommentEntries(drafts: readonly ListedCommentDraft[]): ReviewCommentEntry[] {
+  return drafts.map(({ updatedAt: _, source: __, ...entry }) => entry);
+}
+
+export function formatReviewDrafts(comments: readonly ReviewCommentEntry[], summary: SummaryDraft | null): string {
+  const sections: string[] = [];
+  if (comments.length > 0) {
+    const lines = ["Comment drafts:"];
+    for (const { id, path, side, line, startLine, body } of comments) {
+      lines.push(`${id}  ${path}:${startLine === null ? line : `${startLine}-${line}`}  ${side}`, ...indented(body));
+    }
+    sections.push(`${lines.join("\n")}\n`);
+  }
+  if (summary !== null) sections.push(`${["Summary draft:", ...indented(summary.body)].join("\n")}\n`);
+  return sections.join("\n");
+}
+
+function indented(body: string): string[] {
+  return body.split("\n").map((text) => `    ${text}`);
 }

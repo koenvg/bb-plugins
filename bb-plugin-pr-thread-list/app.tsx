@@ -17,7 +17,7 @@ import { readSummary, type PrSummary } from "./pr-insight";
 import { useSummaries } from "./use-summaries";
 import { useSnoozes } from "./use-snoozes";
 import { wakeLabel, wakeTitle, type SnoozeControls } from "./snooze-model";
-import { visibleItems, type Lifecycle, type ListItem, type ListOptions, type SortField } from "./list-model";
+import { buildForest, visibleItems, type Lifecycle, type ListItem, type ListOptions, type SortField } from "./list-model";
 import type { Tab } from "./tabs";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
 import { isSettled, needsAttention, relativeTime, rowState, workItems } from "./row-cues";
@@ -118,7 +118,7 @@ function ThreadRow({ item, provider, activeThreadId, now, onToggle, onNavigate, 
   const selected = thread.id === activeThreadId;
   const quiet = isSettled(thread) && !selected;
   return (
-    <div className="group/row relative flex min-w-0 items-start" style={{ height: HEIGHTS.thread, paddingLeft: `${item.depth * CHILD_INDENT}px` }}>
+    <div className={`group/row relative flex min-w-0 items-start ${item.context ? "opacity-60" : ""}`} style={{ height: HEIGHTS.thread, paddingLeft: `${item.depth * CHILD_INDENT}px` }}>
       <div className={`grid h-full min-w-0 flex-1 grid-cols-[1rem_minmax(0,1fr)_auto] grid-rows-[1.25rem_1.25rem] content-center items-center gap-x-2 rounded-lg px-2 ${selected ? "bg-sidebar-accent" : "group-hover/row:bg-sidebar-accent/60"}`}>
         {item.hasChildren ? <span className="relative col-start-1 row-start-1 flex size-4">
           <span className={`flex transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0 [@media(hover:none)]:opacity-0 ${item.collapsed ? "opacity-0" : ""}`}>
@@ -258,9 +258,12 @@ function ThreadList(props: PluginThreadListProps) {
   const pullRequests = useMemo(() => new Map(Object.entries(insight.summaries)
     .map(([id, value]) => [id, readSummary(value, now)] as const)), [insight.summaries, now]);
   const providerById = useMemo(() => new Map<string, Provider>(providers.map((provider) => [provider.id, provider])), [providers]);
-  const pinned = useMemo(() => threads.filter((row) => row.isPinned && !row.isHidden && !row.isArchived)
-    .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
-      : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey)), [threads]);
+  const pinned = useMemo(() => {
+    const forest = buildForest(threads);
+    return threads.filter((row) => row.isPinned && !row.isHidden && !row.isArchived && !forest.parentOf(row))
+      .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
+        : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey));
+  }, [threads]);
   const snoozes = useSnoozes(threads, now);
   const items = useMemo(() => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed),
     [threads, projects, sections, prefs, pullRequests, snoozes.snoozed]);

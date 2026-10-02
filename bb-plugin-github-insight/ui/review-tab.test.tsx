@@ -5,8 +5,16 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
-import type { ActionResult, ReplyResult, ReviewResult, rpcContract, SendToAgentResult } from "../contract";
+import type {
+  ActionResult,
+  ReplyResult,
+  ReviewResult,
+  rpcContract,
+  SendToAgentResult,
+  SubmitReviewResult,
+} from "../contract";
 import { parsePrFiles } from "../core/pr-files";
+import type { ListedCommentDraft } from "../core/review-drafts";
 import { parseReviewThreads } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import prFiles from "../test/fixtures/pr-1-files.json";
@@ -59,7 +67,18 @@ const reviewTab = app.threadPanelActions.find((action) => action.id === "review"
 afterEach(cleanup);
 
 const noThreads: ThreadPlacement = { placed: [], outdated: [] };
-const recorded: ReviewResult = { kind: "ok", files: parsePrFiles(prFiles), threads: noThreads, drafts: {} };
+const noReviewDrafts = {
+  head: { prNodeId: "PR_1", oid: "def456", state: "OPEN", viewerIsAuthor: false },
+  commentDrafts: [],
+  summaryDraft: null,
+} satisfies Partial<ReviewResult>;
+const recorded = {
+  kind: "ok",
+  files: parsePrFiles(prFiles),
+  threads: noThreads,
+  drafts: {},
+  ...noReviewDrafts,
+} satisfies ReviewResult;
 
 const threadedFiles = parsePrFiles(threadedPrFiles);
 const threaded = {
@@ -67,6 +86,7 @@ const threaded = {
   files: threadedFiles,
   threads: placeThreads(threadedFiles, parseReviewThreads([reviewThreads])),
   drafts: {},
+  ...noReviewDrafts,
 } satisfies ReviewResult;
 
 interface RpcHandlers {
@@ -75,6 +95,10 @@ interface RpcHandlers {
   setResolved?: () => ActionResult | Promise<ActionResult>;
   saveDraft?: () => ActionResult | Promise<ActionResult>;
   discardDraft?: () => ActionResult | Promise<ActionResult>;
+  saveCommentDraft?: () => ActionResult | Promise<ActionResult>;
+  deleteCommentDraft?: () => ActionResult | Promise<ActionResult>;
+  saveSummaryDraft?: () => ActionResult | Promise<ActionResult>;
+  submitReview?: () => SubmitReviewResult | Promise<SubmitReviewResult>;
 }
 
 let summaryListener: BroadcastChannel | undefined;
@@ -117,6 +141,10 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
         saveDraft: handlers.saveDraft ?? (() => ({ kind: "ok" })),
         discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
+        saveCommentDraft: handlers.saveCommentDraft ?? (() => ({ kind: "ok" })),
+        deleteCommentDraft: handlers.deleteCommentDraft ?? (() => ({ kind: "ok" })),
+        saveSummaryDraft: handlers.saveSummaryDraft ?? (() => ({ kind: "ok" })),
+        submitReview: handlers.submitReview ?? (() => ({ kind: "submitted" })),
         getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         startReview: () => ({ threadId: "unused" }),
@@ -125,6 +153,14 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
       },
     },
   );
+}
+
+function methods(slot: ReturnType<typeof renderTab>) {
+  return slot.inspection.rpcCalls.map((call) => call.method);
+}
+
+function callsTo(slot: ReturnType<typeof renderTab>, method: string) {
+  return slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
 }
 
 describe("Review tab", () => {
@@ -334,14 +370,6 @@ describe("Review tab drafts", () => {
   async function findDraft(slot: ReturnType<typeof renderTab>) {
     const section = await slot.findByRole("region", { name: "Draft from agent" });
     return { section, box: within(section).getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement };
-  }
-
-  function methods(slot: ReturnType<typeof renderTab>) {
-    return slot.inspection.rpcCalls.map((call) => call.method);
-  }
-
-  function callsTo(slot: ReturnType<typeof renderTab>, method: string) {
-    return slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
   }
 
   it("puts the draft in the reply box below the comments of its thread, as 'Draft from agent'", async () => {
@@ -946,5 +974,331 @@ describe("Review tab thread actions", () => {
     await waitFor(() => expect(slot.getAllByTestId("line-annotation")).toHaveLength(1));
     const moved = within(slot.getByTestId("line-annotation"));
     expect((moved.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("Half written");
+  });
+});
+
+const APP_TSX = "plugins/github-insight/app.tsx";
+
+function commentDraft(id: string, overrides: Partial<ListedCommentDraft> = {}): ListedCommentDraft {
+  return {
+    id,
+    path: APP_TSX,
+    side: "RIGHT",
+    line: 4,
+    startLine: null,
+    body: "Name the slot id",
+    commitOid: "def456",
+    updatedAt: 1,
+    source: "agent",
+    ...overrides,
+  };
+}
+
+function withCommentDrafts(...commentDrafts: ListedCommentDraft[]): ReviewResult {
+  return { ...recorded, commentDrafts };
+}
+
+async function findCommentDraft(slot: ReturnType<typeof renderTab>) {
+  const card = await slot.findByRole("region", { name: "Draft from agent" });
+  return { card, box: within(card).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement };
+}
+
+describe("Review tab comment drafts", () => {
+  it("shows a comment draft below its line on the new side, as 'Draft from agent'", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+
+    const { card, box } = await findCommentDraft(slot);
+    expect(box.value).toBe("Name the slot id");
+    const annotation = card.closest("[data-testid=line-annotation]") as HTMLElement;
+    expect(annotation.dataset).toMatchObject({ side: "additions", line: "4" });
+    expect(annotation.closest("[data-testid=file-diff]")!.getAttribute("data-path")).toBe(APP_TSX);
+  });
+
+  it("shows a draft on the old side on the deletions side", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1", { side: "LEFT" })));
+
+    const { card } = await findCommentDraft(slot);
+    expect((card.closest("[data-testid=line-annotation]") as HTMLElement).dataset.side).toBe("deletions");
+  });
+
+  it("names the range of a draft on more than one line", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1", { startLine: 2 })));
+
+    const { card } = await findCommentDraft(slot);
+    expect(within(card).getByText("Lines 2-4")).toBeTruthy();
+  });
+
+  it("shows a comment draft saved while the tab is open", async () => {
+    const slot = renderTab(recorded, withCommentDrafts(commentDraft("c1")));
+    await slot.findByText("3 files changed");
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    expect((await findCommentDraft(slot)).box.value).toBe("Name the slot id");
+  });
+
+  it("saves the last edit of a comment draft once the typing stops", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+    const { box } = await findCommentDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Name" } });
+    fireEvent.change(box, { target: { value: "Name the panel id" } });
+
+    await waitFor(() => expect(callsTo(slot, "saveCommentDraft")).toHaveLength(1));
+    expect(callsTo(slot, "saveCommentDraft")).toEqual([{ threadId: "thr_1", draftId: "c1", body: "Name the panel id" }]);
+  });
+
+  it("saves an unsaved comment edit when the tab closes", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+    const { box } = await findCommentDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Name the panel id" } });
+    slot.unmount();
+
+    await waitFor(() =>
+      expect(callsTo(slot, "saveCommentDraft")).toEqual([{ threadId: "thr_1", draftId: "c1", body: "Name the panel id" }]),
+    );
+  });
+
+  it("keeps the edited comment when the tab loads the stored draft again", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+    const { box } = await findCommentDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Name the panel id" } });
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+
+    await waitFor(() => expect(methods(slot).filter((method) => method === "getReview")).toHaveLength(2));
+    expect((await findCommentDraft(slot)).box.value).toBe("Name the panel id");
+  });
+
+  it("deletes a comment draft without a GitHub write, and loads again", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")), recorded);
+    const { card } = await findCommentDraft(slot);
+
+    fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull());
+    expect(methods(slot)).toEqual(["getReview", "deleteCommentDraft", "getReview"]);
+    expect(callsTo(slot, "deleteCommentDraft")).toEqual([{ threadId: "thr_1", draftId: "c1" }]);
+  });
+
+  it("keeps the comment draft and shows the error when the delete fails", async () => {
+    const slot = renderTabWith(
+      { deleteCommentDraft: () => ({ kind: "error", message: "No pull request for this thread" }) },
+      withCommentDrafts(commentDraft("c1")),
+    );
+    const { card } = await findCommentDraft(slot);
+
+    fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
+
+    expect((await within(card).findByRole("alert")).textContent).toBe("No pull request for this thread");
+    expect((await findCommentDraft(slot)).box.value).toBe("Name the slot id");
+  });
+
+  it("shows the error when a comment edit cannot be saved", async () => {
+    const slot = renderTabWith(
+      { saveCommentDraft: () => ({ kind: "error", message: "Comment draft c1 is gone" }) },
+      withCommentDrafts(commentDraft("c1")),
+    );
+    const { card, box } = await findCommentDraft(slot);
+
+    fireEvent.change(box, { target: { value: "Name the panel id" } });
+
+    expect((await within(card).findByRole("alert")).textContent).toBe("Comment draft c1 is gone");
+  });
+});
+
+describe("Review tab drafts on an older commit", () => {
+  const older = commentDraft("c1", { commitOid: "abc123", side: "LEFT", startLine: 2 });
+
+  it("warns with both commits and lists the drafts above the files, not on their lines", async () => {
+    const slot = renderTab(withCommentDrafts(older));
+
+    const section = await slot.findByRole("region", { name: "Drafts on an older commit" });
+    expect(within(section).getByText("PR has new commits since these drafts (abc123 -> def456)")).toBeTruthy();
+    const card = within(section).getByRole("region", { name: "Draft from agent" });
+    expect(within(card).getByText(APP_TSX)).toBeTruthy();
+    expect(within(card).getByText("Old side")).toBeTruthy();
+    expect(within(card).getByText("Lines 2-4")).toBeTruthy();
+    expect((within(card).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value).toBe("Name the slot id");
+    const [firstDiff] = await slot.findAllByTestId("file-diff");
+    expect(section.compareDocumentPosition(firstDiff!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(slot.queryAllByTestId("line-annotation")).toEqual([]);
+  });
+
+  it("has no older-commit section when all drafts are at the head", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+
+    await findCommentDraft(slot);
+    expect(slot.queryByRole("region", { name: "Drafts on an older commit" })).toBeNull();
+  });
+});
+
+describe("Review tab submit panel", () => {
+  const summary = { body: "Looks good overall", updatedAt: 5, source: "agent" as const };
+  const ownPr = { ...recorded, head: { ...recorded.head, viewerIsAuthor: true } };
+  const merged = {
+    ...withCommentDrafts(commentDraft("c1")),
+    head: { ...recorded.head, state: "MERGED" as const },
+  };
+  const withDraftsAndSummary = { ...withCommentDrafts(commentDraft("c1"), commentDraft("c2")), summaryDraft: summary };
+
+  async function openPanel(slot: ReturnType<typeof renderTab>) {
+    const toggle = await slot.findByRole("button", { name: "Submit review" });
+    if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+    return within(slot.getByRole("region", { name: "Submit review" }));
+  }
+
+  function verdicts(panel: ReturnType<typeof within>) {
+    return panel.getAllByRole("radio").map((radio: HTMLElement) => radio.closest("label")!.textContent);
+  }
+
+  function submitButton(panel: ReturnType<typeof within>) {
+    return panel.getByRole("button", { name: "Submit" }) as HTMLButtonElement;
+  }
+
+  function summaryBox(panel: ReturnType<typeof within>) {
+    return panel.getByRole("textbox", { name: "Summary" }) as HTMLTextAreaElement;
+  }
+
+  it("is closed when there are no drafts, and opens from the header", async () => {
+    const slot = renderTab(recorded);
+
+    const toggle = await slot.findByRole("button", { name: "Submit review" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(slot.queryByRole("region", { name: "Submit review" })).toBeNull();
+    fireEvent.click(toggle);
+
+    expect(slot.getByRole("region", { name: "Submit review" })).toBeTruthy();
+  });
+
+  it("is open with the summary draft and the number of comment drafts", async () => {
+    const slot = renderTab(withDraftsAndSummary);
+
+    const panel = await openPanel(slot);
+    expect(slot.getByRole("button", { name: "Submit review" }).getAttribute("aria-expanded")).toBe("true");
+    expect(summaryBox(panel).value).toBe("Looks good overall");
+    expect(panel.getByText("2 comments")).toBeTruthy();
+  });
+
+  it("shows Comment, Approve, and Request changes on another person's PR", async () => {
+    const slot = renderTab(recorded);
+
+    expect(verdicts(await openPanel(slot))).toEqual(["Comment", "Approve", "Request changes"]);
+  });
+
+  it("shows only Comment on the user's own PR", async () => {
+    const slot = renderTab(ownPr);
+
+    expect(verdicts(await openPanel(slot))).toEqual(["Comment"]);
+  });
+
+  it("disables Request changes without a summary, with the reason", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+    const panel = await openPanel(slot);
+
+    fireEvent.click(panel.getByRole("radio", { name: "Request changes" }));
+
+    expect(submitButton(panel).disabled).toBe(true);
+    expect(panel.getByText("Add a summary to request changes")).toBeTruthy();
+    fireEvent.change(summaryBox(panel), { target: { value: "Fix the null check" } });
+    expect(submitButton(panel).disabled).toBe(false);
+  });
+
+  it("disables Comment with no summary and no comment drafts", async () => {
+    const slot = renderTab(recorded);
+    const panel = await openPanel(slot);
+
+    expect(submitButton(panel).disabled).toBe(true);
+    expect(panel.getByText("Add a summary or a comment")).toBeTruthy();
+  });
+
+  it("saves the summary once the typing stops", async () => {
+    const slot = renderTab(recorded);
+    const panel = await openPanel(slot);
+
+    fireEvent.change(summaryBox(panel), { target: { value: "Looks" } });
+    fireEvent.change(summaryBox(panel), { target: { value: "Looks good" } });
+
+    await waitFor(() => expect(callsTo(slot, "saveSummaryDraft")).toEqual([{ threadId: "thr_1", body: "Looks good" }]));
+  });
+
+  it("keeps the typed summary when the panel closes and opens again", async () => {
+    const slot = renderTab(recorded);
+    const panel = await openPanel(slot);
+
+    fireEvent.change(summaryBox(panel), { target: { value: "Looks good" } });
+    fireEvent.click(slot.getByRole("button", { name: "Submit review" }));
+    fireEvent.click(slot.getByRole("button", { name: "Submit review" }));
+
+    expect(summaryBox(within(slot.getByRole("region", { name: "Submit review" }))).value).toBe("Looks good");
+  });
+
+  it("saves the edits first, submits the verdict and the summary, and shows no drafts after", async () => {
+    const signals = listenForSummaries();
+    const slot = renderTab(withDraftsAndSummary, recorded);
+    const panel = await openPanel(slot);
+    const box = within((await slot.findAllByRole("region", { name: "Draft from agent" }))[0]!).getByRole("textbox", { name: "Comment" });
+
+    fireEvent.change(box, { target: { value: "Edited comment" } });
+    fireEvent.change(summaryBox(panel), { target: { value: "Ship it" } });
+    fireEvent.click(panel.getByRole("radio", { name: "Approve" }));
+    fireEvent.click(submitButton(panel));
+
+    expect(await panel.findByText("Review submitted")).toBeTruthy();
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull());
+    expect(summaryBox(panel).value).toBe("");
+    expect(methods(slot)).toEqual(["getReview", "saveSummaryDraft", "saveCommentDraft", "submitReview", "getReview"]);
+    expect(callsTo(slot, "submitReview")).toEqual([{ threadId: "thr_1", event: "APPROVE", body: "Ship it" }]);
+    await waitFor(() => expect(signals).toEqual([{ threadId: "thr_1" }]));
+    stopListening();
+  });
+
+  it("shows the GitHub error with a link to the PR and keeps the drafts and the summary", async () => {
+    const slot = renderTabWith(
+      {
+        submitReview: () => ({
+          kind: "error",
+          message: "You have a pending review on GitHub. Submit or delete it there first.",
+          url: "https://github.com/koenvangeert/bb-plugins/pull/1",
+        }),
+      },
+      withDraftsAndSummary,
+    );
+    const panel = await openPanel(slot);
+
+    fireEvent.click(submitButton(panel));
+
+    const alert = await panel.findByRole("alert");
+    expect(alert.textContent).toContain("You have a pending review on GitHub.");
+    expect(within(alert).getByRole("link", { name: "Open the PR" }).getAttribute("href")).toBe(
+      "https://github.com/koenvangeert/bb-plugins/pull/1",
+    );
+    expect(slot.getAllByRole("region", { name: "Draft from agent" })).toHaveLength(2);
+    expect(summaryBox(panel).value).toBe("Looks good overall");
+    expect(methods(slot)).toEqual(["getReview", "submitReview"]);
+  });
+
+  it("shows an error without a link when there is no PR url", async () => {
+    const slot = renderTabWith(
+      { submitReview: () => ({ kind: "error", message: "gh not logged in", url: null }) },
+      withDraftsAndSummary,
+    );
+    const panel = await openPanel(slot);
+
+    fireEvent.click(submitButton(panel));
+
+    const alert = await panel.findByRole("alert");
+    expect(alert.textContent).toBe("gh not logged in");
+    expect(within(alert).queryByRole("link")).toBeNull();
+  });
+
+  it("shows the drafts of a merged PR and disables submit", async () => {
+    const slot = renderTab(merged);
+    const panel = await openPanel(slot);
+
+    expect(await slot.findByRole("region", { name: "Draft from agent" })).toBeTruthy();
+    expect(submitButton(panel).disabled).toBe(true);
+    expect(panel.getByText("Pull request is merged")).toBeTruthy();
   });
 });
