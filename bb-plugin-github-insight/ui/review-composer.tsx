@@ -32,7 +32,9 @@ function findReviewRequest(view: ReviewQueueView | null, route: ReviewRoute): Li
 
 export function ReviewComposerPage({ route, queue }: { route: ReviewRoute; queue: ReviewQueueState }) {
   const navigation = usePullRequestsNavigation();
-  const pr = findReviewRequest(queue.view, route);
+  const [latchedPr, setLatchedPr] = useState<LinkedQueuePr | null>(null);
+  const pr = latchedPr ?? findReviewRequest(queue.view, route);
+  if (latchedPr === null && pr !== null) setLatchedPr(pr);
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <header className="flex min-w-0 items-center gap-2">

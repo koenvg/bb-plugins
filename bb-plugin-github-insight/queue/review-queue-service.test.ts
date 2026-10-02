@@ -164,6 +164,20 @@ describe("review queue service", () => {
     expect(resolved).toEqual(["env_1"]);
   });
 
+  it("links the other threads when the PR lookup of one environment fails", async () => {
+    const { service } = serviceWith({
+      listThreads: async () => [thread("thr_broken", "env_broken", 2), thread("thr_ok", "env_ok", 1)],
+      resolveEnvironmentPr: async (environmentId) => {
+        if (environmentId === "env_broken") throw new Error("environment not found");
+        return linkedTo("acme", "api", 15);
+      },
+    });
+
+    const pr = firstReviewRequest(await service.getReviewQueue());
+
+    expect(pr.threadId).toBe("thr_ok");
+  });
+
   it("returns the gh failure together with the last good result", async () => {
     let fail = false;
     const { service } = serviceWith({

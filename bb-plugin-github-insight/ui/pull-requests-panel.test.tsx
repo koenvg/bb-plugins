@@ -472,6 +472,48 @@ describe("Review composer", () => {
     expect(slot.inspection.navigateCalls).toEqual([]);
   });
 
+  it("keeps the first project when a refresh changes the project order", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let pr = queuePr();
+    const slot = renderPanel("review/acme/api/15", () => ok(view([pr])));
+    expect((await slot.findByTestId("bb-new-thread-composer")).dataset.defaultProjectId).toBe("prj_api");
+
+    pr = queuePr({ projectIds: ["prj_api_new", "prj_api"] });
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
+
+    expect(rpcMethods(slot)).toEqual(["getReviewQueue", "getReviewQueue"]);
+    expect(slot.getByTestId("bb-new-thread-composer").dataset.defaultProjectId).toBe("prj_api");
+  });
+
+  it("keeps the composer when a refresh drops the PR", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let prs = [queuePr()];
+    const slot = renderPanel("review/acme/api/15", () => ok(view(prs)));
+    const composer = await slot.findByTestId("bb-new-thread-composer");
+
+    prs = [];
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
+
+    expect(rpcMethods(slot)).toEqual(["getReviewQueue", "getReviewQueue"]);
+    expect(slot.getByTestId("bb-new-thread-composer")).toBe(composer);
+    expect(slot.queryByText("This pull request is not in your review requests")).toBeNull();
+  });
+
+  it("seeds the composer from the new PR when the route changes", async () => {
+    const other = queuePr({ number: 16, title: "Add caching" });
+    const slot = renderPanel("review/acme/api/15", () => ok(view([queuePr(), other])));
+    await slot.findByTestId("bb-new-thread-composer");
+
+    const Panel = panel.component;
+    slot.lifecycle.rerender(<Panel subPath="review/acme/api/16" />);
+
+    const composer = slot.getByTestId("bb-new-thread-composer");
+    expect(composer.dataset.draftKey).toBe("github-insight:review:acme/api#16");
+    expect(
+      (within(composer).getByTestId("bb-new-thread-composer-input") as HTMLTextAreaElement).value,
+    ).toBe(buildReviewPrompt(other));
+  });
+
   it("finds the PR when the subpath repo differs in case", async () => {
     const slot = renderPanel("review/Acme/API/15", () => ok(view([queuePr()])));
 

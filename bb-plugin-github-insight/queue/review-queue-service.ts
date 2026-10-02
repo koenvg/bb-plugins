@@ -62,7 +62,10 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     const resolutions = new Map<string, Promise<PrResolution>>();
     const resolve = (environmentId: string) => {
       if (!resolutions.has(environmentId)) {
-        resolutions.set(environmentId, deps.resolveEnvironmentPr(environmentId));
+        resolutions.set(
+          environmentId,
+          deps.resolveEnvironmentPr(environmentId).catch((): PrResolution => ({ kind: "no_pr" })),
+        );
       }
       return resolutions.get(environmentId)!;
     };
