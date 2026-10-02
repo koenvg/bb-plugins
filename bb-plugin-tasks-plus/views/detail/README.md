@@ -62,6 +62,11 @@ lifetimes prevent previous requests, editor contents, menus, subtask forms, and
 other local state from appearing under a replacement identity. No second query
 cache or request system is introduced.
 
+Embedded `DetailView.onMissing(key, stillMissing)` supplies a predicate that must
+be checked inside the accepted clear callback. It rejects a newer loading, error,
+or restored result. The optional `reconcileRevision` re-evaluates absence after
+accepted workspace context commits, including Back. Standalone callers omit both.
+
 ## Comment ownership
 
 `CommentDraftsProvider` is part of `TasksSessionProvider`. `useCommentDraft(taskId)`

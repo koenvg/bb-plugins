@@ -27,7 +27,7 @@ inside an accepted callback. Scope changes still use the shell's accepted route.
 A failed save leaves the original controls, selected row, and editor available.
 Each accepted non-selection context commit increments `reconcileRevision`, passed
 to list and detail. Their effects then re-evaluate confirmed absence. This keeps a
-later collapse or filter from consuming the session's latest-destination slot and
+later Back, collapse, or filter from consuming the session's latest-destination slot and
 silently losing an earlier removal condition. Failed commits do not increment it,
 so reconciliation cannot create an automatic failed-save retry loop. Explicit
 selection and destination changes still win; they do not trigger this signal.

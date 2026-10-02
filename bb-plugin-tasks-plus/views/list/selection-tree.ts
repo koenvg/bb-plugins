@@ -49,6 +49,8 @@ export function useSelectionTree(
     latest.current = { selectedKey, missing, settled };
     previous.current = tree;
   });
+  // reconcileRevision comes only from accepted non-selection context commits.
+  // Failure alone must not resubmit this request or silently retry an autosave.
   useEffect(() => {
     if (!selectedKey || !missing || !settled) return;
     onUnavailable?.(selectedKey, () => {
@@ -60,7 +62,5 @@ export function useSelectionTree(
       );
     });
   }, [selectedKey, missing, settled, onUnavailable, reconcileRevision]);
-  // reconcileRevision comes only from accepted non-selection context commits.
-  // Failure alone must not resubmit this request or silently retry an autosave.
   return { tree, retained };
 }
