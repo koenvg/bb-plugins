@@ -10,7 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Task } from "../../shared/contract.js";
 import { useTasksRpc } from "../../shell/data.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
-import { PANEL_PATH, tasksRouteToSubPath } from "../../shell/routes.js";
+import {
+  openTaskInSidePanel,
+  PANEL_PATH,
+  tasksRouteToSubPath,
+} from "../../shell/routes.js";
 import { DetailView } from "../detail/index.js";
 import { PRIORITY_LABELS, STATUS_LABELS } from "../list/lib.js";
 import { PriorityIcon, StatusIcon } from "../list/icons.js";
@@ -220,18 +224,6 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
   }
 
   const { task } = state;
-  const openInSidePanel = () => {
-    const opened = navigate.openThreadPanel({
-      actionId: "task",
-      title: task.key,
-      params: { taskKey: task.key },
-    });
-    if (!opened) {
-      navigate.toPluginPanel(PANEL_PATH, {
-        subPath: taskDetailSubPath(task.key),
-      });
-    }
-  };
 
   return (
     <CardShell>
@@ -239,7 +231,7 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
         type="button"
         className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         aria-label={embedAriaLabel(task)}
-        onClick={openInSidePanel}
+        onClick={() => openTaskInSidePanel(navigate, task.key)}
       >
         <span aria-hidden>
           <StatusIcon status={task.status} />
