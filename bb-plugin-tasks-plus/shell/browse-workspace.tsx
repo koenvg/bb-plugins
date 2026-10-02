@@ -13,6 +13,12 @@ import { DetailView } from "../views/detail/index.js";
 import { useTasksSession } from "../views/detail/task-session.js";
 import { ShortcutOwner } from "./shortcut-provider.js";
 import {
+  canRestoreBrowseFocus,
+  useBrowseFocus,
+  useBrowseShortcuts,
+  type BrowseFocusTarget,
+} from "./browse-keyboard.js";
+import {
   PANEL_PATH,
   TaskLinkNavigationContext,
   tasksRouteToSubPath,
@@ -55,6 +61,11 @@ export function BrowseWorkspace({
   }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLElement>(null);
+  const focus = useBrowseFocus(selectedKey, listRef, detailRef);
+  const latestOrder = useRef(order);
+  useLayoutEffect(() => {
+    latestOrder.current = order;
+  }, [order]);
   const returnFocus = useRef(false);
   // List and detail can confirm the same removal in one refresh.
   const clearing = useRef(false);
@@ -79,6 +90,7 @@ export function BrowseWorkspace({
   );
   const requestContextChange = useCallback(
     (commit: () => void) => {
+      focus.cancel();
       void session.request(() => {
         commit();
         // Re-evaluate durable absence after an accepted non-selection context
@@ -86,13 +98,25 @@ export function BrowseWorkspace({
         setContextRevision((revision) => revision + 1);
       });
     },
-    [session],
+    [session, focus.cancel],
   );
   const requestSelection = useCallback(
-    (taskKey: string | null) => {
-      void session.request(() => commitSelection(taskKey));
+    (taskKey: string | null, target?: BrowseFocusTarget) => {
+      focus.cancel();
+      void session.request(() => {
+        // A saved navigation must still point at a confirmed visible result.
+        if (
+          target &&
+          (!latestOrder.current.settled ||
+            !latestOrder.current.keys.includes(taskKey!))
+        )
+          return;
+        if (target && taskKey) focus.arm(taskKey, target);
+        if (taskKey !== selectedKey || !target) commitSelection(taskKey);
+        else if (target === "detail") setShowList(false);
+      });
     },
-    [session, commitSelection],
+    [session, commitSelection, selectedKey, focus.cancel, focus.arm],
   );
 
   useEffect(() => {
@@ -116,11 +140,12 @@ export function BrowseWorkspace({
   const onMissing = useCallback(
     (taskKey: string, stillUnavailable: () => boolean = () => true) => {
       if (taskKey !== selectedKey) return;
+      focus.cancel();
       void session.request(() => {
         if (stillUnavailable()) commitSelection(null);
       });
     },
-    [selectedKey, session, commitSelection],
+    [selectedKey, session, commitSelection, focus.cancel],
   );
   // An external accepted browse selection opens detail too. Back only changes
   // presentation for the current route; it cannot hide a later route target.
@@ -133,18 +158,32 @@ export function BrowseWorkspace({
   const listHidden = !split && selectedKey !== null && !showList;
   const detailHidden = !split && !listHidden;
 
+  const backToList = () =>
+    requestContextChange(() => {
+      returnFocus.current = true;
+      setShowList(true);
+    });
+  const paging = useBrowseShortcuts({
+    selectedKey,
+    order,
+    listRef,
+    detailRef,
+    requestSelection,
+    back: backToList,
+  });
   useLayoutEffect(() => {
     const list = listRef.current;
     const detail = detailRef.current;
     if (!list || !detail) return;
+    const requestedReturn = returnFocus.current;
+    returnFocus.current = false;
     // Hiding a mounted pane must not leave its controls holding keyboard focus.
     // Resize never focuses an editor, nor steals focus from another BB pane.
     if (
       !listHidden &&
-      (returnFocus.current ||
+      ((requestedReturn && canRestoreBrowseFocus(list, detail)) ||
         (detailHidden && detail.contains(document.activeElement)))
     ) {
-      returnFocus.current = false;
       const target =
         list.querySelector<HTMLElement>(
           '[data-nav-item][aria-current="true"]',
@@ -153,7 +192,7 @@ export function BrowseWorkspace({
     } else if (listHidden && list.contains(document.activeElement)) {
       detail.focus({ preventScroll: true });
     }
-  }, [listHidden, detailHidden, showList]);
+  }, [listHidden, detailHidden, showList, contextRevision]);
 
   return (
     <div
@@ -207,18 +246,33 @@ export function BrowseWorkspace({
                     variant="ghost"
                     size="sm"
                     className="pointer-coarse:min-h-11"
-                    onClick={() => {
-                      requestContextChange(() => {
-                        returnFocus.current = true;
-                        setShowList(true);
-                      });
-                    }}
+                    onClick={backToList}
                   >
                     <Icon name="ChevronLeft" className="size-3.5" />
                     Back to list
                   </Button>
                 ) : null}
                 <span className="min-w-0 flex-1 truncate">{selectedKey}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 pointer-coarse:size-11"
+                  aria-label="Previous task"
+                  disabled={!paging.previous}
+                  onClick={() => paging.move(-1)}
+                >
+                  <Icon name="ChevronUp" className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 pointer-coarse:size-11"
+                  aria-label="Next task"
+                  disabled={!paging.next}
+                  onClick={() => paging.move(1)}
+                >
+                  <Icon name="ChevronDown" className="size-3.5" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -235,6 +289,7 @@ export function BrowseWorkspace({
                 <TaskLinkNavigationContext.Provider value={openTaskLink}>
                   <DetailView
                     taskKey={readyKey}
+                    onReady={focus.onReady}
                     onMissing={onMissing}
                     reconcileRevision={contextRevision}
                   />

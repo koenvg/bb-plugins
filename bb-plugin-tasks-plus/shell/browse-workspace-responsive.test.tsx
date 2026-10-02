@@ -227,7 +227,7 @@ describe("compact browse context", () => {
     expect(document.activeElement).toBe(outside);
     outside.remove();
     fireEvent.keyDown(document.body, { key: "j" });
-    expect(slot.inspection.navigateCalls).toHaveLength(0);
+    expect(slot.inspection.navigateCalls).toHaveLength(1);
     expect(
       slot
         .getByRole("region", { name: "Selected ticket" })

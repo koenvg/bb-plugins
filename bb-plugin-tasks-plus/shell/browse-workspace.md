@@ -79,8 +79,8 @@ A newly accepted route selection opens detail; Back never owns a second identity
 Both pane roots use `hidden` and `inert`. A layout effect moves focus only out of a
 pane being hidden, or after explicit Back, to a non-editable detail root or the
 selected row. Widening preserves focus; neither direction autofocusses an editor.
-`ShortcutOwner` remains the sole pane shortcut gate. BBP-14 can reuse these roots
-for explicit keyboard focus actions without changing the route identity.
+`ShortcutOwner` remains the sole pane shortcut gate. Keyboard actions reuse these roots
+for explicit focus actions without changing the route identity.
 
 `ListView.visible`, default true, is a measurement signal, not query readiness or
 selection reconciliation. Its scroll hook defers hidden restoration, cancels queued
@@ -92,23 +92,39 @@ Rows use their list container width, wrap titles and metadata below 672px, and g
 row status/priority/expansion controls 44px coarse-pointer targets regardless of
 viewport width. These classes are list-only; board and detail layouts are untouched.
 
-`ShortcutOwner` is a narrow prerequisite for mounting both existing shortcut sets.
-A pane registration only runs when focus belongs to that pane; visible list
-movement also retains the old unfocused-panel default. Existing global editing,
-modifier, composition, overlay, and outside-panel guards are unchanged.
+## Keyboard and focus
 
-- BBP-13 supplies ongoing reconciliation and staged list context changes. The
-  BBP-14 contract remains `onVisibleOrderChange({ keys, settled })`; keys always
-  match rendered rows. Use only settled reports for movement and ordered paging.
-  Retained origin rows during a blocked removal are deliberately unsettled.
-- BBP-14 owns preview movement, Enter/Escape focus transfer, selected-row focus
-  rules, ordered paging, and updated shortcut help. Existing j/k still move row
-  focus until that slice; they do not invent a separate selected index here.
-- BBP-15 completes compact Back/focus/resize/context retention. BBP-13 overlap is
-  bounded to workspace presentation, the ListView visibility prop, and README.
-  It adds no removal-producing context staging or visible-order reconciliation.
-  Task-owned comment records still live in the one mounted TasksSessionProvider.
-  Retention ends with that session; no closure/reload persistence is promised.
+`browse-keyboard.ts` registers workspace movement, Enter/open, Escape, and ordered
+paging with the existing definitions and listener. Controlled ListView omits its
+legacy focus-only movement handlers. Property handlers still use `ShortcutOwner`;
+the list additionally requires the focused row to equal the committed selection.
+Only `s`, `p`, and `l` overlap between list/detail definitions, and their owners are
+focus-exclusive regardless of registration order. Hidden/inert roots are ineligible.
+
+Movement uses only settled `onVisibleOrderChange({ keys, settled })` reports and
+committed selection. It rechecks current order inside the accepted save callback.
+No selection starts at the first row; ends clamp and empty/unsettled lists do
+nothing. Split pager buttons and brackets use this order. Standalone TaskPager and
+board registration are unchanged.
+
+Focus intent is armed inside `request(commit)`, never by awaiting the transition's
+shared boolean promise. The accepted route must match before focus moves. Explicit
+Enter/open waits for `DetailView.onReady` and matching `data-detail-key` markup,
+then focuses the non-editable pane root. Loading, retryable errors, and returning
+to a previously loaded key have keyed tests. New requests cancel old focus intent;
+editor, overlay, and outside-pane focus block delayed focus. Wide movement focuses
+and scrolls the selected row. Compact movement uses visible detail, never an inert
+row. Escape shares the guarded Back action and restores focus with preventScroll.
+Selection/open and deferred Escape share `canRestoreBrowseFocus`. An accepted return
+consumes its focus intent even when another control owns focus. Hiding a pane still
+moves focus out of its now-inert contents, but never takes it from another pane or
+portaled overlay.
+Neither selection nor resize focuses an editor.
+
+Retained removal rows remain unsettled and cannot supply a keyboard destination.
+Context changes keep the reconcileRevision contract above. Comment records still
+belong to the one mounted TasksSessionProvider.
+Retention ends with that session; no closure/reload persistence is promised.
 
 Local markup fixtures and SDK tests do not establish installed-host routing,
 scroll/focus behavior, removal of the old Navigation tab, or SDK compatibility.

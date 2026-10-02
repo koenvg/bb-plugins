@@ -67,6 +67,11 @@ be checked inside the accepted clear callback. It rejects a newer loading, error
 or restored result. The optional `reconcileRevision` re-evaluates absence after
 accepted workspace context commits, including Back. Standalone callers omit both.
 
+Embedded `DetailView.onReady` notifies the workspace when the keyed lookup renders
+a task or retryable error. Matching `data-detail-key` markup prevents stale readiness
+from focusing a reloaded key early. The workspace owns non-editable pane focus;
+standalone and embedded thread views do not opt in to this callback.
+
 ## Comment ownership
 
 `CommentDraftsProvider` is part of `TasksSessionProvider`. `useCommentDraft(taskId)`

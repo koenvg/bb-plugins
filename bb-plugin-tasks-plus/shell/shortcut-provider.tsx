@@ -64,7 +64,7 @@ export function ShortcutProvider({
           const unfocused = document.activeElement === document.body;
           if (
             !root ||
-            root.hidden ||
+            root.closest("[hidden], [inert]") ||
             !(
               root.contains(document.activeElement) ||
               (owner.allowUnfocused && unfocused)

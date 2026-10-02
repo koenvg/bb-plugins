@@ -50,6 +50,8 @@ interface DetailViewProps {
   taskKey: string;
   onMissing?: (taskKey: string, stillMissing: () => boolean) => void;
   reconcileRevision?: number;
+  /** A keyed lookup has finished with a task or retryable error. Never an editor focus. */
+  onReady?: (taskKey: string) => void;
 }
 
 type PropertiesLayout = "inline" | "rail";
@@ -436,6 +438,7 @@ function TaskDetail({
   return (
     <div
       ref={detailRef}
+      data-detail-key={task.key}
       className="@container flex min-h-full flex-col bg-surface-recessed-solid p-3"
     >
       <div className="flex flex-1 items-stretch rounded-lg border border-border bg-card">
@@ -642,6 +645,7 @@ function SessionDetailView({
   taskKey,
   onMissing,
   reconcileRevision,
+  onReady,
 }: DetailViewProps) {
   const committedKey = useSafeTaskTarget(taskKey);
   return (
@@ -650,6 +654,7 @@ function SessionDetailView({
       taskKey={committedKey}
       onMissing={onMissing}
       reconcileRevision={reconcileRevision}
+      onReady={onReady}
     />
   );
 }
@@ -657,6 +662,7 @@ function DetailQuery({
   taskKey,
   onMissing,
   reconcileRevision,
+  onReady,
 }: DetailViewProps) {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
@@ -664,6 +670,9 @@ function DetailQuery({
     [taskKey],
   );
 
+  useEffect(() => {
+    if (!query.isLoading && (query.data || query.error)) onReady?.(taskKey);
+  }, [query.isLoading, query.data, query.error, taskKey, onReady]);
   const latestQuery = useRef(query);
   useLayoutEffect(() => {
     latestQuery.current = query;
@@ -695,7 +704,10 @@ function DetailQuery({
   ]);
   if (query.data === undefined) {
     return query.error ? (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-destructive">
+      <div
+        data-detail-key={taskKey}
+        className="flex h-full items-center justify-center p-6 text-sm text-destructive"
+      >
         {query.error}
         <Button size="sm" variant="outline" onClick={query.refresh}>
           Retry

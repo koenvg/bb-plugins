@@ -278,11 +278,20 @@ export function ListView({
   const forFocusedRow = (act: (taskKey: string) => void) =>
     forFocusedTask(() => scrollRef.current, act);
   const openRowMenuFromShortcut = (menu: RowMenu) =>
-    forFocusedRow((taskKey) => setOpenRowMenu({ taskKey, menu }));
+    forFocusedRow((taskKey) => {
+      if (onRequestSelection && taskKey !== selectedTaskKey) return;
+      setOpenRowMenu({ taskKey, menu });
+    });
   useShortcuts({
-    "list.next": () => moveFocusInList(scrollRef.current, 1),
-    "list.previous": () => moveFocusInList(scrollRef.current, -1),
-    "list.open": forFocusedRow((taskKey) => openTask(taskKey)),
+    "list.next": onRequestSelection
+      ? null
+      : () => moveFocusInList(scrollRef.current, 1),
+    "list.previous": onRequestSelection
+      ? null
+      : () => moveFocusInList(scrollRef.current, -1),
+    "list.open": onRequestSelection
+      ? null
+      : forFocusedRow((taskKey) => openTask(taskKey)),
     "list.status": openRowMenuFromShortcut("status"),
     "list.priority": openRowMenuFromShortcut("priority"),
     "list.labels": openRowMenuFromShortcut("labels"),

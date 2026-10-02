@@ -62,12 +62,16 @@ function rpc(tasks: Task[] = [], overrides: Record<string, unknown> = {}) {
     listTasks: () => ({ tasks }),
     listLabels: () => ({ labels: [] }),
     getTaskByKey: (input: unknown) => ({
-      task: tasks.find((entry) => entry.key === rpcInput(input).taskKey) ?? null,
+      task:
+        tasks.find((entry) => entry.key === rpcInput(input).taskKey) ?? null,
     }),
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
     listComments: () => ({ comments: [] }),
-    listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),
+    listTaskPullRequests: () => ({
+      pullRequests: [],
+      unavailableThreadIds: [],
+    }),
     ...overrides,
   };
 }
@@ -88,6 +92,9 @@ describe("panel shortcuts", () => {
       expect(slot.getByRole("heading", { name: heading })).toBeDefined();
     }
     expect(dialog.querySelectorAll("dt")).toHaveLength(SHORTCUTS.length);
+    for (const shortcut of SHORTCUTS) {
+      expect(dialog.textContent).toContain(shortcut.label);
+    }
   });
 
   it("returns focus to the previous element when the help dialog closes", async () => {

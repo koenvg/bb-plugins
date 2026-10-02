@@ -403,8 +403,6 @@ Unsent comment text, staged files, and notification choice stay task-owned for t
 mounted Tasks session. Back and resize do not submit, upload, notify, or delegate.
 Explicit operations finishing later still belong to their originating task.
 This does not promise draft persistence after panel closure or browser reload.
-Dynamic selection reconciliation and keyboard preview movement remain separate
-slices.
 
 ## Remembered project scope
 
@@ -431,15 +429,33 @@ scroll preferences unchanged.
 
 ## Keyboard shortcuts
 
-Press `?` in the Tasks panel to see every shortcut. Single keys work when you
-are not typing and no menu or dialog is open.
+Press `?` in the Tasks panel to see every shortcut, generated from the same
+shortcut definitions as the listener. Single keys do nothing while typing in
+inputs or rich text, during composition, with Cmd/Ctrl/Alt held, inside another
+BB pane, or while a menu or dialog is open. Escape never discards an editor draft.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | `c` new task, `?` shortcuts, `v` list or board (project only) |
-| List | `j` `k` / `↓` `↑` move, `Enter` `o` open, `s` status, `p` priority, `l` labels |
+| Anywhere | `c` new task, `?` shortcuts, `v` list or board on project routes |
+| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order |
+| List row | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row |
+| Preview detail | `Esc` return to the same row, or compact Back; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus |
 | Board | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority |
-| Task | `Esc` back, `[` `]` previous or next task, `s` `p` `l` properties, `d` dispatch preset, `m` comment |
+| Standalone task | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
+
+Movement starts at the first row in either direction with no selection, clamps at
+the ends, and waits for settled filtered/sorted order, including expanded subtasks
+and dimmed parents. Tab focus alone does not change selection. Wide movement
+focuses and scrolls the selected row; compact movement keeps focus in visible
+detail rather than the hidden list. Enter waits for the selected lookup to finish
+before focusing a non-editable detail container, including on a retryable error.
+Escape and compact Back restore row focus without scrolling or clearing selection.
+
+Selection and context changes wait for safe saves. Failure leaves the origin,
+draft, selection, and Retry accessible. A superseded request cannot steal focus.
+Property keys belong only to the focused pane, even while both panes stay mounted.
+Closing help or a row menu restores its prior focus. Navigation never submits a
+comment, uploads a file, notifies, or delegates.
 
 The bb command palette (`Mod+Shift+P`) also lists **Tasks: New task**,
 **Tasks: Go to All tasks**, **Tasks: Go to Active tasks**, **Tasks: Go to
