@@ -14,8 +14,9 @@ To see which pull requests wait for your review, you must leave bb and open GitH
   - a fresh worktree
   - a prompt that starts with `gh pr checkout <n>` and then asks for a review
 - After the agent checks out the PR branch, the existing GitHub Insight PR and Review tabs show that PR in the thread.
+- Review threads are hidden from the sidebar. A "My reviews" list at the top of the panel shows them, also after the PR has left the review requests, with "Open thread" and "Archive".
 - If a bb thread already shows that PR, the card shows "Open thread" instead of "Review in thread".
-- If no bb project matches the repo, the card shows only "Open on GitHub" and a hint.
+- If no bb project matches the repo, the repo group shows a hint and its cards show only "Open on GitHub".
 - Every card has "Open on GitHub".
 
 Out of scope for this change:

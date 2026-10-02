@@ -5,11 +5,11 @@ Shows the open pull requests that wait for the user's review, and the user's own
 ## ADDED Requirements
 
 ### Requirement: Pull Requests panel
-The plugin SHALL add a nav panel named "Pull Requests". The panel SHALL show two lists side by side: "Review requests" and "My PRs". Each list header SHALL show the number of PRs in that list.
+The plugin SHALL add a nav panel named "Pull Requests" with a pull request icon. The panel SHALL show a "My reviews" list at the top, and below it two lists side by side: "Review requests" and "My PRs". Each list header SHALL show the number of items in that list. The panel title SHALL appear once.
 
 #### Scenario: Open the panel
 - **WHEN** the user opens the "Pull Requests" panel
-- **THEN** the panel shows a "Review requests" list and a "My PRs" list, each with its count
+- **THEN** the panel shows "My reviews", "Review requests", and "My PRs", each with its count
 
 ### Requirement: Review requests list content
 The "Review requests" list SHALL contain the open pull requests on GitHub where a review from the logged-in `gh` user is requested. It SHALL group them by repository and sort each group by last update, newest first.
@@ -37,11 +37,19 @@ Each list SHALL show at most 50 pull requests. When GitHub reports more, the lis
 - **THEN** the list shows 50 PRs and "Showing first 50"
 
 ### Requirement: Pull request card
-Each PR card SHALL show the repository, number, title, author, age, a "Draft" label for drafts, the CI state (passed, failed, running, or none), and the review decision (approved, changes requested, review required, or none). Every card SHALL have an "Open on GitHub" action that opens the PR URL.
+Each PR card SHALL show the number, title, author, time since the last update, a "Draft" label for drafts, the CI state (passed, failed, running, or none), and the review decision (approved, changes requested, review required, or none). Every card SHALL have an "Open on GitHub" action that opens the PR URL.
 
 #### Scenario: Draft with failing CI
 - **WHEN** a PR is a draft and one of its checks failed
 - **THEN** its card shows "Draft" and a failed CI state
+
+#### Scenario: Repository shown once
+- **WHEN** a repo group holds three PRs
+- **THEN** the repository name shows in the group header and not on each card
+
+#### Scenario: Age is last update
+- **WHEN** a PR was created 5 months ago and updated 2 days ago
+- **THEN** its card shows "2 days ago"
 
 #### Scenario: Open on GitHub
 - **WHEN** the user selects "Open on GitHub" on a card
@@ -78,7 +86,8 @@ For each PR, the plugin SHALL find the bb projects whose git remote points to th
 
 #### Scenario: No project for the repository
 - **WHEN** no bb project has a remote for the PR's repository
-- **THEN** the review request card shows only "Open on GitHub" and the hint "No bb project for this repository"
+- **THEN** the repo group header in "Review requests" shows the hint "No bb project for this repository" once
+- **AND** each card in that group shows only "Open on GitHub"
 
 ### Requirement: Review in thread
 A review request card with a matching project SHALL have a "Review in thread" action. It SHALL open the host's new-thread composer filled in with the matching project, a new worktree environment, and the review prompt. The user SHALL be able to edit all of these before submitting. When more than one project matches, the composer SHALL start with the most recently updated one.
@@ -86,6 +95,7 @@ A review request card with a matching project SHALL have a "Review in thread" ac
 #### Scenario: Start a review thread
 - **WHEN** the user selects "Review in thread" on `acme/api#15` and submits the composer unchanged
 - **THEN** bb starts a thread in the matching project, in a new worktree, with the review prompt
+- **AND** the thread is hidden from the sidebar thread list
 - **AND** the panel opens that thread
 
 #### Scenario: Leave the composer
@@ -100,13 +110,39 @@ The review prompt SHALL tell the agent to run `gh pr checkout <number>` first, t
 - **THEN** the prompt contains `gh pr checkout 15`, the PR URL, the title "Add rate limits", and an instruction not to post to GitHub
 
 ### Requirement: Open existing review thread
-When an unarchived bb thread is linked to a PR on the list, the card SHALL show "Open thread" instead of "Review in thread". "Open thread" SHALL open that thread. When more than one thread is linked, it SHALL open the most recently updated one.
+When an unarchived bb thread, hidden or visible, is linked to a PR on the list, the card SHALL show "Open thread" instead of "Review in thread". A thread is linked when bb links its branch to the PR, or when the plugin started it as a review thread for that PR. "Open thread" SHALL open the most recently updated linked thread.
 
 #### Scenario: Thread already linked
 - **WHEN** a thread's branch is the head branch of `acme/api#15`
 - **THEN** the card for `#15` shows "Open thread"
 - **AND** selecting it opens that thread
 
+#### Scenario: Review thread before checkout
+- **WHEN** the user started a review thread for `acme/api#15` and its agent has not run `gh pr checkout` yet
+- **THEN** the card for `#15` shows "Open thread"
+
 #### Scenario: Linked thread on My PRs
 - **WHEN** a thread's branch is the head branch of one of the user's own PRs
 - **THEN** that card in "My PRs" shows "Open thread"
+
+### Requirement: Hidden review threads
+A thread started with "Review in thread" SHALL be hidden from the sidebar thread list. The plugin SHALL record on the thread which PR it reviews (repository, number, title, URL). The GitHub Insight PR and Review tabs SHALL work for hidden threads the same as for visible threads.
+
+#### Scenario: PR tab on a hidden review thread
+- **WHEN** the user opens a hidden review thread after its agent ran `gh pr checkout`
+- **THEN** the PR and Review tabs show that PR and refresh like on a visible thread
+
+### Requirement: My reviews list
+The "My reviews" list SHALL show every unarchived review thread the plugin started, newest first, also when the PR is no longer a review request. Each row SHALL show the repository, PR number, PR title, and thread status, with "Open thread" and "Archive" actions. The list SHALL be collapsible and SHALL show "No review threads" when empty.
+
+#### Scenario: Review submitted on GitHub
+- **WHEN** the user started a review thread for `acme/api#15` and then submitted the review, so `#15` left "Review requests"
+- **THEN** "My reviews" still shows `acme/api #15` with "Open thread"
+
+#### Scenario: Archive a review thread
+- **WHEN** the user selects "Archive" on a row
+- **THEN** bb archives that thread and the row leaves the list
+
+#### Scenario: Thread status
+- **WHEN** a review thread's agent is running
+- **THEN** its row shows a running status
