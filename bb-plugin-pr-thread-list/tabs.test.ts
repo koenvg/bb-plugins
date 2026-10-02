@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { thread } from "./fixtures";
 import type { BlockerCode, MergeQueueState, PrState, PrSummary } from "./pr-insight";
-import { tabFor } from "./tabs";
+import { tabFor, threadsWithActiveDescendant } from "./tabs";
 
 const pr = (blockers: BlockerCode[], state: PrState = "open", overrides: Partial<PrSummary> = {}): PrSummary => ({
   number: 42, url: "https://example.com/pull/42", state,
@@ -42,6 +42,54 @@ describe("tabFor", () => {
     ["has a merged PR", {}, pr([], "merged"), "attention"],
     ["has a closed PR", {}, pr([], "closed"), "attention"],
   ])("a thread that %s goes to %s", (_name, overrides, summary, tab) => {
-    expect(tabFor(thread(overrides), summary)).toBe(tab);
+    expect(tabFor(thread(overrides), summary, false)).toBe(tab);
+  });
+});
+
+describe("tabFor with an active descendant", () => {
+  it.each<[string, Partial<PluginSidebarThread>, PrSummary | null, "attention" | "inflight"]>([
+    ["is idle without a PR", {}, null, "inflight"],
+    ["has unread output", { isUnread: true }, null, "attention"],
+    ["waits for an approval", { hasPendingInteraction: true }, null, "attention"],
+    ["has failed checks", {}, pr(["checks_failed"]), "inflight"],
+    ["has a failed queue entry", {}, queued("failed"), "inflight"],
+  ])("a parent that %s goes to %s", (_name, overrides, summary, tab) => {
+    expect(tabFor(thread(overrides), summary, true)).toBe(tab);
+  });
+});
+
+describe("threadsWithActiveDescendant", () => {
+  const ids = (threads: PluginSidebarThread[]) => [...threadsWithActiveDescendant(threads)].sort();
+
+  it("marks every ancestor of an active thread", () => {
+    expect(ids([
+      thread({ id: "top" }),
+      thread({ id: "mid", parentThreadId: "top" }),
+      thread({ id: "leaf", parentThreadId: "mid", status: "active" }),
+      thread({ id: "other" }),
+    ])).toEqual(["mid", "top"]);
+  });
+  it("ignores archived and hidden descendants", () => {
+    expect(ids([
+      thread({ id: "top" }),
+      thread({ id: "arch", parentThreadId: "top", status: "active", isArchived: true }),
+      thread({ id: "hidden", parentThreadId: "top", status: "active", isHidden: true }),
+    ])).toEqual([]);
+  });
+  it("walks through an archived thread in the middle", () => {
+    expect(ids([
+      thread({ id: "top" }),
+      thread({ id: "mid", parentThreadId: "top", isArchived: true }),
+      thread({ id: "leaf", parentThreadId: "mid", status: "active" }),
+    ])).toEqual(["mid", "top"]);
+  });
+  it("ignores a descendant with only unread output", () => {
+    expect(ids([thread({ id: "top" }), thread({ id: "done", parentThreadId: "top", isUnread: true })])).toEqual([]);
+  });
+  it("stops on cyclic parent references", () => {
+    expect(ids([
+      thread({ id: "a", parentThreadId: "b", status: "active" }),
+      thread({ id: "b", parentThreadId: "a" }),
+    ])).toEqual(["b"]);
   });
 });

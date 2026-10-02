@@ -1,6 +1,6 @@
 import type { PluginSidebarProject, PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { isBusy, needsAttention } from "./row-cues";
-import { tabFor, type Tab } from "./tabs";
+import { tabFor, threadsWithActiveDescendant, type Tab } from "./tabs";
 import type { PrSummary } from "./pr-insight";
 
 export type Organization = "project" | "machine" | "section";
@@ -60,9 +60,10 @@ export function visibleItems(
   pullRequests: ReadonlyMap<string, PrSummary | null> = new Map(),
 ): ListItem[] {
   const { tab } = options;
+  const withActiveDescendant = tab === "all" ? new Set<string>() : threadsWithActiveDescendant(threads);
   const filtered = threads.filter((t) => !t.isHidden && (tab === "all"
     ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
-    : !t.isArchived && tabFor(t, pullRequests.get(t.id) ?? null) === tab));
+    : !t.isArchived && tabFor(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id)) === tab));
   const byId = new Map(filtered.map((t) => [t.id, t]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));

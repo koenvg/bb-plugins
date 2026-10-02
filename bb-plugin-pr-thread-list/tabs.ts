@@ -1,6 +1,6 @@
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import type { BlockerCode, PrSummary } from "./pr-insight";
-import { hasActivity, isBusy, needsAttention } from "./row-cues";
+import { isActive, needsAttention } from "./row-cues";
 
 export type AttentionTab = "attention" | "inflight";
 export type Tab = AttentionTab | "all";
@@ -8,9 +8,25 @@ export type Tab = AttentionTab | "all";
 const PROBLEMS: readonly BlockerCode[] = ["conflicts", "checks_failed", "changes_requested", "unresolved_threads"];
 const WAITING: readonly BlockerCode[] = ["checks_running", "review_required"];
 
-export function tabFor(thread: PluginSidebarThread, pr: PrSummary | null): AttentionTab {
+export function threadsWithActiveDescendant(threads: readonly PluginSidebarThread[]): Set<string> {
+  const parentOf = new Map(threads.map((t) => [t.id, t.parentThreadId]));
+  const marked = new Set<string>();
+  for (const thread of threads) {
+    if (thread.isArchived || thread.isHidden || !isActive(thread)) continue;
+    const seen = new Set([thread.id]);
+    let parentId = parentOf.get(thread.id);
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      marked.add(parentId);
+      parentId = parentOf.get(parentId);
+    }
+  }
+  return marked;
+}
+
+export function tabFor(thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionTab {
   if (needsAttention(thread) || thread.isUnread) return "attention";
-  if (isBusy(thread) || hasActivity(thread) || thread.queuedWork !== "none") return "inflight";
+  if (isActive(thread) || hasActiveDescendant) return "inflight";
   if (!pr) return "attention";
   if (pr.mergeQueue) return pr.mergeQueue.state === "failed" ? "attention" : "inflight";
   if (pr.blockers.some((code) => PROBLEMS.includes(code))) return "attention";

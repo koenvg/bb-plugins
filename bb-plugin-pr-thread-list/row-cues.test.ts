@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { thread } from "./fixtures";
-import { describeIndicator, relativeTime, rowState, workItems } from "./row-cues";
+import { describeIndicator, isActive, relativeTime, rowState, workItems } from "./row-cues";
 
 describe("thread indicator", () => {
   it("keeps the host's attention label and distinguishes runtime/queued state", () => {
@@ -52,5 +52,21 @@ describe("thread indicator", () => {
     expect(workItems(thread({ queuedWork: "waiting" }))).toEqual([
       { key: "queued", icon: "Clock", text: "Queued", title: "Queued message waiting", error: false }]);
     expect(workItems(thread())).toEqual([]);
+  });
+});
+
+const activity = { workflows: 0, backgroundAgents: 1, backgroundCommands: 0, planMode: 0, goals: 0 };
+
+describe("isActive", () => {
+  it.each<[string, Partial<PluginSidebarThread>, boolean]>([
+    ["runs", { status: "active" }, true],
+    ["has background work", { activity }, true],
+    ["has a queued message", { queuedWork: "waiting" }, true],
+    ["waits for an approval", { hasPendingInteraction: true }, true],
+    ["has an unread error", { indicator: "unread-error", isUnread: true }, true],
+    ["only has unread output", { isUnread: true, indicator: "unread-success" }, false],
+    ["is idle", {}, false],
+  ])("a thread that %s is active: %s", (_name, overrides, active) => {
+    expect(isActive(thread(overrides))).toBe(active);
   });
 });

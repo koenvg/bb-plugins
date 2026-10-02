@@ -116,6 +116,18 @@ describe("visibleItems", () => {
       expect(items.filter((item) => item.kind === "group").map((item) => item.id)).toEqual(["pinned", "project:p1"]);
       expect(items.find((item) => item.kind === "thread" && item.id === "child")).toMatchObject({ depth: 0 });
     });
+    it("puts a parent in flight while a descendant is active, and ignores archived descendants", () => {
+      const rows = [
+        thread({ id: "parent", displayTitle: "Parent" }),
+        thread({ id: "mid", displayTitle: "Mid", parentThreadId: "parent" }),
+        thread({ id: "leaf", displayTitle: "Leaf", parentThreadId: "mid", hasPendingInteraction: true }),
+        thread({ id: "lonely", displayTitle: "Lonely" }),
+        thread({ id: "gone", displayTitle: "Gone", parentThreadId: "lonely", status: "active", isArchived: true, archivedAt: 1 }),
+      ];
+      const view = (name: "attention" | "inflight") => visibleItems(rows, [project], [], { ...defaults, tab: name });
+      expect(titles(view("attention"))).toEqual(["Leaf", "Lonely"]);
+      expect(titles(view("inflight"))).toEqual(["Parent", "Mid"]);
+    });
     it("groups the threads of a tab by project", () => {
       expect(tab("inflight").map((item) => item.kind === "group" ? item.label : item.id))
         .toEqual(["Other project", "waits", "Sample project", "busy"]);

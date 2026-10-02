@@ -386,6 +386,18 @@ describe("thread list slot", () => {
     showTab(slot, "In flight");
     expect(slot.getByRole("link", { name: "Waits on CI" })).toBeTruthy();
   });
+  it("keeps a parent in flight only while its child runs", () => {
+    const rows = (status: "active" | "idle") => [thread({ id: "t1", displayTitle: "Parent" }),
+      thread({ id: "t2", displayTitle: "Child", parentThreadId: "t1", status })];
+    const running = mount(rows("active"));
+    expect(running.queryByRole("link", { name: "Parent" })).toBeNull();
+    showTab(running, "In flight");
+    expect(running.getByRole("link", { name: "Parent" })).toBeTruthy();
+    running.lifecycle.unmount();
+    const done = mount(rows("idle"));
+    showTab(done, "Needs attention");
+    expect(done.getByRole("link", { name: "Parent" })).toBeTruthy();
+  });
   it("offers the archived selection only in All, and ignores it in the other tabs", () => {
     const rows = [thread({ id: "t1", displayTitle: "Active work" }), thread({ id: "t2", displayTitle: "Old work", isArchived: true })];
     const slot = mount(rows);

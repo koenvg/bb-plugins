@@ -20,6 +20,7 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 | Waits for an approval or an answer, has an unread error, or has a queued message that failed to send | Needs attention |
 | Has unread output | Needs attention |
 | Runs, has background work, or has a queued message that waits | In flight |
+| Has an active child thread, at any depth (runs, has background work, has a queued message, or needs you) | In flight |
 | Has no PR, or no usable PR summary | Needs attention |
 | Open PR has a failed merge queue entry | Needs attention |
 | Open PR is queued or merging in a merge queue | In flight |
