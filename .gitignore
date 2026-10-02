@@ -1,1 +1,3 @@
 .claude/skills/impeccable/scripts/bin/
+node_modules/
+dist/
