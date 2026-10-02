@@ -1,8 +1,10 @@
+# pr-review-requests Specification
+
 ## Purpose
 
-Shows the open pull requests that wait for the user's review, and the user's own open pull requests, in a bb panel. Lets the user start a bb thread that reviews a pull request.
+Shows the open pull requests that wait for the user's review in a bb panel. Lets the user start a hidden bb thread that reviews a pull request, and find those review threads again.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Pull Requests panel
 The plugin SHALL add a nav panel named "Pull Requests" with a pull request icon. The panel SHALL show a "My reviews" list at the top and a full-width "Review requests" list below it. Each list header SHALL show the number of items in that list. The panel title SHALL appear once. Refresh and the time of the last load SHALL sit on the first list header row, not on a row of their own.
