@@ -1,6 +1,6 @@
 ## 1. Spike
 
-- [ ] 1.1 On a repo with a merge queue, record the overview query response (with the D1 fields) for an open PR that is ready to enqueue and for a queued PR; trim them and save them under `bb-plugin-github-insight/test/fixtures/`; record in design.md (Risks) the `mergeStateStatus` that GitHub returns for the ready PR
+- [x] 1.1 On a repo with a merge queue, record the overview query response (with the D1 fields) for an open PR that is ready to enqueue and for a queued PR; trim them and save them under `bb-plugin-github-insight/test/fixtures/`; record in design.md (Risks) the `mergeStateStatus` that GitHub returns for the ready PR
 
 ## 2. Data
 
