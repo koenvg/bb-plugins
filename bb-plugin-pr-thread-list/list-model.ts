@@ -1,6 +1,6 @@
 import type { PluginSidebarProject, PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { isBusy, needsAttention } from "./row-cues";
-import { tabFor, threadsWithActiveDescendant, type Tab } from "./tabs";
+import { pullsTreeToAttention, threadsWithActiveDescendant, type Tab } from "./tabs";
 import type { PrSummary } from "./pr-insight";
 
 export type Organization = "project" | "machine" | "section";
@@ -32,7 +32,7 @@ const groupKey = (scope: GroupScope): string => {
 
 export type ListItem =
   | { kind: "group"; id: string; scope: GroupScope; label: string; count: number; collapsed: boolean }
-  | { kind: "thread"; id: string; thread: PluginSidebarThread; depth: number; hasChildren: boolean; collapsed: boolean };
+  | { kind: "thread"; id: string; thread: PluginSidebarThread; depth: number; hasChildren: boolean; collapsed: boolean; context: boolean };
 
 function compare(a: PluginSidebarThread, b: PluginSidebarThread, options: ListOptions): number {
   if (a.isPinned && b.isPinned) {
@@ -51,6 +51,66 @@ function compare(a: PluginSidebarThread, b: PluginSidebarThread, options: ListOp
   return (options.direction === "asc" ? value : -value) || a.id.localeCompare(b.id);
 }
 
+export interface Forest {
+  parentOf(thread: PluginSidebarThread): PluginSidebarThread | undefined;
+  rootOf(thread: PluginSidebarThread): PluginSidebarThread;
+  childrenOf(thread: PluginSidebarThread): readonly PluginSidebarThread[];
+}
+
+/** Hidden threads are left out, and one parent link of each cycle is cut. */
+export function buildForest(threads: readonly PluginSidebarThread[]): Forest {
+  const shown = threads.filter((t) => !t.isHidden);
+  const byId = new Map(shown.map((t) => [t.id, t]));
+  const parents = new Map<string, PluginSidebarThread>();
+  for (const thread of shown) {
+    const parent = thread.parentThreadId ? byId.get(thread.parentThreadId) : undefined;
+    if (parent && parent !== thread) parents.set(thread.id, parent);
+  }
+  const roots = new Map<string, PluginSidebarThread>();
+  for (const thread of shown) {
+    const path = new Set<PluginSidebarThread>();
+    let cursor = thread;
+    let root: PluginSidebarThread;
+    for (;;) {
+      const known = roots.get(cursor.id);
+      if (known) { root = known; break; }
+      if (path.has(cursor)) { parents.delete(cursor.id); root = cursor; break; }
+      path.add(cursor);
+      const parent = parents.get(cursor.id);
+      if (!parent) { root = cursor; break; }
+      cursor = parent;
+    }
+    for (const node of path) roots.set(node.id, root);
+  }
+  const children = new Map<string, PluginSidebarThread[]>();
+  for (const [id, parent] of parents) {
+    let siblings = children.get(parent.id);
+    if (!siblings) { siblings = []; children.set(parent.id, siblings); }
+    siblings.push(byId.get(id)!);
+  }
+  return {
+    parentOf: (thread) => parents.get(thread.id),
+    rootOf: (thread) => roots.get(thread.id) ?? thread,
+    childrenOf: (thread) => children.get(thread.id) ?? [],
+  };
+}
+
+interface Tree { root: PluginSidebarThread; members: PluginSidebarThread[]; rows: Set<string> }
+
+function collectTrees(forest: Forest, members: readonly PluginSidebarThread[]): Tree[] {
+  const trees = new Map<string, Tree>();
+  for (const member of members) {
+    const root = forest.rootOf(member);
+    let tree = trees.get(root.id);
+    if (!tree) { tree = { root, members: [], rows: new Set() }; trees.set(root.id, tree); }
+    tree.members.push(member);
+    for (let cursor: PluginSidebarThread | undefined = member; cursor && !tree.rows.has(cursor.id); cursor = forest.parentOf(cursor)) {
+      tree.rows.add(cursor.id);
+    }
+  }
+  return [...trees.values()];
+}
+
 /** One stable, flattened tree for rendering and windowing. Never mutates host rows. */
 export function visibleItems(
   threads: readonly PluginSidebarThread[],
@@ -61,36 +121,25 @@ export function visibleItems(
 ): ListItem[] {
   const { tab } = options;
   const withActiveDescendant = tab === "all" ? new Set<string>() : threadsWithActiveDescendant(threads);
-  const filtered = threads.filter((t) => !t.isHidden && (tab === "all"
-    ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
-    : !t.isArchived && tabFor(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id)) === tab));
-  const byId = new Map(filtered.map((t) => [t.id, t]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
-  const pinnedCache = new Map<string, boolean>();
-  const belongsToPinned = (thread: PluginSidebarThread): boolean => {
-    const seen = new Set<string>();
-    const path: string[] = [];
-    let cursor: PluginSidebarThread | undefined = thread;
-    let pinned = false;
-    while (cursor && !seen.has(cursor.id)) {
-      const cached = pinnedCache.get(cursor.id);
-      if (cached !== undefined) { pinned = cached; break; }
-      path.push(cursor.id);
-      if (cursor.isPinned) { pinned = true; break; }
-      seen.add(cursor.id);
-      cursor = cursor.parentThreadId ? byId.get(cursor.parentThreadId) : undefined;
-    }
-    for (const id of path) pinnedCache.set(id, pinned);
-    return pinned;
+  const isMember = (t: PluginSidebarThread) => !t.isHidden && (tab === "all"
+    ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
+    : !t.isArchived);
+  const forest = buildForest(threads);
+  const isTopMember = (t: PluginSidebarThread) => {
+    for (let parent = forest.parentOf(t); parent; parent = forest.parentOf(parent)) if (isMember(parent)) return false;
+    return true;
   };
-  const scopeOf = (thread: PluginSidebarThread): GroupScope => {
-    if (tab === "all" && needsAttention(thread)) return { kind: "attention" };
-    if (belongsToPinned(thread)) return { kind: "pinned" };
-    if (options.mode === "section") return thread.sectionId && sectionNames.has(thread.sectionId)
-      ? { kind: "section", sectionId: thread.sectionId } : { kind: "threads" };
-    if (options.mode === "machine") return thread.host ? { kind: "machine", hostId: thread.host.id, name: thread.host.name } : { kind: "threads" };
-    return projectNames.has(thread.projectId) ? { kind: "project", projectId: thread.projectId } : { kind: "threads" };
+  const pullsToAttention = (t: PluginSidebarThread) =>
+    pullsTreeToAttention(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id), isTopMember(t));
+  const scopeOf = (root: PluginSidebarThread, members: readonly PluginSidebarThread[]): GroupScope => {
+    if (tab === "all" && members.some(needsAttention)) return { kind: "attention" };
+    if (root.isPinned) return { kind: "pinned" };
+    if (options.mode === "section") return root.sectionId && sectionNames.has(root.sectionId)
+      ? { kind: "section", sectionId: root.sectionId } : { kind: "threads" };
+    if (options.mode === "machine") return root.host ? { kind: "machine", hostId: root.host.id, name: root.host.name } : { kind: "threads" };
+    return projectNames.has(root.projectId) ? { kind: "project", projectId: root.projectId } : { kind: "threads" };
   };
   const labelOf = (scope: GroupScope): string => {
     switch (scope.kind) {
@@ -102,18 +151,21 @@ export function visibleItems(
       case "machine": return scope.name;
     }
   };
-  const groups = new Map<string, { scope: GroupScope; bucket: PluginSidebarThread[] }>();
+  const groups = new Map<string, { scope: GroupScope; roots: PluginSidebarThread[]; rows: Set<string>; count: number }>();
   const sectionOrder = new Map(sections.map((section, index) => [section.id, index]));
   if (options.mode === "section") for (const section of sections) {
     const scope: GroupScope = { kind: "section", sectionId: section.id };
-    groups.set(groupKey(scope), { scope, bucket: [] });
+    groups.set(groupKey(scope), { scope, roots: [], rows: new Set(), count: 0 });
   }
-  for (const thread of filtered) {
-    const scope = scopeOf(thread);
+  for (const { root, members, rows } of collectTrees(forest, threads.filter(isMember))) {
+    if (tab !== "all" && (members.some(pullsToAttention) ? "attention" : "inflight") !== tab) continue;
+    const scope = scopeOf(root, members);
     const key = groupKey(scope);
     let group = groups.get(key);
-    if (!group) { group = { scope, bucket: [] }; groups.set(key, group); }
-    group.bucket.push(thread);
+    if (!group) { group = { scope, roots: [], rows: new Set(), count: 0 }; groups.set(key, group); }
+    group.roots.push(root);
+    for (const id of rows) group.rows.add(id);
+    group.count += members.length;
   }
   const rank = (scope: GroupScope) => scope.kind === "attention" ? 0 : scope.kind === "pinned" ? 1 : scope.kind === "threads" ? 3 : 2;
   const groupOrder = [...groups.values()].sort(({ scope: a }, { scope: b }) => {
@@ -122,46 +174,19 @@ export function visibleItems(
     return labelOf(a).localeCompare(labelOf(b));
   });
   const result: ListItem[] = [];
-  for (const { scope, bucket } of groupOrder) {
+  for (const { scope, roots, rows, count } of groupOrder) {
     const key = groupKey(scope);
-    const label = labelOf(scope);
     const collapsed = options.collapsedGroups.includes(key);
-    result.push({ kind: "group", id: key, scope, label, count: bucket.length, collapsed });
+    result.push({ kind: "group", id: key, scope, label: labelOf(scope), count, collapsed });
     if (collapsed) continue;
-    const members = new Map(bucket.map((t) => [t.id, t]));
-    const children = new Map<string, PluginSidebarThread[]>();
-    const roots: PluginSidebarThread[] = [];
-    for (const thread of bucket) {
-      const parent = thread.parentThreadId && members.get(thread.parentThreadId);
-      if (parent && parent.id !== thread.id && scope.kind !== "attention" && !(thread.isPinned && scope.kind === "pinned")) {
-        let siblings = children.get(parent.id);
-        if (!siblings) { siblings = []; children.set(parent.id, siblings); }
-        siblings.push(thread);
-      } else roots.push(thread);
-    }
-    const visited = new Set<string>();
     const append = (thread: PluginSidebarThread, depth: number): void => {
-      if (visited.has(thread.id)) return;
-      visited.add(thread.id);
-      const descendants = children.get(thread.id) ?? [];
+      const descendants = forest.childrenOf(thread).filter((child) => rows.has(child.id));
       const folded = options.collapsedThreads.includes(thread.id);
-      result.push({ kind: "thread", id: thread.id, thread, depth, hasChildren: descendants.length > 0, collapsed: folded });
-      if (folded) {
-        const stack = [...descendants];
-        while (stack.length > 0) {
-          const child = stack.pop()!;
-          if (visited.has(child.id)) continue;
-          visited.add(child.id);
-          stack.push(...(children.get(child.id) ?? []));
-        }
-      } else {
-        for (const child of descendants.sort((a, b) => compare(a, b, options))) append(child, depth + 1);
-      }
+      result.push({ kind: "thread", id: thread.id, thread, depth, hasChildren: descendants.length > 0,
+        collapsed: folded, context: !isMember(thread) });
+      if (!folded) for (const child of descendants.sort((a, b) => compare(a, b, options))) append(child, depth + 1);
     };
     for (const root of roots.sort((a, b) => compare(a, b, options))) append(root, 0);
-    // Malformed/cyclic parent references should not make a navigable thread disappear.
-    for (const thread of bucket) if (!visited.has(thread.id)) append(thread, 0);
   }
   return result;
 }
-
