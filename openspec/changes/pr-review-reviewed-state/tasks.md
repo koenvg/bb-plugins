@@ -30,4 +30,4 @@
 
 ## 6. Integration check
 
-- [ ] 6.1 Build with `npm run build` and run the plugin in bb. Mark a requested PR reviewed, push a commit to it, refresh, and see it return with "Updated since review". Submit a review from a review thread and see the PR move to "Reviewed". Archive the thread and see it leave when the PR is no longer requested or marked.
+- [x] 6.1 Build with `npm run build` and run the plugin in bb. Mark a requested PR reviewed, push a commit to it, refresh, and see it return with "Updated since review". Submit a review from a review thread and see the PR move to "Reviewed". Archive the thread and see it leave when the PR is no longer requested or marked.
