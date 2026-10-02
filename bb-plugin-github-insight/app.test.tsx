@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
-import type { InsightResult, rpcContract } from "./contract";
+import type { ActionResult, InsightResult, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
 
@@ -25,10 +25,12 @@ const pr = {
   title: "feat(*): add ootbDomainTypesIds constants",
   state: "open",
   url: "https://github.com/collibra/frontend/pull/25337",
+  headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
 } as const;
 
 const emptyInsight: PrInsight = {
   pr,
+  mergeAction: { kind: "none" },
   blockers: [],
   reviewers: [],
   checks: [],
@@ -42,6 +44,7 @@ const unusedReviewRpc = {
   setResolved: () => ({ kind: "error" as const, message: "unused" }),
   saveDraft: () => ({ kind: "error" as const, message: "unused" }),
   discardDraft: () => ({ kind: "error" as const, message: "unused" }),
+  runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");
@@ -52,6 +55,7 @@ function ok(insight: PrInsight, error: string | null = null): InsightResult {
 
 const insight = ok({
     pr,
+    mergeAction: { kind: "none" },
     blockers: [
       { code: "checks_failed", text: "1 check failed" },
       { code: "review_required", text: "Review required" },
@@ -361,6 +365,146 @@ describe("PR tab", () => {
     const slot = renderTab(ok(emptyInsight));
 
     await slot.findByText("No checks on the head commit");
+  });
+});
+
+const readyInsight = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
+
+function renderMergeTab({
+  runMergeAction = () => ({ kind: "ok" }),
+  result = () => readyInsight,
+}: {
+  runMergeAction?: () => ActionResult | Promise<ActionResult>;
+  result?: () => InsightResult;
+} = {}) {
+  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+    prTab,
+    { threadId: "thr_1", params: null },
+    {
+      rpc: {
+        getInsight: result,
+        refresh: result,
+        ...unusedReviewRpc,
+        runMergeAction,
+      },
+    },
+  );
+}
+
+const rejectedMerge = {
+  kind: "error",
+  message: "Head branch was modified. Review and try the merge again.",
+} as const;
+
+function mergeCalls(slot: ReturnType<typeof renderMergeTab>) {
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+}
+
+async function openMergeDialog(slot: ReturnType<typeof renderMergeTab>) {
+  fireEvent.click(await slot.findByRole("button", { name: "Squash and merge" }));
+  return slot.findByRole("alertdialog");
+}
+
+describe("PR tab merge", () => {
+  it("names the default merge method on the button", async () => {
+    const slot = renderMergeTab();
+
+    expect(await slot.findByRole("button", { name: "Squash and merge" })).toBeTruthy();
+  });
+
+  it.each([
+    ["merge commit", "MERGE", "Create merge commit"],
+    ["rebase", "REBASE", "Rebase and merge"],
+  ] as const)("labels a %s default", async (_, method, label) => {
+    const slot = renderMergeTab({
+      result: () => ok({ ...emptyInsight, mergeAction: { kind: "merge", method } }),
+    });
+
+    expect(await slot.findByRole("button", { name: label })).toBeTruthy();
+  });
+
+  it("shows no merge button when the PR offers no merge", async () => {
+    const slot = renderMergeTab({ result: () => ok(emptyInsight) });
+
+    await slot.findByText("#25337");
+    expect(slot.queryByRole("button", { name: /merge/i })).toBeNull();
+  });
+
+  it("asks to confirm with the PR number, title, and method", async () => {
+    const slot = renderMergeTab();
+
+    const dialog = await openMergeDialog(slot);
+
+    expect(within(dialog).getByText("Merge pull request #25337?")).toBeTruthy();
+    expect(within(dialog).getByText(pr.title)).toBeTruthy();
+    expect(within(dialog).getByText("Method: Squash and merge")).toBeTruthy();
+    expect(mergeCalls(slot)).toEqual([]);
+  });
+
+  it("sends no merge when the user cancels", async () => {
+    const slot = renderMergeTab();
+
+    const dialog = await openMergeDialog(slot);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(mergeCalls(slot)).toEqual([]);
+  });
+
+  it("sends one merge with the head commit the tab showed when the user confirms", async () => {
+    const slot = renderMergeTab();
+
+    const dialog = await openMergeDialog(slot);
+    const confirm = within(dialog).getByRole("button", { name: "Squash and merge" });
+    await act(async () => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+
+    expect(mergeCalls(slot)).toEqual([
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "merge", expectedHeadOid: pr.headOid },
+      }),
+    ]);
+  });
+
+  it("disables the button while the merge runs", async () => {
+    let finish: (result: ActionResult) => void = () => {};
+    const slot = renderMergeTab({
+      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+    });
+
+    const dialog = await openMergeDialog(slot);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
+
+    const busy = await slot.findByRole("button", { name: "Merging…" });
+    expect(busy).toHaveProperty("disabled", true);
+    fireEvent.click(busy);
+    await act(async () => finish({ kind: "ok" }));
+    expect(mergeCalls(slot)).toHaveLength(1);
+  });
+
+  it("shows the GitHub error and gives the button back when the merge fails", async () => {
+    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge });
+
+    const dialog = await openMergeDialog(slot);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
+
+    expect((await slot.findByRole("alert")).textContent).toBe(rejectedMerge.message);
+    expect(slot.getByRole("button", { name: "Squash and merge" })).toHaveProperty("disabled", false);
+  });
+
+  it("drops the merge error once the tab shows a new head commit", async () => {
+    let current = readyInsight;
+    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge, result: () => current });
+    const dialog = await openMergeDialog(slot);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
+    await slot.findByRole("alert");
+
+    current = ok({ ...emptyInsight, pr: { ...pr, headOid: "9f1e" }, mergeAction: { kind: "merge", method: "SQUASH" } });
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
+
+    expect(slot.queryByRole("alert")).toBeNull();
   });
 });
 

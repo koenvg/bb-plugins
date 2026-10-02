@@ -19,6 +19,12 @@ import {
 import { parseFailureAnnotations, type Annotation } from "./failure";
 import { mergeQueueEntrySchema, mergeQueueSchema, toMergeQueue } from "./merge-queue";
 import {
+  buildMergeAction,
+  mergeActionSchema,
+  mergeMethodSchema,
+  type MergeAction,
+} from "./merge-action";
+import {
   buildReviewers,
   reviewerSchema,
   reviewNodeSchema,
@@ -66,10 +72,17 @@ const overviewPageSchema = z.object({
 });
 type OverviewPage = z.infer<typeof overviewPageSchema>;
 
-const reviewStateSchema = z.object({
+const firstPageSchema = z.object({
   data: z.object({
     repository: z.object({
+      viewerDefaultMergeMethod: mergeMethodSchema,
+      mergeCommitAllowed: z.boolean(),
+      squashMergeAllowed: z.boolean(),
+      rebaseMergeAllowed: z.boolean(),
       pullRequest: z.object({
+        id: z.string(),
+        headRefOid: z.string(),
+        isMergeQueueEnabled: z.boolean(),
         mergeable: mergeableSchema,
         mergeStateStatus: mergeStateStatusSchema,
         mergeQueueEntry: mergeQueueEntrySchema,
@@ -83,7 +96,9 @@ const reviewStateSchema = z.object({
     }),
   }),
 });
-type ReviewState = z.infer<typeof reviewStateSchema>["data"]["repository"]["pullRequest"];
+type FirstPageRepository = z.infer<typeof firstPageSchema>["data"]["repository"];
+type ReviewState = FirstPageRepository["pullRequest"];
+type MergeSettings = Omit<FirstPageRepository, "pullRequest">;
 
 const prStateSchema = z.enum(["open", "draft", "closed", "merged"]);
 type PrState = z.infer<typeof prStateSchema>;
@@ -100,13 +115,20 @@ export const prInsightSchema = z.object({
     title: z.string(),
     state: prStateSchema,
     url: z.string(),
+    headOid: z.string(),
   }),
+  mergeAction: mergeActionSchema,
   blockers: z.array(blockerSchema),
   reviewers: z.array(reviewerSchema),
   checks: z.array(checkSchema),
   mergeQueue: mergeQueueSchema,
 });
 export type PrInsight = z.infer<typeof prInsightSchema>;
+
+export interface PrReading {
+  insight: PrInsight;
+  pullRequestId: string;
+}
 
 function contextsOf(page: OverviewPage) {
   const [head] = page.data.repository.pullRequest.commits.nodes;
@@ -126,10 +148,15 @@ export interface GitHubReader {
 
 async function readOverviewPages(
   fetchOverviewPage: GitHubReader["fetchOverviewPage"],
-): Promise<{ pages: [OverviewPage, ...OverviewPage[]]; reviewState: ReviewState }> {
+): Promise<{
+  pages: [OverviewPage, ...OverviewPage[]];
+  reviewState: ReviewState;
+  mergeSettings: MergeSettings;
+}> {
   const firstResponse = await fetchOverviewPage(null);
   const first = overviewPageSchema.parse(firstResponse);
-  const reviewState = reviewStateSchema.parse(firstResponse).data.repository.pullRequest;
+  const { pullRequest: reviewState, ...mergeSettings } =
+    firstPageSchema.parse(firstResponse).data.repository;
   const pages: [OverviewPage, ...OverviewPage[]] = [first];
   let after = nextContextsCursor(first);
   while (after !== null && pages.length < MAX_CONTEXT_PAGES) {
@@ -137,7 +164,7 @@ async function readOverviewPages(
     pages.push(page);
     after = nextContextsCursor(page);
   }
-  return { pages, reviewState };
+  return { pages, reviewState, mergeSettings };
 }
 
 async function readFailureAnnotations(
@@ -148,10 +175,16 @@ async function readFailureAnnotations(
   return parseFailureAnnotations(await fetchCheckRunDetails(ids));
 }
 
-function prHeader(page: OverviewPage): PrInsight["pr"] {
+function prHeader(page: OverviewPage, reviewState: ReviewState): PrInsight["pr"] {
   const pr = page.data.repository.pullRequest;
   const state = pr.isDraft && pr.state === "OPEN" ? "draft" : PR_STATE[pr.state];
-  return { number: pr.number, title: pr.title, state, url: pr.url };
+  return {
+    number: pr.number,
+    title: pr.title,
+    state,
+    url: pr.url,
+    headOid: reviewState.headRefOid,
+  };
 }
 
 function blockers(
@@ -173,8 +206,27 @@ function blockers(
   });
 }
 
-export async function collectInsight(github: GitHubReader): Promise<PrInsight> {
-  const { pages, reviewState } = await readOverviewPages(github.fetchOverviewPage);
+function mergeAction(
+  reviewState: ReviewState,
+  settings: MergeSettings,
+  prState: PrInsight["pr"]["state"],
+  prBlockers: readonly Blocker[],
+): MergeAction {
+  return buildMergeAction({
+    prState,
+    blockers: prBlockers,
+    isMergeQueueEnabled: reviewState.isMergeQueueEnabled,
+    defaultMethod: settings.viewerDefaultMergeMethod,
+    allowedMethods: {
+      MERGE: settings.mergeCommitAllowed,
+      SQUASH: settings.squashMergeAllowed,
+      REBASE: settings.rebaseMergeAllowed,
+    },
+  });
+}
+
+export async function collectInsight(github: GitHubReader): Promise<PrReading> {
+  const { pages, reviewState, mergeSettings } = await readOverviewPages(github.fetchOverviewPage);
   const latest = latestCheckCandidates(
     pages.flatMap((page) => contextsOf(page)?.nodes ?? []),
   );
@@ -182,17 +234,22 @@ export async function collectInsight(github: GitHubReader): Promise<PrInsight> {
     github.fetchCheckRunDetails,
     failingCheckRunIds(latest),
   );
-  const pr = prHeader(pages[0]);
+  const pr = prHeader(pages[0], reviewState);
   const checks = latest.map((candidate) => toCheck(candidate, annotations));
   const mergeQueue = toMergeQueue(reviewState.mergeQueueEntry);
+  const prBlockers = blockers(reviewState, pr.state, checks, mergeQueue);
   return {
-    pr,
-    blockers: blockers(reviewState, pr.state, checks, mergeQueue),
-    reviewers: buildReviewers(
-      reviewState.reviewRequests.nodes,
-      reviewState.latestOpinionatedReviews.nodes,
-    ),
-    checks,
-    mergeQueue,
+    insight: {
+      pr,
+      mergeAction: mergeAction(reviewState, mergeSettings, pr.state, prBlockers),
+      blockers: prBlockers,
+      reviewers: buildReviewers(
+        reviewState.reviewRequests.nodes,
+        reviewState.latestOpinionatedReviews.nodes,
+      ),
+      checks,
+      mergeQueue,
+    },
+    pullRequestId: reviewState.id,
   };
 }

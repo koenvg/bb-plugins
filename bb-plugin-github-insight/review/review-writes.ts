@@ -8,7 +8,7 @@ import type {
 } from "../contract";
 import { pullRequestUrl } from "../core/pr-ref";
 import type { ReviewUpdated } from "../core/review-updated";
-import { GhFailureError, ghFailureText } from "../github/gh-failure";
+import { write, type Written } from "../github/gh-write";
 import { isPendingReply } from "../github/review-thread-mutations";
 import type { PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
@@ -22,18 +22,6 @@ interface ReviewWritesDeps {
   refreshAfterWrite(threadId: string): Promise<void>;
   now(): number;
   warn(message: string): void;
-}
-
-type Written<T> = { ok: true; value: T } | { ok: false; message: string };
-
-async function write<T>(run: () => Promise<T>): Promise<Written<T>> {
-  try {
-    return { ok: true, value: await run() };
-  } catch (error) {
-    if (error instanceof GhFailureError) return { ok: false, message: ghFailureText(error.failure) };
-    if (error instanceof Error) return { ok: false, message: error.message };
-    throw error;
-  }
 }
 
 const NO_PR_MESSAGE = "No pull request for this thread";

@@ -1,6 +1,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
+import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
 import { threadPlacementSchema } from "./core/thread-placement";
@@ -52,6 +53,15 @@ const setThreadResolvedRequestSchema = z
   .strict();
 export type SetThreadResolvedRequest = z.infer<typeof setThreadResolvedRequestSchema>;
 
+const mergePullRequestRequestSchema = z
+  .object({
+    pullRequestId: z.string().min(1),
+    mergeMethod: mergeMethodSchema,
+    expectedHeadOid: z.string().min(1),
+  })
+  .strict();
+export type MergePullRequestRequest = z.infer<typeof mergePullRequestRequestSchema>;
+
 export const hostContract = defineRpcContract({
   fetchOverviewPage: {
     input: prPageRequestSchema,
@@ -79,6 +89,10 @@ export const hostContract = defineRpcContract({
   },
   setThreadResolved: {
     input: setThreadResolvedRequestSchema,
+    output: ghResultSchema,
+  },
+  mergePullRequest: {
+    input: mergePullRequestRequestSchema,
     output: ghResultSchema,
   },
 });
@@ -164,6 +178,15 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
+const runMergeActionRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    action: z.literal("merge"),
+    expectedHeadOid: z.string().min(1),
+  })
+  .strict();
+export type RunMergeActionRequest = z.infer<typeof runMergeActionRequestSchema>;
+
 export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
@@ -173,4 +196,5 @@ export const rpcContract = defineRpcContract({
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
+  runMergeAction: { input: runMergeActionRequestSchema, output: actionResultSchema },
 });

@@ -3,6 +3,12 @@ import type { PrPageRequest } from "../contract";
 const OVERVIEW_QUERY = `
 query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPage: Boolean!) {
   repository(owner: $owner, name: $repo) {
+    ... @include(if: $firstPage) {
+      viewerDefaultMergeMethod
+      mergeCommitAllowed
+      squashMergeAllowed
+      rebaseMergeAllowed
+    }
     pullRequest(number: $number) {
       number
       title
@@ -10,6 +16,9 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPag
       isDraft
       url
       ... @include(if: $firstPage) {
+        id
+        headRefOid
+        isMergeQueueEnabled
         mergeable
         mergeStateStatus
         mergeQueueEntry { position state }

@@ -14,6 +14,7 @@ function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
     ...pageOne,
     data: {
       repository: {
+        ...pageOne.data.repository,
         pullRequest: { ...pageOne.data.repository.pullRequest, state },
       },
     },
@@ -1292,5 +1293,124 @@ describe("drafts from the tab", () => {
 
     expect(saved).toEqual({ kind: "error", message: "No pull request for this thread" });
     expect(discarded).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});
+
+describe("runMergeAction", () => {
+  const HEAD = pageOne.data.repository.pullRequest.headRefOid;
+
+  const readyPage = {
+    ...pageOne,
+    data: {
+      repository: {
+        ...pageOne.data.repository,
+        viewerDefaultMergeMethod: "SQUASH",
+        squashMergeAllowed: true,
+        pullRequest: {
+          ...pageOne.data.repository.pullRequest,
+          mergeStateStatus: "CLEAN",
+          isMergeQueueEnabled: false,
+        },
+      },
+    },
+  };
+
+  function mergeHost(merge: unknown = ok({ data: { mergePullRequest: { pullRequest: { state: "MERGED" } } } })) {
+    const overview = pages(readyPage);
+    return (call: HostCall) => (call.method === "mergePullRequest" ? merge : overview(call));
+  }
+
+  function setupWithPr(host = mergeHost()) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host,
+    });
+  }
+
+  function merges(harness: Awaited<ReturnType<typeof setup>>) {
+    return harness.experimental_hostRpcCalls
+      .filter(({ method }) => method === "mergePullRequest")
+      .map(({ input, hostId }) => ({ input, hostId }));
+  }
+
+  it("merges with the cached PR id and method through the thread's host and refreshes", async () => {
+    const harness = await setupWithPr();
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(merges(harness)).toEqual([
+      {
+        input: { pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg", mergeMethod: "SQUASH", expectedHeadOid: HEAD },
+        hostId: "host-1",
+      },
+    ]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("does not merge before the tab has read the PR", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "error", message: "Refresh the PR and try again." });
+    expect(merges(harness)).toEqual([]);
+  });
+
+  it("gives the GitHub error when GitHub rejects the merge", async () => {
+    const harness = await setupWithPr(
+      mergeHost(failed({ kind: "failed", message: "Head branch was modified. Review and try the merge again." })),
+    );
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({
+      kind: "error",
+      message: "Head branch was modified. Review and try the merge again.",
+    });
+  });
+
+  it("reports the merge as done when the refresh after it fails", async () => {
+    let merged = false;
+    const overview = mergeHost();
+    const harness = await setupWithPr((call) => {
+      if (call.method === "mergePullRequest") merged = true;
+      else if (merged) return failed({ kind: "failed", message: "HTTP 502" });
+      return overview(call);
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("offers no CLI command that merges", async () => {
+    const harness = await setupWithPr();
+
+    const help = await harness.behavior.runCli(["--help"]);
+
+    expect(help.stdout).not.toMatch(/merge|enqueue/i);
+    expect(merges(harness)).toEqual([]);
   });
 });

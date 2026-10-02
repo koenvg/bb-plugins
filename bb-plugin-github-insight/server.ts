@@ -8,6 +8,7 @@ import { collectInsight } from "./core/overview";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
+import { createMergeWrites } from "./merge/merge-writes";
 import { createPrLookup } from "./pr-lookup";
 import { createInsightService } from "./refresh/insight-service";
 import { createDraftStore } from "./review/draft-store";
@@ -81,6 +82,14 @@ export default async function plugin(bb: BbPluginApi) {
     warn: (message) => bb.log.warn(message),
   });
 
+  const merges = createMergeWrites({
+    cachedPr: (threadId) => service.cachedPr(threadId),
+    mergePullRequest: async ({ hostId }, request) =>
+      unwrap(await host.call("mergePullRequest", request, { hostId })),
+    refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
+    warn: (message) => bb.log.warn(message),
+  });
+
   async function getReview(threadId: string): Promise<ReviewResult> {
     const load = await review.load(threadId);
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
@@ -95,6 +104,7 @@ export default async function plugin(bb: BbPluginApi) {
     setResolved: (request) => writes.setResolved(request),
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
+    runMergeAction: (request) => merges.runMergeAction(request),
   });
 
   bb.cli.register(
