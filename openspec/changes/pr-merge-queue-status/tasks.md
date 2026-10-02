@@ -9,18 +9,18 @@
 
 ## 2. github-insight: summary and PR tab
 
-- [ ] 2.1 Add the optional `mergeQueue` field to `PrSummary` in `core/summary.ts`, and verify `core/summary.test.ts` covers a queued PR (`{ position, state }`, `blockers: []`, `version: 1`) and a PR not in a queue (`null`)
+- [x] 2.1 Add the optional `mergeQueue` field to `PrSummary` in `core/summary.ts`, and verify `core/summary.test.ts` covers a queued PR (`{ position, state }`, `blockers: []`, `version: 1`) and a PR not in a queue (`null`)
 - [x] 2.2 Show the queue text in `ui/pr-tab.tsx` ("In merge queue (#N)", "Merge queue checks running (#N)", "Merging", "Merge queue failed" in the problem tone), and verify with a test in `app.test.tsx`
-- [ ] 2.3 Document the `mergeQueue` summary field and the queue states in `bb-plugin-github-insight/README.md`, and verify the README field list matches `PrSummary`
+- [x] 2.3 Document the `mergeQueue` summary field and the queue states in `bb-plugin-github-insight/README.md`, and verify the README field list matches `PrSummary`
 
 ## 3. pr-thread-list: read and show the queue state
 
-- [ ] 3.1 Read `mergeQueue` in `pr-insight.ts` (missing or invalid reads as `null`), and verify with tests in `pr-insight.test.ts` for a valid entry, a missing field, and a bad state
-- [ ] 3.2 Add the `queued`, `awaiting_checks`, `merging`, and `failed` reasons to `pr-status.ts` with the words, tones, and marks from design.md, and verify with tests in `pr-status.test.ts`
-- [ ] 3.3 Put `failed` in Needs attention and the other queue states in In flight in `tabs.ts`, and verify with tests in `tabs.test.ts`
-- [ ] 3.4 Document the queue states in `bb-plugin-pr-thread-list/README.md`, and verify the README lists every new row status
+- [x] 3.1 Read `mergeQueue` in `pr-insight.ts` (missing or invalid reads as `null`), and verify with tests in `pr-insight.test.ts` for a valid entry, a missing field, and a bad state
+- [x] 3.2 Add the `queued`, `awaiting_checks`, `merging`, and `failed` reasons to `pr-status.ts` with the words, tones, and marks from design.md, and verify with tests in `pr-status.test.ts`
+- [x] 3.3 Put `failed` in Needs attention and the other queue states in In flight in `tabs.ts`, and verify with tests in `tabs.test.ts`
+- [x] 3.4 Document the queue states in `bb-plugin-pr-thread-list/README.md`, and verify the README lists every new row status
 
 ## 4. Integration
 
-- [ ] 4.1 Run the test suite and typecheck in both plugins, and verify they pass
-- [ ] 4.2 Run `openspec validate pr-merge-queue-status --strict`, and verify it passes
+- [x] 4.1 Run the test suite and typecheck in both plugins, and verify they pass
+- [x] 4.2 Run `openspec validate pr-merge-queue-status --strict`, and verify it passes

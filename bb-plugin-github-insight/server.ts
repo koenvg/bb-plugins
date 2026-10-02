@@ -11,6 +11,7 @@ import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
+import { createMergeWrites } from "./merge/merge-writes";
 import { createPrLookup } from "./pr-lookup";
 import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
@@ -111,6 +112,16 @@ export default async function plugin(bb: BbPluginApi) {
     now: Date.now,
   });
 
+  const merges = createMergeWrites({
+    cachedPr: (threadId) => service.cachedPr(threadId),
+    mergePullRequest: async ({ hostId }, request) =>
+      unwrap(await host.call("mergePullRequest", request, { hostId })),
+    enqueuePullRequest: async ({ hostId }, request) =>
+      unwrap(await host.call("enqueuePullRequest", request, { hostId })),
+    refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
+    warn: (message) => bb.log.warn(message),
+  });
+
   async function getReview(threadId: string): Promise<ReviewResult> {
     const load = await review.load(threadId);
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
@@ -129,6 +140,7 @@ export default async function plugin(bb: BbPluginApi) {
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
     startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
+    runMergeAction: (request) => merges.runMergeAction(request),
   });
 
   bb.cli.register(

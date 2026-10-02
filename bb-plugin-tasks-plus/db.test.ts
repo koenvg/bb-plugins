@@ -724,6 +724,37 @@ describe("tasks storage", () => {
     }
   });
 
+  it("lists the tasks linked to a thread, earliest link first", async () => {
+    const { db, harness, store } = setup();
+    try {
+      const project = createProject(store, "LNK");
+      const earlier = store.createTask({ projectId: project.id, title: "B" });
+      const later = store.createTask({ projectId: project.id, title: "A" });
+      const elsewhere = store.createTask({ projectId: project.id, title: "C" });
+      const setAttachedAt = db.prepare<[string, string]>(
+        "UPDATE task_threads SET attached_at = ? WHERE id = ?",
+      );
+      const attach = (taskId: string, threadId: string, attachedAt: string) => {
+        const row = store.upsertTaskThread({
+          taskId,
+          threadId,
+          presetName: "Attached",
+          title: threadId,
+          liveStatus: "working",
+        });
+        setAttachedAt.run(attachedAt, row.id);
+      };
+      attach(later.id, "thr_shared", "2026-07-15T11:00:00.000Z");
+      attach(earlier.id, "thr_shared", "2026-07-15T10:00:00.000Z");
+      attach(elsewhere.id, "thr_other", "2026-07-15T09:00:00.000Z");
+
+      expect(store.listTasksForThread("thr_shared")).toEqual([earlier, later]);
+      expect(store.listTasksForThread("thr_none")).toEqual([]);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("finds the latest agent comment by reply time and ignores other activity", async () => {
     const { db, harness, store } = setup();
     try {

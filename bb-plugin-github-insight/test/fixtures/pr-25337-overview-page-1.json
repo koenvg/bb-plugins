@@ -1,12 +1,19 @@
 {
   "data": {
     "repository": {
+      "viewerDefaultMergeMethod": "REBASE",
+      "mergeCommitAllowed": false,
+      "squashMergeAllowed": false,
+      "rebaseMergeAllowed": true,
       "pullRequest": {
         "number": 25337,
         "title": "feat(*): add ootbDomainTypesIds constants and replace hardcoded domain type UUIDs",
         "state": "OPEN",
         "isDraft": false,
         "url": "https://github.com/collibra/frontend/pull/25337",
+        "id": "PR_kwDOHI7l-88AAAABEiddXg",
+        "headRefOid": "2c850077d3529aa67c8178c80d09517377124ea9",
+        "isMergeQueueEnabled": true,
         "mergeable": "MERGEABLE",
         "mergeStateStatus": "BEHIND",
         "reviewDecision": "REVIEW_REQUIRED",

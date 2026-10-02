@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import pageOne from "../test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "../test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "../test/fixtures/pr-25337-check-run-details.json";
+import readyToEnqueuePage from "../test/fixtures/pr-25693-overview-ready-to-enqueue.json";
+import inMergeQueuePage from "../test/fixtures/pr-25597-overview-in-merge-queue.json";
 import { MAX_CONTEXT_PAGES, collectInsight, type GitHubReader } from "./overview";
 
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
@@ -18,6 +20,7 @@ function onlyPassingChecksPage() {
   return {
     data: {
       repository: {
+        ...pageOne.data.repository,
         pullRequest: {
           ...pageOne.data.repository.pullRequest,
           commits: {
@@ -46,6 +49,7 @@ function queuedPage(mergeQueueEntry: { position: number; state: string }) {
   return {
     data: {
       repository: {
+        ...pageOne.data.repository,
         pullRequest: {
           ...pageOne.data.repository.pullRequest,
           mergeStateStatus: "BLOCKED",
@@ -65,7 +69,7 @@ function queuedGitHub(state: string, position = 3): GitHubReader {
 
 describe("collectInsight on PR 25337", () => {
   it("gives the PR header", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
 
     expect(insight.pr).toEqual({
       number: 25337,
@@ -73,11 +77,25 @@ describe("collectInsight on PR 25337", () => {
         "feat(*): add ootbDomainTypesIds constants and replace hardcoded domain type UUIDs",
       state: "open",
       url: "https://github.com/collibra/frontend/pull/25337",
+      headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
     });
   });
 
+  it("keeps the PR node id out of the insight", async () => {
+    const reading = await collectInsight(recordedGitHub());
+
+    expect(reading.pullRequestId).toBe("PR_kwDOHI7l-88AAAABEiddXg");
+    expect(JSON.stringify(reading.insight)).not.toContain("PR_kwDOHI7l-88AAAABEiddXg");
+  });
+
+  it("offers no merge on a PR with blockers", async () => {
+    const { insight } = await collectInsight(recordedGitHub());
+
+    expect(insight.mergeAction).toEqual({ kind: "none" });
+  });
+
   it("gives one check per name across both pages", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
     const names = insight.checks.map((check) => check.name);
 
     expect(new Set(names).size).toBe(names.length);
@@ -85,7 +103,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("shows re-runs after a cancel as passed", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
     const build = insight.checks.find(
       (check) => check.name === "trigger-testing / build / build",
     );
@@ -94,7 +112,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("counts the newest run of every check by status", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
     const counts: Record<string, number> = {};
     for (const check of insight.checks) {
       counts[check.status] = (counts[check.status] ?? 0) + 1;
@@ -128,7 +146,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("gives the failed Actions check its annotation as reason", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
     const a11y = insight.checks.find(
       (check) => check.name === "trigger-testing / a11y-test (1) / a11y-test",
     );
@@ -148,7 +166,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("keeps the link of a cancelled check without reason text", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
     const e2e = insight.checks.find((check) => check.name === "run-e2e-tests-v4");
 
     expect(e2e).toMatchObject({
@@ -159,7 +177,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("lists the pending code owner teams before the approvals", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
 
     expect(insight.reviewers.slice(0, 2)).toEqual([
       { name: "workflows-frontend", kind: "team", state: "pending", codeOwner: true },
@@ -180,7 +198,7 @@ describe("collectInsight on PR 25337", () => {
   });
 
   it("gives the merge blockers of a branch that is behind and needs review", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
 
     expect(insight.blockers).toEqual([
       { code: "checks_failed", text: "1 check failed" },
@@ -192,7 +210,7 @@ describe("collectInsight on PR 25337", () => {
   it("skips the detail query when nothing failed or was cancelled", async () => {
     let detailCalls = 0;
 
-    const insight = await collectInsight(
+    const { insight } = await collectInsight(
       recordedGitHub({
         fetchOverviewPage: async () => onlyPassingChecksPage(),
         fetchCheckRunDetails: async () => {
@@ -209,7 +227,7 @@ describe("collectInsight on PR 25337", () => {
 
 describe("collectInsight merge queue", () => {
   it("gives no queue state for a PR without a queue entry", async () => {
-    const insight = await collectInsight(recordedGitHub());
+    const { insight } = await collectInsight(recordedGitHub());
 
     expect(insight.mergeQueue).toBeNull();
   });
@@ -221,13 +239,13 @@ describe("collectInsight merge queue", () => {
     ["LOCKED", "merging"],
     ["UNMERGEABLE", "failed"],
   ])("maps the GitHub entry state %s to %s", async (githubState, state) => {
-    const insight = await collectInsight(queuedGitHub(githubState, 3));
+    const { insight } = await collectInsight(queuedGitHub(githubState, 3));
 
     expect(insight.mergeQueue).toEqual({ position: 3, state });
   });
 
   it("gives no merge blockers for a queued PR", async () => {
-    const insight = await collectInsight(queuedGitHub("QUEUED"));
+    const { insight } = await collectInsight(queuedGitHub("QUEUED"));
 
     expect(insight.blockers).toEqual([]);
   });
@@ -251,6 +269,64 @@ describe("collectInsight merge queue", () => {
     expect(await requests(queuedGitHub("QUEUED"))).toEqual(
       await requests(recordedGitHub()),
     );
+  });
+});
+
+describe("collectInsight on a merge queue repo", () => {
+  const recordedPage = (page: unknown) =>
+    recordedGitHub({ fetchOverviewPage: async () => page });
+
+  it("offers enqueue with no merge blockers for a PR that is ready to enqueue", async () => {
+    const { insight } = await collectInsight(recordedPage(readyToEnqueuePage));
+
+    expect(insight.blockers).toEqual([]);
+    expect(insight.mergeQueue).toBeNull();
+    expect(insight.mergeAction).toEqual({ kind: "enqueue" });
+  });
+
+  it("gives the queue position and state of a queued PR", async () => {
+    const { insight } = await collectInsight(recordedPage(inMergeQueuePage));
+
+    expect(insight.mergeQueue).toEqual({ position: 1, state: "awaiting_checks" });
+    expect(insight.blockers).toEqual([]);
+    expect(insight.mergeAction).toEqual({ kind: "queued" });
+  });
+});
+
+describe("collectInsight merge action", () => {
+  function readyPage(overrides: { isMergeQueueEnabled?: boolean } = {}) {
+    const { repository } = onlyPassingChecksPage().data;
+    return {
+      data: {
+        repository: {
+          ...repository,
+          viewerDefaultMergeMethod: "SQUASH",
+          squashMergeAllowed: true,
+          pullRequest: {
+            ...repository.pullRequest,
+            mergeStateStatus: "CLEAN",
+            isMergeQueueEnabled: false,
+            ...overrides,
+          },
+        },
+      },
+    };
+  }
+
+  it("merges a clean PR with the user's default method", async () => {
+    const { insight } = await collectInsight(
+      recordedGitHub({ fetchOverviewPage: async () => readyPage() }),
+    );
+
+    expect(insight.mergeAction).toEqual({ kind: "merge", method: "SQUASH" });
+  });
+
+  it("offers enqueue instead of merge when the base branch has a merge queue", async () => {
+    const { insight } = await collectInsight(
+      recordedGitHub({ fetchOverviewPage: async () => readyPage({ isMergeQueueEnabled: true }) }),
+    );
+
+    expect(insight.mergeAction).toEqual({ kind: "enqueue" });
   });
 });
 

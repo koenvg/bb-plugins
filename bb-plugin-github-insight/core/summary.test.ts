@@ -16,11 +16,12 @@ import {
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
 const refreshedAt = Date.parse("2026-09-24T10:00:00Z");
 
-function recordedInsight(): Promise<PrInsight> {
-  return collectInsight({
+async function recordedInsight(): Promise<PrInsight> {
+  const { insight } = await collectInsight({
     fetchOverviewPage: async (after) => recordedPages[after ?? "start"],
     fetchCheckRunDetails: async () => checkRunDetails,
   });
+  return insight;
 }
 
 function check(name: string, status: Check["status"]): Check {
@@ -33,7 +34,8 @@ function reviewer(name: string, overrides: Partial<Reviewer> = {}): Reviewer {
 
 function insight(overrides: Partial<PrInsight> = {}): PrInsight {
   return {
-    pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1" },
+    pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+    mergeAction: { kind: "none" },
     blockers: [],
     reviewers: [],
     checks: [],
@@ -68,6 +70,7 @@ describe("buildSummary on PR 25337", () => {
           "skipped": 8,
         },
         "error": null,
+        "mergeQueue": null,
         "pr": {
           "number": 25337,
           "state": "open",
@@ -159,6 +162,24 @@ describe("buildSummary", () => {
     expect(new TextEncoder().encode(JSON.stringify(summary)).length).toBeLessThan(
       MAX_SUMMARY_BYTES,
     );
+  });
+
+  it("gives the queue entry and no blockers for a queued PR", () => {
+    const summary = buildSummary({
+      insight: insight({ mergeQueue: { position: 2, state: "queued" } }),
+      refreshedAt,
+      error: null,
+    });
+
+    expect(summary).toMatchObject({
+      version: 1,
+      mergeQueue: { position: 2, state: "queued" },
+      blockers: [],
+    });
+  });
+
+  it("gives a null queue entry for a PR not in a queue", () => {
+    expect(buildSummary({ insight: insight(), refreshedAt, error: null }).mergeQueue).toBeNull();
   });
 
   it("keeps the time of the last good refresh and the error", () => {

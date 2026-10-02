@@ -1,6 +1,7 @@
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
+import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
 import { reviewPrSchema } from "./core/review-pr";
@@ -64,6 +65,18 @@ const setThreadResolvedRequestSchema = z
   .strict();
 export type SetThreadResolvedRequest = z.infer<typeof setThreadResolvedRequestSchema>;
 
+const mergePullRequestRequestSchema = z
+  .object({
+    pullRequestId: z.string().min(1),
+    mergeMethod: mergeMethodSchema,
+    expectedHeadOid: z.string().min(1),
+  })
+  .strict();
+export type MergePullRequestRequest = z.infer<typeof mergePullRequestRequestSchema>;
+
+const enqueuePullRequestRequestSchema = mergePullRequestRequestSchema.omit({ mergeMethod: true });
+export type EnqueuePullRequestRequest = z.infer<typeof enqueuePullRequestRequestSchema>;
+
 export const hostContract = defineRpcContract({
   fetchOverviewPage: {
     input: prPageRequestSchema,
@@ -95,6 +108,14 @@ export const hostContract = defineRpcContract({
   },
   fetchReviewQueue: {
     input: z.object({}).strict(),
+    output: ghResultSchema,
+  },
+  mergePullRequest: {
+    input: mergePullRequestRequestSchema,
+    output: ghResultSchema,
+  },
+  enqueuePullRequest: {
+    input: enqueuePullRequestRequestSchema,
     output: ghResultSchema,
   },
 });
@@ -192,6 +213,15 @@ export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
 export const startReviewResultSchema = z.object({ threadId: z.string() });
 export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
 
+const runMergeActionRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    action: z.enum(["merge", "enqueue"]),
+    expectedHeadOid: z.string().min(1),
+  })
+  .strict();
+export type RunMergeActionRequest = z.infer<typeof runMergeActionRequestSchema>;
+
 export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
@@ -205,4 +235,5 @@ export const rpcContract = defineRpcContract({
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
   startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
+  runMergeAction: { input: runMergeActionRequestSchema, output: actionResultSchema },
 });

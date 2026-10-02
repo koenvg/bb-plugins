@@ -121,6 +121,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         startReview: () => ({ threadId: "unused" }),
         archiveReview: () => ({ kind: "error", message: "unused" }),
+        runMergeAction: () => ({ kind: "error", message: "unused" }),
       },
     },
   );

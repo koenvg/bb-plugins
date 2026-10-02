@@ -1224,6 +1224,52 @@ describe("Tasks RPC domain API", () => {
     }
   });
 
+  it("returns the API tasks linked to a thread and an empty list for an unlinked thread", async () => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(bb);
+    registerTasksApi(bb, store);
+    const project = store.tasks.createProject({
+      name: "Header",
+      prefix: "HDR",
+      color: "blue",
+    });
+    const label = store.tasks.createLabel({
+      projectId: project.id,
+      name: "UI",
+      color: "green",
+    });
+    const task = store.tasks.createTask({
+      projectId: project.id,
+      title: "Show the task chip",
+      status: "in_review",
+    });
+    store.tasks.addTaskLabel(task.id, label.id);
+    store.tasks.upsertTaskThread({
+      taskId: task.id,
+      threadId: "thr_header",
+      presetName: "Default",
+      title: "Header work",
+      liveStatus: "working",
+    });
+
+    const linked = tasksRpcContract.getTasksForThread.output.parse(
+      await harness.callRpc("getTasksForThread", { threadId: "thr_header" }),
+    );
+    expect(linked.tasks).toEqual([
+      expect.objectContaining({
+        id: task.id,
+        key: task.key,
+        status: "in_review",
+        labelIds: [label.id],
+      }),
+    ]);
+
+    const unlinked = tasksRpcContract.getTasksForThread.output.parse(
+      await harness.callRpc("getTasksForThread", { threadId: "thr_none" }),
+    );
+    expect(unlinked.tasks).toEqual([]);
+  });
+
   it("returns a typed error when a task would exceed one sub-task level", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     registerTasksApi(bb, createStore(bb));

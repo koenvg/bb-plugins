@@ -1851,6 +1851,20 @@ export function createTasksStore(
       .map(taskThreadFromRow);
   }
 
+  function listTasksForThread(threadId: string): Task[] {
+    return db
+      .prepare<[string], TaskRow>(
+        `
+        ${taskSelect}
+        JOIN task_threads tt ON tt.task_id = t.id
+        WHERE tt.thread_id = ?
+        ORDER BY tt.attached_at, tt.id
+      `,
+      )
+      .all(threadId)
+      .map(taskFromRow);
+  }
+
   function requireTaskThread(id: string): TaskThread {
     const thread = getTaskThread(id);
     if (!thread) throw new Error(`Task thread not found: ${id}`);
@@ -2117,6 +2131,7 @@ export function createTasksStore(
     getTaskThread,
     getTaskThreadByThreadId,
     listTaskThreadsByThreadId,
+    listTasksForThread,
     listTaskThreads,
     updateTaskThreadStatus,
     deleteTaskThread,

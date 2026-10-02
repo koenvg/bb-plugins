@@ -11,6 +11,9 @@ export function needsAttention(thread: PluginSidebarThread): boolean {
     || thread.indicator === "unread-error" || thread.indicator === "queued-failed";
 }
 
+export const isActive = (thread: PluginSidebarThread) =>
+  needsAttention(thread) || isBusy(thread) || hasActivity(thread) || thread.queuedWork !== "none";
+
 export function isSettled(thread: PluginSidebarThread): boolean {
   return !thread.isPinned && !thread.isUnread && !isBusy(thread) && !hasActivity(thread)
     && thread.indicator === "none" && thread.queuedWork === "none" && !thread.hasPendingInteraction;

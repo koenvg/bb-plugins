@@ -82,3 +82,19 @@ export function useTasksNavigation(): TasksNavigation {
     [navigate],
   );
 }
+
+export function openTaskInSidePanel(
+  navigate: ReturnType<typeof useBbNavigate>,
+  taskKey: string,
+): void {
+  const opened = navigate.openThreadPanel({
+    actionId: "task",
+    title: taskKey,
+    params: { taskKey },
+  });
+  if (!opened) {
+    navigate.toPluginPanel(PANEL_PATH, {
+      subPath: tasksRouteToSubPath({ kind: "task", taskKey }),
+    });
+  }
+}

@@ -520,6 +520,10 @@ export const tasksRpcContract = defineRpcContract({
     input: z.object({ taskKey: nonBlankStringSchema }).strict(),
     output: z.object({ task: taskSchema.nullable() }).strict(),
   },
+  getTasksForThread: {
+    input: z.object({ threadId: z.string().startsWith("thr_") }).strict(),
+    output: z.object({ tasks: z.array(taskSchema) }).strict(),
+  },
   updateTask: {
     input: updateTaskInputSchema,
     output: taskMutationResultSchema,

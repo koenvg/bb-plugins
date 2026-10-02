@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import pageOne from "./test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "./test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
+import readyToEnqueuePage from "./test/fixtures/pr-25693-overview-ready-to-enqueue.json";
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import reviewQueue from "./test/fixtures/review-queue.json";
@@ -17,6 +18,7 @@ function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
     ...pageOne,
     data: {
       repository: {
+        ...pageOne.data.repository,
         pullRequest: { ...pageOne.data.repository.pullRequest, state },
       },
     },
@@ -1528,5 +1530,152 @@ describe("archiveReview", () => {
 
     expect(result).toEqual({ kind: "error", message: "This thread is not a review thread" });
     expect(harness.sdk.callsTo("threads.archive")).toHaveLength(0);
+  });
+});
+
+describe("runMergeAction", () => {
+  const HEAD = pageOne.data.repository.pullRequest.headRefOid;
+
+  const readyPage = {
+    ...pageOne,
+    data: {
+      repository: {
+        ...pageOne.data.repository,
+        viewerDefaultMergeMethod: "SQUASH",
+        squashMergeAllowed: true,
+        pullRequest: {
+          ...pageOne.data.repository.pullRequest,
+          mergeStateStatus: "CLEAN",
+          isMergeQueueEnabled: false,
+        },
+      },
+    },
+  };
+
+  function mergeHost(merge: unknown = ok({ data: { mergePullRequest: { pullRequest: { state: "MERGED" } } } })) {
+    const overview = pages(readyPage);
+    return (call: HostCall) => (call.method === "mergePullRequest" ? merge : overview(call));
+  }
+
+  function setupWithPr(host = mergeHost()) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host,
+    });
+  }
+
+  function writes(method: string) {
+    return (harness: Awaited<ReturnType<typeof setup>>) =>
+      harness.experimental_hostRpcCalls
+        .filter((call) => call.method === method)
+        .map(({ input, hostId }) => ({ input, hostId }));
+  }
+  const merges = writes("mergePullRequest");
+  const enqueues = writes("enqueuePullRequest");
+
+  it("merges with the cached PR id and method through the thread's host and refreshes", async () => {
+    const harness = await setupWithPr();
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(merges(harness)).toEqual([
+      {
+        input: { pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg", mergeMethod: "SQUASH", expectedHeadOid: HEAD },
+        hostId: "host-1",
+      },
+    ]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("does not merge before the tab has read the PR", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "error", message: "Refresh the PR and try again." });
+    expect(merges(harness)).toEqual([]);
+  });
+
+  it("gives the GitHub error when GitHub rejects the merge", async () => {
+    const harness = await setupWithPr(
+      mergeHost(failed({ kind: "failed", message: "Head branch was modified. Review and try the merge again." })),
+    );
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({
+      kind: "error",
+      message: "Head branch was modified. Review and try the merge again.",
+    });
+  });
+
+  it("reports the merge as done when the refresh after it fails", async () => {
+    let merged = false;
+    const overview = mergeHost();
+    const harness = await setupWithPr((call) => {
+      if (call.method === "mergePullRequest") merged = true;
+      else if (merged) return failed({ kind: "failed", message: "HTTP 502" });
+      return overview(call);
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "merge",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("enqueues a ready merge queue PR with the cached PR id through the thread's host and refreshes", async () => {
+    const overview = pages(readyToEnqueuePage);
+    const harness = await setupWithPr((call) =>
+      call.method === "enqueuePullRequest"
+        ? ok({ data: { enqueuePullRequest: { mergeQueueEntry: { state: "QUEUED" } } } })
+        : overview(call),
+    );
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    const { id, headRefOid } = readyToEnqueuePage.data.repository.pullRequest;
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "enqueue",
+      expectedHeadOid: headRefOid,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(enqueues(harness)).toEqual([
+      { input: { pullRequestId: id, expectedHeadOid: headRefOid }, hostId: "host-1" },
+    ]);
+    expect(merges(harness)).toEqual([]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("offers no CLI command that merges or enqueues", async () => {
+    const harness = await setupWithPr();
+
+    const help = await harness.behavior.runCli(["--help"]);
+
+    expect(help.stdout).not.toMatch(/merge|enqueue/i);
+    expect(merges(harness)).toEqual([]);
+    expect(enqueues(harness)).toEqual([]);
   });
 });

@@ -91,7 +91,7 @@ describe("visibleItems", () => {
 
   describe("attention tabs", () => {
     const running: PrSummary = { number: 1, url: "https://example.com/pull/1", state: "open", failedChecks: 0, passedChecks: 0,
-      runningChecks: 1, pendingReviews: 0, blockers: ["checks_running"], failedNames: [], pendingNames: [] };
+      runningChecks: 1, pendingReviews: 0, blockers: ["checks_running"], failedNames: [], pendingNames: [], mergeQueue: null };
     const other = { ...project, id: "p2", name: "Other project" };
     const tabRows = [
       thread({ id: "idle", displayTitle: "Idle" }),
@@ -115,6 +115,18 @@ describe("visibleItems", () => {
       const items = tab("attention");
       expect(items.filter((item) => item.kind === "group").map((item) => item.id)).toEqual(["pinned", "project:p1"]);
       expect(items.find((item) => item.kind === "thread" && item.id === "child")).toMatchObject({ depth: 0 });
+    });
+    it("puts a parent in flight while a descendant is active, and ignores archived descendants", () => {
+      const rows = [
+        thread({ id: "parent", displayTitle: "Parent" }),
+        thread({ id: "mid", displayTitle: "Mid", parentThreadId: "parent" }),
+        thread({ id: "leaf", displayTitle: "Leaf", parentThreadId: "mid", hasPendingInteraction: true }),
+        thread({ id: "lonely", displayTitle: "Lonely" }),
+        thread({ id: "gone", displayTitle: "Gone", parentThreadId: "lonely", status: "active", isArchived: true, archivedAt: 1 }),
+      ];
+      const view = (name: "attention" | "inflight") => visibleItems(rows, [project], [], { ...defaults, tab: name });
+      expect(titles(view("attention"))).toEqual(["Leaf", "Lonely"]);
+      expect(titles(view("inflight"))).toEqual(["Parent", "Mid"]);
     });
     it("groups the threads of a tab by project", () => {
       expect(tab("inflight").map((item) => item.kind === "group" ? item.label : item.id))

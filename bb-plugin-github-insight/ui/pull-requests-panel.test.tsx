@@ -109,6 +109,7 @@ const unusedRpc = {
   setResolved: () => ({ kind: "error" as const, message: "unused" }),
   saveDraft: () => ({ kind: "error" as const, message: "unused" }),
   discardDraft: () => ({ kind: "error" as const, message: "unused" }),
+  runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
 };
 
 type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;

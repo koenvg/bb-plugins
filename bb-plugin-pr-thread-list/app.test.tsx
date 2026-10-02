@@ -55,6 +55,18 @@ function mount(threads = [thread()], state: Partial<PluginSidebarThreadsState> =
 }
 
 describe("thread list slot", () => {
+  it("keeps a parent aligned with its siblings and indents its child under the parent title", () => {
+    const slot = mount([
+      thread({ id: "parent", displayTitle: "Parent" }),
+      thread({ id: "child", displayTitle: "Child", parentThreadId: "parent" }),
+      thread({ id: "sibling", displayTitle: "Sibling" }),
+    ]);
+    const row = (title: string) => slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row")!;
+    expect(row("Parent").style.paddingLeft).toBe(row("Sibling").style.paddingLeft);
+    expect(row("Child").style.paddingLeft).toBe("24px");
+    expect(slot.getByRole("button", { name: "Collapse Parent" }).parentElement?.querySelector("[data-provider-glyph]")).toBeTruthy();
+  });
+
   it("registers one selectable list and renders a seeded thread", () => {
     expect(app.threadLists).toHaveLength(1);
     expect(app.threadLists[0]?.title).toBe("Threads with PRs");
@@ -385,6 +397,18 @@ describe("thread list slot", () => {
     await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Waits on CI" })).toBeNull());
     showTab(slot, "In flight");
     expect(slot.getByRole("link", { name: "Waits on CI" })).toBeTruthy();
+  });
+  it("keeps a parent in flight only while its child runs", () => {
+    const rows = (status: "active" | "idle") => [thread({ id: "t1", displayTitle: "Parent" }),
+      thread({ id: "t2", displayTitle: "Child", parentThreadId: "t1", status })];
+    const running = mount(rows("active"));
+    expect(running.queryByRole("link", { name: "Parent" })).toBeNull();
+    showTab(running, "In flight");
+    expect(running.getByRole("link", { name: "Parent" })).toBeTruthy();
+    running.lifecycle.unmount();
+    const done = mount(rows("idle"));
+    showTab(done, "Needs attention");
+    expect(done.getByRole("link", { name: "Parent" })).toBeTruthy();
   });
   it("offers the archived selection only in All, and ignores it in the other tabs", () => {
     const rows = [thread({ id: "t1", displayTitle: "Active work" }), thread({ id: "t2", displayTitle: "Old work", isArchived: true })];

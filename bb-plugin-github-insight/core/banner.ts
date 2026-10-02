@@ -1,4 +1,5 @@
 import { countOf, type Blocker } from "./blockers";
+import type { RunnableMergeAction } from "./merge-action";
 import type { PrInsight } from "./overview";
 
 const CHECK_COUNT_CODES: ReadonlySet<Blocker["code"]> = new Set([
@@ -25,4 +26,25 @@ export function bannerParts(insight: PrInsight): string[] {
     pendingReviews > 0 ? `${countOf(pendingReviews, "review")} pending` : undefined,
     topOther?.text,
   ].filter((part): part is string => part !== undefined);
+}
+
+export type BannerState =
+  | { kind: "hidden" }
+  | { kind: "blockers"; parts: string[]; topCode: Blocker["code"] }
+  | { kind: "ready"; action: RunnableMergeAction }
+  | { kind: "queued" };
+
+export function bannerState(insight: PrInsight): BannerState {
+  const { mergeAction } = insight;
+  if (insight.pr.state === "merged" || insight.pr.state === "closed") return { kind: "hidden" };
+  if (mergeAction.kind === "queued") return { kind: "queued" };
+  const parts = bannerParts(insight);
+  const topBlocker = insight.blockers[0];
+  if (parts.length > 0 && topBlocker !== undefined) {
+    return { kind: "blockers", parts, topCode: topBlocker.code };
+  }
+  if (mergeAction.kind === "merge" || mergeAction.kind === "enqueue") {
+    return { kind: "ready", action: mergeAction };
+  }
+  return { kind: "hidden" };
 }

@@ -9,6 +9,7 @@ import {
   RATE_LIMIT_ARGS,
   type GhProcessError,
 } from "./github/gh-failure";
+import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
 import { reviewQueueArgs } from "./github/review-queue-query";
@@ -33,6 +34,10 @@ export default experimental_defineHostEntry({
     setThreadResolved: (request, context) =>
       runGhJson(setThreadResolvedArgs(request), context.signal),
     fetchReviewQueue: (_request, context) => runGhJson(reviewQueueArgs(), context.signal),
+    mergePullRequest: (request, context) =>
+      runGhJson(mergePullRequestArgs(request), context.signal),
+    enqueuePullRequest: (request, context) =>
+      runGhJson(enqueuePullRequestArgs(request), context.signal),
   },
 });
 
