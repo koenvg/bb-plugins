@@ -5,14 +5,14 @@
 
 ## 2. Core
 
-- [ ] 2.1 Add `parseGithubRepo` in `core/review-queue.ts` (decision 3); verify unit tests for HTTPS, SSH, `.git`, mixed case, non-GitHub, and null remotes
-- [ ] 2.2 Add the zod response schema, node to `QueuePr` mapping, grouping, and sort in `core/review-queue.ts`; verify unit tests from a trimmed fixture for: CI passed, failed, running, and none; each review decision; draft; group order by repo; newest first inside a group; and `issueCount > 50` sets the "first 50" flag
-- [ ] 2.3 Add `core/review-prompt.ts`; verify a unit test that the prompt contains `gh pr checkout <n>`, the PR URL, the title, and the "do not post to GitHub" instruction
+- [x] 2.1 Add `parseGithubRepo` in `core/review-queue.ts` (decision 3); verify unit tests for HTTPS, SSH, `.git`, mixed case, non-GitHub, and null remotes
+- [x] 2.2 Add the zod response schema, node to `QueuePr` mapping, grouping, and sort in `core/review-queue.ts`; verify unit tests from a trimmed fixture for: CI passed, failed, running, and none; each review decision; draft; group order by repo; newest first inside a group; and `issueCount > 50` sets the "first 50" flag
+- [x] 2.3 Add `core/review-prompt.ts`; verify a unit test that the prompt contains `gh pr checkout <n>`, the PR URL, the title, and the "do not post to GitHub" instruction
 
 ## 3. GitHub read (host)
 
-- [ ] 3.1 Add `github/review-queue-query.ts` with the two aliased searches (decision 1); verify a snapshot test of the args and that the query text holds no user input
-- [ ] 3.2 Add the `fetchReviewQueue` handler to `hostContract` and `host.ts` through `runGhJson`; verify `npm run typecheck` passes and a manual `gh api graphql` run with the same args returns both lists
+- [x] 3.1 Add `github/review-queue-query.ts` with the two aliased searches (decision 1); verify a snapshot test of the args and that the query text holds no user input
+- [x] 3.2 Add the `fetchReviewQueue` handler to `hostContract` and `host.ts` through `runGhJson`; verify `npm run typecheck` passes and a manual `gh api graphql` run with the same args returns both lists
 
 ## 4. Server RPC
 

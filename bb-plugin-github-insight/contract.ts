@@ -81,6 +81,10 @@ export const hostContract = defineRpcContract({
     input: setThreadResolvedRequestSchema,
     output: ghResultSchema,
   },
+  fetchReviewQueue: {
+    input: z.object({}).strict(),
+    output: ghResultSchema,
+  },
 });
 
 export const insightResultSchema = z.discriminatedUnion("kind", [
