@@ -25,9 +25,9 @@
 - [x] 5.1 Add the `MergeAction` row to `ui/pr-tab.tsx` for `enqueue` and `queued` (D5), built on a shared `MergeActionButton` and `useMergeAction(threadId)` (D6); verify `renderSlot` tests: "Enqueue" calls the RPC with the shown head commit and no dialog, "Queued" shows a label and no button, `none` renders nothing
 - [x] 5.2 Add the "Merge" button with the alert dialog (number, title, method label); verify `renderSlot` tests: the label matches the method, cancel sends no RPC, confirm sends one RPC with the shown head commit
 - [x] 5.3 Add the busy and error states; verify `renderSlot` tests: the button is disabled while running, a double click sends one RPC, an error shows its text and the button is available again
-- [ ] 5.4 Implement `bannerState(insight)` in `core/banner.ts` (D6); verify unit tests for: blockers, ready to merge, ready to enqueue, queued, merged, and closed
-- [ ] 5.5 Update `ui/composer-banner.tsx`: keep the blocker row; add the ready row (text button that opens the "PR" tab + `MergeActionButton`) and the "Queued" row; verify `renderSlot` tests: the text opens the "PR" tab with no RPC, confirm in the banner sends one RPC, a queued PR shows no button, a PR with blockers shows no merge button, and no `<button>` is inside another `<button>`
-- [ ] 5.6 Add a "Merge and enqueue" section to `bb-plugin-github-insight/README.md`: where the button shows (PR tab and composer banner), the default merge method, the confirm step, the `gh` user, and that GitHub Enterprise versions without merge queue fields are not supported; verify the section matches the spec
+- [x] 5.4 Implement `bannerState(insight)` in `core/banner.ts` (D6); verify unit tests for: blockers, ready to merge, ready to enqueue, queued, merged, and closed
+- [x] 5.5 Update `ui/composer-banner.tsx`: keep the blocker row; add the ready row (text button that opens the "PR" tab + `MergeActionButton`) and the "Queued" row; verify `renderSlot` tests: the text opens the "PR" tab with no RPC, confirm in the banner sends one RPC, a queued PR shows no button, a PR with blockers shows no merge button, and no `<button>` is inside another `<button>`
+- [x] 5.6 Add a "Merge and enqueue" section to `bb-plugin-github-insight/README.md`: where the button shows (PR tab and composer banner), the default merge method, the confirm step, the `gh` user, and that GitHub Enterprise versions without merge queue fields are not supported; verify the section matches the spec
 
 ## 6. Integration
 
