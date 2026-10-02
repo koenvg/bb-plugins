@@ -6,6 +6,7 @@ export const PANEL_PATH = "tasks";
 export type TaskViewMode = "list" | "board";
 
 export type TasksRoute =
+  | { kind: "entry" }
   | { kind: "all" }
   | { kind: "active" }
   | { kind: "manage" }
@@ -31,7 +32,8 @@ export function parseTasksRoute(rawSubPath: string): TasksRoute {
   const query = queryIndex === -1 ? "" : subPath.slice(queryIndex + 1);
   const segments = path.split("/").filter((segment) => segment.length > 0);
   const head = segments[0];
-  if (head === undefined || head === "all") return { kind: "all" };
+  if (head === undefined) return { kind: "entry" };
+  if (head === "all") return { kind: "all" };
   if (head === "active") return { kind: "active" };
   if (head === "manage") return { kind: "manage" };
   if (head === "task") {
@@ -49,6 +51,8 @@ export function parseTasksRoute(rawSubPath: string): TasksRoute {
 
 export function tasksRouteToSubPath(route: TasksRoute): string {
   switch (route.kind) {
+    case "entry":
+      return "";
     case "all":
       return "all";
     case "active":

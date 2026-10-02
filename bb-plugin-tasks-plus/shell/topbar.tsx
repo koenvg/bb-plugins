@@ -195,6 +195,8 @@ export function TasksTopbar({
 
   const breadcrumb = (() => {
     switch (route.kind) {
+      case "entry":
+        return <span className="font-semibold">Tasks</span>;
       case "all":
         return (
           <span className="whitespace-nowrap font-semibold">All tasks</span>
@@ -300,7 +302,7 @@ export function TasksTopbar({
         </span>
       ) : null}
       <RefreshTasksButton />
-      {route.kind !== "task" && route.kind !== "manage" ? (
+      {route.kind !== "entry" && route.kind !== "task" && route.kind !== "manage" ? (
         <Button
           size="sm"
           className="h-7 gap-1.5 max-md:pointer-coarse:h-9"

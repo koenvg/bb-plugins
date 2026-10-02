@@ -313,6 +313,29 @@ portable in task content.
 Mentioning a task key such as `PROD-1` in an agent request also activates the
 Tasks skill, which directs the worker to read and update the tracked task.
 
+## Remembered project scope
+
+Opening Tasks without a destination restores the last Tasks project or your
+explicit All projects choice. This memory belongs to the browser profile and
+applies across BB projects. It does not follow the current BB project's link,
+change CLI project inference, or sync to another browser or device.
+
+- Explicit project links and **Go to All tasks** override and update that choice.
+- **Active**, **Manage**, and direct `task/<key>` links take precedence without
+  changing the remembered scope. A cross-project task link opens its named task
+  without selecting that project first.
+- First use defaults to All projects. Restoration waits for a successful project
+  inventory before deciding a remembered project was deleted and falling back
+  to All. Failed inventory requests offer **Retry** without erasing the choice.
+- Unavailable or malformed browser storage does not block selection. Choices
+  still work for the current session; future-version preference documents remain
+  untouched. Storage failures can prevent persistence across a page reload.
+
+Project list/board preferences remain separate. List filters and sort persist in
+browser storage per All, Active, and project scope; they are not encoded in the
+URL. Scope restoration leaves those preferences, expanded subtasks, and list
+scroll preferences unchanged.
+
 ## Keyboard shortcuts
 
 Press `?` in the Tasks panel to see every shortcut. Single keys work when you
@@ -333,7 +356,7 @@ bind your own in bb.
 ## Known limitations
 
 - The **Auto** delegation preset is deferred; choose an explicit preset.
-- List filters are local UI state and are not persisted in the URL.
+- Browser preferences are local to the browser profile, not synced across devices.
 
 ## Fast follow
 

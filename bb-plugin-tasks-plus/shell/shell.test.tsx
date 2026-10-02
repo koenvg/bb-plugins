@@ -83,6 +83,7 @@ const emptyRpc = seededRpc({
 describe("tasks route grammar", () => {
   it("round-trips every route kind and decodes host-encoded subPaths", () => {
     const routes = [
+      { kind: "entry" },
       { kind: "all" },
       { kind: "active" },
       { kind: "manage" },
@@ -99,7 +100,7 @@ describe("tasks route grammar", () => {
       projectId: PROJECT_ID,
       view: "board",
     });
-    expect(parseTasksRoute("")).toEqual({ kind: "all" });
+    expect(parseTasksRoute("")).toEqual({ kind: "entry" });
     expect(parseTasksRoute(`${PROJECT_ID}?view=kanban`)).toEqual({
       kind: "project",
       projectId: PROJECT_ID,
@@ -703,7 +704,7 @@ describe("tasks app shell", () => {
       await slot.findByText("No projects yet");
     });
 
-    it("paints the last-known empty state before listProjects resolves", () => {
+    it("does not resolve undirected entry from a last-known empty snapshot", () => {
       window.localStorage.setItem(projectsKey, JSON.stringify([]));
       window.localStorage.setItem(foldersKey, JSON.stringify([]));
       window.localStorage.setItem(summaryKey, JSON.stringify([]));
@@ -718,7 +719,8 @@ describe("tasks app shell", () => {
           }),
         },
       );
-      expect(slot.getByText("No projects yet")).toBeTruthy();
+      expect(slot.queryByText("No projects yet")).toBeNull();
+      expect(slot.getByRole("status").textContent).toBe("Loading projects…");
     });
 
     it("paints last-known projects before listProjects resolves and never flashes empty", async () => {

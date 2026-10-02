@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
-  parseTasksRoute,
   useTasksNavigation,
   type ResolvedTasksRoute,
   type TasksNavigation,
   type TasksRoute,
 } from "./routes.js";
-import { loadViewMode, storeViewMode } from "./view-preference.js";
+import { storeViewMode } from "./view-preference.js";
+import { BrowseEntryState, useBrowseRoute } from "./browse-entry.js";
 import { TasksTopbar } from "./topbar.js";
 import { ListView } from "../views/list/index.js";
 import { BoardView } from "../views/board/index.js";
@@ -38,6 +38,8 @@ function RouteOutlet({
   boardUsable: boolean;
 }) {
   switch (route.kind) {
+    case "entry":
+      return null;
     case "all":
       return <ListView projectId={null} />;
     case "active":
@@ -55,14 +57,10 @@ function RouteOutlet({
   }
 }
 
-function resolveRoute(route: TasksRoute): ResolvedTasksRoute {
-  if (route.kind !== "project") return route;
-  return { ...route, view: route.view ?? loadViewMode(route.projectId) };
-}
-
 function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
-  const route = resolveRoute(parseTasksRoute(subPath));
   const tasksNavigation = useTasksNavigation();
+  const projects = useProjects();
+  const route = useBrowseRoute(subPath, projects, tasksNavigation);
   const navigation = useMemo<TasksNavigation>(
     () => ({
       go: (target, options) => {
@@ -91,13 +89,13 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
     observer.observe(main);
     return () => observer.disconnect();
   }, []);
-  const projects = useProjects();
 
   const lastBrowseRouteRef = useRef<TasksRoute | null>(null);
   useEffect(() => {
-    if (route.kind !== "task") lastBrowseRouteRef.current = route;
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [subPath]);
+    if (route.kind !== "task" && route.kind !== "entry") {
+      lastBrowseRouteRef.current = route;
+    }
+  }, [route]);
   const backFromTask = () =>
     navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
   const noProjects = projects.data !== undefined && projects.data.length === 0;
@@ -146,7 +144,9 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
           onBack={backFromTask}
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {noProjects && route.kind !== "task" && route.kind !== "manage" ? (
+          {route.kind === "entry" ? (
+            <BrowseEntryState projects={projects} />
+          ) : noProjects && route.kind !== "task" && route.kind !== "manage" ? (
             <EmptyState
               icon="ListTodo"
               title="No projects yet"
