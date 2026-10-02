@@ -67,6 +67,21 @@ describe("thread list slot", () => {
     expect(slot.getByRole("button", { name: "Collapse Parent" }).parentElement?.querySelector("[data-provider-glyph]")).toBeTruthy();
   });
 
+  it("dims an ancestor that the archived selection leaves out and still opens it", () => {
+    const slot = mount([
+      thread({ id: "live", displayTitle: "Live parent" }),
+      thread({ id: "done", displayTitle: "Done child", parentThreadId: "live", isArchived: true, archivedAt: 1 }),
+    ]);
+    showLifecycle(slot, "Archived");
+    const row = (title: string) => slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row")!;
+    expect(row("Live parent").className).toContain("opacity-60");
+    expect(row("Done child").className).not.toContain("opacity-60");
+    expect(slot.getByRole("button", { name: "Collapse Live parent" })).toBeTruthy();
+    expect(slot.getByRole("button", { name: "Actions for Live parent" })).toBeTruthy();
+    fireEvent.click(slot.getByRole("link", { name: "Live parent" }));
+    expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "open", threadId: "live" });
+  });
+
   it("registers one selectable list and renders a seeded thread", () => {
     expect(app.threadLists).toHaveLength(1);
     expect(app.threadLists[0]?.title).toBe("Threads with PRs");
@@ -246,6 +261,21 @@ describe("thread list slot", () => {
     open(); fireEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
     expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "requestDelete", threadId: "t1" });
     rename.mockRestore();
+  });
+  it("offers pin reordering only between pinned top threads", () => {
+    const sdk = { threads: { reorderPinned: vi.fn(async () => ({} as never)) } };
+    const slot = mount([
+      thread({ id: "first", displayTitle: "First", isPinned: true, pinnedAt: 3, pinSortKey: "a" }),
+      thread({ id: "parent", displayTitle: "Parent" }),
+      thread({ id: "child", displayTitle: "Pinned child", parentThreadId: "parent", isPinned: true, pinnedAt: 2, pinSortKey: "b" }),
+      thread({ id: "last", displayTitle: "Last", isPinned: true, pinnedAt: 1, pinSortKey: "c" }),
+    ], {}, { sdk });
+    fireEvent.click(slot.getByRole("button", { name: "Actions for First" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move down" }));
+    expect(sdk.threads.reorderPinned).toHaveBeenCalledWith({ threadId: "first", previousThreadId: "last", nextThreadId: null });
+    fireEvent.click(slot.getByRole("button", { name: "Actions for Pinned child" }));
+    expect(screen.queryByRole("menuitem", { name: "Move up" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Move down" })).toBeNull();
   });
   it("uses public SDK operations for section changes and unarchiving", () => {
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("Later renamed");

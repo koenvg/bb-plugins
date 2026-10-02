@@ -24,12 +24,23 @@ export function threadsWithActiveDescendant(threads: readonly PluginSidebarThrea
   return marked;
 }
 
-export function tabFor(thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionTab {
-  if (needsAttention(thread) || thread.isUnread) return "attention";
-  if (isActive(thread) || hasActiveDescendant) return "inflight";
-  if (!pr) return "attention";
-  if (pr.mergeQueue) return pr.mergeQueue.state === "failed" ? "attention" : "inflight";
-  if (pr.blockers.some((code) => PROBLEMS.includes(code))) return "attention";
-  if (pr.state === "open" && (pr.runningChecks > 0 || pr.blockers.some((code) => WAITING.includes(code)))) return "inflight";
-  return "attention";
+type AttentionReason = "urgent" | "settled";
+
+function attentionReason(thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionReason | null {
+  if (needsAttention(thread) || thread.isUnread) return "urgent";
+  if (isActive(thread) || hasActiveDescendant) return null;
+  if (!pr) return "settled";
+  if (pr.mergeQueue) return pr.mergeQueue.state === "failed" ? "urgent" : null;
+  if (pr.blockers.some((code) => PROBLEMS.includes(code))) return "urgent";
+  if (pr.state === "open" && (pr.runningChecks > 0 || pr.blockers.some((code) => WAITING.includes(code)))) return null;
+  return "settled";
+}
+
+export const tabFor = (thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionTab =>
+  attentionReason(thread, pr, hasActiveDescendant) ? "attention" : "inflight";
+
+export function pullsTreeToAttention(thread: PluginSidebarThread, pr: PrSummary | null,
+  hasActiveDescendant: boolean, isTop: boolean): boolean {
+  const reason = attentionReason(thread, pr, hasActiveDescendant);
+  return reason !== null && (isTop || reason !== "settled");
 }
