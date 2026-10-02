@@ -211,11 +211,13 @@ function mergeAction(
   settings: MergeSettings,
   prState: PrInsight["pr"]["state"],
   prBlockers: readonly Blocker[],
+  mergeQueue: PrInsight["mergeQueue"],
 ): MergeAction {
   return buildMergeAction({
     prState,
     blockers: prBlockers,
     isMergeQueueEnabled: reviewState.isMergeQueueEnabled,
+    isInMergeQueue: mergeQueue !== null,
     defaultMethod: settings.viewerDefaultMergeMethod,
     allowedMethods: {
       MERGE: settings.mergeCommitAllowed,
@@ -241,7 +243,7 @@ export async function collectInsight(github: GitHubReader): Promise<PrReading> {
   return {
     insight: {
       pr,
-      mergeAction: mergeAction(reviewState, mergeSettings, pr.state, prBlockers),
+      mergeAction: mergeAction(reviewState, mergeSettings, pr.state, prBlockers, mergeQueue),
       blockers: prBlockers,
       reviewers: buildReviewers(
         reviewState.reviewRequests.nodes,

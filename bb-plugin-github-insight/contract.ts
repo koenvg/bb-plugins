@@ -62,6 +62,9 @@ const mergePullRequestRequestSchema = z
   .strict();
 export type MergePullRequestRequest = z.infer<typeof mergePullRequestRequestSchema>;
 
+const enqueuePullRequestRequestSchema = mergePullRequestRequestSchema.omit({ mergeMethod: true });
+export type EnqueuePullRequestRequest = z.infer<typeof enqueuePullRequestRequestSchema>;
+
 export const hostContract = defineRpcContract({
   fetchOverviewPage: {
     input: prPageRequestSchema,
@@ -93,6 +96,10 @@ export const hostContract = defineRpcContract({
   },
   mergePullRequest: {
     input: mergePullRequestRequestSchema,
+    output: ghResultSchema,
+  },
+  enqueuePullRequest: {
+    input: enqueuePullRequestRequestSchema,
     output: ghResultSchema,
   },
 });
@@ -181,7 +188,7 @@ export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 const runMergeActionRequestSchema = z
   .object({
     threadId: z.string().min(1),
-    action: z.literal("merge"),
+    action: z.enum(["merge", "enqueue"]),
     expectedHeadOid: z.string().min(1),
   })
   .strict();

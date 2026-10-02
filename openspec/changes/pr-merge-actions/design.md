@@ -28,14 +28,14 @@ repository {
   mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed
   pullRequest {
     id headRefOid                      # node id + head commit for the guard
-    isMergeQueueEnabled isInMergeQueue
+    isMergeQueueEnabled mergeQueueEntry { position state }
   }
 }
 ```
 
 - Same request as today, so no extra GitHub call per poll.
 - Alternative: a separate readiness query on click (as OpenForge does). Rejected: the tab must know the state before the click to show the right button.
-- `isInMergeQueue` instead of `mergeQueueEntry { state }`: the spec needs only "queued or not".
+- `mergeQueueEntry { position state }` instead of `isInMergeQueue`: the queue state row already reads it, and "queued" is `mergeQueueEntry != null`.
 
 ### D2: Pure `buildMergeAction` in `core/merge-action.ts`
 

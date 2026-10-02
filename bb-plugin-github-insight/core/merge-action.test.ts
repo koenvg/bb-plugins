@@ -11,6 +11,7 @@ function input(overrides: Partial<MergeActionInput> = {}): MergeActionInput {
     prState: "open",
     blockers: [],
     isMergeQueueEnabled: false,
+    isInMergeQueue: false,
     defaultMethod: "SQUASH",
     allowedMethods: { MERGE: true, SQUASH: true, REBASE: true },
     ...overrides,
@@ -51,7 +52,37 @@ describe("buildMergeAction", () => {
     expect(action).toEqual({ kind: "none" });
   });
 
-  it("does not merge directly when the base branch has a merge queue", () => {
-    expect(buildMergeAction(input({ isMergeQueueEnabled: true }))).toEqual({ kind: "none" });
+  it("enqueues a ready PR when the base branch has a merge queue", () => {
+    expect(buildMergeAction(input({ isMergeQueueEnabled: true }))).toEqual({ kind: "enqueue" });
+  });
+
+  it("enqueues even when the repository does not allow the default method", () => {
+    const action = buildMergeAction(
+      input({ isMergeQueueEnabled: true, defaultMethod: "REBASE", allowedMethods: only("SQUASH") }),
+    );
+
+    expect(action).toEqual({ kind: "enqueue" });
+  });
+
+  it("gives no action for a PR with a blocker on a merge queue branch", () => {
+    const blockers: Blocker[] = [{ code: "checks_failed", text: "1 check failed" }];
+
+    expect(buildMergeAction(input({ isMergeQueueEnabled: true, blockers }))).toEqual({
+      kind: "none",
+    });
+  });
+
+  it("shows a queued PR as queued while its checks still run", () => {
+    const blockers: Blocker[] = [{ code: "checks_running", text: "2 checks running" }];
+
+    const action = buildMergeAction(
+      input({ isMergeQueueEnabled: true, isInMergeQueue: true, blockers }),
+    );
+
+    expect(action).toEqual({ kind: "queued" });
+  });
+
+  it.each(["merged", "closed"] as const)("gives no action for a %s PR that was queued", (prState) => {
+    expect(buildMergeAction(input({ prState, isInMergeQueue: true }))).toEqual({ kind: "none" });
   });
 });

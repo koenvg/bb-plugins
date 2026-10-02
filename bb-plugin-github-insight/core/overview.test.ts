@@ -276,11 +276,12 @@ describe("collectInsight on a merge queue repo", () => {
   const recordedPage = (page: unknown) =>
     recordedGitHub({ fetchOverviewPage: async () => page });
 
-  it("gives no merge blockers for a PR that is ready to enqueue", async () => {
+  it("offers enqueue with no merge blockers for a PR that is ready to enqueue", async () => {
     const { insight } = await collectInsight(recordedPage(readyToEnqueuePage));
 
     expect(insight.blockers).toEqual([]);
     expect(insight.mergeQueue).toBeNull();
+    expect(insight.mergeAction).toEqual({ kind: "enqueue" });
   });
 
   it("gives the queue position and state of a queued PR", async () => {
@@ -288,6 +289,7 @@ describe("collectInsight on a merge queue repo", () => {
 
     expect(insight.mergeQueue).toEqual({ position: 1, state: "awaiting_checks" });
     expect(insight.blockers).toEqual([]);
+    expect(insight.mergeAction).toEqual({ kind: "queued" });
   });
 });
 
@@ -319,12 +321,12 @@ describe("collectInsight merge action", () => {
     expect(insight.mergeAction).toEqual({ kind: "merge", method: "SQUASH" });
   });
 
-  it("offers no direct merge when the base branch has a merge queue", async () => {
+  it("offers enqueue instead of merge when the base branch has a merge queue", async () => {
     const { insight } = await collectInsight(
       recordedGitHub({ fetchOverviewPage: async () => readyPage({ isMergeQueueEnabled: true }) }),
     );
 
-    expect(insight.mergeAction).toEqual({ kind: "none" });
+    expect(insight.mergeAction).toEqual({ kind: "enqueue" });
   });
 });
 

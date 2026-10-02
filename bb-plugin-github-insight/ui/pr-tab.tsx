@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
+import type { MergeAction } from "../core/merge-action";
 import type { CheckFailure } from "../core/failure";
 import type { MergeQueue } from "../core/merge-queue";
 import type { PrInsight } from "../core/overview";
@@ -103,7 +104,7 @@ export function PrTab({ threadId }: { threadId: string }) {
         />
       )}
       <MergeQueueStatus mergeQueue={result.insight.mergeQueue} />
-      <MergeActionButton
+      <MergeActionRow
         threadId={threadId}
         pr={result.insight.pr}
         action={result.insight.mergeAction}
@@ -137,6 +138,18 @@ const SECTION_HEADING_CLASS = "text-xs font-medium text-muted-foreground";
 
 const LABEL_CLASS =
   "shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground";
+
+interface MergeActionRowProps {
+  threadId: string;
+  pr: PrInsight["pr"];
+  action: MergeAction;
+}
+
+function MergeActionRow({ threadId, pr, action }: MergeActionRowProps) {
+  if (action.kind === "none") return null;
+  if (action.kind === "queued") return <span className={cn(LABEL_CLASS, "w-fit")}>Queued</span>;
+  return <MergeActionButton threadId={threadId} pr={pr} action={action} />;
+}
 
 function MergeQueueStatus({ mergeQueue }: { mergeQueue: MergeQueue }) {
   if (mergeQueue === null) return null;

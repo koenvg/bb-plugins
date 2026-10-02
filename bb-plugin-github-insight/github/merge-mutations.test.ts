@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergePullRequestArgs } from "./merge-mutations";
+import { enqueuePullRequestArgs, mergePullRequestArgs } from "./merge-mutations";
 
 const request = {
   pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
@@ -32,5 +32,30 @@ describe("mergePullRequestArgs", () => {
     expect(query).not.toContain(request.pullRequestId);
     expect(query).not.toContain(request.expectedHeadOid);
     expect(query).not.toContain("SQUASH");
+  });
+});
+
+describe("enqueuePullRequestArgs", () => {
+  const enqueue = { pullRequestId: request.pullRequestId, expectedHeadOid: request.expectedHeadOid };
+
+  it("passes the PR id and head commit as raw GraphQL variables", () => {
+    expect(enqueuePullRequestArgs(enqueue)).toEqual([
+      "api",
+      "graphql",
+      "-f",
+      expect.stringMatching(/^query=/),
+      "-f",
+      `pullRequestId=${enqueue.pullRequestId}`,
+      "-f",
+      `expectedHeadOid=${enqueue.expectedHeadOid}`,
+    ]);
+  });
+
+  it("keeps the values out of the query text", () => {
+    const query = enqueuePullRequestArgs(enqueue).find((arg) => arg.startsWith("query="))!;
+
+    expect(query).toContain("enqueuePullRequest(");
+    expect(query).not.toContain(enqueue.pullRequestId);
+    expect(query).not.toContain(enqueue.expectedHeadOid);
   });
 });

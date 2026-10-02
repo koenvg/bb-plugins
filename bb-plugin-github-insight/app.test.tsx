@@ -508,6 +508,91 @@ describe("PR tab merge", () => {
   });
 });
 
+const enqueueInsight = ok({ ...emptyInsight, mergeAction: { kind: "enqueue" } });
+
+describe("PR tab enqueue", () => {
+  it("shows an enqueue button and no merge button for a ready PR on a merge queue branch", async () => {
+    const slot = renderMergeTab({ result: () => enqueueInsight });
+
+    expect(await slot.findByRole("button", { name: "Enqueue" })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: /merge/i })).toBeNull();
+  });
+
+  it("sends one enqueue with the head commit the tab showed, without a dialog", async () => {
+    const slot = renderMergeTab({ result: () => enqueueInsight });
+
+    const enqueue = await slot.findByRole("button", { name: "Enqueue" });
+    await act(async () => {
+      fireEvent.click(enqueue);
+      fireEvent.click(enqueue);
+    });
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(mergeCalls(slot)).toEqual([
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid },
+      }),
+    ]);
+  });
+
+  it("disables the button while the enqueue runs", async () => {
+    let finish: (result: ActionResult) => void = () => {};
+    const slot = renderMergeTab({
+      result: () => enqueueInsight,
+      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
+
+    expect(await slot.findByRole("button", { name: "Enqueuing…" })).toHaveProperty("disabled", true);
+    await act(async () => finish({ kind: "ok" }));
+  });
+
+  it("shows the GitHub error and gives the button back when the enqueue fails", async () => {
+    const message = "Pull request is not mergeable";
+    const slot = renderMergeTab({
+      result: () => enqueueInsight,
+      runMergeAction: () => ({ kind: "error", message }),
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
+
+    expect((await slot.findByRole("alert")).textContent).toBe(message);
+    expect(slot.getByRole("button", { name: "Enqueue" })).toHaveProperty("disabled", false);
+  });
+
+  it("shows Queued once the refresh after the enqueue arrives", async () => {
+    let current = enqueueInsight;
+    const slot = renderMergeTab({ result: () => current });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
+    current = ok({
+      ...emptyInsight,
+      mergeAction: { kind: "queued" },
+      mergeQueue: { position: 1, state: "queued" },
+    });
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
+
+    await slot.findByText("Queued");
+    expect(slot.queryByRole("button", { name: "Enqueue" })).toBeNull();
+  });
+
+  it("shows Queued and no button for a queued PR with running checks", async () => {
+    const slot = renderMergeTab({
+      result: () =>
+        ok({
+          ...emptyInsight,
+          mergeAction: { kind: "queued" },
+          checks: [check("build", "running")],
+          mergeQueue: { position: 2, state: "awaiting_checks" },
+        }),
+    });
+
+    await slot.findByText("Queued");
+    expect(slot.queryByRole("button", { name: /enqueue|merge/i })).toBeNull();
+  });
+});
+
 const banner = app.composerCustomizations
   .find((customization) => customization.id === "pr-insight")!
   .banners!.find((entry) => entry.id === "merge-blockers")!;

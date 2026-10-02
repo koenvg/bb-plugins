@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import pageOne from "./test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "./test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
+import readyToEnqueuePage from "./test/fixtures/pr-25693-overview-ready-to-enqueue.json";
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import type { ReviewResult } from "./contract";
@@ -1328,11 +1329,14 @@ describe("runMergeAction", () => {
     });
   }
 
-  function merges(harness: Awaited<ReturnType<typeof setup>>) {
-    return harness.experimental_hostRpcCalls
-      .filter(({ method }) => method === "mergePullRequest")
-      .map(({ input, hostId }) => ({ input, hostId }));
+  function writes(method: string) {
+    return (harness: Awaited<ReturnType<typeof setup>>) =>
+      harness.experimental_hostRpcCalls
+        .filter((call) => call.method === method)
+        .map(({ input, hostId }) => ({ input, hostId }));
   }
+  const merges = writes("mergePullRequest");
+  const enqueues = writes("enqueuePullRequest");
 
   it("merges with the cached PR id and method through the thread's host and refreshes", async () => {
     const harness = await setupWithPr();
@@ -1405,12 +1409,37 @@ describe("runMergeAction", () => {
     expect(overviewRefreshes(harness)).toHaveLength(2);
   });
 
-  it("offers no CLI command that merges", async () => {
+  it("enqueues a ready merge queue PR with the cached PR id through the thread's host and refreshes", async () => {
+    const overview = pages(readyToEnqueuePage);
+    const harness = await setupWithPr((call) =>
+      call.method === "enqueuePullRequest"
+        ? ok({ data: { enqueuePullRequest: { mergeQueueEntry: { state: "QUEUED" } } } })
+        : overview(call),
+    );
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    const { id, headRefOid } = readyToEnqueuePage.data.repository.pullRequest;
+
+    const result = await harness.behavior.callRpc("runMergeAction", {
+      threadId: "thr_1",
+      action: "enqueue",
+      expectedHeadOid: headRefOid,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(enqueues(harness)).toEqual([
+      { input: { pullRequestId: id, expectedHeadOid: headRefOid }, hostId: "host-1" },
+    ]);
+    expect(merges(harness)).toEqual([]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
+  it("offers no CLI command that merges or enqueues", async () => {
     const harness = await setupWithPr();
 
     const help = await harness.behavior.runCli(["--help"]);
 
     expect(help.stdout).not.toMatch(/merge|enqueue/i);
     expect(merges(harness)).toEqual([]);
+    expect(enqueues(harness)).toEqual([]);
   });
 });

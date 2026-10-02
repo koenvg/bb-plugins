@@ -1,4 +1,4 @@
-import type { MergePullRequestRequest } from "../contract";
+import type { EnqueuePullRequestRequest, MergePullRequestRequest } from "../contract";
 
 const MERGE_MUTATION = `
 mutation ($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!, $expectedHeadOid: GitObjectID!) {
@@ -24,6 +24,30 @@ export function mergePullRequestArgs({
     `pullRequestId=${pullRequestId}`,
     "-f",
     `mergeMethod=${mergeMethod}`,
+    "-f",
+    `expectedHeadOid=${expectedHeadOid}`,
+  ];
+}
+
+const ENQUEUE_MUTATION = `
+mutation ($pullRequestId: ID!, $expectedHeadOid: GitObjectID!) {
+  enqueuePullRequest(input: { pullRequestId: $pullRequestId, expectedHeadOid: $expectedHeadOid }) {
+    mergeQueueEntry { state }
+  }
+}
+`;
+
+export function enqueuePullRequestArgs({
+  pullRequestId,
+  expectedHeadOid,
+}: EnqueuePullRequestRequest): string[] {
+  return [
+    "api",
+    "graphql",
+    "-f",
+    `query=${ENQUEUE_MUTATION}`,
+    "-f",
+    `pullRequestId=${pullRequestId}`,
     "-f",
     `expectedHeadOid=${expectedHeadOid}`,
   ];

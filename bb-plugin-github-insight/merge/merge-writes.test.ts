@@ -22,6 +22,7 @@ type Deps = Parameters<typeof createMergeWrites>[0];
 
 function writesWith(overrides: Partial<Deps> = {}) {
   const merges: unknown[][] = [];
+  const enqueues: unknown[][] = [];
   const refreshed: string[] = [];
   const warnings: string[] = [];
   const writes = createMergeWrites({
@@ -30,13 +31,17 @@ function writesWith(overrides: Partial<Deps> = {}) {
       merges.push(args);
       return { data: {} };
     },
+    enqueuePullRequest: async (...args) => {
+      enqueues.push(args);
+      return { data: {} };
+    },
     refreshAfterWrite: async (threadId) => {
       refreshed.push(threadId);
     },
     warn: (message) => warnings.push(message),
     ...overrides,
   });
-  return { writes, merges, refreshed, warnings };
+  return { writes, merges, enqueues, refreshed, warnings };
 }
 
 const request = { threadId: "thr_1", action: "merge", expectedHeadOid: HEAD } as const;
@@ -52,6 +57,40 @@ describe("runMergeAction", () => {
       [target, { pullRequestId: "PR_7", mergeMethod: "REBASE", expectedHeadOid: HEAD }],
     ]);
     expect(refreshed).toEqual(["thr_1"]);
+  });
+
+  it("enqueues with the cached PR id and the head commit the tab showed", async () => {
+    const { writes, merges, enqueues, refreshed } = writesWith({
+      cachedPr: async () => ({ ...cached, insight: { ...insight, mergeAction: { kind: "enqueue" } } }),
+    });
+
+    const result = await writes.runMergeAction({ ...request, action: "enqueue" });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(enqueues).toEqual([[target, { pullRequestId: "PR_7", expectedHeadOid: HEAD }]]);
+    expect(merges).toEqual([]);
+    expect(refreshed).toEqual(["thr_1"]);
+  });
+
+  it("does not enqueue when the cached PR offers a merge", async () => {
+    const { writes, merges, enqueues } = writesWith();
+
+    const result = await writes.runMergeAction({ ...request, action: "enqueue" });
+
+    expect(result).toEqual({ kind: "error", message: "The PR changed. Refresh and try again." });
+    expect(enqueues).toEqual([]);
+    expect(merges).toEqual([]);
+  });
+
+  it("does not enqueue a PR that is already queued", async () => {
+    const { writes, enqueues } = writesWith({
+      cachedPr: async () => ({ ...cached, insight: { ...insight, mergeAction: { kind: "queued" } } }),
+    });
+
+    const result = await writes.runMergeAction({ ...request, action: "enqueue" });
+
+    expect(result).toEqual({ kind: "error", message: "The PR changed. Refresh and try again." });
+    expect(enqueues).toEqual([]);
   });
 
   it.each<[CachedPr, string]>([
