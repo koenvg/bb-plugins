@@ -31,5 +31,5 @@
 
 ## 6. Integration
 
-- [ ] 6.1 Run `npm test` and `npm run typecheck` in `bb-plugin-github-insight` and verify both pass
+- [x] 6.1 Run `npm test` and `npm run typecheck` in `bb-plugin-github-insight` and verify both pass
 - [ ] 6.2 In `bb plugin dev`, enqueue a ready PR on a merge-queue repo and merge a ready PR on a repo without one from the composer banner; verify the tab and the banner show "Queued", the banner hides after the merge, and that a push between refresh and click gives a GitHub error and no write
