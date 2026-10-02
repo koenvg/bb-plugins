@@ -4,6 +4,7 @@ import type {
 import type { MenuItem } from "./action-menu";
 import type { ListItem } from "./list-model";
 import { canSnooze, snoozePresets, type SnoozeControls } from "./snooze-model";
+import { cancelPrPanelRequest } from "../bb-plugin-github-insight/pr-panel-navigation";
 
 const askName = (label: string, current = "") => window.prompt(label, current)?.trim() || null;
 
@@ -17,7 +18,7 @@ export function threadMenuItems(thread: PluginSidebarThread, actions: PluginSide
     { label: thread.isUnread ? "Mark read" : "Mark unread", run: () => actions.setRead(id, thread.isUnread) },
     { label: "Rename", run: () => { const title = askName("Rename thread", thread.displayTitle); if (title) return actions.rename(id, title); } },
   ];
-  if (splitAvailable) items.push({ label: "Open in split", run: () => { actions.open(id, { split: true }); onNavigate(); } });
+  if (splitAvailable) items.push({ label: "Open in split", run: () => { cancelPrPanelRequest(); actions.open(id, { split: true }); onNavigate(); } });
   if (index > 0) items.push({ label: "Move up", run: () => sdk.threads.reorderPinned({
     threadId: id, previousThreadId: pinned[index - 2]?.id ?? null, nextThreadId: pinned[index - 1]!.id,
   }) });

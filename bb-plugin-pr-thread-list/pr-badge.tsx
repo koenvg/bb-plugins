@@ -6,11 +6,11 @@ import { Tip } from "./tip";
 const CHECKS_TONE = { passed: "text-success", running: "text-warning-text", failed: "text-destructive", unknown: "text-muted-foreground" };
 const TONE = { merged: "text-violet-600 dark:text-violet-400", problem: "text-destructive", ready: "text-primary", waiting: "text-muted-foreground", neutral: "text-muted-foreground" };
 
-export function PrBadgeView({ pullRequest }: { pullRequest: PrSummary | null }) {
+export function PrBadgeView({ pullRequest, onActivate }: { pullRequest: PrSummary | null; onActivate: () => void }) {
   if (!pullRequest) return <span data-testid="pr-hook-consumer" hidden />;
   const view = presentPullRequest(pullRequest);
   const content = <>
-    <span className="sr-only">{view.label}</span>
+    <span className="sr-only">Open PR tab, {view.label}</span>
     <span aria-hidden className="contents">
       <Tip text={view.leadTitle} side="end" className="inline-flex items-center">
         <Icon name={view.lead} className={`size-3 shrink-0 ${view.tone === "merged" ? TONE.merged : CHECKS_TONE[view.checks]}`} />
@@ -24,12 +24,10 @@ export function PrBadgeView({ pullRequest }: { pullRequest: PrSummary | null }) 
     </span>
   </>;
   const badge = "inline-flex max-w-48 items-center gap-1 rounded px-1 text-[11px] leading-4";
-  const safeUrl = /^https?:\/\//i.test(pullRequest.url) ? pullRequest.url : null;
   return <span data-testid="pr-hook-consumer" className="flex min-w-0 shrink-0">
-    {safeUrl ? <a href={safeUrl} target="_blank" rel="noopener noreferrer"
-      onClick={(event) => event.stopPropagation()}
+    <button type="button" onClick={(event) => { event.stopPropagation(); onActivate(); }}
       className={`${badge} hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
       {content}
-    </a> : <span className={badge}>{content}</span>}
+    </button>
   </span>;
 }

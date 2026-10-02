@@ -82,7 +82,7 @@ An open PR in a merge queue shows its queue state instead of its blockers:
 
 A summary without `mergeQueue`, or with an invalid one, reads as not queued.
 
-The left of the second line shows queued messages and background work (workflows, agents, commands, plan mode, goals) as icons with counts. When there is none, it shows the branch. The badge opens the PR without opening the thread. Threads that share an environment show the same PR.
+The left of the second line shows queued messages and background work (workflows, agents, commands, plan mode, goals) as icons with counts. When there is none, it shows the branch. Clicking anywhere on the PR badge opens that row's thread and selects its PR tab in BB. Focus the badge and press Enter or Space for the same action. It does not open a browser tab; external GitHub links remain available inside the PR panel. Threads that share an environment show the same PR.
 
 There is no badge while the summaries load, when there is no PR, or when the summary is not usable. An open or draft PR summary older than one hour is not usable. A merged or closed PR summary stays usable at any age. No badge does not mean that checks passed or that a PR was closed.
 
