@@ -5,11 +5,12 @@ Shows the open pull requests that wait for the user's review, and the user's own
 ## ADDED Requirements
 
 ### Requirement: Pull Requests panel
-The plugin SHALL add a nav panel named "Pull Requests" with a pull request icon. The panel SHALL show a "My reviews" list at the top, and below it two lists side by side: "Review requests" and "My PRs". Each list header SHALL show the number of items in that list. The panel title SHALL appear once.
+The plugin SHALL add a nav panel named "Pull Requests" with a pull request icon. The panel SHALL show a "My reviews" list at the top and a full-width "Review requests" list below it. Each list header SHALL show the number of items in that list. The panel title SHALL appear once. Refresh and the time of the last load SHALL sit on the first list header row, not on a row of their own.
 
 #### Scenario: Open the panel
 - **WHEN** the user opens the "Pull Requests" panel
-- **THEN** the panel shows "My reviews", "Review requests", and "My PRs", each with its count
+- **THEN** the panel shows "My reviews" and "Review requests", each with its count
+- **AND** the first header row shows Refresh and "Updated <time> ago"
 
 ### Requirement: Review requests list content
 The "Review requests" list SHALL contain the open pull requests on GitHub where a review from the logged-in `gh` user is requested. It SHALL group them by repository and sort each group by last update, newest first.
@@ -21,13 +22,6 @@ The "Review requests" list SHALL contain the open pull requests on GitHub where 
 #### Scenario: Review submitted
 - **WHEN** the user submits a review on GitHub and GitHub no longer requests their review
 - **THEN** the PR is not in the list after the next refresh
-
-### Requirement: My PRs list content
-The "My PRs" list SHALL contain the open pull requests authored by the logged-in `gh` user. It SHALL group them by repository and sort each group by last update, newest first.
-
-#### Scenario: Merged PR leaves the list
-- **WHEN** one of the user's PRs is merged
-- **THEN** the PR is not in "My PRs" after the next refresh
 
 ### Requirement: List limit
 Each list SHALL show at most 50 pull requests. When GitHub reports more, the list SHALL show "Showing first 50".
@@ -56,15 +50,27 @@ Each PR card SHALL show the number, title, author, time since the last update, a
 - **THEN** bb opens the PR URL in the browser
 
 ### Requirement: Refresh
-The panel SHALL load both lists when it opens, when the user selects Refresh, and every 5 minutes while the panel is open. During a refresh the panel SHALL keep showing the last loaded lists.
+The plugin SHALL refresh the lists in the background every 5 minutes, also while the panel is closed, and SHALL keep the last good result across plugin restarts. The panel SHALL show the kept result at once when it opens and SHALL update when a background refresh finishes. Refresh SHALL start a refresh at once. During a refresh the panel SHALL keep showing the last result.
 
 #### Scenario: Manual refresh
 - **WHEN** the user selects Refresh
-- **THEN** the panel reloads both lists from GitHub and keeps the old lists visible until the new data arrives
+- **THEN** the panel reloads the lists from GitHub and keeps the old lists visible until the new data arrives
 
-#### Scenario: Panel closed
-- **WHEN** the panel is not open
-- **THEN** the plugin makes no GitHub calls for these lists
+#### Scenario: Open with a kept result
+- **WHEN** a background refresh finished 3 minutes ago and the user opens the panel
+- **THEN** the panel shows that result at once, with "Updated 3 minutes ago", without waiting for GitHub
+
+#### Scenario: Background update while open
+- **WHEN** the panel is open and a background refresh finishes with a new review request
+- **THEN** the new request appears without a user action
+
+#### Scenario: After a plugin restart
+- **WHEN** bb restarts and the user opens the panel before the first background refresh finishes
+- **THEN** the panel shows the result kept from before the restart
+
+#### Scenario: Review thread started
+- **WHEN** the user starts or archives a review thread
+- **THEN** "My reviews" and the card actions update without waiting for the next background refresh
 
 ### Requirement: Errors
 When the lists cannot be loaded, the panel SHALL show the reason ("gh not installed", "gh not logged in", "rate limited", or the error text) and a retry action. When earlier data exists, the panel SHALL keep it visible and show the time it was loaded.
@@ -120,10 +126,6 @@ When an unarchived bb thread, hidden or visible, is linked to a PR on the list, 
 #### Scenario: Review thread before checkout
 - **WHEN** the user started a review thread for `acme/api#15` and its agent has not run `gh pr checkout` yet
 - **THEN** the card for `#15` shows "Open thread"
-
-#### Scenario: Linked thread on My PRs
-- **WHEN** a thread's branch is the head branch of one of the user's own PRs
-- **THEN** that card in "My PRs" shows "Open thread"
 
 ### Requirement: Hidden review threads
 A thread started with "Review in thread" SHALL be hidden from the sidebar thread list. The plugin SHALL record on the thread which PR it reviews (repository, number, title, URL). The GitHub Insight PR and Review tabs SHALL work for hidden threads the same as for visible threads.

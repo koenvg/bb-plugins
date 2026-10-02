@@ -47,3 +47,12 @@
 - [x] 8.5 Apply the card layout of decision 9 (repo only on group header, group-level "No bb project" hint, `updatedAt` age, one meta row, no duplicate title, valid icon); verify `renderSlot` tests for each point and check the icon name against the SDK icon list
 - [ ] 8.6 In a running bb, start a hidden review thread and let its agent stop; record in design.md (Risks) whether bb shows "Needs you" or a notice for it; verify the "My reviews" row shows its status
 - [x] 8.7 Update `README.md` and `PLUGIN_OVERVIEW.md` for hidden review threads, "My reviews", and how to find a hidden thread without the plugin (`bb thread list --include-hidden`); verify `npm test`, `npm run typecheck`, and `openspec validate github-review-requests-panel --strict` pass
+
+## 9. Remove My PRs, compact header, background cache
+
+- [ ] 9.1 Remove the `author:@me` search, `myPrs` from the core, contract, service, and UI, and their tests; verify the query snapshot has one search and `npm test` passes
+- [ ] 9.2 Add the `review-queue` background service, the versioned kv entry, the `review-queue.updated` channel, `refreshReviewQueue()`, and `getReviewQueue()` reading the stored view (decision 5); verify unit tests with fake timers, kv, and realtime for: first load, 5-minute repeat, one load at a time, Refresh during a load, stored view after a simulated restart, failure keeps the last good view, `loading` before the first load
+- [ ] 9.3 Make `startReview` and `archiveReview` re-link from stored GitHub data without a `gh` call, then store and publish; verify unit tests that no host call happens and the published view has the new thread or drops the archived one
+- [ ] 9.4 Make the panel read the stored view on mount, subscribe to `review-queue.updated`, call `refreshReviewQueue()` on Refresh, and drop its interval; verify `renderSlot` tests for: instant render from the stored view, update on a published event, Refresh calls the new RPC, `loading` state
+- [ ] 9.5 Full-width Review requests list, and Refresh with "Updated <time> ago" on the "My reviews" header row with no row of its own; verify `renderSlot` tests and a screenshot check by the user
+- [ ] 9.6 Update `README.md` and `PLUGIN_OVERVIEW.md` (no My PRs, background refresh, kept result); verify `npm test`, `npm run typecheck`, and `openspec validate github-review-requests-panel --strict` pass

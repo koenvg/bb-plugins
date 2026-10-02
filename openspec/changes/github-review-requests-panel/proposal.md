@@ -4,11 +4,9 @@ To see which pull requests wait for your review, you must leave bb and open GitH
 
 ## What Changes
 
-- GitHub Insight gets a new nav panel, "Pull Requests", with two lists:
-  - **Review requests**: open PRs where your review is requested.
-  - **My PRs**: open PRs you wrote.
-- Each card shows repo, number, title, author, age, draft, CI state, and review decision.
-- Data comes from `gh` on the primary host. It loads when the panel opens, on Refresh, and every 5 minutes while the panel is open.
+- GitHub Insight gets a new nav panel, "Pull Requests", with a **Review requests** list: open PRs where your review is requested.
+- Each card shows number, title, author, age, draft, CI state, and review decision, grouped by repo.
+- Data comes from `gh` on the primary host. A background service refreshes it every 5 minutes and keeps the last result in plugin storage, so the panel opens at once. Refresh fetches at once.
 - "Review in thread" on a review request opens the host's new-thread composer. It is filled in with:
   - the bb project whose git remote matches the PR repo
   - a fresh worktree
@@ -25,12 +23,13 @@ Out of scope for this change:
 - Submitting a review from the panel.
 - Picking a project for a repo that no bb project matches.
 - One-click start without the composer.
+- A list of the user's own PRs (removed after the first live check: not needed).
 
 ## Capabilities
 
 ### New Capabilities
 
-- `pr-review-requests`: the Pull Requests panel, its two lists, how it gets and refreshes data, and how a review request becomes a bb review thread.
+- `pr-review-requests`: the Pull Requests panel, its lists, how it gets and refreshes data, and how a review request becomes a bb review thread.
 
 ### Modified Capabilities
 

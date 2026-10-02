@@ -9,20 +9,17 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- One `gh` call per refresh for both lists.
-- No new state storage. The lists are derived from GitHub and bb every time.
+- One `gh` call per refresh.
+- The panel opens at once from a kept result.
 
 **Non-Goals:**
-- Background polling when the panel is closed.
-- A cache that survives a plugin restart.
+- Refresh faster than every 5 minutes in the background.
 
 ## Decisions
 
-### 1. One GraphQL call with two aliased searches
+### 1. One GraphQL search
 
-`gh api graphql` with two `search(type: ISSUE)` aliases:
-- `is:pr is:open review-requested:@me`
-- `is:pr is:open author:@me`
+`gh api graphql` with one `search(type: ISSUE)`, alias `reviewRequests`, query `is:pr is:open review-requested:@me`. (The first version also searched `author:@me` for a "My PRs" list. The user removed that list after the first live check.)
 
 Each node asks for `number`, `title`, `url`, `isDraft`, `createdAt`, `updatedAt`, `author.login`, `repository.nameWithOwner`, `headRefName`, `reviewDecision`, and `commits(last: 1) { statusCheckRollup { state } }`. First page only, `first: 50`.
 
@@ -46,7 +43,7 @@ This keeps the logic testable without `gh` or bb, as `core/overview.ts` does now
 
 ### 4. Server builds the full view
 
-New RPC `getReviewQueue()` returns `{ myReviews, reviewRequests, myPrs, loadedAt }` or a failure. For each PR it adds:
+New RPC `getReviewQueue()` returns `{ myReviews, reviewRequests, loadedAt }` or a failure. For each PR it adds:
 - `projectIds`: standard projects whose `parseGithubRepo(gitRemoteUrl)` equals the PR repo, most recently updated first.
 - `threadId`: the most recently updated unarchived thread linked to the same repo and number, or null. A thread is linked by its resolved PR, or by the review metadata of decision 8.
 
@@ -54,14 +51,23 @@ Thread links use the existing `resolvePr` from `pr-lookup.ts` over `sdk.threads.
 
 The server keeps the last good result in memory. On failure it returns the failure together with that result, so the UI can show both.
 
-### 5. Poll from the UI, not a background service
+### 5. Background service, kept result, realtime push
 
-The panel component calls `getReviewQueue` when it mounts, on Refresh, and on a 5-minute interval. It clears the interval when it unmounts. This gives "no calls while closed" without extra server state. The existing `pr-poller` background service is not changed.
+The first version polled from the UI. In the live check the panel took seconds to open: the load waits for `gh`, then resolves the PR of every thread environment and reads plugin metadata per review thread.
+
+- New `bb.background.service("review-queue")` runs the load at start and then every 5 minutes. Only one load runs at a time; a Refresh during a load waits for it and then starts one more.
+- After each load the service stores the view (or the failure with the last good view) in `bb.storage.kv` under one versioned key, and publishes it on a new realtime channel `review-queue.updated`.
+- `getReviewQueue()` returns the stored view at once and never waits for GitHub. Before the first load ever, it returns `{ kind: "loading" }`.
+- New RPC `refreshReviewQueue()` starts a load and returns when it finishes. The panel's Refresh calls it.
+- `startReview` and `archiveReview` re-run only the cheap bb part (`myReviews` and thread links, no `gh` call) on the stored GitHub data, store, and publish.
+- The panel loads the stored view on mount, subscribes to `review-queue.updated`, and drops its own 5-minute interval.
+
+Alternative: in-memory cache only. Rejected: after a bb restart the panel would wait for the first load again.
 
 ### 6. Composer on a panel subpath
 
 Routes:
-- `""`: My reviews and the two lists
+- `""`: My reviews and Review requests
 - `review/<owner>/<repo>/<number>`: the composer for one review request
 
 The composer page loads the PR from the last queue result and renders `experimental_NewThreadComposer` with:
