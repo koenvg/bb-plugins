@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { MERGE_METHOD_LABEL, type MergeMethod, type RunnableMergeAction } from "../core/merge-action";
 import type { PrInsight } from "../core/overview";
@@ -21,17 +21,31 @@ const ICON_SIZE_CLASS: Record<ButtonSize, string> = {
 const PRIMARY_CLASS = cn(BUTTON_CLASS, "bg-foreground text-background hover:bg-foreground/90");
 const OUTLINE_CLASS = cn(BUTTON_CLASS, SIZE_CLASS.default, "border border-input hover:bg-state-hover");
 
+export interface MergeRequest {
+  onHandled: () => void;
+}
+
 interface MergeActionButtonProps {
   threadId: string;
   pr: PrInsight["pr"];
   action: RunnableMergeAction;
   size?: ButtonSize;
+  request?: MergeRequest;
 }
 
-export function MergeActionButton({ threadId, pr, action, size = "default" }: MergeActionButtonProps) {
+export function MergeActionButton({ threadId, pr, action, size = "default", request }: MergeActionButtonProps) {
   const { state, run } = useMergeAction(threadId, pr.headOid);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const running = state.kind === "running";
   const runAction = () => void run({ action: action.kind, expectedHeadOid: pr.headOid });
+
+  useEffect(() => {
+    if (!request) return;
+    request.onHandled();
+    if (action.kind === "enqueue") void run({ action: "enqueue", expectedHeadOid: pr.headOid });
+    else setConfirmOpen(true);
+  }, [request, action.kind, run, pr.headOid]);
+
   return (
     <div className="flex min-w-0 shrink-0 flex-col items-start gap-1">
       {action.kind === "enqueue" ? (
@@ -49,6 +63,8 @@ export function MergeActionButton({ threadId, pr, action, size = "default" }: Me
           method={action.method}
           running={running}
           size={size}
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
           confirm={runAction}
         />
       )}
@@ -91,13 +107,15 @@ interface MergeConfirmProps {
   method: MergeMethod;
   running: boolean;
   size: ButtonSize;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   confirm: () => void;
 }
 
-function MergeConfirm({ pr, method, running, size, confirm }: MergeConfirmProps) {
+function MergeConfirm({ pr, method, running, size, open, onOpenChange, confirm }: MergeConfirmProps) {
   const label = MERGE_METHOD_LABEL[method];
   return (
-    <AlertDialog.Root>
+    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Trigger asChild>
         <ActionButton
           icon="GitMerge"

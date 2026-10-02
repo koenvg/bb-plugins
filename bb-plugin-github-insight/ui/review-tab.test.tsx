@@ -17,6 +17,7 @@ import { parsePrFiles } from "../core/pr-files";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import { parseReviewThreads } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
+import { postIntent } from "./command-intents";
 import prFiles from "../test/fixtures/pr-1-files.json";
 import threadedPrFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
@@ -1300,5 +1301,55 @@ describe("Review tab submit panel", () => {
     expect(await slot.findByRole("region", { name: "Draft from agent" })).toBeTruthy();
     expect(submitButton(panel).disabled).toBe(true);
     expect(panel.getByText("Pull request is merged")).toBeTruthy();
+  });
+});
+
+describe("Review tab palette commands", () => {
+  const submitRegion = (slot: ReturnType<typeof renderTab>) => slot.queryByRole("region", { name: "Submit review" });
+
+  it("opens the submit panel once the review has loaded", async () => {
+    postIntent("thr_1", "review", "submit");
+    const slot = renderTab(recorded);
+
+    expect(await slot.findByRole("region", { name: "Submit review" })).toBeTruthy();
+    expect(callsTo(slot, "submitReview")).toEqual([]);
+  });
+
+  it("keeps an open panel open with the typed summary", async () => {
+    const slot = renderTab(recorded);
+    fireEvent.click(await slot.findByRole("button", { name: "Submit review" }));
+    const summary = within(submitRegion(slot)!).getByRole("textbox", { name: "Summary" }) as HTMLTextAreaElement;
+    fireEvent.change(summary, { target: { value: "Looks good" } });
+
+    await act(async () => postIntent("thr_1", "review", "submit"));
+
+    expect((within(submitRegion(slot)!).getByRole("textbox", { name: "Summary" }) as HTMLTextAreaElement).value).toBe(
+      "Looks good",
+    );
+  });
+
+  it("drops the request when the thread has no PR yet", async () => {
+    postIntent("thr_1", "review", "submit");
+    const slot = renderTab({ kind: "no_pr" }, recorded);
+    await slot.findByText("No pull request for this thread");
+
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.findByRole("button", { name: "Submit review" });
+    await act(quietly);
+
+    expect(submitRegion(slot)).toBeNull();
+  });
+
+  it("does not open the panel again when the tab mounts again", async () => {
+    postIntent("thr_1", "review", "submit");
+    const first = renderTab(recorded);
+    await first.findByRole("region", { name: "Submit review" });
+    first.unmount();
+
+    const second = renderTab(recorded);
+    await second.findByRole("button", { name: "Submit review" });
+    await act(quietly);
+
+    expect(submitRegion(second)).toBeNull();
   });
 });
