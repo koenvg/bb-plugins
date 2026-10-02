@@ -92,7 +92,7 @@ Alternative: a worktree from `origin/<headRefName>`. bb makes a new local branch
 - [A hidden thread may not raise "Needs you" or a notice when its agent stops] → Task 8.6 checks this in a running bb. The "My reviews" row shows the thread status either way.
 - [A hidden thread can be lost if the plugin is uninstalled] → It still exists in bb; `bb thread list --include-hidden` finds it, and `bb thread update --visibility visible` shows it again. README says so.
 - [Only the first 50 results per list] → The list shows "Showing first 50" when GitHub reports more. Pagination can come later.
-- [Resolving the PR for every thread on each refresh costs one SDK call per environment] → Per-refresh cache, and refresh runs only while the panel is open.
+- [Resolving the PR for every thread on each refresh costs one SDK call per environment] → Per-refresh cache; the refresh runs in the background every 5 minutes (decision 5), so the panel never waits for it.
 - [`gh pr checkout` fails because the worktree has local changes] → The worktree is fresh, so it has no local changes.
 
 ### 8. Hidden review threads with plugin metadata
