@@ -16,7 +16,7 @@ export interface ListOptions {
   collapsedThreads: readonly string[];
 }
 export type GroupScope =
-  | { kind: "attention" } | { kind: "pinned" } | { kind: "threads" }
+  | { kind: "attention" } | { kind: "pinned" } | { kind: "threads" } | { kind: "snoozed" }
   | { kind: "project"; projectId: string }
   | { kind: "section"; sectionId: string }
   | { kind: "machine"; hostId: string; name: string };
@@ -28,6 +28,10 @@ const groupKey = (scope: GroupScope): string => {
     case "machine": return `machine:${scope.hostId}`;
     default: return scope.kind;
   }
+};
+
+const GROUP_RANKS: Record<GroupScope["kind"], number> = {
+  attention: 0, pinned: 1, project: 2, section: 2, machine: 2, threads: 3, snoozed: 4,
 };
 
 export type ListItem =
@@ -118,14 +122,17 @@ export function visibleItems(
   sections: readonly PluginSidebarSection[],
   options: ListOptions,
   pullRequests: ReadonlyMap<string, PrSummary | null> = new Map(),
+  snoozed: ReadonlyMap<string, number> = new Map(),
 ): ListItem[] {
   const { tab } = options;
   const withActiveDescendant = tab === "all" ? new Set<string>() : threadsWithActiveDescendant(threads);
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
-  const isMember = (t: PluginSidebarThread) => !t.isHidden && (tab === "all"
+  const isListed = (t: PluginSidebarThread) => !t.isHidden && (tab === "all"
     ? options.lifecycles.includes(t.isArchived ? "archived" : "active")
     : !t.isArchived);
+  const isMember = (t: PluginSidebarThread) => isListed(t) && !snoozed.has(t.id);
+  const isSnoozedMember = (t: PluginSidebarThread) => tab === "all" && isListed(t) && snoozed.has(t.id);
   const forest = buildForest(threads);
   const isTopMember = (t: PluginSidebarThread) => {
     for (let parent = forest.parentOf(t); parent; parent = forest.parentOf(parent)) if (isMember(parent)) return false;
@@ -146,28 +153,33 @@ export function visibleItems(
       case "attention": return "Needs you";
       case "pinned": return "Pinned";
       case "threads": return "Threads";
+      case "snoozed": return "Snoozed";
       case "project": return projectNames.get(scope.projectId) ?? "Threads";
       case "section": return sectionNames.get(scope.sectionId) ?? "Threads";
       case "machine": return scope.name;
     }
   };
-  const groups = new Map<string, { scope: GroupScope; roots: PluginSidebarThread[]; rows: Set<string>; count: number }>();
-  const sectionOrder = new Map(sections.map((section, index) => [section.id, index]));
-  if (options.mode === "section") for (const section of sections) {
-    const scope: GroupScope = { kind: "section", sectionId: section.id };
-    groups.set(groupKey(scope), { scope, roots: [], rows: new Set(), count: 0 });
-  }
-  for (const { root, members, rows } of collectTrees(forest, threads.filter(isMember))) {
-    if (tab !== "all" && (members.some(pullsToAttention) ? "attention" : "inflight") !== tab) continue;
-    const scope = scopeOf(root, members);
+  type Group = { scope: GroupScope; roots: PluginSidebarThread[]; rows: Set<string>; count: number };
+  const groups = new Map<string, Group>();
+  const add = (scope: GroupScope, { root, members, rows }: Tree) => {
     const key = groupKey(scope);
     let group = groups.get(key);
     if (!group) { group = { scope, roots: [], rows: new Set(), count: 0 }; groups.set(key, group); }
     group.roots.push(root);
     for (const id of rows) group.rows.add(id);
     group.count += members.length;
+  };
+  const sectionOrder = new Map(sections.map((section, index) => [section.id, index]));
+  if (options.mode === "section") for (const section of sections) {
+    const scope: GroupScope = { kind: "section", sectionId: section.id };
+    groups.set(groupKey(scope), { scope, roots: [], rows: new Set(), count: 0 });
   }
-  const rank = (scope: GroupScope) => scope.kind === "attention" ? 0 : scope.kind === "pinned" ? 1 : scope.kind === "threads" ? 3 : 2;
+  for (const tree of collectTrees(forest, threads.filter(isMember))) {
+    if (tab !== "all" && (tree.members.some(pullsToAttention) ? "attention" : "inflight") !== tab) continue;
+    add(scopeOf(tree.root, tree.members), tree);
+  }
+  for (const tree of collectTrees(forest, threads.filter(isSnoozedMember))) add({ kind: "snoozed" }, tree);
+  const rank = (scope: GroupScope) => GROUP_RANKS[scope.kind];
   const groupOrder = [...groups.values()].sort(({ scope: a }, { scope: b }) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     if (a.kind === "section" && b.kind === "section") return (sectionOrder.get(a.sectionId) ?? 0) - (sectionOrder.get(b.sectionId) ?? 0);
@@ -183,7 +195,7 @@ export function visibleItems(
       const descendants = forest.childrenOf(thread).filter((child) => rows.has(child.id));
       const folded = options.collapsedThreads.includes(thread.id);
       result.push({ kind: "thread", id: thread.id, thread, depth, hasChildren: descendants.length > 0,
-        collapsed: folded, context: !isMember(thread) });
+        collapsed: folded, context: !(scope.kind === "snoozed" ? isSnoozedMember : isMember)(thread) });
       if (!folded) for (const child of descendants.sort((a, b) => compare(a, b, options))) append(child, depth + 1);
     };
     for (const root of roots.sort((a, b) => compare(a, b, options))) append(root, 0);

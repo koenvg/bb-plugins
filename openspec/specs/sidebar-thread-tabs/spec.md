@@ -29,15 +29,19 @@ The replacement SHALL save the selected tab with the other list preferences on t
 - **THEN** the list opens on Needs attention
 
 ### Requirement: Attention tabs show only active threads
-The Needs attention and In flight tabs SHALL show only active, non-hidden threads, whatever the archived selection in List options is. Each active thread SHALL be in exactly one of the two tabs.
+The Needs attention and In flight tabs SHALL show only active, non-hidden, non-snoozed threads, whatever the archived selection in List options is. A snoozed thread MAY show there only as a dimmed context row of an awake thread in its tree. Each active, non-snoozed thread SHALL be in exactly one of the two tabs.
 
 #### Scenario: Archived thread
 - **WHEN** a thread is archived and the archived selection is Both
 - **THEN** the thread does not show in Needs attention or In flight, and it shows in All
 
 #### Scenario: Every active thread has one tab
-- **WHEN** the list has active threads
-- **THEN** each active thread shows in either Needs attention or In flight, and not in both
+- **WHEN** the list has active threads that are not snoozed
+- **THEN** each of them shows in either Needs attention or In flight, and not in both
+
+#### Scenario: Snoozed thread
+- **WHEN** an active thread is snoozed
+- **THEN** the thread does not show in Needs attention or In flight, and it shows in All
 
 ### Requirement: Thread signals decide the tab first
 The replacement SHALL apply these rules in order, and the first match SHALL decide. A thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send SHALL be in Needs attention. Next, a thread with unread output SHALL be in Needs attention. Next, a thread that runs, has background work, or has a queued message that waits SHALL be in In flight. Next, a thread with an active descendant thread SHALL be in In flight.

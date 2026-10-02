@@ -3,6 +3,7 @@ import type {
 } from "@get-bb/plugin-sdk/app";
 import type { MenuItem } from "./action-menu";
 import type { ListItem } from "./list-model";
+import { canSnooze, snoozePresets, type SnoozeControls } from "./snooze-model";
 
 const askName = (label: string, current = "") => window.prompt(label, current)?.trim() || null;
 
@@ -33,6 +34,18 @@ export function threadMenuItems(thread: PluginSidebarThread, actions: PluginSide
     : { label: "Archive", run: () => actions.archive(id) });
   items.push({ label: "Delete…", run: () => actions.requestDelete(id) });
   return items;
+}
+
+export function snoozeMenuItems(thread: PluginSidebarThread, wakeAt: number | undefined,
+  { snooze, wake }: Pick<SnoozeControls, "snooze" | "wake">): MenuItem[] {
+  const section = "Snooze";
+  if (wakeAt !== undefined) return [{ section, label: "Wake now", failure: "Could not wake the thread.", run: () => wake(thread.id) }];
+  if (!canSnooze(thread)) return [];
+  // Recomputed at click time: a menu rendered yesterday must not snooze into the past.
+  return snoozePresets(new Date()).map(({ label, wakeAt: shown }) => ({
+    section, label, failure: "Could not snooze the thread.",
+    run: () => snooze(thread.id, snoozePresets(new Date()).find((preset) => preset.label === label)?.wakeAt ?? shown),
+  }));
 }
 
 export function newThreadScope({ scope }: Extract<ListItem, { kind: "group" }>): { projectId?: string; sectionId?: string } | null {

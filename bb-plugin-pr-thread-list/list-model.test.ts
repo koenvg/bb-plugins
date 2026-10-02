@@ -246,3 +246,61 @@ describe("visibleItems", () => {
     });
   });
 });
+
+describe("snoozed threads", () => {
+  const snoozed = new Map([["snoozed", 9_000]]);
+  const labels = (items: ReturnType<typeof visibleItems>) =>
+    items.map((item) => item.kind === "group" ? `[${item.label}]` : item.thread.displayTitle);
+
+  it("show only in a Snoozed group at the bottom of All", () => {
+    const threads = [thread({ id: "plain", displayTitle: "Plain" }), thread({ id: "snoozed", displayTitle: "Snoozed one" }),
+      thread({ id: "loose", displayTitle: "Loose", projectId: "missing" })];
+
+    expect(labels(visibleItems(threads, [project], [], defaults, new Map(), snoozed)))
+      .toEqual(["[Sample project]", "Plain", "[Threads]", "Loose", "[Snoozed]", "Snoozed one"]);
+  });
+
+  it("leave the Pinned group when pinned", () => {
+    const threads = [thread({ id: "snoozed", displayTitle: "Snoozed pin", isPinned: true, pinnedAt: 1 })];
+
+    expect(labels(visibleItems(threads, [project], [], defaults, new Map(), snoozed))).toEqual(["[Snoozed]", "Snoozed pin"]);
+  });
+
+  it("collapse with the Snoozed group", () => {
+    const threads = [thread({ id: "snoozed", displayTitle: "Snoozed one" })];
+
+    expect(labels(visibleItems(threads, [project], [], { ...defaults, collapsedGroups: ["snoozed"] }, new Map(), snoozed)))
+      .toEqual(["[Snoozed]"]);
+  });
+
+  it.each(["attention", "inflight"] as const)("do not show in the %s tab", (tab) => {
+    const threads = [thread({ id: "snoozed", displayTitle: "Snoozed one" }), thread({ id: "busy", status: "active", displayTitle: "Busy" }),
+      thread({ id: "snoozedBusy", status: "active", displayTitle: "Snoozed busy" })];
+    const both = new Map([["snoozed", 9_000], ["snoozedBusy", 9_000]]);
+
+    expect(titles(visibleItems(threads, [project], [], { ...defaults, tab }, new Map(), both)))
+      .toEqual(tab === "inflight" ? ["Busy"] : []);
+  });
+
+  it("leave the tree of an awake parent, which shows as a dimmed row in Snoozed", () => {
+    const threads = [thread({ id: "parent", displayTitle: "Parent" }),
+      thread({ id: "snoozed", displayTitle: "Snoozed child", parentThreadId: "parent" })];
+    const items = visibleItems(threads, [project], [], defaults, new Map(), snoozed);
+
+    expect(labels(items)).toEqual(["[Sample project]", "Parent", "[Snoozed]", "Parent", "Snoozed child"]);
+    expect(items.filter((item) => item.kind === "thread").map((item) => item.context)).toEqual([false, true, false]);
+  });
+
+  it("show as a dimmed parent above an awake child in its tab", () => {
+    const threads = [thread({ id: "snoozed", displayTitle: "Snoozed parent" }),
+      thread({ id: "child", displayTitle: "Child", parentThreadId: "snoozed", isUnread: true })];
+    const items = visibleItems(threads, [project], [], { ...defaults, tab: "attention" }, new Map(), snoozed);
+
+    expect(items.filter((item) => item.kind === "thread").map((item) => [item.thread.displayTitle, item.context]))
+      .toEqual([["Snoozed parent", true], ["Child", false]]);
+  });
+
+  it("add no Snoozed group when nothing is snoozed", () => {
+    expect(labels(visibleItems([thread()], [project], [], defaults))).not.toContain("[Snoozed]");
+  });
+});

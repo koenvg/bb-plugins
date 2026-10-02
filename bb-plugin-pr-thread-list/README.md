@@ -17,6 +17,7 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 
 | Rule | Tab |
 |---|---|
+| Is snoozed | Neither (shows in **Snoozed** in All) |
 | Waits for an approval or an answer, has an unread error, or has a queued message that failed to send | Needs attention |
 | Has unread output | Needs attention |
 | Runs, has background work, or has a queued message that waits | In flight |
@@ -30,9 +31,29 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 
 A thread tree moves as one unit. The whole tree shows in **Needs attention** when the top thread goes there, or when a child needs you, has unread output, or has a PR problem (failed checks, requested changes, conflicts, unresolved comments, or a failed merge queue entry). A finished child with no PR, or with a ready, draft, merged, or closed PR, does not move its tree. Else the whole tree shows in **In flight**. Each child stays under its parent.
 
-**All** shows every thread, with the **Needs you** group on top.
+**All** shows every thread, with the **Needs you** group on top and the **Snoozed** group at the bottom.
 
 The tab of a thread does not depend on whether its row is on screen. The `summary-watch` service on the plugin server reads the github-insight summary of every active thread every 5 seconds. When a summary changes, it sends a `summaries.changed` realtime signal, and the list loads the summaries again. github-insight refreshes a PR when its thread goes idle, so a PR that an agent opens or pushes to shows within seconds. Changes on GitHub only, such as a finished check, come from github-insight's 60 second poll. When you resolve or unresolve a review thread in github-insight's Review tab, the list asks at once. As a fallback, the list also asks once a minute and when the connection comes back.
+
+## Snooze
+
+Open the thread menu and select **Tomorrow** (9:00 the next day) or **Next week** (9:00 next Monday). The times use the clock of the client. On Sunday, the menu shows only **Tomorrow**. You cannot snooze an archived thread, or a thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send.
+
+Snooze marks the thread read. The thread leaves **Needs attention** and **In flight**. In **All**, it shows in the **Snoozed** group with its wake time in place of its age. A snoozed thread can still run. A snoozed thread does not move its tree. When its parent or child is awake, the snoozed thread shows as a dimmed row in that tree, and the awake thread shows as a dimmed row in **Snoozed**.
+
+The thread wakes and goes back to its tab when:
+
+| Event | Marks it unread |
+|---|---|
+| The wake time comes (checked each minute on the server, also with no client open) | Yes |
+| You select **Wake now** in the thread menu | No |
+| A run completes or fails | BB does, as for any run |
+| It waits for an approval or an answer, has an unread error, or a queued message fails (seen by an open client) | BB does |
+| You archive it (unarchive does not restore the snooze) | No |
+
+PR status changes and child threads do not wake a thread.
+
+Snoozes are stored in the plugin's database on the BB server, so all clients show the same snoozes. BB's bundled **Thread list** does not show them, but the server still wakes snoozed threads on time.
 
 ## List preferences
 

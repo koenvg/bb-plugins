@@ -6,6 +6,7 @@ import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
 import type { PluginSidebarThreadRowStatus, PluginSidebarThreadShortcut, PluginThreadListProps } from "@get-bb/plugin-sdk/app";
 import { project, thread } from "./fixtures";
+import { snoozePresets, wakeLabel } from "./snooze-model";
 
 const app = await loadPluginApp(() => import("./app"));
 let mounted: ReturnType<typeof renderSlot> | undefined;
@@ -39,6 +40,9 @@ function prSummary(overrides: Record<string, unknown> = {}) {
 function withSummaries(summaries: Record<string, unknown>): Partial<RenderSlotOptions> {
   return { rpc: { listSummaries: () => ({ insightAvailable: true, summaries }) } };
 }
+
+const summaryLoads = (slot: ReturnType<typeof renderSlot>) =>
+  slot.inspection.rpcCalls.filter((call) => call.method === "listSummaries");
 
 function tip(slot: ReturnType<typeof renderSlot>, text: string) {
   return Array.from(slot.container.querySelectorAll("[data-tip]")).find((node) => node.textContent === text);
@@ -372,10 +376,10 @@ describe("thread list slot", () => {
   });
   it("reloads summaries when the realtime connection comes back", async () => {
     const slot = mount([thread()], {}, withSummaries({}));
-    await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+    await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(1));
     await slot.behavior.setRealtimeConnectionState("reconnecting");
     await slot.behavior.setRealtimeConnectionState("connected");
-    await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+    await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(2));
   });
   it("tells the user when github-insight is not available", async () => {
     const slot = mount([thread()], {}, { rpc: { listSummaries: () => ({ insightAvailable: false, summaries: {} }) } });
@@ -480,7 +484,7 @@ describe("thread list slot", () => {
       announce();
 
       expect(await slot.findByRole("link", { name: "PR #42: 2 reviews pending" })).toBeTruthy();
-      expect(slot.inspection.rpcCalls).toHaveLength(2);
+      expect(summaryLoads(slot)).toHaveLength(2);
     });
 
     it("keeps the newest summaries when an older load finishes after them", async () => {
@@ -490,7 +494,7 @@ describe("thread list slot", () => {
       showTab(slot, "All");
       await slot.findByRole("link", { name: "PR #42: 1 review pending" });
       announce();
-      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+      await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(2));
 
       announce();
       await slot.findByRole("link", { name: "PR #42: 2 reviews pending" });
@@ -502,15 +506,14 @@ describe("thread list slot", () => {
 
     it("stops listening once the list unmounts", async () => {
       const slot = mount([thread()], {}, withSummaries({}));
-      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
-      const calls = slot.inspection.rpcCalls;
+      await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(1));
       slot.lifecycle.unmount();
       mounted = undefined;
 
       announce();
       await quietly();
 
-      expect(calls).toHaveLength(1);
+      expect(summaryLoads(slot)).toHaveLength(1);
     });
   });
 
@@ -524,7 +527,7 @@ describe("thread list slot", () => {
 
     it("loads the summaries again and moves the row to its new tab", async () => {
       const slot = mount([thread({ displayTitle: "Opened a PR" })], {}, answers(none, running));
-      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+      await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(1));
       expect(slot.getByRole("link", { name: "Opened a PR" })).toBeTruthy();
 
       await slot.behavior.emitRealtime("summaries.changed", {});
@@ -539,7 +542,7 @@ describe("thread list slot", () => {
       let finishOlder: (value: unknown) => void = () => {};
       const older = new Promise((resolve) => { finishOlder = resolve; });
       const slot = mount([thread({ displayTitle: "Opened a PR" })], {}, answers(older, running));
-      await vi.waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
+      await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(1));
 
       await slot.behavior.emitRealtime("summaries.changed", {});
       await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull());
@@ -554,5 +557,79 @@ describe("thread list slot", () => {
     const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active" })]);
     showTab(slot, "All");
     expect(slot.container.querySelectorAll("[data-provider-glyph]")).toHaveLength(2);
+  });
+  describe("snooze", () => {
+    const DAY = 86_400_000;
+    const withSnoozes = (snoozes: Record<string, number>, handlers: Record<string, unknown> = {}) =>
+      ({ rpc: { listSummaries: () => ({ insightAvailable: true, summaries: {} }), listSnoozes: () => ({ snoozes }),
+        snooze: () => ({}), wake: () => ({}), ...handlers } }) as Partial<RenderSlotOptions>;
+    const calls = (slot: ReturnType<typeof renderSlot>, method: string) =>
+      slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
+    const openMenu = (slot: ReturnType<typeof renderSlot>, title = "Prepare release") =>
+      fireEvent.click(slot.getByRole("button", { name: `Actions for ${title}` }));
+
+    it("snoozes a thread until a preset time from the menu", async () => {
+      const slot = mount([thread()], {}, withSnoozes({}));
+      const [tomorrow] = snoozePresets(new Date());
+      openMenu(slot);
+      const snoozeItems = screen.getByRole("group", { name: "Snooze" });
+
+      expect(snoozeItems.textContent).toContain("Tomorrow");
+      fireEvent.click(screen.getByRole("menuitem", { name: "Tomorrow" }));
+
+      await vi.waitFor(() => expect(calls(slot, "snooze")).toEqual([{ threadId: "t1", wakeAt: tomorrow!.wakeAt }]));
+    });
+
+    it("offers no snooze for a thread that needs the user or is archived", () => {
+      const slot = mount([thread({ hasPendingInteraction: true }), thread({ id: "t2", displayTitle: "Old", isArchived: true })]);
+      openMenu(slot);
+      expect(screen.queryByRole("group", { name: "Snooze" })).toBeNull();
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      showLifecycle(slot, "Both");
+      openMenu(slot, "Old");
+      expect(screen.queryByRole("group", { name: "Snooze" })).toBeNull();
+    });
+
+    it("moves a snoozed thread to the Snoozed group in All and shows its wake time", async () => {
+      const wakeAt = Date.now() + DAY;
+      const slot = mount([thread()], {}, withSnoozes({ t1: wakeAt }));
+
+      await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Prepare release" })).toBeNull());
+      showTab(slot, "All");
+
+      expect(slot.getByRole("button", { name: "Collapse Snoozed" })).toBeTruthy();
+      expect(slot.getByText(wakeLabel(wakeAt)).getAttribute("title")).toMatch(/^Snoozed until /);
+    });
+
+    it("wakes a snoozed thread from the menu", async () => {
+      const slot = mount([thread()], {}, withSnoozes({ t1: Date.now() + DAY }));
+      showTab(slot, "All");
+      await slot.findByRole("button", { name: "Collapse Snoozed" });
+
+      openMenu(slot);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Wake now" }));
+
+      await vi.waitFor(() => expect(calls(slot, "wake")).toEqual([{ threadId: "t1" }]));
+    });
+
+    it("ends the snooze of a thread that needs the user and shows it in Needs attention", async () => {
+      const slot = mount([thread({ hasPendingInteraction: true })], {}, withSnoozes({ t1: Date.now() + DAY }));
+
+      await vi.waitFor(() => expect(calls(slot, "wake")).toEqual([{ threadId: "t1" }]));
+      expect(slot.getByRole("link", { name: "Prepare release" })).toBeTruthy();
+    });
+
+    it("loads snoozes again when the server reports a change", async () => {
+      let snoozes: Record<string, number> = {};
+      const slot = mount([thread()], {}, withSnoozes({}, { listSnoozes: () => ({ snoozes }) }));
+      await vi.waitFor(() => expect(calls(slot, "listSnoozes")).toHaveLength(1));
+      expect(slot.getByRole("link", { name: "Prepare release" })).toBeTruthy();
+
+      snoozes = { t1: Date.now() + DAY };
+      await slot.behavior.emitRealtime("snoozes.changed", {});
+
+      await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Prepare release" })).toBeNull());
+    });
   });
 });
