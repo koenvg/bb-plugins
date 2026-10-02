@@ -10,4 +10,12 @@ describe("overviewPageArgs", () => {
       expect.arrayContaining(["firstPage=false", "after=MTAw"]),
     );
   });
+
+  it("asks the merge queue entry on the first page", () => {
+    const query = overviewPageArgs({ ...pr, after: null }).find((arg) =>
+      arg.startsWith("query="),
+    );
+
+    expect(query).toMatch(/@include\(if: \$firstPage\) \{[^}]*mergeQueueEntry \{ position state \}/);
+  });
 });

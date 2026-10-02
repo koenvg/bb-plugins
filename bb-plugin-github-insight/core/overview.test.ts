@@ -42,6 +42,27 @@ function onlyPassingChecksPage() {
   };
 }
 
+function queuedPage(mergeQueueEntry: { position: number; state: string }) {
+  return {
+    data: {
+      repository: {
+        pullRequest: {
+          ...pageOne.data.repository.pullRequest,
+          mergeStateStatus: "BLOCKED",
+          mergeQueueEntry,
+        },
+      },
+    },
+  };
+}
+
+function queuedGitHub(state: string, position = 3): GitHubReader {
+  return recordedGitHub({
+    fetchOverviewPage: async (after) =>
+      after === null ? queuedPage({ position, state }) : recordedPages[after],
+  });
+}
+
 describe("collectInsight on PR 25337", () => {
   it("gives the PR header", async () => {
     const insight = await collectInsight(recordedGitHub());
@@ -183,6 +204,53 @@ describe("collectInsight on PR 25337", () => {
 
     expect(insight.checks.length).toBeGreaterThan(0);
     expect(detailCalls).toBe(0);
+  });
+});
+
+describe("collectInsight merge queue", () => {
+  it("gives no queue state for a PR without a queue entry", async () => {
+    const insight = await collectInsight(recordedGitHub());
+
+    expect(insight.mergeQueue).toBeNull();
+  });
+
+  it.each([
+    ["QUEUED", "queued"],
+    ["AWAITING_CHECKS", "awaiting_checks"],
+    ["MERGEABLE", "merging"],
+    ["LOCKED", "merging"],
+    ["UNMERGEABLE", "failed"],
+  ])("maps the GitHub entry state %s to %s", async (githubState, state) => {
+    const insight = await collectInsight(queuedGitHub(githubState, 3));
+
+    expect(insight.mergeQueue).toEqual({ position: 3, state });
+  });
+
+  it("gives no merge blockers for a queued PR", async () => {
+    const insight = await collectInsight(queuedGitHub("QUEUED"));
+
+    expect(insight.blockers).toEqual([]);
+  });
+
+  it("sends the same requests for a queued PR as for one without a queue entry", async () => {
+    const requests = async (github: GitHubReader) => {
+      const sent: string[] = [];
+      await collectInsight({
+        fetchOverviewPage: (after) => {
+          sent.push(`overview:${after}`);
+          return github.fetchOverviewPage(after);
+        },
+        fetchCheckRunDetails: (ids) => {
+          sent.push(`details:${ids.join(",")}`);
+          return github.fetchCheckRunDetails(ids);
+        },
+      });
+      return sent;
+    };
+
+    expect(await requests(queuedGitHub("QUEUED"))).toEqual(
+      await requests(recordedGitHub()),
+    );
   });
 });
 

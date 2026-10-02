@@ -12,6 +12,7 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPag
       ... @include(if: $firstPage) {
         mergeable
         mergeStateStatus
+        mergeQueueEntry { position state }
         reviewDecision
         reviewRequests(first: 100) {
           nodes {

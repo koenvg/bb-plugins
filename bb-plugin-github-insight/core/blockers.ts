@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CheckStatus } from "./checks";
+import type { MergeQueue } from "./merge-queue";
 
 export const mergeableSchema = z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]);
 export const mergeStateStatusSchema = z.enum([
@@ -40,6 +41,7 @@ export interface BlockerInput {
   reviewDecision: z.infer<typeof reviewDecisionSchema>;
   unresolvedThreads: number;
   checkStatuses: readonly CheckStatus[];
+  mergeQueue: MergeQueue;
 }
 
 const READY_TO_MERGE: ReadonlySet<BlockerInput["mergeStateStatus"]> = new Set([
@@ -53,6 +55,7 @@ export function countOf(count: number, noun: string): string {
 
 export function buildBlockers(input: BlockerInput): Blocker[] {
   if (input.prState === "merged" || input.prState === "closed") return [];
+  if (input.mergeQueue !== null) return [];
   if (READY_TO_MERGE.has(input.mergeStateStatus)) return [];
 
   const failed = input.checkStatuses.filter((status) => status === "failed").length;

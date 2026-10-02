@@ -37,6 +37,7 @@ function insight(overrides: Partial<PrInsight> = {}): PrInsight {
     blockers: [],
     reviewers: [],
     checks: [],
+    mergeQueue: null,
     ...overrides,
   };
 }
