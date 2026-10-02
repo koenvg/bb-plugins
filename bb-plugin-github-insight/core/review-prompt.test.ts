@@ -21,4 +21,13 @@ describe("buildReviewPrompt", () => {
   it("tells the agent not to post to GitHub", () => {
     expect(prompt).toContain("Do not post comments or reviews to GitHub");
   });
+
+  it("names both draft commands", () => {
+    expect(prompt).toContain("bb github-insight review comment <path> --line <n> --body-file <file>");
+    expect(prompt).toContain("bb github-insight review summary --body-file <file>");
+  });
+
+  it("saves findings as drafts, not as a chat report", () => {
+    expect(prompt).not.toContain("Report your findings here");
+  });
 });

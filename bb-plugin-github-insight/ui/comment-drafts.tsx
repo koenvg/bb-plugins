@@ -1,0 +1,157 @@
+import { createContext, useCallback, useContext, useId, useMemo, useState, type ReactNode } from "react";
+import { useRpc } from "@get-bb/plugin-sdk/app";
+import type { rpcContract } from "../contract";
+import { draftLineText } from "../core/comment-draft-view";
+import type { ListedCommentDraft } from "../core/review-drafts";
+import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
+import { QUIET_BUTTON, TEXTAREA } from "./controls";
+import { useDraftSaves } from "./draft-saves";
+import { messageOf } from "./error-message";
+
+interface LocalState {
+  typedText: string | null;
+  busy: boolean;
+  error: string | null;
+}
+
+const IDLE: LocalState = { typedText: null, busy: false, error: null };
+
+interface CommentDraftState {
+  text: string;
+  busy: boolean;
+  error: string | null;
+}
+
+interface CommentDrafts {
+  stateOf(draft: ListedCommentDraft): CommentDraftState;
+  setText(draftId: string, text: string): void;
+  remove(draftId: string): Promise<void>;
+  flushAll(): Promise<void>;
+}
+
+const CommentDraftsContext = createContext<CommentDrafts | null>(null);
+
+export function CommentDraftsProvider({
+  threadId,
+  onWritten,
+  children,
+}: {
+  threadId: string;
+  onWritten: () => void;
+  children: ReactNode;
+}) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [states, setStates] = useState<Record<string, LocalState>>({});
+
+  const update = useCallback((draftId: string, patch: Partial<LocalState>) => {
+    setStates((current) => ({ ...current, [draftId]: { ...(current[draftId] ?? IDLE), ...patch } }));
+  }, []);
+
+  const saveCommentDraft = useCallback(
+    (draftId: string, body: string) => rpc.call("saveCommentDraft", { threadId, draftId, body }),
+    [rpc, threadId],
+  );
+  const reportSaveError = useCallback((draftId: string, error: string) => update(draftId, { error }), [update]);
+  const draftSaves = useDraftSaves(saveCommentDraft, reportSaveError);
+
+  const stateOf = useCallback(
+    (draft: ListedCommentDraft): CommentDraftState => {
+      const { typedText, busy, error } = states[draft.id] ?? IDLE;
+      return { text: typedText ?? draft.body, busy, error };
+    },
+    [states],
+  );
+
+  const setText = useCallback(
+    (draftId: string, text: string) => {
+      update(draftId, { typedText: text });
+      draftSaves.schedule(draftId, text);
+    },
+    [update, draftSaves],
+  );
+
+  const remove = useCallback(
+    async (draftId: string) => {
+      update(draftId, { busy: true, error: null });
+      await draftSaves.flush(draftId);
+      const result = await rpc
+        .call("deleteCommentDraft", { threadId, draftId })
+        .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
+      if (result.kind === "error") {
+        update(draftId, { busy: false, error: result.message });
+        return;
+      }
+      update(draftId, { busy: false });
+      onWritten();
+    },
+    [rpc, threadId, update, draftSaves, onWritten],
+  );
+
+  const value = useMemo<CommentDrafts>(
+    () => ({ stateOf, setText, remove, flushAll: draftSaves.flushAll }),
+    [stateOf, setText, remove, draftSaves],
+  );
+
+  return <CommentDraftsContext.Provider value={value}>{children}</CommentDraftsContext.Provider>;
+}
+
+export function useCommentDrafts(): CommentDrafts {
+  const drafts = useContext(CommentDraftsContext);
+  if (drafts === null) throw new Error("useCommentDrafts needs a CommentDraftsProvider");
+  return drafts;
+}
+
+export function CommentDraftCard({ draft, showLocation = false }: { draft: ListedCommentDraft; showLocation?: boolean }) {
+  const drafts = useCommentDrafts();
+  const headingId = useId();
+  const { text, busy, error } = drafts.stateOf(draft);
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="mx-2 my-2 flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2.5 font-sans text-sm"
+    >
+      <div className="flex min-w-0 items-center gap-2 text-xs">
+        <h3 id={headingId} className="flex shrink-0 items-center gap-1.5 font-medium text-primary">
+          <Icon name="Bot" className="size-3.5" />
+          Draft from agent
+        </h3>
+        {showLocation && (
+          <span className="min-w-0 truncate font-mono" title={draft.path}>
+            {draft.path}
+          </span>
+        )}
+        <Pill>{draftLineText(draft)}</Pill>
+        {showLocation && <Pill>{draft.side === "RIGHT" ? "New side" : "Old side"}</Pill>}
+      </div>
+      <textarea
+        aria-label="Comment"
+        rows={2}
+        className={cn(TEXTAREA, "border-primary/30")}
+        value={text}
+        disabled={busy}
+        onChange={(event) => drafts.setText(draft.id, event.target.value)}
+      />
+      {error !== null && (
+        <p role="alert" className="flex items-start gap-1.5 break-words text-xs text-destructive">
+          <Icon name="AlertCircle" className="mt-px size-3.5 shrink-0" />
+          {error}
+        </p>
+      )}
+      <div className="flex items-center">
+        <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void drafts.remove(draft.id)}>
+          <Icon name="Trash2" className="size-3.5" />
+          Delete
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function Pill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-muted px-2 text-muted-foreground tabular-nums">
+      {children}
+    </span>
+  );
+}

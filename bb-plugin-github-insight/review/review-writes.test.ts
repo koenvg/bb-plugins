@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { DraftStore } from "./draft-store";
+import type { ReviewLoad } from "./review-service";
 import { createReviewWrites } from "./review-writes";
 
 const target = { ref: { owner: "collibra", repo: "frontend", number: 25259 }, hostId: "host-1", openOnBb: true };
+const loaded: ReviewLoad = {
+  kind: "ok",
+  target,
+  allThreadsRead: true,
+  review: {
+    head: { prNodeId: "PR_1", oid: "def456", state: "OPEN", viewerIsAuthor: false },
+    files: [],
+    threads: { placed: [], outdated: [] },
+    drafts: {},
+    commentDrafts: [],
+    summaryDraft: null,
+  },
+};
 
 type Deps = Parameters<typeof createReviewWrites>[0];
 
@@ -12,6 +26,8 @@ function writesWith(overrides: Partial<Deps> = {}) {
     resolvePr: async () => ({ kind: "pr" as const, target }),
     replyToThread: async () => ({ data: {} }),
     setThreadResolved: async () => ({ data: {} }),
+    loadReview: async () => loaded,
+    submitReview: async () => ({ data: {} }),
     drafts: { delete: async () => {} } as unknown as DraftStore,
     publish: () => {},
     refreshAfterWrite: async (threadId) => { refreshed.push(threadId); },
@@ -87,5 +103,28 @@ describe("review writes", () => {
 
     expect(resolved).toEqual({ kind: "ok" });
     expect(posted).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
+  });
+
+  it("reports a submitted review as submitted when its drafts cannot be deleted", async () => {
+    const warnings: string[] = [];
+    const { writes, refreshed } = writesWith({
+      drafts: { deleteReviewDrafts: () => Promise.reject(new Error("disk full")) } as unknown as DraftStore,
+      warn: (message) => warnings.push(message),
+    });
+
+    const result = await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" });
+
+    expect(result).toEqual({ kind: "submitted" });
+    expect(refreshed).toEqual(["thr_1"]);
+    expect(warnings).toEqual(["Submitted a review on thread thr_1, but could not delete its drafts: Error: disk full"]);
+  });
+
+  it("reports the submit as done when the refresh after it fails", async () => {
+    const { writes } = writesWith({
+      drafts: { deleteReviewDrafts: async () => {} } as unknown as DraftStore,
+      refreshAfterWrite: failing,
+    });
+
+    expect(await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" })).toEqual({ kind: "submitted" });
   });
 });

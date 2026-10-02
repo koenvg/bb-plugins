@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
-import { failed, linkedPr, ok, setup, type HostCall } from "../test/plugin-harness";
+import { failed, linkedPr, ok, prHeadResponse, setup, type HostCall } from "../test/plugin-harness";
 
 const PLACED = "PRRT_kwDOHI7l-86jxula";
 const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
@@ -10,6 +10,7 @@ const RESOLVED = "PRRT_kwDOHI7l-86jvKxS";
 function reviewHost({ method }: HostCall) {
   if (method === "fetchPrFiles") return ok(prFiles);
   if (method === "fetchReviewThreads") return ok(reviewThreads);
+  if (method === "fetchPrHead") return ok(prHeadResponse());
   throw new Error(`unexpected host call ${method}`);
 }
 
