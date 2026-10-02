@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import pageOne from "../test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "../test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "../test/fixtures/pr-25337-check-run-details.json";
+import readyToEnqueuePage from "../test/fixtures/pr-25693-overview-ready-to-enqueue.json";
+import inMergeQueuePage from "../test/fixtures/pr-25597-overview-in-merge-queue.json";
 import { MAX_CONTEXT_PAGES, collectInsight, type GitHubReader } from "./overview";
 
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
@@ -267,6 +269,25 @@ describe("collectInsight merge queue", () => {
     expect(await requests(queuedGitHub("QUEUED"))).toEqual(
       await requests(recordedGitHub()),
     );
+  });
+});
+
+describe("collectInsight on a merge queue repo", () => {
+  const recordedPage = (page: unknown) =>
+    recordedGitHub({ fetchOverviewPage: async () => page });
+
+  it("gives no merge blockers for a PR that is ready to enqueue", async () => {
+    const { insight } = await collectInsight(recordedPage(readyToEnqueuePage));
+
+    expect(insight.blockers).toEqual([]);
+    expect(insight.mergeQueue).toBeNull();
+  });
+
+  it("gives the queue position and state of a queued PR", async () => {
+    const { insight } = await collectInsight(recordedPage(inMergeQueuePage));
+
+    expect(insight.mergeQueue).toEqual({ position: 1, state: "awaiting_checks" });
+    expect(insight.blockers).toEqual([]);
   });
 });
 

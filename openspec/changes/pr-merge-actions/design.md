@@ -104,6 +104,7 @@ enqueuePullRequest(input: { pullRequestId, expectedHeadOid }) { mergeQueueEntry 
 ## Risks / Trade-offs
 
 - [With a merge queue, GitHub can report `mergeStateStatus: BLOCKED` for a PR that is ready to enqueue. Then `buildBlockers` returns "Blocked by branch rules" and the tab shows no "Enqueue" button.] → Spike task 1.1 records the real values on a merge-queue repo. If `BLOCKED` is confirmed, skip the `blocked` fallback blocker when `isMergeQueueEnabled` is true, and add a test.
+  - Spike result (2026-10-02, `collibra/frontend`, merge queue on `main`): the ready PR #25693 (approved, all checks passed, not queued) returns `mergeStateStatus: CLEAN`, not `BLOCKED`. The queued PR #25597 also returns `CLEAN`, with `mergeQueueEntry: { position: 1, state: AWAITING_CHECKS }`. Fixtures: `pr-25693-overview-ready-to-enqueue.json` and `pr-25597-overview-in-merge-queue.json`. No `buildBlockers` change is needed.
 - [Older GitHub Enterprise Server versions do not have `isMergeQueueEnabled` or `isInMergeQueue`. The whole overview query then fails and the "PR" tab shows an error.] → Accepted for this change. The plugin targets github.com. Record it in the README.
 - [Right after a merge, GitHub can still report the PR as open for a short time. The refresh then shows "Merge" again.] → A second merge fails with a GitHub error and does no harm. The next poll shows "Merged".
 - [The merge runs as the `gh` user. That user may lack write access.] → GitHub rejects it, and the tab shows the error (spec: "GitHub rejects the action").
