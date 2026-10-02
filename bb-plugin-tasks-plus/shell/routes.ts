@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { useTasksSession } from "../views/detail/task-session.js";
 
@@ -8,15 +8,25 @@ export type TaskViewMode = "list" | "board";
 
 export type TasksRoute =
   | { kind: "entry" }
-  | { kind: "all" }
-  | { kind: "active" }
+  | { kind: "all"; taskKey?: string }
+  | { kind: "active"; taskKey?: string }
   | { kind: "manage" }
-  | { kind: "project"; projectId: string; view: TaskViewMode | null }
+  | {
+      kind: "project";
+      projectId: string;
+      view: TaskViewMode | null;
+      taskKey?: string;
+    }
   | { kind: "task"; taskKey: string };
 
 export type ResolvedTasksRoute =
   | Exclude<TasksRoute, { kind: "project" }>
-  | { kind: "project"; projectId: string; view: TaskViewMode };
+  | {
+      kind: "project";
+      projectId: string;
+      view: TaskViewMode;
+      taskKey?: string;
+    };
 
 function decodeSegment(segment: string): string {
   try {
@@ -34,8 +44,11 @@ export function parseTasksRoute(rawSubPath: string): TasksRoute {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   const head = segments[0];
   if (head === undefined) return { kind: "entry" };
-  if (head === "all") return { kind: "all" };
-  if (head === "active") return { kind: "active" };
+  const params = new URLSearchParams(query);
+  const taskKey = params.get("task")?.trim().toUpperCase();
+  const selection = taskKey ? { taskKey } : {};
+  if (head === "all") return { kind: "all", ...selection };
+  if (head === "active") return { kind: "active", ...selection };
   if (head === "manage") return { kind: "manage" };
   if (head === "task") {
     const taskKey = segments[1];
@@ -47,27 +60,28 @@ export function parseTasksRoute(rawSubPath: string): TasksRoute {
     kind: "project",
     projectId: head,
     view: view === "board" || view === "list" ? view : null,
+    ...(view === "board" ? {} : selection),
   };
 }
 
 export function tasksRouteToSubPath(route: TasksRoute): string {
-  switch (route.kind) {
-    case "entry":
-      return "";
-    case "all":
-      return "all";
-    case "active":
-      return "active";
-    case "manage":
-      return "manage";
-    case "task":
-      return `task/${route.taskKey}`;
-    case "project":
-      return route.view === null
-        ? route.projectId
-        : `${route.projectId}?view=${route.view}`;
+  if (route.kind === "entry") return "";
+  if (route.kind === "manage") return "manage";
+  if (route.kind === "task") return `task/${route.taskKey}`;
+  const query = new URLSearchParams();
+  if (route.kind === "project" && route.view !== null)
+    query.set("view", route.view);
+  if (route.taskKey && !(route.kind === "project" && route.view === "board")) {
+    query.set("task", route.taskKey);
   }
+  const path = route.kind === "project" ? route.projectId : route.kind;
+  return query.size ? `${path}?${query}` : path;
 }
+
+/** Only embedded task links are adapted; every other destination keeps host navigation. */
+export const TaskLinkNavigationContext = createContext<
+  ((taskKey: string) => void) | null
+>(null);
 
 export interface TasksNavigation {
   go: (route: TasksRoute, options?: { replace?: boolean }) => void;
@@ -76,9 +90,14 @@ export interface TasksNavigation {
 export function useTasksNavigation(): TasksNavigation {
   const navigate = useBbNavigate();
   const transition = useTasksSession();
+  const openTask = useContext(TaskLinkNavigationContext);
   return useMemo(
     () => ({
       go: (route, options) => {
+        if (route.kind === "task" && openTask) {
+          openTask(route.taskKey);
+          return;
+        }
         const commit = () =>
           navigate.toPluginPanel(PANEL_PATH, {
             subPath: tasksRouteToSubPath(route),
@@ -88,7 +107,7 @@ export function useTasksNavigation(): TasksNavigation {
         else commit();
       },
     }),
-    [navigate, transition],
+    [navigate, transition, openTask],
   );
 }
 

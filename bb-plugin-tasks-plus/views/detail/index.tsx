@@ -48,6 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface DetailViewProps {
   taskKey: string;
+  onMissing?: (taskKey: string) => void;
 }
 
 type PropertiesLayout = "inline" | "rail";
@@ -636,17 +637,36 @@ export function DetailView(props: DetailViewProps) {
   );
 }
 
-function SessionDetailView({ taskKey }: DetailViewProps) {
+function SessionDetailView({ taskKey, onMissing }: DetailViewProps) {
   const committedKey = useSafeTaskTarget(taskKey);
-  return <DetailQuery key={committedKey} taskKey={committedKey} />;
+  return (
+    <DetailQuery
+      key={committedKey}
+      taskKey={committedKey}
+      onMissing={onMissing}
+    />
+  );
 }
-function DetailQuery({ taskKey }: DetailViewProps) {
+function DetailQuery({ taskKey, onMissing }: DetailViewProps) {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
     ["tasks:changed"],
     [taskKey],
   );
 
+  // A confirmed deletion still crosses the save barrier. Keep this keyed query's
+  // originating editor mounted until the workspace accepts clearing its identity.
+  const previousTask = useRef<Task | null>(null);
+  useLayoutEffect(() => {
+    if (query.data) previousTask.current = query.data;
+  }, [query.data]);
+  const task =
+    query.data ??
+    (onMissing && query.data === null ? previousTask.current : null);
+  useEffect(() => {
+    if (!query.isLoading && query.error === null && query.data === null)
+      onMissing?.(taskKey);
+  }, [query.isLoading, query.error, query.data, onMissing, taskKey]);
   if (query.data === undefined) {
     return query.error ? (
       <div className="flex h-full items-center justify-center p-6 text-sm text-destructive">
@@ -659,7 +679,7 @@ function DetailQuery({ taskKey }: DetailViewProps) {
       <DetailSkeleton />
     );
   }
-  if (query.data === null) {
+  if (task === null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
         <Icon name="FileQuestion" className="size-5" />
@@ -667,11 +687,5 @@ function DetailQuery({ taskKey }: DetailViewProps) {
       </div>
     );
   }
-  return (
-    <TaskDetail
-      key={query.data.id}
-      task={query.data}
-      onTaskChanged={query.refresh}
-    />
-  );
+  return <TaskDetail key={task.id} task={task} onTaskChanged={query.refresh} />;
 }

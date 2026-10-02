@@ -44,9 +44,18 @@ import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
 
+/** Keys come from the rendered tree, including dimmed parents and expanded children.
+ * Unsettled reports must never be used as proof that a selection was removed. */
+export interface VisibleTaskOrder {
+  keys: readonly string[];
+  settled: boolean;
+}
 interface ListViewProps {
   projectId: string | null;
   activeOnly?: boolean;
+  selectedTaskKey?: string | null;
+  onRequestSelection?: (taskKey: string) => void;
+  onVisibleOrderChange?: (order: VisibleTaskOrder) => void;
 }
 
 function LoadingRows() {
@@ -70,8 +79,17 @@ function LoadingRows() {
   );
 }
 
-export function ListView({ projectId, activeOnly = false }: ListViewProps) {
+export function ListView({
+  projectId,
+  activeOnly = false,
+  selectedTaskKey = null,
+  onRequestSelection,
+  onVisibleOrderChange,
+}: ListViewProps) {
   const navigation = useTasksNavigation();
+  const openTask =
+    onRequestSelection ??
+    ((taskKey: string) => navigation.go({ kind: "task", taskKey }));
   const projects = useProjects();
   const { toasts, push, dismiss } = useDetailToasts();
   const preferenceScope = listPreferenceScope(projectId, activeOnly);
@@ -225,10 +243,10 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scopeKey = listScrollScopeKey({ projectId, activeOnly, filters, sort });
-  const settledScope = useRef(scopeKey);
-  const scopeChanged = settledScope.current !== scopeKey;
+  const [settledScope, setSettledScope] = useState(scopeKey);
+  const scopeChanged = settledScope !== scopeKey;
   useEffect(() => {
-    if (!tasksQuery.isLoading) settledScope.current = scopeKey;
+    if (!tasksQuery.isLoading) setSettledScope(scopeKey);
   }, [scopeKey, tasksQuery.isLoading, tasksQuery.data]);
   const routeScope = `${projectId ?? "-"}/${activeOnly}`;
   const [settledRouteScope, setSettledRouteScope] = useState(routeScope);
@@ -258,15 +276,38 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
   useShortcuts({
     "list.next": () => moveFocusInList(scrollRef.current, 1),
     "list.previous": () => moveFocusInList(scrollRef.current, -1),
-    "list.open": forFocusedRow((taskKey) =>
-      navigation.go({ kind: "task", taskKey }),
-    ),
+    "list.open": forFocusedRow((taskKey) => openTask(taskKey)),
     "list.status": openRowMenuFromShortcut("status"),
     "list.priority": openRowMenuFromShortcut("priority"),
     "list.labels": openRowMenuFromShortcut("labels"),
   });
 
   const loadError = tasksQuery.error ?? (needsScope ? scopeQuery.error : null);
+  const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
+  // All/Active label names cannot prove absence until the project inventory
+  // and the label and task results for that inventory have all succeeded.
+  const orderSettled =
+    tree !== undefined &&
+    !routeScopeChanged &&
+    !scopeChanged &&
+    !tasksQuery.isLoading &&
+    (!needsScope || !scopeQuery.isLoading) &&
+    loadError === null &&
+    (filters.labelNames.length === 0 ||
+      ((projectId !== null ||
+        (!projects.isLoading &&
+          projects.error === null &&
+          projects.data !== undefined)) &&
+        !labels.isLoading &&
+        labels.error === null &&
+        labels.data !== undefined)) &&
+    edits.pending.size === 0;
+  useEffect(() => {
+    onVisibleOrderChange?.({
+      keys: JSON.parse(visibleKeys) as string[],
+      settled: orderSettled,
+    });
+  }, [visibleKeys, orderSettled, onVisibleOrderChange]);
   const renderRow = (
     task: Task,
     extra: Pick<
@@ -283,7 +324,8 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       labelsById={labelsById}
       projectLabels={labelsByProject.get(task.projectId) ?? []}
       onEdit={edit}
-      onOpen={() => navigation.go({ kind: "task", taskKey: task.key })}
+      onOpen={() => openTask(task.key)}
+      selected={selectedTaskKey === task.key}
       pending={edits.pending.has(task.id)}
       openMenu={openRowMenu?.taskKey === task.key ? openRowMenu.menu : null}
       onOpenMenuChange={(menu) =>
@@ -396,7 +438,8 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       />
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto @container"
+        data-list-scroll
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain @container"
       >
         {body}
       </div>

@@ -155,7 +155,7 @@ describe("list keyboard navigation", () => {
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "tasks",
-      options: { subPath: "task/TSK-2" },
+      options: { subPath: `${PROJECT_ID}?view=list&task=TSK-2`, replace: true },
     });
   });
 
@@ -179,9 +179,7 @@ describe("list row menus from the keyboard", () => {
     expect(menu.textContent).toContain("Change status");
     fireEvent.keyDown(menu, { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("menu")).toBeNull());
-    await waitFor(() =>
-      expect(focusedRowName()).toBe("Open TSK-1: Title 1"),
-    );
+    await waitFor(() => expect(focusedRowName()).toBe("Open TSK-1: Title 1"));
   });
 
   it("opens the priority menu on p", async () => {

@@ -299,7 +299,7 @@ describe("subtasks in the list", () => {
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "tasks",
-      options: { subPath: "task/ABC-2" },
+      options: { subPath: `${PROJECT_ID}?view=list&task=ABC-2`, replace: true },
     });
   });
 

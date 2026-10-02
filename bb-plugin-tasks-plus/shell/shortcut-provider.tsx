@@ -19,7 +19,17 @@ export type ShortcutHandlers = Partial<
   Record<ShortcutId, ShortcutHandler | null>
 >;
 
-type HandlersRef = RefObject<ShortcutHandlers>;
+/** Mounted split panes must not claim each other's existing action keys. */
+interface ShortcutFocusOwner {
+  rootRef: RefObject<HTMLElement | null>;
+  allowUnfocused?: boolean;
+}
+const ShortcutOwnerContext = createContext<ShortcutFocusOwner | null>(null);
+export const ShortcutOwner = ShortcutOwnerContext.Provider;
+type HandlersRef = RefObject<{
+  handlers: ShortcutHandlers;
+  owner: ShortcutFocusOwner | null;
+}>;
 
 const ShortcutRegistryContext = createContext<{
   register(handlers: HandlersRef): () => void;
@@ -48,8 +58,22 @@ export function ShortcutProvider({
     const onKeyDown = (event: KeyboardEvent) => {
       if (shouldIgnoreKey(event, rootRef.current)) return;
       for (const handlers of registrations.current) {
+        const owner = handlers.current.owner;
+        if (owner) {
+          const root = owner.rootRef.current;
+          const unfocused = document.activeElement === document.body;
+          if (
+            !root ||
+            root.hidden ||
+            !(
+              root.contains(document.activeElement) ||
+              (owner.allowUnfocused && unfocused)
+            )
+          )
+            continue;
+        }
         for (const shortcut of SHORTCUTS) {
-          const handler = handlers.current[shortcut.id];
+          const handler = handlers.current.handlers[shortcut.id];
           if (!handler || !shortcutMatches(shortcut, event)) continue;
           if (handler() === false) continue;
           event.preventDefault();
@@ -70,9 +94,10 @@ export function ShortcutProvider({
 
 export function useShortcuts(handlers: ShortcutHandlers): void {
   const registry = useContext(ShortcutRegistryContext);
-  const handlersRef = useRef(handlers);
+  const owner = useContext(ShortcutOwnerContext);
+  const handlersRef = useRef({ handlers, owner });
   useEffect(() => {
-    handlersRef.current = handlers;
+    handlersRef.current = { handlers, owner };
   });
   useEffect(() => registry?.register(handlersRef), [registry]);
 }

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
@@ -11,6 +18,7 @@ import { storeViewMode } from "./view-preference.js";
 import { BrowseEntryState, useBrowseRoute } from "./browse-entry.js";
 import { TasksTopbar } from "./topbar.js";
 import { ListView } from "../views/list/index.js";
+import { BrowseWorkspace } from "./browse-workspace.js";
 import { BoardView } from "../views/board/index.js";
 import { DetailView } from "../views/detail/index.js";
 import {
@@ -38,18 +46,21 @@ const BOARD_MIN_WIDTH = 448;
 // not key this outlet by a future selected ticket: selection must retain the list.
 function RouteOutlet({
   route,
+  splitUsable,
   boardUsable,
 }: {
   route: ResolvedTasksRoute;
+  splitUsable: boolean;
   boardUsable: boolean;
 }) {
   switch (route.kind) {
     case "entry":
       return null;
     case "all":
-      return <ListView key="all" projectId={null} />;
     case "active":
-      return <ListView key="active" projectId={null} activeOnly />;
+      return (
+        <BrowseWorkspace key={route.kind} route={route} split={splitUsable} />
+      );
     case "manage":
       return <ManagePanel />;
     case "task":
@@ -57,8 +68,14 @@ function RouteOutlet({
     case "project":
       return route.view === "board" && boardUsable ? (
         <BoardView projectId={route.projectId} />
-      ) : (
+      ) : route.view === "board" ? (
         <ListView key={route.projectId} projectId={route.projectId} />
+      ) : (
+        <BrowseWorkspace
+          key={route.projectId}
+          route={route}
+          split={splitUsable}
+        />
       );
   }
 }
@@ -87,14 +104,17 @@ function TasksAppShellContent({
 
   const mainRef = useRef<HTMLElement>(null);
   const [boardUsable, setBoardUsable] = useState(true);
-  useEffect(() => {
+  const [splitUsable, setSplitUsable] = useState(false);
+  useLayoutEffect(() => {
     const main = mainRef.current;
-    if (!main || typeof ResizeObserver === "undefined") return;
+    if (!main) return;
     const update = () => {
       const mainWidth = main.clientWidth;
       setBoardUsable(!(mainWidth > 0 && mainWidth < BOARD_MIN_WIDTH));
+      setSplitUsable(mainWidth >= 880);
     };
     update();
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(update);
     observer.observe(main);
     return () => observer.disconnect();
@@ -170,7 +190,11 @@ function TasksAppShellContent({
               }
             />
           ) : (
-            <RouteOutlet route={route} boardUsable={boardUsable} />
+            <RouteOutlet
+              route={route}
+              boardUsable={boardUsable}
+              splitUsable={splitUsable}
+            />
           )}
         </div>
       </main>

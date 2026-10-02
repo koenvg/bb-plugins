@@ -349,9 +349,33 @@ state offer New project instead of an empty picker.
 The permanent right-hand Navigation pane is no longer registered. The sidebar
 count and command-palette entry points remain available. On narrow panels, long
 project names truncate, New task becomes icon-only, and List/Board stays available
-in Tasks navigation when the inline toggle does not fit. Ticket opening still
-uses the existing standalone detail view; this navigation change does not add a
-split view.
+in Tasks navigation when the inline toggle does not fit.
+
+## Browse and edit side by side
+
+All, Active, and project lists use a retained list beside the existing editable
+ticket when the Tasks panel is at least 880px wide. This uses the panel's width,
+not the browser window. Start with no selection, then click a row to inspect it.
+The selected row keeps its highlight while you edit. Each pane scrolls separately;
+selecting another ticket does not reset the list or focus an editor.
+
+The detail keeps title, description, properties, dependencies, subtasks, files,
+comments, linked threads, and delegation. Pending autosaves must succeed before
+selection changes. Retry a failed save without leaving the originating draft.
+
+Browse links carry optional selection, for example `all?task=TSK-2` or
+`PROJECT_ID?view=list&task=TSK-2`. Selection replaces the current history entry.
+A reopened browse link selects only a task present in the settled visible list.
+Embedded subtask and dependency links select visible rows in place. Other task
+links open standalone detail without changing remembered scope. Board routes,
+standalone task links, mentions, CLI commands, and thread-side embeds keep their
+existing destinations.
+
+In a compact panel, selection shows detail with Back to list. The hidden list
+stays mounted. Unsent comments and staged files remain task-owned for this mounted
+session, not after closing the panel or reloading the browser. Full dynamic
+selection reconciliation, keyboard preview movement, and compact focus/context
+refinements are follow-up slices.
 
 ## Remembered project scope
 

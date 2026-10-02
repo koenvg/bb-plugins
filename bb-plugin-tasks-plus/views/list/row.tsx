@@ -94,6 +94,7 @@ interface TaskRowProps {
   onEdit: EditFn;
   onOpen: () => void;
   pending: boolean;
+  selected?: boolean;
   depth?: 0 | 1;
   dimmed?: boolean;
   expanded?: boolean;
@@ -113,6 +114,7 @@ export function TaskRow({
   onEdit,
   onOpen,
   pending,
+  selected = false,
   depth = 0,
   dimmed = false,
   expanded = false,
@@ -135,6 +137,7 @@ export function TaskRow({
     <TaskContextMenu task={task} onEdit={onEdit} projectLabels={projectLabels}>
       <div
         data-task-key={task.key}
+        data-selected={selected || undefined}
         data-dimmed={dimmed || undefined}
         aria-busy={pending || undefined}
         className={cn(
@@ -143,6 +146,7 @@ export function TaskRow({
           depth === 1 && "pl-9",
           dimmed && "opacity-50",
           pending && "opacity-70",
+          selected && "bg-state-active",
         )}
       >
         <button
@@ -150,6 +154,7 @@ export function TaskRow({
           type="button"
           data-nav-item
           aria-label={`Open ${task.key}: ${task.title}`}
+          aria-current={selected ? "true" : undefined}
           onClick={onOpen}
           className="absolute inset-0 rounded-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
         />
