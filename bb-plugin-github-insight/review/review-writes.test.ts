@@ -22,6 +22,7 @@ type Deps = Parameters<typeof createReviewWrites>[0];
 
 function writesWith(overrides: Partial<Deps> = {}) {
   const refreshed: string[] = [];
+  const marked: unknown[] = [];
   const writes = createReviewWrites({
     resolvePr: async () => ({ kind: "pr" as const, target }),
     replyToThread: async () => ({ data: {} }),
@@ -31,11 +32,15 @@ function writesWith(overrides: Partial<Deps> = {}) {
     drafts: { delete: async () => {} } as unknown as DraftStore,
     publish: () => {},
     refreshAfterWrite: async (threadId) => { refreshed.push(threadId); },
+    markReviewed: async (ref, commitOid) => {
+      marked.push([ref, commitOid]);
+      return { kind: "ok" };
+    },
     now: () => 1,
     warn: () => {},
     ...overrides,
   });
-  return { writes, refreshed };
+  return { writes, refreshed, marked };
 }
 
 const failing = async () => { throw new Error("gh down"); };
@@ -126,5 +131,59 @@ describe("review writes", () => {
     });
 
     expect(await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" })).toEqual({ kind: "submitted" });
+  });
+
+  const noDraftsLeft = { deleteReviewDrafts: async () => {} } as unknown as DraftStore;
+
+  it("marks the PR reviewed at the head after a submit without comment drafts", async () => {
+    const { writes, marked } = writesWith({ drafts: noDraftsLeft });
+
+    await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" });
+
+    expect(marked).toEqual([[target.ref, "def456"]]);
+  });
+
+  it("marks the PR reviewed at the commit of older comment drafts", async () => {
+    const commentDraft = { id: "d1", path: "a.ts", side: "RIGHT", line: 3, startLine: null, body: "Nit", commitOid: "abc123", updatedAt: 1, source: "agent" };
+    const { writes, marked } = writesWith({
+      drafts: noDraftsLeft,
+      loadReview: async () => (loaded.kind === "ok" ? { ...loaded, review: { ...loaded.review, commentDrafts: [commentDraft] } } : loaded) as ReviewLoad,
+    });
+
+    await writes.submitReview({ threadId: "thr_1", event: "COMMENT", body: "" });
+
+    expect(marked).toEqual([[target.ref, "abc123"]]);
+  });
+
+  it("does not mark the PR reviewed when the viewer is the author", async () => {
+    const { writes, marked } = writesWith({
+      drafts: noDraftsLeft,
+      loadReview: async () =>
+        (loaded.kind === "ok" ? { ...loaded, review: { ...loaded.review, head: { ...loaded.review.head, viewerIsAuthor: true } } } : loaded) as ReviewLoad,
+    });
+
+    await writes.submitReview({ threadId: "thr_1", event: "COMMENT", body: "Thanks" });
+
+    expect(marked).toEqual([]);
+  });
+
+  it("does not mark the PR reviewed when GitHub rejects the submit", async () => {
+    const { writes, marked } = writesWith({ drafts: noDraftsLeft, submitReview: failing });
+
+    await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" });
+
+    expect(marked).toEqual([]);
+  });
+
+  it("reports the submit as done with the mark error when the mark cannot be saved", async () => {
+    const { writes } = writesWith({
+      drafts: noDraftsLeft,
+      markReviewed: async () => ({ kind: "error", message: "disk full" }),
+    });
+
+    expect(await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" })).toEqual({
+      kind: "submitted",
+      markError: "disk full",
+    });
   });
 });

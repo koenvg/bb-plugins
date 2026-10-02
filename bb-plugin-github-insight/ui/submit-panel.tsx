@@ -146,6 +146,11 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
           Review submitted
         </p>
       )}
+      {outcome?.kind === "submitted" && outcome.markError !== undefined && (
+        <ErrorText>
+          Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull Requests panel.
+        </ErrorText>
+      )}
     </section>
   );
 }

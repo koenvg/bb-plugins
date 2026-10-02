@@ -54,6 +54,8 @@ const unusedReviewRpc = {
   refreshReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   startReview: () => ({ threadId: "unused" }),
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
+  markReviewed: () => ({ kind: "error" as const, message: "unused" }),
+  markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),
   runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
 };
 

@@ -5,10 +5,9 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { NewThreadComposerProps, PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import type {
   ActionResult,
-  LinkedQueueList,
   LinkedQueuePr,
   LoadedReviewQueue,
-  MyReview,
+  QueueSection,
   ReviewQueueResult,
   ReviewQueueView,
   rpcContract,
@@ -63,38 +62,35 @@ function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
     ci: "passed",
     reviewDecision: "REVIEW_REQUIRED",
     headRefName: "rate-limits",
+    headOid: "head-15",
     url: "https://github.com/acme/api/pull/15",
+    requested: true,
     projectIds: ["prj_api", "prj_api_old"],
-    threadId: null,
+    review: "needs_review",
+    thread: null,
     ...overrides,
   };
 }
 
-function list(prs: LinkedQueuePr[], truncated = false): LinkedQueueList {
-  const groups = [...new Set(prs.map((pr) => pr.repo))].map((repo) => ({
+function section(prs: LinkedQueuePr[]): QueueSection {
+  return [...new Set(prs.map((pr) => pr.repo))].map((repo) => ({
     repo,
     prs: prs.filter((pr) => pr.repo === repo),
   }));
-  return { groups, truncated };
 }
 
 const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
 
-function view(reviewRequests: LinkedQueuePr[], myReviews: MyReview[] = []): ReviewQueueView {
-  return { myReviews, reviewRequests: list(reviewRequests), loadedAt: LOADED_AT };
-}
-
-function myReview(overrides: Partial<MyReview> = {}): MyReview {
+function view(prs: LinkedQueuePr[], truncated = false): ReviewQueueView {
   return {
-    threadId: "thr_review",
-    repo: "acme/api",
-    number: 15,
-    title: "Add rate limits",
-    url: "https://github.com/acme/api/pull/15",
-    status: "running",
-    ...overrides,
+    needsReview: section(prs.filter((pr) => pr.review !== "reviewed")),
+    reviewed: section(prs.filter((pr) => pr.review === "reviewed")),
+    truncated,
+    loadedAt: LOADED_AT,
   };
 }
+
+const reviewThread = { id: "thr_review", status: "running", isReviewThread: true } as const;
 
 function ok(queueView: ReviewQueueView): LoadedReviewQueue {
   return { kind: "ok", ...queueView };
@@ -122,6 +118,8 @@ interface PanelRpc {
   refreshReviewQueue: () => LoadedReviewQueue | Promise<LoadedReviewQueue>;
   startReview: () => { threadId: string } | Promise<{ threadId: string }>;
   archiveReview: () => ActionResult | Promise<ActionResult>;
+  markReviewed: () => ActionResult | Promise<ActionResult>;
+  markNeedsReview: () => ActionResult | Promise<ActionResult>;
 }
 
 function renderPanel(subPath: string, getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = {}) {
@@ -139,6 +137,8 @@ function renderPanel(subPath: string, getReviewQueue: QueueHandler, rpc: Partial
         },
         startReview: () => ({ threadId: "thr_new" }),
         archiveReview: () => ({ kind: "ok" }),
+        markReviewed: () => ({ kind: "ok" }),
+        markNeedsReview: () => ({ kind: "ok" }),
         ...rpc,
       },
     },
@@ -167,14 +167,14 @@ describe("Pull Requests panel routes", () => {
   it("leaves the panel title to the host header", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
     expect(slot.queryByRole("heading", { name: "Pull Requests" })).toBeNull();
   });
 
   it("renders the lists at the panel root", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
-    expect(await slot.findByRole("region", { name: "Review requests" })).toBeTruthy();
+    expect(await slot.findByRole("region", { name: "Needs review" })).toBeTruthy();
     expect(slot.queryByTestId("bb-new-thread-composer")).toBeNull();
   });
 
@@ -182,13 +182,13 @@ describe("Pull Requests panel routes", () => {
     const slot = renderPanel("review/acme/api/15", () => ok(view([queuePr()])));
 
     expect(await slot.findByTestId("bb-new-thread-composer")).toBeTruthy();
-    expect(slot.queryByRole("region", { name: "Review requests" })).toBeNull();
+    expect(slot.queryByRole("region", { name: "Needs review" })).toBeNull();
   });
 
   it("renders the lists for an unknown subpath", async () => {
     const slot = renderPanel("review/acme/api/not-a-number", () => ok(view([queuePr()])));
 
-    expect(await slot.findByRole("region", { name: "Review requests" })).toBeTruthy();
+    expect(await slot.findByRole("region", { name: "Needs review" })).toBeTruthy();
   });
 });
 
@@ -198,7 +198,7 @@ describe("Pull Requests lists", () => {
       ok(view([queuePr(), queuePr({ number: 12 }), queuePr({ repo: "acme/web", number: 3 })])),
     );
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(within(reviews).getByTestId("queue-count").textContent).toBe("3");
   });
 
@@ -207,7 +207,7 @@ describe("Pull Requests lists", () => {
       ok(view([queuePr(), queuePr({ repo: "acme/web", number: 3 })])),
     );
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(
       within(reviews)
         .getAllByTestId("queue-group")
@@ -220,7 +220,7 @@ describe("Pull Requests lists", () => {
       ok(view([queuePr({ updatedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() })])),
     );
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByRole("heading").textContent).toBe("#15 Add rate limits");
     expect(within(card).getByText("alice")).toBeTruthy();
     expect(within(card).getByText("2 hours ago")).toBeTruthy();
@@ -230,7 +230,7 @@ describe("Pull Requests lists", () => {
   it("shows the repository on the group header and not on each card", async () => {
     const slot = renderPanel("", () => ok(view([queuePr(), queuePr({ number: 12 }), queuePr({ number: 9 })])));
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(within(reviews).getAllByText("acme/api")).toHaveLength(1);
     expect(within(reviews).getByTestId("queue-group").textContent).toBe("acme/api");
   });
@@ -247,27 +247,29 @@ describe("Pull Requests lists", () => {
       ),
     );
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByText("2 days ago")).toBeTruthy();
   });
 
-  it("puts the author, CI, review decision, and actions in one meta row", async () => {
+  it("leads each row with the CI mark and keeps author, age, review decision, and Draft in one meta row", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ draft: true })])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(card.firstElementChild?.getAttribute("data-testid")).toBe("queue-ci");
     const meta = within(card).getByTestId("queue-meta");
     expect(within(meta).getByText("alice")).toBeTruthy();
-    expect(within(meta).getByTestId("queue-ci")).toBeTruthy();
+    expect(within(meta).getByText("now")).toBeTruthy();
     expect(within(meta).getByTestId("queue-review-decision")).toBeTruthy();
     expect(within(meta).getByText("Draft")).toBeTruthy();
-    expect(within(meta).getByRole("button", { name: "Review in thread" })).toBeTruthy();
-    expect(within(meta).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
+    expect(within(meta).queryByRole("button")).toBeNull();
+    expect(within(card).getByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
   });
 
   it("shows Draft on a draft card", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ draft: true, ci: "failed" })])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByText("Draft")).toBeTruthy();
     expect(within(card).getByTestId("queue-ci").textContent).toBe("CI failed");
   });
@@ -280,7 +282,7 @@ describe("Pull Requests lists", () => {
   ] as const)("shows CI state %s", async (ci, text) => {
     const slot = renderPanel("", () => ok(view([queuePr({ ci })])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByTestId("queue-ci").textContent).toBe(text);
   });
 
@@ -291,38 +293,38 @@ describe("Pull Requests lists", () => {
   ] as const)("shows review decision %s", async (reviewDecision, text) => {
     const slot = renderPanel("", () => ok(view([queuePr({ reviewDecision })])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByTestId("queue-review-decision").textContent).toBe(text);
   });
 
   it("shows no review decision when GitHub has none", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ reviewDecision: null })])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).queryByTestId("queue-review-decision")).toBeNull();
   });
 
   it("links every card to the PR on GitHub", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
-    const review = await findCard(slot, "Review requests", "acme/api#15");
+    const review = await findCard(slot, "Needs review", "acme/api#15");
     expect(
       within(review).getByRole("link", { name: "Open on GitHub" }).getAttribute("href"),
     ).toBe("https://github.com/acme/api/pull/15");
   });
 
   it("says when a list holds only the first 50 PRs", async () => {
-    const slot = renderPanel("", () => ok({ ...view([]), reviewRequests: list([queuePr()], true) }));
+    const slot = renderPanel("", () => ok(view([queuePr()], true)));
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(within(reviews).getByText("Showing first 50")).toBeTruthy();
   });
 
   it("says when a list is empty", async () => {
     const slot = renderPanel("", () => ok(view([])));
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
-    expect(within(reviews).getByText("No review requests")).toBeTruthy();
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    expect(within(reviews).getByText("Nothing to review")).toBeTruthy();
     expect(within(reviews).getByTestId("queue-count").textContent).toBe("0");
   });
 
@@ -332,7 +334,7 @@ describe("Pull Requests lists", () => {
       refreshReviewQueue: () => new Promise((resolve) => (finish = resolve)),
     });
 
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
 
     await slot.findByRole("button", { name: "Refreshing…" });
@@ -347,7 +349,7 @@ describe("Pull Requests card actions", () => {
   it("offers Review in thread on a review request with a project", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     fireEvent.click(within(card).getByRole("button", { name: "Review in thread" }));
 
     expect(within(card).queryByRole("button", { name: "Open thread" })).toBeNull();
@@ -360,17 +362,17 @@ describe("Pull Requests card actions", () => {
     ]);
   });
 
-  it("shows the no project hint once on the group header and only Open on GitHub on its cards", async () => {
+  it("shows the no project hint once on the group header and no Review in thread on its cards", async () => {
     const slot = renderPanel("", () =>
       ok(view([queuePr({ projectIds: [] }), queuePr({ number: 12, projectIds: [] })])),
     );
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(within(reviews).getAllByText("No bb project for this repository")).toHaveLength(1);
     for (const name of ["acme/api#15", "acme/api#12"]) {
       const card = within(reviews).getByRole("listitem", { name });
       expect(within(card).queryByText("No bb project for this repository")).toBeNull();
-      expect(within(card).queryByRole("button")).toBeNull();
+      expect(within(card).queryByRole("button", { name: "Review in thread" })).toBeNull();
       expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
     }
   });
@@ -380,15 +382,17 @@ describe("Pull Requests card actions", () => {
       ok(view([queuePr(), queuePr({ repo: "acme/web", number: 3, projectIds: [] })])),
     );
 
-    const reviews = await slot.findByRole("region", { name: "Review requests" });
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
     expect(within(reviews).getAllByText("No bb project for this repository")).toHaveLength(1);
-    expect(within(await findCard(slot, "Review requests", "acme/api#15")).getByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(within(await findCard(slot, "Needs review", "acme/api#15")).getByRole("button", { name: "Review in thread" })).toBeTruthy();
   });
 
   it("offers Open thread on a review request with a linked thread", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr({ threadId: "thr_linked" })])));
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ thread: { id: "thr_linked", status: "idle", isReviewThread: false } })])),
+    );
 
-    const card = await findCard(slot, "Review requests", "acme/api#15");
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).queryByRole("button", { name: "Review in thread" })).toBeNull();
     fireEvent.click(within(card).getByRole("button", { name: "Open thread" }));
 
@@ -400,7 +404,7 @@ describe("Pull Requests updates", () => {
   it("renders the stored view on mount without a refresh", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
     expect(rpcMethods(slot)).toEqual(["getReviewQueue"]);
   });
 
@@ -410,35 +414,35 @@ describe("Pull Requests updates", () => {
     expect(await slot.findByText("Loading pull requests…")).toBeTruthy();
     await slot.behavior.emitRealtime("review-queue.updated", ok(view([queuePr()])));
 
-    expect(await findCard(slot, "Review requests", "acme/api#15")).toBeTruthy();
+    expect(await findCard(slot, "Needs review", "acme/api#15")).toBeTruthy();
     expect(slot.queryByText("Loading pull requests…")).toBeNull();
   });
 
   it("shows a published update without a call", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
 
     await slot.behavior.emitRealtime(
       "review-queue.updated",
       ok(view([queuePr(), queuePr({ number: 16, title: "Add caching" })])),
     );
 
-    expect(await findCard(slot, "Review requests", "acme/api#16")).toBeTruthy();
+    expect(await findCard(slot, "Needs review", "acme/api#16")).toBeTruthy();
     expect(rpcMethods(slot)).toEqual(["getReviewQueue"]);
   });
 
   it("ignores a malformed update", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
 
     await slot.behavior.emitRealtime("review-queue.updated", { kind: "ok" });
 
-    expect(await findCard(slot, "Review requests", "acme/api#15")).toBeTruthy();
+    expect(await findCard(slot, "Needs review", "acme/api#15")).toBeTruthy();
   });
 
   it("asks the server to refresh on Refresh", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
 
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
 
@@ -449,18 +453,18 @@ describe("Pull Requests updates", () => {
   it("makes no calls of its own while open", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const slot = renderPanel("", () => ok(view([queuePr()])));
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
 
     await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
 
     expect(rpcMethods(slot)).toEqual(["getReviewQueue"]);
   });
 
-  it("puts Refresh and the update time on the My reviews header row", async () => {
+  it("puts Refresh and the update time on the Needs review header row", async () => {
     const slot = renderPanel("", () => ok({ ...view([queuePr()]), loadedAt: Date.now() - 3 * 60_000 }));
 
-    const section = await slot.findByRole("region", { name: "My reviews" });
-    const headerRow = within(section).getByRole("heading", { name: /My reviews/ }).parentElement!;
+    const section = await slot.findByRole("region", { name: "Needs review" });
+    const headerRow = within(section).getByRole("heading", { name: /Needs review/ }).parentElement!;
     expect(within(headerRow).getByRole("button", { name: "Refresh" })).toBeTruthy();
     expect(headerRow.textContent).toContain("Updated 3 minutes ago");
     expect(slot.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
@@ -481,12 +485,12 @@ describe("Pull Requests errors", () => {
     const alert = await slot.findByRole("alert");
     expect(within(alert).getByText("gh not logged in")).toBeTruthy();
     expect(within(alert).queryByText(/last updated/i)).toBeNull();
-    expect(slot.queryByRole("region", { name: "Review requests" })).toBeNull();
+    expect(slot.queryByRole("region", { name: "Needs review" })).toBeNull();
 
     result = ok(view([queuePr()]));
     fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
 
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
     expect(slot.queryByRole("alert")).toBeNull();
   });
 
@@ -499,13 +503,13 @@ describe("Pull Requests errors", () => {
     expect(
       within(alert).getByText(/last updated/i).querySelector("time")?.dateTime,
     ).toBe("2026-10-02T09:30:00.000Z");
-    expect(await findCard(slot, "Review requests", "acme/api#15")).toBeTruthy();
+    expect(await findCard(slot, "Needs review", "acme/api#15")).toBeTruthy();
   });
 
   it("keeps the lists of an earlier load when a refresh fails", async () => {
     let result: ReviewQueueResult = ok(view([queuePr()]));
     const slot = renderPanel("", () => result);
-    await findCard(slot, "Review requests", "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
 
     result = notLoggedIn;
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
@@ -644,105 +648,168 @@ describe("Review composer", () => {
   });
 });
 
-describe("My reviews", () => {
-  async function findReviewRow(slot: ReturnType<typeof renderPanel>, name: string) {
-    const section = await slot.findByRole("region", { name: "My reviews" });
-    return within(section).getByRole("listitem", { name });
-  }
+describe("Reviewed section", () => {
+  it("shows Needs review above Reviewed", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
 
-  it("shows My reviews above the review requests", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr()], [myReview()])));
-
-    await findReviewRow(slot, "acme/api#15");
+    await findCard(slot, "Needs review", "acme/api#15");
     expect(slot.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
-      "My reviews",
-      "Review requests",
+      "Needs review",
+      "Reviewed",
     ]);
   });
 
-  it("shows the repo, number, title, status, and count of each review thread", async () => {
+  it("starts collapsed with its count and expands", async () => {
     const slot = renderPanel("", () =>
-      ok(view([], [myReview(), myReview({ threadId: "thr_web", repo: "acme/web", number: 3, title: "Fix login" })])),
+      ok(view([queuePr({ review: "reviewed" }), queuePr({ number: 12, review: "reviewed" })])),
     );
 
-    const row = await findReviewRow(slot, "acme/api#15");
-    expect(within(row).getByText("acme/api")).toBeTruthy();
-    expect(within(row).getByText("#15")).toBeTruthy();
-    expect(within(row).getByText("Add rate limits")).toBeTruthy();
-    expect(within(row).getByTestId("review-status").textContent).toBe("Running");
-    const section = slot.getByRole("region", { name: "My reviews" });
-    expect(within(section).getByTestId("queue-count").textContent).toBe("2");
+    const reviewed = await slot.findByRole("region", { name: "Reviewed" });
+    const toggle = within(reviewed).getByRole("button", { name: /Reviewed/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(within(reviewed).getByTestId("queue-count").textContent).toBe("2");
+    expect(within(reviewed).queryByRole("listitem")).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(within(reviewed).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
   });
 
+  it("labels a PR that got a new commit after the review", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ review: "updated_since_review" })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByText("Updated since review")).toBeTruthy();
+  });
+
+  it("shows no updated label on a PR that was never reviewed", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).queryByText("Updated since review")).toBeNull();
+  });
+});
+
+describe("Mark actions", () => {
+  async function expandReviewed(slot: ReturnType<typeof renderPanel>) {
+    const reviewed = await slot.findByRole("region", { name: "Reviewed" });
+    fireEvent.click(within(reviewed).getByRole("button", { name: /Reviewed/ }));
+    return reviewed;
+  }
+
+  it("sends the head shown on the card and disables the action until the server answers", async () => {
+    let answer: (result: ActionResult) => void = () => {};
+    const slot = renderPanel("", () => ok(view([queuePr()])), {
+      markReviewed: () => new Promise((resolve) => (answer = resolve)),
+    });
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Mark reviewed" }));
+
+    await vi.waitFor(() => expect(within(card).getByRole("button", { name: "Mark reviewed" }).hasAttribute("disabled")).toBe(true));
+    const call = slot.inspection.rpcCalls.find((candidate) => candidate.method === "markReviewed");
+    expect(call?.input).toEqual({ repo: "acme/api", number: 15, headOid: "head-15" });
+    await act(async () => answer({ kind: "ok" }));
+    expect(within(card).getByRole("button", { name: "Mark reviewed" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("moves the PR to Reviewed when the server publishes the mark", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+    await findCard(slot, "Needs review", "acme/api#15");
+
+    await slot.behavior.emitRealtime("review-queue.updated", ok(view([queuePr({ review: "reviewed" })])));
+
+    const reviewed = await expandReviewed(slot);
+    expect(within(reviewed).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
+    expect(within(slot.getByRole("region", { name: "Needs review" })).getByText("Nothing to review")).toBeTruthy();
+  });
+
+  it("keeps the PR and shows the error when the mark fails", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])), {
+      markReviewed: () => ({ kind: "error", message: "disk full" }),
+    });
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Mark reviewed" }));
+
+    expect(within(await slot.findByRole("alert")).getByText("disk full")).toBeTruthy();
+    expect(await findCard(slot, "Needs review", "acme/api#15")).toBeTruthy();
+  });
+
+  it("asks the server to mark a reviewed PR as needs review", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ review: "reviewed" })])));
+
+    const reviewed = await expandReviewed(slot);
+    const card = within(reviewed).getByRole("listitem", { name: "acme/api#15" });
+    fireEvent.click(within(card).getByRole("button", { name: "Mark as needs review" }));
+
+    await vi.waitFor(() =>
+      expect(slot.inspection.rpcCalls.find((candidate) => candidate.method === "markNeedsReview")?.input).toEqual({
+        repo: "acme/api",
+        number: 15,
+      }),
+    );
+  });
+});
+
+describe("Thread on the PR row", () => {
   it.each([
     ["running", "Running"],
     ["needs_you", "Needs you"],
     ["idle", "Idle"],
     ["error", "Error"],
   ] as const)("shows thread status %s", async (status, text) => {
-    const slot = renderPanel("", () => ok(view([], [myReview({ status })])));
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: { ...reviewThread, status } })])));
 
-    const row = await findReviewRow(slot, "acme/api#15");
-    expect(within(row).getByTestId("review-status").textContent).toBe(text);
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByTestId("review-status").textContent).toBe(text);
   });
 
-  it("opens the review thread", async () => {
-    const slot = renderPanel("", () => ok(view([], [myReview()])));
+  it("opens the thread from the row", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
 
-    const row = await findReviewRow(slot, "acme/api#15");
-    fireEvent.click(within(row).getByRole("button", { name: "Open thread" }));
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Open thread" }));
 
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_review" }]);
   });
 
-  it("archives the review thread and removes its row without a refresh", async () => {
-    const slot = renderPanel("", () => ok(view([], [myReview()])));
+  it("offers Archive thread only for a review thread", async () => {
+    const slot = renderPanel("", () =>
+      ok(
+        view([
+          queuePr({ thread: reviewThread }),
+          queuePr({ number: 12, thread: { id: "thr_branch", status: "idle", isReviewThread: false } }),
+        ]),
+      ),
+    );
 
-    const row = await findReviewRow(slot, "acme/api#15");
-    fireEvent.click(within(row).getByRole("button", { name: "Archive" }));
+    expect(within(await findCard(slot, "Needs review", "acme/api#15")).getByRole("button", { name: "Archive thread" })).toBeTruthy();
+    expect(within(await findCard(slot, "Needs review", "acme/api#12")).queryByRole("button", { name: "Archive thread" })).toBeNull();
+  });
 
-    const section = slot.getByRole("region", { name: "My reviews" });
-    expect(await within(section).findByText("No review threads")).toBeTruthy();
+  it("archives the review thread and offers Review in thread again without a refresh", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Archive thread" }));
+
+    expect(await within(card).findByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(within(card).queryByTestId("review-status")).toBeNull();
     const archive = slot.inspection.rpcCalls.find((call) => call.method === "archiveReview");
     expect(archive?.input).toEqual({ threadId: "thr_review" });
     expect(rpcMethods(slot)).toEqual(["getReviewQueue", "archiveReview"]);
   });
 
-  it("keeps the row and shows the reason when the archive is refused", async () => {
-    const slot = renderPanel("", () => ok(view([], [myReview()])), {
+  it("keeps the thread and shows the reason when the archive is refused", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])), {
       archiveReview: () => ({ kind: "error", message: "This thread is not a review thread" }),
     });
 
-    const row = await findReviewRow(slot, "acme/api#15");
-    fireEvent.click(within(row).getByRole("button", { name: "Archive" }));
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Archive thread" }));
 
-    const section = slot.getByRole("region", { name: "My reviews" });
-    expect(await within(section).findByText("This thread is not a review thread")).toBeTruthy();
-    expect(within(section).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
-  });
-
-  it("collapses and expands the list", async () => {
-    const slot = renderPanel("", () => ok(view([], [myReview()])));
-
-    await findReviewRow(slot, "acme/api#15");
-    const section = slot.getByRole("region", { name: "My reviews" });
-    const toggle = within(section).getByRole("button", { name: /My reviews/ });
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(within(section).queryByRole("listitem")).toBeNull();
-    expect(within(section).getByTestId("queue-count").textContent).toBe("1");
-
-    fireEvent.click(toggle);
-    expect(within(section).getByRole("listitem", { name: "acme/api#15" })).toBeTruthy();
-  });
-
-  it("says when there are no review threads", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr()])));
-
-    const section = await slot.findByRole("region", { name: "My reviews" });
-    expect(within(section).getByText("No review threads")).toBeTruthy();
-    expect(within(section).getByTestId("queue-count").textContent).toBe("0");
+    expect(within(await slot.findByRole("alert")).getByText("This thread is not a review thread")).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Open thread" })).toBeTruthy();
   });
 });

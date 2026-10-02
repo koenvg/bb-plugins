@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixture from "../test/fixtures/review-queue.json";
+import trackedFixture from "../test/fixtures/review-queue-tracked.json";
 import { parseGithubRepo, parseReviewQueue, type QueueList, type QueuePr } from "./review-queue";
 
 function prs(list: QueueList): QueuePr[] {
@@ -38,7 +39,7 @@ describe("parseGithubRepo", () => {
 });
 
 describe("parseReviewQueue", () => {
-  const queue = parseReviewQueue(fixture);
+  const queue = parseReviewQueue(fixture, []).requests;
 
   it("maps a node to a QueuePr", () => {
     expect(byNumber(queue, 12)).toEqual({
@@ -52,6 +53,7 @@ describe("parseReviewQueue", () => {
       ci: "passed",
       reviewDecision: "REVIEW_REQUIRED",
       headRefName: "alice/retries",
+      headOid: "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
       url: "https://github.com/acme/api/pull/12",
     });
   });
@@ -105,14 +107,44 @@ describe("parseReviewQueue", () => {
 
   it("flags the list as truncated when GitHub reports more than 50", () => {
     expect(queue.truncated).toBe(false);
-    expect(parseReviewQueue(withIssueCount(70)).truncated).toBe(true);
+    expect(parseReviewQueue(withIssueCount(70), []).requests.truncated).toBe(true);
   });
 
   it("flags 50 results as complete", () => {
-    expect(parseReviewQueue(withIssueCount(50)).truncated).toBe(false);
+    expect(parseReviewQueue(withIssueCount(50), []).requests.truncated).toBe(false);
   });
 
   it("rejects a response without the review requests search", () => {
-    expect(() => parseReviewQueue({ data: {} })).toThrow();
+    expect(() => parseReviewQueue({ data: {} }, [])).toThrow();
+  });
+});
+
+describe("parseReviewQueue with tracked PRs", () => {
+  const refs = [
+    { owner: "acme", repo: "api", number: 15 },
+    { owner: "acme", repo: "web", number: 8 },
+    { owner: "gone", repo: "repo", number: 1 },
+    { owner: "acme", repo: "api", number: 99 },
+    { owner: "acme", repo: "api", number: 12 },
+  ];
+  const fetched = parseReviewQueue(trackedFixture, refs);
+
+  it("reads an open tracked PR with its head commit", () => {
+    expect(fetched.tracked.map((pr) => [pr.repo, pr.number, pr.headOid])).toEqual([
+      ["acme/api", 15, "e15e15e15e15e15e15e15e15e15e15e15e15e15e"],
+      ["acme/api", 12, "a12a12a12a12a12a12a12a12a12a12a12a12a12a"],
+    ]);
+  });
+
+  it("reports merged PRs, missing repositories, and missing PRs as gone", () => {
+    expect(fetched.gone).toEqual([refs[1], refs[2], refs[3]]);
+  });
+
+  it("keeps the review requests next to the tracked PRs", () => {
+    expect(prs(fetched.requests).map((pr) => pr.number)).toEqual([12]);
+  });
+
+  it("reports a tracked PR that the response leaves out as gone", () => {
+    expect(parseReviewQueue(fixture, [refs[0]!]).gone).toEqual([refs[0]]);
   });
 });

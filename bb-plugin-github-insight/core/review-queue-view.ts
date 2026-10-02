@@ -1,30 +1,34 @@
 import { z } from "zod";
-import { reviewPrSchema } from "./review-pr";
-import { queueListSchema, queuePrSchema } from "./review-queue";
-
-const linkedQueuePrSchema = queuePrSchema.extend({
-  projectIds: z.array(z.string()),
-  threadId: z.string().nullable(),
-});
-export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
-
-const linkedQueueListSchema = queueListSchema.extend({
-  groups: z.array(z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) })),
-});
-export type LinkedQueueList = z.infer<typeof linkedQueueListSchema>;
+import { queuePrSchema } from "./review-queue";
+import { reviewStateSchema } from "./review-state";
 
 export const reviewThreadStatusSchema = z.enum(["running", "needs_you", "idle", "error"]);
 export type ReviewThreadStatus = z.infer<typeof reviewThreadStatusSchema>;
 
-const myReviewSchema = reviewPrSchema.extend({
-  threadId: z.string(),
+const linkedThreadSchema = z.object({
+  id: z.string(),
   status: reviewThreadStatusSchema,
+  isReviewThread: z.boolean(),
 });
-export type MyReview = z.infer<typeof myReviewSchema>;
+export type LinkedThread = z.infer<typeof linkedThreadSchema>;
+
+export const queueRowSchema = queuePrSchema.extend({ requested: z.boolean() });
+export type QueueRow = z.infer<typeof queueRowSchema>;
+
+const linkedQueuePrSchema = queueRowSchema.extend({
+  projectIds: z.array(z.string()),
+  review: reviewStateSchema,
+  thread: linkedThreadSchema.nullable(),
+});
+export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
+
+const queueSectionSchema = z.array(z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) }));
+export type QueueSection = z.infer<typeof queueSectionSchema>;
 
 export const reviewQueueViewSchema = z.object({
-  myReviews: z.array(myReviewSchema),
-  reviewRequests: linkedQueueListSchema,
+  needsReview: queueSectionSchema,
+  reviewed: queueSectionSchema,
+  truncated: z.boolean(),
   loadedAt: z.number(),
 });
 export type ReviewQueueView = z.infer<typeof reviewQueueViewSchema>;

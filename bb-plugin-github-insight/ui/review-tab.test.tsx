@@ -150,6 +150,8 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         startReview: () => ({ threadId: "unused" }),
         archiveReview: () => ({ kind: "error", message: "unused" }),
+        markReviewed: () => ({ kind: "error", message: "unused" }),
+        markNeedsReview: () => ({ kind: "error", message: "unused" }),
         runMergeAction: () => ({ kind: "error", message: "unused" }),
       },
     },
@@ -1278,6 +1280,18 @@ describe("Review tab submit panel", () => {
     expect(slot.getAllByRole("region", { name: "Draft from agent" })).toHaveLength(2);
     expect(summaryBox(panel).value).toBe("Looks good overall");
     expect(methods(slot)).toEqual(["getReview", "submitReview"]);
+  });
+
+  it("tells the user to mark the PR reviewed by hand when the mark after a submit fails", async () => {
+    const slot = renderTabWith({ submitReview: () => ({ kind: "submitted", markError: "disk full" }) }, withDraftsAndSummary);
+    const panel = await openPanel(slot);
+
+    fireEvent.click(submitButton(panel));
+
+    expect(await panel.findByText("Review submitted")).toBeTruthy();
+    expect((await panel.findByRole("alert")).textContent).toBe(
+      'Could not mark the PR reviewed: disk full. Use "Mark reviewed" in the Pull Requests panel.',
+    );
   });
 
   it("shows an error without a link when there is no PR url", async () => {

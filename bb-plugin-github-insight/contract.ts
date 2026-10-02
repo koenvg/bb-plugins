@@ -13,10 +13,10 @@ import { threadPlacementSchema } from "./core/thread-placement";
 import { ghFailureSchema } from "./github/gh-failure";
 
 export type {
-  LinkedQueueList,
   LinkedQueuePr,
+  LinkedThread,
   LoadedReviewQueue,
-  MyReview,
+  QueueSection,
   ReviewQueueResult,
   ReviewQueueView,
   ReviewThreadStatus,
@@ -130,7 +130,7 @@ export const hostContract = defineRpcContract({
     output: ghResultSchema,
   },
   fetchReviewQueue: {
-    input: z.object({}).strict(),
+    input: z.object({ tracked: z.array(z.object(prRequestFields).strict()) }).strict(),
     output: ghResultSchema,
   },
   mergePullRequest: {
@@ -250,10 +250,18 @@ const submitReviewRequestSchema = z
 export type SubmitReviewRequest = z.infer<typeof submitReviewRequestSchema>;
 
 export const submitReviewResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("submitted") }),
+  z.object({ kind: z.literal("submitted"), markError: z.string().optional() }),
   z.object({ kind: z.literal("error"), message: z.string(), url: z.string().nullable() }),
 ]);
 export type SubmitReviewResult = z.infer<typeof submitReviewResultSchema>;
+
+const markNeedsReviewRequestSchema = z
+  .object({ repo: z.string().min(1), number: z.number().int().positive() })
+  .strict();
+export type MarkNeedsReviewRequest = z.infer<typeof markNeedsReviewRequestSchema>;
+
+const markReviewedRequestSchema = markNeedsReviewRequestSchema.extend({ headOid: z.string().min(1) }).strict();
+export type MarkReviewedRequest = z.infer<typeof markReviewedRequestSchema>;
 
 const newThreadRequestSchema = z.custom<NewThreadRequest>(
   (value) => typeof value === "object" && value !== null,
@@ -293,5 +301,7 @@ export const rpcContract = defineRpcContract({
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
   startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
+  markReviewed: { input: markReviewedRequestSchema, output: actionResultSchema },
+  markNeedsReview: { input: markNeedsReviewRequestSchema, output: actionResultSchema },
   runMergeAction: { input: runMergeActionRequestSchema, output: actionResultSchema },
 });
