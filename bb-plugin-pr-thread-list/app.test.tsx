@@ -52,7 +52,9 @@ function tip(slot: ReturnType<typeof renderSlot>, text: string) {
 
 function mount(threads = [thread()], state: Partial<PluginSidebarThreadsState> = {},
   extras: Partial<RenderSlotOptions> = {}, props: Partial<PluginThreadListProps> = {}) {
-  const slot = app.threadLists[0]!;
+  const List = app.threadLists[0]!.component;
+  const Owner = app.appOverlays[0]!.component;
+  const slot = { component: (props: PluginThreadListProps) => <><Owner /><List {...props} /></> };
   mounted = renderSlot(slot, {
     activeThreadId: null, activeProjectId: null, isCompactViewport: false,
     onNavigate: () => {}, searchQuery: "", ...props,
@@ -622,6 +624,12 @@ describe("thread list slot", () => {
     expect(slot.container.querySelectorAll("[data-provider-glyph]")).toHaveLength(2);
   });
   describe("snooze", () => {
+    it("does not load snoozes when only the sidebar is mounted", () => {
+      mounted = renderSlot(app.threadLists[0]!, {
+        activeThreadId: null, activeProjectId: null, isCompactViewport: false, onNavigate: () => {}, searchQuery: "",
+      }, { sidebarThreads: { threads: [thread()], projects: [project] } });
+      expect(mounted.inspection.rpcCalls.filter(({ method }) => method === "listSnoozes")).toHaveLength(0);
+    });
     const DAY = 86_400_000;
     const withSnoozes = (snoozes: Record<string, number>, handlers: Record<string, unknown> = {}) =>
       ({ rpc: { listSummaries: () => ({ insightAvailable: true, summaries: {} }), listSnoozes: () => ({ snoozes }),
@@ -681,6 +689,9 @@ describe("thread list slot", () => {
 
       await vi.waitFor(() => expect(calls(slot, "wake")).toEqual([{ threadId: "t1" }]));
       expect(slot.getByRole("link", { name: "Prepare release" })).toBeTruthy();
+      expect(calls(slot, "listSnoozes")).toHaveLength(2);
+      await slot.behavior.emitRealtime("snoozes.changed", {});
+      expect(calls(slot, "wake")).toHaveLength(1);
     });
 
     it("loads snoozes again when the server reports a change", async () => {

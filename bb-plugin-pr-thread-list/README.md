@@ -55,6 +55,22 @@ PR status changes and child threads do not wake a thread.
 
 Snoozes are stored in the plugin's database on the BB server, so all clients show the same snoozes. BB's bundled **Thread list** does not show them, but the server still wakes snoozed threads on time.
 
+### Command palette
+
+The palette has three commands:
+
+- `Threads: Snooze until tomorrow`
+- `Threads: Snooze until next week`
+- `Threads: Wake now`
+
+They target BB's currently focused thread, including the focused pane in a split view. The sidebar can be closed and the row can be offscreen. There are no default shortcuts. Assign your own in BB's Keyboard settings.
+
+Snooze commands appear only for a known, non-archived thread with no active snooze or blocking attention signal. Waiting for an approval or answer, an unread error, or a failed queued message blocks snooze. Running alone does not. Wake now appears only for an active snooze, not one that expired or received an early-wake signal. Inapplicable commands are absent, not disabled. All three stay hidden with no focused thread, an unknown thread, loading or failed required state, or a stopped plugin frontend.
+
+The commands use the same client-local 9:00 presets as the menu. Next week is absent on Sunday because it equals Tomorrow. Execution checks the current focus, latest observed state, and local date again. A stale entry or shortcut does nothing when its action is no longer applicable. Snooze marks the thread read without stopping its run; Wake now does not mark it unread.
+
+Commands work while this plugin's frontend is enabled even when another sidebar provider is selected. Only **Threads with PRs** displays the **Snoozed** group. Snooze loading and early wakes belong to the app-wide owner, not individual sidebar rows.
+
 ## List preferences
 
 Open **List options** to group by project, machine, or custom section and to change the sort order. In **All**, List options also selects Active, Archived, or Both. The other tabs ignore this choice. Group and parent-thread headers collapse their descendants. The top thread of a tree decides its group and its pin: a tree shows in the project, section, or machine of its top thread, and in **Pinned** only when the top thread is pinned. Pinned trees stay at the top of their tab. When the archived selection leaves out the parent of a shown thread, and the list has that parent loaded, the parent shows as a dimmed row. It does not count in the group count. A child of a hidden or not loaded parent shows as a top-level row.

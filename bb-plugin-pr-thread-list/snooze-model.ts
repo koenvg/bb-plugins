@@ -8,6 +8,7 @@ export interface SnoozeControls {
 }
 
 export interface SnoozePreset {
+  id: "tomorrow" | "next-week";
   label: string;
   wakeAt: number;
 }
@@ -21,8 +22,8 @@ const morning = (now: Date, daysAhead: number) =>
 export function snoozePresets(now: Date): SnoozePreset[] {
   const tomorrow = morning(now, 1);
   const nextWeek = morning(now, (MONDAY - now.getDay() + 7) % 7 || 7);
-  const presets = [{ label: "Tomorrow", wakeAt: tomorrow }];
-  if (nextWeek !== tomorrow) presets.push({ label: "Next week", wakeAt: nextWeek });
+  const presets: SnoozePreset[] = [{ id: "tomorrow", label: "Tomorrow", wakeAt: tomorrow }];
+  if (nextWeek !== tomorrow) presets.push({ id: "next-week", label: "Next week", wakeAt: nextWeek });
   return presets;
 }
 

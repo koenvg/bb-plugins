@@ -16,8 +16,10 @@ import { Tip } from "./tip";
 import { PrBadgeView } from "./pr-badge";
 import { readSummary, type PrSummary } from "./pr-insight";
 import { useSummaries } from "./use-summaries";
-import { useSnoozes } from "./use-snoozes";
+import { createSnoozeClient, SnoozeOwner, useSnoozeControls, type SnoozeClient } from "./snooze-client";
+import { snoozeCommands } from "./snooze-commands";
 import { wakeLabel, wakeTitle, type SnoozeControls } from "./snooze-model";
+import { useNow } from "./use-now";
 import { buildForest, visibleItems, type Lifecycle, type ListItem, type ListOptions, type SortField } from "./list-model";
 import type { Tab } from "./tabs";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
@@ -25,19 +27,10 @@ import { isSettled, needsAttention, relativeTime, rowState, workItems } from "./
 
 
 const OVERSCAN = 5;
-const MINUTE = 60_000;
 
 const HEIGHTS: Record<ListItem["kind"], number> = { group: 36, thread: 48 };
 const CHILD_INDENT = 24;
 
-function useNow(): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), MINUTE);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
-}
 
 type Provider = ExperimentalProviderIconProps["provider"] & { displayName?: string };
 
@@ -254,7 +247,7 @@ function GroupHeader({ item, onToggle, onNewThread, menu }: {
   );
 }
 
-function ThreadList(props: PluginThreadListProps) {
+function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient }) {
   const [prefs, setPrefs] = useState(readPreferences);
   const lifecycles = prefs.tab === "all" ? prefs.lifecycles : ACTIVE_ONLY;
   const { status, threads, projects, sections, experimental_archived: archived } = experimental_useSidebarThreads({ experimental_lifecycles: lifecycles });
@@ -272,7 +265,7 @@ function ThreadList(props: PluginThreadListProps) {
       .sort((a, b) => a.pinSortKey === b.pinSortKey ? (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
         : a.pinSortKey === null ? 1 : b.pinSortKey === null ? -1 : a.pinSortKey.localeCompare(b.pinSortKey));
   }, [threads]);
-  const snoozes = useSnoozes(threads, now);
+  const snoozes = useSnoozeControls(props.snoozeClient);
   const items = useMemo(() => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed),
     [threads, projects, sections, prefs, pullRequests, snoozes.snoozed]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -366,8 +359,12 @@ function ThreadList(props: PluginThreadListProps) {
 }
 
 export default definePluginApp((app) => {
+  const snoozeClient = createSnoozeClient();
+  for (const command of snoozeCommands(snoozeClient)) app.commands.register(command);
+  app.slots.experimental_appOverlay({ id: "snooze-state", component: () => <SnoozeOwner client={snoozeClient} /> });
   app.slots.experimental_threadList({
     id: "pr-status", title: "Threads with PRs",
-    description: "Threads and the status of their branch pull requests.", component: ThreadList,
+    description: "Threads and the status of their branch pull requests.",
+    component: (props) => <ThreadList {...props} snoozeClient={snoozeClient} />,
   });
 });
