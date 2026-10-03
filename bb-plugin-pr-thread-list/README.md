@@ -29,7 +29,13 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 | Open PR has checks running or waits for a required review | In flight |
 | Any other PR (ready, draft, behind, blocked, merged, closed) | Needs attention |
 
-A thread tree moves as one unit. The whole tree shows in **Needs attention** when the top thread goes there, or when a child needs you, has unread output, or has a PR problem (failed checks, requested changes, conflicts, unresolved comments, or a failed merge queue entry). A finished child with no PR, or with a ready, draft, merged, or closed PR, does not move its tree. Else the whole tree shows in **In flight**. Each child stays under its parent.
+A thread tree moves as one unit. The first matching tree-wide rule decides its tab:
+
+1. If any eligible member needs input or approval, has unread output or an unread error, or has a failed queued message, the whole tree shows in **Needs attention**.
+2. Otherwise, if any eligible member runs, has background work, or has a queued message waiting, the whole tree shows in **In flight**, even when another member has conflicts, failed checks, requested changes, unresolved comments, or a failed merge queue entry.
+3. Otherwise, the existing idle-thread and PR rules apply. The top eligible thread can put the tree in **Needs attention**, and a child's PR problem can pull it there. A finished child with no PR, or with a ready, draft, merged, or closed PR, does not move its tree.
+
+Only non-hidden, non-archived, non-snoozed members contribute signals. Dimmed context rows do not. Each child stays under its parent, and PR problem badges remain visible in **In flight**. When the last working member stops, the tree rechecks its idle-thread and PR rules without a reload.
 
 **All** shows every thread, with the **Needs you** group on top and the **Snoozed** group at the bottom.
 
