@@ -73,3 +73,25 @@ describe("snoozesToEnd", () => {
     expect(snoozesToEnd(threads, { asks: 1, quiet: 1 })).toEqual(["asks"]);
   });
 });
+
+describe("group early wake", () => {
+  it("removes every stored member when any grouped descendant needs attention", () => {
+    const rows = [thread({ id: "parent" }), thread({ id: "child", parentThreadId: "parent", hasPendingInteraction: true }),
+      thread({ id: "sibling", parentThreadId: "parent" }), thread({ id: "other" })];
+    const snoozes = { parent: 100, child: 100, sibling: 100, other: 100 };
+    const groups = { parent: "family", child: "family", sibling: "family", other: "other" };
+    expect(activeSnoozes(rows, snoozes, 0, groups)).toEqual(new Map([["other", 100]]));
+    expect(snoozesToEnd(rows, snoozes, groups)).toEqual(["child"]);
+  });
+
+  it("issues one representative wake per group even when multiple members need the user", () => {
+    const rows = [thread({ id: "parent", queuedWork: "failed" }), thread({ id: "child", indicator: "unread-error" })];
+    expect(snoozesToEnd(rows, { parent: 100, child: 100 }, { parent: "g", child: "g" })).toEqual(["parent"]);
+  });
+
+  it("does not wake a group for an outside child or an archived member", () => {
+    const rows = [thread({ id: "parent" }), thread({ id: "archived", isArchived: true, hasPendingInteraction: true }),
+      thread({ id: "new", parentThreadId: "parent", hasPendingInteraction: true })];
+    expect(activeSnoozes(rows, { parent: 100, archived: 100 }, 0, { parent: "g", archived: "g" })).toEqual(new Map([["parent", 100]]));
+  });
+});

@@ -303,4 +303,29 @@ describe("snoozed threads", () => {
   it("add no Snoozed group when nothing is snoozed", () => {
     expect(labels(visibleItems([thread()], [project], [], defaults))).not.toContain("[Snoozed]");
   });
+  it("keeps an entire captured subtree nested only in Snoozed, then restores normal tab classification", () => {
+    const threads = [thread({ id: "parent", displayTitle: "Parent", status: "active", isPinned: true }),
+      thread({ id: "child", displayTitle: "Child", parentThreadId: "parent", projectId: "other" }),
+      thread({ id: "grandchild", displayTitle: "Grandchild", parentThreadId: "child" })];
+    const group = new Map(threads.map(({ id }) => [id, 9_000]));
+    const view = (tab: ListOptions["tab"], snoozed = group, extra: Partial<ListOptions> = {}) =>
+      visibleItems(threads, [project], [], { ...defaults, tab, ...extra }, new Map(), snoozed);
+    expect(view("attention")).toEqual([]);
+    expect(view("inflight")).toEqual([]);
+    expect(labels(view("all"))).toEqual(["[Snoozed]", "Parent", "Child", "Grandchild"]);
+    expect(view("all").filter((row) => row.kind === "thread").map((row) => [row.id, row.depth, row.context]))
+      .toEqual([["parent", 0, false], ["child", 1, false], ["grandchild", 2, false]]);
+    expect(labels(view("all", group, { collapsedThreads: ["parent"] }))).toEqual(["[Snoozed]", "Parent"]);
+    expect(titles(view("attention", new Map()))).toEqual([]);
+    expect(titles(view("inflight", new Map()))).toEqual(["Parent", "Child", "Grandchild"]);
+  });
+
+  it("keeps ancestor context for an awake child outside the captured group", () => {
+    const threads = [thread({ id: "parent", displayTitle: "Parent" }), thread({ id: "child", displayTitle: "Child", parentThreadId: "parent" }),
+      thread({ id: "new", displayTitle: "New child", parentThreadId: "child", isUnread: true })];
+    const group = new Map([["parent", 9_000], ["child", 9_000]]);
+    const items = visibleItems(threads, [project], [], { ...defaults, tab: "attention" }, new Map(), group);
+    expect(items.filter((row) => row.kind === "thread").map((row) => [row.id, row.context]))
+      .toEqual([["parent", true], ["child", true], ["new", false]]);
+  });
 });

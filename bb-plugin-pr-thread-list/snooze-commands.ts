@@ -15,9 +15,9 @@ function applicable(snapshot: SnoozeSnapshot, context: PluginCommandContext, com
   if (!context.threadId || !snapshot.threadsReady || !snapshot.snoozesReady || !snapshot.controls) return null;
   const thread = snapshot.threads.find(({ id }) => id === context.threadId);
   if (!thread || !canSnooze(thread)) return null;
-  const active = activeSnoozes([thread], snapshot.snoozes, now.getTime()).has(thread.id);
+  const active = activeSnoozes(snapshot.threads, snapshot.snoozes, now.getTime(), snapshot.groups).has(thread.id);
   if (command.preset === null) return active ? { threadId: thread.id, controls: snapshot.controls, wakeAt: null } : null;
-  if (active) return null;
+  if (active || !snapshot.controls.canSnooze(thread.id)) return null;
   const preset = snoozePresets(now).find(({ id }) => id === command.preset);
   return preset ? { threadId: thread.id, controls: snapshot.controls, wakeAt: preset.wakeAt } : null;
 }

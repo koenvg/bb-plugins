@@ -20,3 +20,12 @@ export function thread(overrides: Partial<PluginSidebarThread> = {}): PluginSide
     ...overrides,
   };
 }
+
+export function snoozeSnapshot(snoozes: Record<string, number> = {}, groups?: Record<string, string>) {
+  return { snoozes, groups: groups ?? Object.fromEntries(Object.keys(snoozes).map((id) => [id, `group:${id}`])) };
+}
+
+export const archivedReady = {
+  status: "ready" as const, hasNextPage: false, isFetchingNextPage: false, isFetchNextPageError: false,
+  fetchNextPage: async () => {},
+};

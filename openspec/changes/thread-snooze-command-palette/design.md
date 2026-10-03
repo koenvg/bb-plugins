@@ -4,6 +4,8 @@
 
 See `proposal.md` for motivation and `specs/thread-snooze/spec.md` for the added behavior.
 
+The companion `snooze-thread-subtrees` change extends the shared snooze policy to captured groups. The palette selects the focused thread as the subtree boundary and delegates membership, eligibility, and group wakes to that shared policy. This design does not override the companion's storage or wake rules, regardless of archive order.
+
 - `app.tsx` currently registers only the sidebar thread-list slot. Its `ThreadList` calls `useSnoozes`, so snooze controls currently belong to a mounted list.
 - `snooze-model.ts` already owns `canSnooze`, `activeSnoozes`, and local-calendar presets. `row-cues.ts` owns the blocking attention signals. The server's `snooze` and `wake` methods already handle persistence, read marking, and realtime publication.
 - `useLiveRpc` represents an initial unanswered request as `null` but swallows load errors. `useSnoozes` substitutes an empty record before the first response. That is adequate for rendering a list, but is not proof that a thread is unsnoozed.
@@ -38,7 +40,7 @@ Add explicit snooze load status through a narrow extension of the live-RPC hook 
 
 ### One applicability calculation for listing and execution
 
-Register stable IDs `snooze-tomorrow`, `snooze-next-week`, and `wake-now`, with the titles in the proposal and no `defaultShortcut`. Keep command-specific applicability in a small adapter that reads the current snapshot and delegates policy to `canSnooze`, `activeSnoozes`, and `snoozePresets`.
+Register stable IDs `snooze-tomorrow`, `snooze-next-week`, and `wake-now`, with the titles in the proposal and no `defaultShortcut`. Keep command-specific applicability in a small adapter that reads the current snapshot and delegates policy to the shared subtree eligibility control, group-aware `activeSnoozes`, and `snoozePresets`.
 
 Both `isAvailable` and `run` use that calculation with the context provided by BB. `run` reads again instead of retaining a thread, wake timestamp, or callbacks captured when the palette opened. Resolve presets by stable preset identity and recompute them at dispatch time; a missing Next week preset means no operation, not fallback to Tomorrow. A clock tick updates displayed expiry, while callbacks use the actual current time rather than a stale tick.
 

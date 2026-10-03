@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { experimental_useSidebarThreads, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
-import type { SnoozeControls } from "./snooze-model";
+import { activeSnoozes, canSnoozeSubtree, type SnoozeControls } from "./snooze-model";
 import { useSnoozes } from "./use-snoozes";
 import { useNow } from "./use-now";
 
@@ -8,12 +8,13 @@ export interface SnoozeSnapshot {
   threads: readonly PluginSidebarThread[];
   threadsReady: boolean;
   snoozes: Readonly<Record<string, number>>;
+  groups: Readonly<Record<string, string>>;
   snoozesReady: boolean;
   controls: SnoozeControls | null;
 }
 
-const STOPPED: SnoozeSnapshot = { threads: [], threadsReady: false, snoozes: {}, snoozesReady: false, controls: null };
-const NO_CONTROLS: SnoozeControls = { snoozed: new Map(), snooze: async () => {}, wake: async () => {} };
+const STOPPED: SnoozeSnapshot = { threads: [], threadsReady: false, snoozes: {}, groups: {}, snoozesReady: false, controls: null };
+const NO_CONTROLS: SnoozeControls = { snoozed: new Map(), canSnooze: () => false, snooze: async () => {}, wake: async () => {} };
 
 /** One store per frontend registration, shared by the overlay, list, and commands. */
 export function createSnoozeClient() {
@@ -26,15 +27,20 @@ export function createSnoozeClient() {
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     start() {
       const token = ++generation;
+      let currentControls: SnoozeControls | null = null;
+      const ready = () => token === generation && snapshot.threadsReady && snapshot.snoozesReady;
+      const active = (id: string) => activeSnoozes(snapshot.threads, snapshot.snoozes, Date.now(), snapshot.groups).has(id);
+      const eligible = (id: string) => ready() && canSnoozeSubtree(snapshot.threads, id) && !active(id);
       publish(STOPPED);
       return {
         update(next: SnoozeSnapshot) {
           if (token !== generation) return;
-          const controls = next.controls;
-          publish({ ...next, controls: controls && {
-            snoozed: controls.snoozed,
-            snooze: async (id, at) => { if (token === generation) return controls.snooze(id, at); },
-            wake: async (id) => { if (token === generation) return controls.wake(id); },
+          currentControls = next.controls;
+          publish({ ...next, controls: currentControls && {
+            snoozed: currentControls.snoozed,
+            canSnooze: eligible,
+            snooze: async (id, at) => { if (eligible(id)) return currentControls?.snooze(id, at); },
+            wake: async (id) => { if (ready() && active(id)) return currentControls?.wake(id); },
           } });
         },
         stop() { if (token === generation) { generation++; publish(STOPPED); } },
@@ -49,8 +55,15 @@ export function useSnoozeControls(client: SnoozeClient): SnoozeControls {
 }
 
 export function SnoozeOwner({ client }: { client: SnoozeClient }) {
-  const { threads, status } = experimental_useSidebarThreads();
-  const snoozes = useSnoozes(threads, useNow());
+  const { threads, status, experimental_archived: archived } = experimental_useSidebarThreads({ experimental_lifecycles: ["active", "archived"] });
+  const threadsReady = status === "ready" && archived?.status === "ready" && !archived.hasNextPage
+    && !archived.isFetchingNextPage && !archived.isFetchNextPageError;
+  useEffect(() => {
+    if (status === "ready" && archived?.status === "ready" && archived.hasNextPage
+      && !archived.isFetchingNextPage && !archived.isFetchNextPageError)
+      void archived.fetchNextPage().catch(() => {});
+  }, [archived, status]);
+  const snoozes = useSnoozes(threads, useNow(), status === "ready");
   const owner = useRef<ReturnType<SnoozeClient["start"]> | null>(null);
   useLayoutEffect(() => {
     const lease = client.start();
@@ -58,8 +71,8 @@ export function SnoozeOwner({ client }: { client: SnoozeClient }) {
     return () => { lease.stop(); owner.current = null; };
   }, [client]);
   useLayoutEffect(() => {
-    owner.current?.update({ threads, threadsReady: status === "ready", snoozes: snoozes.values,
-      snoozesReady: snoozes.ready, controls: snoozes });
-  }, [threads, status, snoozes]);
+    owner.current?.update({ threads, threadsReady, snoozes: snoozes.values,
+      groups: snoozes.groups, snoozesReady: snoozes.ready, controls: snoozes });
+  }, [threads, threadsReady, snoozes]);
   return null;
 }
