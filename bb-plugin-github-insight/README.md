@@ -196,7 +196,7 @@ The composer banner of the thread shows the same action, with the same `MergeAct
 | merge or enqueue action | "Ready to merge" or "Ready to enqueue" + the button |
 | other | hidden |
 
-The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and the banner each have their own busy state.
+The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and banner share one operation state per thread in this window. Both buttons show "Merging…" or "Enqueuing…" and stay disabled during a write, including when one view opens later. Requests from different entry points cannot start a second write while one is running.
 
 The merge button names your default merge method: "Create merge commit", "Squash and merge", or "Rebase and merge". The plugin has no method picker. "Enqueue" uses the queue's own merge method.
 
@@ -217,7 +217,7 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 - The tab sends the head commit that it shows. The server compares it with its cached insight, and GitHub rejects the merge or enqueue when the branch has a newer commit. Then the tab or the banner shows the error.
 - The server takes the PR node id and the method from its cache, not from the tab.
 - All values go to GitHub as GraphQL variables.
-- While the merge or enqueue runs, the button is disabled. A GitHub error shows below the button, and the button is available again.
+- While a merge or enqueue runs, the banner shows progress instead of "Ready to merge" or "Ready to enqueue". An error shows in the tab and banner; a still-valid action is available again. The banner error can be dismissed and an error for an older head commit does not appear for a new head.
 - The merge or enqueue runs as the `gh` user of the thread's host, with the permissions of that user.
 - Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. No CLI command merges or enqueues.
 - The overview query reads `isMergeQueueEnabled` and `mergeQueueEntry`. GitHub Enterprise Server versions without these fields are not supported: the PR tab shows an error.
@@ -231,7 +231,7 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 
 | Command | Opens | Then |
 |---|---|---|
-| GitHub: Merge PR | PR tab | the merge button's action: confirm dialog for merge, enqueue at once |
+| GitHub: Merge PR | no panel | loads current PR data; confirm dialog for merge, enqueue at once; feedback in chat |
 | GitHub: Open PR tab | PR tab | nothing |
 | GitHub: Open Review tab | Review tab | nothing |
 | GitHub: Submit review | Review tab | opens the submit panel; the user submits |
@@ -239,16 +239,18 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 | GitHub: Open PR on GitHub | PR tab | opens the PR URL |
 
 ```
-palette run(ctx) --> ctx.openPanel({ actionId })  (no params, so an open tab gets focus)
-      | accepted
-      v
-postIntent(threadId, tab, intent)   ui/command-intents.ts, in memory, one per thread and tab
-      v
-PR tab or Review tab takes it once --> waits for its data --> acts with its own UI
+merge command --> chat merge intent --> fresh PR load --> confirm or enqueue
+                                        | error/unavailable
+                                        v
+                                   chat banner feedback
+other commands --> ctx.openPanel({ actionId }) --> tab intent --> tab UI
 ```
 
-- The tab acts on the data of its load. When the PR cannot merge, "Merge PR" only opens the tab, which shows why.
-- An intent waits max 10 seconds for its tab to mount. A restored tab after a bb restart does nothing.
+- Merge never opens, closes, switches, or focuses a side-panel tab, including on error. The explicit Open PR tab command and normal banner text still open the PR tab.
+- Palette preparation shows loading in chat. Errors and unavailable reasons remain visible with a dismiss control, including when the normal PR banner is hidden. New attempts replace that feedback; relevant PR updates clear obsolete messages.
+- Merge uses the new load's action and captures its PR and head commit for confirmation. If that target changes, the confirmation closes without a write. A failed refresh never falls back to an earlier action.
+- Repeated merge commands during preparation, confirmation, or a write do not start another action. Leaving the thread cancels unsent palette work; a sent write keeps its original thread.
+- An intent waits at most 10 seconds for its recipient to mount. Consumed intents do not replay on remount or after a BB restart.
 - No command sends review threads to the agent. That needs a selection of threads.
 
 ## Requirements

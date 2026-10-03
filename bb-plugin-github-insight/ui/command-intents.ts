@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 
 export interface IntentsByTab {
-  pr: "merge" | "refresh" | "open-on-github";
+  pr: "refresh" | "open-on-github";
+  merge: "merge";
   review: "submit";
 }
 

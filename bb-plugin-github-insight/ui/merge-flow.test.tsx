@@ -1,0 +1,322 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { ActionResult, InsightResult } from "../contract";
+import type { PrInsight } from "../core/overview";
+import { GITHUB_COMMANDS } from "./commands";
+
+const app = await loadPluginApp(() => import("../app"));
+const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
+const tab = app.threadPanelActions.find((t) => t.id === "pr")!;
+const pr = { number: 7, title: "Shared progress", state: "open" as const, url: "https://github.com/o/r/pull/7", headOid: "a" };
+const ready: PrInsight = { pr, mergeAction: { kind: "merge", method: "SQUASH" }, blockers: [], checks: [], reviewers: [], mergeQueue: null };
+const ok = (insight: PrInsight = ready, error: string | null = null): InsightResult => ({ kind: "ok", insight, refreshedAt: 1, error });
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+function fixture(initial: InsightResult = ok()) {
+  let current = initial;
+  const getInsight = vi.fn(() => current);
+  const refresh = vi.fn(async (): Promise<InsightResult> => current);
+  const write = vi.fn(async (): Promise<ActionResult> => ({ kind: "ok" }));
+  const options = { rpc: { getInsight, refresh, runMergeAction: write }, composer: { scope: { kind: "thread" as const, threadId: "flow" } } };
+  const mountBanner = () => { const slot = renderSlot(banner, {}, options); mounted.push(slot); return slot; };
+  const mountTab = () => { const slot = renderSlot(tab, { threadId: "flow", params: null }, options); mounted.push(slot); return slot; };
+  return { mountBanner, mountTab, refresh, write, set: (value: InsightResult) => { current = value; } };
+}
+const mounted: ReturnType<typeof renderSlot>[] = [];
+const command = GITHUB_COMMANDS.find((c) => c.id === "merge-pr")!;
+const openPanel = vi.fn(() => true);
+async function merge(threadId = "flow") {
+  await act(async () => { await command.run({ threadId, projectId: null, openPanel }); });
+}
+async function confirm() {
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
+}
+afterEach(() => {
+  for (const slot of mounted) expect(slot.inspection.navigateCalls).toEqual([]);
+  mounted.length = 0;
+  cleanup();
+  openPanel.mockClear();
+});
+
+describe("shared tab and banner merge progress", () => {
+  it.each(["merge", "enqueue"] as const)("shares %s loading, errors, and duplicate protection", async (action) => {
+    const f = fixture(ok({ ...ready, mergeAction: action === "merge" ? ready.mergeAction : { kind: "enqueue" } }));
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    const chat = f.mountBanner();
+    const panel = f.mountTab();
+    await screen.findByText("#7");
+    const label = action === "merge" ? "Squash and merge" : "Enqueue";
+    fireEvent.click(within(panel.container).getByRole("button", { name: label }));
+    if (action === "merge") await confirm();
+    const busy = action === "merge" ? "Merging…" : "Enqueuing…";
+    expect(within(chat.container).getByRole("button", { name: busy })).toHaveProperty("disabled", true);
+    expect(within(panel.container).getByRole("button", { name: busy })).toHaveProperty("disabled", true);
+    expect(within(chat.container).queryByText(/Ready to/)).toBeNull();
+    await merge();
+    expect(f.write).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve({ kind: "error", message: "denied" }));
+    expect(within(chat.container).getByRole("alert").textContent).toContain("denied");
+    expect(within(panel.container).getByRole("alert").textContent).toContain("denied");
+    expect(within(chat.container).getByRole("button", { name: label })).toHaveProperty("disabled", false);
+    expect(openPanel).not.toHaveBeenCalled();
+  });
+
+  it("shows an active write in a tab mounted later and refreshes both views", async () => {
+    const f = fixture();
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    const chat = f.mountBanner();
+    fireEvent.click(await screen.findByRole("button", { name: "Squash and merge" }));
+    await confirm();
+    const panel = f.mountTab();
+    expect(await within(panel.container).findByRole("button", { name: "Merging…" })).toHaveProperty("disabled", true);
+    f.set(ok({ ...ready, pr: { ...pr, state: "merged" }, mergeAction: { kind: "none" } }));
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    await panel.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    await act(async () => pending.resolve({ kind: "ok" }));
+    expect(within(chat.container).getByText("Pull request merged")).toBeTruthy();
+    expect(within(panel.container).getByText("Pull request merged")).toBeTruthy();
+  });
+});
+
+describe("palette merge without side-panel navigation", () => {
+  it.each([
+    ["enqueue", ok({ ...ready, pr: { ...pr, headOid: "b" }, mergeAction: { kind: "enqueue" } }), null],
+    ["blocked", ok({ ...ready, mergeAction: { kind: "none" }, blockers: [{ code: "checks_failed", text: "1 check failed" }] }), "1 check failed"],
+    ["missing", { kind: "no_pr" } as InsightResult, "No pull request for this thread"],
+  ])("uses %s data published before the fresh response returns", async (_, fresh, message) => {
+    const f = fixture();
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    f.refresh.mockImplementation(async () => {
+      f.set(fresh);
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+      return fresh;
+    });
+    await merge();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    if (message) {
+      expect(screen.getByRole("alert").textContent).toContain(message);
+      expect(f.write).not.toHaveBeenCalled();
+    } else {
+      expect(f.write).toHaveBeenCalledWith({ threadId: "flow", action: "enqueue", expectedHeadOid: "b" });
+      expect(f.write).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("handles changed data published before the fresh response returns", async () => {
+    const f = fixture();
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    const fresh = ok({ ...ready, pr: { ...pr, headOid: "b" }, mergeAction: { kind: "merge", method: "REBASE" } });
+    f.refresh.mockImplementation(async () => {
+      f.set(fresh);
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+      return fresh;
+    });
+    await merge();
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Method: Rebase and merge")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rebase and merge" }));
+    await act(async () => {});
+    expect(f.write).toHaveBeenCalledWith({ threadId: "flow", action: "merge", expectedHeadOid: "b" });
+  });
+
+  it("clears a recovered load error without a PR or head change", async () => {
+    const f = fixture();
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    f.refresh.mockImplementation(async () => {
+      const failed = ok(ready, "rate limited");
+      f.set(failed);
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+      return failed;
+    });
+    await merge();
+    expect(screen.getByRole("alert").textContent).toContain("rate limited");
+    f.set(ok());
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(f.write).not.toHaveBeenCalled();
+  });
+
+  it.each(["closed", "review"])("keeps a %s side panel unchanged through merge progress", async (selected) => {
+    const f = fixture();
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    f.mountBanner();
+    await screen.findByText("Ready to merge");
+    let panel = selected;
+    const open = vi.fn(() => { panel = "pr"; return true; });
+    await act(async () => { await command.run({ threadId: "flow", projectId: null, openPanel: open }); });
+    await confirm();
+    expect(panel).toBe(selected);
+    await act(async () => pending.resolve({ kind: "error", message: "denied" }));
+    expect(screen.getByRole("alert").textContent).toContain("denied");
+    expect(open).not.toHaveBeenCalled();
+    expect(panel).toBe(selected);
+  });
+
+  it("supports keyboard cancellation and a keyboard-generated confirmation click", async () => {
+    const f = fixture();
+    f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    const dialog = screen.getByRole("alertdialog");
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(f.write).not.toHaveBeenCalled();
+    await merge();
+    const button = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Squash and merge" });
+    button.focus();
+    fireEvent.click(button, { detail: 0 });
+    await act(async () => {});
+    expect(f.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a shared error when a new head loads", async () => {
+    const f = fixture();
+    f.write.mockResolvedValue({ kind: "error", message: "old head rejected" });
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    await confirm();
+    await screen.findByRole("alert");
+    f.set(ok({ ...ready, pr: { ...pr, headOid: "b" } }));
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("loads current data, confirms once, cancels, and preserves the selected panel", async () => {
+    const f = fixture();
+    f.mountBanner();
+    f.mountTab();
+    await screen.findByText("#7");
+    await merge();
+    await merge();
+    expect(f.refresh).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    expect(screen.getByText("Merge pull request #7?")).toBeTruthy();
+    expect(f.write).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(openPanel).not.toHaveBeenCalled();
+  });
+
+  it("waits for preparation and uses the new method and head", async () => {
+    const f = fixture();
+    const load = deferred<InsightResult>();
+    f.refresh.mockImplementation(() => load.promise);
+    f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    await merge();
+    expect(screen.getByText("Loading pull request…")).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await act(async () => load.resolve(ok({ ...ready, pr: { ...pr, headOid: "b" }, mergeAction: { kind: "merge", method: "REBASE" } })));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Method: Rebase and merge")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rebase and merge" }));
+    await act(async () => {});
+    expect(f.write).toHaveBeenCalledWith({ threadId: "flow", action: "merge", expectedHeadOid: "b" });
+    expect(f.refresh).toHaveBeenCalledTimes(1);
+    expect(openPanel).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", { kind: "no_pr" } as InsightResult, "No pull request for this thread"],
+    ["closed", ok({ ...ready, pr: { ...pr, state: "closed" }, mergeAction: { kind: "none" } }), "Pull request closed"],
+    ["merged", ok({ ...ready, pr: { ...pr, state: "merged" }, mergeAction: { kind: "none" } }), "Pull request merged"],
+    ["queued", ok({ ...ready, mergeAction: { kind: "queued" } }), "Queued"],
+    ["blocked", ok({ ...ready, mergeAction: { kind: "none" }, blockers: [{ code: "checks_failed", text: "1 check failed" }] }), "1 check failed"],
+    ["failed load", { kind: "error", message: "offline" } as InsightResult, "offline"],
+    ["retained data", ok(ready, "rate limited"), "rate limited"],
+  ])("shows %s feedback even when the normal banner is hidden", async (_, result, text) => {
+    const f = fixture();
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    f.refresh.mockResolvedValue(result);
+    await merge();
+    expect(within(chat.container).getByRole("alert").textContent).toContain(text);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(f.write).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss merge message" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(openPanel).not.toHaveBeenCalled();
+  });
+
+  it("enqueues immediately once and shows failure without panel navigation", async () => {
+    const f = fixture(ok({ ...ready, mergeAction: { kind: "enqueue" } }));
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    f.mountBanner();
+    await screen.findByText("Ready to enqueue");
+    await merge();
+    await merge();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Enqueuing…" })).toHaveProperty("disabled", true);
+    expect(f.write).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve({ kind: "error", message: "denied" }));
+    expect(screen.getByRole("alert").textContent).toContain("denied");
+    expect(openPanel).not.toHaveBeenCalled();
+  });
+
+  it("discards preparation on thread switch and never replays it", async () => {
+    const f = fixture();
+    const pending = deferred<InsightResult>();
+    f.refresh.mockImplementation(() => pending.promise);
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    await chat.behavior.setComposerScope({ kind: "thread", threadId: "other" });
+    await act(async () => pending.resolve(ok()));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(f.write).not.toHaveBeenCalled();
+    await chat.behavior.setComposerScope({ kind: "thread", threadId: "flow" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("closes unconfirmed dialogs on remount and keeps a sent write on its source thread", async () => {
+    const f = fixture();
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    const first = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    first.unmount();
+    const second = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await merge();
+    await confirm();
+    await second.behavior.setComposerScope({ kind: "thread", threadId: "other" });
+    expect(screen.queryByText("Merging…")).toBeNull();
+    await second.behavior.setComposerScope({ kind: "thread", threadId: "flow" });
+    expect(await screen.findByRole("button", { name: "Merging…" })).toHaveProperty("disabled", true);
+    await act(async () => pending.resolve({ kind: "ok" }));
+    expect(f.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops obsolete feedback and never retargets an open confirmation", async () => {
+    const f = fixture();
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    f.set(ok({ ...ready, pr: { ...pr, headOid: "b" } }));
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("PR changed");
+    await merge();
+    await confirm();
+    await act(async () => {});
+    expect(f.write).toHaveBeenCalledWith({ threadId: "flow", action: "merge", expectedHeadOid: "b" });
+  });
+});

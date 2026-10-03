@@ -100,8 +100,17 @@ describe("GitHub palette commands", () => {
     expect(listed("thr_ready")).toEqual(["merge-pr", ...ALL_BUT_MERGE]);
   });
 
+  it("posts merge to chat without opening a panel, even if the host would decline", () => {
+    const received = listen("thr_chat_merge", "merge");
+    const tabReceived = listen("thr_chat_merge", "pr");
+    const { ctx, opened } = context("thr_chat_merge", false);
+    void command("merge-pr").run(ctx);
+    expect(opened).toEqual([]);
+    expect(received).toEqual(["merge"]);
+    expect(tabReceived).toEqual([]);
+  });
+
   it.each([
-    ["merge-pr", "pr", "merge"],
     ["open-pr-tab", "pr", null],
     ["open-review-tab", "review", null],
     ["submit-review", "review", "submit"],
@@ -121,7 +130,7 @@ describe("GitHub palette commands", () => {
   it("leaves no intent behind when the host declines to open the tab", () => {
     const { ctx } = context("thr_declined", false);
 
-    void command("merge-pr").run(ctx);
+    void command("refresh-pr").run(ctx);
 
     expect(listen("thr_declined", "pr")).toEqual([]);
   });

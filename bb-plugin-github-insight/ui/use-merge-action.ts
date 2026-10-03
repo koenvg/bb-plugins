@@ -1,34 +1,21 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { RunMergeActionRequest, rpcContract } from "../contract";
-import { messageOf } from "./error-message";
+import { mergeOperations, type MergeOperationState } from "./merge-operations";
 
-type MergeActionState =
-  | { kind: "idle" }
-  | { kind: "running" }
-  | { kind: "error"; message: string; headOid: string };
+const IDLE: MergeOperationState = { kind: "idle" };
 
-const IDLE: MergeActionState = { kind: "idle" };
-
-export function useMergeAction(threadId: string, headOid: string) {
+export function useMergeAction(threadId: string, headOid?: string) {
   const rpc = useRpc<typeof rpcContract>();
-  const [state, setState] = useState<MergeActionState>(IDLE);
-  const running = useRef(false);
-
+  const subscribe = useCallback((notify: () => void) => mergeOperations.subscribe(threadId, notify), [threadId]);
+  const snapshot = useCallback(() => mergeOperations.snapshot(threadId), [threadId]);
+  const state = useSyncExternalStore(subscribe, snapshot);
   const run = useCallback(
-    async (request: Omit<RunMergeActionRequest, "threadId">) => {
-      if (running.current) return;
-      running.current = true;
-      setState({ kind: "running" });
-      const result = await rpc
-        .call("runMergeAction", { threadId, ...request })
-        .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
-      running.current = false;
-      setState(result.kind === "error" ? { ...result, headOid: request.expectedHeadOid } : IDLE);
-    },
+    (request: Omit<RunMergeActionRequest, "threadId">) =>
+      mergeOperations.run(threadId, request, () => rpc.call("runMergeAction", { threadId, ...request })),
     [rpc, threadId],
   );
-
-  const shown = state.kind === "error" && state.headOid !== headOid ? IDLE : state;
-  return { state: shown, run };
+  const dismiss = useCallback(() => mergeOperations.dismiss(threadId), [threadId]);
+  const shown = state.kind === "error" && headOid !== undefined && state.headOid !== headOid ? IDLE : state;
+  return { state: shown, run, dismiss };
 }
