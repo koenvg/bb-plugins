@@ -205,8 +205,37 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 - All values go to GitHub as GraphQL variables.
 - While the merge or enqueue runs, the button is disabled. A GitHub error shows below the button, and the button is available again.
 - The merge or enqueue runs as the `gh` user of the thread's host, with the permissions of that user.
-- Only a click in the tab or the banner merges or enqueues. No CLI command merges or enqueues.
+- Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. No CLI command merges or enqueues.
 - The overview query reads `isMergeQueueEnabled` and `mergeQueueEntry`. GitHub Enterprise Server versions without these fields are not supported: the PR tab shows an error.
+
+## Command palette
+
+`ui/commands.ts` adds these commands to bb's command palette. They show only for a thread with a PR. "Merge PR" shows only when the PR has a "Merge" or "Enqueue" action.
+
+- `isAvailable` must be sync, so `useInsight` writes each load into `ui/pr-availability.ts` (in memory). A PR sets the entry, no PR deletes it, and a failed load keeps it.
+- The composer banner loads the insight of each thread you open. Until that first load ends, no command shows.
+
+| Command | Opens | Then |
+|---|---|---|
+| GitHub: Merge PR | PR tab | the merge button's action: confirm dialog for merge, enqueue at once |
+| GitHub: Open PR tab | PR tab | nothing |
+| GitHub: Open Review tab | Review tab | nothing |
+| GitHub: Submit review | Review tab | opens the submit panel; the user submits |
+| GitHub: Refresh PR | PR tab | the refresh button's action |
+| GitHub: Open PR on GitHub | PR tab | opens the PR URL |
+
+```
+palette run(ctx) --> ctx.openPanel({ actionId })  (no params, so an open tab gets focus)
+      | accepted
+      v
+postIntent(threadId, tab, intent)   ui/command-intents.ts, in memory, one per thread and tab
+      v
+PR tab or Review tab takes it once --> waits for its data --> acts with its own UI
+```
+
+- The tab acts on the data of its load. When the PR cannot merge, "Merge PR" only opens the tab, which shows why.
+- An intent waits max 10 seconds for its tab to mount. A restored tab after a bb restart does nothing.
+- No command sends review threads to the agent. That needs a selection of threads.
 
 ## Requirements
 

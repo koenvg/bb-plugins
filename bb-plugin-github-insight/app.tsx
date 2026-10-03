@@ -1,4 +1,5 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { GITHUB_COMMANDS } from "./ui/commands";
 import { ComposerBanner } from "./ui/composer-banner";
 import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
 import { PrTab } from "./ui/pr-tab";
@@ -32,4 +33,5 @@ export default definePluginApp((app) => {
     banners: [{ id: "merge-blockers", component: ComposerBanner }],
   });
   app.contentScripts.register(hideHostPrStrip);
+  for (const command of GITHUB_COMMANDS) app.commands.register(command);
 });

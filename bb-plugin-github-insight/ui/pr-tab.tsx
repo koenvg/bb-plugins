@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { MergeAction } from "../core/merge-action";
@@ -10,7 +10,8 @@ import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
-import { MergeActionButton } from "./merge-action-button";
+import { useCommandIntent, type IntentOf } from "./command-intents";
+import { MergeActionButton, type MergeRequest } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
 
@@ -78,8 +79,40 @@ const REVIEWER_STATE_LABEL: Record<Reviewer["state"], string> = {
   dismissed: "Dismissed",
 };
 
+function usePrCommands(threadId: string, { result, refreshing, refresh }: ReturnType<typeof useInsight>) {
+  const navigate = useBbNavigate();
+  const [intent, setIntent] = useState<IntentOf<"pr"> | null>(null);
+  const [mergeRequested, setMergeRequested] = useState(false);
+  useCommandIntent(threadId, "pr", setIntent);
+
+  useEffect(() => {
+    if (intent === null || result === null || refreshing) return;
+    setIntent(null);
+    if (intent === "refresh") {
+      refresh();
+      return;
+    }
+    if (result.kind !== "ok") return;
+    const { pr, mergeAction } = result.insight;
+    if (intent === "open-on-github") navigate.openUrl(pr.url);
+    else if (mergeAction.kind === "merge" || mergeAction.kind === "enqueue") setMergeRequested(true);
+  }, [intent, result, refreshing, refresh, navigate]);
+
+  const mergeRequest = useMemo<MergeRequest | undefined>(
+    () => (mergeRequested ? { onHandled: () => setMergeRequested(false) } : undefined),
+    [mergeRequested],
+  );
+  return mergeRequest;
+}
+
 export function PrTab({ threadId }: { threadId: string }) {
-  const { result, refreshing, refresh } = useInsight(threadId);
+  return <PrTabContent key={threadId} threadId={threadId} />;
+}
+
+function PrTabContent({ threadId }: { threadId: string }) {
+  const insight = useInsight(threadId);
+  const { result, refreshing, refresh } = insight;
+  const mergeRequest = usePrCommands(threadId, insight);
   if (result === null) return <Notice>Loading pull request…</Notice>;
   if (result.kind === "no_pr") {
     return <Notice>No pull request for this thread</Notice>;
@@ -108,6 +141,7 @@ export function PrTab({ threadId }: { threadId: string }) {
         threadId={threadId}
         pr={result.insight.pr}
         action={result.insight.mergeAction}
+        request={mergeRequest}
       />
       <BlockerList blockers={result.insight.blockers} />
       <ReviewerList reviewers={result.insight.reviewers} />
@@ -143,12 +177,13 @@ interface MergeActionRowProps {
   threadId: string;
   pr: PrInsight["pr"];
   action: MergeAction;
+  request: MergeRequest | undefined;
 }
 
-function MergeActionRow({ threadId, pr, action }: MergeActionRowProps) {
+function MergeActionRow({ threadId, pr, action, request }: MergeActionRowProps) {
   if (action.kind === "none") return null;
   if (action.kind === "queued") return <span className={cn(LABEL_CLASS, "w-fit")}>Queued</span>;
-  return <MergeActionButton threadId={threadId} pr={pr} action={action} />;
+  return <MergeActionButton threadId={threadId} pr={pr} action={action} request={request} />;
 }
 
 function MergeQueueStatus({ mergeQueue }: { mergeQueue: MergeQueue }) {

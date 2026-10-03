@@ -6,6 +6,8 @@ import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
+import { postIntent } from "./ui/command-intents";
+import { GITHUB_COMMANDS } from "./ui/commands";
 
 const app = await loadPluginApp(() => import("./app"));
 const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
@@ -90,7 +92,7 @@ const insight = ok({
 });
 
 function renderTab(
-  result: InsightResult | (() => InsightResult),
+  result: InsightResult | (() => InsightResult | Promise<InsightResult>),
   refresh: () => InsightResult | Promise<InsightResult> = () => ({ kind: "no_pr" }),
 ) {
   const getInsight = typeof result === "function" ? result : () => result;
@@ -100,6 +102,21 @@ function renderTab(
     { rpc: { getInsight, refresh, ...unusedReviewRpc } },
   );
 }
+
+describe("palette commands", () => {
+  it("registers the GitHub commands in the command palette", () => {
+    const { commandPaletteActions } = app as unknown as { commandPaletteActions: { id: string }[] };
+
+    expect(commandPaletteActions.map(({ id }) => id)).toEqual([
+      "merge-pr",
+      "open-pr-tab",
+      "open-review-tab",
+      "submit-review",
+      "refresh-pr",
+      "open-pr-on-github",
+    ]);
+  });
+});
 
 describe("PR tab", () => {
   it("registers as the PR thread panel action", () => {
@@ -819,5 +836,237 @@ describe("Composer banner merge action", () => {
 
     await slot.findAllByRole("button");
     expect(slot.container.querySelector("button button")).toBeNull();
+  });
+});
+
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+describe("palette command availability", () => {
+  const listed = (threadId: string) =>
+    GITHUB_COMMANDS.filter((entry) => entry.isAvailable?.({ threadId, projectId: null, openPanel: () => true }))
+      .map(({ id }) => id);
+
+  it("lists the commands once the composer banner has loaded a ready PR", async () => {
+    const slot = renderSlot<object, typeof rpcContract>(
+      banner,
+      {},
+      {
+        rpc: { getInsight: () => readyBanner, refresh: () => readyBanner, ...unusedReviewRpc },
+        composer: { scope: { kind: "thread", threadId: "thr_banner" } },
+      },
+    );
+    expect(listed("thr_banner")).toEqual([]);
+
+    await slot.findByRole("button", { name: "Ready to merge" });
+
+    expect(listed("thr_banner")).toContain("merge-pr");
+    expect(listed("thr_banner")).toHaveLength(6);
+  });
+
+  function renderBannerFor(threadId: string, getInsight: () => InsightResult | Promise<InsightResult>) {
+    return renderSlot<object, typeof rpcContract>(
+      banner,
+      {},
+      {
+        rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc },
+        composer: { scope: { kind: "thread", threadId } },
+      },
+    );
+  }
+
+  it("lists the commands once a later load shows a PR", async () => {
+    let current: InsightResult = { kind: "no_pr" };
+    const slot = renderBannerFor("thr_later_pr", () => current);
+    await settle();
+    expect(listed("thr_later_pr")).toEqual([]);
+
+    current = readyBanner;
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_later_pr"] });
+    await slot.findByRole("button", { name: "Ready to merge" });
+
+    expect(listed("thr_later_pr")).toHaveLength(6);
+  });
+
+  it("ignores a stale load that ends after a newer one", async () => {
+    let finishFirst: (result: InsightResult) => void = () => {};
+    let loads = 0;
+    const slot = renderBannerFor("thr_stale", () =>
+      loads++ === 0 ? new Promise<InsightResult>((resolve) => (finishFirst = resolve)) : ok(emptyInsight),
+    );
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_stale"] });
+    await settle();
+
+    await act(async () => finishFirst(readyBanner));
+    await settle();
+
+    expect(listed("thr_stale")).not.toContain("merge-pr");
+    expect(listed("thr_stale")).toHaveLength(5);
+  });
+});
+
+describe("PR tab palette commands", () => {
+  it("opens the merge dialog once the PR has loaded and sends nothing", async () => {
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderMergeTab();
+
+    const dialog = await slot.findByRole("alertdialog");
+    expect(within(dialog).getByText("Merge pull request #25337?")).toBeTruthy();
+    expect(mergeCalls(slot)).toEqual([]);
+  });
+
+  it("waits for the first load before it opens the merge dialog", async () => {
+    let finish: (result: InsightResult) => void = () => {};
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderTab(() => new Promise<InsightResult>((resolve) => (finish = resolve)));
+
+    await slot.findByText("Loading pull request…");
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    await act(async () => finish(readyInsight));
+
+    expect(await slot.findByRole("alertdialog")).toBeTruthy();
+  });
+
+  it("sends no merge when the user cancels the dialog of the command", async () => {
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderMergeTab();
+
+    const dialog = await slot.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(mergeCalls(slot)).toEqual([]);
+  });
+
+  it("sends one enqueue without a dialog for two quick merge commands", async () => {
+    const slot = renderMergeTab({
+      result: () => enqueueInsight,
+      runMergeAction: () => new Promise<ActionResult>(() => {}),
+    });
+    await slot.findByRole("button", { name: "Enqueue" });
+
+    await act(async () => postIntent("thr_1", "pr", "merge"));
+    await slot.findByRole("button", { name: "Enqueuing…" });
+    await act(async () => postIntent("thr_1", "pr", "merge"));
+    await settle();
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(mergeCalls(slot)).toEqual([
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid },
+      }),
+    ]);
+  });
+
+  it("shows the GitHub error when the enqueue of the command fails", async () => {
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderMergeTab({ result: () => enqueueInsight, runMergeAction: () => rejectedMerge });
+
+    expect((await slot.findByRole("alert")).textContent).toBe(rejectedMerge.message);
+    expect(slot.getByRole("button", { name: "Enqueue" })).toHaveProperty("disabled", false);
+  });
+
+  it("drops a merge command of a thread the tab has left", async () => {
+    let thr1Loads = 0;
+    const getInsight = ({ threadId }: { threadId: string }) =>
+      threadId === "thr_1" && thr1Loads++ === 0 ? new Promise<InsightResult>(() => {}) : readyInsight;
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+      prTab,
+      { threadId: "thr_1", params: null },
+      { rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc } },
+    );
+    const Tab = prTab.component;
+    await slot.findByText("Loading pull request…");
+
+    slot.lifecycle.rerender(<Tab threadId="thr_2" params={null} />);
+    await slot.findByRole("button", { name: "Squash and merge" });
+    await settle();
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    slot.lifecycle.rerender(<Tab threadId="thr_1" params={null} />);
+    await slot.findByRole("button", { name: "Squash and merge" });
+    await settle();
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("shows the blockers and sends nothing for a PR that cannot merge", async () => {
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderMergeTab({ result: () => insight });
+
+    await slot.findByRole("region", { name: "Merge blockers" });
+    await settle();
+
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+    expect(mergeCalls(slot)).toEqual([]);
+  });
+
+  it("does not act on a merge command later, once the PR can merge", async () => {
+    let current = insight;
+    postIntent("thr_1", "pr", "merge");
+    const slot = renderMergeTab({ result: () => current });
+    await slot.findByRole("region", { name: "Merge blockers" });
+
+    current = readyInsight;
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
+
+    await slot.findByRole("button", { name: "Squash and merge" });
+    await settle();
+    expect(slot.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("refreshes with progress, the same as the refresh button", async () => {
+    let finish: (result: InsightResult) => void = () => {};
+    const slot = renderTab(insight, () => new Promise((resolve) => (finish = resolve)));
+    await slot.findByText("#25337");
+
+    await act(async () => postIntent("thr_1", "pr", "refresh"));
+
+    expect(await slot.findByRole("button", { name: "Refreshing…" })).toBeTruthy();
+    await act(async () => finish(ok({ ...emptyInsight, pr: { ...pr, state: "merged" } })));
+    await slot.findByText("Merged");
+  });
+
+  it("opens the PR on GitHub", async () => {
+    postIntent("thr_1", "pr", "open-on-github");
+    const slot = renderTab(insight);
+
+    await slot.findByText("#25337");
+
+    expect(slot.inspection.navigateCalls).toEqual([{ method: "openUrl", url: pr.url }]);
+  });
+
+  it("opens no URL for a thread without a PR", async () => {
+    postIntent("thr_1", "pr", "open-on-github");
+    const slot = renderTab({ kind: "no_pr" });
+
+    await slot.findByText("No pull request for this thread");
+    await settle();
+
+    expect(slot.inspection.navigateCalls).toEqual([]);
+  });
+
+  it("does not act again when the tab mounts again", async () => {
+    postIntent("thr_1", "pr", "merge");
+    const first = renderMergeTab();
+    await first.findByRole("alertdialog");
+    first.unmount();
+
+    const second = renderMergeTab();
+    await second.findByRole("button", { name: "Squash and merge" });
+    await settle();
+
+    expect(second.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("leaves the merge command to the PR tab, not the composer banner", async () => {
+    const bannerSlot = renderBanner(readyBanner);
+    await bannerSlot.findByRole("button", { name: "Ready to merge" });
+
+    await act(async () => postIntent("thr_1", "pr", "merge"));
+    await settle();
+
+    expect(bannerSlot.queryByRole("alertdialog")).toBeNull();
+    bannerSlot.unmount();
+    expect(await renderMergeTab().findByRole("alertdialog")).toBeTruthy();
   });
 });

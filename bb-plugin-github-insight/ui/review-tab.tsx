@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
 import { splitByCommit } from "../core/comment-draft-view";
@@ -13,6 +13,7 @@ import {
   type ThreadPlacement,
 } from "../core/thread-placement";
 import { cn } from "@/lib/utils";
+import { useCommandIntent } from "./command-intents";
 import { CommentDraftsProvider } from "./comment-drafts";
 import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedback";
 import { PrFileDiff } from "./file-diff";
@@ -38,8 +39,32 @@ function useReview(threadId: string) {
   return state;
 }
 
+interface SubmitRequest {
+  onHandled: () => void;
+}
+
+function useSubmitCommand(threadId: string, result: ReturnType<typeof useReview>["result"]) {
+  const [requested, setRequested] = useState(false);
+  useCommandIntent(threadId, "review", () => setRequested(true));
+
+  const loadedWithoutReview = result !== null && result.kind !== "ok";
+  useEffect(() => {
+    if (requested && loadedWithoutReview) setRequested(false);
+  }, [requested, loadedWithoutReview]);
+
+  return useMemo<SubmitRequest | undefined>(
+    () => (requested ? { onHandled: () => setRequested(false) } : undefined),
+    [requested],
+  );
+}
+
 export function ReviewTab({ threadId }: { threadId: string }) {
+  return <ReviewTabContent key={threadId} threadId={threadId} />;
+}
+
+function ReviewTabContent({ threadId }: { threadId: string }) {
   const { result, refreshing, refresh, reload } = useReview(threadId);
+  const submitRequest = useSubmitCommand(threadId, result);
   if (result === null) return <Padded><Notice>Loading pull request…</Notice></Padded>;
   if (result.kind === "no_pr") {
     return <Padded><Notice>No pull request for this thread</Notice></Padded>;
@@ -64,6 +89,7 @@ export function ReviewTab({ threadId }: { threadId: string }) {
           reload={reload}
           refreshing={refreshing}
           refresh={refresh}
+          submitRequest={submitRequest}
         />
       </CommentDraftsProvider>
     </ThreadActionsProvider>
@@ -80,6 +106,7 @@ interface ReviewContentProps {
   reload: () => void;
   refreshing: boolean;
   refresh: () => void;
+  submitRequest: SubmitRequest | undefined;
 }
 
 function ReviewContent({
@@ -92,9 +119,15 @@ function ReviewContent({
   reload,
   refreshing,
   refresh,
+  submitRequest,
 }: ReviewContentProps) {
   const [showResolved, setShowResolved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(() => commentDrafts.length > 0 || summaryDraft !== null);
+  useEffect(() => {
+    if (!submitRequest) return;
+    setSubmitOpen(true);
+    submitRequest.onHandled();
+  }, [submitRequest]);
   const openIds = useMemo(() => openThreads(threads).map(({ thread }) => thread.id), [threads]);
   const { selection, selectedIds, deselect } = useThreadSelectionState(openIds);
   const agent = useSendToAgent(threadId, deselect);

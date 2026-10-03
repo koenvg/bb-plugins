@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+import type { InsightResult } from "../contract";
+import type { MergeAction } from "../core/merge-action";
+import { canMerge, hasPr, rememberInsight } from "./pr-availability";
+
+function ok(mergeAction: MergeAction): InsightResult {
+  return {
+    kind: "ok",
+    insight: {
+      pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+      mergeAction,
+      blockers: [],
+      reviewers: [],
+      checks: [],
+      mergeQueue: null,
+    },
+    refreshedAt: 0,
+    error: null,
+  };
+}
+
+describe("PR availability", () => {
+  it("knows nothing about a thread before its first load", () => {
+    expect(hasPr("thr_unknown")).toBe(false);
+    expect(canMerge("thr_unknown")).toBe(false);
+  });
+
+  it("knows a PR that can merge or enqueue", () => {
+    rememberInsight("thr_merge", ok({ kind: "merge", method: "SQUASH" }));
+    rememberInsight("thr_enqueue", ok({ kind: "enqueue" }));
+
+    expect([hasPr("thr_merge"), canMerge("thr_merge")]).toEqual([true, true]);
+    expect([hasPr("thr_enqueue"), canMerge("thr_enqueue")]).toEqual([true, true]);
+  });
+
+  it.each([
+    ["none", { kind: "none" }],
+    ["queued", { kind: "queued" }],
+  ] as const)("knows a PR that cannot merge (%s)", (_, mergeAction) => {
+    rememberInsight("thr_blocked", ok(mergeAction));
+
+    expect([hasPr("thr_blocked"), canMerge("thr_blocked")]).toEqual([true, false]);
+  });
+
+  it("forgets the PR when a later load has none", () => {
+    rememberInsight("thr_gone", ok({ kind: "enqueue" }));
+    rememberInsight("thr_gone", { kind: "no_pr" });
+
+    expect([hasPr("thr_gone"), canMerge("thr_gone")]).toEqual([false, false]);
+  });
+
+  it("keeps the last good load when a load fails", () => {
+    rememberInsight("thr_failed", ok({ kind: "enqueue" }));
+    rememberInsight("thr_failed", { kind: "error", message: "rate limited" });
+
+    expect([hasPr("thr_failed"), canMerge("thr_failed")]).toEqual([true, true]);
+  });
+});

@@ -18,4 +18,6 @@ See the checks of a thread's pull request, and the pull requests that wait for y
 - The lists refresh in the background every 5 minutes, also while the panel is closed. The panel opens at once with the last result, also after a bb restart, and shows when it was updated. Refresh updates it at once.
 - Review threads are hidden from the sidebar thread list. "My reviews" lists them with the PR, the thread status, "Open thread", and "Archive", also after the PR has left "Review requests". Without the plugin, `bb thread list --include-hidden` finds them.
 
+- **Command palette** commands: "GitHub: Merge PR", "Open PR tab", "Open Review tab", "Submit review", "Refresh PR", and "Open PR on GitHub". They show only for a thread with a PR, and "Merge PR" only when the PR can merge or enqueue. Each opens its tab and uses the tab's own confirm, progress, and errors.
+
 The plugin uses the `gh` CLI login of the host that runs the thread. The Pull Requests panel uses the `gh` login of bb's primary host. It needs no token of its own.
