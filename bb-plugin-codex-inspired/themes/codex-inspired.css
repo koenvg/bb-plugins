@@ -1,0 +1,125 @@
+/* Codex-inspired. Native typography and a quiet, neutral palette.
+   Restore the previous appearance with: bb theme set plugin:ayu:ayu-light */
+:root,
+.light {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.625rem;
+  --canvas: #ffffff;
+  --ink: #292929;
+  --sidebar: #f7f7f5;
+  --sidebar-foreground: var(--ink);
+  --sidebar-accent: #ececea;
+  --sidebar-border: #e7e7e4;
+  --primary: #292929;
+  --primary-foreground: #ffffff;
+  --file-accent: #17669c;
+  --border: #e4e4e1;
+  --border-hairline: #e9e9e6;
+  --border-seam: #e9e9e6;
+  --input: #c9c9c5;
+  --muted: #f1f1ee;
+  --secondary: #f4f4f1;
+  --accent: #f1f1ee;
+  --muted-foreground: color-mix(in oklch, var(--ink) 78%, var(--canvas));
+  --readback-foreground: color-mix(in oklch, var(--ink) 74%, var(--canvas));
+  --subtle-foreground: color-mix(in oklch, var(--ink) 70%, var(--canvas));
+  --destructive: #b42332;
+  --destructive-foreground: #ffffff;
+  --destructive-text: #b42332;
+  --warning: #956000;
+  --warning-text: #956000;
+  --attention: #956000;
+  --success: #287a43;
+  --diff-added: #287a43;
+  --diff-removed: #b42332;
+  --pr-merged: #7754a8;
+  --radius: 0.625rem;
+}
+
+.dark {
+  --canvas: #202020;
+  --ink: #ededeb;
+  --sidebar: #191919;
+  --sidebar-accent: #2b2b2a;
+  --sidebar-border: #333332;
+  --primary: #ededeb;
+  --primary-foreground: #202020;
+  --file-accent: #83bcec;
+  --border: #393938;
+  --border-hairline: #333332;
+  --border-seam: #333332;
+  --input: #555553;
+  --muted: #2b2b2a;
+  --secondary: #2a2a29;
+  --accent: #30302e;
+  --destructive: #e88991;
+  --destructive-foreground: #202020;
+  --destructive-text: #e88991;
+  --warning: #e5b866;
+  --warning-text: #e5b866;
+  --attention: #e5b866;
+  --success: #8bc99d;
+  --diff-added: #8bc99d;
+  --diff-removed: #e88991;
+  --pr-merged: #ba9ae4;
+}
+
+/* Sidebar typography only; code metadata keeps its monospace font. */
+[data-sidebar="sidebar"] {
+  --font-sans: "Inter Variable", Inter, sans-serif;
+  font-family: var(--font-sans);
+}
+
+[data-sidebar="sidebar"] [data-sidebar-thread-id] {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* Keep unread/selected thread emphasis, but soften the previous semibold. */
+[data-sidebar="sidebar"] [data-sidebar-thread-id].font-semibold {
+  font-weight: 500;
+}
+
+[data-sidebar="sidebar"] [class~="group/header"] .truncate.font-semibold {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Scope the larger reading size to messages, not tool logs or navigation. */
+[data-message-column] {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+[data-message-column] [data-markdown-preview] {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* The editor otherwise inherits text-sm from its wrapper. */
+form[data-promptbox] [contenteditable="true"] {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+form[data-promptbox] {
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+/* Don't shrink the existing, larger touch typography. */
+@media (max-width: 767px) and (pointer: coarse) {
+  :root {
+    --text-xs: 0.875rem;
+    --text-xs--line-height: 1.25rem;
+    --text-sm: 0.9375rem;
+    --text-sm--line-height: 1.375rem;
+  }
+}

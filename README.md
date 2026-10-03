@@ -5,6 +5,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Plugin | Directory |
 | --- | --- |
 | Code Cleanup | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup) |
+| Codex Inspired | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired) |
 | Compose Chat | [`bb-plugin-compose-chat`](bb-plugin-compose-chat) |
 | Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list) |
 | Task Board | [`bb-task-board`](bb-task-board) |
@@ -18,6 +19,15 @@ bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirecto
 ```
 
 For a local checkout, run `npm ci` and `bb plugin build` in the selected directory before `bb plugin install .`. Follow each plugin's README for setup and compatibility details.
+
+Codex Inspired is an optional theme, independent of Compose Chat. After its package is published on `main`, install and select it with:
+
+```sh
+bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirectory bb-plugin-codex-inspired
+bb theme set plugin:codex-inspired:codex-inspired
+```
+
+Installation alone does not change your active theme. See its [README](bb-plugin-codex-inspired/README.md) for local development, compatibility, and safe source-path migration.
 
 Tasks Plus replaces BB's bundled Tasks plugin and uses `bb tasks`; Task Board is a separate plugin with its own database and `bb task-board` command. Don't install both unless you intend to use both. Code Cleanup's default guidance refers to Task Board.
 
