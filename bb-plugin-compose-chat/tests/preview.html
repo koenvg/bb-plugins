@@ -19,9 +19,15 @@
   .project { display:flex; align-items:center; gap:12px; margin:8px 0 2px; } .sidebar-thread { padding:8px 18px; line-height:1.55; border-radius:8px; } .selected { background:var(--state-active); } .meta { font-size:14px; color:var(--muted-foreground); } .sidebar-bottom { margin-top:auto; display:flex; gap:10px; }
   main { min-width:0; display:flex; flex-direction:column; height:100svh; } header { min-height:58px; padding:12px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .thread { flex:1; min-height:0; display:flex; flex-direction:column; padding:22px 42px 26px 56px; overflow:auto; }
-  [data-timeline-row-list] { flex:1; min-height:420px; } .user-row { display:flex; justify-content:flex-end; margin-bottom:28px; } .rounded-xl { border:1px solid var(--border); border-radius:12px; background:var(--secondary); padding:12px 18px; }
+  [data-timeline-row-list="top-level"] { flex:1; min-height:420px; } .user-row { display:flex; justify-content:flex-end; margin-bottom:28px; } .rounded-xl { border:1px solid var(--border); border-radius:12px; background:var(--secondary); padding:12px 18px; }
   .thought { color:var(--muted-foreground); display:flex; gap:12px; align-items:center; } [data-markdown-preview] p { margin:18px 0 34px; }
-  .work-header { padding:0; display:flex; gap:12px; align-items:center; } .tools { border-left:1px solid var(--border); margin:8px 0 34px 10px; padding-left:20px; display:grid; gap:6px; } .tools button { text-align:left; width:fit-content; display:flex; align-items:center; gap:12px; }
+  .work-header { padding:0; display:flex; gap:12px; align-items:center; } .tools { margin:8px 0 34px; display:grid; gap:6px; } .tools button { padding:0; text-align:left; width:fit-content; display:flex; align-items:center; gap:6px; } .tools svg { width:14px; height:14px; } .activity-summary { display:inline-flex; align-items:center; gap:6px; } [data-plugin-icon-asset] { display:inline-block; width:14px; height:14px; flex-shrink:0; background:var(--muted-foreground); mask-image:url('./fixture-shine.svg'); mask-size:100% 100%; }
+  /* Native title geometry and shimmer properties, with an authored mask fixture. */
+  .leading-5 { display:inline-flex; align-items:baseline; gap:4px; line-height:20px; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; }
+  .truncate { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:pre; }
+  .animate-shine { display:inline-block; -webkit-text-fill-color:var(--foreground); -webkit-mask-image:url('./fixture-shine.svg'); mask-image:url('./fixture-shine.svg'); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat; will-change:transform; }
+  .inline-thinking { color:var(--muted-foreground); margin:18px 0 28px; }
+  .reasoning-detail { padding:8px 0; font-size:14px; }
   .work-status { margin:10px 0 14px; } .git { border:1px solid var(--border); border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:16px; margin-bottom:10px; }
   [data-app-composer] { min-width:0; } form[data-promptbox] { margin:0; background:var(--background); border:1px solid var(--border); border-radius:12px; box-shadow:0 2px 4px #0002; }
   [data-promptbox-input-region] { padding:12px 16px 6px; } textarea { width:100%; resize:none; border:0; background:transparent; min-height:38px; outline:none; line-height:1.55; padding:0; } textarea::placeholder { color:var(--muted-foreground); }
@@ -71,14 +77,15 @@
 <main>
 <header><span>Refine the chat styling</span><button aria-label="Thread actions"><svg><use href="#grid"/></svg></button></header>
 <div class="thread">
-<div data-timeline-row-list="fixture">
+<div data-timeline-row-list="top-level">
 <div data-timeline-row-id="fixture:user-seed:1" class="user-row"><div class="group/message"><div><div class="rounded-xl">Keep the layout and behavior. Make the chat easier to read.</div></div></div></div>
-<div class="thought"><svg><use href="#grid"/></svg>Thought 4s</div>
+<div class="thought"><svg><use href="#grid"/></svg><span class="leading-5"><span>Thought 4s</span></span></div>
 <div data-markdown-preview><p>I will refine the spacing, tool rows, and composer while keeping every control in place.</p></div>
-<details open><summary class="work-header"><svg><use href="#grid"/></svg>Running 3 tools</summary><div class="tools"><button><svg><use href="#file"/></svg>Read app.css</button><button><svg><use href="#file"/></svg>Read settings.ts</button><button><svg><use href="#file"/></svg>Check theme tokens</button></div></details>
+<div data-timeline-row-id="fixture:tools:1"><details open><summary class="work-header"><span class="leading-5"><span class="animate-shine truncate">Running 3 tools</span></span></summary><div data-timeline-row-list="bundle" class="tools"><div data-timeline-row-id="fixture:tool:1"><button><span class="activity-summary"><svg data-icon-root><use href="#file"/></svg><span class="leading-5"><span class="animate-shine">Read app.css</span></span></span></button></div><div data-timeline-row-id="fixture:tool:2"><button><svg><use href="#file"/></svg><span class="leading-5">Read settings.ts</span></button></div><div data-timeline-row-id="fixture:tool:3"><button><span class="activity-summary"><span data-icon-root data-plugin-icon-asset="fixture" aria-hidden="true"></span><span class="leading-5"><span class="animate-shine">Check theme tokens</span></span></span></button></div></div></details></div>
 <div data-markdown-preview><p>The conversation should lead. Agent activity stays readable without competing with the answer.</p></div>
+<div data-timeline-row-id="fixture:thinking:1" class="inline-thinking"><details><summary class="work-header"><span class="leading-5"><span class="animate-shine truncate">Thinking…</span></span></summary><div class="reasoning-detail">Checking that the theme and native controls stay unchanged.</div></details></div>
 </div>
-<div class="work-status">Working…</div>
+<div class="work-status"><div class="mt-4 flex min-h-7 items-center"><span class="animate-shine">Working…</span></div></div>
 <div class="git"><span><svg><use href="#branch"/></svg> 3 changed files</span><span>Merge base main</span></div>
 <div data-app-composer data-app-composer-role="primary" data-promptbox-shell>
 <div data-follow-up-composer-anchor><div data-follow-up-composer>

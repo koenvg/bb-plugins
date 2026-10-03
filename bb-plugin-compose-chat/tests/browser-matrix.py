@@ -89,7 +89,7 @@ try:
             value["capture"] = {"file": screenshot, "method": "surface", "pixels": pixels, "pixelScale": native_scale, "sha256": hashlib.sha256(png).hexdigest()}
             (evidence / screenshot).write_bytes(png)
             package = Path(__file__).resolve().parents[1]
-            sources = {path: hashlib.sha256((package / path).read_bytes()).hexdigest() for path in ("dist/app.js", "dist/app.css", "tests/preview.html", "tests/browser-checks.js", "tests/browser-matrix.py", "tests/browser-checks.sh")}
+            sources = {path: hashlib.sha256((package / path).read_bytes()).hexdigest() for path in ("dist/app.js", "dist/app.css", "tests/preview.html", "tests/browser-checks.js", "tests/browser-matrix.py", "tests/browser-checks.sh", "tests/fixture-shine.svg")}
             (evidence / (screenshot + ".provenance.json")).write_text(json.dumps({"synthetic": True, "case": name, "viewport": [width, height], "capture": value["capture"], "sources": sources}, indent=2))
 finally:
     send("Emulation", "clearDeviceMetricsOverride", {})

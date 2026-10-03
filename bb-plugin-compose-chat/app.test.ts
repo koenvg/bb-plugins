@@ -79,4 +79,32 @@ describe("Compose Chat's public content-script lifecycle", () => {
     cleanup2();
     expect(document.documentElement.getAttribute(marker)).toBe("changed-elsewhere");
   });
+  it("pauses motion in hidden documents and releases its visibility listener", () => {
+    let visibility = "visible";
+    const original = Object.getOwnPropertyDescriptor(document, "visibilityState");
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    const motionMarker = "data-compose-chat-motion";
+    document.documentElement.setAttribute(motionMarker, "previous");
+    try {
+      const controller = new AbortController();
+      const cleanup = mountStyles({ signal: controller.signal });
+      expect(document.documentElement.getAttribute(motionMarker)).toBe("running");
+      visibility = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(document.documentElement.getAttribute(motionMarker)).toBe("paused");
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(document.documentElement.getAttribute(motionMarker)).toBe("running");
+      controller.abort();
+      cleanup();
+      expect(document.documentElement.getAttribute(motionMarker)).toBe("previous");
+      visibility = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(document.documentElement.getAttribute(motionMarker)).toBe("previous");
+    } finally {
+      document.documentElement.removeAttribute(motionMarker);
+      if (original) Object.defineProperty(document, "visibilityState", original);
+      else Reflect.deleteProperty(document, "visibilityState");
+    }
+  });
 });
