@@ -28,6 +28,7 @@ import {
   type CommentProvider,
 } from "../shared/contract";
 
+import { createWorkStatusReader } from "./work-status.js";
 interface TaskLabelIdRow {
   task_id: string;
   label_id: string;
@@ -98,9 +99,10 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
     projectTaskCount(projectId: string): number {
       return (
         database
-          .prepare<[string], CountRow>(
-            "SELECT COUNT(*) AS count FROM tasks WHERE project_id = ?",
-          )
+          .prepare<
+            [string],
+            CountRow
+          >("SELECT COUNT(*) AS count FROM tasks WHERE project_id = ?")
           .get(projectId)?.count ?? 0
       );
     },
@@ -624,6 +626,15 @@ export function registerHandlers(
   bb: BbPluginApi,
   store: TasksApiStore,
 ): PluginRpcHandlers<typeof tasksRpcContract> {
+  const readWorkStatus = createWorkStatusReader({
+    store: store.tasks,
+    threads: bb.sdk.threads,
+    environments: bb.sdk.environments,
+    plugins: bb.sdk.plugins,
+    metadata: bb.sdk.threads,
+    now: () => new Date(),
+  });
+  bb.onDispose(readWorkStatus.dispose);
   return {
     createFolder(input) {
       const folder = store.tasks.createFolder(input);
@@ -1012,6 +1023,9 @@ export function registerHandlers(
         }
         throw error;
       }
+    },
+    listTaskWorkStatus(input) {
+      return readWorkStatus(input.taskIds, input.refresh);
     },
     listTaskThreads(input) {
       return { taskThreads: store.tasks.listTaskThreads(input.taskId) };

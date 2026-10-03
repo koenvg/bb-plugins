@@ -84,10 +84,10 @@ function serverFilter(tasks: Task[], input: Record<string, unknown>) {
   );
 }
 
-function render(tasks: Task[]) {
+function render(tasks: Task[], subPath = PROJECT_ID, rich = false) {
   return renderSlot(
     app.navPanels[0]!,
-    { subPath: PROJECT_ID },
+    { subPath },
     {
       rpc: {
         listProjects: () => ({ projects: [project] }),
@@ -101,6 +101,79 @@ function render(tasks: Task[]) {
         }),
         getTaskByKey: (raw) => ({
           task: tasks.find((t) => t.key === rpcInput(raw).taskKey) ?? null,
+        }),
+        listTaskWorkStatus: (raw) => ({
+          byTaskId: Object.fromEntries(
+            (rpcInput(raw).taskIds as string[]).map((taskId) => [
+              taskId,
+              {
+                availability: "available",
+                observedAt: "2026-10-02T00:00:00.000Z",
+                pullRequests: {
+                  availability: "available",
+                  items: [
+                    {
+                      url: "https://github.com/acme/bb/pull/42",
+                      number: 42,
+                      title: "Open work",
+                      state: "open",
+                      updatedAt: "2026-10-02T00:00:00Z",
+                      details: rich ? "available" : "unavailable",
+                      ...(rich
+                        ? {
+                            rich: {
+                              refreshedAt: new Date().toISOString(),
+                              checks: {
+                                failed: 1,
+                                running: 0,
+                                cancelled: 0,
+                                passed: 2,
+                                skipped: 0,
+                                failedNames: ["unit"],
+                              },
+                              reviewers: {
+                                pending: 1,
+                                approved: 0,
+                                changesRequested: 0,
+                                pendingNames: ["koen"],
+                              },
+                              conditions: ["checks_failed", "review_required"],
+                            },
+                          }
+                        : {}),
+                      threadIds: [`thr_${taskId}_failed`],
+                    },
+                    {
+                      url: "https://github.com/acme/other/pull/42",
+                      number: 42,
+                      title: "Merged work",
+                      state: "merged",
+                      updatedAt: "2026-10-02T00:00:00Z",
+                      details: "unavailable",
+                      threadIds: [`thr_${taskId}_working`],
+                    },
+                  ],
+                  unavailableThreadIds: [],
+                },
+                threads: [
+                  {
+                    threadId: `thr_${taskId}_failed`,
+                    title: "Failed worker",
+                    presetName: "Worker",
+                    execution: "failed",
+                    archive: "archived",
+                  },
+                  {
+                    threadId: `thr_${taskId}_working`,
+                    title: "Working worker",
+                    presetName: "Worker",
+                    execution: "working",
+                    archive: "unarchived",
+                  },
+                ],
+              },
+            ]),
+          ),
         }),
         listTaskThreads: () => ({ taskThreads: [] }),
         listTaskPullRequests: () => ({
@@ -320,6 +393,41 @@ describe("subtasks with a filter", () => {
         ?.textContent,
     ).toContain("1");
     expect(slot.getByText("1 task")).toBeTruthy();
+    expect(
+      await within(row).findByRole("button", {
+        name: /Threads for ABC-1: 1 Failed, 1 Working/,
+      }),
+    ).toBeTruthy();
+    const childRow = slot.container.querySelector('[data-task-key="ABC-3"]')!;
+    expect(
+      await within(childRow as HTMLElement).findByRole("button", {
+        name: /Threads for ABC-3: 1 Failed, 1 Working/,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(row).getByRole("button", { name: /Threads for ABC-1/ })
+        .textContent,
+    ).toContain("1 archived");
+    expect(
+      within(childRow as HTMLElement).getByRole("button", {
+        name: /Threads for ABC-3/,
+      }).textContent,
+    ).toContain("1 archived");
+    for (const target of [row, childRow]) {
+      const prs = within(target as HTMLElement).getByRole("button", {
+        name: /PRs for/,
+      });
+      expect(prs.textContent).toContain("2 PRs");
+      expect(prs.textContent).toContain("1 Open");
+    }
+    expect(row.className).toContain("opacity-50");
+    expect(childRow.className).not.toContain("opacity-50");
+    const enriched = slot.inspection.rpcCalls
+      .filter((c) => c.method === "listTaskWorkStatus")
+      .flatMap((c) => rpcInput(c.input).taskIds as string[]);
+    expect(new Set(enriched)).toEqual(
+      new Set([readyParent.id, blockedChild.id]),
+    );
   });
 
   it("loads the matches and the unfiltered scope", async () => {
@@ -374,3 +482,136 @@ describe("subtasks with a filter", () => {
     expect(rowKeys(slot)).toEqual([]);
   });
 });
+
+describe("thread summary list parity", () => {
+  it.each(["", PROJECT_ID, "active"])(
+    "enriches only displayed parents, then expanded children in %s",
+    async (subPath) => {
+      const slot = render([parent, doneChild, urgentChild, plain], subPath);
+      await slot.findByRole("button", {
+        name: /Threads for ABC-1: 1 Failed, 1 Working/,
+      });
+      const before = slot.inspection.rpcCalls
+        .filter((c) => c.method === "listTaskWorkStatus")
+        .flatMap((c) => rpcInput(c.input).taskIds as string[]);
+      expect(new Set(before)).toEqual(
+        new Set(
+          subPath === "active"
+            ? [parent.id, plain.id, doneChild.id, urgentChild.id]
+            : [parent.id, plain.id],
+        ),
+      );
+      if (subPath === "active") {
+        fireEvent.click(
+          slot.getByRole("button", { name: "Collapse subtasks of ABC-1" }),
+        );
+        await waitFor(() => expect(slot.queryByText("ABC-3")).toBeNull());
+      }
+      fireEvent.click(
+        slot.getByRole("button", { name: "Expand subtasks of ABC-1" }),
+      );
+      await slot.findByRole("button", {
+        name: /Threads for ABC-3: 1 Failed, 1 Working/,
+      });
+      const parentRow = await rowFor(slot, "ABC-1");
+      const childRow = await rowFor(slot, "ABC-3");
+      for (const row of [parentRow, childRow]) {
+        const summary = within(row).getByRole("button", {
+          name: /Threads for/,
+        });
+        expect(summary.textContent).toContain("1 Failed");
+        expect(summary.textContent).toContain("1 archived");
+        const prs = within(row).getByRole("button", { name: /PRs for/ });
+        expect(prs.textContent).toContain("2 PRs");
+        expect(prs.textContent).toContain("1 Open");
+        expect(prs.textContent).toContain("1 Merged");
+        expect(row.className).not.toContain("opacity-50");
+      }
+      fireEvent.click(
+        within(childRow).getByRole("button", { name: /Threads for/ }),
+      );
+      const dialog = await slot.findByRole("dialog", {
+        name: "Threads for ABC-3",
+      });
+      expect(dialog.textContent).toContain("Failed");
+      expect(within(dialog).getByText("Archived")).toBeTruthy();
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      fireEvent.click(
+        within(childRow).getByRole("button", { name: /PRs for/ }),
+      );
+      const prDialog = await slot.findByRole("dialog", {
+        name: "PRs for ABC-3",
+      });
+      expect(
+        within(prDialog).getAllByRole("link", { name: /Open GitHub PR/ }),
+      ).toHaveLength(2);
+      expect(
+        within(prDialog).getAllByRole("link", { name: /Open thread/ }),
+      ).toHaveLength(2);
+      fireEvent.keyDown(prDialog, { key: "o" });
+      expect(slot.inspection.navigateCalls).toEqual([]);
+      fireEvent.keyDown(prDialog, { key: "Escape" });
+      const after = slot.inspection.rpcCalls
+        .filter((c) => c.method === "listTaskWorkStatus")
+        .at(-1)!;
+      expect(new Set(rpcInput(after.input).taskIds as string[])).toEqual(
+        new Set([parent.id, plain.id, doneChild.id, urgentChild.id]),
+      );
+      expect(
+        slot.inspection.rpcCalls.filter(
+          (c) => c.method === "listComments" || c.method === "listAttachments",
+        ),
+      ).toEqual([]);
+      const listInputs = slot.inspection.rpcCalls
+        .filter((c) => c.method === "listTasks")
+        .map((c) => rpcInput(c.input));
+      expect(
+        listInputs.some((input) => input.activeOnly === (subPath === "active")),
+      ).toBe(true);
+    },
+  );
+});
+
+it.each(["", PROJECT_ID, "active"])(
+  "keeps rich check/review parity on dimmed parents and matching children in %s",
+  async (subPath) => {
+    preset({ statuses: ["todo"] });
+    const preference = JSON.parse(
+      window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!,
+    );
+    preference.scopes.all = preference.scopes[`project:${PROJECT_ID}`];
+    preference.scopes.active = preference.scopes[`project:${PROJECT_ID}`];
+    window.localStorage.setItem(
+      LIST_PREFERENCE_STORAGE_KEY,
+      JSON.stringify(preference),
+    );
+    const slot = render([parent, doneChild, urgentChild, plain], subPath, true);
+    const parentRow = await rowFor(slot, "ABC-1");
+    const childRow = await rowFor(slot, "ABC-3");
+    await slot.findByRole("button", {
+      name: /PRs for ABC-3: 2 PRs, 1 Checks failing/,
+    });
+    expect(parentRow.getAttribute("data-dimmed")).toBe("true");
+    expect(childRow.getAttribute("data-dimmed")).toBeNull();
+    for (const row of [parentRow, childRow]) {
+      const control = within(row).getByRole("button", { name: /PRs for/ });
+      expect(control.textContent).toContain("1 Checks failing");
+      expect(control.textContent).toContain("1 Merged");
+      expect(
+        within(row).getByRole("button", { name: /Threads for/ }).textContent,
+      ).toContain("1 archived");
+    }
+    fireEvent.click(within(childRow).getByRole("button", { name: /PRs for/ }));
+    const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-3" });
+    expect(dialog.textContent).toContain("Awaiting review");
+    expect(dialog.textContent).toContain("1 failed");
+    fireEvent.keyDown(dialog, { key: "o" });
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(
+      within(childRow).getByRole("button", {
+        name: /Change status, currently Todo/,
+      }),
+    ).toBeTruthy();
+  },
+);
