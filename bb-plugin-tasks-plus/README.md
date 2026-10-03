@@ -247,6 +247,118 @@ lose them. Leaving BB or closing the panel is not an awaited-save guarantee.
 Standalone links and thread-side detail keep the same editor and explicit actions.
 See [the transition contract](views/detail/README.md) for workspace integration.
 
+## Compact epic status
+
+```sh
+bb tasks orchestrate status PROD-1
+bb tasks orchestrate status PROD-1 --json
+bb tasks orchestrate status --help
+```
+
+This read works before a run exists. It does not create runs, workers, messages,
+comments, or ticket changes. The JSON response is the `orchestrateStatus` RPC
+result: `{ "ok": true, "status": { ... } }`. The RPC input is `{ "epicId":
+"<task ULID>" }`; the CLI also accepts a case-insensitive task key.
+
+`status.epic` and every member of `status.subtasks` include identity, ticket
+status, complete native prerequisites, native readiness, ownership, primary
+workers, other attached workers, activity, attachment references, latest explicit
+outcome, dispatch claims, artifact-handoff state, and pending decisions.
+`totals` describes subtasks only. `run` and `acceptance` are separate sections.
+
+- `nativeReadiness: "ready"` means no native blocker is open. As in existing
+  Tasks commands, both `done` and `canceled` resolve a native dependency. This
+  does not authorize dispatch or establish delivery of a prerequisite artifact.
+- Idle, missing, deleted, and failed worker activity never changes ticket status.
+  `ownership: "resolution_needed"` flags existing attachments or recorded agent
+  work without a designated owner. `unknown` does not mean untouched or safe to
+  spawn. An attached legacy worker is not automatically adopted as an owner.
+- Missing run, ownership, claim, report, decision-report, or acceptance extensions
+  return `unknown` with an explicit reason. Only an authoritative extension can
+  return `absent` or `present`. Comments and attachment filenames are not reports;
+  thread metadata is not authorization. All subtasks being done is not epic
+  verification, even if the epic ticket itself is also done.
+- A completed prerequisite without report support has an unknown handoff. A
+  canceled prerequisite retains an explicit handoff-decision reason. Native open
+  blockers override a reported ready handoff.
+
+### Bounds and external observations
+
+A complete response supports 100 subtasks and 128 KiB of UTF-8 JSON, including
+the result envelope. Required task identities, statuses, prerequisites, ownership,
+claims, and run membership are never silently shortened. Overflow returns
+`ok: false`, code `epic_status_size_limit`, and counts for subtasks, prerequisites,
+and worker associations. Byte overflow also reports `requiredBytes`. There is no
+partial dispatch frontier. CLI failures exit 1; `--json` preserves the error and
+counts. The snapshot is information, not dispatch permission.
+
+Auxiliary lists return `items`, `total`, and `omitted`. Per task, at most five
+other workers and five attachments are included. Report result references,
+baseline/evidence references, and decision lists are capped at five. References
+longer than 1024 UTF-16 code units are omitted, not shortened into invalid IDs or
+URLs. Text excerpts are capped at 240 Unicode characters and return
+`totalCharacters` and `omittedCharacters`. Primary owners are required state and
+are not dropped by the other-worker cap. If the initially capped payload still
+exceeds the byte limit, `auxiliaryReduced: true` removes auxiliary lists and text
+while retaining counts and the full required state. An oversized required state
+still fails honestly.
+
+`tasksObservedAt` describes a single Tasks read transaction. `generatedAt` marks
+response generation, not an atomic cross-store snapshot. External reads inspect
+at most 100 distinct selected workers, primary owners first, with four concurrent
+worker lookups and a two-second timeout per SDK call. No reconciliation writes,
+new scheduler, or polling loop is added. `external.omittedWorkers` counts selected
+workers beyond that lookup budget; per-task list overflow covers unselected
+attachments. The SDK's interaction-list operation has no pagination/limit option,
+so the command caps the returned projection, not the BB transport response.
+
+Each worker has separate activity and native-interaction observation timestamps.
+Unavailable activity is unknown and retains the existing lifecycle cache as stale
+context. `cachedAt` is the native association's `updatedAt`, not a promise of a
+fresh external observation. The old cache value `completed` can mean missing or
+deleted, never ticket completion. Missing and deleted workers have unknown
+interaction state. An unavailable decision lookup has null totals, not zero.
+`nativeDecisions` aggregates known pending/resolving questions per task with
+`knownPending`, `omitted`, and `unobservedWorkers`; partial coverage cannot prove
+there are no other questions. It remains visible even when auxiliary worker lists
+are removed. Free-form reported questions remain separate in `reportedDecisions`.
+
+### Tasks-owned extension contract
+
+Later slices supply `StatusOptions.readCoordination`, exported from
+`orchestration/index.ts`. Pass the same options to `registerOrchestrationStatus`
+argument 3 and `registerTasksCli` argument 4. The reader signature is
+`(epicId, taskIds) => CoordinationSnapshot`; `taskIds` includes the epic and its
+current direct subtasks. It runs synchronously inside the native Tasks read
+transaction. It must perform bounded Tasks-owned reads only, with no writes,
+external calls, comment reconstruction, or metadata-based authority.
+
+`CoordinationSnapshot` and `TaskCoordinationData` in
+`orchestration/status-contract.ts` are the exact typed contract:
+
+- `run` has ID, phase, coordinator thread ID, complete approved task IDs,
+  `scopeState` of `current`, `changed`, or `unknown`, and baseline references.
+- The per-task `tasks` map can supply explicit `ownership`, unresolved `dispatch`
+  claims, `latestOutcome`, `handoff`, and unresolved `reportedDecisions`.
+  Ownership references use native association ID, thread ID, and the role
+  `implementation`, `orchestrator`, or `integration`. The projection checks each
+  primary owner against the current native task/thread association. Detachment
+  produces unresolved ownership; it does not remove a separately recorded claim.
+  Each primary role and each primary association ID may occur only once per task.
+- Explicit outcomes carry report, comment, and thread IDs, outcome kind,
+  creation time, summary, and result references. No outcome changes ticket status.
+- `acceptance` carries report and thread IDs, the explicitly recorded outcome
+  `verified`, `failed`, or `unverified`, baseline references, and evidence
+  references. The projection does not verify evidence or derive acceptance.
+
+Availability-bearing sections use `unknown` plus reason, `absent`, or `present`
+plus value. Omitted fields default to unknown, not absent. Invalid/conflicting
+required extension state returns `epic_status_extension_invalid`, not a partial
+frontier. The initial status slice adds no migrations and no run/report/claim
+registry. Actual persistence, run activation, safe dispatch, answer routing, and
+acceptance verification belong to later slices. Extension fixture tests prove the
+projection contract only, not real provider activation or stored report evidence.
+
 ## CLI reference
 
 Run `bb tasks --help` or `bb tasks <command> --help` for exact options; help

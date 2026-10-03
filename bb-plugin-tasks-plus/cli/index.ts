@@ -45,6 +45,8 @@ import { TASK_SORTS, TASKS_PAGE_DEFAULT_LIMIT, TASKS_PAGE_MAX_LIMIT } from "../s
 import { bytes, detail, oneLine, table } from "./format";
 import { allocatePrefix } from "./prefix";
 import { seedDemo } from "./seed";
+import { orchestrationStatusCommands } from "../orchestration/status-cli";
+import type { StatusOptions } from "../orchestration";
 
 const TASK_KEY_PATTERN = /^([A-Z][A-Z0-9]{0,9})-(\d+)$/;
 const BB_PROJECT_ID_PATTERN = /^proj_[A-Za-z0-9_-]+$/;
@@ -626,6 +628,7 @@ export function registerTasksCli(
   bb: BbPluginApi,
   store: TasksApiStore,
   status: PluginStatus,
+  orchestrationOptions: StatusOptions = {},
 ): void {
   const domain = registerHandlers(bb, store);
   bb.cli.register(
@@ -635,6 +638,7 @@ export function registerTasksCli(
       description:
         "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).",
       commands: {
+        ...orchestrationStatusCommands(bb, store, orchestrationOptions),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

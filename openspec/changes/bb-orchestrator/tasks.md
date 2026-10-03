@@ -10,10 +10,17 @@
 ## 2. Add Tasks-owned state and compact epic status
 
 - [ ] 2.1 Add additive migrations and focused orchestration store methods for runs, tracker-scope fingerprints, nullable task-thread roles/ownership, dispatch claims, and linked reports. Verify migration of existing records, uniqueness constraints, and rollback-safe preservation with database tests.
-- [ ] 2.2 Implement the bounded read-only epic projection using Tasks dependency/association queries and bounded BB activity/interaction lookups. Verify the independent-subtask/dependent-subtask fixture, read-before-run behavior, and no spawn/send mutations.
-- [ ] 2.3 Expose `bb tasks orchestrate status <epic> --json` through the existing CLI/RPC conventions. Verify idle versus done, missing owner versus untouched, unknown/stale activity, report references, pending decisions, and epic acceptance state in contract tests.
-- [ ] 2.4 Enforce 100-subtask and 128-KiB response limits with explicit auxiliary overflow counts and complete-list errors. Verify large comments, attachments, results, and interactions cannot produce an apparently complete partial dispatch list.
-- [ ] 2.5 Document the compact response and state distinctions in the Tasks skill reference or README. Verify examples use real declared commands and preserve existing status and dependency semantics.
+- [x] 2.2 Implement the bounded read-only epic projection using Tasks dependency/association queries and bounded BB activity/interaction lookups. Verify the independent-subtask/dependent-subtask fixture, read-before-run behavior, and no spawn/send mutations.
+- [x] 2.3 Expose `bb tasks orchestrate status <epic> --json` through the existing CLI/RPC conventions. Verify idle versus done, missing owner versus untouched, unknown/stale activity, report references, pending decisions, and epic acceptance state in contract tests.
+- [x] 2.4 Enforce 100-subtask and 128-KiB response limits with explicit auxiliary overflow counts and complete-list errors. Verify large comments, attachments, results, and interactions cannot produce an apparently complete partial dispatch list.
+- [x] 2.5 Document the compact response and state distinctions in the Tasks skill reference or README. Verify examples use real declared commands and preserve existing status and dependency semantics.
+
+BBP-34 verifies items 2.2 through 2.5 through CLI/RPC and disposable Tasks/SDK
+fixtures. Run, ownership, dispatch, report, and acceptance persistence remains
+owned by later slices. The status extension reader exposes their absence as
+unknown until those authoritative readers are wired in. No migration was needed
+for the native status projection, so 2.1 remains unchecked. Full package checks
+for this slice do not establish the integrated epic/provider acceptance in 6.3.
 
 ## 3. Implement authorized runs and safe dispatch-or-reuse
 

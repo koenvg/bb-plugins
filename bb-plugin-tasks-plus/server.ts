@@ -7,6 +7,7 @@ import { registerTasksCli } from "./cli";
 import { registerDelegation } from "./delegate";
 import { registerLifecycle } from "./lifecycle";
 import { registerMentions } from "./mentions";
+import { registerOrchestrationStatus } from "./orchestration";
 
 const TASKS_PLUGIN_NAME = "Tasks";
 export const TASKS_PLUGIN_VERSION = "0.1.2";
@@ -30,6 +31,7 @@ export default async function plugin(bb: BbPluginApi) {
   registerAttachments(bb, store.tasks);
   registerTasksCli(bb, store, statusPayload());
   registerDelegation(bb, store);
+  registerOrchestrationStatus(bb, store);
   registerMentions(bb, store);
   await registerLifecycle(bb, store);
 
