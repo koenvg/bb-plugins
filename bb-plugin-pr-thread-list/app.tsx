@@ -24,6 +24,7 @@ import { buildForest, visibleItems, type Lifecycle, type ListItem, type ListOpti
 import type { Tab } from "./tabs";
 import { DEFAULT_PREFERENCES, readPreferences, savePreferences } from "./preferences";
 import { isSettled, needsAttention, relativeTime, rowState, workItems } from "./row-cues";
+import { RunningGlyph } from "./running-glyph";
 
 
 const OVERSCAN = 5;
@@ -60,7 +61,7 @@ function StateOrTime({ thread, hasDraft, now, wakeAt }: {
   </time>;
   return <span title={state.title}
     className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-1 text-[11px] font-medium leading-4 ${STATE_TONE[state.tone]} ${fade}`}>
-    {state.tone === "live" ? <Icon name="Spinner" aria-hidden className="size-3 motion-safe:animate-spin" /> : null}
+    {state.tone === "live" ? <RunningGlyph /> : null}
     {state.label === "Working" ? <span className="sr-only">{state.label}</span> : state.label}
   </span>;
 }
