@@ -1,0 +1,49 @@
+{
+  "name": "bb-plugin-codex-inspired",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "server.ts",
+    "dist/server.js",
+    "dist/server.js.map",
+    "dist/server.meta.json",
+    "themes",
+    "README.md",
+    "PLUGIN_OVERVIEW.md"
+  ],
+  "engines": {
+    "bb": ">=0.44",
+    "bbPluginSdk": ">=0.5.29"
+  },
+  "bb": {
+    "name": "Codex Inspired",
+    "description": "A neutral light and dark theme with native chat typography and an Inter sidebar.",
+    "branding": { "icon": "Palette" },
+    "server": "./server.ts",
+    "skills": [],
+    "themes": [
+      {
+        "id": "codex-inspired",
+        "name": "Codex Inspired",
+        "description": "Native system sans for chat, Inter for the sidebar, and a neutral light and dark palette.",
+        "css": "./themes/codex-inspired.css"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "bb plugin build"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.5.29",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.5.0",
+    "hono": "^4.11.9",
+    "typescript": "^5.7.0",
+    "vitest": "^5.0.3"
+  }
+}
