@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useBbNavigate, type BbNavigate } from "@get-bb/plugin-sdk/app";
 
-export type PanelIntent = "new-task" | "help";
+export type PanelIntent = "new-task" | "help" | "switch-project";
 
 type IntentListener = (intent: PanelIntent) => void;
 

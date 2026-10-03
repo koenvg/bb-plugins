@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginCommandContext } from "@get-bb/plugin-sdk/app";
 
@@ -20,9 +20,21 @@ if (!window.matchMedia) {
 const app = await loadPluginApp(() => import("../app"));
 const { TASKS_COMMANDS } = await import("./commands.js");
 
-beforeEach(() => window.localStorage.clear());
-afterEach(cleanup);
-
+beforeEach(() => {
+  window.localStorage.clear();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 const tasksPanel = app.navPanels[0]!;
 const sidebarAccessory = {
   component: tasksPanel.experimental_sidebarAccessory!,
@@ -54,13 +66,14 @@ function run(id: string) {
 }
 
 describe("tasks palette commands", () => {
-  it("registers the five commands without default keys", () => {
+  it("registers the six commands without default keys", () => {
     expect(TASKS_COMMANDS.map((entry) => entry.title)).toEqual([
       "Tasks: New task",
       "Tasks: Go to All tasks",
       "Tasks: Go to Active tasks",
       "Tasks: Go to Manage",
       "Tasks: Show keyboard shortcuts",
+      "Tasks: Switch project",
     ]);
     for (const entry of TASKS_COMMANDS) {
       expect(entry.defaultShortcut).toBeUndefined();
@@ -106,5 +119,18 @@ describe("tasks palette commands", () => {
       await panel.findByRole("dialog", { name: "Keyboard shortcuts" }),
     ).toBeDefined();
     expect(panel.navigateCalls).toEqual([]);
+  });
+  it("opens the panel and delivers one project picker when Tasks was closed", async () => {
+    const sidebar = renderSlot(sidebarAccessory, {}, { rpc });
+    run("switch-project");
+    expect(sidebar.inspection.navigateCalls).toContainEqual(
+      expect.objectContaining({ method: "toPluginPanel", path: "tasks" }),
+    );
+    const panel = renderSlot(tasksPanel, { subPath: "all" }, { rpc });
+    await panel.findByRole("dialog", { name: "Switch project" });
+    expect(panel.getAllByRole("dialog")).toHaveLength(1);
+    run("switch-project");
+    expect(panel.getAllByRole("dialog")).toHaveLength(1);
+    expect(panel.inspection.navigateCalls).toEqual([]);
   });
 });

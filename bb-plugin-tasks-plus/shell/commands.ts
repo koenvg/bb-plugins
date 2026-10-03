@@ -36,4 +36,10 @@ export const TASKS_COMMANDS: readonly PluginCommandRegistration[] = [
     isAvailable: canRunTasksCommand,
     run: () => sendPanelIntent("help"),
   },
+  {
+    id: "switch-project",
+    title: "Tasks: Switch project",
+    isAvailable: canRunTasksCommand,
+    run: () => sendPanelIntent("switch-project"),
+  },
 ];
