@@ -83,6 +83,31 @@ execution, palette arbitration, thread-side embeds, and real send/upload/delegat
 flows remain unverified. No theme changed or real comment/file/delegation action
 was submitted as a test.
 
+## Rebase validation
+
+PR #67 was rebased onto `484cdd1b1dc608315490d686cf2019e04a863bae`.
+The README keeps both sets of documentation. List rows retain main's thread and
+PR summaries, wider dense-metadata breakpoint, and title minimum width alongside
+compact title wrapping and coarse-pointer controls. Metadata uses the guarded
+rendered task order and main's scope/filter refresh key.
+
+Five upstream tests initially failed on old route assumptions. Their assertions
+now use replacement browse selection routes and explicit All scope. No assertions
+were removed. Final validation passed **933 tests in 84 files**, typecheck, lint,
+build, strict OpenSpec validation, and diff checks. Lint retains four existing
+warnings and no errors.
+
+The single read-only rebase review approved the integration against `9ac0de87`,
+with no blocking findings. Two later main commits only add specifications. The
+final rebase preserved the reviewed and tested package tree exactly:
+`52095ac2fb7e4f204fd4e96e5e0178e9fa5f7667`.
+
+An Arc fixture with the current components verified bounded metadata at 1600,
+1060, and 390px, compact title wrapping, and a 44px coarse priority control. This
+is not installed-host acceptance. The rebased source was not reinstalled; the
+20 installed-host checks above describe the earlier native-pane snapshot.
+BBP-50 remains deferred and host-acceptance items 6.2 and 6.3 remain open.
+
 ## Evidence
 
 Parent thread storage: `/Users/koen/.bb/thread-storage/thr_v9ni4kqgxa`.
@@ -97,6 +122,9 @@ Parent thread storage: `/Users/koen/.bb/thread-storage/thr_v9ni4kqgxa`.
 - `bbp-8-native-evidence/live-checks.jsonl`: twenty passing checks and the breakpoint failure.
 - `bbp-8-native-evidence/live-native-final-wide.png` and `live-native-phone.png`: installed host screenshots.
 - `bbp-8-responsive-remount-bug.md`: BBP-50 reproduction and expected behavior.
+- `bbp-8-rebase-validation.log`: full combined-source checks and final package-tree comparison.
+- `bbp-8-rebase-review.md`: the one-pass integration approval and remaining limits.
+- `bbp-8-rebase-evidence/`: layout screenshots, measured bounds, and fixture script.
 
 The original [verification report](verification.md) and installation receipt are
 historical evidence for the first layout, not acceptance of this correction.
