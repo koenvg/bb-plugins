@@ -116,8 +116,21 @@ describe("bannerState", () => {
     expect(bannerState(insight([]))).toEqual({ kind: "hidden" });
   });
 
-  it.each(["merged", "closed"] as const)("is hidden for a %s PR", (state) => {
-    expect(bannerState({ ...insight([failed]), pr: { ...pr, state } })).toEqual({
+  it.each([
+    { kind: "none" },
+    { kind: "merge", method: "SQUASH" },
+    { kind: "enqueue" },
+    { kind: "queued" },
+  ] satisfies MergeAction[])("shows merged before stale blockers or action $kind", (mergeAction) => {
+    expect(bannerState({
+      ...insight([failed]),
+      mergeAction,
+      pr: { ...pr, state: "merged" },
+    })).toEqual({ kind: "merged" });
+  });
+
+  it("is hidden for a closed PR", () => {
+    expect(bannerState({ ...insight([failed]), pr: { ...pr, state: "closed" } })).toEqual({
       kind: "hidden",
     });
   });

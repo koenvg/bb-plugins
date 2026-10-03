@@ -28,6 +28,15 @@ function ThreadBanner({ threadId }: { threadId: string }) {
   switch (state.kind) {
     case "hidden":
       return null;
+    case "merged":
+      return (
+        <BannerText
+          icon="GitMerge"
+          iconClassName="text-violet-700 [.dark_&]:text-violet-300"
+          text="Pull request merged"
+          onClick={openPrTab}
+        />
+      );
     case "blockers":
       return (
         <BannerText
@@ -71,7 +80,7 @@ interface BannerTextProps {
 function BannerText({ icon, iconClassName, text, onClick }: BannerTextProps) {
   return (
     <button type="button" className={TEXT_BUTTON_CLASS} onClick={onClick}>
-      <Icon name={icon} className={cn("size-3.5 shrink-0", iconClassName)} />
+      <Icon name={icon} aria-hidden="true" className={cn("size-3.5 shrink-0", iconClassName)} />
       <span className="truncate">{text}</span>
     </button>
   );

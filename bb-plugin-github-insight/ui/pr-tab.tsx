@@ -151,17 +151,31 @@ function PrTabContent({ threadId }: { threadId: string }) {
 }
 
 function PrHeader({ pr, action }: { pr: PrInsight["pr"]; action: ReactNode }) {
+  const merged = pr.state === "merged";
   return (
-    <header className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <header className={cn("flex min-w-0 flex-col", merged ? "gap-2" : "gap-1")}>
+      {merged && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md bg-violet-500/10 px-3 py-3 text-violet-700 [.dark_&]:text-violet-300"
+        >
+          <Icon name="GitMerge" aria-hidden="true" className="size-5 shrink-0" />
+          <h2 className="text-sm font-semibold">Pull request merged</h2>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-mono tabular-nums">#{pr.number}</span>
-        <span className="rounded-full border border-border px-2 py-0.5">
-          {PR_STATE_LABEL[pr.state]}
-        </span>
-        <UrlLink href={pr.url} className="ml-auto underline-offset-2 hover:underline">
-          Open on GitHub
-        </UrlLink>
-        {action}
+        {!merged && (
+          <span className="rounded-full border border-border px-2 py-0.5">
+            {PR_STATE_LABEL[pr.state]}
+          </span>
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <UrlLink href={pr.url} className="underline-offset-2 hover:underline">
+            Open on GitHub
+          </UrlLink>
+          {action}
+        </div>
       </div>
       <h2 className="break-words text-sm font-semibold">{pr.title}</h2>
     </header>

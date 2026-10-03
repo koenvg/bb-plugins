@@ -85,7 +85,7 @@ While a merge or enqueue runs, the button SHALL show a busy state and SHALL be d
 - **THEN** the plugin sends one enqueue request
 
 ### Requirement: Merge action in the composer banner
-The composer banner of a thread SHALL show the same merge action as the "PR" tab, with the same merge method, confirm step, head commit guard, progress, and result. A ready PR SHALL show "Ready to merge" or "Ready to enqueue" and the button. A queued PR SHALL show "Queued" and no button. A PR with blockers SHALL show the blocker banner as before. Clicking the banner text SHALL open the "PR" tab.
+The composer banner of a thread SHALL show the same merge action as the "PR" tab, with the same merge method, confirm step, head commit guard, progress, and result. A ready PR SHALL show "Ready to merge" or "Ready to enqueue" and the button. A queued PR SHALL show "Queued" and no button. A merged PR SHALL show "Pull request merged" with a violet merge icon and no merge action. A closed PR SHALL show no banner. Other PRs with blockers SHALL show the blocker banner as before. Clicking the banner text SHALL open the "PR" tab.
 
 #### Scenario: Ready PR in the chat view
 - **WHEN** the thread's PR has no blockers and its repository has no merge queue
@@ -93,7 +93,7 @@ The composer banner of a thread SHALL show the same merge action as the "PR" tab
 
 #### Scenario: Merge from the banner
 - **WHEN** the user clicks the merge button in the banner and confirms the dialog
-- **THEN** the plugin merges the PR and the banner no longer shows
+- **THEN** the plugin merges the PR and, after the refreshed insight arrives, the banner shows "Pull request merged" without a merge action
 
 #### Scenario: Queued PR in the chat view
 - **WHEN** the thread's PR is in the merge queue
@@ -109,7 +109,8 @@ The composer banner of a thread SHALL show the same merge action as the "PR" tab
 
 #### Scenario: Merged PR in the chat view
 - **WHEN** the thread's PR is merged
-- **THEN** the composer banner does not show
+- **THEN** the composer banner shows "Pull request merged" with a violet merge icon and no merge action
+- **AND** clicking the banner opens the "PR" tab without a GitHub write
 
 ### Requirement: Writes only from the user
 The plugin SHALL merge or enqueue only from a click in the "PR" tab or the composer banner, or from the "GitHub: Merge PR" command in bb's command palette. No CLI command and no agent tool of the plugin SHALL merge or enqueue a PR.

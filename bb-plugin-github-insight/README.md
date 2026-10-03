@@ -189,7 +189,8 @@ The composer banner of the thread shows the same action, with the same `MergeAct
 
 | PR | Banner |
 |---|---|
-| merged or closed | hidden |
+| merged | Pull request merged, violet merge icon, no merge action |
+| closed | hidden |
 | in the merge queue | "Queued", no button |
 | has merge blockers | the top blockers, no button |
 | merge or enqueue action | "Ready to merge" or "Ready to enqueue" + the button |
