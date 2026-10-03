@@ -1,10 +1,4 @@
-# pr-review-requests Specification
-
-## Purpose
-
-Shows the open pull requests that wait for the user's review in a bb panel. Lets the user start a hidden bb thread that reviews a pull request, and find those review threads again.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Pull Requests panel
 The plugin SHALL add a nav panel named "Pull Requests" with a pull request icon. The panel SHALL show one PR list with a "Needs review" section and a "Reviewed" section below it. Each section header SHALL show the number of PRs in that section. The panel title SHALL appear once. Refresh and the time of the last load SHALL sit on the "Needs review" header row, not on a row of their own.
@@ -52,25 +46,6 @@ The list SHALL show at most 50 PRs from the review request search. When GitHub r
 - **WHEN** GitHub reports 70 open review requests
 - **THEN** the list shows 50 of them and "Showing first 50"
 
-### Requirement: Pull request card
-Each PR card SHALL show the number, title, author, time since the last update, a "Draft" label for drafts, the CI state (passed, failed, running, or none), and the review decision (approved, changes requested, review required, or none). Every card SHALL have an "Open on GitHub" action that opens the PR URL.
-
-#### Scenario: Draft with failing CI
-- **WHEN** a PR is a draft and one of its checks failed
-- **THEN** its card shows "Draft" and a failed CI state
-
-#### Scenario: Repository shown once
-- **WHEN** a repo group holds three PRs
-- **THEN** the repository name shows in the group header and not on each card
-
-#### Scenario: Age is last update
-- **WHEN** a PR was created 5 months ago and updated 2 days ago
-- **THEN** its card shows "2 days ago"
-
-#### Scenario: Open on GitHub
-- **WHEN** the user selects "Open on GitHub" on a card
-- **THEN** bb opens the PR URL in the browser
-
 ### Requirement: Refresh
 The plugin SHALL refresh the list in the background every 5 minutes, also while the panel is closed, and SHALL keep the last good result across plugin restarts. The panel SHALL show the kept result at once when it opens and SHALL update when a background refresh finishes. Refresh SHALL start a refresh at once. During a refresh the panel SHALL keep showing the last result.
 
@@ -98,17 +73,6 @@ The plugin SHALL refresh the list in the background every 5 minutes, also while 
 - **WHEN** the user marks a PR reviewed or as needs review
 - **THEN** the PR moves to its new section without waiting for the next background refresh
 
-### Requirement: Errors
-When the lists cannot be loaded, the panel SHALL show the reason ("gh not installed", "gh not logged in", "rate limited", or the error text) and a retry action. When earlier data exists, the panel SHALL keep it visible and show the time it was loaded.
-
-#### Scenario: gh not logged in
-- **WHEN** `gh` on the primary host has no logged-in user
-- **THEN** the panel shows "gh not logged in" and a retry action
-
-#### Scenario: Error after a good load
-- **WHEN** a refresh fails after an earlier refresh succeeded
-- **THEN** the panel shows the earlier lists, the time they were loaded, and the error
-
 ### Requirement: Repository to project match
 For each PR, the plugin SHALL find the bb projects whose git remote points to the PR's GitHub repository. The match SHALL ignore case, the URL form (HTTPS or SSH), and a trailing `.git`. Personal projects SHALL NOT match.
 
@@ -134,35 +98,7 @@ A PR card with a matching project and no linked thread SHALL have a "Review in t
 - **WHEN** the user opens the composer from a card and goes back without submitting
 - **THEN** no thread is started and the panel shows the list again
 
-### Requirement: Review prompt
-The review prompt SHALL tell the agent to run `gh pr checkout <number>` first, then review the PR. It SHALL include the PR URL and title. It SHALL tell the agent to save each finding on a file and line with `bb github-insight review comment`, and to save one review summary with `bb github-insight review summary`. It SHALL tell the agent not to post comments or reviews to GitHub.
-
-#### Scenario: Prompt content
-- **WHEN** the composer opens for `acme/api#15` titled "Add rate limits"
-- **THEN** the prompt contains `gh pr checkout 15`, the PR URL, the title "Add rate limits", and an instruction not to post to GitHub
-
-#### Scenario: Prompt names the draft commands
-- **WHEN** the composer opens for any review request
-- **THEN** the prompt contains `bb github-insight review comment` and `bb github-insight review summary`
-
-### Requirement: Open existing review thread
-When an unarchived bb thread, hidden or visible, is linked to a PR on the list, the card SHALL show "Open thread" instead of "Review in thread". A thread is linked when bb links its branch to the PR, or when the plugin started it as a review thread for that PR. "Open thread" SHALL open the most recently updated linked thread.
-
-#### Scenario: Thread already linked
-- **WHEN** a thread's branch is the head branch of `acme/api#15`
-- **THEN** the card for `#15` shows "Open thread"
-- **AND** selecting it opens that thread
-
-#### Scenario: Review thread before checkout
-- **WHEN** the user started a review thread for `acme/api#15` and its agent has not run `gh pr checkout` yet
-- **THEN** the card for `#15` shows "Open thread"
-
-### Requirement: Hidden review threads
-A thread started with "Review in thread" SHALL be hidden from the sidebar thread list. The plugin SHALL record on the thread which PR it reviews (repository, number, title, URL). The GitHub Insight PR and Review tabs SHALL work for hidden threads the same as for visible threads.
-
-#### Scenario: PR tab on a hidden review thread
-- **WHEN** the user opens a hidden review thread after its agent ran `gh pr checkout`
-- **THEN** the PR and Review tabs show that PR and refresh like on a visible thread
+## ADDED Requirements
 
 ### Requirement: Reviewed state
 The plugin SHALL keep, per PR, the head commit at which the user marked it reviewed. A PR SHALL be in "Reviewed" when that commit is the PR's current head commit. A PR SHALL be in "Needs review" when it has no kept commit, or when its head commit is different from the kept commit. The kept commit SHALL stay after a bb restart.
@@ -231,3 +167,9 @@ When a thread is linked to a PR on the list, the PR card SHALL show the thread s
 #### Scenario: Archive a thread on an unrequested, unmarked PR
 - **WHEN** `acme/api#15` is in the list only because of its review thread, and the user selects "Archive thread"
 - **THEN** bb archives the thread and `#15` leaves the list
+
+## REMOVED Requirements
+
+### Requirement: My reviews list
+**Reason**: A review thread now shows on the row of its PR, and marked PRs and PRs with a review thread stay in the list. A separate list of threads shows the same PR two times.
+**Migration**: Find a review thread on the card of its PR. Use "Open thread" and "Archive thread" on that card.

@@ -1477,7 +1477,7 @@ describe("comment and summary drafts from the tab", () => {
 });
 
 describe("submitReview", () => {
-  const READS = new Set(["fetchPrFiles", "fetchReviewThreads", "fetchPrHead", "fetchOverviewPage", "fetchCheckRunDetails"]);
+  const READS = new Set(["fetchPrFiles", "fetchReviewThreads", "fetchPrHead", "fetchOverviewPage", "fetchCheckRunDetails", "fetchReviewQueue"]);
   const DRAFTS = {
     "comment:collibra/frontend#25259:d1": commentDraftRow("abc123", 10),
     "comment:collibra/frontend#25259:d2": { ...commentDraftRow("abc123", 20), startLine: 18 },
@@ -1562,6 +1562,17 @@ describe("submitReview", () => {
     expect(result).toEqual({ kind: "submitted" });
     expect(writes(harness).map(({ input }) => input)).toEqual([
       { pullRequestId: "PR_kwDOUoz3mM8AAAABGSCovQ", commitOid: "def456", event: "APPROVE", body: "", threads: [] },
+    ]);
+  });
+
+  it("marks the PR reviewed at the submitted commit, so the next queue load tracks it", async () => {
+    const harness = await setupWithPr(submitHost(), {});
+
+    await harness.behavior.callRpc("submitReview", { threadId: "thr_1", event: "APPROVE", body: "" });
+    await settle();
+
+    expect(harness.experimental_hostRpcCalls.filter(({ method }) => method === "fetchReviewQueue").map(({ input }) => input)).toEqual([
+      { tracked: [{ owner: "collibra", repo: "frontend", number: 25259 }] },
     ]);
   });
 
@@ -1722,17 +1733,17 @@ describe("review queue", () => {
     const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
 
     expect(harness.experimental_hostRpcCalls).toEqual([
-      expect.objectContaining({ method: "fetchReviewQueue", input: {}, hostId: "host-7" }),
+      expect.objectContaining({ method: "fetchReviewQueue", input: { tracked: [] }, hostId: "host-7" }),
     ]);
     if (result.kind !== "ok") throw new Error(result.message);
-    const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
-    expect(api.prs.map(({ number, projectIds, threadId }) => ({ number, projectIds, threadId }))).toEqual([
-      { number: 15, projectIds: ["prj_api"], threadId: null },
-      { number: 12, projectIds: ["prj_api"], threadId: null },
+    const api = result.needsReview.find((group) => group.repo === "acme/api")!;
+    expect(api.prs.map(({ number, projectIds, thread }) => ({ number, projectIds, thread }))).toEqual([
+      { number: 15, projectIds: ["prj_api"], thread: null },
+      { number: 12, projectIds: ["prj_api"], thread: null },
     ]);
   });
 
-  it("links a hidden thread and lists the hidden review threads of this plugin", async () => {
+  it("links a hidden thread and the hidden review threads of this plugin, and fetches their PRs", async () => {
     const harness = await setup({
       threads: [
         { id: "thr_hidden", environmentId: "env_1", visibility: "hidden", updatedAt: 2 },
@@ -1759,21 +1770,12 @@ describe("review queue", () => {
     const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
 
     if (result.kind !== "ok") throw new Error(result.message);
-    const api = result.reviewRequests.groups.find((group) => group.repo === "acme/api")!;
-    expect(api.prs.map(({ number, threadId }) => ({ number, threadId }))).toEqual([
-      { number: 15, threadId: "thr_hidden" },
-      { number: 12, threadId: "thr_review" },
+    const api = result.needsReview.find((group) => group.repo === "acme/api")!;
+    expect(api.prs.map(({ number, thread }) => ({ number, thread }))).toEqual([
+      { number: 15, thread: { id: "thr_hidden", status: "idle", isReviewThread: false } },
+      { number: 12, thread: { id: "thr_review", status: "idle", isReviewThread: true } },
     ]);
-    expect(result.myReviews).toEqual([
-      {
-        threadId: "thr_review",
-        repo: "acme/api",
-        number: 12,
-        title: "Add caching",
-        url: "https://github.com/acme/api/pull/12",
-        status: "idle",
-      },
-    ]);
+    expect(harness.experimental_hostRpcCalls[0]!.input).toEqual({ tracked: [{ owner: "acme", repo: "api", number: 12 }] });
   });
 
   it("reports the gh failure text", async () => {
@@ -1831,7 +1833,7 @@ describe("startReview", () => {
     expect(result).toEqual({ threadId: "thr_review" });
   });
 
-  it("publishes the queue with the new thread in My reviews without a GitHub call", async () => {
+  it("publishes the queue with the new thread on its PR row without a GitHub call", async () => {
     const harness = await setup({
       threads: [],
       host: () => ok(reviewQueue),
@@ -1848,7 +1850,9 @@ describe("startReview", () => {
 
     expect(harness.experimental_hostRpcCalls).toHaveLength(1);
     const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
-    expect(update.kind === "ok" && update.myReviews.map((review) => review.threadId)).toEqual(["thr_review"]);
+    if (update.kind !== "ok") throw new Error(update.message);
+    const row = update.needsReview.flatMap((group) => group.prs).find((pr) => pr.number === 15)!;
+    expect(row.thread?.id).toBe("thr_review");
   });
 
   it("rejects when spawn fails", async () => {

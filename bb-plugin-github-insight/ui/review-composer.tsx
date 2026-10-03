@@ -22,7 +22,7 @@ type ReviewRoute = Extract<PullRequestsRoute, { kind: "review" }>;
 
 function findReviewRequest(view: ReviewQueueView | null, route: ReviewRoute): LinkedQueuePr | null {
   const repo = route.repo.toLowerCase();
-  for (const group of view?.reviewRequests.groups ?? []) {
+  for (const group of [...(view?.needsReview ?? []), ...(view?.reviewed ?? [])]) {
     if (group.repo.toLowerCase() !== repo) continue;
     const pr = group.prs.find((candidate) => candidate.number === route.number);
     if (pr !== undefined) return pr;

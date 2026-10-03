@@ -10,6 +10,7 @@ import {
   type GhProcessError,
 } from "./github/gh-failure";
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
+import { readNotFoundPartial } from "./github/not-found-partial";
 import { overviewPageArgs } from "./github/overview-query";
 import { prFilesArgs } from "./github/pr-files-query";
 import { prHeadArgs } from "./github/pr-head-query";
@@ -36,7 +37,7 @@ export default experimental_defineHostEntry({
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
     setThreadResolved: (request, context) =>
       runGhJson(setThreadResolvedArgs(request), context.signal),
-    fetchReviewQueue: (_request, context) => runGhJson(reviewQueueArgs(), context.signal),
+    fetchReviewQueue: ({ tracked }, context) => runGhJsonAllowingNotFound(reviewQueueArgs(tracked), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>
@@ -56,17 +57,31 @@ async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<
   return JSON.parse(stdout) as unknown;
 }
 
+// gh exits non-zero when GitHub returns data with errors, e.g. a tracked PR that no longer exists.
+async function runGhJsonAllowingNotFound(args: string[], signal: AbortSignal): Promise<GhResult> {
+  try {
+    return { ok: true, data: await gh(args, signal) };
+  } catch (error) {
+    const partial = readNotFoundPartial(stdoutOf(error));
+    return partial !== null ? { ok: true, data: partial } : ghFailureResult(error, signal);
+  }
+}
+
 async function runGhJson(args: string[], signal: AbortSignal, stdin?: string): Promise<GhResult> {
   try {
     return { ok: true, data: await gh(args, signal, stdin) };
   } catch (error) {
-    const failure = classifyGhFailure(processError(error));
-    if (failure.kind !== "rate_limited") return { ok: false, failure };
-    return {
-      ok: false,
-      failure: { ...failure, resetAt: await readRateLimitReset(signal) },
-    };
+    return ghFailureResult(error, signal);
   }
+}
+
+async function ghFailureResult(error: unknown, signal: AbortSignal): Promise<GhResult> {
+  const failure = classifyGhFailure(processError(error));
+  if (failure.kind !== "rate_limited") return { ok: false, failure };
+  return {
+    ok: false,
+    failure: { ...failure, resetAt: await readRateLimitReset(signal) },
+  };
 }
 
 // GitHub does not count `gh api rate_limit` against the rate limit.
@@ -76,6 +91,10 @@ async function readRateLimitReset(signal: AbortSignal): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+function stdoutOf(error: unknown): string {
+  return typeof error === "object" && error !== null && "stdout" in error ? String(error.stdout) : "";
 }
 
 function processError(error: unknown): GhProcessError {

@@ -12,7 +12,7 @@ import type {
   SubmitReviewRequest,
   SubmitReviewResult,
 } from "../contract";
-import { pullRequestUrl } from "../core/pr-ref";
+import { pullRequestUrl, type PullRequestRef } from "../core/pr-ref";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import { submitRules, type ReviewEvent } from "../core/review-submit";
 import type { ReviewUpdated } from "../core/review-updated";
@@ -32,6 +32,7 @@ interface ReviewWritesDeps {
   drafts: DraftStore;
   publish(update: ReviewUpdated): void;
   refreshAfterWrite(threadId: string): Promise<void>;
+  markReviewed(ref: PullRequestRef, commitOid: string): Promise<ActionResult>;
   now(): number;
   warn(message: string): void;
 }
@@ -165,7 +166,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     });
     deps.publish({ threadId });
     await refreshAfterWrite(threadId);
-    return { kind: "submitted" };
+    if (loaded.review.head.viewerIsAuthor) return { kind: "submitted" };
+    const marked = await deps.markReviewed(ref, input.value.commitOid);
+    return marked.kind === "error" ? { kind: "submitted", markError: marked.message } : { kind: "submitted" };
   }
 
   return {

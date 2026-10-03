@@ -1,0 +1,164 @@
+{
+  "data": {
+    "reviewRequests": {
+      "issueCount": 1,
+      "nodes": [
+        {
+          "number": 12,
+          "title": "Add retries",
+          "url": "https://github.com/acme/api/pull/12",
+          "state": "OPEN",
+          "isDraft": false,
+          "createdAt": "2026-09-30T08:00:00Z",
+          "updatedAt": "2026-10-02T09:00:00Z",
+          "author": {
+            "login": "alice"
+          },
+          "repository": {
+            "nameWithOwner": "acme/api"
+          },
+          "headRefName": "feature-12",
+          "headRefOid": "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
+          "reviewDecision": "REVIEW_REQUIRED",
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "statusCheckRollup": {
+                    "state": "SUCCESS"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "t0": {
+      "pullRequest": {
+        "number": 15,
+        "title": "Add rate limits",
+        "url": "https://github.com/acme/api/pull/15",
+        "state": "OPEN",
+        "isDraft": false,
+        "createdAt": "2026-09-30T08:00:00Z",
+        "updatedAt": "2026-10-02T09:00:00Z",
+        "author": {
+          "login": "alice"
+        },
+        "repository": {
+          "nameWithOwner": "acme/api"
+        },
+        "headRefName": "feature-15",
+        "headRefOid": "e15e15e15e15e15e15e15e15e15e15e15e15e15e",
+        "reviewDecision": "REVIEW_REQUIRED",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "t1": {
+      "pullRequest": {
+        "number": 8,
+        "title": "Old work",
+        "url": "https://github.com/acme/web/pull/8",
+        "state": "MERGED",
+        "isDraft": false,
+        "createdAt": "2026-09-30T08:00:00Z",
+        "updatedAt": "2026-10-02T09:00:00Z",
+        "author": {
+          "login": "alice"
+        },
+        "repository": {
+          "nameWithOwner": "acme/web"
+        },
+        "headRefName": "feature-8",
+        "headRefOid": "f08f08f08f08f08f08f08f08f08f08f08f08f08f",
+        "reviewDecision": "REVIEW_REQUIRED",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "t2": null,
+    "t3": {
+      "pullRequest": null
+    },
+    "t4": {
+      "pullRequest": {
+        "number": 12,
+        "title": "Add retries",
+        "url": "https://github.com/acme/api/pull/12",
+        "state": "OPEN",
+        "isDraft": false,
+        "createdAt": "2026-09-30T08:00:00Z",
+        "updatedAt": "2026-10-02T09:00:00Z",
+        "author": {
+          "login": "alice"
+        },
+        "repository": {
+          "nameWithOwner": "acme/api"
+        },
+        "headRefName": "feature-12",
+        "headRefOid": "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
+        "reviewDecision": "REVIEW_REQUIRED",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "type": "NOT_FOUND",
+      "path": [
+        "t2"
+      ],
+      "locations": [
+        {
+          "line": 4,
+          "column": 3
+        }
+      ],
+      "message": "Could not resolve to a Repository with the name 'gone/repo'."
+    },
+    {
+      "type": "NOT_FOUND",
+      "path": [
+        "t3",
+        "pullRequest"
+      ],
+      "locations": [
+        {
+          "line": 5,
+          "column": 3
+        }
+      ],
+      "message": "Could not resolve to a PullRequest with the number of 99."
+    }
+  ]
+}

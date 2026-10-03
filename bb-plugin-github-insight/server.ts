@@ -86,14 +86,16 @@ export default async function plugin(bb: BbPluginApi) {
     drafts,
     publish: publishReviewUpdate,
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
+    markReviewed: ({ owner, repo, number }, headOid) =>
+      reviewQueue.markReviewed({ repo: `${owner}/${repo}`, number, headOid }),
     now: Date.now,
     warn: (message) => bb.log.warn(message),
   });
 
   const reviewQueue = createReviewQueueService({
     primaryHostId: async () => (await bb.sdk.system.config()).primaryHostId,
-    fetchReviewQueue: async (hostId) =>
-      parseReviewQueue(unwrap(await host.call("fetchReviewQueue", {}, { hostId }))),
+    fetchReviewQueue: async (hostId, tracked) =>
+      parseReviewQueue(unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })), tracked),
     listProjects: () => bb.sdk.projects.list(),
     listThreads: () => bb.sdk.threads.list({ includeHidden: true }),
     listReviewThreads: () => bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
@@ -148,6 +150,8 @@ export default async function plugin(bb: BbPluginApi) {
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
     startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
+    markReviewed: (request) => reviewQueue.markReviewed(request),
+    markNeedsReview: (request) => reviewQueue.markNeedsReview(request),
     runMergeAction: (request) => merges.runMergeAction(request),
   });
 

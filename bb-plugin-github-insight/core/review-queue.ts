@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
+import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
 
@@ -18,12 +19,14 @@ const prNodeSchema = z.object({
   number: z.number(),
   title: z.string(),
   url: z.string(),
+  state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   isDraft: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
   author: z.object({ login: z.string() }).nullable(),
   repository: z.object({ nameWithOwner: z.string() }),
   headRefName: z.string(),
+  headRefOid: z.string(),
   reviewDecision: reviewDecisionSchema,
   commits: z.object({
     nodes: z.array(
@@ -41,8 +44,10 @@ const searchSchema = z.object({ issueCount: z.number(), nodes: z.array(prNodeSch
 type Search = z.infer<typeof searchSchema>;
 
 const reviewQueueResponseSchema = z.object({
-  data: z.object({ reviewRequests: searchSchema }),
+  data: z.object({ reviewRequests: searchSchema }).catchall(z.unknown()),
 });
+
+const trackedNodeSchema = z.object({ pullRequest: prNodeSchema.nullable() }).nullable().optional();
 
 export const ciStateSchema = z.enum(["passed", "failed", "running", "none"]);
 export type CiState = z.infer<typeof ciStateSchema>;
@@ -66,6 +71,7 @@ export const queuePrSchema = z.object({
   ci: ciStateSchema,
   reviewDecision: reviewDecisionSchema,
   headRefName: z.string(),
+  headOid: z.string(),
   url: z.string(),
 });
 export type QueuePr = z.infer<typeof queuePrSchema>;
@@ -76,8 +82,29 @@ export const queueListSchema = z.object({
 });
 export type QueueList = z.infer<typeof queueListSchema>;
 
-export function parseReviewQueue(response: unknown): QueueList {
-  return toQueueList(reviewQueueResponseSchema.parse(response).data.reviewRequests);
+export function trackedAlias(index: number): string {
+  return `t${index}`;
+}
+
+export interface FetchedQueue {
+  requests: QueueList;
+  tracked: QueuePr[];
+  gone: PullRequestRef[];
+}
+
+export function parseReviewQueue(
+  response: unknown,
+  trackedRefs: readonly PullRequestRef[],
+): FetchedQueue {
+  const { data } = reviewQueueResponseSchema.parse(response);
+  const tracked: QueuePr[] = [];
+  const gone: PullRequestRef[] = [];
+  trackedRefs.forEach((ref, index) => {
+    const node = trackedNodeSchema.parse(data[trackedAlias(index)])?.pullRequest ?? null;
+    if (node?.state === "OPEN") tracked.push(toQueuePr(node));
+    else gone.push(ref);
+  });
+  return { requests: toQueueList(data.reviewRequests), tracked, gone };
 }
 
 function toQueuePr(node: PrNode): QueuePr {
@@ -93,6 +120,7 @@ function toQueuePr(node: PrNode): QueuePr {
     ci: rollup === null ? "none" : CI_STATE[rollup.state],
     reviewDecision: node.reviewDecision,
     headRefName: node.headRefName,
+    headOid: node.headRefOid,
     url: node.url,
   };
 }

@@ -1,6 +1,52 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`reviewQueueArgs > asks for the review requests in one GraphQL search 1`] = `
+exports[`reviewQueueArgs > asks for each tracked PR by repository and number in the same request 1`] = `
+[
+  "api",
+  "graphql",
+  "-f",
+  "query=
+query($o0: String!, $r0: String!, $n0: Int!, $o1: String!, $r1: String!, $n1: Int!) {
+  reviewRequests: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
+    issueCount
+    nodes { ...QueuePr }
+  }
+  t0: repository(owner: $o0, name: $r0) { pullRequest(number: $n0) { ...QueuePr } }
+  t1: repository(owner: $o1, name: $r1) { pullRequest(number: $n1) { ...QueuePr } }
+}
+
+fragment QueuePr on PullRequest {
+  number
+  title
+  url
+  state
+  isDraft
+  createdAt
+  updatedAt
+  author { login }
+  repository { nameWithOwner }
+  headRefName
+  headRefOid
+  reviewDecision
+  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+}
+",
+  "-f",
+  "o0=acme",
+  "-f",
+  "r0=api",
+  "-F",
+  "n0=15",
+  "-f",
+  "o1=acme",
+  "-f",
+  "r1=web",
+  "-F",
+  "n1=3",
+]
+`;
+
+exports[`reviewQueueArgs > asks for the review requests in one GraphQL search when nothing is tracked 1`] = `
 [
   "api",
   "graphql",
@@ -8,23 +54,25 @@ exports[`reviewQueueArgs > asks for the review requests in one GraphQL search 1`
   "query=
 query {
   reviewRequests: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
-  issueCount
-  nodes {
-    ... on PullRequest {
-      number
-      title
-      url
-      isDraft
-      createdAt
-      updatedAt
-      author { login }
-      repository { nameWithOwner }
-      headRefName
-      reviewDecision
-      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
-    }
+    issueCount
+    nodes { ...QueuePr }
   }
 }
+
+fragment QueuePr on PullRequest {
+  number
+  title
+  url
+  state
+  isDraft
+  createdAt
+  updatedAt
+  author { login }
+  repository { nameWithOwner }
+  headRefName
+  headRefOid
+  reviewDecision
+  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
 }
 ",
 ]
