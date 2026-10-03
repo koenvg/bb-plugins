@@ -32,11 +32,70 @@ export interface SourceAdapter {
   environment(id: string): Promise<{ id: string; projectId: string; hostId: string; path: string | null; status: string }>;
   project(id: string): Promise<{ id: string; sources: { hostId: string; path: string; isDefault: boolean }[] }>;
   thread(id: string): Promise<{ id: string; projectId: string; environmentId: string | null }>;
+  storageLocation(threadId: string): Promise<{ hostId: string; storageRootPath: string }>;
   read(target: { hostId: string; path: string; rootPath: string }): Promise<{
     content: string; contentEncoding: "base64" | "utf8"; sha256: string; sizeBytes: number;
   }>;
 }
 export interface SourceReader { read(target: unknown): Promise<ReadResult> }
+
+function hostPaths(path: string) {
+  return /^[A-Za-z]:[\\/]|^\\\\/.test(path) ? win32 : posix;
+}
+
+/** Literal file paths only. URLs, encoded paths, traversal and device paths are not targets. */
+function validDocumentPath(target: ReaderTarget): boolean {
+  const { path, source } = target;
+  if (!/\.(md|markdown)$/i.test(path) || /[%\x00-\x1f\x7f]/.test(path)) return false;
+  if (source.kind !== "host") {
+    return !/[\\:]/.test(path) && path.split("/").every(p => p !== ".." && p !== "." && p !== "");
+  }
+  const paths = hostPaths(path);
+  if (!paths.isAbsolute(path) || /^\\\\[?.]\\/.test(path)) return false;
+  const tail = paths === win32 ? path.replace(/^[A-Za-z]:/, "") : path;
+  return !tail.includes(":") && (paths === win32 || !path.includes("\\")) &&
+    !tail.split(/[\\/]/).some(p => p === ".." || p === ".");
+}
+
+async function resolveSource(adapter: SourceAdapter, target: ReaderTarget) {
+  const { kind, threadId, experimental_hostId: selectedHost } = target.source;
+  let { environmentId, projectId } = target.source;
+  if (threadId) {
+    const thread = await adapter.thread(threadId);
+    if (thread.id !== threadId || (projectId && projectId !== thread.projectId) || (environmentId && environmentId !== thread.environmentId)) {
+      throw new Error("The requested thread and source identities do not match.");
+    }
+    environmentId ??= thread.environmentId;
+    projectId ??= thread.projectId;
+  }
+  if (kind === "thread-storage") {
+    if (!threadId) throw new Error("No thread identity was supplied for thread storage. Use BB preview.");
+    const storage = await adapter.storageLocation(threadId);
+    if (selectedHost && selectedHost !== storage.hostId) throw new Error("The requested host does not match the thread storage host.");
+    return { hostId: storage.hostId, root: storage.storageRootPath };
+  }
+  if (environmentId) {
+    const environment = await adapter.environment(environmentId);
+    if (environment.id !== environmentId || (projectId && projectId !== environment.projectId) || (selectedHost && selectedHost !== environment.hostId)) {
+      throw new Error("The requested source identity does not match its environment.");
+    }
+    if (kind === "host") return { hostId: environment.hostId, root: hostPaths(target.path).dirname(target.path) };
+    if (environment.status !== "ready" || !environment.path) throw new Error("The workspace is not ready or has no readable root.");
+    return { hostId: environment.hostId, root: environment.path };
+  }
+  if (kind === "host") {
+    if (threadId || projectId) throw new Error("This host source has no environment to verify its thread or project identity.");
+    if (!selectedHost) throw new Error("No explicit host identity was supplied. Use BB preview.");
+    // No permitted host root exists in the opener contract. Use only this file's directory.
+    return { hostId: selectedHost, root: hostPaths(target.path).dirname(target.path) };
+  }
+  if (!projectId) throw new Error("No workspace identity was supplied. Use BB preview.");
+  const project = await adapter.project(projectId);
+  if (project.id !== projectId) throw new Error("The requested project does not match.");
+  const candidates = project.sources.filter(s => selectedHost ? s.hostId === selectedHost : s.isDefault);
+  if (candidates.length !== 1) throw new Error("The workspace root is missing or ambiguous. Use BB preview.");
+  return { hostId: candidates[0]!.hostId, root: candidates[0]!.path };
+}
 
 export function createSourceReader(adapter: SourceAdapter): SourceReader {
   return {
@@ -44,49 +103,24 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
       const parsed = targetSchema.safeParse(input);
       if (!parsed.success) return { kind: "unsupported", message: "Invalid file source. Open this file in BB preview." };
       const target = parsed.data;
-      if (target.source.kind !== "workspace") return { kind: "unsupported", message: "This reader currently supports workspace files only. Use BB preview for this source." };
-      // Treat paths as literal workspace paths, not URLs or server-local paths.
-      const parts = target.path.split("/");
-      if (!/\.(md|markdown)$/i.test(target.path) || /[\\%\x00-\x1f\x7f:]/.test(target.path) || parts.some(p => p === ".." || p === "")) {
-        return { kind: "unsupported", message: "Unsupported workspace Markdown path. Use BB preview." };
-      }
+      if (!validDocumentPath(target)) return { kind: "unsupported", message: "Unsupported Markdown file path. Use BB preview." };
       try {
-        let { environmentId, projectId, threadId, experimental_hostId: selectedHost } = target.source;
-        if (threadId) {
-          const thread = await adapter.thread(threadId);
-          if (thread.id !== threadId || (projectId && projectId !== thread.projectId) || (environmentId && environmentId !== thread.environmentId)) throw new Error("The requested thread and workspace do not match.");
-          environmentId ??= thread.environmentId;
-          projectId ??= thread.projectId;
-        }
-        let hostId: string;
-        let root: string;
-        if (environmentId) {
-          const environment = await adapter.environment(environmentId);
-          if (environment.id !== environmentId || (projectId && projectId !== environment.projectId) || (selectedHost && selectedHost !== environment.hostId)) throw new Error("The requested workspace identity does not match its environment.");
-          if (environment.status !== "ready" || !environment.path) throw new Error("The workspace is not ready or has no readable root.");
-          hostId = environment.hostId;
-          root = environment.path;
-        } else {
-          if (!projectId) throw new Error("No workspace identity was supplied. Use BB preview.");
-          const project = await adapter.project(projectId);
-          if (project.id !== projectId) throw new Error("The requested project does not match.");
-          const candidates = project.sources.filter(s => selectedHost ? s.hostId === selectedHost : s.isDefault);
-          if (candidates.length !== 1) throw new Error("The workspace root is missing or ambiguous. Use BB preview.");
-          hostId = candidates[0]!.hostId;
-          root = candidates[0]!.path;
-        }
-        const paths = /^[A-Za-z]:[\\/]|^\\\\/.test(root) ? win32 : posix;
-        if (!hostId || !paths.isAbsolute(root)) throw new Error("The workspace has no explicit host or absolute root.");
+        const { hostId, root } = await resolveSource(adapter, target);
+        const paths = hostPaths(root);
+        if (!hostId || !paths.isAbsolute(root)) throw new Error("The source has no explicit host or absolute root.");
         const rootPath = paths.normalize(root);
-        const documentPath = paths.resolve(rootPath, ...parts);
+        const documentPath = target.source.kind === "host" ? paths.normalize(target.path) : paths.resolve(rootPath, ...target.path.split("/"));
         const relative = paths.relative(rootPath, documentPath);
-        if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) throw new Error("The document is outside the workspace root.");
-        // The SDK enforces root confinement, including symlinks, on the selected host.
-        // It has no stat or max-byte read option. Reject oversized responses before parsing.
+        if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) throw new Error("The document is outside the source root.");
+        // The SDK enforces root confinement, including symlinks, on this explicit host.
+        // It has no stat or max-byte read option. Oversized content can reach this server.
         const file = await adapter.read({ hostId, rootPath, path: documentPath });
         if (file.sizeBytes > MAX_DOCUMENT_BYTES) return { kind: "unsupported", message: "This file exceeds the 1 MiB reader limit. Use BB preview." };
-        if (file.contentEncoding !== "utf8" || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(file.content)) return { kind: "unsupported", message: "This file is not supported UTF-8 text. Use BB preview." };
         if (Buffer.byteLength(file.content, "utf8") > MAX_DOCUMENT_BYTES) return { kind: "unsupported", message: "This file exceeds the 1 MiB reader limit. Use BB preview." };
+        if (file.contentEncoding !== "utf8" || Buffer.from(file.content, "utf8").toString("utf8") !== file.content) {
+          return { kind: "unsupported", message: "This file is not valid UTF-8 text. Use BB preview." };
+        }
+        if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(file.content)) return { kind: "unsupported", message: "This file contains non-text control characters. Use BB preview." };
         Object.freeze(target.source);
         Object.freeze(target);
         return { kind: "ready", snapshot: Object.freeze({
@@ -94,7 +128,7 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
           hostId, rootPath, documentPath, documentDirectory: paths.dirname(documentPath),
         }) };
       } catch (cause) {
-        return { kind: "error", message: cause instanceof Error ? cause.message : "Could not read this workspace file. Use BB preview." };
+        return { kind: "error", message: cause instanceof Error ? cause.message.slice(0, 1024) : "Could not read this file. Use BB preview." };
       }
     },
   };

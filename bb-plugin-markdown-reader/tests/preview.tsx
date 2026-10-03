@@ -6,11 +6,15 @@ import "../app.css";
 import "./preview.css";
 
 const target: ReaderTarget = { path: "reports/workspace.md", source: { kind: "workspace", threadId: null, environmentId: "fixture", projectId: "fixture", experimental_hostId: "fixture-host" } };
-const readDocument = async (): Promise<ReadResult> => ({ kind: "ready", snapshot: {
-  text: report, sha256: "fixture", sizeBytes: report.length, target,
-  hostId: "fixture-host", rootPath: "/fixture", documentPath: "/fixture/reports/workspace.md", documentDirectory: "/fixture/reports",
-} });
 const params = new URLSearchParams(location.search);
+let reads = 0;
+const readDocument = async (): Promise<ReadResult> => {
+  if (++reads > 1 && params.get("refresh") === "error") throw new Error("Fixture host disconnected. Retry when the host reconnects.");
+  return { kind: "ready", snapshot: {
+    text: report, sha256: "fixture", sizeBytes: report.length, target,
+    hostId: "fixture-host", rootPath: "/fixture", documentPath: "/fixture/reports/workspace.md", documentDirectory: "/fixture/reports",
+  } };
+};
 const width = Number(params.get("width")) || 760;
 document.documentElement.dataset.theme = params.get("theme") || "light";
 createRoot(document.getElementById("root")!).render(

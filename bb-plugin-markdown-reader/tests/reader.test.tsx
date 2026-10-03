@@ -80,17 +80,26 @@ describe("rendered reader", () => {
     expect(slot.inspection.rpcCalls).toHaveLength(1);
     expect(slot.inspection.navigateCalls).toHaveLength(0);
   });
-  it("refreshes only on request and removes old content on a failed refresh", async () => {
+  it("refreshes both views and marks retained content stale after a failed refresh", async () => {
     let reads = 0;
-    const { slot } = await mount(() => ++reads === 1 ? ready("# First") : reads === 2 ? ready("# Updated") : Promise.reject(new Error("Disconnected")));
+    const { slot } = await mount(() => ++reads === 1 ? ready("# First") : reads === 2 ? ready("# Updated") : reads === 3 ? Promise.reject(new Error("Disconnected")) : ready("# Recovered"));
     await slot.findByRole("heading", { name: "First" });
+    fireEvent.click(slot.getByRole("button", { name: "Raw" }));
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(slot.getByLabelText("Raw Markdown").textContent).toBe("# Updated"));
+    fireEvent.click(slot.getByRole("button", { name: "Preview" }));
     await slot.findByRole("heading", { name: "Updated" });
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     await slot.findByText("Disconnected");
-    expect(slot.queryByRole("heading", { name: "Updated" })).toBeNull();
+    expect(slot.getByRole("alert").textContent).toMatch(/Refresh failed.*stale/i);
+    expect(slot.getByRole("heading", { name: "Updated" })).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+    expect(slot.getByLabelText("Raw Markdown").textContent).toBe("# Updated");
+    expect(slot.getByRole("alert").textContent).toMatch(/stale/i);
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(reads).toBe(4));
+    await waitFor(() => expect(slot.getByLabelText("Raw Markdown").textContent).toBe("# Recovered"));
+    expect(slot.queryByRole("alert")).toBeNull();
+    expect(slot.inspection.rpcCalls).toHaveLength(4);
   });
   it("discards late reads when the target changes or unmounts", async () => {
     let finish!: (r: ReadResult) => void;
@@ -136,5 +145,93 @@ describe("rendered reader", () => {
     const block = await slot.findByLabelText("Code block");
     expect(block.textContent).toBe(code);
     expect(block.querySelector("span")).toBeNull();
+  });
+  it("keeps the last snapshot visible but unverified during a refresh", async () => {
+    let finish!: (r: ReadResult) => void;
+    let reads = 0;
+    const { slot } = await mount(() => ++reads === 1 ? ready("# Previous") : new Promise(resolve => { finish = resolve; }));
+    await slot.findByRole("heading", { name: "Previous" });
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    expect(slot.getByRole("status").textContent).toMatch(/Refreshing.*not verified current/i);
+    expect(slot.getByRole("heading", { name: "Previous" })).toBeTruthy();
+    finish(ready("# Latest"));
+    await slot.findByRole("heading", { name: "Latest" });
+    expect(slot.queryByRole("status")).toBeNull();
+  });
+  it.each(["initial", "refresh"])("sequences overlapping %s requests and ignores late failures", async phase => {
+    const pending: { resolve: (r: ReadResult) => void; reject: (e: Error) => void }[] = [];
+    let reads = 0;
+    const { slot } = await mount(() => {
+      if (phase === "refresh" && ++reads === 1) return ready("# First");
+      return new Promise((resolve, reject) => { pending.push({ resolve, reject }); });
+    });
+    if (phase === "refresh") {
+      await slot.findByRole("heading", { name: "First" });
+      fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    }
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    expect(pending).toHaveLength(2);
+    pending[1]!.resolve(ready("# Latest"));
+    await slot.findByRole("heading", { name: "Latest" });
+    pending[0]!.reject(new Error("Late failure"));
+    await waitFor(() => expect(slot.queryByRole("alert")).toBeNull());
+    expect(slot.getByRole("heading", { name: "Latest" })).toBeTruthy();
+  });
+  it("does not replace the latest refresh with an older successful refresh", async () => {
+    const pending: ((r: ReadResult) => void)[] = [];
+    let reads = 0;
+    const { slot } = await mount(() => ++reads === 1 ? ready("# First") : new Promise(resolve => { pending.push(resolve); }));
+    await slot.findByRole("heading", { name: "First" });
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    expect(pending).toHaveLength(2);
+    pending[1]!(ready("# Latest"));
+    await slot.findByRole("heading", { name: "Latest" });
+    pending[0]!(ready("# Old refresh"));
+    await waitFor(() => expect(slot.queryByRole("heading", { name: "Old refresh" })).toBeNull());
+    expect(slot.getByRole("heading", { name: "Latest" })).toBeTruthy();
+  });
+  it("discards pending refresh results on fallback and unmount", async () => {
+    let finish!: (r: ReadResult) => void;
+    let reads = 0;
+    const { slot } = await mount(() => ++reads === 1 ? ready("# First") : new Promise(resolve => { finish = resolve; }));
+    await slot.findByRole("heading", { name: "First" });
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
+    await slot.findByText("Bound original for note.md");
+    finish(ready("# Late refresh"));
+    await Promise.resolve();
+    expect(slot.queryByRole("heading", { name: "Late refresh" })).toBeNull();
+    slot.lifecycle.unmount();
+    expect(slot.inspection.rpcCalls).toHaveLength(2);
+    expect(slot.inspection.navigateCalls).toHaveLength(0);
+  });
+  it("isolates rapid source and host identity changes even when the path stays the same", async () => {
+    const finishes: ((r: ReadResult) => void)[] = [];
+    const { app, slot } = await mount(() => new Promise(resolve => { finishes.push(resolve); }));
+    const Reader = app.fileOpeners[0]!.component;
+    slot.lifecycle.rerender(<Reader {...props} source={{ ...source, experimental_hostId: "other-remote" }} />);
+    slot.lifecycle.rerender(<Reader {...props} source={{ ...source, kind: "thread-storage", threadId: "other-thread", environmentId: null }} />);
+    expect(finishes).toHaveLength(3);
+    finishes[2]!(ready("# Latest source"));
+    await slot.findByRole("heading", { name: "Latest source" });
+    finishes[1]!(ready("# Wrong host"));
+    finishes[0]!(ready("# First source"));
+    await Promise.resolve();
+    expect(slot.queryByRole("heading", { name: "Wrong host" })).toBeNull();
+    expect(slot.queryByRole("heading", { name: "First source" })).toBeNull();
+    expect(slot.getByRole("heading", { name: "Latest source" })).toBeTruthy();
+  });
+  it("discards a pending refresh after unmount, including its rejection", async () => {
+    let reject!: (e: Error) => void;
+    let reads = 0;
+    const { slot } = await mount(() => ++reads === 1 ? ready("# First") : new Promise((_, r) => { reject = r; }));
+    await slot.findByRole("heading", { name: "First" });
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    slot.lifecycle.unmount();
+    reject(new Error("After unmount"));
+    await Promise.resolve();
+    expect(document.body.textContent).not.toContain("After unmount");
+    expect(slot.inspection.rpcCalls).toHaveLength(2);
   });
 });

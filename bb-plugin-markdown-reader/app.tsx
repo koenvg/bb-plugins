@@ -4,7 +4,7 @@ import type { rpcContract } from "./server";
 import { Reader, type ReadDocument } from "./reader";
 import "./app.css";
 
-function WorkspaceReader({ path, source, Original }: PluginFileOpenerProps) {
+function FileReader({ path, source, Original }: PluginFileOpenerProps) {
   const { kind, threadId, environmentId, projectId, experimental_hostId } = source;
   const target = useMemo(() => ({ path, source: { kind, threadId, environmentId, projectId,
     ...(experimental_hostId === undefined ? {} : { experimental_hostId }),
@@ -15,5 +15,5 @@ function WorkspaceReader({ path, source, Original }: PluginFileOpenerProps) {
 }
 
 export default definePluginApp(app => {
-  app.slots.fileOpener({ id: "markdown-reader", title: "Markdown Reader", extensions: ["md", "markdown"], component: WorkspaceReader });
+  app.slots.fileOpener({ id: "markdown-reader", title: "Markdown Reader", extensions: ["md", "markdown"], component: FileReader });
 });

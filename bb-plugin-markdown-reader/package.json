@@ -9,7 +9,7 @@
   },
   "bb": {
     "name": "Markdown Reader",
-    "description": "A spacious, read-only reader for live workspace Markdown.",
+    "description": "A spacious, read-only reader for live workspace, host, and thread-storage Markdown.",
     "branding": {
       "icon": "FileText"
     },

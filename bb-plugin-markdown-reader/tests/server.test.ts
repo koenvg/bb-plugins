@@ -23,6 +23,35 @@ describe("public server RPC", () => {
     await expect(harness.behavior.callRpc("read_document", { path: "note.md", source: { kind: "workspace" } })).rejects.toThrow();
     expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
   });
+  it.each(["host", "thread-storage"] as const)("routes the narrow %s RPC through read-only SDK methods", async kind => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "markdown-reader", sdk: {
+      threads: {
+        get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }),
+        storageLocation: async () => ({ hostId: "remote", storageRootPath: "/data/storage/actual-thread" }),
+      },
+      environments: { get: async () => ({ id: "env", projectId: "project", hostId: "remote", path: "/unused-workspace", status: "ready" }) },
+      files: { read: async () => ({ content: "# Remote", sha256: "hash", contentEncoding: "utf8", sizeBytes: 8 }) },
+    } });
+    disposers.push(() => harness.lifecycle.dispose());
+    plugin(bb);
+    const path = kind === "host" ? "/notes/note.md" : "note.md";
+    const target = { path, source: { kind, threadId: "thread", environmentId: null, projectId: null } };
+    expect(await harness.behavior.callRpc("read_document", target)).toMatchObject({ kind: "ready", snapshot: { target, hostId: "remote" } });
+    const rootPath = kind === "host" ? "/notes" : "/data/storage/actual-thread";
+    expect(harness.inspection.sdk.callsTo("files.read")).toEqual([[{ hostId: "remote", rootPath, path: kind === "host" ? path : `${rootPath}/${path}` }]]);
+    if (kind === "thread-storage") expect(harness.inspection.sdk.callsTo("threads.storageLocation")).toEqual([[{ threadId: "thread" }]]);
+    // No file-write, mutation, preview, system-host fallback, or arbitrary root transport.
+    expect(harness.inspection.sdk.calls.every(call => ["threads.get", "threads.storageLocation", "environments.get", "files.read"].includes(call.path))).toBe(true);
+    for (const input of [
+      { ...target, hostId: "server" },
+      { ...target, path: "note.txt" },
+      { ...target, source: { ...target.source, rootPath: "/" } },
+      { ...target, source: { ...target.source, environmentId: "wrong" } },
+    ]) {
+      try { await harness.behavior.callRpc("read_document", input); } catch { /* Schema rejection is expected. */ }
+    }
+    expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
+  });
   it("imports only public SDK contracts and package-local modules", () => {
     const result = experimental_scanPublicSdkOnly(new URL("..", import.meta.url).pathname, {
       allow: [/^react$/, /^react-dom\/client$/, /^react-markdown$/, /^remark-gfm$/,

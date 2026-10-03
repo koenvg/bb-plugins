@@ -7,6 +7,7 @@ function setup() {
     environment: vi.fn(async () => ({ id: "env", projectId: "project", hostId: "remote", path: "/work/tree", status: "ready" })),
     project: vi.fn(async () => ({ id: "project", sources: [{ hostId: "remote", path: "/project", isDefault: true }] })),
     thread: vi.fn(async () => ({ id: "thread", projectId: "project", environmentId: "env" })),
+    storageLocation: vi.fn(async () => ({ hostId: "remote", storageRootPath: "/data/thread-storage/thread" })),
     read: vi.fn(async () => ({ content: "# Exact\r\n", contentEncoding: "utf8" as const, sha256: "hash", sizeBytes: 9 })),
   };
   return { adapter, reader: createSourceReader(adapter) };
@@ -50,11 +51,6 @@ describe("workspace source interface", () => {
     expect((await reader.read(target)).kind).toBe("error");
     vi.mocked(adapter.project).mockResolvedValue({ id: "project", sources: [{ hostId: "remote", path: "/one", isDefault: false }, { hostId: "remote", path: "/two", isDefault: false }] });
     expect((await reader.read({ ...target, source: { ...target.source, environmentId: null } })).kind).toBe("error");
-    expect(adapter.read).not.toHaveBeenCalled();
-  });
-  it.each(["host", "thread-storage"] as const)("leaves %s sources unsupported without reads", async (kind) => {
-    const { reader, adapter } = setup();
-    expect((await reader.read({ ...target, source: { ...target.source, kind } })).kind).toBe("unsupported");
     expect(adapter.read).not.toHaveBeenCalled();
   });
   it("reports a disconnected or missing file without substituting a local read", async () => {

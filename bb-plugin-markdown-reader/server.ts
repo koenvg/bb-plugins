@@ -10,6 +10,7 @@ export default function plugin(bb: BbPluginApi) {
     environment: environmentId => bb.sdk.environments.get({ environmentId }),
     project: projectId => bb.sdk.projects.get({ projectId }),
     thread: threadId => bb.sdk.threads.get({ threadId }),
+    storageLocation: threadId => bb.sdk.threads.storageLocation({ threadId }),
     read: target => bb.sdk.files.read(target),
   });
   bb.rpc.register(rpcContract, { read_document: target => reader.read(target) });
