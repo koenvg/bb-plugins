@@ -17,10 +17,12 @@ import {
 } from "../core/review-queue-view";
 import { reviewState } from "../core/review-state";
 import type { PrResolution } from "../pr-lookup";
+import { isSharedEnvironment } from "./review-environment";
 import { createReviewedMarks } from "./reviewed-marks";
 
 export const NO_HOST_MESSAGE = "No host available";
 export const NOT_A_REVIEW_THREAD_MESSAGE = "This thread is not a review thread";
+export const SHARED_ENVIRONMENT_MESSAGE = "Review threads need a new worktree";
 export const INVALID_REPOSITORY_MESSAGE = "Repository must be owner/name";
 export const REVIEW_QUEUE_INTERVAL_MS = 5 * 60_000;
 export const REVIEW_QUEUE_STORAGE_KEY = "review-queue";
@@ -329,6 +331,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   }
 
   async function startReview(pr: ReviewPr, request: NewThreadRequest): Promise<string> {
+    if (isSharedEnvironment(request.environment)) throw new Error(SHARED_ENVIRONMENT_MESSAGE);
     const threadId = await deps.spawnReviewThread(pr, request);
     void relink();
     return threadId;

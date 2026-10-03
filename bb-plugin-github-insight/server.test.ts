@@ -1855,6 +1855,19 @@ describe("startReview", () => {
     expect(row.thread?.id).toBe("thr_review");
   });
 
+  it("rejects a project checkout environment without spawning", async () => {
+    const harness = await setup({ threads: [] });
+    const checkout = {
+      ...request,
+      environment: { type: "provider", environmentProviderId: "project-checkout", inputs: {} },
+    } as unknown as NewThreadRequest;
+
+    await expect(harness.behavior.callRpc("startReview", { pr, request: checkout })).rejects.toThrow(
+      "Review threads need a new worktree",
+    );
+    expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
+
   it("rejects when spawn fails", async () => {
     const harness = await setup({
       threads: [],
