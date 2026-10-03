@@ -57,6 +57,14 @@ describe("Scoped, theme-native styling", () => {
       }
     });
   });
+  it("indents only bundle children by the same column reserved for activity markers", () => {
+    const bundleRule = root.nodes.find(node => node.type === "rule" && node.selector === ':root[data-compose-chat="active"] [data-timeline-row-list="bundle"]');
+    expect(bundleRule?.type).toBe("rule");
+    if (bundleRule?.type !== "rule") return;
+    expect(bundleRule.nodes.some(node => node.type === "decl" && node.prop === "padding-inline-start" && node.value === "var(--compose-activity-inset)")).toBe(true);
+    expect(css).toContain("--compose-activity-inset: 20px");
+  });
+
   it("keeps keyboard focus, disabled controls, touch targets, and reduced motion explicit", () => {
     expect(css).toContain(":focus-visible");
     expect(css).toContain(":focus-within");

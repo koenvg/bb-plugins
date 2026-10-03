@@ -4,6 +4,10 @@ A new, independent restyle of BB's native chat, inspired by [Kiki's Compose comp
 
 The writing area and follow-up footer share a lightly tinted rounded frame with a faint border, fine divider, and soft shadow. Typing does not add a separate dark outline. Replies stay unboxed. User messages and code use quiet, theme-derived surfaces. Buttons have visible keyboard focus and larger touch targets. BB still owns every input, command, picker, attachment, voice control, and send/stop action.
 
+A small nine-dot arrow sweep appears inline beside active tool and Thinking titles inside the conversation. The standalone status above the composer stays native. The lattice uses theme ink with no glow, disappears when an activity completes, and adds no chat DOM or animation dependency. Hidden tabs and BB's collapsed indicators pause the loop. Reduced motion shows a static lattice and removes the subtle standalone-button press animation.
+
+Active rows use the lattice in place of their native activity glyph, keeping one 20px icon/text column. Grouped tool rows indent by that same column; completion restores the native glyph without shifting text.
+
 ## Install
 
 Requires BB 0.44 or newer. From this directory:
@@ -32,8 +36,8 @@ A local installation points to this checkout. Do not retire its worktree while y
 - Uses the active theme's colors, font, and radius. No theme switch or custom font.
 - Preserves native compact mode, footer visibility, input layout, focus order, and mobile drawer/keyboard behavior.
 - Adds no autocomplete, character counter, new commands, or replacement composer.
-- Reads no messages or drafts. No settings, network calls, persistent storage, RPC, timers, or observers.
-- A public SDK content script owns only an activation attribute. Abort and cleanup remove it. Native checks confirm live cleanup in visible tabs and after hidden tabs resume; BB owns when frontend generations reconcile.
+- Reads no messages or drafts. No settings, network calls, persistent storage, RPC, timers, or observers. One document-visibility listener pauses motion in hidden tabs.
+- A public SDK content script owns activation and motion-state attributes. Abort and cleanup restore both and remove the visibility listener. BB owns when frontend generations reconcile.
 
 BB's chat DOM is not a public API. The selectors were checked against the native BB 0.44 frontend. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
 

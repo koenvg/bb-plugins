@@ -1,5 +1,29 @@
 # Compose Chat verification
 
+## Arrow and indentation revision
+
+The arrow update uses the reference's row-major phase groups `[1,2,3, 0,1,2, 1,2,3]` in an independently authored CSS sweep. The four groups advance in 90ms steps over a 648ms cycle. The loader stays inline; standalone status and native composer controls remain unchanged.
+
+The marker now reserves the same 20px column as BB's 14px glyph plus 6px gap. An active title replaces its preceding native glyph, including plugin-mask spans, instead of adding a second column. Completion restores the glyph without shifting the text. Bundle children get 20px logical padding; already-indented delegation lists remain untouched.
+
+Validation passed 20 unit tests, TypeScript, SDK pin checking, production build, and the full 16-case browser matrix with 1068 assertions. The fixture now models a native bundle, its glyph/title wrapper, and an active child row. Checks cover nested indentation, active/completed text alignment, glyph restoration, disable cleanup, reduced motion, themes, and existing control preservation. Synthetic screenshots and provenance are under `.impeccable/review/arrow-lattice/`.
+
+A dedicated Arc tab of the real thread was inspected without changing drafts or sending messages. A temporary stylesheet preview changed bundle padding from 0px to 20px, confirmed a 20px marker column, the arrow animation name, no native shimmer mask, and hidden native glyphs only on active titles. Desktop native and desktop/mobile fixture screenshots were inspected. This preview is not yet evidence of SDK activation after installing the new bundle, and physical-device/performance coverage remains open. Native screenshot `/tmp/compose-arrow-native.png` stays outside the repository.
+
+The single arrow-revision reviewer requested a fix for plugin-mask glyphs, whose native element is a span rather than an SVG. The direct-child selector now uses canonical `[data-icon-root]`; fixture checks cover active/completed alignment and glyph restoration for both shapes. The missing top-left dot was also fixed by painting the pseudo-element's background in sync with its arrow phase, since a zero-offset outer shadow cannot fill the element itself. Both regressions were reproduced test-first and the complete checks rerun. The review's blocking finding is resolved without a second review pass.
+
+## Spiral-motion revision
+
+The inline spiral-motion change passed 17 unit tests, TypeScript, the SDK pin check, and a production build. The synthetic browser matrix passed 16 cases and 860 assertions in a dedicated headless Chromium session. Desktop and mobile screenshots in light and dark were inspected, including inline lattice alignment and control clipping. Evidence lives under `.impeccable/review/inline-lattice/`; the earlier `.impeccable/review/lattice/` captures show the superseded standalone placement.
+
+The new checks cover inline tool/Thinking decoration, unchanged standalone status, completion/remount, synthetic Thinking expansion/collapse, native label preservation, reduced motion, inherited collapsed-state pausing, hidden-document pausing, marker restoration, disable/re-enable, and unchanged split-send geometry. The animation is an independently authored CSS interpretation of the React Bits spiral reference, not its React component. One empty pseudo-element paints nine dots; no messages are read or replaced.
+
+The selector follows the inspected BB 0.44 `TimelineTitleView` wrapper and active shimmer segments inside `ThreadTimelineRows`. This revision has not been installed or exercised in native BB. The earlier native activation evidence below predates it and does not verify the new loader, native Thinking expansion, or physical-device performance. The plugin's name and install ID remain unchanged pending the user's rename decision.
+
+The single completion reviewer found that BB's APNG shimmer mask survived the original CSS reset. Both mask-image properties now clear on decorated inline titles, and native will-change resets to auto. Unit and browser regression checks cover mask removal/restoration with native shimmer properties and an authored static SVG mask stand-in. The fixture does not reproduce the APNG animation itself. The reviewer returned request changes before the placement correction and mask fix; those changes were revalidated without a second review pass.
+
+## Earlier verification
+
 The review-preparation run passed 12 unit tests and the complete synthetic browser matrix: 16 cases, 494 assertions, and all six requested screenshots. The screenshots were inspected for clipped edges, missing controls, wrapping, and framing. Native cleanup passed in a visible Arc tab and after resuming a hidden tab. No runtime styling or lifecycle code changed during this follow-up.
 
 Compose Chat remains enabled from `/Users/koen/workspace/bb-plugin-compose-chat`; Beautiful Chat remains disabled. Codex Inspired is the selected, independently installed theme.

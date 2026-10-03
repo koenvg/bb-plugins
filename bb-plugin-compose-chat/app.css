@@ -4,6 +4,7 @@
   --compose-surface: color-mix(in oklab, var(--ink) 2%, var(--canvas));
   --compose-message: color-mix(in oklab, var(--ink) 7%, var(--canvas));
   --compose-line: var(--border-hairline, var(--border));
+  --compose-activity-inset: 20px;
   --compose-radius: calc(var(--radius, 8px) + 6px);
   --compose-shadow-color: var(--shadow-color, color-mix(in oklab, var(--ink) 6%, transparent));
   --compose-shadow: 0 4px 16px -6px var(--compose-shadow-color);
@@ -73,7 +74,7 @@
 :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *) {
   border-radius: var(--radius, 8px);
   min-block-size: 32px;
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  transition: background-color 150ms ease-out, color 150ms ease-out, scale 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-submit-action]:not([data-promptbox-send-menu] *) {
@@ -107,6 +108,10 @@
   background: var(--state-active);
 }
 
+:root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *):not(:disabled):active {
+  scale: 0.96;
+}
+
 :root[data-compose-chat="active"] [data-app-composer] :is(textarea, [contenteditable="true"]) {
   caret-color: var(--foreground);
   outline: none;
@@ -128,6 +133,12 @@
   border-color: transparent;
   border-radius: calc(var(--radius, 8px) + 2px);
   box-shadow: none;
+}
+
+/* Bundle rows are flush in BB. Nest their contents one shared icon/text column
+   without adding another inset to delegation or other already-nested rows. */
+:root[data-compose-chat="active"] [data-timeline-row-list="bundle"] {
+  padding-inline-start: var(--compose-activity-inset);
 }
 
 :root[data-compose-chat="active"] [data-timeline-row-list] [data-markdown-preview] :not(pre) > code {
@@ -156,5 +167,8 @@
   :root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer],
   :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *) {
     transition: none;
+  }
+  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *):not(:disabled):active {
+    scale: 1;
   }
 }
