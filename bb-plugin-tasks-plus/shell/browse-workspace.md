@@ -62,8 +62,11 @@ used to render rows, including dimmed parents and expanded children. An unsettle
 report is a snapshot, not evidence of removal. Loading, failed queries, pending
 row writes, unresolved label filters, and changing scope cannot report settled.
 For All/Active saved label-name filters, this includes a successful current
-project inventory. Label and task query results carry their input identity, so a
-retained result cannot become settled in the render before changed inputs fetch.
+project inventory. The shared Tasks query module tracks input identity and marks
+retained results as loading from the first render after inputs change. Callers do
+not tag task or label results themselves. A failed refresh keeps matching data;
+a failed request for changed inputs drops mismatched data. Errors from previous
+inputs do not describe the current request. None of these failures proves removal.
 The list retains filters, sort, expansion, counts, row actions, and scroll storage.
 
 ## Composition and follow-ups

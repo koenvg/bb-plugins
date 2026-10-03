@@ -1,6 +1,5 @@
 import { listAllTasks, useTasksQuery } from "../../shell/data.js";
 import type {
-  Label,
   Task,
   TaskPriority,
   TaskStatus,
@@ -44,21 +43,11 @@ export function useListTasks(
       : {}),
     activeOnly,
   };
-  const inputKey = JSON.stringify(input);
-  const query = useTasksQuery(
-    async (rpc) => ({ inputKey, tasks: await listAllTasks(rpc, input) }),
+  const matches = useTasksQuery(
+    (rpc) => listAllTasks(rpc, input),
     ["tasks:changed", "threads:changed"],
-    [inputKey],
+    [input],
   );
-  // A newly resolved label filter changes query inputs before the fetch effect
-  // runs. Keep that retained result usable, but never report it as settled.
-  const matches = {
-    ...query,
-    data: query.data?.tasks,
-    isLoading:
-      query.isLoading ||
-      (query.error === null && query.data?.inputKey !== inputKey),
-  };
   const scope = useTasksQuery<Task[] | null>(
     async (rpc) =>
       needsScope
@@ -71,25 +60,14 @@ export function useListTasks(
 }
 
 export function useLabels(projectIds: readonly string[]) {
-  const projectIdsKey = JSON.stringify(projectIds);
-  const query = useTasksQuery<{ projectIdsKey: string; labels: Label[] }>(
+  return useTasksQuery(
     async (rpc) => {
       const results = await Promise.all(
         projectIds.map((projectId) => rpc.call("listLabels", { projectId })),
       );
-      return {
-        projectIdsKey,
-        labels: results.flatMap((result) => result.labels),
-      };
+      return results.flatMap((result) => result.labels);
     },
     ["projects:changed"],
-    [projectIdsKey],
+    [projectIds],
   );
-  return {
-    ...query,
-    data: query.data?.labels,
-    isLoading:
-      query.isLoading ||
-      (query.error === null && query.data?.projectIdsKey !== projectIdsKey),
-  };
 }

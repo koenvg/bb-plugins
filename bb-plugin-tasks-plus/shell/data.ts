@@ -99,10 +99,12 @@ export function useTasksQuery<T>(
   fetcherRef.current = fetcher;
   const snapshotRef = useRef(options.snapshot);
   snapshotRef.current = options.snapshot;
+  const depsKey = JSON.stringify(deps);
   const [state, setState] = useState<{
     data: T | undefined;
     error: string | null;
     isLoading: boolean;
+    depsKey: string;
   }>(() => ({
     data:
       options.snapshot === undefined
@@ -110,11 +112,10 @@ export function useTasksQuery<T>(
         : readQuerySnapshot(options.snapshot.name, options.snapshot.schema),
     error: null,
     isLoading: true,
+    depsKey,
   }));
   const seqRef = useRef(0);
   const previousGenerationRef = useRef(generation);
-  const depsKey = JSON.stringify(deps);
-  const dataDepsKeyRef = useRef(depsKey);
   const refresh = useCallback(() => {
     // Retained data is only a snapshot until this request succeeds. Entry
     // restoration must not validate project deletion during any refresh.
@@ -129,16 +130,15 @@ export function useTasksQuery<T>(
           writeQuerySnapshot(snapshot.name, data, snapshotRevision);
         }
         if (seq !== seqRef.current) return;
-        dataDepsKeyRef.current = depsKey;
-        setState({ data, error: null, isLoading: false });
+        setState({ data, error: null, isLoading: false, depsKey });
       },
       (error: unknown) => {
         if (seq !== seqRef.current) return;
-        const keepsData = dataDepsKeyRef.current === depsKey;
         setState((current) => ({
-          data: keepsData ? current.data : undefined,
+          data: current.depsKey === depsKey ? current.data : undefined,
           error: errorMessage(error),
           isLoading: false,
+          depsKey,
         }));
       },
     );
@@ -160,8 +160,14 @@ export function useTasksQuery<T>(
   }, [refresh, generation, beginGenerationWork, endGenerationWork]);
   useInvalidation(channels, refresh);
   return {
-    ...state,
-    isLoading: state.isLoading || previousGenerationRef.current !== generation,
+    data: state.data,
+    error: state.depsKey === depsKey ? state.error : null,
+    // Inputs can change before the fetch effect runs. Retain the old data for
+    // display, but never let callers treat it as a settled current result.
+    isLoading:
+      state.isLoading ||
+      state.depsKey !== depsKey ||
+      previousGenerationRef.current !== generation,
     refresh,
   };
 }
