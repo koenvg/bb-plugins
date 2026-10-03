@@ -30,13 +30,15 @@ export function bannerParts(insight: PrInsight): string[] {
 
 export type BannerState =
   | { kind: "hidden" }
+  | { kind: "merged" }
   | { kind: "blockers"; parts: string[]; topCode: Blocker["code"] }
   | { kind: "ready"; action: RunnableMergeAction }
   | { kind: "queued" };
 
 export function bannerState(insight: PrInsight): BannerState {
   const { mergeAction } = insight;
-  if (insight.pr.state === "merged" || insight.pr.state === "closed") return { kind: "hidden" };
+  if (insight.pr.state === "merged") return { kind: "merged" };
+  if (insight.pr.state === "closed") return { kind: "hidden" };
   if (mergeAction.kind === "queued") return { kind: "queued" };
   const parts = bannerParts(insight);
   const topBlocker = insight.blockers[0];

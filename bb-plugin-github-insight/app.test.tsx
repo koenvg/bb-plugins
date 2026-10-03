@@ -148,6 +148,35 @@ describe("PR tab", () => {
     ).toBe("https://github.com/collibra/frontend/pull/25337");
   });
 
+  it("makes the merged outcome explicit while keeping PR details and checks visible", async () => {
+    const slot = renderTab(ok({
+      ...emptyInsight,
+      pr: { ...pr, state: "merged" },
+      checks: [check("lint", "passed")],
+    }));
+
+    const heading = await slot.findByRole("heading", { name: "Pull request merged" });
+    expect(heading.closest('[role="status"]')).toBeTruthy();
+    expect(slot.getByText("#25337")).toBeTruthy();
+    expect(slot.getByRole("heading", { name: pr.title })).toBeTruthy();
+    expect(slot.getByRole("link", { name: "Open on GitHub" }).getAttribute("href")).toBe(pr.url);
+    expect(slot.getByRole("button", { name: "Refresh" })).toBeTruthy();
+    expect(slot.getByText("1 passed")).toBeTruthy();
+    expect(slot.queryByText("Merged", { exact: true })).toBeNull();
+    expect(slot.queryByRole("button", { name: /merge/i })).toBeNull();
+  });
+
+  it.each([
+    ["open", "Open"],
+    ["draft", "Draft"],
+    ["closed", "Closed"],
+  ] as const)("does not show a merged outcome for a %s PR", async (state, label) => {
+    const slot = renderTab(ok({ ...emptyInsight, pr: { ...pr, state } }));
+
+    await slot.findByText(label);
+    expect(slot.queryByRole("heading", { name: "Pull request merged" })).toBeNull();
+  });
+
   it("shows the header, the blockers, the reviewers, and the checks in this order", async () => {
     const slot = renderTab(insight);
 
@@ -321,7 +350,7 @@ describe("PR tab", () => {
     const busy = await slot.findByRole("button", { name: "Refreshing…" });
     expect(busy).toHaveProperty("disabled", true);
     await act(async () => finish(ok({ ...emptyInsight, pr: { ...pr, state: "merged" } })));
-    await slot.findByText("Merged");
+    await slot.findByText("Pull request merged");
     expect(slot.getByRole("button", { name: "Refresh" })).toHaveProperty("disabled", false);
   });
 
@@ -347,7 +376,7 @@ describe("PR tab", () => {
     current = ok({ ...emptyInsight, pr: { ...pr, state: "merged" } });
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
-    await slot.findByText("Merged");
+    await slot.findByText("Pull request merged");
   });
 
   it("ignores insight changes of other threads", async () => {
@@ -706,8 +735,21 @@ describe("Composer banner", () => {
     expect(slot.queryByRole("button")).toBeNull();
   });
 
-  it("is hidden for a merged PR", async () => {
+  it("shows a merged PR banner that opens the PR tab without writing to GitHub", async () => {
     const slot = renderBanner(ok({ ...blocked, pr: { ...pr, state: "merged" } }));
+
+    const button = await slot.findByRole("button", { name: "Pull request merged" });
+    expect(slot.getAllByRole("button")).toHaveLength(1);
+    expect(button.querySelector('[data-icon="GitMerge"]')).toBeTruthy();
+    fireEvent.click(button);
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]);
+    expect(slot.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
+  });
+
+  it("is hidden for a closed PR", async () => {
+    const slot = renderBanner(ok({ ...blocked, pr: { ...pr, state: "closed" } }));
 
     await settled(slot);
     expect(slot.queryByRole("button")).toBeNull();
@@ -818,7 +860,7 @@ describe("Composer banner merge action", () => {
     expect(slot.queryByRole("button", { name: /merge|enqueue/i })).toBeNull();
   });
 
-  it("is hidden once the PR is merged", async () => {
+  it("replaces the merge controls with the merged banner once the PR is merged", async () => {
     let current: InsightResult = readyBanner;
     const slot = renderBanner(() => current);
     await slot.findByRole("button", { name: "Ready to merge" });
@@ -826,7 +868,10 @@ describe("Composer banner merge action", () => {
     current = ok({ ...emptyInsight, pr: { ...pr, state: "merged" } });
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
-    expect(slot.queryByRole("button")).toBeNull();
+    expect(await slot.findByRole("button", { name: "Pull request merged" })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Ready to merge" })).toBeNull();
+    expect(slot.queryByRole("button", { name: "Squash and merge" })).toBeNull();
+    expect(slot.getAllByRole("button")).toHaveLength(1);
   });
 
   it.each([
@@ -1025,7 +1070,7 @@ describe("PR tab palette commands", () => {
 
     expect(await slot.findByRole("button", { name: "Refreshing…" })).toBeTruthy();
     await act(async () => finish(ok({ ...emptyInsight, pr: { ...pr, state: "merged" } })));
-    await slot.findByText("Merged");
+    await slot.findByText("Pull request merged");
   });
 
   it("opens the PR on GitHub", async () => {
