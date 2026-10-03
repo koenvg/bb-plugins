@@ -38,7 +38,14 @@ function intentCommand<Tab extends CommandTab>(
 }
 
 export const GITHUB_COMMANDS: readonly PluginCommandRegistration[] = [
-  intentCommand("merge-pr", "GitHub: Merge PR", "pr", "merge", canMerge),
+  {
+    id: "merge-pr",
+    title: "GitHub: Merge PR",
+    isAvailable: availableWhen(canMerge),
+    run: ({ threadId }) => {
+      if (threadId !== null) postIntent(threadId, "merge", "merge");
+    },
+  },
   openTabCommand("open-pr-tab", "GitHub: Open PR tab", "pr"),
   openTabCommand("open-review-tab", "GitHub: Open Review tab", "review"),
   intentCommand("submit-review", "GitHub: Submit review", "review", "submit"),

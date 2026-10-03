@@ -11,7 +11,7 @@ export interface ThreadResultState<R> {
   result: R | ErrorResult | null;
   refreshing: boolean;
   reload: () => void;
-  refresh: () => void;
+  refresh: () => Promise<R | ErrorResult | null>;
 }
 
 export function useThreadResult<R>(
@@ -24,6 +24,7 @@ export function useThreadResult<R>(
   } | null>(null);
   const [refreshingThreadId, setRefreshingThreadId] = useState<string | null>(null);
   const latestRequest = useRef(0);
+  const refreshOwner = useRef<{ threadId: string; reloadRequested: boolean } | null>(null);
 
   const load = useCallback(
     async (mode: LoadMode) => {
@@ -34,25 +35,47 @@ export function useThreadResult<R>(
           message: error instanceof Error ? error.message : String(error),
         }),
       );
-      if (request === latestRequest.current) setLoaded({ threadId, result });
+      if (request !== latestRequest.current) return null;
+      setLoaded({ threadId, result });
+      return result;
     },
     [fetch, threadId],
   );
 
   useEffect(() => {
+    setRefreshingThreadId(null);
     void load("load");
     return () => {
       latestRequest.current++;
+      refreshOwner.current = null;
     };
   }, [load]);
 
-  const reload = useCallback(() => void load("load"), [load]);
+  const reload = useCallback(() => {
+    const owner = refreshOwner.current;
+    if (owner?.threadId === threadId) owner.reloadRequested = true;
+    else void load("load");
+  }, [load, threadId]);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
+    const owner = { threadId, reloadRequested: false };
+    refreshOwner.current = owner;
     setRefreshingThreadId(threadId);
-    void load("refresh").finally(() =>
-      setRefreshingThreadId((current) => (current === threadId ? null : current)),
-    );
+    try {
+      let result = await load("refresh");
+      // The server publishes changes before replying. Reconcile those signals
+      // after the response instead of letting them cancel their own refresh.
+      while (result !== null && refreshOwner.current === owner && owner.reloadRequested) {
+        owner.reloadRequested = false;
+        result = await load("load");
+      }
+      return refreshOwner.current === owner ? result : null;
+    } finally {
+      if (refreshOwner.current === owner) {
+        refreshOwner.current = null;
+        setRefreshingThreadId((current) => (current === threadId ? null : current));
+      }
+    }
   }, [load, threadId]);
 
   const result = loaded?.threadId === threadId ? loaded.result : null;

@@ -33,22 +33,22 @@ describe("command intents", () => {
     const otherThread = listen("thr_other", "pr");
     const otherTab = listen("thr_own", "review");
 
-    postIntent("thr_own", "pr", "merge");
+    postIntent("thr_own", "pr", "refresh");
 
     expect(otherThread.received).toEqual([]);
     expect(otherTab.received).toEqual([]);
-    expect(listen("thr_own", "pr").received).toEqual(["merge"]);
+    expect(listen("thr_own", "pr").received).toEqual(["refresh"]);
   });
 
   it("hands a pending intent over once", () => {
-    postIntent("thr_once", "pr", "merge");
+    postIntent("thr_once", "pr", "refresh");
     listen("thr_once", "pr").unmount();
 
     expect(listen("thr_once", "pr").received).toEqual([]);
   });
 
   it("keeps only the last pending intent", () => {
-    postIntent("thr_last", "pr", "merge");
+    postIntent("thr_last", "pr", "open-on-github");
     postIntent("thr_last", "pr", "refresh");
 
     expect(listen("thr_last", "pr").received).toEqual(["refresh"]);
@@ -56,7 +56,7 @@ describe("command intents", () => {
 
   it("drops a pending intent older than 10 seconds", () => {
     vi.useFakeTimers();
-    postIntent("thr_old", "pr", "merge");
+    postIntent("thr_old", "pr", "refresh");
     vi.advanceTimersByTime(10_001);
 
     expect(listen("thr_old", "pr").received).toEqual([]);
@@ -68,10 +68,10 @@ describe("command intents", () => {
 
     postIntent("thr_two", "pr", "refresh");
     later.unmount();
-    postIntent("thr_two", "pr", "merge");
+    postIntent("thr_two", "pr", "open-on-github");
 
     expect(later.received).toEqual(["refresh"]);
-    expect(earlier.received).toEqual(["merge"]);
+    expect(earlier.received).toEqual(["open-on-github"]);
   });
 
   it("stops handing intents to an unmounted tab", () => {

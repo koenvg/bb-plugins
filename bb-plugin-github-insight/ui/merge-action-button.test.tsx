@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ComponentProps } from "react";
 import type { ActionResult, rpcContract } from "../contract";
@@ -37,38 +37,28 @@ function mergeCalls(slot: ReturnType<typeof renderButton>) {
   return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
 }
 
-describe("MergeActionButton request", () => {
-  it("opens the confirm dialog for a merge and sends nothing", async () => {
-    const handled = vi.fn();
-    const slot = renderButton(
-      { kind: "merge", method: "SQUASH" },
-      { request: { onHandled: handled } },
-    );
-
+describe("MergeActionButton", () => {
+  it("opens confirmation on a click without sending a write", async () => {
+    const slot = renderButton({ kind: "merge", method: "SQUASH" });
+    fireEvent.click(await slot.findByRole("button", { name: "Squash and merge" }));
     const dialog = await slot.findByRole("alertdialog");
     expect(within(dialog).getByText("Merge pull request #7?")).toBeTruthy();
-    expect(handled).toHaveBeenCalledTimes(1);
     expect(mergeCalls(slot)).toEqual([]);
   });
 
-  it("sends one enqueue without a dialog", async () => {
-    const slot = renderButton({ kind: "enqueue" }, { request: { onHandled: () => {} } });
-
+  it("sends one enqueue on a click without a dialog", async () => {
+    const slot = renderButton({ kind: "enqueue" });
+    fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
     await act(async () => {});
-
     expect(slot.queryByRole("alertdialog")).toBeNull();
     expect(mergeCalls(slot)).toEqual([
-      expect.objectContaining({
-        input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid },
-      }),
+      expect.objectContaining({ input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid } }),
     ]);
   });
 
-  it("does nothing without a request", async () => {
+  it("does nothing without a click", async () => {
     const slot = renderButton({ kind: "enqueue" });
-
     await slot.findByRole("button", { name: "Enqueue" });
-
     expect(mergeCalls(slot)).toEqual([]);
   });
 });
