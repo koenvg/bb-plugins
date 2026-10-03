@@ -208,10 +208,15 @@ describe("visibleItems", () => {
         expect(view("attention", donePr)).toEqual([]);
         expect(view("inflight", donePr)).toEqual(tree);
       });
-      it("moves to Needs attention when a child has failed checks", () => {
-        const failed = settled({ failedChecks: 1, blockers: ["checks_failed"] });
-        expect(view("attention", failed)).toEqual(tree);
-        expect(view("inflight", failed)).toEqual([]);
+      it.each([
+        ["conflicts", settled({ blockers: ["conflicts"] })],
+        ["failed checks", settled({ failedChecks: 1, blockers: ["checks_failed"] })],
+        ["requested changes", settled({ blockers: ["changes_requested"] })],
+        ["unresolved comments", settled({ blockers: ["unresolved_threads"] })],
+        ["a failed merge queue entry", settled({ mergeQueue: { position: 1, state: "failed" } })],
+      ])("stays in flight when an idle child has %s", (_, problem) => {
+        expect(view("attention", problem)).toEqual([]);
+        expect(view("inflight", problem)).toEqual(tree);
       });
     });
     it("lets an idle top thread without a PR decide Needs attention", () => {

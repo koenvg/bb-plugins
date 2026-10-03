@@ -1,6 +1,6 @@
 import type { PluginSidebarProject, PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
-import { isBusy, needsAttention } from "./row-cues";
-import { pullsTreeToAttention, threadsWithActiveDescendant, type Tab } from "./tabs";
+import { isActive, isBusy, needsAttention } from "./row-cues";
+import { pullsTreeToAttention, type AttentionTab, type Tab } from "./tabs";
 import type { PrSummary } from "./pr-insight";
 
 export type Organization = "project" | "machine" | "section";
@@ -125,7 +125,6 @@ export function visibleItems(
   snoozed: ReadonlyMap<string, number> = new Map(),
 ): ListItem[] {
   const { tab } = options;
-  const withActiveDescendant = tab === "all" ? new Set<string>() : threadsWithActiveDescendant(threads);
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
   const isListed = (t: PluginSidebarThread) => !t.isHidden && (tab === "all"
@@ -138,8 +137,13 @@ export function visibleItems(
     for (let parent = forest.parentOf(t); parent; parent = forest.parentOf(parent)) if (isMember(parent)) return false;
     return true;
   };
-  const pullsToAttention = (t: PluginSidebarThread) =>
-    pullsTreeToAttention(t, pullRequests.get(t.id) ?? null, withActiveDescendant.has(t.id), isTopMember(t));
+  const tabOfTree = ({ members }: Tree): AttentionTab => {
+    if (members.some((t) => needsAttention(t) || t.isUnread)) return "attention";
+    if (members.some(isActive)) return "inflight";
+    // No eligible member has work or direct attention left; only idle/PR rules apply.
+    return members.some((t) => pullsTreeToAttention(t, pullRequests.get(t.id) ?? null, false, isTopMember(t)))
+      ? "attention" : "inflight";
+  };
   const scopeOf = (root: PluginSidebarThread, members: readonly PluginSidebarThread[]): GroupScope => {
     if (tab === "all" && members.some(needsAttention)) return { kind: "attention" };
     if (root.isPinned) return { kind: "pinned" };
@@ -175,7 +179,7 @@ export function visibleItems(
     groups.set(groupKey(scope), { scope, roots: [], rows: new Set(), count: 0 });
   }
   for (const tree of collectTrees(forest, threads.filter(isMember))) {
-    if (tab !== "all" && (tree.members.some(pullsToAttention) ? "attention" : "inflight") !== tab) continue;
+    if (tab !== "all" && tabOfTree(tree) !== tab) continue;
     add(scopeOf(tree.root, tree.members), tree);
   }
   for (const tree of collectTrees(forest, threads.filter(isSnoozedMember))) add({ kind: "snoozed" }, tree);
