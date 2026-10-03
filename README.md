@@ -5,6 +5,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Plugin | Directory |
 | --- | --- |
 | Code Cleanup | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup) |
+| Compose Chat | [`bb-plugin-compose-chat`](bb-plugin-compose-chat) |
 | Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list) |
 | Task Board | [`bb-task-board`](bb-task-board) |
 | GitHub Insight | [`bb-plugin-github-insight`](bb-plugin-github-insight) |
