@@ -7,6 +7,7 @@ import { QuotaBadge, QuotaBattery, QuotaDashboard } from "./quota-view.js";
 import { QuotaFooterRuntime } from "./footer-runtime.js";
 import type { FooterTarget } from "./footer-adapter.js";
 
+import { HistoryReadinessSection } from "./history-view.js";
 const shared = new QuotaSelectionStore();
 const footer = new QuotaFooterRuntime();
 const QUOTA_ICON = "codex-quota-battery";
@@ -36,12 +37,8 @@ function QuotaRefreshOwner() {
   const api = useQuotaApi();
   useLayoutEffect(() => {
     const stop = shared.start(api);
-    const resume = () => {
-      void shared.resume();
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") resume();
-    };
+    const resume = () => { void shared.resume(); };
+    const onVisible = () => { if (document.visibilityState === "visible") resume(); };
     window.addEventListener("focus", resume);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -58,27 +55,18 @@ function useHostOptions() {
   const [hosts, setHosts] = useState<HostOption[]>(() => cachedHosts);
   useEffect(() => {
     let mounted = true;
-    const load = () => {
-      void sdk.hosts
-        .list()
-        .then((items) => {
-          const next = items
-            .filter((item) => item.type === "persistent" && item.lifecycle.phase === "active")
-            .map(({ id, name, status }) => ({ id, name, status }));
-          cachedHosts = next;
-          if (mounted) setHosts(next);
-        })
-        .catch(() => {
-          cachedHosts = cachedHosts.map((host) => ({ ...host, status: "unknown" }));
-          if (mounted) setHosts(cachedHosts);
-        });
-    };
+    const load = () => { void sdk.hosts.list().then((items) => {
+      const next = items.filter((item) => item.type === "persistent" && item.lifecycle.phase === "active")
+        .map(({ id, name, status }) => ({ id, name, status }));
+      cachedHosts = next;
+      if (mounted) setHosts(next);
+    }).catch(() => {
+      cachedHosts = cachedHosts.map((host) => ({ ...host, status: "unknown" }));
+      if (mounted) setHosts(cachedHosts);
+    }); };
     load();
     window.addEventListener("focus", load);
-    return () => {
-      mounted = false;
-      window.removeEventListener("focus", load);
-    };
+    return () => { mounted = false; window.removeEventListener("focus", load); };
   }, [sdk]);
   return hosts;
 }
@@ -88,58 +76,25 @@ function QuotaPage() {
   const hosts = useHostOptions();
   const hostId = state.selection.hostId;
   const selected = hosts.find((host) => host.id === hostId);
-  const options =
-    hostId && !selected
-      ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }]
-      : hosts;
-  return (
-    <QuotaDashboard
-      view={state.view}
-      now={state.now}
-      loading={state.loading}
-      ready={state.ready}
-      hosts={options}
-      selectedHostId={hostId}
-      onHostChange={(id) => {
-        void shared.selectHost(api, id);
-      }}
-      onRefresh={() => {
-        void shared.refresh(api, true);
-      }}
-    />
-  );
+  const options = hostId && !selected ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }] : hosts;
+  return <QuotaDashboard view={state.view} now={state.now} loading={state.loading} ready={state.ready} hosts={options}
+    selectedHostId={hostId}
+    history={<HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} />}
+    onHostChange={(id) => { void shared.selectHost(api, id); }}
+    onRefresh={() => { void shared.refresh(api, true); }} />;
 }
 
 function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
   const { state } = useQuota();
   const hosts = useHostOptions();
-  const hostName =
-    hosts.find((host) => host.id === state.selection.hostId)?.name ??
-    (state.selection.hostId ? "Selected host" : null);
-  return (
-    <QuotaBadge
-      view={state.view}
-      hostName={hostName}
-      now={state.now}
-      loading={state.loading}
-      ready={state.ready}
-      descriptionId={descriptionId}
-    />
-  );
+  const hostName = hosts.find((host) => host.id === state.selection.hostId)?.name ?? (state.selection.hostId ? "Selected host" : null);
+  return <QuotaBadge view={state.view} hostName={hostName} now={state.now} loading={state.loading} ready={state.ready} descriptionId={descriptionId} />;
 }
 
 function QuotaBatteryIcon({ className }: { className?: string }) {
   // Icons appear across BB. Existing quota owners handle reads and clock updates.
   const state = useSyncExternalStore(shared.subscribe, shared.getSnapshot);
-  return (
-    <QuotaBattery
-      view={state.view}
-      now={state.now}
-      loading={state.loading}
-      ready={state.ready && state.hasActiveOwner}
-      className={className}
-    />
-  );
+  return <QuotaBattery view={state.view} now={state.now} loading={state.loading} ready={state.ready && state.hasActiveOwner} className={className} />;
 }
 
 function FooterQuotaBadge({ target }: { target: FooterTarget }) {
@@ -161,11 +116,7 @@ export default definePluginApp((app) => {
     mount: ({ pluginId, signal }) => footer.mount(pluginId, signal),
   });
   app.experimental_sidebarFooter.register({
-    id: "quota",
-    kind: "action",
-    label: "Codex quota",
-    icon: QUOTA_ICON,
-    onActivate: footer.activate,
+    id: "quota", kind: "action", label: "Codex quota", icon: QUOTA_ICON, onActivate: footer.activate,
   });
   app.slots.experimental_appOverlay({ id: "quota-footer", component: QuotaFooter });
   app.slots.experimental_appOverlay({ id: "quota-refresh", component: QuotaRefreshOwner });

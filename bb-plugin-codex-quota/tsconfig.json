@@ -29,6 +29,9 @@
     "host.test.ts",
     "app.tsx",
     "app.test.tsx",
-    "sdk-surface.test.ts"
+    "sdk-surface.test.ts",
+    "history-*.ts",
+    "history-*.tsx",
+    "collector-compatibility*.ts"
   ]
 }

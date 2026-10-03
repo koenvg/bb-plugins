@@ -42,8 +42,28 @@ A successful snapshot is fresh for less than five minutes. Pending updates do no
 
 Focus and visibility resume synchronize the server's selected host and recalculate age. An unchanged selection keeps a valid observation; a changed selection clears it immediately. A quota read occurs only when due, so repeated focus cannot bypass failure backoff. The host checks Pi's active account on quota reads; offline, changed, or uncheckable identities cannot return another account's snapshot as fresh. Host worker memory remains the authoritative quota cache, and reload discards it. The private Codex endpoint and its response fields can change without notice.
 
-No Pi or BB transcript/session history is read. There is no collector, thread cost/token attribution, historical import, or background reset redemption. BBP-1 tracks the separate history investigation.
+Quota reads do not read Pi or BB transcripts, require a collector, or start an import. History readiness is a separate host-local check. This release does not provide historical reports, live collection controls, or reset redemption.
+
+## Selected-host history readiness
+
+Select an enrolled host, then read the History readiness section below the quota controls. It checks the host's SQLite support and only this plugin's collector asset. Check readiness retries that check, not quota. It does not create a database, install an extension, read transcript bodies, scan sessions, or start an import. No account sign-in is needed for readiness.
+
+- **Not configured** means storage support is present but the database or collector is missing. Quota remains usable.
+- **Storage unavailable** means the host cannot provide SQLite or read plugin-owned storage. No server-machine storage fallback is used.
+- **Storage incompatible** means the file type or schema marker is unsupported. The check does not migrate, delete, or repair it.
+- **Collector incompatible** means the plugin-owned asset is unreadable, oversized, modified, or uses a different host configuration/version. Other extensions are not inspected or loaded by this check.
+- **Compatible asset, version 1** checks the exact packaged code and serialized host configuration. It does not prove that a running Pi session loaded it. Writer activation remains unconfirmed, and no complete-history claim follows from installation.
+
+The host database path is `<host plugin dataDir>/history/usage-v1.sqlite`. BB supplies the persistent, plugin-scoped data directory through its public host SDK. The packaged collector uses that fixed path, not an OpenForge checkout or BB server connection. Its own extension name is `bb-codex-usage` under Pi's resolved agent extension directory. It never replaces `openforge-codex-usage` or other extensions. There is no install/import action in this readiness release. Do not install the test fixture into your live Pi configuration.
+
+A collector runs separately from BB's UI and plugin lifecycle. Closing the dashboard or disabling BB cannot stop a writer on an offline host. A future explicit installation must explain pause controls and require restarting already-running Pi sessions to load the new extension. No session is restarted by this release.
+
+The compatibility asset stays inactive without explicit compatible plugin-owned control metadata. Its isolated loading fixture tests scalar-only synthetic usage and shutdown draining. Historical reconciliation, live-entry confirmation, durable coverage, collector controls, and reports belong to the next slices. Captured costs are usage estimates, not subscription charges or measured quota debits. Unknown prices are not zero. Neither readiness nor quota inspects retained transcripts.
+
+Missing capabilities, offline hosts and history errors do not remove quota refresh, the sidebar footer, reset countdowns or the official usage link. Starting a host switch clears readiness immediately and disables its check until selection settles. Readiness resumes independently from quota authentication and rejects earlier-host responses, including a switch back to the same host. Browser results contain only bounded status values, not local paths, usage logs, authentication data or arbitrary errors.
 
 ## Development checks
+
+Packaged history checks use real temporary `node:sqlite` storage, a copy of the host bundle outside its dependency tree, and Pi 0.87.1's public extension loader in a temporary agent directory. They test both the missing-control and explicit synthetic-control paths. Run `node scripts/check-bundled-history.mjs` on Node 22 or later after building. The Node 22 compatibility run is recorded separately from the default Node 24 development run. These checks are not installed acceptance or proof of real costs/capture.
 
 From this directory run `npm test`, `npm run typecheck`, `bb plugin types --check`, and `npm run test:bundle`. Bundle tests use temporary synthetic credentials and stubbed responses for both fresh and expiring OAuth tokens, without live network. The production probe RPC has been removed.

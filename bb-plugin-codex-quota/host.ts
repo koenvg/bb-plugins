@@ -8,6 +8,10 @@ import { hostContract } from "./contract.js";
 import { fetchNormalizedQuota } from "./feasibility.js";
 import { QuotaCache, type QuotaRead, type QuotaReason, type QuotaView } from "./quota-cache.js";
 
+import { createHostHistory, type HostHistory } from "./history-host.js";
+// Internal named exports let packaged tests exercise the runtime adapter and exact collector asset.
+export { openHistoryDatabase } from "./history-storage.js";
+export { packagedCollectorAsset } from "./collector-compatibility.js";
 // The BB host artifact is self-contained; Pi AI's variable OAuth imports cannot resolve beside it.
 registerBunOAuthFlows();
 
@@ -91,6 +95,7 @@ type Dependencies = {
   auth: (signal: AbortSignal) => Promise<AuthState>;
   read: (token: string, signal: AbortSignal) => Promise<QuotaRead>;
   now?: () => number;
+  history?: HostHistory;
 };
 const unavailable = (reason: QuotaReason): QuotaView => ({
   state: "unavailable",
@@ -100,10 +105,15 @@ const unavailable = (reason: QuotaReason): QuotaView => ({
 
 export function createQuotaHostEntry(deps: Dependencies) {
   const cache = new QuotaCache(deps.now);
+  const history = deps.history ?? createHostHistory();
   return experimental_defineHostEntry({
     contract: hostContract,
     handlers: {
       ping: async () => ({ reachable: true }),
+      historyReadiness: async (_input, context) => history.read({
+        dataDir: context.experimental_paths.dataDir,
+        signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+      }),
       quota: async ({ refresh }, context) => {
         const signal = AbortSignal.any([context.signal, AbortSignal.timeout(12_000)]);
         const auth = await deps.auth(signal);
