@@ -1,5 +1,19 @@
 # Compose Chat verification
 
+## Voice keyboard revision
+
+Implementation baseline: `9ac0de87db93bd54fbbcd083c19eeee62e167a01`.
+
+- All 48 plugin tests passed, including 28 new public-boundary voice scenarios. The test-first run failed 15 of those scenarios before implementation.
+- TypeScript, SDK 0.5.29 pin checking, and the production build passed.
+- The existing synthetic browser matrix passed 16 cases and 1068 assertions against the updated built app. This revision's matrix was assertion-only, with screenshot captures skipped. No CSS or motion source changed.
+- A dedicated managed Chromium session on Mac exercised the built voice fixture with real keyboard input. Ctrl+Shift+Space started one synthetic recording. Enter confirmed once; Enter during transcription did not send. Completion preserved the draft and restored focus. A repeat event held across completion did not send; a fresh Enter submitted once to the fixture's local counter. Escape canceled. A changed binding replaced the original; a disabled binding did not activate. One synthetic recording screenshot was inspected at `/tmp/compose-chat-voice-recording.png`.
+- Browser matrix results are local under `.impeccable/review/voice-keyboard/`. The browser-use launcher did not recognize the downloaded Chromium executable name, so the same managed Chromium was started with an isolated temporary profile and connected through a dedicated CDP port. No signed-in browser session was used.
+
+The revision has not been installed in native BB. These tests do not prove real microphone permission, audio capture, server transcription, physical keyboard behavior, or BB Keyboard-settings persistence. The fixture simulates the host command dispatcher and recording states; unit tests validate the public SDK registration and native-shaped DOM delegation. Native Escape ownership remains BB's existing behavior, including its global listener. Pending-start error recovery depends on BB's current voice-error title markup; unknown markup fails closed until plugin reload.
+
+The single completion reviewer requested changes for three boundary defects. Five new regression cases failed before the fixes. Pending-start guards now survive changes in Enter-session ownership. Focus must be in the recognized editor or native voice controls, not an unrelated form field. Recording and transcription controls must have one consistent cancel/confirm pair across both labels. All 48 tests, TypeScript, SDK pin checking, production build, the built voice keyboard path, and the 16-case browser assertion matrix passed again after these fixes. No second review pass was run, and no later reviewer approval is claimed.
+
 ## Arrow and indentation revision
 
 The arrow update uses the reference's row-major phase groups `[1,2,3, 0,1,2, 1,2,3]` in an independently authored CSS sweep. The four groups advance in 90ms steps over a 648ms cycle. The loader stays inline; standalone status and native composer controls remain unchanged.

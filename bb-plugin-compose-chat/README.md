@@ -2,7 +2,7 @@
 
 A new, independent restyle of BB's native chat, inspired by [Kiki's Compose component](https://21st.dev/@laziekiki/components/compose).
 
-The writing area and follow-up footer share a lightly tinted rounded frame with a faint border, fine divider, and soft shadow. Typing does not add a separate dark outline. Replies stay unboxed. User messages and code use quiet, theme-derived surfaces. Buttons have visible keyboard focus and larger touch targets. BB still owns every input, command, picker, attachment, voice control, and send/stop action.
+The writing area and follow-up footer share a lightly tinted rounded frame with a faint border, fine divider, and soft shadow. Typing does not add a separate dark outline. Replies stay unboxed. User messages and code use quiet, theme-derived surfaces. Buttons have visible keyboard focus and larger touch targets. BB still owns every input, picker, attachment, voice control, and send/stop action. Compose Chat adds keyboard access to the native voice controls.
 
 A small nine-dot arrow sweep appears inline beside active tool and Thinking titles inside the conversation. The standalone status above the composer stays native. The lattice uses theme ink with no glow, disappears when an activity completes, and adds no chat DOM or animation dependency. Hidden tabs and BB's collapsed indicators pause the loop. Reduced motion shows a static lattice and removes the subtle standalone-button press animation.
 
@@ -31,13 +31,21 @@ BB defers plugin updates in hidden tabs until they become visible. Current nativ
 
 A local installation points to this checkout. Do not retire its worktree while you still use it; install from a durable checkout instead.
 
+## Voice keyboard controls
+
+With focus in the composer, press **Ctrl+Shift+Space** to start recording. Use Control on Mac, not Command. Change or remove Compose Chat's **Start voice input** shortcut in BB's Keyboard settings. The operating system can intercept a shortcut; use another binding if needed.
+
+Press **Enter** during recording to stop and transcribe into the draft. This does not send. Enter does nothing during transcription. After completion, edit the draft or press Enter again to send normally. A held Enter cannot send when transcription completes. **Escape** keeps BB's native cancellation behavior. Enter on the focused cancel button also cancels.
+
+These controls use native BB 0.44 attributes and button labels, not a public voice API. Missing or changed controls cause no voice action. Repeated starts are blocked while microphone permission is pending. A new native "Voice input failed" notification releases that guard. If a host update changes error markup, disable and enable the plugin to reset it. Pointer controls remain native. Focus is restored only for keyboard-controlled sessions while focus still belongs to their composer.
+
 ## Scope
 
 - Uses the active theme's colors, font, and radius. No theme switch or custom font.
 - Preserves native compact mode, footer visibility, input layout, focus order, and mobile drawer/keyboard behavior.
-- Adds no autocomplete, character counter, new commands, or replacement composer.
-- Reads no messages or drafts. No settings, network calls, persistent storage, RPC, timers, or observers. One document-visibility listener pauses motion in hidden tabs.
-- A public SDK content script owns activation and motion-state attributes. Abort and cleanup restore both and remove the visibility listener. BB owns when frontend generations reconcile.
+- Adds a configurable Start voice input command, not a replacement composer or recorder.
+- Does not read or write messages, drafts, or audio. No plugin network calls, persistent storage, RPC, or polling.
+- Public SDK content scripts own style markers and voice-keyboard listeners. A DOM observer reads native voice state and error-title metadata. Abort removes all listeners and observers and restores owned attributes. BB owns frontend generation updates.
 
 BB's chat DOM is not a public API. The selectors were checked against the native BB 0.44 frontend. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
 
