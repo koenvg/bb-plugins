@@ -5,7 +5,7 @@ The user approved a temporary authorization boundary on 2026-10-03: trust BB-rec
 ## 1. Verify plugin-only activation contracts
 
 - [x] 1.1 Add focused provider-path fixtures for BB selected-skill mentions and exact native invocations using current SDK input/provenance. Verify Pi selection translation, BB-recorded user classification and persisted invocation references without modifying core or SDK. Test the accepted agent self-send user/null limitation and link BBP-51; do not claim actual human identity.
-- [ ] 1.2 Verify current BB behavior for queued first turns, dispatch-hook rejection, created thread rows, and lost spawn responses. Record the observed recovery rules and test that rejection never implies permission to spawn a replacement.
+- [x] 1.2 Verify current BB behavior for queued first turns, dispatch-hook rejection, created thread rows, and lost spawn responses. Record the observed recovery rules and test that rejection never implies permission to spawn a replacement.
 - [x] 1.3 Add activation guard tests rejecting quoted commands, automatic skill consideration, agent/system notifications, mixed messages without identifiable user invocation, stale invocations, and metadata-only claims. Verify no rejected case calls `threads.spawn` or changes Tasks.
 - [x] 1.4 Document verified provider paths and fail-closed unsupported-path behavior in Tasks-plus documentation. Verify every support claim names an actual BB-path check rather than a frontmatter-only test.
 
@@ -18,21 +18,31 @@ The user approved a temporary authorization boundary on 2026-10-03: trust BB-rec
 - [x] 2.5 Document the compact response and state distinctions in the Tasks skill reference or README. Verify examples use real declared commands and preserve existing status and dependency semantics.
 
 BBP-34 verifies items 2.2 through 2.5 through CLI/RPC and disposable Tasks/SDK
-fixtures. Run, ownership, dispatch, report, and acceptance persistence remains
-owned by later slices. The status extension reader exposes their absence as
-unknown until those authoritative readers are wired in. No migration was needed
-for the native status projection, so 2.1 remains unchecked. Full package checks
-for this slice do not establish the integrated epic/provider acceptance in 6.3.
+fixtures. BBP-35 adds run persistence. BBP-36 now wires effective runs, designated
+roles and unresolved claims into the same read transaction. Reports, reported
+decisions and epic acceptance remain unknown until their owning slices exist.
+Item 2.1 remains unchecked because linked report persistence is not delivered.
+Slice checks do not establish the integrated epic/provider acceptance in 6.3.
 
 ## 3. Implement authorized runs and safe dispatch-or-reuse
 
 - [x] 3.1 Implement run begin, pause, and explicit resume bound to verified explicit BB-recorded user invocation/native decision, epic scope, presets, and baseline references. Verify duplicate invocation reuse, missing-parameter interaction, scope fingerprint changes, restricted-approval separation, and startup/enable without orchestration sends.
-- [ ] 3.2 Extend task-thread associations with explicit owner adoption and role selection while preserving manual attach/detach. Verify existing owner reuse without reseeding, ambiguous legacy attachments, in-progress and todo tickets with prior work but no owners, and missing/failed/manually stopped workers.
-- [ ] 3.3 Extend the delegation module with a transactionally reserved dispatch claim and parent/task/attempt metadata at spawn. Reuse preset/environment resolution and ticket prompt construction. Verify concurrent same-task requests across runs invoke spawn at most once and local association/status changes commit together.
-- [ ] 3.4 Add orchestration-specific dispatch and continuation admission checks using current dependencies, scope, handoffs, and approved run state. Verify blocked and reopened prerequisites, delayed capacity admission, paused runs, and unchanged legacy warning behavior.
+- [x] 3.2 Extend task-thread associations with explicit owner adoption and role selection while preserving manual attach/detach. Verify existing owner reuse without reseeding, ambiguous legacy attachments, in-progress and todo tickets with prior work but no owners, and missing/failed/manually stopped workers.
+- [x] 3.3 Extend the delegation module with a transactionally reserved dispatch claim and parent/task/attempt metadata at spawn. Reuse preset/environment resolution and ticket prompt construction. Verify concurrent same-task requests across runs invoke spawn at most once and local association/status changes commit together.
+- [x] 3.4 Add orchestration-specific dispatch and continuation admission checks using current dependencies, scope, handoffs, and approved run state. Verify blocked and reopened prerequisites, delayed capacity admission, paused runs, and unchanged legacy warning behavior.
 - [ ] 3.5 Implement explicit reconciliation and operator recovery of known or ambiguous creation attempts. Verify failure before creation, response loss, attachment failure, worker activation before attachment, restart, unavailable listings, zero/multiple matches, and recovery without another spawn or compensation deletion.
 - [ ] 3.6 Add explicit owner replacement/claim-resolution commands under the orchestration namespace. Verify fresh reconciliation, cross-project refusal, active-creation refusal, original-worker precedence, history preservation, duplicate-risk warning, and no spawn/resume side effect.
 - [ ] 3.7 Document dispatch outcomes, adoption, ambiguous-failure recovery, capacity reuse, and disable/rollback limits. Verify documented recovery examples against disposable fixtures and confirm no scheduler or polling loop was added.
+
+BBP-36 checks use public CLI/RPC/store/hook fixtures and one installed native
+queue checkpoint on BB 0.44.0. The checkpoint uses a test-only wait gate and
+fixture run authority. It verifies delayed rejection and retained native identity,
+not human approval or a naturally exhausted capacity pool. Lost responses and
+pre-attachment activity use failure injection. Role storage covers implementation,
+orchestrator and integration; this slice dispatches/adopts implementation subtasks
+only. Required prerequisite handoffs refuse as unknown until the report slice
+supplies its authoritative reader. Items 3.5, 3.6 and the complete recovery examples
+in 3.7 remain owned by BBP-37. Dispatch/ownership/rollback documentation is present.
 
 ## 4. Record reports, decisions, and artifact handoffs
 

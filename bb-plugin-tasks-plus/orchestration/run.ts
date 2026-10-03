@@ -312,6 +312,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
   }
   return {
     control,
+    isCoordinatorForRunEpic: runs.isCoordinatorForRunEpic,
     readRun(epicId: string) {
       const run = runs.latestForEpic(epicId);
       return run ? view(run) : null;

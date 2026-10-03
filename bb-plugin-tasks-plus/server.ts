@@ -10,6 +10,7 @@ import { registerMentions } from "./mentions";
 import { registerOrchestrationStatus } from "./orchestration";
 
 import { createRunController } from "./orchestration/run";
+import { createDispatcher } from "./orchestration/dispatch";
 const TASKS_PLUGIN_NAME = "Tasks";
 export const TASKS_PLUGIN_VERSION = "0.1.2";
 
@@ -32,9 +33,12 @@ export default async function plugin(bb: BbPluginApi) {
   registerAttachments(bb, store.tasks);
   const runs = createRunController(bb, store);
   runs.register();
-  registerTasksCli(bb, store, statusPayload(), undefined, runs);
+  const dispatcher = createDispatcher(bb, store, runs);
+  dispatcher.register();
+  const orchestrationOptions = { readCoordination: dispatcher.readCoordination };
+  registerTasksCli(bb, store, statusPayload(), orchestrationOptions, runs, dispatcher);
   registerDelegation(bb, store);
-  registerOrchestrationStatus(bb, store);
+  registerOrchestrationStatus(bb, store, orchestrationOptions);
   registerMentions(bb, store);
   await registerLifecycle(bb, store);
 

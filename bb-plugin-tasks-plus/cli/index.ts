@@ -9,6 +9,8 @@ import {
 } from "@get-bb/plugin-sdk";
 import { runCommands } from "../orchestration/run-cli";
 import type { RunController } from "../orchestration/run";
+import { dispatchCommands } from "../orchestration/dispatch-cli";
+import type { Dispatcher } from "../orchestration/dispatch";
 import { z } from "zod";
 
 import {
@@ -632,6 +634,7 @@ export function registerTasksCli(
   status: PluginStatus,
   orchestrationOptions: StatusOptions = {},
   runs?: RunController,
+  dispatcher?: Dispatcher,
 ): void {
   const domain = registerHandlers(bb, store);
   bb.cli.register(
@@ -643,6 +646,7 @@ export function registerTasksCli(
       commands: {
         ...orchestrationStatusCommands(bb, store, orchestrationOptions),
         ...(runs ? runCommands(runs) : {}),
+        ...(dispatcher ? dispatchCommands(bb, dispatcher) : {}),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

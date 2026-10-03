@@ -273,6 +273,36 @@ const MIGRATIONS = [
       payload TEXT NOT NULL
     );
   `,
+  `
+    ALTER TABLE task_threads ADD COLUMN role TEXT CHECK(role IN ('implementation', 'orchestrator', 'integration'));
+    ALTER TABLE task_threads ADD COLUMN primary_owner INTEGER NOT NULL DEFAULT 0 CHECK(primary_owner IN (0, 1) AND (primary_owner = 0 OR role IS NOT NULL));
+    CREATE UNIQUE INDEX idx_task_threads_primary_role ON task_threads(task_id, role) WHERE primary_owner = 1;
+    CREATE TABLE orchestration_owners (
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('implementation', 'orchestrator', 'integration')),
+      association_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      PRIMARY KEY(task_id, role),
+      UNIQUE(task_id, association_id)
+    );
+    CREATE TABLE orchestration_dispatch_claims (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('implementation', 'orchestrator', 'integration')),
+      run_id TEXT NOT NULL,
+      coordinator_thread_id TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      thread_id TEXT,
+      association_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      released_at TEXT,
+      reason TEXT
+    );
+    CREATE UNIQUE INDEX idx_orchestration_live_claim ON orchestration_dispatch_claims(task_id, role) WHERE released_at IS NULL;
+    CREATE INDEX idx_orchestration_claim_thread ON orchestration_dispatch_claims(thread_id);
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {

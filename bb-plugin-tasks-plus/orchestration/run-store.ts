@@ -39,6 +39,13 @@ export function createRunStore(db: Database) {
   return {
     getRun,
     save,
+    isCoordinatorForRunEpic(runId: string, coordinatorThreadId: string): boolean {
+      return !!db.prepare<[string, string], { found: number }>(
+        `SELECT 1 AS found FROM orchestration_runs original
+         JOIN orchestration_runs candidate ON candidate.epic_id=original.epic_id
+         WHERE original.id=? AND candidate.coordinator_thread_id=? LIMIT 1`,
+      ).get(runId, coordinatorThreadId);
+    },
     newId: () => randomUUID(),
     transaction<T>(fn: () => T): T {
       return db.transaction(fn)();
