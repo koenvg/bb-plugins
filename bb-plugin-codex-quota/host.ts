@@ -7,6 +7,9 @@ import { experimental_defineHostEntry } from "@get-bb/plugin-sdk";
 import { hostContract } from "./contract.js";
 import { fetchNormalizedQuota } from "./feasibility.js";
 import { QuotaCache, type QuotaRead, type QuotaReason, type QuotaView } from "./quota-cache.js";
+import { createActivityHostReader } from "./activity-host.js";
+import { fetchNormalizedActivity } from "./activity-fetch.js";
+import type { ActivityRead } from "./activity-contract.js";
 
 // The BB host artifact is self-contained; Pi AI's variable OAuth imports cannot resolve beside it.
 registerBunOAuthFlows();
@@ -90,6 +93,7 @@ async function resolvePiAuth(signal: AbortSignal): Promise<AuthState> {
 type Dependencies = {
   auth: (signal: AbortSignal) => Promise<AuthState>;
   read: (token: string, signal: AbortSignal) => Promise<QuotaRead>;
+  activityRead?: (token: string, signal: AbortSignal) => Promise<ActivityRead>;
   now?: () => number;
 };
 const unavailable = (reason: QuotaReason): QuotaView => ({
@@ -100,10 +104,13 @@ const unavailable = (reason: QuotaReason): QuotaView => ({
 
 export function createQuotaHostEntry(deps: Dependencies) {
   const cache = new QuotaCache(deps.now);
+  const activity = createActivityHostReader({ auth: deps.auth, read: deps.activityRead ?? (async () => ({ status: "unsupported", snapshot: null })), now: deps.now });
   return experimental_defineHostEntry({
     contract: hostContract,
+    dispose: () => activity.dispose(),
     handlers: {
       ping: async () => ({ reachable: true }),
+      activity: async ({ refresh }, context) => activity.read(refresh === true, context.signal),
       quota: async ({ refresh }, context) => {
         const signal = AbortSignal.any([context.signal, AbortSignal.timeout(12_000)]);
         const auth = await deps.auth(signal);
@@ -126,4 +133,4 @@ export function createQuotaHostEntry(deps: Dependencies) {
   });
 }
 
-export default createQuotaHostEntry({ auth: resolvePiAuth, read: fetchNormalizedQuota });
+export default createQuotaHostEntry({ auth: resolvePiAuth, read: fetchNormalizedQuota, activityRead: fetchNormalizedActivity });

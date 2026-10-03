@@ -11,6 +11,9 @@
     "skipLibCheck": false
   },
   "include": [
+    "activity*.ts",
+    "activity*.tsx",
+    "scripts/activity-preview.tsx",
     "server.ts",
     "host.ts",
     "contract.ts",
