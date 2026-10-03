@@ -26,6 +26,7 @@ jobs:
           - bb-plugin-codex-quota
           - bb-plugin-compose-chat
           - bb-plugin-github-insight
+          - bb-plugin-markdown-reader
           - bb-plugin-pr-thread-list
           - bb-plugin-tasks-plus
     defaults:
