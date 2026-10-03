@@ -134,12 +134,18 @@
   let submits=0; form.addEventListener('submit',e=>{e.preventDefault();document.querySelector('output').textContent=`${++submits} submits`;});
   globalThis.__bbPluginRuntime={pluginSdkApp:{definePluginApp:setup=>({setup})}};
   const entry=await import('../dist/app.js');
-  let registration;entry.default.setup({contentScripts:{register:r=>{registration=r;}}});
-  let controller,dispose;
-  function activate(){controller=new AbortController();dispose=registration.mount({pluginId:'compose-chat',generation:1,signal:controller.signal});}
+  const registrations=[],commands=[];
+  entry.default.setup({contentScripts:{register:r=>registrations.push(r)},commands:{register:c=>commands.push(c)}});
+  let controller,disposers=[];
+  function activate(){controller=new AbortController();disposers=registrations.map(r=>r.mount({pluginId:'compose-chat',generation:1,signal:controller.signal}));}
+  function dispose(){for(const cleanup of disposers.reverse()) cleanup?.();disposers=[];}
   activate();
   document.getElementById('toggle-style').onclick=()=>{if(document.documentElement.hasAttribute('data-compose-chat')){controller.abort();dispose();}else activate();};
   document.getElementById('toggle-theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='light'?'dark':'light';};
+  if(params.has('voice')) {
+    const {installVoiceFixture}=await import('./voice-fixture.js');
+    window.voiceFixture=installVoiceFixture({form,input:originalInput,commands});
+  }
   window.fixture={ready:true,nativeSplit,originalInput,form,submit,get submits(){return submits;},check:async()=>{const checks=await import('./browser-checks.js');return checks.runChecks();}};
 </script>
 </body>

@@ -11,9 +11,9 @@ afterEach(() => {
 });
 
 describe("Compose Chat's public content-script lifecycle", () => {
-  it("registers one style owner and no replacement UI or composer actions", async () => {
+  it("registers style and voice owners without replacement UI or composer actions", async () => {
     const app = await loadPluginApp(appDefinition);
-    expect(app.contentScripts).toHaveLength(1);
+    expect(app.contentScripts).toHaveLength(2);
     expect(app.contentScripts[0]?.id).toBe("chat-styles");
     expect(app.navPanels).toHaveLength(0);
     expect(app.appOverlays).toHaveLength(0);
