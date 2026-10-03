@@ -1,152 +1,126 @@
 ---
 name: tasks
-description: "Work on or manage records in BB Tasks, including task keys such as ABC-12."
+description: "Work on BB Tasks such as ABC-12, manage task records, or dispatch task workers."
 ---
 
 # Tasks
 
-Use the `bb tasks` CLI to understand the assigned task, keep its record useful,
-and report the outcome where the work is tracked.
+Use `bb tasks <command> --help` for syntax, accepted values, and limits. Prefer
+stable task keys. Use `--json` when output drives another action.
 
-For task dispatch and execution presets, read
-[references/delegation.md](references/delegation.md).
+Before dispatching a worker or changing execution presets, read
+[Delegation](references/delegation.md).
 
 ## Work a task
 
-1. Find and read the task before acting:
+1. Read `bb tasks show ABC-12 --json`. Identify the completion criteria,
+   current status, blockers, and relevant attachments before acting.
+2. Proceed when every blocker is `done` or `canceled`. Otherwise report the
+   blocker and wait for explicit approval to proceed. CLI warnings do not
+   enforce this gate.
+3. Fetch every relevant attachment with
+   `bb tasks attachment get <attachment-id> --out <path>` before relying on
+   its content. Before adding or removing files, or selecting another machine,
+   read [Attachments](references/attachments.md).
+4. If this thread was not delegated from Tasks, attach it with
+   `bb tasks attach ABC-12`. Dispatch attaches its worker automatically.
+5. Do the work and follow [Reporting](#reporting) at meaningful milestones.
+   Attach result files that belong with the task.
+6. Set the status with `bb tasks update ABC-12 --status <status>`: `in_review`
+   when required review remains, `done` only when completion criteria are met.
+   When this thread's task work ends or is handed off, detach its task link
+   with `bb tasks detach ABC-12`. Detaching does not stop the thread.
 
-   ```sh
-   bb tasks show ABC-12
-   ```
+## Reporting
 
-   The detail includes the description, status, priority, labels, subtasks,
-   comments, attachments, attached worker threads, and the GitHub pull
-   requests those threads produced (from environment metadata, with state
-   open/draft/merged/closed). Use
-   `bb tasks show ABC-12 --json` when the result will drive commands or code.
+At meaningful milestones, write one short result or current-state sentence,
+a blank line, and up to three flat Markdown bullets. Use plain language, real
+newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are
+valid. Keep material limits visible even when this requires a longer update.
+Combine related changes and omit unchanged updates.
 
-   Check the "Blocked by" section before you start. If a blocker is not `done`
-   or `canceled`, the task is blocked. Tell the user, and do not start the work
-   unless they ask you to. `update --status in_progress` and `dispatch` still
-   run on a blocked task, but print a warning on stderr (or a `warnings` array
-   with `--json`).
+State the outcome, next step, and any blocker or exact decision needed and its
+effect. For review or completion, name passed, unrun, or blocked checks.
+Distinguish worker-reported results from checks you verified yourself.
 
-   For project-wide discovery, `bb tasks list` returns at most 100 rows by
-   default. Pass `--limit 1-500`; in JSON, continue with `nextCursor` via the
-   same filters/sort and `--cursor <value>`. A task-list mutation makes an old
-   cursor stale, so restart without it. Add `--ready` for tasks with no open
-   blocker, or `--blocked` for tasks with one. You cannot use both.
+Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff
+evidence in the attached thread or an artifact. Preserve exact commits and
+baselines in the handoff. Link to the detail with `[worker](bbthread://thr_abc123)`,
+`[subtask](bbtask://ABC-13)`, or an existing PR/attachment link. Use real
+destinations. Task-card directives belong in chat responses, not comments.
 
-2. Fetch every relevant attachment before making assumptions about it:
+### Reporting level
 
-   ```sh
-   bb tasks attachment get <attachment-id> --out <path>
-   ```
+- A subtask reports its own result, relevant checks, and remaining work.
+- An epic reports overall progress, current work, and the next dependency or
+  decision. Summarize each child result's effect instead of copying its report.
 
-3. Do the work. Post one substantive comment at each meaningful milestone,
-   such as a completed investigation, an implementation ready for validation,
-   or a concrete blocker:
+Only the agent already responsible for a parent refreshes its summary when
+handling a child completion, blocker change, or decision. Read current task
+state, including relevant children, before posting; old comments are not
+current evidence. Count only `done` children as done. Child done counts do not
+prove epic acceptance; name remaining integration or acceptance work. Treat
+unavailable or conflicting state as unknown.
 
-   ```sh
-   bb tasks comment ABC-12 --body "Implemented the change; focused validation now passes."
-   ```
+Use existing authorized handoff routes. Parent summaries wait for their owner
+to handle an event; these rules add no polling, wakeups, or coordinator.
+Reporting grants no permission to dispatch, restructure tasks, notify, or
+approve work. Before notifying a thread, read
+[Notify the latest responder](references/task-records.md#notify-the-latest-responder).
 
-   Add `--notify` only when the new comment should be delivered to the thread
-   that authored the task's most recent agent reply. This resumes an idle
-   recipient; with no prior agent reply, the comment is recorded without
-   targeting an unrelated thread. In agent context, the new comment keeps the
-   current thread identity and an explicit `--author`, while delivery still
-   targets the prior latest responder rather than the new comment itself.
+These writing rules apply when an agent loads the updated skill or receives a
+new prompt. They are not enforced comment limits. Leave historical comments,
+task descriptions, stored presets, and previously delivered prompts unchanged.
 
-4. Attach result artifacts that belong with the task, such as reports,
-   screenshots, patches, or generated files:
+### Post a multiline comment
 
-   ```sh
-   bb tasks attachment add ABC-12 --file ./report.md
-   bb tasks attachment add ABC-12 --file ./screenshot.png
-   ```
+Use a quoted heredoc so Markdown backticks and shell expressions stay literal.
+Replace the placeholder task and thread IDs in this review-readiness example:
 
-   Read `references/attachments.md` for comment attachments, initial files,
-   removal rules, and machine selection.
+```sh
+bb tasks comment ABC-12 --body "$(cat <<'REPORT'
+**The change is ready for review.**
 
-5. Set the status to match the completion criteria. Use `done` when they are
-   met, or `in_review` when required review remains:
+- Focused checks pass for `parse()` and literal `$(name)` input.
+- Next: complete the required review.
+- [Evidence](bbthread://thr_abc123).
+REPORT
+)"
+```
 
-   ```sh
-   bb tasks update ABC-12 --status in_review
-   ```
+### Blocked decision
 
-   Change task hierarchy with `bb tasks update ABC-12 --parent ABC-10`, using
-   either a task key or ID for the parent. Promote a subtask to the top level
-   with `bb tasks update ABC-12 --no-parent`; the two parent flags cannot be
-   combined.
+```md
+**Release is blocked on permission checks.**
 
-   Record order between tasks with `bb tasks update ABC-12 --blocked-by ABC-3`
-   (ABC-3 must finish first). Remove a link with `--unblocked-by ABC-3`. Both
-   take a key or ID and are repeatable. A link that makes a cycle fails and
-   saves nothing. When the last open blocker goes to `done` or `canceled`, the
-   blocked task gets an "Unblocked" system comment.
+- The current check cannot prove that a person approved the run.
+- Choose whether to wait for the fix or accept this temporary limit.
+- [Evidence and effects of each choice](bbthread://thr_abc123).
+```
 
-   If the work cannot proceed, leave the status accurate and comment with the
-   specific blocker, what you tried, and what would unblock it. Do not mark a
-   blocked task complete.
+### Epic progress
 
-6. Delegated threads are attached automatically. If this thread was not
-   delegated from Tasks, attach it yourself so the task shows the active work:
+```md
+**2 of 9 subtasks are done; safe dispatch is in progress.**
 
-   ```sh
-   bb tasks attach ABC-12
-   ```
+- Manual run controls now let the next worker proceed.
+- Next: finish safe dispatch, then interrupted-dispatch recovery.
+- Whole-epic acceptance remains unverified. [Current subtask](bbtask://ABC-13).
+```
 
-   When a thread is done with a task (hand-off, respawned replacement, or a
-   predecessor that died), detach it so `bb tasks threads ABC-12` stays
-   accurate. Omit `--thread` to detach the current thread:
+## Link tasks in chat
 
-   ```sh
-   bb tasks detach ABC-12 --thread thr_dead_predecessor
-   ```
-
-## Link tasks in responses
-
-When your answer refers the user to a task — including a task you just
-created — emit this leaf directive on its own line instead of writing the
-key as plain text:
+When referring the user to a task, emit one task-card directive per line:
 
 ```md
 ::task{key="ABC-12"}
 ```
 
-`key` is required. Optionally add `title="…"` as a display fallback shown
-while the card loads and when the key no longer resolves. The rendered card
-shows the live status, title, and priority, opens the task in the thread
-side panel, and links to the full Tasks app. Emit one directive per line;
-each renders its own card.
+An optional `title="…"` supplies a fallback while the task loads or if it no
+longer resolves. Use the comment links in [Reporting](#reporting) inside tasks.
 
-## CLI conventions
+## Manage task records
 
-- `bb tasks --help` lists every command, and `bb tasks <command> --help` prints
-  that command's arguments, accepted values, and limits. Both exit 0.
-- `--project` takes a tracker project prefix or id such as `ABC`, never a bb
-  project id (`proj_...`). `bb tasks project list` shows both columns.
-- `bb tasks status` reports the plugin's name and version. A task's workflow
-  status is `bb tasks list --status <status>` and
-  `bb tasks update ABC-12 --status <status>`.
-- Repeatable options (`--label`, `--status`, `--priority`, `--add-label`,
-  `--remove-label`, `--blocked-by`, `--unblocked-by`) accept a repeated flag or one comma-separated list.
-- Unknown options and stray arguments are errors, never ignored, and every
-  missing required value is reported in one error. A failing command run with
-  `--json` prints `{"ok":false,"error":{"code","message","hint"?}}` on stdout.
-
-## Invariants
-
-- Valid task statuses are `backlog`, `todo`, `in_progress`, `in_review`,
-  `done`, and `canceled`.
-- Use `in_review` when implementation is complete but still needs human or
-  agent review. Use `done` only when the task's completion criteria are met.
-- Write one comment per meaningful milestone. Combine related facts into a
-  useful update; never spam progress pings, command-by-command narration, or
-  repeated status messages.
-- Comments should say what changed or was learned, what validation ran, and any
-  remaining risk or blocker.
-- Prefer stable task keys such as `ABC-12` for task commands. Use `--json` for
-  machine-readable output and human output for quick inspection.
+Before listing tasks across a project, changing hierarchy or dependencies,
+or repairing thread links, read
+[Task records](references/task-records.md).

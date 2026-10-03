@@ -8,6 +8,7 @@ import type { Comment, Project, Task } from "../db";
 import { displayWidth } from "../shared/text-measure";
 import { delegationRpcContract } from "./contract";
 import { buildSeedPrompt, registerDelegation } from ".";
+import { expectReportingRules } from "../reporting-test-support";
 
 function createTestPreset(
   store: ReturnType<typeof createStore>,
@@ -88,6 +89,9 @@ describe("task delegation", () => {
         }),
       ],
     ]);
+    expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
+      prompt: expect.stringContaining("40-80 words"),
+    });
     expect(store.tasks.listTaskThreads(task.id)).toEqual([
       expect.objectContaining({
         taskId: task.id,
@@ -531,6 +535,31 @@ describe("task thread detach", () => {
 });
 
 describe("delegation seed prompt", () => {
+  it.each([false, true])("includes the reporting rules with subtasks=%s", async (withSubtasks) => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    try {
+      const { tasks } = createStore(bb);
+      const project = tasks.createProject({ name: "Reports", prefix: "RPT", color: "blue" });
+      const task = tasks.createTask({ projectId: project.id, title: "Report work" });
+      const subtasks = withSubtasks
+        ? [tasks.createTask({ projectId: project.id, title: "Child", parentTaskId: task.id })]
+        : [];
+      const prompt = buildSeedPrompt({
+        task, project, subtasks, blockers: [], attachments: [], recentComments: [],
+        presetInstructions: "Keep the preset.", extraInstructions: "Keep the request.",
+      });
+      const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
+      expectReportingRules(report);
+      expect(report).toContain(`bb tasks comment ${task.key} --body`);
+      expect(report).toContain("Tasks skill");
+      expect(report).toContain("already attached");
+      expect(prompt).toContain("## Preset instructions\n\nKeep the preset.");
+      expect(prompt).toContain("## Additional instructions\n\nKeep the request.");
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("captures task context and the complete report-back contract", () => {
     const project: Project = {
       id: "01J00000000000000000000001",
@@ -651,7 +680,14 @@ describe("delegation seed prompt", () => {
 
       ## Report-back contract
 
-      You are working on task TASK-1. Use the bb tasks CLI: comment substantive updates (bb tasks comment TASK-1 --body ...), attach result artifacts, set status when done (bb tasks update TASK-1 --status in_review) or explain blockage in a comment. Your thread is already attached to the task.
+      You are working on task TASK-1. Your thread is already attached. Use bb tasks comment TASK-1 --body ... for updates and attach result artifacts. Use bb tasks update TASK-1 --status in_review when required review remains; use done only when completion criteria are met.
+      At meaningful milestones, write one short result or current-state sentence, a blank line, and up to three flat Markdown bullets. Use plain language, real newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are valid. Combine related changes and omit unchanged updates or command-by-command pings.
+      Keep material limits visible even if the update must be longer. State the outcome, next step, and any blocker or exact decision needed and its effect. Briefly state relevant checks, including unrun or blocked checks; distinguish worker-reported results from checks you verified.
+      Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff evidence in the attached thread or an artifact. Link to the detail with supported task/thread, PR, or attachment links. Preserve exact commits and baselines in handoffs.
+      An epic reports overall progress, current work, and the next dependency or decision; summarize a child result's effect rather than copying its report. A subtask reports its own result, checks, and remaining work.
+      Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.
+      Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.
+      See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.
 
       ## Preset instructions
 

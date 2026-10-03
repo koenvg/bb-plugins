@@ -112,7 +112,16 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
     markdownSection("Recent comments", formatComments(input.recentComments)),
     markdownSection(
       "Report-back contract",
-      `You are working on task ${input.task.key}. Use the bb tasks CLI: comment substantive updates (bb tasks comment ${input.task.key} --body ...), attach result artifacts, set status when done (bb tasks update ${input.task.key} --status in_review) or explain blockage in a comment. Your thread is already attached to the task.`,
+      [
+        `You are working on task ${input.task.key}. Your thread is already attached. Use bb tasks comment ${input.task.key} --body ... for updates and attach result artifacts. Use bb tasks update ${input.task.key} --status in_review when required review remains; use done only when completion criteria are met.`,
+        "At meaningful milestones, write one short result or current-state sentence, a blank line, and up to three flat Markdown bullets. Use plain language, real newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are valid. Combine related changes and omit unchanged updates or command-by-command pings.",
+        "Keep material limits visible even if the update must be longer. State the outcome, next step, and any blocker or exact decision needed and its effect. Briefly state relevant checks, including unrun or blocked checks; distinguish worker-reported results from checks you verified.",
+        "Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff evidence in the attached thread or an artifact. Link to the detail with supported task/thread, PR, or attachment links. Preserve exact commits and baselines in handoffs.",
+        "An epic reports overall progress, current work, and the next dependency or decision; summarize a child result's effect rather than copying its report. A subtask reports its own result, checks, and remaining work.",
+        "Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.",
+        "Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.",
+        "See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.",
+      ].join("\n"),
     ),
   ];
 
