@@ -140,3 +140,85 @@ The run status is complete with its approval report and saved result available. 
 Final post-review package tests, strict typecheck, current SDK compatibility, plugin build, collection scope/lock/README/CI checks, and tracked/untracked whitespace checks passed. Only this acceptance record changed after review; no reader behavior or tests changed. All BBP-28 acceptance and completion gates passed. The scoped local commit and final clean-worktree check are recorded in the external handoff and task record to avoid placing a self-referencing commit hash in this file.
 
 Remaining limits are unchanged. No plugin installation/reload, opener preference or theme changes, publication, push, PR, or next-ticket launch occurred. Live BB and actual remote transport remain untested. Symlink rejection uses the inspected SDK contract and controlled rejection tests, not a hostile live filesystem test. The 1 MiB reader limit does not bound transfer to the server. Fixture evidence does not certify final host-theme contrast or the full visual matrix.
+
+# BBP-29 heading and source-line navigation evidence
+
+## Baseline and scope
+
+Ticket baseline: `c395f8ef34917940d1b4ad06eb8258c5ed566424`. HEAD and the worktree were clean before edits. Owner: `thr_34avqdjac3`, child of `thr_e4syayprwm`, in `env_72hcdkd9km` on the existing epic branch. Native blocker BBP-27 is done. The epic baseline remains `3425edb839388a72fe8ac5ac5240cc573b8372b8` for BBP-32. The task was attached to this child and remained in_progress through review and correction. Final task/commit state is recorded in the external handoff.
+
+All changes are inside this package. The existing source/server flow, immutable snapshots, Refresh/Retry states, race suppression, Original fallback, plain fences, and inactive file/external links and images remain. Earlier acceptance records above are an unchanged byte prefix. No other ticket, plugin, collection file, core/SDK code, or host theme was changed.
+
+## Contract and implementation
+
+Read the ticket, current plugin-authoring/testing guidance, DESIGN.md, all OpenSpec plans, the five epic attachments, package modules/tests/docs, earlier handoffs/review, and parent orchestration record. The four Markdown attachments match their OpenSpec files byte for byte. The HTML is a spacing/type reference, not a Raw source fixture.
+
+The installed SDK 0.5.29 declaration defines nullable `experimental_lineRange` with `startLineNumber` and `endLineNumber`. Bounds are inclusive and one-based. Each new object is a new intent, including equal values; null is untargeted. The app forwards this prop separately from the memoized source target and remount key.
+
+- One react-markdown synchronous parse/render builds the document model. A rehype transform records heading labels, levels, source positions, GitHub-style fragments, and targets on that exact rendered tree. There is no independent heading parser. Inline formatting, code/link text, image alt text, Unicode, duplicate and suffix collisions, Setext, quoted and empty headings stay aligned with rendered content. Raw HTML and fenced text do not create outline entries.
+- React useId supplies each mounted reader's namespace. Known document fragments map to local IDs. Heading activation prevents browser hash navigation and scrolls/focuses only this reader, including keyboard and middle/modifier activation. File/external links, images, missing and malformed fragments remain inert.
+- ResizeObserver measures the reader panel. Above 1080 px, the outline has a 164 px aside with a 60 px gap beside the 720 px bounded prose column. Constrained readers use a closed inline disclosure. Outline hides it and reclaims document space. No headings means no empty outline/toggle. Fallback and unmount dispose the observer.
+- Raw retains exact source-line slices, including CRLF, final newline/empty line, Unicode, frontmatter, and code spaces. Wrapped visual rows share one source-line target. Requests select Raw, highlight the inclusive normalized range, and reveal/focus its start after load. Repeated objects reveal again. Manual view switches remain possible. Line-only changes preserve the read and model.
+- Reversed integer bounds are ordered and clamped. Malformed, fractional, non-finite, and unsafe integer bounds do not highlight; empty text has no highlight. Removing a request clears highlights without changing the manual view choice. Navigation never writes the source.
+
+The new navigation fixture deliberately contains CRLF and trailing source/code spaces. Its package-local .gitattributes rule prevents line-ending conversion and permits only this fixture's intentional end-of-line whitespace. Other changed files use normal whitespace checks.
+
+## Test-first and validation
+
+Focused red/green logs cover the missing document model, outline disclosure/hide controls, source-line model, and initial/repeated Raw targeting. An early test fixture accidentally included Original in an RPC snapshot; it was corrected to a JSON-only target before the outline red checkpoint. Typecheck caught a non-iterable DOM NodeList use, invalid Testing Library exact options, and an incomplete ResizeObserver test entry. All were corrected before final verification.
+
+Node 24.15.0 and BB 0.44.0. Pre-review package commands ran serially:
+
+| Command/check | Result |
+| --- | --- |
+| `npm ci` | Pass, lockfile install, 0 reported vulnerabilities. Existing prebuild-install dependency emits a deprecation warning. |
+| `npm test` | Pass, 117 tests in 7 files, including all earlier behavior checks. |
+| `npm run typecheck` | Pass, strict declarations, skipLibCheck false. |
+| `bb plugin types . --check` | Pass, package and host SDK 0.5.29. |
+| `bb plugin build` | Pass, server/app bundles, CSS, maps and metadata. |
+| Source/RPC/registered-reader navigation integration | Pass for all three sources, one actual controlled SDK read, no writes or navigation calls for repeated line props. |
+| `tests/browser-navigation-check.py` | Pass at 1440 light, 760 light and 390 dark fixture widths, plus dynamic panel resize, no-heading document, independent readers and initial Raw target. |
+| Existing `tests/browser-check.py` | Pass, previous 760 light / 390 dark / 1440 custom-token checks. |
+| Existing `tests/browser-refresh-check.py` | Pass, retained stale Preview/Raw, Retry, bound Original and no panel overflow. |
+| Collection/scope/whitespace checks | Pass, 22 package-only files; collection README/CI and source/server unchanged, lock declarations match, prior acceptance byte prefix preserved, tracked and untracked whitespace clean. |
+| Plugin inventory | Markdown Reader absent; fixture browser/session and server stopped. |
+
+Model/UI tests cover duplicate/non-ASCII/inline headings, six levels, conventional fragments and collisions, local keyboard focus, independent reader IDs, compact disclosure, hide/reclaim state, no headings, observer disposal, initial/repeated/changed requests before and after reads, clamping, malformed and empty inputs, exact Raw/wrapped lines, no line-only reload/model replacement, source switching, and the existing source/race/fallback suite.
+
+## Browser evidence and limits
+
+Inspected early 1440 px aside and 760 px closed disclosure captures before the full checks. Inspected all saved navigation, layout regression, and stale-state views. The approved reading spacing/type remains usable, the toolbar stays reachable, keyboard focus is visible, and a wrapped highlighted Raw line remains one real source-line target. Browser assertions confirm local-only scroll/focus, no reopening/hash change, exact CRLF Raw, repeated reveal without remount/read, clamping, no reader-wide overflow, and no page errors.
+
+Browser-use's default managed browser could not find a local browser path. Local unsigned Playwright Chromium ran the fixture checks. The first navigation runner expected two clamped final lines; this fixture has 55 CRLF terminators and a final empty source line, so the correct count is three. The runner was corrected before its passing result. This was a test expectation error, not a reader change.
+
+Reproduce with `npm run preview:fixture -- --port 4173 --strictPort`, then `uvx --with playwright python tests/browser-navigation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-29-browser`. The README lists prior layout/refresh commands. Saved evidence is in `/Users/koen/.bb/thread-storage/thr_34avqdjac3/bbp-29/`, including early captures, navigation/layout/refresh subdirectories, results JSON and checkpoint/final logs.
+
+These captures use illustrative fixture tokens, not installed BB themes. No install/reload, opener preference change, host theme change, publication, push, or PR occurred. Live BB navigation/transport/Original and native theme contrast remain unverified. The final theme/responsive matrix stays with BBP-31/32. Safe file/external links/images and syntax highlighting remain with BBP-30/31. The existing SDK transfer-size limit remains unchanged.
+
+## Completion review
+
+The single fresh-context read-only run `23685e4a-b540-4c40-be44-ba708dd67275` completed at `2026-10-03T17:58:12.046Z`. It reviewed the complete baseline diff and all nine untracked files. Its exact verdict was REQUEST CHANGES BBP-29 with one P1 blocker, not approval. No separate structural blocker was found. The reviewer independently passed 117 tests, strict typecheck, SDK compatibility, scope and whitespace checks, and inspected saved build/browser evidence.
+
+Collected this exact completed run and its full report after the BB-native owner-only notice. Native state is complete with output present, although process terminal remains pending. This did not block collection. The original report remains unchanged at `/Users/koen/.bb/thread-storage/thr_34avqdjac3/bbp-29/completion-review.md`, with the saved runtime result in `native-review-result.json`. The notice alone was not used as approval. No reviewer was resumed and no second pass or worker was launched.
+
+### P1 correction and affected checks
+
+The reviewer reproduced a crash for valid used footnotes. The Markdown pipeline generates a hidden Footnotes h2 without a source position. The collector assumed that all h1-h6 nodes had source positions, so model creation failed even for initial Raw requests.
+
+Reproduced the blocker first with four new model/UI regression cases. The saved `footnote-red.log` shows the same undefined source-position error. The correction makes the source-heading boundary explicit in the same HAST transform. Positionless generated labels do not become source outline entries or get fake source lines. Passive footnote text remains intact. Generated IDs and their references are namespaced before source heading IDs are assigned, and inert reference spans preserve their local accessibility descriptions. Scoped CSS retains the generated label's screen-reader-only presentation. No second parser or active footnote/file/image navigation was added.
+
+`footnote-green.log` passes 19 focused tests. These include used footnotes with/without source headings, repeated references, independent reader IDs, local accessibility references, initial targeted Raw, exact CRLF text, and absence of an invented/empty outline. The strict focused typecheck also passes.
+
+Post-correction verification passed:
+
+| Command/check | Result |
+| --- | --- |
+| `npm test -- --no-cache` | 121 tests in 7 files. |
+| `npm run typecheck` | Strict declaration check passes. |
+| `bb plugin types . --check` | Package/host SDK 0.5.29. |
+| `bb plugin build` | BB 0.44.0 bundles, CSS, maps and metadata. |
+| All three browser runners | Navigation, previous layout and Refresh/Retry/fallback regression checks pass, no page errors. New used-footnote fixtures pass initial exact Raw, source-only outline and local accessibility-reference checks. |
+
+Post-correction captures/results live in `post-review/{navigation,layout,refresh}/`. All 11 prior view captures are byte-identical to the previously inspected views. The two new footnote captures were inspected and show passive note content, a correct source-only outline when a source heading exists, and no outline when it does not. The fixture browser and server were stopped again.
+
+The single review's P1 finding is resolved by the implementation owner and passing regression/affected checks. The original REQUEST CHANGES verdict is preserved; no claim of a second approval is made. This meets the workflow's one-review-and-resolve gate. All BBP-29 implementation criteria and affected validation now pass. Final scope/whitespace, local commit, attachments, and clean-worktree evidence are recorded in the external handoff and task record. No other ticket was started. Live BB/theme limits above remain unchanged.

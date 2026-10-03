@@ -1,22 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useId, useRef, useCallback } from "react";
 import type { ComponentType } from "react";
 import { Button } from "./components/ui/button";
-import { MarkdownDocument } from "./document";
+import { MarkdownDocument, createDocumentModel } from "./document";
 import type { ReaderTarget, ReadResult, TextSnapshot } from "./source";
+import { Outline, useWidePanel } from "./outline";
+import { RawDocument } from "./raw";
+import type { LineRequest } from "./source-lines";
+import { revealInReader } from "./navigation";
 
 export type ReadDocument = (target: ReaderTarget) => Promise<ReadResult>;
 export interface ReaderProps {
   target: ReaderTarget;
   readDocument: ReadDocument;
   Original: ComponentType;
+  lineRange?: LineRequest;
 }
 
 /** The target owner remounts this reader only when source identity changes. */
-export function Reader({ target, readDocument, Original }: ReaderProps) {
+export function Reader({ target, readDocument, Original, lineRange }: ReaderProps) {
   const [state, setState] = useState<{ loading: boolean; result: ReadResult | null; snapshot: TextSnapshot | null }>({ loading: true, result: null, snapshot: null });
-  const [view, setView] = useState<"preview" | "raw">("preview");
+  const [view, setView] = useState<"preview" | "raw">(lineRange ? "raw" : "preview");
   const [refresh, setRefresh] = useState(0);
   const [fallback, setFallback] = useState(false);
+  const namespace = useId();
+  const root = useRef<HTMLElement>(null);
+  const wide = useWidePanel(root, !fallback);
+  const [showOutline, setShowOutline] = useState(true);
+  const model = useMemo(() => state.snapshot ? createDocumentModel(state.snapshot.text, namespace) : null, [state.snapshot, namespace]);
+  const navigate = useCallback((id: string) => {
+    const panel = root.current;
+    const heading = Array.from(panel?.querySelectorAll<HTMLElement>(".mr-prose [id]") ?? []).find(h => h.id === id);
+    if (!panel || !heading) return;
+    revealInReader(panel, heading);
+  }, []);
+  useEffect(() => { if (lineRange != null) setView("raw"); }, [lineRange]);
   useEffect(() => {
     if (fallback) return;
     let current = true;
@@ -31,7 +48,7 @@ export function Reader({ target, readDocument, Original }: ReaderProps) {
 
   if (fallback) return <Original />;
   const { result, snapshot, loading } = state;
-  return <section className="markdown-reader" aria-label="Markdown Reader">
+  return <section ref={root} className="markdown-reader" aria-label="Markdown Reader">
     <header className="mr-toolbar">
       <div className="mr-path" title={target.path}>{target.path}</div>
       <div className="mr-controls" role="group" aria-label="Document controls">
@@ -39,6 +56,7 @@ export function Reader({ target, readDocument, Original }: ReaderProps) {
           <Button variant="ghost" aria-pressed={view === "preview"} onClick={() => setView("preview")}>Preview</Button>
           <Button variant="ghost" aria-pressed={view === "raw"} onClick={() => setView("raw")}>Raw</Button>
         </div>
+        {view === "preview" && !!model?.headings.length && <Button variant="ghost" aria-pressed={showOutline} onClick={() => setShowOutline(show => !show)}>Outline</Button>}
         <Button variant="ghost" onClick={() => setRefresh(n => n + 1)}>Refresh</Button>
         <Button variant="ghost" onClick={() => setFallback(true)}>Open in BB preview</Button>
       </div>
@@ -51,10 +69,14 @@ export function Reader({ target, readDocument, Original }: ReaderProps) {
         <Button variant="outline" onClick={() => setRefresh(n => n + 1)}>Retry</Button>
       </div>}
       {snapshot && (view === "raw"
-        ? <pre className="mr-raw" aria-label="Raw Markdown" tabIndex={0}>{snapshot.text}</pre>
+        ? <RawDocument sourceLines={model!.sourceLines} request={lineRange} panel={root} />
         : snapshot.text === ""
           ? <p className="mr-state" role="status">This file is empty.</p>
-          : <MarkdownDocument text={snapshot.text} />)}
+          : <div className="mr-document-layout" data-outline={showOutline && model!.headings.length ? (wide ? "aside" : "inline") : "hidden"}>
+            {showOutline && !!model!.headings.length && !wide && <Outline model={model!} wide={false} navigate={navigate} />}
+            <MarkdownDocument model={model!} navigate={navigate} />
+            {showOutline && !!model!.headings.length && wide && <Outline model={model!} wide navigate={navigate} />}
+          </div>)}
     </div>
   </section>;
 }

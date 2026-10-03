@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import pluginApp from "../app";
 import pluginServer from "../server";
 import { readResultSchema, type ReaderTarget } from "../source";
+import type { LineRequest } from "../source-lines";
 
 const targets: ReaderTarget[] = [
   { path: "note.md", source: { kind: "workspace", threadId: "thread", environmentId: null, projectId: null } },
@@ -13,7 +14,7 @@ const targets: ReaderTarget[] = [
 ];
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => { cleanup(); for (const dispose of disposers.splice(0)) await dispose(); });
-async function mount(target: ReaderTarget, read: () => Promise<{ content: string; contentEncoding: "utf8" | "base64"; sizeBytes: number; sha256: string }>) {
+async function mount(target: ReaderTarget, read: () => Promise<{ content: string; contentEncoding: "utf8" | "base64"; sizeBytes: number; sha256: string }>, lineRange?: LineRequest) {
   const { bb, harness } = createFakePluginHost({ pluginId: "markdown-reader", sdk: {
     threads: {
       get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }),
@@ -25,10 +26,10 @@ async function mount(target: ReaderTarget, read: () => Promise<{ content: string
   disposers.push(() => harness.lifecycle.dispose());
   pluginServer(bb);
   const app = await loadPluginApp(pluginApp);
-  const slot = renderSlot(app.fileOpeners[0]!, { ...target, Original: () => <p>Original for {target.source.kind}</p> }, {
+  const slot = renderSlot(app.fileOpeners[0]!, { ...target, experimental_lineRange: lineRange, Original: () => <p>Original for {target.source.kind}</p> }, {
     rpc: { read_document: async input => readResultSchema.parse(await harness.behavior.callRpc("read_document", input)) },
   });
-  return { slot, harness };
+  return { slot, harness, Opener: app.fileOpeners[0]!.component };
 }
 function file(content: string, contentEncoding: "utf8" | "base64" = "utf8", sizeBytes = new TextEncoder().encode(content).length) {
   return { content, contentEncoding, sizeBytes, sha256: "hash" };
@@ -102,5 +103,21 @@ describe("source to rendered reader integration", () => {
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(slot.getByLabelText("Raw Markdown").textContent).toBe("# Current"));
     expect(slot.queryByRole("alert")).toBeNull();
+  });
+  it.each(targets)("navigates $source.kind source lines without another SDK read or write", async target => {
+    const text = '# Actual\r\n\r\n  Source é  \r\n';
+    const { slot, harness, Opener } = await mount(target, async () => file(text), { startLineNumber: 3, endLineNumber: 3 });
+    const raw = await slot.findByLabelText("Raw Markdown");
+    expect(raw.textContent).toBe(text);
+    expect(raw.querySelector('[data-highlighted="true"]')?.textContent).toBe('  Source é  \r\n');
+    fireEvent.click(slot.getByRole("button", { name: "Preview" }));
+    const heading = await slot.findByRole("heading", { name: "Actual" });
+    slot.lifecycle.rerender(<Opener {...target} Original={() => <p>Bound Original</p>} experimental_lineRange={{ startLineNumber: 3, endLineNumber: 3 }} />);
+    expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
+    fireEvent.click(slot.getByRole("button", { name: "Preview" }));
+    expect(slot.getByRole("heading", { name: "Actual" }).id).toBe(heading.id);
+    expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
+    expect(harness.inspection.sdk.callsTo("files.write")).toHaveLength(0);
+    expect(slot.inspection.navigateCalls).toHaveLength(0);
   });
 });

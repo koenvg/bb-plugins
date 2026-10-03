@@ -13,7 +13,9 @@ A live Markdown file opener for workspace, absolute-host, and thread-storage fil
 
 `source.ts` exposes `SourceReader.read` and a narrow `SourceAdapter`. It owns target validation, all three source identities, host/root confinement, text limits, and snapshots with hash and document-directory data. `server.ts` connects the adapter to the verified SDK and registers the wire schema. Future safe destinations can use this identity/root data without adding source-specific branches to the view.
 
-`reader.tsx` accepts a target, one read operation, and BB's bound Original component. It owns load state, explicit refresh, view choice, and fallback. Retained snapshots are unverified during refresh and explicitly stale on failure. A source identity change remounts the reader. Superseded reads, fallback, and unmount discard late results. `document.tsx` only renders loaded text. Links and images remain inert.
+`reader.tsx` accepts a target, one read operation, BB's bound Original component, and optional line-range props. It owns load state, explicit refresh, view choice, outline visibility, and fallback. Retained snapshots are unverified during refresh and stale on failure. Only a source identity change remounts it. Superseded reads, fallback, and unmount discard late results. Line-only props do not read or replace the document model.
+
+`document.tsx` builds one model with react-markdown's synchronous parser/renderer. A rehype transform records headings and namespaced targets on that exact rendered tree. GitHub-style fragments map to local targets. `outline.tsx` observes reader width and owns the aside/disclosure. `source-lines.ts` retains exact source-line slices; `raw.tsx` highlights and reveals requested real lines. `navigation.ts` scrolls/focuses only this reader. File/external links and images stay inert.
 
 `app.tsx` registers the live-file opener. `app.css` uses reader-scoped host tokens and container width. Tests use these public source and rendered-reader interfaces, not private path or parser helpers.
 

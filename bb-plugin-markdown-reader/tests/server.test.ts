@@ -54,7 +54,7 @@ describe("public server RPC", () => {
   });
   it("imports only public SDK contracts and package-local modules", () => {
     const result = experimental_scanPublicSdkOnly(new URL("..", import.meta.url).pathname, {
-      allow: [/^react$/, /^react-dom\/client$/, /^react-markdown$/, /^remark-gfm$/,
+      allow: [/^react$/, /^react-dom\/client$/, /^react-markdown$/, /^remark-gfm$/, /^github-slugger$/, /^unist-util-visit$/, /^hast$/,
         /^@radix-ui\/react-slot$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/,
         /^@testing-library\/(react|user-event)$/, /^vitest\/config$/],
     });

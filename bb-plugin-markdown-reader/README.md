@@ -2,7 +2,7 @@
 
 A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, plain code, and quiet tables. BB keeps its own tabs and file-opening preferences.
 
-This package includes BBP-27 and BBP-28. It is not published or installed by this change.
+This package includes BBP-27 through BBP-29. It is not published or installed by this change.
 
 ## Use
 
@@ -12,6 +12,16 @@ After an explicit installation, select Markdown Reader with BB's one-off **Open 
 - Raw shows the complete loaded text, including frontmatter, line endings, and code spaces. It is not an editor. Switching views does not read or write the file.
 - Refresh reads the current file again and updates both views. There is no automatic file watching. During refresh, the reader labels retained content as not verified current. If refresh fails, it reports the failure and marks the retained snapshot stale. Retry reads the source again and clears that label only after success.
 - Open in BB preview renders BB's `Original` component, already bound to this file. It does not open the file again through plugin selection.
+
+## Heading and line navigation
+
+Outline lists only headings from the rendered Markdown parse. It keeps heading levels and visible inline text, including code and link text. Repeated headings have distinct GitHub-style fragment names, such as `#section` and `#section-1`. Non-ASCII names are supported, including percent-encoded fragments. Every mounted reader has separate DOM targets. Outline entries and known fragment links scroll and focus the heading in that reader without opening the file again. Missing or malformed fragments remain inert. Used footnotes keep their passive text and reader-local accessibility references. The parser's hidden footnote label is not a source heading and does not create an outline entry.
+
+Above 1080 px of reader width, Outline shows a 164 px aside beside the bounded prose column. Narrower readers use a closed **On this page** disclosure. Use Outline to hide it and return space to the document. Heading-free documents have no outline or toggle. The layout measures the reader panel, not the browser window.
+
+BB's `experimental_lineRange` uses inclusive, one-based `startLineNumber` and `endLineNumber` values. A request selects Raw, highlights real source lines, and reveals the start after loading. A new request object with the same values reveals again without a new read or model replacement. Line-only changes do not reload the source. You can still select Preview or Raw manually.
+
+Reversed integer bounds are put in order and clamped to existing lines. Invalid, fractional, non-finite, or unsafe integer bounds do not highlight lines. Empty text has nothing to highlight. Removing the request clears its highlight, not the manual view choice. Raw wraps long lines but keeps one target per source line, including the empty line after a final newline. CRLF, frontmatter, Unicode, and code spaces stay unchanged. Navigation never writes the file.
 
 The toolbar stays within the reader and wraps when the panel is narrow. Keyboard users can reach its buttons with Tab and activate them with Enter or Space. Code and tables have their own scroll regions. Appearance follows the active host tokens, not a reader theme switch.
 
@@ -29,13 +39,13 @@ Relative workspace/storage paths must be literal Markdown paths. Parent/dot trav
 
 The reader accepts complete UTF-8 text up to **1 MiB**, including empty files. Preview reports an empty file; Raw preserves its empty source. Binary or invalid UTF-8 encoding and non-text control characters have explicit unsupported states. Larger or unsupported files offer the bound BB preview and are never returned to the reader for parsing. The current SDK has no stat or byte-limited read option. It can transfer a larger file to the server before this plugin rejects it. The 1 MiB limit bounds reader content, not SDK transfer.
 
-Raw HTML does not become active DOM. MDX, scripts, and embedded HTML widgets do not execute. All Markdown links, including fragments and external URLs, remain inert. Images show only their alt text and make no network requests. Task checkboxes remain disabled. No report-specific badges, dates, or other metadata are inferred.
+Raw HTML does not become active DOM. MDX, scripts, and embedded HTML widgets do not execute. Known same-document heading fragments navigate within this reader. Other links, including relative files and external URLs, remain inert. Images show only their alt text and make no network requests. Task checkboxes remain disabled. No report-specific badges, dates, or other metadata are inferred.
 
-Heading outlines, requested source-line navigation, safe link/image activation, syntax highlighting, and the final visual matrix belong to later tickets. This version renders all fenced languages as plain code without guessing a language or formatting JSON. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated file extensions stay with BB.
+Safe file/external link and image activation, syntax highlighting, and the final visual matrix belong to later tickets. This version renders all fenced languages as plain code without guessing a language or formatting JSON. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated file extensions stay with BB.
 
 ## Compatibility and local build
 
-Verified against BB Plugin SDK **0.5.29** and the current BB build command. The manifest requires BB **>=0.44** and SDK **>=0.5.29 <0.6**. Experimental host and Original contracts can change; recheck them with a newer BB before use.
+Verified against BB Plugin SDK **0.5.29** and the current BB build command. The manifest requires BB **>=0.44** and SDK **>=0.5.29 <0.6**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
 From this package directory, with Node 24.15 or newer within Node 24 and a compatible `bb` CLI:
 
@@ -71,5 +81,7 @@ uvx --with playwright python tests/browser-check.py --url http://127.0.0.1:4173 
 ```
 
 To check the retained stale state, run `uvx --with playwright python tests/browser-refresh-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-28-browser`. The fixture's `?refresh=error` mode keeps the real reader controls and simulates a disconnected read after initial loading.
+
+For heading/Raw navigation, run `uvx --with playwright python tests/browser-navigation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-29-browser`. Its `?document=navigation` mode uses the committed CRLF source fixture. It checks local fragments, independent readers, panel resizing, keyboard disclosure/focus, exact Raw, wrapped lines, and repeated line props. `?start=18&end=18` checks an initial line target. The `fixture-line-request` event only changes public reader props in this test page.
 
 The fixture uses the same Reader and MarkdownDocument modules with a fixed loaded source and illustrative host tokens. It does not prove live BB routing, extension preference selection, or built-in theme contrast. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.
