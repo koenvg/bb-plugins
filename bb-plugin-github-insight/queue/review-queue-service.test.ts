@@ -7,6 +7,7 @@ import type { PrResolution } from "../pr-lookup";
 import {
   createReviewQueueService,
   REVIEW_QUEUE_STORAGE_KEY,
+  SHARED_ENVIRONMENT_MESSAGE,
   type QueueProject,
   type QueueThread,
   type ReviewQueueServiceDeps,
@@ -586,7 +587,10 @@ describe("review-queue background service", () => {
 
 describe("startReview", () => {
   const pr = { repo: "acme/api", number: 15, title: "PR 15", url: "https://github.com/acme/api/pull/15" };
-  const request = { projectId: "prj_api" } as NewThreadRequest;
+  const request = {
+    projectId: "prj_api",
+    environment: { type: "provider", environmentProviderId: "git-worktree", inputs: {} },
+  } as NewThreadRequest;
 
   it("spawns the review thread and publishes it linked without a GitHub call", async () => {
     const reviewThreads: QueueReviewThread[] = [];
@@ -611,6 +615,26 @@ describe("startReview", () => {
     expect(update).toMatchObject({ loadedAt: 1_000 });
     expect(hostIds).toHaveLength(1);
     expect(await service.getReviewQueue()).toEqual(update);
+  });
+
+  it("rejects a shared environment without spawning or publishing", async () => {
+    const spawned: unknown[] = [];
+    const { service, published } = serviceWith({
+      spawnReviewThread: async (...args) => {
+        spawned.push(args);
+        return "thr_review";
+      },
+    });
+    await service.refreshReviewQueue();
+    const checkout = {
+      ...request,
+      environment: { type: "provider", environmentProviderId: "project-checkout", inputs: {} },
+    } as NewThreadRequest;
+
+    await expect(service.startReview(pr, checkout)).rejects.toThrow(SHARED_ENVIRONMENT_MESSAGE);
+
+    expect(spawned).toEqual([]);
+    expect(published).toHaveLength(1);
   });
 
   it("updates the last good view and keeps the error after a failed load", async () => {
