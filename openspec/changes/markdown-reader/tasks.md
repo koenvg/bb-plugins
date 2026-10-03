@@ -48,3 +48,10 @@
 ## BBP-30 ticket evidence
 
 The approved safety revision is implemented in `bb-plugin-markdown-reader/`. See its `ACCEPTANCE.md` BBP-30 section for destination, image-lifecycle, SDK, and browser evidence. Browser RPC/native-opening/content-denial checks are fixtures. Live source transport, native symlink behavior, and installed-theme acceptance remain pending under 6.5; this ticket does not authorize installation or complete BBP-31/BBP-32.
+
+
+## BBP-31 ticket evidence
+
+BBP-31 implements bounded fence highlighting (3.2) and verifies the reader's layout, container response, keyboard access and host-token presentation (5.1–5.4). See `bb-plugin-markdown-reader/ACCEPTANCE.md` for the nine-case registered-app browser matrix, inspected capture identities, built-in token provenance, contrast results, clean-install validation and the single completion-review record. Shared epic checklist items above stay open: fixture results do not complete installed/native acceptance under 6.5 or BBP-32.
+
+Single fresh review `e78a440b-369c-4183-bb7e-9ba06678ec34` returned APPROVE BBP-31 with no findings. Its native state is complete with observed runner exit 0. The required reviewer notice failed on unsupported `--message` and was not delivered. The operator authorized finalization despite that notice-only failure; no reviewer retry or replacement is permitted or claimed. The full report, native receipt, authorization, final verification, local commit and task completion receipts are recorded in the ticket's external final handoff and acceptance evidence. This record completes only BBP-31's scope, not the shared epic checklist or installed/native acceptance.

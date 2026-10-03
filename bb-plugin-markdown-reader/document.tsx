@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { createSourceLines, type SourceLines } from "./source-lines";
 import { DestinationLink, DestinationImage } from "./destination-view";
 import { MAX_DESTINATIONS, MAX_DESTINATION_URL_LENGTH, destinationKey, type DestinationRequest } from "./destination-types";
+import { boundedCode } from "./code";
 
 export interface DocumentHeading { level: number; text: string; fragment: string; id: string; line: number }
 export interface DocumentModel {
@@ -90,7 +91,7 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
       });
     };
   }
-  const content = Markdown({ children: text, remarkPlugins: [remarkGfm], rehypePlugins: [collectHeadings], components, skipHtml: true, urlTransform: url => url });
+  const content = Markdown({ children: text, remarkPlugins: [remarkGfm], rehypePlugins: [collectHeadings, boundedCode], components, skipHtml: true, urlTransform: url => url });
   return { content, headings, requests, fragmentTarget, sourceLines: createSourceLines(text) };
 }
 

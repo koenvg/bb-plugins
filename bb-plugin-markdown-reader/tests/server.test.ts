@@ -56,6 +56,7 @@ describe("public server RPC", () => {
     const result = experimental_scanPublicSdkOnly(new URL("..", import.meta.url).pathname, {
       allow: [/^react$/, /^react-dom\/client$/, /^react-markdown$/, /^remark-gfm$/, /^github-slugger$/, /^unist-util-visit$/, /^hast$/,
         /^@radix-ui\/react-slot$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/,
+        /^refractor\/(core|markup|css|javascript|typescript|json|bash|python)$/,
         // Public frontend test runtime, used only by the browser fixture entry.
         /^@get-bb\/plugin-sdk\/testing\/app$/,
         /^@testing-library\/(react|user-event)$/, /^vitest\/config$/],

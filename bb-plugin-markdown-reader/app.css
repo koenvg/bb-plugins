@@ -44,14 +44,21 @@
 .markdown-reader .mr-prose input[type="checkbox"] { accent-color: var(--foreground); margin-right: 8px; }
 .markdown-reader .mr-prose blockquote { margin: 22px 0; padding: 4px 0 4px 22px; border-left: 2px solid var(--border); color: var(--muted-foreground); }
 .markdown-reader .mr-prose blockquote p:last-child { margin-bottom: 0; }
-.markdown-reader .mr-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82em; background: var(--surface-recessed); padding: 2px 5px; border-radius: 4px; }
+.markdown-reader .mr-prose code { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: .82em; background: var(--surface-recessed); padding: 2px 5px; border-radius: 4px; }
 .markdown-reader .mr-prose pre, .markdown-reader .mr-raw {
   background: var(--surface-recessed); border: 1px solid var(--border); border-radius: 6px;
   padding: 16px 18px 20px; overflow-x: auto; white-space: pre; overflow-wrap: normal;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.9; tab-size: 2;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: 13px; line-height: 1.9; tab-size: 2;
 }
 .markdown-reader .mr-prose pre { margin: 22px 0; }
 .markdown-reader .mr-prose pre code { padding: 0; background: none; font-size: inherit; border-radius: 0; }
+.markdown-reader .mr-prose pre .token { color: var(--foreground); }
+.markdown-reader .mr-prose pre .token.comment,
+.markdown-reader .mr-prose pre .token.prolog { color: var(--muted-foreground); font-style: italic; }
+.markdown-reader .mr-prose pre .token.keyword,
+.markdown-reader .mr-prose pre .token.boolean,
+.markdown-reader .mr-prose pre .token.property { font-weight: 650; }
+.markdown-reader .mr-prose pre .token.string { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
 .markdown-reader .mr-table-scroll { overflow-x: auto; margin: 24px 0; border: 1px solid var(--border); border-radius: 6px; }
 .markdown-reader .mr-prose table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.65; text-align: left; font-variant-numeric: tabular-nums; }
 .markdown-reader .mr-prose th { background: var(--surface-recessed); font-weight: 550; color: var(--muted-foreground); }

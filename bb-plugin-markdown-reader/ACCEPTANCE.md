@@ -279,3 +279,62 @@ Post-fix verification passes with 190 tests in nine files, strict typecheck, SDK
 Native local-file opening has no extra plugin final-symlink-target confinement. Cross-file heading fragments and environment-free project-only native navigation remain inert. Remote sites can observe ordinary image requests and may receive their own browser cookies. There is no image-byte transfer bound. The 1 MiB document cap still does not bound SDK transfer to the server. Installed source transport, opener preference selection, native routing/modifier behavior, and built-in/custom-theme acceptance remain pending with the parent and BBP-32.
 
 No core/SDK edits, plugin installation/reload, preference/theme changes, push, publication, PR, or BBP-31 work occurred. BBP-26 remains in progress.
+
+
+# BBP-31 code presentation and responsive reading evidence
+
+## Scope and implementation
+
+Fixed point: `64791cb705e54161c1d33ef4529cb2a051051cac`. Sole writer: `thr_yzdy7ncie2`; parent: `thr_e4syayprwm`. Branch: `bb/bbp-26-markdown-reader-thr_e4syayprwm`. Only the reader package and directly required OpenSpec records change. All earlier BBP-29/BBP-30 records, including their original REQUEST CHANGES findings and owner resolutions, remain unchanged.
+
+The existing Markdown HAST receives bounded highlighting through Refractor core and explicit grammar imports for markup, CSS, JavaScript, TypeScript, JSON, Bash and Python. Aliases are html/xml, js, ts, sh/shell and py; labels are case-insensitive. The rendered code's UTF-8 byte length, including its rendered trailing newline, is checked before tokenization. Up to and including 20 KiB is eligible. Missing, unknown, oversized or failing languages stay plain. Only passive text/span tokens with identical complete text are accepted. No HTML-string rendering, language guessing, second Markdown parse, JSON formatting or JSON parsing is introduced.
+
+Scoped styles use host text, muted-text and monospace tokens. Comments, keywords and strings also use italic, weight and underline treatment. Existing centered prose, container-responsive outline, local table/code scrolling, controls and image sizing remain intact. No reader-owned theme switch or global selector is added. Preview highlighting leaves immutable Raw source unchanged.
+
+Test-first evidence includes the initial compact-JSON failure and the inherited `constructor` label regression. The latter is fixed by an own-property alias lookup. Tests cover explicit languages/aliases, exact whitespace/newlines/JSON, markup safety, long lines, inclusive/multibyte byte limits, unclosed EOF fences, plain inline/indented code, tokenizer failures/unsafe or changed output, complete CRLF Raw and registered-app keyboard switching.
+
+## Verification and visual evidence
+
+Durable evidence root: `/Users/koen/.bb/thread-storage/thr_yzdy7ncie2/bbp-31/`.
+
+| Check | Result and evidence |
+| --- | --- |
+| `npm ci` | 269 packages, zero vulnerabilities; `clean-install.log`. |
+| `npm test -- --no-cache` | 221 tests in 10 files pass; `eof-full-tests.log`. |
+| `npm run typecheck` | Pass; `eof-typecheck.log`. |
+| `bb plugin types . --check` | SDK 0.5.29 compatibility passes; `sdk.log`. |
+| `bb plugin build` | Pass; `build.log`. |
+| OpenSpec strict validation | Direct CLI absent (127); offline npx cache unavailable. `npx --yes @fission-ai/openspec validate markdown-reader --strict` passes; all three attempts are saved. |
+| Earlier browser runners | Original layout, refresh, navigation and nine destination cases pass after clean install; matching `*-browser.log` and `existing-*` results. |
+| Presentation browser | Nine cases pass after clean install; `presentation-clean-install/results.json`. No page, console or request failures. |
+| Visual inspection | All 16 final top/code captures match the 16 inspected `presentation-verified/` captures byte-for-byte; `final-capture-identity.json`. |
+| Bundle impact | App JS gzip 58,858 → 71,901 bytes (+13,043); CSS gzip 4,073 → 4,165; server unchanged. `baseline-bundle.json` and `final-bundle.json`. |
+| Collection and lock | Existing root README/CI package entries remain unchanged. Dependency declarations match the lock; `scope-and-lock.json`. |
+
+The public registered-app frontend harness uses controlled RPC/image responses. Cases cover 390/760/1440 px in Default light/dark, a 760 px custom-token fixture, a 390 px reader inside a 1440 px viewport, and a heading-free document. Long titles/paths, heading levels 1–6, footnotes, long code and wide tables remain usable. Prose measures 342/680/720 px at the three widths. The runner checks local overflow and keyboard scrolling, reachable/named controls, visible focus, semantic headings/tables, local heading/footnote navigation, exact Raw, image aspect ratio and adjacent host-style sentinel isolation.
+
+Default built-in relevant tokens were copied from read-only `bb theme show default --json` and served core CSS. Full CSS SHA-256: `4679becb97e823c6fe046f59935b42b28abc08e1bd73286a4c884f4b8a895c36`. `core-token-provenance.json` records the source. No actual host theme changed. Body contrast is 12.6347:1 light, 10.1441:1 dark and 11.6576:1 custom. Minimum highlighted-token contrast is 7.0419:1, 8.3123:1 and 5.7688:1. Live fixture token/width changes preserve the document DOM, view, source and reader state without another read. The custom-token fixture is not a shipped theme.
+
+Browser-use's default browser failed twice with `No local browser path found after: uvx playwright install chromium`; close/retry and both errors are retained. The existing cached default headless Playwright Chromium completed the checks through `uv run --offline --with playwright python`. No browser installation or signed-in browser was used. Early runner setup failures (footnote heading count, fixture wrapper height, return selector and unscoped sentinel heading count) are retained beside their corrected passing runs. Representative captures were inspected before the full matrix and compared with the approved mockup.
+
+## Completion status and limits
+
+The single completion review and the operator-approved finalization record follow below. The full report and native result establish review approval; the failed notice does not.
+
+These are reproducible fixture checks, not installed BB certification. Native source routing, modifiers, opener preferences, host symlinks and installed-theme acceptance remain pending under BBP-32. Existing source/destination/image bounds and SDK limits from BBP-30 are unchanged. No installation, BB/core/SDK repair, configuration or theme change, BB restart, provider fallback, publication, push or PR occurred. BBP-26 remains in progress.
+
+## Single completion review and authorized finalization
+
+Fresh async `delegate` run `e78a440b-369c-4183-bb7e-9ba06678ec34` used the global `review` skill and reviewed the entire ticket diff against `64791cb705e54161c1d33ef4529cb2a051051cac`, including all seven untracked files. Its verdict is APPROVE BBP-31 with no findings. Native lifecycle state is `complete`; process terminal is `observed`; runner exit is 0 with no signal. The owner and parent collected the full bound report and exact native result. Durable files are `completion-review.md`, `native-review-result.json`, `native-review-terminal.json`, `native-review-output.md` and `native-review-events.jsonl` in the evidence root above.
+
+The reviewer independently passed strict typecheck, SDK compatibility, production-transformer probes, scope/lock/whitespace checks and all 16 capture hash comparisons. It inspected the approved mockup, all 16 captures and saved complete validation results. It did not rerun installation, full tests, builds or browser captures. There were no findings to resolve and no second review.
+
+The reviewer's final owner-only notice failed. The implementation owner supplied `bb thread tell thr_yzdy7ncie2 --message ...`; this CLI rejected the flag with `error: unknown option '--message'` and exited 1. The notice was not delivered. No further reviewer tools, resume, replacement, retry or alternate route ran. Review approval comes from the collected report/result, not a notice or the runner's exit code alone. The original failure and paused partial handoff remain unchanged.
+
+The parent `thr_e4syayprwm` then relayed the operator's "go for it" authorization to finish evidence, final checks, a scoped local commit and BBP-31 completion despite the notice-only failure. `finalization-authorization.md` records that permission and its exclusions. It does not turn the failed notice into a success or permit further implementation, another review, installation, repair, settings changes, restart, publication, push/PR or BBP-32 work.
+
+Before these evidence-only edits, HEAD, branch, the complete paused diff and all seven archived untracked file contents matched. There were 13 unstaged tracked changes and no staged files. Only upstream relationship counts changed from behind 12 to behind 14; HEAD and working files were identical. BBP-31 was unblocked with `thr_yzdy7ncie2` as its sole attached owner. Ticket baseline stays `64791cb705e54161c1d33ef4529cb2a051051cac`; epic baseline stays `3425edb839388a72fe8ac5ac5240cc573b8372b8`.
+
+Finalization changes only this acceptance record and the ticket evidence in OpenSpec tasks. Applicable final checks cover strict OpenSpec validation, scoped files, dependency/lock agreement, unchanged collection integration, preserved historical acceptance, evidence-only continuation, capture identity and tracked/untracked whitespace. Commands, exact results, commit, clean-worktree and task receipts are in the external `final-handoff.md` and matching final evidence files. Full tests, clean install, typecheck, SDK check, build and browser runners are not rerun because no executable, dependency, test, CSS or runtime-configuration bytes changed after the reviewed passing state. Their earlier results and limits remain as recorded above.
+
+The owned fixture listener was verified in this worktree and stopped; port 4173 has no remaining listener. Browser runners closed their browsers. Installed/native acceptance remains pending under BBP-32. BBP-26 remains in progress.

@@ -58,6 +58,15 @@ The reader SHALL render common Markdown and GitHub-flavored tables, lists, task 
 - **WHEN** fenced code includes HTML or script syntax
 - **THEN** that syntax is displayed as code and is not interpreted as page content
 
+#### Scenario: Bounded explicit-language highlighting
+- **WHEN** a fenced block selects a documented bundled language or alias and its rendered UTF-8 text is at most 20 KiB
+- **THEN** it receives passive syntax highlighting without changes to text, values, spacing or newlines
+- **AND** the byte guard runs before tokenization, without automatic language detection or JSON formatting
+
+#### Scenario: Plain-code fallback
+- **WHEN** a fenced block has an unknown or missing language, exceeds 20 KiB of rendered UTF-8 text, or its tokenizer fails
+- **THEN** the reader displays the unchanged rendered code as plain readable text and keeps the complete exact Raw source
+
 #### Scenario: Embedded active HTML
 - **WHEN** a Markdown file contains script tags, event handlers, iframes, or other raw HTML
 - **THEN** the reader does not execute that HTML or mount active document-supplied elements

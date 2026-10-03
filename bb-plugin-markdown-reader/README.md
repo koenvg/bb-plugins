@@ -1,8 +1,8 @@
 # Markdown Reader
 
-A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, plain code, and quiet tables. BB keeps its own tabs and file-opening preferences.
+A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, bounded code highlighting, and quiet tables. BB keeps its own tabs and file-opening preferences.
 
-This package includes BBP-27 through BBP-30. It is not published or installed by this change.
+This package includes BBP-27 through BBP-31. It is not published or installed by this change.
 
 ## Use
 
@@ -49,7 +49,25 @@ External HTTP(S) links use BB's opening preferences through UrlLink. Remote imag
 
 Local raster images support PNG, JPEG, GIF, WebP, AVIF, BMP, and ICO. SVG, HTML, PDF, and TIFF image destinations are inert. Local images share one source/root preview lease per loaded snapshot, with a 60-second TTL. At most 128 distinct destination requests and 32 distinct images are resolved per snapshot. URLs longer than 4096 characters stay individually inert; other valid destinations still work. Encoded path separators and nested path encodings are rejected for both local and external destinations. Image URLs carry an opaque lease, never a raw host/root path. Expiry or a failed asset request leaves readable alt/error text. Refresh renews transport even when text and hash do not change. View changes do not allocate another lease. Refresh, source switching, Original, and unmount remove stale image sources and discard late results. The SDK has no revocation API; abandoned leases expire.
 
-Syntax highlighting and the final visual matrix belong to later tickets. Fenced code stays plain, with no guessed language or JSON formatting. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB.
+## Code presentation
+
+Fences with an explicit supported language receive lightweight highlighting up to 20 KiB of rendered UTF-8 code, including its final newline. The byte guard runs before tokenization. Unknown or missing languages, larger fences, and tokenizer failures stay plain readable code. There is no auto-detection, JSON parsing, pretty printing, or source reconstruction. Preview preserves the Markdown parser's rendered code text; Raw always preserves the complete exact original, including CRLF.
+
+| Bundled language | Accepted labels |
+| --- | --- |
+| JSON | `json` |
+| JavaScript | `javascript`, `js` |
+| TypeScript | `typescript`, `ts` |
+| Shell | `bash`, `sh`, `shell` |
+| Python | `python`, `py` |
+| Markup | `markup`, `html`, `xml` |
+| CSS | `css` |
+
+Labels are case-insensitive. JSX, TSX, JSON5, and other unlisted labels remain plain. Markup-like code renders as passive text and spans, not document HTML. Inline code and unlabelled indented blocks stay plain.
+
+The small Refractor core bundle imports only these grammars and their required shared grammar. Code uses live host UI tokens with weight, muted comments, and subdued string underlines. It does not select a separate syntax palette or promise to reproduce BB's VS Code code-theme document. The system monospace fallback yields to the host `--font-mono` token.
+
+The toolbar, reading column, and optional outline respond to the actual reader width. Wide code and tables scroll locally. Images retain their aspect ratio. Live host token changes preserve Preview/Raw and outline state without another read or remount. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB. Whole assembled and installation-dependent acceptance remains with BBP-32.
 
 ## Compatibility and local build
 
@@ -93,4 +111,14 @@ To check the retained stale state, run `uvx --with playwright python tests/brows
 For heading/Raw navigation, run `uvx --with playwright python tests/browser-navigation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-29-browser`. Its `?document=navigation` mode uses the committed CRLF source fixture. It checks local fragments, independent readers, panel resizing, keyboard disclosure/focus, exact Raw, wrapped lines, and repeated line props. `?start=18&end=18` checks an initial line target. The `fixture-line-request` event only changes public reader props in this test page.
 
 For destinations, run `uv run --offline --with playwright python tests/browser-destination-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-30-browser`. The page at `/tests/destination-preview.html` uses the real registered reader and public SDK frontend test runtime. Its RPC responses, native navigation callbacks, successful image GETs, and confined GET denial are fixtures, not live BB/host proof.
-The fixture uses the same Reader and MarkdownDocument modules with a fixed loaded source and illustrative host tokens. It does not prove live BB routing, extension preference selection, or built-in theme contrast. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.
+For the presentation matrix, run:
+
+```sh
+uv run --offline --with playwright python tests/browser-presentation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-31-browser
+# One case for setup or targeted checks:
+uv run --offline --with playwright python tests/browser-presentation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-31-early --only 760-light
+```
+
+The server must already return HTTP 200. The runner measures 390, 760, and 1440 px panels in Default light/dark token snapshots, a custom-token variant, and a 390 px reader inside a 1440 px viewport. It checks keyboard focus/activation, local scrolling and navigation, exact Raw, live state/DOM identity, aspect ratio, body/token contrast, and adjacent fixture styles. It saves top/code captures, SHA-256 identities, geometry, bounded browser diagnostics, and measured contrast. See [token provenance and limits](tests/fixtures/theme-tokens.md). It uses synthetic RPC and image data, not live BB routing or a real source host.
+
+All fixtures use the same Reader and MarkdownDocument modules. The older fixtures use fixed loaded sources; the presentation fixture uses the public registered-app harness. Default-token contrast measurements are controlled local checks, not installed/native-theme certification. No fixture proves live BB routing or extension preference selection. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.

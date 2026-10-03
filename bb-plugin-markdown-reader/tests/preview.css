@@ -1,6 +1,21 @@
-/* Illustrative host-token fixture. This is not proof of live BB theme behavior. */
-:root { --background: #ffffff; --foreground: #333333; --muted-foreground: #666666; --surface-recessed: #f5f5f5; --border: #dddddd; --state-hover: #eeeeee; --state-active: #e6e6e6; --ring: #333333; --radius: 6px; color-scheme: light; }
-:root[data-theme="dark"] { --background: #222222; --foreground: #eeeeee; --muted-foreground: #bbbbbb; --surface-recessed: #292929; --border: #444444; --state-hover: #333333; --state-active: #3b3b3b; --ring: #eeeeee; color-scheme: dark; }
+/* Default built-in token snapshot from BB's served index-C5-8cYca.css.
+   See fixtures/theme-tokens.md. Fixture-only, not installed-theme certification. */
+:root {
+  --canvas: oklch(100% 0 0); --ink: oklch(32.11% 0 0);
+  --background: var(--canvas); --foreground: var(--ink); --muted-foreground: oklch(44% 0 0);
+  --surface-recessed: color-mix(in oklab, var(--ink) 6%, transparent);
+  --border: color-mix(in oklch, var(--ink) 14%, var(--canvas));
+  --state-hover: color-mix(in oklab, var(--ink) 5.9%, transparent);
+  --state-active: color-mix(in oklab, var(--ink) 11.8%, transparent);
+  --primary: oklch(27% 0 0); --ring: var(--primary); --radius: .5rem; color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --canvas: oklch(19.5% 0 0); --ink: oklch(81% 0 0); --muted-foreground: oklch(78% 0 0);
+  --primary: oklch(82% 0 0);
+  --border: color-mix(in oklch, var(--ink) 19.4%, var(--canvas));
+  --state-hover: color-mix(in oklab, var(--ink) 13.8%, transparent);
+  --state-active: color-mix(in oklab, var(--ink) 22.5%, transparent); color-scheme: dark;
+}
 :root[data-theme="custom"] { --background: #fff8ef; --foreground: #30334e; --muted-foreground: #565b70; --surface-recessed: #f3ede3; --border: #c8c7c6; --state-hover: #efebe7; --state-active: #e5dfd9; --ring: #62477b; --radius: 12px; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--background); color: var(--foreground); }
 .fixture-layout { display: flex; align-items: stretch; }

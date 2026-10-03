@@ -234,4 +234,20 @@ describe("rendered reader", () => {
     expect(document.body.textContent).not.toContain("After unmount");
     expect(slot.inspection.rpcCalls).toHaveLength(2);
   });
+  it("keeps highlighted Preview and complete exact Raw on the same frontend snapshot", async () => {
+    const text = '# Highlighted\r\n\r\n```json\r\n{"compact":true}  \r\n```\r\n\r\n```js\r\n\tconst value = true;\r\n```\r\n';
+    const { slot } = await mount(() => ready(text));
+    await slot.findByRole("heading", { name: "Highlighted" });
+    expect(slot.container.querySelectorAll("pre .token").length).toBeGreaterThan(0);
+    expect(slot.getAllByLabelText("Code block").map(b => b.textContent)).toEqual(['{"compact":true}  \n', '\tconst value = true;\n']);
+    const user = userEvent.setup();
+    await user.tab();
+    await user.tab();
+    await user.keyboard(" ");
+    expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
+    await user.tab({ shift: true });
+    await user.keyboard("{Enter}");
+    expect(slot.getByRole("heading", { name: "Highlighted" })).toBeTruthy();
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
+  });
 });
