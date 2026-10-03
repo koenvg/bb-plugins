@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Folder, Project } from "../shared/contract.js";
+import type { Project } from "../shared/contract.js";
 import { useFolders, type useProjects } from "./data.js";
 import type { ResolvedTasksRoute, TasksRoute } from "./routes.js";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { folderPath } from "./folder-path.js";
 
 interface NavigationActions {
   onNavigate: (route: TasksRoute) => void;
@@ -48,21 +49,6 @@ function NavigationChoice({
       ) : null}
     </DropdownMenuItem>
   );
-}
-// Full paths keep nested folders legible without hover-only submenus. Projects
-// with a missing folder stay reachable in the ungrouped section.
-function folderPath(folder: Folder, folders: Folder[]): string {
-  const names = [folder.name];
-  const seen = new Set([folder.id]);
-  let parentId = folder.parentFolderId;
-  while (parentId !== null && !seen.has(parentId)) {
-    const parent = folders.find((candidate) => candidate.id === parentId);
-    if (!parent) break;
-    seen.add(parent.id);
-    names.unshift(parent.name);
-    parentId = parent.parentFolderId;
-  }
-  return names.join(" / ");
 }
 
 export function ProjectPicker({

@@ -34,6 +34,7 @@ import { Icon } from "@/components/ui/icon";
 import { TasksRefreshProvider } from "./refresh.js";
 import { ShortcutProvider, useShortcuts } from "./shortcut-provider.js";
 import { ShortcutHelpDialog } from "./shortcut-help-dialog.js";
+import { ProjectSwitcher } from "./project-switcher.js";
 import {
   useCommandNavigator,
   usePanelIntents,
@@ -144,11 +145,21 @@ function TasksAppShellContent({
   const newTaskProjectId = route.kind === "project" ? route.projectId : null;
 
   const [helpOpen, setHelpOpen] = useState(false);
+  const [projectSwitcherOpen, setProjectSwitcherOpen] = useState(false);
   useCommandNavigator();
   usePanelIntents(
     useCallback((intent: PanelIntent) => {
-      if (intent === "new-task") setNewTaskOpen(true);
-      else setHelpOpen(true);
+      switch (intent) {
+        case "new-task":
+          setNewTaskOpen(true);
+          break;
+        case "help":
+          setHelpOpen(true);
+          break;
+        case "switch-project":
+          setProjectSwitcherOpen(true);
+          break;
+      }
     }, []),
   );
   useShortcuts({
@@ -167,7 +178,12 @@ function TasksAppShellContent({
 
   return (
     <div className="relative flex h-full min-h-0 bg-background text-foreground">
-      <main ref={mainRef} className="@container flex min-w-0 flex-1 flex-col">
+      <main
+        ref={mainRef}
+        tabIndex={-1}
+        aria-label="Tasks"
+        className="@container flex min-w-0 flex-1 flex-col"
+      >
         <TasksTopbar
           route={route}
           projects={projects}
@@ -223,6 +239,17 @@ function TasksAppShellContent({
       {newProjectOpen ? (
         <NewProjectDialog open onOpenChange={setNewProjectOpen} />
       ) : null}
+      <ProjectSwitcher
+        open={projectSwitcherOpen}
+        onOpenChange={setProjectSwitcherOpen}
+        inventory={projects}
+        currentProjectId={newTaskProjectId}
+        focusReturnRef={mainRef}
+        onSelect={(projectId) => {
+          navigation.go({ kind: "project", projectId, view: null });
+          setProjectSwitcherOpen(false);
+        }}
+      />
       <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );

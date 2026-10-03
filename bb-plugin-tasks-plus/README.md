@@ -462,8 +462,25 @@ comment, uploads a file, notifies, or delegates.
 
 The bb command palette (`Mod+Shift+P`) also lists **Tasks: New task**,
 **Tasks: Go to All tasks**, **Tasks: Go to Active tasks**, **Tasks: Go to
-Manage**, and **Tasks: Show keyboard shortcuts**. They have no default keys;
+Manage**, **Tasks: Show keyboard shortcuts**, and **Tasks: Switch project**.
+They have no default keys;
 bind your own in bb.
+
+### Switch Tasks projects
+
+1. Open BB's command palette.
+2. Select **Tasks: Switch project**.
+3. Search by project name or prefix, then select a project.
+
+In the picker, use Ctrl+N or ArrowDown for the next result and Ctrl+P or
+ArrowUp for the previous result. Navigation stops at each end. Press Enter to
+select, or click a result. The current project is marked. Escape or Close cancels
+and returns focus to Tasks, not to BB's command palette.
+
+This switches a Tasks tracker project, not BB's workspace project. Pending task
+edits must save before the project changes. A failed save keeps the task and draft
+available for retry. The destination uses its saved list or board preference.
+There is no direct board shortcut for the picker, including Shift+P.
 
 ## Known limitations
 
