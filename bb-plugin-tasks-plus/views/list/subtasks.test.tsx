@@ -299,7 +299,7 @@ describe("subtasks in the list", () => {
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "tasks",
-      options: { subPath: "task/ABC-2" },
+      options: { subPath: `${PROJECT_ID}?view=list&task=ABC-2`, replace: true },
     });
   });
 
@@ -484,7 +484,7 @@ describe("subtasks with a filter", () => {
 });
 
 describe("thread summary list parity", () => {
-  it.each(["", PROJECT_ID, "active"])(
+  it.each(["all", PROJECT_ID, "active"])(
     "enriches only displayed parents, then expanded children in %s",
     async (subPath) => {
       const slot = render([parent, doneChild, urgentChild, plain], subPath);
@@ -572,7 +572,7 @@ describe("thread summary list parity", () => {
   );
 });
 
-it.each(["", PROJECT_ID, "active"])(
+it.each(["all", PROJECT_ID, "active"])(
   "keeps rich check/review parity on dimmed parents and matching children in %s",
   async (subPath) => {
     preset({ statuses: ["todo"] });

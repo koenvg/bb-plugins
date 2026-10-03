@@ -1,18 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
-  parseTasksRoute,
   useTasksNavigation,
   type ResolvedTasksRoute,
   type TasksNavigation,
   type TasksRoute,
 } from "./routes.js";
-import { loadViewMode, storeViewMode } from "./view-preference.js";
+import { storeViewMode } from "./view-preference.js";
+import { BrowseEntryState, useBrowseRoute } from "./browse-entry.js";
 import { TasksTopbar } from "./topbar.js";
 import { ListView } from "../views/list/index.js";
+import { BrowseWorkspace } from "./browse-workspace.js";
 import { BoardView } from "../views/board/index.js";
 import { DetailView } from "../views/detail/index.js";
+import {
+  TasksSessionProvider,
+  useSafeTaskTarget,
+} from "../views/detail/task-session.js";
 import { NewTaskDialog } from "../views/manage/new-task-dialog.js";
 import { NewProjectDialog } from "../views/manage/new-project-dialog.js";
 import { ManagePanel } from "../views/manage/manage-panel.js";
@@ -30,18 +42,29 @@ import {
 
 const BOARD_MIN_WIDTH = 448;
 
+// Scope identity resets list-local query snapshots and controls together. Do
+// not key this outlet by a future selected ticket: selection must retain the list.
 function RouteOutlet({
   route,
   boardUsable,
+  noProjects,
 }: {
   route: ResolvedTasksRoute;
   boardUsable: boolean;
+  noProjects: boolean;
 }) {
   switch (route.kind) {
+    case "entry":
+      return null;
     case "all":
-      return <ListView projectId={null} />;
     case "active":
-      return <ListView projectId={null} activeOnly />;
+      return (
+        <BrowseWorkspace
+          key={route.kind}
+          route={route}
+          noProjects={noProjects}
+        />
+      );
     case "manage":
       return <ManagePanel />;
     case "task":
@@ -49,20 +72,26 @@ function RouteOutlet({
     case "project":
       return route.view === "board" && boardUsable ? (
         <BoardView projectId={route.projectId} />
+      ) : route.view === "board" ? (
+        <ListView key={route.projectId} projectId={route.projectId} />
       ) : (
-        <ListView projectId={route.projectId} />
+        <BrowseWorkspace
+          key={route.projectId}
+          route={route}
+          noProjects={noProjects}
+        />
       );
   }
 }
 
-function resolveRoute(route: TasksRoute): ResolvedTasksRoute {
-  if (route.kind !== "project") return route;
-  return { ...route, view: route.view ?? loadViewMode(route.projectId) };
-}
-
-function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
-  const route = resolveRoute(parseTasksRoute(subPath));
+function TasksAppShellContent({
+  subPath: requestedSubPath,
+}: PluginNavPanelProps) {
+  const subPath = useSafeTaskTarget(requestedSubPath);
   const tasksNavigation = useTasksNavigation();
+  const projects = useProjects();
+  // Remember scope only from the accepted route, never a pending save target.
+  const route = useBrowseRoute(subPath, projects, tasksNavigation);
   const navigation = useMemo<TasksNavigation>(
     () => ({
       go: (target, options) => {
@@ -79,28 +108,39 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
 
   const mainRef = useRef<HTMLElement>(null);
   const [boardUsable, setBoardUsable] = useState(true);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const main = mainRef.current;
-    if (!main || typeof ResizeObserver === "undefined") return;
+    if (!main) return;
     const update = () => {
       const mainWidth = main.clientWidth;
       setBoardUsable(!(mainWidth > 0 && mainWidth < BOARD_MIN_WIDTH));
     };
     update();
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(update);
     observer.observe(main);
     return () => observer.disconnect();
   }, []);
-  const projects = useProjects();
 
   const lastBrowseRouteRef = useRef<TasksRoute | null>(null);
   useEffect(() => {
-    if (route.kind !== "task") lastBrowseRouteRef.current = route;
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [subPath]);
+    if (route.kind !== "task" && route.kind !== "entry") {
+      lastBrowseRouteRef.current = route;
+    }
+  }, [route]);
   const backFromTask = () =>
     navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
-  const noProjects = projects.data !== undefined && projects.data.length === 0;
+  const noProjects =
+    !projects.isLoading &&
+    projects.error === null &&
+    projects.data?.length === 0;
+  // A selected browse editor must accept clearing before inventory can replace
+  // its outlet. Stale/failed inventory is never evidence of project removal.
+  const hasBrowseSelection =
+    (route.kind === "all" ||
+      route.kind === "active" ||
+      route.kind === "project") &&
+    route.taskKey !== undefined;
   const newTaskProjectId = route.kind === "project" ? route.projectId : null;
 
   const [helpOpen, setHelpOpen] = useState(false);
@@ -130,7 +170,7 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
       <main ref={mainRef} className="@container flex min-w-0 flex-1 flex-col">
         <TasksTopbar
           route={route}
-          projects={projects.data}
+          projects={projects}
           pagerScope={
             lastBrowseRouteRef.current === null
               ? null
@@ -143,10 +183,16 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
           }
           onNavigate={navigation.go}
           onNewTask={() => setNewTaskOpen(true)}
+          onNewProject={() => setNewProjectOpen(true)}
           onBack={backFromTask}
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {noProjects && route.kind !== "task" && route.kind !== "manage" ? (
+          {route.kind === "entry" ? (
+            <BrowseEntryState projects={projects} />
+          ) : noProjects &&
+            !hasBrowseSelection &&
+            route.kind !== "task" &&
+            route.kind !== "manage" ? (
             <EmptyState
               icon="ListTodo"
               title="No projects yet"
@@ -159,19 +205,24 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
               }
             />
           ) : (
-            <RouteOutlet route={route} boardUsable={boardUsable} />
+            <RouteOutlet
+              route={route}
+              boardUsable={boardUsable}
+              noProjects={noProjects}
+            />
           )}
         </div>
       </main>
-      <NewTaskDialog
-        open={newTaskOpen}
-        onOpenChange={setNewTaskOpen}
-        projectId={newTaskProjectId}
-      />
-      <NewProjectDialog
-        open={newProjectOpen}
-        onOpenChange={setNewProjectOpen}
-      />
+      {newTaskOpen ? (
+        <NewTaskDialog
+          open
+          onOpenChange={setNewTaskOpen}
+          projectId={newTaskProjectId}
+        />
+      ) : null}
+      {newProjectOpen ? (
+        <NewProjectDialog open onOpenChange={setNewProjectOpen} />
+      ) : null}
       <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
@@ -183,7 +234,9 @@ export function TasksAppShell(props: PluginNavPanelProps) {
     <TasksRefreshProvider>
       <ShortcutProvider rootRef={rootRef}>
         <div ref={rootRef} className="contents">
-          <TasksAppShellContent {...props} />
+          <TasksSessionProvider>
+            <TasksAppShellContent {...props} />
+          </TasksSessionProvider>
         </div>
       </ShortcutProvider>
     </TasksRefreshProvider>

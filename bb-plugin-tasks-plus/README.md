@@ -209,6 +209,32 @@ controls, selection and subtask expansion still work. These summaries apply equa
 to All tasks, project lists, Active tasks and visible filtered subtasks. Dense metadata
 wraps beneath readable titles and retains thread failure/archive cues using BB theme tokens.
 
+## Save and draft safety
+
+Switching tickets or leaving detail for another Tasks destination waits for the
+current ticket's pending description, title, and property saves. Rapid destination
+changes use the latest request. A failed save keeps the ticket and latest draft
+editable, with a visible **Retry** button. Clean navigation needs no confirmation.
+The remembered project or All choice changes only after saving succeeds and the
+requested Tasks route is accepted, not when navigation is first requested.
+
+Filters, sort, subtask expansion, and row-property writes also wait for pending
+editor saves before changing the list or its saved preferences. If a refresh
+removes the selected row while saving fails, the originating row and editor stay
+accessible until Retry succeeds.
+Removing the last project follows the same rule: the empty-project screen waits
+until pending saves succeed and the selected route clears.
+
+Unsent comment text, staged files, and the notification switch stay with each
+ticket while the Tasks panel remains mounted. Switching never posts a comment,
+uploads staged files, notifies an agent, or delegates work. An explicit send or
+upload that finishes after switching still belongs to the original ticket.
+
+Comment drafts are memory-only. Closing the panel or reloading the browser can
+lose them. Leaving BB or closing the panel is not an awaited-save guarantee.
+Standalone links and thread-side detail keep the same editor and explicit actions.
+See [the transition contract](views/detail/README.md) for workspace integration.
+
 ## CLI reference
 
 Run `bb tasks --help` or `bb tasks <command> --help` for exact options; help
@@ -313,17 +339,126 @@ portable in task content.
 Mentioning a task key such as `PROD-1` in an agent request also activates the
 Tasks skill, which directs the worker to read and update the tracked task.
 
+## Project navigation
+
+Choose a project or **All projects** from the picker above the ticket list or
+board. The picker shows the current scope and groups projects by folder. Nested
+folders use a full path such as `Work / Products`. Changing scope restores that
+scope's saved filters and sort, updates its label choices and New task default,
+and remembers the accepted project or All choice.
+
+The **Tasks navigation** menu beside New task opens **Active**, **Manage**, and
+**New project**. Active always spans all projects and does not replace the
+remembered scope. Under **Manage**, use **Presets** to create or edit agent presets
+and **Folders** to organize projects. With no projects, the header and empty
+state offer New project instead of an empty picker.
+
+The permanent right-hand Navigation pane is no longer registered. The sidebar
+count and command-palette entry points remain available. On narrow panels, long
+project names truncate, New task becomes icon-only, and List/Board stays available
+in Tasks navigation when the inline toggle does not fit.
+
+## Browse and edit side by side
+
+All, Active, and project lists fill the main Tasks area. Selecting a row opens its
+existing editable ticket in BB's native right-hand **Ticket** tab, alongside the
+host's Browser and Terminal tabs. BB owns pane resizing and its compact drawer;
+Tasks does not create an inner split. The selected row stays highlighted, both
+areas scroll independently, and selection does not focus an editor.
+
+The detail keeps title, description, properties, dependencies, subtasks, files,
+comments, linked threads, and delegation. Pending autosaves must succeed before
+selection changes. Retry a failed save without leaving the originating draft.
+
+Browse links carry optional selection, for example `all?task=TSK-2` or
+`PROJECT_ID?view=list&task=TSK-2`. Selection replaces the current history entry.
+A reopened browse link selects only a task present in the settled visible list.
+Selection follows the rendered filtered/sorted groups, including expanded children
+and dimmed parents. Loading and failed refreshes keep it. A settled filter, collapse,
+edit, or deletion that removes the row safely clears selection and returns to the
+selection prompt. Changing projects clears the old selection after pending saves.
+Embedded subtask and dependency links select visible rows in place. Other task
+links open standalone detail without changing remembered scope. Board routes,
+standalone task links, mentions, CLI commands, and thread-side embeds keep their
+existing destinations.
+
+Switching to Browser or Terminal, or closing Ticket, keeps the selected editor
+and its drafts alive while the Tasks page remains mounted. Reopening Ticket
+returns to that editor; selecting another row deliberately reveals Ticket.
+Refresh and resize do not reopen a tab you closed or move focus from another pane.
+A delayed save does not undo a host-tab switch made while it was pending.
+
+If navigation needs to save a parked editor, Tasks reveals its originating Ticket
+pane so a failed save remains retryable. Inactive editor menus close and its
+controls cannot claim keys. If BB declines to open the pane, the same retained
+editor temporarily occupies Tasks so you can correct the draft or retry its save.
+Try Ticket pane again restores native placement; Back to list remains save-guarded.
+
+Escape from non-editable detail saves pending edits and returns focus to the
+selected row without scrolling or clearing selection. BB's own controls manage
+its narrow-layout drawer and tab closure; there is no plugin Back-to-list layout.
+
+Long row titles and important metadata wrap in constrained list containers.
+Status, priority, and expansion controls have larger coarse-pointer targets.
+Board and thread-side detail layouts are unchanged.
+
+Unsent comment text, staged files, and notification choice stay task-owned for the
+mounted Tasks session. Tab switches and resize do not submit, upload, notify, or delegate.
+Explicit operations finishing later still belong to their originating task.
+Closing the native Ticket tab is safe; closing the Tasks page or reloading the
+browser ends this session's unsent-draft retention.
+
+## Remembered project scope
+
+Opening Tasks without a destination restores the last Tasks project or your
+explicit All projects choice. This memory belongs to the browser profile and
+applies across BB projects. It does not follow the current BB project's link,
+change CLI project inference, or sync to another browser or device.
+
+- Explicit project links and **Go to All tasks** override and update that choice.
+- **Active**, **Manage**, and direct `task/<key>` links take precedence without
+  changing the remembered scope. A cross-project task link opens its named task
+  without selecting that project first.
+- First use defaults to All projects. Restoration waits for a successful project
+  inventory before deciding a remembered project was deleted and falling back
+  to All. Failed inventory requests offer **Retry** without erasing the choice.
+- Unavailable or malformed browser storage does not block selection. Choices
+  still work for the current session; future-version preference documents remain
+  untouched. Storage failures can prevent persistence across a page reload.
+
+Project list/board preferences remain separate. List filters and sort persist in
+browser storage per All, Active, and project scope; they are not encoded in the
+URL. Scope restoration leaves those preferences, expanded subtasks, and list
+scroll preferences unchanged.
+
 ## Keyboard shortcuts
 
-Press `?` in the Tasks panel to see every shortcut. Single keys work when you
-are not typing and no menu or dialog is open.
+Press `?` in the Tasks panel to see every shortcut, generated from the same
+shortcut definitions as the listener. Single keys do nothing while typing in
+inputs or rich text, during composition, with Cmd/Ctrl/Alt held, inside another
+BB pane, or while a menu or dialog is open. Escape never discards an editor draft.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | `c` new task, `?` shortcuts, `v` list or board (project only) |
-| List | `j` `k` / `↓` `↑` move, `Enter` `o` open, `s` status, `p` priority, `l` labels |
+| Anywhere | `c` new task, `?` shortcuts, `v` list or board on project routes |
+| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order |
+| List row | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row |
+| Ticket detail | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus |
 | Board | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority |
-| Task | `Esc` back, `[` `]` previous or next task, `s` `p` `l` properties, `d` dispatch preset, `m` comment |
+| Standalone task | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
+
+Movement starts at the first row in either direction with no selection, clamps at
+the ends, and waits for settled filtered/sorted order, including expanded subtasks
+and dimmed parents. Tab focus alone does not change selection. Movement focuses
+and scrolls the selected row. Enter waits for the selected lookup and a visible
+Ticket pane before focusing its non-editable container, including on a retryable
+error. Escape restores row focus without scrolling or clearing selection.
+
+Selection and context changes wait for safe saves. Failure leaves the origin,
+draft, selection, and Retry accessible. A superseded request cannot steal focus.
+Property keys belong only to the focused pane, even while both panes stay mounted.
+Closing help or a row menu restores its prior focus. Navigation never submits a
+comment, uploads a file, notifies, or delegates.
 
 The bb command palette (`Mod+Shift+P`) also lists **Tasks: New task**,
 **Tasks: Go to All tasks**, **Tasks: Go to Active tasks**, **Tasks: Go to
@@ -333,7 +468,7 @@ bind your own in bb.
 ## Known limitations
 
 - The **Auto** delegation preset is deferred; choose an explicit preset.
-- List filters are local UI state and are not persisted in the URL.
+- Browser preferences are local to the browser profile, not synced across devices.
 
 ## Fast follow
 

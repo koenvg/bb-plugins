@@ -16,6 +16,11 @@ import {
   tasksRouteToSubPath,
 } from "../../shell/routes.js";
 import { DetailView } from "../detail/index.js";
+import {
+  TasksSessionProvider,
+  useSafeTaskTarget,
+  useTasksSession,
+} from "../detail/task-session.js";
 import { PRIORITY_LABELS, STATUS_LABELS } from "../list/lib.js";
 import { PriorityIcon, StatusIcon } from "../list/icons.js";
 
@@ -94,18 +99,22 @@ function OpenInTasksButton({
   subPath?: string;
 }) {
   const navigate = useBbNavigate();
+  const transition = useTasksSession();
   return (
     <Button
       className="size-8 shrink-0"
       size="icon"
       variant="ghost"
       aria-label={label}
-      onClick={() =>
-        navigate.toPluginPanel(
-          PANEL_PATH,
-          subPath === undefined ? {} : { subPath },
-        )
-      }
+      onClick={() => {
+        const commit = () =>
+          navigate.toPluginPanel(
+            PANEL_PATH,
+            subPath === undefined ? {} : { subPath },
+          );
+        if (transition) void transition.request(commit);
+        else commit();
+      }}
     >
       <Icon name="ArrowUpRight" className="size-4" />
     </Button>
@@ -263,11 +272,12 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
 }
 
 function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
-  const taskKey =
+  const requestedKey =
     isRecord(params) && typeof params.taskKey === "string"
-      ? params.taskKey
-      : null;
-  if (taskKey === null || !TASK_KEY_PATTERN.test(taskKey.trim())) {
+      ? params.taskKey.trim()
+      : "";
+  const taskKey = useSafeTaskTarget(requestedKey);
+  if (!TASK_KEY_PATTERN.test(taskKey)) {
     return (
       <div className="p-3 text-sm text-muted-foreground">
         Open a task card from a message to view it here.
@@ -278,15 +288,15 @@ function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border pb-2">
         <div className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-          {taskKey.trim()}
+          {taskKey}
         </div>
         <OpenInTasksButton
-          label={`Open ${taskKey.trim()} in Tasks`}
-          subPath={taskDetailSubPath(taskKey.trim())}
+          label={`Open ${taskKey} in Tasks`}
+          subPath={taskDetailSubPath(taskKey)}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <DetailView taskKey={taskKey.trim()} />
+        <DetailView taskKey={taskKey} />
       </div>
     </div>
   );
@@ -295,7 +305,9 @@ function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
 export function TaskEmbedPanel(props: PluginThreadPanelProps) {
   return (
     <TasksRefreshProvider>
-      <TaskEmbedPanelContent {...props} />
+      <TasksSessionProvider>
+        <TaskEmbedPanelContent {...props} />
+      </TasksSessionProvider>
     </TasksRefreshProvider>
   );
 }

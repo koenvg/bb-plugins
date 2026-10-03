@@ -116,6 +116,9 @@ export function useTasksQuery<T>(
   const depsKey = JSON.stringify(deps);
   const dataDepsKeyRef = useRef(depsKey);
   const refresh = useCallback(() => {
+    // Retained data is only a snapshot until this request succeeds. Entry
+    // restoration must not validate project deletion during any refresh.
+    setState((current) => ({ ...current, isLoading: true }));
     const seq = ++seqRef.current;
     const snapshot = snapshotRef.current;
     const snapshotRevision =
@@ -143,7 +146,6 @@ export function useTasksQuery<T>(
   useEffect(() => {
     const generationBumped = previousGenerationRef.current !== generation;
     previousGenerationRef.current = generation;
-    setState((current) => ({ ...current, isLoading: true }));
     if (generationBumped) beginGenerationWork();
     let settled = false;
     const finish = () => {
@@ -157,7 +159,11 @@ export function useTasksQuery<T>(
     };
   }, [refresh, generation, beginGenerationWork, endGenerationWork]);
   useInvalidation(channels, refresh);
-  return { ...state, refresh };
+  return {
+    ...state,
+    isLoading: state.isLoading || previousGenerationRef.current !== generation,
+    refresh,
+  };
 }
 
 const foldersSnapshot = {

@@ -15,7 +15,8 @@ function keyEvent(
   init: KeyboardEventInit & { target?: EventTarget },
 ): KeyboardEvent {
   const event = new KeyboardEvent("keydown", { cancelable: true, ...init });
-  if (init.target) Object.defineProperty(event, "target", { value: init.target });
+  if (init.target)
+    Object.defineProperty(event, "target", { value: init.target });
   return event;
 }
 
@@ -30,6 +31,19 @@ describe("shortcut table", () => {
     },
   );
 
+  it("allows only explicit focus-exclusive property collisions in a split workspace", () => {
+    const scopes = SHORTCUTS.filter((shortcut) => shortcut.scope !== "board");
+    const collisions = new Map<string, string[]>();
+    for (const shortcut of scopes)
+      for (const key of shortcut.keys) {
+        collisions.set(key, [...(collisions.get(key) ?? []), shortcut.id]);
+      }
+    expect([...collisions].filter(([, ids]) => ids.length > 1)).toEqual([
+      ["s", ["list.status", "detail.status"]],
+      ["p", ["list.priority", "detail.priority"]],
+      ["l", ["list.labels", "detail.labels"]],
+    ]);
+  });
   it("has unique ids", () => {
     const ids = SHORTCUTS.map((shortcut) => shortcut.id);
     expect(new Set(ids).size).toBe(ids.length);

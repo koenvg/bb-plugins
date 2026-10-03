@@ -26,17 +26,22 @@ export const SHORTCUTS = [
     id: "list.next",
     scope: "list",
     keys: ["j", "ArrowDown"],
-    label: "Next task",
+    label: "Select next preview",
     repeatable: true,
   },
   {
     id: "list.previous",
     scope: "list",
     keys: ["k", "ArrowUp"],
-    label: "Previous task",
+    label: "Select previous preview",
     repeatable: true,
   },
-  { id: "list.open", scope: "list", keys: ["Enter", "o"], label: "Open task" },
+  {
+    id: "list.open",
+    scope: "list",
+    keys: ["Enter", "o"],
+    label: "Focus ticket preview",
+  },
   { id: "list.status", scope: "list", keys: ["s"], label: "Change status" },
   { id: "list.priority", scope: "list", keys: ["p"], label: "Set priority" },
   { id: "list.labels", scope: "list", keys: ["l"], label: "Edit labels" },
@@ -76,19 +81,24 @@ export const SHORTCUTS = [
   },
   { id: "board.status", scope: "board", keys: ["s"], label: "Change status" },
   { id: "board.priority", scope: "board", keys: ["p"], label: "Set priority" },
-  { id: "detail.back", scope: "detail", keys: ["Escape"], label: "Back" },
+  {
+    id: "detail.back",
+    scope: "detail",
+    keys: ["Escape"],
+    label: "Return to row / back from standalone task",
+  },
   {
     id: "detail.previous",
     scope: "detail",
     keys: ["["],
-    label: "Previous task",
+    label: "Previous visible ticket / standalone task",
     repeatable: true,
   },
   {
     id: "detail.next",
     scope: "detail",
     keys: ["]"],
-    label: "Next task",
+    label: "Next visible ticket / standalone task",
     repeatable: true,
   },
   { id: "detail.status", scope: "detail", keys: ["s"], label: "Change status" },
@@ -151,7 +161,7 @@ export function shortcutMatches(
   return !event.repeat || "repeatable" in shortcut;
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
+export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
     target instanceof HTMLInputElement ||
@@ -162,7 +172,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-function hasOpenOverlay(): boolean {
+export function hasOpenOverlay(): boolean {
   return (
     document.querySelector(
       '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
@@ -184,7 +194,12 @@ export function shouldIgnoreKey(
   if (event.defaultPrevented) return true;
   if (event.metaKey || event.ctrlKey || event.altKey) return true;
   if (event.isComposing) return true;
-  if (isEditableTarget(event.target)) return true;
+  const active = document.activeElement;
+  if (isEditableTarget(event.target) || isEditableTarget(active)) return true;
+  if (active instanceof HTMLElement && active.closest("[hidden], [inert]"))
+    return true;
   if (hasOpenOverlay()) return true;
-  return root !== null && isOutside(event.target, root);
+  return (
+    root !== null && (isOutside(event.target, root) || isOutside(active, root))
+  );
 }

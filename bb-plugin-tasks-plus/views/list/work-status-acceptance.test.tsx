@@ -391,7 +391,11 @@ it.each(["all", "project", "active"])(
       app.navPanels[0]!,
       {
         subPath:
-          scope === "project" ? project.id : scope === "active" ? "active" : "",
+          scope === "project"
+            ? project.id
+            : scope === "active"
+              ? "active"
+              : "all",
       },
       { rpc },
     );

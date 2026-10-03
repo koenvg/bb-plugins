@@ -94,6 +94,7 @@ interface TaskRowProps {
   onEdit: EditFn;
   onOpen: () => void;
   pending: boolean;
+  selected?: boolean;
   depth?: 0 | 1;
   dimmed?: boolean;
   expanded?: boolean;
@@ -113,6 +114,7 @@ export function TaskRow({
   onEdit,
   onOpen,
   pending,
+  selected = false,
   depth = 0,
   dimmed = false,
   expanded = false,
@@ -135,14 +137,17 @@ export function TaskRow({
     <TaskContextMenu task={task} onEdit={onEdit} projectLabels={projectLabels}>
       <div
         data-task-key={task.key}
+        data-selected={selected || undefined}
         data-dimmed={dimmed || undefined}
         aria-busy={pending || undefined}
         className={cn(
           "relative grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
-          "@4xl:flex @4xl:min-h-[34px] @4xl:flex-wrap",
-          depth === 1 && "pl-9",
+          "@4xl:flex @4xl:min-h-[34px] @4xl:flex-wrap @4xl:py-0 pointer-coarse:min-h-11",
+          onToggleExpanded !== undefined && "pointer-coarse:pl-12",
+          depth === 1 && "pl-9 pointer-coarse:pl-14",
           dimmed && "opacity-50",
           pending && "opacity-70",
+          selected && "bg-state-active",
         )}
       >
         <button
@@ -150,6 +155,7 @@ export function TaskRow({
           type="button"
           data-nav-item
           aria-label={`Open ${task.key}: ${task.title}`}
+          aria-current={selected ? "true" : undefined}
           onClick={onOpen}
           className="absolute inset-0 rounded-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
         />
@@ -162,7 +168,7 @@ export function TaskRow({
               event.stopPropagation();
               onToggleExpanded();
             }}
-            className="absolute left-0.5 top-1/2 z-10 flex size-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-subtle-foreground hover:bg-state-active hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="absolute left-0.5 top-1/2 z-10 flex size-3.5 pointer-coarse:size-11 -translate-y-1/2 items-center justify-center rounded-sm text-subtle-foreground hover:bg-state-active hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Icon
               name="ChevronRight"
@@ -178,9 +184,9 @@ export function TaskRow({
           onEdit={onEdit}
           {...menuProps("priority")}
           onCloseAutoFocus={focusRowOnClose}
-          className="col-start-1 row-start-2 @max-md:self-start"
+          className="col-start-1 row-start-2 @max-2xl:self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         />
-        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @max-md:self-start @4xl:w-14 @4xl:shrink-0">
+        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-4xl:col-span-2 @max-4xl:self-center @4xl:w-14 @4xl:shrink-0">
           {task.key}
         </span>
         <StatusEditor
@@ -188,11 +194,11 @@ export function TaskRow({
           onEdit={onEdit}
           {...menuProps("status")}
           onCloseAutoFocus={focusRowOnClose}
-          className="col-start-1 row-start-1"
+          className="col-start-1 row-start-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         />
         <Popover {...menuProps("labels")}>
           <PopoverAnchor asChild>
-            <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @4xl:flex-1 @4xl:min-w-64">
+            <span className="col-start-2 col-span-2 row-start-1 min-w-0 break-words text-sm @4xl:flex-1 @4xl:min-w-64 @4xl:truncate">
               {task.title}
             </span>
           </PopoverAnchor>
@@ -209,7 +215,7 @@ export function TaskRow({
             />
           </PopoverContent>
         </Popover>
-        <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground max-w-full flex-wrap justify-end self-start @4xl:shrink-0 @4xl:self-center">
+        <span className="col-start-3 row-start-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-end justify-end self-start text-xs text-subtle-foreground @max-4xl:col-start-2 @max-4xl:col-span-2 @max-4xl:row-start-3 @max-4xl:w-full @max-4xl:justify-start @4xl:shrink-0 @4xl:self-center">
           {subProgress !== undefined && subProgress.total > 0 ? (
             <span
               title="Subtasks done"

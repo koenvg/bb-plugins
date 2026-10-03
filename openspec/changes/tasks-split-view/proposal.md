@@ -8,9 +8,9 @@ Tasks currently mixes projects on entry, puts project navigation in a separate r
 
 - Remember the last selected Tasks project, or the explicit All projects choice, across reopening and refresh on the same browser profile. Explicit project, task, Active, and Manage routes still take precedence.
 - Move project selection into the list header and reclaim the right-hand navigation area for ticket detail. Keep Active, Manage, project creation, folders, and preset management reachable without a permanent third navigation column.
-- Show a compact ticket list on the left and the existing fully editable detail view on the right when the Tasks panel has enough width. The panes scroll independently.
+- Let the ticket list fill the main Tasks area and place its existing fully editable detail in a native right-hand Ticket tab. BB owns sizing, Browser/Terminal tabs, and compact drawer behavior; the plugin creates no nested split. The list and ticket scroll independently.
 - Keep one selected ticket shared by the row highlight, detail pane, and keyboard navigation. Clicks, `j` / `k`, and arrow keys update the preview in the visible filtered and sorted list order, including expanded subtasks.
-- Preserve list position and existing scoped filters, sort, expansion, and list/board preferences. Use list-to-detail navigation when the panel is too narrow for both panes.
+- Preserve list position, scoped filters, sort, expansion, and list/board preferences. Keep the editor and task-owned drafts alive while the native Ticket tab is inactive or closed, for the mounted Tasks-page session.
 - Protect pending edits and task ownership during selection changes, and handle empty, loading, failed, deleted, and filtered-out selections explicitly.
 - Keep the existing board, task-link, CLI, delegation, and thread-embed workflows compatible. No new backend API, database migration, or dependency is planned.
 

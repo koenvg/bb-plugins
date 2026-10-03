@@ -13,6 +13,7 @@ import { useIsCompactViewport } from "./hooks/use-compact-viewport.js";
 import { usePointerCoarse } from "./hooks/use-pointer-coarse.js";
 import { usePortalScopeProps } from "../../lib/portal-scope.js";
 import { cn } from "../../lib/utils.js";
+import { PaneVisibilityContext } from "../../lib/pane-visibility.js";
 
 export interface ResponsiveOverlayContextValue {
   isCompactViewport: boolean;
@@ -124,7 +125,9 @@ export function useResponsiveRoot(
   const isCompactViewport = presentation === "drawer";
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   const isControlled = controlledOpen !== undefined;
-  const open = isControlled ? controlledOpen : internalOpen;
+  const visible = React.useContext(PaneVisibilityContext);
+  const requestedOpen = isControlled ? controlledOpen : internalOpen;
+  const open = visible && requestedOpen;
 
   const onOpenChange = React.useCallback(
     (next: boolean) => {
@@ -139,6 +142,9 @@ export function useResponsiveRoot(
     [isCompactViewport, isControlled, controlledOnChange, open],
   );
 
+  React.useLayoutEffect(() => {
+    if (!visible && requestedOpen) onOpenChange(false);
+  }, [visible, requestedOpen, onOpenChange]);
   return React.useMemo(
     () => ({ isCompactViewport, open, onOpenChange }),
     [isCompactViewport, open, onOpenChange],

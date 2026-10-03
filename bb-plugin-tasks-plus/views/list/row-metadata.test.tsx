@@ -233,7 +233,7 @@ describe("live thread summary", () => {
     expect(slot.inspection.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "tasks",
-      options: { subPath: "task/TSK-1" },
+      options: { subPath: `${PROJECT_ID}?view=list&task=TSK-1`, replace: true },
     });
   });
 
@@ -289,7 +289,7 @@ describe("live thread summary", () => {
     expect(slot.inspection.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "tasks",
-      options: { subPath: "task/TSK-1" },
+      options: { subPath: `${PROJECT_ID}?view=list&task=TSK-1`, replace: true },
     });
   });
 });

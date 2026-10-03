@@ -43,10 +43,29 @@ import type { EditFn } from "./property-menus.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
+import {
+  useSelectionTree,
+  visibleTreeTasks,
+  type SelectionUnavailable,
+} from "./selection-tree.js";
 
+/** Keys come from the rendered tree, including dimmed parents and expanded children.
+ * Unsettled reports must never be used as proof that a selection was removed. */
+export interface VisibleTaskOrder {
+  keys: readonly string[];
+  settled: boolean;
+}
 interface ListViewProps {
   projectId: string | null;
   activeOnly?: boolean;
+  selectedTaskKey?: string | null;
+  visible?: boolean;
+  onRequestSelection?: (taskKey: string) => void;
+  onVisibleOrderChange?: (order: VisibleTaskOrder) => void;
+  onRequestContextChange?: (commit: () => void) => void;
+  onSelectionUnavailable?: SelectionUnavailable;
+  reconcileRevision?: number;
+  scopeUnavailable?: boolean;
 }
 
 function LoadingRows() {
@@ -70,8 +89,22 @@ function LoadingRows() {
   );
 }
 
-export function ListView({ projectId, activeOnly = false }: ListViewProps) {
+export function ListView({
+  projectId,
+  activeOnly = false,
+  selectedTaskKey = null,
+  visible = true,
+  onRequestSelection,
+  onVisibleOrderChange,
+  onRequestContextChange = (commit) => commit(),
+  onSelectionUnavailable,
+  reconcileRevision = 0,
+  scopeUnavailable = false,
+}: ListViewProps) {
   const navigation = useTasksNavigation();
+  const openTask =
+    onRequestSelection ??
+    ((taskKey: string) => navigation.go({ kind: "task", taskKey }));
   const projects = useProjects();
   const { toasts, push, dismiss } = useDetailToasts();
   const preferenceScope = listPreferenceScope(projectId, activeOnly);
@@ -84,17 +117,24 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
   const filters = preference.filters;
   const sort = preference.sort;
   const setFilters = (next: ListFilterState) => {
-    setPreference((current) => {
-      const updated: ListPreference = { filters: next, sort: current.sort };
-      storeListPreference(preferenceScope, updated);
-      return updated;
+    onRequestContextChange(() => {
+      setPreference((current) => {
+        const updated: ListPreference = { filters: next, sort: current.sort };
+        storeListPreference(preferenceScope, updated);
+        return updated;
+      });
     });
   };
   const setSort = (next: TaskSort) => {
-    setPreference((current) => {
-      const updated: ListPreference = { filters: current.filters, sort: next };
-      storeListPreference(preferenceScope, updated);
-      return updated;
+    onRequestContextChange(() => {
+      setPreference((current) => {
+        const updated: ListPreference = {
+          filters: current.filters,
+          sort: next,
+        };
+        storeListPreference(preferenceScope, updated);
+        return updated;
+      });
     });
   };
   const [newTaskOpen, setNewTaskOpen] = useState(false);
@@ -138,11 +178,11 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
   const edit: EditFn = (task, patch) => {
     if (patch.status !== "in_progress" || task.status === "in_progress") {
-      edits.edit(task, patch);
+      onRequestContextChange(() => edits.edit(task, patch));
       return;
     }
     void confirmBlockedWork(task).then((confirmed) => {
-      if (confirmed) edits.edit(task, patch);
+      if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
     });
   };
 
@@ -211,24 +251,13 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
     treeFiltered ? JSON.stringify(filters) : null,
     knownParentIds,
   );
-  const visibleTasks = groups.flatMap((group) =>
-    group.entries.flatMap((entry) =>
-      expanded.isExpanded(entry)
-        ? [entry.task, ...entry.children]
-        : [entry.task],
-    ),
-  );
-  const meta = useTaskListMeta(
-    tree === undefined ? undefined : visibleTasks,
-    JSON.stringify([preferenceScope, filters]),
-  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scopeKey = listScrollScopeKey({ projectId, activeOnly, filters, sort });
-  const settledScope = useRef(scopeKey);
-  const scopeChanged = settledScope.current !== scopeKey;
+  const [settledScope, setSettledScope] = useState(scopeKey);
+  const scopeChanged = settledScope !== scopeKey;
   useEffect(() => {
-    if (!tasksQuery.isLoading) settledScope.current = scopeKey;
+    if (!tasksQuery.isLoading) setSettledScope(scopeKey);
   }, [scopeKey, tasksQuery.isLoading, tasksQuery.data]);
   const routeScope = `${projectId ?? "-"}/${activeOnly}`;
   const [settledRouteScope, setSettledRouteScope] = useState(routeScope);
@@ -241,11 +270,6 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       setSettledRouteScope(routeScope);
     }
   }, [routeScope, tasksQuery.isLoading, tasksQuery.data]);
-  useListScrollRestoration(scrollRef, scopeKey, {
-    contentReady: tree !== undefined && visibleTasks.length > 0,
-    loading: tasksQuery.isLoading || scopeChanged,
-    revision: visibleTasks.length,
-  });
 
   const [openRowMenu, setOpenRowMenu] = useState<{
     taskKey: string;
@@ -254,19 +278,80 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
   const forFocusedRow = (act: (taskKey: string) => void) =>
     forFocusedTask(() => scrollRef.current, act);
   const openRowMenuFromShortcut = (menu: RowMenu) =>
-    forFocusedRow((taskKey) => setOpenRowMenu({ taskKey, menu }));
+    forFocusedRow((taskKey) => {
+      if (onRequestSelection && taskKey !== selectedTaskKey) return;
+      setOpenRowMenu({ taskKey, menu });
+    });
   useShortcuts({
-    "list.next": () => moveFocusInList(scrollRef.current, 1),
-    "list.previous": () => moveFocusInList(scrollRef.current, -1),
-    "list.open": forFocusedRow((taskKey) =>
-      navigation.go({ kind: "task", taskKey }),
-    ),
+    "list.next": onRequestSelection
+      ? null
+      : () => moveFocusInList(scrollRef.current, 1),
+    "list.previous": onRequestSelection
+      ? null
+      : () => moveFocusInList(scrollRef.current, -1),
+    "list.open": onRequestSelection
+      ? null
+      : forFocusedRow((taskKey) => openTask(taskKey)),
     "list.status": openRowMenuFromShortcut("status"),
     "list.priority": openRowMenuFromShortcut("priority"),
     "list.labels": openRowMenuFromShortcut("labels"),
   });
 
   const loadError = tasksQuery.error ?? (needsScope ? scopeQuery.error : null);
+  // All/Active label names cannot prove absence until the project inventory
+  // and the label and task results for that inventory have all succeeded.
+  const orderSettled =
+    !scopeUnavailable &&
+    tree !== undefined &&
+    !routeScopeChanged &&
+    !scopeChanged &&
+    !tasksQuery.isLoading &&
+    (!needsScope || !scopeQuery.isLoading) &&
+    loadError === null &&
+    (filters.labelNames.length === 0 ||
+      ((projectId !== null ||
+        (!projects.isLoading &&
+          projects.error === null &&
+          projects.data !== undefined)) &&
+        !labels.isLoading &&
+        labels.error === null &&
+        labels.data !== undefined)) &&
+    edits.pending.size === 0;
+  const rendered = useSelectionTree(
+    {
+      groups: groups.map((group) => ({
+        ...group,
+        entries: group.entries.map((entry) => ({
+          ...entry,
+          expanded: expanded.isExpanded(entry),
+        })),
+      })),
+      count: displayTasks?.length,
+    },
+    selectedTaskKey,
+    orderSettled,
+    onSelectionUnavailable,
+    reconcileRevision,
+  );
+  const visibleTasks = visibleTreeTasks(rendered.tree);
+  const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
+  const visibleOrderSettled = orderSettled && !rendered.retained;
+  const meta = useTaskListMeta(
+    tree === undefined ? undefined : visibleTasks,
+    JSON.stringify([preferenceScope, filters]),
+  );
+  useListScrollRestoration(scrollRef, scopeKey, {
+    visible,
+    contentReady: visibleTasks.length > 0,
+    loading: tasksQuery.isLoading || scopeChanged || rendered.retained,
+    revision: visibleTasks.length,
+  });
+  useEffect(() => {
+    onVisibleOrderChange?.({
+      keys: JSON.parse(visibleKeys) as string[],
+      settled: visibleOrderSettled,
+    });
+  }, [visibleKeys, visibleOrderSettled, onVisibleOrderChange]);
   const renderRow = (
     task: Task,
     extra: Pick<
@@ -283,7 +368,8 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       labelsById={labelsById}
       projectLabels={labelsByProject.get(task.projectId) ?? []}
       onEdit={edit}
-      onOpen={() => navigation.go({ kind: "task", taskKey: task.key })}
+      onOpen={() => openTask(task.key)}
+      selected={selectedTaskKey === task.key}
       pending={edits.pending.has(task.id)}
       openMenu={openRowMenu?.taskKey === task.key ? openRowMenu.menu : null}
       onOpenMenuChange={(menu) =>
@@ -295,9 +381,8 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
 
   let body: React.ReactNode;
   if (
-    routeScopeChanged ||
-    tasksQuery.data === undefined ||
-    tree === undefined
+    !rendered.retained &&
+    (routeScopeChanged || tasksQuery.data === undefined || tree === undefined)
   ) {
     body =
       !routeScopeChanged && loadError !== null ? (
@@ -309,7 +394,7 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       ) : (
         <LoadingRows />
       );
-  } else if (tree.length === 0) {
+  } else if (rendered.tree.groups.length === 0) {
     if (filtered) {
       body = (
         <EmptyState
@@ -350,7 +435,7 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
       );
     }
   } else {
-    body = groups.map((group) => (
+    body = rendered.tree.groups.map((group) => (
       <section key={group.status}>
         <div
           data-status-group-header={group.status}
@@ -363,14 +448,17 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
           </span>
         </div>
         {group.entries.map((entry) => {
-          const isExpanded = expanded.isExpanded(entry);
+          const isExpanded = entry.expanded;
           return (
             <Fragment key={entry.task.id}>
               {renderRow(entry.task, {
                 dimmed: entry.dimmed,
                 expanded: isExpanded,
                 ...(entry.children.length > 0
-                  ? { onToggleExpanded: () => expanded.toggle(entry) }
+                  ? {
+                      onToggleExpanded: () =>
+                        onRequestContextChange(() => expanded.toggle(entry)),
+                    }
                   : {}),
                 subProgress: { done: entry.subDone, total: entry.subTotal },
               })}
@@ -392,11 +480,12 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
         sort={sort}
         onSortChange={setSort}
         labelOptions={labelOptions}
-        taskCount={displayTasks?.length}
+        taskCount={rendered.tree.count}
       />
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto @container"
+        data-list-scroll
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain @container"
       >
         {body}
       </div>

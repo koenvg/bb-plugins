@@ -1,7 +1,7 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { TasksAppShell } from "./shell/app-shell.js";
 import { TasksSidebarAccessory } from "./shell/sidebar-accessory.js";
-import { TasksNavigationPanel } from "./shell/navigation-panel.js";
+import { ticketTab } from "./shell/ticket-panel.js";
 import { TaskDirectiveCard, TaskEmbedPanel } from "./views/embed/index.js";
 import { TASKS_COMMANDS } from "./shell/commands.js";
 import { ThreadHeaderTask } from "./views/thread-header/index.js";
@@ -13,17 +13,8 @@ export default definePluginApp((app) => {
     icon: "ListTodo",
     path: "tasks",
     component: TasksAppShell,
+    fixedTabs: [ticketTab],
     experimental_sidebarAccessory: TasksSidebarAccessory,
-    fixedTabs: [
-      {
-        panelId: "tasks",
-        id: "navigation",
-        title: "Navigation",
-        icon: "ListView",
-        component: TasksNavigationPanel,
-        layout: "flush",
-      },
-    ],
   });
   app.slots.threadPanelAction({
     id: "task",

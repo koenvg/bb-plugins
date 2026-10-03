@@ -46,6 +46,7 @@ import {
 import { CommentAuthor } from "./comment-author.js";
 import { CommentProviderAvatar } from "./provider-logo.js";
 
+import { useCommentDraft } from "./comment-drafts.js";
 interface FeedEntry {
   comment: DisplayComment;
   attachments: Attachment[];
@@ -284,7 +285,11 @@ interface ComposerProps {
   onEditorReady?: (editor: Editor) => void;
 }
 
-export function CommentComposer({
+export function CommentComposer(props: ComposerProps) {
+  return <TaskCommentComposer key={props.taskId} {...props} />;
+}
+
+function TaskCommentComposer({
   taskId,
   notificationTarget,
   onEditorReady,
@@ -292,13 +297,21 @@ export function CommentComposer({
   const rpc = useTasksRpc();
   const navigate = useBbNavigate();
   const mentionItems = useMentionItems();
-  const [body, setBody] = useState("");
-  const [notify, setNotify] = useState(true);
-  const [pendingFiles, setPendingFiles] = useState<StagedAttachment[]>([]);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [draft, record] = useCommentDraft(taskId);
+  const { body, notify, pendingFiles, sending, error } = draft;
+  const setBody = (body: string) => record.update({ body });
+  const setNotify = (notify: boolean) => record.update({ notify });
+  const setError = (error: string | null) => record.update({ error });
+  const setPendingFiles = (
+    value:
+      | StagedAttachment[]
+      | ((files: StagedAttachment[]) => StagedAttachment[]),
+  ) =>
+    record.update((current) => ({
+      pendingFiles:
+        typeof value === "function" ? value(current.pendingFiles) : value,
+    }));
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sendingRef = useRef(false);
 
   const staged = pendingFiles.filter((entry) => entry.status === "staged");
   const canSend = !sending && (body.trim().length > 0 || staged.length > 0);
@@ -311,11 +324,10 @@ export function CommentComposer({
   );
 
   const send = async () => {
-    if (!canSend || sendingRef.current) return;
-    sendingRef.current = true;
-    setSending(true);
-    setError(null);
-    const text = body.trim();
+    const submitted = record.getSnapshot();
+    if (!canSend || submitted.sending) return;
+    record.update({ sending: true, error: null });
+    const text = submitted.body.trim();
     try {
       const comment: Comment = (
         await rpc.call("createComment", {
@@ -325,7 +337,9 @@ export function CommentComposer({
           allowEmptyBody: text.length === 0,
         })
       ).comment;
-      setBody("");
+      record.update((current) =>
+        current.bodyRevision === submitted.bodyRevision ? { body: "" } : {},
+      );
       const failed = await uploadStagedAttachments(staged, {
         commentId: comment.id,
       });
@@ -338,13 +352,12 @@ export function CommentComposer({
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
-      sendingRef.current = false;
-      setSending(false);
+      record.update({ sending: false });
     }
   };
 
   return (
-    <div className="mt-3.5 rounded-lg border border-border bg-card px-3.5 pb-2.5 pt-3 shadow-2xs transition-colors focus-within:border-input focus-within:ring-1 focus-within:ring-ring">
+    <div className="mt-3.5 rounded-lg border border-border bg-card px-3.5 pb-2.5 pt-3 transition-colors focus-within:border-input focus-within:ring-1 focus-within:ring-ring">
       <TasksEditor
         value={body}
         onChange={setBody}
