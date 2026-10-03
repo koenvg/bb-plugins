@@ -86,6 +86,129 @@ When run from a thread, the CLI preserves that agent thread and any explicit
 `--author`; notification still targets the prior latest responder rather than
 the newly recorded agent comment itself.
 
+## Live thread activity in lists
+
+All tasks, project lists, Active tasks, and expanded subtasks show the current
+execution of every attached thread. For example, `2 Working · 1 Idle` counts
+both active and idle workers. `1 Failed · 2 Working` keeps a failure visible even
+while other workers continue. Summaries show at most two status buckets, with
+`+N more` for the remaining threads. Open the summary to inspect every thread's
+title, ID, preset, and Starting, Working, Idle, Failed, Removed, or Unavailable status.
+
+Archive state is separate from activity. `1 Failed · 1 Idle · All threads archived`
+means both existing threads are verified archived, including the failed worker.
+Mixed states show a verified count such as `1 archived`. Unknown existence or
+archive information prevents the all-archived claim and shows Archive unavailable.
+Removed attachments do not count as archived; removed-only tasks show `N Removed`.
+The drill-down identifies Archived, Not archived, or Archive unavailable for each
+remaining thread. Confirmed deletion or BB's explicit not-found response shows
+Removed with its retained title and ID, without a link to a deleted thread. Other
+lookup errors stay Unavailable, even if their message says "not found".
+Archiving never dims the task or hides its title.
+
+Click or keyboard-activate the summary, then follow a thread link to open it in
+BB without opening the task. Escape closes the popover or compact drawer and
+returns focus to the summary. Row navigation shortcuts pause while it is open.
+At constrained widths, metadata wraps below the title.
+
+The overview reads current BB execution and archive/deletion fields rather than cached attachment status.
+An unreadable item is Unavailable, never assumed idle or complete. Initial reads
+show Threads loading. A task with no attachments has no summary after loading.
+Lists refresh on Tasks invalidation, manual refresh, reconnect, and every 60
+seconds while mounted. Only displayed parent/subtask rows are enriched, in
+batches of at most 500 unique task IDs, with at most eight simultaneous SDK reads.
+Repeated thread IDs, environments and metadata reads share settled success, absence
+and failure across every sequential chunk of a list refresh. GitHub Insight availability
+is checked once per refresh. The next independent refresh reads authoritative sources
+again. Chunk sessions end with the load and release on scope change or unmount;
+disconnected sessions expire after 60 seconds. The host retains at most eight sessions
+and 4096 combined thread, environment and metadata observations per session. All SDK
+reads share the eight-read concurrency limit. Capacity or expiry failures remain explicit
+and keep available thread and PR identities.
+
+Task workflow, Active-list selection, filters, board cards, CLI and detail responses
+are unchanged. Archive, unarchive, deletion and PR updates use the same mounted refresh.
+A failed refresh keeps thread and known PR identities but clears current activity,
+archive and PR lifecycle claims. Reading status never completes a task, edits
+attachments, archives a thread, or changes PR or review state.
+
+## Linked PRs in lists
+
+PR summaries read Draft, Open, Merged and Closed lifecycle from BB's environment lookup.
+Optional GitHub Insight version-1 summaries add checks, reviews and merge blockers for attached threads,
+including archived threads. Tasks works when GitHub Insight is absent or disabled, or
+its detection/metadata reads fail. Basic lifecycle, links and thread/archive information
+remain available. The overview makes no per-row GitHub detail, `gh` or GraphQL requests
+and adds no global or archived-thread GitHub polling.
+
+One PR has a direct GitHub link such as `PR #42 · Checks failing`. Draft remains the
+principal label, for example `PR #42 · Draft, checks failing`. A separate Details control
+opens simultaneous check/review conditions, Conflicts, Unresolved comments, Behind,
+Other merge blockers and queue activity, plus counts, reported names, observation time,
+condition codes, additive decisions and every associated thread. Merged/Closed remain
+principal lifecycle labels; obsolete terminal blockers do not become current problems.
+
+Several PRs show a distinct total and at most two primary buckets, for example
+`3 PRs · 1 Checks failing · 1 Awaiting review · +1 more`. Each PR contributes to one
+primary bucket, ordered by conflicts, failing checks, requested changes, other blockers or
+queue failures, running checks, pending review, unresolved comments, behind, queue activity,
+then Ready to merge. The highest known problem stays textual beside merged outcomes.
+Secondary conditions remain in drill-down. A shared PR counts
+once by canonical GitHub URL and retains all attached threads. Equal numbers in
+different repositories are separate PRs.
+
+Details stale means open/draft observations are older than one hour. They cannot provide
+current check/review claims, even on archived threads. Valid terminal summaries can be
+reused at any age unless superseded. Metadata observation time is separate from host
+PR updatedAt. Freshness is re-evaluated while mounted, including during slow or failed
+refreshes. Retained old counts are labelled Last reported, not current in drill-down.
+
+Details unavailable identifies absent/disabled integration, detection/read failures,
+malformed metadata, unsupported versions, producer refresh errors or unresolved conflicts.
+Details incomplete keeps usable known conditions while identifying partial reads,
+unsupported condition codes or queue information, missing prerequisites and contradictory
+reported counts. Aggregate quality counts such as `1 details unavailable` are separate
+from primary status counts.
+
+Ready to merge requires an Open, non-draft PR with fresh validated version-1 evidence,
+an explicitly empty blocker list, complete check/reviewer counts with no failures,
+cancellations, running checks, pending reviews or requested changes, and an explicitly
+null queue. Reported names and additive merge/review decisions must not contradict that
+evidence. Missing fields are not defaulted into success. Stale, errored, malformed,
+unsupported, partially read or conflicting details never establish readiness. Host Open
+alone never establishes readiness, and retained results lose readiness as they age even
+while a refresh is pending or fails.
+Current host associations must also be confirmed for that canonical PR. A failed thread
+or environment PR read, or a Removed thread with retained metadata, makes the affected
+Open PR's details incomplete. PR identity, known problems and terminal fallback remain.
+An unrelated unavailable attachment does not suppress a separately verified Ready PR.
+
+Additive queue metadata does not require queue controls or a separate feature to ship.
+Recognized states display Queued, Queued, awaiting checks, Queued, merging or Queue failed.
+Any nonempty queue information suppresses readiness, even with empty ordinary blockers.
+Unknown fields/states expose incomplete detail and bounded reported queue evidence.
+No merge, review, archive or task-completion actions are added.
+
+Same-PR observations reconcile using decisive newer valid evidence. A current host
+absence or different-PR association supersedes a former summary. Rich counts apply only
+to a compatible canonical identity and lifecycle; unresolved conflicts or unorderable
+malformed evidence stay unavailable rather than selecting an attachment by order.
+
+Initial reads show PRs loading. The summary disappears only after completed reads
+confirm absence for every attachment. A partial result keeps known PRs and a count
+such as `1 lookup unavailable`; a merged PR cannot hide that uncertainty. PRs
+unavailable means lookups could not establish any PR identity, not confirmed absence.
+Conflicting observations without a newer authoritative lifecycle show Lifecycle
+unavailable and keep the link. Failed transport refresh also clears lifecycle claims
+while retaining known links until the next successful read.
+
+Activate the summary with pointer, touch or keyboard to open its popover or compact
+drawer. Escape returns focus to the control. PR links open GitHub in a new tab;
+thread links open BB threads. Neither opens the task. The rest of the row, editing
+controls, selection and subtask expansion still work. These summaries apply equally
+to All tasks, project lists, Active tasks and visible filtered subtasks. Dense metadata
+wraps beneath readable titles and retains thread failure/archive cues using BB theme tokens.
+
 ## CLI reference
 
 Run `bb tasks --help` or `bb tasks <command> --help` for exact options; help

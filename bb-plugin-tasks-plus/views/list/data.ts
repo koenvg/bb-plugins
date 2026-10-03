@@ -4,10 +4,8 @@ import type {
   Task,
   TaskPriority,
   TaskStatus,
-  TaskThread,
 } from "../../shared/contract.js";
-import { isActiveThread } from "../detail/meta.js";
-
+export { useTaskListMeta, type TaskRowMeta } from "./work-status-data.js";
 interface ListTaskFilters {
   statuses: readonly TaskStatus[];
   priorities: readonly TaskPriority[];
@@ -83,29 +81,5 @@ export function useLabels(projectIds: readonly string[]) {
     },
     ["projects:changed"],
     [projectIds.join()],
-  );
-}
-
-export interface TaskRowMeta {
-  activeThreads: TaskThread[];
-}
-
-export function useTaskListMeta(tasks: readonly Task[] | undefined) {
-  const taskIds = (tasks ?? []).map((task) => task.id);
-  return useTasksQuery<Map<string, TaskRowMeta>>(
-    async (rpc) => {
-      const entries = await Promise.all(
-        taskIds.map(async (taskId) => {
-          const threads = await rpc.call("listTaskThreads", { taskId });
-          const meta: TaskRowMeta = {
-            activeThreads: threads.taskThreads.filter(isActiveThread),
-          };
-          return [taskId, meta] as const;
-        }),
-      );
-      return new Map(entries);
-    },
-    ["threads:changed", "tasks:changed"],
-    [taskIds.join()],
   );
 }

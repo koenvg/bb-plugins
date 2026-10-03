@@ -57,7 +57,7 @@ const INVALIDATION_CHANNELS = [
 
 type InvalidationChannel = (typeof INVALIDATION_CHANNELS)[number];
 
-function useInvalidation(
+export function useInvalidation(
   channels: readonly InvalidationChannel[],
   onInvalidate: () => void,
 ): void {

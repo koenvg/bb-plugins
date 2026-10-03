@@ -219,7 +219,126 @@ const taskThreadSchema = z
     updatedAt: z.string(),
   })
   .strict();
+export const WORK_STATUS_TASK_LIMIT = 500;
 
+const workStatusRefreshSchema = z
+  .object({
+    id: z.string().uuid(),
+    step: z.enum(["start", "continue", "finish"]),
+  })
+  .strict();
+export type WorkStatusRefresh = z.infer<typeof workStatusRefreshSchema>;
+export const THREAD_EXECUTIONS = [
+  "starting",
+  "working",
+  "idle",
+  "failed",
+  "removed",
+  "unavailable",
+] as const;
+
+const taskWorkThreadSchema = z
+  .object({
+    threadId: z.string().startsWith("thr_"),
+    title: z.string(),
+    presetName: z.string(),
+    execution: z.enum(THREAD_EXECUTIONS),
+    archive: z.enum(["archived", "unarchived", "unknown"]),
+  })
+  .strict();
+
+export const prChecksSchema = z
+  .object({
+    failed: z.number().int().nonnegative(),
+    running: z.number().int().nonnegative(),
+    cancelled: z.number().int().nonnegative(),
+    passed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+    failedNames: z.array(z.string()).max(5),
+  })
+  .strict();
+export const prReviewersSchema = z
+  .object({
+    pending: z.number().int().nonnegative(),
+    approved: z.number().int().nonnegative(),
+    changesRequested: z.number().int().nonnegative(),
+    pendingNames: z.array(z.string()).max(5),
+  })
+  .strict();
+const prRichSchema = z
+  .object({
+    refreshedAt: z.string().datetime({ offset: true }),
+    checks: prChecksSchema,
+    reviewers: prReviewersSchema,
+    conditions: z.array(z.string()),
+    readiness: z.enum(["ready", "blocked", "unknown"]).optional(),
+    mergeObservations: z.array(z.string()).max(4).optional(),
+    queue: z
+      .object({
+        state: z.enum([
+          "queued",
+          "awaiting_checks",
+          "merging",
+          "failed",
+          "unknown",
+        ]),
+        position: z.number().int().positive().nullable(),
+        reported: z.string().max(4096),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+const workPullRequestSchema = z
+  .object({
+    url: z.string().url(),
+    number: z.number().int().positive(),
+    title: z.string(),
+    state: z.enum(["open", "draft", "merged", "closed", "unknown"]),
+    updatedAt: z.string(),
+    threadIds: z.array(z.string().startsWith("thr_")).min(1),
+    details: z.enum(["available", "incomplete", "stale", "unavailable"]),
+    detailsReason: z
+      .enum([
+        "integration_absent",
+        "integration_disabled",
+        "integration_error",
+        "metadata_absent",
+        "metadata_error",
+        "invalid_metadata",
+        "unsupported_version",
+        "unsupported_conditions",
+        "unsupported_queue",
+        "missing_prerequisites",
+        "contradictory_evidence",
+        "refresh_error",
+        "conflict",
+        "identity_mismatch",
+        "lifecycle_mismatch",
+        "association_unavailable",
+        "expired",
+        "refresh_failed",
+        "budget_exceeded",
+      ])
+      .optional(),
+    rich: prRichSchema.optional(),
+  })
+  .strict();
+
+const taskWorkStatusSchema = z
+  .object({
+    availability: z.enum(["available", "unavailable"]),
+    threads: z.array(taskWorkThreadSchema),
+    pullRequests: z
+      .object({
+        availability: z.enum(["available", "partial", "unavailable"]),
+        items: z.array(workPullRequestSchema),
+        unavailableThreadIds: z.array(z.string().startsWith("thr_")),
+      })
+      .strict(),
+    observedAt: z.string().datetime(),
+  })
+  .strict();
 const taskPullRequestSchema = z
   .object({
     url: z.string().url(),
@@ -653,6 +772,23 @@ export const tasksRpcContract = defineRpcContract({
       .strict(),
     output: attachmentDeleteResultSchema,
   },
+  listTaskWorkStatus: {
+    input: z
+      .object({
+        taskIds: z
+          .array(idSchema)
+          .transform((ids) => [...new Set(ids)])
+          .refine(
+            (ids) => ids.length <= WORK_STATUS_TASK_LIMIT,
+            "at most 500 unique task IDs",
+          ),
+        refresh: workStatusRefreshSchema.optional(),
+      })
+      .strict(),
+    output: z
+      .object({ byTaskId: z.record(idSchema, taskWorkStatusSchema) })
+      .strict(),
+  },
   listTaskThreads: {
     input: z.object({ taskId: idSchema }).strict(),
     output: z.object({ taskThreads: z.array(taskThreadSchema) }).strict(),
@@ -798,6 +934,9 @@ export type DisplayComment = z.infer<typeof displayCommentSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
 export type TaskThread = z.infer<typeof taskThreadSchema>;
 export type TaskPullRequest = z.infer<typeof taskPullRequestSchema>;
+export type TaskWorkThread = z.infer<typeof taskWorkThreadSchema>;
+export type ThreadExecution = TaskWorkThread["execution"];
+export type TaskWorkStatus = z.infer<typeof taskWorkStatusSchema>;
 export type Preset = z.infer<typeof presetSchema>;
 export type TasksDomainError = z.infer<typeof tasksDomainErrorSchema>;
 export type TaskMutationResult = z.infer<typeof taskMutationResultSchema>;

@@ -218,7 +218,10 @@ export function ListView({ projectId, activeOnly = false }: ListViewProps) {
         : [entry.task],
     ),
   );
-  const meta = useTaskListMeta(tree === undefined ? undefined : visibleTasks);
+  const meta = useTaskListMeta(
+    tree === undefined ? undefined : visibleTasks,
+    JSON.stringify([preferenceScope, filters]),
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scopeKey = listScrollScopeKey({ projectId, activeOnly, filters, sort });

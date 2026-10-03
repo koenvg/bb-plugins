@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Label, Task, TaskThread } from "../../shared/contract.js";
@@ -85,6 +85,10 @@ interface ListFixture {
   tasks: Task[];
   labels?: Label[];
   threadsByTask?: Record<string, TaskThread[]>;
+  prsByTask?: Record<
+    string,
+    import("../../shared/contract.js").TaskWorkStatus["pullRequests"]
+  >;
 }
 
 function renderList(fixture: ListFixture) {
@@ -100,9 +104,29 @@ function renderList(fixture: ListFixture) {
         sidebarSummary: () => ({ projects: [] }),
         listLabels: () => ({ labels: fixture.labels ?? [] }),
         listTasks: () => ({ tasks: fixture.tasks }),
-        listTaskThreads: (input: unknown) => ({
-          taskThreads:
-            fixture.threadsByTask?.[String(rpcInput(input).taskId)] ?? [],
+        listTaskWorkStatus: (input: unknown) => ({
+          byTaskId: Object.fromEntries(
+            (rpcInput(input).taskIds as string[]).map((taskId) => [
+              taskId,
+              {
+                availability: "available",
+                observedAt: "2026-10-02T00:00:00.000Z",
+                pullRequests: fixture.prsByTask?.[taskId] ?? {
+                  availability: "available",
+                  items: [],
+                  unavailableThreadIds: [],
+                },
+                threads: (fixture.threadsByTask?.[taskId] ?? []).map((t) => ({
+                  threadId: t.threadId,
+                  title: t.title,
+                  presetName: t.presetName,
+                  execution:
+                    t.liveStatus === "completed" ? "idle" : t.liveStatus,
+                  archive: "unarchived",
+                })),
+              },
+            ]),
+          ),
         }),
         listComments: () => {
           calls.listComments += 1;
@@ -118,56 +142,157 @@ function renderList(fixture: ListFixture) {
   return { slot, calls };
 }
 
-describe("list-row Active chip", () => {
-  it("shows the chip only for actively starting/working agents", async () => {
-    const working = task(1);
-    const starting = task(2);
-    const historical = task(3);
-    const bare = task(4);
+describe("live thread summary", () => {
+  it("counts every attachment and keeps a failure visible alongside working threads", async () => {
+    const busy = task(1);
+    const bare = task(2);
     const { slot } = renderList({
-      tasks: [working, starting, historical, bare],
+      tasks: [busy, bare],
       threadsByTask: {
-        [working.id]: [thread(working.id, "working", "W1")],
-        [starting.id]: [thread(starting.id, "starting", "S1")],
-        [historical.id]: [
-          thread(historical.id, "idle", "I1"),
-          thread(historical.id, "completed", "C1"),
-          thread(historical.id, "failed", "F1"),
+        [busy.id]: [
+          thread(busy.id, "working", "W1"),
+          thread(busy.id, "working", "W2"),
+          thread(busy.id, "idle", "I1"),
+          thread(busy.id, "failed", "F1"),
         ],
       },
     });
-    await slot.findByText("TSK-1");
-    await waitFor(() => {
-      expect(slot.getByTitle("Agent working")).toBeTruthy();
+    const control = await slot.findByRole("button", {
+      name: "Threads for TSK-1: 1 Failed, 2 Working, 1 Idle",
     });
-    expect(slot.getByTitle("Agent working").textContent).toBe("Active");
-    expect(slot.getByTitle("Agent starting").textContent).toBe("Active");
+    expect(control.textContent).toContain("1 Failed");
+    expect(control.textContent).toContain("2 Working");
+    expect(control.textContent).toContain("+1 more");
     expect(
-      slot.getAllByText("Active", { selector: "span[title]" }),
-    ).toHaveLength(2);
-    expect(slot.queryByText(/Attached/)).toBeNull();
+      slot.queryByRole("button", { name: /Threads for TSK-2/ }),
+    ).toBeNull();
+    expect(slot.queryByText("Active")).toBeNull();
   });
 
-  it("aggregates multiple live agents into one constant-text chip", async () => {
-    const busy = task(1);
+  it("shows mixed working and idle counts and starting threads", async () => {
+    const busy = task(1),
+      starting = task(2);
     const { slot } = renderList({
-      tasks: [busy],
+      tasks: [busy, starting],
       threadsByTask: {
         [busy.id]: [
           thread(busy.id, "working", "W1"),
           thread(busy.id, "working", "W2"),
           thread(busy.id, "idle", "I1"),
         ],
+        [starting.id]: [thread(starting.id, "starting", "S1")],
       },
     });
-    await slot.findByText("TSK-1");
-    await waitFor(() => {
-      expect(slot.getByTitle("2 agents working")).toBeTruthy();
+    const control = await slot.findByRole("button", {
+      name: "Threads for TSK-1: 2 Working, 1 Idle",
     });
-    expect(slot.getByTitle("2 agents working").textContent).toBe("Active");
+    expect(control.textContent).toContain("2 Working");
+    expect(control.textContent).toContain("1 Idle");
+    expect(
+      await slot.findByRole("button", {
+        name: "Threads for TSK-2: 1 Starting",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("lists every identity, pauses row shortcuts, restores focus on Escape, and navigates only to the thread", async () => {
+    const busy = task(1);
+    const { slot } = renderList({
+      tasks: [busy],
+      threadsByTask: {
+        [busy.id]: [
+          thread(busy.id, "working", "W1"),
+          thread(busy.id, "failed", "F1"),
+        ],
+      },
+    });
+    const control = await slot.findByRole("button", {
+      name: /Threads for TSK-1/,
+    });
+    control.focus();
+    fireEvent.click(control);
+    const dialog = await slot.findByRole("dialog", {
+      name: "Threads for TSK-1",
+    });
+    expect(dialog.textContent).toContain("thr_W1");
+    expect(dialog.textContent).toContain("thr_F1");
+    fireEvent.keyDown(dialog, { key: "j" });
+    fireEvent.keyDown(dialog, { key: "o" });
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(control));
+    fireEvent.click(control);
+    fireEvent.click(
+      await slot.findByRole("link", { name: /Open thread Worker.*thr_F1/ }),
+    );
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "toThread", threadId: "thr_F1" },
+    ]);
+    fireEvent.click(slot.getByRole("button", { name: "Open TSK-1: Task 1" }));
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "task/TSK-1" },
+    });
+  });
+
+  it("uses PR controls without task navigation, suspends row shortcuts, then restores normal editing and row selection", async () => {
+    const busy = task(1);
+    const { slot } = renderList({
+      tasks: [busy],
+      prsByTask: {
+        [busy.id]: {
+          availability: "available",
+          items: [
+            {
+              url: "https://github.com/acme/bb/pull/42",
+              number: 42,
+              title: "Open work",
+              state: "open",
+              updatedAt: "2026-10-02T00:00:00Z",
+              details: "unavailable",
+              threadIds: ["thr_worker"],
+            },
+          ],
+          unavailableThreadIds: [],
+        },
+      },
+    });
+    const link = await slot.findByRole("link", {
+      name: "Open GitHub PR acme/bb #42, Open",
+    });
+    const prevent = (event: Event) => event.preventDefault();
+    link.addEventListener("click", prevent);
+    link.focus();
+    fireEvent.keyDown(link, { key: "Enter" });
+    fireEvent.click(link);
+    link.removeEventListener("click", prevent);
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    const trigger = slot.getByRole("button", { name: /PR details for TSK-1/ });
+    fireEvent.click(trigger);
+    const dialog = await slot.findByRole("dialog", { name: "PRs for TSK-1" });
+    for (const key of ["j", "k", "o", "s", "p"])
+      fireEvent.keyDown(dialog, { key });
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    expect(slot.queryByRole("menu")).toBeNull();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    fireEvent.pointerDown(
+      slot.getByRole("button", { name: /Change status, currently/ }),
+      { button: 0, ctrlKey: false },
+    );
+    expect(await slot.findByRole("menu")).toBeTruthy();
+    fireEvent.keyDown(slot.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(slot.queryByRole("menu")).toBeNull());
+    fireEvent.click(slot.getByRole("button", { name: "Open TSK-1: Task 1" }));
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toPluginPanel",
+      path: "tasks",
+      options: { subPath: "task/TSK-1" },
+    });
   });
 });
-
 describe("list-row metadata rail", () => {
   it("fetches no comment/attachment data and renders no counts", async () => {
     const { slot, calls } = renderList({ tasks: [task(1), task(2)] });

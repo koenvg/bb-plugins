@@ -1,15 +1,10 @@
 import { useRef } from "react";
-import type {
-  Label,
-  Project,
-  Task,
-  TaskThread,
-} from "../../shared/contract.js";
+import type { Label, Project, Task } from "../../shared/contract.js";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { DependencyBadges } from "../dependencies.js";
 import type { TaskRowMeta } from "./data.js";
-import { activeWorkLabel, formatDueDate, partitionLabels } from "./lib.js";
+import { formatDueDate, partitionLabels } from "./lib.js";
 import type { EditFn } from "./property-menus.js";
 import {
   PriorityEditor,
@@ -22,24 +17,13 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
+import { ThreadSummary } from "./thread-summary.js";
+import { PrSummary } from "./pr-summary.js";
 
 export type RowMenu = "status" | "priority" | "labels";
 
 const RAIL_CHIP_CLASS =
   "flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground";
-
-function ActiveChip({ threads }: { threads: readonly TaskThread[] }) {
-  if (threads.length === 0) return null;
-  return (
-    <span title={activeWorkLabel(threads)} className={RAIL_CHIP_CLASS}>
-      <span
-        aria-hidden
-        className="size-1.5 shrink-0 animate-pulse rounded-full bg-success"
-      />
-      Active
-    </span>
-  );
-}
 
 function LabelChip({ label }: { label: Label }) {
   return (
@@ -155,7 +139,7 @@ export function TaskRow({
         aria-busy={pending || undefined}
         className={cn(
           "relative grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
-          "@md:flex @md:h-[34px] @md:py-0",
+          "@4xl:flex @4xl:min-h-[34px] @4xl:flex-wrap",
           depth === 1 && "pl-9",
           dimmed && "opacity-50",
           pending && "opacity-70",
@@ -196,7 +180,7 @@ export function TaskRow({
           onCloseAutoFocus={focusRowOnClose}
           className="col-start-1 row-start-2 @max-md:self-start"
         />
-        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @max-md:self-start @md:w-14 @md:shrink-0">
+        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-md:max-w-32 @max-md:self-start @4xl:w-14 @4xl:shrink-0">
           {task.key}
         </span>
         <StatusEditor
@@ -208,7 +192,7 @@ export function TaskRow({
         />
         <Popover {...menuProps("labels")}>
           <PopoverAnchor asChild>
-            <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @md:flex-1">
+            <span className="col-start-2 col-span-2 row-start-1 min-w-0 truncate text-sm @4xl:flex-1 @4xl:min-w-64">
               {task.title}
             </span>
           </PopoverAnchor>
@@ -225,7 +209,7 @@ export function TaskRow({
             />
           </PopoverContent>
         </Popover>
-        <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground @max-md:w-full @max-md:flex-wrap @max-md:justify-end @max-md:self-start @md:shrink-0">
+        <span className="col-start-3 row-start-2 flex min-w-0 items-center gap-1.5 justify-self-end text-xs text-subtle-foreground max-w-full flex-wrap justify-end self-start @4xl:shrink-0 @4xl:self-center">
           {subProgress !== undefined && subProgress.total > 0 ? (
             <span
               title="Subtasks done"
@@ -236,7 +220,8 @@ export function TaskRow({
             </span>
           ) : null}
           <DependencyBadges task={task} className="py-px text-xs" />
-          {meta ? <ActiveChip threads={meta.activeThreads} /> : null}
+          <ThreadSummary taskKey={task.key} meta={meta} />
+          <PrSummary taskKey={task.key} meta={meta} />
           <LabelChips task={task} labelsById={labelsById} />
           {task.dueDate !== null ? (
             <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
