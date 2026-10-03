@@ -7,6 +7,8 @@ import {
   type PluginCliContext,
   type PluginCliResult,
 } from "@get-bb/plugin-sdk";
+import { runCommands } from "../orchestration/run-cli";
+import type { RunController } from "../orchestration/run";
 import { z } from "zod";
 
 import {
@@ -629,6 +631,7 @@ export function registerTasksCli(
   store: TasksApiStore,
   status: PluginStatus,
   orchestrationOptions: StatusOptions = {},
+  runs?: RunController,
 ): void {
   const domain = registerHandlers(bb, store);
   bb.cli.register(
@@ -639,6 +642,7 @@ export function registerTasksCli(
         "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).",
       commands: {
         ...orchestrationStatusCommands(bb, store, orchestrationOptions),
+        ...(runs ? runCommands(runs) : {}),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

@@ -22,7 +22,7 @@ The Tasks-plus plugin SHALL bundle a skill named `bb-orchestrator` with document
 
 ### Requirement: Explicit activation through verified provider paths
 
-A run SHALL begin only from an explicit user invocation bound to an existing epic and approved scope. The system MUST verify manual-only activation through each supported BB provider path, rather than infer support from a frontmatter flag. Agent messages, quoted commands, worker notifications, and editable metadata MUST NOT authorize activation. An unverified or unsupported path SHALL refuse activation with an explanation. Missing or ambiguous initial parameters SHALL be resolved with the user before dispatch.
+A run SHALL begin only from an identifiable exact explicit selected-skill or native invocation recorded by BB as `user` with no sender thread, bound to an existing epic and approved scope. This temporary boundary does not prove actual human identity. BB 0.44.0 can classify agent self-sends as user/null; this known limitation is accepted temporarily and tracked separately in BBP-51. The system MUST verify each supported BB provider path, rather than infer support from frontmatter. Observed agent/system messages, cross-thread notifications, quoted commands, automatic consideration, and editable metadata MUST NOT authorize activation. Stale, mixed, or ambiguous invocations SHALL be rejected. An unverified path SHALL refuse activation. Missing parameters SHALL be resolved through an explicit native decision before dispatch.
 
 #### Scenario: Explicit approved invocation
 

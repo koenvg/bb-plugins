@@ -55,11 +55,11 @@ Use existing `defineCli`/RPC conventions. The proposed CLI includes `bb tasks or
 
 Alternative rejected: a separate orchestrator plugin. It would still need Tasks-owned dispatch changes and would add cross-plugin RPC coordination without reducing ownership or recovery work.
 
-### 2. Gate activation on the user's actual invocation
+### 2. Gate activation on an explicit BB-recorded user invocation
 
 Ship the short skill with `name: bb-orchestrator`, an explicit manual-only description, `disable-model-invocation: true`, and heading `# BB Orchestrator`. Do not add automatic orchestration instructions through plugin installation or enable handlers.
 
-The plugin must establish activation from a real user-authored BB submission, not an agent's assertion that the user invoked the skill. Inspect selected-command mentions before provider translation and recognize an exact leading native invocation only for verified provider paths. The current dispatch hook exposes structured input blocks, initiator, sender identity, and queued message provenance. Confirm their persisted correspondence through thread prompt history/events before relying on a reference as authorization. Treat quoted commands, agent/system messages, mixed-author dispatches without identifiable user input, and metadata fields as non-authorizing.
+The plugin must establish activation from an identifiable, exact explicit invocation in a BB submission recorded as `user`, with no sender thread. This is the temporary trust boundary approved by Koen on 2026-10-03. It does not prove that a human acted: BB 0.44.0 classifies agent self-sends as `user` with a null sender. Follow-up tracker task BBP-51 investigates stronger provenance. Inspect selected-command mentions before provider translation and recognize an exact leading native invocation only for verified provider paths. Bind authority to persisted invocation and decision references. Reject observed agent/system input, cross-thread notifications, stale or ambiguous input, mixed authors, quoted commands, and editable metadata claims. Test and document the accepted self-send limitation instead of claiming spoof-proof native provenance.
 
 Bind the invocation reference to a proposed run's epic, coordinator, approved existing subtasks, preset selection, and baseline. If those parameters are absent or ambiguous, use one existing BB user-input interaction to obtain the initial approval. The skill invocation does not authorize guessing an epic or expanding scope. Repeated processing of the same invocation returns the same run. Routine eligible dispatches within an active approved run do not open another approval form.
 

@@ -46,7 +46,7 @@ Actionable worker reports and pending decisions SHALL notify the approved coordi
 
 ### Requirement: Epic-level decision collection and answer routing
 
-Compact status SHALL collect existing pending BB interactions and unresolved free-form `needs_decision` reports for run workers with their task, worker, and decision identities. User answers SHALL return to the originating BB interaction or exact reporting worker and be recorded with their Tasks references. Stale, mismatched, or conflicting answers SHALL be rejected. An identical answer retry SHALL return its prior outcome. The coordinator MUST NOT invent an answer or approve a restricted action from general run authority.
+Compact status SHALL collect existing pending BB interactions and unresolved free-form `needs_decision` reports for run workers with their task, worker, and decision identities. Answers SHALL return to the originating interaction or exact worker and be recorded with their Tasks references. The temporary BB-recorded user decision boundary described in `bb-orchestrator` applies here too; it does not prove human identity, and the accepted agent self-send limitation is tracked in BBP-51. A coordinator SHALL relay only an explicit recorded decision, never invent an answer. Stale, mismatched, mixed, ambiguous, or conflicting answers SHALL be rejected. Identical answer retries SHALL return their prior outcome. General run authority MUST NOT approve restricted actions.
 
 #### Scenario: User answers a worker question
 
@@ -61,7 +61,7 @@ Compact status SHALL collect existing pending BB interactions and unresolved fre
 #### Scenario: Separate approval remains required
 
 - **WHEN** a worker's pending interaction asks permission to publish or merge
-- **THEN** it remains an actual user approval request and the coordinator cannot authorize it solely because the epic run is approved
+- **THEN** it requires a separate explicit native decision under the declared BB-recorded provenance boundary, and the coordinator cannot authorize it solely because the epic run is approved
 
 ### Requirement: Deliverable and baseline handoffs
 

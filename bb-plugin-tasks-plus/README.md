@@ -5,6 +5,14 @@ agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
 subtasks, Markdown comments, attachments, agent presets, and a full CLI.
 
+## Manual orchestration run controls
+
+The bundled `bb-orchestrator` skill has heading `BB Orchestrator` and is manual-only. Begin, pause and resume bind an exact persisted invocation to the coordinator, existing epic scope, execution preset and intended baseline. Begin/resume use one native BB approval form; request retries reuse the same run or pending form. These controls create no workers and send no worker messages.
+
+Read [run-control commands and limits](skills/bb-orchestrator/references/run-controls.md). The temporary boundary trusts BB-recorded user classification, not proof of human identity. BB 0.44.0 can classify agent self-sends as user/null. Tracker task BBP-51 is the separate investigation follow-up. Publishing, merges, production and scope additions still need separate approval.
+
+Migration 8 adds run/request tables only. Reload makes active authority interrupted through a new controller generation, without changing workers or automatically resuming. BBP-36 combines these records with BBP-34's independent compact status implementation. Whole-epic acceptance remains a separate worker outcome.
+
 ## Install
 
 Install Tasks from the official plugins that BB includes:

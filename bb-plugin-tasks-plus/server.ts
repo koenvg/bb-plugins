@@ -9,6 +9,7 @@ import { registerLifecycle } from "./lifecycle";
 import { registerMentions } from "./mentions";
 import { registerOrchestrationStatus } from "./orchestration";
 
+import { createRunController } from "./orchestration/run";
 const TASKS_PLUGIN_NAME = "Tasks";
 export const TASKS_PLUGIN_VERSION = "0.1.2";
 
@@ -29,7 +30,9 @@ export default async function plugin(bb: BbPluginApi) {
   const store = createStore(bb);
   registerTasksApi(bb, store);
   registerAttachments(bb, store.tasks);
-  registerTasksCli(bb, store, statusPayload());
+  const runs = createRunController(bb, store);
+  runs.register();
+  registerTasksCli(bb, store, statusPayload(), undefined, runs);
   registerDelegation(bb, store);
   registerOrchestrationStatus(bb, store);
   registerMentions(bb, store);

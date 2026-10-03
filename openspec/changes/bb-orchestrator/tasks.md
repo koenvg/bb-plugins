@@ -1,11 +1,13 @@
 # Tasks
 
+The user approved a temporary authorization boundary on 2026-10-03: trust BB-recorded user classification for identifiable exact explicit invocations and native decisions. This does not prove human identity. BB 0.44.0 agent self-sends can acquire user/null attribution. BBP-51 is the separate investigation follow-up and is not an epic dependency. All other authorization and approval checks remain required.
+
 ## 1. Verify plugin-only activation contracts
 
-- [ ] 1.1 Add focused provider-path fixtures for BB selected-skill mentions and exact native invocations using current SDK input/provenance. Verify Pi selection translation, user-authored identity, and persisted invocation references without modifying core or SDK code.
+- [x] 1.1 Add focused provider-path fixtures for BB selected-skill mentions and exact native invocations using current SDK input/provenance. Verify Pi selection translation, BB-recorded user classification and persisted invocation references without modifying core or SDK. Test the accepted agent self-send user/null limitation and link BBP-51; do not claim actual human identity.
 - [ ] 1.2 Verify current BB behavior for queued first turns, dispatch-hook rejection, created thread rows, and lost spawn responses. Record the observed recovery rules and test that rejection never implies permission to spawn a replacement.
-- [ ] 1.3 Add activation guard tests rejecting quoted commands, automatic skill consideration, agent/system notifications, mixed messages without identifiable user invocation, stale invocations, and metadata-only claims. Verify no rejected case calls `threads.spawn` or changes Tasks.
-- [ ] 1.4 Document verified provider paths and fail-closed unsupported-path behavior in Tasks-plus documentation. Verify every support claim names an actual BB-path check rather than a frontmatter-only test.
+- [x] 1.3 Add activation guard tests rejecting quoted commands, automatic skill consideration, agent/system notifications, mixed messages without identifiable user invocation, stale invocations, and metadata-only claims. Verify no rejected case calls `threads.spawn` or changes Tasks.
+- [x] 1.4 Document verified provider paths and fail-closed unsupported-path behavior in Tasks-plus documentation. Verify every support claim names an actual BB-path check rather than a frontmatter-only test.
 
 ## 2. Add Tasks-owned state and compact epic status
 
@@ -24,7 +26,7 @@ for this slice do not establish the integrated epic/provider acceptance in 6.3.
 
 ## 3. Implement authorized runs and safe dispatch-or-reuse
 
-- [ ] 3.1 Implement run begin, pause, and explicit resume bound to verified user invocation/approval, epic scope, presets, and baseline references. Verify duplicate invocation reuse, missing-parameter interaction, scope fingerprint changes, restricted-approval separation, and startup/enable without orchestration sends.
+- [x] 3.1 Implement run begin, pause, and explicit resume bound to verified explicit BB-recorded user invocation/native decision, epic scope, presets, and baseline references. Verify duplicate invocation reuse, missing-parameter interaction, scope fingerprint changes, restricted-approval separation, and startup/enable without orchestration sends.
 - [ ] 3.2 Extend task-thread associations with explicit owner adoption and role selection while preserving manual attach/detach. Verify existing owner reuse without reseeding, ambiguous legacy attachments, in-progress and todo tickets with prior work but no owners, and missing/failed/manually stopped workers.
 - [ ] 3.3 Extend the delegation module with a transactionally reserved dispatch claim and parent/task/attempt metadata at spawn. Reuse preset/environment resolution and ticket prompt construction. Verify concurrent same-task requests across runs invoke spawn at most once and local association/status changes commit together.
 - [ ] 3.4 Add orchestration-specific dispatch and continuation admission checks using current dependencies, scope, handoffs, and approved run state. Verify blocked and reopened prerequisites, delayed capacity admission, paused runs, and unchanged legacy warning behavior.
@@ -36,16 +38,16 @@ for this slice do not establish the integrated epic/provider acceptance in 6.3.
 
 - [ ] 4.1 Implement the bounded worker-report contract, task/comment links, contextual thread validation, and report retry identity. Verify all five outcome kinds, active-turn reports, recoverable pre-attachment reports, wrong-worker rejection, deduplication, and explicit task status behavior.
 - [ ] 4.2 Reuse native parent notifications and add targeted report-reference delivery only where needed for active-turn or differently parented adopted workers. Verify coalescing/delivery identities, paused/unapproved runs, failed/ambiguous delivery state, and unchanged `comment --notify` and "Unblocked" behavior.
-- [ ] 4.3 Aggregate existing BB interactions and unresolved free-form decision reports in epic status. Route recorded user answers to the original interaction or worker. Verify user provenance, stale/mismatched/conflicting decisions, identical answer retries, and no coordinator-generated restricted approval.
+- [ ] 4.3 Aggregate existing BB interactions and unresolved free-form decision reports in epic status. Route recorded user answers to the original interaction or worker. Verify explicit BB-recorded decision references under the temporary BBP-51 boundary, stale/mismatched/conflicting decisions, identical answer retries, and no coordinator-generated restricted approval.
 - [ ] 4.4 Extend worker seed/continuation context with prerequisite report/artifact references and intended baseline. Verify missing artifacts, canceled prerequisites, incompatible reported baselines, worker-specific instructions, and no duplicate handoff messages on dispatch retry.
 - [ ] 4.5 Add integration/verification role dispatch attached to the existing epic using the same ownership and claim rules. Verify completed subtasks still require whole-epic acceptance, evidence/baseline reporting, failed acceptance, and separation of additional scope suggestions.
 - [ ] 4.6 Document the report convention, decision routing, baseline references, and integration acceptance evidence. Verify sample reports validate and workers are not given a mandatory discovery phase or OpenSpec-specific workflow.
 
 ## 5. Bundle the coordination-only skill
 
-- [ ] 5.1 Add `bb-plugin-tasks-plus/skills/bb-orchestrator/SKILL.md` with the accepted name/heading, manual-only metadata, and short coordination instructions. Verify its text forbids repository inspection, implementation, tests, review, integration, and failure investigation by the coordinator, including generic native failure-inspection advice.
-- [ ] 5.2 Add only the necessary command/support reference outside the short skill and confirm existing manifest/package skill inclusion. Verify command discovery and package artifacts include the new skill without changing the plugin's Tasks identity or BB picker behavior.
-- [ ] 5.3 Verify bundled skill discovery and explicit activation through actual installed BB provider paths using disposable fixtures. Check install/enable/reload and ordinary task discussion perform no orchestration; explicit invocation starts one approved run; unsupported paths refuse safely. Record the tested provider/version matrix.
+- [x] 5.1 Add `bb-plugin-tasks-plus/skills/bb-orchestrator/SKILL.md` with the accepted name/heading, manual-only metadata, and short coordination instructions. Verify its text forbids repository inspection, implementation, tests, review, integration, and failure investigation by the coordinator, including generic native failure-inspection advice.
+- [x] 5.2 Add only the necessary command/support reference outside the short skill and confirm existing manifest/package skill inclusion. Verify command discovery and package artifacts include the new skill without changing the plugin's Tasks identity or BB picker behavior.
+- [x] 5.3 Verify bundled skill discovery and explicit activation through actual installed BB provider paths using disposable fixtures. Check install/enable/reload and ordinary task discussion perform no orchestration; explicit invocation starts one approved run; unsupported paths refuse safely. Record the tested provider/version matrix.
 
 ## 6. Verify the full plugin workflow
 

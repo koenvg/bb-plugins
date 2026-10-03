@@ -259,6 +259,20 @@ const MIGRATIONS = [
       UPDATE task_list_revision SET revision = revision + 1 WHERE id = 1;
     END;
   `,
+  `
+    CREATE TABLE orchestration_runs (
+      id TEXT PRIMARY KEY,
+      epic_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      coordinator_thread_id TEXT NOT NULL,
+      invocation_reference TEXT NOT NULL UNIQUE,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX idx_orchestration_runs_epic ON orchestration_runs(epic_id);
+    CREATE TABLE orchestration_run_requests (
+      invocation_reference TEXT PRIMARY KEY,
+      payload TEXT NOT NULL
+    );
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {
