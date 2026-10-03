@@ -7,8 +7,8 @@ It keys the workspace by scope, never by selected ticket. The existing shell's
 ## Selection and navigation
 
 The accepted browse route's optional `taskKey` is the committed identity.
-`requestSelection` puts compact visibility and URL replacement inside
-`session.request(commit)`. It uses the host navigator inside that callback, not
+`requestSelection` puts URL replacement inside `session.request(commit)`. It
+reveals Ticket on the request, not after a delayed save. It uses the host navigator inside that callback, not
 another guarded navigation call. Nesting `request` inside an in-flight accepted
 callback can leave a destination queued. Remembered scope remains exclusively
 owned by `useBrowseRoute`, downstream of the shell's `useSafeTaskTarget`.
@@ -27,7 +27,7 @@ inside an accepted callback. Scope changes still use the shell's accepted route.
 A failed save leaves the original controls, selected row, and editor available.
 Each accepted non-selection context commit increments `reconcileRevision`, passed
 to list and detail. Their effects then re-evaluate confirmed absence. This keeps a
-later Back, collapse, or filter from consuming the session's latest-destination slot and
+later Escape return, collapse, or filter from consuming the session's latest-destination slot and
 silently losing an earlier removal condition. Failed commits do not increment it,
 so reconciliation cannot create an automatic failed-save retry loop. Explicit
 selection and destination changes still win; they do not trigger this signal.
@@ -68,25 +68,38 @@ The list retains filters, sort, expansion, counts, row actions, and scroll stora
 
 ## Composition and follow-ups
 
-The shell measures its main panel before paint and observes it with ResizeObserver.
-At 880px, the workspace uses a minimum 320px list and flexible detail. Each pane
-has its own constrained scroll area. The editor's own container chooses inline
-properties or its internal rail. There is no external property rail or splitter.
-Compact mode hides rather than unmounts both panes. Its sticky Back to list action
-runs through `session.request(commit)`, changes only presentation, and focuses the
-current selected row with `preventScroll`. A failed Back leaves detail accessible.
-A newly accepted route selection opens detail; Back never owns a second identity.
-Both pane roots use `hidden` and `inert`. A layout effect moves focus only out of a
-pane being hidden, or after explicit Back, to a non-editable detail root or the
-selected row. Widening preserves focus; neither direction autofocusses an editor.
-`ShortcutOwner` remains the sole pane shortcut gate. Keyboard actions reuse these roots
-for explicit focus actions without changing the route identity.
+The main Tasks slot owns the full-width list. `ticket-panel.tsx` registers one
+flush native Ticket fixed tab; BB owns the surrounding pane, tab strip, resizing,
+and compact drawer. Browser and Terminal remain host tabs, not plugin controls.
+There is no inner split, width threshold, or plugin Back-to-list composition.
 
-`ListView.visible`, default true, is a measurement signal, not query readiness or
-selection reconciliation. Its scroll hook defers hidden restoration, cancels queued
-scroll writes when hidden, and restores the last visible offset before Back focus.
-Do not feed visibility into settled-order reports. Filters, sort, expansion, and
-scope remain owned by the retained list and accepted shell route.
+BB mounts fixed tabs in separate React trees and unmounts inactive tabs. The tab
+is an outlet only: the workspace keeps one stable portal container and moves its
+DOM into that outlet, or into a hidden/inert parking node when no outlet exists.
+The editor never changes React ownership, so it retains its TasksSessionProvider,
+write barrier, query identity, title/description editor, and task-owned drafts.
+Closing the Tasks page removes the portal and releases session retention; closing
+only the native tab does not. The bridge keeps outlet/content references only for
+their mounted lifetime; it is not a second task store or router.
+
+`onPendingTransition` reveals an originating parked editor before guarded writes.
+A failed save can then show its existing Retry controls. Revealing on selection
+request rather than save completion prevents a later Browser/Terminal switch from
+being undone. Route-driven selection still reveals Ticket; same-key refresh and
+resize do not. A declined host open shows the same retained editor in a temporary
+main-page recovery view, without first requiring its failing save to succeed.
+Native placement can be retried; returning to the list remains guarded.
+
+The first native outlet owns the editor. Additional outlets show a Show ticket
+here action rather than stealing it on mount. Explicit activation transfers the
+same container; owner disposal hands it to the oldest surviving outlet.
+
+ShortcutProvider registers the portal as an additional scope under its single
+listener. Hidden/inert/disconnected scopes are ineligible. Pane visibility also
+closes responsive overlays so a parked editor cannot leave a menu in document.body.
+`ListView.visible` remains a scroll-measurement signal for other consumers, not a
+readiness input. The native composition leaves the list visible and mounted.
+Filters, sort, expansion, scroll, and scope retain their existing owners.
 
 Rows use their list container width, wrap titles and metadata below 672px, and give
 row status/priority/expansion controls 44px coarse-pointer targets regardless of
@@ -112,19 +125,18 @@ shared boolean promise. The accepted route must match before focus moves. Explic
 Enter/open waits for `DetailView.onReady` and matching `data-detail-key` markup,
 then focuses the non-editable pane root. Loading, retryable errors, and returning
 to a previously loaded key have keyed tests. New requests cancel old focus intent;
-editor, overlay, and outside-pane focus block delayed focus. Wide movement focuses
-and scrolls the selected row. Compact movement uses visible detail, never an inert
-row. Escape shares the guarded Back action and restores focus with preventScroll.
-Selection/open and deferred Escape share `canRestoreBrowseFocus`. An accepted return
-consumes its focus intent even when another control owns focus. Hiding a pane still
-moves focus out of its now-inert contents, but never takes it from another pane or
-portaled overlay.
+editor, overlay, and outside-pane focus block delayed focus. Movement focuses
+and scrolls the selected row. Escape saves and restores row focus with preventScroll.
+Selection/open and deferred Escape share `canRestoreBrowseFocus`; an accepted
+return consumes its intent even when another control owns focus. A native tab
+switch does not steal focus from another pane or restore it into parked content.
 Neither selection nor resize focuses an editor.
 
 Retained removal rows remain unsettled and cannot supply a keyboard destination.
 Context changes keep the reconcileRevision contract above. Comment records still
 belong to the one mounted TasksSessionProvider.
-Retention ends with that session; no closure/reload persistence is promised.
+Retention ends when the Tasks page/session closes, not when its native tab closes.
+No browser-reload or cross-device persistence is promised.
 
 Local markup fixtures and SDK tests do not establish installed-host routing,
 scroll/focus behavior, removal of the old Navigation tab, or SDK compatibility.

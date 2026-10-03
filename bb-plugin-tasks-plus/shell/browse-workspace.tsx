@@ -13,6 +13,11 @@ import { DetailView } from "../views/detail/index.js";
 import { useTasksSession } from "../views/detail/task-session.js";
 import { ShortcutOwner } from "./shortcut-provider.js";
 import {
+  TicketPanelContent,
+  useOpenTicketPanel,
+  type TicketAttachment,
+} from "./ticket-panel.js";
+import {
   canRestoreBrowseFocus,
   useBrowseFocus,
   useBrowseShortcuts,
@@ -35,11 +40,9 @@ export type BrowseRoute = Extract<
  * this boundary owns composition and safe requests, never another editor session. */
 export function BrowseWorkspace({
   route,
-  split,
   noProjects = false,
 }: {
   route: BrowseRoute;
-  split: boolean;
   noProjects?: boolean;
 }) {
   const navigate = useBbNavigate();
@@ -53,7 +56,16 @@ export function BrowseWorkspace({
   // Validation gates first lookup; the list reconciles subsequent removals while
   // retaining the originating rendered tree until safe clearing is accepted.
   const [validatedKey, setValidatedKey] = useState<string | null>(null);
-  const [showList, setShowList] = useState(false);
+  const showTicket = useOpenTicketPanel();
+  const [paneUnavailable, setPaneUnavailable] = useState(false);
+  const openTicket = useCallback(() => {
+    setPaneUnavailable(!showTicket());
+  }, [showTicket]);
+  const [attachment, setAttachment] = useState<TicketAttachment>(null);
+  const detailOutlet = attachment?.element ?? null;
+  const detailVisible = attachment !== null;
+  const recovering = attachment?.recovery === true;
+  const revealedSelection = useRef<string | null>(null);
   const [contextRevision, setContextRevision] = useState(0);
   const latestNoProjects = useRef(noProjects);
   useLayoutEffect(() => {
@@ -61,6 +73,7 @@ export function BrowseWorkspace({
   }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLElement>(null);
+  const detailScroll = useRef({ key: selectedKey, top: 0 });
   const focus = useBrowseFocus(selectedKey, listRef, detailRef);
   const latestOrder = useRef(order);
   useLayoutEffect(() => {
@@ -75,7 +88,6 @@ export function BrowseWorkspace({
 
   const commitSelection = useCallback(
     (taskKey: string | null) => {
-      setShowList(false);
       if (taskKey === null && clearing.current) return;
       clearing.current = taskKey === null;
       navigate.toPluginPanel(PANEL_PATH, {
@@ -103,6 +115,9 @@ export function BrowseWorkspace({
   const requestSelection = useCallback(
     (taskKey: string | null, target?: BrowseFocusTarget) => {
       focus.cancel();
+      // Reveal on the user's request, not after a delayed save. A later host
+      // tab switch must not be undone when that save eventually finishes.
+      if (taskKey) openTicket();
       void session.request(() => {
         // A saved navigation must still point at a confirmed visible result.
         if (
@@ -111,12 +126,21 @@ export function BrowseWorkspace({
             !latestOrder.current.keys.includes(taskKey!))
         )
           return;
+        // Only an accepted destination consumes its reveal. A failed request
+        // retains this callback for Retry, while cancellation consumes nothing.
+        revealedSelection.current = taskKey;
         if (target && taskKey) focus.arm(taskKey, target);
         if (taskKey !== selectedKey || !target) commitSelection(taskKey);
-        else if (target === "detail") setShowList(false);
       });
     },
-    [session, commitSelection, selectedKey, focus.cancel, focus.arm],
+    [
+      session,
+      commitSelection,
+      selectedKey,
+      focus.cancel,
+      focus.arm,
+      openTicket,
+    ],
   );
 
   useEffect(() => {
@@ -147,21 +171,31 @@ export function BrowseWorkspace({
     },
     [selectedKey, session, commitSelection, focus.cancel],
   );
-  // An external accepted browse selection opens detail too. Back only changes
-  // presentation for the current route; it cannot hide a later route target.
-  useLayoutEffect(() => setShowList(false), [selectedKey]);
+  // A restored or externally accepted selection reveals the native Ticket tab.
+  // Closing or switching tabs alone must not trigger an automatic reopen.
+  useEffect(() => {
+    if (selectedKey && selectedKey !== revealedSelection.current) openTicket();
+    revealedSelection.current = selectedKey;
+  }, [selectedKey, openTicket]);
   useEffect(() => {
     if (noProjects && selectedKey)
       onMissing(selectedKey, () => latestNoProjects.current);
   }, [noProjects, selectedKey, onMissing, contextRevision]);
   const readyKey = selectedKey === validatedKey ? selectedKey : null;
-  const listHidden = !split && selectedKey !== null && !showList;
-  const detailHidden = !split && !listHidden;
+  const detailHidden = !detailVisible;
 
+  useLayoutEffect(() => {
+    if (detailScroll.current.key !== selectedKey) {
+      detailScroll.current = { key: selectedKey, top: 0 };
+    }
+    if (!detailHidden && detailRef.current) {
+      detailRef.current.scrollTop = detailScroll.current.top;
+    }
+  }, [detailHidden, selectedKey, detailOutlet]);
   const backToList = () =>
     requestContextChange(() => {
       returnFocus.current = true;
-      setShowList(true);
+      setPaneUnavailable(false);
     });
   const paging = useBrowseShortcuts({
     selectedKey,
@@ -176,137 +210,151 @@ export function BrowseWorkspace({
     const detail = detailRef.current;
     if (!list || !detail) return;
     const requestedReturn = returnFocus.current;
+    if (requestedReturn && recovering) return;
     returnFocus.current = false;
     // Hiding a mounted pane must not leave its controls holding keyboard focus.
     // Resize never focuses an editor, nor steals focus from another BB pane.
     if (
-      !listHidden &&
-      ((requestedReturn && canRestoreBrowseFocus(list, detail)) ||
-        (detailHidden && detail.contains(document.activeElement)))
+      (requestedReturn && canRestoreBrowseFocus(list, detail)) ||
+      (detailHidden && detail.contains(document.activeElement))
     ) {
       const target =
         list.querySelector<HTMLElement>(
           '[data-nav-item][aria-current="true"]',
         ) ?? list;
       target.focus({ preventScroll: true });
-    } else if (listHidden && list.contains(document.activeElement)) {
-      detail.focus({ preventScroll: true });
     }
-  }, [listHidden, detailHidden, showList, contextRevision]);
-
+  }, [detailHidden, contextRevision, recovering]);
   return (
     <div
-      className="flex h-full min-h-0 overflow-hidden"
-      data-browse-layout={split ? "split" : "compact"}
+      className="flex flex-col h-full min-h-0 overflow-hidden"
+      data-browse-layout="native"
     >
+      {recovering && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-sm"
+        >
+          <span className="flex-1">
+            BB couldn't open the Ticket pane. Recover your edits here.
+          </span>
+          <Button variant="outline" size="sm" onClick={openTicket}>
+            Try Ticket pane again
+          </Button>
+          <Button variant="ghost" size="sm" onClick={backToList}>
+            Back to list
+          </Button>
+        </div>
+      )}
       <section
         ref={listRef}
         aria-label="Ticket list"
-        hidden={listHidden}
-        inert={listHidden}
+        hidden={recovering}
+        inert={recovering}
         tabIndex={-1}
-        className={
-          split
-            ? "h-full min-h-0 min-w-0 shrink-0 border-r border-border-hairline"
-            : "h-full min-h-0 min-w-0 flex-1"
-        }
-        style={
-          split ? { width: "32%", minWidth: 320, maxWidth: 400 } : undefined
-        }
+        className="flex h-full min-h-0 flex-col min-w-0 flex-1"
       >
-        <ShortcutOwner value={{ rootRef: listRef, allowUnfocused: true }}>
-          <ListView
-            projectId={route.kind === "project" ? route.projectId : null}
-            activeOnly={route.kind === "active"}
-            visible={!listHidden}
-            selectedTaskKey={readyKey}
-            onRequestSelection={requestSelection}
-            onVisibleOrderChange={setOrder}
-            onRequestContextChange={requestContextChange}
-            onSelectionUnavailable={onMissing}
-            reconcileRevision={contextRevision}
-            scopeUnavailable={noProjects}
-          />
-        </ShortcutOwner>
+        <div className="min-h-0 flex-1">
+          <ShortcutOwner value={{ rootRef: listRef, allowUnfocused: true }}>
+            <ListView
+              projectId={route.kind === "project" ? route.projectId : null}
+              activeOnly={route.kind === "active"}
+              visible={true}
+              selectedTaskKey={readyKey}
+              onRequestSelection={requestSelection}
+              onVisibleOrderChange={setOrder}
+              onRequestContextChange={requestContextChange}
+              onSelectionUnavailable={onMissing}
+              reconcileRevision={contextRevision}
+              scopeUnavailable={noProjects}
+            />
+          </ShortcutOwner>
+        </div>
       </section>
-      <section
-        ref={detailRef}
-        aria-label="Selected ticket"
-        hidden={detailHidden}
-        inert={detailHidden}
-        tabIndex={-1}
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
+      <TicketPanelContent
+        onOutletChange={setAttachment}
+        onReveal={openTicket}
+        recovery={paneUnavailable && selectedKey !== null}
       >
-        <ShortcutOwner value={{ rootRef: detailRef }}>
-          {selectedKey ? (
-            <>
-              <div className="sticky top-0 z-10 flex min-h-10 bg-background items-center gap-2 border-b border-border-hairline px-3 text-xs text-muted-foreground">
-                {!split ? (
+        <section
+          ref={detailRef}
+          aria-label="Selected ticket"
+          hidden={detailHidden}
+          inert={detailHidden}
+          tabIndex={-1}
+          onScroll={(event) => {
+            if (!detailHidden) {
+              detailScroll.current = {
+                key: selectedKey,
+                top: event.currentTarget.scrollTop,
+              };
+            }
+          }}
+          className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
+        >
+          <ShortcutOwner value={{ rootRef: detailRef }}>
+            {selectedKey ? (
+              <>
+                <div className="sticky top-0 z-10 flex min-h-10 bg-background items-center gap-2 border-b border-border-hairline px-3 text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{selectedKey}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 pointer-coarse:size-11"
+                    aria-label="Previous task"
+                    disabled={!paging.previous}
+                    onClick={() => paging.move(-1)}
+                  >
+                    <Icon name="ChevronUp" className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 pointer-coarse:size-11"
+                    aria-label="Next task"
+                    disabled={!paging.next}
+                    onClick={() => paging.move(1)}
+                  >
+                    <Icon name="ChevronDown" className="size-3.5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="pointer-coarse:min-h-11"
-                    onClick={backToList}
+                    className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                    aria-label="Open standalone ticket"
+                    onClick={() =>
+                      navigation.go({ kind: "task", taskKey: selectedKey })
+                    }
                   >
-                    <Icon name="ChevronLeft" className="size-3.5" />
-                    Back to list
+                    <Icon name="ArrowUpRight" className="size-3.5" />
                   </Button>
-                ) : null}
-                <span className="min-w-0 flex-1 truncate">{selectedKey}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 pointer-coarse:size-11"
-                  aria-label="Previous task"
-                  disabled={!paging.previous}
-                  onClick={() => paging.move(-1)}
-                >
-                  <Icon name="ChevronUp" className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 pointer-coarse:size-11"
-                  aria-label="Next task"
-                  disabled={!paging.next}
-                  onClick={() => paging.move(1)}
-                >
-                  <Icon name="ChevronDown" className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                  aria-label="Open standalone ticket"
-                  onClick={() =>
-                    navigation.go({ kind: "task", taskKey: selectedKey })
-                  }
-                >
-                  <Icon name="ArrowUpRight" className="size-3.5" />
-                </Button>
-              </div>
-              {readyKey ? (
-                <TaskLinkNavigationContext.Provider value={openTaskLink}>
-                  <DetailView
-                    taskKey={readyKey}
-                    onReady={focus.onReady}
-                    onMissing={onMissing}
-                    reconcileRevision={contextRevision}
-                  />
-                </TaskLinkNavigationContext.Provider>
-              ) : (
-                <p role="status" className="p-6 text-sm text-muted-foreground">
-                  Waiting for the ticket list…
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-              Select a ticket to view and edit
-            </p>
-          )}
-        </ShortcutOwner>
-      </section>
+                </div>
+                {readyKey ? (
+                  <TaskLinkNavigationContext.Provider value={openTaskLink}>
+                    <DetailView
+                      taskKey={readyKey}
+                      onReady={focus.onReady}
+                      onMissing={onMissing}
+                      reconcileRevision={contextRevision}
+                    />
+                  </TaskLinkNavigationContext.Provider>
+                ) : (
+                  <p
+                    role="status"
+                    className="p-6 text-sm text-muted-foreground"
+                  >
+                    Waiting for the ticket list…
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                Select a ticket to view and edit
+              </p>
+            )}
+          </ShortcutOwner>
+        </section>
+      </TicketPanelContent>
     </div>
   );
 }

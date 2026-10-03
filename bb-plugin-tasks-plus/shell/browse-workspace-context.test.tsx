@@ -126,7 +126,7 @@ describe("removal combined with context transitions", () => {
     await act(async () => currentInventory.resolve({ projects: [project] }));
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
   });
-  it("keeps failed removal and Back retry accessible, then reconciles without losing compact context or comment ownership", async () => {
+  it("keeps failed removal and Escape retry accessible, then reconciles without losing native-pane context or comment ownership", async () => {
     panelSize.width = 600;
     let removed = false;
     let canSave = false;
@@ -166,11 +166,12 @@ describe("removal combined with context transitions", () => {
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("alert");
-    fireEvent.click(slot.getByRole("button", { name: "Back to list" }));
+    slot.getByRole("region", { name: "Selected ticket" }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     await waitFor(() => expect(writes).toHaveLength(2));
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(slot.getByRole("button", { name: "Retry save" })).toBeTruthy();
-    expect(slot.queryByRole("region", { name: "Ticket list" })).toBeNull();
+    expect(slot.queryByRole("region", { name: "Ticket list" })).toBeTruthy();
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
       "Origin description",
     );
@@ -197,7 +198,8 @@ describe("removal combined with context transitions", () => {
     await select(slot, 2);
     expect(slot.container.textContent).not.toContain("Unsent origin comment");
     expect(slot.queryByText("origin.txt")).toBeNull();
-    fireEvent.click(slot.getByRole("button", { name: "Back to list" }));
+    slot.getByRole("region", { name: "Selected ticket" }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     removed = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await select(slot, 1);

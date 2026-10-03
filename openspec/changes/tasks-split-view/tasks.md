@@ -32,10 +32,10 @@
 
 ## 5. Responsive layout and retained view state
 
-- [x] 5.1 Compose a narrower left list and flexible detail with independent scroll areas, BB tokens, and a persistent accessible selected-row marker; verify list/row/layout tests cover full task identity, long titles, important state badges, selection with focus in detail, and unchanged filters/sort/expansion counts.
-- [x] 5.2 Use actual Tasks panel width for split/compact switching, starting at the design's 880 px threshold, and keep selection/drafts stable across resize; verify mocked-width integration tests cover a narrow panel inside a wide window, both transition directions, no unintended editor autofocus, and no state reset from layout changes.
-- [x] 5.3 Implement compact single-detail navigation and Back to list while retaining the mounted list and its scroll restoration; verify mobile-layout and scroll-restoration tests restore scope, filters, sort, expansion, selected row, and position after selection, return, and resize.
-- [x] 5.4 Document compact fallback and the current-session limit of unsent draft retention in the README; verify descriptions match responsive and draft tests and do not promise persistence after panel closure or browser reload.
+- [x] 5.1 Keep the full-width main list and native Ticket editor independently scrollable, using BB tokens and an accessible selected-row marker; verify list/row/layout tests retain task identity, wrapped metadata, filters, sort, and expansion.
+- [x] 5.2 Register the native Ticket fixed tab and leave sizing and compact drawer behavior to BB; verify separate-tree SDK tests put detail outside the Tasks page, with no internal 880px breakpoint or Back UI.
+- [x] 5.3 Retain the same editor/session when the native tab unmounts; verify title/description/comment/file/notification state, pending writes, list scroll/context, hidden keyboard/overlay safety, safe Escape return, delayed-save tab-switch ownership, and page-teardown release.
+- [x] 5.4 Document native tab closure versus Tasks-page closure, the current-session draft limit, and declined-open fallback; verify README descriptions match lifecycle tests without promising reload or cross-device persistence.
 
 ## 6. Whole-plugin and host acceptance
 
@@ -43,4 +43,4 @@
 - [ ] 6.2 Verify the built plugin in BB using the supplied ticket data or equivalent existing tasks, with approved installation/connection steps if needed; inspect split and compact widths together in light/dark and the available third-party theme, confirm no obsolete right Navigation pane remains, keyboard/save/scroll/project-memory flows work, and fix observed defects in one batch followed by at most one confirmation inspection.
 - [ ] 6.3 Confirm host-level compatibility and the final change boundary: check direct task links, palette entry, board drag/open, thread-side embeds, and comment/delegation actions; run the required read-only completion review and `git diff --check`, record any unverified host acceptance instead of claiming it passed, and keep the pre-existing `.impeccable/design.json` refresh separate from feature changes.
 
-Implementation and plugin verification are complete. Items 6.2 and 6.3 remain open because the changed plugin has not been installed or reloaded into BB. All seven slice completion reviews returned, their blocking findings were resolved, and the whole-diff check passed; host compatibility is not claimed. See [verification.md](verification.md) for commits, evidence, warnings, and remaining acceptance.
+The native correction is installed from `tasks-plus-native-a5c397775cb4`. Its single completion review returned three blockers, all fixed with regressions; post-fix verification passed 751 tests and static/build checks. Twenty installed-host Arc checks passed. One host acceptance defect remains: crossing desktop/mobile layout remounts Tasks and loses unsent comments, tracked as BBP-50. Items 6.2 and 6.3 stay open for that defect and remaining theme/mutation/integration coverage. See [native-pane-verification.md](native-pane-verification.md); [verification.md](verification.md) is the original historical handoff.

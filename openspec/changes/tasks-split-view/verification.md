@@ -1,5 +1,9 @@
 # Verification and handoff
 
+> Historical report for the original nested split. That version was subsequently
+> installed from `fdfa399`; its installation receipt is attached to BBP-8. The user
+> then clarified the native right-pane layout. See [the correction report](native-pane-verification.md)
+> for current implementation, verification, and deployment status.
 ## Outcome
 
 All seven BBP-8 implementation slices are integrated and ready for review. Each ran in its own BB child thread, followed native blocker relationships, and owned its tests, documentation, and one read-only completion review. Blocking findings were fixed before acceptance.

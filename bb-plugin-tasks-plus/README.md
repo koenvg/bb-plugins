@@ -360,11 +360,11 @@ in Tasks navigation when the inline toggle does not fit.
 
 ## Browse and edit side by side
 
-All, Active, and project lists use a retained list beside the existing editable
-ticket when the Tasks panel is at least 880px wide. This uses the panel's width,
-not the browser window. Start with no selection, then click a row to inspect it.
-The selected row keeps its highlight while you edit. Each pane scrolls separately;
-selecting another ticket does not reset the list or focus an editor.
+All, Active, and project lists fill the main Tasks area. Selecting a row opens its
+existing editable ticket in BB's native right-hand **Ticket** tab, alongside the
+host's Browser and Terminal tabs. BB owns pane resizing and its compact drawer;
+Tasks does not create an inner split. The selected row stays highlighted, both
+areas scroll independently, and selection does not focus an editor.
 
 The detail keeps title, description, properties, dependencies, subtasks, files,
 comments, linked threads, and delegation. Pending autosaves must succeed before
@@ -382,27 +382,31 @@ links open standalone detail without changing remembered scope. Board routes,
 standalone task links, mentions, CLI commands, and thread-side embeds keep their
 existing destinations.
 
-In a compact panel, selection shows detail with a sticky **Back to list** action.
-Back waits for pending saves, then returns to the same scope, filters, sort,
-expansion, selected row, and scroll position. If saving fails, detail stays open
-with its draft and Retry action. Back focuses the selected row without scrolling
-it into a different position; it does not clear selection or change the URL.
+Switching to Browser or Terminal, or closing Ticket, keeps the selected editor
+and its drafts alive while the Tasks page remains mounted. Reopening Ticket
+returns to that editor; selecting another row deliberately reveals Ticket.
+Refresh and resize do not reopen a tab you closed or move focus from another pane.
+A delayed save does not undo a host-tab switch made while it was pending.
 
-Resize keeps the list and selected editor mounted. A narrow slot stays compact
-even in a wide browser window. Hidden panes are excluded from tab navigation and
-pane shortcuts. Resize only transfers focus when its current pane becomes hidden,
-to a non-editable pane or selected row, never into an editor. Widening does not
-move focus. After Back, resizing preserves the list-first compact presentation
-until another ticket is selected.
+If navigation needs to save a parked editor, Tasks reveals its originating Ticket
+pane so a failed save remains retryable. Inactive editor menus close and its
+controls cannot claim keys. If BB declines to open the pane, the same retained
+editor temporarily occupies Tasks so you can correct the draft or retry its save.
+Try Ticket pane again restores native placement; Back to list remains save-guarded.
+
+Escape from non-editable detail saves pending edits and returns focus to the
+selected row without scrolling or clearing selection. BB's own controls manage
+its narrow-layout drawer and tab closure; there is no plugin Back-to-list layout.
 
 Long row titles and important metadata wrap in constrained list containers.
-Status, priority, expansion, and Back controls have larger coarse-pointer targets.
+Status, priority, and expansion controls have larger coarse-pointer targets.
 Board and thread-side detail layouts are unchanged.
 
 Unsent comment text, staged files, and notification choice stay task-owned for the
-mounted Tasks session. Back and resize do not submit, upload, notify, or delegate.
+mounted Tasks session. Tab switches and resize do not submit, upload, notify, or delegate.
 Explicit operations finishing later still belong to their originating task.
-This does not promise draft persistence after panel closure or browser reload.
+Closing the native Ticket tab is safe; closing the Tasks page or reloading the
+browser ends this session's unsent-draft retention.
 
 ## Remembered project scope
 
@@ -439,17 +443,16 @@ BB pane, or while a menu or dialog is open. Escape never discards an editor draf
 | Anywhere | `c` new task, `?` shortcuts, `v` list or board on project routes |
 | Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order |
 | List row | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row |
-| Preview detail | `Esc` return to the same row, or compact Back; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus |
+| Ticket detail | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus |
 | Board | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority |
 | Standalone task | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
 
 Movement starts at the first row in either direction with no selection, clamps at
 the ends, and waits for settled filtered/sorted order, including expanded subtasks
-and dimmed parents. Tab focus alone does not change selection. Wide movement
-focuses and scrolls the selected row; compact movement keeps focus in visible
-detail rather than the hidden list. Enter waits for the selected lookup to finish
-before focusing a non-editable detail container, including on a retryable error.
-Escape and compact Back restore row focus without scrolling or clearing selection.
+and dimmed parents. Tab focus alone does not change selection. Movement focuses
+and scrolls the selected row. Enter waits for the selected lookup and a visible
+Ticket pane before focusing its non-editable container, including on a retryable
+error. Escape restores row focus without scrolling or clearing selection.
 
 Selection and context changes wait for safe saves. Failure leaves the origin,
 draft, selection, and Retry accessible. A superseded request cannot steal focus.

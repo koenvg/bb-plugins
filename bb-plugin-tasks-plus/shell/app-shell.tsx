@@ -46,12 +46,10 @@ const BOARD_MIN_WIDTH = 448;
 // not key this outlet by a future selected ticket: selection must retain the list.
 function RouteOutlet({
   route,
-  splitUsable,
   boardUsable,
   noProjects,
 }: {
   route: ResolvedTasksRoute;
-  splitUsable: boolean;
   boardUsable: boolean;
   noProjects: boolean;
 }) {
@@ -64,7 +62,6 @@ function RouteOutlet({
         <BrowseWorkspace
           key={route.kind}
           route={route}
-          split={splitUsable}
           noProjects={noProjects}
         />
       );
@@ -81,7 +78,6 @@ function RouteOutlet({
         <BrowseWorkspace
           key={route.projectId}
           route={route}
-          split={splitUsable}
           noProjects={noProjects}
         />
       );
@@ -112,14 +108,12 @@ function TasksAppShellContent({
 
   const mainRef = useRef<HTMLElement>(null);
   const [boardUsable, setBoardUsable] = useState(true);
-  const [splitUsable, setSplitUsable] = useState(false);
   useLayoutEffect(() => {
     const main = mainRef.current;
     if (!main) return;
     const update = () => {
       const mainWidth = main.clientWidth;
       setBoardUsable(!(mainWidth > 0 && mainWidth < BOARD_MIN_WIDTH));
-      setSplitUsable(mainWidth >= 880);
     };
     update();
     if (typeof ResizeObserver === "undefined") return;
@@ -214,7 +208,6 @@ function TasksAppShellContent({
             <RouteOutlet
               route={route}
               boardUsable={boardUsable}
-              splitUsable={splitUsable}
               noProjects={noProjects}
             />
           )}

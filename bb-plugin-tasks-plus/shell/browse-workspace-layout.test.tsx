@@ -88,8 +88,6 @@ describe("responsive browse markup", () => {
       });
       await slot.findByRole("textbox", { name: "Task title" });
       capture(slot, width, "detail");
-      if (width < 880)
-        fireEvent.click(slot.getByRole("button", { name: "Back to list" }));
       fireEvent.click(
         slot.getByRole("button", { name: "Expand subtasks of TSK-1" }),
       );

@@ -7,6 +7,7 @@ export function createSafeTaskTransition() {
   let editor: TaskEditSession | undefined;
   let destination: (() => void) | undefined;
   let running: Promise<boolean> | undefined;
+  const pendingListeners = new Set<() => void>();
   const run = (): Promise<boolean> => {
     if (running) return running;
     if (!editor?.getSnapshot().pending) {
@@ -29,6 +30,13 @@ export function createSafeTaskTransition() {
     return running;
   };
   return {
+    /** Let a retained editor reveal its originating view before a guarded save. */
+    onPendingTransition(listener: () => void) {
+      pendingListeners.add(listener);
+      return () => {
+        pendingListeners.delete(listener);
+      };
+    },
     register(next: TaskEditSession) {
       editor = next;
       return () => {
@@ -37,6 +45,8 @@ export function createSafeTaskTransition() {
     },
     request(commit: () => void) {
       destination = commit;
+      if (editor?.getSnapshot().pending)
+        pendingListeners.forEach((listener) => listener());
       return run();
     },
     retry: run,

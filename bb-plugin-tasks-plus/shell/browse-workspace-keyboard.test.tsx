@@ -174,15 +174,16 @@ describe("browse focus transitions", () => {
     await waitFor(() => expect(document.activeElement).toBe(row(slot, 2)));
   });
 
-  it("keeps compact ownership on visible detail and Escape safely returns to the same row", async () => {
+  it("keeps native-pane keyboard navigation at narrow main widths and Escape returns to the same row", async () => {
     panelSize.width = 600;
     const slot = setup("all?task=TSK-1");
     await slot.findByRole("textbox", { name: "Task title" });
     detail(slot).focus();
     press("j");
     await acceptNavigation(slot);
-    expect(document.activeElement).toBe(detail(slot));
+    expect(document.activeElement).toBe(row(slot, 2));
     expect(document.activeElement?.closest("[hidden], [inert]")).toBeNull();
+    detail(slot).focus();
     press("Escape");
     await waitFor(() => expect(document.activeElement).toBe(row(slot, 2)));
     press("m");

@@ -1,14 +1,14 @@
 # Safe ticket transitions
 
-This is the BBP-9 contract for the existing detail editor and later split workspace.
+This is the safe-transition contract reused by standalone detail and native Ticket browsing.
 It does not select rows, reconcile visible order, or own project preferences.
 
 ## Workspace integration
 
 - Mount `TasksSessionProvider` once for the Tasks panel. `TasksAppShell` already does
-  this. A future browse workspace should reuse that provider, not nest another one
-  or key it by selection. It owns one active editor barrier and task-id-keyed
-  comment records for the mounted session.
+  this. BrowseWorkspace reuses that provider, never nests one or keys it by selection.
+  It owns one active editor barrier and task-id-keyed comment records. The native
+  Ticket tab is only a portal outlet; its unmount does not end this page session.
 - `useTasksSession()` returns the transition interface, or null outside a session.
   Call `request(() => commitDestination())` for selection, scope, or context changes.
   Put **all** related mutations in that callback, including URL, highlight, filter,
@@ -22,6 +22,9 @@ It does not select rows, reconcile visible order, or own project preferences.
   With no destination, it only saves. `cancel()` forgets a pending destination;
   it neither discards edits nor cancels an already-sent write. Provider unmount
   cancels navigation callbacks. Register exactly one editable ticket per provider.
+- `onPendingTransition(listener)` observes pending guarded saves without owning a
+  destination. The native Ticket adapter uses it to reveal a parked origin before
+  a failure could hide its Retry controls. Disposal removes that listener.
 - `useSafeTaskTarget(requestedString)` holds externally supplied identity changes
   until the barrier succeeds. The shell uses it for host subpaths; standalone and
   thread-side detail use it for task keys. The thread panel guards its header,
@@ -65,7 +68,7 @@ cache or request system is introduced.
 Embedded `DetailView.onMissing(key, stillMissing)` supplies a predicate that must
 be checked inside the accepted clear callback. It rejects a newer loading, error,
 or restored result. The optional `reconcileRevision` re-evaluates absence after
-accepted workspace context commits, including Back. Standalone callers omit both.
+accepted workspace context commits, including Escape return. Standalone callers omit both.
 
 Embedded `DetailView.onReady` notifies the workspace when the keyed lookup renders
 a task or retryable error. Matching `data-detail-key` markup prevents stale readiness

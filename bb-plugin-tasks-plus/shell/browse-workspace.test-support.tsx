@@ -5,7 +5,22 @@ import { makeTask, rpcInput } from "../test-fixtures.js";
 
 const app = await loadPluginApp(() => import("../app"));
 export const panel = app.navPanels[0]!;
-export const Panel = panel.component;
+const TasksPage = panel.component;
+export function Panel({
+  subPath,
+  ticketVisible = true,
+}: {
+  subPath: string;
+  ticketVisible?: boolean;
+}) {
+  const Ticket = panel.fixedTabs![0]!.component;
+  return (
+    <>
+      <TasksPage subPath={subPath} />
+      {ticketVisible && <Ticket subPath={subPath} />}
+    </>
+  );
+}
 export const project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
   name: "Tasks Plugin",
@@ -53,11 +68,16 @@ export function useWorkspaceTestLifecycle() {
 export function setup(
   subPath = "all",
   overrides: Record<string, (raw: unknown) => unknown> = {},
+  {
+    nativeTab = true,
+    openFixedTab = () => true,
+  }: { nativeTab?: boolean; openFixedTab?: () => boolean } = {},
 ) {
-  return renderSlot(
-    panel,
+  const slot = renderSlot(
+    { ...panel, component: nativeTab ? Panel : TasksPage },
     { subPath },
     {
+      experimental_openFixedTab: openFixedTab,
       rpc: {
         listProjects: () => ({ projects: [project] }),
         listFolders: () => ({ folders: [] }),
@@ -83,13 +103,15 @@ export function setup(
       },
     },
   );
+  return Object.assign(slot, { nativeTab });
 }
 // The SDK records navigation; only the host delivers accepted subpath props.
 export async function acceptNavigation(slot: ReturnType<typeof setup>) {
   const call = slot.inspection.navigateCalls.at(-1);
   expect(call?.method).toBe("toPluginPanel");
   if (call?.method !== "toPluginPanel") throw new Error("Expected navigation");
-  slot.lifecycle.rerender(<Panel subPath={call.options?.subPath ?? ""} />);
+  const Component = slot.nativeTab ? Panel : TasksPage;
+  slot.lifecycle.rerender(<Component subPath={call.options?.subPath ?? ""} />);
   await act(async () => {});
 }
 export const row = (slot: ReturnType<typeof setup>, n: number) =>

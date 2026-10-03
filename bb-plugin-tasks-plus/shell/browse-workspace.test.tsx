@@ -90,14 +90,14 @@ describe("editable browse workspace", () => {
     },
   );
 
-  it("uses actual panel width for initial compact detail and leaves the list mounted", async () => {
+  it("leaves narrow main-pane layout to the host and keeps the list mounted", async () => {
     panelSize.width = 600;
     const slot = setup();
     await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
     const list = slot.getByRole("region", { name: "Ticket list" });
     await select(slot, 1);
-    expect(list.hidden).toBe(true);
-    expect(slot.getByRole("button", { name: "Back to list" })).toBeTruthy();
+    expect(list.hidden).toBe(false);
+    expect(slot.queryByRole("button", { name: "Back to list" })).toBeNull();
     expect(slot.container.contains(list)).toBe(true);
   });
   it.each([1000, 880, 600, 320])(
@@ -135,7 +135,7 @@ describe("editable browse workspace", () => {
         slot.container
           .querySelector("[data-browse-layout]")
           ?.getAttribute("data-browse-layout"),
-      ).toBe(width >= 880 ? "split" : "compact");
+      ).toBe("native");
       expect(slot.getAllByRole("button", { name: "Attach file" })).toHaveLength(
         2,
       );

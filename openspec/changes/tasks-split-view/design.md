@@ -4,7 +4,7 @@
 
 See `proposal.md` for the motivation and the two delta specs for acceptance behavior. This design is needed because the change crosses host slot registration, routing, list rendering, shortcut dispatch, and editable detail lifetime.
 
-Observed implementation:
+Observed before the original implementation:
 
 - `app.tsx` registers `TasksAppShell` as the main Tasks panel and `TasksNavigationPanel` as a fixed Navigation tab. The separate host tab is the right-hand project navigation in the supplied screenshot.
 - `shell/routes.ts` currently resolves both an empty entry and an explicit `all` destination to the same route. Task routes carry only a task key. `lastBrowseRouteRef` in `shell/app-shell.tsx` keeps return context only while mounted.
@@ -39,23 +39,41 @@ Give an empty Tasks subpath a distinct entry representation rather than interpre
 
 An explicit project or All navigation updates memory. Active, Manage, and standalone task links do not. Missing storage defaults to All; invalid or blocked storage is nonfatal and retains session usability. Do not overwrite unknown future-version documents. Confirm a missing remembered project from a successful inventory, not from initial emptiness, a stale snapshot, or an error. On inventory failure, retain memory and expose retry.
 
-Continue using `loadViewMode` for project routes with no explicit view. A remembered board choice still opens the board. Otherwise restoration opens the split-list workspace when width permits.
+Continue using `loadViewMode` for project routes with no explicit view. A remembered board choice still opens the board. Otherwise restoration opens the list workspace with native Ticket detail.
 
 Alternative rejected: remember the entire last route. That could reopen Manage or an unrelated task and conflate project scope with short-lived selection. Automatically choosing the linked BB project was also rejected because the user asked for the last choice, not contextual inference.
 
-### 2. Put the split inside the Tasks panel, not across two host slots
+### 2. Use BB's native right pane, with one editor owner
 
-Stop registering the permanent fixed Navigation tab in `app.tsx`. The main panel owns both list and detail. Adapt useful navigation data and folder grouping into a project picker above the list. Put Active, Manage, and creation actions in the browsing header or its overflow menu; keep preset management reachable through Manage. Preserve command registration and the sidebar accessory.
+Remove the fixed Navigation tab and keep project/folder selection, Active, Manage,
+creation, presets, commands, and the sidebar accessory in the main Tasks surface.
+All, Active, and project lists fill that main area. Register a flush **Ticket**
+fixed tab in BB's existing right pane; keep Browser and Terminal as host tabs.
+This replaces the original nested-split implementation after the user's layout
+clarification. Board, Manage, standalone detail, and thread embeds stay distinct.
 
-Use a `BrowseWorkspace` module under `shell/` for list destinations: All, Active, and project list. It owns the panel composition, selected task identity, transition requests, list/detail focus references, and session draft ownership. The board, Manage, and standalone task route outlets remain distinct.
+`BrowseWorkspace` owns the accepted selected identity, list context, transitions,
+and focus intent. List receives controlled selection and reports its settled
+rendered order. Detail reuses the existing editor; visible related-task links
+select within the workspace and off-list links retain standalone navigation.
 
-Expose narrow view interfaces:
+The host mounts page and tab as separate React trees and unmounts inactive tabs.
+`ticket-panel.tsx` bridges only the tab outlet: a stable portal container keeps the
+editor in the page's React tree and parks its DOM under hidden/inert markup when
+Ticket is inactive. It does not create another session, route owner, or task store.
+The existing TasksSessionProvider therefore survives Ticket/Browser/Terminal
+switches and Ticket closure. Retention ends when the Tasks page itself unmounts.
 
-- List receives controlled selected identity and a request-selection callback, and reports its settled ordered visible task keys. It retains tree building, filter/sort/expansion, row menus, and scroll restoration.
-- Detail accepts the selected key plus workspace navigation and transition hooks when embedded. Existing standalone and thread-side use keeps its current defaults. Related task/subtask links in embedded detail request workspace selection when their target is in the visible list; otherwise they open the existing standalone task destination without changing remembered project scope.
-- Navigation and edit-session hooks belong to the workspace boundary rather than global DOM events or a generic state framework.
+Selection reveals Ticket when requested, before guarded writes, not again when a
+slow save completes. This avoids overriding a later host-tab switch. Pending
+context transitions reveal a parked origin so failures remain retryable. Declined
+host opens show that same editor in a main-page recovery view without saving first.
+Native placement can be retried, while leaving the origin stays guarded. Same-key refresh and resize
+do not reopen Ticket. Portal scopes join the existing keyboard listener; hidden
+editor overlays close instead of remaining active in document.body.
 
-Alternative rejected: render a second copy of the app in the host's right-hand tab. That would create separate route state, duplicated data queries, independent shortcut roots, and difficult edit coordination.
+Alternative rejected: render another complete Tasks app inside Ticket. That would
+duplicate route/query state, shortcut listeners, and edit ownership.
 
 ### 3. Browse routes preserve scope and optional selection
 
@@ -65,7 +83,7 @@ In-workspace preview changes replace the current browse history entry instead of
 
 The URL owns committed selection; the workspace temporarily owns pending transition targets. Do not maintain an independent focused-index selection. Both row highlighting and detail lookup derive from the committed key.
 
-Keep the list mounted while switching previews and while temporarily hidden in compact detail mode. Reuse its existing scoped preference and scroll helpers. No selected ticket is automatically invented on first entry: show the selection prompt until a click, key, or valid browse URL selects one. A project change clears selection. A settled filter, collapse, edit, or deletion that removes the selected row requests safe clearing; transient loading does not.
+Keep the list mounted while switching previews and while the native Ticket tab is inactive. Reuse its existing scoped preference and scroll helpers. No selected ticket is automatically invented on first entry: show the selection prompt until a click, key, or valid browse URL selects one. A project change clears selection. A settled filter, collapse, edit, or deletion that removes the selected row requests safe clearing; transient loading does not.
 
 Alternative rejected: keep selection only in local component state. Refreshing compact detail would lose the originating scope, and host history could not restore the same workspace. Persisting every selected ticket in local storage is unnecessary; only scope is a durable preference.
 
@@ -75,7 +93,7 @@ Extend the current shortcut registry with a bounded focus-owner check for list/d
 
 Workspace movement uses the list's reported visible keys and current selected key. It handles `j`, `k`, Up, and Down from either pane's non-editable controls, clamps at boundaries, and on success focuses and scrolls the selected row. Real row focus remains the keyboard indicator; a separate selected fill and accessible current-item marker persist when focus moves into detail. Tab navigation continues to reach controls and does not require all focused controls to change selection.
 
-With row focus, Enter or `o` ensures its selection and focuses a stable, non-editable detail heading/container after loading. Escape outside editing and overlays returns to the selected row; compact detail also returns to the list. `s`, `p`, and `l` target the focused pane's representation of the same ticket. Detail-only actions such as comment focus and delegation remain detail actions. Existing `[` / `]` controls in split browsing must use the same visible order, not `TaskPager`'s independent unfiltered top-level query; standalone detail retains its existing pager behavior. Board keys remain unchanged. Update help from the same shortcut definitions.
+With row focus, Enter or `o` ensures its selection and focuses a stable, non-editable detail heading/container after loading. Escape outside editing and overlays returns to the selected row; BB owns compact drawer dismissal. `s`, `p`, and `l` target the focused pane's representation of the same ticket. Detail-only actions such as comment focus and delegation remain detail actions. Existing `[` / `]` controls in split browsing must use the same visible order, not `TaskPager`'s independent unfiltered top-level query; standalone detail retains its existing pager behavior. Board keys remain unchanged. Update help from the same shortcut definitions.
 
 Alternative rejected: make selection depend exclusively on `document.activeElement`. Moving focus to the editable preview would otherwise lose the current row and restart navigation at the first ticket.
 
@@ -91,20 +109,21 @@ Guard detail data by the selected key and request generation. A slow previous re
 
 Alternative rejected: rely on effect cleanup to flush. The current cleanup has no awaited result and can hide errors after the originating editor disappears. Persisting comments to the database on selection is also rejected because comments and notifications are explicit user actions.
 
-### 6. Use one responsive composition with independent scroll areas
+### 6. Let BB own pane sizing and compact presentation
 
-Preserve BB's flat, token-based visual language. Put the project selector and compact filter/sort controls above the left list. Keep task key, status, title, and important state visible; progressively move secondary metadata out of the narrow row rather than shrinking text or hiding task identity. The right pane uses the existing detail header and editor, without adding another property sidebar outside that pane.
+Keep BB's flat, token-based styling, project/filter/sort controls in the main list,
+and the existing detail header/editor in Ticket. Preserve task key, status, title,
+important state, wrapped metadata, and coarse-pointer targets in narrow lists.
 
-Initial layout defaults, to verify during implementation:
+BB owns the right-pane tab strip, resizing, and narrow-layout drawer. The plugin
+has no 880px threshold, nested divider, or Back-to-list layout. The list stays
+mounted, and the same editor survives native tab/drawer changes through its portal.
+Each area scrolls independently. The editor's container still decides its internal
+property layout; no extra property rail is introduced. Enter explicitly focuses
+the non-editable visible ticket container; selection and resize never focus an editor.
 
-- Enter split layout at 880 px of actual panel width, allowing approximately 320 px for list and 560 px for detail. Use a narrower list and flexible detail, with a hairline divider and no resting shadows.
-- Below that width, show one pane at a time with an explicit Back to list action. Preserve the mounted list and selected task so resize/back does not drop drafts or scroll position.
-- Each pane has its own constrained scroll area. Container widths govern detail property rail visibility and wrapping, not the browser width.
-- Do not autofocus editors on selection. Keyboard movement remains in the list until an explicit focus action.
-
-Use the shell's existing ResizeObserver/container approach. The initial threshold and row metadata density are implementation defaults, not a fixed screen-size contract; adjust them in one bounded desktop/compact inspection to keep both panes usable. No draggable splitter is included.
-
-Alternative rejected: always split at a browser viewport breakpoint. BB can put this panel in a narrow slot inside a wide window.
+Alternative rejected: an internal split or custom splitter. It puts the editor in
+the wrong host area and duplicates BB's existing responsive pane behavior.
 
 ### 7. Distinguish loading, absence, and failure
 
@@ -115,7 +134,7 @@ Preserve successful scoped list data during background refresh, but do not valid
 ## Risks / Trade-offs
 
 - [Removing a fixed host tab changes panel registration and existing slot tests] -> Adapt `app.test.tsx` and `shell/shell.test.tsx`, then verify an installed BB panel does not retain an obsolete permanent Navigation pane.
-- [List/detail shortcut collisions] -> Gate actions by actual pane focus and test both panes mounted, hidden compact panes, overlays, editable children, and another BB pane.
+- [List/detail shortcut collisions] -> Gate actions by actual pane focus and test both panes mounted, parked native-tab content, overlays, editable children, and another BB pane.
 - [Fast keyboard switching races with saves or queries] -> Use awaitable per-task saves, coalesced targets, selected-key response checks, and deferred-promise tests.
 - [Draft/session state leaks across tasks] -> Key records and pending operations by immutable task id, preserve explicit submit semantics, and test A-to-B-to-A with text and staged files.
 - [A filter or status mutation removes the current ticket while its save fails] -> Stage the removal-producing context transition and retain the originating editor and visible row until save success or retry.
@@ -133,4 +152,4 @@ Preserve successful scoped list data during background refresh, but do not valid
 
 ## Open Questions
 
-None that block implementation. The 880 px threshold and compact metadata arrangement are explicit starting defaults to confirm visually without changing the behavior contract.
+None that block implementation. Native host lifecycle, drawer behavior, and installed-theme acceptance must be checked separately from SDK fixtures.

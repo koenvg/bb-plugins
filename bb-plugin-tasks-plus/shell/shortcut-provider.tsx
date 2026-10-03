@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   type ReactNode,
   type RefObject,
@@ -33,6 +34,7 @@ type HandlersRef = RefObject<{
 
 const ShortcutRegistryContext = createContext<{
   register(handlers: HandlersRef): () => void;
+  registerScope(root: RefObject<HTMLElement | null>): () => void;
 } | null>(null);
 
 export function ShortcutProvider({
@@ -43,7 +45,14 @@ export function ShortcutProvider({
   children: ReactNode;
 }) {
   const registrations = useRef<HandlersRef[]>([]);
+  const scopes = useRef<RefObject<HTMLElement | null>[]>([]);
   const registry = useRef({
+    registerScope(root: RefObject<HTMLElement | null>) {
+      scopes.current = [...scopes.current, root];
+      return () => {
+        scopes.current = scopes.current.filter((entry) => entry !== root);
+      };
+    },
     register(handlers: HandlersRef) {
       registrations.current = [...registrations.current, handlers];
       return () => {
@@ -56,7 +65,13 @@ export function ShortcutProvider({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (shouldIgnoreKey(event, rootRef.current)) return;
+      const roots = [
+        rootRef.current,
+        ...scopes.current.map((ref) => ref.current),
+      ].filter((root): root is HTMLElement =>
+        Boolean(root?.isConnected && !root.closest("[hidden], [inert]")),
+      );
+      if (roots.every((root) => shouldIgnoreKey(event, root))) return;
       for (const handlers of registrations.current) {
         const owner = handlers.current.owner;
         if (owner) {
@@ -92,6 +107,11 @@ export function ShortcutProvider({
   );
 }
 
+/** Include plugin-owned portal content without claiming the host's other tabs. */
+export function useShortcutScope(root: RefObject<HTMLElement | null>): void {
+  const registry = useContext(ShortcutRegistryContext);
+  useLayoutEffect(() => registry?.registerScope(root), [registry, root]);
+}
 export function useShortcuts(handlers: ShortcutHandlers): void {
   const registry = useContext(ShortcutRegistryContext);
   const owner = useContext(ShortcutOwnerContext);

@@ -7,10 +7,10 @@ Lets users scan and edit consecutive tickets in a persistent list/detail workspa
 ## ADDED Requirements
 
 ### Requirement: List and editable ticket share the workspace
-When the Tasks panel has enough width for usable list and detail panes, its list destinations SHALL show the ticket list on the left and the selected ticket's existing fully editable detail on the right. The detail pane SHALL retain title and description editing, properties, dependencies, subtasks, attachments, comments, linked threads, and delegation. The panes SHALL scroll independently without a permanent project-navigation pane on the right. Before any ticket is selected, the detail area SHALL prompt the user to select a ticket.
+Tasks list destinations SHALL fill the main Tasks area and show the selected ticket's existing fully editable detail in a plugin-owned Ticket tab in BB's native right-hand pane. The detail SHALL retain title and description editing, properties, dependencies, subtasks, attachments, comments, linked threads, and delegation. The areas SHALL scroll independently without a permanent project-navigation pane on the right or an internal Tasks split. BB SHALL own the pane's tab strip, resizing, and compact drawer; Browser and Terminal SHALL remain available as host tabs. Before selection, an opened Ticket tab SHALL prompt the user to select a ticket.
 
 #### Scenario: Select a ticket with the mouse
-- **WHEN** the user clicks a ticket row in a sufficiently wide project list
+- **WHEN** the user clicks a ticket row in a project list
 - **THEN** that ticket's editable detail appears on the right
 - **AND** the list remains visible at its current scroll position
 - **AND** the clicked row has a persistent selected indicator
@@ -21,7 +21,7 @@ When the Tasks panel has enough width for usable list and detail panes, its list
 
 #### Scenario: No ticket selected yet
 - **WHEN** a list destination is first opened without a selected ticket
-- **THEN** the list remains usable and the detail area asks the user to select a ticket
+- **THEN** the list remains usable and an opened Ticket tab asks the user to select a ticket
 
 #### Scenario: Independent scrolling
 - **WHEN** the user scrolls a long ticket description or activity feed
@@ -71,7 +71,7 @@ On list destinations, `j` or Down Arrow SHALL select the next visible ticket and
 - **THEN** no out-of-range ticket is selected and no unrelated detail opens
 
 ### Requirement: Keyboard actions respect focus and editing
-Single-key actions SHALL NOT fire while typing in a text input or rich-text editor, during composition, with Cmd, Ctrl, or Alt held, while a menu or dialog is open, or while focus is in another BB pane. List property shortcuts SHALL act on the focused selected row; detail property shortcuts SHALL act on the selected ticket when focus belongs to detail. A key press SHALL produce at most one action. In the split layout, Enter or `o` on a selected row SHALL move focus into its detail without replacing the list, and Escape from a non-editable detail control SHALL return focus to the selected row. Escape SHALL NOT discard editor content or override an open overlay's dismissal behavior.
+Single-key actions SHALL NOT fire while typing in a text input or rich-text editor, during composition, with Cmd, Ctrl, or Alt held, while a menu or dialog is open, or while focus is in another BB pane. List property shortcuts SHALL act on the focused selected row; detail property shortcuts SHALL act on the selected ticket when focus belongs to detail. A key press SHALL produce at most one action. In native-pane browsing, Enter or `o` on a selected row SHALL move focus into its detail without replacing the list, and Escape from a non-editable detail control SHALL return focus to the selected row. Escape SHALL NOT discard editor content or override an open overlay's dismissal behavior.
 
 #### Scenario: Type in the description
 - **WHEN** the description editor has focus and the user types `j` or `k`
@@ -116,17 +116,32 @@ A transition that replaces the selected ticket or its browsing context SHALL com
 - **THEN** the unsent text and attachment are still associated with ABC-1
 - **AND** no comment or agent notification was sent by switching tickets
 
-### Requirement: Compact layout preserves browsing context
-When the available Tasks panel width cannot fit usable list and detail panes, selecting a ticket SHALL show a single detail view with a return action. Returning SHALL restore the same project scope, filters, sort, expansion, selected ticket, and list position. Resizing between compact and split layouts SHALL retain the selection and draft ownership rather than remounting a different ticket. Layout decisions SHALL use the Tasks panel's available width, not only the browser window width.
+### Requirement: Native pane lifecycle preserves browsing context
+Tasks SHALL preserve the selected editor and task-owned drafts when the native Ticket tab is closed, switched away from, or unmounted while the main Tasks page remains mounted. The list SHALL retain scope, filters, sort, expansion, selected row, and scroll position. The plugin SHALL NOT introduce an internal split breakpoint or Back-to-list layout. Inactive editors SHALL NOT own keyboard events or leave active menus/dialogs outside their hidden content. Session retention SHALL end when the Tasks page closes or the browser reloads.
 
-#### Scenario: Compact selection and return
-- **WHEN** the Tasks panel is narrow and the user selects ABC-2 from a scrolled project list
-- **THEN** ABC-2 detail replaces the visible list
-- **AND** returning restores the list at its previous position with ABC-2 selected
+#### Scenario: Switch to Browser or Terminal and return
+- **WHEN** ABC-2 has unsent comment text and staged files and the user switches away from Ticket or closes its tab
+- **THEN** its editor, drafts, and pending writes remain owned by the mounted Tasks page
+- **AND** reopening Ticket restores that editor without submitting, uploading, notifying, or delegating
 
-#### Scenario: Resize with an active selection
-- **WHEN** ABC-2 is selected and the Tasks panel becomes wide enough for the split layout
-- **THEN** its editable detail appears beside the same list and remains ABC-2
+#### Scenario: Resize or use the compact drawer
+- **WHEN** the host resizes its panes or changes drawer presentation with ABC-2 selected
+- **THEN** the same list and editable ABC-2 remain owned by the Tasks page
+- **AND** the plugin does not reset list context, create an inner split, or focus an editor
+
+#### Scenario: Save completes after switching host tabs
+- **WHEN** the user requests ABC-2, switches to another host tab during an originating save, and that save succeeds
+- **THEN** ABC-2 becomes selected without reopening Ticket or stealing the other pane's focus
+
+#### Scenario: Parked origin cannot save
+- **WHEN** a context change requires saving an origin whose Ticket tab is closed
+- **THEN** Tasks requests that the origin's Ticket pane be revealed before saving
+- **AND** a failed save retains the originating draft and retryable error
+
+#### Scenario: Host declines the Ticket open
+- **WHEN** BB declines the request to open Ticket
+- **THEN** Tasks shows the same retained origin in a temporary main-page recovery view, with its draft and actual save error accessible without first saving
+- **AND** returning to the list or opening standalone detail remains save-guarded, while retrying native placement does not replace the editor
 
 ### Requirement: Errors and existing destinations remain usable
 A selected ticket's loading, missing-ticket, or load-error state SHALL appear in the detail area without disabling the list or showing another ticket as the selected ticket. Load errors SHALL offer retry. A successfully confirmed deletion SHALL safely clear the unavailable selection. Existing standalone task links, board behavior, CLI commands, task mentions, and thread-side task embeds SHALL continue to work.

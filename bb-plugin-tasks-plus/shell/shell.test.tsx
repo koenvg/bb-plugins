@@ -228,7 +228,9 @@ describe("task pager", () => {
 
 describe("tasks app shell", () => {
   it("keeps navigation in the main panel rather than a fixed host tab", () => {
-    expect(tasksRegistration.fixedTabs ?? []).toEqual([]);
+    expect((tasksRegistration.fixedTabs ?? []).map((tab) => tab.id)).toEqual([
+      "ticket",
+    ]);
   });
 
   it("does not treat the first connection as a reconnect", async () => {

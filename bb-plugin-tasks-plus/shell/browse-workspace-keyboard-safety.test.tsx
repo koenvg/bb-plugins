@@ -113,7 +113,7 @@ describe("browse delayed focus and save safety", () => {
   );
 
   it.each(["outside", "overlay"])(
-    "keeps %s focus when accepted compact Escape hides detail",
+    "keeps %s focus when native-pane Escape finishes at a narrow main width",
     async (owner) => {
       panelSize.width = 600;
       const saved = deferred<unknown>();
@@ -132,12 +132,12 @@ describe("browse delayed focus and save safety", () => {
       expect(active).toBe(other);
       expect(
         slot.queryByRole("region", { name: "Selected ticket" }),
-      ).toBeNull();
+      ).toBeTruthy();
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     },
   );
 
-  it("moves focus out of an editor that accepted compact Back hides", async () => {
+  it("leaves newly acquired editor focus alone when native-pane Escape finishes", async () => {
     panelSize.width = 600;
     const saved = deferred<unknown>();
     const slot = setup("all?task=TSK-1", { updateTask: () => saved.promise });
@@ -147,7 +147,7 @@ describe("browse delayed focus and save safety", () => {
     press("Escape");
     title.focus();
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
-    expect(document.activeElement).toBe(row(slot, 1));
+    expect(document.activeElement).toBe(title);
     expect(document.activeElement?.closest("[hidden], [inert]")).toBeNull();
     expect(slot.container.contains(title)).toBe(true);
   });
@@ -213,7 +213,7 @@ describe("browse delayed focus and save safety", () => {
     ).toHaveLength(writes);
   });
 
-  it("guards compact Escape with save failure and returns without scrolling after Retry", async () => {
+  it("guards native-pane Escape with save failure and returns without scrolling after Retry", async () => {
     panelSize.width = 600;
     let canSave = false;
     const slot = setup("all?task=TSK-1", {
@@ -231,7 +231,7 @@ describe("browse delayed focus and save safety", () => {
     detail(slot).focus();
     press("Escape");
     await slot.findByRole("alert");
-    expect(slot.queryByRole("region", { name: "Ticket list" })).toBeNull();
+    expect(slot.queryByRole("region", { name: "Ticket list" })).toBeTruthy();
     expect(document.activeElement).toBe(detail(slot));
     canSave = true;
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));

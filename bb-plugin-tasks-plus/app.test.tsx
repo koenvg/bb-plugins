@@ -9,7 +9,9 @@ const app = await loadPluginApp(() => import("./app"));
 afterEach(cleanup);
 
 it("registers inline Tasks navigation without a fixed Navigation pane", () => {
-  expect(app.navPanels[0]?.fixedTabs ?? []).toEqual([]);
+  expect(app.navPanels[0]?.fixedTabs?.map(({ id }) => id) ?? []).toEqual([
+    "ticket",
+  ]);
   expect(app.navPanels[0]?.experimental_sidebarAccessory).toBeTypeOf(
     "function",
   );
