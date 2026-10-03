@@ -52,7 +52,7 @@ The replacement SHALL preserve navigation, the selected-thread and activity indi
 - **THEN** the replacement targets the same thread and respects BB's split behavior
 
 ### Requirement: Pull request status per thread
-For a thread whose environment branch has a pull request, the replacement SHALL show a compact status and an accessible link to that pull request on the thread row. The status SHALL come from the github-insight PR summary of the thread, not from BB's per-row PR lookup. It SHALL distinguish draft, open with no special attention, checks pending or failed, review requested or changes requested, conflicts or blocked merge, ready to merge, merged, and closed states. The status SHALL not be mistaken for the thread's execution status.
+For a thread whose environment branch has a pull request, the replacement SHALL show a compact status and an accessible link to that pull request on the thread row. The status SHALL come from the github-insight PR summary of the thread, not from BB's per-row PR lookup. It SHALL distinguish draft, open with no special attention, checks pending or failed, review requested or changes requested, conflicts or blocked merge, ready to merge, queued in a merge queue, merging, merge queue failed, merged, and closed states. The status SHALL not be mistaken for the thread's execution status.
 
 #### Scenario: Branch has an open PR needing attention
 - **WHEN** the github-insight summary reports an open PR with failed checks or requested changes for a thread
@@ -61,6 +61,19 @@ For a thread whose environment branch has a pull request, the replacement SHALL 
 #### Scenario: Branch has a draft, merged, or closed PR
 - **WHEN** the github-insight summary reports a draft, merged, or closed PR
 - **THEN** the row identifies the PR and communicates that state without implying it is ready to merge
+
+#### Scenario: PR in a merge queue
+- **WHEN** the github-insight summary reports `mergeQueue` with state `queued` or `awaiting_checks` at position 3
+- **THEN** the row shows "Queued #3" in the waiting tone and does not claim the PR is ready or blocked
+- **AND** for `awaiting_checks` the row also shows a running mark
+
+#### Scenario: PR merging from the queue
+- **WHEN** the github-insight summary reports `mergeQueue` with state `merging`
+- **THEN** the row shows "Merging" in the ready tone
+
+#### Scenario: Merge queue failed
+- **WHEN** the github-insight summary reports `mergeQueue` with state `failed`
+- **THEN** the row shows "Queue failed" in the problem tone
 
 #### Scenario: Several threads use one environment
 - **WHEN** two visible threads share an environment with a PR
@@ -184,3 +197,30 @@ When a shown thread has an ancestor that the lifecycle selection leaves out, and
 #### Scenario: Open a context row
 - **WHEN** the user activates a context row
 - **THEN** BB opens that thread
+
+### Requirement: PR status follows a resolve in BB
+When the user resolves or unresolves a review thread from BB, the replacement SHALL update the PR status of the affected thread rows within a few seconds after BB confirms the write. It SHALL not wait for the next periodic refresh. A failed write or a failed refresh SHALL leave the row usable, and the row SHALL catch up on the next periodic refresh.
+
+#### Scenario: Last unresolved thread resolved
+- **WHEN** the user resolves the last unresolved review thread of a PR from BB and BB confirms the resolve
+- **THEN** the row of that thread stops showing the unresolved threads attention state within a few seconds
+
+#### Scenario: Post and resolve
+- **WHEN** the user posts a reply with "Post + resolve" from BB and both the post and the resolve succeed
+- **THEN** the row updates the same as for a resolve
+
+#### Scenario: Thread unresolved
+- **WHEN** the user unresolves a review thread from BB and BB confirms the write
+- **THEN** the row shows the unresolved threads attention state within a few seconds
+
+#### Scenario: Other rows on the same PR
+- **WHEN** two visible threads share the PR whose review thread the user resolved
+- **THEN** both rows show the updated status
+
+#### Scenario: Resolve write fails
+- **WHEN** BB reports that the resolve failed
+- **THEN** the row keeps its current status and its navigation remains available
+
+#### Scenario: Resolve outside BB
+- **WHEN** a review thread is resolved on GitHub outside BB
+- **THEN** the row updates on the next periodic refresh
