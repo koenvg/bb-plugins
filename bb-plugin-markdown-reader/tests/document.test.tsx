@@ -48,7 +48,7 @@ describe("document navigation model", () => {
     expect(ui.container.querySelector("img")).toBeNull();
     expect(model.fragmentTarget("#foo-2")).toBe(model.headings[2]!.id);
   });
-  it.each(["", "# Actual\r\n\r\n"])("keeps used footnotes passive and does not invent source headings for prefix %j", prefix => {
+  it.each(["", "# Actual\r\n\r\n"])("keeps used footnotes reader-local and does not invent source headings for prefix %j", prefix => {
     const text = prefix + 'Text[^1] and repeated[^1]\r\n\r\n[^1]: Note é.\r\n';
     const first = createDocumentModel(text, "footnotes-one");
     const second = createDocumentModel(text, "footnotes-two");
@@ -60,7 +60,10 @@ describe("document navigation model", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const reader of Array.from(ui.container.querySelectorAll("article"))) {
       expect(reader.textContent).toContain("Note é.");
-      expect(reader.querySelectorAll("a[href]")).toHaveLength(0);
+      expect(reader.querySelectorAll("a[href]")).toHaveLength(4);
+      for (const anchor of Array.from(reader.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
+        expect(Array.from(reader.querySelectorAll("[id]")).some(e => `#${e.id}` === anchor.getAttribute("href"))).toBe(true);
+      }
       const references = reader.querySelectorAll("sup [aria-describedby]");
       expect(references).toHaveLength(2);
       for (const reference of Array.from(references)) {

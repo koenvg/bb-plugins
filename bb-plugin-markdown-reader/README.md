@@ -2,7 +2,7 @@
 
 A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, plain code, and quiet tables. BB keeps its own tabs and file-opening preferences.
 
-This package includes BBP-27 through BBP-29. It is not published or installed by this change.
+This package includes BBP-27 through BBP-30. It is not published or installed by this change.
 
 ## Use
 
@@ -15,7 +15,7 @@ After an explicit installation, select Markdown Reader with BB's one-off **Open 
 
 ## Heading and line navigation
 
-Outline lists only headings from the rendered Markdown parse. It keeps heading levels and visible inline text, including code and link text. Repeated headings have distinct GitHub-style fragment names, such as `#section` and `#section-1`. Non-ASCII names are supported, including percent-encoded fragments. Every mounted reader has separate DOM targets. Outline entries and known fragment links scroll and focus the heading in that reader without opening the file again. Missing or malformed fragments remain inert. Used footnotes keep their passive text and reader-local accessibility references. The parser's hidden footnote label is not a source heading and does not create an outline entry.
+Outline lists only headings from the rendered Markdown parse. It keeps heading levels and visible inline text, including code and link text. Repeated headings have distinct GitHub-style fragment names, such as `#section` and `#section-1`. Non-ASCII names are supported, including percent-encoded fragments. Every mounted reader has separate DOM targets. Outline entries and known fragment links scroll and focus the heading in that reader without opening the file again. Missing or malformed fragments remain inert. Footnote references and return links scroll and focus targets within the same reader. Their accessibility references stay reader-local. The parser's hidden footnote label is not a source heading and does not create an outline entry.
 
 Above 1080 px of reader width, Outline shows a 164 px aside beside the bounded prose column. Narrower readers use a closed **On this page** disclosure. Use Outline to hide it and return space to the document. Heading-free documents have no outline or toggle. The layout measures the reader panel, not the browser window.
 
@@ -39,9 +39,17 @@ Relative workspace/storage paths must be literal Markdown paths. Parent/dot trav
 
 The reader accepts complete UTF-8 text up to **1 MiB**, including empty files. Preview reports an empty file; Raw preserves its empty source. Binary or invalid UTF-8 encoding and non-text control characters have explicit unsupported states. Larger or unsupported files offer the bound BB preview and are never returned to the reader for parsing. The current SDK has no stat or byte-limited read option. It can transfer a larger file to the server before this plugin rejects it. The 1 MiB limit bounds reader content, not SDK transfer.
 
-Raw HTML does not become active DOM. MDX, scripts, and embedded HTML widgets do not execute. Known same-document heading fragments navigate within this reader. Other links, including relative files and external URLs, remain inert. Images show only their alt text and make no network requests. Task checkboxes remain disabled. No report-specific badges, dates, or other metadata are inferred.
+## Links and images
 
-Safe file/external link and image activation, syntax highlighting, and the final visual matrix belong to later tickets. This version renders all fenced languages as plain code without guessing a language or formatting JSON. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated file extensions stay with BB.
+Safe relative file links use BB's public source-aware FileLink. Siblings and literal parents inside the selected root are permitted. Host files cannot escape their containing-directory root. Unsafe schemes, malformed URLs/encodings, encoded traversal, and lexical root escapes stay readable without active href/src or content/navigation effects. Same-document heading and footnote fragments stay within the reader. Cross-file heading fragments are inert because the SDK has no heading-fragment opening location. Project-only workspaces without an environment remain readable, but native links need an environment.
+
+Native local-file navigation uses normal BB opening behavior. It has **no extra plugin guarantee that a final symlink target stays inside the reader root**. Reader reads and local-image content requests do retain SDK root and symlink confinement on the actual source host. An attempted confined operation and a root-preview lease before asset validation are permitted. Outside-root content must not be delivered by the SDK.
+
+External HTTP(S) links use BB's opening preferences through UrlLink. Remote images are ordinary browser network images, not authenticated BB proxies. They send no referrer, but the remote site can see the request and may receive its own browser cookies. No data/file/javascript/mail links are activated. Raw document HTML, MDX, scripts, and embedded widgets do not execute. Task checkboxes remain disabled. No report-specific metadata is inferred.
+
+Local raster images support PNG, JPEG, GIF, WebP, AVIF, BMP, and ICO. SVG, HTML, PDF, and TIFF image destinations are inert. Local images share one source/root preview lease per loaded snapshot, with a 60-second TTL. At most 128 distinct destination requests and 32 distinct images are resolved per snapshot. URLs longer than 4096 characters stay individually inert; other valid destinations still work. Encoded path separators and nested path encodings are rejected for both local and external destinations. Image URLs carry an opaque lease, never a raw host/root path. Expiry or a failed asset request leaves readable alt/error text. Refresh renews transport even when text and hash do not change. View changes do not allocate another lease. Refresh, source switching, Original, and unmount remove stale image sources and discard late results. The SDK has no revocation API; abandoned leases expire.
+
+Syntax highlighting and the final visual matrix belong to later tickets. Fenced code stays plain, with no guessed language or JSON formatting. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB.
 
 ## Compatibility and local build
 
@@ -84,4 +92,5 @@ To check the retained stale state, run `uvx --with playwright python tests/brows
 
 For heading/Raw navigation, run `uvx --with playwright python tests/browser-navigation-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-29-browser`. Its `?document=navigation` mode uses the committed CRLF source fixture. It checks local fragments, independent readers, panel resizing, keyboard disclosure/focus, exact Raw, wrapped lines, and repeated line props. `?start=18&end=18` checks an initial line target. The `fixture-line-request` event only changes public reader props in this test page.
 
+For destinations, run `uv run --offline --with playwright python tests/browser-destination-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-30-browser`. The page at `/tests/destination-preview.html` uses the real registered reader and public SDK frontend test runtime. Its RPC responses, native navigation callbacks, successful image GETs, and confined GET denial are fixtures, not live BB/host proof.
 The fixture uses the same Reader and MarkdownDocument modules with a fixed loaded source and illustrative host tokens. It does not prove live BB routing, extension preference selection, or built-in theme contrast. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.

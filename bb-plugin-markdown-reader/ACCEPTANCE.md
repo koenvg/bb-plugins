@@ -222,3 +222,60 @@ Post-correction verification passed:
 Post-correction captures/results live in `post-review/{navigation,layout,refresh}/`. All 11 prior view captures are byte-identical to the previously inspected views. The two new footnote captures were inspected and show passive note content, a correct source-only outline when a source heading exists, and no outline when it does not. The fixture browser and server were stopped again.
 
 The single review's P1 finding is resolved by the implementation owner and passing regression/affected checks. The original REQUEST CHANGES verdict is preserved; no claim of a second approval is made. This meets the workflow's one-review-and-resolve gate. All BBP-29 implementation criteria and affected validation now pass. Final scope/whitespace, local commit, attachments, and clean-worktree evidence are recorded in the external handoff and task record. No other ticket was started. Live BB/theme limits above remain unchanged.
+
+# BBP-30 links and images evidence
+
+## Baseline and approved contract
+
+Ticket baseline and completion-review fixed point: `939787ca567d91a0e48111a663a692528dcd3a01`. Sole implementation owner: `thr_knbpuaqpd5`, parent `thr_e4syayprwm`. Environment and branch are unchanged. BBP-28 is natively done. The four approved OpenSpec files carry the operator's revised safety contract. Earlier evidence above is preserved, including the original BBP-29 REQUEST CHANGES verdict and owner resolution.
+
+The former metadata-only/pre-activation contract remains blocked on SDK 0.5.29. Its original report, exact SDK source ZIP, and blocked handoff remain in `/Users/koen/.bb/thread-storage/thr_knbpuaqpd5/bbp-30/` and on BBP-30. This implementation uses the approved revision, not a claimed SDK fix.
+
+Lexical rejections have no content, preview, image-request, or navigation effect. Valid local links use public source-aware BB opening and have no extra plugin final-symlink-target guarantee. Reader reads and local-image GETs retain explicit host/root and SDK confinement. Attempted confined operations and preview allocation before asset validation are permitted. Remote images are ordinary network images, not authenticated proxies.
+
+## Implementation and test-first evidence
+
+The source interface resolves destinations from the validated document directory and actual source host/root. Caller roots are rejected. The browser receives typed navigation targets or opaque image transport, not a filesystem command. Parser-derived requests and footnote targets use the same document model as headings/Raw. Unsafe/unsupported destinations remain readable. Raw HTML is still skipped.
+
+Public APIs used: `experimental_FileLink`, `UrlLink`, and `files.createPreview({ hostId, rootPath, ttlMs: 60000 })`. SDK 0.5.29 declarations and matching inspected source confirm the contract. No private/core imports, filesystem endpoints, precheck reads, or revocation API are invented. SDK confinement occurs at content request time; the preview lease itself is not evidence that an asset has been validated.
+
+One root lease is shared by local images in a snapshot. At most 128 distinct destination requests and 32 distinct images are resolved. Expiry/error gives readable alt/error text. Refresh renews leases even with unchanged text/hash. Preview/Raw changes do not allocate leases. Refresh/failure removes stale image sources. Switching sources, Original, and unmount discard late results and clear image timers. Abandoned leases expire because the SDK has no revocation API.
+
+Red checkpoints: 39 source-interface failures, then 8 rendered integration failures before their implementations. A later five-case red checkpoint caught malformed external URL canonicalization, encoded external traversal, and stale images during Refresh. Green coverage includes all three sources, remote identity, literal parents inside roots, zero-effect lexical rejection, Windows roots, unsupported raster formats, bad/expired SDK leases, bounded deduplication, project-only navigation limits, preview failure, keyboard/modifier callbacks, exact Raw, unchanged-hash renewal, failed reads/assets, expiry, source switching, late results, and unmount.
+
+## Validation and browser evidence
+
+| Check | Result |
+| --- | --- |
+| `npm test -- --no-cache` | 190 tests in 9 files pass. |
+| `npm run typecheck` | Strict SDK declaration check passes. |
+| `bb plugin types . --check` | Package and host SDK 0.5.29 pass. |
+| `bb plugin build` | App/server/CSS/maps/metadata build passes. |
+| `openspec validate markdown-reader --strict` | Pass. |
+| Scope/whitespace | Only reader package and four approved planning files; tracked whitespace passes. |
+| Lock/collection checks | Unchanged lock declarations match; README/CI reader entries retained. |
+| Prior acceptance | Exact baseline text preserved as the prefix of this file. |
+| Destination browser runner | 9 source/width cases pass with no page errors. |
+| Earlier three browser runners | Navigation, layout, and Refresh/Retry/fallback regression checks pass. |
+
+Dev-server readiness was verified on port 4176 before checks. Browser-use's default browser still reports no local browser path. Cached local Playwright Chromium ran instead through `uv run --offline --with playwright`. No browser or plugin installation was performed. The early representative destination capture and final wide/narrow captures were inspected. Local/remote fixture images preserve aspect ratio and fit 720 px wide and 342 px narrow columns. Alt/error text stays readable, the toolbar wraps, and footnote focus stays inside the reader.
+
+The destination browser runner uses the real registered reader and public SDK frontend test runtime for workspace, host, and storage sources at 1440/light, 760/light, and 390/dark widths. It records source-aware opening callbacks, ordinary remote image requests without referrer, intercepted 403 asset denial with alt fallback, exact Raw, same-hash Refresh, local heading/footnote focus, and unmount. Its RPC, native opening, image content, and denial are fixtures. It is not live BB routing or real host-symlink transport proof. The source integration uses the registered server RPC and controlled SDK responses, not installed BB.
+
+Durable evidence: `/Users/koen/.bb/thread-storage/thr_knbpuaqpd5/bbp-30/revision/`, including red/green logs, `final-*.log`, `scope.json`, `early-destinations.png`, and `browser/destination-results.json` plus nine captures. Navigation/layout/refresh regression results are under their matching subdirectories. Four jsdom native-navigation warnings come from SDK-owned modifier defaults; rendered callback assertions pass. Actual browser checks have no page errors.
+
+## Completion review
+
+The single fresh read-only reviewer completed run `c43a158f-a3fe-4a81-af5d-7f43b99f053c` against the entire fixed-point working tree, including all eight new files and four approved planning files. Its original verdict is REQUEST CHANGES. The complete bound report, exact native result with state complete/exit 0, and full native output are preserved as `completion-review.md`, `native-review-result.json`, and `native-review-output.md` in the revision evidence directory. Runtime success means the review ran, not that the code was approved. The BB wake alone was not used as approval.
+
+The owner accepted and resolved both findings. R1 P1 showed encoded separators hiding external traversal; local and external paths now share a rejecting encoded-path policy before activation. R2 P2 showed one URL over 4096 characters rejecting the whole batch; the parser and RPC now share the same bound, and only the oversized destination stays inert. Nine reproduced regression failures were recorded before fixes. All-source rendered regressions now show no unsafe href/src or navigation, no rejection preview allocation, and working valid siblings/images beside oversized text. A tenth test checks the exact wire-length boundary. Raw remains exact.
+
+Post-fix verification passes with 190 tests in nine files, strict typecheck, SDK compatibility, build, OpenSpec, whitespace, and all four browser runners. Post-review browser checks initially found the earlier fixture server stopped after the review wait. Those setup failures are retained as `post-review-*-browser-unready.log`; the server was restarted, readiness was verified, and all checks then passed. The owned fixture server/browser were stopped. The final captures retain the same layout and image sizing.
+
+`review-resolution.md` records the owner disposition and post-fix evidence. Both blocking findings are resolved by the owner with passing affected checks. The original REQUEST CHANGES report is unchanged. No second reviewer ran, and no later reviewer approval is claimed. The one-review-and-resolve completion gate is met. Scoped commit, task attachments, and clean-worktree receipts are recorded in the external handoff.
+
+## Limits and excluded actions
+
+Native local-file opening has no extra plugin final-symlink-target confinement. Cross-file heading fragments and environment-free project-only native navigation remain inert. Remote sites can observe ordinary image requests and may receive their own browser cookies. There is no image-byte transfer bound. The 1 MiB document cap still does not bound SDK transfer to the server. Installed source transport, opener preference selection, native routing/modifier behavior, and built-in/custom-theme acceptance remain pending with the parent and BBP-32.
+
+No core/SDK edits, plugin installation/reload, preference/theme changes, push, publication, PR, or BBP-31 work occurred. BBP-26 remains in progress.

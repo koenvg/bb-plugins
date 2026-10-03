@@ -1,6 +1,8 @@
 import { posix, win32 } from "node:path";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
+import { resolveDestinations, type DocumentLocation } from "./destinations";
+import { MAX_DESTINATIONS, MAX_DESTINATION_URL_LENGTH, type DestinationResult } from "./destination-types";
 
 export const MAX_DOCUMENT_BYTES = 1024 * 1024;
 const id = z.string().min(1).max(256);
@@ -36,8 +38,30 @@ export interface SourceAdapter {
   read(target: { hostId: string; path: string; rootPath: string }): Promise<{
     content: string; contentEncoding: "base64" | "utf8"; sha256: string; sizeBytes: number;
   }>;
+  createPreview?(target: { hostId: string; rootPath: string; ttlMs: number }): Promise<{ baseUrl: string; expiresAtMs: number }>;
 }
-export interface SourceReader { read(target: unknown): Promise<ReadResult> }
+export interface SourceReader {
+  read(target: unknown): Promise<ReadResult>;
+  destinations(input: unknown): Promise<DestinationResult>;
+}
+export const destinationsInputSchema = z.object({ target: targetSchema,
+  requests: z.array(z.object({ url: z.string().max(MAX_DESTINATION_URL_LENGTH), image: z.boolean() }).strict()).max(MAX_DESTINATIONS),
+}).strict();
+const fileTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("workspace"), environmentId: id, path: z.string() }),
+  z.object({ kind: z.literal("host"), hostId: id, path: z.string() }),
+  z.object({ kind: z.literal("thread-storage"), threadId: id, path: z.string() }),
+]);
+export const destinationsResultSchema = z.object({
+  identity: z.object({ hostId: z.string(), rootPath: z.string(), documentPath: z.string() }).nullable(),
+  destinations: z.array(z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("fragment"), fragment: z.string() }),
+    z.object({ kind: z.literal("local-file"), target: fileTargetSchema, hostId: z.string() }),
+    z.object({ kind: z.literal("external-url"), url: z.string() }),
+    z.object({ kind: z.literal("image"), url: z.string(), remote: z.boolean(), expiresAtMs: z.number().optional() }),
+    z.object({ kind: z.literal("rejected"), reason: z.string() }),
+  ])),
+});
 
 function hostPaths(path: string) {
   return /^[A-Za-z]:[\\/]|^\\\\/.test(path) ? win32 : posix;
@@ -81,7 +105,7 @@ async function resolveSource(adapter: SourceAdapter, target: ReaderTarget) {
     }
     if (kind === "host") return { hostId: environment.hostId, root: hostPaths(target.path).dirname(target.path) };
     if (environment.status !== "ready" || !environment.path) throw new Error("The workspace is not ready or has no readable root.");
-    return { hostId: environment.hostId, root: environment.path };
+    return { hostId: environment.hostId, root: environment.path, environmentId };
   }
   if (kind === "host") {
     if (threadId || projectId) throw new Error("This host source has no environment to verify its thread or project identity.");
@@ -97,6 +121,17 @@ async function resolveSource(adapter: SourceAdapter, target: ReaderTarget) {
   return { hostId: candidates[0]!.hostId, root: candidates[0]!.path };
 }
 
+async function documentLocation(adapter: SourceAdapter, target: ReaderTarget): Promise<DocumentLocation> {
+  if (!validDocumentPath(target)) throw new Error("Unsupported Markdown file path. Use BB preview.");
+  const { hostId, root, ...identity } = await resolveSource(adapter, target);
+  const paths = hostPaths(root);
+  if (!hostId || !paths.isAbsolute(root)) throw new Error("The source has no explicit host or absolute root.");
+  const rootPath = paths.normalize(root);
+  const documentPath = target.source.kind === "host" ? paths.normalize(target.path) : paths.resolve(rootPath, ...target.path.split("/"));
+  const relative = paths.relative(rootPath, documentPath);
+  if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) throw new Error("The document is outside the source root.");
+  return { target, hostId, rootPath, documentPath, ...identity };
+}
 export function createSourceReader(adapter: SourceAdapter): SourceReader {
   return {
     async read(input) {
@@ -105,13 +140,8 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
       const target = parsed.data;
       if (!validDocumentPath(target)) return { kind: "unsupported", message: "Unsupported Markdown file path. Use BB preview." };
       try {
-        const { hostId, root } = await resolveSource(adapter, target);
-        const paths = hostPaths(root);
-        if (!hostId || !paths.isAbsolute(root)) throw new Error("The source has no explicit host or absolute root.");
-        const rootPath = paths.normalize(root);
-        const documentPath = target.source.kind === "host" ? paths.normalize(target.path) : paths.resolve(rootPath, ...target.path.split("/"));
-        const relative = paths.relative(rootPath, documentPath);
-        if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative)) throw new Error("The document is outside the source root.");
+        const { hostId, rootPath, documentPath } = await documentLocation(adapter, target);
+        const paths = hostPaths(rootPath);
         // The SDK enforces root confinement, including symlinks, on this explicit host.
         // It has no stat or max-byte read option. Oversized content can reach this server.
         const file = await adapter.read({ hostId, rootPath, path: documentPath });
@@ -130,6 +160,14 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
       } catch (cause) {
         return { kind: "error", message: cause instanceof Error ? cause.message.slice(0, 1024) : "Could not read this file. Use BB preview." };
       }
+    },
+    async destinations(input) {
+      const { target, requests } = destinationsInputSchema.parse(input);
+      let location: DocumentLocation;
+      try { location = await documentLocation(adapter, target); }
+      catch { return { identity: null, destinations: requests.map(() => ({ kind: "rejected", reason: "The document source is unavailable. Refresh to retry." })) }; }
+      const { hostId, rootPath, documentPath } = location;
+      return { identity: { hostId, rootPath, documentPath }, destinations: await resolveDestinations(location, requests, adapter.createPreview) };
     },
   };
 }

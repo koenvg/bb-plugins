@@ -60,6 +60,8 @@
 .markdown-reader .mr-prose hr { border: 0; border-top: 1px solid var(--border); margin: 36px 0; }
 .markdown-reader .mr-inert-link { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 4px; }
 .markdown-reader .mr-image-placeholder { color: var(--muted-foreground); font-size: .875em; }
+.markdown-reader .mr-prose img { display: block; max-width: 100%; height: auto; margin: 22px 0; }
+.markdown-reader .mr-image-error { font-size: 12px; }
 .markdown-reader .mr-document-layout { max-width: 720px; margin: 0 auto; min-width: 0; }
 .markdown-reader .mr-document-layout[data-outline="aside"] { max-width: 944px; display: grid; grid-template-columns: minmax(0, 720px) 164px; gap: 60px; }
 .markdown-reader .mr-document-layout .mr-prose { width: 100%; }

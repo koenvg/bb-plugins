@@ -7,6 +7,8 @@ import { Outline, useWidePanel } from "./outline";
 import { RawDocument } from "./raw";
 import type { LineRequest } from "./source-lines";
 import { revealInReader } from "./navigation";
+import { DestinationProvider, type ResolveDocumentDestinations } from "./destination-view";
+const NO_DESTINATIONS: import("./destination-types").DestinationRequest[] = [];
 
 export type ReadDocument = (target: ReaderTarget) => Promise<ReadResult>;
 export interface ReaderProps {
@@ -14,10 +16,11 @@ export interface ReaderProps {
   readDocument: ReadDocument;
   Original: ComponentType;
   lineRange?: LineRequest;
+  resolveDestinations?: ResolveDocumentDestinations;
 }
 
 /** The target owner remounts this reader only when source identity changes. */
-export function Reader({ target, readDocument, Original, lineRange }: ReaderProps) {
+export function Reader({ target, readDocument, Original, lineRange, resolveDestinations }: ReaderProps) {
   const [state, setState] = useState<{ loading: boolean; result: ReadResult | null; snapshot: TextSnapshot | null }>({ loading: true, result: null, snapshot: null });
   const [view, setView] = useState<"preview" | "raw">(lineRange ? "raw" : "preview");
   const [refresh, setRefresh] = useState(0);
@@ -62,6 +65,7 @@ export function Reader({ target, readDocument, Original, lineRange }: ReaderProp
       </div>
     </header>
     <div className="mr-content">
+      <DestinationProvider snapshot={snapshot} requests={model?.requests ?? NO_DESTINATIONS} resolve={resolveDestinations} enabled={!loading && result?.kind === "ready"}>
       {loading && <p className="mr-state" role="status">{snapshot ? "Refreshing Markdown. Showing previous snapshot, not verified current." : "Loading Markdown..."}</p>}
       {result && result.kind !== "ready" && <div className="mr-state" role="alert">
         {snapshot && <p>Refresh failed. Showing stale snapshot.</p>}
@@ -77,6 +81,7 @@ export function Reader({ target, readDocument, Original, lineRange }: ReaderProp
             <MarkdownDocument model={model!} navigate={navigate} />
             {showOutline && !!model!.headings.length && wide && <Outline model={model!} wide navigate={navigate} />}
           </div>)}
+      </DestinationProvider>
     </div>
   </section>;
 }

@@ -160,13 +160,14 @@ with sync_playwright() as p:
         page.get_by_role("button", name="Preview", exact=True).click()
         assert "Note é." in page.get_by_role("article").inner_text()
         assert page.get_by_role("button", name="Outline", exact=True).count() == (0 if headings == "none" else 1)
-        assert page.locator(".mr-prose a[href]").count() == 0
+        assert page.locator(".mr-prose a[href]").count() == 4
+        assert page.locator(".mr-prose a[href]").evaluate_all("es => es.every(e => [...e.closest('.mr-prose').querySelectorAll('[id]')].some(t => '#' + t.id === e.getAttribute('href')))")
         assert page.locator('[data-footnotes] > .sr-only').evaluate("e => e.getBoundingClientRect().width") == 1
         references_local = page.locator(".mr-prose sup [aria-describedby]").evaluate_all("es => es.every(e => [...e.closest('.mr-prose').querySelectorAll('[id]')].some(label => label.id === e.getAttribute('aria-describedby') && label.textContent === 'Footnotes'))")
         assert references_local
         page.screenshot(path=str(out / f"footnotes-{headings}.png"))
         assert not footnote_errors, footnote_errors
-        results.append({"footnotes": headings, "initialExactRaw": True, "noInventedOutline": True, "passiveContent": True, "localAccessibilityReferences": True, "errors": footnote_errors})
+        results.append({"footnotes": headings, "initialExactRaw": True, "noInventedOutline": True, "readerLocalFragments": True, "localAccessibilityReferences": True, "errors": footnote_errors})
         page.close()
     browser.close()
 

@@ -5,12 +5,15 @@ import { visit } from "unist-util-visit";
 import type { Element as HastElement, Root, RootContent } from "hast";
 import type { ReactNode } from "react";
 import { createSourceLines, type SourceLines } from "./source-lines";
+import { DestinationLink, DestinationImage } from "./destination-view";
+import { MAX_DESTINATIONS, MAX_DESTINATION_URL_LENGTH, destinationKey, type DestinationRequest } from "./destination-types";
 
 export interface DocumentHeading { level: number; text: string; fragment: string; id: string; line: number }
 export interface DocumentModel {
   content: ReactNode;
   headings: readonly DocumentHeading[];
   sourceLines: SourceLines;
+  requests: DestinationRequest[];
   fragmentTarget(fragment: string): string | null;
 }
 
@@ -39,6 +42,7 @@ function scopeGeneratedIds(tree: Root, namespace: string) {
     const href = properties.href;
     if (typeof href === "string" && href.startsWith("#") && ids.has(href.slice(1))) properties.href = `#${ids.get(href.slice(1))}`;
   });
+  return ids;
 }
 
 /** React-markdown's synchronous renderer parses once. The rehype transform records
@@ -47,26 +51,32 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
   const headings: DocumentHeading[] = [];
   const fragments = new Map<string, string>();
   const slugger = new GithubSlugger();
+  const requests: DestinationRequest[] = [];
+  const requested = new Set<string>();
   const fragmentTarget = (fragment: string) => {
     if (!fragment.startsWith("#")) return null;
     try { return fragments.get(decodeURIComponent(fragment.slice(1))) ?? null; }
     catch { return null; }
   };
   const components: Components = {
-    // Only known same-document fragments are active. All other destinations stay inert.
-    a: ({ href, children, id, "aria-describedby": description, "aria-label": label }) => {
-      const target = href ? fragmentTarget(href) : null;
-      const references = { id, "aria-describedby": description, "aria-label": label };
-      return target ? <a {...references} href={`#${target}`} data-heading-target={target}>{children}</a> : <span {...references} className="mr-inert-link">{children}</span>;
-    },
-    img: ({ alt }) => <span className="mr-image-placeholder">{alt || "Image"}</span>,
+    a: ({ href = "", children, id, "aria-describedby": description, "aria-label": label }) =>
+      <DestinationLink url={href} fragmentTarget={fragmentTarget} id={id} aria-describedby={description} aria-label={label}>{children}</DestinationLink>,
+    img: ({ src = "", alt, title }) => <DestinationImage url={src} alt={alt} title={title} />,
     table: ({ children }) => <div className="mr-table-scroll" tabIndex={0} role="region" aria-label="Markdown table"><table>{children}</table></div>,
     pre: ({ children }) => <pre tabIndex={0} aria-label="Code block">{children}</pre>,
   };
   function collectHeadings() {
     return (tree: Root) => {
-      scopeGeneratedIds(tree, namespace);
+      const generated = scopeGeneratedIds(tree, namespace);
+      for (const [original, id] of generated) { fragments.set(original, id); fragments.set(id, id); }
       visit(tree, "element", (node: HastElement) => {
+        if (node.properties.id) node.properties.tabIndex = -1;
+        const url = node.tagName === "a" ? node.properties.href : node.tagName === "img" ? node.properties.src : null;
+        if (typeof url === "string" && url.length <= MAX_DESTINATION_URL_LENGTH && !url.startsWith("#")) {
+          const request = { url, image: node.tagName === "img" };
+          const key = destinationKey(request);
+          if (!requested.has(key) && requests.length < MAX_DESTINATIONS) { requested.add(key); requests.push(request); }
+        }
         // Only source-backed headings belong in the document outline. The parser
         // also emits a positionless accessibility label for used footnotes.
         if (!/^h[1-6]$/.test(node.tagName) || !node.position) return;
@@ -80,8 +90,8 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
       });
     };
   }
-  const content = Markdown({ children: text, remarkPlugins: [remarkGfm], rehypePlugins: [collectHeadings], components, skipHtml: true });
-  return { content, headings, fragmentTarget, sourceLines: createSourceLines(text) };
+  const content = Markdown({ children: text, remarkPlugins: [remarkGfm], rehypePlugins: [collectHeadings], components, skipHtml: true, urlTransform: url => url });
+  return { content, headings, requests, fragmentTarget, sourceLines: createSourceLines(text) };
 }
 
 export function MarkdownDocument({ model, navigate }: { model: DocumentModel; navigate: (id: string) => void }) {

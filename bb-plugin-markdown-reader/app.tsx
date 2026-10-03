@@ -11,7 +11,8 @@ function FileReader({ path, source, Original, experimental_lineRange }: PluginFi
   } }), [path, kind, threadId, environmentId, projectId, experimental_hostId]);
   const rpc = useRpc<typeof rpcContract>();
   const readDocument = useCallback<ReadDocument>(target => rpc.call("read_document", target), [rpc]);
-  return <Reader key={JSON.stringify(target)} target={target} readDocument={readDocument} Original={Original} lineRange={experimental_lineRange} />;
+  const resolveDestinations = useCallback<import("./destination-view").ResolveDocumentDestinations>((target, requests) => rpc.call("resolve_destinations", { target, requests }), [rpc]);
+  return <Reader key={JSON.stringify(target)} target={target} readDocument={readDocument} resolveDestinations={resolveDestinations} Original={Original} lineRange={experimental_lineRange} />;
 }
 
 export default definePluginApp(app => {

@@ -11,6 +11,7 @@ BB's built-in Markdown file preview spreads dense reports across the panel with 
 - Provide Preview and read-only Raw views of the same actual file, with accessible controls and responsive behavior.
 - Follow the active BB theme, including live light/dark changes. The mockup's moon button demonstrates theme variants; the production reader will not introduce a separate app-theme switch.
 - Preserve Markdown semantics, safe links, relative file navigation, and images without executing document HTML or scripts.
+- Reject dangerous schemes, malformed encodings, encoded traversal, and lexical paths outside the source root before activation. Use SDK confinement during reader reads and image requests. Local file links use BB's normal opening behavior without an extra plugin guarantee against symlink escapes; metadata-only validation before reads or preview allocation is not required.
 - Load the selected source on its actual host, handle refresh and error states, and offer BB's bound original preview as a fallback.
 - Document installation, extension preferences, and host-imposed limits. Add tests and the new package to the repository's existing CI matrix.
 

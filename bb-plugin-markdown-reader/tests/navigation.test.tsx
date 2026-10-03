@@ -39,7 +39,7 @@ describe("local heading navigation", () => {
     fireEvent.click(slot.getByRole("button", { name: "Outline" }));
     expect(slot.container.querySelector("details, .mr-outline-aside")).toBeNull();
     expect(slot.getByRole("button", { name: "Outline" }).getAttribute("aria-pressed")).toBe("false");
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it("keeps fragment navigation and focus inside the activated reader with unique heading IDs", async () => {
     const first = await mount();
@@ -57,7 +57,7 @@ describe("local heading navigation", () => {
     expect(within(second.slot.container).queryByRole("link", { name: "file" })).toBeNull();
     expect(within(second.slot.container).queryByRole("link", { name: "bad" })).toBeNull();
     expect(second.slot.inspection.navigateCalls).toHaveLength(0);
-    expect(second.slot.inspection.rpcCalls).toHaveLength(1);
+    expect(second.slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it("omits the outline and its toggle when there are no rendered headings", async () => {
     const { slot } = await mount('Plain text\n\n```md\n# Fenced\n```\n\n<h1>Hidden</h1>');
@@ -75,7 +75,7 @@ describe("local heading navigation", () => {
     expect(slot.getByRole("button", { name: "Raw" }).getAttribute("aria-pressed")).toBe("true");
     const request = { startLineNumber: 7, endLineNumber: 7 };
     slot.lifecycle.rerender(<Opener {...props} experimental_lineRange={request} />);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
     finish(ready(sourceText));
     const raw = await slot.findByLabelText("Raw Markdown");
     const line = raw.querySelector<HTMLElement>('[data-source-line="7"]')!;
@@ -102,7 +102,7 @@ describe("local heading navigation", () => {
     expect(slot.getByRole("button", { name: "Raw" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(slot.getByRole("button", { name: "Preview" }));
     expect(slot.getByRole("heading", { name: "日本語" }).id).toBe(headingId);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it("uses measured reader width for the aside, retains the hide choice, and disposes its observer on fallback", async () => {
     let resize!: ResizeObserverCallback;
@@ -130,7 +130,7 @@ describe("local heading navigation", () => {
     expect(slot.container.querySelector("details")?.open).toBe(false);
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     expect(disconnect).toHaveBeenCalledTimes(1);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it.each(["", "first\r\nsecond\r\n"])("keeps empty or clamped Raw safe and clears a removed request for %j", async content => {
     const { slot, Opener } = await mount(content);
@@ -140,7 +140,7 @@ describe("local heading navigation", () => {
     expect(raw.querySelectorAll('[data-highlighted="true"]')).toHaveLength(content ? 3 : 0);
     slot.lifecycle.rerender(<Opener {...props} experimental_lineRange={null} />);
     expect(raw.querySelectorAll('[data-highlighted="true"]')).toHaveLength(0);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it("targets a replacement source while ignoring the old pending read", async () => {
     const app = await loadPluginApp(plugin);
@@ -154,7 +154,7 @@ describe("local heading navigation", () => {
     finishes[0]!(ready("Wrong source"));
     await act(async () => { await Promise.resolve(); });
     expect(raw.textContent).toBe('Current\nSecond\n');
-    expect(slot.inspection.rpcCalls).toHaveLength(2);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(2);
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     expect(slot.getByText("Bound original")).toBeTruthy();
   });
@@ -170,7 +170,7 @@ describe("local heading navigation", () => {
     finish(ready("First\nSecond"));
     const raw = await slot.findByLabelText("Raw Markdown");
     expect(raw.querySelector('[data-highlighted="true"]')?.textContent).toBe("Second");
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
   it.each([1.5, NaN, Infinity])("does not highlight malformed numeric line bounds %s", async startLineNumber => {
     const { slot, Opener } = await mount();
@@ -178,7 +178,7 @@ describe("local heading navigation", () => {
     const raw = slot.getByLabelText("Raw Markdown");
     expect(raw.textContent).toBe(text);
     expect(raw.querySelectorAll('[data-highlighted="true"]')).toHaveLength(0);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
     fireEvent.click(slot.getByRole("button", { name: "Preview" }));
     expect(slot.getByRole("article")).toBeTruthy();
   });
@@ -200,9 +200,9 @@ describe("local heading navigation", () => {
       expect(slot.queryByRole("button", { name: "Outline" })).toBeNull();
       expect(slot.container.querySelector("details, aside")).toBeNull();
     }
-    expect(slot.queryByRole("link")).toBeNull();
+    expect(slot.getAllByRole("link").every(link => link.getAttribute("href")?.startsWith("#"))).toBe(true);
     fireEvent.click(slot.getByRole("button", { name: "Raw" }));
     expect(slot.getByLabelText("Raw Markdown").textContent).toBe(content);
-    expect(slot.inspection.rpcCalls).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
   });
 });
