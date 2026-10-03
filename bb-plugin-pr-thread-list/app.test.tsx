@@ -618,10 +618,55 @@ describe("thread list slot", () => {
     });
   });
 
-  it("shows the agent's logo on every row, quiet or busy", () => {
-    const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active" })]);
+  it("keeps the provider logo and puts the lattice in the previous right-hand spinner slot", () => {
+    const slot = mount([thread(), thread({ id: "t2", displayTitle: "Busy", status: "active", runtimeStatus: "active", isUnread: true })]);
     showTab(slot, "All");
+    const busy = slot.getByRole("link", { name: "Busy" }).closest<HTMLElement>(".group\\/row")!;
     expect(slot.container.querySelectorAll("[data-provider-glyph]")).toHaveLength(2);
+    const lattice = busy.querySelector("[data-running-glyph]")!;
+    expect(lattice.getAttribute("aria-hidden")).toBe("true");
+    expect(lattice.querySelectorAll("rect")).toHaveLength(9);
+    expect(lattice.getAttribute("width")).toBe("12");
+    expect(slot.getByTitle("Thread active").contains(lattice)).toBe(true);
+    expect(busy.querySelector("[data-provider-glyph] [data-running-glyph]")).toBeNull();
+    expect(busy.querySelector(".bg-primary")).toBeTruthy();
+    expect(busy.querySelector("[data-icon=Spinner]")).toBeNull();
+    expect(busy.textContent).toContain("Working");
+  });
+
+  it("keeps the right-hand lattice when a running parent's children collapse", () => {
+    const slot = mount([thread({ status: "active", runtimeStatus: "active" }),
+      thread({ id: "child", displayTitle: "Child", parentThreadId: "t1" })]);
+    showTab(slot, "All");
+    fireEvent.click(slot.getByRole("button", { name: "Collapse Prepare release" }));
+    expect(slot.queryByRole("link", { name: "Child" })).toBeNull();
+    const expand = slot.getByRole("button", { name: "Expand Prepare release" });
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    expect(expand.classList.contains("opacity-0")).toBe(false);
+    expect(expand.parentElement?.querySelector("[data-running-glyph]")).toBeNull();
+    expect(slot.getByTitle("Thread active").querySelector("[data-running-glyph]")).toBeTruthy();
+  });
+
+  it.each(["starting", "active", "stopping"] as const)("animates the %s lifecycle state", (status) => {
+    const slot = mount([thread({ status, runtimeStatus: status })]);
+    showTab(slot, "All");
+    expect(slot.container.querySelector("[data-running-glyph]")).toBeTruthy();
+  });
+
+  it("keeps attention cues ahead of the running animation", () => {
+    const slot = mount([thread({ status: "active", runtimeStatus: "active", indicator: "waiting-for-input" })]);
+    expect(slot.container.querySelector("[data-running-glyph]")).toBeNull();
+    expect(slot.container.querySelector("[data-provider-glyph]")).toBeTruthy();
+    expect(slot.container.querySelector(".bg-destructive")).toBeTruthy();
+    expect(slot.getByTitle("Thread needs user input").textContent).toBe("Needs you");
+  });
+
+  it("uses the same right-hand lattice for background-only work", () => {
+    const slot = mount([thread({ activity: { workflows: 0, backgroundAgents: 1, backgroundCommands: 0, planMode: 0, goals: 0 } })]);
+    showTab(slot, "All");
+    expect(slot.container.querySelector("[data-provider-glyph]")).toBeTruthy();
+    expect(slot.getByTitle("Background work running").querySelector("[data-running-glyph]")).toBeTruthy();
+    expect(slot.container.querySelector("[data-icon=Spinner]")).toBeNull();
   });
   describe("snooze", () => {
     it("does not load snoozes when only the sidebar is mounted", () => {
