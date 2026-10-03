@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginCommandContext, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { createSnoozeClient, type SnoozeSnapshot } from "./snooze-client";
 import { snoozeCommands } from "./snooze-commands";
-import { thread } from "./fixtures";
+import { thread, snoozeSnapshot } from "./fixtures";
 
 const context = (threadId: string | null = "t1"): PluginCommandContext => ({ threadId, projectId: "p1", openPanel: () => false });
 const now = new Date(2026, 9, 7, 15);
@@ -14,13 +14,13 @@ function setup() {
   const owner = client.start();
   const snooze = vi.fn().mockResolvedValue(undefined);
   const wake = vi.fn().mockResolvedValue(undefined);
-  const initial: SnoozeSnapshot = { threads: [thread()], threadsReady: true, snoozes: {}, snoozesReady: true,
-    controls: { snoozed: new Map(), snooze, wake } };
-  const update = (changes: Partial<SnoozeSnapshot> = {}) => owner.update({ ...initial, ...changes });
+  const initial: SnoozeSnapshot = { threads: [thread()], threadsReady: true, snoozes: {}, groups: {}, snoozesReady: true,
+    controls: { snoozed: new Map(), canSnooze: () => true, snooze, wake } };
+  const update = (changes: Partial<SnoozeSnapshot> = {}) => owner.update({ ...initial, ...changes, ...snoozeSnapshot(changes.snoozes ?? initial.snoozes, changes.groups) });
   update();
   const commands = snoozeCommands(client);
   const visible = (ctx = context()) => commands.filter((command) => command.isAvailable!(ctx)).map(({ id }) => id);
-  return { owner, update, commands, visible, snooze, wake };
+  return { client, owner, update, commands, visible, snooze, wake };
 }
 const SNOOZE_IDS = ["snooze-tomorrow", "snooze-next-week"];
 
@@ -139,5 +139,31 @@ describe("direct command invocation", () => {
     await commands[1]!.run(context());
     expect(snooze).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
+  });
+  it("blocks descendant attention and rechecks a retained menu mutation against the latest subtree", async () => {
+    const { client, update, visible, snooze, commands } = setup();
+    const rows = [thread(), thread({ id: "child", parentThreadId: "t1" }), thread({ id: "grandchild", parentThreadId: "child" })];
+    update({ threads: rows });
+    expect(visible()).toEqual(SNOOZE_IDS);
+    const retained = client.getSnapshot().controls!;
+    update({ threads: rows.map((row) => row.id === "grandchild" ? { ...row, hasPendingInteraction: true } : row) });
+    expect(visible()).toEqual([]);
+    await commands[0]!.run(context());
+    await retained.snooze("t1", now.getTime() + 100_000);
+    expect(snooze).not.toHaveBeenCalled();
+  });
+
+  it("uses all group members for early wake and permits Wake now from an eligible grouped child", async () => {
+    const { update, visible, commands, wake } = setup();
+    const rows = [thread(), thread({ id: "child", parentThreadId: "t1" })];
+    const state = { snoozes: { t1: now.getTime() + 100_000, child: now.getTime() + 100_000 }, groups: { t1: "g", child: "g" } };
+    update({ threads: rows, ...state });
+    expect(visible(context("child"))).toEqual(["wake-now"]);
+    await commands[2]!.run(context("child"));
+    expect(wake).toHaveBeenCalledExactlyOnceWith("child");
+    update({ ...state, threads: [rows[0]!, { ...rows[1]!, hasPendingInteraction: true }] });
+    expect(visible()).toEqual([]);
+    await commands[2]!.run(context());
+    expect(wake).toHaveBeenCalledOnce();
   });
 });

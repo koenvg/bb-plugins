@@ -7,7 +7,7 @@ The plugin SHALL register "Threads: Snooze until tomorrow", "Threads: Snooze unt
 
 #### Scenario: Focused pane in a split view
 - **WHEN** two threads are open in a split view and the user invokes a snooze command from the focused pane
-- **THEN** only that pane's thread is snoozed
+- **THEN** that pane's thread is selected for snooze and its eligible captured subtree is snoozed; the other pane is unaffected unless it belongs to that subtree
 
 #### Scenario: Sidebar drawer is closed
 - **WHEN** the plugin frontend is enabled, its state is loaded, the sidebar drawer is closed, and the focused thread is eligible for snooze
@@ -18,7 +18,7 @@ The plugin SHALL register "Threads: Snooze until tomorrow", "Threads: Snooze unt
 - **THEN** the three commands are listed without default bindings and can receive user-assigned shortcuts
 
 ### Requirement: Snooze commands appear only when applicable
-At each command availability evaluation, the plugin SHALL hide both snooze commands unless a focused thread is known, its current state and snooze state are successfully loaded, the thread is not archived, the thread has no active snooze, and the thread does not need the user. Waiting for an approval or answer, an unread error, or a failed queued message SHALL block snoozing under the same rules as the sidebar menu. Running alone SHALL NOT block snoozing. Inapplicable commands SHALL be absent rather than displayed as disabled entries.
+At each command availability evaluation, the plugin SHALL hide both snooze commands unless a focused thread is known, its current state and snooze state are successfully loaded, the thread is active and non-hidden, the thread has no active snooze, and no included member of its selected subtree needs the user. Waiting for an approval or answer, an unread error, or a failed queued message in any included member SHALL block snoozing under the same rules as the sidebar menu. Running alone SHALL NOT block snoozing. Inapplicable commands SHALL be absent rather than displayed as disabled entries.
 
 #### Scenario: Eligible idle thread
 - **WHEN** a non-archived, non-snoozed idle thread with no blocking signal is focused and state is loaded
@@ -37,7 +37,7 @@ At each command availability evaluation, the plugin SHALL hide both snooze comma
 - **THEN** neither snooze command appears
 
 ### Requirement: Wake now appears only for an active snooze
-At each command availability evaluation, "Threads: Wake now" SHALL appear only when a known, non-archived focused thread has an active snooze and its current thread and snooze state are successfully loaded. A snooze whose wake time has passed or whose thread has a signal that ends snoozing SHALL NOT count as active.
+At each command availability evaluation, "Threads: Wake now" SHALL appear only when a known, non-archived focused thread has an active snooze and its current thread and snooze state are successfully loaded. A snooze whose wake time has passed or whose stored group has a member with a signal that ends snoozing SHALL NOT count as active.
 
 #### Scenario: Snoozed thread in view
 - **WHEN** a focused thread has an active snooze and state is loaded
@@ -67,7 +67,7 @@ The snooze commands SHALL use the same wake times as the sidebar menu: Tomorrow 
 - **THEN** the command performs no snooze operation because Next week is no longer applicable
 
 ### Requirement: Command execution rechecks applicability
-When a palette command or its user-assigned shortcut runs, the plugin SHALL re-evaluate that command's applicability against the invocation context, the latest available thread and snooze state, and the current local date immediately before dispatching the operation. If it is no longer applicable, the command SHALL perform no snooze, wake, or read-state mutation.
+When a palette command or its user-assigned shortcut runs, the plugin SHALL re-evaluate that command's applicability against the invocation context, the latest available subtree attention and stored snooze-group state, and the current local date immediately before dispatching the operation. If it is no longer applicable, the command SHALL perform no snooze, wake, or read-state mutation.
 
 #### Scenario: Approval arrives while the palette is open
 - **WHEN** a snooze command was listed and the focused thread starts waiting for an approval before invocation
@@ -109,12 +109,12 @@ The palette and sidebar SHALL use the same shared snooze state. At each availabi
 - **THEN** the command performs no operation
 
 ### Requirement: Palette actions preserve existing snooze effects
-Snoozing through the palette SHALL mark the thread read and preserve a running thread's execution. Wake now through the palette SHALL end the snooze without marking the thread unread. These actions SHALL update other clients and the plugin's sidebar using the existing shared-state behavior. Scheduled and signal-triggered wakes SHALL retain their existing behavior.
+Snoozing through the palette SHALL use the selected-subtree policy, mark every included member read, and preserve running work. Wake now through the palette on any member SHALL end that stored group's snooze without marking members unread. These actions SHALL update other clients and the plugin's sidebar using the shared-state behavior. Scheduled and signal-triggered wakes SHALL use the stored group policy specified by `snooze-thread-subtrees`.
 
 #### Scenario: Snooze unread output through the palette
 - **WHEN** the user invokes an applicable snooze command for a thread with unread output
-- **THEN** the thread becomes read and snoozed until the selected preset time
+- **THEN** the selected thread and its included descendants become read and snoozed together until the selected preset time
 
 #### Scenario: Wake early through the palette
 - **WHEN** the user invokes Wake now for a snoozed thread
-- **THEN** the snooze ends without marking it unread and the sidebar places it according to its normal tab rules
+- **THEN** its stored group's snooze ends without marking any member unread and the sidebar places it according to its normal tab rules

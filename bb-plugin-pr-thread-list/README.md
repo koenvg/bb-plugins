@@ -43,23 +43,30 @@ The tab of a thread does not depend on whether its row is on screen. The `summar
 
 ## Snooze
 
-Open the thread menu and select **Tomorrow** (9:00 the next day) or **Next week** (9:00 next Monday). The times use the clock of the client. On Sunday, the menu shows only **Tomorrow**. You cannot snooze an archived thread, or a thread that waits for an approval or an answer, has an unread error, or has a queued message that failed to send.
+Open the thread menu and select **Tomorrow** at 9:00 the next day or **Next week** at 9:00 next Monday. The times use the clock of the client. On Sunday, the menu shows only **Tomorrow**. Snooze includes the selected thread and all its existing active, non-hidden descendants, including grandchildren, collapsed rows, offscreen rows, and children in other projects. Selecting a child leaves its ancestors and siblings alone. Archived and hidden threads are untouched, but their active descendants can still be included. Children created after the action do not inherit the snooze.
 
-Snooze marks the thread read. The thread leaves **Needs attention** and **In flight**. In **All**, it shows in the **Snoozed** group with its wake time in place of its age. A snoozed thread can still run. A snoozed thread does not move its tree. When its parent or child is awake, the snoozed thread shows as a dimmed row in that tree, and the awake thread shows as a dimmed row in **Snoozed**.
+Snooze is unavailable if the selected thread is archived or hidden, or any included member waits for an approval or answer, has an unread error, or has a queued message that failed to send. A running member without those signals does not block it. Existing descendant snoozes are replaced by the parent's new shared deadline.
 
-The thread wakes and goes back to its tab when:
+Snooze marks every included member read without stopping running work. The members leave **Needs attention** and **In flight** together. In **All**, they stay nested in **Snoozed**, with the shared wake time in place of each age. Snoozed ancestors still appear as dimmed context rows for awake threads outside the captured group.
 
-| Event | Marks it unread |
+The whole stored group wakes and returns through the normal tree-tab rules when:
+
+| Event | Unread behavior |
 |---|---|
-| The wake time comes (checked each minute on the server, also with no client open) | Yes |
-| You select **Wake now** in the thread menu | No |
-| A run completes or fails | BB does, as for any run |
-| It waits for an approval or an answer, has an unread error, or a queued message fails (seen by an open client) | BB does |
-| You archive it (unarchive does not restore the snooze) | No |
+| The shared deadline comes, checked each minute on the server even with no client open | Remaining non-archived members are marked unread |
+| You select **Wake now** on any member, in its menu or the palette | Read state is unchanged |
+| Any member completes or fails a run | BB's signaling member keeps its ordinary attention/unread state; other members are not marked unread |
+| Any member waits for approval or an answer, has an unread error, or a queued message fails, as observed by an open plugin frontend | The group wakes without manufacturing unread output on other members |
 
-PR status changes and child threads do not wake a thread.
+Archiving one member removes only that member's snooze. Other members stay snoozed and still wake together. Unarchive does not restore membership. PR-only changes and attention signals from threads outside the captured group do not wake it.
+
+If marking a member read fails, no partial new snooze group is saved or published, and previous snoozes remain. Earlier successful read updates cannot be rolled back atomically, so some members may have become read even though snooze failed.
+
+The server orders snooze read updates and scheduled unread updates through one queue. A replacement snooze waits for an in-flight sweep, then marks its members read. The sweep checks captured group ownership again before each unread call, so an intervening manual or terminal wake stops updates to the remaining members. Terminal-event capture starts when the snooze request enters that queue, before hierarchy loading.
 
 Snoozes are stored in the plugin's database on the BB server, so all clients show the same snoozes. BB's bundled **Thread list** does not show them, but the server still wakes snoozed threads on time.
+
+The database upgrade preserves old snoozes as independent one-member groups. Deploy and reload the server and frontend together. An older plugin can still read the original columns after rollback, but wakes members independently. Upgrading again assigns groups to new old-version rows. If old code changed a member's deadline or snooze timestamp, re-upgrade splits that inconsistent group into independent members while preserving their times. Untouched groups retain their membership, and equal deadlines never merge unrelated snoozes.
 
 ### Command palette
 
@@ -71,11 +78,13 @@ The palette has three commands:
 
 They target BB's currently focused thread, including the focused pane in a split view. The sidebar can be closed and the row can be offscreen. There are no default shortcuts. Assign your own in BB's Keyboard settings.
 
-Snooze commands appear only for a known, non-archived thread with no active snooze or blocking attention signal. Waiting for an approval or answer, an unread error, or a failed queued message blocks snooze. Running alone does not. Wake now appears only for an active snooze, not one that expired or received an early-wake signal. Inapplicable commands are absent, not disabled. All three stay hidden with no focused thread, an unknown thread, loading or failed required state, or a stopped plugin frontend.
+Menu and palette actions use the same captured subtree and stored group. Snooze commands appear only for a known, active, non-hidden thread with no active snooze, when no included descendant has a blocking attention signal. Waiting for an approval or answer, an unread error, or a failed queued message blocks snooze anywhere in the subtree. Running alone does not. Wake now appears only for an active snooze, not one that expired or received an early-wake signal. Inapplicable commands are absent, not disabled. All three stay hidden with no focused thread, an unknown thread, loading or failed required state, or a stopped plugin frontend.
 
-The commands use the same client-local 9:00 presets as the menu. Next week is absent on Sunday because it equals Tomorrow. Execution checks the current focus, latest observed state, and local date again. A stale entry or shortcut does nothing when its action is no longer applicable. Snooze marks the thread read without stopping its run; Wake now does not mark it unread.
+The commands use the same client-local 9:00 presets as the menu. Next week is absent on Sunday because it equals Tomorrow. Execution checks the current focus, latest observed state, and local date again. A stale entry or shortcut does nothing when its action is no longer applicable. Snooze marks all included members read without stopping their runs. Wake now on any member ends the stored group's snooze without changing read state.
 
 Commands work while this plugin's frontend is enabled even when another sidebar provider is selected. Only **Threads with PRs** displays the **Snoozed** group. Snooze loading and early wakes belong to the app-wide owner, not individual sidebar rows.
+
+Approval, answer, unread-error, and queued-send early wakes require an open frontend with this plugin enabled. The owner observes those signals even with the sidebar closed. Run completion, failure, and the minute deadline sweep use server handlers and work with no client open. The final eligibility check uses the latest observed frontend state; it is not an atomic server attention check.
 
 ## List preferences
 

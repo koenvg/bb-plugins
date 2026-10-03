@@ -5,7 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
 import type { PluginSidebarThreadRowStatus, PluginSidebarThreadShortcut, PluginThreadListProps } from "@get-bb/plugin-sdk/app";
-import { project, thread } from "./fixtures";
+import { project, thread, snoozeSnapshot, archivedReady } from "./fixtures";
 import { snoozePresets, wakeLabel } from "./snooze-model";
 import { cancelPrPanelRequest, receivePrPanel, requestPrPanel } from "../bb-plugin-github-insight/pr-panel-navigation";
 
@@ -58,7 +58,7 @@ function mount(threads = [thread()], state: Partial<PluginSidebarThreadsState> =
   mounted = renderSlot(slot, {
     activeThreadId: null, activeProjectId: null, isCompactViewport: false,
     onNavigate: () => {}, searchQuery: "", ...props,
-  }, { sidebarThreads: { threads, projects: [project], sections: [], ...state }, ...extras });
+  }, { sidebarThreads: { threads, projects: [project], sections: [], experimental_archived: archivedReady, ...state }, ...extras });
   return mounted;
 }
 
@@ -126,8 +126,9 @@ describe("thread list slot", () => {
     const first = mount([thread({ isArchived: true })], { experimental_archived: page });
     showLifecycle(first, "Archived");
     expect(first.getByRole("link", { name: /Prepare release/ })).toBeTruthy();
+    expect(fetchNextPage).toHaveBeenCalledOnce(); // The snooze owner starts loading the complete relationship graph.
     fireEvent.click(first.getByRole("button", { name: "Show more" }));
-    expect(fetchNextPage).toHaveBeenCalledOnce();
+    expect(fetchNextPage).toHaveBeenCalledTimes(2);
     first.lifecycle.unmount();
     const loading = mount([], { experimental_archived: { ...page, status: "loading", isFetchingNextPage: true } });
     showLifecycle(loading, "Archived");
@@ -138,12 +139,12 @@ describe("thread list slot", () => {
     showLifecycle(error, "Archived");
     expect(error.getByRole("alert").textContent).toContain("Archived threads");
     fireEvent.click(error.getByRole("button", { name: "Retry archive" }));
-    expect(fetchNextPage).toHaveBeenCalledTimes(2);
+    expect(fetchNextPage).toHaveBeenCalledTimes(3);
     error.lifecycle.unmount();
     const initialError = mount([], { status: "error", experimental_archived: { ...page, status: "error", hasNextPage: false } });
     showLifecycle(initialError, "Archived");
     fireEvent.click(initialError.getByRole("button", { name: "Retry archive" }));
-    expect(fetchNextPage).toHaveBeenCalledTimes(3);
+    expect(fetchNextPage).toHaveBeenCalledTimes(4);
     initialError.lifecycle.unmount();
     const empty = mount([], { experimental_archived: { ...page, hasNextPage: false } });
     showLifecycle(empty, "Archived");
@@ -677,7 +678,7 @@ describe("thread list slot", () => {
     });
     const DAY = 86_400_000;
     const withSnoozes = (snoozes: Record<string, number>, handlers: Record<string, unknown> = {}) =>
-      ({ rpc: { listSummaries: () => ({ insightAvailable: true, summaries: {} }), listSnoozes: () => ({ snoozes }),
+      ({ rpc: { listSummaries: () => ({ insightAvailable: true, summaries: {} }), listSnoozes: () => snoozeSnapshot(snoozes),
         snooze: () => ({}), wake: () => ({}), ...handlers } }) as Partial<RenderSlotOptions>;
     const calls = (slot: ReturnType<typeof renderSlot>, method: string) =>
       slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
@@ -686,6 +687,7 @@ describe("thread list slot", () => {
 
     it("snoozes a thread until a preset time from the menu", async () => {
       const slot = mount([thread()], {}, withSnoozes({}));
+      await act(async () => {});
       const [tomorrow] = snoozePresets(new Date());
       openMenu(slot);
       const snoozeItems = screen.getByRole("group", { name: "Snooze" });
@@ -741,7 +743,7 @@ describe("thread list slot", () => {
 
     it("loads snoozes again when the server reports a change", async () => {
       let snoozes: Record<string, number> = {};
-      const slot = mount([thread()], {}, withSnoozes({}, { listSnoozes: () => ({ snoozes }) }));
+      const slot = mount([thread()], {}, withSnoozes({}, { listSnoozes: () => snoozeSnapshot(snoozes) }));
       await vi.waitFor(() => expect(calls(slot, "listSnoozes")).toHaveLength(1));
       expect(slot.getByRole("link", { name: "Prepare release" })).toBeTruthy();
 

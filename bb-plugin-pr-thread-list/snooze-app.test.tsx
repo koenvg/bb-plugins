@@ -6,7 +6,7 @@ import { definePluginApp, useRealtimeConnectionState, type PluginCommandContext,
 import { loadPluginApp, renderSlot, type RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import { toast } from "sonner";
 import definition from "./app";
-import { project, thread } from "./fixtures";
+import { project, thread, snoozeSnapshot, archivedReady } from "./fixtures";
 import type { rpcContract } from "./contract";
 
 type Options = Omit<RenderSlotOptions, "rpc"> & { rpc?: Partial<NonNullable<RenderSlotOptions<typeof rpcContract>["rpc"]>> };
@@ -27,9 +27,9 @@ function mount(options: Options = {}, list = false, Observer?: ComponentType) {
   const { rpc, ...extras } = options;
   return renderSlot<{}, typeof rpcContract>({ component: () => <><Owner />{list ? <List activeThreadId="t1" activeProjectId="p1"
     isCompactViewport={false} onNavigate={() => {}} searchQuery="" /> : null}{Observer ? <Observer /> : null}</> }, {}, {
-    sidebarThreads: { threads: [thread()], projects: [project] },
     ...extras,
-    rpc: { listSnoozes: () => ({ snoozes: {} }), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
+    sidebarThreads: { threads: [thread()], projects: [project], experimental_archived: archivedReady, ...extras.sidebarThreads },
+    rpc: { listSnoozes: () => snoozeSnapshot(), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
       snooze: () => ({}), wake: () => ({}), ...rpc },
   });
 }
@@ -41,7 +41,7 @@ it("registers three commands through the SDK and operates with only the headless
   expect(commands.every((entry) => !entry.defaultShortcut)).toBe(true);
   let snoozes: Record<string, number> = {};
   const slot = mount({ rpc: {
-    listSnoozes: () => ({ snoozes }),
+    listSnoozes: () => snoozeSnapshot(snoozes),
     snooze: ({ threadId, wakeAt }) => { snoozes = { [threadId]: wakeAt }; return {}; },
     wake: () => { snoozes = {}; return {}; },
   } });
@@ -62,26 +62,26 @@ it("registers three commands through the SDK and operates with only the headless
   expect(slot.inspection.rpcCalls).toHaveLength(beforeStop);
 });
 
-it("uses focused invocation context even when its row is hidden and the sidebar selects another thread", async () => {
+it("excludes hidden focused threads without blocking an unrelated selected thread", async () => {
   let snoozes: Record<string, number> = {};
   const slot = mount({ context: { threadId: "t1", projectId: "p1" },
     sidebarThreads: { threads: [thread(), thread({ id: "t2", displayTitle: "Hidden", isHidden: true })], projects: [project] },
-    rpc: { listSnoozes: () => ({ snoozes }), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
+    rpc: { listSnoozes: () => snoozeSnapshot(snoozes), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
       snooze: ({ threadId, wakeAt }) => { snoozes = { [threadId]: wakeAt }; return {}; } },
   }, true);
-  await waitFor(() => expect(available(context("t2"))).toContain("snooze-tomorrow"));
+  await waitFor(() => expect(available(context("t1"))).toContain("snooze-tomorrow"));
   expect(slot.queryByRole("link", { name: "Hidden" })).toBeNull();
+  expect(available(context("t2"))).toEqual([]);
   await act(async () => command("snooze-tomorrow").run(context("t2")));
-  await waitFor(() => expect(available(context("t2"))).toEqual(["wake-now"]));
-  expect(calls(slot, "snooze")[0]!.input).toMatchObject({ threadId: "t2" });
+  expect(calls(slot, "snooze")).toHaveLength(0);
   expect(available(context("t1"))).toContain("snooze-tomorrow");
-  expect(calls(slot, "listSnoozes")).toHaveLength(2);
+  expect(calls(slot, "listSnoozes")).toHaveLength(1);
 });
 
 it("keeps the sidebar and commands in sync after snooze, wake, and another client's update", async () => {
   let snoozes: Record<string, number> = {};
   const slot = mount({ rpc: {
-    listSnoozes: () => ({ snoozes }), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
+    listSnoozes: () => snoozeSnapshot(snoozes), listSummaries: () => ({ insightAvailable: true, summaries: {} }),
     snooze: ({ wakeAt }) => { snoozes = { t1: wakeAt }; return {}; },
     wake: () => { snoozes = {}; return {}; },
   } }, true);
@@ -103,6 +103,81 @@ it("keeps the sidebar and commands in sync after snooze, wake, and another clien
   expect(available()).toContain("snooze-tomorrow");
   expect(slot.queryByRole("button", { name: "Collapse Snoozed" })).toBeNull();
 });
+describe("captured subtree in the sidebar", () => {
+  const family = () => [thread({ status: "active", runtimeStatus: "active", isPinned: true, pinnedAt: 1 }),
+    thread({ id: "child", displayTitle: "Child", parentThreadId: "t1" }),
+    thread({ id: "grandchild", displayTitle: "Grandchild", parentThreadId: "child" })];
+
+  it.each(["menu", "palette"] as const)("snoozes the full tree through %s, and wakes it from the child's menu", async (entry) => {
+    const rows = family();
+    let stored = snoozeSnapshot();
+    const slot = mount({ sidebarThreads: { threads: rows, projects: [project] }, rpc: {
+      listSnoozes: () => stored,
+      snooze: ({ wakeAt }) => { stored = snoozeSnapshot(Object.fromEntries(rows.map(({ id }) => [id, wakeAt])),
+        { t1: "family", child: "family", grandchild: "family" }); return {}; },
+      wake: () => { stored = snoozeSnapshot(); return {}; },
+    } }, true);
+    await waitFor(() => expect(available()).toContain("snooze-tomorrow"));
+    fireEvent.click(slot.getByRole("tab", { name: "In flight" }));
+    if (entry === "menu") {
+      fireEvent.click(slot.getByRole("button", { name: "Actions for Prepare release" }));
+      fireEvent.click(slot.getByRole("menuitem", { name: "Tomorrow" }));
+    } else await act(async () => command("snooze-tomorrow").run(context()));
+    await waitFor(() => expect(available()).toEqual(["wake-now"]));
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+    fireEvent.click(slot.getByRole("tab", { name: "Needs attention" }));
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+    fireEvent.click(slot.getByRole("tab", { name: "All" }));
+    expect(slot.getByRole("button", { name: "Collapse Snoozed" })).toBeTruthy();
+    for (const name of ["Prepare release", "Child", "Grandchild"]) expect(slot.getAllByRole("link", { name })).toHaveLength(1);
+    expect(slot.queryByRole("button", { name: "Collapse Pinned" })).toBeNull();
+    // The running parent's Working cue stays visible; idle members show the shared deadline.
+    const wakeTimes = Array.from(slot.container.querySelectorAll('[title^="Snoozed until"]'));
+    expect(wakeTimes).toHaveLength(2);
+    expect(new Set(wakeTimes.map((time) => time.getAttribute("datetime"))).size).toBe(1);
+    expect(slot.getByText("Working")).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: "Collapse Snoozed" }));
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+    fireEvent.click(slot.getByRole("button", { name: "Expand Snoozed" }));
+    fireEvent.click(slot.getByRole("button", { name: "Actions for Child" }));
+    fireEvent.click(slot.getByRole("menuitem", { name: "Wake now" }));
+    await waitFor(() => expect(calls(slot, "wake").map(({ input }) => input)).toEqual([{ threadId: "child" }]));
+    await waitFor(() => expect(slot.queryByRole("button", { name: "Collapse Snoozed" })).toBeNull());
+    fireEvent.click(slot.getByRole("tab", { name: "In flight" }));
+    for (const name of ["Prepare release", "Child", "Grandchild"]) expect(slot.getAllByRole("link", { name })).toHaveLength(1);
+    fireEvent.click(slot.getByRole("tab", { name: "Needs attention" }));
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("restores the whole tree to Needs attention when a grouped grandchild asks for approval", async () => {
+    const rows = family().map((row) => row.id === "grandchild" ? { ...row, hasPendingInteraction: true } : row);
+    const later = Date.now() + 100_000;
+    const slot = mount({ sidebarThreads: { threads: rows, projects: [project] }, rpc: {
+      listSnoozes: () => snoozeSnapshot({ t1: later, child: later, grandchild: later }, { t1: "g", child: "g", grandchild: "g" }),
+      wake: () => new Promise(() => {}),
+    } }, true);
+    await waitFor(() => expect(calls(slot, "wake").map(({ input }) => input)).toEqual([{ threadId: "grandchild" }]));
+    for (const name of ["Prepare release", "Child", "Grandchild"]) expect(slot.getAllByRole("link", { name })).toHaveLength(1);
+    fireEvent.click(slot.getByRole("tab", { name: "In flight" }));
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("keeps a group snoozed when only a child's PR changes", async () => {
+    const rows = family(), later = Date.now() + 100_000;
+    let summaries = {};
+    const slot = mount({ sidebarThreads: { threads: rows, projects: [project] }, rpc: {
+      listSnoozes: () => snoozeSnapshot({ t1: later, child: later, grandchild: later }, { t1: "g", child: "g", grandchild: "g" }),
+      listSummaries: () => ({ insightAvailable: true, summaries }),
+    } }, true);
+    await waitFor(() => expect(available()).toEqual(["wake-now"]));
+    summaries = { child: { version: 1, updatedAt: new Date().toISOString(), pr: { number: 1, url: "https://example.com/pr/1", state: "open" },
+      checks: { failed: 1, passed: 0, running: 0 }, reviewers: { pending: 0 }, blockers: ["checks_failed"] } };
+    await slot.behavior.emitRealtime("summaries.changed", {});
+    expect(calls(slot, "wake")).toHaveLength(0);
+    expect(available()).toEqual(["wake-now"]);
+    expect(slot.queryAllByRole("link")).toHaveLength(0);
+  });
+});
 
 describe("unavailable state and failures", () => {
   it.each(["loading", "error"] as const)("hides all commands when thread state is %s", async (status) => {
@@ -115,8 +190,8 @@ describe("unavailable state and failures", () => {
     const snoozed = { t1: Date.now() + 100_000 };
     const initial = id === "wake-now" ? snoozed : {};
     const refreshed = id === "wake-now" ? {} : snoozed;
-    let finish!: (value: { snoozes: Record<string, number> }) => void;
-    const pending = new Promise<{ snoozes: Record<string, number> }>((resolve) => { finish = resolve; });
+    let finish!: (value: ReturnType<typeof snoozeSnapshot>) => void;
+    const pending = new Promise<ReturnType<typeof snoozeSnapshot>>((resolve) => { finish = resolve; });
     let reads = 0;
     let visibleAtReconnect: string[] | undefined;
     let invocation: void | Promise<void>;
@@ -132,7 +207,7 @@ describe("unavailable state and failures", () => {
       }, [connection]);
       return null;
     }
-    const slot = mount({ rpc: { listSnoozes: () => ++reads === 1 ? { snoozes: initial } : pending } },
+    const slot = mount({ rpc: { listSnoozes: () => ++reads === 1 ? snoozeSnapshot(initial) : pending } },
       false, ObserveConnectedCommit);
     await waitFor(() => expect(available()).toContain(id));
     await slot.behavior.setRealtimeConnectionState("reconnecting");
@@ -142,16 +217,16 @@ describe("unavailable state and failures", () => {
     expect(calls(slot, "snooze")).toHaveLength(0);
     expect(calls(slot, "wake")).toHaveLength(0);
     expect(reads).toBe(2);
-    await act(async () => finish({ snoozes: refreshed }));
+    await act(async () => finish(snoozeSnapshot(refreshed)));
     expect(available()).not.toContain(id);
   });
   it("fails closed for an initial load, a failed refresh, and reconnect, then recovers", async () => {
     let fail = true;
-    let result: Promise<{ snoozes: Record<string, number> }> | undefined;
+    let result: Promise<ReturnType<typeof snoozeSnapshot>> | undefined;
     const slot = mount({ rpc: { listSnoozes: () => {
       if (result) return result;
       if (fail) throw new Error("offline");
-      return { snoozes: {} };
+      return snoozeSnapshot();
     } } });
     await act(async () => {});
     expect(available()).toEqual([]);
@@ -164,13 +239,13 @@ describe("unavailable state and failures", () => {
     fail = false;
     await slot.behavior.emitRealtime("snoozes.changed", {});
     expect(available()).toContain("snooze-tomorrow");
-    let finish!: (value: { snoozes: Record<string, number> }) => void;
+    let finish!: (value: ReturnType<typeof snoozeSnapshot>) => void;
     result = new Promise((resolve) => { finish = resolve; });
     await slot.behavior.setRealtimeConnectionState("reconnecting");
     expect(available()).toEqual([]);
     await slot.behavior.setRealtimeConnectionState("connected");
     expect(available()).toEqual([]);
-    await act(async () => finish({ snoozes: {} }));
+    await act(async () => finish(snoozeSnapshot()));
     expect(available()).toContain("snooze-tomorrow");
   });
   it.each([
@@ -178,7 +253,7 @@ describe("unavailable state and failures", () => {
     ["wake-now", { t1: Date.now() + 100_000 }, "Could not wake the thread."],
   ] as const)("shows failure without a successful local change for %s", async (id, snoozes, message) => {
     const error = vi.spyOn(toast, "error").mockImplementation(() => "toast");
-    const slot = mount({ rpc: { listSnoozes: () => ({ snoozes }),
+    const slot = mount({ rpc: { listSnoozes: () => snoozeSnapshot(snoozes),
       snooze: () => { throw new Error("offline"); }, wake: () => { throw new Error("offline"); } } });
     await waitFor(() => expect(available()).toContain(id));
     const before = available();

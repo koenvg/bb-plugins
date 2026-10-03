@@ -1,8 +1,10 @@
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { needsAttention } from "./row-cues";
+import { subtreeMembers } from "./snooze-tree";
 
 export interface SnoozeControls {
   snoozed: ReadonlyMap<string, number>;
+  canSnooze: (threadId: string) => boolean;
   snooze: (threadId: string, wakeAt: number) => Promise<unknown>;
   wake: (threadId: string) => Promise<unknown>;
 }
@@ -36,17 +38,32 @@ export function wakeLabel(wakeAt: number): string {
 export const wakeTitle = (wakeAt: number) =>
   `Snoozed until ${new Date(wakeAt).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short", hourCycle: "h23" })}`;
 
-export const canSnooze = (thread: PluginSidebarThread) => !thread.isArchived && !needsAttention(thread);
+export const canSnooze = (thread: PluginSidebarThread) => !thread.isArchived && !thread.isHidden && !needsAttention(thread);
 
+export function canSnoozeSubtree(threads: readonly PluginSidebarThread[], threadId: string): boolean {
+  const selected = threads.find(({ id }) => id === threadId);
+  return !!selected && canSnooze(selected) && subtreeMembers(threads, threadId).every(canSnooze);
+}
 export function activeSnoozes(threads: readonly PluginSidebarThread[], snoozes: Readonly<Record<string, number>>,
-  now: number): Map<string, number> {
+  now: number, groups: Readonly<Record<string, string>> = {}): Map<string, number> {
+  const ending = new Set(snoozesToEnd(threads, snoozes, groups).map((id) => groups[id] ?? id));
   const active = new Map<string, number>();
   for (const thread of threads) {
     const wakeAt = snoozes[thread.id];
-    if (wakeAt !== undefined && wakeAt > now && canSnooze(thread)) active.set(thread.id, wakeAt);
+    if (wakeAt !== undefined && wakeAt > now && canSnooze(thread) && !ending.has(groups[thread.id] ?? thread.id))
+      active.set(thread.id, wakeAt);
   }
   return active;
 }
 
-export const snoozesToEnd = (threads: readonly PluginSidebarThread[], snoozes: Readonly<Record<string, number>>) =>
-  threads.filter((thread) => snoozes[thread.id] !== undefined && needsAttention(thread)).map((thread) => thread.id);
+/** One signaling member per persisted group, never inferred from current ancestry. */
+export function snoozesToEnd(threads: readonly PluginSidebarThread[], snoozes: Readonly<Record<string, number>>,
+  groups: Readonly<Record<string, string>> = {}): string[] {
+  const ending = new Map<string, string>();
+  for (const thread of threads) {
+    if (snoozes[thread.id] === undefined || thread.isArchived || thread.isHidden || !needsAttention(thread)) continue;
+    const group = groups[thread.id] ?? thread.id;
+    if (!ending.has(group)) ending.set(group, thread.id);
+  }
+  return [...ending.values()];
+}

@@ -3,7 +3,7 @@ import type {
 } from "@get-bb/plugin-sdk/app";
 import type { MenuItem } from "./action-menu";
 import type { ListItem } from "./list-model";
-import { canSnooze, snoozePresets, type SnoozeControls } from "./snooze-model";
+import { snoozePresets, type SnoozeControls } from "./snooze-model";
 import { cancelPrPanelRequest } from "../bb-plugin-github-insight/pr-panel-navigation";
 
 const askName = (label: string, current = "") => window.prompt(label, current)?.trim() || null;
@@ -38,10 +38,10 @@ export function threadMenuItems(thread: PluginSidebarThread, actions: PluginSide
 }
 
 export function snoozeMenuItems(thread: PluginSidebarThread, wakeAt: number | undefined,
-  { snooze, wake }: Pick<SnoozeControls, "snooze" | "wake">): MenuItem[] {
+  { snooze, wake, canSnooze }: Pick<SnoozeControls, "snooze" | "wake" | "canSnooze">): MenuItem[] {
   const section = "Snooze";
   if (wakeAt !== undefined) return [{ section, label: "Wake now", failure: "Could not wake the thread.", run: () => wake(thread.id) }];
-  if (!canSnooze(thread)) return [];
+  if (!canSnooze(thread.id)) return [];
   // Recomputed at click time: a menu rendered yesterday must not snooze into the past.
   return snoozePresets(new Date()).map(({ label, wakeAt: shown }) => ({
     section, label, failure: "Could not snooze the thread.",

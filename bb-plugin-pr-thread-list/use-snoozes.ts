@@ -1,29 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRpc, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
-import { SNOOZES_CHANGED_CHANNEL, type rpcContract } from "./contract";
+import { SNOOZES_CHANGED_CHANNEL, rpcContract } from "./contract";
 import { useLiveRpc } from "./live-rpc";
-import { activeSnoozes, snoozesToEnd, type SnoozeControls } from "./snooze-model";
+import { activeSnoozes, canSnoozeSubtree, snoozesToEnd, type SnoozeControls } from "./snooze-model";
 
 const NONE: Readonly<Record<string, number>> = {};
+const NO_GROUPS: Readonly<Record<string, string>> = {};
 
-export function useSnoozes(threads: readonly PluginSidebarThread[], now: number): SnoozeControls & { ready: boolean; values: Readonly<Record<string, number>> } {
+export function useSnoozes(threads: readonly PluginSidebarThread[], now: number, threadsReady = true): SnoozeControls & {
+  ready: boolean; values: Readonly<Record<string, number>>; groups: Readonly<Record<string, string>>;
+} {
   const rpc = useRpc<typeof rpcContract>();
-  const read = useCallback(() => rpc.call("listSnoozes", {}), [rpc]);
+  const read = useCallback(async () => rpcContract.listSnoozes.output.parse(await rpc.call("listSnoozes", {})), [rpc]);
   const [result, reload, status] = useLiveRpc(SNOOZES_CHANGED_CHANNEL, read);
   const snoozes = result?.snoozes ?? NONE;
+  const groups = result?.groups ?? NO_GROUPS;
   const wake = useCallback((threadId: string) => rpc.call("wake", { threadId }).then(reload), [rpc, reload]);
   const snooze = useCallback((threadId: string, wakeAt: number) => rpc.call("snooze", { threadId, wakeAt }).then(reload),
     [rpc, reload]);
-  const snoozed = useMemo(() => activeSnoozes(threads, snoozes, now), [threads, snoozes, now]);
+  const snoozed = useMemo(() => activeSnoozes(threads, snoozes, now, groups), [threads, snoozes, now, groups]);
+  const canSnooze = useCallback((id: string) => threadsReady && status === "ready" && canSnoozeSubtree(threads, id)
+    && !activeSnoozes(threads, snoozes, Date.now(), groups).has(id), [threadsReady, status, threads, snoozes, groups]);
   const ending = useRef(new Set<string>());
   useEffect(() => {
-    for (const id of ending.current) if (snoozes[id] === undefined) ending.current.delete(id);
-    for (const id of snoozesToEnd(threads, snoozes)) {
-      if (ending.current.has(id)) continue;
-      ending.current.add(id);
-      void wake(id).catch(() => ending.current.delete(id));
+    const storedGroups = new Set(Object.values(groups));
+    for (const group of ending.current) if (!storedGroups.has(group)) ending.current.delete(group);
+    if (!threadsReady || status !== "ready") return;
+    for (const id of snoozesToEnd(threads, snoozes, groups)) {
+      const group = groups[id]!;
+      if (ending.current.has(group)) continue;
+      ending.current.add(group);
+      void wake(id).catch(() => ending.current.delete(group));
     }
-  }, [threads, snoozes, wake]);
-  return useMemo(() => ({ snoozed, snooze, wake, ready: status === "ready", values: snoozes }),
-    [snoozed, snooze, wake, status, snoozes]);
+  }, [threads, threadsReady, status, snoozes, groups, wake]);
+  return useMemo(() => ({ snoozed, snooze, wake, canSnooze, ready: status === "ready", values: snoozes, groups }),
+    [snoozed, snooze, wake, canSnooze, status, snoozes, groups]);
 }
