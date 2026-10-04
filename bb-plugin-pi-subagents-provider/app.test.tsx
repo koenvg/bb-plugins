@@ -143,9 +143,9 @@ describe("pi extension ui interaction", () => {
   });
 });
 
-it("reports unavailable subagent support without adding controls", () => {
+it("reports read-only subagent support and installed acceptance limits without controls", () => {
   const view = renderSlot(app.settingsSections.find((slot) => slot.id === "subagent-support")!, {});
-  expect(view.getByText("Subagent observation is unavailable in this baseline.")).toBeDefined();
+  expect(view.getByText(/Open the Subagents tab/)).toBeDefined();
   expect(view.getByText(/Ordinary Pi work remains available/)).toBeDefined();
   expect(view.queryByRole("button")).toBeNull();
 });

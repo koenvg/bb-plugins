@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     silent: "passed-only",
     name: "bb-plugin-pi-subagents-provider",
-    include: ["*.test.ts", "*.test.tsx", "src/**/*.test.ts"],
+    include: ["*.test.ts", "*.test.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"],
     exclude: ["node_modules/**"],
   },
 });

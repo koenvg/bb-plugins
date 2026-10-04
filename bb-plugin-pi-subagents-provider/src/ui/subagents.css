@@ -1,0 +1,13 @@
+.pi-subagents { min-width: 0; display: grid; gap: 1rem; font-size: .875rem; color: var(--foreground); }
+.pi-subagents h2, .pi-subagents h3, .pi-subagents h4 { font-weight: 600; margin: 0; }
+.pi-subagents p { margin: 0; overflow-wrap: anywhere; }
+.pi-subagents header p { margin-top: .4rem; color: var(--muted-foreground); font-size: .75rem; }
+.pi-subagents nav ul { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow-y: auto; display: grid; gap: .35rem; }
+.pi-subagents nav button { display: block; width: 100%; min-width: 0; padding: .6rem .75rem; text-align: start; border: 1px solid var(--border); border-radius: .4rem; background: var(--card); color: inherit; }
+.pi-subagents nav button span { display: block; overflow-wrap: anywhere; }
+.pi-subagents nav button span + span { margin-top: .3rem; font-size: .75rem; color: var(--muted-foreground); }
+.pi-subagents nav button[aria-pressed=true] { background: var(--surface-raised); border-color: var(--ring); }
+.pi-subagents nav button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.pi-subagents article { min-width: 0; display: grid; gap: .6rem; padding: .9rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--card); }
+.pi-subagents pre { margin: 0; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+.pi-subagents [role=alert] { color: var(--destructive); }

@@ -9,6 +9,8 @@ import {
   buildPiChildEnv,
   type PiRpcChildExitInfo,
 } from "./rpc-child.js";
+import { createInspectionChannel } from "./subagents/inspection-channel.js";
+import { type CaptureTarget } from "./subagents/capture.js";
 
 export interface PiRpcSessionOptions {
   cwd: string;
@@ -154,6 +156,11 @@ export class PiRpcSession {
   } | null = null;
   private liveModel: PiRpcSessionState["model"] | undefined;
   private closed = false;
+  private readonly inspections = createInspectionChannel({
+    context: () => this.channelRequest({ method: "subagent-inspection-context" }, 1500),
+    command: (message) => this.requireChild().requestOk({ type: "prompt", message }, 2500),
+    current: () => !this.closed && !!this.child,
+  });
 
   constructor(
     private readonly options: PiRpcSessionOptions,
@@ -168,6 +175,9 @@ export class PiRpcSession {
 
   readSubagentStatus(): Promise<unknown> {
     return this.channelRequest({ method: "subagent-status" }, 3000);
+  }
+  inspectSubagent(target: CaptureTarget, requestId: string): Promise<unknown> {
+    return this.inspections.inspect(target, requestId);
   }
 
   respondToExtensionUi(
@@ -259,11 +269,9 @@ export class PiRpcSession {
         if (child === this.child) this.handleExit(info);
       },
       recordThreadId: this.options.recordThreadId,
-      onExtensionUiRequest: onExtensionUiRequest
-        ? (request) => {
-            if (child === this.child) onExtensionUiRequest(request);
-          }
-        : undefined,
+      onExtensionUiRequest: onExtensionUiRequest ? (request) => {
+        if (child === this.child && !this.inspections.widget(request)) onExtensionUiRequest(request);
+      } : undefined,
     });
     this.child = child;
 
@@ -425,6 +433,7 @@ export class PiRpcSession {
   }
 
   async closeGracefully(timeoutMs: number): Promise<string | undefined> {
+    this.inspections.dispose();
     const child = this.child;
     this.rejectPendingInputConsumptions(
       "Pi session closed before input was consumed",
@@ -448,6 +457,7 @@ export class PiRpcSession {
 
   kill(): void {
     this.closed = true;
+    this.inspections.dispose();
     this.child?.kill();
   }
 
@@ -767,6 +777,7 @@ export class PiRpcSession {
   }
 
   private handleExit(info: PiRpcChildExitInfo): void {
+    this.inspections.dispose();
     this.options.onProcessExit?.();
     this.ready.reject(new PiRpcChildExitedError(info));
     for (const [, reply] of this.channelReplies) {

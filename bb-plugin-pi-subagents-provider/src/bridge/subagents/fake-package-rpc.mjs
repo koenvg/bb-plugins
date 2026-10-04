@@ -17,6 +17,13 @@ export function fakePackageRpc(session, sendWidget) {
   });
   return {
     events,
+    inspect(message) {
+      const [, requestId, asyncId, childId] = message.split(/\s+/);
+      const run = runs.find(r => r.id === asyncId);
+      const reply = { kind: "pi-subagents.inspect-reply", version: 1, requestId, asyncId, ...(childId && childId !== "--lines" ? { childId } : {}), ...(process.env.FAKE_PI_INSPECTION_MISSING === "1" ? { error: { code: "not_found", message: "Owned result artifact is missing" } } : { status: run?.state, task: "Review owned fixture files", messages: [{ role: "assistant", kind: "text", text: "Read the owned fixture" }], ...(run?.state === "complete" ? { finalOutput: "Owned final answer" } : {}), truncated: { task: false, messages: 0, finalOutput: false } }) };
+      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-inspect", lines: ["PI_SUBAGENT_INSPECT_JSON:" + JSON.stringify(reply)] });
+      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-inspect" });
+    },
     start() {
       if (started) return;
       started = true;

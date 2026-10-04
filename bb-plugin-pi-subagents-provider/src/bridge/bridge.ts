@@ -82,6 +82,8 @@ import {
 } from "./session-paths.js";
 import { extractPiPromptInput } from "./turn-input.js";
 import { createSubagentObservation, type SubagentObservation } from "./subagents/observation.js";
+import { createViewStore } from "./subagents/view-store.js";
+import { VIEW_EXTENSION_KIND } from "../subagents-contract.js";
 
 const piCommandSchema = z.discriminatedUnion("method", [
   z.object({
@@ -215,6 +217,8 @@ const { send, sendResult, sendError } = createBridgeIo<
 >();
 
 const sessions = new Map<string, ThreadSession>();
+// Presentation history only; PiRpcSession remains the single process/session owner.
+const subagentViews = new Map<string, ReturnType<typeof createViewStore>>();
 const closingSessions = new Map<string, Promise<string | undefined>>();
 const { forwardToolCall, handleToolCallResponse, resolvePendingToolCalls } =
   createPendingToolCallTracker({ sendToolCall: send });
@@ -798,6 +802,12 @@ async function constructPiThreadSession(
     createOnPiEvent({ sessionSerial, threadId }),
     createOnSessionDone({ sessionSerial, threadId }),
   );
+  let view = subagentViews.get(threadId);
+  if (!view) {
+    view = createViewStore((payload) => sendThreadDeltas(threadId, [{ kind: "extension.state", extensionKind: VIEW_EXTENSION_KIND, payload }]));
+    if (subagentViews.size >= 64) subagentViews.delete(subagentViews.keys().next().value!);
+    subagentViews.set(threadId, view);
+  }
   const threadSession: ThreadSession = {
     session,
     sessionSerial,
@@ -805,6 +815,8 @@ async function constructPiThreadSession(
       sessionFile: sessionOptions.sessionFilePath,
       generation: sessionSerial,
       reconcile: () => session.readSubagentStatus(),
+      view,
+      inspect: (target, requestId) => session.inspectSubagent(target, requestId),
       emit: (deltas) => sendThreadDeltas(threadId, deltas),
     }),
     observationReady: false,

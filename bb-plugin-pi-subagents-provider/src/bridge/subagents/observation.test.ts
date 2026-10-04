@@ -3,6 +3,7 @@ import { experimental_createDeltaAssembler as createAssembler, type ThreadEvent 
 import { type ThreadDelta, threadDeltaSchema } from "@get-bb/plugin-sdk/provider-bridge";
 import { createSubagentObservation } from "./observation.js";
 
+import { createViewStore } from "./view-store.js";
 const sessionFile = "/owned/session.jsonl";
 const root = (state = "running", children: unknown[] = []) => ({ id: "run-1", kind: "subagent", label: "reviewer", state, startedAt: 1000, updatedAt: 2000, activity: { currentTool: "read" }, children });
 function receipt(runs: unknown[], omitted = { runs: 0, children: 0, byteLimitExceeded: false }) {
@@ -12,7 +13,7 @@ function receipt(runs: unknown[], omitted = { runs: 0, children: 0, byteLimitExc
     status: { asyncSnapshot: { kind: "pi-subagents.async-status-snapshot", version: 1, generatedAt: 3000, caps: { maxRuns: 20, maxChildrenPerNode: 8, maxDepth: 3, maxStringLength: 160, maxSerializedBytes: 32768 }, omitted, runs } },
   };
 }
-function harness() {
+function harness(view?: ReturnType<typeof createViewStore>) {
   let value: unknown = receipt([root()]);
   let now = 3000;
   const deltas: ThreadDelta[] = [];
@@ -23,10 +24,16 @@ function harness() {
     deltas.push(...batch);
     events.push(...assembler.assemble({ threadId: "thread-1", deltas: batch }));
   };
-  const observation = createSubagentObservation({ sessionFile, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {} });
+  const observation = createSubagentObservation({ sessionFile, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {}, view });
   const items = () => events.flatMap((event) => "item" in event && event.item.type === "backgroundTask" ? [event.item] : []);
   return { observation, events, items, deltas, emit, assembler, set: (next: unknown) => { value = next; }, time: (next: number) => { now = next; } };
 }
+it("keeps native accounting equal when a supported long session ID exceeds presentation limits",async()=>{
+  const value=receipt([root()]);value.sessionId="s".repeat(1800);value.ping.session.sessionId=value.sessionId;
+  const view=createViewStore(()=>{},()=>3000);const a=harness(),b=harness(view);a.set(value);b.set(value);
+  await a.observation.refresh();await b.observation.refresh();expect(b.deltas).toEqual(a.deltas);expect(b.items()).toHaveLength(1);expect(view.snapshot().omitted).toBeGreaterThan(0);
+  a.observation.dispose("release");b.observation.dispose("release");
+});
 
 describe("native single-run observation", () => {
   it("opens native work without a turn and keeps it through parent idle and silence", async () => {
