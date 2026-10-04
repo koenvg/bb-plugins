@@ -42,6 +42,9 @@ export function githubTransport(fetcher: typeof fetch = fetch, bounds = byteLimi
 
 function hasNextPage(link: string | null, current: URL): boolean {
   if (!link) return false;
+  const currentPage = current.searchParams.get("page");
+  if (current.searchParams.size !== 2 || current.searchParams.get("per_page") !== "100" ||
+      !currentPage || !/^[1-9]\d*$/.test(currentPage) || !Number.isSafeInteger(Number(currentPage))) throw new Error("Invalid upstream pagination");
   let next = false;
   let lastPage: number | undefined;
   const relations = new Set<string>();
@@ -50,7 +53,11 @@ function hasNextPage(link: string | null, current: URL): boolean {
     if (!match || relations.has(match[2])) throw new Error("Invalid upstream pagination");
     relations.add(match[2]);
     const target = new URL(match[1]);
-    if (target.origin !== origin || target.pathname !== current.pathname || target.username || target.password || target.hash) throw new Error("Invalid upstream pagination");
+    // Numeric repository routes are hints only. Requests stay on the caller's owner/repository route.
+    const alias = /^\/repositories\/[1-9]\d*(\/.*)$/.exec(target.pathname);
+    const suffix = current.pathname.replace(/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+(?=\/)/, "");
+    const samePath = target.pathname === current.pathname || alias?.[1] === suffix;
+    if (target.origin !== origin || !samePath || target.username || target.password || target.hash) throw new Error("Invalid upstream pagination");
     const page = target.searchParams.get("page");
     if (!page || !/^[1-9]\d*$/.test(page) || !Number.isSafeInteger(Number(page))) throw new Error("Invalid upstream pagination");
     const expected = new URL(current);
