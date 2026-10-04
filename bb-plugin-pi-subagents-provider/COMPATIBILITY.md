@@ -6,11 +6,11 @@
 | BB | 0.44.x; build tooling tested at 0.44.0 |
 | Public SDK | 0.5.29; manifest accepts 0.5.29 through 0.5.x |
 | Pi | Inherited install gate requires 0.84.0 or newer; fixtures and type contracts use 0.84.0 |
-| pi-subagents | Not required or automatically installed/enabled. Observation is unavailable in this baseline. |
+| pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
 Credential-free tests drive the real bridge through a scripted Pi RPC child and use published SDK harnesses. They cover prompts, native tool translation, dynamic tools, model/reasoning choices, select/confirm/input/editor dialogs, native skill roots, checkpoint forks, compaction, process handling, RPC framing, and bridge conformance. They do not prove compatibility with every later Pi release or with a live authenticated model.
 
-The inherited Pi version probe reports a missing or too-old executable before session creation. BB checks the manifest engine ranges. An unavailable subagent package does not affect the ordinary Pi bridge. The settings section reports unavailable observation rather than claiming that a missing package is supported. No subagent version is certified for observation, capture, or idle retention yet.
+The inherited Pi version probe reports a missing or too-old executable before session creation. BB checks the manifest engine ranges. An unavailable package does not affect ordinary Pi work. Observation requires public RPC v1 and snapshot/projection v1. Capture additionally requires the registered inspection command and a handled extension-command disposition (statically checked in Pi 1.0.0). Missing capability has no model fallback. No live package/Pi version is certified for capture, persistence, or idle retention. See [capture boundaries](SUBAGENTS.md).
 
 ## SDK check limit on BB 0.44.0
 

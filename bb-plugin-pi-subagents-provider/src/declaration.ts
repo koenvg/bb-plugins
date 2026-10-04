@@ -1,6 +1,7 @@
 import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
 import { PI_NATIVE_ROOTS_DECLARATION } from "./native-roots.js";
 
+import { VIEW_KIND, viewSchema } from "./subagents-contract.js";
 export function piProviderDeclaration(): PluginProviderDeclaration {
   return {
     id: "pi-subagents",
@@ -14,6 +15,7 @@ export function piProviderDeclaration(): PluginProviderDeclaration {
     },
     maintenance: { health: true, usage: false, installation: true },
     env: { passthrough: ["BB_PI_BRIDGE_COMMAND", "BB_PI_BRIDGE_ARGS"] },
+    extensionKinds: { [VIEW_KIND]: { state: viewSchema } },
     capabilities: {
       supportsServiceTier: false,
       supportsNativeUserQuestion: false,

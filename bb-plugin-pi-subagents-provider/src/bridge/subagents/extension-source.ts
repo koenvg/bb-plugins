@@ -42,12 +42,16 @@ function installSubagentStatusChannel(pi, getContext, hint) {
       if (typeof unsubscribe === "function") unsubscribes.push(unsubscribe);
     }
   }
+  // Block fallback if the reserved command disappears before Pi handles it.
+  pi.on("input", (event) => {
+    if (event.source === "rpc" && /^\/subagents-inspect-rpc(?:\s|$)/.test(event.text)) return { action: "handled" };
+  });
   pi.on("session_shutdown", () => {
     closed = true;
     for (const cancel of pending) cancel();
     for (const unsubscribe of unsubscribes) unsubscribe();
   });
-  return async () => {
+  const read = async () => {
     const before = session();
     if (!before.sessionId || !before.sessionFile) throw new Error("Subagent session identity unavailable");
     const ping = await rpc("ping");
@@ -59,5 +63,7 @@ function installSubagentStatusChannel(pi, getContext, hint) {
     if (Buffer.byteLength(JSON.stringify(result), "utf8") > 128 * 1024) throw new Error("Subagent status exceeds byte limit");
     return result;
   };
+  read.inspectionContext = () => ({ ...session(), guard: !closed, command: !closed && pi.getCommands?.().some((command) => command.name === "subagents-inspect-rpc" && command.source === "extension") === true });
+  return read;
 }
 `;

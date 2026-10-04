@@ -254,6 +254,8 @@ export default function bbExtension(pi) {
     switch (message.method) {
       case "subagent-status":
         return readSubagentStatus();
+      case "subagent-inspection-context":
+        return readSubagentStatus.inspectionContext();
       case "fork": {
         // Documented SessionManager API (docs/sdk.md, docs/session-format.md):
         // a full fork copies the source history, a checkpoint fork branches

@@ -51,3 +51,11 @@ it("rejects session replacement during a status reply", async () => {
   await expect(h.read()).rejects.toThrow("replaced");
   expect(h.methods).toEqual(["ping", "status"]);
 });
+it("guards reserved inspection input instead of falling through to a model", () => {
+  const hooks = new Map<string,(event: unknown) => unknown>();
+  const install = new Function(`${SUBAGENT_STATUS_SOURCE}; return installSubagentStatusChannel;`)();
+  const read = install({ getCommands: () => [{name:"subagents-inspect-rpc",source:"extension"}], on: (name: string, handler: (event:unknown)=>unknown) => hooks.set(name,handler) }, () => ({ sessionManager: {getSessionId:()=>"pi",getSessionFile:()=>"/owned/session"} }),()=>{});
+  expect(read.inspectionContext()).toMatchObject({sessionId:"pi",command:true,guard:true});
+  expect(hooks.get("input")!({source:"rpc",text:"/subagents-inspect-rpc req run"})).toEqual({action:"handled"});
+  expect(hooks.get("input")!({source:"rpc",text:"normal prompt"})).toBeUndefined();
+});

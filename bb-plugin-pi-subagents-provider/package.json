@@ -12,7 +12,7 @@
   },
   "bb": {
     "name": "Pi with subagents",
-    "description": "A separate Pi provider. Subagent observation is not available in this baseline.",
+    "description": "A separate Pi provider with a read-only Subagents viewer. Installed lifecycle acceptance remains required.",
     "branding": { "icon": "./icons/pi.svg" },
     "server": "./server.ts",
     "host": "./src/host.ts",

@@ -10,6 +10,8 @@ import {
   piExtensionUiPayloadDataSchema,
   type PiExtensionUiPayloadData,
 } from "./src/extension-ui-contract.js";
+import { SubagentsPanel } from "./src/ui/subagents-panel.js";
+import "./src/ui/subagents.css";
 
 function parseRequest(payload: unknown): PiExtensionUiPayloadData | null {
   if (typeof payload !== "object" || payload === null) return null;
@@ -191,14 +193,16 @@ function ExtensionUiInteraction({
 function SubagentSupport() {
   return (
     <div className="space-y-2 text-sm text-muted-foreground">
-      <p>Subagent observation is unavailable in this baseline.</p>
+      <p>Open the Subagents tab in a Pi with subagents thread to read captured child progress and output.</p>
       <p>Ordinary Pi work remains available when pi-subagents is absent or disabled. This fork does not load or enable that package.</p>
+      <p>Installed lifecycle and recovery acceptance remain required.</p>
     </div>
   );
 }
 
 
 export default definePluginApp((app) => {
+  app.slots.threadPanelAction({ id: "subagents", title: "Subagents", component: SubagentsPanel });
   app.slots.settingsSection({
     id: "subagent-support",
     title: "Subagent support",

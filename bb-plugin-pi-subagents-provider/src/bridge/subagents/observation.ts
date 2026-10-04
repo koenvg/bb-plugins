@@ -2,12 +2,16 @@ import { type DeltaBackgroundTaskShape, type ThreadDelta } from "@get-bb/plugin-
 import { isDeepStrictEqual } from "node:util";
 import { parseStatusReceipt, SNAPSHOT_PREFIX, boundedJson, type RunNode } from "./protocol.js";
 import { reconcileRunTrees, type RetainedRun } from "./run-reconciliation.js";
+import { createCaptureQueue, type CaptureTarget } from "./capture.js";
+import { createViewStore } from "./view-store.js";
 
 export interface ObservationOptions {
   sessionFile: string;
   generation: number;
   reconcile(): Promise<unknown>;
   emit(deltas: readonly ThreadDelta[]): void;
+  view?: ReturnType<typeof createViewStore>;
+  inspect?(target: CaptureTarget, requestId: string): Promise<unknown>;
   now?: () => number;
   schedule?: (callback: () => void, delayMs: number) => () => void;
 }
@@ -31,6 +35,10 @@ export function createSubagentObservation(options: ObservationOptions) {
   const now = options.now ?? Date.now;
   const later = options.schedule ?? schedule;
   const runs = new Map<string, NativeRun>();
+  const view = options.view;
+  const captures = view && options.inspect ? createCaptureQueue({ inspect: options.inspect, accept: (id, capture) => view.capture(id,capture), now }) : undefined;
+  const owner = () => ({ sessionId: sessionId ?? "unbound", sessionFile: options.sessionFile, generation: options.generation });
+  const pendingForeground = new Map<string, { details: unknown; final: boolean }>();
   let sessionId: string | undefined;
   let availability: "unavailable" | "available" = "unavailable";
   let reason = "No compatible package status received";
@@ -74,7 +82,9 @@ export function createSubagentObservation(options: ObservationOptions) {
         generatedAt = snap.generatedAt;
         availability = "available";
         reason = "";
-        for (const fact of reconcileRunTrees(runs, snap)) {
+        const facts = reconcileRunTrees(runs, snap);
+        const settledRoots = new Set(facts.filter(f => !f.active && runs.get(f.id)?.settled === false).map(f => f.id));
+        for (const fact of facts) {
           const { id, node, active, covered } = fact;
           const previous = runs.get(id);
           if (previous?.settled) continue;
@@ -87,12 +97,19 @@ export function createSubagentObservation(options: ObservationOptions) {
           }
           runs.set(id, { node, covered, shape: next, settled: !active });
         }
+        // Detail/capture cannot prevent lifecycle accounting from receiving this receipt.
+        try {
+          for (const target of view?.background(owner(), facts.map(f => runs.get(f.id)?.settled ? runs.get(f.id)!.node : f.node), facts.some(f => !f.covered) || snap.omitted.runs > 0 || snap.omitted.children > 0 || snap.omitted.byteLimitExceeded, settledRoots) ?? []) captures?.enqueue(target);
+          for (const event of pendingForeground.values()) view?.foreground(owner(),event.details,event.final);
+        } catch { view?.availability("unavailable", "Child detail normalization failed"); }
+        pendingForeground.clear();
       } catch {
         if (!disposed) { availability = "unavailable"; reason = "Package status read failed or timed out"; }
       }
     })();
     pending = read;
     try { await read; } finally { if (pending === read) pending = undefined; armRead(); }
+    if (availability !== "available") view?.availability(availability,reason);
   }
   function hint() {
     // Coalesce repeated hints. The bounded read timer is not a foreground keepalive.
@@ -114,7 +131,7 @@ export function createSubagentObservation(options: ObservationOptions) {
     tool(event: Record<string, unknown>) {
       if (disposed || event.toolName !== "subagent" || !["tool_execution_update", "tool_execution_end"].includes(String(event.type))) return;
       const result = event.type === "tool_execution_update" ? event.partialResult : event.result;
-      if (!boundedJson(result, 64 * 1024)) return;
+      if (!boundedJson(result, 128 * 1024)) { view?.availability("unavailable", "Foreground detail exceeds the payload limit"); return; }
       const details = (result as { details?: { mode?: unknown; runId?: unknown; results?: unknown } })?.details;
       if (!details || details.mode === "management" || typeof details.runId !== "string" || !/^[A-Za-z0-9_.:/-]{1,160}$/.test(details.runId) || !Array.isArray(details.results) || details.results.length > 64) return;
       const rows: { runId: string; index: number; agent: string }[] = [];
@@ -125,11 +142,16 @@ export function createSubagentObservation(options: ObservationOptions) {
         rows.push({ runId: details.runId, index: row.index, agent: row.agent });
       }
       for (const row of rows) { if (foreground.size < 64 || foreground.has(`${row.runId}:${row.index}`)) foreground.set(`${row.runId}:${row.index}`, row); }
+      if (sessionId) view?.foreground(owner(), details, event.type === "tool_execution_end");
+      else if (pendingForeground.size < 8 || pendingForeground.has(details.runId)) pendingForeground.set(details.runId, { details, final: event.type === "tool_execution_end" });
       hint();
     },
     dispose(disposalReason: DisposalReason) {
       if (disposed) return;
       disposed = true;
+      captures?.dispose();
+      pendingForeground.clear();
+      view?.dispose(owner(),disposalReason);
       cancelRead?.(); cancelRead = undefined;
       for (const [id, run] of runs) {
         if (run.settled) continue;

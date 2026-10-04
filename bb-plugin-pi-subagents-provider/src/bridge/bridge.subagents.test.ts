@@ -59,3 +59,21 @@ it.each(["FAKE_PI_SUBAGENT_FOREIGN", "FAKE_PI_SUBAGENT_BAD_VERSION"])("rejects %
   expect(assembled(h).items).toEqual([]);
   expect(assembled(h).events.filter((e) => e.type === "turn/completed")).toHaveLength(1);
 }, 15000);
+it("captures final detail as persistent public extension state without another parent turn", async () => {
+  const { harness: h } = await start();
+  await h.waitForDelta("thr_owned", d => d.kind === "extension.state" && JSON.stringify(d.payload).includes("Owned final answer"));
+  await h.waitForDelta("thr_owned", d => (d.snapshot as {status?:unknown})?.status === "completed");
+  const final = h.deltasOf("thr_owned").filter(d => d.kind === "extension.state").at(-1)!;
+  expect(final.extensionKind).toBe("pi-subagents/pi-subagents-view");
+  expect(assembled(h).events.filter(e => e.type === "turn/started")).toHaveLength(1);
+  expect(assembled(h).items.filter(i => i.status === "completed")).toHaveLength(1);
+  expect(JSON.parse(JSON.stringify(final.payload)).rows[0].capture.finalOutput).toBe("Owned final answer");
+  expect(assembled(h).events.some(e=>e.type==="thread/extensionState/updated"&&e.kind==="pi-subagents/pi-subagents-view")).toBe(true);
+},15000);
+it.each(["FAKE_PI_INSPECTION_MISSING","FAKE_PI_INSPECTION_UNSUPPORTED"])("keeps known completion despite %s",async flag=>{
+  vi.stubEnv(flag,"1");const {harness:h}=await start();
+  await h.waitForDelta("thr_owned",d=>(d.snapshot as {status?:unknown})?.status==="completed");
+  await h.waitForDelta("thr_owned",d=>d.kind==="extension.state"&&JSON.stringify(d.payload).includes(flag.endsWith("MISSING")?"Owned result artifact is missing":"capability"));
+  expect(assembled(h).events.filter(e=>e.type==="turn/started")).toHaveLength(1);
+  expect(assembled(h).items.at(-1)!.status).toBe("completed");
+},15000);

@@ -253,6 +253,7 @@ async function loadExtension(path) {
   const module = await import(pathToFileURL(loadPath).href);
   module.default({
     events: fakeSubagents?.events,
+    getCommands: () => fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1" ? [{ name: "subagents-inspect-rpc", source: "extension" }] : [],
     registerTool(tool) {
       extensionTools.set(tool.name, tool);
       if (process.env.FAKE_PI_TOOLS_DUMP) {
@@ -581,6 +582,12 @@ async function handle(command) {
       });
       return;
     case "prompt": {
+      if (String(command.message).startsWith("/subagents-inspect-rpc ")) {
+        if (fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1") fakeSubagents.inspect(command.message);
+        // The injected input guard handles missing capability without a model turn.
+        respond(id, "prompt", { disposition: "handled" });
+        return;
+      }
       if (promptDumpPath) {
         writeFileSync(promptDumpPath, JSON.stringify(command), "utf8");
       }
