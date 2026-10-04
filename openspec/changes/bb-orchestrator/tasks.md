@@ -34,3 +34,7 @@ The BBP-33 manual-first contract supersedes automatic coordination for this rele
 - [x] Authorized local cumulative handoff recorded by this commit with evidence/support limits; no push/PR/merge/publication.
 
 BBP-42 must independently validate the complete combined diff, run its one completion review and deliver the final acceptance handoff. BBP-33 remains in progress until that acceptance stage. TENET-30 and BBP-8 remain read-only examples.
+
+## Integrated recovery history
+
+BBP-37 verified original checklist items 3.5 through 3.7 with isolated CLI/RPC/SQLite regressions and one earlier native original-child recovery checkpoint. The current release retains only bookkeeping operations, original-child attachment and live/released history. It does not restore dispatch execution. Recovery uses migration 9; stored reports use migration 10. Historical evidence and its cleanup incident remain in orchestration/recovery-verification.md. Prior BBP-34/35 status, scope and skill checks remain historical evidence; combined retained acceptance belongs to BBP-42.

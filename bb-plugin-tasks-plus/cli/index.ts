@@ -10,6 +10,7 @@ import {
 import { runCommands } from "../orchestration/run-cli";
 import type { RunController } from "../orchestration/run";
 import { dispatchCommands } from "../orchestration/dispatch-cli";
+import { recoveryCommands } from "../orchestration/recovery-cli";
 import type { Dispatcher } from "../orchestration/dispatch";
 import { reportCommands } from "../orchestration/report-cli";
 import type { Reporter } from "../orchestration/report";
@@ -651,6 +652,7 @@ export function registerTasksCli(
         ...(runs ? runCommands(runs) : {}),
         ...(dispatcher ? dispatchCommands(bb, dispatcher) : {}),
         ...(reporter ? reportCommands(bb, reporter) : {}),
+        ...(dispatcher ? recoveryCommands(bb, dispatcher) : {}),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

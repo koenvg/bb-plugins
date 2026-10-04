@@ -38,6 +38,13 @@ export async function fixture(
   let coordinatorProject = "proj_fixture";
   const workers = new Map<string, ReturnType<typeof makeThreadResponse>>();
   const metadata = new Map<string, any>();
+  let list: (args: any) => Promise<any[]> = async (args) =>
+    [...workers.values()].filter(
+      (thread) =>
+        thread.projectId === args.projectId &&
+        thread.originPluginId === args.originPluginId &&
+        (args.archived ? thread.archivedAt != null : thread.archivedAt == null),
+    );
   let create: (args: any) => Promise<any> = async (args) => {
     const thread = makeThreadResponse({
       id: "thr_worker",
@@ -77,6 +84,7 @@ export async function fixture(
           if (!thread) throw new Error("missing");
           return thread;
         },
+        list: (args) => list(args),
         spawn: (args) => create(args),
         getPluginMetadata: async ({ threadId }) => metadata.get(threadId) ?? {},
         events: {
@@ -236,6 +244,12 @@ export async function fixture(
     workers,
     metadata,
     hook,
+    setListing: (fn: typeof list) => {
+      list = fn;
+    },
+    setRequests: (rows: any[]) => {
+      requests = rows;
+    },
     setCreate: (fn: typeof create) => {
       create = fn;
     },

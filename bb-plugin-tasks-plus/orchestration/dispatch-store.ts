@@ -37,6 +37,12 @@ export function createDispatchStore(db: Database) {
         .all(thread)
         .map((row) => claimSchema.parse(row));
     },
+    // Existence only: released originals are not unowned legacy candidates.
+    hasHistoryForThread(threadId: string): boolean {
+      return !!db.prepare<[string], { found: number }>(
+        "SELECT 1 AS found FROM orchestration_dispatch_claims WHERE thread_id = ? LIMIT 1",
+      ).get(threadId);
+    },
     live(taskId: string, role: WorkerRole): DispatchClaim | null {
       const row = db
         .prepare<
@@ -135,6 +141,31 @@ export function createDispatchStore(db: Database) {
         )
         .run(owner.role, owner.associationId, owner.taskId, owner.threadId);
       if (result.changes !== 1) throw new Error("Owner association changed");
+    },
+    latest(taskId: string, role: WorkerRole): DispatchClaim | null {
+      const row = db
+        .prepare<
+          [string, string],
+          DispatchClaim
+        >(`SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE task_id=? AND role=? ORDER BY rowid DESC LIMIT 1`)
+        .get(taskId, role);
+      return row ? claimSchema.parse(row) : null;
+    },
+    // Call within a Tasks transaction. Retain the claim and association for history.
+    release(id: string, reason: string): DispatchClaim {
+      const claim = read("id = ?", id);
+      if (!claim || claim.releasedAt) throw new Error("Live claim changed");
+      const now = new Date().toISOString();
+      db.prepare(`UPDATE task_threads SET primary_owner=0 WHERE id=?`).run(
+        claim.associationId,
+      );
+      db.prepare(
+        `DELETE FROM orchestration_owners WHERE task_id=? AND role=? AND run_id=? AND thread_id=?`,
+      ).run(claim.taskId, claim.role, claim.runId, claim.threadId);
+      db.prepare(
+        `UPDATE orchestration_dispatch_claims SET released_at=?,updated_at=?,reason=? WHERE id=? AND released_at IS NULL`,
+      ).run(now, now, reason, id);
+      return read("id = ?", id)!;
     },
     priorWork(taskId: string): boolean {
       return !!db

@@ -381,6 +381,14 @@ Migration 9 ownership and claim records remain readable. Detachment preserves or
 
 Historical dispatch verification is in [the original evidence notes](orchestration/dispatch-verification.md). It is not acceptance of the removed automation. Current no-agent-input tests exercise production registration, scope controls, deferred CLI/RPC calls, report tool/CLI/RPC retries, reload and retained delivery intent history.
 
+## Interrupted dispatch recovery
+
+Use `bb tasks orchestrate reconcile`, `link`, and `resolve` for the exact original task/run/claim. Read [recovery commands, operator decisions and safe disable/rollback order](skills/bb-orchestrator/references/recovery.md) before using them. These commands do bookkeeping only. They do not spawn, seed, send, resume or delete workers. Recovery can attach an already active original while keeping its run paused or interrupted.
+
+Recovery uses migration 9 without a new schema migration. `DispatchStore.latest` reads the newest task/role attempt; `release` clears only its primary designation inside the caller's transaction and preserves the old claim/association. `RunController.requireContext` validates original scope and returns the effective phase without granting active admission. `Dispatcher.recovery` owns the three recovery handlers. A strict version-1 recorded release can permit only a later separate, currently admitted dispatch; malformed or diagnostic reason text cannot.
+
+See [recovery verification and native fixture limits](orchestration/recovery-verification.md). The installed checkpoint recovered the same child after injected local response loss and reload. It also exposed an unsafe fixture disable order: removing a gate while a seed remained queued let BB drain already accepted core work. Cleanup stopped/archived the child and removed its queue. Corrected cleanup-before-disable retained a paused run and empty queue. Disable is not cancellation; enable is not authority to resume.
+
 ## CLI reference
 
 Run `bb tasks --help` or `bb tasks <command> --help` for exact options; help

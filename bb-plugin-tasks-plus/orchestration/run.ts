@@ -317,6 +317,11 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
       const run = runs.latestForEpic(epicId);
       return run ? view(run) : null;
     },
+    requireContext(runId: string, coordinator: string): ApprovedRun {
+      const run = view(requireRun(runId, coordinator));
+      assertCurrentScope(store.tasks, run);
+      return run;
+    },
     requireActive(runId: string, coordinator: string): ApprovedRun {
       const run = view(requireRun(runId, coordinator));
       if (run.phase !== "active")

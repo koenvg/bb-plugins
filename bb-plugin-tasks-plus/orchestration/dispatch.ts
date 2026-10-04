@@ -5,6 +5,7 @@ import { createDispatchStore } from "./dispatch-store";
 import { dispatchRpcContract, type DispatchResult } from "./dispatch-contract";
 import type { HandoffReader } from "./dispatch-eligibility";
 import { coordinationReader } from "./dispatch-coordination";
+import { createRecovery } from "./recovery";
 
 export const MANUAL_FIRST_DISPATCH_REASON =
   "Manual-first release: orchestrator dispatch, adoption and execution are deferred. No claim or agent input was created. Operator worker controls are separate from scope approval.";
@@ -16,6 +17,7 @@ export function createDispatcher(
   options: { readHandoffs?: HandoffReader } = {},
 ) {
   const claims = createDispatchStore(bb.storage.database());
+  const recovery = createRecovery(bb, store, runs, claims);
   const deferred = async (_input: unknown): Promise<DispatchResult> => ({
     outcome: "deferred",
     reason: MANUAL_FIRST_DISPATCH_REASON,
@@ -26,9 +28,11 @@ export function createDispatcher(
   return {
     dispatch: deferred,
     adopt: deferred,
+    recovery,
     claims,
     readCoordination: coordinationReader(store, runs, claims, options.readHandoffs),
     register() {
+      recovery.register();
       bb.rpc.register(dispatchRpcContract, {
         orchestrateDispatch: deferred,
         orchestrateAdopt: deferred,

@@ -1,11 +1,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { z } from "zod";
-import {
-  publishTasksChanged,
-  publishCommentsChanged,
-  type TasksApiStore,
-} from "../api";
-import { publishThreadsChanged, createSystemComment } from "../delegate";
+import { publishThreadsChanged } from "../delegate";
+import type { TasksApiStore } from "../api";
 import type { RunController } from "./run";
 import { refuse } from "./run-provenance";
 import type { DispatchStore } from "./dispatch-store";
@@ -15,6 +11,7 @@ import type {
   dispatchInputSchema,
 } from "./dispatch-contract";
 import { workerUsable, type createEligibility } from "./dispatch-eligibility";
+import { releasedDispatchGrant } from "./recovery-contract";
 
 type Input = z.infer<typeof dispatchInputSchema>;
 export function result(
@@ -116,7 +113,10 @@ export function createWorkerOwnership(
         candidates,
       );
     const task = store.tasks.getTask(input.taskId)!;
-    if (task.status === "in_progress" || claims.priorWork(input.taskId))
+    if (
+      (task.status === "in_progress" || claims.priorWork(input.taskId)) &&
+      !releasedDispatchGrant(claims.latest(input.taskId, input.role), input)
+    )
       return result(
         "resolution_needed",
         "Prior work or in-progress status without an owner requires resolution.",
@@ -152,122 +152,6 @@ export function createWorkerOwnership(
         : current;
     });
   }
-  // A known returned child may be attached on an ordinary retry. Unknown
-  // creation requires BBP-37 reconciliation, never a second spawn here.
-  async function attach(
-    input: Input,
-    claim: DispatchClaim,
-  ): Promise<DispatchResult> {
-    if (
-      !claim.threadId ||
-      !["created", "attachment_failed"].includes(claim.phase)
-    )
-      return result(
-        "unresolved",
-        claim.reason ?? "Creation is unresolved.",
-        claim,
-      );
-    const { run } = await eligible.check(
-      input.runId,
-      input.coordinatorThreadId,
-      input.taskId,
-      input.role,
-    );
-    if (claim.runId !== run.id)
-      return result(
-        "unresolved",
-        "Recover the original attempt in its run context.",
-        claim,
-      );
-    const reason = await workerUsable(bb, claim.threadId, run.bbProjectId);
-    if (reason) return result("unresolved", reason, claim);
-    try {
-      const completed = store.transaction(() => {
-        const { task } = eligible.local(
-          input.runId,
-          input.coordinatorThreadId,
-          input.taskId,
-          input.role,
-        );
-        const current = claims.get(claim.id)!;
-        if (current.phase === "attached") return current;
-        if (!["created", "attachment_failed"].includes(current.phase))
-          return current;
-        if (
-          claims.owners(task.id).length ||
-          store.tasks
-            .listTaskThreads(task.id)
-            .some((row) => row.threadId !== claim.threadId)
-        )
-          throw new Error("Ownership or attachments changed during creation");
-        const preset = store.tasks.getPreset(run.execution.presetId)!;
-        const association = store.tasks.upsertTaskThread({
-          taskId: task.id,
-          threadId: claim.threadId!,
-          presetName: preset.name,
-          title: `${task.key} · ${task.title}`,
-          liveStatus: "starting",
-        });
-        claims.designate({
-          taskId: task.id,
-          role: input.role,
-          associationId: association.id,
-          threadId: claim.threadId!,
-          runId: run.id,
-        });
-        if (task.status === "todo" || task.status === "backlog")
-          store.tasks.updateTask(task.id, { status: "in_progress" });
-        createSystemComment(store.tasks, {
-          taskId: task.id,
-          threadId: claim.threadId!,
-          presetName: preset.name,
-          body: `Orchestration dispatched primary ${input.role} owner. Attempt ${claim.id}.`,
-        });
-        return claims.update(claim.id, {
-          phase: "attached",
-          associationId: association.id,
-          reason: null,
-        });
-      });
-      if (completed.phase !== "attached")
-        return result(
-          "unresolved",
-          "Admission or creation requires resolution.",
-          completed,
-        );
-      publishThreadsChanged(bb, input.taskId);
-      publishTasksChanged(bb, input.taskId, run.projectId);
-      publishCommentsChanged(bb, input.taskId);
-      return result(
-        "created",
-        "One worker is attached as primary owner. Local ownership, association and status committed together.",
-        completed,
-      );
-    } catch (error) {
-      const current = claims.get(claim.id)!;
-      if (current.phase === "attached")
-        return result(
-          "reused",
-          "The original attachment already committed.",
-          current,
-        );
-      if (current.phase === "admission_rejected")
-        return result(
-          "unresolved",
-          current.reason ?? "Native admission requires explicit recovery.",
-          current,
-        );
-      const failed = claims.update(claim.id, {
-        phase: "attachment_failed",
-        reason:
-          "Local attachment failed. The original child and durable claim are preserved.",
-      });
-      bb.log.warn(
-        `Dispatch attachment failed for ${claim.id}: ${error instanceof Error ? error.message : "unknown"}`,
-      );
-      return result("unresolved", failed.reason!, failed);
-    }
-  }
   async function adopt(
     input: Input & { associationId: string },
   ): Promise<DispatchResult> {
@@ -284,6 +168,14 @@ export function createWorkerOwnership(
     const reason = await workerUsable(bb, chosen.threadId, run.bbProjectId);
     if (reason)
       return result("resolution_needed", reason, null, chosen.threadId);
+    const metadata = await bb.sdk.threads.getPluginMetadata({
+      threadId: chosen.threadId, signal: AbortSignal.timeout(1500),
+    });
+    if (metadata && Object.hasOwn(metadata, "orchestration"))
+      refuse(
+        "adoption_conflict",
+        "A correlated worker must be recovered in its original claim, not adopted into another attempt.",
+      );
     return store.transaction(() => {
       eligible.local(
         input.runId,
@@ -305,10 +197,10 @@ export function createWorkerOwnership(
       );
       if (current?.id !== input.associationId)
         refuse("adoption_invalid", "The selected association changed.");
-      if (claims.forThread(chosen.threadId).length)
+      if (claims.hasHistoryForThread(chosen.threadId))
         refuse(
           "adoption_conflict",
-          "The thread already has a live orchestration claim. Resolve its original ownership; manual attachments are unchanged.",
+          "The thread has a live orchestration claim or historical attempt. Recover its original ownership; manual attachments are unchanged.",
         );
       const claim = claims.reserve(input);
       claims.designate({
@@ -331,5 +223,5 @@ export function createWorkerOwnership(
       );
     });
   }
-  return { selection, existing, attach, adopt };
+  return { selection, existing, adopt };
 }
