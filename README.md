@@ -12,6 +12,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Task Board | [`bb-task-board`](bb-task-board) |
 | GitHub Insight | [`bb-plugin-github-insight`](bb-plugin-github-insight) |
 | Tasks Plus | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus) |
+| Pi with subagents | [`bb-plugin-pi-subagents-provider`](bb-plugin-pi-subagents-provider) |
 
 Install one plugin at a time from Git with `--subdirectory`, for example:
 
