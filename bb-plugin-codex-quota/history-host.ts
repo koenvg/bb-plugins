@@ -2,20 +2,25 @@ import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { historyUnavailable, type HistoryReadiness, type CollectorAction, type LegacyConfirmation } from "./history-contract.js";
-import { loadHistoryStorage, historyHeaderVersion, type HistoryDatabaseFactory } from "./history-storage.js";
+import { loadHistoryStorage, inspectHistoryStorage, type HistoryDatabaseFactory } from "./history-storage.js";
 import { readCollectorCompatibility, validHostDataDir } from "./collector-compatibility.js";
 import { controlCollector, readControl, safeDirectory } from "./collector-control.js";
 import { reconcileCollector } from "./history-ingest.js";
 import { collectionView, initializeHistory, historyObserved } from "./history-projection.js";
-import { createRetentionSchema, HISTORY_VERSION, maintainHistory, retentionState } from "./history-retention.js";
+import { maintainHistory, retentionState } from "./history-retention.js";
 import { confirmedCorruption, recoverHistory, saveBoundary } from "./history-recovery.js";
 import { pruneCollectorLogs } from "./history-logs.js";
 import { maintainLegacy } from "./history-legacy.js";
 
-export type HistoryReadContext = { signal: AbortSignal; dataDir: string };
+import type { IdentityBatch } from "./identity-contract.js";
+import { initializeIdentityStorage, acceptIdentityBatch, reconcileIdentity, identityView } from "./identity-storage.js";
+import { createImportOperation, type ImportContext } from "./import-host.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
+export type HistoryReadContext = { signal: AbortSignal; dataDir: string; identities?: IdentityBatch };
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
   control(action: CollectorAction, context: HistoryReadContext, confirmation?: LegacyConfirmation): Promise<HistoryReadiness>;
+  controlImport?(command: ImportCommand, context: ImportContext): Promise<ImportView>;
 }
 type Dependencies = {
   storage?: () => Promise<HistoryDatabaseFactory | null>; agentDir?: () => string;
@@ -27,15 +32,18 @@ const missing = (error: unknown) => !!error && typeof error === "object" && "cod
 export function createHostHistory(deps: Dependencies = {}): HostHistory {
   let queue = Promise.resolve<unknown>(null);
   const agent = deps.agentDir ?? getAgentDir;
-  const serialize = (work: () => Promise<HistoryReadiness>) => {
+  const importOperation = createImportOperation({ storage: deps.storage, now: deps.now, bodyRead: deps.bodyRead });
+  const importControllers = new Map<string, AbortController>();
+  const importEpochs = new Map<string, number>();
+  const serialize = <T>(work: () => Promise<T>) => {
     const result = queue.then(work); queue = result.catch(() => null); return result;
   };
   async function perform(context: HistoryReadContext, action?: CollectorAction, retried=false, confirmation?: LegacyConfirmation): Promise<HistoryReadiness> {
-    const {signal,dataDir}=context;
+    const {signal,dataDir,identities}=context;
     if (signal.aborted) return historyUnavailable("selection-changed");
     let factory:HistoryDatabaseFactory|null=null;
     const directory=join(dataDir,"history"),path=join(directory,"usage-v1.sqlite"),now=(deps.now??Date.now)();
-    let storage: HistoryReadiness["storage"] = "unavailable",version=0;
+    let storage: HistoryReadiness["storage"] = "unavailable";
     try {
       factory = await (deps.storage ?? loadHistoryStorage)();
       signal.throwIfAborted();
@@ -48,37 +56,27 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
           const file = await lstat(path);
           if (!file.isFile() || file.isSymbolicLink()) storage = "incompatible";
           else {
-            const header=await historyHeaderVersion(path);
-            if(header!==null && ![1,2,HISTORY_VERSION].includes(header)) return {...historyUnavailable("storage-incompatible"),storage:"incompatible"};
-            // This host uses rollback journals. Do not open an external/unsettled WAL with unknown page-one version.
-            if(header!==null) {
-              try { const wal=await lstat(path+"-wal"); if(wal.size>0||wal.isSymbolicLink()||!wal.isFile()) return {...historyUnavailable("storage-unavailable"),storage:"unavailable"}; }
-              catch(error) {if(!missing(error))throw error;}
-            }
-            const db = factory(path, true);
-            try { version=(db.prepare("PRAGMA user_version").get() as {user_version:number}).user_version; storage = [1,2,HISTORY_VERSION].includes(version) ? "compatible" : "incompatible"; }
-            finally { db.close(); }
+            storage = await inspectHistoryStorage(factory,path);
+            if (storage === "unavailable") return {...historyUnavailable("storage-unavailable"),storage};
           }
         }
       } catch (error) { if (!missing(error)) throw error; }
       signal.throwIfAborted();
       // Check versions before consulting a saved recovery receipt or opening for write.
       if(storage==="incompatible")return {...historyUnavailable("storage-incompatible"),storage};
-      if(await recoverHistory(factory,directory,now,signal)) {storage="compatible";version=HISTORY_VERSION;}
+      if(await recoverHistory(factory,directory,now,signal)) storage="compatible";
       if (action && action !== "install" && storage === "unconfigured") return { state: "not-configured", reason: "not-configured", storage, collector: "missing", writer: "unconfirmed" };
-      const enabledBefore=storage==="compatible"?await readControl(directory):null;
-      if(storage==="compatible" && enabledBefore!==null) {
-        const db=factory(path);
-        try {
-          if(version<HISTORY_VERSION && db.prepare("SELECT name FROM sqlite_master WHERE name='collector_meta'").get()) db.transaction(()=>createRetentionSchema(db,version===1));
-        }finally{db.close();}
+      if (storage === "compatible") {
+        const db = factory(path);
+        try { initializeHistory(db, new Date(now).toISOString(), false); }
+        finally { db.close(); }
       }
       if (action && action !== "prepare-legacy" && action !== "retire-legacy") {
         await safeDirectory(dataDir); signal.throwIfAborted();
         await safeDirectory(directory); signal.throwIfAborted();
         const db = factory(path);
         try {
-          const initialSetup = !db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get();
+          const initialSetup = !db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get() || !db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
           if (initialSetup && action !== "install") throw Error("Collector control unavailable");
           if (initialSetup) initializeHistory(db, new Date(now).toISOString());
           await controlCollector(action, db, dataDir, agent(), new Date(now).toISOString(), signal, initialSetup);
@@ -96,6 +94,8 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
           try {
             const meta = db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
             if (!meta) throw Error("History metadata unavailable");
+            initializeIdentityStorage(db);
+            if (identities) acceptIdentityBatch(db, identities);
             // A v1 migration must finish before replay decisions use the new compact index.
             const maintenance=maintainHistory(db,now,deps.maintenanceRows);
             const backfilling=!retentionState(db).backfill_done;
@@ -111,14 +111,25 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
             const latestEnabled = await readControl(directory);
             if (latestEnabled === null) throw Error("Collector control unavailable");
             view.collection = collectionView(db, latestEnabled, backlog);
+            reconcileIdentity(db, signal);
+            view.collection.attribution = identities?.total === null ? { ...identityView(db), discovery: "partial", grades: [], threads: [] } : identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
             view.writer = historyObserved(db) ? "observed" : "unconfirmed";
             const gaps=db.prepare("SELECT started AS start,ended AS end FROM history_recovery LIMIT 1").all() as {start:string;end:string}[];
             view.health={state:gaps.length?"recovered":maintenance.pending||logs.pending||logs.legacyLogsPending||legacy.failed||!!legacy.status&&legacy.status.phase!=="complete"?"maintenance":"healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending||logs.pending||!!legacy.status&&legacy.status.phase!=="complete",recoveryGaps:gaps,legacyLogsPending:logs.legacyLogsPending,legacyRetirement:legacy.status};
           } finally { db.close(); }
         } else {
-          const db = factory(path, true);
-          try { if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get()) throw Error("Collector control unavailable"); }
-          finally { db.close(); }
+          const db = factory(path);
+          try {
+            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get() && db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get()) throw Error("Collector control unavailable");
+            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='import_config'").get()) {
+              initializeIdentityStorage(db);
+              const maintenance = maintainHistory(db,now,deps.maintenanceRows);
+              view.health = {state:maintenance.pending ? "maintenance" : "healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending,recoveryGaps:[],legacyLogsPending:false};
+              if (identities) acceptIdentityBatch(db, identities);
+              reconcileIdentity(db, signal);
+              view.attribution = identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
+            }
+          } finally { db.close(); }
         }
       }
       return view;
@@ -129,5 +140,23 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
       return signal.aborted ? historyUnavailable("selection-changed") : { ...historyUnavailable("storage-unavailable"), storage: "unavailable" };
     }
   }
-  return { read: context => serialize(() => perform(context)), control: (action, context, confirmation) => serialize(() => perform(context, action, false, confirmation)) };
+  return {
+    read: context => serialize(() => perform(context)),
+    control: (action, context, confirmation) => serialize(() => perform(context, action, false, confirmation)),
+    controlImport: (command, context) => {
+      if (command.action === "cancel" && !context.signal.aborted) {
+        importEpochs.set(context.hostId, (importEpochs.get(context.hostId) ?? 0) + 1);
+        importControllers.get(context.hostId)?.abort();
+      }
+      const epoch = importEpochs.get(context.hostId) ?? 0;
+      return serialize(async () => {
+        const controller = new AbortController();
+        if ((importEpochs.get(context.hostId) ?? 0) !== epoch) controller.abort();
+        const signal = AbortSignal.any([context.signal, controller.signal]);
+        importControllers.set(context.hostId, controller);
+        try { return await importOperation(command, { ...context, signal }); }
+        finally { if (importControllers.get(context.hostId) === controller) importControllers.delete(context.hostId); }
+      });
+    },
+  };
 }

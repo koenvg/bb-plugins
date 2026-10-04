@@ -3,8 +3,12 @@ import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server.js";
 import { historyReadinessSchema, historyUnavailable, type HistoryReadiness, type CollectorAction, type HistoryRequest, type CollectorRequest, type LegacyConfirmation } from "./history-contract.js";
 
+import { ImportPanel } from "./import-view.js";
+import type { ImportCommand } from "./import-contract.js";
+import { IdentityTotals } from "./identity-view.js";
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 type Selection = { hostId: string | null; generation: number };
-type Props = { selection: Selection; selectionPending?: boolean; selectionRevision?: number; read(input: HistoryRequest): Promise<unknown>; control?(input: CollectorRequest): Promise<unknown> };
+type Props = { importCall?(input: HistoryRequest & {command: ImportCommand}): Promise<unknown>; onOpenThread?:(threadId:string)=>void; selection: Selection; selectionPending?: boolean; selectionRevision?: number; read(input: HistoryRequest): Promise<unknown>; control?(input: CollectorRequest): Promise<unknown> };
 const reasonText: Record<HistoryReadiness["reason"], string> = {
   ok: "History storage and collector asset are compatible. Writer activation is not confirmed.",
   "not-configured": "History not configured on this host.",
@@ -21,7 +25,7 @@ const reasonText: Record<HistoryReadiness["reason"], string> = {
 const storageText = { compatible: "compatible", unconfigured: "compatible, no database yet", unavailable: "unavailable", incompatible: "incompatible", unchecked: "not checked" };
 const collectorText = { "compatible-v1": "compatible asset, fenced writer protocol 2", missing: "missing", incompatible: "incompatible", unchecked: "not checked" };
 
-export function HistoryReadinessPanel({ selection, read, control, selectionPending = false, selectionRevision = 0 }: Props) {
+export function HistoryReadinessPanel({ selection, read, control, importCall, onOpenThread, selectionPending = false, selectionRevision = 0 }: Props) {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
   const [attempt, setAttempt] = useState(0);
   const [observation, setObservation] = useState<{ key: string; attempt: number; view: HistoryReadiness } | null>(null);
@@ -103,6 +107,7 @@ export function HistoryReadinessPanel({ selection, read, control, selectionPendi
       {!current.collection.workspaces.length && <p className="mt-2">No captured usage yet. Unknown coverage is not zero usage.</p>}
       <ul className="mt-2 space-y-2">{current.collection.workspaces.map(row => <li key={row.workspace} className="break-words"><span className="[overflow-wrap:anywhere]">{row.workspace}</span>: {row.totalTokens.toLocaleString()} recorded tokens, {row.events} events</li>)}</ul>
       {current.collection.truncated && <p>Only the first 50 workspace rows are shown.</p>}
+      {current.collection.attribution && <IdentityTotals view={current.collection.attribution} onOpenThread={onOpenThread} />}
     </div>}
     <button type="button" className="mt-3 rounded-md border border-border px-3 py-2 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
       disabled={!selection.hostId || loading || controlling === key} onClick={() => setAttempt((value) => value + 1)}>Check readiness</button>
@@ -118,13 +123,17 @@ export function HistoryReadinessPanel({ selection, read, control, selectionPendi
         onClick={() => activate(action)}>{action === "install" ? "Install collector" : action === "repair" ? "Repair collector" : action === "pause" ? "Pause capture" : "Resume capture"}</button>)}</div>}
       {controlling === key && <p role="status">Updating selected-host collector…</p>}
     </details>
+    {importCall && <ImportPanel selection={selection} selectionPending={selectionPending} selectionRevision={selectionRevision} call={importCall} />}
+    {current?.attribution && <IdentityTotals view={current.attribution} onOpenThread={onOpenThread} />}
   </section>;
 }
 
 export function HistoryReadinessSection({ selection, selectionPending, selectionRevision }: Omit<Props, "read" | "control">) {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const rpcRef = useRef(rpc); rpcRef.current = rpc;
   const read = useRef((input: HistoryRequest) => rpcRef.current.call("historyReadiness", input));
   const control = useRef((input: CollectorRequest) => rpcRef.current.call("collectorControl", input));
-  return <HistoryReadinessPanel selection={selection} selectionPending={selectionPending} selectionRevision={selectionRevision} read={read.current} control={control.current} />;
+  const importCall = useRef((input: HistoryRequest & {command: ImportCommand}) => rpcRef.current.call("historicalImport", input));
+  return <HistoryReadinessPanel importCall={importCall.current} onOpenThread={threadId => navigate.toThread(threadId)} selection={selection} selectionPending={selectionPending} selectionRevision={selectionRevision} read={read.current} control={control.current} />;
 }

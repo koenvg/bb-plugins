@@ -1,16 +1,15 @@
 import { createHash } from "node:crypto";
 import type { HistoryDatabase } from "./history-storage.js";
+import { usageEvidence, usageDigest } from "./usage-evidence.js";
 import { usageRecordSchema } from "./usage-record.js";
+import { retireIdentityUsage } from "./identity-storage.js";
 import { randomUUID } from "node:crypto";
 import { canonicalInterval, historyScope, readCoverage } from "./history-coverage.js";
 
-export const HISTORY_VERSION = 3;
-export type CompactRow = { event_id:string; session_id:string; workspace:string; total:number; accepted:number; confirmed:number; occurred_at:string; captured_cost:number|null; digest:string; evidence:string; provider_key:string|null; claimed_thread:string|null; verified_thread:string|null; recorded_host:string; detail_available:number };
+export const HISTORY_VERSION = 4;
+export type CompactRow = { event_id:string; session_id:string; workspace:string; total:number; accepted:number; confirmed:number; occurred_at:string; captured_cost:number|null; digest:string; evidence:string; provider_key:string|null; claimed_thread:string|null; verified_thread:string|null; recorded_host:string; provenance:"observed"|"imported"; detail_available:number };
 export const digest = (value:string) => createHash("sha256").update(value).digest("hex");
-export function usageEvidence(payload:string) {
-  const {eventId:_id,claimedThreadId:_claim,providerSessionKey:_file,...values}=JSON.parse(payload);
-  return digest(JSON.stringify(values));
-}
+export { usageEvidence } from "./usage-evidence.js";
 export function createRetentionSchema(db:HistoryDatabase, backfill:boolean) {
   db.exec(`CREATE TABLE IF NOT EXISTS usage_compact (
     event_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, workspace TEXT NOT NULL, total INTEGER NOT NULL,
@@ -24,6 +23,10 @@ export function createRetentionSchema(db:HistoryDatabase, backfill:boolean) {
     CREATE INDEX IF NOT EXISTS compact_workspace_accepted_date ON usage_compact(workspace,accepted,occurred_at,event_id);
     CREATE INDEX IF NOT EXISTS compact_thread_accepted_date ON usage_compact(verified_thread,accepted,occurred_at,event_id);
     CREATE INDEX IF NOT EXISTS compact_detail_expiry ON usage_compact(detail_available,occurred_at,event_id);
+    CREATE INDEX IF NOT EXISTS compact_observed_date ON usage_compact(occurred_at,event_id) WHERE provenance='observed';
+    CREATE INDEX IF NOT EXISTS compact_observed_workspace_date ON usage_compact(workspace,occurred_at,event_id) WHERE provenance='observed';
+    CREATE INDEX IF NOT EXISTS compact_observed_thread_date ON usage_compact(verified_thread,occurred_at,event_id) WHERE provenance='observed';
+    CREATE INDEX IF NOT EXISTS compact_unconfirmed_session ON usage_compact(session_id,event_id) WHERE confirmed=0 AND provenance='observed';
     CREATE TABLE IF NOT EXISTS history_retention (id INTEGER PRIMARY KEY CHECK(id=1), detail_cutoff TEXT NOT NULL, compact_cutoff TEXT NOT NULL, backfill_cursor TEXT NOT NULL, backfill_done INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS collector_log_retention (id INTEGER PRIMARY KEY CHECK(id=1), date TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS usage_expired (event_id TEXT PRIMARY KEY);
@@ -37,14 +40,14 @@ export function createRetentionSchema(db:HistoryDatabase, backfill:boolean) {
     CREATE INDEX IF NOT EXISTS coverage_interval ON history_coverage(started,id);
     CREATE INDEX IF NOT EXISTS coverage_thread_interval ON history_coverage(thread_id,started,id);
     CREATE TABLE IF NOT EXISTS history_owner (id INTEGER PRIMARY KEY CHECK(id=1), host_key TEXT NOT NULL);
-    PRAGMA user_version = 3;`);
+    `);
   db.prepare("INSERT OR IGNORE INTO history_retention VALUES (1,'','','',?)").run(backfill ? 0 : 1);
   db.prepare("INSERT OR IGNORE INTO history_owner VALUES (1,?)").run(randomUUID());
 }
 export function insertCompact(db:HistoryDatabase, payload:string, accepted:number, confirmed:number) {
   const value=usageRecordSchema.parse(JSON.parse(payload));
   value.occurredAt=new Date(value.occurredAt).toISOString(); payload=JSON.stringify(value);
-  db.prepare("INSERT OR IGNORE INTO usage_compact VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL,(SELECT host_key FROM history_owner WHERE id=1),'observed',1)").run(value.eventId,value.sessionId,value.workspace,value.totalTokens,accepted,confirmed,value.occurredAt,value.capturedCost,digest(payload),usageEvidence(payload),value.providerSessionKey,value.claimedThreadId);
+  db.prepare("INSERT OR IGNORE INTO usage_compact VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL,(SELECT host_key FROM history_owner WHERE id=1),?,1)").run(value.eventId,value.sessionId,value.workspace,value.totalTokens,accepted,confirmed,value.occurredAt,value.capturedCost,usageDigest(payload),usageEvidence(payload),value.providerSessionKey,value.claimedThreadId,value.provenance);
   db.prepare("UPDATE usage_entry_owners SET evidence=? WHERE event_id=? AND substr(evidence,1,1)='{' ").run(usageEvidence(payload),value.eventId);
 }
 export function retentionCutoffs(now:number) {
@@ -77,6 +80,7 @@ export function maintainHistory(db:HistoryDatabase, now:number, budget=500) {
       if(!row.confirmed) db.prepare("UPDATE history_counters SET unconfirmed_events=unconfirmed_events-1 WHERE id=1").run();
       db.prepare("INSERT OR IGNORE INTO usage_expired VALUES (?)").run(row.event_id);
       db.prepare("DELETE FROM usage_events WHERE event_id=?").run(row.event_id);
+      retireIdentityUsage(db,row.event_id);
       db.prepare("DELETE FROM usage_compact WHERE event_id=?").run(row.event_id);
     }
     const details=db.prepare("SELECT event_id FROM usage_compact WHERE detail_available=1 AND occurred_at<? ORDER BY occurred_at,event_id LIMIT ?").all(state.detail_cutoff,limit-expired.length) as {event_id:string}[];

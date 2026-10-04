@@ -14,12 +14,17 @@ describe("public SDK and quota-only boundary", () => {
     });
     expect(scan.privateDependencies).toEqual([]);
     // The scanner cannot prove expression imports. These test-only expressions are confined
-    // to our serialized collector text and the copied host artifact in a fresh temporary directory.
+    // to serialized collector text, copied artifacts, and an owned sibling source FIFO probe.
     const testSeams = new Map([
       ["collector-compatibility.test.ts", "/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root"],
       ["collector-entry.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`"],
       ["history-legacy.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`"],
       ["scripts/check-bundled-history.mjs", "pathToFileURL(artifact"],
+      ["scripts/check-bundled-identity.mjs", "pathToFileURL(artifact"],
+      ["scripts/check-bundled-import.mjs", "pathToFileURL(artifact"],
+      ["scripts/check-prior-schema3.mjs", "pathToFileURL(path"], // Exact hash-verified pre-integration artifact.
+      ["scripts/check-storage-integration.mjs", "pathToFileURL(artifact"], // Owned copy of the actual packaged host.
+      ["import-source.test.ts", '${JSON.stringify(new URL("./import-source.ts", import.meta.url'], // Owned sibling source in a hard-deadline child process.
     ]);
     expect(scan.violations.filter((entry) => entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier)).toEqual([]);
     expect(scan.files.length).toBeGreaterThan(10);

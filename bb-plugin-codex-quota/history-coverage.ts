@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { HistoryDatabase } from "./history-storage.js";
 
+import { readImportCoverage } from "./import-coverage.js";
 const kinds = ["writer-active", "observed-inactivity", "imported", "omission", "uncertain", "backlog"] as const;
 const negativeKinds = new Set<string>(["omission", "uncertain", "backlog"]);
 const utcInstant = z.iso.datetime({ offset: true });
@@ -80,15 +81,18 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
   const sourcePending = !!db.prepare("SELECT name FROM collector_sources WHERE offset<size OR dropping=1 LIMIT 1").get();
   const sourceUncertain = !!db.prepare("SELECT name FROM collector_sources WHERE invalid>0 LIMIT 1").get();
   const expired = start < retention.compact_cutoff;
+  const imported = readImportCoverage(db,start,end,scope);
   const legacyPending = !!db.prepare("SELECT id FROM history_legacy_pending WHERE pending=1 LIMIT 1").get();
-  const backlog = legacyPending || !retention.backfill_done || reconciliation || sourcePending || rows.some(row => row.kind === "backlog");
-  const truncated = rows.length > 1000 || pauses.length > 1000;
-  const incomplete = recovery || pauses.length > 0 || rows.some(row => negativeKinds.has(row.kind)) || backlog || sourceUncertain || truncated;
+  const backlog = imported.pending || legacyPending || !retention.backfill_done || reconciliation || sourcePending || rows.some(row => row.kind === "backlog");
+  const truncated = imported.truncated || rows.length > 1000 || pauses.length > 1000;
+  const incomplete = imported.uncertain || recovery || pauses.length > 0 || rows.some(row => negativeKinds.has(row.kind)) || backlog || sourceUncertain || truncated;
   const eventFilter = scope.kind === "host" ? { sql: "1=1", values: [] as string[] }
     : scope.kind === "workspace" ? { sql: "workspace=?", values: [scope.workspace] }
     : { sql: "verified_thread=?", values: [scope.verifiedThread] };
   const hasEvents = !!db.prepare(`SELECT event_id FROM usage_compact WHERE ${eventFilter.sql}
     AND occurred_at>=? AND occurred_at<? LIMIT 1`).get(...eventFilter.values, start, end);
+  const hasObserved = hasEvents && !!db.prepare(`SELECT event_id FROM usage_compact WHERE ${eventFilter.sql}
+    AND provenance='observed' AND occurred_at>=? AND occurred_at<? LIMIT 1`).get(...eventFilter.values, start, end);
   const covers = (kind: string) => {
     let cursor = start;
     for (const row of rows) {
@@ -102,10 +106,10 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
   const inactivity = !hasEvents && !incomplete && covers("observed-inactivity");
   return {
     state: expired ? "unavailable" as const : incomplete ? "incomplete" as const : inactivity ? "observed-inactivity" as const
-      : covers("imported") ? "imported" as const : hasEvents ? "observed" as const : "uncovered" as const,
+      : imported.imported || covers("imported") || hasEvents && !hasObserved ? "imported" as const : hasEvents ? "observed" as const : "uncovered" as const,
     zero: inactivity && !expired, writerActive: covers("writer-active"), pauses: Math.min(pauses.length, 1000),
-    omissions: rows.filter(row => row.kind === "omission").length,
-    uncertain: sourceUncertain || rows.some(row => row.kind === "uncertain") || scope.kind === "thread" && !scope.workspace
+    omissions: imported.omissions + rows.filter(row => row.kind === "omission").length,
+    uncertain: imported.uncertain || sourceUncertain || rows.some(row => row.kind === "uncertain") || scope.kind === "thread" && !scope.workspace
       && rows.some(row => row.workspace !== null && row.thread_id === null && negativeKinds.has(row.kind)),
     backlog, recoveryGap: recovery, truncated,
   };

@@ -31,7 +31,7 @@ describe("readiness in the existing quota panel", () => {
     await waitFor(() => expect(historyReads).toBe(2)); expect(quotaReads).toBe(1);
     await queries.findByText("History not configured on this host.");
     expect(queries.getByRole("link", { name: /Open Codex Usage/ })).toBeTruthy();
-    expect(page.inspection.rpcCalls.every((call) => !/install|import|activity/i.test(call.method))).toBe(true);
+    expect(page.inspection.rpcCalls.every((call) => call.method === "historicalImport" ? (call.input as {command?: {action?: string}})?.command?.action === "status" : !/install|import|activity/i.test(call.method))).toBe(true);
     if (process.env.BBP17_PREVIEW_FILE) {
       // Optional local synthetic preview of the actual rendered React panel with built utility CSS.
       const css = readFileSync("dist/app.css", "utf8");

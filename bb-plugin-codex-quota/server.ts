@@ -6,6 +6,9 @@ import { createActivityHandler } from "./activity-server.js";
 
 import { historyReadinessSchema, historyRequestSchema, collectorRequestSchema } from "./history-contract.js";
 import { createHistoryReader } from "./history-routing.js";
+import { createIdentityHistoryCall } from "./identity-server.js";
+import { importRequestSchema, importViewSchema } from "./import-contract.js";
+import { createImportHandler } from "./import-routing.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z.object({ hostId: hostIdSchema.nullable(), generation: generationSchema }).strict();
@@ -17,6 +20,7 @@ export const rpcContract = defineRpcContract({
   read: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
   collectorControl: { input: collectorRequestSchema, output: historyReadinessSchema },
+  historicalImport: { input: importRequestSchema, output: importViewSchema },
   activity: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
 });
 
@@ -35,7 +39,7 @@ export default function plugin(bb: BbPluginApi) {
     return host.id === hostId && host.type === "persistent" && host.lifecycle.phase === "active" ? host : null;
   };
   const readHistory = createHistoryReader({ selection, enrolled, activeReads,
-    call: (hostId, signal) => hostClient.call("historyReadiness", null, { hostId, signal }),
+    call: createIdentityHistoryCall(bb, (hostId, signal, input) => hostClient.call("historyReadiness", input, { hostId, signal })),
   });
   const collectorControl = createHistoryReader({ selection, enrolled, activeReads,
     call: (hostId, signal, action, confirmation) => hostClient.call("collectorControl", { action: action!, ...(confirmation ? { confirmation } : {}) }, { hostId, signal }),
@@ -44,6 +48,8 @@ export default function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     historyReadiness: readHistory,
     collectorControl,
+    historicalImport: createImportHandler({ selection, enrolled, activeReads, sdk: bb.sdk, prepare: readHistory,
+      call: (hostId, signal, input) => hostClient.call("historicalImport", input, { hostId, signal }) }),
     async selection() { return selection(); },
     activity: createActivityHandler({ selection, enrolled, activeReads,
       call: (hostId, refresh, signal) => hostClient.call("activity", { refresh }, { hostId, signal }) }),

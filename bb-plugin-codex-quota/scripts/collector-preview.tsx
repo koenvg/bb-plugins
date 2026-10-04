@@ -18,12 +18,19 @@ function Preview() {
       observedAt: new Date(now).toISOString(), plan: "plus", general: [{ id: "primary_window", name: "5 hours", remainingPercent: 42, resetAt: new Date(now+3600000).toISOString() }],
       additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: 42, bankedResets: 0,
     } }} selectedHostId={hostId} hosts={[{ id: "synthetic-host", name: "Synthetic host", status: "connected" }]} onHostChange={setHostId} onRefresh={() => {}}
-      history={<HistoryReadinessPanel selection={{ hostId, generation: 1 }} read={async () => history} control={async ({action, confirmation}) => {
+      history={<HistoryReadinessPanel selection={{ hostId, generation: 1 }} read={async () => history}
+        onOpenThread={threadId => { document.body.dataset.openedThread = threadId; }}
+        importCall={async ({command}) => {
+          document.body.dataset.importAction = command.action;
+          return { reason:"ok",configuration:{bbRoot:"/synthetic/provider-sessions",ordinaryRoots:[],workspaces:["/synthetic/shared-workspace/"+"long-path-".repeat(16)]},
+            generation:parameters.get("job")==="configured" ? null : {id:"00000000-0000-4000-8000-000000000077",state:parameters.get("job")==="completed" ? "completed" : parameters.get("job")==="canceled" ? "canceled" : "stopped",startAt:"2026-08-01T00:00:00.000Z",endAt:"2026-10-01T00:00:00.000Z",workspaces:["/synthetic/shared-workspace"],sourceRoots:["/synthetic/provider-sessions"],candidates:12,finished:4,bytes:128,records:1,replayed:3,omissions:1,coverage:"partial",diagnostics:["unresolved-overlap"]} };
+        }} control={async ({action, confirmation}) => {
         if (confirmation) document.body.dataset.legacyConfirmation = JSON.stringify(confirmation);
         document.body.dataset.collectorActions = String(Number(document.body.dataset.collectorActions ?? "0")+1);
         history = { state: "available", reason: "ok", storage: "compatible", collector: "compatible-v1", writer: "observed", collection: {
           enabled: action !== "pause" && action !== "prepare-legacy" && action !== "retire-legacy", firstObservedAt: "2026-10-01T00:00:00.000Z", pauseCount: 1, backlog: true, invalidRecords: 2, unconfirmedEvents: 3, conflictingEntries: 1,
           workspaces: [{ workspace: "/synthetic/shared-workspace/" + "long-path-".repeat(16), totalTokens: Number.MAX_SAFE_INTEGER, events: 2 }], truncated: false,
+          attribution:{discovery:"complete",backlog:false,grades:[{grade:"exact-thread",totalTokens:5,events:1}],threads:[{threadId:"thr_synthetic",label:"Synthetic verified thread",state:"available",totalTokens:5,events:1}],truncated:false},
         }, health: { state: "recovered", detailFrom: "2026-08-17T12:00:00.000Z", compactFrom: "2026-06-22T00:00:00.000Z", pending: true, legacyLogsPending: true, recoveryGaps: [{ start: "2026-06-22T00:00:00.000Z", end: "2026-10-01T12:00:00.000Z" }] } };
         if (previewState === "healthy" || previewState === "maintenance") history.health={...history.health!,state:previewState,pending:previewState === "maintenance",legacyLogsPending:previewState === "maintenance",recoveryGaps:[]};
         if (history.health && (legacyPhase || action === "prepare-legacy" || action === "retire-legacy")) {

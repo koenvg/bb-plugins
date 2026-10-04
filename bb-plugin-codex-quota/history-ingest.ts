@@ -69,7 +69,7 @@ export async function reconcileCollector(db: HistoryDatabase, directory: string,
       // Progress and all accepted projections commit together. No partial source bodies persist.
       db.transaction(() => {
         for (const record of records) {
-          if ("workspace" in record && options.recoveryFloor && record.occurredAt < options.recoveryFloor) continue;
+          if ("workspace" in record && options.recoveryFloor && (record.provenance !== "observed" || record.occurredAt < options.recoveryFloor)) continue;
           projectCompactRecord(db, record);
         }
         if (invalid > (saved?.invalid ?? 0)) {

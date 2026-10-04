@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, copyFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, copyFileSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -43,7 +43,10 @@ try {
   assert.deepEqual({ ...db.prepare('SELECT * FROM persistence_proof WHERE id = ?').get(1) }, { id: 1, value: 'committed' });
   assert.equal(db.prepare('SELECT count(*) AS count FROM persistence_proof').get().count, 1);
   db.close();
-  assert.equal((await bundled.default.handlers.historyReadiness(null, context)).storage, 'compatible');
+  const beforeUnknown = readFileSync(path);
+  assert.equal((await bundled.default.handlers.historyReadiness(null, context)).storage, 'incompatible');
+  assert.deepEqual(readFileSync(path), beforeUnknown, 'Known version with unknown table layout is protected');
+  renameSync(path, join(root, 'adapter-persistence-proof.sqlite')); // Owned fixture, separate from real history.
   console.log('Packaged Node host: create/commit/rollback/close/reopen/query passed with persistent temporary SQLite. Runtime:', process.versions.node);
 
   // Only this isolated fixture installs an asset. Production readiness has no install path.
@@ -128,7 +131,7 @@ try {
   const legacyDb = await bundled.openHistoryDatabase(path,true);
   assert.deepEqual({...legacyDb.prepare('SELECT occurred_at,workspace,captured_cost FROM usage_compact WHERE event_id=?').get(legacyEvent.eventId)}, {occurred_at:legacyEvent.occurredAt,workspace:legacyEvent.workspace,captured_cost:0.456});
   assert.equal(legacyDb.prepare('SELECT event_id FROM usage_entry_owners WHERE session_id=? AND entry_id=?').get(legacyEvent.sessionId,'retained-entry').event_id,legacyEvent.eventId);
-  assert.equal(legacyDb.prepare('PRAGMA user_version').get().user_version,3);legacyDb.close();
+  assert.equal(legacyDb.prepare('PRAGMA user_version').get().user_version,4);legacyDb.close();
   console.log('Packaged legacy retirement: paused fresh consent, invalid-token rejection, bounded tail/copy, original body/time/workspace/cost/ownership and disabled durable reopen passed. Synthetic only.');
   // Retention/recovery proof uses only owned persistent fixture data, never installed user storage.
   const oldTime=new Date(Date.now()-60*86400000).toISOString();

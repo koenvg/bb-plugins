@@ -231,7 +231,7 @@ it("upgrades checkpoint schema 2 without new backfill or changing scalar ownersh
   f.reopen(); const view = await f.read(); expect(view.collection?.workspaces).toEqual([{ workspace: "/original", totalTokens: 10, events: 2 }]);
   const reopened = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
   try {
-    expect(reopened.prepare("PRAGMA user_version").get()).toEqual({ user_version: 3 });
+    expect(reopened.prepare("PRAGMA user_version").get()).toEqual({ user_version: 4 });
     expect(reopened.prepare("SELECT captured_cost FROM usage_compact WHERE event_id=?").get(record(2).eventId)).toEqual({ captured_cost: 0.25 });
     expect(reopened.prepare("SELECT event_id FROM usage_entry_owners WHERE session_id='session' AND entry_id='entry-1'").get()).toEqual({ event_id: record(2).eventId });
   } finally { reopened.close(); }
