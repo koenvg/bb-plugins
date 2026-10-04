@@ -21,6 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         plugin:
+          - bb-plugin-changes
           - bb-plugin-code-cleanup
           - bb-plugin-codex-inspired
           - bb-plugin-codex-quota
