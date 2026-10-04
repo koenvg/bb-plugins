@@ -58,6 +58,15 @@ The reader SHALL render common Markdown and GitHub-flavored tables, lists, task 
 - **WHEN** fenced code includes HTML or script syntax
 - **THEN** that syntax is displayed as code and is not interpreted as page content
 
+#### Scenario: Bounded explicit-language highlighting
+- **WHEN** a fenced block selects a documented bundled language or alias and its rendered UTF-8 text is at most 20 KiB
+- **THEN** it receives passive syntax highlighting without changes to text, values, spacing or newlines
+- **AND** the byte guard runs before tokenization, without automatic language detection or JSON formatting
+
+#### Scenario: Plain-code fallback
+- **WHEN** a fenced block has an unknown or missing language, exceeds 20 KiB of rendered UTF-8 text, or its tokenizer fails
+- **THEN** the reader displays the unchanged rendered code as plain readable text and keeps the complete exact Raw source
+
 #### Scenario: Embedded active HTML
 - **WHEN** a Markdown file contains script tags, event handlers, iframes, or other raw HTML
 - **THEN** the reader does not execute that HTML or mount active document-supplied elements
@@ -93,11 +102,15 @@ The reader SHALL derive an optional outline from actual rendered headings, suppo
 - **THEN** the outline is hidden and the document reclaims the available space
 
 ### Requirement: Safe source-relative links and images
-The reader SHALL resolve relative file links and images from the containing document within the permitted source root and preserve the source's host identity. In-document fragments SHALL navigate locally. Valid external HTTP(S) links SHALL use BB's URL-opening behavior. Unsupported schemes, malformed encodings, and paths escaping the permitted root SHALL be inert and SHALL NOT cause a file read or navigation. Remote HTTP(S) images SHALL load as ordinary images without proxying authenticated BB credentials; local images SHALL use confined host file-preview transport.
+The reader SHALL resolve relative file links and images from the containing document to decoded, normalized paths lexically within the permitted source root and SHALL preserve the source's host identity. In-document fragments SHALL navigate locally. Valid external HTTP(S) links SHALL use BB's URL-opening behavior. Unsupported or executable schemes, malformed encodings/URLs, encoded traversal, and lexical paths outside the permitted root SHALL be inert and SHALL NOT cause an SDK file read, preview allocation, image request, or navigation.
+
+Reader reads and local-image content requests SHALL use explicit host/root identity and SDK confinement during the operation. Confined SDK read calls, root-preview lease allocation, and image requests MAY occur before the host rejects a symlink escape. A rejected confined read or image request SHALL NOT deliver outside-root content and SHALL leave an actionable reader error or readable image alt/error content. Metadata-only validation before activation or preview allocation is not required.
+
+Local file links SHALL use BB's normal source-aware file-opening behavior and permissions after lexical validation. The plugin SHALL NOT claim an additional guarantee that native file navigation keeps a symlink's final target within the original source root. The README SHALL document this limit. Remote HTTP(S) images SHALL load as ordinary images without proxying authenticated BB credentials; local images SHALL use confined host file-preview transport.
 
 #### Scenario: Open a sibling document
-- **WHEN** a user activates a relative link to another file within the permitted source root
-- **THEN** BB opens the resolved file in the same source and on the same host
+- **WHEN** a user activates a relative link whose decoded, normalized path is lexically within the permitted source root
+- **THEN** BB opens the resolved file in the same source and on the same host using its normal opening behavior and permissions, without an additional plugin symlink-confinement guarantee
 
 #### Scenario: Render a local image
 - **WHEN** a document references an image relative to its directory within the source root
@@ -108,8 +121,12 @@ The reader SHALL resolve relative file links and images from the containing docu
 - **THEN** BB handles the link according to the client's browser preference
 
 #### Scenario: Unsafe destination
-- **WHEN** a link or image contains an executable scheme, malformed encoding, or a decoded path outside the permitted root
-- **THEN** the destination is not fetched or activated and the document remains usable
+- **WHEN** a link or image contains an executable or unsupported scheme, malformed encoding/URL, encoded traversal, or a decoded, normalized path lexically outside the permitted root
+- **THEN** the destination is not read, allocated a preview, fetched, or activated and the document remains usable
+
+#### Scenario: Confined SDK request rejects a symlink escape
+- **WHEN** the host rejects a reader read or local-image content request because its resolved target escapes the supplied root
+- **THEN** the attempted SDK call, preview allocation, or image request is permitted, but no outside-root content reaches the reader and its error or image alt text remains readable
 
 ### Requirement: Theme and keyboard accessibility
 The reader SHALL follow BB's active light, dark, and third-party theme tokens without changing global appearance. It SHALL provide accessible names, visible keyboard focus, semantic headings and tables, and keyboard-operable view and outline controls. Live theme changes SHALL update the reader without a reload. Body text SHALL meet a contrast ratio of at least 4.5:1 in the tested built-in themes.
