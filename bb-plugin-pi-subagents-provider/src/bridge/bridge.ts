@@ -81,6 +81,7 @@ import {
   resolvePiSessionFilePath,
 } from "./session-paths.js";
 import { extractPiPromptInput } from "./turn-input.js";
+import { createSubagentObservation, type SubagentObservation } from "./subagents/observation.js";
 
 const piCommandSchema = z.discriminatedUnion("method", [
   z.object({
@@ -197,6 +198,8 @@ interface CurrentThreadSessionArgs {
 interface ThreadSession {
   session: PiRpcSession;
   sessionSerial: number;
+  observation: SubagentObservation;
+  observationReady: boolean;
   closing: boolean;
   providerThreadId: string;
   cwd: string;
@@ -284,6 +287,7 @@ async function closeThreadSession(args: {
   if (!threadSession) {
     return;
   }
+  threadSession.observation.dispose("release");
   threadSession.closing = true;
   resolvePendingToolCalls(threadSession, args.message);
   extensionUi.cancelPendingForScope(threadSession);
@@ -422,6 +426,7 @@ function createOnPiEvent(
   return (event) => {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession) return;
+    threadSession.observation.tool(event);
     emitForSession(args.threadId, "sdk/message", {
       threadId: args.threadId,
       message: event,
@@ -438,6 +443,7 @@ function createOnExtensionUiRequest(
   return (request) => {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession || threadSession.closing) return;
+    if (threadSession.observation.widget(request)) return;
     extensionUi.handle({
       scope: threadSession,
       request,
@@ -763,6 +769,14 @@ async function buildSessionOptions(args: {
       sessionSerial: args.sessionSerial,
       threadId: args.threadId,
     }),
+    onSubagentHint: () => {
+      const current = getCurrentThreadSession(args);
+      if (current?.observationReady) current.observation.hint();
+    },
+    onProcessExit: () => {
+      const current = getCurrentThreadSession(args);
+      if (current?.observationReady) current.observation.dispose("exit");
+    },
   };
 }
 
@@ -787,6 +801,13 @@ async function constructPiThreadSession(
   const threadSession: ThreadSession = {
     session,
     sessionSerial,
+    observation: createSubagentObservation({
+      sessionFile: sessionOptions.sessionFilePath,
+      generation: sessionSerial,
+      reconcile: () => session.readSubagentStatus(),
+      emit: (deltas) => sendThreadDeltas(threadId, deltas),
+    }),
+    observationReady: false,
     closing: false,
     providerThreadId,
     cwd: usablePersistedSessionCwd(providerThreadId) ?? params.cwd,
@@ -815,12 +836,14 @@ async function constructPiThreadSession(
     if (sessions.get(threadId) === threadSession) {
       sessions.delete(threadId);
     }
+    threadSession.observation.dispose("exit");
     session.kill();
     throw error;
   }
 }
 
 function retireReplacedPiChild(replaced: ThreadSession): void {
+  replaced.observation.dispose("replacement");
   replaced.closing = true;
   resolvePendingToolCalls(
     replaced,
@@ -857,6 +880,11 @@ async function rebuildThreadSession(
 function sendSessionResetBoundary(threadId: string): void {
   piDeltaTranslator.resetThread(threadId);
   sendThreadDeltas(threadId, [{ kind: "session.reset" }]);
+  const current = sessions.get(threadId);
+  if (current) {
+    current.observationReady = true;
+    void current.observation.refresh();
+  }
 }
 
 function sendThreadSessionResult(

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fakePackageRpc } from "./subagents/fake-package-rpc.mjs";
 
 import { randomUUID } from "node:crypto";
 import {
@@ -192,10 +193,17 @@ const scopedModel =
     : undefined;
 const extensionContext = {
   cwd: process.cwd(),
-  sessionManager: { getLeafId: () => leafId },
+  sessionManager: {
+    getLeafId: () => leafId,
+    getSessionId: () => sessionFile ? JSON.parse(readFileSync(sessionFile, "utf8").split("\n")[0]).id : undefined,
+    getSessionFile: () => sessionFile,
+  },
   model: scopedModel,
   scopedModels: scopedModel ? [{ model: scopedModel }] : [],
 };
+const fakeSubagents = process.env.FAKE_PI_SUBAGENT_PROTOCOL === "1"
+  ? fakePackageRpc(() => ({ sessionId: extensionContext.sessionManager.getSessionId(), sessionFile }), event)
+  : undefined;
 
 async function emitExtensionEvent(type, payload = {}) {
   for (const handler of extensionHandlers.get(type) ?? []) {
@@ -244,6 +252,7 @@ async function loadExtension(path) {
   }
   const module = await import(pathToFileURL(loadPath).href);
   module.default({
+    events: fakeSubagents?.events,
     registerTool(tool) {
       extensionTools.set(tool.name, tool);
       if (process.env.FAKE_PI_TOOLS_DUMP) {
@@ -310,6 +319,7 @@ async function runPrompt(text) {
   await emitExtensionEvent("agent_start");
   event({ type: "agent_start" });
   event({ type: "turn_start" });
+  if (text === "/observe-background") fakeSubagents?.start();
   if (text === "/hold") {
     const released = await new Promise((resolve) => {
       holdAbort = resolve;

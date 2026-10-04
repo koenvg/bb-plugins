@@ -1,4 +1,6 @@
-export const BB_PI_EXTENSION_SOURCE = String.raw`
+import { SUBAGENT_STATUS_SOURCE } from "./subagents/extension-source.js";
+
+export const BB_PI_EXTENSION_SOURCE = SUBAGENT_STATUS_SOURCE + String.raw`
 import { readFileSync, renameSync, writeSync } from "node:fs";
 import { Socket } from "node:net";
 import { StringDecoder } from "node:string_decoder";
@@ -171,6 +173,9 @@ export default function bbExtension(pi) {
   const pendingToolCalls = new Map();
   let nextId = 0;
   let sessionContext = null;
+  const readSubagentStatus = installSubagentStatusChannel(pi, () => sessionContext, () => {
+    writeLine(CHILD_TO_BRIDGE_FD, { kind: "subagent-hint" });
+  });
 
   const onBridgeLine = (line) => {
     const trimmed = line.trim();
@@ -247,6 +252,8 @@ export default function bbExtension(pi) {
 
   async function runBridgeRequest(message) {
     switch (message.method) {
+      case "subagent-status":
+        return readSubagentStatus();
       case "fork": {
         // Documented SessionManager API (docs/sdk.md, docs/session-format.md):
         // a full fork copies the source history, a checkpoint fork branches

@@ -26,6 +26,8 @@ export interface PiRpcSessionOptions {
   recordThreadId: string;
   noSession?: boolean;
   onExtensionUiRequest?: (request: Record<string, unknown>) => void;
+  onSubagentHint?: () => void;
+  onProcessExit?: () => void;
 }
 
 export interface DynamicToolDefinition {
@@ -162,6 +164,10 @@ export class PiRpcSession {
 
   getIsCompacting(): boolean {
     return this.isCompacting;
+  }
+
+  readSubagentStatus(): Promise<unknown> {
+    return this.channelRequest({ method: "subagent-status" }, 3000);
   }
 
   respondToExtensionUi(
@@ -665,6 +671,10 @@ export class PiRpcSession {
   }
 
   private handleChannelMessage(message: Record<string, unknown>): void {
+    if (message.kind === "subagent-hint") {
+      this.options.onSubagentHint?.();
+      return;
+    }
     const child = this.child;
     if (message.kind === "ready") {
       this.ready.resolve();
@@ -757,6 +767,7 @@ export class PiRpcSession {
   }
 
   private handleExit(info: PiRpcChildExitInfo): void {
+    this.options.onProcessExit?.();
     this.ready.reject(new PiRpcChildExitedError(info));
     for (const [, reply] of this.channelReplies) {
       reply.reject(new PiRpcChildExitedError(info));
