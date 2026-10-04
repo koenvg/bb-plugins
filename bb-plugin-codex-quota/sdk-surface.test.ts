@@ -19,6 +19,7 @@ describe("public SDK and quota-only boundary", () => {
       ["collector-compatibility.test.ts", "/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root"],
       ["collector-entry.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`"],
       ["scripts/check-bundled-history.mjs", "pathToFileURL(artifact"],
+      ["scripts/check-bundled-identity.mjs", "pathToFileURL(artifact"],
     ]);
     expect(scan.violations.filter((entry) => entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier)).toEqual([]);
     expect(scan.files.length).toBeGreaterThan(10);

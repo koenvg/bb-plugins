@@ -6,6 +6,7 @@ import { createActivityHandler } from "./activity-server.js";
 
 import { historyReadinessSchema, historyRequestSchema, collectorRequestSchema } from "./history-contract.js";
 import { createHistoryReader } from "./history-routing.js";
+import { createIdentityHistoryCall } from "./identity-server.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z.object({ hostId: hostIdSchema.nullable(), generation: generationSchema }).strict();
@@ -35,7 +36,7 @@ export default function plugin(bb: BbPluginApi) {
     return host.id === hostId && host.type === "persistent" && host.lifecycle.phase === "active" ? host : null;
   };
   const readHistory = createHistoryReader({ selection, enrolled, activeReads,
-    call: (hostId, signal) => hostClient.call("historyReadiness", null, { hostId, signal }),
+    call: createIdentityHistoryCall(bb, (hostId, signal, input) => hostClient.call("historyReadiness", input, { hostId, signal })),
   });
   const collectorControl = createHistoryReader({ selection, enrolled, activeReads,
     call: (hostId, signal, action) => hostClient.call("collectorControl", { action: action! }, { hostId, signal }),

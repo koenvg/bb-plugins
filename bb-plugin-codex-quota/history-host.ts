@@ -8,7 +8,9 @@ import { controlCollector, readControl, safeDirectory } from "./collector-contro
 import { reconcileCollector } from "./history-ingest.js";
 import { collectionView, initializeHistory, historyObserved } from "./history-projection.js";
 
-export type HistoryReadContext = { signal: AbortSignal; dataDir: string };
+import type { IdentityBatch } from "./identity-contract.js";
+import { initializeIdentityStorage, acceptIdentityBatch, reconcileIdentity, identityView } from "./identity-storage.js";
+export type HistoryReadContext = { signal: AbortSignal; dataDir: string; identities?: IdentityBatch };
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
   control(action: CollectorAction, context: HistoryReadContext): Promise<HistoryReadiness>;
@@ -26,7 +28,7 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
   const serialize = (work: () => Promise<HistoryReadiness>) => {
     const result = queue.then(work); queue = result.catch(() => null); return result;
   };
-  async function perform({ signal, dataDir }: HistoryReadContext, action?: CollectorAction): Promise<HistoryReadiness> {
+  async function perform({ signal, dataDir, identities }: HistoryReadContext, action?: CollectorAction): Promise<HistoryReadiness> {
     if (signal.aborted) return historyUnavailable("selection-changed");
     let storage: HistoryReadiness["storage"] = "unavailable";
     try {
@@ -75,9 +77,13 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
             // Only explicit installation initializes schemas. No control means readiness stays read-only.
             const meta = db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
             if (!meta) throw Error("History metadata unavailable");
+            initializeIdentityStorage(db);
+            if (identities) acceptIdentityBatch(db, identities);
             const backlog = await reconcileCollector(db, directory, { signal, bytes: deps.ingestBytes, rows: deps.ingestRows, bodyRead: deps.bodyRead });
             signal.throwIfAborted();
             view.collection = collectionView(db, enabled, backlog);
+            reconcileIdentity(db, signal);
+            view.collection.attribution = identities?.total === null ? { ...identityView(db), discovery: "partial", grades: [], threads: [] } : identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
             view.writer = historyObserved(db) ? "observed" : "unconfirmed";
           } finally { db.close(); }
         }

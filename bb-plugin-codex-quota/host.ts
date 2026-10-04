@@ -85,8 +85,9 @@ export function createQuotaHostEntry(deps: Dependencies) {
     dispose: () => activity.dispose(),
     handlers: {
       ping: async () => ({ reachable: true }),
-      historyReadiness: async (_input, context) => history.read({
+      historyReadiness: async (input, context) => history.read({
         dataDir: context.experimental_paths.dataDir,
+        identities: input?.identities,
         signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
       }),
       collectorControl: async ({ action }, context) => history.control(action, {

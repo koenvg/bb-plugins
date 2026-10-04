@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { attributionViewSchema } from "./identity-contract.js";
 export const historyRequestSchema = z.object({
   hostId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
   generation: z.number().int().min(0).max(1_000_000_000),
@@ -14,6 +15,7 @@ export const collectionSchema = z.object({
   backlog: z.boolean(), invalidRecords: count, unconfirmedEvents: count, conflictingEntries: count,
   workspaces: z.array(z.object({ workspace: z.string().min(1).max(16_384), totalTokens: count, events: count }).strict()).max(50),
   truncated: z.boolean(),
+  attribution: attributionViewSchema.optional(),
 }).strict();
 export const historyReadinessSchema = z.object({
   state: z.enum(["available", "not-configured", "unavailable"]),

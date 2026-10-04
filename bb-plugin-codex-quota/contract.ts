@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { historyReadinessSchema, collectorActionSchema } from "./history-contract.js";
 import { activityViewSchema } from "./activity-contract.js";
+import { identityBatchSchema } from "./identity-contract.js";
 const windowSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9_]{0,47}_window$/),
   name: z.string().min(1).max(48),
@@ -36,7 +37,7 @@ export type QuotaStatus = z.infer<typeof quotaViewSchema>;
 export const hostContract = defineRpcContract({
   ping: { input: z.null(), output: z.object({ reachable: z.boolean() }).strict() },
   quota: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
-  historyReadiness: { input: z.null(), output: historyReadinessSchema },
+  historyReadiness: { input: z.union([z.null(), z.object({ identities: identityBatchSchema }).strict()]), output: historyReadinessSchema },
   collectorControl: { input: z.object({ action: collectorActionSchema }).strict(), output: historyReadinessSchema },
   activity: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
 });

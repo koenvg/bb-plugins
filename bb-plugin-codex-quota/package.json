@@ -8,7 +8,7 @@
     "format": "npm --prefix .. run format -- bb-plugin-codex-quota",
     "format:check": "npm --prefix .. run format:check -- bb-plugin-codex-quota",
     "test": "vitest run",
-    "test:bundle": "bb plugin build && node scripts/check-bundled-history.mjs && node scripts/check-bundled-oauth.mjs && node scripts/check-bundled-oauth.mjs --refresh && node scripts/check-bundled-activity.mjs",
+    "test:bundle": "bb plugin build && node scripts/check-bundled-history.mjs && node scripts/check-bundled-identity.mjs && node scripts/check-bundled-oauth.mjs && node scripts/check-bundled-oauth.mjs --refresh && node scripts/check-bundled-activity.mjs",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"
   },
