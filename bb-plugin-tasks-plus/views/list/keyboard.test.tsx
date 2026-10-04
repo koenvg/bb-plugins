@@ -158,5 +158,11 @@ describe("list row menus from the keyboard", () => {
         labelIds: [label.id],
       }),
     );
+    fireEvent.keyDown(slot.getByRole("listbox"), { key: "Escape" });
+    await waitFor(() => expect(slot.queryByRole("listbox")).toBeNull());
+    await waitFor(() => expect(focusedRowName()).toBe("Open TSK-1: Title 1"));
+    expect(
+      slot.container.querySelector('[data-task-key="TSK-1"]')!.textContent,
+    ).not.toContain(label.name);
   });
 });

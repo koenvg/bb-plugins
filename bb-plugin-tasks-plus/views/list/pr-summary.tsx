@@ -7,6 +7,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { ageRichDetails } from "../../shared/work-status-freshness.js";
 import {
   aggregatePrs,
@@ -19,7 +20,7 @@ import {
 import { PrRichDetail } from "./pr-rich-detail.js";
 
 const CHIP =
-  "relative z-10 flex max-w-full flex-wrap items-center gap-x-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground tabular-nums hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  `relative z-10 flex max-w-full flex-wrap items-center gap-x-1 rounded-md border border-border px-1.5 py-px text-muted-foreground tabular-nums hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${COARSE_POINTER_TEXT_SM_CLASS}`;
 const stopActivation = (event: React.KeyboardEvent) => {
   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
 };
@@ -107,6 +108,14 @@ export function PrSummary({
       ? "Lookup unavailable"
       : null;
   const single = items.length === 1 ? items[0]! : null;
+  const qualityLabels = [...new Set(
+    items.filter((pr) => pr.details !== "available").map(qualityLabel),
+  )];
+  const compactQuality = items.length === 0
+    ? null
+    : incomplete || qualityLabels.length > 1
+      ? "Details incomplete"
+      : qualityLabels[0] ?? (single ? "Details" : null);
   const summary = items.length
     ? `${items.length} PR${items.length === 1 ? "" : "s"}`
     : "PRs unavailable";
@@ -167,7 +176,7 @@ export function PrSummary({
             onKeyDown={stopActivation}
           >
             {single ? (
-              <span>{qualityLabel(single)}</span>
+              <span>{compactQuality}</span>
             ) : (
               <>
                 <Icon name="GitPullRequest" className="size-3 shrink-0" />
@@ -185,15 +194,8 @@ export function PrSummary({
                 ) : null}
               </>
             )}
-            {!single
-              ? detailGaps.map((text) => (
-                  <span key={text} className="whitespace-nowrap">
-                    · {text}
-                  </span>
-                ))
-              : null}
-            {incomplete ? (
-              <span className="whitespace-nowrap">· {incomplete}</span>
+            {!single && compactQuality ? (
+              <span className="whitespace-nowrap">· {compactQuality}</span>
             ) : null}
             <Icon name="ChevronDown" className="size-3 shrink-0" />
           </button>
@@ -233,6 +235,7 @@ export function PrSummary({
           </ul>
           {incomplete ? (
             <div className="mt-3 text-xs text-muted-foreground">
+              <p>{incomplete}.</p>
               <p>
                 PR lookup unavailable. Known PRs do not cover every attachment.
               </p>

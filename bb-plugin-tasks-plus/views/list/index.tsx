@@ -186,10 +186,6 @@ export function ListView({
     });
   };
 
-  const labelsById = useMemo(
-    () => new Map((labels.data ?? []).map((label) => [label.id, label])),
-    [labels.data],
-  );
   const labelsByProject = useMemo(() => {
     const map = new Map<string, Label[]>();
     for (const label of labels.data ?? []) {
@@ -365,7 +361,6 @@ export function ListView({
       meta={meta.data?.get(task.id)}
       project={projectsById.get(task.projectId)}
       showProject={showProject}
-      labelsById={labelsById}
       projectLabels={labelsByProject.get(task.projectId) ?? []}
       onEdit={edit}
       onOpen={() => openTask(task.key)}

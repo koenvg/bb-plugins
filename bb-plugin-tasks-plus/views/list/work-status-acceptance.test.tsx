@@ -274,7 +274,6 @@ it.each([
           meta={meta}
           project={undefined}
           showProject={false}
-          labelsById={new Map()}
           projectLabels={[]}
           onEdit={() => {}}
           onOpen={onOpen}
@@ -308,7 +307,7 @@ it.each([
     ).toBeTruthy();
     expect(
       slot.getByRole("button", { name: /Threads for/ }).textContent,
-    ).toContain("All threads archived");
+    ).toContain("All archived");
     expect(
       slot.getByRole("button", { name: /Threads for/ }).textContent,
     ).toContain("2 Failed");
@@ -595,7 +594,6 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
             meta={latest?.get(task.id)}
             project={undefined}
             showProject={false}
-            labelsById={new Map()}
             projectLabels={[]}
             onEdit={() => {}}
             onOpen={() => {
@@ -629,7 +627,8 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     name: /PRs for MIX-1: 6 PRs/,
   });
   expect(control.textContent).toContain("1 Conflicts");
-  expect(control.textContent).toContain("2 lookups unavailable");
+  expect(control.getAttribute("aria-label")).toContain("2 lookups unavailable");
+  expect(control.textContent).toContain("Details incomplete");
   expect(control.getAttribute("aria-label")).toContain("1 Ready to merge");
   expect(
     latest?.get(mixed.id)?.threads.find((t) => t.threadId === "thr_removed"),
@@ -641,7 +640,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   const terminalRow = slot
     .getByRole("link", { name: /Open GitHub PR acme\/merged #42/ })
     .closest("[data-task-key]")!;
-  expect(terminalRow.textContent).toContain("All threads archived");
+  expect(terminalRow.textContent).toContain("All archived");
   expect(
     within(terminalRow as HTMLElement).getByRole("button", {
       name: /Change status, currently In Review/,

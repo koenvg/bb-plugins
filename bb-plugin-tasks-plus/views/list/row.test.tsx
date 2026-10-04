@@ -95,6 +95,46 @@ async function rowFor(slot: ReturnType<typeof renderList>, key: string) {
 }
 
 describe("inline row editing", () => {
+  it("keeps labeled parent and subtask rows free of label badges", async () => {
+    const parent = task({ id: "01HZPARENT", number: 1, labelIds: [label.id] });
+    const child = task({
+      id: "01HZCHILD",
+      number: 2,
+      parentTaskId: parent.id,
+      labelIds: [label.id],
+    });
+    const slot = renderList([parent, child]);
+    const parentRow = await rowFor(slot, parent.key);
+    fireEvent.click(
+      within(parentRow).getByRole("button", { name: "Expand subtasks of TSK-1" }),
+    );
+    const childRow = await rowFor(slot, child.key);
+
+    expect(within(parentRow).queryAllByText(label.name)).toHaveLength(0);
+    expect(within(childRow).queryAllByText(label.name)).toHaveLength(0);
+    expect(parent.labelIds).toEqual([label.id]);
+    expect(child.labelIds).toEqual([label.id]);
+    expect(slot.rpcCalls.some((call) => call.method === "updateTask")).toBe(false);
+  });
+
+  it("edits labels through the row context menu without showing badges", async () => {
+    const slot = renderList([task({ id: "01HZT1", number: 1 })]);
+    const row = await rowFor(slot, "TSK-1");
+    fireEvent.contextMenu(row);
+    const labelsMenu = await slot.findByRole("menuitem", { name: "Labels" });
+    fireEvent.keyDown(labelsMenu, { key: "ArrowRight" });
+    fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: label.name }));
+    await waitFor(() =>
+      expect(slot.rpcCalls.some((call) =>
+        call.method === "updateTask" &&
+        (call.input as { labelIds?: string[] }).labelIds?.includes(label.id),
+      )).toBe(true),
+    );
+    fireEvent.keyDown(slot.getByRole("menuitemcheckbox", { name: label.name }), {
+      key: "Escape",
+    });
+    expect(within(row).queryAllByText(label.name)).toHaveLength(0);
+  });
   it("optimistically applies a status change and persists it", async () => {
     const slot = renderList([task({ id: "01HZT1", number: 1 })]);
     const row = await rowFor(slot, "TSK-1");

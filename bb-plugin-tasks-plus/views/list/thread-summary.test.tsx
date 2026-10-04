@@ -70,7 +70,7 @@ describe("thread summary states and compact interactions", () => {
     {
       executions: ["idle", "removed"],
       archives: ["archived", "unknown"],
-      text: "All threads archived",
+      text: "All archived",
       unknown: false,
     },
   ] as const)(
@@ -86,8 +86,8 @@ describe("thread summary states and compact interactions", () => {
       );
       const control = slot.getByRole("button", { name: /Threads for ABC-1/ });
       if (text) expect(control.textContent).toContain(text);
-      if (text !== "All threads archived")
-        expect(control.textContent).not.toContain("All threads archived");
+      if (text !== "All archived")
+        expect(control.textContent).not.toContain("All archived");
       expect(control.textContent!.includes("Archive unavailable")).toBe(
         unknown,
       );
@@ -117,7 +117,7 @@ describe("thread summary states and compact interactions", () => {
       name: "Threads for ABC-1: 1 Failed, 1 Idle, All threads archived",
     });
     expect(control.textContent).toContain("1 Failed");
-    expect(control.textContent).toContain("All threads archived");
+    expect(control.textContent).toContain("All archived");
     fireEvent.click(control);
     const dialog = await slot.findByRole("dialog", {
       name: "Threads for ABC-1",

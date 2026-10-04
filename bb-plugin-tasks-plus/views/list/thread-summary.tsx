@@ -7,6 +7,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { cn } from "@/lib/utils";
 
 const EXECUTION_ORDER: readonly ThreadExecution[] = [
@@ -26,7 +27,7 @@ const LABELS: Record<ThreadExecution, string> = {
   removed: "Removed",
 };
 const CHIP =
-  "rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground";
+  `rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
 
 export function threadBuckets(threads: TaskWorkStatus["threads"]) {
   return EXECUTION_ORDER.flatMap((execution) => {
@@ -127,7 +128,9 @@ export function ThreadSummary({
             <span className="whitespace-nowrap">· +{hiddenCount} more</span>
           ) : null}
           {archiveText ? (
-            <span className="whitespace-nowrap">· {archiveText}</span>
+            <span className="whitespace-nowrap">
+              · {archiveText === "All threads archived" ? "All archived" : archiveText}
+            </span>
           ) : null}
           {archiveUnknown ? (
             <span className="whitespace-nowrap">· Archive unavailable</span>

@@ -163,7 +163,6 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
           meta={meta}
           project={undefined}
           showProject={false}
-          labelsById={new Map()}
           projectLabels={[]}
           onEdit={() => {}}
           onOpen={onOpen}
