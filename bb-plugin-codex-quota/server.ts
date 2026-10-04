@@ -4,7 +4,7 @@ import { hostContract, quotaViewSchema } from "./contract.js";
 import { activityViewSchema } from "./activity-contract.js";
 import { createActivityHandler } from "./activity-server.js";
 
-import { historyReadinessSchema, historyRequestSchema } from "./history-contract.js";
+import { historyReadinessSchema, historyRequestSchema, collectorRequestSchema } from "./history-contract.js";
 import { createHistoryReader } from "./history-routing.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
@@ -16,6 +16,7 @@ export const rpcContract = defineRpcContract({
   selectHost: { input: z.object({ hostId: hostIdSchema.nullable() }).strict(), output: selectionSchema },
   read: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  collectorControl: { input: collectorRequestSchema, output: historyReadinessSchema },
   activity: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
 });
 
@@ -36,9 +37,13 @@ export default function plugin(bb: BbPluginApi) {
   const readHistory = createHistoryReader({ selection, enrolled, activeReads,
     call: (hostId, signal) => hostClient.call("historyReadiness", null, { hostId, signal }),
   });
+  const collectorControl = createHistoryReader({ selection, enrolled, activeReads,
+    call: (hostId, signal, action) => hostClient.call("collectorControl", { action: action! }, { hostId, signal }),
+  });
   bb.onDispose(() => { for (const controller of activeReads) controller.abort(); });
   bb.rpc.register(rpcContract, {
     historyReadiness: readHistory,
+    collectorControl,
     async selection() { return selection(); },
     activity: createActivityHandler({ selection, enrolled, activeReads,
       call: (hostId, refresh, signal) => hostClient.call("activity", { refresh }, { hostId, signal }) }),

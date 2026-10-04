@@ -13,10 +13,11 @@ describe("public SDK and quota-only boundary", () => {
       ],
     });
     expect(scan.privateDependencies).toEqual([]);
-    // The scanner cannot prove expression imports. These two test-only expressions are confined
+    // The scanner cannot prove expression imports. These test-only expressions are confined
     // to our serialized collector text and the copied host artifact in a fresh temporary directory.
     const testSeams = new Map([
       ["collector-compatibility.test.ts", "/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root"],
+      ["collector-entry.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`"],
       ["scripts/check-bundled-history.mjs", "pathToFileURL(artifact"],
     ]);
     expect(scan.violations.filter((entry) => entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier)).toEqual([]);

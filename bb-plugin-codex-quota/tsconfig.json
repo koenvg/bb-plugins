@@ -41,6 +41,10 @@
     "sdk-surface.test.ts",
     "history-*.ts",
     "history-*.tsx",
-    "collector-compatibility*.ts"
+    "collector*.ts",
+    "collector*.tsx",
+    "usage-record.ts",
+    "live-history.test.ts",
+    "scripts/collector-preview.tsx"
   ]
 }

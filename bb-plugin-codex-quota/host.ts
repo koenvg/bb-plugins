@@ -89,6 +89,10 @@ export function createQuotaHostEntry(deps: Dependencies) {
         dataDir: context.experimental_paths.dataDir,
         signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
       }),
+      collectorControl: async ({ action }, context) => history.control(action, {
+        dataDir: context.experimental_paths.dataDir,
+        signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+      }),
       activity: async ({ refresh }, context) => activity.read(refresh === true, context.signal),
       quota: async ({ refresh }, context) => {
         const signal = AbortSignal.any([context.signal, AbortSignal.timeout(12_000)]);

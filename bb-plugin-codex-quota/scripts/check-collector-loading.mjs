@@ -14,14 +14,37 @@ assert.ok(loaded.extensions.some((item) => item.path === join(agentDir, 'extensi
 assert.ok(loaded.extensions.some((item) => item.path === join(agentDir, 'extensions/unrelated.js')), 'Pi must load the unrelated extension');
 const collector = loaded.extensions.find((item) => item.path === join(agentDir, 'extensions/bb-codex-usage/index.js'));
 assert.ok(collector.handlers.get('message_end')?.length, 'Must load the real capture handler, not a placeholder');
-const context = { cwd, sessionManager: { getSessionId: () => 'synthetic-session', getSessionFile: () => join(cwd, 'synthetic-provider.jsonl') } };
-const event = { message: { role: 'assistant', provider: 'openai-codex', model: 'synthetic', timestamp: Date.now(), usage: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, totalTokens: 3, cost: { total: 0 } }, content: 'private-content-sentinel', toolArgs: 'private-credentials-sentinel' } };
+const entries = new Map();
+let leaf = null;
+const context = { cwd, sessionManager: {
+  getSessionId: () => 'synthetic-session', getSessionFile: () => join(cwd, 'synthetic-provider.jsonl'),
+  getLeafId: () => leaf, getEntry: id => entries.get(id),
+} };
+const event = { message: { role: 'assistant', provider: 'openai-codex', model: 'synthetic', timestamp: 1234567890000, usage: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, totalTokens: 3, cost: { total: 0 } }, content: 'private-content-sentinel', toolArgs: 'private-credentials-sentinel' } };
+const control = join(dataDir, 'history/collector-control-v1.json');
+const logs = join(dataDir, 'history/events-v1.jsonl');
+// Verify the exact asset fails closed without control, even when installed explicitly.
+const { unlinkSync } = await import('node:fs');
+unlinkSync(control);
 for (const handler of collector.handlers.get('message_end')) await handler(event, context);
-assert.equal(existsSync(join(dataDir, 'history/events-v1.jsonl')), false, 'Missing control must not start a writer');
-writeFileSync(join(dataDir, 'history/collector-control-v1.json'), JSON.stringify({ protocol: 1, enabled: true }));
-for (const handler of collector.handlers.get('message_end')) await handler(event, context);
+assert.equal(existsSync(logs), false, 'Missing control must not start a writer');
+writeFileSync(control, JSON.stringify({ protocol: 1, enabled: true }));
+for (let i=0; i<3; i++) {
+  const message = { ...event.message, usage: { ...event.message.usage, cost: { total: i === 0 ? 0.125 : 0 } } };
+  for (const handler of collector.handlers.get('message_end')) handler({message}, context);
+  entries.set('entry-'+i, {type:'message', id:'entry-'+i, parentId:leaf, message}); leaf='entry-'+i;
+}
 for (const handler of collector.handlers.get('session_shutdown')) await handler({}, context);
-const text = readFileSync(join(dataDir, 'history/events-v1.jsonl'), 'utf8');
-assert.equal(JSON.parse(text.trim()).totalTokens, 3);
-assert.equal(text.includes('sentinel'), false, 'No message/tool/credential content may be stored');
-console.log('Isolated Pi public extension loader: packaged asset and unrelated extension loaded. Runtime:', process.versions.node);
+const text = readFileSync(logs, 'utf8');
+const records = text.trim().split('\n').map(line => JSON.parse(line));
+assert.equal(records.length, 3);
+assert.equal(new Set(records.map(row => row.eventId)).size, 3);
+assert.deepEqual(records.map(row => row.capturedCost), [0.125, null, null]);
+assert.ok(records.every(row => row.occurredAt === '2009-02-13T23:31:30.000Z' && row.totalTokens === 3));
+const confirmations = readFileSync(join(dataDir, 'history/confirmations-v1.jsonl'), 'utf8');
+assert.equal(confirmations.trim().split('\n').length, 3);
+assert.equal((text + confirmations).includes('sentinel'), false, 'No message/tool/credential content may be stored');
+writeFileSync(control, JSON.stringify({ protocol: 1, enabled: false }));
+for (const handler of collector.handlers.get('message_end')) await handler(event, context);
+assert.equal(readFileSync(logs, 'utf8'), text);
+console.log('Actual packaged writer: serialized capture, original time/price, missing prices, object-identity confirmation, pause, and shutdown draining passed.');

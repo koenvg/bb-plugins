@@ -85,4 +85,25 @@ describe("bounded selected-host history routing", () => {
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
     await harness.lifecycle.dispose();
   });
+  it("routes explicit controls with strict selected-host guards and excludes late results", async()=>{
+    let finish!:(value:unknown)=>void, start!:()=>void;
+    const delayed=new Promise(resolve=>{finish=resolve;}),entered=new Promise<void>(resolve=>{start=resolve;});
+    const harness=await setup(async({hostId,method})=>{expect(hostId).toBe("host_a");expect(method).toBe("collectorControl");start();return delayed;});
+    for(const action of ["install","repair","pause","resume"]) expect(await harness.behavior.callRpc("collectorControl",{hostId:"host_a",generation:0,action})).toMatchObject({reason:"no-selection"});
+    const selected=await harness.behavior.callRpc("selectHost",{hostId:"host_a"}) as {generation:number};
+    expect(await harness.behavior.callRpc("collectorControl",{hostId:"host_b",generation:selected.generation,action:"install"})).toMatchObject({reason:"foreign-host"});
+    await expect(harness.behavior.callRpc("collectorControl",{hostId:"host_a",generation:selected.generation,action:"delete",filename:"/secret"})).rejects.toThrow();
+    const pending=harness.behavior.callRpc("collectorControl",{hostId:"host_a",generation:selected.generation,action:"install"});await entered;
+    await harness.behavior.callRpc("selectHost",{hostId:"host_b"});finish(readiness);
+    expect(await pending).toMatchObject({reason:"selection-changed"});expect(harness.experimental_hostRpcCalls[0]?.signal?.aborted).toBe(true);
+    await harness.lifecycle.dispose();
+  });
+  it("does not dispatch queued controls after cancellation or disposal during enrollment",async()=>{
+    const harness=await setup();const selected=await harness.behavior.callRpc("selectHost",{hostId:"host_a"}) as {generation:number};
+    let finish!:()=>void,start!:()=>void;const delayed=new Promise<void>(resolve=>{finish=resolve;}),entered=new Promise<void>(resolve=>{start=resolve;});
+    harness.inspection.sdk.stub("hosts.get",async()=>{start();await delayed;return makeHostResponse({id:"host_a"});});
+    const pending=harness.behavior.callRpc("collectorControl",{hostId:"host_a",generation:selected.generation,action:"repair"});await entered;
+    await harness.lifecycle.dispose();finish();expect(await pending).toMatchObject({reason:"selection-changed"});
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
 });

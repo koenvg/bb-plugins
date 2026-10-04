@@ -2,7 +2,7 @@
 export type SqlValue = string | number | bigint | null | Uint8Array;
 export interface HistoryDatabase {
   exec(sql: string): void;
-  prepare(sql: string): { get(...values: SqlValue[]): unknown; run(...values: SqlValue[]): unknown };
+  prepare(sql: string): { get(...values: SqlValue[]): unknown; all(...values: SqlValue[]): unknown[]; run(...values: SqlValue[]): unknown };
   close(): void;
   transaction<T>(work: () => T): T;
 }
