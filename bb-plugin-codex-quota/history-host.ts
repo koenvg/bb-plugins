@@ -10,10 +10,13 @@ import { collectionView, initializeHistory, historyObserved } from "./history-pr
 
 import type { IdentityBatch } from "./identity-contract.js";
 import { initializeIdentityStorage, acceptIdentityBatch, reconcileIdentity, identityView } from "./identity-storage.js";
+import { createImportOperation, type ImportContext } from "./import-host.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
 export type HistoryReadContext = { signal: AbortSignal; dataDir: string; identities?: IdentityBatch };
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
   control(action: CollectorAction, context: HistoryReadContext): Promise<HistoryReadiness>;
+  controlImport?(command: ImportCommand, context: ImportContext): Promise<ImportView>;
 }
 type Dependencies = {
   storage?: () => Promise<HistoryDatabaseFactory | null>; agentDir?: () => string;
@@ -25,7 +28,10 @@ const missing = (error: unknown) => !!error && typeof error === "object" && "cod
 export function createHostHistory(deps: Dependencies = {}): HostHistory {
   let queue = Promise.resolve<unknown>(null);
   const agent = deps.agentDir ?? getAgentDir;
-  const serialize = (work: () => Promise<HistoryReadiness>) => {
+  const importOperation = createImportOperation({ storage: deps.storage, now: deps.now, bodyRead: deps.bodyRead });
+  const importControllers = new Map<string, AbortController>();
+  const importEpochs = new Map<string, number>();
+  const serialize = <T>(work: () => Promise<T>) => {
     const result = queue.then(work); queue = result.catch(() => null); return result;
   };
   async function perform({ signal, dataDir, identities }: HistoryReadContext, action?: CollectorAction): Promise<HistoryReadiness> {
@@ -58,7 +64,7 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
         await safeDirectory(directory); signal.throwIfAborted();
         const db = factory(path);
         try {
-          const initialSetup = !db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get();
+          const initialSetup = !db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get() || !db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
           if (initialSetup && action !== "install") throw Error("Collector control unavailable");
           if (initialSetup) initializeHistory(db, new Date((deps.now ?? Date.now)()).toISOString());
           await controlCollector(action, db, dataDir, agent(), new Date((deps.now ?? Date.now)()).toISOString(), signal, initialSetup);
@@ -88,13 +94,38 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
           } finally { db.close(); }
         }
         else {
-          const db = factory(path, true);
-          try { if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get()) throw Error("Collector control unavailable"); }
-          finally { db.close(); }
+          const db = factory(path);
+          try {
+            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get() && db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get()) throw Error("Collector control unavailable");
+            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='import_config'").get()) {
+              initializeIdentityStorage(db);
+              if (identities) acceptIdentityBatch(db, identities);
+              reconcileIdentity(db, signal);
+              view.attribution = identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
+            }
+          } finally { db.close(); }
         }
       }
       return view;
     } catch { return signal.aborted ? historyUnavailable("selection-changed") : { ...historyUnavailable("storage-unavailable"), storage: "unavailable" }; }
   }
-  return { read: context => serialize(() => perform(context)), control: (action, context) => serialize(() => perform(context, action)) };
+  return {
+    read: context => serialize(() => perform(context)),
+    control: (action, context) => serialize(() => perform(context, action)),
+    controlImport: (command, context) => {
+      if (command.action === "cancel" && !context.signal.aborted) {
+        importEpochs.set(context.hostId, (importEpochs.get(context.hostId) ?? 0) + 1);
+        importControllers.get(context.hostId)?.abort();
+      }
+      const epoch = importEpochs.get(context.hostId) ?? 0;
+      return serialize(async () => {
+        const controller = new AbortController();
+        if ((importEpochs.get(context.hostId) ?? 0) !== epoch) controller.abort();
+        const signal = AbortSignal.any([context.signal, controller.signal]);
+        importControllers.set(context.hostId, controller);
+        try { return await importOperation(command, { ...context, signal }); }
+        finally { if (importControllers.get(context.hostId) === controller) importControllers.delete(context.hostId); }
+      });
+    },
+  };
 }

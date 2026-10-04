@@ -15,7 +15,7 @@ export function createIdentityHistoryCall(bb:BbPluginApi, call:(hostId:string,si
     const result=await call(hostId,signal,batch?{identities:batch}:null);
     signal.throwIfAborted();
     const parsed=historyReadinessSchema.safeParse(result);
-    if(batch&&parsed.success&&parsed.data.collection?.attribution)discovery.delivered(batch);
+    if(batch&&parsed.success&&(parsed.data.collection?.attribution || parsed.data.attribution))discovery.delivered(batch);
     return result;
   };
 }

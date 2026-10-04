@@ -25,7 +25,7 @@ Keep these interfaces when integrating the sibling retention projection:
 
 ## BBP-22 import interface
 
-`recordConfirmedRelationship(db, {sessionId, providerIdentity, workspace})` is internal only. Call it only after an explicitly approved import has confined and verified a file/header on its owning host. `verifyWorkspaceAlias` accepts an owning-host `realpath` function. A successful full-path alias proof permits an import relationship to match a recorded path but never rewrites that path. Failures, unknown aliases, prefixes and basenames are not evidence. No real import is part of BBP-19.
+`recordConfirmedRelationship(db, {sessionId, providerIdentity, workspace})` is internal only. Call it only after an explicitly approved import has confined and verified a file/header on its owning host. `verifyWorkspaceAlias` accepts an owning-host `realpath` function. A successful full-path alias proof permits an import relationship to match a recorded path but never rewrites that path. Failures, unknown aliases, prefixes and basenames are not evidence. BBP-22 calls this through explicit configured-source import. No real installed import was part of BBP-19 or BBP-22 development checks.
 
 ## Validation
 

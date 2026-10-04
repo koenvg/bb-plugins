@@ -25,6 +25,7 @@ export const historyReadinessSchema = z.object({
   collector: z.enum(["compatible-v1", "missing", "incompatible", "unchecked"]),
   writer: z.enum(["unconfirmed", "observed"]),
   collection: collectionSchema.optional(),
+  attribution: attributionViewSchema.optional(),
 }).strict().refine((view) => view.state === "available"
   ? view.reason === "ok" && view.storage === "compatible" && view.collector === "compatible-v1"
   : view.state === "not-configured" ? view.reason === "not-configured" && ["compatible", "unconfigured"].includes(view.storage)

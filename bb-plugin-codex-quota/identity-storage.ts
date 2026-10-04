@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
+
 import type { HistoryDatabase } from "./history-storage.js";
+import { initializeWriterObservation } from "./history-projection.js";
 import { identityBatchSchema, confirmedRelationshipSchema, type IdentityBatch, type AttributionView } from "./identity-contract.js";
 import { resolveCandidates, type ConfirmedRelationship, type AttributionGrade } from "./identity-resolution.js";
 
 // Scalar attribution data is independent of immutable payloads and replay owners.
 export function initializeIdentityStorage(db: HistoryDatabase) {
+  initializeWriterObservation(db);
   db.exec(`CREATE TABLE IF NOT EXISTS identity_receipt (id INTEGER PRIMARY KEY CHECK(id=1), host_id TEXT, generation INTEGER NOT NULL, received INTEGER NOT NULL, complete INTEGER NOT NULL, revision INTEGER NOT NULL, backfill INTEGER NOT NULL, backfilled INTEGER NOT NULL, expected_total INTEGER, evidence_changed INTEGER NOT NULL);
     INSERT OR IGNORE INTO identity_receipt VALUES (1,NULL,0,0,0,0,0,0,NULL,0);
     CREATE TABLE IF NOT EXISTS identity_generations (generation INTEGER PRIMARY KEY, complete INTEGER NOT NULL);

@@ -12,6 +12,7 @@ import { fetchNormalizedActivity } from "./activity-fetch.js";
 import type { ActivityRead } from "./activity-contract.js";
 
 import { createHostHistory, type HostHistory } from "./history-host.js";
+import { importUnavailable } from "./import-contract.js";
 // Internal named exports let packaged tests exercise the runtime adapter and exact collector asset.
 export { openHistoryDatabase } from "./history-storage.js";
 export { packagedCollectorAsset } from "./collector-compatibility.js";
@@ -85,6 +86,13 @@ export function createQuotaHostEntry(deps: Dependencies) {
     dispose: () => activity.dispose(),
     handlers: {
       ping: async () => ({ reachable: true }),
+      historicalImport: async ({ hostId, command, knownWorkspaces }, context) => {
+        const signal = AbortSignal.any([context.signal, context.lifecycle.signal]);
+        if (signal.aborted || !history.controlImport) return importUnavailable(signal.aborted ? "selection-changed" : "unsupported");
+        const lease = command.action === "start" || command.action === "resume" ? context.experimental_retainWorker() : null;
+        try { signal.throwIfAborted(); return await history.controlImport(command, { hostId, knownWorkspaces, dataDir: context.experimental_paths.dataDir, signal }); }
+        finally { await lease?.dispose(); }
+      },
       historyReadiness: async (input, context) => history.read({
         dataDir: context.experimental_paths.dataDir,
         identities: input?.identities,
