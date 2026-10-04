@@ -27,6 +27,7 @@ jobs:
           - bb-plugin-compose-chat
           - bb-plugin-github-insight
           - bb-plugin-pr-thread-list
+          - bb-plugin-pi-subagents-provider
           - bb-plugin-tasks-plus
     defaults:
       run:
