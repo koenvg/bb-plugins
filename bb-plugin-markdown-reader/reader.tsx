@@ -50,18 +50,25 @@ export function Reader({ target, readDocument, Original, lineRange, resolveDesti
   }, [target, readDocument, refresh, fallback]);
 
   if (fallback) return <Original />;
+  const filenameStart = Math.max(target.path.lastIndexOf("/"), target.path.lastIndexOf("\\")) + 1;
+  const filename = target.path.slice(filenameStart) || target.path;
+  const directory = target.path.slice(0, filenameStart);
   const { result, snapshot, loading } = state;
   return <section ref={root} className="markdown-reader" aria-label="Markdown Reader">
     <header className="mr-toolbar">
-      <div className="mr-path" title={target.path}>{target.path}</div>
+      <div className="mr-identity" role="group" aria-label={target.path} title={target.path}>
+        <span className="mr-filename">{filename}</span>
+        {directory && <span className="mr-path">{directory}</span>}
+      </div>
       <div className="mr-controls" role="group" aria-label="Document controls">
         <div className="mr-view-controls" role="group" aria-label="Document view">
           <Button variant="ghost" aria-pressed={view === "preview"} onClick={() => setView("preview")}>Preview</Button>
           <Button variant="ghost" aria-pressed={view === "raw"} onClick={() => setView("raw")}>Raw</Button>
         </div>
-        {view === "preview" && !!model?.headings.length && <Button variant="ghost" aria-pressed={showOutline} onClick={() => setShowOutline(show => !show)}>Outline</Button>}
-        <Button variant="ghost" onClick={() => setRefresh(n => n + 1)}>Refresh</Button>
-        <Button variant="ghost" onClick={() => setFallback(true)}>Open in BB preview</Button>
+        <div className="mr-reader-actions" role="group" aria-label="Reader actions">
+          {view === "preview" && !!model?.headings.length && <Button variant="ghost" aria-pressed={showOutline} onClick={() => setShowOutline(show => !show)}>Outline</Button>}
+          <Button variant="ghost" onClick={() => setRefresh(n => n + 1)}>Refresh</Button>
+        </div>
       </div>
     </header>
     <div className="mr-content">
@@ -71,6 +78,7 @@ export function Reader({ target, readDocument, Original, lineRange, resolveDesti
         {snapshot && <p>Refresh failed. Showing stale snapshot.</p>}
         <p>{result.message}</p>
         <Button variant="outline" onClick={() => setRefresh(n => n + 1)}>Retry</Button>
+        <Button variant="outline" onClick={() => setFallback(true)}>Open in BB preview</Button>
       </div>}
       {snapshot && (view === "raw"
         ? <RawDocument sourceLines={model!.sourceLines} request={lineRange} panel={root} />

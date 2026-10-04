@@ -338,3 +338,109 @@ Before these evidence-only edits, HEAD, branch, the complete paused diff and all
 Finalization changes only this acceptance record and the ticket evidence in OpenSpec tasks. Applicable final checks cover strict OpenSpec validation, scoped files, dependency/lock agreement, unchanged collection integration, preserved historical acceptance, evidence-only continuation, capture identity and tracked/untracked whitespace. Commands, exact results, commit, clean-worktree and task receipts are in the external `final-handoff.md` and matching final evidence files. Full tests, clean install, typecheck, SDK check, build and browser runners are not rerun because no executable, dependency, test, CSS or runtime-configuration bytes changed after the reviewed passing state. Their earlier results and limits remain as recorded above.
 
 The owned fixture listener was verified in this worktree and stopped; port 4173 has no remaining listener. Browser runners closed their browsers. Installed/native acceptance remains pending under BBP-32. BBP-26 remains in progress.
+
+# BBP-32 assembled acceptance
+
+## Scope and evidence types
+
+Owner `thr_dpkwwej5k4` verified clean entry HEAD `961313c81d165e856d2fb387a1d5e1e529f6012f` on `bb/bbp-26-markdown-reader-thr_e4syayprwm`. The completion-review fixed point is the full epic baseline `3425edb839388a72fe8ac5ac5240cc573b8372b8`. This ticket changes reader documentation and the directly required OpenSpec checklist. No executable, test, dependency, CSS, or collection bytes change. All previous acceptance text remains an exact historical prefix, including BBP-29/30 REQUEST CHANGES verdicts and their separate owner fixes.
+
+Durable evidence is under `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/`. The external `final-handoff.md` records final gate status, the sole review and native lifecycle evidence, attached artifacts, and any remaining work. Test seams are not interchangeable:
+
+- Source and rendered-reader tests use controlled adapters and the public frontend harness.
+- Browser fixtures exercise the real registered reader with synthetic RPC/image responses and native-opening callbacks.
+- Installed RPC and asset checks exercise the actual local host through the public SDK.
+- Owned desktop checks exercise the installed plugin in the real BB UI.
+- Current-theme measurements certify only the measured current theme. Fixture token changes do not certify other installed themes.
+
+## Package and fixture checks
+
+Entry and final package checks pass. Final commands are `npm ci`, `npm test -- --no-cache`, `npm run typecheck`, `bb plugin types . --check`, and `bb plugin build`, serialized in the reader package. The suite has 221 passing tests in 10 files. Clean installation reports zero audit vulnerabilities. The command runtime is Node 24.15.0 and npm 11.12.1, matching the collection's Node 24 policy. See `entry-*.log` and `final-{ci,tests,typecheck,sdk,build}.log`.
+
+All five committed browser runners pass: original controls/rendering, refresh failure, navigation, destinations, and presentation. Runs use the existing cached default Playwright Chromium through `uv run --offline --with playwright python`. The owned Vite fixture returned HTTP 200 before browser execution. See `fixture-readiness.txt`, `early-presentation.log`, `final-{original,refresh,navigation,destinations,presentation}.log`, and their matching capture/result directories.
+
+Together these checks cover all three source identities, explicit host/root routing, source races and late-result suppression, empty/error/size/text limits, immutable Raw with CRLF/frontmatter/code spaces, repeated inclusive line requests, GFM and inactive HTML, duplicate/deep/heading-free outlines, reader-local fragments/footnotes, safe/inert destinations, image refresh/expiry/cleanup, and bound Original. Highlighting tests retain the 20 KiB UTF-8 guard before tokenization, explicit grammar/alias policy, unchanged compact JSON/whitespace, and readable plain fallback. These automated results are not proof of native modifiers or an unavailable remote host.
+
+## Final visual inspection
+
+The early 760-light top/code captures and all 16 final top/code captures were inspected against the approved HTML spacing/type reference. The centered prose, section rhythm, quiet toolbar, bounded code/table regions, and wide outline agree with that reference. At 390 px, the toolbar wraps and the outline uses a disclosure. A 390 px reader inside a 1440 px viewport retains this compact layout without changing adjacent fixture styles. Code remains exact and scrolls locally rather than widening the reader. Long headings remain readable. No report badges or source metadata are invented.
+
+| Controlled fixture | Reader/prose width | Body contrast | Minimum highlighted-token contrast |
+| --- | --- | --- | --- |
+| Default light, 390/760/1440 px | 390/342, 760/680, 1440/720 px | 12.63:1 | 7.04:1 |
+| Default dark, 390/760/1440 px | 390/342, 760/680, 1440/720 px | 10.14:1 | 8.31:1 |
+| Custom tokens, 760 px | 760/680 px | 11.66:1 | 5.77:1 |
+
+All measured body contrasts exceed 4.5:1. The nine-case runner also checks keyboard activation/focus, local horizontal scrolling, image proportions, exact Raw, and view/outline/model state across token and width changes. Token provenance and fixture limits remain in `tests/fixtures/theme-tokens.md`. `final-presentation/results.json` contains capture SHA-256 values, geometry, contrast samples, and bounded browser diagnostics. The early and final 760-light top captures are byte-identical. These images are fixture evidence, not installed light/dark certification.
+
+## Approved local installation and actual host transport
+
+The parent's `BBP-32-install-approval.md` records the operator's permission to install only the local reader leaf for testing, then restore its pre-test state. The prestate confirmed no reader installation. Opener preferences and relevant settings were recorded without secrets. The built package was installed with `bb plugin install path:<approved-reader-package> --yes --json`. Receipt ID `markdown-reader`, version 0.1.0, and source/root matched the approved worktree leaf. No collection or marketplace package was installed. See `plugin-prestate.json`, `desktop-opener-prestate.json`, `desktop-files-prestate.json`, and `install.json`.
+
+`live-transport.mjs` and `live-transport-results.json` record installed RPC calls for workspace, absolute-host, and actual-thread-storage files. All return exact text/hash on `host_dt6w76k4w8` with the correct confined root. Thread storage uses the actual owner thread's storage location. For each source, a safe raster asset GET returns HTTP 200 with the exact PNG. An owned outside-root symlink image request returns HTTP 400 without the PNG; a confined document read rejects without delivering the benign outside marker. Lexical unsafe destinations remain rejected. Confined attempts and root leases before host-side rejection are allowed by the approved contract. No stronger native file-link symlink guarantee or transfer/image-size cap is claimed.
+
+This is actual local-host transport. Only this host was connected. Controlled remote-identity tests pass, but no remote-host live result is claimed.
+
+## Installed BB UI and rollback
+
+An owned desktop automation session exercised real workspace and actual-thread-storage previews in BB. It verified exact Raw, two repeated line-10 requests with focus/highlight and one resource read, local duplicate-fragment focus, ordinary sibling-file opening, explicit Refresh after an owned change, stale content after a missing-file refresh, Retry recovery, and bound Original. The later settled one-off Open with result confirms Markdown Reader opens the sibling with opener preferences unchanged. Earlier inconclusive menu/selector observations are preserved, not treated as passes. See `live-ui-{raw,line-1,line-2,sibling-click,refresh,refresh-failure,retry,original,storage-source,one-off-complete}.json`.
+
+The current installed-theme measurement reports a 466 px reader and 418 px prose column, 15 px system-font body text, and 14.55:1 body contrast. Unsafe links are inert, active document HTML is absent, the safe image loads, and denied-image text remains readable. The duplicate fragment focuses locally without a URL hash change. `live-ui-current-theme.json` and the inspected `live-current-theme.jpg` record this measurement. It does not certify other installed themes.
+
+Before rollback, the source was rechecked. Only `markdown-reader` was disabled and removed. Settled native fallback was verified while disabled. The final plugin list confirms the reader is absent and other plugin source/enabled states are unchanged. The worktree source remains. Only the three owned fixture preview tabs were removed with revision-checked updates. The owned desktop session was closed; owned workspace/storage/tmp fixtures were deleted; the owned Vite listener was stopped. See `pre-rollback-source.json`, `disable.json`, `live-ui-disabled-settled.json`, `remove.json`, `plugin-restored.json`, `tabs-before-cleanup.json`, `tabs-cleanup.json`, `desktop-close.json`, `owned-fixture-cleanup.txt`, and `fixture-stop.txt`.
+
+No persistent opener/global theme change, unrelated plugin mutation, BB/provider/SDK repair or restart, publication, push, or PR occurred.
+
+## Preserved failures and remaining gates
+
+Browser-use doctor/open could not find a local browser path. Its owned session was closed. The cached default Playwright run then passed without installing or repairing a browser. Desktop script syntax, stale refs, and timing failures remain in the evidence directory alongside successful fresh-snapshot/readiness recovery. No failed observation is relabeled as a pass.
+
+Native `bb thread open` rejected the outside-workspace absolute-host fixture with `Absolute path must be inside the target thread workspace or BB_THREAD_STORAGE.` Direct installed host RPC succeeds, but that is not an absolute-host native UI pass. No private opening route or permission bypass was used.
+
+Required installed/native checks remain open: native modifier behavior, actual native URL opening, and the outside-workspace absolute-host UI route. Modifier/URL checks were not exercised and need a further owned native test run. The host UI case needs a supported public opening route or operator-supplied owned preview. Other installed themes and remote hosts are untested limits, not certified results. The sole full-epic review is recorded below. Code approval does not close these native acceptance gaps. BBP-32 stays in progress, no completion commit is permitted while its acceptance gate is open, and BBP-26 stays in progress.
+
+## Sole full-epic review and acceptance hold
+
+Fresh read-only async delegate `a68e18da-e136-4144-8da7-04ac1e5b538f` reviewed all 60 changed files against `3425edb839388a72fe8ac5ac5240cc573b8372b8`, including all five prior reader commits and the four current documentation edits. It used the global review skill and inherited `openai-codex/gpt-6.1-sol`. No second reviewer, resume, retry, model change, or BBP-31 waiver was used.
+
+The runtime-bound full report is `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/completion-review.md`. Its original verdict is **APPROVE CODE; HOLD ACCEPTANCE AND MERGE**. No blocking code/maintainability findings or required structural fixes were found. Acceptance finding A1 remains unresolved: native modifiers, native URL opening, and outside-workspace absolute-host UI opening must still be verified. The owner accepts this finding and leaves completion, commit, and merge on hold. No waiver is claimed.
+
+The reviewer independently reran all 221 tests, strict typecheck, and SDK compatibility. It verified full-epic whitespace, package/lock agreement, exact historical prefix, all 16 capture hashes, early/final identity, restored plugin receipts, and unchanged review-boundary hashes. It inspected the approved HTML, final captures, current-theme capture, and saved clean-install/build/OpenSpec/browser/live receipts. Four expected jsdom navigation warnings do not prove native modifier behavior.
+
+Native state is complete. The runner terminal is observed with exit 0; the review step also records exit 0. The last reviewer tool sent the owner-only notice with documented positional `bb thread tell` text. Its receipt confirms `ok: true` and `delivery: sent`. Review approval comes from the full saved report and runtime result, not the notice alone. Exact status, events, process-terminal, output, runner logs, and reviewer session are preserved under `review-native/` in the evidence directory. Final affected documentation/OpenSpec, scope/lock/collection/history/capture, and whitespace checks are recorded in the handoff. Full package/browser checks need no additional rerun for these evidence-only notes. OpenSpec 6.4 remains open for unresolved A1; 6.5 remains open for native acceptance.
+
+
+## BBP-32 A1 continuation — acceptance still open (2026-10-04)
+
+This continuation uses separate evidence under `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/a1-resolution/`. The original full report, native review records, held evidence bundle, and verdict above are unchanged. No second review or waiver was used. No executable package code changed.
+
+The approved local reader leaf was temporarily installed again after typecheck, SDK compatibility, and build passed. The public revision-checked `bb thread tabs show/set` route accepted an outside-workspace `host-file-preview` with explicit `host_dt6w76k4w8`. A registered `file-opener:markdown-reader` panel used a matching host owner and `PluginFileOpenerSource` descriptor. The installed BB UI displayed the absolute path and owned heading. Its actual `read_document` and `resolve_destinations` requests carried `kind: host`, the owner thread, and `experimental_hostId: host_dt6w76k4w8`; no workspace/storage source was substituted. Raw matched all 394 characters and SHA-256 `4265540d4655aaa2a8e22a868c170529007dc882250f3c88df24f9aa6446f406`. See `reader-host-tab-descriptor.json`, `reader-host-open-receipt.json`, `host-reader-verified.json`, and `host-raw-verified.json`. This proves registered-opener host-source rendering, not merely a direct RPC or accepted descriptor. The conventional built-in host preview showed a pending body; it is not marked as a completed Original check. The earlier `bb thread open` restriction remains in the historical record.
+
+Actual mouse/keyboard input exercised ordinary HTTP URL activation and Mac Meta-clicks on the HTTP URL and host sibling link. DOM observations recorded `isTrusted: true`, correct modifier bits, the absolute source path, and each native href. Neither URL action produced an observed destination page or fixture GET. Neither modifier action produced an observed new page or source-reader change. The desktop's public native-browser list showed only the two owned hidden automation-profile tabs. These are failed/inconclusive destination checks, not acceptance passes. The cause is not established. See `native-actions-synced-result.json`, `native-modifier-result.json`, `native-browser-after-meta-valid.json`, and `url-server-hits.json`. Temporary screenshot paths are not claimed as durable new visual evidence.
+
+The first owned session expired and was replaced through the same public desktop backend/host/instance, without changing profiles to a personal browser, repairing services, or changing permissions. Snapshot truncation, the ambiguous one-argument `thread open` attempt, public CLI option failures, and initial readiness failures remain recorded. Only the owned failed file tab and two owned host-preview/opener tabs were removed with a fresh revision. Both owned automation sessions were closed and the owned fixture server was stopped. The reader's exact source was checked before disable/removal. Original plugin source/enabled entries stayed unchanged. An unrelated `pi-subagents-provider` installation appeared during the check and was left intact; whole-list equality is not falsely claimed. Saved manual fixture assets are retained; the active temporary fixture is removed after capture. See the restoration/cleanup receipts.
+
+`MANUAL-CHECK.md`, `manual-start-fixture.mjs`, and `manual-open-host.mjs` provide the supported actual-BB-window check with a fresh owned outside-workspace host file and benign URL. Native modifier destination behavior and actual native URL opening remain unverified. A1 and OpenSpec 6.4/6.5 stay open; BBP-32 remains attached/in progress, BBP-26 remains in progress, and completion/commit/merge stay on hold. No persistent opener/theme change, production repair, publication, push, or PR was made.
+
+## BBP-32 user UI correction — held (2026-10-04)
+
+Koen authorized only list-marker and header corrections. Separate evidence is under `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/user-ui-correction/`. The original full-epic report, native review records, evidence bundle and all acceptance history above are preserved. No new reviewer was launched. The original APPROVE CODE; HOLD ACCEPTANCE AND MERGE verdict remains binding; it does not claim review coverage for these later UI changes.
+
+### Test-first reproduction and correction
+
+The public registered Reader seam was agreed in the request. Before production edits, `red-reader.log` records seven failing filename, grouping and failure-fallback placement checks with 18 existing tests passing. `red-reset/results.json`, log and capture record the actual registered Reader under `ol,ul,menu { list-style:none; padding:0; margin:0; }`: ordinary/nested lists, start-7/start-12 ordered lists and generated footnotes computed no markers. Mixed task-list parents also lost indentation. Diagnosis followed reproduction: prose lacked explicit marker types, and the task-parent rule removed markers from ordinary mixed siblings.
+
+Scoped prose rules now restore native decimal/disc/nested markers. Native ordered `start` and generated footnotes are untouched; only actual task items suppress their marker. Their checkboxes remain disabled. The header now shows the actual filename and quiet directory, with complete path in its accessible name and title. Compact Preview/Raw and secondary Outline/Refresh use a desktop row and reader-width-based narrow two-row layout. Normal ready/empty/loading headers have no Original action. Failed/unsupported status retains the same SDK-bound Original beside Retry. Read effects, source/destination/image safety, Raw, SDK/core/provider code, dependencies, lockfiles and root integration are unchanged.
+
+### Checks and bounded visual inspection
+
+- `checks.json` and logs: 226 tests across 10 files, typecheck, SDK check and build passed. Source-to-reader tests retain Original delegation for unsupported data across all three source kinds, exact empty Raw without a ready Original action, Retry, stale states and transport confinement. Observer disposal and replacement-source fallback still pass through failed states.
+- All six browser runners passed. New UI cases cover light/dark at 390/760/1440 px, long path, a 390 px reader in a wide viewport, and 200% CSS zoom. The nine-case presentation matrix and original/refresh/navigation/destination runners also passed. Initial collection failures were a test selector that assumed direct-child checkboxes and the old five-button expectation; their failures and corrections are retained. No production UI change followed them.
+- One grouped visual inspection covered all eight new list/header captures plus five representative report/code/custom captures. Markers, ordered 7/8 and ordinary mixed ordered 13, nested indentation, footnote 1, disabled tasks without extra bullets, filename hierarchy, separate control groups and bounded zoom/narrow layout were visible. No clear UI defect remained; no speculative polish or confirmation round was used. Geometry, capture hashes, exact Raw/focus and contrast measurements are saved. Default light/dark body contrast remains 12.63:1/10.14:1 and minimum token contrast 7.04:1/8.31:1; custom is 11.66:1/5.77:1. These are controlled fixture results, not fresh installed-theme certification.
+- Impeccable context ran once, with layout playbook and craft-floor applied. Separate before/final layout detector receipts and final affected/whitespace/OpenSpec checks are retained. A detector pass is not visual or native-I/O proof.
+
+### Installation state and remaining hold
+
+The reader was already present/enabled at this continuation's entry, supplied by the parent. The exact approved leaf source was checked immediately before the only targeted `bb plugin reload markdown-reader`. Its bundle changed from `948abd84e0b7ac97` to `6261ff27fa9c27a4`, remains running and SDK 0.5.29 compatible. Reader presence/source/enabled state is preserved. All plugin source/enabled entries match across the immediately guarded reload. An unrelated concurrent `tasks-plus` source change before that guard was observed and left unchanged; whole-list equality with entry is not claimed. The earlier absent-reader rollback is historical, not this run's restore target. No persistent opener/theme preference was changed; no BB/native browser tabs or production services were opened, repaired or restarted. The owned Vite listener and fixture browsers were stopped after use.
+
+This is a held, unstaged UI-correction handoff, not completion or native acceptance. Actual native HTTP(S) and modifier destination checks remain unverified under A1. OpenSpec 6.4/6.5 remain unchecked. BBP-32 stays attached/in progress and BBP-26 stays in progress. No completion commit, merge, publication, push or PR occurred.

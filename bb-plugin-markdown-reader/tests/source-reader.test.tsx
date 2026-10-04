@@ -79,10 +79,14 @@ describe("source to rendered reader integration", () => {
       const { slot, harness } = await mount(target, async () => response);
       await slot.findByText(message);
       fireEvent.click(slot.getByRole("button", { name: "Raw" }));
-      if (response.content === "") expect(slot.getByLabelText("Raw Markdown").textContent).toBe("");
-      else expect(slot.queryByLabelText("Raw Markdown")).toBeNull();
-      fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
-      await slot.findByText(`Original for ${target.source.kind}`);
+      if (response.content === "") {
+        expect(slot.getByLabelText("Raw Markdown").textContent).toBe("");
+        expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
+      } else {
+        expect(slot.queryByLabelText("Raw Markdown")).toBeNull();
+        fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
+        await slot.findByText(`Original for ${target.source.kind}`);
+      }
       expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
       expect(slot.inspection.navigateCalls).toHaveLength(0);
       slot.lifecycle.unmount();

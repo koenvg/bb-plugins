@@ -4,12 +4,13 @@ import pluginApp from "../app";
 import type { ReaderTarget } from "../source";
 import type { DestinationRequest, DestinationResult } from "../destination-types";
 import report from "./fixtures/presentation.md?raw";
+import lists from "./fixtures/lists.md?raw";
 import "../app.css";
 import "./preview.css";
 
 const params = new URLSearchParams(location.search);
-const target: ReaderTarget = { path: "reports/" + "long-document-title-".repeat(12) + ".md", source: { kind: "workspace", threadId: null, environmentId: "fixture", projectId: "fixture", experimental_hostId: "fixture-host" } };
-const text = params.get("headings") === "none" ? "Plain text without headings.\n\n```json\n{\"plain\":true}\n```\n" : report;
+const target: ReaderTarget = { path: params.get("path") ?? "reports/" + "long-document-title-".repeat(12) + ".md", source: { kind: "workspace", threadId: null, environmentId: "fixture", projectId: "fixture", experimental_hostId: "fixture-host" } };
+const text = params.get("headings") === "none" ? "Plain text without headings.\n\n```json\n{\"plain\":true}\n```\n" : params.get("document") === "lists" ? lists : report;
 const identity = { hostId: "fixture-host", rootPath: "/fixture", documentPath: "/fixture/" + target.path };
 document.documentElement.dataset.theme = params.get("theme") ?? "light";
 const root = document.getElementById("root")!;
@@ -41,4 +42,4 @@ const slot = renderSlot(app.fileOpeners[0]!, { ...target, Original: () => <p>Bou
 // The real file-panel slot has a definite height. Give the harness wrapper that height too.
 slot.container.style.height = "100%";
 panel.append(slot.container);
-Object.assign(window, { presentationFixture: { inspection: slot.inspection, text, panel } });
+Object.assign(window, { presentationFixture: { inspection: slot.inspection, text, panel, target } });

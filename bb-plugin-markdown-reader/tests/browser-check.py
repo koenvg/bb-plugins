@@ -65,13 +65,10 @@ with sync_playwright() as p:
         assert page.get_by_role("heading", name="Reading a workspace document").is_visible()
         assert page.get_by_role("button", name="Preview", exact=True).evaluate("e => e.matches(':focus-visible')")
         page.locator(".markdown-reader").evaluate("e => e.scrollTop = e.scrollHeight")
-        assert page.get_by_role("button", name="Open in BB preview").is_visible()
-        page.get_by_role("button", name="Open in BB preview").focus()
-        page.keyboard.press("Enter")
-        assert page.get_by_text("Bound BB preview placeholder. No plugin selection occurs.").is_visible()
+        assert page.get_by_role("button", name="Open in BB preview").count() == 0
         assert not errors, errors
         results.append({"theme": theme, "geometry": geometry, "browserErrors": errors,
-            "rawExact": True, "keyboard": True, "boundFallback": True, "localOverflow": True})
+            "rawExact": True, "keyboard": True, "readyOriginalAbsent": True, "localOverflow": True})
         page.close()
     browser.close()
 

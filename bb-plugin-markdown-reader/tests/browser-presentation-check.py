@@ -38,7 +38,7 @@ GEOMETRY = """e => {
     padding:getComputedStyle(e.querySelector('.mr-content')).padding,
     sectionAbove:h2.marginTop, sectionBelow:h2.marginBottom,
     outline:layout.dataset.outline, titleLines:prose.querySelector('h1').getBoundingClientRect().height,
-    pathTruncated:toolbar.querySelector('.mr-path').scrollWidth > toolbar.querySelector('.mr-path').clientWidth,
+    pathTruncated:toolbar.querySelector('.mr-filename').scrollWidth > toolbar.querySelector('.mr-filename').clientWidth,
     buttons:[...toolbar.querySelectorAll('button')].map(b=> {const r=b.getBoundingClientRect();return {
       name:b.textContent, width:r.width, height:r.height,
       inside:r.left>=tr.left && r.right<=tr.right && r.top>=tr.top && r.bottom<=tr.bottom};}),
@@ -112,7 +112,7 @@ with sync_playwright() as p:
                 assert float(geometry["sectionAbove"][:-2]) > float(geometry["sectionBelow"][:-2]), geometry
                 assert geometry["pathTruncated"], geometry
                 assert all(b["inside"] and b["height"] >= 36 for b in geometry["buttons"]), geometry
-                assert len(geometry["buttons"]) == 5, geometry
+                assert len(geometry["buttons"]) == 4, geometry
                 assert geometry["code"][-1]["scrollWidth"] > geometry["code"][-1]["width"], geometry
                 assert geometry["tables"][-1]["scrollWidth"] > geometry["tables"][-1]["width"], geometry
                 assert geometry["image"]["width"] <= geometry["proseWidth"], geometry
@@ -161,8 +161,7 @@ with sync_playwright() as p:
                 page.evaluate("window.savedRaw=document.querySelector('.mr-raw')")
                 page.keyboard.press("Tab")
                 focus.append(focus_proof(page.get_by_role("button", name="Refresh", exact=True)))
-                page.keyboard.press("Tab")
-                focus.append(focus_proof(page.get_by_role("button", name="Open in BB preview", exact=True)))
+                assert page.get_by_role("button", name="Open in BB preview", exact=True).count() == 0
                 # Live host tokens and actual container width do not reload or remount Raw.
                 page.evaluate("document.documentElement.dataset.theme='custom';presentationFixture.panel.style.width='390px'")
                 assert raw.text_content() == page.evaluate("presentationFixture.text")

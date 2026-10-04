@@ -113,7 +113,10 @@ describe("local heading navigation", () => {
       observe(element: Element) { observed = element; }
       disconnect = disconnect;
     });
-    const { slot } = await mount();
+    let result: ReadResult = ready(text);
+    const app = await loadPluginApp(plugin);
+    const slot = renderSlot(app.fileOpeners[0]!, props, { rpc: { read_document: () => result } });
+    await slot.findByRole("article");
     const panel = slot.getByRole("region", { name: "Markdown Reader" });
     expect(observed).toBe(panel);
     const size = (width: number) => act(() => resize([{ target: panel, contentRect: DOMRectReadOnly.fromRect({ width }), borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] }], {} as ResizeObserver));
@@ -128,9 +131,13 @@ describe("local heading navigation", () => {
     expect(slot.container.querySelector("details, aside")).toBeNull();
     fireEvent.click(slot.getByRole("button", { name: "Outline" }));
     expect(slot.container.querySelector("details")?.open).toBe(false);
+    expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
+    result = { kind: "error", message: "Read failed" };
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await slot.findByText("Read failed");
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     expect(disconnect).toHaveBeenCalledTimes(1);
-    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(1);
+    expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(2);
   });
   it.each(["", "first\r\nsecond\r\n"])("keeps empty or clamped Raw safe and clears a removed request for %j", async content => {
     const { slot, Opener } = await mount(content);
@@ -155,6 +162,10 @@ describe("local heading navigation", () => {
     await act(async () => { await Promise.resolve(); });
     expect(raw.textContent).toBe('Current\nSecond\n');
     expect(slot.inspection.rpcCalls.filter(c => c.method === "read_document")).toHaveLength(2);
+    expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    finishes[2]!({ kind: "error", message: "Replacement source read failed" });
+    await slot.findByText("Replacement source read failed");
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     expect(slot.getByText("Bound original")).toBeTruthy();
   });

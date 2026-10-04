@@ -2,16 +2,16 @@
 
 A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, bounded code highlighting, and quiet tables. BB keeps its own tabs and file-opening preferences.
 
-This package includes BBP-27 through BBP-31. It is not published or installed by this change.
+BBP-27 through BBP-31 implement this package. BBP-32 records assembled checks and a temporary, approved local installation followed by removal. The package is not published. Required native acceptance remains open; see [ACCEPTANCE.md](ACCEPTANCE.md).
 
 ## Use
 
 After an explicit installation, select Markdown Reader with BB's one-off **Open with** choice or under **File openers**. Keep BB selected there if you prefer its built-in preview. This plugin does not change those preferences.
 
-- Preview renders ordinary Markdown and GFM, including tables, read-only task lists, quotes, and fenced code.
+- Preview renders ordinary Markdown and GFM, including tables, read-only task lists, quotes, and fenced code. Native list markers remain visible under BB's reset, including ordered starts, nested lists and generated footnotes. Only task items suppress their marker; ordinary items in mixed task lists keep theirs.
 - Raw shows the complete loaded text, including frontmatter, line endings, and code spaces. It is not an editor. Switching views does not read or write the file.
 - Refresh reads the current file again and updates both views. There is no automatic file watching. During refresh, the reader labels retained content as not verified current. If refresh fails, it reports the failure and marks the retained snapshot stale. Retry reads the source again and clears that label only after success.
-- Open in BB preview renders BB's `Original` component, already bound to this file. It does not open the file again through plugin selection.
+- Failed or unsupported reads offer Open in BB preview beside Retry. It renders BB's `Original` component, already bound to this file. It does not open the file again through plugin selection.
 
 ## Heading and line navigation
 
@@ -23,7 +23,7 @@ BB's `experimental_lineRange` uses inclusive, one-based `startLineNumber` and `e
 
 Reversed integer bounds are put in order and clamped to existing lines. Invalid, fractional, non-finite, or unsafe integer bounds do not highlight lines. Empty text has nothing to highlight. Removing the request clears its highlight, not the manual view choice. Raw wraps long lines but keeps one target per source line, including the empty line after a final newline. CRLF, frontmatter, Unicode, and code spaces stay unchanged. Navigation never writes the file.
 
-The toolbar stays within the reader and wraps when the panel is narrow. Keyboard users can reach its buttons with Tab and activate them with Enter or Space. Code and tables have their own scroll regions. Appearance follows the active host tokens, not a reader theme switch.
+The header shows the actual filename above quiet directory context. Its complete path remains available by title and accessible name. Preview/Raw form one compact group; Outline and Refresh are secondary actions. Desktop readers use one header row; readers at or below 600 px use two rows, with further control wrapping if needed. Keyboard users can reach the buttons with Tab and activate them with Enter or Space. Code and tables have their own scroll regions. Appearance follows the active host tokens, not a reader theme switch.
 
 ## Supported sources and limits
 
@@ -67,7 +67,7 @@ Labels are case-insensitive. JSX, TSX, JSON5, and other unlisted labels remain p
 
 The small Refractor core bundle imports only these grammars and their required shared grammar. Code uses live host UI tokens with weight, muted comments, and subdued string underlines. It does not select a separate syntax palette or promise to reproduce BB's VS Code code-theme document. The system monospace fallback yields to the host `--font-mono` token.
 
-The toolbar, reading column, and optional outline respond to the actual reader width. Wide code and tables scroll locally. Images retain their aspect ratio. Live host token changes preserve Preview/Raw and outline state without another read or remount. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB. Whole assembled and installation-dependent acceptance remains with BBP-32.
+The toolbar, reading column, and optional outline respond to the actual reader width. Wide code and tables scroll locally. Images retain their aspect ratio. Live host token changes preserve Preview/Raw and outline state without another read or remount. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB. BBP-32 separates fixture results, installed local-host evidence, and pending native checks.
 
 ## Compatibility and local build
 
@@ -83,13 +83,22 @@ bb plugin types . --check
 bb plugin build
 ```
 
-A local installation is a separate operator action, not part of these checks:
+Local installation requires operator approval. Install only this leaf package after its checks pass:
 
 ```sh
 bb plugin install .
 ```
 
-Do not use a Git install command until the package has been published on the selected branch. Disable/remove the plugin or select BB under File openers to restore BB's built-in behavior. No settings, CLI commands, content scripts, themes, or background watchers are registered.
+Before installation, record whether the reader already exists, its source/enabled state, and the opener preferences. Confirm that the receipt points to this package. Use one-off Open with for a test; do not change a persistent default opener or global theme. Do not use a Git install command for this unpublished package.
+
+For a newly installed test reader, disable it, check BB's native fallback, then remove that exact receipt ID:
+
+```sh
+bb plugin disable <installed-id>
+bb plugin remove <installed-id>
+```
+
+Keep the source directory. If a reader was already installed, restore its recorded state instead of removing it. Recheck its source before rollback and stop if another person changed it. Selecting BB under File openers is a separate, explicit preference action. This plugin registers no settings, CLI commands, content scripts, themes, or background watchers.
 
 ## Tests and browser fixture
 
@@ -120,5 +129,7 @@ uv run --offline --with playwright python tests/browser-presentation-check.py --
 ```
 
 The server must already return HTTP 200. The runner measures 390, 760, and 1440 px panels in Default light/dark token snapshots, a custom-token variant, and a 390 px reader inside a 1440 px viewport. It checks keyboard focus/activation, local scrolling and navigation, exact Raw, live state/DOM identity, aspect ratio, body/token contrast, and adjacent fixture styles. It saves top/code captures, SHA-256 identities, geometry, bounded browser diagnostics, and measured contrast. See [token provenance and limits](tests/fixtures/theme-tokens.md). It uses synthetic RPC and image data, not live BB routing or a real source host.
+
+For the user UI corrections, run `uv run --offline --with playwright python tests/browser-ui-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-32-ui`. It adds the host list reset to the registered fixture and checks ordinary/nested lists, ordered starts, generated footnotes, mixed read-only tasks, exact Raw, accessible full-path identity, header groups, keyboard order, narrow-in-wide layout and 200% CSS zoom. Its eight captures are fixture evidence, not native-opening acceptance.
 
 All fixtures use the same Reader and MarkdownDocument modules. The older fixtures use fixed loaded sources; the presentation fixture uses the public registered-app harness. Default-token contrast measurements are controlled local checks, not installed/native-theme certification. No fixture proves live BB routing or extension preference selection. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.

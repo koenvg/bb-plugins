@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import plugin from "../app";
@@ -29,6 +29,29 @@ describe("rendered reader", () => {
     expect(app.messageDirectives).toHaveLength(0);
     await slot.findByRole("heading", { name: "Document" });
     expect(slot.inspection.rpcCalls).toEqual([{ method: "read_document", input: target }]);
+  });
+  it("keeps ready controls grouped without a normal-header Original action", async () => {
+    const { slot } = await mount(() => ready("# Document\n\n## Section"));
+    await slot.findByRole("heading", { name: "Document" });
+    expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
+    expect(within(slot.getByRole("group", { name: "Document view" })).getAllByRole("button").map(b => b.textContent)).toEqual(["Preview", "Raw"]);
+    expect(within(slot.getByRole("group", { name: "Reader actions" })).getAllByRole("button").map(b => b.textContent)).toEqual(["Outline", "Refresh"]);
+  });
+  it.each([
+    ["reports/workspace.md", "workspace.md", "reports/"],
+    ["/notes/a-very-long-document-name.md", "a-very-long-document-name.md", "/notes/"],
+    ["C:\\notes\\document.md", "document.md", "C:\\notes\\"],
+    ["note.md", "note.md", ""],
+  ])("shows the actual filename and retains complete identity for %s", async (path, filename, directory) => {
+    const input = { path, source: path.startsWith("/") || path.includes("\\") ? { ...source, kind: "host" as const } : source };
+    const app = await loadPluginApp(plugin);
+    const slot = renderSlot(app.fileOpeners[0]!, { ...input, Original: props.Original }, { rpc: { read_document: () => ({ kind: "ready", snapshot: { text: "# Identity", target: input, sha256: "hash", sizeBytes: 10, hostId: "remote", rootPath: "/notes", documentPath: path, documentDirectory: "/notes" } }) } });
+    await slot.findByRole("heading", { name: "Identity" });
+    const identity = slot.getByRole("group", { name: path });
+    expect(identity.getAttribute("title")).toBe(path);
+    expect(within(identity).getByText(filename, { exact: true })).toBeTruthy();
+    if (directory) expect(within(identity).getByText(directory, { exact: true })).toBeTruthy();
+    expect(slot.inspection.rpcCalls).toEqual([{ method: "read_document", input }]);
   });
   it("shows loading, then exact immutable read-only Raw without a view-switch read", async () => {
     let resolve!: (result: ReadResult) => void;
@@ -74,6 +97,8 @@ describe("rendered reader", () => {
   it.each(["error", "unsupported"] as const)("offers Retry and bound Original for %s without recursive navigation", async kind => {
     const { slot } = await mount(() => ({ kind, message: "Cannot read this document." }));
     await slot.findByText("Cannot read this document.");
+    expect(slot.container.querySelector(".mr-toolbar")?.textContent).not.toContain("Open in BB preview");
+    expect(within(slot.getByRole("alert")).getByRole("button", { name: "Open in BB preview" })).toBeTruthy();
     expect(slot.getByRole("button", { name: "Retry" })).toBeTruthy();
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     await slot.findByText("Bound original for note.md");
@@ -191,18 +216,17 @@ describe("rendered reader", () => {
     await waitFor(() => expect(slot.queryByRole("heading", { name: "Old refresh" })).toBeNull());
     expect(slot.getByRole("heading", { name: "Latest" })).toBeTruthy();
   });
-  it("discards pending refresh results on fallback and unmount", async () => {
+  it("keeps Original unavailable during refresh and discards late results after unmount", async () => {
     let finish!: (r: ReadResult) => void;
     let reads = 0;
     const { slot } = await mount(() => ++reads === 1 ? ready("# First") : new Promise(resolve => { finish = resolve; }));
     await slot.findByRole("heading", { name: "First" });
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
-    fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
-    await slot.findByText("Bound original for note.md");
+    expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
+    slot.lifecycle.unmount();
     finish(ready("# Late refresh"));
     await Promise.resolve();
     expect(slot.queryByRole("heading", { name: "Late refresh" })).toBeNull();
-    slot.lifecycle.unmount();
     expect(slot.inspection.rpcCalls).toHaveLength(2);
     expect(slot.inspection.navigateCalls).toHaveLength(0);
   });
