@@ -73,8 +73,8 @@ try {
   assert.equal(repaired.collection.firstObservedAt, firstBoundary);
   assert.equal(repaired.collection.enabled, false);
   // Lower UUID replay keeps the first owner. Conflicting values are excluded, not selected by UUID.
-  const eventLog = join(dataDir, 'history/events-v1.jsonl');
-  const confirmationLog = join(dataDir, 'history/confirmations-v1.jsonl');
+  const eventLog = join(dataDir, `history/events-v1-${new Date().toISOString().slice(0,10)}.jsonl`);
+  const confirmationLog = join(dataDir, `history/confirmations-v1-${new Date().toISOString().slice(0,10)}.jsonl`);
   const original = JSON.parse(readFileSync(eventLog,'utf8').split('\n')[0]);
   const binding = readFileSync(confirmationLog,'utf8').trim().split('\n').map(line=>JSON.parse(line)).find(row=>row.eventId===original.eventId);
   const { appendFileSync, unlinkSync } = await import('node:fs');
@@ -104,6 +104,26 @@ try {
   // Reload the copied self-contained module and verify durable source progress/totals.
   const reopened = await import(pathToFileURL(artifact).href + '?reload=1');
   assert.equal((await reopened.default.handlers.historyReadiness(null, context)).collection.workspaces[0].totalTokens, 6);
+  // Retention/recovery proof uses only owned persistent fixture data, never installed user storage.
+  const oldTime=new Date(Date.now()-60*86400000).toISOString();
+  const oldId='00000000-0000-4000-8000-000000000123';
+  appendFileSync(eventLog,JSON.stringify({...original,eventId:oldId,sessionId:'retained-session',workspace:'/retained-original',occurredAt:oldTime,totalTokens:17,capturedCost:0.321})+'\n');
+  const retained=await reopened.default.handlers.historyReadiness(null,context);
+  assert.equal(retained.collection.workspaces.find(row=>row.workspace==='/retained-original').totalTokens,17);
+  let retainedDb=await bundled.openHistoryDatabase(path,true);
+  assert.equal(retainedDb.prepare('SELECT count(*) AS n FROM usage_events WHERE event_id=?').get(oldId).n,0);
+  assert.equal(retainedDb.prepare('SELECT captured_cost FROM usage_compact WHERE event_id=?').get(oldId).captured_cost,0.321);
+  const owner=retainedDb.prepare('SELECT recorded_host FROM usage_compact WHERE event_id=?').get(oldId).recorded_host;
+  retainedDb.close();
+  writeFileSync(path,'confirmed-corrupt-fixture');writeFileSync(path+'-wal','fixture-sidecar');
+  const recovered=await reopened.default.handlers.historyReadiness(null,context);
+  assert.equal(recovered.health.state,'recovered');assert.equal(recovered.health.recoveryGaps.length,1);
+  assert.equal(recovered.collection.workspaces.some(row=>row.workspace==='/retained-original'),false,'Expired detail sources are not permitted recovery input');
+  const quarantine=readdirSync(join(dataDir,'history')).find(name=>name.startsWith('quarantine-'));
+  assert.equal(readFileSync(join(dataDir,'history',quarantine,'usage-v1.sqlite-wal'),'utf8'),'fixture-sidecar');
+  retainedDb=await bundled.openHistoryDatabase(path,true);
+  assert.equal(retainedDb.prepare('SELECT host_key FROM history_owner WHERE id=1').get().host_key,owner);retainedDb.close();
+  console.log('Packaged BBP-23: expired classes absent, compact original tokens/cost/host retained, confirmed corruption and sidecar quarantine, retained-source-only rebuild and lost interval passed.');
   console.log('Packaged host controls and real persistent reconciliation/reload passed. Synthetic only; live capture is not proved.');
 } finally {
   globalThis.fetch = previousFetch;

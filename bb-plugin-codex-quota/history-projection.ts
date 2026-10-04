@@ -1,9 +1,10 @@
 import type { HistoryDatabase } from "./history-storage.js";
 import type { HistoryReadiness } from "./history-contract.js";
 import type { parseCompact } from "./usage-record.js";
+import { createRetentionSchema, insertCompact, digest, retentionState, type CompactRow } from "./history-retention.js";
 
 type CompactRecord = NonNullable<ReturnType<typeof parseCompact>>;
-type EventRow = { event_id: string; session_id: string; workspace: string; total: number; payload: string; accepted: number; confirmed: number };
+type EventRow = CompactRow;
 type Binding = { session_id: string; entry_id: string };
 type Owner = { event_id: string; evidence: string; conflicted: number };
 
@@ -23,6 +24,7 @@ export function initializeHistory(db: HistoryDatabase, firstObservedAt: string) 
       PRAGMA user_version = 1;`);
     db.prepare("INSERT OR IGNORE INTO collector_meta VALUES (1, ?)").run(firstObservedAt);
     db.prepare("INSERT OR IGNORE INTO history_counters VALUES (1,0,0,0,0,0)").run();
+    createRetentionSchema(db, false);
   });
 }
 export function recordPause(db: HistoryDatabase, now: string) {
@@ -32,7 +34,7 @@ export function recordPause(db: HistoryDatabase, now: string) {
   });
 }
 function eventRow(db: HistoryDatabase, id: string): EventRow | undefined {
-  return db.prepare("SELECT * FROM usage_events WHERE event_id=?").get(id) as EventRow | undefined;
+  return db.prepare("SELECT * FROM usage_compact WHERE event_id=?").get(id) as EventRow | undefined;
 }
 function adjustWorkspace(db: HistoryDatabase, row: EventRow, direction: number) {
   db.prepare(`INSERT INTO workspace_totals VALUES (?,?,?) ON CONFLICT(workspace) DO UPDATE SET
@@ -46,6 +48,7 @@ function exclude(db: HistoryDatabase, id: string) {
   if (!row?.accepted) return;
   adjustWorkspace(db,row,-1);
   db.prepare("UPDATE usage_events SET accepted=0 WHERE event_id=?").run(id);
+  db.prepare("UPDATE usage_compact SET accepted=0 WHERE event_id=?").run(id);
 }
 function quarantine(db: HistoryDatabase, id: string) {
   db.prepare("INSERT OR IGNORE INTO usage_conflicts VALUES (?)").run(id);
@@ -59,34 +62,33 @@ function conflictOwner(db: HistoryDatabase, binding: Binding, owner: Owner) {
   quarantine(db,owner.event_id);
 }
 // Claims and optional file-key availability do not establish usage ownership or values.
-function evidence(payload: string) {
-  const { eventId: _id, claimedThreadId: _claim, providerSessionKey: _file, ...values } = JSON.parse(payload);
-  return JSON.stringify(values);
-}
+function ownerEvidence(value: string) { return value.startsWith("{") ? digest(value) : value; }
 function invalid(db: HistoryDatabase) { db.prepare("UPDATE history_counters SET invalid_records=invalid_records+1 WHERE id=1").run(); }
 function resolveBinding(db: HistoryDatabase, row: EventRow, binding: Binding) {
   if (binding.session_id !== row.session_id) { invalid(db); quarantine(db,row.event_id); return; }
   if (!row.confirmed) {
     db.prepare("UPDATE usage_events SET confirmed=1 WHERE event_id=?").run(row.event_id);
+    db.prepare("UPDATE usage_compact SET confirmed=1 WHERE event_id=?").run(row.event_id);
     db.prepare("UPDATE history_counters SET unconfirmed_events=unconfirmed_events-1 WHERE id=1").run();
   }
   const owner = db.prepare("SELECT event_id,evidence,conflicted FROM usage_entry_owners WHERE session_id=? AND entry_id=?").get(binding.session_id,binding.entry_id) as Owner | undefined;
   if (!owner) {
     // The first ingested confirmed capture owns this entry permanently, regardless of UUID order.
-    db.prepare("INSERT INTO usage_entry_owners VALUES (?,?,?,?,?)").run(binding.session_id,binding.entry_id,row.event_id,evidence(row.payload),row.accepted ? 0 : 1);
+    db.prepare("INSERT INTO usage_entry_owners VALUES (?,?,?,?,?)").run(binding.session_id,binding.entry_id,row.event_id,row.evidence,row.accepted ? 0 : 1);
     if (!row.accepted) db.prepare("UPDATE history_counters SET conflicting_entries=conflicting_entries+1 WHERE id=1").run();
     return;
   }
   if (owner.event_id === row.event_id) return;
   exclude(db,row.event_id);
-  if (owner.evidence !== evidence(row.payload)) conflictOwner(db,binding,owner);
+  if (ownerEvidence(owner.evidence) !== row.evidence) conflictOwner(db,binding,owner);
 }
 /** Called only inside the source/progress transaction. No report-time replay decisions. */
 export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord) {
   if ("workspace" in record) {
-    const prior = eventRow(db,record.eventId), payload = JSON.stringify(record);
+    const prior = eventRow(db,record.eventId), payload = JSON.stringify(record), retention = retentionState(db);
+    if (!prior && (record.occurredAt < retention.compact_cutoff || db.prepare("SELECT event_id FROM usage_expired WHERE event_id=?").get(record.eventId))) return;
     if (prior) {
-      if (prior.payload !== payload) {
+      if (prior.digest !== digest(payload)) {
         invalid(db); quarantine(db,prior.event_id);
         const binding = db.prepare("SELECT session_id,entry_id FROM usage_confirmations WHERE event_id=?").get(prior.event_id) as Binding | undefined;
         if (binding) {
@@ -97,7 +99,9 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
       return;
     }
     const accepted = db.prepare("SELECT event_id FROM usage_conflicts WHERE event_id=?").get(record.eventId) ? 0 : 1;
-    db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,?,0)").run(record.eventId,record.sessionId,record.workspace,record.totalTokens,payload,accepted);
+    insertCompact(db,payload,accepted,0);
+    if (record.occurredAt >= retention.detail_cutoff) db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,?,0)").run(record.eventId,record.sessionId,record.workspace,record.totalTokens,payload,accepted);
+    else db.prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?").run(record.eventId);
     db.prepare("UPDATE history_counters SET observed_events=observed_events+1,unconfirmed_events=unconfirmed_events+1 WHERE id=1").run();
     const row = eventRow(db,record.eventId)!;
     if (accepted) adjustWorkspace(db,row,1);

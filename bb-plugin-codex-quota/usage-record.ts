@@ -16,7 +16,7 @@ export function parseCompact(line: string, confirmation: boolean) {
   try {
     const result = (confirmation ? confirmationSchema : usageRecordSchema).safeParse(JSON.parse(line));
     if (!result.success) return null;
-    if ("workspace" in result.data) result.data.workspace = normalize(result.data.workspace);
+    if ("workspace" in result.data) { result.data.workspace = normalize(result.data.workspace); result.data.occurredAt = new Date(result.data.occurredAt).toISOString(); }
     return result.data;
   } catch { return null; }
 }

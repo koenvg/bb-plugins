@@ -15,6 +15,12 @@ export const collectionSchema = z.object({
   workspaces: z.array(z.object({ workspace: z.string().min(1).max(16_384), totalTokens: count, events: count }).strict()).max(50),
   truncated: z.boolean(),
 }).strict();
+export const historyHealthSchema = z.object({
+  state: z.enum(["healthy", "maintenance", "recovered"]),
+  detailFrom: z.iso.datetime(), compactFrom: z.iso.datetime(), pending: z.boolean(),
+  recoveryGaps: z.array(z.object({ start: z.iso.datetime(), end: z.iso.datetime() }).strict()).max(1),
+  legacyLogsPending: z.boolean(),
+}).strict();
 export const historyReadinessSchema = z.object({
   state: z.enum(["available", "not-configured", "unavailable"]),
   reason: z.enum(["ok", "not-configured", "storage-unavailable", "storage-incompatible", "collector-incompatible",
@@ -23,6 +29,7 @@ export const historyReadinessSchema = z.object({
   collector: z.enum(["compatible-v1", "missing", "incompatible", "unchecked"]),
   writer: z.enum(["unconfirmed", "observed"]),
   collection: collectionSchema.optional(),
+  health: historyHealthSchema.optional(),
 }).strict().refine((view) => view.state === "available"
   ? view.reason === "ok" && view.storage === "compatible" && view.collector === "compatible-v1"
   : view.state === "not-configured" ? view.reason === "not-configured" && ["compatible", "unconfigured"].includes(view.storage)

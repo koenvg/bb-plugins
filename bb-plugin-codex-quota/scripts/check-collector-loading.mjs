@@ -20,9 +20,9 @@ const context = { cwd, sessionManager: {
   getSessionId: () => 'synthetic-session', getSessionFile: () => join(cwd, 'synthetic-provider.jsonl'),
   getLeafId: () => leaf, getEntry: id => entries.get(id),
 } };
-const event = { message: { role: 'assistant', provider: 'openai-codex', model: 'synthetic', timestamp: 1234567890000, usage: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, totalTokens: 3, cost: { total: 0 } }, content: 'private-content-sentinel', toolArgs: 'private-credentials-sentinel' } };
+const event = { message: { role: 'assistant', provider: 'openai-codex', model: 'synthetic', timestamp: Date.now(), usage: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, totalTokens: 3, cost: { total: 0 } }, content: 'private-content-sentinel', toolArgs: 'private-credentials-sentinel' } };
 const control = join(dataDir, 'history/collector-control-v1.json');
-const logs = join(dataDir, 'history/events-v1.jsonl');
+const logs = join(dataDir, `history/events-v1-${new Date().toISOString().slice(0,10)}.jsonl`);
 // Verify the exact asset fails closed without control, even when installed explicitly.
 const { unlinkSync } = await import('node:fs');
 unlinkSync(control);
@@ -40,8 +40,8 @@ const records = text.trim().split('\n').map(line => JSON.parse(line));
 assert.equal(records.length, 3);
 assert.equal(new Set(records.map(row => row.eventId)).size, 3);
 assert.deepEqual(records.map(row => row.capturedCost), [0.125, null, null]);
-assert.ok(records.every(row => row.occurredAt === '2009-02-13T23:31:30.000Z' && row.totalTokens === 3));
-const confirmations = readFileSync(join(dataDir, 'history/confirmations-v1.jsonl'), 'utf8');
+assert.ok(records.every(row => row.occurredAt === new Date(event.message.timestamp).toISOString() && row.totalTokens === 3));
+const confirmations = readFileSync(join(dataDir, `history/confirmations-v1-${new Date().toISOString().slice(0,10)}.jsonl`), 'utf8');
 assert.equal(confirmations.trim().split('\n').length, 3);
 assert.equal((text + confirmations).includes('sentinel'), false, 'No message/tool/credential content may be stored');
 writeFileSync(control, JSON.stringify({ protocol: 1, enabled: false }));

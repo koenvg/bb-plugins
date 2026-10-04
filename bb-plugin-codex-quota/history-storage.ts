@@ -8,6 +8,14 @@ export interface HistoryDatabase {
 }
 export type HistoryDatabaseFactory = (path: string, readonly?: boolean) => HistoryDatabase;
 
+// Read only the SQLite header before runtime access. A newer database must not open its WAL/SHM.
+export async function historyHeaderVersion(path:string):Promise<number|null> {
+  const {open}=await import("node:fs/promises"),{constants}=await import("node:fs");
+  const file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+  try {const bytes=Buffer.alloc(100),{bytesRead}=await file.read(bytes,0,100,0);
+    return bytesRead===100 && bytes.subarray(0,16).toString("ascii")==="SQLite format 3\u0000" ? bytes.readUInt32BE(60) : null;
+  } finally {await file.close();}
+}
 type RuntimeDatabase = Omit<HistoryDatabase, "transaction">;
 type RuntimeConstructor = new (path: string, options?: Record<string, boolean>) => RuntimeDatabase;
 export async function loadHistoryStorage(): Promise<HistoryDatabaseFactory | null> {

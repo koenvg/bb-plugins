@@ -5,14 +5,18 @@ import { createHash } from "node:crypto";
 import type { HistoryDatabase } from "./history-storage.js";
 import { parseCompact } from "./usage-record.js";
 import { projectCompactRecord } from "./history-projection.js";
-export type IngestOptions = { signal: AbortSignal; bytes?: number; rows?: number; bodyRead?: () => void };
+import { collectorLogNames } from "./history-logs.js";
+import { recordReconciliation, recordSourceUncertainty } from "./history-coverage.js";
+export type IngestOptions = { signal: AbortSignal; bytes?: number; rows?: number; bodyRead?: () => void; now?: number; recoveryFloor?: string };
 type Progress = { identity: string; size: number; stamp: string; offset: number; dropping: number; edge: string; invalid: number; stalled: number };
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const MAX_LINE = 64 * 1024;
 export async function reconcileCollector(db: HistoryDatabase, directory: string, options: IngestOptions): Promise<boolean> {
   let bytesLeft = Math.max(128 * 1024, Math.min(options.bytes ?? 8 * 1024 * 1024, 8 * 1024 * 1024)) - 256;
   let rowsLeft = Math.min(options.rows ?? 500, 500), backlog = false;
-  for (const name of ["events-v1.jsonl", "confirmations-v1.jsonl"]) {
+  options.signal.throwIfAborted();
+  recordReconciliation(db, true);
+  for (const name of collectorLogNames(db, options.now ?? Date.now())) {
     options.signal.throwIfAborted();
     let file;
     try { file = await open(join(directory, name), constants.O_RDONLY | constants.O_NOFOLLOW); }
@@ -61,11 +65,18 @@ export async function reconcileCollector(db: HistoryDatabase, directory: string,
       if (after.ino !== stat.ino || after.size < stat.size || (after.size === stat.size && (after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs))) { backlog = true; continue; }
       // Progress and all accepted projections commit together. No partial source bodies persist.
       db.transaction(() => {
-        for (const record of records) projectCompactRecord(db, record);
+        for (const record of records) {
+          if ("workspace" in record && options.recoveryFloor && record.occurredAt < options.recoveryFloor) continue;
+          projectCompactRecord(db, record);
+        }
+        if (invalid > (saved?.invalid ?? 0)) {
+          recordSourceUncertainty(db, `source-${hash(Buffer.from(`${name}:${identity}:${invalid}`))}`, options.now ?? Date.now());
+        }
         db.prepare("INSERT OR REPLACE INTO collector_sources VALUES (?,?,?,?,?,?,?,?,?)").run(name, identity, stat.size, stamp, next, dropping, hash(edge), invalid, stalled);
       });
       backlog ||= next < stat.size || dropping === 1;
     } finally { await file.close(); }
   }
+  recordReconciliation(db, backlog);
   return backlog;
 }

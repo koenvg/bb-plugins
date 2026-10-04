@@ -61,6 +61,15 @@ export function HistoryReadinessPanel({ selection, read, control, selectionPendi
     <h2 className="font-semibold">History readiness</h2>
     <p className="mt-2 text-muted-foreground" aria-live="polite">{selectionPending ? "Changing selected host. History readiness is pending." : !selection.hostId ? reasonText["no-selection"] : loading ? "Checking selected-host history readiness…" : current!.reason === "ok" && current!.writer === "observed" ? "History storage and collector asset are compatible. Coverage is partial." : reasonText[current!.reason]}</p>
     {current && <div className="mt-3 text-muted-foreground"><p>Storage: {storageText[current.storage]}.</p><p>Collector: {collectorText[current.collector]}.</p><p>Writer activation: {current.writer === "observed" ? "observed in captured records" : "unconfirmed"}. This is not proof of complete history.</p></div>}
+    {current?.health && <details className="mt-3 min-w-0 text-muted-foreground">
+      <summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring">Storage health and retention</summary>
+      <p className="mt-2">Storage health: {current.health.state}. Quota is independent of history storage.</p>
+      <p className="mt-2 break-words">Detailed records from {current.health.detailFrom}. Compact tokens and captured costs from {current.health.compactFrom}. Older token classes are unavailable, not zero.</p>
+      <p className="mt-2">{current.health.pending ? "Bounded retention or backfill work remains. Check readiness to continue." : "No pending database retention work."}</p>
+      {current.health.legacyLogsPending && <p className="mt-2">Legacy collector logs cannot be pruned safely while an old writer may still use them. Repair or restart alone does not prove that every old writer has stopped. Safe legacy retirement is not yet available.</p>}
+      {current.health.recoveryGaps.map(gap => <p key={gap.start} className="mt-2 break-words">Recovery gap: {gap.start} to {gap.end}. Retained sources cannot prove complete reconstruction. Missing history is not zero usage.</p>)}
+      <p className="mt-2">Only confirmed corruption moves this plugin's database and sidecars into quarantine. Newer schemas and unrelated storage stay unchanged. No transcript scan runs.</p>
+    </details>}
     {current?.collection && <div className="mt-3 min-w-0">
       <h3 className="font-semibold">Selected-host workspace totals</h3>
       <p className="mt-2">Capture {current.collection.enabled ? "enabled" : "paused"}. First observation boundary: {current.collection.firstObservedAt}.</p>

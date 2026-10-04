@@ -24,7 +24,7 @@ export async function readControl(directory: string): Promise<boolean | null> {
     return value.enabled;
   } finally { await file.close(); }
 }
-async function atomicWrite(path: string, value: string, signal: AbortSignal) {
+export async function atomicWrite(path: string, value: string, signal: AbortSignal) {
   signal.throwIfAborted();
   try { const stat = await lstat(path); if (!stat.isFile() || stat.isSymbolicLink()) throw Error("Collector path unavailable"); }
   catch (e) { if (!(e && typeof e === "object" && "code" in e && e.code === "ENOENT")) throw e; }
