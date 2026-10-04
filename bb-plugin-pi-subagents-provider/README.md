@@ -18,7 +18,7 @@ npm run build
 
 `npm test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. `npm run build` uses the pinned published `bb-app` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. The public provider-bridge SDK and Zod stay available with `npm ci --omit=dev`.
 
-Before activation, also run the read-only `bb plugin types . --check`. Its BB 0.44.0 runtime-dependency false positive currently blocks the activation gate. See [the exact limit](COMPATIBILITY.md#sdk-check-limit-on-bb-0440). Do not rewrite the manifest to remove the runtime SDK.
+Also run the read-only `bb plugin types . --check` and retain its actual result and exact output. The [operator-approved provider-only exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) defines when replacement evidence permits the next verification step. It is not installation or paid-test approval. Keep the required runtime SDK; do not use the rewriting command.
 
 ## Install after approval
 
