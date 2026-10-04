@@ -38,3 +38,7 @@ BBP-42 must independently validate the complete combined diff, run its one compl
 ## Integrated recovery history
 
 BBP-37 verified original checklist items 3.5 through 3.7 with isolated CLI/RPC/SQLite regressions and one earlier native original-child recovery checkpoint. The current release retains only bookkeeping operations, original-child attachment and live/released history. It does not restore dispatch execution. Recovery uses migration 9; stored reports use migration 10. Historical evidence and its cleanup incident remain in orchestration/recovery-verification.md. Prior BBP-34/35 status, scope and skill checks remain historical evidence; combined retained acceptance belongs to BBP-42.
+
+## Readable approval UI history
+
+BBP-86 verified original section 7 with isolated renderer and corrected offline browser checks. Its complete run-scope-fields.ts projection and both server/browser consumers are retained. Labels do not change bound identity, fingerprints or canonical submission. Current scope-record wording and independent combined browser acceptance belong to BBP-42. No prior native/picker UI proof is claimed.

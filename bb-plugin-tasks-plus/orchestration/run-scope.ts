@@ -7,6 +7,7 @@ import {
   type RunConfig,
   type RunProposal,
 } from "./run-contract";
+import { trackerScopeFields } from "./run-scope-fields";
 import { refuse } from "./run-provenance";
 
 export function fingerprint(value: unknown): string {
@@ -25,14 +26,7 @@ export function fingerprint(value: unknown): string {
     .digest("hex");
 }
 function taskFingerprint(task: Task): string {
-  // Status, dependencies, comments and reported artifacts are not tracker scope.
-  return fingerprint([
-    task.id,
-    task.projectId,
-    task.parentTaskId,
-    task.title,
-    task.description,
-  ]);
+  return fingerprint(trackerScopeFields(task));
 }
 export function configFromRun(run: ApprovedRun): RunConfig {
   return {

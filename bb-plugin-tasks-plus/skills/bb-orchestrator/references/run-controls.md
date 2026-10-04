@@ -33,6 +33,15 @@ Begin/resume return pending immediately. The form belongs to the plugin, not the
 ## Record and history
 
 Migration 8 retains run/request identities, selected task fingerprints, coordinator/project, preset snapshot, baselines, decision references, generation and timestamps. Scope includes existing direct subtasks. New tasks, a different epic, preset ID or baseline need separate scope approval. Selected scope is bounded to 100 tasks, sixteen baselines and a 48-KiB native form. Oversized scope refuses rather than truncating consent.
+## Approval form
+
+The form shows selected task scope, coordinator, worker execution, permissions and intended baseline. Full-access permissions have a visible warning. Publication, merge, production and added scope still need separate approval.
+
+Technical details retain editable run-parameters JSON, complete scope text and the exact bound proposal, including full IDs and fingerprints. Details start collapsed when a preview exists and open when parameters are missing. Changing parameters clears the preview; check scope and selection again before approval. The buttons say `Approve run` or `Approve resume`, plus `Cancel`.
+
+Task names come from bounded read-only lookups and are shown only when identity, membership and tracker fingerprints match the approved snapshot. The coordinator name must match its thread/project identity. Unavailable or changed names fall back to exact bound IDs. Names and styling grant no authority. Submission still sends the complete proposal without replacing identities or shortening hashes.
+
+## Run state and scope
 
 Tracker scope or preset changes need native resume validation. Status changes, dependencies, comments and reported references are not scope edits. No repository inspection happens here. On reload, active records remain stored but read as interrupted under the new generation. No worker, report or queue is resumed or replayed. Paused records remain paused.
 
