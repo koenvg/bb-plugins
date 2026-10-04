@@ -306,7 +306,7 @@ describe("list-row metadata rail", () => {
     expect(slot.queryByTitle("Attachments")).toBeNull();
   });
 
-  it("renders zero, one, and many labels with a bounded chip count", async () => {
+  it("omits label badges and overflow counts for zero, one, and many labels", async () => {
     const labels = [
       label("A", "bug"),
       label("B", "frontend"),
@@ -326,16 +326,10 @@ describe("list-row metadata rail", () => {
     });
     await slot.findByText("TSK-1");
 
-    expect(slot.getAllByText("bug").length).toBeGreaterThan(0);
-
-    await waitFor(() => expect(slot.getByText("+2")).toBeTruthy());
-    expect(slot.getByText("+3")).toBeTruthy();
-    expect(slot.getByText("+2").getAttribute("title")).toBe(
-      "needs-design, very-long-label-name-that-truncates",
-    );
-    expect(slot.getByText("+3").getAttribute("title")).toBe(
-      "frontend, needs-design, very-long-label-name-that-truncates",
-    );
-    expect(slot.queryByText("needs-design")).toBeNull();
+    for (const entry of labels) {
+      expect(slot.queryAllByText(entry.name)).toHaveLength(0);
+    }
+    expect(slot.queryByText("+2")).toBeNull();
+    expect(slot.queryByText("+3")).toBeNull();
   });
 });

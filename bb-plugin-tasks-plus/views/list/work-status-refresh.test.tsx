@@ -201,14 +201,14 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
   const control = () =>
     slot.getByRole("button", { name: new RegExp(`Threads for ${task.key}`) });
   expect(control().textContent).toContain("1 Failed");
-  expect(control().textContent).toContain("All threads archived");
+  expect(control().textContent).toContain("All archived");
   archivedAt = null;
   await act(() => vi.advanceTimersByTimeAsync(60_000));
   expect(control().textContent).toContain("1 Failed");
   expect(control().textContent).not.toContain("archived");
   archivedAt = 2;
   await act(() => vi.advanceTimersByTimeAsync(60_000));
-  expect(control().textContent).toContain("All threads archived");
+  expect(control().textContent).toContain("All archived");
   deletedAt = 3;
   await act(() => vi.advanceTimersByTimeAsync(60_000));
   expect(control().textContent).toContain("1 Removed");

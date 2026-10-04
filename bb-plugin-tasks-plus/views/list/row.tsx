@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { DependencyBadges } from "../dependencies.js";
 import type { TaskRowMeta } from "./data.js";
-import { formatDueDate, partitionLabels } from "./lib.js";
+import { formatDueDate } from "./lib.js";
 import type { EditFn } from "./property-menus.js";
 import {
   PriorityEditor,
@@ -19,77 +19,21 @@ import {
 } from "@/components/ui/popover";
 import { ThreadSummary } from "./thread-summary.js";
 import { PrSummary } from "./pr-summary.js";
+import {
+  COARSE_POINTER_TEXT_BASE_CLASS,
+  COARSE_POINTER_TEXT_SM_CLASS,
+} from "@/components/ui/coarse-pointer-sizing";
 
 export type RowMenu = "status" | "priority" | "labels";
 
 const RAIL_CHIP_CLASS =
-  "flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground";
-
-function LabelChip({ label }: { label: Label }) {
-  return (
-    <span className={`${RAIL_CHIP_CLASS} max-w-32`}>
-      <span
-        aria-hidden
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: label.color }}
-      />
-      <span className="truncate">{label.name}</span>
-    </span>
-  );
-}
-
-function LabelChipRow({
-  labels,
-  maxVisible,
-}: {
-  labels: readonly Label[];
-  maxVisible: number;
-}) {
-  const { visible, hidden } = partitionLabels(labels, maxVisible);
-  return (
-    <>
-      {visible.map((label) => (
-        <LabelChip key={label.id} label={label} />
-      ))}
-      {hidden.length > 0 ? (
-        <span
-          title={hidden.map((label) => label.name).join(", ")}
-          className={`${RAIL_CHIP_CLASS} tabular-nums`}
-        >
-          +{hidden.length}
-        </span>
-      ) : null}
-    </>
-  );
-}
-
-function LabelChips({
-  task,
-  labelsById,
-}: {
-  task: Task;
-  labelsById: Map<string, Label>;
-}) {
-  const labels = task.labelIds.flatMap((id) => labelsById.get(id) ?? []);
-  if (labels.length === 0) return null;
-  return (
-    <>
-      <span className="hidden items-center gap-1.5 @xl:flex">
-        <LabelChipRow labels={labels} maxVisible={2} />
-      </span>
-      <span className="flex min-w-0 flex-wrap items-center gap-1.5 @md:flex-nowrap @xl:hidden">
-        <LabelChipRow labels={labels} maxVisible={1} />
-      </span>
-    </>
-  );
-}
+  `flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
 
 interface TaskRowProps {
   task: Task;
   meta: TaskRowMeta | undefined;
   project: Project | undefined;
   showProject: boolean;
-  labelsById: Map<string, Label>;
   projectLabels: readonly Label[];
   onEdit: EditFn;
   onOpen: () => void;
@@ -109,7 +53,6 @@ export function TaskRow({
   meta,
   project,
   showProject,
-  labelsById,
   projectLabels,
   onEdit,
   onOpen,
@@ -141,7 +84,7 @@ export function TaskRow({
         data-dimmed={dimmed || undefined}
         aria-busy={pending || undefined}
         className={cn(
-          "relative grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
+          "relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
           "@4xl:flex @4xl:min-h-[34px] @4xl:flex-wrap @4xl:py-0 pointer-coarse:min-h-11",
           onToggleExpanded !== undefined && "pointer-coarse:pl-12",
           depth === 1 && "pl-9 pointer-coarse:pl-14",
@@ -172,23 +115,10 @@ export function TaskRow({
           >
             <Icon
               name="ChevronRight"
-              className={cn(
-                "size-3 transition-transform",
-                expanded && "rotate-90",
-              )}
+              className={cn("size-3 transition-transform", expanded && "rotate-90")}
             />
           </button>
         ) : null}
-        <PriorityEditor
-          task={task}
-          onEdit={onEdit}
-          {...menuProps("priority")}
-          onCloseAutoFocus={focusRowOnClose}
-          className="col-start-1 row-start-2 @max-2xl:self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-        />
-        <span className="col-start-2 row-start-2 min-w-0 truncate text-xs tabular-nums text-subtle-foreground @max-4xl:col-span-2 @max-4xl:self-center @4xl:w-14 @4xl:shrink-0">
-          {task.key}
-        </span>
         <StatusEditor
           task={task}
           onEdit={onEdit}
@@ -198,7 +128,12 @@ export function TaskRow({
         />
         <Popover {...menuProps("labels")}>
           <PopoverAnchor asChild>
-            <span className="col-start-2 col-span-2 row-start-1 min-w-0 break-words text-sm @4xl:flex-1 @4xl:min-w-64 @4xl:truncate">
+            <span
+              className={cn(
+                "col-start-2 row-start-1 min-w-0 break-words font-medium @4xl:flex-1 @4xl:min-w-64 @4xl:truncate",
+                COARSE_POINTER_TEXT_BASE_CLASS,
+              )}
+            >
               {task.title}
             </span>
           </PopoverAnchor>
@@ -215,35 +150,56 @@ export function TaskRow({
             />
           </PopoverContent>
         </Popover>
-        <span className="col-start-3 row-start-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-end justify-end self-start text-xs text-subtle-foreground @max-4xl:col-start-2 @max-4xl:col-span-2 @max-4xl:row-start-3 @max-4xl:w-full @max-4xl:justify-start @4xl:shrink-0 @4xl:self-center">
-          {subProgress !== undefined && subProgress.total > 0 ? (
+        <div className="col-span-2 grid grid-cols-subgrid items-center @4xl:contents">
+          <PriorityEditor
+            task={task}
+            onEdit={onEdit}
+            {...menuProps("priority")}
+            onCloseAutoFocus={focusRowOnClose}
+            className="col-start-1 self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          />
+          <span className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 @4xl:contents">
             <span
-              title="Subtasks done"
-              className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}
+              className={cn(
+                "shrink-0 tabular-nums text-muted-foreground @4xl:w-14 @4xl:truncate",
+                COARSE_POINTER_TEXT_SM_CLASS,
+              )}
             >
-              <Icon name="GitBranch" className="size-3 shrink-0" />
-              {subProgress.done}/{subProgress.total}
+              {task.key}
             </span>
-          ) : null}
-          <DependencyBadges task={task} className="py-px text-xs" />
-          <ThreadSummary taskKey={task.key} meta={meta} />
-          <PrSummary taskKey={task.key} meta={meta} />
-          <LabelChips task={task} labelsById={labelsById} />
-          {task.dueDate !== null ? (
-            <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
-              <Icon name="Clock" className="size-3 shrink-0" />
-              {formatDueDate(task.dueDate)}
+            <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden @4xl:shrink-0">
+              {subProgress !== undefined && subProgress.total > 0 ? (
+                <span
+                  title="Subtasks done"
+                  className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}
+                >
+                  <Icon name="GitBranch" className="size-3 shrink-0" />
+                  {subProgress.done}/{subProgress.total}
+                </span>
+              ) : null}
+              <DependencyBadges
+                task={task}
+                className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)}
+              />
+              <ThreadSummary taskKey={task.key} meta={meta} />
+              <PrSummary taskKey={task.key} meta={meta} />
+              {task.dueDate !== null ? (
+                <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
+                  <Icon name="Clock" className="size-3 shrink-0" />
+                  {formatDueDate(task.dueDate)}
+                </span>
+              ) : null}
+              {showProject && project !== undefined ? (
+                <span
+                  aria-hidden
+                  title={project.name}
+                  className="size-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: project.color }}
+                />
+              ) : null}
             </span>
-          ) : null}
-          {showProject && project !== undefined ? (
-            <span
-              aria-hidden
-              title={project.name}
-              className="size-2.5 shrink-0 rounded-sm"
-              style={{ backgroundColor: project.color }}
-            />
-          ) : null}
-        </span>
+          </span>
+        </div>
       </div>
     </TaskContextMenu>
   );

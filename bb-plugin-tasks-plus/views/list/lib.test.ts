@@ -7,7 +7,6 @@ import {
   groupListTree,
   groupTasksByStatus,
   labelFilterOptions,
-  partitionLabels,
   selectedLabelIds,
 } from "./lib.js";
 import { makeTask } from "../../test-fixtures.js";
@@ -169,31 +168,5 @@ describe("activeWorkLabel", () => {
     expect(
       activeWorkLabel([{ liveStatus: "working" }, { liveStatus: "starting" }]),
     ).toBe("2 agents working");
-  });
-});
-
-describe("partitionLabels", () => {
-  const label = (name: string): Label => ({
-    id: name,
-    projectId: ULID_A,
-    name,
-    color: "#5e6ad2",
-  });
-
-  it("keeps everything visible at or under the cap", () => {
-    const labels = [label("a"), label("b")];
-    expect(partitionLabels(labels, 2)).toEqual({
-      visible: labels,
-      hidden: [],
-    });
-    expect(partitionLabels([], 2)).toEqual({ visible: [], hidden: [] });
-  });
-
-  it("moves the tail into hidden above the cap", () => {
-    const labels = [label("a"), label("b"), label("c")];
-    expect(partitionLabels(labels, 1)).toEqual({
-      visible: [labels[0]],
-      hidden: [labels[1], labels[2]],
-    });
   });
 });

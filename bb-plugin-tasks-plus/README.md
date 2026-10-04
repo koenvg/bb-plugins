@@ -86,6 +86,18 @@ When run from a thread, the CLI preserves that agent thread and any explicit
 `--author`; notification still targets the prior latest responder rather than
 the newly recorded agent comment itself.
 
+## Scan task lists
+
+List rows keep labels out of the table at every width. Labels remain available
+in the filter bar, the row's Labels context menu, the selected row's L shortcut,
+and task details. Board cards still show their labels.
+
+In a narrow panel, including desktop split view, the status and medium-weight
+title lead the row. The key, priority, progress, and other metadata share a
+smaller secondary line when they fit. Long titles and dense metadata wrap;
+rows are not limited to a fixed height. Wide panels use a compact single line.
+Touch targets and readable text sizes remain intact.
+
 ## Live thread activity in lists
 
 All tasks, project lists, Active tasks, and expanded subtasks show the current
@@ -95,7 +107,7 @@ while other workers continue. Summaries show at most two status buckets, with
 `+N more` for the remaining threads. Open the summary to inspect every thread's
 title, ID, preset, and Starting, Working, Idle, Failed, Removed, or Unavailable status.
 
-Archive state is separate from activity. `1 Failed · 1 Idle · All threads archived`
+Archive state is separate from activity. `1 Failed · 1 Idle · All archived`
 means both existing threads are verified archived, including the failed worker.
 Mixed states show a verified count such as `1 archived`. Unknown existence or
 archive information prevents the all-archived claim and shows Archive unavailable.

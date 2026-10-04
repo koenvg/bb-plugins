@@ -195,23 +195,6 @@ export function activeWorkLabel(
   return `${threads.length} agents working`;
 }
 
-interface LabelOverflow {
-  visible: Label[];
-  hidden: Label[];
-}
-
-export function partitionLabels(
-  labels: readonly Label[],
-  maxVisible: number,
-): LabelOverflow {
-  if (labels.length <= maxVisible) {
-    return { visible: [...labels], hidden: [] };
-  }
-  return {
-    visible: labels.slice(0, maxVisible),
-    hidden: labels.slice(maxVisible),
-  };
-}
 
 export function localIsoDate(daysFromNow: number): string {
   const date = new Date();

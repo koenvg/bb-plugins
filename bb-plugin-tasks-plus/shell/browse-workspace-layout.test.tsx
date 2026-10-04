@@ -103,9 +103,7 @@ describe("responsive browse markup", () => {
         }),
       ).toBeTruthy();
       expect(within(list).getAllByText(/Blocked/).length).toBeGreaterThan(0);
-      expect(
-        within(list).getAllByText("ready-for-agent").length,
-      ).toBeGreaterThan(0);
+      expect(within(list).queryByText("ready-for-agent")).toBeNull();
       capture(slot, width, "list");
     },
   );

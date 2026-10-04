@@ -383,6 +383,9 @@ describe("list filter/sort preference persistence", () => {
     const rpc = baseRpc({}, listTasksCalls);
     const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc });
     await slot.findByText("ALP-1");
+    expect(
+      slot.container.querySelector('[data-task-key="ALP-1"]')?.textContent,
+    ).not.toContain("Bug");
 
     fireEvent.click(slot.getByRole("button", { name: /^Priority/ }));
     fireEvent.click(

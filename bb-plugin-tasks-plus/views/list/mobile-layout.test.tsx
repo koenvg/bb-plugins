@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Label, Task, TaskThread } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";
+import { TaskRow } from "./row.js";
 
 window.matchMedia ??= (query: string) => ({
   matches: false,
@@ -162,6 +163,33 @@ function renderList(rich = false) {
 }
 
 describe("responsive list structure", () => {
+  it("groups a task key and subtask progress in one secondary line", () => {
+    const slot = renderSlot(
+      { component: TaskRow },
+      {
+        task: busyTask,
+        meta: {
+          availability: "available",
+          observedAt: new Date().toISOString(),
+          threads: [],
+          pullRequests: { availability: "available", items: [], unavailableThreadIds: [] },
+        },
+        project: undefined,
+        showProject: false,
+        projectLabels: [],
+        onEdit: () => {},
+        onOpen: () => {},
+        pending: false,
+        subProgress: { done: 1, total: 2 },
+        openMenu: null,
+        onOpenMenuChange: () => {},
+      },
+    );
+    const key = slot.getByText("TSK-1");
+    const progress = slot.getByTitle("Subtasks done");
+    expect(key.parentElement!.contains(progress)).toBe(true);
+    expect(key.parentElement!.contains(slot.getByText(busyTask.title))).toBe(false);
+  });
   it("pins the task count outside the filter-chip scroller so it cannot wrap or scroll away", async () => {
     const slot = renderList();
     const count = await slot.findByText("1 task");
@@ -208,7 +236,7 @@ describe("responsive list structure", () => {
     expect(prs.className).toContain("flex-wrap");
     expect(prs.textContent).toContain("2 PRs");
     expect(prs.textContent).toContain("1 Open");
-    expect(prs.textContent).toContain("1 lookup unavailable");
+    expect(prs.getAttribute("aria-label")).toContain("1 lookup unavailable");
     expect(row.className).not.toContain("opacity-50");
     expect(row.getAttribute("data-dimmed")).toBeNull();
   });
@@ -218,8 +246,9 @@ describe("responsive list structure", () => {
       name: /PRs for TSK-1: 2 PRs, 1 Checks failing/,
     });
     expect(control.textContent).toContain("1 Merged");
-    expect(control.textContent).toContain("1 details unavailable");
-    expect(control.textContent).toContain("1 lookup unavailable");
+    expect(control.getAttribute("aria-label")).toContain("1 details unavailable");
+    expect(control.getAttribute("aria-label")).toContain("1 lookup unavailable");
+    expect(control.textContent).toContain("Details incomplete");
     expect(control.className).toContain("z-10");
     expect(control.className).toContain("flex-wrap");
     expect(slot.getByText(busyTask.title).className).toContain("@4xl:min-w-64");

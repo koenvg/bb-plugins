@@ -66,7 +66,6 @@ function row(status: TaskWorkStatus | undefined) {
       meta: status,
       project: undefined,
       showProject: false,
-      labelsById: new Map(),
       projectLabels: [],
       onEdit: vi.fn(),
       onOpen,
@@ -118,7 +117,7 @@ it("bounds multiple lifecycle buckets but keeps open, draft and incomplete work 
   expect(trigger.textContent).toContain("1 Open");
   expect(trigger.textContent).toContain("1 Draft");
   expect(trigger.textContent).toContain("+2 more");
-  expect(trigger.textContent).toContain("1 lookup unavailable");
+  expect(trigger.textContent).toContain("Details incomplete");
   fireEvent.click(trigger);
   const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
   for (const repo of ["bb", "other", "merged", "closed"])
@@ -132,6 +131,20 @@ it("bounds multiple lifecycle buckets but keeps open, draft and incomplete work 
   expect(dialog.textContent).toContain("PR lookup unavailable");
   expect(dialog.textContent).toContain("thr_b");
   expect(onOpen).not.toHaveBeenCalled();
+});
+
+it("keeps lookup counts in the PR menu and accessible name, not the row suffix", async () => {
+  const { slot } = row(meta([pr("merged")], ["thr_a", "thr_b"]));
+  const trigger = slot.getByRole("button", {
+    name: /PR details for ABC-1:.*2 lookups unavailable/,
+  });
+  expect(trigger.textContent).toContain("Details incomplete");
+  expect(trigger.textContent).not.toContain("2 lookups unavailable");
+  expect(slot.getByRole("link", { name: /Open GitHub PR.*Merged/ })).toBeTruthy();
+  fireEvent.click(trigger);
+  const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
+  expect(dialog.textContent).toContain("2 lookups unavailable");
+  expect(dialog.textContent).toContain("Details unavailable");
 });
 
 it.each([false, true])(
@@ -195,7 +208,7 @@ it("distinguishes initial PR loading, authoritative absence, lookup unavailable,
   expect(
     partial.slot.getByRole("button", { name: /PR details.*lookup unavailable/ })
       .textContent,
-  ).toContain("1 lookup unavailable");
+  ).toContain("Details incomplete");
   partial.slot.lifecycle.unmount();
   const unknown = row(meta([pr("unknown"), pr("merged", "other")]));
   expect(
@@ -295,8 +308,9 @@ it("counts one primary bucket per distinct PR, keeps Draft and failures beside m
   expect(trigger.textContent).toContain("1 Draft, conflicts");
   expect(trigger.textContent).toContain("1 Awaiting review");
   expect(trigger.textContent).toContain("+2 more");
-  expect(trigger.textContent).toContain("1 details unavailable");
-  expect(trigger.textContent).toContain("1 lookup unavailable");
+  expect(trigger.getAttribute("aria-label")).toContain("1 details unavailable");
+  expect(trigger.getAttribute("aria-label")).toContain("1 lookup unavailable");
+  expect(trigger.textContent).toContain("Details incomplete");
   fireEvent.click(trigger);
   const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
   expect(dialog.textContent).toContain("Merged");
@@ -368,7 +382,8 @@ it.each([false, true])(
     expect(trigger.textContent).toContain("1 Conflicts");
     expect(trigger.textContent).toContain("1 Ready to merge");
     expect(trigger.textContent).toContain("+2 more");
-    expect(trigger.textContent).toContain("1 details unavailable");
+    expect(trigger.getAttribute("aria-label")).toContain("1 details unavailable");
+    expect(trigger.textContent).toContain("Details incomplete");
     expect(trigger.getAttribute("aria-label")).toContain("1 Merged");
     fireEvent.click(trigger);
     const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
