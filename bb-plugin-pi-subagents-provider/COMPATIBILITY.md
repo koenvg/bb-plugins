@@ -14,9 +14,9 @@ The inherited Pi version probe reports a missing or too-old executable before se
 
 ## SDK check limit on BB 0.44.0
 
-Run `bb plugin types . --check` before activation. BB 0.44.0 reports that the SDK pin matches 0.5.29, but exits 1 because it asks to move the SDK to development dependencies. That generic advice conflicts with BB's published provider-bridge contract, which requires a runtime SDK for production-only managed builds. Keep the SDK in `dependencies`. Do not run the rewriting `bb plugin types` form to silence the warning.
+Run `bb plugin types . --check` and retain its true exit code and complete output. The operator approved a [provider-only diagnostic exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) for the verified case. That reference is authoritative for scope, conditions, replacement evidence, and report rules. Keep the required SDK in runtime dependencies; the checker remains failed, not fixed or passed.
 
-This check remains blocked. Installation must wait for an approved resolution of that checker limitation. Local artifact builds do not synchronize SDK declarations and do not activate the plugin; their manifest and lockfile must remain unchanged. Production-only dependency/build checks are separate evidence, not a passing SDK compatibility check.
+When every exception condition and replacement check passes, this one accepted diagnostic no longer blocks the next verification step. Installation and paid tests still need separate approval. Server activation, installed acceptance, and the actual GitHub CI run remain unverified.
 
 ## Installed acceptance
 
