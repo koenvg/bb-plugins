@@ -35,7 +35,7 @@ describe("self-contained collector compatibility", () => {
     await handlers.get("message_end")!({ message }, context); await handlers.get("session_shutdown")!();
     expect(await readdir(root)).toEqual([]);
     await mkdir(join(root, "history"));
-    await writeFile(join(root, "history/collector-control-v1.json"), JSON.stringify({ protocol: 1, enabled: true }));
+    await writeFile(join(root, "history/collector-control-v1.json"), JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: true }));
     await handlers.get("message_end")!({ message }, context); await handlers.get("session_shutdown")!();
     const text = await readFile(join(root, `history/events-v1-${new Date().toISOString().slice(0,10)}.jsonl`), "utf8");
     const event = JSON.parse(text.trim());
@@ -44,7 +44,7 @@ describe("self-contained collector compatibility", () => {
     await handlers.get("message_end")!({ message: { ...message, provider: "another-provider" } }, context);
     await handlers.get("session_shutdown")!();
     expect(await readFile(join(root, `history/events-v1-${new Date().toISOString().slice(0,10)}.jsonl`), "utf8")).toBe(text);
-    await writeFile(join(root, "history/collector-control-v1.json"), JSON.stringify({ protocol: 1, enabled: false }));
+    await writeFile(join(root, "history/collector-control-v1.json"), JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: false }));
     await handlers.get("message_end")!({ message }, context); await handlers.get("session_shutdown")!();
     expect(await readFile(join(root, `history/events-v1-${new Date().toISOString().slice(0,10)}.jsonl`), "utf8")).toBe(text);
     await writeFile(join(root, "history/collector-control-v1.json"), JSON.stringify({ protocol: 99, enabled: true }));

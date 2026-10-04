@@ -12,7 +12,8 @@ export async function safeDirectory(path: string) {
   const stat = await lstat(path);
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error("Collector path unavailable");
 }
-export async function readControl(directory: string): Promise<boolean | null> {
+export type CollectorControl = { protocol: 1; enabled: boolean } | { protocol: 2; enabled: boolean; revision: string };
+export async function readControlRecord(directory: string): Promise<CollectorControl | null> {
   let file;
   try { file = await open(join(directory, "collector-control-v1.json"), constants.O_RDONLY | constants.O_NOFOLLOW); }
   catch (e) { if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") return null; throw Error("Collector control unavailable"); }
@@ -20,9 +21,20 @@ export async function readControl(directory: string): Promise<boolean | null> {
     const stat = await file.stat(); if (!stat.isFile() || stat.size > 1024) throw Error("Collector control unavailable");
     const bytes = Buffer.alloc(1025), {bytesRead} = await file.read(bytes,0,bytes.length,0);
     const value = JSON.parse(bytes.subarray(0,bytesRead).toString("utf8"));
-    if (bytesRead > 1024 || Object.keys(value).length !== 2 || value.protocol !== 1 || typeof value.enabled !== "boolean") throw Error("Collector control unavailable");
-    return value.enabled;
+    const legacy = value?.protocol === 1 && Object.keys(value).length === 2;
+    const fenced = value?.protocol === 2 && Object.keys(value).length === 3 && typeof value.revision === "string"
+      && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value.revision);
+    if (bytesRead > 1024 || typeof value?.enabled !== "boolean" || !legacy && !fenced) throw Error("Collector control unavailable");
+    return value as CollectorControl;
   } finally { await file.close(); }
+}
+export async function readControl(directory: string): Promise<boolean | null> {
+  return (await readControlRecord(directory))?.enabled ?? null;
+}
+export async function publishControl(directory: string, enabled: boolean, signal: AbortSignal) {
+  const control = { protocol: 2 as const, enabled, revision: randomUUID() };
+  await atomicWrite(join(directory, "collector-control-v1.json"), JSON.stringify(control), signal);
+  return control;
 }
 export async function atomicWrite(path: string, value: string, signal: AbortSignal) {
   signal.throwIfAborted();
@@ -36,6 +48,7 @@ export async function atomicWrite(path: string, value: string, signal: AbortSign
   } finally { await unlink(temporary).catch(() => {}); }
 }
 export async function controlCollector(action: CollectorAction, db: HistoryDatabase, dataDir: string, agentDir: string, now: string, signal: AbortSignal, initialSetup: boolean) {
+  if (action === "prepare-legacy" || action === "retire-legacy") throw Error("Collector control unavailable");
   if (!validHostDataDir(agentDir)) throw Error("Collector path unavailable");
   const directory = join(dataDir, "history");
   const current = await readControl(directory);
@@ -51,6 +64,6 @@ export async function controlCollector(action: CollectorAction, db: HistoryDatab
   const enabled = action === "pause" ? false : action === "resume" ? true : current ?? true;
   // Record the pause before publishing control. Interrupted transitions are conservative coverage gaps.
   if (!enabled && current !== false) recordPause(db, now);
-  await atomicWrite(join(directory, "collector-control-v1.json"), JSON.stringify({ protocol: 1, enabled }), signal);
+  await publishControl(directory, enabled, signal);
   if (enabled && current === false) db.prepare("UPDATE collector_pauses SET ended=? WHERE ended IS NULL").run(now);
 }

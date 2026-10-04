@@ -28,7 +28,7 @@ const { unlinkSync } = await import('node:fs');
 unlinkSync(control);
 for (const handler of collector.handlers.get('message_end')) await handler(event, context);
 assert.equal(existsSync(logs), false, 'Missing control must not start a writer');
-writeFileSync(control, JSON.stringify({ protocol: 1, enabled: true }));
+writeFileSync(control, JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: true }));
 for (let i=0; i<3; i++) {
   const message = { ...event.message, usage: { ...event.message.usage, cost: { total: i === 0 ? 0.125 : 0 } } };
   for (const handler of collector.handlers.get('message_end')) handler({message}, context);
@@ -44,7 +44,7 @@ assert.ok(records.every(row => row.occurredAt === new Date(event.message.timesta
 const confirmations = readFileSync(join(dataDir, `history/confirmations-v1-${new Date().toISOString().slice(0,10)}.jsonl`), 'utf8');
 assert.equal(confirmations.trim().split('\n').length, 3);
 assert.equal((text + confirmations).includes('sentinel'), false, 'No message/tool/credential content may be stored');
-writeFileSync(control, JSON.stringify({ protocol: 1, enabled: false }));
+writeFileSync(control, JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: false }));
 for (const handler of collector.handlers.get('message_end')) await handler(event, context);
 assert.equal(readFileSync(logs, 'utf8'), text);
 console.log('Actual packaged writer: serialized capture, original time/price, missing prices, object-identity confirmation, pause, and shutdown draining passed.');

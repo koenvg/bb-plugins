@@ -3,12 +3,12 @@ import { historyReadinessSchema, historyUnavailable, type HistoryRequest } from 
 type Dependencies = {
   selection(): { hostId: string | null; generation: number };
   enrolled(hostId: string): Promise<{ status: string } | null>;
-  call(hostId: string, signal: AbortSignal, action?: import("./history-contract.js").CollectorAction): Promise<unknown>;
+  call(hostId: string, signal: AbortSignal, action?: import("./history-contract.js").CollectorAction, confirmation?: import("./history-contract.js").LegacyConfirmation): Promise<unknown>;
   activeReads: Set<AbortController>;
 };
 
 export function createHistoryReader(deps: Dependencies) {
-  return async ({ hostId, generation, action }: HistoryRequest & { action?: import("./history-contract.js").CollectorAction }) => {
+  return async ({ hostId, generation, action, confirmation }: HistoryRequest & { action?: import("./history-contract.js").CollectorAction; confirmation?: import("./history-contract.js").LegacyConfirmation }) => {
     const selected = deps.selection();
     if (!selected.hostId) return historyUnavailable("no-selection");
     if (generation !== selected.generation) return historyUnavailable("selection-changed");
@@ -20,7 +20,7 @@ export function createHistoryReader(deps: Dependencies) {
       const host = await deps.enrolled(hostId);
       if (changed()) return historyUnavailable("selection-changed");
       if (!host || host.status !== "connected") return historyUnavailable("host-offline");
-      const result = await deps.call(hostId, controller.signal, action);
+      const result = await deps.call(hostId, controller.signal, action, confirmation);
       if (changed()) return historyUnavailable("selection-changed");
       const current = await deps.enrolled(hostId);
       if (changed()) return historyUnavailable("selection-changed");

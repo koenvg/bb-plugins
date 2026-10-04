@@ -19,9 +19,19 @@ Coverage fixtures supply typed scoped interval evidence: writer activity, reliab
 
 ## Storage design
 
-Schema 2 adds an original-UTC compact projection, digest replay evidence, durable retention/backfill state, scoped coverage and recovery state. Migration and expiry run in bounded transactions. Preserve ranked workspace totals and counters atomically. Retention cutoffs advance monotonically; accepted event and entry evidence prevent replay resurrection. Expired token classes return unavailable, not zero.
+Checkpoint schema 2 added an original-UTC compact projection, digest replay evidence, durable retention/backfill state, scoped coverage and recovery state. Migration and expiry run in bounded transactions. Preserve ranked workspace totals and counters atomically. Retention cutoffs advance monotonically; accepted event and entry evidence prevent replay resurrection. Expired token classes return unavailable, not zero.
 
-The single completion review found four coverage/boundary defects. Fixes centralize scope and canonical interval validation in the internal coverage resolver, add durable reconciliation uncertainty, include broader negative evidence and retain a conservative open pause after paused recovery. Schema 2 includes `history_reconciliation` and bounded-source lookup indexes. No public history method changes.
+The single completion review found four coverage/boundary defects. Fixes centralize scope and canonical interval validation in the internal coverage resolver, add durable reconciliation uncertainty, include broader negative evidence and retain a conservative open pause after paused recovery. Checkpoint schema 2 includes `history_reconciliation` and bounded-source lookup indexes. No public history method changes.
+
+## Approved legacy retirement follow-up
+
+Continue from clean checkpoint `b7b7a46db5518f635dceb02ff7bc8d9d6b618a94`. The parent approved the stopped-writer control and isolated tests. No specific live host, account or data change is approved. The existing review covers this required gap; no second reviewer runs.
+
+The test interface remains `HostHistory.read/control`, with `prepare-legacy` and `retire-legacy` actions and an optional typed confirmation. Prepare requires paused capture, publishes a protocol-2 fence and a short-lived challenge tied to control revision and fixed source manifests. Retire requires explicit confirmation that all old processes exited or loaded the new writer. Source/control changes invalidate it. Reads may continue already-authorized bounded work, never create consent.
+
+Keep the controls inside the existing storage-health disclosure. At 375px use stacked text, a checkbox and wrapped buttons. Quota and its official link stay above history. Inspect early desktop/375px screenshots before the complete matrix.
+
+The durable retirement receipt filters original and previously retained legacy sources into fixed private retained logs. Keep in-window events and their confirmations, original payloads and first replay ownership; remove only expired or invalid records with explicit uncertainty. Publish complete outputs before deleting original fixed sources. Resume interrupted copies/replacements safely. Daily bounded maintenance expires sealed legacy data without another stop confirmation because fenced writers cannot write those sealed names. Exclusive owned-operation locking prevents concurrent retirement work. Schema 3 adds only durable legacy-pending coverage state and supports checkpoint schema 2 migration without new backfill.
 
 Detail expires after 45 days. Compact expiry starts three UTC calendar months before today, with nine extra support/margin dates. Queries regroup original instants for any valid viewer timezone. Capture cost is immutable and missing prices remain missing.
 

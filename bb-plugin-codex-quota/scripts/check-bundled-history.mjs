@@ -104,6 +104,32 @@ try {
   // Reload the copied self-contained module and verify durable source progress/totals.
   const reopened = await import(pathToFileURL(artifact).href + '?reload=1');
   assert.equal((await reopened.default.handlers.historyReadiness(null, context)).collection.workspaces[0].totalTokens, 6);
+  // Approved retirement control, only against the owned legacy fixture below.
+  const legacyEvent = { ...original, eventId: '00000000-0000-4000-8000-000000000301', sessionId: 'synthetic-legacy', occurredAt: new Date(Date.now()-3600000).toISOString(), workspace: '/legacy-original', capturedCost: 0.456 };
+  const expiredLegacy = { ...legacyEvent, eventId: '00000000-0000-4000-8000-000000000302', occurredAt: new Date(Date.now()-60*86400000).toISOString() };
+  const legacyBody = JSON.stringify(legacyEvent)+'\n', expiredBody = JSON.stringify(expiredLegacy)+'\n';
+  const legacyDirectory = join(dataDir,'history'), legacyEvents = join(legacyDirectory,'events-v1.jsonl'), legacyConfirmations = join(legacyDirectory,'confirmations-v1.jsonl');
+  writeFileSync(legacyEvents, legacyBody+expiredBody);
+  const keptConfirmation = JSON.stringify({version:1,eventId:legacyEvent.eventId,sessionId:legacyEvent.sessionId,entryId:'retained-entry'})+'\n';
+  writeFileSync(legacyConfirmations, keptConfirmation+JSON.stringify({version:1,eventId:expiredLegacy.eventId,sessionId:expiredLegacy.sessionId,entryId:'expired-entry'})+'\n');
+  await reopened.default.handlers.collectorControl({action:'pause'},context);
+  const prepared = await reopened.default.handlers.collectorControl({action:'prepare-legacy'},context);
+  assert.equal(prepared.health.legacyRetirement.phase,'awaiting-confirmation');
+  assert.equal((await reopened.default.handlers.collectorControl({action:'retire-legacy',confirmation:{token:'00000000-0000-4000-8000-000000000399',legacyWritersStopped:true}},context)).reason,'retirement-incomplete');
+  assert.equal(readFileSync(legacyEvents,'utf8'),legacyBody+expiredBody);
+  let retired = await reopened.default.handlers.collectorControl({action:'retire-legacy',confirmation:{token:prepared.health.legacyRetirement.token,legacyWritersStopped:true}},context);
+  for(let step=0;step<10&&retired.health.legacyRetirement.phase!=='complete';step++) retired = await reopened.default.handlers.historyReadiness(null,context);
+  assert.equal(retired.health.legacyRetirement.phase,'complete');assert.equal(retired.collection.enabled,false);
+  assert.equal(readFileSync(join(legacyDirectory,'events-legacy-retained-v1.jsonl'),'utf8'),legacyBody);
+  assert.equal(readFileSync(join(legacyDirectory,'confirmations-legacy-retained-v1.jsonl'),'utf8'),keptConfirmation);
+  assert.ok(!readdirSync(legacyDirectory).includes('events-v1.jsonl'));assert.ok(!readdirSync(legacyDirectory).includes('confirmations-v1.jsonl'));
+  const legacyReload = await import(pathToFileURL(artifact).href+'?legacy-reload=1');
+  assert.equal((await legacyReload.default.handlers.historyReadiness(null,context)).health.legacyRetirement.phase,'complete');
+  const legacyDb = await bundled.openHistoryDatabase(path,true);
+  assert.deepEqual({...legacyDb.prepare('SELECT occurred_at,workspace,captured_cost FROM usage_compact WHERE event_id=?').get(legacyEvent.eventId)}, {occurred_at:legacyEvent.occurredAt,workspace:legacyEvent.workspace,captured_cost:0.456});
+  assert.equal(legacyDb.prepare('SELECT event_id FROM usage_entry_owners WHERE session_id=? AND entry_id=?').get(legacyEvent.sessionId,'retained-entry').event_id,legacyEvent.eventId);
+  assert.equal(legacyDb.prepare('PRAGMA user_version').get().user_version,3);legacyDb.close();
+  console.log('Packaged legacy retirement: paused fresh consent, invalid-token rejection, bounded tail/copy, original body/time/workspace/cost/ownership and disabled durable reopen passed. Synthetic only.');
   // Retention/recovery proof uses only owned persistent fixture data, never installed user storage.
   const oldTime=new Date(Date.now()-60*86400000).toISOString();
   const oldId='00000000-0000-4000-8000-000000000123';

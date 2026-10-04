@@ -33,17 +33,13 @@ SOFTWARE.
       const bytes = Buffer.alloc(1025), result = await control.read(bytes, 0, bytes.length, 0);
       if (result.bytesRead > 1024) return false;
       const value = JSON.parse(bytes.subarray(0, result.bytesRead).toString("utf8"));
-      return value && configuration.protocol === 2 && Object.keys(value).length === 3
-        && value.protocol === 2 && typeof value.revision === "string"
-        && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value.revision) && value.enabled === true;
+      return value && Object.keys(value).length === 2 && value.protocol === configuration.protocol && value.enabled === true;
     } finally { await control.close(); }
   }
   async function append(name, record) {
     const fs = await import("node:fs/promises"), { constants } = await import("node:fs"), { join } = await import("node:path");
     const directory = join(configuration.dataDir, "history");
     if (!await enabled(fs, constants, directory)) return false;
-    const date = new Date(Date.now()).toISOString().slice(0, 10);
-    name = name.replace(".jsonl", "-" + date + ".jsonl");
     const text = JSON.stringify(record) + "\n";
     if (Buffer.byteLength(text) > 64 * 1024) return false;
     const destination = await fs.open(join(directory, name), constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
@@ -63,7 +59,6 @@ SOFTWARE.
       if (!workspace || !sessionId || !model || [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, totalTokens, reasoningTokens].includes(null) || !Number.isFinite(message.timestamp) || Math.abs(message.timestamp) > 8.64e15) return;
       const occurredAt = new Date(message.timestamp).toISOString();
       if (!/^\d{4}-/.test(occurredAt)) return;
-      if (message.timestamp < Date.now() - 45 * 86400000) return;
       const capturedCost = usage.cost && typeof usage.cost.total === "number" && Number.isFinite(usage.cost.total) && usage.cost.total > 0 && usage.cost.total <= 1e9 ? usage.cost.total : null;
       const claim = scalar(process.env.BB_THREAD_ID, 128);
       const sessionFile = scalar(ctx.sessionManager.getSessionFile && ctx.sessionManager.getSessionFile(), 16_384);

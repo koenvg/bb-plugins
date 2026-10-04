@@ -14,15 +14,25 @@ Original instants let reports regroup retained totals for a changed IANA timezon
 
 ## Maintenance and replay
 
-Schema 2 backfills supported schema-1 rows in transactions of at most 500 rows. It saves a durable cursor. Reconciliation waits for backfill to finish, so a partial compact index cannot change replay ownership. Pruning also uses batches of at most 500 records. Log retirement advances at most 14 dates per check. Discovery uses fixed daily names, not a directory-wide or transcript scan.
+Schema 3 backfills supported schema-1 rows in transactions of at most 500 rows. It saves a durable cursor. Reconciliation waits for backfill to finish, so a partial compact index cannot change replay ownership. Pruning also uses batches of at most 500 records. Log retirement advances at most 14 dates per check. Discovery uses fixed daily names, not a directory-wide or transcript scan.
 
 Compact rows, detail, ranked totals, counters and entry ownership commit together during ingestion. Detail expiry does not remove replay evidence. Compact expiry removes retained numeric values but leaves minimal UUID tombstones and hashed entry evidence. Ordinary replay cannot restore expired history or change the first confirmed owner. Conflicting scalar evidence stays excluded without replacing original costs or workspace ownership. Ranked management reads still use their persistent index.
 
-### Legacy log limit
+### Paused legacy-writer retirement
 
-Earlier collectors wrote `events-v1.jsonl` and `confirmations-v1.jsonl`. Already-running writers can keep appending to those files after repair. No public SDK check proves that all old writers have stopped. Rewriting or deleting a shared legacy file could lose a concurrent append.
+Earlier collectors wrote `events-v1.jsonl` and `confirmations-v1.jsonl`. An old process can finish an already-owned append after capture is paused. Quiet files, repair, idle sessions or one new event cannot prove that every old writer has stopped.
 
-The plugin therefore leaves legacy shared logs untouched and shows **legacy logs pending**. Repair does not retire them. Restarting sessions yourself can load the daily-partition writer, but installation or a new event cannot certify that every old writer stopped. Safe legacy log retirement remains an explicit BBP-23 completion gap. No live restart or storage deletion was authorized for this slice. Do not delete those logs to hide the warning.
+1. **Pause capture** on the selected host. No session is restarted automatically.
+2. Choose **Prepare legacy stop proof**. This publishes protocol-2 control with a fresh revision. Obsolete protocol-1 writers reject it, including after later resume or repair. Preparation alone does not prove that queued old writes finished.
+3. Stop every legacy process or load the new writer in each process yourself. Explicitly confirm the unchecked statement that every legacy process exited or loaded the new writer and no legacy writer can still append.
+4. Choose **Retire stopped legacy logs** within 15 minutes. Consent binds the selected host's control revision and fixed source identities, sizes and nanosecond modification/change times. An invalid token, expiry, changed source/control, partial final line, unsafe path or IO error leaves visible incomplete work. No inactivity or complete coverage is inferred.
+5. Use **Check readiness** to continue durable bounded ingestion and retirement. Capture remains paused; resume is a separate action. Only the fixed plugin-owned legacy sources and their owned retained/spool paths are used. No directory-wide or transcript scan runs.
+
+The final tail is indexed before filtering. Each check copies at most 500 lines and 128 KiB into fixed private spools. In-window original event bodies stay unchanged in `events-legacy-retained-v1.jsonl`; their confirmation bodies stay in `confirmations-legacy-retained-v1.jsonl`. Outputs and receipts are synced and published before originals are removed. Reopen resumes verified owned work after interruptions. Rebuilding a damaged database indexes retained inputs before a pending confirmation copy continues. Retiring source progress preserves past uncertainty and replay ownership.
+
+Once sealed retirement is complete, later readiness checks can expire retained legacy bodies in bounded steps without fresh stop consent. The writer fence remains required. Reappearing originals or changed sealed files stop this maintenance and require a fresh paused proof. Unrelated paths and symlinks are never adopted. The operation lock prevents concurrent retirement; checking its owner is not legacy-writer stop proof.
+
+Until the operator supplies valid stop consent, legacy shared logs remain untouched and **legacy logs pending** stays visible. This code and its tests do not authorize live session changes or real-storage retirement during this task.
 
 ## Coverage and empty intervals
 
@@ -46,7 +56,7 @@ Reconstruction reads only retained compact collector sources, with bounded norma
 
 If established control is paused, rebuilding records a conservative open pause at the known recovery instant. The finite recovery gap covers the lost past; the open pause covers the continuing disabled state. Reopen preserves it, and explicit resume closes it. Recovery does not invent the lost pause start or resume capture.
 
-The **Storage health and retention** disclosure shows healthy, maintenance or recovered state, cutoffs, pending work, legacy limits and a bounded recovery-gap interval. A recovered database is not proof of complete reconstructed history. To roll back, restore the prior plugin artifact without deleting history. Older code must leave schema 2 untouched.
+The **Storage health and retention** disclosure shows healthy, maintenance or recovered state, cutoffs, pending work, legacy limits and a bounded recovery-gap interval. A recovered database is not proof of complete reconstructed history. To roll back, restore the prior plugin artifact without deleting history. Older code must leave schema 3 untouched. Downgrading writer control is not supported; keep protocol 2 while obsolete writers could restart.
 
 ## Evidence limits
 

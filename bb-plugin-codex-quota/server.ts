@@ -38,7 +38,7 @@ export default function plugin(bb: BbPluginApi) {
     call: (hostId, signal) => hostClient.call("historyReadiness", null, { hostId, signal }),
   });
   const collectorControl = createHistoryReader({ selection, enrolled, activeReads,
-    call: (hostId, signal, action) => hostClient.call("collectorControl", { action: action! }, { hostId, signal }),
+    call: (hostId, signal, action, confirmation) => hostClient.call("collectorControl", { action: action!, ...(confirmation ? { confirmation } : {}) }, { hostId, signal }),
   });
   bb.onDispose(() => { for (const controller of activeReads) controller.abort(); });
   bb.rpc.register(rpcContract, {

@@ -7,7 +7,7 @@ import { parseCompact } from "./usage-record.js";
 import { projectCompactRecord } from "./history-projection.js";
 import { collectorLogNames } from "./history-logs.js";
 import { recordReconciliation, recordSourceUncertainty } from "./history-coverage.js";
-export type IngestOptions = { signal: AbortSignal; bytes?: number; rows?: number; bodyRead?: () => void; now?: number; recoveryFloor?: string };
+export type IngestOptions = { signal: AbortSignal; bytes?: number; rows?: number; bodyRead?: () => void; now?: number; recoveryFloor?: string; legacyOnly?: boolean };
 type Progress = { identity: string; size: number; stamp: string; offset: number; dropping: number; edge: string; invalid: number; stalled: number };
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const MAX_LINE = 64 * 1024;
@@ -15,8 +15,11 @@ export async function reconcileCollector(db: HistoryDatabase, directory: string,
   let bytesLeft = Math.max(128 * 1024, Math.min(options.bytes ?? 8 * 1024 * 1024, 8 * 1024 * 1024)) - 256;
   let rowsLeft = Math.min(options.rows ?? 500, 500), backlog = false;
   options.signal.throwIfAborted();
-  recordReconciliation(db, true);
-  for (const name of collectorLogNames(db, options.now ?? Date.now())) {
+  if (!options.legacyOnly) recordReconciliation(db, true);
+  const sources = options.legacyOnly
+    ? ["events-legacy-retained-v1.jsonl", "events-v1.jsonl", "confirmations-legacy-retained-v1.jsonl", "confirmations-v1.jsonl"]
+    : collectorLogNames(db, options.now ?? Date.now());
+  for (const name of sources) {
     options.signal.throwIfAborted();
     let file;
     try { file = await open(join(directory, name), constants.O_RDONLY | constants.O_NOFOLLOW); }
@@ -77,6 +80,6 @@ export async function reconcileCollector(db: HistoryDatabase, directory: string,
       backlog ||= next < stat.size || dropping === 1;
     } finally { await file.close(); }
   }
-  recordReconciliation(db, backlog);
+  if (!options.legacyOnly) recordReconciliation(db, backlog);
   return backlog;
 }

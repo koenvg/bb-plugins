@@ -1,7 +1,7 @@
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { historyUnavailable, type HistoryReadiness, type CollectorAction } from "./history-contract.js";
+import { historyUnavailable, type HistoryReadiness, type CollectorAction, type LegacyConfirmation } from "./history-contract.js";
 import { loadHistoryStorage, historyHeaderVersion, type HistoryDatabaseFactory } from "./history-storage.js";
 import { readCollectorCompatibility, validHostDataDir } from "./collector-compatibility.js";
 import { controlCollector, readControl, safeDirectory } from "./collector-control.js";
@@ -10,16 +10,18 @@ import { collectionView, initializeHistory, historyObserved } from "./history-pr
 import { createRetentionSchema, HISTORY_VERSION, maintainHistory, retentionState } from "./history-retention.js";
 import { confirmedCorruption, recoverHistory, saveBoundary } from "./history-recovery.js";
 import { pruneCollectorLogs } from "./history-logs.js";
+import { maintainLegacy } from "./history-legacy.js";
 
 export type HistoryReadContext = { signal: AbortSignal; dataDir: string };
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
-  control(action: CollectorAction, context: HistoryReadContext): Promise<HistoryReadiness>;
+  control(action: CollectorAction, context: HistoryReadContext, confirmation?: LegacyConfirmation): Promise<HistoryReadiness>;
 }
 type Dependencies = {
   storage?: () => Promise<HistoryDatabaseFactory | null>; agentDir?: () => string;
   collector?: (dataDir: string) => Promise<HistoryReadiness["collector"]>;
   now?: () => number; bodyRead?: () => void; ingestBytes?: number; ingestRows?: number; maintenanceRows?: number;
+  retirementRows?: number; retirementCheckpoint?: (step: string) => void;
 };
 const missing = (error: unknown) => !!error && typeof error === "object" && "code" in error && error.code === "ENOENT";
 export function createHostHistory(deps: Dependencies = {}): HostHistory {
@@ -28,7 +30,7 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
   const serialize = (work: () => Promise<HistoryReadiness>) => {
     const result = queue.then(work); queue = result.catch(() => null); return result;
   };
-  async function perform(context: HistoryReadContext, action?: CollectorAction, retried=false): Promise<HistoryReadiness> {
+  async function perform(context: HistoryReadContext, action?: CollectorAction, retried=false, confirmation?: LegacyConfirmation): Promise<HistoryReadiness> {
     const {signal,dataDir}=context;
     if (signal.aborted) return historyUnavailable("selection-changed");
     let factory:HistoryDatabaseFactory|null=null;
@@ -47,14 +49,14 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
           if (!file.isFile() || file.isSymbolicLink()) storage = "incompatible";
           else {
             const header=await historyHeaderVersion(path);
-            if(header!==null && ![1,HISTORY_VERSION].includes(header)) return {...historyUnavailable("storage-incompatible"),storage:"incompatible"};
+            if(header!==null && ![1,2,HISTORY_VERSION].includes(header)) return {...historyUnavailable("storage-incompatible"),storage:"incompatible"};
             // This host uses rollback journals. Do not open an external/unsettled WAL with unknown page-one version.
             if(header!==null) {
               try { const wal=await lstat(path+"-wal"); if(wal.size>0||wal.isSymbolicLink()||!wal.isFile()) return {...historyUnavailable("storage-unavailable"),storage:"unavailable"}; }
               catch(error) {if(!missing(error))throw error;}
             }
             const db = factory(path, true);
-            try { version=(db.prepare("PRAGMA user_version").get() as {user_version:number}).user_version; storage = [1,HISTORY_VERSION].includes(version) ? "compatible" : "incompatible"; }
+            try { version=(db.prepare("PRAGMA user_version").get() as {user_version:number}).user_version; storage = [1,2,HISTORY_VERSION].includes(version) ? "compatible" : "incompatible"; }
             finally { db.close(); }
           }
         }
@@ -68,10 +70,10 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
       if(storage==="compatible" && enabledBefore!==null) {
         const db=factory(path);
         try {
-          if(version===1 && db.prepare("SELECT name FROM sqlite_master WHERE name='collector_meta'").get()) db.transaction(()=>createRetentionSchema(db,true));
+          if(version<HISTORY_VERSION && db.prepare("SELECT name FROM sqlite_master WHERE name='collector_meta'").get()) db.transaction(()=>createRetentionSchema(db,version===1));
         }finally{db.close();}
       }
-      if (action) {
+      if (action && action !== "prepare-legacy" && action !== "retire-legacy") {
         await safeDirectory(dataDir); signal.throwIfAborted();
         await safeDirectory(directory); signal.throwIfAborted();
         const db = factory(path);
@@ -97,14 +99,21 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
             // A v1 migration must finish before replay decisions use the new compact index.
             const maintenance=maintainHistory(db,now,deps.maintenanceRows);
             const backfilling=!retentionState(db).backfill_done;
-            const backlog = backfilling || await reconcileCollector(db, directory, { signal, bytes: deps.ingestBytes, rows: deps.ingestRows, bodyRead: deps.bodyRead, now, recoveryFloor: db.prepare("SELECT id FROM history_recovery WHERE id=1").get() ? maintenance.detail : undefined });
+            const legacyAction = action === "prepare-legacy" || action === "retire-legacy" ? action : undefined;
+            const legacy = backfilling ? { status: undefined, failed: !!legacyAction } : await maintainLegacy(db, directory, now,
+              { signal, rows: deps.retirementRows ?? deps.ingestRows, checkpoint: deps.retirementCheckpoint,
+                recoveryFloor: db.prepare("SELECT id FROM history_recovery WHERE id=1").get() ? maintenance.detail : undefined }, legacyAction, confirmation);
+            const backlog = backfilling || (!legacy.failed && await reconcileCollector(db, directory, { signal, bytes: deps.ingestBytes, rows: deps.ingestRows, bodyRead: deps.bodyRead, now, recoveryFloor: db.prepare("SELECT id FROM history_recovery WHERE id=1").get() ? maintenance.detail : undefined }));
+            if (legacy.failed) { view.state = "unavailable"; view.reason = "retirement-incomplete"; }
             signal.throwIfAborted();
-            const logs=backfilling?{pending:true,legacyLogsPending:false}:await pruneCollectorLogs(db,directory,now,signal);
+            const logs=backfilling||legacy.failed?{pending:true,legacyLogsPending:!!legacy.status}:await pruneCollectorLogs(db,directory,now,signal);
             await saveBoundary(db,directory,now,signal);
-            view.collection = collectionView(db, enabled, backlog);
+            const latestEnabled = await readControl(directory);
+            if (latestEnabled === null) throw Error("Collector control unavailable");
+            view.collection = collectionView(db, latestEnabled, backlog);
             view.writer = historyObserved(db) ? "observed" : "unconfirmed";
             const gaps=db.prepare("SELECT started AS start,ended AS end FROM history_recovery LIMIT 1").all() as {start:string;end:string}[];
-            view.health={state:gaps.length?"recovered":maintenance.pending||logs.pending||logs.legacyLogsPending?"maintenance":"healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending||logs.pending,recoveryGaps:gaps,legacyLogsPending:logs.legacyLogsPending};
+            view.health={state:gaps.length?"recovered":maintenance.pending||logs.pending||logs.legacyLogsPending||legacy.failed||!!legacy.status&&legacy.status.phase!=="complete"?"maintenance":"healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending||logs.pending||!!legacy.status&&legacy.status.phase!=="complete",recoveryGaps:gaps,legacyLogsPending:logs.legacyLogsPending,legacyRetirement:legacy.status};
           } finally { db.close(); }
         } else {
           const db = factory(path, true);
@@ -120,5 +129,5 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
       return signal.aborted ? historyUnavailable("selection-changed") : { ...historyUnavailable("storage-unavailable"), storage: "unavailable" };
     }
   }
-  return { read: context => serialize(() => perform(context)), control: (action, context) => serialize(() => perform(context, action)) };
+  return { read: context => serialize(() => perform(context)), control: (action, context, confirmation) => serialize(() => perform(context, action, false, confirmation)) };
 }

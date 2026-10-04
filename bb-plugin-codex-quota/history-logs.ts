@@ -17,6 +17,8 @@ export function collectorLogNames(db:HistoryDatabase,now:number) {
  const aging=Array.from({length:14},(_,n)=>day(old+n*DAY)).filter(date=>date<cutoff).flatMap(names);
  const events=["events-v1.jsonl",...new Set([...aging,...recent].filter(n=>n.startsWith("events")))];
  const confirmations=["confirmations-v1.jsonl",...new Set([...aging,...recent].filter(n=>n.startsWith("confirmations")))];
+  events.unshift("events-legacy-retained-v1.jsonl");
+  confirmations.unshift("confirmations-legacy-retained-v1.jsonl");
  return [...events,...confirmations];
 }
 export async function pruneCollectorLogs(db:HistoryDatabase,directory:string,now:number,signal:AbortSignal) {

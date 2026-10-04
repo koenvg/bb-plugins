@@ -6,7 +6,7 @@ import type { HistoryReadiness } from "./history-contract.js";
 
 import { COLLECTOR_ENTRY } from "./collector-entry.js";
 export const COLLECTOR_NAME = "bb-codex-usage";
-export const COLLECTOR_PROTOCOL = 1;
+export const COLLECTOR_PROTOCOL = 2;
 const MAX_ASSET_BYTES = 64 * 1024;
 export function validHostDataDir(path: string): boolean {
   return isAbsolute(path) && path.length <= 16_384 && !/[\u0000-\u001f]/.test(path);

@@ -52,9 +52,8 @@ describe("visible history readiness independent from quota", () => {
     render(<HistoryReadinessPanel selection={{hostId:"host_a",generation:1}} read={read}/>);
     const summary=await screen.findByText("Storage health and retention");expect(summary.closest("details")?.open).toBe(false);fireEvent.click(summary);
     expect(screen.getByText(new RegExp(`Storage health: ${state}`))).toBeTruthy();expect(screen.getByText(/Older token classes are unavailable, not zero/)).toBeTruthy();
-    expect(screen.getByText(/Legacy collector logs cannot be pruned safely/)).toBeTruthy();
-    expect(screen.getByText(/Safe legacy retirement is not yet available/)).toBeTruthy();
-    expect(screen.getByText(/Repair or restart alone does not prove/)).toBeTruthy();
+    expect(screen.getByText(/Legacy retirement: required/)).toBeTruthy();
+    expect(screen.getByText(/Quiet files, repair and one new event are not stop proof/)).toBeTruthy();
     if(state==="recovered")expect(screen.getByText(/Recovery gap:/)).toBeTruthy();
     if(state==="maintenance")expect(screen.getByText(/Bounded retention or backfill work remains/)).toBeTruthy();
     expect(read).toHaveBeenCalledOnce();

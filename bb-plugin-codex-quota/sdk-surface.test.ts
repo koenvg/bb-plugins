@@ -18,6 +18,7 @@ describe("public SDK and quota-only boundary", () => {
     const testSeams = new Map([
       ["collector-compatibility.test.ts", "/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root"],
       ["collector-entry.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`"],
+      ["history-legacy.test.ts", "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`"],
       ["scripts/check-bundled-history.mjs", "pathToFileURL(artifact"],
     ]);
     expect(scan.violations.filter((entry) => entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier)).toEqual([]);

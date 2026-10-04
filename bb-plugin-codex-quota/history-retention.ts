@@ -4,7 +4,7 @@ import { usageRecordSchema } from "./usage-record.js";
 import { randomUUID } from "node:crypto";
 import { canonicalInterval, historyScope, readCoverage } from "./history-coverage.js";
 
-export const HISTORY_VERSION = 2;
+export const HISTORY_VERSION = 3;
 export type CompactRow = { event_id:string; session_id:string; workspace:string; total:number; accepted:number; confirmed:number; occurred_at:string; captured_cost:number|null; digest:string; evidence:string; provider_key:string|null; claimed_thread:string|null; verified_thread:string|null; recorded_host:string; detail_available:number };
 export const digest = (value:string) => createHash("sha256").update(value).digest("hex");
 export function usageEvidence(payload:string) {
@@ -31,12 +31,13 @@ export function createRetentionSchema(db:HistoryDatabase, backfill:boolean) {
     CREATE INDEX IF NOT EXISTS coverage_scope ON history_coverage(workspace,thread_id,started,ended);
     CREATE TABLE IF NOT EXISTS history_recovery (id INTEGER PRIMARY KEY CHECK(id=1), started TEXT NOT NULL, ended TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS history_reconciliation (id INTEGER PRIMARY KEY CHECK(id=1), started TEXT NOT NULL, ended TEXT NOT NULL, pending INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS history_legacy_pending (id INTEGER PRIMARY KEY CHECK(id=1), pending INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS pending_collector_sources ON collector_sources(name) WHERE offset<size OR dropping=1;
     CREATE INDEX IF NOT EXISTS uncertain_collector_sources ON collector_sources(name) WHERE invalid>0;
     CREATE INDEX IF NOT EXISTS coverage_interval ON history_coverage(started,id);
     CREATE INDEX IF NOT EXISTS coverage_thread_interval ON history_coverage(thread_id,started,id);
     CREATE TABLE IF NOT EXISTS history_owner (id INTEGER PRIMARY KEY CHECK(id=1), host_key TEXT NOT NULL);
-    PRAGMA user_version = 2;`);
+    PRAGMA user_version = 3;`);
   db.prepare("INSERT OR IGNORE INTO history_retention VALUES (1,'','','',?)").run(backfill ? 0 : 1);
   db.prepare("INSERT OR IGNORE INTO history_owner VALUES (1,?)").run(randomUUID());
 }

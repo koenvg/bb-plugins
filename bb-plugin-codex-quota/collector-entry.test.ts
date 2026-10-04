@@ -10,10 +10,10 @@ async function fixture() {
   vi.spyOn(Date,"now").mockReturnValue(1234567890000);
   const root = await realpath(await mkdtemp(join(tmpdir(), "bbp18-writer-"))); roots.push(root);
   await mkdir(join(root,"history")); await mkdir(join(root,"workspace"));
-  await writeFile(join(root,"history/collector-control-v1.json"), '{"protocol":1,"enabled":true}');
+  await writeFile(join(root,"history/collector-control-v1.json"), '{"protocol":2,"revision":"00000000-0000-4000-8000-000000000001","enabled":true}');
   const handlers = new Map<string, Function>();
   const module = await import(/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`);
-  module.default({ on: (name: string, handler: Function) => handlers.set(name,handler) }, {dataDir:root,protocol:1});
+  module.default({ on: (name: string, handler: Function) => handlers.set(name,handler) }, {dataDir:root,protocol:2});
   let leaf: string|null = null, entryReads = 0;
   const entries = new Map<string, unknown>();
   const ctx = { cwd:join(root,"workspace"), sessionManager: { getSessionId:()=>"synthetic-session", getSessionFile:()=>"/bounded/provider.jsonl", getLeafId:()=>leaf, getEntry:(id:string)=>{entryReads++; return entries.get(id);} } };
@@ -40,7 +40,7 @@ it("ignores non-Codex and invalid fields, paused or incompatible controls; no ra
   const f=await fixture();const diagnostic=vi.spyOn(console,"error").mockImplementation(()=>{});
   for(const message of [{...f.message(),provider:"anthropic"},{...f.message(),model:""},{...f.message(),timestamp:NaN},{...f.message(),usage:{...f.message().usage,input:-1}}]) await f.handlers.get("message_end")!({message},f.ctx);
   await expect(readFile(f.log)).rejects.toThrow();
-  await writeFile(join(f.root,"history/collector-control-v1.json"), '{"protocol":1,"enabled":false}');
+  await writeFile(join(f.root,"history/collector-control-v1.json"), '{"protocol":2,"revision":"00000000-0000-4000-8000-000000000001","enabled":false}');
   await f.handlers.get("message_end")!({message:f.message()},f.ctx);await expect(readFile(f.log)).rejects.toThrow();
   await writeFile(join(f.root,"history/collector-control-v1.json"), 'private-error-secret');
   await f.handlers.get("message_end")!({message:f.message()},f.ctx);
