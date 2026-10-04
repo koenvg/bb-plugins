@@ -2,19 +2,22 @@
 
 Current packages target BB 0.45 and SDK 0.6.15. See [compatibility fixes and remaining limits](BB-0.45-COMPATIBILITY.md).
 
+Pi with subagents remains pinned to BB 0.44.0 and SDK 0.5.29. See its [compatibility limits](bb-plugin-pi-subagents-provider/COMPATIBILITY.md).
+
 Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins-collibra](https://github.com/koenvangeert/bb-plugins-collibra) at commit `178c5c8e8dafa2f8f4f2567e855cbad7bd869836`.
 
-| Plugin           | Directory                                                |
-| ---------------- | -------------------------------------------------------- |
-| Changes          | [`bb-plugin-changes`](bb-plugin-changes)                 |
-| Code Cleanup     | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)       |
-| Codex Inspired   | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)   |
-| Codex Quota      | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)         |
-| Compose Chat     | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)       |
-| Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)   |
-| GitHub Insight   | [`bb-plugin-github-insight`](bb-plugin-github-insight)   |
-| Tasks Plus       | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)           |
-| Markdown Reader  | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader) |
+| Plugin            | Directory                                                         |
+| ----------------- | ----------------------------------------------------------------- |
+| Changes           | [`bb-plugin-changes`](bb-plugin-changes)                           |
+| Code Cleanup      | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)                 |
+| Codex Inspired    | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)               |
+| Codex Quota       | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)                     |
+| Compose Chat      | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)                 |
+| Threads with PRs  | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)               |
+| GitHub Insight    | [`bb-plugin-github-insight`](bb-plugin-github-insight)               |
+| Tasks Plus        | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)                       |
+| Markdown Reader   | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader)             |
+| Pi with subagents | [`bb-plugin-pi-subagents-provider`](bb-plugin-pi-subagents-provider) |
 
 Install one plugin at a time from Git with `--subdirectory`, for example:
 
