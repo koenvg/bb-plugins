@@ -18,4 +18,4 @@ bb code-cleanup prompt set --project proj_ID --text "Project-specific instructio
 bb code-cleanup prompt reset --project proj_ID
 ```
 
-`show` reports enabled/disabled and custom/default. Disabled projects retain their custom text. `prompt set` replaces the default text and rejects blank text or more than 4,096 characters. Use `--text-stdin` to pipe multiline text. These commands manage guidance only; agents report follow-up candidates to the user.
+`show` reports enabled/disabled and custom/default. Disabled projects retain their custom text. `prompt set` replaces the factory source and rejects blank text or more than 4,096 characters. Pass exact multiline source as one `--text` argument, with safe quoting or an argument-array process API. There is no supported `--text-stdin` flag. `prompt reset` changes only text and now restores guidance that asks agents to record substantial cleanup through BB Tasks. Upgrade alone keeps custom source unchanged. Task recording requires an available CLI and one tracker linked to the current BB project; the plugin never creates tasks itself.

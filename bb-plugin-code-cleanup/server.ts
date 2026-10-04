@@ -1,6 +1,8 @@
-import { PluginCliError, cliCommand, defineCli, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { cliCommand, defineCli, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { openProjectSettings } from "./project-settings";
 import { defaultGuidance } from "./guidance";
+import { projectConfiguration } from "./configuration";
+import { settingsContract } from "./rpc";
 
 const projectOption = {
   project: { type: "string", required: true, description: "Standard BB project ID" },
@@ -16,15 +18,13 @@ export default function plugin(bb: BbPluginApi): void {
     return { tools: [], skills: [], instructions: state.prompt ?? defaultGuidance(project.id) };
   });
 
-  async function requireStandardProject(projectId: string): Promise<void> {
-    const projects = await bb.sdk.projects.list({ includePersonal: true });
-    if (!projects.some((project) => project.id === projectId && project.kind === "standard")) {
-      throw new PluginCliError(`No standard project with ID ${projectId}`, {
-        code: "project_not_found",
-        hint: "Use a standard project ID from `bb project list`.",
-      });
-    }
-  }
+  const configuration = projectConfiguration(bb, settings);
+  bb.rpc.register(settingsContract, {
+    listProjects: () => configuration.listProjects(),
+    getProject: ({ projectId }) => configuration.getProject(projectId),
+    setEnablement: ({ projectId, enabled }) => configuration.setEnablement(projectId, enabled),
+    setPrompt: ({ projectId, prompt }) => configuration.setPrompt(projectId, prompt),
+  });
 
   bb.cli.register(defineCli({
     name: "code-cleanup",
@@ -34,8 +34,7 @@ export default function plugin(bb: BbPluginApi): void {
         summary: "Enable guidance for one project",
         options: projectOption,
         async run({ options }) {
-          await requireStandardProject(options.project);
-          settings.setEnabled(options.project, true);
+          await configuration.setEnablement(options.project, true);
           return { exitCode: 0, stdout: `Enabled Code Cleanup for ${options.project}.` };
         },
       }),
@@ -43,8 +42,7 @@ export default function plugin(bb: BbPluginApi): void {
         summary: "Disable guidance for one project (keep its prompt override)",
         options: projectOption,
         async run({ options }) {
-          await requireStandardProject(options.project);
-          settings.setEnabled(options.project, false);
+          await configuration.setEnablement(options.project, false);
           return { exitCode: 0, stdout: `Disabled Code Cleanup for ${options.project}.` };
         },
       }),
@@ -52,8 +50,7 @@ export default function plugin(bb: BbPluginApi): void {
         summary: "Show project enablement and prompt source",
         options: projectOption,
         async run({ options }) {
-          await requireStandardProject(options.project);
-          const state = settings.get(options.project);
+          const state = await configuration.getProject(options.project);
           return { exitCode: 0, stdout: `${options.project}: ${state.enabled ? "enabled" : "disabled"}; prompt: ${state.prompt === null ? "default" : "custom"}` };
         },
       }),
@@ -64,11 +61,7 @@ export default function plugin(bb: BbPluginApi): void {
           text: { type: "string", required: true, stdin: true, description: "Nonblank instruction text (up to 4096 characters)" },
         },
         async run({ options }) {
-          await requireStandardProject(options.project);
-          if (options.text.trim() === "" || options.text.length > 4096) {
-            throw new PluginCliError("Prompt must be nonblank and at most 4096 characters", { code: "invalid_value" });
-          }
-          settings.setPrompt(options.project, options.text);
+          await configuration.setPrompt(options.project, options.text);
           return { exitCode: 0, stdout: `Saved custom guidance for ${options.project}.` };
         },
       }),
@@ -76,8 +69,7 @@ export default function plugin(bb: BbPluginApi): void {
         summary: "Restore the default guidance for one project",
         options: projectOption,
         async run({ options }) {
-          await requireStandardProject(options.project);
-          settings.resetPrompt(options.project);
+          await configuration.setPrompt(options.project, null);
           return { exitCode: 0, stdout: `Restored default guidance for ${options.project}.` };
         },
       }),
