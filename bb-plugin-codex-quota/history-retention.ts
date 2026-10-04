@@ -103,7 +103,7 @@ export type CalendarQuery = {start:string;end:string;workspace?:string;verifiedT
 /** Internal bounded storage-side aggregation. No accepted-record cap. */
 type CalendarTotalsState={coverage:ReturnType<typeof readCoverage>;truncated:boolean;detail:"available"|"unavailable";expired:boolean;pending:boolean};
 export function readCalendarTotals(db:HistoryDatabase,query:CalendarQuery&{group:"workspace"|"thread"},now?:number):CalendarTotalsState&{days:import("./calendar-aggregation.js").CalendarAggregate[]};
-export function readCalendarTotals(db:HistoryDatabase,query:CalendarQuery,now?:number):CalendarTotalsState&{days:{date:string;totalTokens:number;capturedCost:number;pricedEvents:number;events:number}[]};
+export function readCalendarTotals(db:HistoryDatabase,query:CalendarQuery,now?:number):CalendarTotalsState&{days:{date:string;totalTokens:number;capturedCost:number|null;pricedEvents:number;events:number}[]};
 export function readCalendarTotals(db: HistoryDatabase, query: CalendarQuery, now?:number) {
   const interval=canonicalInterval(query.start,query.end,32), state=now===undefined?retentionState(db):effectiveRetentionState(db,now);
   const start=interval.start<state.compact_cutoff?state.compact_cutoff:interval.start;

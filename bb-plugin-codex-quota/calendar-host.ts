@@ -23,7 +23,13 @@ export async function readHostCalendar(context:{signal:AbortSignal;dataDir:strin
     try {
       if((db.prepare("PRAGMA user_version").get() as {user_version:number}).user_version!==4) return calendarUnavailable("storage-incompatible");
       await readHistoryControl(db,directory);
-      signal.throwIfAborted();return readCalendarReport(db,query,(deps.now??Date.now)());
+      signal.throwIfAborted();
+      // A deferred read transaction holds one SQLite snapshot without taking a writer reservation.
+      db.exec("BEGIN");
+      try {
+        const report=readCalendarReport(db,query,(deps.now??Date.now)());
+        db.exec("COMMIT");return report;
+      } catch(error) {db.exec("ROLLBACK");throw error;}
     } finally {db.close();}
   } catch(error) {
     return calendarUnavailable(signal.aborted?"selection-changed":error&&typeof error==="object"&&"code" in error&&error.code==="ENOENT"?"not-configured":"storage-unavailable");

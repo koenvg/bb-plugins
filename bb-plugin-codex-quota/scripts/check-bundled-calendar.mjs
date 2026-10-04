@@ -25,8 +25,10 @@ try{
  assert.equal(ready.collection.backlog,false);
  const bytes=readFileSync(path),control=readFileSync(join(historyDir,'collector-control-v1.json'));
  const report=await bundled.default.handlers.calendarReport(query,context);
- assert.equal(report.state,'partial');assert.deepEqual(report.summary,{totalTokens:120600,activeEntities:60,excludedTokens:0});assert.equal(report.days.length,30);assert.equal(report.ranking.length,50);assert.equal(report.truncated,true);assert.equal(report.next,false);
+ assert.equal(report.state,'partial');assert.deepEqual(report.summary,{totalTokens:120600,activeEntities:60,excludedTokens:0,money:{state:'partial',capturedCost:0.123,pricedRecords:1,records:12060,pricedEntities:1,reason:'missing-prices'}});assert.equal(report.days.length,30);assert.equal(report.ranking.length,50);assert.equal(report.truncated,true);assert.equal(report.next,false);
  assert.deepEqual(report.days[14].classes,{state:'available',input:48240,output:72360,reasoning:36180,cacheRead:24120,cacheWrite:0});
+ assert.deepEqual(report.days[14].money,report.summary.money);assert.equal(report.ranking.find(row=>row.key==='/workspace-1').money.capturedCost,0.123);
+ assert.equal(report.days[0].money.capturedCost,null,'Uncovered empty date must not become monetary zero');
  assert.deepEqual(readFileSync(path),bytes,'Report aggregation must not rewrite history');assert.deepEqual(readFileSync(join(historyDir,'collector-control-v1.json')),control);
  const old=await bundled.default.handlers.calendarReport({...query,startDate:'2026-08-02'},context);assert.equal(old.days[3].totalTokens,17);assert.deepEqual(old.days[3].classes,{state:'unavailable'});
  const db=await bundled.openHistoryDatabase(path,true);assert.equal(db.prepare('PRAGMA user_version').get().user_version,4);assert.equal(db.prepare('SELECT captured_cost FROM usage_compact WHERE event_id=?').get(event(1).eventId).captured_cost,0.123);
@@ -58,6 +60,7 @@ try{
  let imported=await bundled.default.handlers.historicalImport(command({action:'start'}),importedContext);
  for(let n=0;n<10&&imported.generation.state!=='completed';n++)imported=await bundled.default.handlers.historicalImport(command({action:'resume'}),importedContext);
  assert.equal(imported.generation.state,'completed');const importedReport=await bundled.default.handlers.calendarReport(query,importedContext);assert.equal(importedReport.summary.totalTokens,10);assert.equal(importedReport.capture,'unconfirmed');assert.equal(importedReport.state,'partial');assert.equal(importedReport.days[14].coverage.zero,false);
+ assert.deepEqual(importedReport.summary.money,{state:'unavailable',capturedCost:null,pricedRecords:0,records:1,pricedEntities:0,reason:'missing-prices'});
  assert.ok(!readFileSync(join(importedDir,'history/usage-v1.sqlite')).includes(Buffer.from('OWNED_SYNTHETIC_CONTENT')));
  console.log(`Packaged calendar proof passed on Node ${process.versions.node}: persistent reopen, 12,060 records/60 entities, indexed full aggregates, top-50 bounds, expired classes, original cost/schema/control unchanged, cancellation, invalid/missing established control, dormant logical expiry and import-only partial reporting. Synthetic only.`);
 }finally{globalThis.Date=NativeDate;globalThis.fetch=oldFetch;if(oldAgent===undefined)delete process.env.PI_CODING_AGENT_DIR;else process.env.PI_CODING_AGENT_DIR=oldAgent;rmSync(root,{recursive:true,force:true});}

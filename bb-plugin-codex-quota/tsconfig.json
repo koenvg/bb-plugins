@@ -17,6 +17,9 @@
   },
   "include": [
     "activity*.ts",
+    "calendar*.ts",
+    "calendar*.tsx",
+    "scripts/calendar-preview.tsx",
     "activity*.tsx",
     "scripts/activity-preview.tsx",
     "server.ts",

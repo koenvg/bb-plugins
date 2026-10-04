@@ -35,7 +35,7 @@ function put(db: import("./history-storage.js").HistoryDatabase, n:number, at="2
 }
 it("aggregates every accepted record beyond the old event cap and fifty visible entities",async()=>{
  const f=await calendarFixture();f.db.transaction(()=>{for(let n=1;n<=12060;n++)put(f.db,n,undefined,`/workspace-${n%60}`);});f.db.close();
- const view=await f.read();expect(view.summary).toEqual({totalTokens:120600,activeEntities:60,excludedTokens:0});
+ const view=await f.read();expect(view.summary).toMatchObject({totalTokens:120600,activeEntities:60,excludedTokens:0});
  expect(view.days.find(day=>day.date==="2026-09-15")).toMatchObject({totalTokens:120600,activeEntities:60});
  expect(view.ranking).toHaveLength(50);expect(view.ranking.every(row=>row.totalTokens===2010)).toBe(true);expect(view.truncated).toBe(true);
  await f.harness.experimental_dispose();
@@ -83,7 +83,7 @@ it("preserves deleted verified history and never allocates unknown workspace sha
  const f=await calendarFixture();f.db.transaction(()=>{put(f.db,1,undefined,"/shared",10,"provider-a.jsonl");put(f.db,2,undefined,"/shared",20,null);put(f.db,3,undefined,"/shared",30,"provider-b.jsonl");});
  acceptIdentityBatch(f.db,{hostId:"host_a",generation:1,offset:0,total:3,rows:[{threadId:"thr_deleted",providerIdentity:"provider-a",title:null,state:"deleted"},{threadId:"thr_ambiguous_a",providerIdentity:"provider-b",title:"A",state:"available"},{threadId:"thr_ambiguous_b",providerIdentity:"provider-b",title:"B",state:"available"}]});reconcileIdentity(f.db,new AbortController().signal);reconcileIdentity(f.db,new AbortController().signal);f.db.close();
  const workspaces=await f.read();expect(workspaces.summary).toMatchObject({totalTokens:60,activeEntities:1});expect(workspaces.ranking[0]).toMatchObject({key:"/shared",attribution:"ambiguous"});
- const threads=await f.read({startDate:"2026-09-01",timezone:"UTC",group:"thread",scope:{kind:"host"}});expect(threads.summary).toEqual({totalTokens:10,activeEntities:1,excludedTokens:50});expect(threads.ranking).toMatchObject([{key:"thr_deleted",label:"Deleted thread thr_deleted",metadata:"deleted",totalTokens:10}]);
+ const threads=await f.read({startDate:"2026-09-01",timezone:"UTC",group:"thread",scope:{kind:"host"}});expect(threads.summary).toMatchObject({totalTokens:10,activeEntities:1,excludedTokens:50});expect(threads.ranking).toMatchObject([{key:"thr_deleted",label:"Deleted thread thr_deleted",metadata:"deleted",totalTokens:10}]);
  expect((await f.read({startDate:"2026-09-01",timezone:"UTC",group:"thread",scope:{kind:"thread",threadId:"thr_deleted"}})).summary.totalTokens).toBe(10);
  await f.harness.experimental_dispose();
 });
@@ -142,7 +142,8 @@ it("reports retained import-only usage independently of collector assets without
   const entry = createQuotaHostEntry({ history, auth: async () => { throw Error("no auth"); }, read: async () => { throw Error("no account"); } });
   const harness = experimental_createHostEntryHarness(entry, { experimental_paths: { dataDir, tempDir: join(root, "temp") } });
   const result = await harness.experimental_call("calendarReport", { startDate: "2026-09-01", timezone: "UTC", group: "workspace", scope: { kind: "host" } });
-  expect(result).toMatchObject({ state: "partial", capture: "unconfirmed", summary: { totalTokens: 10, activeEntities: 1 }, days: expect.arrayContaining([{ date: "2026-09-15", totalTokens: 10, activeEntities: 1, coverage: expect.objectContaining({ state: "imported" }), classes: { state: "available", input: 4, output: 6, reasoning: 3, cacheRead: 2, cacheWrite: 0 }, excludedTokens: 0 }]) });
+  expect(result).toMatchObject({ state: "partial", capture: "unconfirmed", summary: { totalTokens: 10, activeEntities: 1 }, days: expect.arrayContaining([{ date: "2026-09-15", totalTokens: 10, activeEntities: 1, coverage: expect.objectContaining({ state: "imported" }), money: expect.objectContaining({capturedCost:null}), classes: { state: "available", input: 4, output: 6, reasoning: 3, cacheRead: 2, cacheWrite: 0 }, excludedTokens: 0 }]) });
+  if(result.state==="unavailable") throw Error(result.reason);
   expect(result.days).toHaveLength(30);
   expect(result.ranking).toMatchObject([{ key: "/original", totalTokens: 10 }]);
   await harness.experimental_dispose();
@@ -173,4 +174,12 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
 it("does not restore logically expired detail after the clock rolls behind a saved cutoff",async()=>{
  const f=await calendarFixture();put(f.db,1,"2026-09-14T12:00:00.000Z");put(f.db,2,undefined,undefined,20);maintainHistory(f.db,Date.parse("2026-11-15T12:00:00Z"),1);expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({n:1});f.db.close();
  const view=await f.read();expect(view.summary.totalTokens).toBe(30);expect(view.days[14]).toMatchObject({totalTokens:20,classes:{state:"unavailable"}});expect(view.compactFrom).toBe("2026-08-06T00:00:00.000Z");expect(view.previous).toBe(false);await f.harness.experimental_dispose();
+});
+
+it("keeps comparison on the optional HostHistory.read calendar path without readiness maintenance",async()=>{
+ const f=await calendarFixture();put(f.db,1);f.db.close();const before=await readFile(f.path);
+ const query={startDate:"2026-09-01",timezone:"UTC",group:"workspace" as const,scope:{kind:"host" as const},comparison:true};
+ const snapshot=await f.history.read({dataDir:f.dataDir,signal:new AbortController().signal,calendar:query});
+ expect(snapshot.calendar).toMatchObject({query,summary:{totalTokens:10,money:{capturedCost:null}},comparison:{query:{...query,startDate:"2026-08-02"},prior:{state:"unknown",summary:{money:{capturedCost:null}}},percentage:null,reasons:{tokens:"collection-unproved"}}});
+ expect(await readFile(f.path)).toEqual(before);expect((await f.history.read({dataDir:f.dataDir,signal:AbortSignal.abort(),calendar:query})).calendar).toEqual({state:"unavailable",reason:"selection-changed"});await f.harness.experimental_dispose();
 });
