@@ -31,6 +31,13 @@ export async function readControlRecord(directory: string): Promise<CollectorCon
 export async function readControl(directory: string): Promise<boolean | null> {
   return (await readControlRecord(directory))?.enabled ?? null;
 }
+/** Canonical read safety for both readiness and asset-independent reports. */
+export async function readHistoryControl(db: HistoryDatabase, directory: string): Promise<boolean | null> {
+  const enabled = await readControl(directory);
+  const established = db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
+  if (enabled === null && established || enabled !== null && !established) throw Error("Collector control unavailable");
+  return enabled;
+}
 export async function publishControl(directory: string, enabled: boolean, signal: AbortSignal) {
   const control = { protocol: 2 as const, enabled, revision: randomUUID() };
   await atomicWrite(join(directory, "collector-control-v1.json"), JSON.stringify(control), signal);

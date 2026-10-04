@@ -1,10 +1,12 @@
+import { readHostCalendar } from "./calendar-host.js";
+import type { CalendarQuery } from "./calendar-contract.js";
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { historyUnavailable, type HistoryReadiness, type CollectorAction, type LegacyConfirmation } from "./history-contract.js";
 import { loadHistoryStorage, inspectHistoryStorage, type HistoryDatabaseFactory } from "./history-storage.js";
 import { readCollectorCompatibility, validHostDataDir } from "./collector-compatibility.js";
-import { controlCollector, readControl, safeDirectory } from "./collector-control.js";
+import { controlCollector, readControl, readHistoryControl, safeDirectory } from "./collector-control.js";
 import { reconcileCollector } from "./history-ingest.js";
 import { collectionView, initializeHistory, historyObserved } from "./history-projection.js";
 import { maintainHistory, retentionState } from "./history-retention.js";
@@ -16,7 +18,7 @@ import type { IdentityBatch } from "./identity-contract.js";
 import { initializeIdentityStorage, acceptIdentityBatch, reconcileIdentity, identityView } from "./identity-storage.js";
 import { createImportOperation, type ImportContext } from "./import-host.js";
 import type { ImportCommand, ImportView } from "./import-contract.js";
-export type HistoryReadContext = { signal: AbortSignal; dataDir: string; identities?: IdentityBatch };
+export type HistoryReadContext = { signal: AbortSignal; dataDir: string; identities?: IdentityBatch; calendar?: CalendarQuery };
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
   control(action: CollectorAction, context: HistoryReadContext, confirmation?: LegacyConfirmation): Promise<HistoryReadiness>;
@@ -88,12 +90,11 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
       const reason = collector === "incompatible" ? "collector-incompatible" : storage === "unconfigured" || collector === "missing" ? "not-configured" : "ok";
       const view: HistoryReadiness = { state: reason === "ok" ? "available" : reason === "not-configured" ? "not-configured" : "unavailable", reason, storage, collector, writer: "unconfirmed" };
       if (storage === "compatible") {
-        const enabled = await readControl(directory);
-        if (enabled !== null) {
-          const db = factory(path);
-          try {
-            const meta = db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
-            if (!meta) throw Error("History metadata unavailable");
+        const db = factory(path);
+        try {
+          const enabled = await readHistoryControl(db, directory);
+          signal.throwIfAborted();
+          if (enabled !== null) {
             initializeIdentityStorage(db);
             if (identities) acceptIdentityBatch(db, identities);
             // A v1 migration must finish before replay decisions use the new compact index.
@@ -116,21 +117,15 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
             view.writer = historyObserved(db) ? "observed" : "unconfirmed";
             const gaps=db.prepare("SELECT started AS start,ended AS end FROM history_recovery LIMIT 1").all() as {start:string;end:string}[];
             view.health={state:gaps.length?"recovered":maintenance.pending||logs.pending||logs.legacyLogsPending||legacy.failed||!!legacy.status&&legacy.status.phase!=="complete"?"maintenance":"healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending||logs.pending||!!legacy.status&&legacy.status.phase!=="complete",recoveryGaps:gaps,legacyLogsPending:logs.legacyLogsPending,legacyRetirement:legacy.status};
-          } finally { db.close(); }
-        } else {
-          const db = factory(path);
-          try {
-            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'").get() && db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get()) throw Error("Collector control unavailable");
-            if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='import_config'").get()) {
-              initializeIdentityStorage(db);
-              const maintenance = maintainHistory(db,now,deps.maintenanceRows);
-              view.health = {state:maintenance.pending ? "maintenance" : "healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending,recoveryGaps:[],legacyLogsPending:false};
-              if (identities) acceptIdentityBatch(db, identities);
-              reconcileIdentity(db, signal);
-              view.attribution = identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
-            }
-          } finally { db.close(); }
-        }
+          } else if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='import_config'").get()) {
+            initializeIdentityStorage(db);
+            const maintenance = maintainHistory(db,now,deps.maintenanceRows);
+            view.health = {state:maintenance.pending ? "maintenance" : "healthy",detailFrom:maintenance.detail,compactFrom:maintenance.compact,pending:maintenance.pending,recoveryGaps:[],legacyLogsPending:false};
+            if (identities) acceptIdentityBatch(db, identities);
+            reconcileIdentity(db, signal);
+            view.attribution = identities ? identityView(db) : { ...identityView(db), discovery: "unknown", grades: [], threads: [] };
+          }
+        } finally { db.close(); }
       }
       return view;
     } catch(error) {
@@ -141,7 +136,7 @@ export function createHostHistory(deps: Dependencies = {}): HostHistory {
     }
   }
   return {
-    read: context => serialize(() => perform(context)),
+    read: context => serialize(async () => context.calendar ? {...historyUnavailable("unsupported"),calendar:await readHostCalendar({...context,calendar:context.calendar},deps)} : perform(context)),
     control: (action, context, confirmation) => serialize(() => perform(context, action, false, confirmation)),
     controlImport: (command, context) => {
       if (command.action === "cancel" && !context.signal.aborted) {

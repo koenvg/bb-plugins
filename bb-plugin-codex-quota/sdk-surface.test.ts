@@ -24,6 +24,7 @@ describe("public SDK and quota-only boundary", () => {
       ["scripts/check-bundled-import.mjs", "pathToFileURL(artifact"],
       ["scripts/check-prior-schema3.mjs", "pathToFileURL(path"], // Exact hash-verified pre-integration artifact.
       ["scripts/check-storage-integration.mjs", "pathToFileURL(artifact"], // Owned copy of the actual packaged host.
+      ["scripts/check-bundled-calendar.mjs", "pathToFileURL(artifact"], // Owned copies, persistent reopen and import-only packaged report.
       ["import-source.test.ts", '${JSON.stringify(new URL("./import-source.ts", import.meta.url'], // Owned sibling source in a hard-deadline child process.
     ]);
     expect(scan.violations.filter((entry) => entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier)).toEqual([]);

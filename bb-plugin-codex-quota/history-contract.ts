@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { calendarReportSchema } from "./calendar-contract.js";
 import { attributionViewSchema } from "./identity-contract.js";
 export const historyRequestSchema = z.object({
   hostId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
@@ -43,6 +44,7 @@ export const historyReadinessSchema = z.object({
   collection: collectionSchema.optional(),
   health: historyHealthSchema.optional(),
   attribution: attributionViewSchema.optional(),
+  calendar: calendarReportSchema.optional(),
 }).strict().refine((view) => view.state === "available"
   ? view.reason === "ok" && view.storage === "compatible" && view.collector === "compatible-v1"
   : view.state === "not-configured" ? view.reason === "not-configured" && ["compatible", "unconfigured"].includes(view.storage)

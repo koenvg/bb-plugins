@@ -5,6 +5,7 @@ import { historyReadinessSchema, collectorCommandSchema } from "./history-contra
 import { activityViewSchema } from "./activity-contract.js";
 import { identityBatchSchema } from "./identity-contract.js";
 import { importCommandSchema, importViewSchema } from "./import-contract.js";
+import { calendarQuerySchema, calendarReportSchema } from "./calendar-contract.js";
 const windowSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9_]{0,47}_window$/),
   name: z.string().min(1).max(48),
@@ -39,6 +40,7 @@ export const hostContract = defineRpcContract({
   ping: { input: z.null(), output: z.object({ reachable: z.boolean() }).strict() },
   quota: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: z.union([z.null(), z.object({ identities: identityBatchSchema }).strict()]), output: historyReadinessSchema },
+  calendarReport: { input: calendarQuerySchema, output: calendarReportSchema },
   collectorControl: { input: collectorCommandSchema, output: historyReadinessSchema },
   historicalImport: { input: z.object({ hostId: z.string().min(1).max(128), command: importCommandSchema, knownWorkspaces: z.array(z.string().min(1).max(4096)).max(50) }).strict(), output: importViewSchema },
   activity: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: activityViewSchema },

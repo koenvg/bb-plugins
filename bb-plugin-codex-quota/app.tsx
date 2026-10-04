@@ -7,6 +7,7 @@ import { QuotaBadge, QuotaBattery, QuotaDashboard } from "./quota-view.js";
 import { QuotaFooterRuntime } from "./footer-runtime.js";
 import type { FooterTarget } from "./footer-adapter.js";
 import { AccountActivity } from "./activity-view.js";
+import { CalendarReportSection } from "./calendar-panel.js";
 
 import { HistoryReadinessSection } from "./history-view.js";
 const shared = new QuotaSelectionStore();
@@ -81,9 +82,10 @@ function QuotaPage() {
   const options = hostId && !selected ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }] : hosts;
   return <QuotaDashboard view={state.view} now={state.now} loading={state.loading} ready={state.ready} hosts={options}
     selectedHostId={hostId}
-    history={<HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} />}
+    history={<details className="mt-8 min-w-0 border-t border-border pt-4 text-sm"><summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">Collection and history management</summary><HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} /></details>}
     onHostChange={(id) => { void shared.selectHost(api, id); }}
     onRefresh={() => { void shared.refresh(api, true); }}>
+      <CalendarReportSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} now={state.now} />
       <AccountActivity selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} read={(input) => activityRpc.call("activity", input)} />
     </QuotaDashboard>;
 }

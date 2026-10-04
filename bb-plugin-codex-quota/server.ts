@@ -9,6 +9,8 @@ import { createHistoryReader } from "./history-routing.js";
 import { createIdentityHistoryCall } from "./identity-server.js";
 import { importRequestSchema, importViewSchema } from "./import-contract.js";
 import { createImportHandler } from "./import-routing.js";
+import { calendarQuerySchema, calendarReportSchema } from "./calendar-contract.js";
+import { createCalendarReader } from "./calendar-routing.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z.object({ hostId: hostIdSchema.nullable(), generation: generationSchema }).strict();
@@ -19,6 +21,7 @@ export const rpcContract = defineRpcContract({
   selectHost: { input: z.object({ hostId: hostIdSchema.nullable() }).strict(), output: selectionSchema },
   read: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  calendarReport: { input: historyRequestSchema.extend({ query: calendarQuerySchema }), output: calendarReportSchema },
   collectorControl: { input: collectorRequestSchema, output: historyReadinessSchema },
   historicalImport: { input: importRequestSchema, output: importViewSchema },
   activity: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
@@ -46,6 +49,7 @@ export default function plugin(bb: BbPluginApi) {
   });
   bb.onDispose(() => { for (const controller of activeReads) controller.abort(); });
   bb.rpc.register(rpcContract, {
+    calendarReport: createCalendarReader({selection,enrolled,activeReads,call:(hostId,signal,query)=>hostClient.call("calendarReport",query,{hostId,signal})}),
     historyReadiness: readHistory,
     collectorControl,
     historicalImport: createImportHandler({ selection, enrolled, activeReads, sdk: bb.sdk, prepare: readHistory,

@@ -4,8 +4,9 @@ import { usageEvidence, usageDigest } from "./usage-evidence.js";
 import { usageRecordSchema } from "./usage-record.js";
 import { retireIdentityUsage } from "./identity-storage.js";
 import { randomUUID } from "node:crypto";
-import { canonicalInterval, historyScope, readCoverage } from "./history-coverage.js";
+import { canonicalInterval, readCoverage } from "./history-coverage.js";
 
+import { aggregateDays } from "./calendar-aggregation.js";
 export const HISTORY_VERSION = 4;
 export type CompactRow = { event_id:string; session_id:string; workspace:string; total:number; accepted:number; confirmed:number; occurred_at:string; captured_cost:number|null; digest:string; evidence:string; provider_key:string|null; claimed_thread:string|null; verified_thread:string|null; recorded_host:string; provenance:"observed"|"imported"; detail_available:number };
 export const digest = (value:string) => createHash("sha256").update(value).digest("hex");
@@ -59,6 +60,12 @@ export function retentionCutoffs(now:number) {
 }
 type Retention = {detail_cutoff:string;compact_cutoff:string;backfill_cursor:string;backfill_done:number};
 export function retentionState(db:HistoryDatabase) { return db.prepare("SELECT * FROM history_retention WHERE id=1").get() as Retention; }
+/** Logical expiry does not wait for physical maintenance and never precedes saved cutoffs. */
+export function effectiveRetentionState(db:HistoryDatabase, now:number) {
+  const state=retentionState(db),cutoffs=retentionCutoffs(now);
+  return {...state,detail_cutoff:state.detail_cutoff>cutoffs.detail?state.detail_cutoff:cutoffs.detail,
+    compact_cutoff:state.compact_cutoff>cutoffs.compact?state.compact_cutoff:cutoffs.compact};
+}
 export function maintainHistory(db:HistoryDatabase, now:number, budget=500) {
   const limit=Math.max(1,Math.min(500,Math.floor(budget))), cutoffs=retentionCutoffs(now);
   return db.transaction(()=>{
@@ -92,42 +99,16 @@ export function maintainHistory(db:HistoryDatabase, now:number, budget=500) {
     return {pending,detail:state.detail_cutoff,compact:state.compact_cutoff};
   });
 }
-export type CalendarQuery = {start:string;end:string;workspace?:string;verifiedThread?:string;timezone:string};
-/** Internal report integration seam. Bounded compact query, never a detailed-event scan. */
-export function readCalendarTotals(db: HistoryDatabase, query: CalendarQuery) {
-  const interval = canonicalInterval(query.start, query.end, 32), scope = historyScope(query);
-  const format = new Intl.DateTimeFormat("en-CA", {
-    timeZone: query.timezone, year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const state = retentionState(db);
-  const filter = scope.kind === "host" ? { sql: "1=1", values: [] as string[] }
-    : scope.kind === "workspace" ? { sql: "workspace=?", values: [scope.workspace] }
-    : { sql: "verified_thread=?", values: [scope.verifiedThread] };
-  const rows = db.prepare(`SELECT occurred_at,total,captured_cost,detail_available FROM usage_compact
-    WHERE ${filter.sql} AND occurred_at>=? AND occurred_at<? AND accepted=1
-    ORDER BY occurred_at,event_id LIMIT 10001`)
-    .all(...filter.values, interval.start < state.compact_cutoff ? state.compact_cutoff : interval.start, interval.end) as
-    Pick<CompactRow, "occurred_at" | "total" | "captured_cost" | "detail_available">[];
-  const days = new Map<string, { date: string; totalTokens: number; capturedCost: number; pricedEvents: number; events: number }>();
-  for (const row of rows.slice(0, 10000)) {
-    const date = format.format(new Date(row.occurred_at));
-    const day = days.get(date) ?? { date, totalTokens: 0, capturedCost: 0, pricedEvents: 0, events: 0 };
-    day.totalTokens += row.total;
-    day.events++;
-    if (row.captured_cost !== null) {
-      day.capturedCost += row.captured_cost;
-      day.pricedEvents++;
-    }
-    if (!Number.isSafeInteger(day.totalTokens)) throw Error("History totals unavailable");
-    days.set(date, day);
-  }
-  const coverage = readCoverage(db, { ...query, ...interval }), truncated = rows.length > 10000;
-  return {
-    coverage: truncated && coverage.state !== "unavailable"
-      ? { ...coverage, state: "incomplete" as const, zero: false, truncated: true } : coverage,
-    days: [...days.values()], truncated,
-    detail: interval.start < state.detail_cutoff || rows.some(row => !row.detail_available)
-      ? "unavailable" as const : "available" as const,
-    expired: interval.start < state.compact_cutoff, pending: !state.backfill_done,
-  };
+export type CalendarQuery = {start:string;end:string;workspace?:string;verifiedThread?:string;timezone:string;group?:"workspace"|"thread"};
+/** Internal bounded storage-side aggregation. No accepted-record cap. */
+type CalendarTotalsState={coverage:ReturnType<typeof readCoverage>;truncated:boolean;detail:"available"|"unavailable";expired:boolean;pending:boolean};
+export function readCalendarTotals(db:HistoryDatabase,query:CalendarQuery&{group:"workspace"|"thread"},now?:number):CalendarTotalsState&{days:import("./calendar-aggregation.js").CalendarAggregate[]};
+export function readCalendarTotals(db:HistoryDatabase,query:CalendarQuery,now?:number):CalendarTotalsState&{days:{date:string;totalTokens:number;capturedCost:number;pricedEvents:number;events:number}[]};
+export function readCalendarTotals(db: HistoryDatabase, query: CalendarQuery, now?:number) {
+  const interval=canonicalInterval(query.start,query.end,32), state=now===undefined?retentionState(db):effectiveRetentionState(db,now);
+  const start=interval.start<state.compact_cutoff?state.compact_cutoff:interval.start;
+  const days=start<interval.end ? aggregateDays(db,{...query,start,end:interval.end},state.detail_cutoff).filter(day=>day.events>0) : [];
+  return {coverage:readCoverage(db,{...query,...interval}),days:query.group?days:days.map(({date,totalTokens,capturedCost,pricedEvents,events})=>({date,totalTokens,capturedCost,pricedEvents,events})),truncated:false,
+    detail:interval.start<state.detail_cutoff||days.some(day=>day.detailMissing>0)?"unavailable" as const:"available" as const,
+    expired:interval.start<state.compact_cutoff,pending:!state.backfill_done};
 }

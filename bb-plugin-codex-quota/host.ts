@@ -12,6 +12,7 @@ import { fetchNormalizedActivity } from "./activity-fetch.js";
 import type { ActivityRead } from "./activity-contract.js";
 
 import { createHostHistory, type HostHistory } from "./history-host.js";
+import { calendarUnavailable } from "./calendar-contract.js";
 import { importUnavailable } from "./import-contract.js";
 // Internal named exports let packaged tests exercise the runtime adapter and exact collector asset.
 export { openHistoryDatabase } from "./history-storage.js";
@@ -86,6 +87,7 @@ export function createQuotaHostEntry(deps: Dependencies) {
     dispose: () => activity.dispose(),
     handlers: {
       ping: async () => ({ reachable: true }),
+      calendarReport: async (calendar, context) => (await history.read({calendar,dataDir:context.experimental_paths.dataDir,signal:AbortSignal.any([context.signal,context.lifecycle.signal])})).calendar ?? calendarUnavailable("unsupported"),
       historicalImport: async ({ hostId, command, knownWorkspaces }, context) => {
         const signal = AbortSignal.any([context.signal, context.lifecycle.signal]);
         if (signal.aborted || !history.controlImport) return importUnavailable(signal.aborted ? "selection-changed" : "unsupported");
