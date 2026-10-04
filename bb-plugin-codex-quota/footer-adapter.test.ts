@@ -5,13 +5,7 @@ import { mountFooterAdapter } from "./footer-adapter.js";
 import { footerFixture } from "./footer-fixture.test-support.js";
 
 const disposers: (() => void)[] = [];
-afterEach(() => {
-  disposers
-    .splice(0)
-    .reverse()
-    .forEach((dispose) => dispose());
-  document.body.replaceChildren();
-});
+afterEach(() => { disposers.splice(0).reverse().forEach((dispose) => dispose()); document.body.replaceChildren(); });
 const mount = () => {
   const adapter = mountFooterAdapter(document, "codex-quota");
   disposers.push(adapter.dispose);
@@ -22,16 +16,12 @@ describe("quota footer attachment", () => {
   it("adds one badge target to its own native button without replacing host content", () => {
     const { sidebar, button, row } = footerFixture();
     const icon = button.querySelector("svg");
-    const unrelated = sidebar.querySelector(
-      '[data-footer-item="plugin:connect/remote-access"]',
-    )!.outerHTML;
+    const unrelated = sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]')!.outerHTML;
     const adapter = mount();
     expect(adapter.getSnapshot()).toHaveLength(1);
     expect(adapter.getSnapshot()[0]!.container.parentElement).toBe(button);
     expect(button.querySelector("svg")).toBe(icon);
-    expect(
-      sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]')!.outerHTML,
-    ).toBe(unrelated);
+    expect(sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]')!.outerHTML).toBe(unrelated);
     expect(getComputedStyle(row).display).not.toBe("none");
     adapter.dispose();
     expect(button.children).toHaveLength(2);
@@ -50,9 +40,7 @@ describe("quota footer attachment", () => {
     expect(adapter.getSnapshot()[0]).toBe(target);
     first.sidebar.remove();
     const second = footerFixture();
-    await waitFor(() =>
-      expect(adapter.getSnapshot()[0]?.container.parentElement).toBe(second.button),
-    );
+    await waitFor(() => expect(adapter.getSnapshot()[0]?.container.parentElement).toBe(second.button));
     expect(target.container.parentElement).toBeNull();
     adapter.dispose();
     expect(adapter.getSnapshot()).toEqual([]);
@@ -86,7 +74,7 @@ describe("quota footer attachment", () => {
     stop();
     expect(getComputedStyle(row).display).not.toBe("none");
     expect(button.getAttribute("aria-describedby")).toBe("existing-description");
-    expect(document.querySelector("[data-codex-quota-style]")).toBeNull();
+    expect(document.querySelector('[data-codex-quota-style]')).toBeNull();
   });
 
   it("keeps the upper quota entry suppressed while a context menu hides the background from screen readers", async () => {
@@ -113,26 +101,20 @@ describe("quota footer attachment", () => {
     expect(adapter.getSnapshot()[0]).toBe(target);
     expect(getComputedStyle(row).display).toBe("none");
   });
-  it.each(["hidden", "display", "duplicate", "remove"])(
-    "restores navigation when its footer becomes %s",
-    async (mode) => {
-      const { sidebar, row, item } = footerFixture();
-      const adapter = mount();
-      adapter.setNavigationReady(true);
-      adapter.getSnapshot()[0]!.commit();
-      expect(getComputedStyle(row).display).toBe("none");
-      if (mode === "hidden") item.hidden = true;
-      if (mode === "display") item.style.display = "none";
-      if (mode === "duplicate") item.after(item.cloneNode(true));
-      if (mode === "remove") item.remove();
-      await waitFor(() => expect(getComputedStyle(row).display).not.toBe("none"));
-      expect(adapter.getSnapshot()).toHaveLength(0);
-      expect(
-        getComputedStyle(sidebar.querySelector('[data-sidebar-navigation-item="other/quota"]')!)
-          .display,
-      ).not.toBe("none");
-    },
-  );
+  it.each(["hidden", "display", "duplicate", "remove"])("restores navigation when its footer becomes %s", async (mode) => {
+    const { sidebar, row, item } = footerFixture();
+    const adapter = mount();
+    adapter.setNavigationReady(true);
+    adapter.getSnapshot()[0]!.commit();
+    expect(getComputedStyle(row).display).toBe("none");
+    if (mode === "hidden") item.hidden = true;
+    if (mode === "display") item.style.display = "none";
+    if (mode === "duplicate") item.after(item.cloneNode(true));
+    if (mode === "remove") item.remove();
+    await waitFor(() => expect(getComputedStyle(row).display).not.toBe("none"));
+    expect(adapter.getSnapshot()).toHaveLength(0);
+    expect(getComputedStyle(sidebar.querySelector('[data-sidebar-navigation-item="other/quota"]')!).display).not.toBe("none");
+  });
 
   it("leaves ambiguous navigation and the user's own hidden state untouched", () => {
     const { row, button } = footerFixture();
@@ -143,10 +125,7 @@ describe("quota footer attachment", () => {
     adapter.setNavigationReady(true);
     adapter.getSnapshot()[0]!.commit();
     expect(row.hasAttribute("data-codex-quota-suppressed")).toBe(false);
-    button.setAttribute(
-      "aria-describedby",
-      `${button.getAttribute("aria-describedby")} new-description`,
-    );
+    button.setAttribute("aria-describedby", `${button.getAttribute("aria-describedby")} new-description`);
     adapter.dispose();
     expect(row.hidden).toBe(true);
     expect(button.getAttribute("aria-describedby")).toBe("existing-description new-description");

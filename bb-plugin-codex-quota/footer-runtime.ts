@@ -8,12 +8,7 @@ export class QuotaFooterRuntime {
   private navigate: (() => void) | null = null;
   private pending = false;
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
+  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.targets;
   private publish = () => {
     this.targets = this.adapter?.getSnapshot() ?? [];

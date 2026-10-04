@@ -30,8 +30,7 @@ describe("reset countdown", () => {
   });
 
   it("uses elapsed hours across a daylight-saving transition", () => {
-    expect(
-      resetCountdown("2026-03-29T12:00:00+02:00", Date.parse("2026-03-28T12:00:00+01:00")),
-    ).toBe("23 hours left");
+    expect(resetCountdown("2026-03-29T12:00:00+02:00", Date.parse("2026-03-28T12:00:00+01:00")))
+      .toBe("23 hours left");
   });
 });

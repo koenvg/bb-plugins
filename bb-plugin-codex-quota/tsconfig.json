@@ -5,12 +5,20 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM"],
-    "types": ["node"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
     "noEmit": true,
     "skipLibCheck": false
   },
   "include": [
+    "activity*.ts",
+    "activity*.tsx",
+    "scripts/activity-preview.tsx",
     "server.ts",
     "host.ts",
     "contract.ts",
@@ -22,6 +30,7 @@
     "freshness.ts",
     "selection-store.ts",
     "selection-store.test.ts",
+    "selection-integration.test.tsx",
     "quota-view.tsx",
     "quota-view.test.tsx",
     "feasibility.test.ts",

@@ -6,6 +6,7 @@ import { QuotaSelectionStore, type QuotaApi } from "./selection-store.js";
 import { QuotaBadge, QuotaBattery, QuotaDashboard } from "./quota-view.js";
 import { QuotaFooterRuntime } from "./footer-runtime.js";
 import type { FooterTarget } from "./footer-adapter.js";
+import { AccountActivity } from "./activity-view.js";
 
 import { HistoryReadinessSection } from "./history-view.js";
 const shared = new QuotaSelectionStore();
@@ -74,6 +75,7 @@ function useHostOptions() {
 function QuotaPage() {
   const { state, api } = useQuota();
   const hosts = useHostOptions();
+  const activityRpc = useRpc<typeof rpcContract>();
   const hostId = state.selection.hostId;
   const selected = hosts.find((host) => host.id === hostId);
   const options = hostId && !selected ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }] : hosts;
@@ -81,7 +83,9 @@ function QuotaPage() {
     selectedHostId={hostId}
     history={<HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} />}
     onHostChange={(id) => { void shared.selectHost(api, id); }}
-    onRefresh={() => { void shared.refresh(api, true); }} />;
+    onRefresh={() => { void shared.refresh(api, true); }}>
+      <AccountActivity selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} read={(input) => activityRpc.call("activity", input)} />
+    </QuotaDashboard>;
 }
 
 function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {

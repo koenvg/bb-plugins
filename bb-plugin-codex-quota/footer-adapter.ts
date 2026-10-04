@@ -1,8 +1,4 @@
-export type FooterTarget = {
-  container: HTMLSpanElement;
-  descriptionId: string;
-  commit(): () => void;
-};
+export type FooterTarget = { container: HTMLSpanElement; descriptionId: string; commit(): () => void };
 type Attachment = FooterTarget & { rendered: boolean };
 let nextId = 0;
 
@@ -15,8 +11,7 @@ const styles = `
 `;
 
 function isAvailable(button: HTMLButtonElement): boolean {
-  if (!button.isConnected || button.disabled || button.getAttribute("aria-disabled") === "true")
-    return false;
+  if (!button.isConnected || button.disabled || button.getAttribute("aria-disabled") === "true") return false;
   for (let node: HTMLElement | null = button; node; node = node.parentElement) {
     // Modal menus set aria-hidden on the background without removing the footer.
     // Keep its attachment and navigation suppression until it is actually hidden.
@@ -53,11 +48,8 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       for (const [button, target] of attached) {
         if (!target.rendered) continue;
         const sidebar = button.closest('[data-sidebar="sidebar"]');
-        const rows = Array.from(
-          sidebar?.querySelectorAll(
-            '[data-testid="sidebar-navigation-region"] [data-sidebar-navigation-item]',
-          ) ?? [],
-        ).filter((row) => row.getAttribute("data-sidebar-navigation-item") === `${pluginId}/quota`);
+        const rows = Array.from(sidebar?.querySelectorAll('[data-testid="sidebar-navigation-region"] [data-sidebar-navigation-item]') ?? [])
+          .filter((row) => row.getAttribute("data-sidebar-navigation-item") === `${pluginId}/quota`);
         if (rows.length !== 1) continue;
         const row = rows[0]!;
         if (row.contains(document.activeElement)) button.focus({ preventScroll: true });
@@ -65,8 +57,7 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
         if (!suppressed.has(row)) row.setAttribute("data-codex-quota-suppressed", "");
       }
     }
-    for (const row of suppressed)
-      if (!next.has(row)) row.removeAttribute("data-codex-quota-suppressed");
+    for (const row of suppressed) if (!next.has(row)) row.removeAttribute("data-codex-quota-suppressed");
     suppressed.clear();
     for (const row of next) suppressed.add(row);
   }
@@ -74,9 +65,7 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
   function release(button: HTMLButtonElement, target: Attachment) {
     target.container.remove();
     button.removeAttribute("data-codex-quota-footer");
-    const descriptions = (button.getAttribute("aria-describedby") ?? "")
-      .split(/\s+/)
-      .filter((id) => id && id !== target.descriptionId);
+    const descriptions = (button.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((id) => id && id !== target.descriptionId);
     if (descriptions.length) button.setAttribute("aria-describedby", descriptions.join(" "));
     else button.removeAttribute("aria-describedby");
     attached.delete(button);
@@ -91,13 +80,10 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     if (disposed) return;
     const buttons = new Set<HTMLButtonElement>();
     for (const sidebar of Array.from(document.querySelectorAll('[data-sidebar="sidebar"]'))) {
-      const items = Array.from(
-        sidebar.querySelectorAll('[data-sidebar="footer"] [data-footer-item]'),
-      ).filter((item) => item.getAttribute("data-footer-item") === key);
+      const items = Array.from(sidebar.querySelectorAll('[data-sidebar="footer"] [data-footer-item]'))
+        .filter((item) => item.getAttribute("data-footer-item") === key);
       if (items.length !== 1) continue;
-      const matches = items[0]!.querySelectorAll<HTMLButtonElement>(
-        'button[data-sidebar="menu-button"]',
-      );
+      const matches = items[0]!.querySelectorAll<HTMLButtonElement>('button[data-sidebar="menu-button"]');
       if (matches.length === 1 && isAvailable(matches[0]!)) buttons.add(matches[0]!);
     }
     for (const [button, target] of attached) {
@@ -114,16 +100,11 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       button.setAttribute("data-codex-quota-footer", "");
       button.append(container);
       const target: Attachment = {
-        container,
-        descriptionId,
-        rendered: false,
+        container, descriptionId, rendered: false,
         commit: () => {
           target.rendered = true;
           updateNavigation();
-          return () => {
-            target.rendered = false;
-            updateNavigation();
-          };
+          return () => { target.rendered = false; updateNavigation(); };
         },
       };
       attached.set(button, target);
@@ -131,57 +112,26 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     // Radix rewrites this shared attribute on tooltip open/close. Preserve its
     // current references, and write only when our token is missing.
     for (const [button, { descriptionId }] of attached) {
-      const descriptions = (button.getAttribute("aria-describedby") ?? "")
-        .split(/\s+/)
-        .filter(Boolean);
-      if (!descriptions.includes(descriptionId))
-        button.setAttribute("aria-describedby", [...descriptions, descriptionId].join(" "));
+      const descriptions = (button.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+      if (!descriptions.includes(descriptionId)) button.setAttribute("aria-describedby", [...descriptions, descriptionId].join(" "));
     }
     publish();
     updateNavigation();
   }
   const observer = new MutationObserver((records) => {
-    if (
-      queued ||
-      records.every((record) => (record.target as Element).closest?.("[data-codex-quota-badge]"))
-    )
-      return;
+    if (queued || records.every((record) => (record.target as Element).closest?.('[data-codex-quota-badge]'))) return;
     queued = true;
-    queueMicrotask(() => {
-      queued = false;
-      reconcile();
-    });
+    queueMicrotask(() => { queued = false; reconcile(); });
   });
   observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: [
-      "hidden",
-      "inert",
-      "style",
-      "class",
-      "aria-hidden",
-      "aria-disabled",
-      "aria-describedby",
-      "disabled",
-      "data-footer-item",
-      "data-sidebar-navigation-item",
-    ],
+    childList: true, subtree: true, attributes: true,
+    attributeFilter: ["hidden", "inert", "style", "class", "aria-hidden", "aria-disabled", "aria-describedby", "disabled", "data-footer-item", "data-sidebar-navigation-item"],
   });
   reconcile();
   return {
     getSnapshot: () => targets,
-    setNavigationReady: (ready: boolean) => {
-      navigationReady = ready;
-      updateNavigation();
-    },
-    subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    setNavigationReady: (ready: boolean) => { navigationReady = ready; updateNavigation(); },
+    subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     dispose: () => {
       if (disposed) return;
       disposed = true;

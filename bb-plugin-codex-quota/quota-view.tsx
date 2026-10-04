@@ -1,9 +1,9 @@
+import type { ReactNode } from "react";
 import type { QuotaStatus } from "./contract.js";
 import type { QuotaWindow } from "./quota.js";
 import { visibleView } from "./freshness.js";
 import { resetCountdown } from "./reset-countdown.js";
 
-import type { ReactNode } from "react";
 const USAGE_URL = "https://chatgpt.com/codex/settings/usage";
 const percentText = (value: number): string => `${value}%`;
 const dateText = (value: string): string => new Intl.DateTimeFormat("en-GB", {
@@ -46,10 +46,11 @@ type Props = {
   onHostChange(hostId: string | null): void;
   onRefresh(): void;
   history?: ReactNode;
+  children?: ReactNode;
 };
 
 /** Pure page body: the host owns the navigation row, panel chrome, and keyboard activation. */
-export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = true, now, onHostChange, onRefresh, history }: Props) {
+export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = true, now, onHostChange, onRefresh, history, children }: Props) {
   const visible = visibleView(view, now);
   const snapshot = ready ? visible.snapshot : null;
   const binding = snapshot?.general.find((window) => window.id === snapshot.bindingWindowId);
@@ -112,6 +113,7 @@ export function QuotaDashboard({ view, selectedHostId, hosts, loading, ready = t
             </section>
           ))}
         </details>}
+        {children}
         {history}
       </div>
     </main>

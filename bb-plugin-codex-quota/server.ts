@@ -1,6 +1,8 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, quotaViewSchema } from "./contract.js";
+import { activityViewSchema } from "./activity-contract.js";
+import { createActivityHandler } from "./activity-server.js";
 
 import { historyReadinessSchema, historyRequestSchema } from "./history-contract.js";
 import { createHistoryReader } from "./history-routing.js";
@@ -14,6 +16,7 @@ export const rpcContract = defineRpcContract({
   selectHost: { input: z.object({ hostId: hostIdSchema.nullable() }).strict(), output: selectionSchema },
   read: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  activity: { input: z.object({ hostId: hostIdSchema, generation: generationSchema, refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
 });
 
 const unavailable = (reason: "no-selection" | "foreign-host" | "selection-changed" | "host-offline" | "unsupported") =>
@@ -37,6 +40,8 @@ export default function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     historyReadiness: readHistory,
     async selection() { return selection(); },
+    activity: createActivityHandler({ selection, enrolled, activeReads,
+      call: (hostId, refresh, signal) => hostClient.call("activity", { refresh }, { hostId, signal }) }),
     async selectHost({ hostId }) {
       const request = ++selectionRequest;
       if (hostId !== null) {

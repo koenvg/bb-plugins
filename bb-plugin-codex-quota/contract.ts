@@ -2,6 +2,7 @@ import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
 import { historyReadinessSchema } from "./history-contract.js";
+import { activityViewSchema } from "./activity-contract.js";
 const windowSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9_]{0,47}_window$/),
   name: z.string().min(1).max(48),
@@ -36,4 +37,5 @@ export const hostContract = defineRpcContract({
   ping: { input: z.null(), output: z.object({ reachable: z.boolean() }).strict() },
   quota: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: { input: z.null(), output: historyReadinessSchema },
+  activity: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: activityViewSchema },
 });
