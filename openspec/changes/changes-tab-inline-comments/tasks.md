@@ -40,5 +40,5 @@
 
 ## 6. Integration
 
-- [ ] 6.1 Add `bb-plugin-changes` to the matrix in `.github/workflows/tests.yml` and to the root `README.md` plugin list; verify the workflow runs `npm ci` and `npm test` for it on the PR
+- [x] 6.1 Add `bb-plugin-changes` to the matrix in `.github/workflows/tests.yml` and to the root `README.md` plugin list; verify the workflow runs `npm ci` and `npm test` for it on the PR
 - [x] 6.2 In the running app on a real worktree: open the Changes tab, add comments on two files (one added line, one deleted line), switch thread and back, send, and confirm the agent gets one message in the spec format and the comments leave the diff; record the result in the PR description
