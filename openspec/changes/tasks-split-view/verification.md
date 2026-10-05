@@ -4,6 +4,7 @@
 > installed from `fdfa399`; its installation receipt is attached to BBP-8. The user
 > then clarified the native right-pane layout. See [the correction report](native-pane-verification.md)
 > for current implementation, verification, and deployment status.
+
 ## Outcome
 
 All seven BBP-8 implementation slices are integrated and ready for review. Each ran in its own BB child thread, followed native blocker relationships, and owned its tests, documentation, and one read-only completion review. Blocking findings were fixed before acceptance.
@@ -16,15 +17,15 @@ No push, implementation PR, main-branch merge, live plugin install, or reload wa
 
 ## Integrated slices
 
-| Task | Scope | Integrated commits | BB worker |
-| --- | --- | --- | --- |
-| BBP-9 | Serialized autosaves, safe transitions, task-owned drafts | `30f8279`, `da3d846` | `thr_ic6zqst8r8` |
-| BBP-10 | Browser-profile-wide project or All memory | `fdba373` | `thr_ejmd74seb5` |
-| BBP-11 | Inline project/folder navigation and compact menus | `34dac39`, `186dc7b` | `thr_idpvqdmek4` |
-| BBP-12 | Retained list and existing full editable detail | `449b61e` | `thr_swki2n6zrv` |
-| BBP-13 | Settled visible-order reconciliation and safe clearing | `98d1634`, `627c0af` | `thr_wgtgwhvxh9` |
-| BBP-14 | Keyboard preview movement, paging, and focus ownership | `c12c184` | `thr_rnesvmf5dm` |
-| BBP-15 | Compact Back, resize, scroll, and hidden-pane safety | `6620801` | `thr_5fdujhtr9w` |
+| Task   | Scope                                                     | Integrated commits   | BB worker        |
+| ------ | --------------------------------------------------------- | -------------------- | ---------------- |
+| BBP-9  | Serialized autosaves, safe transitions, task-owned drafts | `30f8279`, `da3d846` | `thr_ic6zqst8r8` |
+| BBP-10 | Browser-profile-wide project or All memory                | `fdba373`            | `thr_ejmd74seb5` |
+| BBP-11 | Inline project/folder navigation and compact menus        | `34dac39`, `186dc7b` | `thr_idpvqdmek4` |
+| BBP-12 | Retained list and existing full editable detail           | `449b61e`            | `thr_swki2n6zrv` |
+| BBP-13 | Settled visible-order reconciliation and safe clearing    | `98d1634`, `627c0af` | `thr_wgtgwhvxh9` |
+| BBP-14 | Keyboard preview movement, paging, and focus ownership    | `c12c184`            | `thr_rnesvmf5dm` |
+| BBP-15 | Compact Back, resize, scroll, and hidden-pane safety      | `6620801`            | `thr_5fdujhtr9w` |
 
 BBP-9 was reconciled with remembered scope before acceptance. BBP-13 was reconciled with compact behavior and tested against failed removal, Back, Retry, scroll retention, and comment/file ownership. Original superseded worker commits were not duplicated in the epic branch.
 
@@ -32,16 +33,16 @@ BBP-9 was reconciled with remembered scope before acceptance. BBP-13 was reconci
 
 The parent reran these checks against the complete integrated plugin at `c12c184`:
 
-| Check | Result |
-| --- | --- |
-| `npm test -- --maxWorkers=1` | 73 files, 740 tests passed |
-| `npm run typecheck` | Passed |
-| `npm run lint -- --threads=1` | Passed, four existing warnings and zero errors |
-| `npm run build` | Passed, existing SDK-version warning |
-| `git diff --check 68daf5555cdd169df39f2681eebdcdb88e7ea231 HEAD` | Passed |
-| Final worker-tree comparison | Identical |
-| Working tree before completion documentation | Clean |
-| `openspec validate tasks-split-view --strict --no-interactive` | Passed after the completion documentation update |
+| Check                                                            | Result                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------ |
+| `npm test -- --maxWorkers=1`                                     | 73 files, 740 tests passed                       |
+| `npm run typecheck`                                              | Passed                                           |
+| `npm run lint -- --threads=1`                                    | Passed, four existing warnings and zero errors   |
+| `npm run build`                                                  | Passed, existing SDK-version warning             |
+| `git diff --check 68daf5555cdd169df39f2681eebdcdb88e7ea231 HEAD` | Passed                                           |
+| Final worker-tree comparison                                     | Identical                                        |
+| Working tree before completion documentation                     | Clean                                            |
+| `openspec validate tasks-split-view --strict --no-interactive`   | Passed after the completion documentation update |
 
 Plugin commands ran from `bb-plugin-tasks-plus`; OpenSpec validation ran from the repository root. Lint used cached oxlint 1.56.0 on PATH because this checkout does not provide its own executable. No dependency or lockfile change was needed. The package still pins `@get-bb/plugin-sdk` 0.5.9 while the host reports 0.5.29; building successfully does not establish runtime compatibility.
 
@@ -53,15 +54,15 @@ Full command logs, per-slice handoffs, review reports, screenshots, and fixture 
 
 Each slice used one fresh read-only reviewer. No follow-up review pass was added after fixes.
 
-| Task | Review outcome before acceptance |
-| --- | --- |
-| BBP-9 | Fixed stale successful-save response reconciliation and thread-header/detail identity mismatch, with regressions. |
-| BBP-10 | Approved without blocking findings. |
-| BBP-11 | Fixed compact menus discarding project/view choices, with four compact cases. |
-| BBP-12 | Fixed selection validation before current project/label inventory settled, with six regressions. |
+| Task   | Review outcome before acceptance                                                                                                                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BBP-9  | Fixed stale successful-save response reconciliation and thread-header/detail identity mismatch, with regressions.                                                |
+| BBP-10 | Approved without blocking findings.                                                                                                                              |
+| BBP-11 | Fixed compact menus discarding project/view choices, with four compact cases.                                                                                    |
+| BBP-12 | Fixed selection validation before current project/label inventory settled, with six regressions.                                                                 |
 | BBP-13 | Fixed stranded removal reconciliation after non-selection commits and premature outlet unmount after last-project removal. Added combined compact Back coverage. |
-| BBP-14 | Fixed delayed Escape/Back stealing focus after the user moved elsewhere, with six regressions and runtime confirmation. |
-| BBP-15 | Fixed phone-viewport CSS overriding coarse-pointer control sizes; the 390px viewport case changed from 32px to 44px controls. |
+| BBP-14 | Fixed delayed Escape/Back stealing focus after the user moved elsewhere, with six regressions and runtime confirmation.                                          |
+| BBP-15 | Fixed phone-viewport CSS overriding coarse-pointer control sizes; the 390px viewport case changed from 32px to 44px controls.                                    |
 
 BBP-13's original reviewer resumed after a provider access-verification error. Its eventual verdict and fixes belong to the same review pass. The task did not proceed without a verdict or switch models to bypass the failure.
 

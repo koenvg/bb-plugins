@@ -15,7 +15,11 @@ export function PendingCommentCard({ body, onRemove, location }: PendingCommentC
           Pending
         </span>
         {location}
-        <button type="button" className={`${QUIET_BUTTON} -mr-1.5 ml-auto h-6 px-2`} onClick={onRemove}>
+        <button
+          type="button"
+          className={`${QUIET_BUTTON} -mr-1.5 ml-auto h-6 px-2`}
+          onClick={onRemove}
+        >
           Remove
         </button>
       </div>

@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
-import {
-  classifyGhFailure,
-  ghFailureText,
-  parseGraphqlRateLimitReset,
-} from "./gh-failure";
+import { classifyGhFailure, ghFailureText, parseGraphqlRateLimitReset } from "./gh-failure";
 
 describe("classifyGhFailure", () => {
   it("reports gh not installed when the binary is missing", () => {
-    expect(
-      classifyGhFailure({ code: "ENOENT", stderr: "", message: "spawn gh ENOENT" }),
-    ).toEqual({ kind: "gh_missing" });
+    expect(classifyGhFailure({ code: "ENOENT", stderr: "", message: "spawn gh ENOENT" })).toEqual({
+      kind: "gh_missing",
+    });
   });
 
   it("reports gh not logged in for a gh without a login", () => {

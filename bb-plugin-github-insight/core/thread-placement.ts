@@ -18,7 +18,9 @@ export type ThreadPlacement = z.infer<typeof threadPlacementSchema>;
 
 export function placeThreads(files: ReviewFile[], threads: ReviewThread[]): ThreadPlacement {
   const linesByPath = new Map(
-    files.flatMap((file) => (file.patch === null ? [] : [[file.path, diffLines(file.patch)] as const])),
+    files.flatMap((file) =>
+      file.patch === null ? [] : [[file.path, diffLines(file.patch)] as const],
+    ),
   );
   const placement: ThreadPlacement = { placed: [], outdated: [] };
   for (const thread of threads) {

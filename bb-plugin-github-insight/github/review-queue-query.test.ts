@@ -16,7 +16,7 @@ describe("reviewQueueArgs", () => {
   });
 
   it("passes the tracked repository names as variables, not inside the query", () => {
-    const args = reviewQueueArgs([{ owner: "acme\"", repo: "api", number: 15 }]);
+    const args = reviewQueueArgs([{ owner: 'acme"', repo: "api", number: 15 }]);
     const query = args.find((arg) => arg.startsWith("query="))!;
 
     expect(query).not.toContain("acme");

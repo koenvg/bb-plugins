@@ -11,10 +11,7 @@ export const BOARD_STATUSES = [
 export function visibleBoardStatuses(
   columns: Readonly<Record<TaskStatus, readonly unknown[]>>,
 ): TaskStatus[] {
-  return [
-    ...BOARD_STATUSES,
-    ...(columns.canceled.length > 0 ? (["canceled"] as const) : []),
-  ];
+  return [...BOARD_STATUSES, ...(columns.canceled.length > 0 ? (["canceled"] as const) : [])];
 }
 
 interface BoardDropNeighbors {
@@ -35,10 +32,7 @@ export function dropNeighborsForIndex(
   };
 }
 
-export function dropIndexForPointer(
-  cardCenterYs: readonly number[],
-  pointerY: number,
-): number {
+export function dropIndexForPointer(cardCenterYs: readonly number[], pointerY: number): number {
   let index = 0;
   for (const centerY of cardCenterYs) {
     if (pointerY > centerY) index += 1;

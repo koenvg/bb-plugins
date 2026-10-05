@@ -5,24 +5,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import {
-  type Label,
-  type Task,
-  type TaskStatus,
-  type TaskThread,
-} from "../../shared/contract.js";
-import {
-  listAllTasks,
-  useTasksQuery,
-  useTasksRpc,
-  type TasksRpc,
-} from "../../shell/data.js";
+import { type Label, type Task, type TaskStatus, type TaskThread } from "../../shared/contract.js";
+import { listAllTasks, useTasksQuery, useTasksRpc, type TasksRpc } from "../../shell/data.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
-import {
-  PriorityEditor,
-  StatusEditor,
-  type EditFn,
-} from "../list/property-menus.js";
+import { PriorityEditor, StatusEditor, type EditFn } from "../list/property-menus.js";
 import {
   forFocusedTask,
   moveFocusAcrossColumns,
@@ -70,10 +56,7 @@ const EMPTY_META: BoardCardMeta = {
   subTotal: 0,
 };
 
-async function fetchBoard(
-  rpc: TasksRpc,
-  projectId: string,
-): Promise<BoardData> {
+async function fetchBoard(rpc: TasksRpc, projectId: string): Promise<BoardData> {
   const tasks = await listAllTasks(rpc, { projectId });
   const topLevel = tasks.filter((task) => task.parentTaskId === null);
 
@@ -101,12 +84,10 @@ async function fetchBoard(
     topLevel
       .filter((task) => activeTaskIds.has(task.id))
       .map(async (task) => {
-        const threads = await rpc
-          .call("listTaskThreads", { taskId: task.id })
-          .then(
-            (result) => result.taskThreads,
-            () => [],
-          );
+        const threads = await rpc.call("listTaskThreads", { taskId: task.id }).then(
+          (result) => result.taskThreads,
+          () => [],
+        );
         workingByTaskId.set(task.id, threads.filter(isActiveThread));
       }),
   );
@@ -168,14 +149,9 @@ function WorkingAgentsChip({ threads }: { threads: TaskThread[] }) {
   if (threads.length === 0) return null;
   return (
     <span className="flex min-w-0 items-center gap-1 font-medium text-success">
-      <span
-        aria-hidden
-        className="size-1.5 shrink-0 animate-pulse rounded-full bg-success"
-      />
+      <span aria-hidden className="size-1.5 shrink-0 animate-pulse rounded-full bg-success" />
       <span className="truncate">
-        {threads.length === 1
-          ? threads[0]!.presetName
-          : `${threads.length} agents`}
+        {threads.length === 1 ? threads[0]!.presetName : `${threads.length} agents`}
       </span>
     </span>
   );
@@ -233,9 +209,7 @@ function TaskCard({
       }}
       className={cn(
         "relative shrink-0 rounded-lg border border-border bg-card px-2.5 py-2 shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        ghost
-          ? "rotate-2 shadow-md"
-          : "cursor-pointer touch-none hover:border-input",
+        ghost ? "rotate-2 shadow-md" : "cursor-pointer touch-none hover:border-input",
         dragging && "opacity-40",
       )}
     >
@@ -243,9 +217,7 @@ function TaskCard({
         <span className="tabular-nums">{task.key}</span>
         <WorkingAgentsChip threads={meta.workingThreads} />
       </div>
-      <div className="mt-1 line-clamp-2 text-sm leading-snug font-medium">
-        {task.title}
-      </div>
+      <div className="mt-1 line-clamp-2 text-sm leading-snug font-medium">{task.title}</div>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <PriorityIcon priority={task.priority} />
         <DependencyBadges task={task} className="text-2xs" />
@@ -325,10 +297,7 @@ function BoardSkeleton() {
     <DelayedLoading>
       <div className="flex h-full items-start gap-3 overflow-x-auto p-4">
         {BOARD_STATUSES.map((status) => (
-          <div
-            key={status}
-            className="flex w-[230px] shrink-0 flex-col gap-2 p-1"
-          >
+          <div key={status} className="flex w-[230px] shrink-0 flex-col gap-2 p-1">
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-20 w-full rounded-lg" />
             <Skeleton className="h-20 w-full rounded-lg" />
@@ -353,9 +322,7 @@ export function BoardView({ projectId }: BoardViewProps) {
     [projectId],
   );
 
-  const [dependency, setDependency] = useState<
-    DependencyFilter | undefined
-  >();
+  const [dependency, setDependency] = useState<DependencyFilter | undefined>();
   const [columns, setColumns] = useState<ColumnMap | undefined>(undefined);
   useEffect(() => {
     setColumns(undefined);
@@ -365,9 +332,7 @@ export function BoardView({ projectId }: BoardViewProps) {
     const shown =
       dependency === undefined
         ? board.data.tasks
-        : board.data.tasks.filter(
-            (task) => (task.blocked === true) === (dependency === "blocked"),
-          );
+        : board.data.tasks.filter((task) => (task.blocked === true) === (dependency === "blocked"));
     setColumns(groupColumns(shown));
   }, [board.data, dependency]);
   const columnsRef = useRef(columns);
@@ -419,11 +384,7 @@ export function BoardView({ projectId }: BoardViewProps) {
 
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
-  const commitDrop = async (
-    taskId: string,
-    toStatus: TaskStatus,
-    dropIndex: number,
-  ) => {
+  const commitDrop = async (taskId: string, toStatus: TaskStatus, dropIndex: number) => {
     const task = Object.values(columnsRef.current ?? {})
       .flat()
       .find((entry) => entry.id === taskId);
@@ -459,10 +420,7 @@ export function BoardView({ projectId }: BoardViewProps) {
       );
   };
 
-  const handleCardPointerDown = (
-    event: ReactPointerEvent<HTMLDivElement>,
-    task: Task,
-  ) => {
+  const handleCardPointerDown = (event: ReactPointerEvent<HTMLDivElement>, task: Task) => {
     if (event.button !== 0 || dragCleanupRef.current) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const start = {
@@ -475,11 +433,7 @@ export function BoardView({ projectId }: BoardViewProps) {
     let active = false;
 
     const updateDrag = (moveEvent: PointerEvent) => {
-      const target = findDropTarget(
-        moveEvent.clientX,
-        moveEvent.clientY,
-        task.id,
-      );
+      const target = findDropTarget(moveEvent.clientX, moveEvent.clientY, task.id);
       setDrag({
         taskId: task.id,
         x: moveEvent.clientX,
@@ -494,10 +448,7 @@ export function BoardView({ projectId }: BoardViewProps) {
 
     const onMove = (moveEvent: PointerEvent) => {
       if (!active) {
-        const distance = Math.hypot(
-          moveEvent.clientX - start.x,
-          moveEvent.clientY - start.y,
-        );
+        const distance = Math.hypot(moveEvent.clientX - start.x, moveEvent.clientY - start.y);
         if (distance < DRAG_THRESHOLD_PX) return;
         active = true;
       }
@@ -509,11 +460,7 @@ export function BoardView({ projectId }: BoardViewProps) {
       dragCleanupRef.current = null;
       if (!active) return;
       if (upEvent) {
-        const target = findDropTarget(
-          upEvent.clientX,
-          upEvent.clientY,
-          task.id,
-        );
+        const target = findDropTarget(upEvent.clientX, upEvent.clientY, task.id);
         if (target) void commitDrop(task.id, target.status, target.index);
       }
       setDrag(null);
@@ -553,9 +500,7 @@ export function BoardView({ projectId }: BoardViewProps) {
       void commitDrop(task.id, patch.status, columns?.[patch.status].length ?? 0);
       return;
     }
-    void rpc
-      .call("updateTask", { taskId: task.id, ...patch })
-      .then(board.refresh, board.refresh);
+    void rpc.call("updateTask", { taskId: task.id, ...patch }).then(board.refresh, board.refresh);
   };
 
   useShortcuts({
@@ -565,9 +510,7 @@ export function BoardView({ projectId }: BoardViewProps) {
     "board.up": () => moveFocusInColumn(boardRef.current, -1),
     "board.right": () => moveFocusAcrossColumns(boardRef.current, 1),
     "board.left": () => moveFocusAcrossColumns(boardRef.current, -1),
-    "board.open": forFocusedCard((taskKey) =>
-      navigation.go({ kind: "task", taskKey }),
-    ),
+    "board.open": forFocusedCard((taskKey) => navigation.go({ kind: "task", taskKey })),
   });
 
   if (columns === undefined) {
@@ -585,8 +528,7 @@ export function BoardView({ projectId }: BoardViewProps) {
   }
 
   const labelsById = board.data?.labelsById ?? new Map<string, Label>();
-  const metaByTaskId =
-    board.data?.metaByTaskId ?? new Map<string, BoardCardMeta>();
+  const metaByTaskId = board.data?.metaByTaskId ?? new Map<string, BoardCardMeta>();
   const ghostTask = drag
     ? Object.values(columns)
         .flat()
@@ -596,17 +538,10 @@ export function BoardView({ projectId }: BoardViewProps) {
   const renderColumn = (status: TaskStatus) => {
     const cards = columns[status];
     const isDragOver = drag !== null && drag.overStatus === status;
-    const remaining = drag
-      ? cards.filter((task) => task.id !== drag.taskId)
-      : cards;
-    const indicatorBeforeTaskId = isDragOver
-      ? (remaining[drag.dropIndex]?.id ?? null)
-      : undefined;
+    const remaining = drag ? cards.filter((task) => task.id !== drag.taskId) : cards;
+    const indicatorBeforeTaskId = isDragOver ? (remaining[drag.dropIndex]?.id ?? null) : undefined;
     const indicator = (
-      <div
-        key="drop-indicator"
-        className="h-0.5 shrink-0 rounded-full bg-primary"
-      />
+      <div key="drop-indicator" className="h-0.5 shrink-0 rounded-full bg-primary" />
     );
     const children: ReactNode[] = [];
     for (const task of cards) {
@@ -645,9 +580,7 @@ export function BoardView({ projectId }: BoardViewProps) {
         <div className="flex items-center gap-1.5 px-1 pb-2 text-sm font-semibold">
           <StatusIcon status={status} />
           <span>{STATUS_LABELS[status]}</span>
-          <span className="font-normal text-muted-foreground">
-            {cards.length}
-          </span>
+          <span className="font-normal text-muted-foreground">{cards.length}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -666,8 +599,7 @@ export function BoardView({ projectId }: BoardViewProps) {
           data-board-column={status}
           className={cn(
             "flex min-h-16 flex-col gap-2 overflow-y-auto rounded-lg p-1",
-            isDragOver &&
-              "bg-surface-selected outline-2 outline-dashed outline-input",
+            isDragOver && "bg-surface-selected outline-2 outline-dashed outline-input",
           )}
         >
           {children}

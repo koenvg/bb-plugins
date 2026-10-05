@@ -17,6 +17,7 @@ bb shows "Checks failing" on a thread's PR, but not which checks fail, why they 
 - A small patch in a fork of the `dockside` plugin reads that summary and shows it on the sidebar row. Without `github-insight`, dockside works as before.
 
 Out of scope for this change:
+
 - Log lines of failed jobs. The agent can get them with `gh` when you ask.
 - A "send failure to agent" button.
 - Actions on the PR (merge, update branch, re-run checks).

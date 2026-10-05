@@ -25,9 +25,7 @@ describe("browse save and task ownership", () => {
     const slot = setup(`${project.id}?view=list&task=TSK-1`, {
       updateTask: (raw) => {
         writes.push(rpcInput(raw));
-        return writes.length === 1
-          ? first.promise
-          : { ok: true, task: tasks[0] };
+        return writes.length === 1 ? first.promise : { ok: true, task: tasks[0] };
       },
     });
     await slot.findByRole("textbox", { name: "Task title" });
@@ -38,16 +36,10 @@ describe("browse save and task ownership", () => {
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(row(slot, 3).getAttribute("aria-current")).toBeNull();
-    await act(async () =>
-      first.resolve({ ok: false, error: { message: "Save refused" } }),
-    );
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Save refused",
-    );
+    await act(async () => first.resolve({ ok: false, error: { message: "Save refused" } }));
+    expect((await slot.findByRole("alert")).textContent).toContain("Save refused");
     await edit(slot, "Newer draft for A");
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Newer draft for A",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer draft for A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(writes[1]).toMatchObject({
@@ -55,9 +47,7 @@ describe("browse save and task ownership", () => {
       description: "Newer draft for A",
     });
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
-      "Title 3",
-    );
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
     expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
   });
 
@@ -75,13 +65,9 @@ describe("browse save and task ownership", () => {
       kind: "project",
       projectId: project.id,
     });
-    await act(async () =>
-      saved.resolve({ ok: true, task: { ...tasks[0], title: "Unblurred A" } }),
-    );
+    await act(async () => saved.resolve({ ok: true, task: { ...tasks[0], title: "Unblurred A" } }));
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
     );
     expect(browsePreference().load()).toEqual({ kind: "all" });
   });
@@ -109,26 +95,20 @@ describe("browse save and task ownership", () => {
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Unsent A", 1);
-    fireEvent.click(
-      await slot.findByRole("switch", { name: "Notify Agent thread" }),
-    );
-    fireEvent.change(
-      slot.container.querySelectorAll('input[type="file"]')[1]!,
-      { target: { files: [new File(["A"], "a.txt")] } },
-    );
+    fireEvent.click(await slot.findByRole("switch", { name: "Notify Agent thread" }));
+    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
+      target: { files: [new File(["A"], "a.txt")] },
+    });
     await select(slot, 2);
     expect(slot.queryByText("a.txt")).toBeNull();
     expect(slot.container.textContent).not.toContain("Unsent A");
     await select(slot, 1);
     expect(slot.getByText("a.txt")).toBeTruthy();
+    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]?.textContent).toBe(
+      "Unsent A",
+    );
     expect(
-      slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]
-        ?.textContent,
-    ).toBe("Unsent A");
-    expect(
-      slot
-        .getByRole("switch", { name: "Notify Agent thread" })
-        .getAttribute("aria-checked"),
+      slot.getByRole("switch", { name: "Notify Agent thread" }).getAttribute("aria-checked"),
     ).toBe("false");
     expect(
       slot.inspection.rpcCalls.filter((call) =>
@@ -158,16 +138,12 @@ describe("selected detail lookup isolation", () => {
     expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
     expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(slot.container.textContent).not.toContain("Description 1");
-    await act(async () =>
-      pending.resolve(Promise.reject(new Error("Lookup unavailable"))),
-    );
+    await act(async () => pending.resolve(Promise.reject(new Error("Lookup unavailable"))));
     await slot.findByText("Lookup unavailable");
     expect(row(slot, 1)).toBeTruthy();
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
-    expect(
-      (await slot.findByRole("textbox", { name: "Task title" })).textContent,
-    ).toBe("Title 2");
+    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 2");
   });
 
   it("ignores late A responses after B loads", async () => {
@@ -179,9 +155,7 @@ describe("selected detail lookup isolation", () => {
     await slot.findByRole("button", { name: "Open TSK-2: Title 2" });
     await select(slot, 2);
     await act(async () => late.resolve({ task: tasks[0] }));
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
-      "Title 2",
-    );
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
     expect(slot.container.textContent).not.toContain("Description 1");
   });
 
@@ -191,9 +165,7 @@ describe("selected detail lookup isolation", () => {
       listTasks: () => loaded.promise,
     });
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(
-      slot.inspection.rpcCalls.some((c) => c.method === "getTaskByKey"),
-    ).toBe(false);
+    expect(slot.inspection.rpcCalls.some((c) => c.method === "getTaskByKey")).toBe(false);
     await act(async () => loaded.resolve({ tasks, nextCursor: null }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(slot.inspection.navigateCalls[0]).toMatchObject({
@@ -227,12 +199,8 @@ describe("selected detail lookup isolation", () => {
     await edit(slot, "Draft before disappearance");
     missing = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Retain this draft",
-    );
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Draft before disappearance",
-    );
+    expect((await slot.findByRole("alert")).textContent).toContain("Retain this draft");
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft before disappearance");
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.inspection.navigateCalls).toEqual([]);
     canSave = true;

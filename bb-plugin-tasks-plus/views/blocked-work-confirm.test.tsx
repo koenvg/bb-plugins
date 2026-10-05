@@ -40,9 +40,7 @@ function ref(number: number, status: Task["status"] = "todo") {
 }
 
 function task(number: number, blockedBy: TaskDependencyRef[] = []): Task {
-  const open = blockedBy.filter(
-    (r) => r.status !== "done" && r.status !== "canceled",
-  ).length;
+  const open = blockedBy.filter((r) => r.status !== "done" && r.status !== "canceled").length;
   return makeTask({
     ...ref(number),
     projectId: PROJECT_ID,
@@ -143,9 +141,9 @@ async function confirmDialog(slot: Slot) {
 async function expectListedBlockers(slot: Slot) {
   const dialog = await confirmDialog(slot);
   expect(dialog.getByText("ABC-5 is blocked")).toBeTruthy();
-  const keys = [
-    ...document.querySelectorAll<HTMLElement>("[data-blocker-key]"),
-  ].map((item) => item.dataset.blockerKey);
+  const keys = [...document.querySelectorAll<HTMLElement>("[data-blocker-key]")].map(
+    (item) => item.dataset.blockerKey,
+  );
   expect(keys).toEqual(["ABC-3", "ABC-4"]);
 }
 
@@ -181,9 +179,7 @@ function layOutBoardColumns() {
 
 async function dragToInProgress(slot: Slot, key: string) {
   const card = await itemFor(slot, key);
-  const column = slot.container.querySelector(
-    '[data-board-column="in_progress"]',
-  )!;
+  const column = slot.container.querySelector('[data-board-column="in_progress"]')!;
   const columns = [...slot.container.querySelectorAll("[data-board-column]")];
   const x = columns.indexOf(column) * 300 + 100;
   fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 10 });
@@ -270,9 +266,7 @@ describe("blocked work confirm on a board drop", () => {
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     expect(called(slot, "boardMove")).toBe(false);
     expect(
-      within(
-        slot.container.querySelector('[data-board-column="todo"]')!,
-      ).getByText("ABC-5"),
+      within(slot.container.querySelector('[data-board-column="todo"]')!).getByText("ABC-5"),
     ).toBeTruthy();
   });
 

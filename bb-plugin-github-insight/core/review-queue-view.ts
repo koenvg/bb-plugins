@@ -22,7 +22,9 @@ const linkedQueuePrSchema = queueRowSchema.extend({
 });
 export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
 
-const queueSectionSchema = z.array(z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) }));
+const queueSectionSchema = z.array(
+  z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) }),
+);
 export type QueueSection = z.infer<typeof queueSectionSchema>;
 
 export const reviewQueueViewSchema = z.object({

@@ -80,17 +80,11 @@ describe("thread summary states and compact interactions", () => {
       status.threads.forEach((thread, index) => {
         thread.archive = archives[index]!;
       });
-      const slot = renderSlot(
-        { component: ThreadSummary },
-        { taskKey: "ABC-1", meta: status },
-      );
+      const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: status });
       const control = slot.getByRole("button", { name: /Threads for ABC-1/ });
       if (text) expect(control.textContent).toContain(text);
-      if (text !== "All archived")
-        expect(control.textContent).not.toContain("All archived");
-      expect(control.textContent!.includes("Archive unavailable")).toBe(
-        unknown,
-      );
+      if (text !== "All archived") expect(control.textContent).not.toContain("All archived");
+      expect(control.textContent!.includes("Archive unavailable")).toBe(unknown);
       fireEvent.click(control);
       await slot.findByRole("dialog");
       expect(slot.queryAllByRole("link")).toHaveLength(
@@ -109,10 +103,7 @@ describe("thread summary states and compact interactions", () => {
     status.threads.forEach((thread) => {
       thread.archive = "archived";
     });
-    const slot = renderSlot(
-      { component: ThreadSummary },
-      { taskKey: "ABC-1", meta: status },
-    );
+    const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: status });
     const control = slot.getByRole("button", {
       name: "Threads for ABC-1: 1 Failed, 1 Idle, All threads archived",
     });
@@ -128,18 +119,10 @@ describe("thread summary states and compact interactions", () => {
   });
 
   it("distinguishes loading, unavailable and confirmed no attachments", () => {
-    const slot = renderSlot(
-      { component: ThreadSummary },
-      { taskKey: "ABC-1", meta: undefined },
-    );
-    expect(slot.getByText("Threads loading").getAttribute("aria-busy")).toBe(
-      "true",
-    );
+    const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: undefined });
+    expect(slot.getByText("Threads loading").getAttribute("aria-busy")).toBe("true");
     slot.lifecycle.rerender(
-      <ThreadSummary
-        taskKey="ABC-1"
-        meta={{ ...meta([]), availability: "unavailable" }}
-      />,
+      <ThreadSummary taskKey="ABC-1" meta={{ ...meta([]), availability: "unavailable" }} />,
     );
     expect(slot.getByText("Threads unavailable")).toBeTruthy();
     slot.lifecycle.rerender(<ThreadSummary taskKey="ABC-1" meta={meta([])} />);
@@ -147,14 +130,7 @@ describe("thread summary states and compact interactions", () => {
   });
 
   it("keeps failures and item-level uncertainty textual, counts overflow and retains all identities", async () => {
-    const status = meta([
-      "working",
-      "failed",
-      "working",
-      "unavailable",
-      "starting",
-      "idle",
-    ]);
+    const status = meta(["working", "failed", "working", "unavailable", "starting", "idle"]);
     expect(threadBuckets(status.threads).map((b) => b.text)).toEqual([
       "1 Failed",
       "1 Unavailable",
@@ -162,10 +138,7 @@ describe("thread summary states and compact interactions", () => {
       "2 Working",
       "1 Idle",
     ]);
-    const slot = renderSlot(
-      { component: ThreadSummary },
-      { taskKey: "ABC-1", meta: status },
-    );
+    const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: status });
     const control = slot.getByRole("button", {
       name: "Threads for ABC-1: 1 Failed, 1 Unavailable, 1 Starting, 2 Working, 1 Idle",
     });
@@ -208,12 +181,8 @@ describe("thread summary states and compact interactions", () => {
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(control));
     fireEvent.click(control);
-    fireEvent.click(
-      await slot.findByRole("link", { name: "Open thread Worker 0, thr_0" }),
-    );
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "toThread", threadId: "thr_0" },
-    ]);
+    fireEvent.click(await slot.findByRole("link", { name: "Open thread Worker 0, thr_0" }));
+    expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_0" }]);
   });
 
   it("leaves Enter and Space activation to the summary instead of the row-open shortcut", () => {

@@ -7,18 +7,11 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import {
-  SHORTCUTS,
-  shortcutMatches,
-  shouldIgnoreKey,
-  type ShortcutId,
-} from "./shortcuts.js";
+import { SHORTCUTS, shortcutMatches, shouldIgnoreKey, type ShortcutId } from "./shortcuts.js";
 
 export type ShortcutHandler = () => boolean | void;
 
-export type ShortcutHandlers = Partial<
-  Record<ShortcutId, ShortcutHandler | null>
->;
+export type ShortcutHandlers = Partial<Record<ShortcutId, ShortcutHandler | null>>;
 
 /** Mounted split panes must not claim each other's existing action keys. */
 interface ShortcutFocusOwner {
@@ -56,20 +49,16 @@ export function ShortcutProvider({
     register(handlers: HandlersRef) {
       registrations.current = [...registrations.current, handlers];
       return () => {
-        registrations.current = registrations.current.filter(
-          (entry) => entry !== handlers,
-        );
+        registrations.current = registrations.current.filter((entry) => entry !== handlers);
       };
     },
   });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const roots = [
-        rootRef.current,
-        ...scopes.current.map((ref) => ref.current),
-      ].filter((root): root is HTMLElement =>
-        Boolean(root?.isConnected && !root.closest("[hidden], [inert]")),
+      const roots = [rootRef.current, ...scopes.current.map((ref) => ref.current)].filter(
+        (root): root is HTMLElement =>
+          Boolean(root?.isConnected && !root.closest("[hidden], [inert]")),
       );
       if (roots.every((root) => shouldIgnoreKey(event, root))) return;
       for (const handlers of registrations.current) {
@@ -80,10 +69,7 @@ export function ShortcutProvider({
           if (
             !root ||
             root.closest("[hidden], [inert]") ||
-            !(
-              root.contains(document.activeElement) ||
-              (owner.allowUnfocused && unfocused)
-            )
+            !(root.contains(document.activeElement) || (owner.allowUnfocused && unfocused))
           )
             continue;
         }

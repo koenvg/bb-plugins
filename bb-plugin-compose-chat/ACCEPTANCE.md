@@ -46,17 +46,17 @@ Compose Chat remains enabled from `/Users/koen/workspace/bb-plugin-compose-chat`
 
 Original implementation baseline: `68daf5555cdd169df39f2681eebdcdb88e7ea231`. Review-preparation baseline: `5c82bba84405684d8a8a7e9584ff2e9e729d6fb1`. Native host: BB 0.44.0, SDK 0.5.29.
 
-| Check | Result |
-| --- | --- |
-| `npm test` | 12 tests passed in two files |
-| `npm run typecheck` | Passed |
-| `bb plugin types . --check` | SDK pin matches the host |
-| `npm run build` | App, CSS, backend, and metadata bundles produced |
-| `npm run test:browser` | 16 cases, 494 assertions, six complete screenshots; captures not skipped |
-| Screenshot inspection | All six final surface captures show the complete viewport, including right-side controls |
-| Native visible-tab disable/re-enable | Marker and CSS removed without refreshing; editor identity preserved |
-| Native hidden-tab disable/resume | Update deferred while hidden; marker and CSS removed after visibility returned, with editor and draft unchanged |
-| Single completion review | Requested changes for split-send geometry; P1 fixed and regression-tested. No second review or new reviewer approval |
+| Check                                | Result                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                           | 12 tests passed in two files                                                                                         |
+| `npm run typecheck`                  | Passed                                                                                                               |
+| `bb plugin types . --check`          | SDK pin matches the host                                                                                             |
+| `npm run build`                      | App, CSS, backend, and metadata bundles produced                                                                     |
+| `npm run test:browser`               | 16 cases, 494 assertions, six complete screenshots; captures not skipped                                             |
+| Screenshot inspection                | All six final surface captures show the complete viewport, including right-side controls                             |
+| Native visible-tab disable/re-enable | Marker and CSS removed without refreshing; editor identity preserved                                                 |
+| Native hidden-tab disable/resume     | Update deferred while hidden; marker and CSS removed after visibility returned, with editor and draft unchanged      |
+| Single completion review             | Requested changes for split-send geometry; P1 fixed and regression-tested. No second review or new reviewer approval |
 
 The fixture mounts the actual built app entry through a minimal runtime. Its cases cover light, dark, custom host tokens, expanded, compact, new-thread, touch, disabled actions, reduced motion, long drafts, and coarse-desktop split-send empty/populated states. Assertions check real Tab-key focus, hit areas, input identity, draft preservation, submit events, abort/re-enable, geometry, contrast, and overflow. Fixture body contrast was at least 12.63:1 and placeholder contrast at least 5.15:1. These are fixture measurements, not guarantees for every installed theme.
 

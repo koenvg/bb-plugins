@@ -23,7 +23,9 @@ function setupWithPr(host: (call: HostCall) => unknown = reviewHost) {
 }
 
 function sentText(harness: Awaited<ReturnType<typeof setup>>): string {
-  const [[args]] = harness.sdk.callsTo("threads.send") as [[{ input: { type: string; text: string }[] }]];
+  const [[args]] = harness.sdk.callsTo("threads.send") as [
+    [{ input: { type: string; text: string }[] }],
+  ];
   return args.input.map((item) => item.text).join("");
 }
 
@@ -38,7 +40,13 @@ describe("sendToAgent", () => {
 
     expect(result).toEqual({ kind: "sent", delivery: "sent", threadCount: 2 });
     expect(harness.sdk.callsTo("threads.send")).toEqual([
-      [expect.objectContaining({ threadId: "thr_1", mode: "auto", input: [expect.objectContaining({ type: "text" })] })],
+      [
+        expect.objectContaining({
+          threadId: "thr_1",
+          mode: "auto",
+          input: [expect.objectContaining({ type: "text" })],
+        }),
+      ],
     ]);
     const text = sentText(harness);
     expect(text).toContain(`## Review thread ${PLACED}`);
@@ -55,7 +63,10 @@ describe("sendToAgent", () => {
       queuedMessage: { content: [] },
     }));
 
-    const result = await harness.behavior.callRpc("sendToAgent", { threadId: "thr_1", reviewThreadIds: [PLACED] });
+    const result = await harness.behavior.callRpc("sendToAgent", {
+      threadId: "thr_1",
+      reviewThreadIds: [PLACED],
+    });
 
     expect(result).toMatchObject({ kind: "sent", delivery: "queued", threadCount: 1 });
   });
@@ -80,14 +91,23 @@ describe("sendToAgent", () => {
       reviewThreadIds: [RESOLVED, "PRRT_gone"],
     });
 
-    expect(result).toEqual({ kind: "error", message: "The selected review threads are resolved or gone" });
+    expect(result).toEqual({
+      kind: "error",
+      message: "The selected review threads are resolved or gone",
+    });
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 
   it("sends nothing when the thread has no pull request", async () => {
-    const harness = await setup({ threads: [{ id: "thr_1", environmentId: "env_1" }], host: reviewHost });
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      host: reviewHost,
+    });
 
-    const result = await harness.behavior.callRpc("sendToAgent", { threadId: "thr_1", reviewThreadIds: [PLACED] });
+    const result = await harness.behavior.callRpc("sendToAgent", {
+      threadId: "thr_1",
+      reviewThreadIds: [PLACED],
+    });
 
     expect(result).toEqual({ kind: "error", message: "No pull request for this thread" });
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);
@@ -96,7 +116,10 @@ describe("sendToAgent", () => {
   it("names the gh failure and sends nothing", async () => {
     const harness = await setupWithPr(() => failed({ kind: "gh_logged_out" }));
 
-    const result = await harness.behavior.callRpc("sendToAgent", { threadId: "thr_1", reviewThreadIds: [PLACED] });
+    const result = await harness.behavior.callRpc("sendToAgent", {
+      threadId: "thr_1",
+      reviewThreadIds: [PLACED],
+    });
 
     expect(result).toMatchObject({ kind: "error", message: expect.stringContaining("gh") });
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);

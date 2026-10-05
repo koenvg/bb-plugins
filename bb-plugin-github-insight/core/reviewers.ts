@@ -17,13 +17,7 @@ export const reviewRequestNodeSchema = z.object({
 export type ReviewRequestNode = z.infer<typeof reviewRequestNodeSchema>;
 
 export const reviewNodeSchema = z.object({
-  state: z.enum([
-    "APPROVED",
-    "CHANGES_REQUESTED",
-    "COMMENTED",
-    "DISMISSED",
-    "PENDING",
-  ]),
+  state: z.enum(["APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED", "PENDING"]),
   author: loginActorSchema.nullable(),
 });
 export type ReviewNode = z.infer<typeof reviewNodeSchema>;
@@ -31,13 +25,7 @@ export type ReviewNode = z.infer<typeof reviewNodeSchema>;
 export const reviewerSchema = z.object({
   name: z.string(),
   kind: z.enum(["user", "team", "bot"]),
-  state: z.enum([
-    "pending",
-    "approved",
-    "changes_requested",
-    "commented",
-    "dismissed",
-  ]),
+  state: z.enum(["pending", "approved", "changes_requested", "commented", "dismissed"]),
   codeOwner: z.boolean(),
 });
 export type Reviewer = z.infer<typeof reviewerSchema>;
@@ -46,10 +34,7 @@ export function reviewerKey(reviewer: Pick<Reviewer, "kind" | "name">): string {
   return `${reviewer.kind}:${reviewer.name}`;
 }
 
-const REVIEW_STATE: Record<
-  Exclude<ReviewNode["state"], "PENDING">,
-  Reviewer["state"]
-> = {
+const REVIEW_STATE: Record<Exclude<ReviewNode["state"], "PENDING">, Reviewer["state"]> = {
   APPROVED: "approved",
   CHANGES_REQUESTED: "changes_requested",
   COMMENTED: "commented",
@@ -85,10 +70,7 @@ export function buildReviewers(
   reviews: readonly ReviewNode[],
 ): Reviewer[] {
   const byKey = new Map<string, Reviewer>();
-  const candidates = [
-    ...requests.map(requestedReviewer),
-    ...reviews.map(reviewedReviewer),
-  ];
+  const candidates = [...requests.map(requestedReviewer), ...reviews.map(reviewedReviewer)];
   for (const reviewer of candidates) {
     if (reviewer === null) continue;
     const key = reviewerKey(reviewer);

@@ -1,6 +1,12 @@
 import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
-import { anchorKey, pendingReviews, type CommentAnchor, type OpenForm, type PendingComment } from "../core/pending-review";
+import {
+  anchorKey,
+  pendingReviews,
+  type CommentAnchor,
+  type OpenForm,
+  type PendingComment,
+} from "../core/pending-review";
 import { sortComments } from "../core/review-prompt";
 
 interface NotInDiffProps {

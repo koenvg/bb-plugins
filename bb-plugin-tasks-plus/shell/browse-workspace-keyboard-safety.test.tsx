@@ -63,14 +63,10 @@ describe("browse delayed focus and save safety", () => {
     async (target) => {
       const loaded = deferred<unknown>();
       const slot = setup("all", { getTaskByKey: () => loaded.promise });
-      (
-        await slot.findByRole("button", { name: "Open TSK-1: Title 1" })
-      ).focus();
+      (await slot.findByRole("button", { name: "Open TSK-1: Title 1" })).focus();
       press("o");
       await acceptNavigation(slot);
-      const other = document.createElement(
-        target === "editor" ? "input" : "button",
-      );
+      const other = document.createElement(target === "editor" ? "input" : "button");
       if (target === "overlay") other.setAttribute("role", "dialog");
       (target === "outside" ? document.body : detail(slot)).append(other);
       other.focus();
@@ -92,9 +88,7 @@ describe("browse delayed focus and save safety", () => {
       await edit(slot, "Save before Escape");
       detail(slot).focus();
       press("Escape");
-      const other = document.createElement(
-        owner === "outside" ? "input" : "button",
-      );
+      const other = document.createElement(owner === "outside" ? "input" : "button");
       if (owner === "overlay") other.setAttribute("role", "dialog");
       (owner === "outside" ? document.body : detail(slot)).append(other);
       const target = owner === "editor" ? title : other;
@@ -130,9 +124,7 @@ describe("browse delayed focus and save safety", () => {
       const active = document.activeElement;
       other.remove();
       expect(active).toBe(other);
-      expect(
-        slot.queryByRole("region", { name: "Selected ticket" }),
-      ).toBeTruthy();
+      expect(slot.queryByRole("region", { name: "Selected ticket" })).toBeTruthy();
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     },
   );
@@ -168,9 +160,7 @@ describe("browse delayed focus and save safety", () => {
     await waitFor(() => expect(document.activeElement).toBe(detail(slot)));
     expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
     expect(
-      slot.inspection.rpcCalls
-        .filter((c) => c.method === "updateTask")
-        .map((c) => c.input),
+      slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
     ).toEqual([{ taskId: tasks[0]!.id, description: "Save A first" }]);
   });
 
@@ -178,8 +168,7 @@ describe("browse delayed focus and save safety", () => {
     const refresh = deferred<unknown>();
     let response: unknown = { tasks, nextCursor: null };
     const slot = setup("all?task=TSK-1", {
-      listTasks: (raw) =>
-        rpcInput(raw).parentTaskId ? { tasks: [] } : response,
+      listTasks: (raw) => (rpcInput(raw).parentTaskId ? { tasks: [] } : response),
       updateTask: () => ({
         ok: false,
         error: { message: "Keep removed origin" },
@@ -193,24 +182,17 @@ describe("browse delayed focus and save safety", () => {
     press("j");
     press("]");
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(
-      (slot.getByRole("button", { name: "Next task" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    await act(async () =>
-      refresh.resolve({ tasks: tasks.slice(1), nextCursor: null }),
+    expect((slot.getByRole("button", { name: "Next task" }) as HTMLButtonElement).disabled).toBe(
+      true,
     );
+    await act(async () => refresh.resolve({ tasks: tasks.slice(1), nextCursor: null }));
     await slot.findByRole("alert");
-    const writes = slot.inspection.rpcCalls.filter(
-      (c) => c.method === "updateTask",
-    ).length;
+    const writes = slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").length;
     press("j");
     press("]");
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    expect(
-      slot.inspection.rpcCalls.filter((c) => c.method === "updateTask"),
-    ).toHaveLength(writes);
+    expect(slot.inspection.rpcCalls.filter((c) => c.method === "updateTask")).toHaveLength(writes);
   });
 
   it("guards native-pane Escape with save failure and returns without scrolling after Retry", async () => {
@@ -218,9 +200,7 @@ describe("browse delayed focus and save safety", () => {
     let canSave = false;
     const slot = setup("all?task=TSK-1", {
       updateTask: () =>
-        canSave
-          ? { ok: true, task: tasks[0] }
-          : { ok: false, error: { message: "Back blocked" } },
+        canSave ? { ok: true, task: tasks[0] } : { ok: false, error: { message: "Back blocked" } },
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Keep A");
@@ -281,8 +261,7 @@ describe("browse shortcut guards and pane actions", () => {
       const field = document.createElement(
         ["input", "textarea", "select"].includes(kind) ? kind : "button",
       );
-      let parent: HTMLElement =
-        kind === "other pane" ? document.body : detail(slot);
+      let parent: HTMLElement = kind === "other pane" ? document.body : detail(slot);
       if (kind === "rich text child") {
         parent = document.createElement("div");
         parent.setAttribute("contenteditable", "true");
@@ -290,20 +269,7 @@ describe("browse shortcut guards and pane actions", () => {
       }
       parent.append(field);
       field.focus();
-      for (const key of [
-        "j",
-        "k",
-        "o",
-        "Enter",
-        "Escape",
-        "[",
-        "]",
-        "s",
-        "p",
-        "l",
-        "d",
-        "m",
-      ])
+      for (const key of ["j", "k", "o", "Enter", "Escape", "[", "]", "s", "p", "l", "d", "m"])
         press(key);
       expect(slot.inspection.navigateCalls).toEqual([]);
       expect(document.activeElement).toBe(field);
@@ -350,9 +316,7 @@ describe("browse shortcut guards and pane actions", () => {
     detail(slot).focus();
     press("m");
     const activity = slot.getByRole("region", { name: "Activity" });
-    await waitFor(() =>
-      expect(activity.contains(document.activeElement)).toBe(true),
-    );
+    await waitFor(() => expect(activity.contains(document.activeElement)).toBe(true));
     expect(
       slot.inspection.rpcCalls.some((c) =>
         ["delegate", "createComment", "updateTask"].includes(c.method),

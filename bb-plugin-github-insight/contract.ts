@@ -5,7 +5,11 @@ import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
 import { prHeadSchema } from "./core/pr-head";
-import { commentDraftSchema, listedCommentDraftSchema, summaryDraftSchema } from "./core/review-drafts";
+import {
+  commentDraftSchema,
+  listedCommentDraftSchema,
+  summaryDraftSchema,
+} from "./core/review-drafts";
 import { reviewPrSchema } from "./core/review-pr";
 import { reviewEventSchema } from "./core/review-submit";
 import { loadedReviewQueueSchema, reviewQueueResultSchema } from "./core/review-queue-view";
@@ -28,14 +32,10 @@ const prRequestFields = {
   number: z.number().int().positive(),
 };
 
-const prPageRequestSchema = z
-  .object({ ...prRequestFields, after: z.string().nullable() })
-  .strict();
+const prPageRequestSchema = z.object({ ...prRequestFields, after: z.string().nullable() }).strict();
 export type PrPageRequest = z.infer<typeof prPageRequestSchema>;
 
-const checkRunDetailsRequestSchema = z
-  .object({ ids: z.array(z.string().min(1)).min(1) })
-  .strict();
+const checkRunDetailsRequestSchema = z.object({ ids: z.array(z.string().min(1)).min(1) }).strict();
 export type CheckRunDetailsRequest = z.infer<typeof checkRunDetailsRequestSchema>;
 
 const prFilesRequestSchema = z.object(prRequestFields).strict();
@@ -181,7 +181,11 @@ const sendToAgentRequestSchema = z
   .strict();
 
 export const sendToAgentResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("sent"), delivery: z.enum(["sent", "queued"]), threadCount: z.number() }),
+  z.object({
+    kind: z.literal("sent"),
+    delivery: z.enum(["sent", "queued"]),
+    threadCount: z.number(),
+  }),
   z.object({ kind: z.literal("error"), message: z.string() }),
 ]);
 export type SendToAgentResult = z.infer<typeof sendToAgentResultSchema>;
@@ -241,7 +245,9 @@ const deleteCommentDraftRequestSchema = z
   .strict();
 export type DeleteCommentDraftRequest = z.infer<typeof deleteCommentDraftRequestSchema>;
 
-const saveSummaryDraftRequestSchema = z.object({ threadId: z.string().min(1), body: z.string() }).strict();
+const saveSummaryDraftRequestSchema = z
+  .object({ threadId: z.string().min(1), body: z.string() })
+  .strict();
 export type SaveSummaryDraftRequest = z.infer<typeof saveSummaryDraftRequestSchema>;
 
 const submitReviewRequestSchema = z
@@ -260,7 +266,9 @@ const markNeedsReviewRequestSchema = z
   .strict();
 export type MarkNeedsReviewRequest = z.infer<typeof markNeedsReviewRequestSchema>;
 
-const markReviewedRequestSchema = markNeedsReviewRequestSchema.extend({ headOid: z.string().min(1) }).strict();
+const markReviewedRequestSchema = markNeedsReviewRequestSchema
+  .extend({ headOid: z.string().min(1) })
+  .strict();
 export type MarkReviewedRequest = z.infer<typeof markReviewedRequestSchema>;
 
 const newThreadRequestSchema = z.custom<NewThreadRequest>(

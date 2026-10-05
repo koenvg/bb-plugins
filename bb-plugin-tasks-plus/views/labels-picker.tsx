@@ -52,15 +52,9 @@ export function LabelsPicker({
   const labelList = labels ?? [];
   return (
     <Command>
-      <CommandInput
-        placeholder="Add labels…"
-        value={query}
-        onValueChange={setQuery}
-      />
+      <CommandInput placeholder="Add labels…" value={query} onValueChange={setQuery} />
       <CommandList>
-        <CommandEmpty
-          className={query.trim() !== "" ? "p-1 text-left" : undefined}
-        >
+        <CommandEmpty className={query.trim() !== "" ? "p-1 text-left" : undefined}>
           {query.trim() !== "" ? (
             <button
               type="button"
@@ -92,11 +86,7 @@ export function LabelsPicker({
         {labelList.length > 0 ? (
           <CommandGroup>
             {labelList.map((label) => (
-              <CommandItem
-                key={label.id}
-                value={label.name}
-                onSelect={() => toggle(label.id)}
-              >
+              <CommandItem key={label.id} value={label.name} onSelect={() => toggle(label.id)}>
                 <span
                   aria-hidden
                   className="size-2.5 rounded-full"

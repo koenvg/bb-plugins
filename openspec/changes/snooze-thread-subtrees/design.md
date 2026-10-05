@@ -13,11 +13,13 @@ See `proposal.md` for motivation and the two delta specs for the behavior contra
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Put membership selection and group-wide wake calculation behind a focused snooze module, rather than adding tree exceptions to each UI entry point.
 - Keep one durable membership identity for manual wake, server events, frontend signals, and deadline processing.
 - Preserve current tree rendering and existing action inputs where possible.
 
 **Non-Goals:**
+
 - A generalized tree state framework or changes to PR classification.
 - Continuous membership inheritance when a new child is created or a thread is reparented after snoozing. Membership is captured when the action succeeds.
 - A new server-only approval-monitoring system, or atomic rollback of BB read-state SDK calls.

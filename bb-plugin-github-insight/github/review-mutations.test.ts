@@ -26,7 +26,14 @@ describe("addPullRequestReviewInput", () => {
       body: "Two problems",
       threads: [
         { path: "src/a.ts", side: "RIGHT", line: 42, body: "Null check missing" },
-        { path: "src/a.ts", side: "RIGHT", line: 50, startLine: 45, startSide: "RIGHT", body: "Extract a helper" },
+        {
+          path: "src/a.ts",
+          side: "RIGHT",
+          line: 50,
+          startLine: 45,
+          startSide: "RIGHT",
+          body: "Extract a helper",
+        },
         { path: "src/b.ts", side: "LEFT", line: 7, body: "Why remove this?" },
       ],
     });
@@ -40,7 +47,9 @@ describe("addPullRequestReviewInput", () => {
   });
 
   it("leaves out an empty body", () => {
-    const { variables } = JSON.parse(addPullRequestReviewInput({ ...request, event: "APPROVE", body: "", threads: [] }));
+    const { variables } = JSON.parse(
+      addPullRequestReviewInput({ ...request, event: "APPROVE", body: "", threads: [] }),
+    );
 
     expect(variables).toEqual({
       pullRequestId: request.pullRequestId,
@@ -62,7 +71,10 @@ describe("submitReviewError", () => {
 
   it("links the PR when the user already has a pending review", () => {
     expect(
-      submitReviewError("GraphQL: User can only have one pending review per pull request (addPullRequestReview)", prUrl),
+      submitReviewError(
+        "GraphQL: User can only have one pending review per pull request (addPullRequestReview)",
+        prUrl,
+      ),
     ).toEqual({
       message: "You have a pending review on GitHub. Submit or delete it there, then submit again.",
       url: prUrl,
@@ -70,6 +82,9 @@ describe("submitReviewError", () => {
   });
 
   it("keeps other errors as they are, without a link", () => {
-    expect(submitReviewError("gh not logged in", prUrl)).toEqual({ message: "gh not logged in", url: null });
+    expect(submitReviewError("gh not logged in", prUrl)).toEqual({
+      message: "gh not logged in",
+      url: null,
+    });
   });
 });

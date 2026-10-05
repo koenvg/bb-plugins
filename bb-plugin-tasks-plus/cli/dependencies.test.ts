@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createStore } from "../api";
@@ -20,8 +17,7 @@ async function setup() {
     sdk: {
       threads: {
         spawn: async () => ({ id: "thr_worker" }),
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, status: "starting" }),
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "starting" }),
       },
     },
   });
@@ -50,19 +46,9 @@ describe("bb tasks dependencies", () => {
     const { store, task, ok } = await setup();
     const [abc1, abc2, abc3] = [task("One"), task("Two"), task("Three")];
 
-    await ok(
-      "update",
-      "abc-3",
-      "--blocked-by",
-      "ABC-1",
-      "--blocked-by",
-      abc2.id,
-    );
+    await ok("update", "abc-3", "--blocked-by", "ABC-1", "--blocked-by", abc2.id);
 
-    expect(store.tasks.listBlockers(abc3.id).map((t) => t.key)).toEqual([
-      abc1.key,
-      abc2.key,
-    ]);
+    expect(store.tasks.listBlockers(abc3.id).map((t) => t.key)).toEqual([abc1.key, abc2.key]);
   });
 
   it("removes a blocker with update --unblocked-by", async () => {
@@ -104,9 +90,7 @@ describe("bb tasks dependencies", () => {
     const ready = await ok("list", "--ready", "--json");
     const blocked = await ok("list", "--blocked");
 
-    expect(
-      JSON.parse(ready.stdout).tasks.map((t: { key: string }) => t.key),
-    ).toEqual(["ABC-1"]);
+    expect(JSON.parse(ready.stdout).tasks.map((t: { key: string }) => t.key)).toEqual(["ABC-1"]);
     expect(blocked.stdout).toContain("BLOCKED BY");
     expect(blocked.stdout).toMatch(/ABC-2 .* ABC-1/);
     expect(blocked.stdout).not.toMatch(/^ABC-1 /m);
@@ -123,11 +107,7 @@ describe("bb tasks dependencies", () => {
 
   it("shows blockers, blocked tasks, and the blocked state", async () => {
     const { store, task, ok } = await setup();
-    const [abc1, abc2, abc3] = [
-      task("Blocker"),
-      task("Middle"),
-      task("Downstream"),
-    ];
+    const [abc1, abc2, abc3] = [task("Blocker"), task("Middle"), task("Downstream")];
     store.tasks.addTaskDependency(abc1.id, abc2.id);
     store.tasks.addTaskDependency(abc2.id, abc3.id);
 
@@ -135,12 +115,8 @@ describe("bb tasks dependencies", () => {
     const json = JSON.parse((await ok("show", "ABC-2", "--json")).stdout);
 
     expect(human).toMatch(/Blocked\s+yes, by ABC-1/);
-    expect(human).toMatch(
-      /Blocked by\nKEY\s+STATUS\s+TITLE\nABC-1\s+todo\s+Blocker/,
-    );
-    expect(human).toMatch(
-      /Blocks\nKEY\s+STATUS\s+TITLE\nABC-3\s+todo\s+Downstream/,
-    );
+    expect(human).toMatch(/Blocked by\nKEY\s+STATUS\s+TITLE\nABC-1\s+todo\s+Blocker/);
+    expect(human).toMatch(/Blocks\nKEY\s+STATUS\s+TITLE\nABC-3\s+todo\s+Downstream/);
     expect(json).toMatchObject({
       blocked: true,
       blockedBy: [{ key: "ABC-1", status: "todo", title: "Blocker" }],
@@ -177,17 +153,9 @@ describe("bb tasks dependencies", () => {
     const [abc1, abc2] = [task("Blocker"), task("Blocked")];
     store.tasks.addTaskDependency(abc1.id, abc2.id);
 
-    const result = await ok(
-      "update",
-      "ABC-2",
-      "--status",
-      "in_progress",
-      "--json",
-    );
+    const result = await ok("update", "ABC-2", "--status", "in_progress", "--json");
 
-    expect(JSON.parse(result.stdout).warnings).toEqual([
-      "ABC-2 is blocked by ABC-1 (todo)",
-    ]);
+    expect(JSON.parse(result.stdout).warnings).toEqual(["ABC-2 is blocked by ABC-1 (todo)"]);
   });
 
   it("does not warn when a ready task goes to in_progress", async () => {

@@ -16,6 +16,10 @@
     "skills": []
   },
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-code-cleanup",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-code-cleanup",
+    "format": "npm --prefix .. run format -- bb-plugin-code-cleanup",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-code-cleanup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

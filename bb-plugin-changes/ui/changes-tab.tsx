@@ -111,24 +111,45 @@ interface FileListProps {
 function FileList({ threadId, changes, comments, openForms, view }: FileListProps) {
   const patches = usePatches(threadId, changes);
   const linesByPath = useMemo(
-    () => new Map(changes.files.map((file) => [file.path, fileLines(file, patches.stateOf(file.path))])),
+    () =>
+      new Map(
+        changes.files.map((file) => [file.path, fileLines(file, patches.stateOf(file.path))]),
+      ),
     [changes.files, patches],
   );
-  const linesOf = useCallback((path: string): FileLines => linesByPath.get(path) ?? "absent", [linesByPath]);
-  const placedComments = useMemo(() => placeByAnchor(comments, (comment) => comment, linesOf), [comments, linesOf]);
-  const placedForms = useMemo(() => placeByAnchor(openForms.values(), (form) => form.anchor, linesOf), [openForms, linesOf]);
+  const linesOf = useCallback(
+    (path: string): FileLines => linesByPath.get(path) ?? "absent",
+    [linesByPath],
+  );
+  const placedComments = useMemo(
+    () => placeByAnchor(comments, (comment) => comment, linesOf),
+    [comments, linesOf],
+  );
+  const placedForms = useMemo(
+    () => placeByAnchor(openForms.values(), (form) => form.anchor, linesOf),
+    [openForms, linesOf],
+  );
 
   useEffect(() => {
     for (const comment of comments) if (linesByPath.has(comment.path)) patches.load(comment.path);
-    for (const { anchor } of openForms.values()) if (linesByPath.has(anchor.path)) patches.load(anchor.path);
+    for (const { anchor } of openForms.values())
+      if (linesByPath.has(anchor.path)) patches.load(anchor.path);
   }, [comments, openForms, linesByPath, patches]);
 
-  if (changes.files.length === 0 && placedComments.notInDiff.length === 0 && placedForms.notInDiff.length === 0) {
+  if (
+    changes.files.length === 0 &&
+    placedComments.notInDiff.length === 0 &&
+    placedForms.notInDiff.length === 0
+  ) {
     return <Notice>No changes</Notice>;
   }
   return (
     <>
-      <NotInDiff threadId={threadId} comments={placedComments.notInDiff} forms={placedForms.notInDiff} />
+      <NotInDiff
+        threadId={threadId}
+        comments={placedComments.notInDiff}
+        forms={placedForms.notInDiff}
+      />
       {changes.files.map((file) => {
         const lines = linesByPath.get(file.path);
         return (
@@ -173,7 +194,12 @@ function useSendFeedback(threadId: string) {
   function open(comments: readonly PendingComment[]) {
     const snapshot = sortComments(comments);
     setStatus(null);
-    setDialog({ comments: snapshot, prompt: buildReviewPrompt(snapshot), sending: false, error: null });
+    setDialog({
+      comments: snapshot,
+      prompt: buildReviewPrompt(snapshot),
+      sending: false,
+      error: null,
+    });
   }
 
   async function send(text: string) {
@@ -195,7 +221,13 @@ function useSendFeedback(threadId: string) {
     setStatus(result.delivery === "queued" ? "Queued until the agent is idle" : "Sent to agent");
   }
 
-  return { dialog, status, open, send: (text: string) => void send(text), close: () => setDialog(null) };
+  return {
+    dialog,
+    status,
+    open,
+    send: (text: string) => void send(text),
+    close: () => setDialog(null),
+  };
 }
 
 const STATIC_TARGETS = [
@@ -224,7 +256,8 @@ function TargetPicker({
   commits: readonly BranchCommit[];
   onChange: (target: DiffTarget) => void;
 }) {
-  const selectedCommitMissing = target.kind === "commit" && !commits.some((commit) => commit.sha === target.sha);
+  const selectedCommitMissing =
+    target.kind === "commit" && !commits.some((commit) => commit.sha === target.sha);
   return (
     <select
       aria-label="Diff target"
@@ -237,7 +270,9 @@ function TargetPicker({
           {label}
         </option>
       ))}
-      {selectedCommitMissing && <option value={targetValue(target)}>{target.sha.slice(0, 7)}</option>}
+      {selectedCommitMissing && (
+        <option value={targetValue(target)}>{target.sha.slice(0, 7)}</option>
+      )}
       {commits.map((commit) => (
         <option key={commit.sha} value={`commit:${commit.sha}`}>
           {commit.shortSha} {commit.subject}
@@ -257,7 +292,11 @@ const VIEWS = [
 
 function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffView) => void }) {
   return (
-    <div role="group" aria-label="Diff view" className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
+    <div
+      role="group"
+      aria-label="Diff view"
+      className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+    >
       {VIEWS.map((option) => (
         <button
           key={option.view}
@@ -282,7 +321,10 @@ function DiffSummary({ files }: { files: readonly ChangedFile[] }) {
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
   return (
-    <span data-testid="diff-summary" className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
+    <span
+      data-testid="diff-summary"
+      className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums"
+    >
       {files.length} {files.length === 1 ? "file" : "files"}
       <DiffStat additions={additions} deletions={deletions} />
     </span>
@@ -291,17 +333,36 @@ function DiffSummary({ files }: { files: readonly ChangedFile[] }) {
 
 function Notice({ children }: { children: ReactNode }) {
   return (
-    <div role="status" className="m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+    <div
+      role="status"
+      className="m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
+    >
       {children}
     </div>
   );
 }
 
-function LoadError({ message, retry, busy }: { message: string; retry: () => void; busy: boolean }) {
+function LoadError({
+  message,
+  retry,
+  busy,
+}: {
+  message: string;
+  retry: () => void;
+  busy: boolean;
+}) {
   return (
-    <div role="alert" className="m-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+    <div
+      role="alert"
+      className="m-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+    >
       <span className="min-w-0 break-words text-destructive">{message}</span>
-      <button type="button" className={cn(SECONDARY_BUTTON, "ml-auto")} onClick={retry} disabled={busy}>
+      <button
+        type="button"
+        className={cn(SECONDARY_BUTTON, "ml-auto")}
+        onClick={retry}
+        disabled={busy}
+      >
         Retry
       </button>
     </div>

@@ -16,6 +16,7 @@ Tasks-plus needs the mouse for almost all work. Today only `c` (new task), `Esc`
 - Plain-key shortcuts do not fire while focus is in a text field, editor or open menu or dialog.
 
 Not in scope:
+
 - Key sequences (for example `g` then `a`).
 - Keyboard drag on the board, ARIA rework of list and board, lightbox focus trap, keyboard path to the context menu.
 - User rebinding of in-panel keys.
@@ -23,6 +24,7 @@ Not in scope:
 ## Capabilities
 
 ### New Capabilities
+
 - `tasks-keyboard-shortcuts`: keyboard shortcuts, list and board keyboard navigation, the shortcut help dialog and bb palette commands for the tasks-plus panel.
 
 ### Modified Capabilities

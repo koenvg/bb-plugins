@@ -79,11 +79,7 @@ const TASKS = [task(1, "todo"), task(2, "todo"), task(3, "in_progress")];
 
 function render(
   taskKey: string,
-  {
-    presets = [preset],
-    calls = [] as string[],
-    delegate = () => ({ ok: true }) as unknown,
-  } = {},
+  { presets = [preset], calls = [] as string[], delegate = () => ({ ok: true }) as unknown } = {},
 ) {
   return renderSlot(
     app.navPanels[0]!,
@@ -100,15 +96,13 @@ function render(
           return {
             tasks: TASKS.filter(
               (entry) =>
-                input.parentTaskId === undefined ||
-                entry.parentTaskId === input.parentTaskId,
+                input.parentTaskId === undefined || entry.parentTaskId === input.parentTaskId,
             ),
             nextCursor: null,
           };
         },
         getTaskByKey: (raw) => ({
-          task:
-            TASKS.find((entry) => entry.key === rpcInput(raw).taskKey) ?? null,
+          task: TASKS.find((entry) => entry.key === rpcInput(raw).taskKey) ?? null,
         }),
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
@@ -199,9 +193,7 @@ describe("task detail property keys", () => {
     const calls: string[] = [];
     const slot = render("TSK-1", { calls });
     await ready(slot, "1 / 3");
-    await waitFor(() =>
-      expect(slot.getAllByText("Default env").length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(slot.getAllByText("Default env").length).toBeGreaterThan(0));
     fireEvent.keyDown(window, { key: "d" });
     const menu = await slot.findByRole("menu");
     expect(menu.textContent).toContain("Dispatch with preset");
@@ -221,9 +213,7 @@ describe("task detail property keys", () => {
     await slot.findAllByText("Dispatching…");
     fireEvent.keyDown(window, { key: "d" });
     finish({ ok: true });
-    await waitFor(() =>
-      expect(slot.queryAllByText("Dispatching…")).toHaveLength(0),
-    );
+    await waitFor(() => expect(slot.queryAllByText("Dispatching…")).toHaveLength(0));
     expect(slot.queryByRole("menu")).toBeNull();
   });
 
@@ -241,13 +231,9 @@ describe("task detail comment key", () => {
     const slot = render("TSK-1");
     await ready(slot, "1 / 3");
     const activity = await slot.findByRole("region", { name: "Activity" });
-    await waitFor(() =>
-      expect(activity.querySelector('[contenteditable="true"]')).not.toBeNull(),
-    );
+    await waitFor(() => expect(activity.querySelector('[contenteditable="true"]')).not.toBeNull());
     fireEvent.keyDown(window, { key: "m" });
-    await waitFor(() =>
-      expect(activity.contains(document.activeElement)).toBe(true),
-    );
+    await waitFor(() => expect(activity.contains(document.activeElement)).toBe(true));
     fireEvent.keyDown(document.activeElement!, { key: "c" });
     expect(slot.queryByRole("dialog")).toBeNull();
   });

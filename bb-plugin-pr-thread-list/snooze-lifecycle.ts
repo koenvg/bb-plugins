@@ -11,24 +11,35 @@ export function createSnoozeLifecycle() {
 
   function exclusive<T>(run: () => Promise<T>): Promise<T> {
     const result = tail.then(run);
-    tail = result.then(() => {}, () => {});
+    tail = result.then(
+      () => {},
+      () => {},
+    );
     return result;
   }
 
   return {
     exclusive,
     async snooze(select: () => Promise<string[]>, apply: (action: SnoozeAction) => Promise<void>) {
-      const action = { members: new Set<string>(), signals: new Set<string>(), removed: new Set<string>() };
+      const action = {
+        members: new Set<string>(),
+        signals: new Set<string>(),
+        removed: new Set<string>(),
+      };
       pending.add(action);
       try {
         await exclusive(async () => {
           for (const id of await select()) if (!action.removed.has(id)) action.members.add(id);
           await apply({
             members: action.members,
-            get signalled() { return [...action.members].some((id) => action.signals.has(id)); },
+            get signalled() {
+              return [...action.members].some((id) => action.signals.has(id));
+            },
           });
         });
-      } finally { pending.delete(action); }
+      } finally {
+        pending.delete(action);
+      }
     },
     signal(threadId: string) {
       for (const action of pending) action.signals.add(threadId);

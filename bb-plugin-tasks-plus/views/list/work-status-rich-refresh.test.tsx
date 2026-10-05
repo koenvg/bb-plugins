@@ -1,10 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
@@ -119,10 +116,7 @@ it.each(["checks", "ready"])(
                                   pendingNames: [],
                                 }
                               : reviewers,
-                          conditions:
-                            mode === "ready"
-                              ? []
-                              : ["checks_failed", "review_required"],
+                          conditions: mode === "ready" ? [] : ["checks_failed", "review_required"],
                           readiness: mode === "ready" ? "ready" : "blocked",
                         },
                       },
@@ -138,9 +132,7 @@ it.each(["checks", "ready"])(
     await act(async () => {});
     expect(latest?.pullRequests.items[0]?.details).toBe("available");
     expect(
-      slot
-        .getByRole("link", { name: /Open GitHub PR/ })
-        .textContent?.includes("Ready to merge"),
+      slot.getByRole("link", { name: /Open GitHub PR/ }).textContent?.includes("Ready to merge"),
     ).toBe(mode === "ready");
     await act(() => vi.advanceTimersByTimeAsync(60_000)); // Exactly one hour is still usable; RPC now pending.
     expect(calls).toBe(2);
@@ -148,15 +140,13 @@ it.each(["checks", "ready"])(
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(calls).toBe(2);
     expect(latest?.pullRequests.items[0]?.details).toBe("stale");
-    expect(
-      slot.getByRole("link", { name: /Open GitHub PR/ }).textContent,
-    ).not.toContain("Ready to merge");
-    expect(
-      slot.getByRole("button", { name: /PR details/ }).textContent,
-    ).toContain("Details stale");
-    expect(
-      slot.getByRole("link", { name: /Open GitHub PR/ }).textContent,
-    ).not.toContain("Checks failing");
+    expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).not.toContain(
+      "Ready to merge",
+    );
+    expect(slot.getByRole("button", { name: /PR details/ }).textContent).toContain("Details stale");
+    expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).not.toContain(
+      "Checks failing",
+    );
     await act(async () => {
       reject(new Error("offline"));
     });
@@ -165,9 +155,9 @@ it.each(["checks", "ready"])(
       details: "stale",
       rich: { refreshedAt: "2026-10-02T11:01:00Z" },
     });
-    expect(
-      slot.getByRole("link", { name: /Open GitHub PR/ }).textContent,
-    ).not.toContain("Ready to merge");
+    expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).not.toContain(
+      "Ready to merge",
+    );
     slot.lifecycle.unmount();
     expect(vi.getTimerCount()).toBe(0);
   },
@@ -185,24 +175,22 @@ it("shares optional detection and settled metadata successes, absence and failur
       archivedAt: 1,
     }),
   );
-  const getPluginMetadata = vi.fn(
-    async ({ threadId }: { threadId: string }) => {
-      if (threadId === "thr_error" && phase === 0) throw new Error("offline");
-      if (threadId === "thr_none") return {};
-      return {
-        prSummary: {
-          version: 1,
-          updatedAt: new Date().toISOString(),
-          pr: { url, number: 42, state: phase === 0 ? "open" : "merged" },
-          checks: counts,
-          reviewers,
-          blockers: ["checks_failed", "review_required"],
-          mergeQueue: null,
-          error: null,
-        },
-      };
-    },
-  );
+  const getPluginMetadata = vi.fn(async ({ threadId }: { threadId: string }) => {
+    if (threadId === "thr_error" && phase === 0) throw new Error("offline");
+    if (threadId === "thr_none") return {};
+    return {
+      prSummary: {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        pr: { url, number: 42, state: phase === 0 ? "open" : "merged" },
+        checks: counts,
+        reviewers,
+        blockers: ["checks_failed", "review_required"],
+        mergeQueue: null,
+        error: null,
+      },
+    };
+  });
   const pullRequest = vi.fn(async () => ({
     outcome: "available",
     pullRequest: {
@@ -262,8 +250,7 @@ it("shares optional detection and settled metadata successes, absence and failur
     {},
     {
       rpc: {
-        listTaskWorkStatus: (input) =>
-          harness.behavior.callRpc("listTaskWorkStatus", input),
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
       },
     },
   );
@@ -278,11 +265,7 @@ it("shares optional detection and settled metadata successes, absence and failur
         state: "open",
         details: "incomplete",
         detailsReason: "metadata_error",
-        threadIds: expect.arrayContaining([
-          "thr_shared",
-          "thr_error",
-          "thr_none",
-        ]),
+        threadIds: expect.arrayContaining(["thr_shared", "thr_error", "thr_none"]),
       }),
     ]);
   phase = 1;

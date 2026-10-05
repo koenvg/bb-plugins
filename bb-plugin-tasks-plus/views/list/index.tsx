@@ -24,10 +24,7 @@ import {
 } from "./list-preference.js";
 import type { TaskSort } from "../../shared/pagination.js";
 import { StatusIcon } from "./icons.js";
-import {
-  listScrollScopeKey,
-  useListScrollRestoration,
-} from "./scroll-restoration.js";
+import { listScrollScopeKey, useListScrollRestoration } from "./scroll-restoration.js";
 import {
   buildListTree,
   groupListTree,
@@ -43,11 +40,7 @@ import type { EditFn } from "./property-menus.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
-import {
-  useSelectionTree,
-  visibleTreeTasks,
-  type SelectionUnavailable,
-} from "./selection-tree.js";
+import { useSelectionTree, visibleTreeTasks, type SelectionUnavailable } from "./selection-tree.js";
 
 /** Keys come from the rendered tree, including dimmed parents and expanded children.
  * Unsettled reports must never be used as proof that a selection was removed. */
@@ -103,8 +96,7 @@ export function ListView({
 }: ListViewProps) {
   const navigation = useTasksNavigation();
   const openTask =
-    onRequestSelection ??
-    ((taskKey: string) => navigation.go({ kind: "task", taskKey }));
+    onRequestSelection ?? ((taskKey: string) => navigation.go({ kind: "task", taskKey }));
   const projects = useProjects();
   const { toasts, push, dismiss } = useDetailToasts();
   const preferenceScope = listPreferenceScope(projectId, activeOnly);
@@ -140,17 +132,11 @@ export function ListView({
   const [newTaskOpen, setNewTaskOpen] = useState(false);
 
   const labelProjectIds = useMemo(
-    () =>
-      projectId !== null
-        ? [projectId]
-        : (projects.data ?? []).map((project) => project.id),
+    () => (projectId !== null ? [projectId] : (projects.data ?? []).map((project) => project.id)),
     [projectId, projects.data],
   );
   const labels = useLabels(labelProjectIds);
-  const labelOptions = useMemo(
-    () => labelFilterOptions(labels.data ?? []),
-    [labels.data],
-  );
+  const labelOptions = useMemo(() => labelFilterOptions(labels.data ?? []), [labels.data]);
   const labelIds = useMemo((): readonly string[] | null => {
     if (filters.labelNames.length === 0) return null;
     if (labels.data === undefined) return null;
@@ -167,9 +153,7 @@ export function ListView({
     labelIds,
     dependency: filters.dependency,
   });
-  const scopeTasks = needsScope
-    ? (scopeQuery.data ?? undefined)
-    : tasksQuery.data;
+  const scopeTasks = needsScope ? (scopeQuery.data ?? undefined) : tasksQuery.data;
   const serverTasks = useMemo(
     () => mergeTasks(tasksQuery.data, scopeTasks),
     [tasksQuery.data, scopeTasks],
@@ -196,33 +180,18 @@ export function ListView({
     return map;
   }, [labels.data]);
   const projectsById = useMemo(
-    () =>
-      new Map((projects.data ?? []).map((project) => [project.id, project])),
+    () => new Map((projects.data ?? []).map((project) => [project.id, project])),
     [projects.data],
   );
 
   const displayTasks = useMemo(() => {
     if (tasksQuery.data === undefined) return undefined;
     return editedTasks(tasksQuery.data, edits.entries).filter((task) =>
-      matchesFilters(
-        task,
-        filters.statuses,
-        filters.priorities,
-        labelIds ?? [],
-      ),
+      matchesFilters(task, filters.statuses, filters.priorities, labelIds ?? []),
     );
-  }, [
-    tasksQuery.data,
-    edits.entries,
-    filters.statuses,
-    filters.priorities,
-    labelIds,
-  ]);
+  }, [tasksQuery.data, edits.entries, filters.statuses, filters.priorities, labelIds]);
   const displayScope = useMemo(
-    () =>
-      scopeTasks === undefined
-        ? undefined
-        : editedTasks(scopeTasks, edits.entries),
+    () => (scopeTasks === undefined ? undefined : editedTasks(scopeTasks, edits.entries)),
     [scopeTasks, edits.entries],
   );
 
@@ -238,10 +207,7 @@ export function ListView({
     [displayTasks, displayScope, treeFiltered],
   );
   const groups = useMemo(() => groupListTree(tree ?? [], sort), [tree, sort]);
-  const knownParentIds = useMemo(
-    () => new Set((tree ?? []).map((entry) => entry.task.id)),
-    [tree],
-  );
+  const knownParentIds = useMemo(() => new Set((tree ?? []).map((entry) => entry.task.id)), [tree]);
   const expanded = useExpandedTasks(
     preferenceScope,
     treeFiltered ? JSON.stringify(filters) : null,
@@ -279,15 +245,9 @@ export function ListView({
       setOpenRowMenu({ taskKey, menu });
     });
   useShortcuts({
-    "list.next": onRequestSelection
-      ? null
-      : () => moveFocusInList(scrollRef.current, 1),
-    "list.previous": onRequestSelection
-      ? null
-      : () => moveFocusInList(scrollRef.current, -1),
-    "list.open": onRequestSelection
-      ? null
-      : forFocusedRow((taskKey) => openTask(taskKey)),
+    "list.next": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, 1),
+    "list.previous": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, -1),
+    "list.open": onRequestSelection ? null : forFocusedRow((taskKey) => openTask(taskKey)),
     "list.status": openRowMenuFromShortcut("status"),
     "list.priority": openRowMenuFromShortcut("priority"),
     "list.labels": openRowMenuFromShortcut("labels"),
@@ -306,9 +266,7 @@ export function ListView({
     loadError === null &&
     (filters.labelNames.length === 0 ||
       ((projectId !== null ||
-        (!projects.isLoading &&
-          projects.error === null &&
-          projects.data !== undefined)) &&
+        (!projects.isLoading && projects.error === null && projects.data !== undefined)) &&
         !labels.isLoading &&
         labels.error === null &&
         labels.data !== undefined)) &&
@@ -381,11 +339,7 @@ export function ListView({
   ) {
     body =
       !routeScopeChanged && loadError !== null ? (
-        <EmptyState
-          icon="AlertCircle"
-          title="Couldn't load tasks"
-          description={loadError}
-        />
+        <EmptyState icon="AlertCircle" title="Couldn't load tasks" description={loadError} />
       ) : (
         <LoadingRows />
       );
@@ -396,11 +350,7 @@ export function ListView({
           icon="Search"
           title="No tasks match these filters"
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFilters(EMPTY_FILTERS)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
               Clear filters
             </Button>
           }
@@ -451,15 +401,12 @@ export function ListView({
                 expanded: isExpanded,
                 ...(entry.children.length > 0
                   ? {
-                      onToggleExpanded: () =>
-                        onRequestContextChange(() => expanded.toggle(entry)),
+                      onToggleExpanded: () => onRequestContextChange(() => expanded.toggle(entry)),
                     }
                   : {}),
                 subProgress: { done: entry.subDone, total: entry.subTotal },
               })}
-              {isExpanded
-                ? entry.children.map((child) => renderRow(child, { depth: 1 }))
-                : null}
+              {isExpanded ? entry.children.map((child) => renderRow(child, { depth: 1 })) : null}
             </Fragment>
           );
         })}
@@ -484,11 +431,7 @@ export function ListView({
       >
         {body}
       </div>
-      <NewTaskDialog
-        open={newTaskOpen}
-        onOpenChange={setNewTaskOpen}
-        projectId={projectId}
-      />
+      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} projectId={projectId} />
       <DetailToasts toasts={toasts} onDismiss={dismiss} />
       {blockedWorkDialog}
     </div>

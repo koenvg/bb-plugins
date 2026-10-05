@@ -4,8 +4,15 @@
 }
 
 @keyframes bb-thread-lattice {
-  0%, 35%, 100% { opacity: 0.25; }
-  10%, 24% { opacity: 1; }
+  0%,
+  35%,
+  100% {
+    opacity: 0.25;
+  }
+  10%,
+  24% {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

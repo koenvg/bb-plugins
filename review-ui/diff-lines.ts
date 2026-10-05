@@ -9,7 +9,11 @@ export interface DiffLines {
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 export function diffLines(patch: string): DiffLines {
-  const lines: DiffLines = { additions: new Set(), deletions: new Set(), contextOldToNew: new Map() };
+  const lines: DiffLines = {
+    additions: new Set(),
+    deletions: new Set(),
+    contextOldToNew: new Map(),
+  };
   let oldLine = 0;
   let newLine = 0;
   for (const text of patch.split("\n")) {
@@ -30,7 +34,11 @@ export function diffLines(patch: string): DiffLines {
   return lines;
 }
 
-export function commentAnchorLine(lines: DiffLines, side: DiffSide, line: number): { side: DiffSide; line: number } {
+export function commentAnchorLine(
+  lines: DiffLines,
+  side: DiffSide,
+  line: number,
+): { side: DiffSide; line: number } {
   const newLine = side === "deletions" ? lines.contextOldToNew.get(line) : undefined;
   return newLine === undefined ? { side, line } : { side: "additions", line: newLine };
 }

@@ -147,9 +147,7 @@ export function keyLabel(key: string): string {
 }
 
 function normalizedKey(event: Pick<KeyboardEvent, "key" | "shiftKey">) {
-  return event.key.length === 1 && !event.shiftKey
-    ? event.key.toLowerCase()
-    : event.key;
+  return event.key.length === 1 && !event.shiftKey ? event.key.toLowerCase() : event.key;
 }
 
 export function shortcutMatches(
@@ -182,24 +180,17 @@ export function hasOpenOverlay(): boolean {
 
 function isOutside(target: EventTarget | null, root: HTMLElement): boolean {
   if (!(target instanceof Node)) return false;
-  if (target === document.body || target === document.documentElement)
-    return false;
+  if (target === document.body || target === document.documentElement) return false;
   return !root.contains(target);
 }
 
-export function shouldIgnoreKey(
-  event: KeyboardEvent,
-  root: HTMLElement | null,
-): boolean {
+export function shouldIgnoreKey(event: KeyboardEvent, root: HTMLElement | null): boolean {
   if (event.defaultPrevented) return true;
   if (event.metaKey || event.ctrlKey || event.altKey) return true;
   if (event.isComposing) return true;
   const active = document.activeElement;
   if (isEditableTarget(event.target) || isEditableTarget(active)) return true;
-  if (active instanceof HTMLElement && active.closest("[hidden], [inert]"))
-    return true;
+  if (active instanceof HTMLElement && active.closest("[hidden], [inert]")) return true;
   if (hasOpenOverlay()) return true;
-  return (
-    root !== null && (isOutside(event.target, root) || isOutside(active, root))
-  );
+  return root !== null && (isOutside(event.target, root) || isOutside(active, root));
 }

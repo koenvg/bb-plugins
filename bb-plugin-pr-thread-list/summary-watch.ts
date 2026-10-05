@@ -16,12 +16,18 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export async function watchSummaries({ read, onChange, signal }: {
+export async function watchSummaries({
+  read,
+  onChange,
+  signal,
+}: {
   read: () => Promise<Summaries>;
   onChange: () => void;
   signal: AbortSignal;
 }): Promise<void> {
-  const aborted = new Promise<null>((resolve) => signal.addEventListener("abort", () => resolve(null), { once: true }));
+  const aborted = new Promise<null>((resolve) =>
+    signal.addEventListener("abort", () => resolve(null), { once: true }),
+  );
   let last: string | null = null;
   while (!signal.aborted) {
     const summaries = await Promise.race([read().catch(() => null), aborted]);

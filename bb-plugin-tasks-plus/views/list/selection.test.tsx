@@ -63,9 +63,7 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
             finishRefresh = resolve;
           });
         return {
-          tasks: rpcInput(raw).statuses
-            ? [child, other]
-            : [parent, child, other],
+          tasks: rpcInput(raw).statuses ? [child, other] : [parent, child, other],
           nextCursor: null,
         };
       },
@@ -83,20 +81,16 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
     }),
   );
   expect(renderedKeys()).toEqual(["TSK-3", "TSK-1", "TSK-2"]);
-  expect(
-    slot.container
-      .querySelector('[data-task-key="TSK-1"]')
-      ?.getAttribute("data-dimmed"),
-  ).toBe("true");
+  expect(slot.container.querySelector('[data-task-key="TSK-1"]')?.getAttribute("data-dimmed")).toBe(
+    "true",
+  );
   const childButton = slot.getByRole("button", { name: "Open TSK-2: Child" });
   fireEvent.click(childButton);
   expect(select).toHaveBeenCalledExactlyOnceWith("TSK-2");
   expect(childButton.getAttribute("aria-current")).toBeNull();
   slot.lifecycle.rerender(<List {...props} selectedTaskKey="TSK-2" />);
   expect(childButton.getAttribute("aria-current")).toBe("true");
-  fireEvent.click(
-    slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }),
-  );
+  fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
   await waitFor(() =>
     expect(report.mock.calls.at(-1)?.[0]).toEqual({
       keys: ["TSK-3", "TSK-1"],
@@ -106,9 +100,7 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
   refreshPending = true;
   await slot.behavior.emitRealtime("tasks:changed", {});
   expect(report.mock.calls.at(-1)?.[0].settled).toBe(false);
-  await act(async () =>
-    finishRefresh?.({ tasks: [child, other], nextCursor: null }),
-  );
+  await act(async () => finishRefresh?.({ tasks: [child, other], nextCursor: null }));
   await waitFor(() => expect(report.mock.calls.at(-1)?.[0].settled).toBe(true));
 });
 
@@ -154,9 +146,7 @@ it("reports only the retained rendered tree as unsettled while removal waits for
   const stillUnavailable = unavailable.mock.calls[0]![1] as () => boolean;
   expect(stillUnavailable()).toBe(true);
   expect(
-    slot
-      .getByRole("button", { name: "Open TSK-1: Origin" })
-      .getAttribute("aria-current"),
+    slot.getByRole("button", { name: "Open TSK-1: Origin" }).getAttribute("aria-current"),
   ).toBe("true");
   expect(report.mock.calls.at(-1)?.[0]).toEqual({
     keys: ["TSK-1", "TSK-2"],

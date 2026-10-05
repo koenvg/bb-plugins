@@ -50,8 +50,6 @@ describe("view preference storage", () => {
 
     expect(loadViewMode(PROJECT_A)).toBe("board");
     storeViewMode(PROJECT_A, "list");
-    expect(window.localStorage.getItem(VIEW_PREFERENCE_STORAGE_KEY)).toBe(
-      future,
-    );
+    expect(window.localStorage.getItem(VIEW_PREFERENCE_STORAGE_KEY)).toBe(future);
   });
 });

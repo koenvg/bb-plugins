@@ -75,12 +75,22 @@ export function createReviewService(deps: ReviewServiceDeps) {
     }
   }
 
-  async function saveDraft(threadId: string, pr: PullRequestRef, reviewThreadId: string, draft: Draft) {
+  async function saveDraft(
+    threadId: string,
+    pr: PullRequestRef,
+    reviewThreadId: string,
+    draft: Draft,
+  ) {
     await deps.drafts.save(pr, reviewThreadId, draft);
     deps.publish({ threadId });
   }
 
-  async function saveCommentDraft(threadId: string, pr: PullRequestRef, draftId: string, draft: CommentDraft) {
+  async function saveCommentDraft(
+    threadId: string,
+    pr: PullRequestRef,
+    draftId: string,
+    draft: CommentDraft,
+  ) {
     await deps.drafts.saveComment(pr, draftId, draft);
     deps.publish({ threadId });
   }
@@ -90,12 +100,18 @@ export function createReviewService(deps: ReviewServiceDeps) {
     deps.publish({ threadId });
   }
 
-  async function sendToAgent(threadId: string, reviewThreadIds: readonly string[]): Promise<SendToAgentResult> {
+  async function sendToAgent(
+    threadId: string,
+    reviewThreadIds: readonly string[],
+  ): Promise<SendToAgentResult> {
     const loaded = await load(threadId);
-    if (loaded.kind === "no_pr") return { kind: "error", message: "No pull request for this thread" };
+    if (loaded.kind === "no_pr")
+      return { kind: "error", message: "No pull request for this thread" };
     if (loaded.kind === "error") return loaded;
     const selected = new Set(reviewThreadIds);
-    const threads = openThreads(loaded.review.threads).filter(({ thread }) => selected.has(thread.id));
+    const threads = openThreads(loaded.review.threads).filter(({ thread }) =>
+      selected.has(thread.id),
+    );
     if (threads.length === 0) {
       return { kind: "error", message: "The selected review threads are resolved or gone" };
     }

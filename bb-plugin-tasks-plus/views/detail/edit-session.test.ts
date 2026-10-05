@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  createTaskEditSession,
-  type SaveOutcome,
-  type TaskEditPatch,
-} from "./edit-session.js";
+import { createTaskEditSession, type SaveOutcome, type TaskEditPatch } from "./edit-session.js";
 import { createSafeTaskTransition } from "./safe-transition.js";
 
 function deferred<T>() {
@@ -33,10 +29,7 @@ describe("task edits and safe transitions", () => {
     const committed: string[] = [];
     edit.stage({ description: "first" }, 800);
     const switching = transition.request(() => committed.push("B"));
-    edit.stage(
-      { title: "latest title", priority: "high", description: "second" },
-      800,
-    );
+    edit.stage({ title: "latest title", priority: "high", description: "second" }, 800);
     const latest = transition.request(() => committed.push("C"));
     expect(attempts).toHaveLength(1);
     expect(committed).toEqual([]);
@@ -59,10 +52,7 @@ describe("task edits and safe transitions", () => {
 
   it("retains the latest rejected draft and destination until an explicit retry", async () => {
     const reply = deferred<SaveOutcome>();
-    const save = vi
-      .fn()
-      .mockReturnValueOnce(reply.promise)
-      .mockResolvedValue({ ok: true });
+    const save = vi.fn().mockReturnValueOnce(reply.promise).mockResolvedValue({ ok: true });
     const edit = createTaskEditSession("A", { save });
     const transition = createSafeTaskTransition();
     transition.register(edit);

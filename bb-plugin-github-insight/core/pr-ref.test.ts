@@ -3,9 +3,11 @@ import { parsePullRequestUrl } from "./pr-ref";
 
 describe("parsePullRequestUrl", () => {
   it("reads owner, repo, and number from a github.com PR url", () => {
-    expect(
-      parsePullRequestUrl("https://github.com/collibra/frontend/pull/25337"),
-    ).toEqual({ owner: "collibra", repo: "frontend", number: 25337 });
+    expect(parsePullRequestUrl("https://github.com/collibra/frontend/pull/25337")).toEqual({
+      owner: "collibra",
+      repo: "frontend",
+      number: 25337,
+    });
   });
 
   it.each([

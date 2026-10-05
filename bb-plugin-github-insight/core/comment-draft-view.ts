@@ -10,7 +10,10 @@ export function splitByCommit(
   };
 }
 
-export function draftLineText({ line, startLine }: Pick<ListedCommentDraft, "line" | "startLine">): string {
+export function draftLineText({
+  line,
+  startLine,
+}: Pick<ListedCommentDraft, "line" | "startLine">): string {
   return startLine === null ? `Line ${line}` : `Lines ${startLine}-${line}`;
 }
 

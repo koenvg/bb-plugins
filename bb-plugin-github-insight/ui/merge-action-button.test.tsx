@@ -52,7 +52,9 @@ describe("MergeActionButton", () => {
     await act(async () => {});
     expect(slot.queryByRole("alertdialog")).toBeNull();
     expect(mergeCalls(slot)).toEqual([
-      expect.objectContaining({ input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid } }),
+      expect.objectContaining({
+        input: { threadId: "thr_1", action: "enqueue", expectedHeadOid: pr.headOid },
+      }),
     ]);
   });
 

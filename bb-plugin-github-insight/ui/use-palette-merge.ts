@@ -21,23 +21,46 @@ const IDLE: PaletteState = { kind: "idle" };
 function versionOf(result: InsightResult | null): string {
   if (result?.kind !== "ok") return JSON.stringify(result);
   const { pr, mergeAction, blockers } = result.insight;
-  return JSON.stringify([pr.number, pr.url, pr.headOid, pr.state, mergeAction, blockers, result.error]);
+  return JSON.stringify([
+    pr.number,
+    pr.url,
+    pr.headOid,
+    pr.state,
+    mergeAction,
+    blockers,
+    result.error,
+  ]);
 }
 function unavailable(insight: PrInsight): string {
   if (insight.pr.state === "merged") return "Pull request merged";
   if (insight.pr.state === "closed") return "Pull request closed";
   if (insight.mergeAction.kind === "queued") return "Queued";
-  return insight.blockers.map((blocker) => blocker.text).join(" · ") || "This pull request cannot merge.";
+  return (
+    insight.blockers.map((blocker) => blocker.text).join(" · ") || "This pull request cannot merge."
+  );
 }
 
 export function usePaletteMerge(threadId: string, insight: ReturnType<typeof useInsight>) {
-  const { state: operation, run, dismiss: dismissOperation } = useMergeAction(threadId, insight.result?.kind === "ok" ? insight.result.insight.pr.headOid : undefined);
+  const {
+    state: operation,
+    run,
+    dismiss: dismissOperation,
+  } = useMergeAction(
+    threadId,
+    insight.result?.kind === "ok" ? insight.result.insight.pr.headOid : undefined,
+  );
   const [state, setState] = useState<PaletteState>(IDLE);
   const busy = useRef(false);
   const generation = useRef(0);
   const currentVersion = versionOf(insight.result);
 
-  useEffect(() => () => { generation.current++; busy.current = false; }, []);
+  useEffect(
+    () => () => {
+      generation.current++;
+      busy.current = false;
+    },
+    [],
+  );
 
   function showMessage(message: string, version = currentVersion) {
     busy.current = false;
@@ -66,9 +89,18 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
       return;
     }
     const version = versionOf(result);
-    if (result.kind === "error") { showMessage(result.message, version); return; }
-    if (result.kind === "no_pr") { showMessage("No pull request for this thread", version); return; }
-    if (result.error !== null) { showMessage(result.error, version); return; }
+    if (result.kind === "error") {
+      showMessage(result.message, version);
+      return;
+    }
+    if (result.kind === "no_pr") {
+      showMessage("No pull request for this thread", version);
+      return;
+    }
+    if (result.error !== null) {
+      showMessage(result.error, version);
+      return;
+    }
     const { pr, mergeAction } = result.insight;
     if (mergeAction.kind !== "merge" && mergeAction.kind !== "enqueue") {
       showMessage(unavailable(result.insight), version);
@@ -78,7 +110,9 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     if (mergeAction.kind === "enqueue") send(target);
     else setState({ kind: "confirm", target });
   }
-  useCommandIntent(threadId, "merge", () => { void prepare(); });
+  useCommandIntent(threadId, "merge", () => {
+    void prepare();
+  });
 
   useEffect(() => {
     if (state.kind === "message" && state.version !== currentVersion) setState(IDLE);
@@ -89,9 +123,13 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     if (operation.kind === "running") {
       busy.current = false;
       setState(IDLE);
-    } else if (result?.kind !== "ok" || result.insight.pr.number !== target.pr.number
-      || result.insight.pr.url !== target.pr.url || result.insight.pr.headOid !== target.pr.headOid
-      || JSON.stringify(result.insight.mergeAction) !== JSON.stringify(target.action)) {
+    } else if (
+      result?.kind !== "ok" ||
+      result.insight.pr.number !== target.pr.number ||
+      result.insight.pr.url !== target.pr.url ||
+      result.insight.pr.headOid !== target.pr.headOid ||
+      JSON.stringify(result.insight.mergeAction) !== JSON.stringify(target.action)
+    ) {
       showMessage("The PR changed. Refresh and try again.");
     }
   }, [state, currentVersion, insight.result, operation.kind]);
@@ -101,6 +139,8 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     setState(IDLE);
     dismissOperation();
   }
-  const confirm = () => { if (state.kind === "confirm") send(state.target); };
+  const confirm = () => {
+    if (state.kind === "confirm") send(state.target);
+  };
   return { state, operation, confirm, dismiss };
 }

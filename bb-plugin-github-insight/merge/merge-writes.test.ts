@@ -61,7 +61,10 @@ describe("runMergeAction", () => {
 
   it("enqueues with the cached PR id and the head commit the tab showed", async () => {
     const { writes, merges, enqueues, refreshed } = writesWith({
-      cachedPr: async () => ({ ...cached, insight: { ...insight, mergeAction: { kind: "enqueue" } } }),
+      cachedPr: async () => ({
+        ...cached,
+        insight: { ...insight, mergeAction: { kind: "enqueue" } },
+      }),
     });
 
     const result = await writes.runMergeAction({ ...request, action: "enqueue" });
@@ -84,7 +87,10 @@ describe("runMergeAction", () => {
 
   it("does not enqueue a PR that is already queued", async () => {
     const { writes, enqueues } = writesWith({
-      cachedPr: async () => ({ ...cached, insight: { ...insight, mergeAction: { kind: "queued" } } }),
+      cachedPr: async () => ({
+        ...cached,
+        insight: { ...insight, mergeAction: { kind: "queued" } },
+      }),
     });
 
     const result = await writes.runMergeAction({ ...request, action: "enqueue" });

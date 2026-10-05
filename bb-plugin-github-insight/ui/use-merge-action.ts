@@ -7,15 +7,21 @@ const IDLE: MergeOperationState = { kind: "idle" };
 
 export function useMergeAction(threadId: string, headOid?: string) {
   const rpc = useRpc<typeof rpcContract>();
-  const subscribe = useCallback((notify: () => void) => mergeOperations.subscribe(threadId, notify), [threadId]);
+  const subscribe = useCallback(
+    (notify: () => void) => mergeOperations.subscribe(threadId, notify),
+    [threadId],
+  );
   const snapshot = useCallback(() => mergeOperations.snapshot(threadId), [threadId]);
   const state = useSyncExternalStore(subscribe, snapshot);
   const run = useCallback(
     (request: Omit<RunMergeActionRequest, "threadId">) =>
-      mergeOperations.run(threadId, request, () => rpc.call("runMergeAction", { threadId, ...request })),
+      mergeOperations.run(threadId, request, () =>
+        rpc.call("runMergeAction", { threadId, ...request }),
+      ),
     [rpc, threadId],
   );
   const dismiss = useCallback(() => mergeOperations.dismiss(threadId), [threadId]);
-  const shown = state.kind === "error" && headOid !== undefined && state.headOid !== headOid ? IDLE : state;
+  const shown =
+    state.kind === "error" && headOid !== undefined && state.headOid !== headOid ? IDLE : state;
   return { state: shown, run, dismiss };
 }

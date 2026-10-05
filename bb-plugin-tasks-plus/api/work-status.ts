@@ -1,15 +1,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { TasksStore } from "../db/index.js";
-import type {
-  TaskWorkStatus,
-  ThreadExecution,
-  WorkStatusRefresh,
-} from "../shared/contract.js";
-import {
-  normalizeHostPr,
-  taskPullRequests,
-  type PrObservation,
-} from "./work-status-pr.js";
+import type { TaskWorkStatus, ThreadExecution, WorkStatusRefresh } from "../shared/contract.js";
+import { normalizeHostPr, taskPullRequests, type PrObservation } from "./work-status-pr.js";
 
 import {
   normalizeRichMetadata,
@@ -69,20 +61,14 @@ export function createWorkStatusReader({
     session.metadataReads.clear();
     sessions.delete(id);
   };
-  const refreshSession = (
-    refresh: WorkStatusRefresh,
-  ): RefreshSession | null => {
+  const refreshSession = (refresh: WorkStatusRefresh): RefreshSession | null => {
     for (const session of sessions.values())
       if (now().getTime() >= session.expiresAt) closeRefresh(session.id);
     if (disposed) return null;
     if (refresh.step !== "start") return sessions.get(refresh.id) ?? null;
     // Reject collisions and saturation rather than evicting a live refresh.
-    if (sessions.has(refresh.id) || sessions.size >= WORK_STATUS_REFRESH_LIMIT)
-      return null;
-    const timer = setTimeout(
-      () => closeRefresh(refresh.id),
-      WORK_STATUS_REFRESH_TTL,
-    );
+    if (sessions.has(refresh.id) || sessions.size >= WORK_STATUS_REFRESH_LIMIT) return null;
+    const timer = setTimeout(() => closeRefresh(refresh.id), WORK_STATUS_REFRESH_TTL);
     timer.unref?.();
     const session: RefreshSession = {
       id: refresh.id,
@@ -102,16 +88,13 @@ export function createWorkStatusReader({
     fallback: T,
     session?: RefreshSession,
   ): Promise<T> => {
-    if (active >= 8)
-      await new Promise<void>((resolve) => waiting.push(resolve));
+    if (active >= 8) await new Promise<void>((resolve) => waiting.push(resolve));
     else active++;
     try {
       // Both thread and environment reads share one global eight-read budget.
       if (
         disposed ||
-        (session &&
-          (sessions.get(session.id) !== session ||
-            now().getTime() >= session.expiresAt))
+        (session && (sessions.get(session.id) !== session || now().getTime() >= session.expiresAt))
       )
         return fallback;
       return await read();
@@ -121,10 +104,7 @@ export function createWorkStatusReader({
       else active--;
     }
   };
-  const hydrate = (
-    threadId: string,
-    session?: RefreshSession,
-  ): Promise<ThreadObservation> =>
+  const hydrate = (threadId: string, session?: RefreshSession): Promise<ThreadObservation> =>
     schedule(
       async () => {
         try {
@@ -184,10 +164,7 @@ export function createWorkStatusReader({
       null,
       session,
     );
-  const readThread = (
-    threadId: string,
-    session: RefreshSession | null | undefined,
-  ) => {
+  const readThread = (threadId: string, session: RefreshSession | null | undefined) => {
     if (disposed || session === null) return Promise.resolve(null);
     const reads = session?.reads ?? inFlight;
     const existing = reads.get(threadId);
@@ -208,8 +185,7 @@ export function createWorkStatusReader({
     session: RefreshSession | null | undefined,
   ): Promise<PrObservation> => {
     const unavailable: PrObservation = { outcome: "unavailable" };
-    if (disposed || session === null || !environments)
-      return Promise.resolve(unavailable);
+    if (disposed || session === null || !environments) return Promise.resolve(unavailable);
     const reads = session?.environmentReads ?? environmentsInFlight;
     const existing = reads.get(environmentId);
     if (existing) return existing;
@@ -222,9 +198,7 @@ export function createWorkStatusReader({
     const result = schedule(
       async () => {
         try {
-          return normalizeHostPr(
-            await environments.pullRequest({ environmentId }),
-          );
+          return normalizeHostPr(await environments.pullRequest({ environmentId }));
         } catch {
           return unavailable;
         }
@@ -240,17 +214,14 @@ export function createWorkStatusReader({
   const detectIntegration = (
     session: RefreshSession | null | undefined,
   ): Promise<RichReason | null> => {
-    if (disposed || session === null)
-      return Promise.resolve("integration_error");
+    if (disposed || session === null) return Promise.resolve("integration_error");
     if (!plugins || !metadata) return Promise.resolve("integration_absent");
     const existing = session?.integration ?? integrationInFlight;
     if (existing) return existing;
     const result = schedule<RichReason | null>(
       async () => {
         try {
-          const plugin = (await plugins.list()).plugins.find(
-            (p) => p.id === "github-insight",
-          );
+          const plugin = (await plugins.list()).plugins.find((p) => p.id === "github-insight");
           if (!plugin) return "integration_absent";
           if (!plugin.enabled) return "integration_disabled";
           return ["running", "starting", "degraded"].includes(plugin.status)
@@ -315,10 +286,7 @@ export function createWorkStatusReader({
     const session = refresh ? refreshSession(refresh) : undefined;
     try {
       const byTaskId: Record<string, TaskWorkStatus> = {};
-      const attachments = new Map<
-        string,
-        ReturnType<TasksStore["listTaskThreads"]>
-      >();
+      const attachments = new Map<string, ReturnType<TasksStore["listTaskThreads"]>>();
       const threadReads = new Map<string, Promise<ThreadObservation>>();
       for (const taskId of new Set(taskIds)) {
         byTaskId[taskId] = {
@@ -344,9 +312,7 @@ export function createWorkStatusReader({
         }
       }
       const observations = new Map(
-        await Promise.all(
-          [...threadReads].map(async ([id, read]) => [id, await read] as const),
-        ),
+        await Promise.all([...threadReads].map(async ([id, read]) => [id, await read] as const)),
       );
       const prReads = new Map<string, Promise<PrObservation>>();
       // Keep settled promises locally too: fast host reads must not duplicate within a batch.
@@ -356,15 +322,12 @@ export function createWorkStatusReader({
           prReads.set(threadId, Promise.resolve({ outcome: "absent" }));
         else if (observation?.environmentId) {
           const id = observation.environmentId;
-          if (!environmentReads.has(id))
-            environmentReads.set(id, readEnvironment(id, session));
+          if (!environmentReads.has(id)) environmentReads.set(id, readEnvironment(id, session));
           prReads.set(threadId, environmentReads.get(id)!);
         }
       }
       const prObservations = new Map(
-        await Promise.all(
-          [...prReads].map(async ([id, read]) => [id, await read] as const),
-        ),
+        await Promise.all([...prReads].map(async ([id, read]) => [id, await read] as const)),
       );
       const integration = threadReads.size
         ? await detectIntegration(session)
@@ -375,9 +338,7 @@ export function createWorkStatusReader({
             async (id) =>
               [
                 id,
-                integration
-                  ? { reason: integration }
-                  : await readMetadata(id, session),
+                integration ? { reason: integration } : await readMetadata(id, session),
               ] as const,
           ),
         ),

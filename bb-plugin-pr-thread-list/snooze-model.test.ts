@@ -4,8 +4,10 @@ import { activeSnoozes, snoozePresets, snoozesToEnd, wakeLabel } from "./snooze-
 
 process.env.TZ = "Europe/Brussels";
 
-const at = (year: number, month: number, day: number, hour = 15) => new Date(year, month - 1, day, hour);
-const presets = (now: Date) => snoozePresets(now).map(({ label, wakeAt }) => [label, new Date(wakeAt).toString()]);
+const at = (year: number, month: number, day: number, hour = 15) =>
+  new Date(year, month - 1, day, hour);
+const presets = (now: Date) =>
+  snoozePresets(now).map(({ label, wakeAt }) => [label, new Date(wakeAt).toString()]);
 
 describe("snoozePresets", () => {
   it("wakes tomorrow and next Monday at 9:00 on a Wednesday", () => {
@@ -46,7 +48,9 @@ describe("activeSnoozes", () => {
   const later = now + 3_600_000;
 
   it("keeps snoozes whose wake time is still ahead", () => {
-    expect(activeSnoozes([thread({ id: "t1" })], { t1: later }, now)).toEqual(new Map([["t1", later]]));
+    expect(activeSnoozes([thread({ id: "t1" })], { t1: later }, now)).toEqual(
+      new Map([["t1", later]]),
+    );
   });
 
   it("drops a snooze whose wake time has passed", () => {
@@ -54,10 +58,15 @@ describe("activeSnoozes", () => {
   });
 
   it("drops a snooze of a thread that needs the user or is archived", () => {
-    const threads = [thread({ id: "asks", hasPendingInteraction: true }), thread({ id: "failed", indicator: "unread-error" }),
-      thread({ id: "archived", isArchived: true })];
+    const threads = [
+      thread({ id: "asks", hasPendingInteraction: true }),
+      thread({ id: "failed", indicator: "unread-error" }),
+      thread({ id: "archived", isArchived: true }),
+    ];
 
-    expect(activeSnoozes(threads, { asks: later, failed: later, archived: later }, now).size).toBe(0);
+    expect(activeSnoozes(threads, { asks: later, failed: later, archived: later }, now).size).toBe(
+      0,
+    );
   });
 
   it("ignores snoozes of threads that are not in the list", () => {
@@ -67,8 +76,11 @@ describe("activeSnoozes", () => {
 
 describe("snoozesToEnd", () => {
   it("names snoozed threads that need the user", () => {
-    const threads = [thread({ id: "asks", hasPendingInteraction: true }), thread({ id: "quiet" }),
-      thread({ id: "unsnoozed", hasPendingInteraction: true })];
+    const threads = [
+      thread({ id: "asks", hasPendingInteraction: true }),
+      thread({ id: "quiet" }),
+      thread({ id: "unsnoozed", hasPendingInteraction: true }),
+    ];
 
     expect(snoozesToEnd(threads, { asks: 1, quiet: 1 })).toEqual(["asks"]);
   });
@@ -76,8 +88,12 @@ describe("snoozesToEnd", () => {
 
 describe("group early wake", () => {
   it("removes every stored member when any grouped descendant needs attention", () => {
-    const rows = [thread({ id: "parent" }), thread({ id: "child", parentThreadId: "parent", hasPendingInteraction: true }),
-      thread({ id: "sibling", parentThreadId: "parent" }), thread({ id: "other" })];
+    const rows = [
+      thread({ id: "parent" }),
+      thread({ id: "child", parentThreadId: "parent", hasPendingInteraction: true }),
+      thread({ id: "sibling", parentThreadId: "parent" }),
+      thread({ id: "other" }),
+    ];
     const snoozes = { parent: 100, child: 100, sibling: 100, other: 100 };
     const groups = { parent: "family", child: "family", sibling: "family", other: "other" };
     expect(activeSnoozes(rows, snoozes, 0, groups)).toEqual(new Map([["other", 100]]));
@@ -85,13 +101,23 @@ describe("group early wake", () => {
   });
 
   it("issues one representative wake per group even when multiple members need the user", () => {
-    const rows = [thread({ id: "parent", queuedWork: "failed" }), thread({ id: "child", indicator: "unread-error" })];
-    expect(snoozesToEnd(rows, { parent: 100, child: 100 }, { parent: "g", child: "g" })).toEqual(["parent"]);
+    const rows = [
+      thread({ id: "parent", queuedWork: "failed" }),
+      thread({ id: "child", indicator: "unread-error" }),
+    ];
+    expect(snoozesToEnd(rows, { parent: 100, child: 100 }, { parent: "g", child: "g" })).toEqual([
+      "parent",
+    ]);
   });
 
   it("does not wake a group for an outside child or an archived member", () => {
-    const rows = [thread({ id: "parent" }), thread({ id: "archived", isArchived: true, hasPendingInteraction: true }),
-      thread({ id: "new", parentThreadId: "parent", hasPendingInteraction: true })];
-    expect(activeSnoozes(rows, { parent: 100, archived: 100 }, 0, { parent: "g", archived: "g" })).toEqual(new Map([["parent", 100]]));
+    const rows = [
+      thread({ id: "parent" }),
+      thread({ id: "archived", isArchived: true, hasPendingInteraction: true }),
+      thread({ id: "new", parentThreadId: "parent", hasPendingInteraction: true }),
+    ];
+    expect(
+      activeSnoozes(rows, { parent: 100, archived: 100 }, 0, { parent: "g", archived: "g" }),
+    ).toEqual(new Map([["parent", 100]]));
   });
 });

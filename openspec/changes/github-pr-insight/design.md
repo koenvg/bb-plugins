@@ -11,11 +11,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - One GitHub read path that the tab, the banner, and the summary all use.
 - Keep the parsing and mapping in pure functions that tests can run on recorded GitHub responses.
 - Keep GitHub traffic small enough for many open threads.
 
 **Non-Goals:**
+
 - A shared library for other plugins. The metadata summary is the only public contract.
 - Webhooks or push updates from GitHub.
 - Support for GitHub hosts other than github.com in the first release. GitHub Enterprise works only if `gh` is already set up for that host, and it is not tested.
@@ -54,6 +56,7 @@ server (bb.server)                     host daemon (bb.host)
 ### D3: Pure core module
 
 `core/` holds functions with no I/O:
+
 - `latestCheckCandidates`: one entry per name, newest by `startedAt`, then by `databaseId`. For status contexts, newest by `createdAt`.
 - `mapCheckStatus`: the status table in the `pr-insight-data` spec.
 - `checkFailure`: reason (title, then summary, then first failure annotation, then description), up to 5 failure annotations, and their total.

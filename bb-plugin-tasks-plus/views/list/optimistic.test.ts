@@ -78,13 +78,7 @@ describe("begin / settle lifecycle", () => {
 
   it("keeps the optimistic value on success and clears pending", () => {
     let e = beginEdit(empty, "T1", { priority: "high" }, 1);
-    e = settleSuccess(
-      e,
-      "T1",
-      { priority: "high" },
-      1,
-      task({ id: "T1", priority: "high" }),
-    );
+    e = settleSuccess(e, "T1", { priority: "high" }, 1, task({ id: "T1", priority: "high" }));
     expect(e.get("T1")?.edit.priority).toBe("high");
     expect(pendingIds(e).size).toBe(0);
   });
@@ -139,13 +133,7 @@ describe("concurrent / out-of-order edits to one task", () => {
   it("a stale success does not clobber a newer pending field", () => {
     let e = beginEdit(empty, "T1", { labelIds: ["A"] }, 1);
     e = beginEdit(e, "T1", { labelIds: ["A", "B"] }, 2);
-    e = settleSuccess(
-      e,
-      "T1",
-      { labelIds: ["A"] },
-      1,
-      task({ id: "T1", labelIds: ["A"] }),
-    );
+    e = settleSuccess(e, "T1", { labelIds: ["A"] }, 1, task({ id: "T1", labelIds: ["A"] }));
     expect(e.get("T1")?.edit.labelIds).toEqual(["A", "B"]);
     expect(e.get("T1")?.inFlight).toBe(1);
   });
@@ -161,9 +149,7 @@ describe("reconcileEntries", () => {
       1,
       task({ id: "T1", status: "done", position: 50 }),
     );
-    const server = [
-      task({ id: "T1", status: "done", priority: "low", position: 50 }),
-    ];
+    const server = [task({ id: "T1", status: "done", priority: "low", position: 50 })];
     expect(reconcileEntries(e, server).get("T1")?.edit).toEqual({
       priority: "high",
     });

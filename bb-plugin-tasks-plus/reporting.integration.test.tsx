@@ -37,7 +37,12 @@ describe("task comment reporting path", () => {
       }
       await cli(["project", "create", "--name", "Reports", "--prefix", "RPT", "--json"]);
       const { task } = await cli([
-        "create", "--project", "RPT", "--title", "Report work", "--json",
+        "create",
+        "--project",
+        "RPT",
+        "--title",
+        "Report work",
+        "--json",
       ]);
       const created = await harness.runCli(
         ["comment", task.key, "--body", body, "--json"],

@@ -7,7 +7,13 @@ function ok(mergeAction: MergeAction): InsightResult {
   return {
     kind: "ok",
     insight: {
-      pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+      pr: {
+        number: 1,
+        title: "t",
+        state: "open",
+        url: "https://github.com/o/r/pull/1",
+        headOid: "abc",
+      },
       mergeAction,
       blockers: [],
       reviewers: [],

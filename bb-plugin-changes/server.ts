@@ -27,7 +27,8 @@ class ChangesUnavailableError extends Error {
 
 async function environmentIdOf(sdk: Sdk, threadId: string): Promise<string> {
   const thread = await sdk.threads.get({ threadId });
-  if (thread.environmentId === null) throw new ChangesUnavailableError("This thread has no environment");
+  if (thread.environmentId === null)
+    throw new ChangesUnavailableError("This thread has no environment");
   return thread.environmentId;
 }
 
@@ -50,7 +51,8 @@ async function branchCommits(
 ): Promise<BranchCommit[]> {
   try {
     const status = await sdk.environments.status({ environmentId, mergeBaseBranch: baseBranch });
-    const commits = status.outcome === "available" ? (status.workspace.mergeBase?.commits ?? []) : [];
+    const commits =
+      status.outcome === "available" ? (status.workspace.mergeBase?.commits ?? []) : [];
     return commits.map(({ sha, shortSha, subject }) => ({ sha, shortSha, subject }));
   } catch (error) {
     // bb 0.44 rejects its own merge-base status for some branches; the diff must still load.
@@ -99,13 +101,25 @@ async function getChanges(
   }
 }
 
-async function getPatches(sdk: Sdk, threadId: string, query: DiffQuery, paths: string[]): Promise<PatchesResult> {
+async function getPatches(
+  sdk: Sdk,
+  threadId: string,
+  query: DiffQuery,
+  paths: string[],
+): Promise<PatchesResult> {
   try {
     const environmentId = await environmentIdOf(sdk, threadId);
-    const result = await sdk.environments.diffPatch({ environmentId, paths, target: patchTarget(query) });
+    const result = await sdk.environments.diffPatch({
+      environmentId,
+      paths,
+      target: patchTarget(query),
+    });
     if (result.outcome === "not_applicable") return { kind: "error", message: result.message };
     if (result.outcome === "unavailable") return { kind: "error", message: result.failure.message };
-    return { kind: "ok", patches: Object.fromEntries(result.patches.map(({ path, patch }) => [path, patch])) };
+    return {
+      kind: "ok",
+      patches: Object.fromEntries(result.patches.map(({ path, patch }) => [path, patch])),
+    };
   } catch (error) {
     return { kind: "error", message: messageOf(error) };
   }
@@ -113,7 +127,11 @@ async function getPatches(sdk: Sdk, threadId: string, query: DiffQuery, paths: s
 
 async function sendFeedback(sdk: Sdk, threadId: string, text: string): Promise<SendFeedbackResult> {
   try {
-    const result = await sdk.threads.send({ threadId, mode: "auto", input: [{ type: "text", text, mentions: [] }] });
+    const result = await sdk.threads.send({
+      threadId,
+      mode: "auto",
+      input: [{ type: "text", text, mentions: [] }],
+    });
     return { kind: "sent", delivery: result.delivery };
   } catch (error) {
     return { kind: "error", message: messageOf(error) };
@@ -122,7 +140,8 @@ async function sendFeedback(sdk: Sdk, threadId: string, text: string): Promise<S
 
 export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
-    getChanges: ({ threadId, target }) => getChanges(bb.sdk, (message) => bb.log.warn(message), threadId, target),
+    getChanges: ({ threadId, target }) =>
+      getChanges(bb.sdk, (message) => bb.log.warn(message), threadId, target),
     getPatches: ({ threadId, query, paths }) => getPatches(bb.sdk, threadId, query, paths),
     sendFeedback: ({ threadId, text }) => sendFeedback(bb.sdk, threadId, text),
   });

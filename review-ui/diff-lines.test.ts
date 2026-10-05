@@ -3,7 +3,9 @@ import { commentAnchorLine, diffLines } from "./diff-lines";
 
 describe("diffLines", () => {
   it("puts context lines on both sides and changed lines on their own side", () => {
-    const lines = diffLines("diff --git a/a.ts b/a.ts\n@@ -10,3 +20,3 @@\n keep\n-old\n+new\n keep\n");
+    const lines = diffLines(
+      "diff --git a/a.ts b/a.ts\n@@ -10,3 +20,3 @@\n keep\n-old\n+new\n keep\n",
+    );
 
     expect([...lines.deletions]).toEqual([10, 11, 12]);
     expect([...lines.additions]).toEqual([20, 21, 22]);

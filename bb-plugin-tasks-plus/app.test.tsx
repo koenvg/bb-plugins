@@ -9,12 +9,8 @@ const app = await loadPluginApp(() => import("./app"));
 afterEach(cleanup);
 
 it("registers inline Tasks navigation without a fixed Navigation pane", () => {
-  expect(app.navPanels[0]?.fixedTabs?.map(({ id }) => id) ?? []).toEqual([
-    "ticket",
-  ]);
-  expect(app.navPanels[0]?.experimental_sidebarAccessory).toBeTypeOf(
-    "function",
-  );
+  expect(app.navPanels[0]?.fixedTabs?.map(({ id }) => id) ?? []).toEqual(["ticket"]);
+  expect(app.navPanels[0]?.experimental_sidebarAccessory).toBeTypeOf("function");
 });
 describe("Tasks nav panel sidebar accessory", () => {
   it("renders the durable open count and refreshes it on task changes", async () => {
@@ -46,9 +42,7 @@ describe("Tasks nav panel sidebar accessory", () => {
     });
     await waitFor(() => expect(slot.getByText("7")).toBeDefined());
     expect(
-      slot.inspection.rpcCalls.filter(
-        ({ method }) => method === "sidebarOpenTaskCount",
-      ),
+      slot.inspection.rpcCalls.filter(({ method }) => method === "sidebarOpenTaskCount"),
     ).toHaveLength(3);
   });
 
@@ -68,9 +62,7 @@ describe("Tasks nav panel sidebar accessory", () => {
 
     await waitFor(() =>
       expect(
-        slot.inspection.rpcCalls.filter(
-          ({ method }) => method === "sidebarOpenTaskCount",
-        ),
+        slot.inspection.rpcCalls.filter(({ method }) => method === "sidebarOpenTaskCount"),
       ).toHaveLength(1),
     );
     expect(slot.queryByText("0")).toBeNull();
@@ -93,9 +85,7 @@ describe("Tasks nav panel sidebar accessory", () => {
 
   it("coalesces a burst of task changes into one trailing count refresh", async () => {
     let calls = 0;
-    let resolveFirstRequest:
-      | ((result: { openTaskCount: number }) => void)
-      | undefined;
+    let resolveFirstRequest: ((result: { openTaskCount: number }) => void) | undefined;
     const firstRequest = new Promise<{ openTaskCount: number }>((resolve) => {
       resolveFirstRequest = resolve;
     });

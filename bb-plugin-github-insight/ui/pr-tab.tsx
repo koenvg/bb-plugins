@@ -23,10 +23,7 @@ const STATUS_ORDER: readonly CheckStatus[] = [
   "skipped",
 ];
 
-const COLLAPSED_STATUSES: ReadonlySet<CheckStatus> = new Set([
-  "passed",
-  "skipped",
-]);
+const COLLAPSED_STATUSES: ReadonlySet<CheckStatus> = new Set(["passed", "skipped"]);
 
 const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = {
   failed: { name: "CircleX", className: "text-destructive" },
@@ -79,7 +76,10 @@ const REVIEWER_STATE_LABEL: Record<Reviewer["state"], string> = {
   dismissed: "Dismissed",
 };
 
-function usePrCommands(threadId: string, { result, refreshing, refresh }: ReturnType<typeof useInsight>) {
+function usePrCommands(
+  threadId: string,
+  { result, refreshing, refresh }: ReturnType<typeof useInsight>,
+) {
   const navigate = useBbNavigate();
   const [intent, setIntent] = useState<IntentOf<"pr"> | null>(null);
   useCommandIntent(threadId, "pr", setIntent);
@@ -94,7 +94,6 @@ function usePrCommands(threadId: string, { result, refreshing, refresh }: Return
     if (result.kind !== "ok") return;
     if (intent === "open-on-github") navigate.openUrl(result.insight.pr.url);
   }, [intent, result, refreshing, refresh, navigate]);
-
 }
 
 export function PrTab({ threadId }: { threadId: string }) {
@@ -255,9 +254,7 @@ function CheckList({ checks }: { checks: readonly Check[] }) {
       {STATUS_ORDER.map((status) => {
         const group = checks.filter((check) => check.status === status);
         if (group.length === 0) return null;
-        const Group = COLLAPSED_STATUSES.has(status)
-          ? CollapsedCheckGroup
-          : OpenCheckGroup;
+        const Group = COLLAPSED_STATUSES.has(status) ? CollapsedCheckGroup : OpenCheckGroup;
         return <Group key={status} status={status} checks={group} />;
       })}
     </section>

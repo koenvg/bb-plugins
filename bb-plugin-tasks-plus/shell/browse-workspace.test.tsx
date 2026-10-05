@@ -63,12 +63,8 @@ describe("editable browse workspace", () => {
       expect(slot.getByRole("region", { name: "Ticket list" })).toBe(list);
       expect(scroll.scrollTop).toBe(170);
       expect(firstRow.getAttribute("aria-current")).toBe("true");
-      expect(
-        slot.container.querySelectorAll('[aria-current="true"]'),
-      ).toHaveLength(1);
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 1");
+      expect(slot.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
       expect(document.activeElement).toBe(firstRow);
       expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
         options: {
@@ -84,9 +80,9 @@ describe("editable browse workspace", () => {
       await select(slot, 2);
       expect(firstRow.getAttribute("aria-current")).toBeNull();
       expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
-      expect(
-        within(detail).getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 2");
+      expect(within(detail).getByRole("textbox", { name: "Task title" }).textContent).toBe(
+        "Title 2",
+      );
     },
   );
 
@@ -100,59 +96,46 @@ describe("editable browse workspace", () => {
     expect(slot.queryByRole("button", { name: "Back to list" })).toBeNull();
     expect(slot.container.contains(list)).toBe(true);
   });
-  it.each([1000, 880, 600, 320])(
-    "fits the existing editor into a %ipx panel",
-    async (width) => {
-      panelSize.width = width;
-      const sample = {
-        ...tasks[0]!,
-        title: "Browse and edit tickets without losing your place",
-        description:
-          "## A retained list and the existing editor\n\nChange properties, attach files, and write comments here. The list stays available while this ticket is open.\n\n- Keep task-owned drafts\n- Preserve project context\n- Use independent scroll areas",
-      };
-      const sampleTasks = [
-        sample,
-        ...Array.from({ length: 16 }, (_, i) => ({
-          ...tasks[1]!,
-          id: `sample-${i}`,
-          key: `TSK-${i + 2}`,
-          number: i + 2,
-          title:
-            i % 2
-              ? "Preserve pending edits before changing the selected ticket"
-              : "Verify project navigation and long ticket titles",
-        })),
-      ];
-      const slot = setup("all?task=TSK-1", {
-        listTasks: (raw) => ({
-          tasks: rpcInput(raw).parentTaskId ? [] : sampleTasks,
-          nextCursor: null,
-        }),
-        getTaskByKey: () => ({ task: sample }),
-      });
-      await slot.findByRole("textbox", { name: "Task title" });
-      expect(
-        slot.container
-          .querySelector("[data-browse-layout]")
-          ?.getAttribute("data-browse-layout"),
-      ).toBe("native");
-      expect(slot.getAllByRole("button", { name: "Attach file" })).toHaveLength(
-        2,
+  it.each([1000, 880, 600, 320])("fits the existing editor into a %ipx panel", async (width) => {
+    panelSize.width = width;
+    const sample = {
+      ...tasks[0]!,
+      title: "Browse and edit tickets without losing your place",
+      description:
+        "## A retained list and the existing editor\n\nChange properties, attach files, and write comments here. The list stays available while this ticket is open.\n\n- Keep task-owned drafts\n- Preserve project context\n- Use independent scroll areas",
+    };
+    const sampleTasks = [
+      sample,
+      ...Array.from({ length: 16 }, (_, i) => ({
+        ...tasks[1]!,
+        id: `sample-${i}`,
+        key: `TSK-${i + 2}`,
+        number: i + 2,
+        title:
+          i % 2
+            ? "Preserve pending edits before changing the selected ticket"
+            : "Verify project navigation and long ticket titles",
+      })),
+    ];
+    const slot = setup("all?task=TSK-1", {
+      listTasks: (raw) => ({
+        tasks: rpcInput(raw).parentTaskId ? [] : sampleTasks,
+        nextCursor: null,
+      }),
+      getTaskByKey: () => ({ task: sample }),
+    });
+    await slot.findByRole("textbox", { name: "Task title" });
+    expect(
+      slot.container.querySelector("[data-browse-layout]")?.getAttribute("data-browse-layout"),
+    ).toBe("native");
+    expect(slot.getAllByRole("button", { name: "Attach file" })).toHaveLength(2);
+    expect(document.activeElement?.getAttribute("contenteditable")).not.toBe("true");
+    if (process.env.BBP12_CAPTURE) {
+      writeFileSync(`/tmp/bbp12-artifacts/panel-${width}.html`, slot.container.innerHTML);
+      writeFileSync(
+        "/tmp/bbp12-artifacts/editor.css",
+        document.querySelector("[data-bb-tasks-editor-styles]")?.textContent ?? "",
       );
-      expect(document.activeElement?.getAttribute("contenteditable")).not.toBe(
-        "true",
-      );
-      if (process.env.BBP12_CAPTURE) {
-        writeFileSync(
-          `/tmp/bbp12-artifacts/panel-${width}.html`,
-          slot.container.innerHTML,
-        );
-        writeFileSync(
-          "/tmp/bbp12-artifacts/editor.css",
-          document.querySelector("[data-bb-tasks-editor-styles]")
-            ?.textContent ?? "",
-        );
-      }
-    },
-  );
+    }
+  });
 });

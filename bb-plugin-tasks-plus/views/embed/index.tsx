@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  PluginMessageDirectiveProps,
-  PluginThreadPanelProps,
-} from "@get-bb/plugin-sdk";
+import type { PluginMessageDirectiveProps, PluginThreadPanelProps } from "@get-bb/plugin-sdk";
 import { useBbNavigate, useRealtime } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -10,11 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Task } from "../../shared/contract.js";
 import { useTasksRpc } from "../../shell/data.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
-import {
-  openTaskInSidePanel,
-  PANEL_PATH,
-  tasksRouteToSubPath,
-} from "../../shell/routes.js";
+import { openTaskInSidePanel, PANEL_PATH, tasksRouteToSubPath } from "../../shell/routes.js";
 import { DetailView } from "../detail/index.js";
 import {
   TasksSessionProvider,
@@ -75,9 +68,7 @@ function useTaskEmbed(taskKey: string): {
   });
   useRealtime("projects:changed", (payload) => {
     const projectId = isRecord(payload) ? payload.projectId : undefined;
-    onEvent(
-      (task) => typeof projectId !== "string" || projectId === task.projectId,
-    );
+    onEvent((task) => typeof projectId !== "string" || projectId === task.projectId);
   });
 
   return { state, retry: refresh };
@@ -91,13 +82,7 @@ function taskDetailSubPath(taskKey: string): string {
   return tasksRouteToSubPath({ kind: "task", taskKey });
 }
 
-function OpenInTasksButton({
-  label,
-  subPath,
-}: {
-  label: string;
-  subPath?: string;
-}) {
+function OpenInTasksButton({ label, subPath }: { label: string; subPath?: string }) {
   const navigate = useBbNavigate();
   const transition = useTasksSession();
   return (
@@ -108,10 +93,7 @@ function OpenInTasksButton({
       aria-label={label}
       onClick={() => {
         const commit = () =>
-          navigate.toPluginPanel(
-            PANEL_PATH,
-            subPath === undefined ? {} : { subPath },
-          );
+          navigate.toPluginPanel(PANEL_PATH, subPath === undefined ? {} : { subPath });
         if (transition) void transition.request(commit);
         else commit();
       }}
@@ -121,13 +103,7 @@ function OpenInTasksButton({
   );
 }
 
-function CardShell({
-  dashed = false,
-  children,
-}: {
-  dashed?: boolean;
-  children: React.ReactNode;
-}) {
+function CardShell({ dashed = false, children }: { dashed?: boolean; children: React.ReactNode }) {
   return (
     <div
       className={
@@ -142,10 +118,7 @@ function CardShell({
 }
 
 function embedAriaLabel(task: Task): string {
-  const parts = [
-    `${task.key} — ${task.title}`,
-    STATUS_LABELS[task.status].toLowerCase(),
-  ];
+  const parts = [`${task.key} — ${task.title}`, STATUS_LABELS[task.status].toLowerCase()];
   if (task.priority !== "none") {
     parts.push(`${PRIORITY_LABELS[task.priority].toLowerCase()} priority`);
   }
@@ -176,9 +149,7 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
           className="flex min-w-0 flex-1 items-center gap-2 px-1"
         >
           <Skeleton className="size-3.5 shrink-0 rounded-full" />
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            {taskKey}
-          </span>
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{taskKey}</span>
           {fallbackTitle ? (
             <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
               {fallbackTitle}
@@ -196,9 +167,7 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
       <CardShell dashed>
         <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
           <StatusIcon status="backlog" />
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            {taskKey}
-          </span>
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{taskKey}</span>
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {fallbackTitle
               ? `${fallbackTitle} · not found`
@@ -214,13 +183,8 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
     return (
       <CardShell dashed>
         <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
-          <Icon
-            name="AlertCircle"
-            className="size-3.5 shrink-0 text-muted-foreground"
-          />
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            {taskKey}
-          </span>
+          <Icon name="AlertCircle" className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{taskKey}</span>
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             Couldn't load this task
           </span>
@@ -245,16 +209,10 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
         <span aria-hidden>
           <StatusIcon status={task.status} />
         </span>
-        <span
-          aria-hidden
-          className="shrink-0 font-mono text-xs text-muted-foreground"
-        >
+        <span aria-hidden className="shrink-0 font-mono text-xs text-muted-foreground">
           {task.key}
         </span>
-        <span
-          aria-hidden
-          className="min-w-0 flex-1 truncate text-sm font-medium"
-        >
+        <span aria-hidden className="min-w-0 flex-1 truncate text-sm font-medium">
           {task.title}
         </span>
         {task.priority !== "none" ? (
@@ -273,9 +231,7 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
 
 function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
   const requestedKey =
-    isRecord(params) && typeof params.taskKey === "string"
-      ? params.taskKey.trim()
-      : "";
+    isRecord(params) && typeof params.taskKey === "string" ? params.taskKey.trim() : "";
   const taskKey = useSafeTaskTarget(requestedKey);
   if (!TASK_KEY_PATTERN.test(taskKey)) {
     return (

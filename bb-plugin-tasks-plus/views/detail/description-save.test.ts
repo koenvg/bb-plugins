@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createDescriptionSaver,
-  type DescriptionSaveOutcome,
-} from "./description-save.js";
+import { createDescriptionSaver, type DescriptionSaveOutcome } from "./description-save.js";
 
 function manualTimer() {
   let queued: (() => void) | undefined;
@@ -21,9 +18,7 @@ function manualTimer() {
   };
 }
 
-function setup(
-  save: (taskId: string, markdown: string) => Promise<DescriptionSaveOutcome>,
-) {
+function setup(save: (taskId: string, markdown: string) => Promise<DescriptionSaveOutcome>) {
   const timer = manualTimer();
   const errors: string[] = [];
   const saver = createDescriptionSaver({
@@ -35,8 +30,7 @@ function setup(
   return { timer, errors, saver };
 }
 
-const flushMicrotasks = () =>
-  new Promise<void>((resolve) => setTimeout(resolve, 0));
+const flushMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe("createDescriptionSaver", () => {
   it("flush waits for confirmation and retains a server-rejected draft for retry", async () => {

@@ -25,9 +25,7 @@ describe("listPreferenceScope", () => {
     expect(listPreferenceScope("01HZZZZZZZZZZZZZZZZZZZZZP1", false)).toBe(
       "project:01HZZZZZZZZZZZZZZZZZZZZZP1",
     );
-    expect(listPreferenceScope("01HZZZZZZZZZZZZZZZZZZZZZP1", true)).toBe(
-      "active",
-    );
+    expect(listPreferenceScope("01HZZZZZZZZZZZZZZZZZZZZZP1", true)).toBe("active");
   });
 });
 
@@ -135,9 +133,7 @@ describe("loadListPreference / storeListPreference", () => {
       sort: "manual",
     });
 
-    const stored = JSON.parse(
-      window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!,
-    );
+    const stored = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
     expect(stored.version).toBe(LIST_PREFERENCE_VERSION);
     expect(Object.keys(stored.scopes).sort()).toEqual(["all", "project:p1"]);
   });
@@ -205,9 +201,7 @@ describe("loadListPreference / storeListPreference", () => {
       filters: { statuses: ["done"], priorities: [], labelNames: [] },
       sort: "manual",
     });
-    expect(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)).toBe(
-      future,
-    );
+    expect(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)).toBe(future);
   });
 
   it("swallows storage write failures", () => {

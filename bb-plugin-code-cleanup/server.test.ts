@@ -10,11 +10,16 @@ afterEach(async () => {
 async function setup() {
   const host = createFakePluginHost({
     pluginId: "code-cleanup",
-    sdk: { projects: { list: async () => [
-      { id: "proj_a", name: "A", kind: "standard" },
-      { id: "proj_b", name: "B", kind: "standard" },
-      { id: "proj_personal", name: "Personal", kind: "personal" },
-    ] as never } },
+    sdk: {
+      projects: {
+        list: async () =>
+          [
+            { id: "proj_a", name: "A", kind: "standard" },
+            { id: "proj_b", name: "B", kind: "standard" },
+            { id: "proj_personal", name: "Personal", kind: "personal" },
+          ] as never,
+      },
+    },
   });
   hosts.push(host.harness);
   await plugin(host.bb);
@@ -27,17 +32,30 @@ describe("project management CLI", () => {
     const cli = host.harness.behavior.runCli;
     expect((await cli(["show", "--project", "proj_a"])).stdout).toContain("disabled");
     expect((await cli(["enable", "--project", "proj_a"])).exitCode).toBe(0);
-    expect((await cli(["prompt", "set", "--project", "proj_a", "--text", "Custom policy"])).exitCode).toBe(0);
-    expect((await cli(["show", "--project", "proj_a"])).stdout).toMatch(/enabled.*custom|custom.*enabled/s);
+    expect(
+      (await cli(["prompt", "set", "--project", "proj_a", "--text", "Custom policy"])).exitCode,
+    ).toBe(0);
+    expect((await cli(["show", "--project", "proj_a"])).stdout).toMatch(
+      /enabled.*custom|custom.*enabled/s,
+    );
     expect((await cli(["show", "--project", "proj_b"])).stdout).toContain("disabled");
     expect((await cli(["disable", "--project", "proj_a"])).exitCode).toBe(0);
     const replacement = await host.harness.lifecycle.reload(plugin);
     hosts.pop();
     hosts.push(replacement.harness);
-    expect((await replacement.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout).toMatch(/disabled.*custom|custom.*disabled/s);
-    expect((await replacement.harness.behavior.runCli(["enable", "--project", "proj_a"])).exitCode).toBe(0);
-    expect((await replacement.harness.behavior.runCli(["prompt", "reset", "--project", "proj_a"])).exitCode).toBe(0);
-    expect((await replacement.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout).toMatch(/enabled.*default|default.*enabled/s);
+    expect(
+      (await replacement.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout,
+    ).toMatch(/disabled.*custom|custom.*disabled/s);
+    expect(
+      (await replacement.harness.behavior.runCli(["enable", "--project", "proj_a"])).exitCode,
+    ).toBe(0);
+    expect(
+      (await replacement.harness.behavior.runCli(["prompt", "reset", "--project", "proj_a"]))
+        .exitCode,
+    ).toBe(0);
+    expect(
+      (await replacement.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout,
+    ).toMatch(/enabled.*default|default.*enabled/s);
   });
 
   it("rejects unknown and personal projects and does not modify saved state", async () => {
@@ -53,15 +71,22 @@ describe("project management CLI", () => {
   it("rejects blank, oversized, or malformed input without replacing a valid override", async () => {
     const host = await setup();
     const cli = host.harness.behavior.runCli;
-    expect((await cli(["prompt", "set", "--project", "proj_a", "--text", "Good"])).exitCode).toBe(0);
+    expect((await cli(["prompt", "set", "--project", "proj_a", "--text", "Good"])).exitCode).toBe(
+      0,
+    );
     for (const text of ["  \n  ", "x".repeat(4097)]) {
-      expect((await cli(["prompt", "set", "--project", "proj_a", "--text", text])).exitCode).toBe(1);
+      expect((await cli(["prompt", "set", "--project", "proj_a", "--text", text])).exitCode).toBe(
+        1,
+      );
     }
     expect((await cli(["prompt", "set", "--project", "proj_a"])).exitCode).toBe(1);
     expect((await cli(["enable", "--project", "proj_a", "--garbage"])).exitCode).toBe(1);
     expect((await cli(["show", "--project", "proj_a"])).stdout).toMatch(/custom/);
     // The original exact value remains in the host database.
-    const row = host.bb.storage.database().prepare("SELECT prompt FROM project_settings WHERE project_id = ?").get("proj_a");
+    const row = host.bb.storage
+      .database()
+      .prepare("SELECT prompt FROM project_settings WHERE project_id = ?")
+      .get("proj_a");
     expect(row).toEqual({ prompt: "Good" });
   });
 
@@ -70,7 +95,10 @@ describe("project management CLI", () => {
     const root = await host.harness.behavior.runCli(["--help"]);
     expect(root.exitCode).toBe(0);
     expect(root.stdout).toContain("prompt set");
-    for (const args of [["prompt", "set", "--help"], ["show", "--help"]]) {
+    for (const args of [
+      ["prompt", "set", "--help"],
+      ["show", "--help"],
+    ]) {
       const result = await host.harness.behavior.runCli(args);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("--project");

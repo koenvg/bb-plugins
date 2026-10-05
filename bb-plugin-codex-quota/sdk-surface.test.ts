@@ -5,8 +5,11 @@ describe("public SDK and quota-only boundary", () => {
   it("imports only public SDK surfaces and declared host/frontend dependencies", () => {
     const scan = experimental_scanPublicSdkOnly(import.meta.dirname, {
       allow: [
-        /^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/, /^react(\/.*)?$/, /^react-dom$/,
-        /^@testing-library\/react$/, /^vitest$/,
+        /^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/,
+        /^react(\/.*)?$/,
+        /^react-dom$/,
+        /^@testing-library\/react$/,
+        /^vitest$/,
         // Existing dev dependency used to exercise BB's real native tooltip.
         /^@radix-ui\/react-tooltip$/,
       ],

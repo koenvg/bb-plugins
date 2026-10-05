@@ -1,10 +1,4 @@
-import {
-  Extension,
-  getHTMLFromFragment,
-  InputRule,
-  Node,
-  type Extensions,
-} from "@tiptap/core";
+import { Extension, getHTMLFromFragment, InputRule, Node, type Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
@@ -17,11 +11,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
 import { Markdown } from "tiptap-markdown";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import {
-  Fragment,
-  type DOMOutputSpec,
-  type Node as ProseMirrorNode,
-} from "@tiptap/pm/model";
+import { Fragment, type DOMOutputSpec, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Suggestion, type SuggestionProps } from "@tiptap/suggestion";
 import type { IconSvgElement } from "@hugeicons/react";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
@@ -35,14 +25,11 @@ const THREAD_MENTION_SCHEME = "bbthread://";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-function svgSpecAttributes(
-  attrs: Record<string, string | number>,
-): Record<string, string> {
+function svgSpecAttributes(attrs: Record<string, string | number>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(attrs)) {
     if (key === "key") continue;
-    out[key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)] =
-      String(value);
+    out[key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)] = String(value);
   }
   return out;
 }
@@ -56,10 +43,7 @@ function mentionIconSpec(icon: IconSvgElement): DOMOutputSpec {
       class: "bb-tasks-mention-icon",
       "aria-hidden": "true",
     },
-    ...icon.map(([tag, attrs]): DOMOutputSpec => [
-      `${SVG_NS} ${tag}`,
-      svgSpecAttributes(attrs),
-    ]),
+    ...icon.map(([tag, attrs]): DOMOutputSpec => [`${SVG_NS} ${tag}`, svgSpecAttributes(attrs)]),
   ];
 }
 
@@ -70,8 +54,7 @@ const TightTaskList = TaskList.extend({
       tight: {
         default: true,
         parseHTML: (element) =>
-          element.getAttribute("data-tight") === "true" ||
-          !element.querySelector("p"),
+          element.getAttribute("data-tight") === "true" || !element.querySelector("p"),
         renderHTML: (attributes) => ({
           "data-tight": attributes.tight ? "true" : null,
         }),
@@ -89,8 +72,7 @@ const MarkdownTaskInput = Extension.create({
         find: /^\s*\[([ xX]?)\]\s$/,
         handler: ({ range, match, chain }) => {
           const commands = chain().deleteRange(range).toggleTaskList();
-          if (/[xX]/.test(match[1] ?? ""))
-            commands.updateAttributes("taskItem", { checked: true });
+          if (/[xX]/.test(match[1] ?? "")) commands.updateAttributes("taskItem", { checked: true });
           commands.run();
         },
       }),
@@ -121,35 +103,25 @@ function isMarkdownTable(node: ProseMirrorNode): boolean {
   if (!header) return false;
   if (
     tableChildren(header).some(
-      (cell) =>
-        cell.type.name !== "tableHeader" ||
-        hasMergedCell(cell) ||
-        cell.childCount > 1,
+      (cell) => cell.type.name !== "tableHeader" || hasMergedCell(cell) || cell.childCount > 1,
     )
   ) {
     return false;
   }
   return !body.some((row) =>
     tableChildren(row).some(
-      (cell) =>
-        cell.type.name === "tableHeader" ||
-        hasMergedCell(cell) ||
-        cell.childCount > 1,
+      (cell) => cell.type.name === "tableHeader" || hasMergedCell(cell) || cell.childCount > 1,
     ),
   );
 }
 
-function renderTableCell(
-  state: TableMarkdownState,
-  cell: ProseMirrorNode,
-): void {
+function renderTableCell(state: TableMarkdownState, cell: ProseMirrorNode): void {
   const content = cell.firstChild;
   if (!content) return;
   const start = state.out.length;
   if (content.type.name === "image") state.render(content, cell, 0);
   else if (content.childCount > 0) state.renderInline(content);
-  state.out =
-    state.out.slice(0, start) + state.out.slice(start).replaceAll("|", "\\|");
+  state.out = state.out.slice(0, start) + state.out.slice(start).replaceAll("|", "\\|");
 }
 
 const MarkdownTable = Table.extend({
@@ -158,9 +130,7 @@ const MarkdownTable = Table.extend({
       markdown: {
         serialize(state: TableMarkdownState, node: ProseMirrorNode) {
           if (!isMarkdownTable(node)) {
-            state.write(
-              getHTMLFromFragment(Fragment.from(node), node.type.schema),
-            );
+            state.write(getHTMLFromFragment(Fragment.from(node), node.type.schema));
             state.closeBlock(node);
             return;
           }
@@ -175,9 +145,7 @@ const MarkdownTable = Table.extend({
             state.write(" |");
             state.ensureNewLine();
             if (rowIndex === 0) {
-              state.write(
-                `| ${Array.from({ length: row.childCount }, () => "---").join(" | ")} |`,
-              );
+              state.write(`| ${Array.from({ length: row.childCount }, () => "---").join(" | ")} |`);
               state.ensureNewLine();
             }
           });
@@ -225,9 +193,7 @@ function createMentionNode({
           tag: `span[${dataAttribute}]`,
           getAttrs: (element) => {
             const id = element.getAttribute(dataAttribute) ?? "";
-            return id
-              ? { [idAttribute]: id, label: element.textContent || id }
-              : false;
+            return id ? { [idAttribute]: id, label: element.textContent || id } : false;
           },
         },
         {
@@ -236,9 +202,7 @@ function createMentionNode({
           getAttrs: (element) => {
             const href = element.getAttribute("href") ?? "";
             const id = href.slice(scheme.length);
-            return id
-              ? { [idAttribute]: id, label: element.textContent || id }
-              : false;
+            return id ? { [idAttribute]: id, label: element.textContent || id } : false;
           },
         },
       ];
@@ -301,10 +265,7 @@ const TrailingParagraph = Extension.create({
           const last = newState.doc.lastChild;
           const paragraph = newState.schema.nodes.paragraph;
           if (!paragraph || !last || !last.type.isLeaf) return null;
-          return newState.tr.insert(
-            newState.doc.content.size,
-            paragraph.create(),
-          );
+          return newState.tr.insert(newState.doc.content.size, paragraph.create());
         },
       }),
     ];

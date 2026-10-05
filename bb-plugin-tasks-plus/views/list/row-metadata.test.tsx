@@ -55,11 +55,7 @@ function task(number: number, labelIds: string[] = []): Task {
   });
 }
 
-function thread(
-  taskId: string,
-  liveStatus: TaskThread["liveStatus"],
-  suffix: string,
-): TaskThread {
+function thread(taskId: string, liveStatus: TaskThread["liveStatus"], suffix: string): TaskThread {
   return {
     id: `01HZZZZZZZZZZZZZZZZZZZZZH${suffix}`,
     taskId,
@@ -85,10 +81,7 @@ interface ListFixture {
   tasks: Task[];
   labels?: Label[];
   threadsByTask?: Record<string, TaskThread[]>;
-  prsByTask?: Record<
-    string,
-    import("../../shared/contract.js").TaskWorkStatus["pullRequests"]
-  >;
+  prsByTask?: Record<string, import("../../shared/contract.js").TaskWorkStatus["pullRequests"]>;
 }
 
 function renderList(fixture: ListFixture) {
@@ -120,8 +113,7 @@ function renderList(fixture: ListFixture) {
                   threadId: t.threadId,
                   title: t.title,
                   presetName: t.presetName,
-                  execution:
-                    t.liveStatus === "completed" ? "idle" : t.liveStatus,
+                  execution: t.liveStatus === "completed" ? "idle" : t.liveStatus,
                   archive: "unarchived",
                 })),
               },
@@ -163,9 +155,7 @@ describe("live thread summary", () => {
     expect(control.textContent).toContain("1 Failed");
     expect(control.textContent).toContain("2 Working");
     expect(control.textContent).toContain("+1 more");
-    expect(
-      slot.queryByRole("button", { name: /Threads for TSK-2/ }),
-    ).toBeNull();
+    expect(slot.queryByRole("button", { name: /Threads for TSK-2/ })).toBeNull();
     expect(slot.queryByText("Active")).toBeNull();
   });
 
@@ -200,10 +190,7 @@ describe("live thread summary", () => {
     const { slot } = renderList({
       tasks: [busy],
       threadsByTask: {
-        [busy.id]: [
-          thread(busy.id, "working", "W1"),
-          thread(busy.id, "failed", "F1"),
-        ],
+        [busy.id]: [thread(busy.id, "working", "W1"), thread(busy.id, "failed", "F1")],
       },
     });
     const control = await slot.findByRole("button", {
@@ -223,12 +210,8 @@ describe("live thread summary", () => {
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(control));
     fireEvent.click(control);
-    fireEvent.click(
-      await slot.findByRole("link", { name: /Open thread Worker.*thr_F1/ }),
-    );
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "toThread", threadId: "thr_F1" },
-    ]);
+    fireEvent.click(await slot.findByRole("link", { name: /Open thread Worker.*thr_F1/ }));
+    expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_F1" }]);
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-1: Task 1" }));
     expect(slot.inspection.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -272,16 +255,15 @@ describe("live thread summary", () => {
     const trigger = slot.getByRole("button", { name: /PR details for TSK-1/ });
     fireEvent.click(trigger);
     const dialog = await slot.findByRole("dialog", { name: "PRs for TSK-1" });
-    for (const key of ["j", "k", "o", "s", "p"])
-      fireEvent.keyDown(dialog, { key });
+    for (const key of ["j", "k", "o", "s", "p"]) fireEvent.keyDown(dialog, { key });
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.queryByRole("menu")).toBeNull();
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(document.activeElement).toBe(trigger));
-    fireEvent.pointerDown(
-      slot.getByRole("button", { name: /Change status, currently/ }),
-      { button: 0, ctrlKey: false },
-    );
+    fireEvent.pointerDown(slot.getByRole("button", { name: /Change status, currently/ }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(await slot.findByRole("menu")).toBeTruthy();
     fireEvent.keyDown(slot.getByRole("menu"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("menu")).toBeNull());
@@ -297,9 +279,7 @@ describe("list-row metadata rail", () => {
   it("fetches no comment/attachment data and renders no counts", async () => {
     const { slot, calls } = renderList({ tasks: [task(1), task(2)] });
     await slot.findByText("TSK-1");
-    await waitFor(() =>
-      expect(slot.getAllByRole("button").length > 0).toBe(true),
-    );
+    await waitFor(() => expect(slot.getAllByRole("button").length > 0).toBe(true));
     expect(calls.listComments).toBe(0);
     expect(calls.listAttachments).toBe(0);
     expect(slot.queryByTitle("Comments")).toBeNull();

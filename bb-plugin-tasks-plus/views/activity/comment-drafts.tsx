@@ -29,14 +29,9 @@ function createCommentDraft(taskId: string) {
   return {
     taskId,
     getSnapshot: () => snapshot,
-    update(
-      change:
-        | Partial<CommentDraft>
-        | ((draft: CommentDraft) => Partial<CommentDraft>),
-    ) {
+    update(change: Partial<CommentDraft> | ((draft: CommentDraft) => Partial<CommentDraft>)) {
       const patch = typeof change === "function" ? change(snapshot) : change;
-      const bodyChanged =
-        patch.body !== undefined && patch.body !== snapshot.body;
+      const bodyChanged = patch.body !== undefined && patch.body !== snapshot.body;
       snapshot = {
         ...snapshot,
         ...patch,
@@ -60,9 +55,7 @@ const DraftsContext = createContext<Map<string, DraftRecord> | null>(null);
  * record, never the next ticket's setter. File previews revoke URLs on unmount. */
 export function CommentDraftsProvider({ children }: { children: ReactNode }) {
   const [drafts] = useState(() => new Map<string, DraftRecord>());
-  return (
-    <DraftsContext.Provider value={drafts}>{children}</DraftsContext.Provider>
-  );
+  return <DraftsContext.Provider value={drafts}>{children}</DraftsContext.Provider>;
 }
 
 export function useCommentDraft(taskId: string) {

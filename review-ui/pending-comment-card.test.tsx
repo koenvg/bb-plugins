@@ -7,7 +7,13 @@ afterEach(cleanup);
 
 it("shows the body and location, and removes on click", () => {
   const onRemove = vi.fn();
-  const view = render(<PendingCommentCard body={"line one\nline two"} location={<span>a.ts:2</span>} onRemove={onRemove} />);
+  const view = render(
+    <PendingCommentCard
+      body={"line one\nline two"}
+      location={<span>a.ts:2</span>}
+      onRemove={onRemove}
+    />,
+  );
 
   fireEvent.click(view.getByRole("button", { name: "Remove" }));
 

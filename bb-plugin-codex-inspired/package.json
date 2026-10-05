@@ -18,7 +18,9 @@
   "bb": {
     "name": "Codex Inspired",
     "description": "A neutral light and dark theme with native chat typography and an Inter sidebar.",
-    "branding": { "icon": "Palette" },
+    "branding": {
+      "icon": "Palette"
+    },
     "server": "./server.ts",
     "skills": [],
     "themes": [
@@ -31,6 +33,10 @@
     ]
   },
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-codex-inspired",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-codex-inspired",
+    "format": "npm --prefix .. run format -- bb-plugin-codex-inspired",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-codex-inspired",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"

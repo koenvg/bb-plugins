@@ -11,11 +11,13 @@ See `proposal.md` for motivation and the delta specs for the user contract. This
 ## Goals / Non-Goals
 
 Goals:
+
 - Keep saved preferences and their recovery in the existing preference module.
 - Keep one rendered-tree definition of visibility for rendering, selection, and keyboard order.
 - Reuse editor save protection rather than add a second selection or navigation mechanism.
 
 Non-goals:
+
 - No server preference endpoint, database migration, cross-device sync, or new dependency.
 - No generic disclosure framework, list virtualization, bulk collapse control, or board changes.
 - No redesign of task selection or subtask expansion.

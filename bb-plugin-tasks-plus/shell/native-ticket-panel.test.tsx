@@ -28,9 +28,7 @@ describe("native Ticket tab", () => {
       name: "Task title",
     });
     expect(page.container.contains(title)).toBe(false);
-    expect(page.getByRole("region", { name: "Ticket list" }).style.width).toBe(
-      "",
-    );
+    expect(page.getByRole("region", { name: "Ticket list" }).style.width).toBe("");
     expect(row(page, 1).getAttribute("aria-current")).toBe("true");
   });
   it("navigates from the native editor without claiming another BB pane's keys", async () => {
@@ -102,28 +100,18 @@ describe("native Ticket tab", () => {
     ticket.lifecycle.unmount();
     const opens = page.inspection.experimental_fixedTabOpenCalls.length;
     fireEvent.click(row(page, 2));
-    expect(
-      page.inspection.experimental_fixedTabOpenCalls.length,
-    ).toBeGreaterThan(opens);
+    expect(page.inspection.experimental_fixedTabOpenCalls.length).toBeGreaterThan(opens);
     const restored = renderSlot(panel.fixedTabs![0]!, {
       subPath: "all?task=TSK-1",
     });
-    expect(
-      (await within(restored.container).findByRole("alert")).textContent,
-    ).toContain("Offline");
-    expect(
-      within(restored.container).getByRole("textbox", { name: "Task title" }),
-    ).toBe(title);
+    expect((await within(restored.container).findByRole("alert")).textContent).toContain("Offline");
+    expect(within(restored.container).getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(title.textContent).toBe("Unsent title");
     expect(page.inspection.navigateCalls).toEqual([]);
   });
   it("does not reopen Ticket after the user switches tabs during a pending save", async () => {
     const saved = deferred<unknown>();
-    const page = setup(
-      "all?task=TSK-1",
-      { updateTask: () => saved.promise },
-      { nativeTab: false },
-    );
+    const page = setup("all?task=TSK-1", { updateTask: () => saved.promise }, { nativeTab: false });
     const ticket = renderSlot(panel.fixedTabs![0]!, {
       subPath: "all?task=TSK-1",
     });
@@ -183,18 +171,12 @@ describe("native Ticket tab", () => {
     expect(nextPage.inspection.navigateCalls).toEqual([]);
   });
   it("offers the existing standalone editor if BB declines to open Ticket", async () => {
-    const page = setup(
-      "all",
-      {},
-      { nativeTab: false, openFixedTab: () => false },
-    );
+    const page = setup("all", {}, { nativeTab: false, openFixedTab: () => false });
     await page.findByRole("button", { name: "Open TSK-1: Title 1" });
     fireEvent.click(row(page, 1));
     await acceptNavigation(page);
     expect(await page.findByText(/couldn't open the Ticket pane/)).toBeTruthy();
-    fireEvent.click(
-      page.getByRole("button", { name: "Open standalone ticket" }),
-    );
+    fireEvent.click(page.getByRole("button", { name: "Open standalone ticket" }));
     expect(page.inspection.navigateCalls.at(-1)).toMatchObject({
       method: "toPluginPanel",
       options: { subPath: "task/TSK-1" },
@@ -226,13 +208,10 @@ describe("native Ticket tab", () => {
         }),
       );
       expect(first.container.contains(title)).toBe(true);
-      const [closed, remaining] =
-        dispose === "owner" ? [first, second] : [second, first];
+      const [closed, remaining] = dispose === "owner" ? [first, second] : [second, first];
       closed.lifecycle.unmount();
       expect(remaining.container.contains(title)).toBe(true);
-      expect(
-        document.querySelectorAll('[aria-label="Task title"]'),
-      ).toHaveLength(1);
+      expect(document.querySelectorAll('[aria-label="Task title"]')).toHaveLength(1);
     },
   );
   it("does not reopen Ticket after a failed save is retried and the user switches tabs", async () => {
@@ -242,9 +221,7 @@ describe("native Ticket tab", () => {
       "all?task=TSK-1",
       {
         updateTask: () =>
-          ++attempts === 1
-            ? { ok: false, error: { message: "Offline" } }
-            : saved.promise,
+          ++attempts === 1 ? { ok: false, error: { message: "Offline" } } : saved.promise,
       },
       { nativeTab: false },
     );
@@ -258,9 +235,7 @@ describe("native Ticket tab", () => {
     fireEvent.input(title);
     fireEvent.click(row(page, 2));
     await within(ticket.container).findByRole("alert");
-    fireEvent.click(
-      within(ticket.container).getByRole("button", { name: "Retry save" }),
-    );
+    fireEvent.click(within(ticket.container).getByRole("button", { name: "Retry save" }));
     ticket.lifecycle.unmount();
     const opens = page.inspection.experimental_fixedTabOpenCalls.length;
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
@@ -274,9 +249,7 @@ describe("native Ticket tab", () => {
       "all?task=TSK-1",
       {
         updateTask: () =>
-          canSave
-            ? { ok: true, task: tasks[0] }
-            : { ok: false, error: { message: "Offline" } },
+          canSave ? { ok: true, task: tasks[0] } : { ok: false, error: { message: "Offline" } },
       },
       { nativeTab: false, openFixedTab: () => canOpen },
     );
@@ -297,14 +270,10 @@ describe("native Ticket tab", () => {
       }),
     ).toBe(title);
     expect(title.textContent).toBe("Recover A");
-    expect(
-      (await within(page.container).findByRole("alert")).textContent,
-    ).toContain("Offline");
+    expect((await within(page.container).findByRole("alert")).textContent).toContain("Offline");
     expect(page.inspection.navigateCalls).toEqual([]);
     canSave = true;
-    fireEvent.click(
-      within(page.container).getByRole("button", { name: "Retry save" }),
-    );
+    fireEvent.click(within(page.container).getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(page.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(page);
     expect(
@@ -330,8 +299,6 @@ describe("native Ticket tab", () => {
         })
       ).textContent,
     ).toBe("Title 2");
-    expect(
-      within(page.container).getByRole("region", { name: "Ticket list" }),
-    ).toBeTruthy();
+    expect(within(page.container).getByRole("region", { name: "Ticket list" })).toBeTruthy();
   });
 });

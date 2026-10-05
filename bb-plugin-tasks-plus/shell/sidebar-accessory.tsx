@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  useRealtime,
-  useRealtimeConnectionState,
-} from "@get-bb/plugin-sdk/app";
+import { useRealtime, useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
 import { useTasksRpc } from "./data.js";
 import { useCommandNavigator } from "./command-bridge.js";
 
@@ -31,9 +28,7 @@ export function TasksSidebarAccessory() {
         while (request.isMounted && request.refreshQueued) {
           request.refreshQueued = false;
           try {
-            const { openTaskCount } = await rpcRef.current.call(
-              "sidebarOpenTaskCount",
-            );
+            const { openTaskCount } = await rpcRef.current.call("sidebarOpenTaskCount");
             if (request.isMounted) setCount(openTaskCount);
           } catch {}
         }

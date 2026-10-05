@@ -228,9 +228,7 @@ describe("task pager", () => {
 
 describe("tasks app shell", () => {
   it("keeps navigation in the main panel rather than a fixed host tab", () => {
-    expect((tasksRegistration.fixedTabs ?? []).map((tab) => tab.id)).toEqual([
-      "ticket",
-    ]);
+    expect((tasksRegistration.fixedTabs ?? []).map((tab) => tab.id)).toEqual(["ticket"]);
   });
 
   it("does not treat the first connection as a reconnect", async () => {
@@ -298,9 +296,7 @@ describe("tasks app shell", () => {
       },
     );
     await waitFor(() =>
-      expect(
-        slot.inspection.rpcCalls.some((call) => call.method === "listTasks"),
-      ).toBe(true),
+      expect(slot.inspection.rpcCalls.some((call) => call.method === "listTasks")).toBe(true),
     );
     expect(slot.queryByText("Loaded after existing outage")).toBeNull();
 
@@ -412,15 +408,13 @@ describe("tasks app shell", () => {
     expect(refresh.getAttribute("aria-label")).toBe("Refresh tasks");
     expect(refresh.className).toMatch(/size-9/);
 
-    expect(
-      refresh.compareDocumentPosition(newTask) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(refresh.compareDocumentPosition(newTask) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     const tabbables = [refresh, newTask];
     for (let i = 0; i < tabbables.length - 1; i++) {
       expect(
-        tabbables[i]!.compareDocumentPosition(tabbables[i + 1]!) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
+        tabbables[i]!.compareDocumentPosition(tabbables[i + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     }
 
@@ -454,9 +448,7 @@ describe("tasks app shell", () => {
               return { tasks: [{ ...task, title }] };
             }
             return new Promise((resolve) => {
-              pendingResolvers.push(() =>
-                resolve({ tasks: [{ ...task, title }] }),
-              );
+              pendingResolvers.push(() => resolve({ tasks: [{ ...task, title }] }));
             });
           },
           listLabels: () => ({ labels: [] }),
@@ -517,9 +509,7 @@ describe("tasks app shell", () => {
 
     title = "Flight title C";
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
-    await waitFor(() =>
-      expect(listTasksCalls).toBeGreaterThan(callsWhilePending),
-    );
+    await waitFor(() => expect(listTasksCalls).toBeGreaterThan(callsWhilePending));
     releaseAllPending();
     await slot.findByText("Flight title C");
     await waitFor(() => {
@@ -530,8 +520,7 @@ describe("tasks app shell", () => {
       expect(button.getAttribute("aria-busy")).not.toBe("true");
     });
     expect(
-      (slot.getByRole("button", { name: "Refresh tasks" }) as HTMLButtonElement)
-        .className,
+      (slot.getByRole("button", { name: "Refresh tasks" }) as HTMLButtonElement).className,
     ).toMatch(/size-9/);
   });
 
@@ -616,9 +605,9 @@ describe("tasks app shell", () => {
     );
     await slot.behavior.setRealtimeConnectionState("connected");
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Recovered detail title"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+        "Recovered detail title",
+      ),
     );
   });
 
@@ -660,19 +649,14 @@ describe("tasks app shell", () => {
           rpc: seededRpc({ listProjects: () => projects.promise }),
         },
       );
-      fireEvent.keyDown(
-        slot.getByRole("button", { name: "Project: All projects" }),
-        { key: "ArrowDown" },
-      );
-      expect(
-        slot.getByRole("menuitemradio", { name: project.name }),
-      ).toBeDefined();
+      fireEvent.keyDown(slot.getByRole("button", { name: "Project: All projects" }), {
+        key: "ArrowDown",
+      });
+      expect(slot.getByRole("menuitemradio", { name: project.name })).toBeDefined();
       expect(slot.queryByText("No projects yet")).toBeNull();
       act(() => projects.resolve({ projects: [project] }));
       await waitFor(() =>
-        expect(
-          slot.getByRole("menuitemradio", { name: project.name }),
-        ).toBeDefined(),
+        expect(slot.getByRole("menuitemradio", { name: project.name })).toBeDefined(),
       );
     });
 
@@ -680,25 +664,14 @@ describe("tasks app shell", () => {
       resetQuerySnapshotStateForTest();
       window.localStorage.setItem(projectsKey, "{not json");
       window.localStorage.setItem("bb-tasks:query-snapshot:v0:projects", "[]");
-      const slot = renderSlot(
-        tasksRegistration,
-        { subPath: "all" },
-        { rpc: seededRpc() },
-      );
-      fireEvent.keyDown(
-        await slot.findByRole("button", { name: "Project: All projects" }),
-        { key: "ArrowDown" },
-      );
+      const slot = renderSlot(tasksRegistration, { subPath: "all" }, { rpc: seededRpc() });
+      fireEvent.keyDown(await slot.findByRole("button", { name: "Project: All projects" }), {
+        key: "ArrowDown",
+      });
       await slot.findByRole("menuitemradio", { name: project.name });
-      expect(
-        window.localStorage.getItem("bb-tasks:query-snapshot:v0:projects"),
-      ).toBeNull();
-      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
-        project,
-      ]);
-      expect(JSON.parse(window.localStorage.getItem(foldersKey)!)).toEqual([
-        folder,
-      ]);
+      expect(window.localStorage.getItem("bb-tasks:query-snapshot:v0:projects")).toBeNull();
+      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([project]);
+      expect(JSON.parse(window.localStorage.getItem(foldersKey)!)).toEqual([folder]);
     });
 
     it("keeps the newer project snapshot when an older request resolves later", async () => {
@@ -707,22 +680,17 @@ describe("tasks app shell", () => {
       const older = deferred<{ projects: (typeof project)[] }>();
       let calls = 0;
       const rpc = seededRpc({
-        listProjects: () =>
-          ++calls === 1 ? older.promise : { projects: [newerProject] },
+        listProjects: () => (++calls === 1 ? older.promise : { projects: [newerProject] }),
       });
       renderSlot(tasksRegistration, { subPath: PROJECT_ID }, { rpc });
       await waitFor(() =>
-        expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
-          newerProject,
-        ]),
+        expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([newerProject]),
       );
       await act(async () => {
         older.resolve({ projects: [olderProject] });
         await older.promise;
       });
-      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([
-        newerProject,
-      ]);
+      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([newerProject]);
     });
   });
 
@@ -738,9 +706,7 @@ describe("tasks app shell", () => {
     const rpc = seededRpc({
       listLabels: () => ({ labels: [] }),
       listTasks: (input: { activeOnly?: boolean }) =>
-        input.activeOnly === true
-          ? Promise.reject(new Error("active fetch failed"))
-          : { tasks },
+        input.activeOnly === true ? Promise.reject(new Error("active fetch failed")) : { tasks },
     });
     const Panel = app.navPanels[0]!.component;
     const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc });
@@ -814,11 +780,7 @@ describe("tasks app shell", () => {
     expect(boardSlot.queryByRole("button", { name: /sidebar/i })).toBeNull();
     cleanup();
 
-    const taskSlot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: "task/TSK-4" },
-      { rpc: seededRpc() },
-    );
+    const taskSlot = renderSlot(app.navPanels[0]!, { subPath: "task/TSK-4" }, { rpc: seededRpc() });
     await taskSlot.findByText(/Task TSK-4 was not found/);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(taskSlot.navigateCalls).toContainEqual({
@@ -860,23 +822,15 @@ describe("tasks app shell", () => {
         fireEvent.keyDown(slot.getByRole("button", { name: "Status" }), {
           key: "ArrowDown",
         });
-        fireEvent.click(
-          await slot.findByRole("menuitemcheckbox", { name: "Done" }),
-        );
-        await waitFor(() =>
-          expect(slot.queryByText("Canceled work")).toBeNull(),
-        );
+        fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Done" }));
+        await waitFor(() => expect(slot.queryByText("Canceled work")).toBeNull());
         expect(slot.getByText("Completed work")).toBeDefined();
       }
     },
   );
 
   it("opens quick-create on bare 'c' only once with its dialog open", async () => {
-    const slot = renderSlot(
-      tasksRegistration,
-      { subPath: "all" },
-      { rpc: seededRpc() },
-    );
+    const slot = renderSlot(tasksRegistration, { subPath: "all" }, { rpc: seededRpc() });
     await slot.findByText("All projects");
     fireEvent.keyDown(window, { key: "c" });
     await slot.findByRole("dialog");

@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
@@ -21,10 +14,7 @@ import { ListView } from "../views/list/index.js";
 import { BrowseWorkspace } from "./browse-workspace.js";
 import { BoardView } from "../views/board/index.js";
 import { DetailView } from "../views/detail/index.js";
-import {
-  TasksSessionProvider,
-  useSafeTaskTarget,
-} from "../views/detail/task-session.js";
+import { TasksSessionProvider, useSafeTaskTarget } from "../views/detail/task-session.js";
 import { NewTaskDialog } from "../views/manage/new-task-dialog.js";
 import { NewProjectDialog } from "../views/manage/new-project-dialog.js";
 import { ManagePanel } from "../views/manage/manage-panel.js";
@@ -35,11 +25,7 @@ import { TasksRefreshProvider } from "./refresh.js";
 import { ShortcutProvider, useShortcuts } from "./shortcut-provider.js";
 import { ShortcutHelpDialog } from "./shortcut-help-dialog.js";
 import { ProjectSwitcher } from "./project-switcher.js";
-import {
-  useCommandNavigator,
-  usePanelIntents,
-  type PanelIntent,
-} from "./command-bridge.js";
+import { useCommandNavigator, usePanelIntents, type PanelIntent } from "./command-bridge.js";
 
 const BOARD_MIN_WIDTH = 448;
 
@@ -59,13 +45,7 @@ function RouteOutlet({
       return null;
     case "all":
     case "active":
-      return (
-        <BrowseWorkspace
-          key={route.kind}
-          route={route}
-          noProjects={noProjects}
-        />
-      );
+      return <BrowseWorkspace key={route.kind} route={route} noProjects={noProjects} />;
     case "manage":
       return <ManagePanel />;
     case "task":
@@ -76,18 +56,12 @@ function RouteOutlet({
       ) : route.view === "board" ? (
         <ListView key={route.projectId} projectId={route.projectId} />
       ) : (
-        <BrowseWorkspace
-          key={route.projectId}
-          route={route}
-          noProjects={noProjects}
-        />
+        <BrowseWorkspace key={route.projectId} route={route} noProjects={noProjects} />
       );
   }
 }
 
-function TasksAppShellContent({
-  subPath: requestedSubPath,
-}: PluginNavPanelProps) {
+function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps) {
   const subPath = useSafeTaskTarget(requestedSubPath);
   const tasksNavigation = useTasksNavigation();
   const projects = useProjects();
@@ -129,18 +103,12 @@ function TasksAppShellContent({
       lastBrowseRouteRef.current = route;
     }
   }, [route]);
-  const backFromTask = () =>
-    navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
-  const noProjects =
-    !projects.isLoading &&
-    projects.error === null &&
-    projects.data?.length === 0;
+  const backFromTask = () => navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
+  const noProjects = !projects.isLoading && projects.error === null && projects.data?.length === 0;
   // A selected browse editor must accept clearing before inventory can replace
   // its outlet. Stale/failed inventory is never evidence of project removal.
   const hasBrowseSelection =
-    (route.kind === "all" ||
-      route.kind === "active" ||
-      route.kind === "project") &&
+    (route.kind === "all" || route.kind === "active" || route.kind === "project") &&
     route.taskKey !== undefined;
   const newTaskProjectId = route.kind === "project" ? route.projectId : null;
 
@@ -221,24 +189,14 @@ function TasksAppShellContent({
               }
             />
           ) : (
-            <RouteOutlet
-              route={route}
-              boardUsable={boardUsable}
-              noProjects={noProjects}
-            />
+            <RouteOutlet route={route} boardUsable={boardUsable} noProjects={noProjects} />
           )}
         </div>
       </main>
       {newTaskOpen ? (
-        <NewTaskDialog
-          open
-          onOpenChange={setNewTaskOpen}
-          projectId={newTaskProjectId}
-        />
+        <NewTaskDialog open onOpenChange={setNewTaskOpen} projectId={newTaskProjectId} />
       ) : null}
-      {newProjectOpen ? (
-        <NewProjectDialog open onOpenChange={setNewProjectOpen} />
-      ) : null}
+      {newProjectOpen ? <NewProjectDialog open onOpenChange={setNewProjectOpen} /> : null}
       <ProjectSwitcher
         open={projectSwitcherOpen}
         onOpenChange={setProjectSwitcherOpen}

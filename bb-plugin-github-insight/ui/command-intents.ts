@@ -20,7 +20,11 @@ function keyOf(threadId: string, tab: CommandTab): string {
   return `${tab}:${threadId}`;
 }
 
-export function postIntent<Tab extends CommandTab>(threadId: string, tab: Tab, intent: IntentOf<Tab>): void {
+export function postIntent<Tab extends CommandTab>(
+  threadId: string,
+  tab: Tab,
+  intent: IntentOf<Tab>,
+): void {
   const key = keyOf(threadId, tab);
   const listener = listeners.get(key)?.at(-1);
   if (listener) listener(intent);

@@ -30,9 +30,10 @@ function onlyPassingChecksPage() {
                   statusCheckRollup: {
                     contexts: {
                       pageInfo: { hasNextPage: false, endCursor: null },
-                      nodes: pageOne.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts.nodes.filter(
-                        (node) => node.conclusion === "SUCCESS",
-                      ),
+                      nodes:
+                        pageOne.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts.nodes.filter(
+                          (node) => node.conclusion === "SUCCESS",
+                        ),
                     },
                   },
                 },
@@ -73,8 +74,7 @@ describe("collectInsight on PR 25337", () => {
 
     expect(insight.pr).toEqual({
       number: 25337,
-      title:
-        "feat(*): add ootbDomainTypesIds constants and replace hardcoded domain type UUIDs",
+      title: "feat(*): add ootbDomainTypesIds constants and replace hardcoded domain type UUIDs",
       state: "open",
       url: "https://github.com/collibra/frontend/pull/25337",
       headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
@@ -104,9 +104,7 @@ describe("collectInsight on PR 25337", () => {
 
   it("shows re-runs after a cancel as passed", async () => {
     const { insight } = await collectInsight(recordedGitHub());
-    const build = insight.checks.find(
-      (check) => check.name === "trigger-testing / build / build",
-    );
+    const build = insight.checks.find((check) => check.name === "trigger-testing / build / build");
 
     expect(build?.status).toBe("passed");
   });
@@ -140,9 +138,7 @@ describe("collectInsight on PR 25337", () => {
       }),
     );
 
-    expect(requested).toEqual([
-      ["CR_kwDOHI7l-88AAAAZCnAPSQ", "CR_kwDOHI7l-88AAAAZCnoC7g"],
-    ]);
+    expect(requested).toEqual([["CR_kwDOHI7l-88AAAAZCnAPSQ", "CR_kwDOHI7l-88AAAAZCnoC7g"]]);
   });
 
   it("gives the failed Actions check its annotation as reason", async () => {
@@ -266,15 +262,12 @@ describe("collectInsight merge queue", () => {
       return sent;
     };
 
-    expect(await requests(queuedGitHub("QUEUED"))).toEqual(
-      await requests(recordedGitHub()),
-    );
+    expect(await requests(queuedGitHub("QUEUED"))).toEqual(await requests(recordedGitHub()));
   });
 });
 
 describe("collectInsight on a merge queue repo", () => {
-  const recordedPage = (page: unknown) =>
-    recordedGitHub({ fetchOverviewPage: async () => page });
+  const recordedPage = (page: unknown) => recordedGitHub({ fetchOverviewPage: async () => page });
 
   it("offers enqueue with no merge blockers for a PR that is ready to enqueue", async () => {
     const { insight } = await collectInsight(recordedPage(readyToEnqueuePage));

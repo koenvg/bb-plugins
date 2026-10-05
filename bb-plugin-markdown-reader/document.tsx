@@ -6,10 +6,21 @@ import type { Element as HastElement, Root, RootContent } from "hast";
 import type { ReactNode } from "react";
 import { createSourceLines, type SourceLines } from "./source-lines";
 import { DestinationLink, DestinationImage } from "./destination-view";
-import { MAX_DESTINATIONS, MAX_DESTINATION_URL_LENGTH, destinationKey, type DestinationRequest } from "./destination-types";
+import {
+  MAX_DESTINATIONS,
+  MAX_DESTINATION_URL_LENGTH,
+  destinationKey,
+  type DestinationRequest,
+} from "./destination-types";
 import { boundedCode } from "./code";
 
-export interface DocumentHeading { level: number; text: string; fragment: string; id: string; line: number }
+export interface DocumentHeading {
+  level: number;
+  text: string;
+  fragment: string;
+  id: string;
+  line: number;
+}
 export interface DocumentModel {
   content: ReactNode;
   headings: readonly DocumentHeading[];
@@ -30,18 +41,22 @@ function headingText(node: RootContent): string {
  * are assigned. Passive footnotes retain reader-local accessibility descriptions. */
 function scopeGeneratedIds(tree: Root, namespace: string) {
   const ids = new Map<string, string>();
-  visit(tree, "element", node => {
-    if (node.properties.id) ids.set(String(node.properties.id), `${namespace}-generated-${ids.size}`);
+  visit(tree, "element", (node) => {
+    if (node.properties.id)
+      ids.set(String(node.properties.id), `${namespace}-generated-${ids.size}`);
   });
-  visit(tree, "element", node => {
+  visit(tree, "element", (node) => {
     const properties = node.properties;
     if (properties.id) properties.id = ids.get(String(properties.id));
     if (properties.ariaDescribedBy) {
-      const references = Array.isArray(properties.ariaDescribedBy) ? properties.ariaDescribedBy : String(properties.ariaDescribedBy).split(" ");
-      properties.ariaDescribedBy = references.map(id => ids.get(String(id)) ?? id);
+      const references = Array.isArray(properties.ariaDescribedBy)
+        ? properties.ariaDescribedBy
+        : String(properties.ariaDescribedBy).split(" ");
+      properties.ariaDescribedBy = references.map((id) => ids.get(String(id)) ?? id);
     }
     const href = properties.href;
-    if (typeof href === "string" && href.startsWith("#") && ids.has(href.slice(1))) properties.href = `#${ids.get(href.slice(1))}`;
+    if (typeof href === "string" && href.startsWith("#") && ids.has(href.slice(1)))
+      properties.href = `#${ids.get(href.slice(1))}`;
   });
   return ids;
 }
@@ -56,27 +71,62 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
   const requested = new Set<string>();
   const fragmentTarget = (fragment: string) => {
     if (!fragment.startsWith("#")) return null;
-    try { return fragments.get(decodeURIComponent(fragment.slice(1))) ?? null; }
-    catch { return null; }
+    try {
+      return fragments.get(decodeURIComponent(fragment.slice(1))) ?? null;
+    } catch {
+      return null;
+    }
   };
   const components: Components = {
-    a: ({ href = "", children, id, "aria-describedby": description, "aria-label": label }) =>
-      <DestinationLink url={href} fragmentTarget={fragmentTarget} id={id} aria-describedby={description} aria-label={label}>{children}</DestinationLink>,
+    a: ({ href = "", children, id, "aria-describedby": description, "aria-label": label }) => (
+      <DestinationLink
+        url={href}
+        fragmentTarget={fragmentTarget}
+        id={id}
+        aria-describedby={description}
+        aria-label={label}
+      >
+        {children}
+      </DestinationLink>
+    ),
     img: ({ src = "", alt, title }) => <DestinationImage url={src} alt={alt} title={title} />,
-    table: ({ children }) => <div className="mr-table-scroll" tabIndex={0} role="region" aria-label="Markdown table"><table>{children}</table></div>,
-    pre: ({ children }) => <pre tabIndex={0} aria-label="Code block">{children}</pre>,
+    table: ({ children }) => (
+      <div className="mr-table-scroll" tabIndex={0} role="region" aria-label="Markdown table">
+        <table>{children}</table>
+      </div>
+    ),
+    pre: ({ children }) => (
+      <pre tabIndex={0} aria-label="Code block">
+        {children}
+      </pre>
+    ),
   };
   function collectHeadings() {
     return (tree: Root) => {
       const generated = scopeGeneratedIds(tree, namespace);
-      for (const [original, id] of generated) { fragments.set(original, id); fragments.set(id, id); }
+      for (const [original, id] of generated) {
+        fragments.set(original, id);
+        fragments.set(id, id);
+      }
       visit(tree, "element", (node: HastElement) => {
         if (node.properties.id) node.properties.tabIndex = -1;
-        const url = node.tagName === "a" ? node.properties.href : node.tagName === "img" ? node.properties.src : null;
-        if (typeof url === "string" && url.length <= MAX_DESTINATION_URL_LENGTH && !url.startsWith("#")) {
+        const url =
+          node.tagName === "a"
+            ? node.properties.href
+            : node.tagName === "img"
+              ? node.properties.src
+              : null;
+        if (
+          typeof url === "string" &&
+          url.length <= MAX_DESTINATION_URL_LENGTH &&
+          !url.startsWith("#")
+        ) {
           const request = { url, image: node.tagName === "img" };
           const key = destinationKey(request);
-          if (!requested.has(key) && requests.length < MAX_DESTINATIONS) { requested.add(key); requests.push(request); }
+          if (!requested.has(key) && requests.length < MAX_DESTINATIONS) {
+            requested.add(key);
+            requests.push(request);
+          }
         }
         // Only source-backed headings belong in the document outline. The parser
         // also emits a positionless accessibility label for used footnotes.
@@ -87,20 +137,48 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
         node.properties.id = id;
         node.properties.tabIndex = -1;
         fragments.set(fragment, id);
-        headings.push({ level: Number(node.tagName[1]), text: label, fragment, id, line: node.position.start.line });
+        headings.push({
+          level: Number(node.tagName[1]),
+          text: label,
+          fragment,
+          id,
+          line: node.position.start.line,
+        });
       });
     };
   }
-  const content = Markdown({ children: text, remarkPlugins: [remarkGfm], rehypePlugins: [collectHeadings, boundedCode], components, skipHtml: true, urlTransform: url => url });
+  const content = Markdown({
+    children: text,
+    remarkPlugins: [remarkGfm],
+    rehypePlugins: [collectHeadings, boundedCode],
+    components,
+    skipHtml: true,
+    urlTransform: (url) => url,
+  });
   return { content, headings, requests, fragmentTarget, sourceLines: createSourceLines(text) };
 }
 
-export function MarkdownDocument({ model, navigate }: { model: DocumentModel; navigate: (id: string) => void }) {
+export function MarkdownDocument({
+  model,
+  navigate,
+}: {
+  model: DocumentModel;
+  navigate: (id: string) => void;
+}) {
   const activate = (event: React.MouseEvent<HTMLElement>) => {
     const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
     if (!anchor) return;
     event.preventDefault();
     if (event.button < 2) navigate(anchor.getAttribute("data-heading-target")!);
   };
-  return <article className="mr-prose" aria-label="Markdown preview" onClick={activate} onAuxClick={activate}>{model.content}</article>;
+  return (
+    <article
+      className="mr-prose"
+      aria-label="Markdown preview"
+      onClick={activate}
+      onAuxClick={activate}
+    >
+      {model.content}
+    </article>
+  );
 }

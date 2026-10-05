@@ -39,7 +39,10 @@ export interface Anchor {
 
 export type AnchorCheck = { ok: true } | { ok: false; reason: string };
 
-export function checkAnchor(files: ReviewFile[], { path, side, line, startLine }: Anchor): AnchorCheck {
+export function checkAnchor(
+  files: ReviewFile[],
+  { path, side, line, startLine }: Anchor,
+): AnchorCheck {
   const file = files.find((candidate) => candidate.path === path);
   if (file === undefined) return { ok: false, reason: `Not a file of this pull request: ${path}` };
   if (file.patch === null) return { ok: false, reason: `No diff available for ${path}` };

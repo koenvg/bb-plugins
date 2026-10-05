@@ -1,16 +1,9 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
-import {
-  createWorkStatusReader,
-  WORK_STATUS_REFRESH_THREAD_LIMIT,
-} from "./work-status.js";
+import { createWorkStatusReader, WORK_STATUS_REFRESH_THREAD_LIMIT } from "./work-status.js";
 
-const refreshId = (i: number) =>
-  `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
+const refreshId = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
 
 function setup(
   get = vi.fn(async ({ threadId }: { threadId: string }) =>
@@ -64,8 +57,7 @@ describe("read-only task work status", () => {
       });
     });
     const { harness, store, task, attach } = setup(get);
-    for (const status of [...Object.keys(statuses), "unreadable"])
-      attach(`thr_${status}`);
+    for (const status of [...Object.keys(statuses), "unreadable"]) attach(`thr_${status}`);
     const before = store.tasks.listTaskThreads(task.id);
     const result = (await harness.behavior.callRpc("listTaskWorkStatus", {
       taskIds: [task.id],
@@ -77,9 +69,10 @@ describe("read-only task work status", () => {
     };
     const threads = result.byTaskId[task.id]!.threads;
     for (const [status, execution] of Object.entries(statuses))
-      expect(threads.find((t) => t.threadId === `thr_${status}`)).toMatchObject(
-        { execution, title: `Current ${status}` },
-      );
+      expect(threads.find((t) => t.threadId === `thr_${status}`)).toMatchObject({
+        execution,
+        title: `Current ${status}`,
+      });
     expect(threads.find((t) => t.threadId === "thr_unreadable")).toMatchObject({
       execution: "unavailable",
       title: "thr_unreadable",
@@ -87,9 +80,7 @@ describe("read-only task work status", () => {
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
     expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
     expect(
-      harness.inspection.sdk.calls.every((c) =>
-        ["threads.get", "plugins.list"].includes(c.path),
-      ),
+      harness.inspection.sdk.calls.every((c) => ["threads.get", "plugins.list"].includes(c.path)),
     ).toBe(true);
     expect(harness.realtimeSignals).toEqual([]);
     await harness.lifecycle.dispose();
@@ -98,9 +89,9 @@ describe("read-only task work status", () => {
   it("accepts empty and duplicate inputs, returns explicit unknown tasks, and rejects invalid or over-500 unique IDs", async () => {
     const { harness, task, attach, get } = setup();
     attach("thr_shared");
-    expect(
-      await harness.behavior.callRpc("listTaskWorkStatus", { taskIds: [] }),
-    ).toEqual({ byTaskId: {} });
+    expect(await harness.behavior.callRpc("listTaskWorkStatus", { taskIds: [] })).toEqual({
+      byTaskId: {},
+    });
     const unknown = "01HZZZZZZZZZZZZZZZZZZZZZZZ";
     const result = (await harness.behavior.callRpc("listTaskWorkStatus", {
       taskIds: [...Array(501).fill(task.id), unknown],
@@ -116,10 +107,7 @@ describe("read-only task work status", () => {
     ).rejects.toThrow();
     await expect(
       harness.behavior.callRpc("listTaskWorkStatus", {
-        taskIds: Array.from(
-          { length: 501 },
-          (_, i) => `01H${String(i).padStart(23, "0")}`,
-        ),
+        taskIds: Array.from({ length: 501 }, (_, i) => `01H${String(i).padStart(23, "0")}`),
       }),
     ).rejects.toThrow();
     await harness.lifecycle.dispose();
@@ -159,12 +147,8 @@ describe("read-only task work status", () => {
     const [first, second] = await Promise.all([a, b]);
     expect(peak).toBe(8);
     expect(get).toHaveBeenCalledTimes(18);
-    expect(first.byTaskId[task.id]!.threads).toEqual(
-      second.byTaskId[other.id]!.threads,
-    );
-    expect(first.byTaskId[task.id]!.observedAt).toBe(
-      "2026-10-02T00:00:00.000Z",
-    );
+    expect(first.byTaskId[task.id]!.threads).toEqual(second.byTaskId[other.id]!.threads);
+    expect(first.byTaskId[task.id]!.observedAt).toBe("2026-10-02T00:00:00.000Z");
     await harness.lifecycle.dispose();
   });
 
@@ -225,8 +209,7 @@ describe("read-only task work status", () => {
         status: "idle",
         archivedAt: 1,
       });
-      if (threadId === "thr_unknown_existence")
-        Reflect.deleteProperty(thread, "deletedAt");
+      if (threadId === "thr_unknown_existence") Reflect.deleteProperty(thread, "deletedAt");
       else Reflect.deleteProperty(thread, "archivedAt");
       return thread;
     });
@@ -292,9 +275,7 @@ describe("read-only task work status", () => {
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
     expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
     expect(
-      harness.inspection.sdk.calls.every((c) =>
-        ["threads.get", "plugins.list"].includes(c.path),
-      ),
+      harness.inspection.sdk.calls.every((c) => ["threads.get", "plugins.list"].includes(c.path)),
     ).toBe(true);
     expect(harness.realtimeSignals).toEqual([]);
     await harness.lifecycle.dispose();
@@ -308,11 +289,7 @@ describe("read-only task work status", () => {
     );
     const { harness, task, attach } = setup(get);
     attach("thr_shared");
-    const call = (
-      i: number,
-      step: "start" | "continue" | "finish",
-      taskIds = [task.id],
-    ) =>
+    const call = (i: number, step: "start" | "continue" | "finish", taskIds = [task.id]) =>
       harness.behavior.callRpc("listTaskWorkStatus", {
         taskIds,
         refresh: { id: refreshId(i), step },
@@ -369,13 +346,10 @@ describe("read-only task work status", () => {
     const { bb, store, task, attach, get, harness } = setup();
     attach("thr_template");
     const template = store.tasks.listTaskThreads(task.id)[0]!;
-    let attached = Array.from(
-      { length: WORK_STATUS_REFRESH_THREAD_LIMIT + 1 },
-      (_, i) => ({
-        ...template,
-        threadId: `thr_${i}`,
-      }),
-    );
+    let attached = Array.from({ length: WORK_STATUS_REFRESH_THREAD_LIMIT + 1 }, (_, i) => ({
+      ...template,
+      threadId: `thr_${i}`,
+    }));
     const read = createWorkStatusReader({
       store: { getTask: () => task, listTaskThreads: () => attached },
       threads: bb.sdk.threads,
@@ -384,12 +358,8 @@ describe("read-only task work status", () => {
     try {
       const first = await read([task.id], { id: refreshId(0), step: "start" });
       expect(get).toHaveBeenCalledTimes(WORK_STATUS_REFRESH_THREAD_LIMIT);
-      expect(first.byTaskId[task.id]!.threads).toHaveLength(
-        WORK_STATUS_REFRESH_THREAD_LIMIT + 1,
-      );
-      expect(first.byTaskId[task.id]!.threads.at(-1)!.execution).toBe(
-        "unavailable",
-      );
+      expect(first.byTaskId[task.id]!.threads).toHaveLength(WORK_STATUS_REFRESH_THREAD_LIMIT + 1);
+      expect(first.byTaskId[task.id]!.threads.at(-1)!.execution).toBe("unavailable");
       attached = [attached[0]!, attached.at(-1)!];
       const second = await read([task.id], {
         id: refreshId(0),
@@ -406,11 +376,9 @@ describe("read-only task work status", () => {
       await read([task.id], { id: refreshId(1), step: "start" });
       const fresh = await read([task.id], { id: refreshId(1), step: "finish" });
       expect(get).toHaveBeenCalledTimes(WORK_STATUS_REFRESH_THREAD_LIMIT + 2);
-      expect(
-        fresh.byTaskId[task.id]!.threads.every(
-          (thread) => thread.execution === "idle",
-        ),
-      ).toBe(true);
+      expect(fresh.byTaskId[task.id]!.threads.every((thread) => thread.execution === "idle")).toBe(
+        true,
+      );
     } finally {
       read.dispose();
       await harness.lifecycle.dispose();

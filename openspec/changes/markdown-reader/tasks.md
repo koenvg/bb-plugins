@@ -49,7 +49,6 @@
 
 The approved safety revision is implemented in `bb-plugin-markdown-reader/`. See its `ACCEPTANCE.md` BBP-30 section for destination, image-lifecycle, SDK, and browser evidence. Browser RPC/native-opening/content-denial checks are fixtures. Live source transport, native symlink behavior, and installed-theme acceptance remain pending under 6.5; this ticket does not authorize installation or complete BBP-31/BBP-32.
 
-
 ## BBP-31 ticket evidence
 
 BBP-31 implements bounded fence highlighting (3.2) and verifies the reader's layout, container response, keyboard access and host-token presentation (5.1–5.4). See `bb-plugin-markdown-reader/ACCEPTANCE.md` for the nine-case registered-app browser matrix, inspected capture identities, built-in token provenance, contrast results, clean-install validation and the single completion-review record. Shared epic checklist items above stay open: fixture results do not complete installed/native acceptance under 6.5 or BBP-32.
@@ -64,7 +63,6 @@ Items 6.1–6.3 cite existing root README/CI/license integration, corrected read
 
 The sole fresh full-epic review `a68e18da-e136-4144-8da7-04ac1e5b538f` is collected. Its original verdict is APPROVE CODE; HOLD ACCEPTANCE AND MERGE. No code blockers were found. Native state is complete with observed runner exit 0; the last owner-only notice succeeded. The full runtime-bound report and exact lifecycle/terminal evidence are under `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/`. Item 6.4 remains open because acceptance finding A1 is unresolved; no second review or waiver is claimed. Item 6.5 remains open. Local leaf installation was approved, all three local-host transport sources and selected installed UI behavior passed, and the reader was disabled/removed with unrelated plugin state preserved. Native modifiers, native URL opening, and the outside-workspace absolute-host UI route remain unverified. Only the measured current installed theme and local host are certified; fixtures do not prove other installed themes or remote transport. BBP-32 and BBP-26 stay in progress while required acceptance is open.
 
-
 ## BBP-32 A1 continuation
 
 Separate `a1-resolution/` evidence preserves the sole review, native records, held bundle, and original APPROVE CODE; HOLD ACCEPTANCE AND MERGE verdict. The installed registered-opener UI displayed the outside-workspace host file with an explicit matching host/source and exact 394-character Raw/hash through the public revision-checked thread-tab route. Actual trusted ordinary HTTP and Mac Meta file/URL clicks were exercised, but no destination page or URL GET was observed in the owned hidden automation profile. Their outcomes are not acceptance passes; no cause or code defect is established. The exact reader installation was disabled/removed, owned tabs/sessions/listener were cleaned up, and pre-existing plugin source/enabled state was preserved without removing an unrelated concurrent addition. Durable manual fixture assets and an actual-BB-window check are available in `MANUAL-CHECK.md`. Items 6.4/6.5 remain open. No new reviewer, waiver, production-code change, completion commit, or done status is claimed.
@@ -74,7 +72,6 @@ Separate `a1-resolution/` evidence preserves the sole review, native records, he
 Koen authorized scoped list-marker and header corrections after the original review. The public rendered Reader tests first failed for missing filename/group/fallback placement; the registered fixture under the host list reset first failed with native markers absent. Reader-owned CSS now restores decimal/disc/nested markers without changing ordered starts, footnotes or mixed-task semantics. The header separates filename/path identity, Preview/Raw and secondary Outline/Refresh; Original remains same-source and appears only in failed/unsupported status beside Retry. Exact Raw, source/destination safety, dependencies, lockfiles and root integration are unchanged.
 
 Separate `user-ui-correction/` evidence records red/green checks, 226 passing tests, typecheck/SDK/build, all six browser runners, bounded visual inspection, final detector and the targeted same-source reader reload. The reader was already present/enabled at entry and remains so; the earlier removal records are historical. The original review and native records are unchanged and do not certify the new UI code. Its binding APPROVE CODE; HOLD ACCEPTANCE AND MERGE verdict remains in force. Native URL/modifier opening and items 6.4/6.5 remain open; this is a held, unstaged handoff with no new reviewer or completion commit.
-
 
 ## Browser acceptance decision and checklist closure (2026-10-04)
 

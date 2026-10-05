@@ -23,7 +23,16 @@ interface FileSectionProps {
   view: DiffView;
 }
 
-export function FileSection({ threadId, file, patch, lines, loadPatch, comments, openForms, view }: FileSectionProps) {
+export function FileSection({
+  threadId,
+  file,
+  patch,
+  lines,
+  loadPatch,
+  comments,
+  openForms,
+  view,
+}: FileSectionProps) {
   const { visible, ref } = useNearView<HTMLElement>();
   const showsDiff = !file.binary && file.loadMode !== "too_large";
   useEffect(() => {
@@ -101,8 +110,12 @@ function FileDiffWithComments({
         ) : (
           <InlineCommentForm
             text={metadata.form.text}
-            onTextChange={(text) => pendingReviews.setFormText(threadId, metadata.form.anchor, text)}
-            onSubmit={() => pendingReviews.addComment(threadId, metadata.form.anchor, metadata.form.text.trim())}
+            onTextChange={(text) =>
+              pendingReviews.setFormText(threadId, metadata.form.anchor, text)
+            }
+            onSubmit={() =>
+              pendingReviews.addComment(threadId, metadata.form.anchor, metadata.form.text.trim())
+            }
             onCancel={() => pendingReviews.closeForm(threadId, metadata.form.anchor)}
           />
         )

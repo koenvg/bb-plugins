@@ -147,10 +147,10 @@ describe.each([
 
 describe("dependency filter", () => {
   async function pick(slot: ReturnType<typeof render>, option: string) {
-    fireEvent.pointerDown(
-      await slot.findByRole("button", { name: /Dependencies/ }),
-      { button: 0, ctrlKey: false },
-    );
+    fireEvent.pointerDown(await slot.findByRole("button", { name: /Dependencies/ }), {
+      button: 0,
+      ctrlKey: false,
+    });
     fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: option }));
   }
 

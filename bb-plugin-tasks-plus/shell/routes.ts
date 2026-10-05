@@ -69,8 +69,7 @@ export function tasksRouteToSubPath(route: TasksRoute): string {
   if (route.kind === "manage") return "manage";
   if (route.kind === "task") return `task/${route.taskKey}`;
   const query = new URLSearchParams();
-  if (route.kind === "project" && route.view !== null)
-    query.set("view", route.view);
+  if (route.kind === "project" && route.view !== null) query.set("view", route.view);
   if (route.taskKey && !(route.kind === "project" && route.view === "board")) {
     query.set("task", route.taskKey);
   }
@@ -79,9 +78,7 @@ export function tasksRouteToSubPath(route: TasksRoute): string {
 }
 
 /** Only embedded task links are adapted; every other destination keeps host navigation. */
-export const TaskLinkNavigationContext = createContext<
-  ((taskKey: string) => void) | null
->(null);
+export const TaskLinkNavigationContext = createContext<((taskKey: string) => void) | null>(null);
 
 export interface TasksNavigation {
   go: (route: TasksRoute, options?: { replace?: boolean }) => void;

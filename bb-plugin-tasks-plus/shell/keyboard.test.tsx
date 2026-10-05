@@ -62,8 +62,7 @@ function rpc(tasks: Task[] = [], overrides: Record<string, unknown> = {}) {
     listTasks: () => ({ tasks }),
     listLabels: () => ({ labels: [] }),
     getTaskByKey: (input: unknown) => ({
-      task:
-        tasks.find((entry) => entry.key === rpcInput(input).taskKey) ?? null,
+      task: tasks.find((entry) => entry.key === rpcInput(input).taskKey) ?? null,
     }),
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),

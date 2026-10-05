@@ -9,11 +9,7 @@ import type {
   TasksStore,
   TaskThreadLiveStatus,
 } from "../db";
-import {
-  publishCommentsChanged,
-  publishTasksChanged,
-  type TasksApiStore,
-} from "../api";
+import { publishCommentsChanged, publishTasksChanged, type TasksApiStore } from "../api";
 import {
   presetPermissionModeSchema,
   presetReasoningLevelSchema,
@@ -67,14 +63,10 @@ function markdownSection(title: string, body: string): string {
 
 function formatTaskRefs(tasks: readonly Task[]): string {
   if (tasks.length === 0) return "None.";
-  return tasks
-    .map((task) => `- ${task.key} · ${task.title} (${task.status})`)
-    .join("\n");
+  return tasks.map((task) => `- ${task.key} · ${task.title} (${task.status})`).join("\n");
 }
 
-function formatAttachments(
-  attachments: readonly Pick<Attachment, "id" | "fileName">[],
-): string {
+function formatAttachments(attachments: readonly Pick<Attachment, "id" | "fileName">[]): string {
   if (attachments.length === 0) return "None.";
   return attachments
     .map(
@@ -98,10 +90,7 @@ function formatComments(comments: readonly Comment[]): string {
 export function buildSeedPrompt(input: SeedPromptInput): string {
   const sections = [
     `# ${input.task.key} · ${input.task.title}`,
-    markdownSection(
-      "Description",
-      input.task.description.trim() || "No description provided.",
-    ),
+    markdownSection("Description", input.task.description.trim() || "No description provided."),
     markdownSection(
       "Project context",
       `- Name: ${input.project.name}\n- Linked bb project: ${input.project.linkedBbProjectId ?? "Not linked"}`,
@@ -126,27 +115,17 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
   ];
 
   if (input.presetInstructions.trim()) {
-    sections.push(
-      markdownSection("Preset instructions", input.presetInstructions.trim()),
-    );
+    sections.push(markdownSection("Preset instructions", input.presetInstructions.trim()));
   }
   if (input.extraInstructions?.trim()) {
-    sections.push(
-      markdownSection(
-        "Additional instructions",
-        input.extraInstructions.trim(),
-      ),
-    );
+    sections.push(markdownSection("Additional instructions", input.extraInstructions.trim()));
   }
 
   return `${sections.join("\n\n")}\n`;
 }
 
 function delegatedThreadTitle(task: Task): string {
-  return truncateToWidth(
-    `${task.key} · ${task.title}`,
-    MAX_DELEGATED_THREAD_TITLE_WIDTH,
-  );
+  return truncateToWidth(`${task.key} · ${task.title}`, MAX_DELEGATED_THREAD_TITLE_WIDTH);
 }
 
 function requireTask(store: TasksStore, taskId: string): Task {
@@ -192,20 +171,14 @@ function collectAttachments(
   return [...attachments.values()];
 }
 
-type SpawnEnvironment = Parameters<
-  BbPluginApi["sdk"]["threads"]["spawn"]
->[0]["environment"];
+type SpawnEnvironment = Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0]["environment"];
 
-async function presetSpawnEnvironment(
-  bb: BbPluginApi,
-  preset: Preset,
-): Promise<SpawnEnvironment> {
+async function presetSpawnEnvironment(bb: BbPluginApi, preset: Preset): Promise<SpawnEnvironment> {
   if (preset.environmentKind === "project-default") {
     return { type: "project-default" };
   }
 
-  const hostId =
-    preset.machineId ?? (await bb.sdk.system.config()).primaryHostId;
+  const hostId = preset.machineId ?? (await bb.sdk.system.config()).primaryHostId;
   if (hostId === null) {
     throw new DelegationError(
       "spawn_target_invalid",
@@ -225,9 +198,7 @@ async function presetSpawnEnvironment(
   };
 }
 
-function isBbHttpError(
-  error: unknown,
-): error is Error & { code: string | null; status: number } {
+function isBbHttpError(error: unknown): error is Error & { code: string | null; status: number } {
   return (
     error instanceof Error &&
     "code" in error &&
@@ -346,9 +317,7 @@ export function handlers(
           providerId: execution.providerId,
           model: execution.model,
           reasoningLevel: execution.reasoningLevel,
-          ...(execution.serviceTier === null
-            ? {}
-            : { serviceTier: execution.serviceTier }),
+          ...(execution.serviceTier === null ? {} : { serviceTier: execution.serviceTier }),
           permissionMode: execution.permissionMode,
           title,
           prompt,
@@ -391,9 +360,7 @@ export function handlers(
         }
       } catch (error) {
         bb.log.warn(
-          `Could not read delegated thread ${thread.id} after attach: ${errorMessage(
-            error,
-          )}`,
+          `Could not read delegated thread ${thread.id} after attach: ${errorMessage(error)}`,
         );
       }
 
@@ -426,14 +393,9 @@ export function handlers(
 
     async taskThreadsDetach(input) {
       const task = requireTask(store.tasks, input.taskId);
-      const taskThread = store.tasks.getTaskThreadByThreadId(
-        task.id,
-        input.threadId,
-      );
+      const taskThread = store.tasks.getTaskThreadByThreadId(task.id, input.threadId);
       if (!taskThread) {
-        throw new Error(
-          `Thread ${input.threadId} is not attached to ${task.key}`,
-        );
+        throw new Error(`Thread ${input.threadId} is not attached to ${task.key}`);
       }
       store.tasks.deleteTaskThread(taskThread.id);
 
@@ -444,9 +406,6 @@ export function handlers(
   };
 }
 
-export function registerDelegation(
-  bb: BbPluginApi,
-  store: TasksApiStore,
-): void {
+export function registerDelegation(bb: BbPluginApi, store: TasksApiStore): void {
   bb.rpc.register(delegationRpcContract, handlers(bb, store));
 }

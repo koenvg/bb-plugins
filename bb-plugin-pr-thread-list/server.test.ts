@@ -8,9 +8,15 @@ async function setup(metadata: Metadata, options: { listThreads?: () => Promise<
   const { bb, harness } = createFakePluginHost({
     pluginId: "pr-thread-list",
     sdk: {
-      plugins: { list: async () => ({ plugins: [{ id: "github-insight", enabled: true, status: "running" }] }) },
+      plugins: {
+        list: async () => ({
+          plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+        }),
+      },
       threads: {
-        list: options.listThreads ?? (async () => Object.keys(metadata).map((id) => ({ id, archivedAt: null }))),
+        list:
+          options.listThreads ??
+          (async () => Object.keys(metadata).map((id) => ({ id, archivedAt: null }))),
         getPluginMetadata: async ({ threadId }: { threadId: string }) => metadata[threadId] ?? {},
       },
     } as never,
@@ -84,7 +90,9 @@ describe("summary-watch", () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "pr-thread-list",
       sdk: {
-        plugins: { list: async () => ({ plugins: [{ id: "github-insight", enabled, status: "running" }] }) },
+        plugins: {
+          list: async () => ({ plugins: [{ id: "github-insight", enabled, status: "running" }] }),
+        },
         threads: {
           list: async () => [{ id: "thr_1", archivedAt: null }],
           getPluginMetadata: async () => ({}),

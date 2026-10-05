@@ -16,7 +16,8 @@ describe("Codex Inspired package", () => {
       {
         id: "codex-inspired",
         name: "Codex Inspired",
-        description: "Native system sans for chat, Inter for the sidebar, and a neutral light and dark palette.",
+        description:
+          "Native system sans for chat, Inter for the sidebar, and a neutral light and dark palette.",
         css: "./themes/codex-inspired.css",
       },
     ]);
@@ -38,16 +39,25 @@ describe("Codex Inspired package", () => {
 
   it("ships the theme, source backend, and built backend metadata", () => {
     expect(manifest.files).toEqual([
-      "server.ts", "dist/server.js", "dist/server.js.map", "dist/server.meta.json",
-      "themes", "README.md", "PLUGIN_OVERVIEW.md",
+      "server.ts",
+      "dist/server.js",
+      "dist/server.js.map",
+      "dist/server.meta.json",
+      "themes",
+      "README.md",
+      "PLUGIN_OVERVIEW.md",
     ]);
   });
 
   it("does not access the host API on activation or reload", async () => {
     const { default: plugin } = await import("./server.js");
     const untouchedHost = new Proxy({} as BbPluginApi, {
-      get(_target, key) { throw new Error(`Unexpected host access: ${String(key)}`); },
-      set(_target, key) { throw new Error(`Unexpected host write: ${String(key)}`); },
+      get(_target, key) {
+        throw new Error(`Unexpected host access: ${String(key)}`);
+      },
+      set(_target, key) {
+        throw new Error(`Unexpected host write: ${String(key)}`);
+      },
     });
     await plugin(untouchedHost);
     await plugin(untouchedHost);

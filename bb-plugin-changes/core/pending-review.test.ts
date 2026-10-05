@@ -15,7 +15,9 @@ describe("pending review store", () => {
 
     reviews.addComment("thr_a", LINE_42, "Null check missing");
 
-    expect(reviews.get("thr_a").comments).toEqual([{ ...LINE_42, id: "c1", body: "Null check missing" }]);
+    expect(reviews.get("thr_a").comments).toEqual([
+      { ...LINE_42, id: "c1", body: "Null check missing" },
+    ]);
     expect(reviews.get("thr_b").comments).toEqual([]);
   });
 

@@ -16,6 +16,7 @@ When reviewers comment on the PR of a bb thread, you must go to GitHub to read t
 - Threads whose line is no longer in the diff show in an "Outdated" section. They are never hidden.
 
 Out of scope for this change:
+
 - Reviewer mode (review a PR of another person, approve, request changes).
 - New line comments from you that do not reply to a thread.
 - GitHub suggestion blocks.

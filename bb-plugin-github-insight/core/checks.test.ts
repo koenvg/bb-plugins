@@ -26,9 +26,7 @@ function checkRun(overrides: Partial<CheckRunNode> = {}): CheckRunNode {
   };
 }
 
-function statusContext(
-  overrides: Partial<StatusContextNode> = {},
-): StatusContextNode {
+function statusContext(overrides: Partial<StatusContextNode> = {}): StatusContextNode {
   return {
     __typename: "StatusContext",
     context: "Storybook Publish",
@@ -76,9 +74,7 @@ describe("mapStatusContextState", () => {
 });
 
 function buildChecks(nodes: readonly CheckNode[]) {
-  return latestCheckCandidates(nodes).map((candidate) =>
-    toCheck(candidate, new Map()),
-  );
+  return latestCheckCandidates(nodes).map((candidate) => toCheck(candidate, new Map()));
 }
 
 describe("latestCheckCandidates", () => {
@@ -167,9 +163,7 @@ describe("toCheck", () => {
   });
 
   it("gives a failed check run the annotations of its run", () => {
-    const [candidate] = latestCheckCandidates([
-      checkRun({ id: "CR_9", conclusion: "FAILURE" }),
-    ]);
+    const [candidate] = latestCheckCandidates([checkRun({ id: "CR_9", conclusion: "FAILURE" })]);
     const annotation = { path: "src/a.ts", line: 3, message: "boom" };
 
     const check = toCheck(candidate!, new Map([["CR_9", [annotation]]]));

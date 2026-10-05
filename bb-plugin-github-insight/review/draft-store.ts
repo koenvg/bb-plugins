@@ -39,9 +39,13 @@ export function createDraftStore(kv: PluginKvStorage) {
     save: (pr: PullRequestRef, reviewThreadId: string, draft: Draft) =>
       kv.set(prefixOf(pr) + reviewThreadId, draft),
 
-    delete: (pr: PullRequestRef, reviewThreadId: string) => kv.delete(prefixOf(pr) + reviewThreadId),
+    delete: (pr: PullRequestRef, reviewThreadId: string) =>
+      kv.delete(prefixOf(pr) + reviewThreadId),
 
-    async liveDrafts(pr: PullRequestRef, { threads, complete }: CollectedReviewThreads): Promise<Drafts> {
+    async liveDrafts(
+      pr: PullRequestRef,
+      { threads, complete }: CollectedReviewThreads,
+    ): Promise<Drafts> {
       const prefix = prefixOf(pr);
       const resolvedById = new Map(threads.map((thread) => [thread.id, thread.resolved]));
       const rows = await Promise.all(
@@ -55,7 +59,8 @@ export function createDraftStore(kv: PluginKvStorage) {
       const staleKeys: string[] = [];
       for (const { key, reviewThreadId, draft } of rows) {
         const resolved = resolvedById.get(reviewThreadId);
-        if (!draft.success || resolved === true || (resolved === undefined && complete)) staleKeys.push(key);
+        if (!draft.success || resolved === true || (resolved === undefined && complete))
+          staleKeys.push(key);
         else if (resolved === false) drafts[reviewThreadId] = draft.data;
       }
       await Promise.all(staleKeys.map((key) => kv.delete(key)));
@@ -65,9 +70,11 @@ export function createDraftStore(kv: PluginKvStorage) {
     saveComment: (pr: PullRequestRef, draftId: string, draft: CommentDraft) =>
       kv.set(commentPrefixOf(pr) + draftId, commentDraftEntry(draft)),
 
-    comment: async (pr: PullRequestRef, draftId: string) => readCommentDraft(await kv.get(commentPrefixOf(pr) + draftId)),
+    comment: async (pr: PullRequestRef, draftId: string) =>
+      readCommentDraft(await kv.get(commentPrefixOf(pr) + draftId)),
 
-    deleteComment: (pr: PullRequestRef, draftId: string) => kv.delete(commentPrefixOf(pr) + draftId),
+    deleteComment: (pr: PullRequestRef, draftId: string) =>
+      kv.delete(commentPrefixOf(pr) + draftId),
 
     async comments(pr: PullRequestRef): Promise<ListedCommentDraft[]> {
       const prefix = commentPrefixOf(pr);
@@ -80,7 +87,8 @@ export function createDraftStore(kv: PluginKvStorage) {
       return listed.filter((draft) => draft !== null).sort(byPosition);
     },
 
-    saveSummary: (pr: PullRequestRef, draft: SummaryDraft) => kv.set(summaryKeyOf(pr), summaryDraftEntry(draft)),
+    saveSummary: (pr: PullRequestRef, draft: SummaryDraft) =>
+      kv.set(summaryKeyOf(pr), summaryDraftEntry(draft)),
 
     summary: async (pr: PullRequestRef) => readSummaryDraft(await kv.get(summaryKeyOf(pr))),
 

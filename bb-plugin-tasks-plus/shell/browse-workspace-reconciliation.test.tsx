@@ -2,14 +2,8 @@
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
-import {
-  storeListPreference,
-  loadListPreference,
-} from "../views/list/list-preference.js";
-import {
-  loadExpandedTasks,
-  storeExpandedTasks,
-} from "../views/list/expanded-tasks.js";
+import { storeListPreference, loadListPreference } from "../views/list/list-preference.js";
+import { loadExpandedTasks, storeExpandedTasks } from "../views/list/expanded-tasks.js";
 import { browsePreference } from "./browse-preference.js";
 import {
   Panel,
@@ -29,8 +23,7 @@ const keys = (slot: ReturnType<typeof setup>) =>
   [...slot.container.querySelectorAll<HTMLElement>("[data-task-key]")].map(
     (el) => el.dataset.taskKey,
   );
-const title = (slot: ReturnType<typeof setup>) =>
-  slot.getByRole("textbox", { name: "Task title" });
+const title = (slot: ReturnType<typeof setup>) => slot.getByRole("textbox", { name: "Task title" });
 async function cleared(slot: ReturnType<typeof setup>) {
   await waitFor(() =>
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
@@ -57,11 +50,7 @@ const nested = [parent, child, tasks[2]!];
 function nestedRpc(raw: unknown) {
   const input = rpcInput(raw);
   return {
-    tasks: input.parentTaskId
-      ? []
-      : input.statuses
-        ? [child, tasks[2]!]
-        : nested,
+    tasks: input.parentTaskId ? [] : input.statuses ? [child, tasks[2]!] : nested,
     nextCursor: null,
   };
 }
@@ -84,9 +73,7 @@ describe("ongoing browse selection", () => {
       .closest("section")!;
     expect(group.querySelectorAll("[data-task-key]")).toHaveLength(2);
     expect(slot.getByText("2 tasks")).toBeTruthy();
-    fireEvent.click(
-      slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
     await cleared(slot);
     expect(keys(slot)).toEqual(["TSK-3", "TSK-1"]);
     expect(loadListPreference("all").sort).toBe("priority");
@@ -103,9 +90,7 @@ describe("ongoing browse selection", () => {
     fireEvent.keyDown(slot.getByRole("button", { name: /Sort/ }), {
       key: "Enter",
     });
-    fireEvent.click(
-      await slot.findByRole("menuitemcheckbox", { name: "Due date" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Due date" }));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(loadListPreference("all").sort).toBe("due");
     expect(slot.inspection.navigateCalls).toEqual([]);
@@ -116,8 +101,7 @@ describe("ongoing browse selection", () => {
   it("retains selection through deferred refresh and a failed refresh, then clears settled list removal", async () => {
     let response: unknown = { tasks, nextCursor: null };
     const slot = setup("all?task=TSK-1", {
-      listTasks: (raw) =>
-        rpcInput(raw).parentTaskId ? { tasks: [], nextCursor: null } : response,
+      listTasks: (raw) => (rpcInput(raw).parentTaskId ? { tasks: [], nextCursor: null } : response),
     });
     await slot.findByRole("textbox", { name: "Task title" });
     const refresh = deferred<unknown>();
@@ -125,9 +109,7 @@ describe("ongoing browse selection", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.inspection.navigateCalls).toEqual([]);
-    await act(async () =>
-      refresh.resolve({ tasks: [...tasks].reverse(), nextCursor: null }),
-    );
+    await act(async () => refresh.resolve({ tasks: [...tasks].reverse(), nextCursor: null }));
     expect(title(slot).textContent).toBe("Title 1");
     const failed = deferred<unknown>();
     response = failed.promise;
@@ -144,27 +126,19 @@ describe("ongoing browse selection", () => {
     let canSave = false;
     const slot = setup("all?task=TSK-1", {
       updateTask: () =>
-        canSave
-          ? { ok: true, task: tasks[0] }
-          : { ok: false, error: { message: "Keep draft" } },
+        canSave ? { ok: true, task: tasks[0] } : { ok: false, error: { message: "Keep draft" } },
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Draft before filter");
     fireEvent.keyDown(slot.getByRole("button", { name: "Status" }), {
       key: "Enter",
     });
-    fireEvent.click(
-      await slot.findByRole("menuitemcheckbox", { name: "Done" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Done" }));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Keep draft",
-    );
+    expect((await slot.findByRole("alert")).textContent).toContain("Keep draft");
     expect(loadListPreference("all").filters.statuses).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Draft before filter",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft before filter");
     expect(slot.inspection.navigateCalls).toEqual([]);
     canSave = true;
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
@@ -185,9 +159,7 @@ describe("ongoing browse selection", () => {
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Child draft");
-    fireEvent.click(
-      slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
     await slot.findByRole("alert");
     expect(loadExpandedTasks("all").has(parent.id)).toBe(true);
     expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
@@ -202,11 +174,7 @@ describe("ongoing browse selection", () => {
     let canSave = false;
     const slot = setup("all?task=TSK-1", {
       listTasks: (raw) => ({
-        tasks: rpcInput(raw).parentTaskId
-          ? []
-          : removed
-            ? tasks.slice(1)
-            : tasks,
+        tasks: rpcInput(raw).parentTaskId ? [] : removed ? tasks.slice(1) : tasks,
         nextCursor: null,
       }),
       updateTask: () =>
@@ -218,13 +186,9 @@ describe("ongoing browse selection", () => {
     await edit(slot, "Draft on removed task");
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Removal save failed",
-    );
+    expect((await slot.findByRole("alert")).textContent).toContain("Removal save failed");
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Draft on removed task",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft on removed task");
     expect(slot.inspection.navigateCalls).toEqual([]);
     canSave = true;
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
@@ -332,11 +296,7 @@ describe("ongoing browse selection", () => {
     const saved = deferred<unknown>();
     const slot = setup("all?task=TSK-1", {
       listTasks: (raw) => ({
-        tasks: rpcInput(raw).parentTaskId
-          ? []
-          : removed
-            ? tasks.slice(1)
-            : tasks,
+        tasks: rpcInput(raw).parentTaskId ? [] : removed ? tasks.slice(1) : tasks,
         nextCursor: null,
       }),
       updateTask: () => saved.promise,

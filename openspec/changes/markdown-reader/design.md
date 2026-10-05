@@ -11,12 +11,14 @@ The approved visual reference is `/Users/koen/.bb/thread-storage/thr_a8vncu5w4e/
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Separate source access and security from document presentation, with small interfaces exercised by both production and tests.
 - Reproduce the approved reading rhythm with generic Markdown content and active host theme tokens.
 - Keep BB responsible for file routing, URL routing, tab chrome, preferences, and original-preview fallback.
 - Bound parsing, highlighting, asynchronous requests, and temporary preview-resource lifetimes.
 
 **Non-Goals:**
+
 - Recreate BB's tab strip, infer audit-report semantics, synthesize document metadata, or copy the mockup's shortened Raw excerpt.
 - Add file editing, file watchers, persistent document caches, MDX execution, app-wide DOM styling, or a separate theme preference.
 - Publish, install, pin an opener, or change other plugins as a side effect of implementation.
@@ -58,6 +60,7 @@ Alternative: BB's exported `Markdown` preserves chat typography and exposes only
 Use scoped CSS in a reader-owned root with BB font, canvas, ink, muted-foreground, surface-recessed, border, hover, and focus tokens. Do not install a content script or style host-owned DOM. The mockup's literal light/dark values are demonstration tokens, not plugin constants. The production reader follows the app's active theme and therefore omits its moon switch.
 
 Visual defaults:
+
 - Reading column capped around 720 px, targeting roughly 65 to 75 characters for prose at 16 px and 1.75 line height.
 - About 48 px side padding and 52 to 68 px top padding in wide panels, reducing to 24 px sides and 38 px top in compact panels.
 - Document H1 approximately 30 to 39 px, section H2 approximately 20 to 21 px, and section spacing around 46 px above / 14 px below. Lower heading levels remain distinct without oversized narrow-panel typography.

@@ -23,7 +23,9 @@ const threadsPageSchema = z.object({
                 nodes: z.array(
                   z.object({
                     id: z.string(),
-                    author: z.object({ login: z.string(), avatarUrl: z.string().optional() }).nullable(),
+                    author: z
+                      .object({ login: z.string(), avatarUrl: z.string().optional() })
+                      .nullable(),
                     body: z.string(),
                     createdAt: z.string(),
                     url: z.string(),
@@ -71,7 +73,8 @@ export function capCommentBody(body: string): string {
 
 const GHOST_AUTHOR = "ghost";
 
-type ThreadNode = ThreadsPage["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"][number];
+type ThreadNode =
+  ThreadsPage["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"][number];
 
 function toReviewThread(node: ThreadNode): ReviewThread {
   return {
@@ -96,7 +99,9 @@ function threadsOf(page: ThreadsPage) {
 }
 
 export function parseReviewThreads(pages: unknown[]): ReviewThread[] {
-  return pages.flatMap((page) => threadsOf(threadsPageSchema.parse(page)).nodes.map(toReviewThread));
+  return pages.flatMap((page) =>
+    threadsOf(threadsPageSchema.parse(page)).nodes.map(toReviewThread),
+  );
 }
 
 export interface CollectedReviewThreads {

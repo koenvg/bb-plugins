@@ -77,13 +77,9 @@ describe("Tasks app slots", () => {
 
 describe("Task directive card", () => {
   it("renders live task data with a complete accessible name", async () => {
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: { getTaskByKey: () => ({ task }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: { getTaskByKey: () => ({ task }) },
+    });
 
     const main = await slot.findByRole("button", {
       name: "TSK-4 — Ship task embeds, in progress, high priority — open in side panel",
@@ -97,13 +93,9 @@ describe("Task directive card", () => {
   });
 
   it("omits the priority glyph and spoken priority when priority is none", async () => {
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: { getTaskByKey: () => ({ task: { ...task, priority: "none" } }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: { getTaskByKey: () => ({ task: { ...task, priority: "none" } }) },
+    });
     const main = await slot.findByRole("button", {
       name: "TSK-4 — Ship task embeds, in progress — open in side panel",
     });
@@ -112,11 +104,10 @@ describe("Task directive card", () => {
 
   it("opens the side panel on primary click and the Tasks app from the arrow", async () => {
     const openThreadPanel = vi.fn(() => true);
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      { openThreadPanel, rpc: { getTaskByKey: () => ({ task }) } },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      openThreadPanel,
+      rpc: { getTaskByKey: () => ({ task }) },
+    });
 
     fireEvent.click(await slot.findByText("Ship task embeds"));
     expect(openThreadPanel).toHaveBeenCalledWith({
@@ -134,13 +125,9 @@ describe("Task directive card", () => {
   });
 
   it("falls back to the Tasks app when no side panel is available", async () => {
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: { getTaskByKey: () => ({ task }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: { getTaskByKey: () => ({ task }) },
+    });
     fireEvent.click(await slot.findByText("Ship task embeds"));
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -174,30 +161,18 @@ describe("Task directive card", () => {
   });
 
   it("renders the generic not-found copy without a title fallback", async () => {
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-9" }),
-      {
-        rpc: { getTaskByKey: () => ({ task: null }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-9" }), {
+      rpc: { getTaskByKey: () => ({ task: null }) },
+    });
     await slot.findByText("Task not found — deleted, or its key changed");
   });
 
   it("rejects malformed keys without calling the backend", () => {
-    const malformed: Record<string, string>[] = [
-      {},
-      { key: "  " },
-      { key: "not a key" },
-    ];
+    const malformed: Record<string, string>[] = [{}, { key: "  " }, { key: "not a key" }];
     for (const attributes of malformed) {
-      const slot = renderSlot(
-        app.messageDirectives[0]!,
-        directiveProps(attributes),
-        {
-          rpc: {},
-        },
-      );
+      const slot = renderSlot(app.messageDirectives[0]!, directiveProps(attributes), {
+        rpc: {},
+      });
       slot.getByText("Invalid task link. Expected a task key like TSK-4.");
       expect(slot.rpcCalls).toHaveLength(0);
       cleanup();
@@ -206,18 +181,14 @@ describe("Task directive card", () => {
 
   it("offers a retry that refetches after a transport error", async () => {
     let fail = true;
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: {
-          getTaskByKey: () => {
-            if (fail) throw new Error("boom");
-            return { task };
-          },
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: {
+        getTaskByKey: () => {
+          if (fail) throw new Error("boom");
+          return { task };
         },
       },
-    );
+    });
     const retry = await slot.findByRole("button", { name: "Retry" });
     fail = false;
     fireEvent.click(retry);
@@ -225,16 +196,11 @@ describe("Task directive card", () => {
   });
 
   it("refetches on matching realtime payloads and ignores unrelated ones", async () => {
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: { getTaskByKey: () => ({ task }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: { getTaskByKey: () => ({ task }) },
+    });
     await slot.findByText("Ship task embeds");
-    const calls = () =>
-      slot.rpcCalls.filter((call) => call.method === "getTaskByKey").length;
+    const calls = () => slot.rpcCalls.filter((call) => call.method === "getTaskByKey").length;
     const baseline = calls();
 
     await slot.emitRealtime("tasks:changed", {
@@ -258,13 +224,9 @@ describe("Task directive card", () => {
 
   it("refetches an unresolved card on any tasks event so new tasks appear", async () => {
     let created = false;
-    const slot = renderSlot(
-      app.messageDirectives[0]!,
-      directiveProps({ key: "TSK-4" }),
-      {
-        rpc: { getTaskByKey: () => ({ task: created ? task : null }) },
-      },
-    );
+    const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
+      rpc: { getTaskByKey: () => ({ task: created ? task : null }) },
+    });
     await slot.findByText("Task not found — deleted, or its key changed");
     created = true;
     await slot.emitRealtime("tasks:changed", {
@@ -332,32 +294,18 @@ describe("Task embed panel", () => {
     });
     title.textContent = "Edited A";
     fireEvent.input(title);
-    slot.lifecycle.rerender(
-      <Panel threadId="thr_1" params={{ taskKey: "TSK-5" }} />,
-    );
+    slot.lifecycle.rerender(<Panel threadId="thr_1" params={{ taskKey: "TSK-5" }} />);
     await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
     expect(slot.queryByText("TSK-5")).toBeNull();
     expect(slot.getByText("TSK-4")).toBeTruthy();
-    await act(async () =>
-      finishSave({ ok: false, error: { message: "Save rejected" } }),
-    );
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Save rejected",
-    );
-    expect(
-      slot.getByRole("button", { name: "Open TSK-4 in Tasks" }),
-    ).toBeTruthy();
-    expect(
-      slot.queryByRole("button", { name: "Open TSK-5 in Tasks" }),
-    ).toBeNull();
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
-      "Edited A",
-    );
+    await act(async () => finishSave({ ok: false, error: { message: "Save rejected" } }));
+    expect((await slot.findByRole("alert")).textContent).toContain("Save rejected");
+    expect(slot.getByRole("button", { name: "Open TSK-4 in Tasks" })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Open TSK-5 in Tasks" })).toBeNull();
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Edited A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Other ticket"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Other ticket"),
     );
     expect(slot.getByText("TSK-5")).toBeTruthy();
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-5 in Tasks" }));

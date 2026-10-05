@@ -1,16 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
-import {
-  tasksRpcContract,
-  type TaskWorkStatus,
-} from "../../shared/contract.js";
+import { tasksRpcContract, type TaskWorkStatus } from "../../shared/contract.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import { useTaskListMeta } from "./data.js";
 import { TaskRow } from "./row.js";
@@ -27,8 +21,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     let recovered = false;
     const reads = { threads: 0, environments: 0, metadata: 0, plugins: 0 };
     const affected = (id: string) =>
-      !recovered &&
-      (!["shared", "distinct"].includes(failure) || id === "thr_b");
+      !recovered && (!["shared", "distinct"].includes(failure) || id === "thr_b");
     const identity = (id: string) => {
       const number = failure === "distinct" && id === "thr_b" ? 43 : 42;
       return {
@@ -44,17 +37,14 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
           list: async () => {
             reads.plugins++;
             return {
-              plugins: [
-                { id: "github-insight", enabled: true, status: "running" },
-              ],
+              plugins: [{ id: "github-insight", enabled: true, status: "running" }],
             };
           },
         },
         threads: {
           get: async ({ threadId }: { threadId: string }) => {
             reads.threads++;
-            if (failure === "thread" && affected(threadId))
-              throw Error("offline");
+            if (failure === "thread" && affected(threadId)) throw Error("offline");
             return makeThreadResponse({
               id: threadId,
               environmentId: `env_${threadId}`,
@@ -95,10 +85,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
           pullRequest: async ({ environmentId }: { environmentId: string }) => {
             reads.environments++;
             const id = environmentId.slice(4);
-            if (
-              ["environment", "shared", "distinct"].includes(failure) &&
-              affected(id)
-            )
+            if (["environment", "shared", "distinct"].includes(failure) && affected(id))
               throw Error("offline");
             return {
               outcome: "available",
@@ -153,10 +140,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     const onOpen = vi.fn();
     let latest: TaskWorkStatus | undefined;
     function Overview() {
-      const meta = useTaskListMeta(
-        [{ ...task, labelIds: [] }],
-        "all",
-      ).data?.get(task.id);
+      const meta = useTaskListMeta([{ ...task, labelIds: [] }], "all").data?.get(task.id);
       return (
         <TaskRow
           task={{ ...task, labelIds: [] }}
@@ -199,15 +183,9 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     const prs = latest!.pullRequests;
     expect(prs.availability).toBe("partial");
     expect(new Set(prs.unavailableThreadIds)).toEqual(
-      new Set(
-        ["shared", "distinct"].includes(failure)
-          ? ["thr_b"]
-          : ["thr_a", "thr_b"],
-      ),
+      new Set(["shared", "distinct"].includes(failure) ? ["thr_b"] : ["thr_a", "thr_b"]),
     );
-    const uncertain = prs.items.find(
-      (pr) => pr.number === (failure === "distinct" ? 43 : 42),
-    )!;
+    const uncertain = prs.items.find((pr) => pr.number === (failure === "distinct" ? 43 : 42))!;
     expect(uncertain).toMatchObject({
       state: "open",
       details: "incomplete",
@@ -228,13 +206,9 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     const dialog = await slot.findByRole("dialog", {
       name: `PRs for ${task.key}`,
     });
-    expect(dialog.textContent).toContain(
-      "The current PR association could not be confirmed",
-    );
+    expect(dialog.textContent).toContain("The current PR association could not be confirmed");
     if (failure === "removed") {
-      expect(
-        within(dialog).queryAllByRole("link", { name: /Open thread/ }),
-      ).toHaveLength(0);
+      expect(within(dialog).queryAllByRole("link", { name: /Open thread/ })).toHaveLength(0);
       expect(dialog.textContent).toContain("thr_a");
       expect(dialog.textContent).toContain("thr_b");
     } else {
@@ -246,19 +220,13 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
         ),
       ).toEqual(new Set(["/threads/thr_a", "/threads/thr_b"]));
     }
-    expect(
-      within(dialog).getAllByRole("link", { name: /Open GitHub PR/ }),
-    ).toHaveLength(failure === "distinct" ? 2 : 1);
+    expect(within(dialog).getAllByRole("link", { name: /Open GitHub PR/ })).toHaveLength(
+      failure === "distinct" ? 2 : 1,
+    );
     if (failure === "removed")
-      expect(latest!.threads.map((t) => t.execution)).toEqual([
-        "removed",
-        "removed",
-      ]);
+      expect(latest!.threads.map((t) => t.execution)).toEqual(["removed", "removed"]);
     if (failure === "thread")
-      expect(latest!.threads.map((t) => t.execution)).toEqual([
-        "unavailable",
-        "unavailable",
-      ]);
+      expect(latest!.threads.map((t) => t.execution)).toEqual(["unavailable", "unavailable"]);
     expect(reads).toEqual({
       threads: 2,
       environments: ["thread", "removed"].includes(failure) ? 0 : 2,

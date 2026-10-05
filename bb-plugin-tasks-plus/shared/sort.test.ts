@@ -10,10 +10,7 @@ const ULIDS = [
   "01ARZ3NDEKTSV4RRFFQ69G5FAD",
 ] as const;
 
-function task(
-  key: string,
-  overrides: Partial<Pick<Task, "priority" | "dueDate">> = {},
-): Task {
+function task(key: string, overrides: Partial<Pick<Task, "priority" | "dueDate">> = {}): Task {
   return makeTask({
     id: ULIDS[Number(key.split("-")[1]) - 1]!,
     projectId: ULIDS[0],

@@ -15,7 +15,11 @@ export const rpcContract = defineRpcContract({
   },
   getPatches: {
     input: z
-      .object({ threadId: z.string().min(1), query: diffQuerySchema, paths: z.array(z.string()).min(1) })
+      .object({
+        threadId: z.string().min(1),
+        query: diffQuerySchema,
+        paths: z.array(z.string()).min(1),
+      })
       .strict(),
     output: patchesResultSchema,
   },

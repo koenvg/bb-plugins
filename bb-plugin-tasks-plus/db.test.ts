@@ -1,11 +1,7 @@
 import { createHash } from "node:crypto";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
-import {
-  createTasksStore,
-  type CreatePresetInput,
-  TasksPageCursorError,
-} from "./db";
+import { createTasksStore, type CreatePresetInput, TasksPageCursorError } from "./db";
 
 function setup() {
   const { bb, harness } = createFakePluginHost({ pluginId: "tasks-db-test" });
@@ -13,10 +9,7 @@ function setup() {
   return { db, harness, store: createTasksStore(db) };
 }
 
-function createProject(
-  store: ReturnType<typeof createTasksStore>,
-  prefix: string,
-) {
+function createProject(store: ReturnType<typeof createTasksStore>, prefix: string) {
   return store.createProject({
     name: `${prefix} project`,
     prefix,
@@ -29,9 +22,7 @@ function cursorForEmptyArrayFilter(
   projectId: string,
   filter: "statuses" | "priorities" | "labelIds",
 ): string {
-  const decoded: unknown = JSON.parse(
-    Buffer.from(cursor, "base64url").toString("utf8"),
-  );
+  const decoded: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
   if (typeof decoded !== "object" || decoded === null) {
     throw new Error("expected an object cursor fixture");
   }
@@ -46,9 +37,7 @@ function cursorForEmptyArrayFilter(
     sort: "manual",
   });
   const query = createHash("sha256").update(normalized).digest("base64url");
-  return Buffer.from(JSON.stringify({ ...decoded, query }), "utf8").toString(
-    "base64url",
-  );
+  return Buffer.from(JSON.stringify({ ...decoded, query }), "utf8").toString("base64url");
 }
 
 describe("tasks storage", () => {
@@ -57,11 +46,8 @@ describe("tasks storage", () => {
     try {
       createTasksStore(db);
       expect(
-        db
-          .prepare<[], { count: number }>(
-            "SELECT COUNT(*) AS count FROM schema_version",
-          )
-          .get()?.count,
+        db.prepare<[], { count: number }>("SELECT COUNT(*) AS count FROM schema_version").get()
+          ?.count,
       ).toBe(7);
     } finally {
       await harness.dispose();
@@ -94,9 +80,7 @@ describe("tasks storage", () => {
         );
       `);
 
-      const migrated = createTasksStore(db).getPreset(
-        "01J00000000000000000000000",
-      );
+      const migrated = createTasksStore(db).getPreset("01J00000000000000000000000");
 
       expect(migrated).toMatchObject({
         environmentKind: "project-default",
@@ -267,9 +251,9 @@ describe("tasks storage", () => {
         title: "Second child",
         parentTaskId: secondRoot.id,
       });
-      expect(() =>
-        store.updateTask(secondRoot.id, { parentTaskId: root.id }),
-      ).toThrow("A task with sub-tasks cannot itself become a sub-task");
+      expect(() => store.updateTask(secondRoot.id, { parentTaskId: root.id })).toThrow(
+        "A task with sub-tasks cannot itself become a sub-task",
+      );
     } finally {
       await harness.dispose();
     }
@@ -347,9 +331,7 @@ describe("tasks storage", () => {
       });
 
       const matchingKeys = (search: string) =>
-        store
-          .listTasks({ projectId: project.id, search })
-          .map((task) => task.key);
+        store.listTasks({ projectId: project.id, search }).map((task) => task.key);
 
       expect(matchingKeys("deployment readiness")).toEqual([matching.key]);
       expect(matchingKeys("readiness deployment")).toEqual([matching.key]);
@@ -544,10 +526,7 @@ describe("tasks storage", () => {
 
       const filters = ["statuses", "priorities", "labelIds"] as const;
       const matchingCursors = new Map(
-        filters.map((filter) => [
-          filter,
-          cursorForEmptyArrayFilter(cursor, project.id, filter),
-        ]),
+        filters.map((filter) => [filter, cursorForEmptyArrayFilter(cursor, project.id, filter)]),
       );
       for (const filter of filters) {
         const emptyFilter = { [filter]: [] };
@@ -635,11 +614,7 @@ describe("tasks storage", () => {
         statuses: ["todo"],
       });
 
-      expect(tasks.map((task) => task.id)).toEqual([
-        first.id,
-        moved.id,
-        second.id,
-      ]);
+      expect(tasks.map((task) => task.id)).toEqual([first.id, moved.id, second.id]);
       expect(tasks.map((task) => task.position)).toEqual([1024, 1536, 2048]);
       expect(reordered.position).toBe(1536);
     } finally {
@@ -670,9 +645,10 @@ describe("tasks storage", () => {
       setCreatedAt.run("2026-07-15T10:00:00.000Z", later.id);
       setCreatedAt.run("2026-07-15T09:00:00.000Z", earlier.id);
 
-      expect(
-        store.listComments(task.id).map((comment) => comment.body),
-      ).toEqual(["Earlier", "Later"]);
+      expect(store.listComments(task.id).map((comment) => comment.body)).toEqual([
+        "Earlier",
+        "Later",
+      ]);
     } finally {
       await harness.dispose();
     }
@@ -705,9 +681,7 @@ describe("tasks storage", () => {
       attach("thr_dead_later", "completed", "2026-07-15T11:00:00.000Z");
       attach("thr_live_new", "working", "2026-07-15T12:00:00.000Z");
 
-      expect(
-        store.listTaskThreads(task.id).map((thread) => thread.threadId),
-      ).toEqual([
+      expect(store.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual([
         "thr_live_new",
         "thr_live_old",
         "thr_dead_later",
@@ -716,9 +690,11 @@ describe("tasks storage", () => {
 
       const detached = store.getTaskThreadByThreadId(task.id, "thr_dead_first");
       expect(store.deleteTaskThread(detached!.id)).toBe(true);
-      expect(
-        store.listTaskThreads(task.id).map((thread) => thread.threadId),
-      ).toEqual(["thr_live_new", "thr_live_old", "thr_dead_later"]);
+      expect(store.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual([
+        "thr_live_new",
+        "thr_live_old",
+        "thr_dead_later",
+      ]);
     } finally {
       await harness.dispose();
     }
@@ -852,9 +828,7 @@ describe("tasks storage", () => {
         instructions: "Work the task.",
       };
       store.createPreset(preset);
-      expect(() => store.createPreset(preset)).toThrow(
-        /UNIQUE constraint failed: presets.name/,
-      );
+      expect(() => store.createPreset(preset)).toThrow(/UNIQUE constraint failed: presets.name/);
     } finally {
       await harness.dispose();
     }

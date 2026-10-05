@@ -29,7 +29,7 @@ Only one of the two plugins can be enabled at a time.
 3. Disable the bundled plugin: `bb plugin disable tasks`. Do not use
    `bb plugin remove tasks`.
 4. Copy the data: `bb-plugin-tasks-plus/scripts/import-bundled-data.sh --from
-   ~/.bb/plugins/tasks.backup-<date>`. The script stops if the fork already
+~/.bb/plugins/tasks.backup-<date>`. The script stops if the fork already
    has tasks. Set `BB_DATA_DIR` if bb does not use `~/.bb`.
 5. Enable the fork: `bb plugin enable tasks-plus`. Check `bb tasks list` and
    the Tasks panel.
@@ -264,24 +264,24 @@ also accept one comma-separated list. File paths (`--file`, `--attach`,
 inside an agent thread that is the thread's machine, otherwise the server's
 machine; pass `--machine <id-or-name>` to target another enrolled machine.
 
-| Command                                        | Purpose                                                                                                                                    |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bb tasks status`                              | Show the installed Tasks plugin name and version. Task workflow status lives on `bb tasks list --status` and `bb tasks update --status`.   |
-| `bb tasks project create\|list\|show\|update`  | Manage tracker projects, folders, colors, prefixes, and bb-project links.                                                                  |
-| `bb tasks folder create\|list\|update\|delete` | Organize tracker projects into nested folders. Deleting a folder moves its projects and subfolders to the top level; no tasks are deleted. |
-| `bb tasks create`                              | Create a task with description, priority, labels, due date, optional parent, and file attachments (repeatable `--attach <path>`).          |
+| Command                                        | Purpose                                                                                                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bb tasks status`                              | Show the installed Tasks plugin name and version. Task workflow status lives on `bb tasks list --status` and `bb tasks update --status`.                   |
+| `bb tasks project create\|list\|show\|update`  | Manage tracker projects, folders, colors, prefixes, and bb-project links.                                                                                  |
+| `bb tasks folder create\|list\|update\|delete` | Organize tracker projects into nested folders. Deleting a folder moves its projects and subfolders to the top level; no tasks are deleted.                 |
+| `bb tasks create`                              | Create a task with description, priority, labels, due date, optional parent, and file attachments (repeatable `--attach <path>`).                          |
 | `bb tasks list`                                | Page/filter tasks by project, status, priority, label, active agents, search text, or `--ready`/`--blocked`; supports `--sort`, `--limit`, and `--cursor`. |
-| `bb tasks show <key-or-id>`                    | Show the complete task record, including blockers, blocked tasks, comments, attachments, subtasks, and attached threads. |
-| `bb tasks update <key-or-id>`                  | Update status, priority, title, description, due date, labels, or blockers (`--blocked-by`, `--unblocked-by`). |
-| `bb tasks comment <key-or-id>`                 | Add a Markdown comment from inline text or a file; optionally notify the latest responding task agent.                                     |
-| `bb tasks attachment add\|get\|list\|remove`   | Add, fetch, list, or remove attachments. Referenced attachments require `remove --remove-references`.                                      |
-| `bb tasks preset list\|create\|update\|delete` | Manage reusable agent execution presets.                                                                                                   |
-| `bb tasks delegate <key>`                      | Start and attach a new agent thread using a preset.                                                                                        |
-| `bb tasks attach <key-or-id>`                  | Attach the current bb thread to a task when it was not delegated from Tasks.                                                               |
-| `bb tasks detach <key-or-id>`                  | Detach the current bb thread (or `--thread <id>`) from a task, for example a dead predecessor after a respawn.                             |
-| `bb tasks threads <key>`                       | List the bb threads attached to a task: live threads first, newest first.                                                                  |
-| `bb tasks label create\|list\|delete`          | Manage project-scoped labels.                                                                                                              |
-| `bb tasks seed-demo --yes`                     | Create sample folders, projects, labels, tasks, and comments for evaluation.                                                               |
+| `bb tasks show <key-or-id>`                    | Show the complete task record, including blockers, blocked tasks, comments, attachments, subtasks, and attached threads.                                   |
+| `bb tasks update <key-or-id>`                  | Update status, priority, title, description, due date, labels, or blockers (`--blocked-by`, `--unblocked-by`).                                             |
+| `bb tasks comment <key-or-id>`                 | Add a Markdown comment from inline text or a file; optionally notify the latest responding task agent.                                                     |
+| `bb tasks attachment add\|get\|list\|remove`   | Add, fetch, list, or remove attachments. Referenced attachments require `remove --remove-references`.                                                      |
+| `bb tasks preset list\|create\|update\|delete` | Manage reusable agent execution presets.                                                                                                                   |
+| `bb tasks delegate <key>`                      | Start and attach a new agent thread using a preset.                                                                                                        |
+| `bb tasks attach <key-or-id>`                  | Attach the current bb thread to a task when it was not delegated from Tasks.                                                                               |
+| `bb tasks detach <key-or-id>`                  | Detach the current bb thread (or `--thread <id>`) from a task, for example a dead predecessor after a respawn.                                             |
+| `bb tasks threads <key>`                       | List the bb threads attached to a task: live threads first, newest first.                                                                                  |
+| `bb tasks label create\|list\|delete`          | Manage project-scoped labels.                                                                                                                              |
+| `bb tasks seed-demo --yes`                     | Create sample folders, projects, labels, tasks, and comments for evaluation.                                                                               |
 
 Statuses are `backlog`, `todo`, `in_progress`, `in_review`, `done`, and
 `canceled`. Priorities are `urgent`, `high`, `medium`, `low`, and `none`.
@@ -450,14 +450,14 @@ shortcut definitions as the listener. Single keys do nothing while typing in
 inputs or rich text, during composition, with Cmd/Ctrl/Alt held, inside another
 BB pane, or while a menu or dialog is open. Escape never discards an editor draft.
 
-| Where | Keys |
-| --- | --- |
-| Anywhere | `c` new task, `?` shortcuts, `v` list or board on project routes |
-| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order |
-| List row | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row |
-| Ticket detail | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus |
-| Board | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority |
-| Standalone task | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
+| Where            | Keys                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Anywhere         | `c` new task, `?` shortcuts, `v` list or board on project routes                                                                    |
+| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order  |
+| List row         | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row           |
+| Ticket detail    | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus                                   |
+| Board            | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority                                        |
+| Standalone task  | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
 
 Movement starts at the first row in either direction with no selection, clamps at
 the ends, and waits for settled filtered/sorted order, including expanded subtasks

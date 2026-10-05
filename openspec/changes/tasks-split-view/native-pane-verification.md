@@ -25,14 +25,14 @@ No backend/API, schema, dependency, lockfile, or design-token changes are includ
 
 ## Validation before completion review
 
-| Check | Result |
-| --- | --- |
-| `npm test -- --maxWorkers=1` | 74 files, 747 tests passed |
-| `npm run typecheck` | Passed |
-| `npm run lint -- --threads=1` | Passed; four existing warnings, zero errors |
-| `npm run build` | Passed |
-| `openspec validate tasks-split-view --strict --no-interactive` | Passed |
-| `git diff --check fdfa39916cd8a5e80b7d71435abb552fa15fe244` | Passed |
+| Check                                                          | Result                                      |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| `npm test -- --maxWorkers=1`                                   | 74 files, 747 tests passed                  |
+| `npm run typecheck`                                            | Passed                                      |
+| `npm run lint -- --threads=1`                                  | Passed; four existing warnings, zero errors |
+| `npm run build`                                                | Passed                                      |
+| `openspec validate tasks-split-view --strict --no-interactive` | Passed                                      |
+| `git diff --check fdfa39916cd8a5e80b7d71435abb552fa15fe244`    | Passed                                      |
 
 Native-slot tests use separately mounted public SDK page/tab surfaces. They cover
 DOM placement, keyboard ownership, menu dismissal, failed saves after tab closure,

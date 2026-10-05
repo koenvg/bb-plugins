@@ -10,9 +10,7 @@ import {
 import { createSafeTaskTransition } from "./safe-transition.js";
 import { CommentDraftsProvider } from "../activity/comment-drafts.js";
 
-const TasksSessionContext = createContext<ReturnType<
-  typeof createSafeTaskTransition
-> | null>(null);
+const TasksSessionContext = createContext<ReturnType<typeof createSafeTaskTransition> | null>(null);
 
 /** Mount once around the Tasks workspace, not once per selected ticket. */
 export function TasksSessionProvider({ children }: { children: ReactNode }) {

@@ -4,8 +4,7 @@ import { createBrowsePreference } from "./browse-preference.js";
 
 const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
 const KEY = "tasks-plus:browse-preference";
-const openPreference = () =>
-  createBrowsePreference(KEY, () => window.localStorage);
+const openPreference = () => createBrowsePreference(KEY, () => window.localStorage);
 
 describe("browse scope preference", () => {
   it("distinguishes first use from explicit All and restores the last choice after reload", () => {
@@ -50,10 +49,7 @@ describe("browse scope preference", () => {
   it.each(["access", "read", "write"])(
     "keeps a session choice when storage blocks %s",
     (failure) => {
-      window.localStorage.setItem(
-        KEY,
-        JSON.stringify({ version: 1, scope: { kind: "all" } }),
-      );
+      window.localStorage.setItem(KEY, JSON.stringify({ version: 1, scope: { kind: "all" } }));
       const preference = createBrowsePreference(KEY, () => {
         if (failure === "access") throw new Error("blocked access");
         return {
@@ -103,10 +99,7 @@ describe("browse scope preference", () => {
     second.store({ kind: "all" });
     expect(first.load()).toEqual({ kind: "all" });
     expect(
-      createBrowsePreference(
-        "another-plugin:browse-preference",
-        () => window.localStorage,
-      ).load(),
+      createBrowsePreference("another-plugin:browse-preference", () => window.localStorage).load(),
     ).toBeNull();
   });
 });

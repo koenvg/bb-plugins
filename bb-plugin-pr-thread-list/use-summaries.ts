@@ -17,7 +17,10 @@ function pollAndListen(reload: () => void): () => void {
   const timer = setInterval(reload, POLL_MS);
   const announcements = new BroadcastChannel(SUMMARY_WRITTEN_CHANNEL);
   announcements.onmessage = reload;
-  return () => { clearInterval(timer); announcements.close(); };
+  return () => {
+    clearInterval(timer);
+    announcements.close();
+  };
 }
 
 export function useSummaries(): SummariesState {

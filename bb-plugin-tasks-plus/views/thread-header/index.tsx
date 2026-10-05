@@ -16,10 +16,7 @@ function useThreadTasks(threadId: string): Task[] {
   return data ?? [];
 }
 
-function ThreadHeaderTaskChip({
-  threadId,
-  isCompactViewport,
-}: PluginThreadHeaderActionProps) {
+function ThreadHeaderTaskChip({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
   const navigate = useBbNavigate();
   const [task, ...others] = useThreadTasks(threadId);
   if (!task) return null;
@@ -35,12 +32,8 @@ function ThreadHeaderTaskChip({
     >
       <StatusIcon status={task.status} />
       <span className="font-mono text-foreground">{task.key}</span>
-      {isCompactViewport ? null : (
-        <span className="truncate">{statusLabel}</span>
-      )}
-      {others.length > 0 ? (
-        <span className="tabular-nums">+{others.length}</span>
-      ) : null}
+      {isCompactViewport ? null : <span className="truncate">{statusLabel}</span>}
+      {others.length > 0 ? <span className="tabular-nums">+{others.length}</span> : null}
     </button>
   );
 }

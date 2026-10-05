@@ -5,48 +5,20 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "react": [
-        "./node_modules/@types/react"
-      ],
-      "react/*": [
-        "./node_modules/@types/react/*"
-      ],
-      "@pierre/diffs": [
-        "./node_modules/@pierre/diffs"
-      ],
-      "vitest": [
-        "./node_modules/vitest"
-      ],
-      "@pierre/diffs/react": [
-        "./node_modules/@pierre/diffs/dist/react/index.d.ts"
-      ],
-      "@testing-library/react": [
-        "./node_modules/@testing-library/react"
-      ]
+      "@/*": ["./*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "@pierre/diffs": ["./node_modules/@pierre/diffs"],
+      "vitest": ["./node_modules/vitest"],
+      "@pierre/diffs/react": ["./node_modules/@pierre/diffs/dist/react/index.d.ts"],
+      "@testing-library/react": ["./node_modules/@testing-library/react"]
     },
     "noEmit": true,
     "skipLibCheck": false,
     "resolveJsonModule": true
   },
-  "include": [
-    "*.ts",
-    "*.tsx",
-    "core",
-    "ui",
-    "components",
-    "lib",
-    "hooks",
-    "../review-ui"
-  ]
+  "include": ["*.ts", "*.tsx", "core", "ui", "components", "lib", "hooks", "../review-ui"]
 }

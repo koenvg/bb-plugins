@@ -9,12 +9,19 @@ type DiffFilesResult = Awaited<ReturnType<Environments["diffFiles"]>>;
 type DiffPatchResult = Awaited<ReturnType<Environments["diffPatch"]>>;
 type SendResult = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["send"]>>;
 
-function status(mergeBase: { sha: string; shortSha: string; subject: string }[] | null): StatusResult {
+function status(
+  mergeBase: { sha: string; shortSha: string; subject: string }[] | null,
+): StatusResult {
   return {
     outcome: "available",
     workspace: {
       branch: { currentBranch: "feature", defaultBranch: "main" },
-      mergeBase: mergeBase === null ? null : { commits: mergeBase.map((commit) => ({ ...commit, authorName: "Ann", authoredAt: 0 })) },
+      mergeBase:
+        mergeBase === null
+          ? null
+          : {
+              commits: mergeBase.map((commit) => ({ ...commit, authorName: "Ann", authoredAt: 0 })),
+            },
     },
   } as unknown as StatusResult;
 }
@@ -24,10 +31,46 @@ const COMMIT = { sha: "abc1234def", shortSha: "abc1234", subject: "feat: add a" 
 const AVAILABLE_FILES = {
   outcome: "available",
   files: [
-    { path: "src/a.ts", previousPath: null, additions: 3, deletions: 1, binary: false, loadMode: "auto", changeKind: "modified", origin: "tracked" },
-    { path: "logo.png", previousPath: null, additions: 0, deletions: 0, binary: true, loadMode: "auto", changeKind: "added", origin: "untracked" },
-    { path: "big.json", previousPath: null, additions: 9000, deletions: 0, binary: false, loadMode: "too_large", changeKind: "added", origin: "tracked" },
-    { path: "src/new.ts", previousPath: "src/old.ts", additions: 2, deletions: 2, binary: false, loadMode: "on_demand", changeKind: "renamed", origin: "tracked" },
+    {
+      path: "src/a.ts",
+      previousPath: null,
+      additions: 3,
+      deletions: 1,
+      binary: false,
+      loadMode: "auto",
+      changeKind: "modified",
+      origin: "tracked",
+    },
+    {
+      path: "logo.png",
+      previousPath: null,
+      additions: 0,
+      deletions: 0,
+      binary: true,
+      loadMode: "auto",
+      changeKind: "added",
+      origin: "untracked",
+    },
+    {
+      path: "big.json",
+      previousPath: null,
+      additions: 9000,
+      deletions: 0,
+      binary: false,
+      loadMode: "too_large",
+      changeKind: "added",
+      origin: "tracked",
+    },
+    {
+      path: "src/new.ts",
+      previousPath: "src/old.ts",
+      additions: 2,
+      deletions: 2,
+      binary: false,
+      loadMode: "on_demand",
+      changeKind: "renamed",
+      origin: "tracked",
+    },
   ],
   initialPatches: [{ path: "src/a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n", truncated: false }],
   mergeBaseRef: "main",
@@ -78,7 +121,10 @@ async function setup(
       environments: {
         status: async (args) => {
           calls.status.push(args);
-          return (options.status ?? ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT])))(args);
+          return (
+            options.status ??
+            ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT]))
+          )(args);
         },
         diffBranches: async () => ({
           branches: ["main"],
@@ -113,8 +159,14 @@ describe("getChanges", () => {
   it.each([
     [{ kind: "all" }, { environmentId: "env-1", target: "all", mergeBaseBranch: "origin/main" }],
     [{ kind: "uncommitted" }, { environmentId: "env-1", target: "uncommitted" }],
-    [{ kind: "branch_committed" }, { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" }],
-    [{ kind: "commit", sha: "abc1234def" }, { environmentId: "env-1", target: "commit", sha: "abc1234def" }],
+    [
+      { kind: "branch_committed" },
+      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+    ],
+    [
+      { kind: "commit", sha: "abc1234def" },
+      { environmentId: "env-1", target: "commit", sha: "abc1234def" },
+    ],
   ])("maps target %j to the environment diff query", async (target, expected) => {
     const { harness, calls } = await setup();
 
@@ -126,16 +178,47 @@ describe("getChanges", () => {
   it("returns files, initial patches, and branch commits", async () => {
     const { harness } = await setup();
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toEqual({
       kind: "ok",
       query: { target: "all", mergeBaseBranch: "origin/main" },
       files: [
-        { path: "src/a.ts", previousPath: null, additions: 3, deletions: 1, binary: false, loadMode: "auto" },
-        { path: "logo.png", previousPath: null, additions: 0, deletions: 0, binary: true, loadMode: "auto" },
-        { path: "big.json", previousPath: null, additions: 9000, deletions: 0, binary: false, loadMode: "too_large" },
-        { path: "src/new.ts", previousPath: "src/old.ts", additions: 2, deletions: 2, binary: false, loadMode: "on_demand" },
+        {
+          path: "src/a.ts",
+          previousPath: null,
+          additions: 3,
+          deletions: 1,
+          binary: false,
+          loadMode: "auto",
+        },
+        {
+          path: "logo.png",
+          previousPath: null,
+          additions: 0,
+          deletions: 0,
+          binary: true,
+          loadMode: "auto",
+        },
+        {
+          path: "big.json",
+          previousPath: null,
+          additions: 9000,
+          deletions: 0,
+          binary: false,
+          loadMode: "too_large",
+        },
+        {
+          path: "src/new.ts",
+          previousPath: "src/old.ts",
+          additions: 2,
+          deletions: 2,
+          binary: false,
+          loadMode: "on_demand",
+        },
       ],
       patches: { "src/a.ts": "@@ -1 +1 @@\n-a\n+b\n" },
       commits: [COMMIT],
@@ -147,7 +230,10 @@ describe("getChanges", () => {
 
     await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
 
-    expect(calls.status).toEqual([{ environmentId: "env-1" }, { environmentId: "env-1", mergeBaseBranch: "origin/main" }]);
+    expect(calls.status).toEqual([
+      { environmentId: "env-1" },
+      { environmentId: "env-1", mergeBaseBranch: "origin/main" },
+    ]);
   });
 
   it("falls back to the local default branch without a remote one", async () => {
@@ -155,7 +241,9 @@ describe("getChanges", () => {
 
     await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
 
-    expect(calls.diffFiles).toEqual([{ environmentId: "env-1", target: "all", mergeBaseBranch: "main" }]);
+    expect(calls.diffFiles).toEqual([
+      { environmentId: "env-1", target: "all", mergeBaseBranch: "main" },
+    ]);
   });
 
   it("still returns the diff when bb fails to list the branch commits", async () => {
@@ -166,7 +254,10 @@ describe("getChanges", () => {
       },
     });
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toMatchObject({ kind: "ok", commits: [] });
   });
@@ -174,7 +265,10 @@ describe("getChanges", () => {
   it("reports a thread without an environment as an error", async () => {
     const { harness } = await setup({ environmentId: null });
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toEqual({ kind: "error", message: "This thread has no environment" });
   });
@@ -182,10 +276,17 @@ describe("getChanges", () => {
   it("reports a non-git environment as no_git", async () => {
     const { harness } = await setup({
       status: () =>
-        ({ outcome: "not_applicable", reason: "non_git_environment", message: "Not a git environment" }) as StatusResult,
+        ({
+          outcome: "not_applicable",
+          reason: "non_git_environment",
+          message: "Not a git environment",
+        }) as StatusResult,
     });
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toEqual({ kind: "no_git" });
   });
@@ -198,7 +299,10 @@ describe("getChanges", () => {
       },
     });
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toEqual({ kind: "error", message: "permission denied" });
   });
@@ -206,7 +310,10 @@ describe("getChanges", () => {
   it("returns a thrown error as an error result", async () => {
     const { harness } = await setup({ diffFiles: new Error("daemon gone") });
 
-    const result = await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
 
     expect(result).toEqual({ kind: "error", message: "daemon gone" });
   });
@@ -214,9 +321,15 @@ describe("getChanges", () => {
 
 describe("getPatches", () => {
   it.each([
-    [{ target: "all", mergeBaseBranch: "origin/main" }, { type: "all", mergeBaseBranch: "origin/main" }],
+    [
+      { target: "all", mergeBaseBranch: "origin/main" },
+      { type: "all", mergeBaseBranch: "origin/main" },
+    ],
     [{ target: "uncommitted" }, { type: "uncommitted" }],
-    [{ target: "commit", sha: "abc1234def" }, { type: "commit", sha: "abc1234def" }],
+    [
+      { target: "commit", sha: "abc1234def" },
+      { type: "commit", sha: "abc1234def" },
+    ],
   ])("asks for the patches of the requested paths with query %j", async (query, target) => {
     const { harness, calls } = await setup();
 
@@ -254,7 +367,9 @@ describe("sendFeedback", () => {
   it("rejects blank text", async () => {
     const { harness, calls } = await setup();
 
-    await expect(harness.callRpc("sendFeedback", { threadId: "thr_1", text: "  " })).rejects.toThrow();
+    await expect(
+      harness.callRpc("sendFeedback", { threadId: "thr_1", text: "  " }),
+    ).rejects.toThrow();
     expect(calls.send).toEqual([]);
   });
 

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { PendingComment } from "./pending-review";
 import { buildReviewPrompt } from "./review-prompt";
 
-function comment(path: string, side: PendingComment["side"], line: number, body: string): PendingComment {
+function comment(
+  path: string,
+  side: PendingComment["side"],
+  line: number,
+  body: string,
+): PendingComment {
   return { id: `${path}:${line}`, path, side, line, body };
 }
 
@@ -30,7 +35,9 @@ describe("buildReviewPrompt", () => {
   });
 
   it("indents the next lines of a multi-line comment under its item", () => {
-    const prompt = buildReviewPrompt([comment("a.ts", "additions", 1, "First line\nSecond line\n")]);
+    const prompt = buildReviewPrompt([
+      comment("a.ts", "additions", 1, "First line\nSecond line\n"),
+    ]);
 
     expect(prompt).toContain("1. `a.ts:1` - First line\n   Second line\n\n");
   });

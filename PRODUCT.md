@@ -32,14 +32,14 @@ Built from real daily use of BB by one heavy user, then published. Each plugin s
 
 Current plugins:
 
-| Plugin | Gap it fills | UI surface |
-| --- | --- | --- |
-| GitHub Insight | PR checks, blockers, and review threads inside a thread; review requests and review threads started from them | Thread right-panel PR and Review tabs, Pull Requests panel |
-| Threads with PRs | PR status beside each thread | Sidebar thread list |
-| Codex Quota | Codex allowance and reset times | Sidebar badge, footer, dashboard |
-| Tasks Plus | Tracked tasks delegated to agent threads | Tasks panel (list, board, detail) |
-| Liquid Glass | Alternative look for BB | Theme CSS only |
-| Code Cleanup | Records adjacent cleanup as separate tasks | None (agent guidance only) |
+| Plugin           | Gap it fills                                                                                                  | UI surface                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| GitHub Insight   | PR checks, blockers, and review threads inside a thread; review requests and review threads started from them | Thread right-panel PR and Review tabs, Pull Requests panel |
+| Threads with PRs | PR status beside each thread                                                                                  | Sidebar thread list                                        |
+| Codex Quota      | Codex allowance and reset times                                                                               | Sidebar badge, footer, dashboard                           |
+| Tasks Plus       | Tracked tasks delegated to agent threads                                                                      | Tasks panel (list, board, detail)                          |
+| Liquid Glass     | Alternative look for BB                                                                                       | Theme CSS only                                             |
+| Code Cleanup     | Records adjacent cleanup as separate tasks                                                                    | None (agent guidance only)                                 |
 
 - Each plugin is a separate package with its own dependencies, tests, and README. Install one at a time.
 - React 19 and the BB Plugin SDK. Node 24.15+ within Node 24.

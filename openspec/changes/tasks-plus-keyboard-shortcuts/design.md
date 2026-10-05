@@ -13,11 +13,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - One definitions table is the only place where a key and its label live.
 - One keydown entry point with one set of guards.
 - List and board navigation use real DOM focus.
 
 **Non-Goals:**
+
 - A general-purpose shortcut library or scope stack.
 - Shortcuts in the thread-side `TaskEmbedPanel` or `TaskDirectiveCard`.
 

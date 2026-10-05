@@ -29,14 +29,14 @@ The initial test run failed because the new source interface did not exist and t
 
 Final pre-review verification under Node 24.15.0:
 
-| Command | Result |
-| --- | --- |
-| `npm ci` | Pass, clean lockfile install, 0 reported vulnerabilities |
-| `npm test` | Pass, 33 tests in 3 files |
-| `npm run typecheck` | Pass with SDK declarations checked, no skipLibCheck |
-| `bb plugin types . --check` | Pass, package and host SDK both 0.5.29 |
-| `bb plugin build` | Pass, server/app JS, CSS, maps, and metadata emitted |
-| `git diff --check` | Pass |
+| Command                         | Result                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `npm ci`                        | Pass, clean lockfile install, 0 reported vulnerabilities                    |
+| `npm test`                      | Pass, 33 tests in 3 files                                                   |
+| `npm run typecheck`             | Pass with SDK declarations checked, no skipLibCheck                         |
+| `bb plugin types . --check`     | Pass, package and host SDK both 0.5.29                                      |
+| `bb plugin build`               | Pass, server/app JS, CSS, maps, and metadata emitted                        |
+| `git diff --check`              | Pass                                                                        |
 | Collection README/matrix checks | Pass, one new reader row and one CI package entry; Node 24 policy unchanged |
 
 Coverage includes explicit remote host/root routing, project and thread-backed workspace identity, mismatches and missing/ambiguous roots, literal path rejection, UTF-8 byte limits, empty/non-text content, SDK confinement failures, actual wire validation, opener registration, immutable Raw exactness, no view-switch reads, ordinary GFM, inactive HTML/links/images, loading, refresh/error/retry, late results, unmount, keyboard controls, large plain fences, and bound Original without recursive navigation. Private helpers are not test seams.
@@ -53,11 +53,11 @@ Reproducible command, with the fixture server ready on port 4173:
 uvx --with playwright python tests/browser-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-27-browser
 ```
 
-| Reader container | Fixture tokens | Prose width/type | Content padding | Result |
-| --- | --- | --- | --- | --- |
-| 760 px | Light | 680 px, 16/28 px | 52/40/80 px | Pass |
-| 390 px inside 1100 px viewport | Dark | 342 px, 15/27 px | 38/24/64 px | Pass |
-| 1440 px | Custom | 720 px, 16/28 px | 68/48/100 px | Pass |
+| Reader container               | Fixture tokens | Prose width/type | Content padding | Result |
+| ------------------------------ | -------------- | ---------------- | --------------- | ------ |
+| 760 px                         | Light          | 680 px, 16/28 px | 52/40/80 px     | Pass   |
+| 390 px inside 1100 px viewport | Dark           | 342 px, 15/27 px | 38/24/64 px     | Pass   |
+| 1440 px                        | Custom         | 720 px, 16/28 px | 68/48/100 px    | Pass   |
 
 All three checks confirmed reachable wrapping toolbar buttons, no panel-wide horizontal overflow, local code scrolling, exact Raw, keyboard view/fallback activation, visible focus, and retained content/view after live token changes. The narrow wide-table check confirmed local horizontal scrolling. No browser page errors occurred. The narrow and wide captures were inspected, not accepted from geometry alone.
 
@@ -76,7 +76,6 @@ The approval covers BBP-27 only. The reviewer kept the documented live-check lim
 ## Installation and remaining checks
 
 No plugin install, reload, theme selection, opener preference change, publication, push, or PR command ran. The plugin inventory confirms `markdown-reader` is absent. BB's actual opener arbitration, remote host transport, and live host-token inheritance remain untested without installation. Installation is excluded from this ticket; final live acceptance remains with the parent and the final verification ticket.
-
 
 # BBP-28 source and refresh evidence
 
@@ -115,15 +114,15 @@ The final suite has 99 tests in five files. Coverage includes each source and re
 
 Commands ran serially where they share resources. Node is 24.15.0 and BB is 0.44.0.
 
-| Command/check | Result |
-| --- | --- |
-| `npm ci` | Pass, clean lockfile install, 0 reported vulnerabilities |
-| `npm test` | Pass, 99 tests in 5 files |
-| `npm run typecheck` | Pass, strict SDK declaration checking |
-| `bb plugin types . --check` | Pass, SDK 0.5.29 matches host |
-| `bb plugin build` | Pass, app/server bundles, CSS, maps and metadata |
+| Command/check                                                                                                  | Result                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                                                                                       | Pass, clean lockfile install, 0 reported vulnerabilities                                                                      |
+| `npm test`                                                                                                     | Pass, 99 tests in 5 files                                                                                                     |
+| `npm run typecheck`                                                                                            | Pass, strict SDK declaration checking                                                                                         |
+| `bb plugin types . --check`                                                                                    | Pass, SDK 0.5.29 matches host                                                                                                 |
+| `bb plugin build`                                                                                              | Pass, app/server bundles, CSS, maps and metadata                                                                              |
 | `uvx --with playwright python tests/browser-refresh-check.py --url http://127.0.0.1:4173 --out <evidence-dir>` | Pass, retained stale Preview and Raw, failed Retry, bound Original, 760 px reader without horizontal overflow, no page errors |
-| `uvx --with playwright python tests/browser-check.py --url http://127.0.0.1:4173 --out <evidence-dir>/layout` | Pass, prior layout regression checks at 760 light, 390 dark and 1440 custom fixture tokens |
+| `uvx --with playwright python tests/browser-check.py --url http://127.0.0.1:4173 --out <evidence-dir>/layout`  | Pass, prior layout regression checks at 760 light, 390 dark and 1440 custom fixture tokens                                    |
 
 The new 760 px stale-state capture was inspected before the final check set. A scoped 28 px gap separates state text/Retry from the retained document. A second capture confirms that separation, readable state text, reachable controls, and the unchanged prose rhythm. `tests/preview.tsx` supports `?refresh=error` for the reproducible failure fixture. The browser-use default browser again failed to find a local browser path; local Playwright Chromium ran these unsigned fixture checks. The fixture server and browser session were stopped after validation.
 
@@ -169,19 +168,19 @@ Focused red/green logs cover the missing document model, outline disclosure/hide
 
 Node 24.15.0 and BB 0.44.0. Pre-review package commands ran serially:
 
-| Command/check | Result |
-| --- | --- |
-| `npm ci` | Pass, lockfile install, 0 reported vulnerabilities. Existing prebuild-install dependency emits a deprecation warning. |
-| `npm test` | Pass, 117 tests in 7 files, including all earlier behavior checks. |
-| `npm run typecheck` | Pass, strict declarations, skipLibCheck false. |
-| `bb plugin types . --check` | Pass, package and host SDK 0.5.29. |
-| `bb plugin build` | Pass, server/app bundles, CSS, maps and metadata. |
-| Source/RPC/registered-reader navigation integration | Pass for all three sources, one actual controlled SDK read, no writes or navigation calls for repeated line props. |
-| `tests/browser-navigation-check.py` | Pass at 1440 light, 760 light and 390 dark fixture widths, plus dynamic panel resize, no-heading document, independent readers and initial Raw target. |
-| Existing `tests/browser-check.py` | Pass, previous 760 light / 390 dark / 1440 custom-token checks. |
-| Existing `tests/browser-refresh-check.py` | Pass, retained stale Preview/Raw, Retry, bound Original and no panel overflow. |
-| Collection/scope/whitespace checks | Pass, 22 package-only files; collection README/CI and source/server unchanged, lock declarations match, prior acceptance byte prefix preserved, tracked and untracked whitespace clean. |
-| Plugin inventory | Markdown Reader absent; fixture browser/session and server stopped. |
+| Command/check                                       | Result                                                                                                                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                            | Pass, lockfile install, 0 reported vulnerabilities. Existing prebuild-install dependency emits a deprecation warning.                                                                   |
+| `npm test`                                          | Pass, 117 tests in 7 files, including all earlier behavior checks.                                                                                                                      |
+| `npm run typecheck`                                 | Pass, strict declarations, skipLibCheck false.                                                                                                                                          |
+| `bb plugin types . --check`                         | Pass, package and host SDK 0.5.29.                                                                                                                                                      |
+| `bb plugin build`                                   | Pass, server/app bundles, CSS, maps and metadata.                                                                                                                                       |
+| Source/RPC/registered-reader navigation integration | Pass for all three sources, one actual controlled SDK read, no writes or navigation calls for repeated line props.                                                                      |
+| `tests/browser-navigation-check.py`                 | Pass at 1440 light, 760 light and 390 dark fixture widths, plus dynamic panel resize, no-heading document, independent readers and initial Raw target.                                  |
+| Existing `tests/browser-check.py`                   | Pass, previous 760 light / 390 dark / 1440 custom-token checks.                                                                                                                         |
+| Existing `tests/browser-refresh-check.py`           | Pass, retained stale Preview/Raw, Retry, bound Original and no panel overflow.                                                                                                          |
+| Collection/scope/whitespace checks                  | Pass, 22 package-only files; collection README/CI and source/server unchanged, lock declarations match, prior acceptance byte prefix preserved, tracked and untracked whitespace clean. |
+| Plugin inventory                                    | Markdown Reader absent; fixture browser/session and server stopped.                                                                                                                     |
 
 Model/UI tests cover duplicate/non-ASCII/inline headings, six levels, conventional fragments and collisions, local keyboard focus, independent reader IDs, compact disclosure, hide/reclaim state, no headings, observer disposal, initial/repeated/changed requests before and after reads, clamping, malformed and empty inputs, exact Raw/wrapped lines, no line-only reload/model replacement, source switching, and the existing source/race/fallback suite.
 
@@ -211,13 +210,13 @@ Reproduced the blocker first with four new model/UI regression cases. The saved 
 
 Post-correction verification passed:
 
-| Command/check | Result |
-| --- | --- |
-| `npm test -- --no-cache` | 121 tests in 7 files. |
-| `npm run typecheck` | Strict declaration check passes. |
-| `bb plugin types . --check` | Package/host SDK 0.5.29. |
-| `bb plugin build` | BB 0.44.0 bundles, CSS, maps and metadata. |
-| All three browser runners | Navigation, previous layout and Refresh/Retry/fallback regression checks pass, no page errors. New used-footnote fixtures pass initial exact Raw, source-only outline and local accessibility-reference checks. |
+| Command/check               | Result                                                                                                                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test -- --no-cache`    | 121 tests in 7 files.                                                                                                                                                                                           |
+| `npm run typecheck`         | Strict declaration check passes.                                                                                                                                                                                |
+| `bb plugin types . --check` | Package/host SDK 0.5.29.                                                                                                                                                                                        |
+| `bb plugin build`           | BB 0.44.0 bundles, CSS, maps and metadata.                                                                                                                                                                      |
+| All three browser runners   | Navigation, previous layout and Refresh/Retry/fallback regression checks pass, no page errors. New used-footnote fixtures pass initial exact Raw, source-only outline and local accessibility-reference checks. |
 
 Post-correction captures/results live in `post-review/{navigation,layout,refresh}/`. All 11 prior view captures are byte-identical to the previously inspected views. The two new footnote captures were inspected and show passive note content, a correct source-only outline when a source heading exists, and no outline when it does not. The fixture browser and server were stopped again.
 
@@ -245,18 +244,18 @@ Red checkpoints: 39 source-interface failures, then 8 rendered integration failu
 
 ## Validation and browser evidence
 
-| Check | Result |
-| --- | --- |
-| `npm test -- --no-cache` | 190 tests in 9 files pass. |
-| `npm run typecheck` | Strict SDK declaration check passes. |
-| `bb plugin types . --check` | Package and host SDK 0.5.29 pass. |
-| `bb plugin build` | App/server/CSS/maps/metadata build passes. |
-| `openspec validate markdown-reader --strict` | Pass. |
-| Scope/whitespace | Only reader package and four approved planning files; tracked whitespace passes. |
-| Lock/collection checks | Unchanged lock declarations match; README/CI reader entries retained. |
-| Prior acceptance | Exact baseline text preserved as the prefix of this file. |
-| Destination browser runner | 9 source/width cases pass with no page errors. |
-| Earlier three browser runners | Navigation, layout, and Refresh/Retry/fallback regression checks pass. |
+| Check                                        | Result                                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| `npm test -- --no-cache`                     | 190 tests in 9 files pass.                                                       |
+| `npm run typecheck`                          | Strict SDK declaration check passes.                                             |
+| `bb plugin types . --check`                  | Package and host SDK 0.5.29 pass.                                                |
+| `bb plugin build`                            | App/server/CSS/maps/metadata build passes.                                       |
+| `openspec validate markdown-reader --strict` | Pass.                                                                            |
+| Scope/whitespace                             | Only reader package and four approved planning files; tracked whitespace passes. |
+| Lock/collection checks                       | Unchanged lock declarations match; README/CI reader entries retained.            |
+| Prior acceptance                             | Exact baseline text preserved as the prefix of this file.                        |
+| Destination browser runner                   | 9 source/width cases pass with no page errors.                                   |
+| Earlier three browser runners                | Navigation, layout, and Refresh/Retry/fallback regression checks pass.           |
 
 Dev-server readiness was verified on port 4176 before checks. Browser-use's default browser still reports no local browser path. Cached local Playwright Chromium ran instead through `uv run --offline --with playwright`. No browser or plugin installation was performed. The early representative destination capture and final wide/narrow captures were inspected. Local/remote fixture images preserve aspect ratio and fit 720 px wide and 342 px narrow columns. Alt/error text stays readable, the toolbar wraps, and footnote focus stays inside the reader.
 
@@ -280,7 +279,6 @@ Native local-file opening has no extra plugin final-symlink-target confinement. 
 
 No core/SDK edits, plugin installation/reload, preference/theme changes, push, publication, PR, or BBP-31 work occurred. BBP-26 remains in progress.
 
-
 # BBP-31 code presentation and responsive reading evidence
 
 ## Scope and implementation
@@ -297,19 +295,19 @@ Test-first evidence includes the initial compact-JSON failure and the inherited 
 
 Durable evidence root: `/Users/koen/.bb/thread-storage/thr_yzdy7ncie2/bbp-31/`.
 
-| Check | Result and evidence |
-| --- | --- |
-| `npm ci` | 269 packages, zero vulnerabilities; `clean-install.log`. |
-| `npm test -- --no-cache` | 221 tests in 10 files pass; `eof-full-tests.log`. |
-| `npm run typecheck` | Pass; `eof-typecheck.log`. |
-| `bb plugin types . --check` | SDK 0.5.29 compatibility passes; `sdk.log`. |
-| `bb plugin build` | Pass; `build.log`. |
-| OpenSpec strict validation | Direct CLI absent (127); offline npx cache unavailable. `npx --yes @fission-ai/openspec validate markdown-reader --strict` passes; all three attempts are saved. |
-| Earlier browser runners | Original layout, refresh, navigation and nine destination cases pass after clean install; matching `*-browser.log` and `existing-*` results. |
-| Presentation browser | Nine cases pass after clean install; `presentation-clean-install/results.json`. No page, console or request failures. |
-| Visual inspection | All 16 final top/code captures match the 16 inspected `presentation-verified/` captures byte-for-byte; `final-capture-identity.json`. |
-| Bundle impact | App JS gzip 58,858 → 71,901 bytes (+13,043); CSS gzip 4,073 → 4,165; server unchanged. `baseline-bundle.json` and `final-bundle.json`. |
-| Collection and lock | Existing root README/CI package entries remain unchanged. Dependency declarations match the lock; `scope-and-lock.json`. |
+| Check                       | Result and evidence                                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                    | 269 packages, zero vulnerabilities; `clean-install.log`.                                                                                                         |
+| `npm test -- --no-cache`    | 221 tests in 10 files pass; `eof-full-tests.log`.                                                                                                                |
+| `npm run typecheck`         | Pass; `eof-typecheck.log`.                                                                                                                                       |
+| `bb plugin types . --check` | SDK 0.5.29 compatibility passes; `sdk.log`.                                                                                                                      |
+| `bb plugin build`           | Pass; `build.log`.                                                                                                                                               |
+| OpenSpec strict validation  | Direct CLI absent (127); offline npx cache unavailable. `npx --yes @fission-ai/openspec validate markdown-reader --strict` passes; all three attempts are saved. |
+| Earlier browser runners     | Original layout, refresh, navigation and nine destination cases pass after clean install; matching `*-browser.log` and `existing-*` results.                     |
+| Presentation browser        | Nine cases pass after clean install; `presentation-clean-install/results.json`. No page, console or request failures.                                            |
+| Visual inspection           | All 16 final top/code captures match the 16 inspected `presentation-verified/` captures byte-for-byte; `final-capture-identity.json`.                            |
+| Bundle impact               | App JS gzip 58,858 → 71,901 bytes (+13,043); CSS gzip 4,073 → 4,165; server unchanged. `baseline-bundle.json` and `final-bundle.json`.                           |
+| Collection and lock         | Existing root README/CI package entries remain unchanged. Dependency declarations match the lock; `scope-and-lock.json`.                                         |
 
 The public registered-app frontend harness uses controlled RPC/image responses. Cases cover 390/760/1440 px in Default light/dark, a 760 px custom-token fixture, a 390 px reader inside a 1440 px viewport, and a heading-free document. Long titles/paths, heading levels 1–6, footnotes, long code and wide tables remain usable. Prose measures 342/680/720 px at the three widths. The runner checks local overflow and keyboard scrolling, reachable/named controls, visible focus, semantic headings/tables, local heading/footnote navigation, exact Raw, image aspect ratio and adjacent host-style sentinel isolation.
 
@@ -365,11 +363,11 @@ Together these checks cover all three source identities, explicit host/root rout
 
 The early 760-light top/code captures and all 16 final top/code captures were inspected against the approved HTML spacing/type reference. The centered prose, section rhythm, quiet toolbar, bounded code/table regions, and wide outline agree with that reference. At 390 px, the toolbar wraps and the outline uses a disclosure. A 390 px reader inside a 1440 px viewport retains this compact layout without changing adjacent fixture styles. Code remains exact and scrolls locally rather than widening the reader. Long headings remain readable. No report badges or source metadata are invented.
 
-| Controlled fixture | Reader/prose width | Body contrast | Minimum highlighted-token contrast |
-| --- | --- | --- | --- |
-| Default light, 390/760/1440 px | 390/342, 760/680, 1440/720 px | 12.63:1 | 7.04:1 |
-| Default dark, 390/760/1440 px | 390/342, 760/680, 1440/720 px | 10.14:1 | 8.31:1 |
-| Custom tokens, 760 px | 760/680 px | 11.66:1 | 5.77:1 |
+| Controlled fixture             | Reader/prose width            | Body contrast | Minimum highlighted-token contrast |
+| ------------------------------ | ----------------------------- | ------------- | ---------------------------------- |
+| Default light, 390/760/1440 px | 390/342, 760/680, 1440/720 px | 12.63:1       | 7.04:1                             |
+| Default dark, 390/760/1440 px  | 390/342, 760/680, 1440/720 px | 10.14:1       | 8.31:1                             |
+| Custom tokens, 760 px          | 760/680 px                    | 11.66:1       | 5.77:1                             |
 
 All measured body contrasts exceed 4.5:1. The nine-case runner also checks keyboard activation/focus, local horizontal scrolling, image proportions, exact Raw, and view/outline/model state across token and width changes. Token provenance and fixture limits remain in `tests/fixtures/theme-tokens.md`. `final-presentation/results.json` contains capture SHA-256 values, geometry, contrast samples, and bounded browser diagnostics. The early and final 760-light top captures are byte-identical. These images are fixture evidence, not installed light/dark certification.
 
@@ -409,7 +407,6 @@ The reviewer independently reran all 221 tests, strict typecheck, and SDK compat
 
 Native state is complete. The runner terminal is observed with exit 0; the review step also records exit 0. The last reviewer tool sent the owner-only notice with documented positional `bb thread tell` text. Its receipt confirms `ok: true` and `delivery: sent`. Review approval comes from the full saved report and runtime result, not the notice alone. Exact status, events, process-terminal, output, runner logs, and reviewer session are preserved under `review-native/` in the evidence directory. Final affected documentation/OpenSpec, scope/lock/collection/history/capture, and whitespace checks are recorded in the handoff. Full package/browser checks need no additional rerun for these evidence-only notes. OpenSpec 6.4 remains open for unresolved A1; 6.5 remains open for native acceptance.
 
-
 ## BBP-32 A1 continuation — acceptance still open (2026-10-04)
 
 This continuation uses separate evidence under `/Users/koen/.bb/thread-storage/thr_dpkwwej5k4/bbp-32/a1-resolution/`. The original full report, native review records, held evidence bundle, and verdict above are unchanged. No second review or waiver was used. No executable package code changed.
@@ -444,7 +441,6 @@ Scoped prose rules now restore native decimal/disc/nested markers. Native ordere
 The reader was already present/enabled at this continuation's entry, supplied by the parent. The exact approved leaf source was checked immediately before the only targeted `bb plugin reload markdown-reader`. Its bundle changed from `948abd84e0b7ac97` to `6261ff27fa9c27a4`, remains running and SDK 0.5.29 compatible. Reader presence/source/enabled state is preserved. All plugin source/enabled entries match across the immediately guarded reload. An unrelated concurrent `tasks-plus` source change before that guard was observed and left unchanged; whole-list equality with entry is not claimed. The earlier absent-reader rollback is historical, not this run's restore target. No persistent opener/theme preference was changed; no BB/native browser tabs or production services were opened, repaired or restarted. The owned Vite listener and fixture browsers were stopped after use.
 
 This is a held, unstaged UI-correction handoff, not completion or native acceptance. Actual native HTTP(S) and modifier destination checks remain unverified under A1. OpenSpec 6.4/6.5 remain unchecked. BBP-32 stays attached/in progress and BBP-26 stays in progress. No completion commit, merge, publication, push or PR occurred.
-
 
 ## Browser acceptance decision and checklist closure (2026-10-04)
 

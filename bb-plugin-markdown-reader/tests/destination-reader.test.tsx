@@ -8,65 +8,166 @@ import pluginServer from "../server";
 import { destinationsResultSchema, readResultSchema, type ReaderTarget } from "../source";
 
 const targets: ReaderTarget[] = [
-  { path: "reports/note.md", source: { kind: "workspace", threadId: "thread", environmentId: null, projectId: null } },
-  { path: "/notes/note.md", source: { kind: "host", threadId: null, environmentId: null, projectId: null, experimental_hostId: "remote" } },
-  { path: "reports/note.md", source: { kind: "thread-storage", threadId: "thread", environmentId: null, projectId: null } },
+  {
+    path: "reports/note.md",
+    source: { kind: "workspace", threadId: "thread", environmentId: null, projectId: null },
+  },
+  {
+    path: "/notes/note.md",
+    source: {
+      kind: "host",
+      threadId: null,
+      environmentId: null,
+      projectId: null,
+      experimental_hostId: "remote",
+    },
+  },
+  {
+    path: "reports/note.md",
+    source: { kind: "thread-storage", threadId: "thread", environmentId: null, projectId: null },
+  },
 ];
 const disposers: (() => Promise<void>)[] = [];
-afterEach(async () => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); for (const dispose of disposers.splice(0)) await dispose(); });
-async function mount(target = targets[0]!, text = "# Note", preview?: () => Promise<{ baseUrl: string; expiresAtMs: number }>) {
+afterEach(async () => {
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  for (const dispose of disposers.splice(0)) await dispose();
+});
+async function mount(
+  target = targets[0]!,
+  text = "# Note",
+  preview?: () => Promise<{ baseUrl: string; expiresAtMs: number }>,
+) {
   let leases = 0;
   let readFailure = false;
-  const { bb, harness } = createFakePluginHost({ pluginId: "markdown-reader", sdk: {
-    threads: { get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }), storageLocation: async () => ({ hostId: "remote", storageRootPath: "/actual/storage" }) },
-    environments: { get: async () => ({ id: "env", projectId: "project", hostId: "remote", path: "/work", status: "ready" }) },
-    files: { read: async () => { if (readFailure) throw new Error("Source disconnected"); return { content: text, contentEncoding: "utf8", sha256: "unchanged", sizeBytes: text.length }; },
-      createPreview: preview ?? (async () => ({ baseUrl: `/api/v1/file-previews/lease-${++leases}`, expiresAtMs: Date.now() + 60000 })) },
-  } });
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "markdown-reader",
+    sdk: {
+      threads: {
+        get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }),
+        storageLocation: async () => ({ hostId: "remote", storageRootPath: "/actual/storage" }),
+      },
+      environments: {
+        get: async () => ({
+          id: "env",
+          projectId: "project",
+          hostId: "remote",
+          path: "/work",
+          status: "ready",
+        }),
+      },
+      files: {
+        read: async () => {
+          if (readFailure) throw new Error("Source disconnected");
+          return {
+            content: text,
+            contentEncoding: "utf8",
+            sha256: "unchanged",
+            sizeBytes: text.length,
+          };
+        },
+        createPreview:
+          preview ??
+          (async () => ({
+            baseUrl: `/api/v1/file-previews/lease-${++leases}`,
+            expiresAtMs: Date.now() + 60000,
+          })),
+      },
+    },
+  });
   disposers.push(() => harness.lifecycle.dispose());
   pluginServer(bb);
   const app = await loadPluginApp(pluginApp);
   const Opener = app.fileOpeners[0]!.component;
-  const slot = renderSlot(app.fileOpeners[0]!, { ...target, Original: () => <p>Bound Original</p> }, { rpc: {
-    read_document: async input => readResultSchema.parse(await harness.behavior.callRpc("read_document", input)),
-    resolve_destinations: async input => destinationsResultSchema.parse(await harness.behavior.callRpc("resolve_destinations", input)),
-  }, openUrl: () => true, openFilePreview: () => true });
-  return { slot, harness, Opener, failRead: () => { readFailure = true; } };
+  const slot = renderSlot(
+    app.fileOpeners[0]!,
+    { ...target, Original: () => <p>Bound Original</p> },
+    {
+      rpc: {
+        read_document: async (input) =>
+          readResultSchema.parse(await harness.behavior.callRpc("read_document", input)),
+        resolve_destinations: async (input) =>
+          destinationsResultSchema.parse(
+            await harness.behavior.callRpc("resolve_destinations", input),
+          ),
+      },
+      openUrl: () => true,
+      openFilePreview: () => true,
+    },
+  );
+  return {
+    slot,
+    harness,
+    Opener,
+    failRead: () => {
+      readFailure = true;
+    },
+  };
 }
 
 describe("rendered destinations and source-owned image transport", () => {
-  it.each(targets)("activates real $source.kind anchors with the actual identity and no speculative file read", async target => {
-    const text = '# Note\n\n[sibling](next.md) [local](./note.md#note) [web](https://example.com/guide)\n\n![Local alt](picture.png) ![Remote alt](https://images.test/picture.png)\n';
-    const { slot, harness } = await mount(target, text);
-    const sibling = await slot.findByRole("link", { name: "sibling" });
-    expect(sibling.tagName).toBe("A");
-    expect(sibling.getAttribute("href")).toBeTruthy();
-    fireEvent.click(sibling);
-    const expected = target.source.kind === "workspace" ? { kind: "workspace", environmentId: "env", path: "reports/next.md" }
-      : target.source.kind === "host" ? { kind: "host", hostId: "remote", path: "/notes/next.md" }
-      : { kind: "thread-storage", threadId: "thread", path: "reports/next.md" };
-    expect(slot.inspection.navigateCalls).toContainEqual({ method: "experimental_openFilePreview", options: { target: expected, location: null } });
-    const before = slot.inspection.navigateCalls.length;
-    fireEvent.click(slot.getByRole("link", { name: "local" }));
-    expect(slot.inspection.navigateCalls).toHaveLength(before);
-    expect(document.activeElement).toBe(slot.getByRole("heading", { name: "Note" }));
-    fireEvent.click(slot.getByRole("link", { name: "web" }));
-    expect(slot.inspection.navigateCalls).toContainEqual({ method: "openUrl", url: "https://example.com/guide" });
-    const image = await slot.findByRole("img", { name: "Local alt" });
-    expect(image.getAttribute("src")).toMatch(/^\/api\/v1\/file-previews\/lease-1\//);
-    expect(image.getAttribute("src")).not.toMatch(/remote|\/notes|\/work|\/actual/);
-    expect(slot.getByRole("img", { name: "Remote alt" }).getAttribute("src")).toBe("https://images.test/picture.png");
-    expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
-    fireEvent.click(slot.getByRole("button", { name: "Raw" }));
-    expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
-  });
+  it.each(targets)(
+    "activates real $source.kind anchors with the actual identity and no speculative file read",
+    async (target) => {
+      const text =
+        "# Note\n\n[sibling](next.md) [local](./note.md#note) [web](https://example.com/guide)\n\n![Local alt](picture.png) ![Remote alt](https://images.test/picture.png)\n";
+      const { slot, harness } = await mount(target, text);
+      const sibling = await slot.findByRole("link", { name: "sibling" });
+      expect(sibling.tagName).toBe("A");
+      expect(sibling.getAttribute("href")).toBeTruthy();
+      fireEvent.click(sibling);
+      const expected =
+        target.source.kind === "workspace"
+          ? { kind: "workspace", environmentId: "env", path: "reports/next.md" }
+          : target.source.kind === "host"
+            ? { kind: "host", hostId: "remote", path: "/notes/next.md" }
+            : { kind: "thread-storage", threadId: "thread", path: "reports/next.md" };
+      expect(slot.inspection.navigateCalls).toContainEqual({
+        method: "experimental_openFilePreview",
+        options: { target: expected, location: null },
+      });
+      const before = slot.inspection.navigateCalls.length;
+      fireEvent.click(slot.getByRole("link", { name: "local" }));
+      expect(slot.inspection.navigateCalls).toHaveLength(before);
+      expect(document.activeElement).toBe(slot.getByRole("heading", { name: "Note" }));
+      fireEvent.click(slot.getByRole("link", { name: "web" }));
+      expect(slot.inspection.navigateCalls).toContainEqual({
+        method: "openUrl",
+        url: "https://example.com/guide",
+      });
+      const image = await slot.findByRole("img", { name: "Local alt" });
+      expect(image.getAttribute("src")).toMatch(/^\/api\/v1\/file-previews\/lease-1\//);
+      expect(image.getAttribute("src")).not.toMatch(/remote|\/notes|\/work|\/actual/);
+      expect(slot.getByRole("img", { name: "Remote alt" }).getAttribute("src")).toBe(
+        "https://images.test/picture.png",
+      );
+      expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
+      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+      fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+      expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
+    },
+  );
   it("keeps lexical rejections readable with no href/src, preview allocation or navigation", async () => {
-    const urls = ["javascript:alert(1)", "data:image/svg+xml,bad", "file:///etc/passwd", "%2e%2e/out.png", "../../out.png", "%zz", "https:/broken", "image.svg"];
-    const text = '# Note\n\n' + urls.map((u, i) => `[link ${i}](${u}) ![alt ${i}](${u})`).join('\n\n') + '\n\n<script>bad()</script>\n<iframe src="https://example.com"></iframe>';
+    const urls = [
+      "javascript:alert(1)",
+      "data:image/svg+xml,bad",
+      "file:///etc/passwd",
+      "%2e%2e/out.png",
+      "../../out.png",
+      "%zz",
+      "https:/broken",
+      "image.svg",
+    ];
+    const text =
+      "# Note\n\n" +
+      urls.map((u, i) => `[link ${i}](${u}) ![alt ${i}](${u})`).join("\n\n") +
+      '\n\n<script>bad()</script>\n<iframe src="https://example.com"></iframe>';
     const { slot, harness } = await mount(targets[0], text);
     await slot.findByRole("heading", { name: "Note" });
-    await waitFor(() => expect(slot.inspection.rpcCalls.some(c => c.method === "resolve_destinations")).toBe(true));
+    await waitFor(() =>
+      expect(slot.inspection.rpcCalls.some((c) => c.method === "resolve_destinations")).toBe(true),
+    );
     for (let i = 0; i < urls.length; i++) {
       const link = slot.getByText(`link ${i}`);
       if (urls[i] !== "image.svg") expect(link.tagName).toBe("SPAN");
@@ -77,27 +178,41 @@ describe("rendered destinations and source-owned image transport", () => {
     expect(slot.container.querySelectorAll("img,script,iframe")).toHaveLength(0);
     expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
     expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
-    expect(slot.inspection.navigateCalls.every(c => c.method === "experimental_openFilePreview")).toBe(true);
+    expect(
+      slot.inspection.navigateCalls.every((c) => c.method === "experimental_openFilePreview"),
+    ).toBe(true);
   });
   it("retains accessible keyboard activation and SDK-owned modifier behavior", async () => {
-    const { slot } = await mount(targets[0], '# Note\n\n[web](https://example.com/) [file](next.md)');
+    const { slot } = await mount(
+      targets[0],
+      "# Note\n\n[web](https://example.com/) [file](next.md)",
+    );
     const web = await slot.findByRole("link", { name: "web" });
     const file = slot.getByRole("link", { name: "file" });
     for (const element of [web, file]) {
       fireEvent.click(element, { ctrlKey: true });
       fireEvent.click(element, { metaKey: true });
-      fireEvent(element, new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true }));
+      fireEvent(
+        element,
+        new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true }),
+      );
     }
     expect(slot.inspection.navigateCalls).toHaveLength(0);
     web.focus();
     await userEvent.setup().keyboard("{Enter}");
-    expect(slot.inspection.navigateCalls).toContainEqual({ method: "openUrl", url: "https://example.com/" });
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "openUrl",
+      url: "https://example.com/",
+    });
     file.focus();
     await userEvent.setup().keyboard("{Enter}");
     expect(slot.inspection.navigateCalls).toHaveLength(2);
   });
   it("deduplicates within a snapshot and renews transport on same-text/hash Refresh without a view-switch lease", async () => {
-    const { slot, harness } = await mount(targets[0], '# Note\n\n![first](a.png) ![second](./a.png)');
+    const { slot, harness } = await mount(
+      targets[0],
+      "# Note\n\n![first](a.png) ![second](./a.png)",
+    );
     const first = await slot.findByRole("img", { name: "first" });
     const second = slot.getByRole("img", { name: "second" });
     expect(first.getAttribute("src")).toBe(second.getAttribute("src"));
@@ -105,11 +220,16 @@ describe("rendered destinations and source-owned image transport", () => {
     fireEvent.click(slot.getByRole("button", { name: "Preview" }));
     expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
-    await waitFor(() => expect(slot.getByRole("img", { name: "first" }).getAttribute("src")).toContain("lease-2"));
+    await waitFor(() =>
+      expect(slot.getByRole("img", { name: "first" }).getAttribute("src")).toContain("lease-2"),
+    );
     expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(2);
   });
   it("leaves readable alt/error content after a confined asset request fails, then Refresh recovers", async () => {
-    const { slot, harness } = await mount(targets[0], '# Note\n\nSurrounding text.\n\n![Symlink alt](escape.png)');
+    const { slot, harness } = await mount(
+      targets[0],
+      "# Note\n\nSurrounding text.\n\n![Symlink alt](escape.png)",
+    );
     const image = await slot.findByRole("img", { name: "Symlink alt" });
     // Simulated SDK-confined GET denial. An attempted content request is permitted.
     fireEvent.error(image);
@@ -123,7 +243,11 @@ describe("rendered destinations and source-owned image transport", () => {
   });
   it("discards late previews on source switching and unmount without cross-source reuse", async () => {
     const pending: ((p: { baseUrl: string; expiresAtMs: number }) => void)[] = [];
-    const { slot, harness, Opener } = await mount(targets[0], '# Note\n\n![Picture](a.png)', () => new Promise(resolve => pending.push(resolve)));
+    const { slot, harness, Opener } = await mount(
+      targets[0],
+      "# Note\n\n![Picture](a.png)",
+      () => new Promise((resolve) => pending.push(resolve)),
+    );
     await waitFor(() => expect(pending).toHaveLength(1));
     slot.lifecycle.rerender(<Opener {...targets[1]!} Original={() => <p>Bound Original</p>} />);
     await waitFor(() => expect(pending).toHaveLength(2));
@@ -144,7 +268,10 @@ describe("rendered destinations and source-owned image transport", () => {
     expect(previews[1]![0]).toMatchObject({ hostId: "remote", rootPath: "/notes" });
   });
   it("removes stale image sources during Refresh and a failed read, while keeping readable stale text", async () => {
-    const { slot, failRead } = await mount(targets[0], '# Note\n\nStale paragraph.\n\n![Stale alt](a.png)');
+    const { slot, failRead } = await mount(
+      targets[0],
+      "# Note\n\nStale paragraph.\n\n![Stale alt](a.png)",
+    );
     await slot.findByRole("img", { name: "Stale alt" });
     failRead();
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
@@ -156,45 +283,63 @@ describe("rendered destinations and source-owned image transport", () => {
   it("expires loaded images, clears timers on unmount, and does not allocate on its own", async () => {
     vi.useFakeTimers();
     let mounted!: Awaited<ReturnType<typeof mount>>;
-    await act(async () => { mounted = await mount(targets[0], '# Note\n\n![Expiring alt](a.png)'); });
+    await act(async () => {
+      mounted = await mount(targets[0], "# Note\n\n![Expiring alt](a.png)");
+    });
     expect(mounted.slot.getByRole("img").getAttribute("src")).toContain("lease-1");
-    await act(async () => { await vi.advanceTimersByTimeAsync(60001); });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60001);
+    });
     expect(mounted.slot.queryByRole("img")).toBeNull();
     expect(mounted.slot.getByText("Expiring alt")).toBeTruthy();
     expect(mounted.harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
     mounted.slot.lifecycle.unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
-  it.each(targets)("keeps encoded external separator traversal inert for $source.kind while valid peers work", async target => {
-    const urls = ["https://images.test/%2e%2e%2fpicture.png", "https://images.test/a%2f..%2fpicture.png", "https://example.com/a%2f%2e%2e/guide"];
-    const text = urls.map((url, i) => `[rejected ${i}](${url}) ![blocked ${i}](${url})`).join("\n\n") + '\n\n[sibling](next.md)';
-    const { slot, harness } = await mount(target, text);
-    await slot.findByRole("link", { name: "sibling" });
-    for (let i = 0; i < urls.length; i++) {
-      const label = slot.getByText(`rejected ${i}`);
-      expect(label.tagName).toBe("SPAN");
-      fireEvent.click(label);
-      expect(slot.getByText(`blocked ${i}`)).toBeTruthy();
-    }
-    expect(slot.container.querySelectorAll("img")).toHaveLength(0);
-    expect(slot.inspection.navigateCalls).toHaveLength(0);
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
-    expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
-  });
-  it.each(targets)("rejects oversized URLs individually for $source.kind without disabling a sibling or image", async target => {
-    const oversized = "https://example.com/" + "a".repeat(4100);
-    const text = `[oversized](${oversized}) ![Oversized alt](${oversized}) [sibling](next.md) ![Good alt](picture.png)`;
-    const { slot, harness } = await mount(target, text);
-    expect((await slot.findByRole("link", { name: "sibling" })).tagName).toBe("A");
-    expect(slot.getByText("oversized").tagName).toBe("SPAN");
-    expect(slot.getByText("Oversized alt")).toBeTruthy();
-    expect((await slot.findByRole("img", { name: "Good alt" })).getAttribute("src")).toContain("lease-1");
-    expect(slot.container.querySelectorAll("img")).toHaveLength(1);
-    expect(slot.inspection.navigateCalls).toHaveLength(0);
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
-    const resolution = slot.inspection.rpcCalls.find(c => c.method === "resolve_destinations")!;
-    expect(JSON.stringify(resolution)).not.toContain(oversized);
-    fireEvent.click(slot.getByRole("button", { name: "Raw" }));
-    expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
-  });
+  it.each(targets)(
+    "keeps encoded external separator traversal inert for $source.kind while valid peers work",
+    async (target) => {
+      const urls = [
+        "https://images.test/%2e%2e%2fpicture.png",
+        "https://images.test/a%2f..%2fpicture.png",
+        "https://example.com/a%2f%2e%2e/guide",
+      ];
+      const text =
+        urls.map((url, i) => `[rejected ${i}](${url}) ![blocked ${i}](${url})`).join("\n\n") +
+        "\n\n[sibling](next.md)";
+      const { slot, harness } = await mount(target, text);
+      await slot.findByRole("link", { name: "sibling" });
+      for (let i = 0; i < urls.length; i++) {
+        const label = slot.getByText(`rejected ${i}`);
+        expect(label.tagName).toBe("SPAN");
+        fireEvent.click(label);
+        expect(slot.getByText(`blocked ${i}`)).toBeTruthy();
+      }
+      expect(slot.container.querySelectorAll("img")).toHaveLength(0);
+      expect(slot.inspection.navigateCalls).toHaveLength(0);
+      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
+      expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
+    },
+  );
+  it.each(targets)(
+    "rejects oversized URLs individually for $source.kind without disabling a sibling or image",
+    async (target) => {
+      const oversized = "https://example.com/" + "a".repeat(4100);
+      const text = `[oversized](${oversized}) ![Oversized alt](${oversized}) [sibling](next.md) ![Good alt](picture.png)`;
+      const { slot, harness } = await mount(target, text);
+      expect((await slot.findByRole("link", { name: "sibling" })).tagName).toBe("A");
+      expect(slot.getByText("oversized").tagName).toBe("SPAN");
+      expect(slot.getByText("Oversized alt")).toBeTruthy();
+      expect((await slot.findByRole("img", { name: "Good alt" })).getAttribute("src")).toContain(
+        "lease-1",
+      );
+      expect(slot.container.querySelectorAll("img")).toHaveLength(1);
+      expect(slot.inspection.navigateCalls).toHaveLength(0);
+      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+      const resolution = slot.inspection.rpcCalls.find((c) => c.method === "resolve_destinations")!;
+      expect(JSON.stringify(resolution)).not.toContain(oversized);
+      fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+      expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
+    },
+  );
 });

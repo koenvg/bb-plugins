@@ -5,6 +5,7 @@
 See `proposal.md` for motivation and the two delta specs for the behavior contract.
 
 Observed implementation:
+
 - `views/detail/attachments.tsx` renders non-image task attachments as download anchors. It owns task attachment removal and the image lightbox.
 - `views/activity/task-activity.tsx` has a separate `FileAttachmentCard`, `AttachmentTracks`, and per-comment image lightbox. Task-only changes would miss comment attachments.
 - `shared/attachments.ts` exposes the ID-based download URL and the 25 MiB attachment allowance. `attachments/index.ts` confines saved blob paths to the Tasks plugin data directory. The GET download route sends non-raster files with attachment disposition and reads the whole blob.
@@ -16,12 +17,14 @@ The active `markdown-reader` change plans a standalone file opener, not a task a
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Put generic document presentation behind one small interface, used by two different source adapters.
 - Keep source authorization and state ownership outside the presentation module.
 - Make each built plugin self-contained, with no dependence on another installed plugin.
 - Preserve existing attachment contracts and underlying task state.
 
 **Non-Goals:**
+
 - Replace chat Markdown or the Tasks editor, register a Tasks file opener, or change extension preferences.
 - Infer sibling attachments from filenames, access blob directories as document roots, edit attachments, or watch their files.
 - Deliver the entire workspace/host/thread-storage reader, refresh transport, or file-opener registration owned by `markdown-reader`.

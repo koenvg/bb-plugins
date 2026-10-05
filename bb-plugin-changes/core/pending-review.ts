@@ -36,7 +36,10 @@ export function createPendingReviewStore(newId: () => string = () => crypto.rand
     for (const listener of listeners) listener();
   }
 
-  function withForms(review: PendingReview, change: (forms: Map<string, OpenForm>) => void): PendingReview {
+  function withForms(
+    review: PendingReview,
+    change: (forms: Map<string, OpenForm>) => void,
+  ): PendingReview {
     const openForms = new Map(review.openForms);
     change(openForms);
     return { ...review, openForms };
@@ -51,10 +54,14 @@ export function createPendingReviewStore(newId: () => string = () => crypto.rand
     openForm(threadId: string, anchor: CommentAnchor) {
       const key = anchorKey(anchor);
       if (reviews.get(threadId)?.openForms.has(key)) return;
-      update(threadId, (review) => withForms(review, (forms) => forms.set(key, { anchor, text: "" })));
+      update(threadId, (review) =>
+        withForms(review, (forms) => forms.set(key, { anchor, text: "" })),
+      );
     },
     setFormText(threadId: string, anchor: CommentAnchor, text: string) {
-      update(threadId, (review) => withForms(review, (forms) => forms.set(anchorKey(anchor), { anchor, text })));
+      update(threadId, (review) =>
+        withForms(review, (forms) => forms.set(anchorKey(anchor), { anchor, text })),
+      );
     },
     closeForm(threadId: string, anchor: CommentAnchor) {
       update(threadId, (review) => withForms(review, (forms) => forms.delete(anchorKey(anchor))));

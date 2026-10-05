@@ -18,6 +18,10 @@
     "skills": []
   },
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-markdown-reader",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-markdown-reader",
+    "format": "npm --prefix .. run format -- bb-plugin-markdown-reader",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-markdown-reader",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build",

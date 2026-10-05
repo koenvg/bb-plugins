@@ -52,8 +52,7 @@ const focusedRowName = () => document.activeElement?.getAttribute("aria-label");
 async function press(slot: ReturnType<typeof setup>, key: string) {
   const before = slot.inspection.navigateCalls.length;
   fireEvent.keyDown(document.activeElement ?? window, { key });
-  if (slot.inspection.navigateCalls.length > before)
-    await acceptNavigation(slot);
+  if (slot.inspection.navigateCalls.length > before) await acceptNavigation(slot);
 }
 
 describe("list keyboard navigation", () => {
@@ -66,9 +65,7 @@ describe("list keyboard navigation", () => {
   });
   it("moves through visible rows with j/k and arrows, including expanded subtasks", async () => {
     const slot = render();
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Expand subtasks of TSK-1" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Expand subtasks of TSK-1" }));
     await slot.findByRole("button", { name: "Open TSK-4: Title 4" });
     await press(slot, "j");
     await press(slot, "j");
@@ -92,9 +89,7 @@ describe("list keyboard navigation", () => {
   });
   it("does not treat a focused row control as an independent selection", async () => {
     const slot = render();
-    (
-      await slot.findByRole("button", { name: "Expand subtasks of TSK-1" })
-    ).focus();
+    (await slot.findByRole("button", { name: "Expand subtasks of TSK-1" })).focus();
     await press(slot, "j");
     expect(focusedRowName()).toBe("Open TSK-1: Title 1");
   });
@@ -107,9 +102,7 @@ describe("list keyboard navigation", () => {
       await press(slot, "j");
       await press(slot, key);
       await waitFor(() =>
-        expect(document.activeElement).toBe(
-          slot.getByRole("region", { name: "Selected ticket" }),
-        ),
+        expect(document.activeElement).toBe(slot.getByRole("region", { name: "Selected ticket" })),
       );
       expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toHaveLength(2);
@@ -141,9 +134,7 @@ describe("list row menus from the keyboard", () => {
     await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
     await press(slot, "j");
     await press(slot, "p");
-    expect((await slot.findByRole("menu")).textContent).toContain(
-      "Set priority",
-    );
+    expect((await slot.findByRole("menu")).textContent).toContain("Set priority");
   });
   it("opens the labels menu on l and saves a toggled label", async () => {
     const updates: Record<string, unknown>[] = [];
@@ -161,8 +152,8 @@ describe("list row menus from the keyboard", () => {
     fireEvent.keyDown(slot.getByRole("listbox"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("listbox")).toBeNull());
     await waitFor(() => expect(focusedRowName()).toBe("Open TSK-1: Title 1"));
-    expect(
-      slot.container.querySelector('[data-task-key="TSK-1"]')!.textContent,
-    ).not.toContain(label.name);
+    expect(slot.container.querySelector('[data-task-key="TSK-1"]')!.textContent).not.toContain(
+      label.name,
+    );
   });
 });

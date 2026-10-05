@@ -37,9 +37,7 @@ describe("task dependency schema", () => {
   it("creates the dependency table on a new database", () => {
     const { db } = setup();
     const versions = db
-      .prepare<[], { version: number }>(
-        "SELECT version FROM schema_version ORDER BY version",
-      )
+      .prepare<[], { version: number }>("SELECT version FROM schema_version ORDER BY version")
       .all()
       .map((row) => row.version);
     expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7]);
@@ -75,9 +73,7 @@ describe("task dependency schema", () => {
     upgraded.addTaskDependency(blocker.id, existing.id);
 
     expect(store.getTask(existing.id)?.key).toBe("ABC-1");
-    expect(upgraded.listBlockers(existing.id).map((t) => t.key)).toEqual([
-      "ABC-2",
-    ]);
+    expect(upgraded.listBlockers(existing.id).map((t) => t.key)).toEqual(["ABC-2"]);
   });
 
   it("rejects a self-link in SQL", () => {
@@ -97,9 +93,7 @@ describe("task dependency schema", () => {
     const [a, b] = [task("A"), task("B")];
     const revision = () =>
       db
-        .prepare<[], { revision: number }>(
-          "SELECT revision FROM task_list_revision WHERE id = 1",
-        )
+        .prepare<[], { revision: number }>("SELECT revision FROM task_list_revision WHERE id = 1")
         .get()?.revision ?? -1;
 
     const before = revision();
@@ -119,12 +113,8 @@ describe("task dependency links", () => {
 
     expect(store.addTaskDependency(blocker.id, blocked.id)).toBe(true);
 
-    expect(store.listBlockers(blocked.id).map((t) => t.key)).toEqual([
-      blocker.key,
-    ]);
-    expect(store.listBlockedTasks(blocker.id).map((t) => t.key)).toEqual([
-      blocked.key,
-    ]);
+    expect(store.listBlockers(blocked.id).map((t) => t.key)).toEqual([blocker.key]);
+    expect(store.listBlockedTasks(blocker.id).map((t) => t.key)).toEqual([blocked.key]);
   });
 
   it("keeps one link when the same link is added twice", () => {
@@ -153,9 +143,7 @@ describe("task dependency links", () => {
     const { store, task } = setup();
     const only = task("Only");
 
-    const error = dependencyError(() =>
-      store.addTaskDependency(only.id, only.id),
-    );
+    const error = dependencyError(() => store.addTaskDependency(only.id, only.id));
 
     expect(error.code).toBe("dependency_self");
     expect(store.listBlockers(only.id)).toEqual([]);
@@ -167,9 +155,7 @@ describe("task dependency links", () => {
     store.addTaskDependency(abc3.id, abc4.id);
     store.addTaskDependency(abc4.id, abc5.id);
 
-    const error = dependencyError(() =>
-      store.addTaskDependency(abc5.id, abc3.id),
-    );
+    const error = dependencyError(() => store.addTaskDependency(abc5.id, abc3.id));
 
     expect(error.code).toBe("dependency_cycle");
     expect(error.message).toContain(
@@ -203,9 +189,7 @@ describe("task dependency state", () => {
     const state = store.dependencyState([blocked.id, blocker.id]);
 
     expect(state.get(blocked.id)).toEqual({
-      blockedBy: [
-        { id: blocker.id, key: "ABC-1", title: "Blocker", status: "todo" },
-      ],
+      blockedBy: [{ id: blocker.id, key: "ABC-1", title: "Blocker", status: "todo" }],
       blocks: [],
       openBlockerIds: [blocker.id],
       openBlockedIds: [],
@@ -223,10 +207,7 @@ describe("task dependency state", () => {
 
     const state = store.dependencyState([blocked.id]).get(blocked.id);
 
-    expect(state?.blockedBy.map((ref) => ref.status)).toEqual([
-      "done",
-      "canceled",
-    ]);
+    expect(state?.blockedBy.map((ref) => ref.status)).toEqual(["done", "canceled"]);
     expect(state?.openBlockerIds).toEqual([]);
   });
 
@@ -237,9 +218,9 @@ describe("task dependency state", () => {
 
     store.updateTask(blocker.id, { status: "todo" });
 
-    expect(
-      store.dependencyState([blocked.id]).get(blocked.id)?.openBlockerIds,
-    ).toEqual([blocker.id]);
+    expect(store.dependencyState([blocked.id]).get(blocked.id)?.openBlockerIds).toEqual([
+      blocker.id,
+    ]);
   });
 
   it("does not let an open subtask block its parent", () => {
@@ -252,9 +233,7 @@ describe("task dependency state", () => {
       parentTaskId: parent.id,
     });
 
-    expect(
-      store.dependencyState([parent.id]).get(parent.id)?.openBlockerIds,
-    ).toEqual([]);
+    expect(store.dependencyState([parent.id]).get(parent.id)?.openBlockerIds).toEqual([]);
   });
 
   it("removes the link when a blocker is deleted", () => {

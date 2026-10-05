@@ -16,20 +16,10 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   canceled: "var(--muted-foreground)",
 };
 
-export function StatusIcon({
-  status,
-  className,
-}: {
-  status: TaskStatus;
-  className?: string;
-}) {
+export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
   const color = STATUS_COLORS[status];
   return (
-    <svg
-      viewBox="0 0 14 14"
-      aria-hidden
-      className={cn("size-3.5 shrink-0", className)}
-    >
+    <svg viewBox="0 0 14 14" aria-hidden className={cn("size-3.5 shrink-0", className)}>
       {status === "backlog" ? (
         <circle
           cx="7"
@@ -42,25 +32,11 @@ export function StatusIcon({
         />
       ) : null}
       {status === "todo" ? (
-        <circle
-          cx="7"
-          cy="7"
-          r="5.4"
-          fill="none"
-          stroke={color}
-          strokeWidth="1.6"
-        />
+        <circle cx="7" cy="7" r="5.4" fill="none" stroke={color} strokeWidth="1.6" />
       ) : null}
       {status === "in_progress" || status === "in_review" ? (
         <>
-          <circle
-            cx="7"
-            cy="7"
-            r="5.4"
-            fill="none"
-            stroke={color}
-            strokeWidth="1.6"
-          />
+          <circle cx="7" cy="7" r="5.4" fill="none" stroke={color} strokeWidth="1.6" />
           {status === "in_progress" ? (
             <path d="M7 7 L7 2.4 A4.6 4.6 0 0 1 11.2 9.5 Z" fill={color} />
           ) : (
@@ -116,24 +92,13 @@ export function PriorityIcon({
       </span>
     );
   }
-  const lit =
-    priority === "high"
-      ? 3
-      : priority === "medium"
-        ? 2
-        : priority === "low"
-          ? 1
-          : 0;
+  const lit = priority === "high" ? 3 : priority === "medium" ? 2 : priority === "low" ? 1 : 0;
   const heights = [5, 8, 11];
   return (
     <svg
       viewBox="0 0 14 14"
       aria-hidden
-      className={cn(
-        "size-3.5 shrink-0",
-        priority === "none" ? "opacity-40" : undefined,
-        className,
-      )}
+      className={cn("size-3.5 shrink-0", priority === "none" ? "opacity-40" : undefined, className)}
     >
       {heights.map((height, index) => (
         <rect

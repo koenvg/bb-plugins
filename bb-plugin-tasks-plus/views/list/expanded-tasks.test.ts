@@ -28,18 +28,14 @@ function entry(id: string, autoExpand = false): ListTreeEntry {
 
 describe("expanded task storage", () => {
   it("round-trips expanded ids per scope", () => {
-    storeExpandedTasks(
-      "project:A",
-      new Set(["T1", "T2"]),
-      new Set(["T1", "T2"]),
-    );
+    storeExpandedTasks("project:A", new Set(["T1", "T2"]), new Set(["T1", "T2"]));
     storeExpandedTasks("all", new Set(["T3"]), new Set(["T3"]));
 
     expect(loadExpandedTasks("project:A")).toEqual(new Set(["T1", "T2"]));
     expect(loadExpandedTasks("all")).toEqual(new Set(["T3"]));
-    expect(
-      JSON.parse(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)!),
-    ).toMatchObject({ version: EXPANDED_TASKS_VERSION });
+    expect(JSON.parse(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)!)).toMatchObject({
+      version: EXPANDED_TASKS_VERSION,
+    });
   });
 
   it("loads an empty set from bad stored JSON", () => {
@@ -62,9 +58,7 @@ describe("expanded task storage", () => {
     const future = JSON.stringify({ version: 99, scopes: {} });
     window.localStorage.setItem(EXPANDED_TASKS_STORAGE_KEY, future);
     storeExpandedTasks("all", new Set(["T1"]), new Set(["T1"]));
-    expect(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)).toBe(
-      future,
-    );
+    expect(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)).toBe(future);
   });
 });
 
@@ -84,8 +78,7 @@ describe("useExpandedTasks", () => {
   it("uses autoExpand under a filter and does not change the saved set on toggle", () => {
     storeExpandedTasks("all", new Set(["T2"]), known);
     const { result, rerender } = renderHook(
-      ({ filterKey }: { filterKey: string | null }) =>
-        useExpandedTasks("all", filterKey, known),
+      ({ filterKey }: { filterKey: string | null }) => useExpandedTasks("all", filterKey, known),
       { initialProps: { filterKey: "blocked" as string | null } },
     );
     expect(result.current.isExpanded(entry("T1", true))).toBe(true);

@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  useFolders,
-  useProjects,
-  useTasksQuery,
-  useTasksRpc,
-} from "../../shell/data.js";
+import { useFolders, useProjects, useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { PROJECT_PREFIX_PATTERN } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
@@ -44,10 +39,7 @@ interface NewProjectDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function NewProjectDialog({
-  open,
-  onOpenChange,
-}: NewProjectDialogProps) {
+export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const projects = useProjects();
@@ -60,9 +52,7 @@ export function NewProjectDialog({
   const [folderId, setFolderId] = useState<string | null>(null);
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [linkedBbProjectId, setLinkedBbProjectId] = useState<string | null>(
-    null,
-  );
+  const [linkedBbProjectId, setLinkedBbProjectId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,10 +87,7 @@ export function NewProjectDialog({
   }, [prefix, projects.data]);
 
   const canSubmit =
-    name.trim().length > 0 &&
-    prefix.length > 0 &&
-    prefixError === null &&
-    !submitting;
+    name.trim().length > 0 && prefix.length > 0 && prefixError === null && !submitting;
 
   const folderList = folders.data ?? [];
   const folderName = (id: string) => {
@@ -163,9 +150,7 @@ export function NewProjectDialog({
       >
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
-          <DialogDescription>
-            Projects group tasks under a shared key prefix.
-          </DialogDescription>
+          <DialogDescription>Projects group tasks under a shared key prefix.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Field label="Name">
@@ -182,10 +167,7 @@ export function NewProjectDialog({
           </Field>
           <Field
             label="Prefix"
-            hint={
-              prefixError ??
-              "Task keys use this prefix, e.g. TSK-12. Uppercase, unique."
-            }
+            hint={prefixError ?? "Task keys use this prefix, e.g. TSK-12. Uppercase, unique."}
           >
             <Input
               value={prefix}
@@ -219,11 +201,7 @@ export function NewProjectDialog({
             >
               <SelectTrigger aria-label="Folder" className="h-8">
                 <SelectValue>
-                  {newFolderMode
-                    ? "New folder…"
-                    : folderId
-                      ? folderName(folderId)
-                      : "No folder"}
+                  {newFolderMode ? "New folder…" : folderId ? folderName(folderId) : "No folder"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

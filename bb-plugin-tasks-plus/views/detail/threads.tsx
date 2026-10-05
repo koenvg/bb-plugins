@@ -1,19 +1,9 @@
 import { useEffect, useState } from "react";
 import { UrlLink, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
-import type {
-  Preset,
-  Task,
-  TaskPullRequest,
-  TaskThread,
-} from "../../shared/contract.js";
+import type { Preset, Task, TaskPullRequest, TaskThread } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
-import {
-  PR_STATE_META,
-  THREAD_STATUS_META,
-  formatRelativeTime,
-  isActiveThread,
-} from "./meta.js";
+import { PR_STATE_META, THREAD_STATUS_META, formatRelativeTime, isActiveThread } from "./meta.js";
 import { PresetDialog, savePresetDraft } from "../manage/preset-dialog.js";
 import { ConfirmDialog } from "../../components/confirm-dialog.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
@@ -47,8 +37,7 @@ function ThreadPullRequestPill({
         aria-label={`Pull request #${pullRequest.number}: ${pullRequest.title} (${meta.label})`}
         className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium shadow-2xs hover:border-input"
       >
-        <Icon name={meta.icon} className={cn("size-3", meta.textClassName)} />#
-        {pullRequest.number}
+        <Icon name={meta.icon} className={cn("size-3", meta.textClassName)} />#{pullRequest.number}
       </UrlLink>
     );
   }
@@ -83,15 +72,9 @@ function ThreadCard({
   return (
     <div className="mb-2 flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 shadow-2xs">
       <span
-        className={cn(
-          "flex shrink-0 items-center gap-1.5 text-xs font-medium",
-          meta.textClassName,
-        )}
+        className={cn("flex shrink-0 items-center gap-1.5 text-xs font-medium", meta.textClassName)}
       >
-        <span
-          aria-hidden
-          className={cn("size-1.5 rounded-full", meta.dotClassName)}
-        />
+        <span aria-hidden className={cn("size-1.5 rounded-full", meta.dotClassName)} />
         {meta.label}
       </span>
       <div className="min-w-0 flex-1">
@@ -100,10 +83,7 @@ function ThreadCard({
           {thread.presetName} · attached {formatRelativeTime(thread.attachedAt)}
         </div>
       </div>
-      <ThreadPullRequestPill
-        pullRequest={pullRequest}
-        unavailable={pullRequestUnavailable}
-      />
+      <ThreadPullRequestPill pullRequest={pullRequest} unavailable={pullRequestUnavailable} />
       <button
         type="button"
         className="flex shrink-0 items-center gap-1 text-xs font-medium underline decoration-input underline-offset-2 hover:decoration-current"
@@ -186,14 +166,11 @@ export function DispatchControl({
     void dispatch(preset.id);
   };
 
-  const primarySegment =
-    "bg-primary text-primary-foreground hover:bg-primary/90";
+  const primarySegment = "bg-primary text-primary-foreground hover:bg-primary/90";
 
   const current =
     presets?.find((preset) => preset.id === lastPresetId) ??
-    (presets
-      ? [...presets].sort((a, b) => a.name.localeCompare(b.name))[0]
-      : undefined);
+    (presets ? [...presets].sort((a, b) => a.name.localeCompare(b.name))[0] : undefined);
 
   const menuAvailable = !dispatching && current !== undefined;
   useEffect(() => {
@@ -232,10 +209,7 @@ export function DispatchControl({
         <Button
           size="sm"
           disabled={dispatching || !current}
-          className={cn(
-            "h-7 min-w-0 flex-1 gap-1.5 rounded-r-none",
-            primarySegment,
-          )}
+          className={cn("h-7 min-w-0 flex-1 gap-1.5 rounded-r-none", primarySegment)}
           onClick={() => {
             if (current) pickPreset(current);
           }}
@@ -260,17 +234,10 @@ export function DispatchControl({
           <DropdownMenuContent align={align}>
             <DropdownMenuLabel>Dispatch with preset</DropdownMenuLabel>
             {(presets ?? []).map((preset) => (
-              <DropdownMenuItem
-                key={preset.id}
-                onSelect={() => pickPreset(preset)}
-              >
+              <DropdownMenuItem key={preset.id} onSelect={() => pickPreset(preset)}>
                 <span className="min-w-0 flex-1 truncate">{preset.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {preset.modelId}
-                </span>
-                {preset.id === current?.id ? (
-                  <Icon name="Check" className="size-3.5" />
-                ) : null}
+                <span className="text-xs text-muted-foreground">{preset.modelId}</span>
+                {preset.id === current?.id ? <Icon name="Check" className="size-3.5" /> : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -327,9 +294,7 @@ export function ThreadsSection({
     <section>
       <div className="mb-2 flex items-center gap-2 pt-1.5 text-xs font-semibold text-muted-foreground">
         Agent threads
-        {activeCount > 0 ? (
-          <span className="font-normal">{activeCount} working now</span>
-        ) : null}
+        {activeCount > 0 ? <span className="font-normal">{activeCount} working now</span> : null}
       </div>
       {threads.map((thread) => (
         <ThreadCard

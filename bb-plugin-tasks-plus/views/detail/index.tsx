@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Editor } from "@tiptap/core";
 import { HugeiconsIcon } from "@hugeicons/react";
 import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
@@ -12,22 +6,13 @@ import type { Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
-import {
-  listAllTasks,
-  useMentionItems,
-  useTasksQuery,
-  useTasksRpc,
-} from "../../shell/data.js";
+import { listAllTasks, useMentionItems, useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
 import { TaskActivity } from "../activity/task-activity.js";
 import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
 import { createTaskEditSession } from "./edit-session.js";
-import {
-  TasksSessionProvider,
-  useTasksSession,
-  useSafeTaskTarget,
-} from "./task-session.js";
+import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
 import { Button } from "@/components/ui/button";
 import { StatusIcon } from "./meta.js";
 import { STATUS_LABELS } from "../list/lib.js";
@@ -57,24 +42,15 @@ interface DetailViewProps {
 type PropertiesLayout = "inline" | "rail";
 
 function shownPropertiesLayout(root: HTMLElement | null): PropertiesLayout {
-  const layouts = [
-    ...(root?.querySelectorAll<HTMLElement>("[data-properties-layout]") ?? []),
-  ];
-  const shown =
-    layouts.find((layout) => layout.getClientRects().length > 0) ?? layouts[0];
+  const layouts = [...(root?.querySelectorAll<HTMLElement>("[data-properties-layout]") ?? [])];
+  const shown = layouts.find((layout) => layout.getClientRects().length > 0) ?? layouts[0];
   return shown?.dataset.propertiesLayout === "rail" ? "rail" : "inline";
 }
 
 const DESCRIPTION_SAVE_DELAY_MS = 800;
 const ACTIVE_PULL_REQUEST_REFRESH_MS = 60_000;
 
-function SubTaskDonut({
-  subtasks,
-  onClick,
-}: {
-  subtasks: Task[];
-  onClick: () => void;
-}) {
+function SubTaskDonut({ subtasks, onClick }: { subtasks: Task[]; onClick: () => void }) {
   if (subtasks.length === 0) return null;
   const done = subtasks.filter((subtask) => subtask.status === "done").length;
   const degrees = (done / subtasks.length) * 360;
@@ -108,8 +84,7 @@ function EditableTitle({
 }) {
   const ref = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
-    if (ref.current && ref.current.textContent !== task.title)
-      ref.current.textContent = task.title;
+    if (ref.current && ref.current.textContent !== task.title) ref.current.textContent = task.title;
   }, [task.title]);
   return (
     <h1
@@ -167,9 +142,7 @@ function SubTasksSection({
           onClick={() => navigation.go({ kind: "task", taskKey: subtask.key })}
         >
           <StatusIcon status={subtask.status} />
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {subtask.key}
-          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">{subtask.key}</span>
           <span className="min-w-0 flex-1 truncate">{subtask.title}</span>
           <DependencyBadges task={subtask} className="py-px text-xs" />
         </button>
@@ -221,13 +194,7 @@ function DetailSkeleton() {
   );
 }
 
-function TaskDetail({
-  task: savedTask,
-  onTaskChanged,
-}: {
-  task: Task;
-  onTaskChanged: () => void;
-}) {
+function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChanged: () => void }) {
   const rpc = useTasksRpc();
   const delegationRpc = useRpc<DelegationRpcContract>();
   const navigation = useTasksNavigation();
@@ -240,9 +207,7 @@ function TaskDetail({
   rpcRef.current = rpc;
   const savedTaskRef = useRef(savedTask);
   savedTaskRef.current = savedTask;
-  const confirmedTask = useRef<{ task: Task; querySnapshot: Task } | null>(
-    null,
-  );
+  const confirmedTask = useRef<{ task: Task; querySnapshot: Task } | null>(null);
   const [edits] = useState(() =>
     createTaskEditSession(savedTask.id, {
       save: async (taskId, patch) => {
@@ -254,9 +219,7 @@ function TaskDetail({
         if (result.ok) {
           confirmedTask.current = { task: result.task, querySnapshot };
         }
-        return result.ok
-          ? { ok: true }
-          : { ok: false, errorMessage: result.error.message };
+        return result.ok ? { ok: true } : { ok: false, errorMessage: result.error.message };
       },
     }),
   );
@@ -267,8 +230,7 @@ function TaskDetail({
   const baseTask =
     confirmed &&
     (confirmed.task.updatedAt > savedTask.updatedAt ||
-      (confirmed.task.updatedAt === savedTask.updatedAt &&
-        confirmed.querySnapshot === savedTask))
+      (confirmed.task.updatedAt === savedTask.updatedAt && confirmed.querySnapshot === savedTask))
       ? confirmed.task
       : savedTask;
   const task = { ...baseTask, ...editState.draft };
@@ -282,9 +244,7 @@ function TaskDetail({
 
   const parent = useTasksQuery(
     async (query) =>
-      task.parentTaskId
-        ? (await query.call("getTask", { taskId: task.parentTaskId })).task
-        : null,
+      task.parentTaskId ? (await query.call("getTask", { taskId: task.parentTaskId })).task : null,
     ["tasks:changed"],
     [task.parentTaskId],
   );
@@ -294,20 +254,17 @@ function TaskDetail({
     [task.id],
   );
   const labels = useTasksQuery(
-    async (query) =>
-      (await query.call("listLabels", { projectId: task.projectId })).labels,
+    async (query) => (await query.call("listLabels", { projectId: task.projectId })).labels,
     ["projects:changed"],
     [task.projectId],
   );
   const attachments = useTasksQuery(
-    async (query) =>
-      (await query.call("listAttachments", { taskId: task.id })).attachments,
+    async (query) => (await query.call("listAttachments", { taskId: task.id })).attachments,
     ["tasks:changed"],
     [task.id],
   );
   const threads = useTasksQuery(
-    async (query) =>
-      (await query.call("listTaskThreads", { taskId: task.id })).taskThreads,
+    async (query) => (await query.call("listTaskThreads", { taskId: task.id })).taskThreads,
     ["threads:changed"],
     [task.id],
   );
@@ -322,8 +279,7 @@ function TaskDetail({
   );
   const refreshPullRequests = pullRequests.refresh;
   const hasActivePullRequest = (pullRequests.data?.pullRequests ?? []).some(
-    (pullRequest) =>
-      pullRequest.state === "open" || pullRequest.state === "draft",
+    (pullRequest) => pullRequest.state === "open" || pullRequest.state === "draft",
   );
   useEffect(() => {
     window.addEventListener("focus", refreshPullRequests);
@@ -331,10 +287,7 @@ function TaskDetail({
   }, [refreshPullRequests]);
   useEffect(() => {
     if (!hasActivePullRequest) return;
-    const timer = window.setInterval(
-      refreshPullRequests,
-      ACTIVE_PULL_REQUEST_REFRESH_MS,
-    );
+    const timer = window.setInterval(refreshPullRequests, ACTIVE_PULL_REQUEST_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [hasActivePullRequest, refreshPullRequests]);
 
@@ -357,9 +310,7 @@ function TaskDetail({
     "detail.status": openFromShortcut("status"),
     "detail.priority": openFromShortcut("priority"),
     "detail.labels": openFromShortcut("labels"),
-    "detail.dispatch": presets.data?.length
-      ? openFromShortcut("dispatch")
-      : null,
+    "detail.dispatch": presets.data?.length ? openFromShortcut("dispatch") : null,
     "detail.comment": () => {
       const editor = commentEditorRef.current;
       if (editor === null) return false;
@@ -448,9 +399,7 @@ function TaskDetail({
               role="alert"
               className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
             >
-              <span className="min-w-0 flex-1">
-                Could not save this ticket. {editState.error}
-              </span>
+              <span className="min-w-0 flex-1">Could not save this ticket. {editState.error}</span>
               <Button
                 size="sm"
                 variant="outline"
@@ -470,15 +419,11 @@ function TaskDetail({
                 <button
                   type="button"
                   className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground shadow-2xs hover:border-input"
-                  onClick={() =>
-                    navigation.go({ kind: "task", taskKey: parentTask.key })
-                  }
+                  onClick={() => navigation.go({ kind: "task", taskKey: parentTask.key })}
                 >
                   Sub-task of
                   <StatusIcon status={parentTask.status} className="size-3" />
-                  <span className="font-medium text-foreground">
-                    {parentTask.key}
-                  </span>
+                  <span className="font-medium text-foreground">{parentTask.key}</span>
                   <span className="min-w-0 truncate">{parentTask.title}</span>
                 </button>
               ) : null}
@@ -496,9 +441,7 @@ function TaskDetail({
 
           <EditableTitle
             task={task}
-            onChange={(title) =>
-              edits.stage({ title }, DESCRIPTION_SAVE_DELAY_MS)
-            }
+            onChange={(title) => edits.stage({ title }, DESCRIPTION_SAVE_DELAY_MS)}
             onSave={() => {
               void edits.flush();
             }}
@@ -587,9 +530,7 @@ function TaskDetail({
               <ThreadsSection
                 threads={threads.data ?? []}
                 pullRequests={pullRequests.data?.pullRequests}
-                unavailableThreadIds={
-                  pullRequests.data?.unavailableThreadIds ?? []
-                }
+                unavailableThreadIds={pullRequests.data?.unavailableThreadIds ?? []}
                 onDetach={async (thread) => {
                   await delegationRpc.call("taskThreadsDetach", {
                     taskId: task.id,
@@ -634,19 +575,10 @@ function TaskDetail({
 export function DetailView(props: DetailViewProps) {
   const session = useTasksSession();
   const detail = <SessionDetailView {...props} />;
-  return session ? (
-    detail
-  ) : (
-    <TasksSessionProvider>{detail}</TasksSessionProvider>
-  );
+  return session ? detail : <TasksSessionProvider>{detail}</TasksSessionProvider>;
 }
 
-function SessionDetailView({
-  taskKey,
-  onMissing,
-  reconcileRevision,
-  onReady,
-}: DetailViewProps) {
+function SessionDetailView({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
   const committedKey = useSafeTaskTarget(taskKey);
   return (
     <DetailQuery
@@ -658,12 +590,7 @@ function SessionDetailView({
     />
   );
 }
-function DetailQuery({
-  taskKey,
-  onMissing,
-  reconcileRevision,
-  onReady,
-}: DetailViewProps) {
+function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
     ["tasks:changed"],
@@ -683,25 +610,14 @@ function DetailQuery({
   useLayoutEffect(() => {
     if (query.data) previousTask.current = query.data;
   }, [query.data]);
-  const task =
-    query.data ??
-    (onMissing && query.data === null ? previousTask.current : null);
+  const task = query.data ?? (onMissing && query.data === null ? previousTask.current : null);
   useEffect(() => {
     if (!query.isLoading && query.error === null && query.data === null)
       onMissing?.(taskKey, () => {
         const latest = latestQuery.current;
-        return (
-          !latest.isLoading && latest.error === null && latest.data === null
-        );
+        return !latest.isLoading && latest.error === null && latest.data === null;
       });
-  }, [
-    query.isLoading,
-    query.error,
-    query.data,
-    onMissing,
-    taskKey,
-    reconcileRevision,
-  ]);
+  }, [query.isLoading, query.error, query.data, onMissing, taskKey, reconcileRevision]);
   if (query.data === undefined) {
     return query.error ? (
       <div

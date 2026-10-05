@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { submitRules, type SubmitRulesInput } from "./review-submit";
 
-const otherPr: SubmitRulesInput = { viewerIsAuthor: false, state: "OPEN", body: "Summary", commentCount: 0 };
+const otherPr: SubmitRulesInput = {
+  viewerIsAuthor: false,
+  state: "OPEN",
+  body: "Summary",
+  commentCount: 0,
+};
 
 describe("submitRules", () => {
   it.each<[string, Partial<SubmitRulesInput>, Record<string, string | null>]>([
@@ -47,10 +52,16 @@ describe("submitRules", () => {
   ])("for %s", (_, input, expected) => {
     const rules = submitRules({ ...otherPr, ...input });
 
-    expect(Object.fromEntries(rules.map(({ event, disabledReason }) => [event, disabledReason]))).toEqual(expected);
+    expect(
+      Object.fromEntries(rules.map(({ event, disabledReason }) => [event, disabledReason])),
+    ).toEqual(expected);
   });
 
   it("lists the verdicts in the order Comment, Approve, Request changes", () => {
-    expect(submitRules(otherPr).map(({ event }) => event)).toEqual(["COMMENT", "APPROVE", "REQUEST_CHANGES"]);
+    expect(submitRules(otherPr).map(({ event }) => event)).toEqual([
+      "COMMENT",
+      "APPROVE",
+      "REQUEST_CHANGES",
+    ]);
   });
 });

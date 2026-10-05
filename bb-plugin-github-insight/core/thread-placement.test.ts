@@ -48,7 +48,10 @@ describe("placeThreads", () => {
   it("places a thread on a context line from either side", () => {
     const placement = placeThreads(
       [file],
-      [thread({ id: "right", side: "RIGHT", line: 13 }), thread({ id: "left", side: "LEFT", line: 12 })],
+      [
+        thread({ id: "right", side: "RIGHT", line: 13 }),
+        thread({ id: "left", side: "LEFT", line: 12 }),
+      ],
     );
 
     expect(placement.placed.map(({ thread: { id } }) => id)).toEqual(["right", "left"]);
@@ -68,7 +71,10 @@ describe("placeThreads", () => {
   it("moves a thread whose line is outside the hunks to outdated", () => {
     const placement = placeThreads(
       [file],
-      [thread({ id: "after", side: "RIGHT", line: 14 }), thread({ id: "before", side: "LEFT", line: 9 })],
+      [
+        thread({ id: "after", side: "RIGHT", line: 14 }),
+        thread({ id: "before", side: "LEFT", line: 9 }),
+      ],
     );
 
     expect(placement.outdated.map(({ id }) => id)).toEqual(["after", "before"]);
@@ -77,7 +83,9 @@ describe("placeThreads", () => {
   it("does not place a RIGHT thread on a line that only the old side has", () => {
     const deletionsOnly: ReviewFile = { ...file, patch: "@@ -20,2 +20,0 @@\n-a\n-b" };
 
-    expect(placeThreads([deletionsOnly], [thread({ side: "RIGHT", line: 21 })]).outdated).toHaveLength(1);
+    expect(
+      placeThreads([deletionsOnly], [thread({ side: "RIGHT", line: 21 })]).outdated,
+    ).toHaveLength(1);
   });
 
   it("moves a thread on a file that is not in the PR to outdated", () => {
@@ -89,9 +97,14 @@ describe("placeThreads", () => {
   });
 
   it("places the recorded threads as GitHub does", () => {
-    const placement = placeThreads(parsePrFiles(recordedFiles), parseReviewThreads([recordedThreads]));
+    const placement = placeThreads(
+      parsePrFiles(recordedFiles),
+      parseReviewThreads([recordedThreads]),
+    );
 
-    expect(placement.placed.map(({ thread: { id }, side, lineNumber }) => [id, side, lineNumber])).toEqual([
+    expect(
+      placement.placed.map(({ thread: { id }, side, lineNumber }) => [id, side, lineNumber]),
+    ).toEqual([
       ["PRRT_kwDOHI7l-86jxqt3", "additions", 151],
       ["PRRT_kwDOHI7l-86jxula", "additions", 46],
     ]);
@@ -109,7 +122,10 @@ describe("openThreadCounts", () => {
         { thread: thread({ id: "open" }), side: "additions", lineNumber: 11 },
         { thread: thread({ id: "resolved", resolved: true }), side: "additions", lineNumber: 11 },
       ],
-      outdated: [thread({ id: "outdated", outdated: true }), thread({ id: "gone", resolved: true })],
+      outdated: [
+        thread({ id: "outdated", outdated: true }),
+        thread({ id: "gone", resolved: true }),
+      ],
     });
 
     expect(counts).toEqual({ open: 2, outdated: 1 });

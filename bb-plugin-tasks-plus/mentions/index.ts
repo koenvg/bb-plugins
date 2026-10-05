@@ -1,13 +1,7 @@
 import type { BbPluginApi, PluginMentionItem } from "@get-bb/plugin-sdk";
 
 import type { TasksApiStore } from "../api";
-import {
-  escapeLike,
-  type Attachment,
-  type Comment,
-  type Task,
-  type TaskThread,
-} from "../db";
+import { escapeLike, type Attachment, type Comment, type Task, type TaskThread } from "../db";
 import { displayName } from "../shared/display-name";
 
 const SEARCH_LIMIT = 10;
@@ -70,10 +64,7 @@ function searchTasks(
   }));
 }
 
-function attachmentManifest(
-  database: PluginDatabase,
-  taskId: string,
-): AttachmentManifestRow[] {
+function attachmentManifest(database: PluginDatabase, taskId: string): AttachmentManifestRow[] {
   return database
     .prepare<[string, string], AttachmentManifestRow>(
       `
@@ -90,16 +81,11 @@ function attachmentManifest(
 function formatSubtasks(subtasks: readonly Task[]): string {
   if (subtasks.length === 0) return "None.";
   return subtasks
-    .map(
-      (subtask) =>
-        `- ${subtask.key} · ${subtask.title} — ${displayName(subtask.status)}`,
-    )
+    .map((subtask) => `- ${subtask.key} · ${subtask.title} — ${displayName(subtask.status)}`)
     .join("\n");
 }
 
-function formatAttachments(
-  attachments: readonly Pick<Attachment, "id" | "fileName">[],
-): string {
+function formatAttachments(attachments: readonly Pick<Attachment, "id" | "fileName">[]): string {
   if (attachments.length === 0) return "None.";
   return attachments
     .map(
@@ -123,18 +109,11 @@ function formatComments(comments: readonly Comment[]): string {
 function formatThreads(threads: readonly TaskThread[]): string {
   if (threads.length === 0) return "None.";
   return threads
-    .map(
-      (thread) =>
-        `- ${thread.threadId} · ${thread.title} · ${displayName(thread.liveStatus)}`,
-    )
+    .map((thread) => `- ${thread.threadId} · ${thread.title} · ${displayName(thread.liveStatus)}`)
     .join("\n");
 }
 
-function buildTaskContext(
-  store: TasksApiStore,
-  database: PluginDatabase,
-  taskId: string,
-): string {
+function buildTaskContext(store: TasksApiStore, database: PluginDatabase, taskId: string): string {
   const task = store.tasks.getTask(taskId);
   if (!task) throw new Error(`Task not found: ${taskId}`);
 
@@ -142,15 +121,11 @@ function buildTaskContext(
   if (!project) throw new Error(`Project not found: ${task.projectId}`);
 
   const labels = store.tasks.listLabelsForTask(task.id);
-  const comments = store.tasks
-    .listComments(task.id)
-    .slice(-RECENT_COMMENT_LIMIT);
-  const attachments = attachmentManifest(database, task.id).map(
-    (attachment) => ({
-      id: attachment.id,
-      fileName: attachment.file_name,
-    }),
-  );
+  const comments = store.tasks.listComments(task.id).slice(-RECENT_COMMENT_LIMIT);
+  const attachments = attachmentManifest(database, task.id).map((attachment) => ({
+    id: attachment.id,
+    fileName: attachment.file_name,
+  }));
 
   return `# ${task.key} · ${task.title}
 

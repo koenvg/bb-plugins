@@ -3,7 +3,12 @@ import type { ReadTextFileRequest, ReadTextFileResult } from "../contract";
 import { checkAnchor } from "../core/diff-lines";
 import type { PrHead } from "../core/pr-head";
 import type { ListedCommentDraft } from "../core/review-drafts";
-import { formatReviewDrafts, formatReviewList, reviewCommentEntries, reviewListEntries } from "../core/review-list";
+import {
+  formatReviewDrafts,
+  formatReviewList,
+  reviewCommentEntries,
+  reviewListEntries,
+} from "../core/review-list";
 import { MAX_THREAD_PAGES, type ReviewThread } from "../core/review-threads";
 import type { ThreadPlacement } from "../core/thread-placement";
 import type { ReviewService } from "./review-service";
@@ -37,7 +42,11 @@ export function createReviewCli(deps: ReviewCliDeps) {
     return { ...load, threadId: ctx.threadId };
   }
 
-  async function readBody(hostId: string, options: { body?: string; "body-file"?: string }, ctx: PluginCliContext) {
+  async function readBody(
+    hostId: string,
+    options: { body?: string; "body-file"?: string },
+    ctx: PluginCliContext,
+  ) {
     const path = options["body-file"];
     if (path === undefined) return options.body ?? "";
     const result = await deps.readTextFile(hostId, { path, cwd: ctx.cwd ?? null });
@@ -50,7 +59,8 @@ export function createReviewCli(deps: ReviewCliDeps) {
     summary: "Review threads of this thread's pull request",
     commands: {
       "review list": cliCommand({
-        summary: "List the unresolved review threads of this thread's PR, the comment drafts, and the summary draft",
+        summary:
+          "List the unresolved review threads of this thread's PR, the comment drafts, and the summary draft",
         options: { json: { type: "boolean", description: "Print JSON" } },
         run: async ({ options }, ctx) => {
           const { review } = await loadReview(ctx);
@@ -58,15 +68,24 @@ export function createReviewCli(deps: ReviewCliDeps) {
           const comments = reviewCommentEntries(review.commentDrafts);
           if (options.json) {
             const summary = review.summaryDraft?.body ?? null;
-            return { exitCode: 0, stdout: `${JSON.stringify({ threads, comments, summary }, null, 2)}\n` };
+            return {
+              exitCode: 0,
+              stdout: `${JSON.stringify({ threads, comments, summary }, null, 2)}\n`,
+            };
           }
           const drafts = formatReviewDrafts(comments, review.summaryDraft);
-          return { exitCode: 0, stdout: drafts === "" ? formatReviewList(threads) : `${formatReviewList(threads)}\n${drafts}` };
+          return {
+            exitCode: 0,
+            stdout:
+              drafts === "" ? formatReviewList(threads) : `${formatReviewList(threads)}\n${drafts}`,
+          };
         },
       }),
       "review draft": cliCommand({
         summary: "Save a draft reply for a review thread. Never posts to GitHub.",
-        positionals: [{ name: "thread-id", description: "Review thread id from `review list`", required: true }],
+        positionals: [
+          { name: "thread-id", description: "Review thread id from `review list`", required: true },
+        ],
         options: bodyOptions,
         constraints: [{ kind: "exactly-one", options: ["body", "body-file"] }],
         run: async ({ positionals, options }, ctx) => {
@@ -80,7 +99,8 @@ export function createReviewCli(deps: ReviewCliDeps) {
                 : `Only the first ${MAX_THREAD_PAGES} pages of review threads were read.`,
             });
           }
-          if (thread.resolved) throw new PluginCliError(`Review thread ${reviewThreadId} is resolved`);
+          if (thread.resolved)
+            throw new PluginCliError(`Review thread ${reviewThreadId} is resolved`);
           const body = await readBody(target.hostId, options, ctx);
           if (body.trim() === "") throw new PluginCliError("Draft is empty");
           await deps.review.saveDraft(threadId, target.ref, reviewThreadId, {
@@ -142,14 +162,19 @@ export function createReviewCli(deps: ReviewCliDeps) {
         },
       }),
       "review summary": cliCommand({
-        summary: "Save the review summary draft of this thread's PR. Replaces the old one. Never posts to GitHub.",
+        summary:
+          "Save the review summary draft of this thread's PR. Replaces the old one. Never posts to GitHub.",
         options: bodyOptions,
         constraints: [{ kind: "exactly-one", options: ["body", "body-file"] }],
         run: async ({ options }, ctx) => {
           const { threadId, target } = await loadReview(ctx);
           const body = await readBody(target.hostId, options, ctx);
           if (body.trim() === "") throw new PluginCliError("Summary is empty");
-          await deps.review.saveSummaryDraft(threadId, target.ref, { body, updatedAt: deps.now(), source: "agent" });
+          await deps.review.saveSummaryDraft(threadId, target.ref, {
+            body,
+            updatedAt: deps.now(),
+            source: "agent",
+          });
           return { exitCode: 0, stdout: "Saved summary draft\n" };
         },
       }),
@@ -162,10 +187,9 @@ function assertOneCommit(drafts: readonly ListedCommentDraft[], head: PrHead) {
   if (older.length === 0) return;
   const commits = [...new Set(older.map((draft) => draft.commitOid))].join(", ");
   const subject = older.length === 1 ? "1 comment draft is" : `${older.length} comment drafts are`;
-  throw new PluginCliError(
-    `${subject} at commit ${commits}, but the PR head is ${head.oid}`,
-    { hint: "Submit or delete those drafts first, in the Review tab." },
-  );
+  throw new PluginCliError(`${subject} at commit ${commits}, but the PR head is ${head.oid}`, {
+    hint: "Submit or delete those drafts first, in the Review tab.",
+  });
 }
 
 function findThread(placement: ThreadPlacement, id: string): ReviewThread | undefined {

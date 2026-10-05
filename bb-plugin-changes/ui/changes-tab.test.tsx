@@ -6,7 +6,12 @@ import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import type { rpcContract } from "../contract";
-import type { ChangedFile, ChangesResult, PatchesResult, SendFeedbackResult } from "../core/changes";
+import type {
+  ChangedFile,
+  ChangesResult,
+  PatchesResult,
+  SendFeedbackResult,
+} from "../core/changes";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -37,7 +42,12 @@ vi.mock("@pierre/diffs/react", () => ({
         )),
       )}
       {lineAnnotations.map((annotation, index) => (
-        <div key={index} data-testid="line-annotation" data-side={annotation.side} data-line={annotation.lineNumber}>
+        <div
+          key={index}
+          data-testid="line-annotation"
+          data-side={annotation.side}
+          data-line={annotation.lineNumber}
+        >
           {renderAnnotation?.(annotation)}
         </div>
       ))}
@@ -48,7 +58,10 @@ vi.mock("@pierre/diffs/react", () => ({
 class VisibleAtOnce {
   constructor(private readonly callback: IntersectionObserverCallback) {}
   observe(target: Element) {
-    this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+    this.callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
   }
   disconnect() {}
 }
@@ -62,17 +75,29 @@ afterEach(cleanup);
 const app = await loadPluginApp(() => import("../app"));
 const changesTab = app.threadPanelActions.find((action) => action.id === "changes")!;
 
-const PATCH_A = "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
+const PATCH_A =
+  "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
 const PATCH_RENAME =
   "diff --git a/src/old.ts b/src/new.ts\nsimilarity index 90%\nrename from src/old.ts\nrename to src/new.ts\n--- a/src/old.ts\n+++ b/src/new.ts\n@@ -1 +1 @@\n-x\n+y\n";
 
 const ALL_QUERY = { target: "all", mergeBaseBranch: "origin/main" } as const;
 
 function file(path: string, overrides: Partial<ChangedFile> = {}): ChangedFile {
-  return { path, previousPath: null, additions: 1, deletions: 1, binary: false, loadMode: "auto", ...overrides };
+  return {
+    path,
+    previousPath: null,
+    additions: 1,
+    deletions: 1,
+    binary: false,
+    loadMode: "auto",
+    ...overrides,
+  };
 }
 
-function changes(files: ChangedFile[], extra: Partial<Extract<ChangesResult, { kind: "ok" }>> = {}): ChangesResult {
+function changes(
+  files: ChangedFile[],
+  extra: Partial<Extract<ChangesResult, { kind: "ok" }>> = {},
+): ChangesResult {
   return { kind: "ok", query: ALL_QUERY, files, patches: {}, commits: [], ...extra };
 }
 
@@ -97,7 +122,9 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
           handlers.getPatches ??
           (({ paths }) => ({
             kind: "ok",
-            patches: Object.fromEntries(paths.map((path) => [path, path === "src/new.ts" ? PATCH_RENAME : PATCH_A])),
+            patches: Object.fromEntries(
+              paths.map((path) => [path, path === "src/new.ts" ? PATCH_RENAME : PATCH_A]),
+            ),
           })),
         sendFeedback: handlers.sendFeedback ?? (() => ({ kind: "sent", delivery: "sent" })),
       },
@@ -109,7 +136,9 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
 type Slot = ReturnType<typeof renderTab>;
 
 function callsTo(slot: Slot, method: string) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === method).map((call) => call.input);
+  return slot.inspection.rpcCalls
+    .filter((call) => call.method === method)
+    .map((call) => call.input);
 }
 
 async function addComment(slot: Slot, button: string, text: string) {
@@ -128,13 +157,21 @@ describe("Changes tab", () => {
     const slot = renderTab();
 
     expect((await slot.findByTestId("diff-summary")).textContent).toBe("1 file+34-5");
-    expect((slot.getByRole("combobox", { name: "Diff target" }) as HTMLSelectElement).value).toBe("all");
-    expect(callsTo(slot, "getChanges")).toEqual([{ threadId: slot.threadId, target: { kind: "all" } }]);
+    expect((slot.getByRole("combobox", { name: "Diff target" }) as HTMLSelectElement).value).toBe(
+      "all",
+    );
+    expect(callsTo(slot, "getChanges")).toEqual([
+      { threadId: slot.threadId, target: { kind: "all" } },
+    ]);
   });
 
   it("sums the counts of all files", async () => {
     const slot = renderTab({
-      getChanges: () => changes([file("a.ts", { additions: 30, deletions: 4 }), file("b.ts", { additions: 4, deletions: 1 })]),
+      getChanges: () =>
+        changes([
+          file("a.ts", { additions: 30, deletions: 4 }),
+          file("b.ts", { additions: 4, deletions: 1 }),
+        ]),
     });
 
     expect((await slot.findByTestId("diff-summary")).textContent).toBe("2 files+34-5");
@@ -142,7 +179,8 @@ describe("Changes tab", () => {
 
   it("shows Binary file and Diff too large instead of a diff", async () => {
     const slot = renderTab({
-      getChanges: () => changes([file("logo.png", { binary: true }), file("big.json", { loadMode: "too_large" })]),
+      getChanges: () =>
+        changes([file("logo.png", { binary: true }), file("big.json", { loadMode: "too_large" })]),
     });
 
     expect(await slot.findByText("Binary file")).toBeTruthy();
@@ -151,13 +189,18 @@ describe("Changes tab", () => {
   });
 
   it("loads the patch of a file that comes into view", async () => {
-    const slot = renderTab({ getChanges: () => changes([file("src/new.ts", { previousPath: "src/old.ts", loadMode: "on_demand" })]) });
+    const slot = renderTab({
+      getChanges: () =>
+        changes([file("src/new.ts", { previousPath: "src/old.ts", loadMode: "on_demand" })]),
+    });
 
     const diff = await slot.findByTestId("file-diff");
 
     expect(diff.dataset.path).toBe("src/new.ts");
     expect(within(diff).getByText("src/old.ts")).toBeTruthy();
-    expect(callsTo(slot, "getPatches")).toEqual([{ threadId: slot.threadId, query: ALL_QUERY, paths: ["src/new.ts"] }]);
+    expect(callsTo(slot, "getPatches")).toEqual([
+      { threadId: slot.threadId, query: ALL_QUERY, paths: ["src/new.ts"] },
+    ]);
   });
 
   it("loads the patches of files that come into view together in one call", async () => {
@@ -188,7 +231,9 @@ describe("Changes tab", () => {
   });
 
   it("uses an initial patch without asking for it again", async () => {
-    const slot = renderTab({ getChanges: () => changes([file("src/a.ts")], { patches: { "src/a.ts": PATCH_A } }) });
+    const slot = renderTab({
+      getChanges: () => changes([file("src/a.ts")], { patches: { "src/a.ts": PATCH_A } }),
+    });
 
     await slot.findByTestId("file-diff");
 
@@ -197,7 +242,10 @@ describe("Changes tab", () => {
 
   it("loads one commit when the user picks it", async () => {
     const slot = renderTab({
-      getChanges: () => changes([file("src/a.ts")], { commits: [{ sha: "abc1234def", shortSha: "abc1234", subject: "feat: a" }] }),
+      getChanges: () =>
+        changes([file("src/a.ts")], {
+          commits: [{ sha: "abc1234def", shortSha: "abc1234", subject: "feat: a" }],
+        }),
     });
     const picker = await slot.findByRole("combobox", { name: "Diff target" });
     await slot.findByRole("option", { name: "abc1234 feat: a" });
@@ -225,7 +273,8 @@ describe("Changes tab", () => {
     let release: (result: ChangesResult) => void = () => {};
     let call = 0;
     const slot = renderTab({
-      getChanges: () => (call++ === 0 ? A_ONLY : new Promise<ChangesResult>((resolve) => (release = resolve))),
+      getChanges: () =>
+        call++ === 0 ? A_ONLY : new Promise<ChangesResult>((resolve) => (release = resolve)),
     });
     await slot.findByTestId("file-diff");
 
@@ -273,7 +322,10 @@ describe("inline comments", () => {
 
     fireEvent.click(await slot.findByRole("button", { name: "+ deletions 2" }));
 
-    expect(slot.getByTestId("line-annotation").dataset).toMatchObject({ side: "deletions", line: "2" });
+    expect(slot.getByTestId("line-annotation").dataset).toMatchObject({
+      side: "deletions",
+      line: "2",
+    });
   });
 
   it("puts a comment on a context line clicked in the old column on the new side", async () => {
@@ -281,19 +333,28 @@ describe("inline comments", () => {
 
     fireEvent.click(await slot.findByRole("button", { name: "+ deletions 3" }));
 
-    expect(slot.getByTestId("line-annotation").dataset).toMatchObject({ side: "additions", line: "3" });
+    expect(slot.getByTestId("line-annotation").dataset).toMatchObject({
+      side: "additions",
+      line: "3",
+    });
   });
 
   it("shows an open form whose line left the diff under Not in this diff", async () => {
     let call = 0;
-    const slot = renderTab({ getChanges: () => (call++ === 0 ? A_ONLY : changes([file("src/b.ts")])) });
+    const slot = renderTab({
+      getChanges: () => (call++ === 0 ? A_ONLY : changes([file("src/b.ts")])),
+    });
     fireEvent.click(await slot.findByRole("button", { name: "+ additions 2" }));
-    fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), { target: { value: "keep me" } });
+    fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), {
+      target: { value: "keep me" },
+    });
 
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
 
     const section = await slot.findByRole("region", { name: "Not in this diff" });
-    expect((within(section).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value).toBe("keep me");
+    expect(
+      (within(section).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value,
+    ).toBe("keep me");
   });
 
   it("opens only one form per line and side", async () => {
@@ -309,12 +370,16 @@ describe("inline comments", () => {
   it("keeps the form text after the tab unmounts and mounts again", async () => {
     const first = renderTab();
     fireEvent.click(await first.findByRole("button", { name: "+ additions 2" }));
-    fireEvent.change(first.getByRole("textbox", { name: "Comment" }), { target: { value: "half a thought" } });
+    fireEvent.change(first.getByRole("textbox", { name: "Comment" }), {
+      target: { value: "half a thought" },
+    });
     first.unmount();
 
     const again = renderTab({}, first.threadId);
 
-    expect(((await again.findByRole("textbox", { name: "Comment" })) as HTMLTextAreaElement).value).toBe("half a thought");
+    expect(
+      ((await again.findByRole("textbox", { name: "Comment" })) as HTMLTextAreaElement).value,
+    ).toBe("half a thought");
   });
 
   it("disables Add to review while the text is blank", async () => {
@@ -323,7 +388,9 @@ describe("inline comments", () => {
 
     fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), { target: { value: "   " } });
 
-    expect((slot.getByRole("button", { name: "Add to review" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (slot.getByRole("button", { name: "Add to review" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it("adds the comment below its line and counts it", async () => {
@@ -365,7 +432,11 @@ describe("inline comments", () => {
     await addComment(slot, "+ additions 2", "one");
     await addComment(slot, "+ additions 3", "two");
 
-    fireEvent.click(within(slot.getAllByRole("article", { name: "Pending comment" })[0]!).getByRole("button", { name: "Remove" }));
+    fireEvent.click(
+      within(slot.getAllByRole("article", { name: "Pending comment" })[0]!).getByRole("button", {
+        name: "Remove",
+      }),
+    );
 
     expect(slot.getAllByRole("article", { name: "Pending comment" })).toHaveLength(1);
     expect(slot.getByRole("button", { name: "Send feedback (1)" })).toBeTruthy();
@@ -404,7 +475,10 @@ describe("send feedback", () => {
   it("is disabled with no pending comments", async () => {
     const slot = renderTab();
 
-    expect(((await slot.findByRole("button", { name: "Send feedback (0)" })) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      ((await slot.findByRole("button", { name: "Send feedback (0)" })) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 
   it("sends the edited prompt and clears the sent comments", async () => {
@@ -412,14 +486,20 @@ describe("send feedback", () => {
     await addComment(slot, "+ additions 2", "Null check missing");
     await addComment(slot, "+ deletions 2", "Why remove this?");
     fireEvent.click(slot.getByRole("button", { name: "Send feedback (2)" }));
-    const prompt = (await slot.findByRole("textbox", { name: "Review prompt" })) as HTMLTextAreaElement;
-    expect(prompt.value).toContain("1. `src/a.ts:2` - Null check missing\n2. `src/a.ts:2 (deleted line)` - Why remove this?");
+    const prompt = (await slot.findByRole("textbox", {
+      name: "Review prompt",
+    })) as HTMLTextAreaElement;
+    expect(prompt.value).toContain(
+      "1. `src/a.ts:2` - Null check missing\n2. `src/a.ts:2 (deleted line)` - Why remove this?",
+    );
 
     fireEvent.change(prompt, { target: { value: `${prompt.value}\nAlso run the tests.` } });
     fireEvent.click(slot.getByRole("button", { name: "Send to agent" }));
 
     expect(await slot.findByText("Sent to agent")).toBeTruthy();
-    expect((callsTo(slot, "sendFeedback")[0] as { text: string }).text).toMatch(/Also run the tests\.$/);
+    expect((callsTo(slot, "sendFeedback")[0] as { text: string }).text).toMatch(
+      /Also run the tests\.$/,
+    );
     expect(slot.queryByRole("article", { name: "Pending comment" })).toBeNull();
     expect(slot.getByRole("button", { name: "Send feedback (0)" })).toBeTruthy();
   });
@@ -450,12 +530,16 @@ describe("send feedback", () => {
     const slot = renderTab();
     await addComment(slot, "+ additions 2", "x");
     fireEvent.click(slot.getByRole("button", { name: "Send feedback (1)" }));
-    fireEvent.change(await slot.findByRole("textbox", { name: "Review prompt" }), { target: { value: "edited" } });
+    fireEvent.change(await slot.findByRole("textbox", { name: "Review prompt" }), {
+      target: { value: "edited" },
+    });
 
     fireEvent.click(slot.getByRole("button", { name: "Cancel" }));
     fireEvent.click(slot.getByRole("button", { name: "Send feedback (1)" }));
 
-    expect(((await slot.findByRole("textbox", { name: "Review prompt" })) as HTMLTextAreaElement).value).toContain("`src/a.ts:2` - x");
+    expect(
+      ((await slot.findByRole("textbox", { name: "Review prompt" })) as HTMLTextAreaElement).value,
+    ).toContain("`src/a.ts:2` - x");
     expect(callsTo(slot, "sendFeedback")).toEqual([]);
   });
 });

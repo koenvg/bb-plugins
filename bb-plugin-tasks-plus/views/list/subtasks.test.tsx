@@ -5,10 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Task } from "../../shared/contract.js";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 import { EXPANDED_TASKS_STORAGE_KEY } from "./expanded-tasks.js";
-import {
-  LIST_PREFERENCE_STORAGE_KEY,
-  type ListPreference,
-} from "./list-preference.js";
+import { LIST_PREFERENCE_STORAGE_KEY, type ListPreference } from "./list-preference.js";
 
 window.matchMedia = (query: string) => ({
   matches: false,
@@ -79,8 +76,7 @@ function serverFilter(tasks: Task[], input: Record<string, unknown>) {
   return tasks.filter(
     (t) =>
       (statuses === undefined || statuses.includes(t.status)) &&
-      (input.dependency === undefined ||
-        (input.dependency === "blocked") === (t.blocked ?? false)),
+      (input.dependency === undefined || (input.dependency === "blocked") === (t.blocked ?? false)),
   );
 }
 
@@ -192,10 +188,7 @@ function render(tasks: Task[], subPath = PROJECT_ID, rich = false) {
   );
 }
 
-function preset(
-  preference: Partial<ListPreference["filters"]>,
-  sort = "manual",
-) {
+function preset(preference: Partial<ListPreference["filters"]>, sort = "manual") {
   window.localStorage.setItem(
     LIST_PREFERENCE_STORAGE_KEY,
     JSON.stringify({
@@ -230,15 +223,13 @@ async function rowFor(slot: ReturnType<typeof render>, key: string) {
 }
 
 function rowKeys(slot: ReturnType<typeof render>) {
-  return Array.from(slot.container.querySelectorAll("[data-task-key]")).map(
-    (row) => row.getAttribute("data-task-key"),
+  return Array.from(slot.container.querySelectorAll("[data-task-key]")).map((row) =>
+    row.getAttribute("data-task-key"),
   );
 }
 
 function groupKeys(slot: ReturnType<typeof render>, status: string) {
-  const header = slot.container.querySelector(
-    `[data-status-group-header="${status}"]`,
-  );
+  const header = slot.container.querySelector(`[data-status-group-header="${status}"]`);
   const section = header?.closest("section");
   if (!section) return null;
   return Array.from(section.querySelectorAll("[data-task-key]")).map((row) =>
@@ -254,9 +245,7 @@ describe("subtasks in the list", () => {
     const row = await rowFor(slot, "ABC-1");
 
     expect(within(row).getByText("1/2")).toBeTruthy();
-    expect(
-      within(row).getByRole("button", { name: "Expand subtasks of ABC-1" }),
-    ).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Expand subtasks of ABC-1" })).toBeTruthy();
     expect(rowKeys(slot)).toEqual(["ABC-4", "ABC-1"]);
   });
 
@@ -264,9 +253,7 @@ describe("subtasks in the list", () => {
     const slot = render(all);
     const row = await rowFor(slot, "ABC-4");
 
-    expect(
-      within(row).queryByRole("button", { name: /subtasks of/ }),
-    ).toBeNull();
+    expect(within(row).queryByRole("button", { name: /subtasks of/ })).toBeNull();
     expect(within(row).queryByText(/^\d+\/\d+$/)).toBeNull();
   });
 
@@ -274,9 +261,7 @@ describe("subtasks in the list", () => {
     const slot = render(all);
     const row = await rowFor(slot, "ABC-1");
 
-    fireEvent.click(
-      within(row).getByRole("button", { name: "Expand subtasks of ABC-1" }),
-    );
+    fireEvent.click(within(row).getByRole("button", { name: "Expand subtasks of ABC-1" }));
 
     await slot.findByText("ABC-2");
     expect(groupKeys(slot, "in_progress")).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
@@ -343,9 +328,7 @@ describe("subtasks in the list", () => {
 
     await waitFor(() =>
       expect(
-        within(
-          slot.container.querySelector('[data-task-key="ABC-1"]')!,
-        ).getByText("2/2"),
+        within(slot.container.querySelector('[data-task-key="ABC-1"]')!).getByText("2/2"),
       ).toBeTruthy(),
     );
   });
@@ -383,14 +366,11 @@ describe("subtasks with a filter", () => {
     const row = await rowFor(slot, "ABC-1");
 
     expect(row.getAttribute("data-dimmed")).toBe("true");
-    expect(
-      within(row).getByRole("button", { name: "Collapse subtasks of ABC-1" }),
-    ).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Collapse subtasks of ABC-1" })).toBeTruthy();
     expect(within(row).getByText("1/2")).toBeTruthy();
     expect(rowKeys(slot)).toEqual(["ABC-1", "ABC-3"]);
     expect(
-      slot.container.querySelector('[data-status-group-header="todo"]')
-        ?.textContent,
+      slot.container.querySelector('[data-status-group-header="todo"]')?.textContent,
     ).toContain("1");
     expect(slot.getByText("1 task")).toBeTruthy();
     expect(
@@ -404,10 +384,9 @@ describe("subtasks with a filter", () => {
         name: /Threads for ABC-3: 1 Failed, 1 Working/,
       }),
     ).toBeTruthy();
-    expect(
-      within(row).getByRole("button", { name: /Threads for ABC-1/ })
-        .textContent,
-    ).toContain("1 archived");
+    expect(within(row).getByRole("button", { name: /Threads for ABC-1/ }).textContent).toContain(
+      "1 archived",
+    );
     expect(
       within(childRow as HTMLElement).getByRole("button", {
         name: /Threads for ABC-3/,
@@ -425,9 +404,7 @@ describe("subtasks with a filter", () => {
     const enriched = slot.inspection.rpcCalls
       .filter((c) => c.method === "listTaskWorkStatus")
       .flatMap((c) => rpcInput(c.input).taskIds as string[]);
-    expect(new Set(enriched)).toEqual(
-      new Set([readyParent.id, blockedChild.id]),
-    );
+    expect(new Set(enriched)).toEqual(new Set([readyParent.id, blockedChild.id]));
   });
 
   it("loads the matches and the unfiltered scope", async () => {
@@ -439,11 +416,7 @@ describe("subtasks with a filter", () => {
       .filter((call) => call.method === "listTasks")
       .map((call) => rpcInput(call.input));
     expect(calls.some((input) => input.dependency === "blocked")).toBe(true);
-    expect(
-      calls.some(
-        (input) => !("dependency" in input) && !("activeOnly" in input),
-      ),
-    ).toBe(true);
+    expect(calls.some((input) => !("dependency" in input) && !("activeOnly" in input))).toBe(true);
   });
 
   it("does not save a toggle made under a filter", async () => {
@@ -451,9 +424,7 @@ describe("subtasks with a filter", () => {
     const slot = render(filtered);
     const row = await rowFor(slot, "ABC-1");
 
-    fireEvent.click(
-      within(row).getByRole("button", { name: "Collapse subtasks of ABC-1" }),
-    );
+    fireEvent.click(within(row).getByRole("button", { name: "Collapse subtasks of ABC-1" }));
 
     await waitFor(() => expect(slot.queryByText("ABC-3")).toBeNull());
     expect(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)).toBeNull();
@@ -461,16 +432,11 @@ describe("subtasks with a filter", () => {
 
   it("shows a matching parent at full strength without non-matching subtasks", async () => {
     preset({ statuses: ["todo"] });
-    const slot = render([
-      readyParent,
-      task(2, { status: "done", parentTaskId: id(1) }),
-    ]);
+    const slot = render([readyParent, task(2, { status: "done", parentTaskId: id(1) })]);
     const row = await rowFor(slot, "ABC-1");
 
     expect(row.getAttribute("data-dimmed")).toBeNull();
-    expect(
-      within(row).queryByRole("button", { name: /subtasks of/ }),
-    ).toBeNull();
+    expect(within(row).queryByRole("button", { name: /subtasks of/ })).toBeNull();
     expect(rowKeys(slot)).toEqual(["ABC-1"]);
   });
 
@@ -502,14 +468,10 @@ describe("thread summary list parity", () => {
         ),
       );
       if (subPath === "active") {
-        fireEvent.click(
-          slot.getByRole("button", { name: "Collapse subtasks of ABC-1" }),
-        );
+        fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of ABC-1" }));
         await waitFor(() => expect(slot.queryByText("ABC-3")).toBeNull());
       }
-      fireEvent.click(
-        slot.getByRole("button", { name: "Expand subtasks of ABC-1" }),
-      );
+      fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of ABC-1" }));
       await slot.findByRole("button", {
         name: /Threads for ABC-3: 1 Failed, 1 Working/,
       });
@@ -527,27 +489,19 @@ describe("thread summary list parity", () => {
         expect(prs.textContent).toContain("1 Merged");
         expect(row.className).not.toContain("opacity-50");
       }
-      fireEvent.click(
-        within(childRow).getByRole("button", { name: /Threads for/ }),
-      );
+      fireEvent.click(within(childRow).getByRole("button", { name: /Threads for/ }));
       const dialog = await slot.findByRole("dialog", {
         name: "Threads for ABC-3",
       });
       expect(dialog.textContent).toContain("Failed");
       expect(within(dialog).getByText("Archived")).toBeTruthy();
       fireEvent.keyDown(dialog, { key: "Escape" });
-      fireEvent.click(
-        within(childRow).getByRole("button", { name: /PRs for/ }),
-      );
+      fireEvent.click(within(childRow).getByRole("button", { name: /PRs for/ }));
       const prDialog = await slot.findByRole("dialog", {
         name: "PRs for ABC-3",
       });
-      expect(
-        within(prDialog).getAllByRole("link", { name: /Open GitHub PR/ }),
-      ).toHaveLength(2);
-      expect(
-        within(prDialog).getAllByRole("link", { name: /Open thread/ }),
-      ).toHaveLength(2);
+      expect(within(prDialog).getAllByRole("link", { name: /Open GitHub PR/ })).toHaveLength(2);
+      expect(within(prDialog).getAllByRole("link", { name: /Open thread/ })).toHaveLength(2);
       fireEvent.keyDown(prDialog, { key: "o" });
       expect(slot.inspection.navigateCalls).toEqual([]);
       fireEvent.keyDown(prDialog, { key: "Escape" });
@@ -565,9 +519,7 @@ describe("thread summary list parity", () => {
       const listInputs = slot.inspection.rpcCalls
         .filter((c) => c.method === "listTasks")
         .map((c) => rpcInput(c.input));
-      expect(
-        listInputs.some((input) => input.activeOnly === (subPath === "active")),
-      ).toBe(true);
+      expect(listInputs.some((input) => input.activeOnly === (subPath === "active"))).toBe(true);
     },
   );
 });
@@ -576,15 +528,10 @@ it.each(["all", PROJECT_ID, "active"])(
   "keeps rich check/review parity on dimmed parents and matching children in %s",
   async (subPath) => {
     preset({ statuses: ["todo"] });
-    const preference = JSON.parse(
-      window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!,
-    );
+    const preference = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
     preference.scopes.all = preference.scopes[`project:${PROJECT_ID}`];
     preference.scopes.active = preference.scopes[`project:${PROJECT_ID}`];
-    window.localStorage.setItem(
-      LIST_PREFERENCE_STORAGE_KEY,
-      JSON.stringify(preference),
-    );
+    window.localStorage.setItem(LIST_PREFERENCE_STORAGE_KEY, JSON.stringify(preference));
     const slot = render([parent, doneChild, urgentChild, plain], subPath, true);
     const parentRow = await rowFor(slot, "ABC-1");
     const childRow = await rowFor(slot, "ABC-3");
@@ -597,9 +544,9 @@ it.each(["all", PROJECT_ID, "active"])(
       const control = within(row).getByRole("button", { name: /PRs for/ });
       expect(control.textContent).toContain("1 Checks failing");
       expect(control.textContent).toContain("1 Merged");
-      expect(
-        within(row).getByRole("button", { name: /Threads for/ }).textContent,
-      ).toContain("1 archived");
+      expect(within(row).getByRole("button", { name: /Threads for/ }).textContent).toContain(
+        "1 archived",
+      );
     }
     fireEvent.click(within(childRow).getByRole("button", { name: /PRs for/ }));
     const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-3" });

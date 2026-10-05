@@ -2,10 +2,7 @@
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
-import {
-  loadExpandedTasks,
-  storeExpandedTasks,
-} from "../views/list/expanded-tasks.js";
+import { loadExpandedTasks, storeExpandedTasks } from "../views/list/expanded-tasks.js";
 import {
   acceptNavigation,
   deferred,
@@ -52,9 +49,7 @@ describe("removal combined with context transitions", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("alert");
     canSave = true;
-    fireEvent.click(
-      slot.getByRole("button", { name: "Collapse subtasks of TSK-2" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-2" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(saves).toBe(2);
     expect(loadExpandedTasks("all").has(parent.id)).toBe(false);
@@ -63,12 +58,8 @@ describe("removal combined with context transitions", () => {
     });
     await acceptNavigation(slot);
     expect(slot.getByText(prompt)).toBeTruthy();
-    expect(
-      slot.queryByRole("button", { name: "Open TSK-1: Title 1" }),
-    ).toBeNull();
-    expect(
-      slot.queryByRole("button", { name: "Open TSK-3: Title 3" }),
-    ).toBeNull();
+    expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull();
+    expect(slot.queryByRole("button", { name: "Open TSK-3: Title 3" })).toBeNull();
   });
 
   it("preserves the latest explicit selection over removal and pending collapse", async () => {
@@ -92,9 +83,7 @@ describe("removal combined with context transitions", () => {
     await edit(slot, "Origin draft");
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    fireEvent.click(
-      slot.getByRole("button", { name: "Collapse subtasks of TSK-2" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-2" }));
     fireEvent.click(row(slot, 2));
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     expect(slot.inspection.navigateCalls).toHaveLength(1);
@@ -133,11 +122,7 @@ describe("removal combined with context transitions", () => {
     const writes: Record<string, unknown>[] = [];
     const slot = setup("all", {
       listTasks: (raw) => ({
-        tasks: rpcInput(raw).parentTaskId
-          ? []
-          : removed
-            ? tasks.slice(1)
-            : tasks,
+        tasks: rpcInput(raw).parentTaskId ? [] : removed ? tasks.slice(1) : tasks,
         nextCursor: null,
       }),
       updateTask: (raw) => {
@@ -159,10 +144,9 @@ describe("removal combined with context transitions", () => {
     const title = slot.getByRole("textbox", { name: "Task title" });
     await edit(slot, "Origin description");
     await edit(slot, "Unsent origin comment", 1);
-    fireEvent.change(
-      slot.container.querySelectorAll('input[type="file"]')[1]!,
-      { target: { files: [new File(["origin"], "origin.txt")] } },
-    );
+    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
+      target: { files: [new File(["origin"], "origin.txt")] },
+    });
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("alert");
@@ -172,9 +156,7 @@ describe("removal combined with context transitions", () => {
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(slot.getByRole("button", { name: "Retry save" })).toBeTruthy();
     expect(slot.queryByRole("region", { name: "Ticket list" })).toBeTruthy();
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Origin description",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Origin description");
     expect(list.querySelector('[aria-current="true"]')).toBeTruthy();
     expect(slot.inspection.navigateCalls).toHaveLength(1);
     canSave = true;
@@ -183,18 +165,14 @@ describe("removal combined with context transitions", () => {
     expect(writes).toHaveLength(3);
     expect(
       writes.every(
-        (input) =>
-          input.taskId === tasks[0]!.id &&
-          input.description === "Origin description",
+        (input) => input.taskId === tasks[0]!.id && input.description === "Origin description",
       ),
     ).toBe(true);
     await acceptNavigation(slot);
     expect(slot.getByRole("region", { name: "Ticket list" })).toBe(list);
     expect(scroll.scrollTop).toBe(170);
     expect(slot.container.querySelector('[aria-current="true"]')).toBeNull();
-    expect(
-      slot.queryByRole("button", { name: "Open TSK-1: Title 1" }),
-    ).toBeNull();
+    expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull();
     await select(slot, 2);
     expect(slot.container.textContent).not.toContain("Unsent origin comment");
     expect(slot.queryByText("origin.txt")).toBeNull();
@@ -220,39 +198,28 @@ describe("removal combined with context transitions", () => {
       let removed = false;
       let canSave = false;
       let saves = 0;
-      const slot = setup(
-        `${scope}${scope.includes("?") ? "&" : "?"}task=TSK-1`,
-        {
-          listProjects: () => ({ projects: removed ? [] : [project] }),
-          updateTask: () => {
-            saves++;
-            return canSave
-              ? { ok: true, task: tasks[0] }
-              : { ok: false, error: { message: "Save before no projects" } };
-          },
+      const slot = setup(`${scope}${scope.includes("?") ? "&" : "?"}task=TSK-1`, {
+        listProjects: () => ({ projects: removed ? [] : [project] }),
+        updateTask: () => {
+          saves++;
+          return canSave
+            ? { ok: true, task: tasks[0] }
+            : { ok: false, error: { message: "Save before no projects" } };
         },
-      );
+      });
       await slot.findByRole("textbox", { name: "Task title" });
       await edit(slot, "Draft in last project");
       removed = true;
       await slot.behavior.emitRealtime("projects:changed", {});
       expect(slot.queryByText("No projects yet")).toBeNull();
-      expect((await slot.findByRole("alert")).textContent).toContain(
-        "Save before no projects",
-      );
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 1");
-      expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-        "Draft in last project",
-      );
+      expect((await slot.findByRole("alert")).textContent).toContain("Save before no projects");
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+      expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft in last project");
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
       canSave = true;
       fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
-      await waitFor(() =>
-        expect(slot.inspection.navigateCalls).toHaveLength(1),
-      );
+      await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
       expect(saves).toBe(2);
       expect(slot.inspection.navigateCalls[0]).toMatchObject({
         options: { subPath: scope, replace: true },

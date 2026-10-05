@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import { draftLineText } from "../core/comment-draft-view";
@@ -45,14 +53,20 @@ export function CommentDraftsProvider({
   const [states, setStates] = useState<Record<string, LocalState>>({});
 
   const update = useCallback((draftId: string, patch: Partial<LocalState>) => {
-    setStates((current) => ({ ...current, [draftId]: { ...(current[draftId] ?? IDLE), ...patch } }));
+    setStates((current) => ({
+      ...current,
+      [draftId]: { ...(current[draftId] ?? IDLE), ...patch },
+    }));
   }, []);
 
   const saveCommentDraft = useCallback(
     (draftId: string, body: string) => rpc.call("saveCommentDraft", { threadId, draftId, body }),
     [rpc, threadId],
   );
-  const reportSaveError = useCallback((draftId: string, error: string) => update(draftId, { error }), [update]);
+  const reportSaveError = useCallback(
+    (draftId: string, error: string) => update(draftId, { error }),
+    [update],
+  );
   const draftSaves = useDraftSaves(saveCommentDraft, reportSaveError);
 
   const stateOf = useCallback(
@@ -102,7 +116,13 @@ export function useCommentDrafts(): CommentDrafts {
   return drafts;
 }
 
-export function CommentDraftCard({ draft, showLocation = false }: { draft: ListedCommentDraft; showLocation?: boolean }) {
+export function CommentDraftCard({
+  draft,
+  showLocation = false,
+}: {
+  draft: ListedCommentDraft;
+  showLocation?: boolean;
+}) {
   const drafts = useCommentDrafts();
   const headingId = useId();
   const { text, busy, error } = drafts.stateOf(draft);
@@ -139,7 +159,12 @@ export function CommentDraftCard({ draft, showLocation = false }: { draft: Liste
         </p>
       )}
       <div className="flex items-center">
-        <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void drafts.remove(draft.id)}>
+        <button
+          type="button"
+          className={QUIET_BUTTON}
+          disabled={busy}
+          onClick={() => void drafts.remove(draft.id)}
+        >
           <Icon name="Trash2" className="size-3.5" />
           Delete
         </button>

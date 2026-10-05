@@ -41,9 +41,7 @@ export function useListTaskEdits(
       void rpc.call("updateTask", { taskId: task.id, ...patch }).then(
         (result) => {
           if (result.ok) {
-            setEntries((prev) =>
-              settleSuccess(prev, task.id, patch, gen, result.task),
-            );
+            setEntries((prev) => settleSuccess(prev, task.id, patch, gen, result.task));
           } else {
             setEntries((prev) => settleFailure(prev, task.id, patch, gen));
             onErrorRef.current(result.error.message);

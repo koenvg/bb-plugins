@@ -16,11 +16,11 @@ describe("overviewPageArgs", () => {
   });
 
   it("asks the merge queue entry on the first page", () => {
-    const query = overviewPageArgs({ ...pr, after: null }).find((arg) =>
-      arg.startsWith("query="),
-    );
+    const query = overviewPageArgs({ ...pr, after: null }).find((arg) => arg.startsWith("query="));
 
-    expect(query).toMatch(/@include\(if: \$firstPage\) \{[^}]*mergeQueueEntry \{ position state \}/);
+    expect(query).toMatch(
+      /@include\(if: \$firstPage\) \{[^}]*mergeQueueEntry \{ position state \}/,
+    );
   });
 
   it.each([
@@ -37,6 +37,8 @@ describe("overviewPageArgs", () => {
       .slice(1)
       .map((block) => block.slice(0, block.indexOf("}")));
 
-    expect(firstPageBlocks.some((block) => new RegExp(`^\\s*${field}$`, "m").test(block))).toBe(true);
+    expect(firstPageBlocks.some((block) => new RegExp(`^\\s*${field}$`, "m").test(block))).toBe(
+      true,
+    );
   });
 });

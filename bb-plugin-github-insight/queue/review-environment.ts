@@ -1,6 +1,9 @@
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 
-const SHARED_ENVIRONMENT_PROVIDERS: ReadonlySet<string> = new Set(["project-checkout", "personal-workspace"]);
+const SHARED_ENVIRONMENT_PROVIDERS: ReadonlySet<string> = new Set([
+  "project-checkout",
+  "personal-workspace",
+]);
 
 export function isSharedEnvironment(environment: NewThreadRequest["environment"]): boolean {
   switch (environment.type) {

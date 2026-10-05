@@ -37,18 +37,18 @@ Observed in this checkout:
 
 Add a typed table alongside the existing command definitions and append its registrations through the existing `TASKS_COMMANDS` loop. Use these stable IDs and titles:
 
-| ID | Title |
-| --- | --- |
-| `task-change-status` | Tasks: Change status |
-| `task-set-priority` | Tasks: Set priority |
-| `task-set-due-date` | Tasks: Set due date |
-| `task-edit-labels` | Tasks: Edit labels |
+| ID                              | Title                           |
+| ------------------------------- | ------------------------------- |
+| `task-change-status`            | Tasks: Change status            |
+| `task-set-priority`             | Tasks: Set priority             |
+| `task-set-due-date`             | Tasks: Set due date             |
+| `task-edit-labels`              | Tasks: Edit labels              |
 | `task-change-linked-bb-project` | Tasks: Change linked BB project |
-| `task-dispatch` | Tasks: Dispatch task... |
-| `task-write-comment` | Tasks: Write a comment |
-| `task-previous` | Tasks: Previous task |
-| `task-next` | Tasks: Next task |
-| `task-back` | Tasks: Back |
+| `task-dispatch`                 | Tasks: Dispatch task...         |
+| `task-write-comment`            | Tasks: Write a comment          |
+| `task-previous`                 | Tasks: Previous task            |
+| `task-next`                     | Tasks: Next task                |
+| `task-back`                     | Tasks: Back                     |
 
 No registration supplies `defaultShortcut`. Existing global command IDs are unchanged. The task-detail definitions map to semantic actions, not to keyboard events. Do not add bare-key shortcuts for due date or linked project in this change.
 

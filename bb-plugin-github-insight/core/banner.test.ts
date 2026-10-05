@@ -44,9 +44,9 @@ describe("bannerParts", () => {
 
   it("counts pending reviewers only", () => {
     const approved: Reviewer = { ...pending("c"), state: "approved" };
-    expect(
-      bannerParts(insight([reviewRequired], [pending("a"), pending("b"), approved])),
-    ).toEqual(["2 reviews pending"]);
+    expect(bannerParts(insight([reviewRequired], [pending("a"), pending("b"), approved]))).toEqual([
+      "2 reviews pending",
+    ]);
   });
 
   it("shows only the most important other blocker", () => {
@@ -121,13 +121,18 @@ describe("bannerState", () => {
     { kind: "merge", method: "SQUASH" },
     { kind: "enqueue" },
     { kind: "queued" },
-  ] satisfies MergeAction[])("shows merged before stale blockers or action $kind", (mergeAction) => {
-    expect(bannerState({
-      ...insight([failed]),
-      mergeAction,
-      pr: { ...pr, state: "merged" },
-    })).toEqual({ kind: "merged" });
-  });
+  ] satisfies MergeAction[])(
+    "shows merged before stale blockers or action $kind",
+    (mergeAction) => {
+      expect(
+        bannerState({
+          ...insight([failed]),
+          mergeAction,
+          pr: { ...pr, state: "merged" },
+        }),
+      ).toEqual({ kind: "merged" });
+    },
+  );
 
   it("is hidden for a closed PR", () => {
     expect(bannerState({ ...insight([failed]), pr: { ...pr, state: "closed" } })).toEqual({

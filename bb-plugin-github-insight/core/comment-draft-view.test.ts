@@ -44,6 +44,8 @@ describe("newCommitsText", () => {
   });
 
   it("keeps a commit shorter than 7 characters as is", () => {
-    expect(newCommitsText("abc123", "def456")).toBe("PR has new commits since these drafts (abc123 -> def456)");
+    expect(newCommitsText("abc123", "def456")).toBe(
+      "PR has new commits since these drafts (abc123 -> def456)",
+    );
   });
 });

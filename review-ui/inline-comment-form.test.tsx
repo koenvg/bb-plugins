@@ -35,7 +35,9 @@ describe("InlineCommentForm", () => {
 
     fireEvent.keyDown(form.box, { key: "Enter", metaKey: true });
 
-    expect((form.getByRole("button", { name: "Add to review" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (form.getByRole("button", { name: "Add to review" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
     expect(form.onSubmit).not.toHaveBeenCalled();
   });
 
@@ -50,7 +52,9 @@ describe("InlineCommentForm", () => {
 });
 
 it("focuses the text box after it mounts", async () => {
-  const view = render(<InlineCommentForm text="" onTextChange={() => {}} onSubmit={() => {}} onCancel={() => {}} />);
+  const view = render(
+    <InlineCommentForm text="" onTextChange={() => {}} onSubmit={() => {}} onCancel={() => {}} />,
+  );
 
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
