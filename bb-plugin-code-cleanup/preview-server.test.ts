@@ -33,7 +33,8 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
     for (const host of ["attacker.example", "127.0.0.1.attacker.example", "attacker@localhost", "localhost/attacker"]) {
       expect(await withHost("/", host)).toBe(403);
       expect(await withHost("/app.tsx", host)).toBe(403);
-      expect(await withHost("/fixture-rpc/setEnablement", host, JSON.stringify({ projectId: "fixture_beta", enabled: true }))).toBe(403);
+      expect(await withHost("/fixture-rpc/setEnablement", host, JSON.stringify({ projectId: "fixture_beta", enabledOverride: true }))).toBe(403);
+      expect(await withHost("/fixture-default", host, JSON.stringify({ enableByDefault: true }))).toBe(403);
       expect(await withHost("/fixture-rpc/setPrompt", host, JSON.stringify({ projectId: "fixture_beta", prompt: "Hostile write" }))).toBe(403);
     }
     expect((await fetch(base + "/")).status).toBe(200);
@@ -47,11 +48,18 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
     };
     const before = await rpc("getProject", { projectId: "fixture_beta" });
     expect(before.enabled).toBe(false);
-    expect(await rpc("setEnablement", { projectId: "fixture_beta", enabled: true })).toEqual({ ...before, enabled: true });
-    expect(await rpc("getProject", { projectId: "fixture_beta" })).toEqual({ ...before, enabled: true });
+    expect(await rpc("setEnablement", { projectId: "fixture_beta", enabledOverride: true })).toEqual({ ...before, enabled: true, enabledOverride: true });
+    expect(await rpc("getProject", { projectId: "fixture_beta" })).toEqual({ ...before, enabled: true, enabledOverride: true });
     const exact = '# Fixture\n\n`$literal`\n';
-    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: exact })).toEqual({ ...before, enabled: true, prompt: exact, effectivePrompt: exact });
-    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: null })).toEqual({ ...before, enabled: true });
+    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: exact })).toEqual({ ...before, enabled: true, enabledOverride: true, prompt: exact, effectivePrompt: exact });
+    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: null })).toEqual({ ...before, enabled: true, enabledOverride: true });
+    const defaults = await fetch(base + "/fixture-default");
+    expect(defaults.status).toBe(200);
+    expect(await defaults.json()).toMatchObject({ value: false, descriptor: { type: "boolean", default: false, label: "Enable for projects without an override" } });
+    const defaultWrite = await fetch(base + "/fixture-default", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enableByDefault: true }) });
+    expect(defaultWrite.status).toBe(200);
+    expect(await defaultWrite.json()).toMatchObject({ value: true, signals: [{ channel: "settings.changed", payload: { kind: "default" } }] });
+    expect(await rpc("setEnablement", { projectId: "fixture_beta", enabledOverride: null })).toEqual({ ...before, enabled: true, enabledOverride: null, enableByDefault: true });
   } finally {
     if (child.exitCode === null) {
       const exited = once(child, "exit");

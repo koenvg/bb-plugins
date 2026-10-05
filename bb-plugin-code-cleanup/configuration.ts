@@ -3,7 +3,7 @@ import type { ProjectSettingsStore } from "./project-settings";
 import { defaultGuidance } from "./guidance";
 
 /** Shared project validation and field-scoped operations for CLI and Settings. */
-export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsStore) {
+export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsStore, getDefault: () => boolean) {
   async function listProjects() {
     const projects = await bb.sdk.projects.list({ includePersonal: true });
     return projects.filter(project => project.kind === "standard").map(({ id, name }) => ({ id, name }));
@@ -16,8 +16,9 @@ export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsS
     }
   }
   function snapshot(projectId: string) {
-    const state = settings.get(projectId);
-    return { projectId, ...state, effectivePrompt: state.prompt ?? defaultGuidance(projectId) };
+    const enableByDefault = getDefault();
+    const state = settings.get(projectId, enableByDefault);
+    return { projectId, ...state, enableByDefault, effectivePrompt: state.prompt ?? defaultGuidance(projectId) };
   }
   return {
     listProjects,
@@ -25,7 +26,7 @@ export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsS
       await requireProject(projectId);
       return snapshot(projectId);
     },
-    async setEnablement(projectId: string, enabled: boolean) {
+    async setEnablement(projectId: string, enabled: boolean | null) {
       await requireProject(projectId);
       settings.setEnabled(projectId, enabled);
       return snapshot(projectId);

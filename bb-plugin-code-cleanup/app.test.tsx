@@ -10,15 +10,15 @@ import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => { cleanup(); while (hosts.length) await hosts.pop()!.lifecycle.dispose(); });
 const choices = [{ id: "proj_a", name: "Alpha" }, { id: "proj_b", name: "Beta" }];
-const state = (projectId: string): ProjectState => ({ projectId, enabled: false, prompt: "  Exact\n\npolicy ", effectivePrompt: "  Exact\n\npolicy " });
+const state = (projectId: string): ProjectState => ({ projectId, enabled: false, enabledOverride: false, enableByDefault: false, prompt: "  Exact\n\npolicy ", effectivePrompt: "  Exact\n\npolicy " });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
-async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}) {
+async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}, initialConnection: "connected" | "connecting" = "connected") {
   const app = await loadPluginApp(() => import("./app"));
   expect(app.settingsSections).toHaveLength(1);
-  return renderSlot<{}, SettingsContract>(app.settingsSections[0], {}, { rpc: {
+  return renderSlot<{}, SettingsContract>(app.settingsSections[0], {}, { realtimeConnectionState: initialConnection, rpc: {
     listProjects: () => choices, getProject: ({ projectId }) => state(projectId),
     setPrompt: ({ projectId, prompt }) => ({ ...state(projectId), prompt, effectivePrompt: prompt ?? "Factory guidance" }),
-    setEnablement: ({ projectId, enabled }) => ({ ...state(projectId), enabled }), ...overrides,
+    setEnablement: ({ projectId, enabledOverride }) => ({ ...state(projectId), enabledOverride, enabled: enabledOverride ?? false }), ...overrides,
   } });
 }
 async function select(name = "Alpha") {
@@ -27,6 +27,73 @@ async function select(name = "Alpha") {
 }
 
 describe("project Settings", () => {
+  it("recovers a missed default change on first connection without replacing a draft", async () => {
+    let enableByDefault = false;
+    const rendered = await mount({ getProject: ({ projectId }) => ({ ...state(projectId), enabled: enableByDefault, enabledOverride: null, enableByDefault }) }, "connecting");
+    await select(); const editor = await screen.findByRole("textbox", { name: "Cleanup guidance" });
+    await screen.findByText("Off · Default");
+    await userEvent.clear(editor); await userEvent.type(editor, "Keep first-connection draft");
+    enableByDefault = true;
+    await rendered.behavior.setRealtimeConnectionState("connected");
+    await screen.findByText("On · Default");
+    expect(screen.getByRole("switch", { name: "Enable for this project" }).getAttribute("aria-checked")).toBe("true");
+    expect((editor as HTMLTextAreaElement).value).toBe("Keep first-connection draft");
+    expect(rendered.inspection.rpcCalls.filter(call => call.method.startsWith("set"))).toEqual([]);
+  });
+
+  it("returns only enablement to the default and keeps the prompt and draft", async () => {
+    const rendered = await mount(); await select();
+    const editor = await screen.findByRole("textbox", { name: "Cleanup guidance" });
+    await userEvent.clear(editor); await userEvent.type(editor, "Unsaved draft");
+    await userEvent.click(screen.getByRole("button", { name: "Use default" }));
+    await screen.findByText("Off · Default");
+    expect(rendered.inspection.rpcCalls.at(-1)).toEqual({ method: "setEnablement", input: { projectId: "proj_a", enabledOverride: null } });
+    expect((editor as HTMLTextAreaElement).value).toBe("Unsaved draft");
+    expect((screen.getByRole("button", { name: "Use default" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await userEvent.click(screen.getByRole("switch", { name: "Enable for this project" }));
+    await screen.findByText("On · Project override");
+    expect(rendered.inspection.rpcCalls.at(-1)).toEqual({ method: "setEnablement", input: { projectId: "proj_a", enabledOverride: true } });
+  });
+
+  it("refreshes enablement after default changes without losing a prompt draft", async () => {
+    let enableByDefault = false;
+    const rendered = await mount({ getProject: ({ projectId }) => ({ ...state(projectId), enabled: enableByDefault, enabledOverride: null, enableByDefault }) });
+    await select(); const editor = await screen.findByRole("textbox", { name: "Cleanup guidance" });
+    await userEvent.clear(editor); await userEvent.type(editor, "Keep this draft");
+    enableByDefault = true;
+    await rendered.behavior.emitRealtime("settings.changed", { kind: "default" });
+    await screen.findByText("On · Default");
+    expect((editor as HTMLTextAreaElement).value).toBe("Keep this draft");
+    expect(screen.getByRole("switch", { name: "Enable for this project" }).getAttribute("aria-checked")).toBe("true");
+    expect(rendered.inspection.rpcCalls.filter(call => call.method.startsWith("set"))).toEqual([]);
+  });
+
+  it("reconciles a default change that arrived during the initial project read", async () => {
+    const initial = deferred<ProjectState>(); let reads = 0;
+    const rendered = await mount({ getProject: ({ projectId }) => {
+      if (++reads === 1) return initial.promise;
+      return { ...state(projectId), enabled: true, enabledOverride: null, enableByDefault: true };
+    } });
+    await select(); await screen.findByText("Loading project settings…");
+    await rendered.behavior.emitRealtime("settings.changed", { kind: "default" });
+    await act(async () => initial.resolve({ ...state("proj_a"), enabledOverride: null }));
+    await screen.findByText("On · Default");
+    expect((screen.getByRole("textbox", { name: "Cleanup guidance" }) as HTMLTextAreaElement).value).toBe(state("proj_a").effectivePrompt);
+  });
+
+  it("recovers a missed default change on reconnect without replacing a draft", async () => {
+    let enableByDefault = false;
+    const rendered = await mount({ getProject: ({ projectId }) => ({ ...state(projectId), enabled: enableByDefault, enabledOverride: null, enableByDefault }) });
+    await select(); const editor = await screen.findByRole("textbox", { name: "Cleanup guidance" });
+    await userEvent.clear(editor); await userEvent.type(editor, "Keep offline draft");
+    await rendered.behavior.setRealtimeConnectionState("reconnecting");
+    enableByDefault = true;
+    await rendered.behavior.setRealtimeConnectionState("connected");
+    await screen.findByText("On · Default");
+    expect((editor as HTMLTextAreaElement).value).toBe("Keep offline draft");
+  });
+
   it("requires explicit selection, reads exact guidance, then persists through official host RPC", async () => {
     const host = createFakePluginHost({ pluginId: "code-cleanup", sdk: { projects: { list: async () => [
       ...choices.map(p => ({ ...p, kind: "standard" })), { id: "personal", name: "Personal", kind: "personal" },
@@ -52,7 +119,7 @@ describe("project Settings", () => {
     toggle.focus();
     await userEvent.keyboard(" ");
     await screen.findByText("Saved. Code Cleanup is On for Alpha.");
-    expect(rendered.inspection.rpcCalls.at(-1)).toEqual({ method: "setEnablement", input: { projectId: "proj_a", enabled: true } });
+    expect(rendered.inspection.rpcCalls.at(-1)).toEqual({ method: "setEnablement", input: { projectId: "proj_a", enabledOverride: true } });
     expect((await host.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout).toContain("enabled; prompt: custom");
     const exact = '  # Custom\n\n`$(echo "$HOME")` and ${literal}\n';
     await userEvent.clear(editor); await userEvent.click(editor); await userEvent.paste(exact);

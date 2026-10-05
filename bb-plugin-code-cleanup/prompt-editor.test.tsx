@@ -9,13 +9,13 @@ import type { ProjectState, SettingsContract } from "./rpc";
 afterEach(cleanup);
 const choices = [{ id: "proj_a", name: "Alpha" }, { id: "proj_b", name: "Beta" }];
 const source = "  # Saved\n\n`$(name)` and ${HOME}\n";
-const state = (projectId: string, prompt: string | null = source): ProjectState => ({ projectId, enabled: false, prompt, effectivePrompt: prompt ?? "# Factory\nRecord cleanup through BB Tasks.\n" });
+const state = (projectId: string, prompt: string | null = source): ProjectState => ({ projectId, enabled: false, enabledOverride: null, enableByDefault: false, prompt, effectivePrompt: prompt ?? "# Factory\nRecord cleanup through BB Tasks.\n" });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
 async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}) {
   const app = await loadPluginApp(() => import("./app"));
   return renderSlot<{}, SettingsContract>(app.settingsSections[0], {}, { rpc: {
     listProjects: () => choices, getProject: ({ projectId }) => state(projectId),
-    setEnablement: ({ projectId, enabled }) => ({ ...state(projectId), enabled }),
+    setEnablement: ({ projectId, enabledOverride }) => ({ ...state(projectId), enabledOverride, enabled: enabledOverride ?? false }),
     setPrompt: ({ projectId, prompt }) => state(projectId, prompt), ...overrides,
   } });
 }

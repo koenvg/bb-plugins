@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Ref } from "react";
-import { definePluginApp, Markdown, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, Markdown, useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { ProjectChoice, ProjectState, SettingsContract } from "./rpc";
 import { IconAction } from "./icon-action";
 import "./app.css";
@@ -84,6 +84,18 @@ function ProjectSettings() {
   const [pending, setPending] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [defaultAttempt, refreshDefault] = useState(0);
+  const [defaultError, setDefaultError] = useState<string | null>(null);
+  const connection = useRealtimeConnectionState();
+  const previousConnection = useRef(connection);
+  useEffect(() => {
+    if (connection === "connected" && previousConnection.current !== "connected") refreshDefault(n => n + 1);
+    previousConnection.current = connection;
+  }, [connection]);
+  const loadedProjectId = snapshot?.projectId ?? null;
+  useRealtime("settings.changed", payload => {
+    if (payload && typeof payload === "object" && "kind" in payload && payload.kind === "default") refreshDefault(n => n + 1);
+  });
   const writeLock = useRef(false);
   const alive = useRef(false);
   const selection = useRef(projectId);
@@ -117,25 +129,39 @@ function ProjectSettings() {
     }).catch(error => { if (current) setReadError(message(error)); });
     return () => { current = false; };
   }, [rpc, projectId, readAttempt]);
+  // Default changes refresh only enablement. Prompt reconciliation belongs to its own edit flow.
+  useEffect(() => {
+    if (!defaultAttempt || !projectId || pending || loadedProjectId !== projectId) return;
+    let current = true;
+    setDefaultError(null);
+    rpc.call("getProject", { projectId }).then(result => {
+      if (!current) return;
+      if (result.projectId !== projectId) throw new Error("Project response did not match the selection.");
+      setSnapshot(previous => previous?.projectId === projectId ? { ...previous,
+        enabled: result.enabled, enabledOverride: result.enabledOverride, enableByDefault: result.enableByDefault,
+      } : previous);
+    }).catch(error => { if (current) setDefaultError(message(error)); });
+    return () => { current = false; };
+  }, [rpc, projectId, loadedProjectId, defaultAttempt, pending]);
 
   const state = snapshot?.projectId === projectId ? snapshot : null;
   const dirty = state !== null && draft !== state.effectivePrompt;
   const blocked = pending || confirmation !== null;
   const projectName = projects?.find(project => project.id === projectId)?.name ?? projectId;
 
-  async function persist(kind: "enablement" | "prompt", prompt: string | null = null) {
+  async function persist(kind: "enablement" | "inherit" | "prompt", prompt: string | null = null) {
     if (!state || writeLock.current) return;
     const target = state.projectId;
     writeLock.current = true; setPending(true); setWriteError(null); setSaved(null);
     try {
-      const result = kind === "enablement"
-        ? await rpc.call("setEnablement", { projectId: target, enabled: !state.enabled })
+      const result = kind !== "prompt"
+        ? await rpc.call("setEnablement", { projectId: target, enabledOverride: kind === "inherit" ? null : !state.enabled })
         : await rpc.call("setPrompt", { projectId: target, prompt });
       if (result.projectId !== target) throw new Error("Project response did not match the save target.");
       if (alive.current && selection.current === target) {
         setSnapshot(result);
         if (kind === "prompt") setDraft(result.effectivePrompt);
-        setSaved(kind === "enablement" ? `Saved. Code Cleanup is ${result.enabled ? "On" : "Off"} for ${projectName}.`
+        setSaved(kind !== "prompt" ? kind === "inherit" ? `Saved. ${projectName} follows the default.` : `Saved. Code Cleanup is ${result.enabled ? "On" : "Off"} for ${projectName}.`
           : prompt === null ? `Reset prompt for ${projectName} to plugin default.` : `Saved prompt for ${projectName}.`);
       }
     } catch (error) { if (alive.current && selection.current === target) setWriteError(message(error)); }
@@ -174,11 +200,18 @@ function ProjectSettings() {
       {projects?.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
     </select>
       </div>
-      {state && <div className="cleanup-control">
-        <span id="cleanup-enable-label">Enable for this project</span>
-        <button role="switch" aria-labelledby="cleanup-enable-label" aria-checked={state.enabled} disabled={blocked} onClick={() => void persist("enablement")}>{state.enabled ? "On" : "Off"}</button>
+      {state && <div className="cleanup-enablement">
+        <div className="cleanup-control">
+          <span id="cleanup-enable-label">Enable for this project</span>
+          <div className="cleanup-enablement-actions">
+            <button role="switch" aria-labelledby="cleanup-enable-label" aria-checked={state.enabled} disabled={blocked} onClick={() => void persist("enablement")}>{state.enabled ? "On" : "Off"}</button>
+            <button disabled={blocked || state.enabledOverride === null} onClick={() => void persist("inherit")}>Use default</button>
+          </div>
+        </div>
       </div>}
     </div>
+    {state && <p className="cleanup-help" aria-live="polite">{state.enabled ? "On" : "Off"} · {state.enabledOverride === null ? "Default" : "Project override"}</p>}
+    {defaultError && <div><p role="alert">Could not refresh enablement: {defaultError}</p><button disabled={blocked} onClick={() => refreshDefault(n => n + 1)}>Refresh enablement</button></div>}
     {!projects && !listError && <p role="status">Loading projects…</p>}
     {listError && <div><p role="alert">Could not load projects: {listError}</p><button onClick={() => retryList(n => n + 1)}>Retry projects</button></div>}
     {projects?.length === 0 && <p>No standard projects are available.</p>}

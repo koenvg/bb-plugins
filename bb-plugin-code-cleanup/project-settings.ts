@@ -1,9 +1,9 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-type ProjectSettings = { enabled: boolean; prompt: string | null };
-type Row = { enabled: number; prompt: string | null };
+type ProjectSettings = { enabled: boolean; enabledOverride: boolean | null; prompt: string | null };
+type Row = { enabled_override: number | null; prompt: string | null };
 
-/** Open the host-managed database once per plugin generation. Missing projects are off. */
+/** One host-managed database per generation. Resolve only the override, not the legacy column. */
 export function openProjectSettings(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, [
@@ -12,20 +12,25 @@ export function openProjectSettings(bb: BbPluginApi) {
       enabled INTEGER NOT NULL DEFAULT 0,
       prompt TEXT
     )`,
+    `ALTER TABLE project_settings ADD COLUMN enabled_override INTEGER CHECK (enabled_override IN (0, 1))`,
+    `UPDATE project_settings SET enabled_override = enabled`,
   ]);
-  const getRow = db.prepare("SELECT enabled, prompt FROM project_settings WHERE project_id = ?");
-  const setEnabled = db.prepare(`INSERT INTO project_settings (project_id, enabled)
-    VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET enabled = excluded.enabled`);
+  const getRow = db.prepare("SELECT enabled_override, prompt FROM project_settings WHERE project_id = ?");
+  const setEnabled = db.prepare(`INSERT INTO project_settings (project_id, enabled, enabled_override)
+    VALUES (?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET enabled = excluded.enabled, enabled_override = excluded.enabled_override`);
+  const clearEnabled = db.prepare("UPDATE project_settings SET enabled_override = NULL WHERE project_id = ?");
   const setPrompt = db.prepare(`INSERT INTO project_settings (project_id, prompt)
     VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET prompt = excluded.prompt`);
 
   return {
-    get(projectId: string): ProjectSettings {
+    get(projectId: string, enableByDefault = false): ProjectSettings {
       const row = getRow.get(projectId) as Row | undefined;
-      return { enabled: row?.enabled === 1, prompt: row?.prompt ?? null };
+      const enabledOverride = row?.enabled_override == null ? null : row.enabled_override === 1;
+      return { enabled: enabledOverride ?? enableByDefault, enabledOverride, prompt: row?.prompt ?? null };
     },
-    setEnabled(projectId: string, enabled: boolean): void {
-      setEnabled.run(projectId, enabled ? 1 : 0);
+    setEnabled(projectId: string, enabled: boolean | null): void {
+      if (enabled === null) clearEnabled.run(projectId);
+      else setEnabled.run(projectId, enabled ? 1 : 0, enabled ? 1 : 0);
     },
     setPrompt(projectId: string, prompt: string): void {
       setPrompt.run(projectId, prompt);

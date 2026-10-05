@@ -24,27 +24,27 @@ describe("prompt Settings through public RPC and real storage", () => {
     const other = db.prepare("SELECT * FROM project_settings WHERE project_id = ?").get("proj_b");
     const text = '  # Guidance\r\n\n- `$(name)` and ${HOME} <script>literal</script>\n```sh\necho "$HOME"\n```\n\n ';
     expect(await call("setPrompt", { projectId: "proj_a", prompt: text })).toEqual({
-      projectId: "proj_a", enabled: false, prompt: text, effectivePrompt: text,
+      projectId: "proj_a", enabled: false, enabledOverride: null, enableByDefault: false, prompt: text, effectivePrompt: text,
     });
     expect((await host.harness.behavior.runCli(["show", "--project", "proj_a"])).stdout).toContain("disabled; prompt: custom");
     await host.harness.behavior.runCli(["enable", "--project", "proj_a"]);
     const context = makePluginAgentConfigurationContext({ project: { id: "proj_a" } });
     expect((await host.harness.behavior.resolveAgentConfiguration(context)).instructions).toBe(text);
     expect(await call("setPrompt", { projectId: "proj_a", prompt: null })).toEqual({
-      projectId: "proj_a", enabled: true, prompt: null, effectivePrompt: defaultGuidance("proj_a"),
+      projectId: "proj_a", enabled: true, enabledOverride: true, enableByDefault: false, prompt: null, effectivePrompt: defaultGuidance("proj_a"),
     });
     expect((await host.harness.behavior.resolveAgentConfiguration(context)).instructions).toBe(defaultGuidance("proj_a"));
     await host.harness.behavior.runCli(["disable", "--project", "proj_a"]);
     await call("setPrompt", { projectId: "proj_a", prompt: null });
-    expect(await call("getProject", { projectId: "proj_a" })).toEqual({ projectId: "proj_a", enabled: false, prompt: null, effectivePrompt: defaultGuidance("proj_a") });
+    expect(await call("getProject", { projectId: "proj_a" })).toEqual({ projectId: "proj_a", enabled: false, enabledOverride: false, enableByDefault: false, prompt: null, effectivePrompt: defaultGuidance("proj_a") });
     expect(db.prepare("SELECT * FROM project_settings WHERE project_id = ?").get("proj_b")).toEqual(other);
   });
 
-  it("upgrade and repeated reload preserve every saved choice and exact custom source", async () => {
+  it("repeated reload preserves every explicit choice and exact custom source", async () => {
     let host = await setup();
     const db = host.bb.storage.database();
-    db.prepare("INSERT INTO project_settings VALUES (?, ?, ?)").run("proj_a", 1, "  Legacy\r\n\n`$literal`\n ");
-    db.prepare("INSERT INTO project_settings VALUES (?, ?, ?)").run("proj_b", 0, "Disabled\n");
+    db.prepare("INSERT INTO project_settings (project_id, enabled, prompt, enabled_override) VALUES (?, ?, ?, ?)").run("proj_a", 1, "  Legacy\r\n\n`$literal`\n ", 1);
+    db.prepare("INSERT INTO project_settings (project_id, enabled, prompt, enabled_override) VALUES (?, ?, ?, ?)").run("proj_b", 0, "Disabled\n", 0);
     const rows = db.prepare("SELECT * FROM project_settings ORDER BY project_id").all();
     for (let n = 0; n < 2; n++) {
       host = await host.harness.lifecycle.reload(plugin); hosts.pop(); hosts.push(host.harness);
@@ -72,7 +72,7 @@ describe("prompt Settings through public RPC and real storage", () => {
   it("failed Save and Reset retain exact stored source and enablement", async () => {
     const host = await setup(); const call = host.harness.behavior.callRpc;
     await call("setPrompt", { projectId: "proj_a", prompt: "Saved\n" });
-    await call("setEnablement", { projectId: "proj_a", enabled: true });
+    await call("setEnablement", { projectId: "proj_a", enabledOverride: true });
     const db = host.bb.storage.database(); const before = db.prepare("SELECT * FROM project_settings").all();
     db.exec("CREATE TRIGGER reject_prompt_write BEFORE UPDATE ON project_settings BEGIN SELECT RAISE(ABORT, 'fixture storage failure'); END");
     for (const prompt of ["Draft\n", null]) await expect(call("setPrompt", { projectId: "proj_a", prompt })).rejects.toThrow("fixture storage failure");

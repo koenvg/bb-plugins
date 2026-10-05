@@ -8,21 +8,34 @@ const projectOption = {
   project: { type: "string", required: true, description: "Standard BB project ID" },
 } as const;
 
-export default function plugin(bb: BbPluginApi): void {
+export default async function plugin(bb: BbPluginApi): Promise<void> {
+  const defaults = bb.settings.define({
+    enableByDefault: {
+      type: "boolean", default: false,
+      label: "Enable for projects without an override",
+      description: "Includes new standard projects. Explicit project choices stay unchanged. This does not turn the BB plugin on or off.",
+    },
+  });
+  let enableByDefault = (await defaults.get()).enableByDefault;
+  defaults.onChange(next => {
+    enableByDefault = next.enableByDefault;
+    try { bb.realtime.publish("settings.changed", { kind: "default" }); }
+    catch { bb.log.warn("Default saved, but Settings notification failed. Refresh Settings to read the saved value."); }
+  });
   const settings = openProjectSettings(bb);
 
   bb.agents.configure(({ project, origin }) => {
-    if (project.kind !== "standard" || origin.pluginId === "side-chat") return { tools: [], skills: [] };
-    const state = settings.get(project.id);
+    if (project.kind !== "standard" || !project.id || origin.pluginId === "side-chat") return { tools: [], skills: [] };
+    const state = settings.get(project.id, enableByDefault);
     if (!state.enabled) return { tools: [], skills: [] };
     return { tools: [], skills: [], instructions: state.prompt ?? defaultGuidance(project.id) };
   });
 
-  const configuration = projectConfiguration(bb, settings);
+  const configuration = projectConfiguration(bb, settings, () => enableByDefault);
   bb.rpc.register(settingsContract, {
     listProjects: () => configuration.listProjects(),
     getProject: ({ projectId }) => configuration.getProject(projectId),
-    setEnablement: ({ projectId, enabled }) => configuration.setEnablement(projectId, enabled),
+    setEnablement: ({ projectId, enabledOverride }) => configuration.setEnablement(projectId, enabledOverride),
     setPrompt: ({ projectId, prompt }) => configuration.setPrompt(projectId, prompt),
   });
 
@@ -46,12 +59,20 @@ export default function plugin(bb: BbPluginApi): void {
           return { exitCode: 0, stdout: `Disabled Code Cleanup for ${options.project}.` };
         },
       }),
+      "enablement reset": cliCommand({
+        summary: "Use the saved default for one project (keep its custom prompt)",
+        options: projectOption,
+        async run({ options }) {
+          await configuration.setEnablement(options.project, null);
+          return { exitCode: 0, stdout: `Code Cleanup for ${options.project} now follows the default.` };
+        },
+      }),
       show: cliCommand({
         summary: "Show project enablement and prompt source",
         options: projectOption,
         async run({ options }) {
           const state = await configuration.getProject(options.project);
-          return { exitCode: 0, stdout: `${options.project}: ${state.enabled ? "enabled" : "disabled"}; prompt: ${state.prompt === null ? "default" : "custom"}` };
+          return { exitCode: 0, stdout: `${options.project}: ${state.enabled ? "enabled" : "disabled"}; prompt: ${state.prompt === null ? "default" : "custom"}; enablement: ${state.enabledOverride === null ? "default" : "project override"}` };
         },
       }),
       "prompt set": cliCommand({

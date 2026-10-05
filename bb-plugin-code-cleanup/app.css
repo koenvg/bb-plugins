@@ -11,6 +11,8 @@
 .code-cleanup-settings .cleanup-project-group { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; }
 .code-cleanup-settings .cleanup-project-field { flex: 1 1 16rem; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .code-cleanup-settings .cleanup-control { display: flex; flex-direction: column; gap: 0.5rem; }
+.code-cleanup-settings .cleanup-enablement { min-width: 0; }
+.code-cleanup-settings .cleanup-enablement-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .code-cleanup-settings [role="switch"] { min-width: 4rem; }
 .code-cleanup-settings [aria-checked="true"] { background: var(--foreground); color: var(--background); }
 .code-cleanup-settings [aria-checked="true"]:hover:not(:disabled) { background: var(--foreground); }
@@ -38,4 +40,4 @@
 .code-cleanup-settings .cleanup-confirm .cleanup-actions { margin-top: 0.75rem; }
 .code-cleanup-settings .cleanup-help { color: var(--muted-foreground); font-size: 0.75rem; }
 .code-cleanup-settings .cleanup-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-@media (max-width: 480px) { .code-cleanup-settings .cleanup-control { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; } .code-cleanup-settings .cleanup-actions { flex-direction: column; align-items: stretch; } }
+@media (max-width: 480px) { .code-cleanup-settings .cleanup-enablement { width: 100%; } .code-cleanup-settings .cleanup-control { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; } .code-cleanup-settings .cleanup-actions { flex-direction: column; align-items: stretch; } }

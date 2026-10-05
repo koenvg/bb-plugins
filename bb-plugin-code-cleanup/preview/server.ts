@@ -21,6 +21,20 @@ const server = createServer(async (req, res) => {
     return;
   }
   const url = new URL(req.url ?? "/", "http://localhost");
+  if (url.pathname === "/fixture-default") {
+    try {
+      if (req.method === "POST") {
+        let body = ""; for await (const chunk of req) { body += chunk; if (body.length > 1024) throw new Error("Request too large"); }
+        await host.harness.behavior.setSettings(JSON.parse(body));
+      } else if (req.method !== "GET") throw new Error("GET or POST required");
+      const state = await host.harness.behavior.callRpc("getProject", { projectId: "fixture_beta" }) as { enableByDefault: boolean };
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ descriptor: host.harness.inspection.registrations.settingsDescriptors.enableByDefault, value: state.enableByDefault,
+        signals: req.method === "POST" ? host.harness.inspection.realtimeSignals.slice(-1) : [],
+      }));
+    } catch (error) { res.statusCode = 400; res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Fixture settings request failed" })); }
+    return;
+  }
   if (url.pathname.startsWith("/fixture-rpc/")) {
     try {
       if (req.method !== "POST") throw new Error("POST required");
