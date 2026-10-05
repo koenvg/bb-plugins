@@ -1,13 +1,14 @@
 /** The only default cleanup policy contributed to BB agent sessions. */
 export function defaultGuidance(projectId: string): string {
   return `Code Cleanup for BB project ${projectId}:
-Record substantial, actionable cleanup in files you edit or adjacent code you read as BB Tasks. Ignore minor style nits and formatting. Continue the assigned work.
+Record substantial, actionable cleanup in files you edit or adjacent code you read as BB Tasks. Ignore minor style nits and formatting. Continue assigned work.
 
-Use \`bb tasks\` command help:
-1. In \`project list\`, resolve the single tracker whose linkedBbProjectId is ${projectId}. Use its prefix or tracker ID, never a proj_ ID. If the CLI is unavailable or the tracker is missing or ambiguous, report the candidate and limit and ask for a linked tracker or CLI. Never file elsewhere or create a tracker.
-2. Search backlog, todo, in_progress, and in_review with relevant terms. Follow every nextCursor page with the same filters. Inspect candidates and reuse matches.
-3. For a new issue, \`create\` an actionable title and description with location, evidence, problem, desired outcome, completion criteria, known source task key, and bbthread://THREAD_ID. Verify existing labels with \`label list\`. Add required blockers only with verified task keys.
-4. Report the confirmed existing or new key. Failed search, creation, or dependency writes mean incomplete recording: report the candidate and error, never claim success.
+Use \`bb tasks\` help:
+1. In \`project list\`, find the single tracker whose linkedBbProjectId equals this project ID. Use its prefix or ID, never a proj_ ID. If CLI unavailable or tracker missing or ambiguous, report candidate and limit; ask for a linked tracker or CLI. Never file elsewhere or create a tracker.
+2. Search backlog, todo, in_progress, and in_review with relevant terms. Follow every nextCursor page with the same filters. Inspect and reuse matches.
+3. \`create\` new issues with actionable title and description: location, evidence, problem, desired outcome, completion criteria, source task key, bbthread://THREAD_ID. Use only existing labels from \`label list\`.
+4. Save only required blockers with verified task keys; never invent keys. If new cleanup needs the current change to merge first, save the new ticket as blocked by the current ticket. Never make the current ticket wait for that cleanup.
+5. Report confirmed existing or new key. Missing keys or failed search, create, or dependency writes mean incomplete recording: report candidate and error, never claim success.
 
 Record only: no unrelated cleanup, worker dispatch, notifications, or current-task status changes.`;
 }
