@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-10-04",
+  "thread": "thr_3kr8equw8g",
+  "environment": "env_bs69j7zqfe",
+  "implementationBase": "43c2804c53cc07f1e7959c9b2bc93000e1c670ce",
+  "installedRepositoryCommit": "6c6bd792926de897215898e01b1e09c14ddba252",
+  "nativeTicketCommit": "78fdd0857c79cc6ed10ea2c3a31bf94e9ba58664",
+  "nativeTicketAlreadyIntegrated": true,
+  "bbVersion": "0.44.0",
+  "machine": "Darwin arm64",
+  "tasks": {
+    "source": "path:/Users/koen/workspace/bb-plugins/bb-plugin-tasks-plus",
+    "version": "0.1.2",
+    "enabled": true,
+    "status": "running",
+    "bundle": "fee57104b9d22277",
+    "installedPackageTree": "9bfc11d7eddfdd33ab6502c5105a19bfc566c9f8",
+    "implementationBasePackageTree": "d6f9e6bd9cbaa1077a9d69d9e9d5b40815d5ef5e",
+    "installedAppSha256": "f55ce303fc345da825acb795546922ee577631f72051863eab55ac7a9bc52a1b",
+    "servedAppMatchesDisk": true,
+    "localCandidateAppSha256": "e90a4cedecea9a84811075945ed731cc45ace0005771a020e8346305c41d92b1",
+    "candidateActivated": false
+  },
+  "quota": {
+    "source": "path:/Users/koen/workspace/bb-plugins/bb-plugin-codex-quota",
+    "version": "0.1.0",
+    "enabled": true,
+    "status": "running",
+    "bundle": "acd64ffbb1fabefc",
+    "installedAndImplementationBasePackageTree": "f8769ae306879f5e8d5f834d34b093a61cc5d353",
+    "installedAndCandidateAppSha256": "3d92f16074b991c0529b50a7cbdba34bde3bbbeb64a69987942f52f10127d191",
+    "servedAppMatchesDisk": true,
+    "candidateActivated": false
+  },
+  "sourceEvidence": {
+    "installedCheckoutStatus": "clean",
+    "nativeFilesMatchExactly": [
+      "shell/browse-workspace.tsx",
+      "shell/ticket-panel.tsx",
+      "shell/browse-keyboard.ts",
+      "shell/native-ticket-panel.test.tsx",
+      "views/detail/task-session.tsx",
+      "views/detail/safe-transition.ts",
+      "views/detail/edit-session.ts"
+    ],
+    "trackedTasksFilesCompared": 243,
+    "trackedTasksFilesDifferent": 20,
+    "trackedQuotaFilesCompared": 37,
+    "trackedQuotaFilesDifferent": 0,
+    "tasksDifference": "Upstream list declutter change cdc3ac2, merged by ba080d5, plus its tests, README and dependency lock changes. Do not treat this as an identical full package baseline.",
+    "planningSnapshotIsNotCurrent": "The planning bundle 70cac470a8d1d290 and local snapshot are not the current installation."
+  },
+  "measurement": {
+    "browser": null,
+    "samples": 0,
+    "medianMs": null,
+    "p95Ms": null,
+    "worstMs": null,
+    "blankIntervals": null,
+    "longTasks": null,
+    "requestWork": null,
+    "dateWork": null,
+    "status": "blocked on operator live approval"
+  }
+}

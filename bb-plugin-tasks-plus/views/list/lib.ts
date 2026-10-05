@@ -166,13 +166,23 @@ export function selectedLabelIds(
   return options.filter((option) => selected.has(option.name)).flatMap((option) => option.labelIds);
 }
 
+// The formats are fixed, but the reference year is evaluated on every call.
+const monthDayFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const monthDayYearFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
 export function formatDueDate(dueDate: string, today = new Date()): string {
   const date = new Date(`${dueDate}T00:00:00`);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(date.getFullYear() === today.getFullYear() ? {} : { year: "numeric" }),
-  });
+  if (Number.isNaN(date.getTime())) return "Invalid Date";
+  const formatter =
+    date.getFullYear() === today.getFullYear() ? monthDayFormat : monthDayYearFormat;
+  return formatter.format(date);
 }
 
 export function activeWorkLabel(threads: readonly { liveStatus: string }[]): string {
@@ -182,8 +192,8 @@ export function activeWorkLabel(threads: readonly { liveStatus: string }[]): str
   return `${threads.length} agents working`;
 }
 
-export function localIsoDate(daysFromNow: number): string {
-  const date = new Date();
+export function localIsoDate(daysFromNow: number, today = new Date()): string {
+  const date = new Date(today);
   date.setDate(date.getDate() + daysFromNow);
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");

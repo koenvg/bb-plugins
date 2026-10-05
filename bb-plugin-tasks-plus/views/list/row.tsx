@@ -1,10 +1,10 @@
-import { useRef } from "react";
+import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
 import type { Label, Project, Task } from "../../shared/contract.js";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { DependencyBadges } from "../dependencies.js";
 import type { TaskRowMeta } from "./data.js";
-import { formatDueDate } from "./lib.js";
+import { formatDueDate, localIsoDate } from "./lib.js";
 import type { EditFn } from "./property-menus.js";
 import { PriorityEditor, StatusEditor, TaskContextMenu } from "./property-menus.js";
 import { LabelsPicker } from "../labels-picker.js";
@@ -30,6 +30,7 @@ interface TaskRowProps {
   onOpen: () => void;
   pending: boolean;
   selected?: boolean;
+  referenceDate?: string;
   depth?: 0 | 1;
   dimmed?: boolean;
   expanded?: boolean;
@@ -39,7 +40,7 @@ interface TaskRowProps {
   onOpenMenuChange: (menu: RowMenu | null) => void;
 }
 
-export function TaskRow({
+export const TaskRow = memo(function TaskRow({
   task,
   meta,
   project,
@@ -48,6 +49,7 @@ export function TaskRow({
   onEdit,
   onOpen,
   pending,
+  referenceDate = localIsoDate(0),
   selected = false,
   depth = 0,
   dimmed = false,
@@ -58,17 +60,14 @@ export function TaskRow({
   onOpenMenuChange,
 }: TaskRowProps) {
   const openButtonRef = useRef<HTMLButtonElement>(null);
-  const menuProps = (menu: RowMenu) => ({
-    open: openMenu === menu,
-    onOpenChange: (open: boolean) => onOpenMenuChange(open ? menu : null),
-  });
-  const focusRowOnClose = (event: Event) => {
-    event.preventDefault();
-    openButtonRef.current?.focus();
-  };
 
   return (
-    <TaskContextMenu task={task} onEdit={onEdit} projectLabels={projectLabels}>
+    <TaskContextMenu
+      task={task}
+      onEdit={onEdit}
+      projectLabels={projectLabels}
+      referenceDate={referenceDate}
+    >
       <div
         data-task-key={task.key}
         data-selected={selected || undefined}
@@ -110,82 +109,179 @@ export function TaskRow({
             />
           </button>
         ) : null}
-        <StatusEditor
+        <RowContents
           task={task}
+          meta={meta}
+          project={project}
+          showProject={showProject}
+          projectLabels={projectLabels}
           onEdit={onEdit}
-          {...menuProps("status")}
-          onCloseAutoFocus={focusRowOnClose}
-          className="col-start-1 row-start-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          subProgress={subProgress}
+          referenceDate={referenceDate}
+          openMenu={openMenu}
+          onOpenMenuChange={onOpenMenuChange}
+          openButtonRef={openButtonRef}
         />
-        <Popover {...menuProps("labels")}>
-          <PopoverAnchor asChild>
-            <span
-              className={cn(
-                "col-start-2 row-start-1 min-w-0 break-words font-medium @4xl:flex-1 @4xl:min-w-64 @4xl:truncate",
-                COARSE_POINTER_TEXT_BASE_CLASS,
-              )}
-            >
-              {task.title}
-            </span>
-          </PopoverAnchor>
-          <PopoverContent
-            className="w-56 p-0"
-            align="start"
-            mobileTitle="Edit labels"
-            onCloseAutoFocus={focusRowOnClose}
-          >
-            <LabelsPicker
-              task={task}
-              labels={projectLabels}
-              onChange={(labelIds) => onEdit(task, { labelIds })}
-            />
-          </PopoverContent>
-        </Popover>
-        <div className="col-span-2 grid grid-cols-subgrid items-center @4xl:contents">
-          <PriorityEditor
-            task={task}
-            onEdit={onEdit}
-            {...menuProps("priority")}
-            onCloseAutoFocus={focusRowOnClose}
-            className="col-start-1 self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-          />
-          <span className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 @4xl:contents">
-            <span
-              className={cn(
-                "shrink-0 tabular-nums text-muted-foreground @4xl:w-14 @4xl:truncate",
-                COARSE_POINTER_TEXT_SM_CLASS,
-              )}
-            >
-              {task.key}
-            </span>
-            <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden @4xl:shrink-0">
-              {subProgress !== undefined && subProgress.total > 0 ? (
-                <span title="Subtasks done" className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
-                  <Icon name="GitBranch" className="size-3 shrink-0" />
-                  {subProgress.done}/{subProgress.total}
-                </span>
-              ) : null}
-              <DependencyBadges task={task} className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)} />
-              <ThreadSummary taskKey={task.key} meta={meta} />
-              <PrSummary taskKey={task.key} meta={meta} />
-              {task.dueDate !== null ? (
-                <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
-                  <Icon name="Clock" className="size-3 shrink-0" />
-                  {formatDueDate(task.dueDate)}
-                </span>
-              ) : null}
-              {showProject && project !== undefined ? (
-                <span
-                  aria-hidden
-                  title={project.name}
-                  className="size-2.5 shrink-0 rounded-sm"
-                  style={{ backgroundColor: project.color }}
-                />
-              ) : null}
-            </span>
-          </span>
-        </div>
       </div>
     </TaskContextMenu>
+  );
+});
+
+const RowContents = memo(function RowContents({
+  task,
+  meta,
+  project,
+  showProject,
+  projectLabels,
+  onEdit,
+  subProgress,
+  referenceDate,
+  openMenu,
+  onOpenMenuChange,
+  openButtonRef,
+}: Pick<
+  TaskRowProps,
+  | "task"
+  | "meta"
+  | "project"
+  | "showProject"
+  | "projectLabels"
+  | "referenceDate"
+  | "onEdit"
+  | "subProgress"
+  | "openMenu"
+  | "onOpenMenuChange"
+> & {
+  openButtonRef: RefObject<HTMLButtonElement | null>;
+}) {
+  const menuProps = (menu: RowMenu) => ({
+    open: openMenu === menu,
+    onOpenChange: (open: boolean) => onOpenMenuChange(open ? menu : null),
+  });
+  const focusRowOnClose = (event: Event) => {
+    event.preventDefault();
+    openButtonRef.current?.focus();
+  };
+  return (
+    <>
+      <StatusEditor
+        task={task}
+        onEdit={onEdit}
+        {...menuProps("status")}
+        onCloseAutoFocus={focusRowOnClose}
+        className="col-start-1 row-start-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      />
+      <Popover {...menuProps("labels")}>
+        <PopoverAnchor asChild>
+          <span
+            className={cn(
+              "col-start-2 row-start-1 min-w-0 break-words font-medium @4xl:flex-1 @4xl:min-w-64 @4xl:truncate",
+              COARSE_POINTER_TEXT_BASE_CLASS,
+            )}
+          >
+            {task.title}
+          </span>
+        </PopoverAnchor>
+        <PopoverContent
+          className="w-56 p-0"
+          align="start"
+          mobileTitle="Edit labels"
+          onCloseAutoFocus={focusRowOnClose}
+        >
+          <LabelsPicker
+            task={task}
+            labels={projectLabels}
+            onChange={(labelIds) => onEdit(task, { labelIds })}
+          />
+        </PopoverContent>
+      </Popover>
+      <div className="col-span-2 grid grid-cols-subgrid items-center @4xl:contents">
+        <PriorityEditor
+          task={task}
+          onEdit={onEdit}
+          {...menuProps("priority")}
+          onCloseAutoFocus={focusRowOnClose}
+          className="col-start-1 self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        />
+        <span className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 @4xl:contents">
+          <span
+            className={cn(
+              "shrink-0 tabular-nums text-muted-foreground @4xl:w-14 @4xl:truncate",
+              COARSE_POINTER_TEXT_SM_CLASS,
+            )}
+          >
+            {task.key}
+          </span>
+          <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden @4xl:shrink-0">
+            {subProgress !== undefined && subProgress.total > 0 ? (
+              <span title="Subtasks done" className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
+                <Icon name="GitBranch" className="size-3 shrink-0" />
+                {subProgress.done}/{subProgress.total}
+              </span>
+            ) : null}
+            <DependencyBadges task={task} className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)} />
+            <ThreadSummary taskKey={task.key} meta={meta} />
+            <PrSummary taskKey={task.key} meta={meta} />
+            {task.dueDate !== null ? (
+              <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
+                <Icon name="Clock" className="size-3 shrink-0" />
+                {formatDueDate(task.dueDate, new Date(`${referenceDate}T00:00:00`))}
+              </span>
+            ) : null}
+            {showProject && project !== undefined ? (
+              <span
+                aria-hidden
+                title={project.name}
+                className="size-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: project.color }}
+              />
+            ) : null}
+          </span>
+        </span>
+      </div>
+    </>
+  );
+});
+// Bind per-task actions here. All meaningful action inputs stay explicit.
+export function BoundTaskRow({
+  onOpenTask,
+  setOpenRowMenu,
+  toggleExpanded,
+  onRequestContextChange,
+  entry,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof TaskRow>,
+  "onOpen" | "onOpenMenuChange" | "onToggleExpanded" | "subProgress"
+> & {
+  onOpenTask: (key: string) => void;
+  setOpenRowMenu: (menu: { taskKey: string; menu: RowMenu } | null) => void;
+  toggleExpanded: (entry: import("./lib.js").ListTreeEntry) => void;
+  onRequestContextChange: (commit: () => void) => void;
+  entry?: import("./lib.js").ListTreeEntry;
+}) {
+  const { key } = props.task;
+  const onOpen = useCallback(() => onOpenTask(key), [onOpenTask, key]);
+  const onOpenMenuChange = useCallback(
+    (menu: RowMenu | null) => {
+      setOpenRowMenu(menu === null ? null : { taskKey: key, menu });
+    },
+    [setOpenRowMenu, key],
+  );
+  const onToggleExpanded = useCallback(() => {
+    if (entry) onRequestContextChange(() => toggleExpanded(entry));
+  }, [entry, onRequestContextChange, toggleExpanded]);
+  const subProgress = useMemo(
+    () => (entry ? { done: entry.subDone, total: entry.subTotal } : undefined),
+    [entry],
+  );
+  return (
+    <TaskRow
+      {...props}
+      onOpen={onOpen}
+      onOpenMenuChange={onOpenMenuChange}
+      onToggleExpanded={entry?.children.length ? onToggleExpanded : undefined}
+      subProgress={subProgress}
+    />
   );
 }

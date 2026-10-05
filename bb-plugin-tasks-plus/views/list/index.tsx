@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Label, Task } from "../../shared/contract.js";
 import { useProjects } from "../../shell/data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
@@ -27,6 +27,7 @@ import { StatusIcon } from "./icons.js";
 import { listScrollScopeKey, useListScrollRestoration } from "./scroll-restoration.js";
 import {
   buildListTree,
+  localIsoDate,
   groupListTree,
   labelFilterOptions,
   selectedLabelIds,
@@ -35,7 +36,7 @@ import {
 import { editedTasks, matchesFilters } from "./optimistic.js";
 import { useListTaskEdits } from "./use-task-edits.js";
 import { useExpandedTasks } from "./expanded-tasks.js";
-import { TaskRow, type RowMenu } from "./row.js";
+import { BoundTaskRow, type RowMenu } from "./row.js";
 import type { EditFn } from "./property-menus.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
@@ -48,6 +49,9 @@ export interface VisibleTaskOrder {
   keys: readonly string[];
   settled: boolean;
 }
+const NO_LABELS: readonly Label[] = [];
+const commitContextChange = (commit: () => void) => commit();
+
 interface ListViewProps {
   projectId: string | null;
   activeOnly?: boolean;
@@ -89,14 +93,20 @@ export function ListView({
   visible = true,
   onRequestSelection,
   onVisibleOrderChange,
-  onRequestContextChange = (commit) => commit(),
+  onRequestContextChange = commitContextChange,
   onSelectionUnavailable,
   reconcileRevision = 0,
   scopeUnavailable = false,
 }: ListViewProps) {
   const navigation = useTasksNavigation();
-  const openTask =
-    onRequestSelection ?? ((taskKey: string) => navigation.go({ kind: "task", taskKey }));
+  const referenceDate = localIsoDate(0);
+  const openTask = useCallback(
+    (taskKey: string) => {
+      if (onRequestSelection) onRequestSelection(taskKey);
+      else navigation.go({ kind: "task", taskKey });
+    },
+    [onRequestSelection, navigation],
+  );
   const projects = useProjects();
   const { toasts, push, dismiss } = useDetailToasts();
   const preferenceScope = listPreferenceScope(projectId, activeOnly);
@@ -158,17 +168,20 @@ export function ListView({
     () => mergeTasks(tasksQuery.data, scopeTasks),
     [tasksQuery.data, scopeTasks],
   );
-  const edits = useListTaskEdits(serverTasks, (message) => push(message));
+  const edits = useListTaskEdits(serverTasks, push);
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
-  const edit: EditFn = (task, patch) => {
-    if (patch.status !== "in_progress" || task.status === "in_progress") {
-      onRequestContextChange(() => edits.edit(task, patch));
-      return;
-    }
-    void confirmBlockedWork(task).then((confirmed) => {
-      if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
-    });
-  };
+  const edit = useCallback<EditFn>(
+    (task, patch) => {
+      if (patch.status !== "in_progress" || task.status === "in_progress") {
+        onRequestContextChange(() => edits.edit(task, patch));
+        return;
+      }
+      void confirmBlockedWork(task).then((confirmed) => {
+        if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
+      });
+    },
+    [onRequestContextChange, edits.edit, confirmBlockedWork],
+  );
 
   const labelsByProject = useMemo(() => {
     const map = new Map<string, Label[]>();
@@ -271,8 +284,8 @@ export function ListView({
         labels.error === null &&
         labels.data !== undefined)) &&
     edits.pending.size === 0;
-  const rendered = useSelectionTree(
-    {
+  const candidate = useMemo(
+    () => ({
       groups: groups.map((group) => ({
         ...group,
         entries: group.entries.map((entry) => ({
@@ -281,13 +294,17 @@ export function ListView({
         })),
       })),
       count: displayTasks?.length,
-    },
+    }),
+    [groups, expanded.isExpanded, displayTasks?.length],
+  );
+  const rendered = useSelectionTree(
+    candidate,
     selectedTaskKey,
     orderSettled,
     onSelectionUnavailable,
     reconcileRevision,
   );
-  const visibleTasks = visibleTreeTasks(rendered.tree);
+  const visibleTasks = useMemo(() => visibleTreeTasks(rendered.tree), [rendered.tree]);
   const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
   const visibleOrderSettled = orderSettled && !rendered.retained;
   const meta = useTaskListMeta(
@@ -309,25 +326,26 @@ export function ListView({
   const renderRow = (
     task: Task,
     extra: Pick<
-      React.ComponentProps<typeof TaskRow>,
-      "depth" | "dimmed" | "expanded" | "onToggleExpanded" | "subProgress"
+      React.ComponentProps<typeof BoundTaskRow>,
+      "depth" | "dimmed" | "expanded" | "entry"
     >,
   ) => (
-    <TaskRow
+    <BoundTaskRow
       key={task.id}
       task={task}
       meta={meta.data?.get(task.id)}
       project={projectsById.get(task.projectId)}
       showProject={showProject}
-      projectLabels={labelsByProject.get(task.projectId) ?? []}
+      projectLabels={labelsByProject.get(task.projectId) ?? NO_LABELS}
       onEdit={edit}
-      onOpen={() => openTask(task.key)}
+      referenceDate={referenceDate}
+      onOpenTask={openTask}
       selected={selectedTaskKey === task.key}
       pending={edits.pending.has(task.id)}
       openMenu={openRowMenu?.taskKey === task.key ? openRowMenu.menu : null}
-      onOpenMenuChange={(menu) =>
-        setOpenRowMenu(menu === null ? null : { taskKey: task.key, menu })
-      }
+      setOpenRowMenu={setOpenRowMenu}
+      toggleExpanded={expanded.toggle}
+      onRequestContextChange={onRequestContextChange}
       {...extra}
     />
   );
@@ -399,12 +417,7 @@ export function ListView({
               {renderRow(entry.task, {
                 dimmed: entry.dimmed,
                 expanded: isExpanded,
-                ...(entry.children.length > 0
-                  ? {
-                      onToggleExpanded: () => onRequestContextChange(() => expanded.toggle(entry)),
-                    }
-                  : {}),
-                subProgress: { done: entry.subDone, total: entry.subTotal },
+                entry: entry,
               })}
               {isExpanded ? entry.children.map((child) => renderRow(child, { depth: 1 })) : null}
             </Fragment>

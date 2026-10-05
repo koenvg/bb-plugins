@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ListTreeEntry } from "./lib.js";
 
 export const EXPANDED_TASKS_STORAGE_KEY = "bb-tasks:list-expanded";
@@ -96,26 +96,31 @@ export function useExpandedTasks(
   }, [filterKey]);
   const overrides = session.filterKey === filterKey ? session.overrides : NO_OVERRIDES;
 
-  const isExpanded = (entry: ListTreeEntry): boolean =>
-    filterKey === null
-      ? saved.has(entry.task.id)
-      : (overrides.get(entry.task.id) ?? entry.autoExpand);
-
-  const toggle = (entry: ListTreeEntry) => {
-    const id = entry.task.id;
-    if (filterKey === null) {
-      const next = new Set(saved);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      storeExpandedTasks(scope, next, knownIds);
-      setSaved(next);
-      return;
-    }
-    setSession({
-      filterKey,
-      overrides: new Map(overrides).set(id, !isExpanded(entry)),
-    });
-  };
+  const isExpanded = useCallback(
+    (entry: ListTreeEntry): boolean =>
+      filterKey === null
+        ? saved.has(entry.task.id)
+        : (overrides.get(entry.task.id) ?? entry.autoExpand),
+    [filterKey, saved, overrides],
+  );
+  const toggle = useCallback(
+    (entry: ListTreeEntry) => {
+      const id = entry.task.id;
+      if (filterKey === null) {
+        const next = new Set(saved);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        storeExpandedTasks(scope, next, knownIds);
+        setSaved(next);
+        return;
+      }
+      setSession({
+        filterKey,
+        overrides: new Map(overrides).set(id, !isExpanded(entry)),
+      });
+    },
+    [filterKey, saved, scope, knownIds, overrides, isExpanded],
+  );
 
   return { isExpanded, toggle };
 }
