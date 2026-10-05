@@ -2,6 +2,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { experimental_createDeltaAssembler as createAssembler } from "@get-bb/plugin-sdk/provider-bridge/testing";
 import { threadDeltaSchema } from "@get-bb/plugin-sdk/provider-bridge";
 import { startFakePiBridge, FULL_PERMISSION_OPTIONS, type FakePiBridgeHarness } from "./test-support.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseViewState, VIEW_EXTENSION_KIND, VIEW_KIND, type ViewRow } from "../subagents-contract.js";
+import { restoreViewHistory } from "../view-history.js";
 let harness: FakePiBridgeHarness | undefined;
 afterEach(async () => { await harness?.teardown(); });
 
@@ -26,6 +30,25 @@ function nativeStatus(delta: Record<string, unknown>) {
   const item = (delta.snapshot ?? delta.item) as { type?: unknown; status?: unknown } | undefined;
   return item?.type === "backgroundTask" ? item.status : undefined;
 }
+function hasOwnedFinalCapture(delta: Record<string, unknown>, sessionId: string): boolean {
+  if (delta.kind !== "extension.state" || delta.extensionKind !== VIEW_EXTENSION_KIND) return false;
+  return parseViewState(delta.payload)?.rows.some(row => row.sessionId === sessionId && row.runId === "owned-run-1" && row.source === "background" && row.state === "complete" && row.capture?.status === "captured" && row.capture.finalOutput === "Owned final answer") ?? false;
+}
+it("does not let retained history, another child or partial capture satisfy the final-result wait", () => {
+  const row: ViewRow = { id: "old", sessionId: "earlier-session", generation: 1, runId: "owned-run-1", source: "background", label: "reader", kind: "subagent", state: "complete", incomplete: false, observedAt: 1, capture: { status: "captured", capturedAt: 1, finalOutput: "Owned final answer" } };
+  const delta = { kind: "extension.state", extensionKind: VIEW_EXTENSION_KIND, payload: { kind: VIEW_KIND, version: 1, updatedAt: 1, availability: "available", reason: "", omitted: 0, rows: [row] } };
+  expect(hasOwnedFinalCapture(delta, "current-session")).toBe(false);
+  const current = { ...row, id: "current", sessionId: "current-session", capture: { status: "captured", capturedAt: 1 } } as ViewRow;
+  delta.payload.rows = [row, current];
+  expect(hasOwnedFinalCapture(delta, "current-session")).toBe(false);
+  delta.payload.rows = [row, { ...current, runId: "another-run", capture: row.capture }];
+  expect(hasOwnedFinalCapture(delta, "current-session")).toBe(false);
+  delta.payload.rows = [row, { ...current, state: "running", capture: row.capture }];
+  expect(hasOwnedFinalCapture(delta, "current-session")).toBe(false);
+  delta.payload.rows = [row, { ...current, capture: row.capture }];
+  expect(hasOwnedFinalCapture(delta, "current-session")).toBe(true);
+  expect(hasOwnedFinalCapture({ ...delta, extensionKind: "other-plugin/pi-subagents-view" }, "current-session")).toBe(false);
+});
 it("assembles background activity after parent idle and settles once with the same native ID", async () => {
   const { harness: h } = await start();
   await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "pending");
@@ -90,15 +113,25 @@ it.each(["FAKE_PI_SUBAGENT_FOREIGN", "FAKE_PI_SUBAGENT_BAD_VERSION"])("rejects %
   expect(assembled(h).events.filter((e) => e.type === "turn/completed")).toHaveLength(1);
 }, 15000);
 it("captures final detail as persistent public extension state without another parent turn", async () => {
-  const { harness: h } = await start();
-  await h.waitForDelta("thr_owned", d => d.kind === "extension.state" && JSON.stringify(d.payload).includes("Owned final answer"));
+  const { harness: h, providerThreadId } = await start();
+  // Each owned process has a new Pi session, while this thread retains older rows.
+  const sessionId = JSON.parse(readFileSync(join(h.sessionDir, `${providerThreadId}.jsonl`), "utf8").split("\n")[0]!).id as string;
   await h.waitForDelta("thr_owned", d => nativeStatus(d) === "completed");
+  const terminalAt = h.deltasOf("thr_owned").findIndex(d => nativeStatus(d) === "completed");
+  await h.waitForDelta("thr_owned", d => hasOwnedFinalCapture(d, sessionId), terminalAt + 1);
   const final = h.deltasOf("thr_owned").filter(d => d.kind === "extension.state").at(-1)!;
-  expect(final.extensionKind).toBe("pi-subagents-provider/pi-subagents-view");
+  const row = parseViewState(JSON.parse(JSON.stringify(final.payload)))?.rows.find(r => r.sessionId === sessionId && r.runId === "owned-run-1" && r.source === "background");
+  expect(final.extensionKind).toBe(VIEW_EXTENSION_KIND);
+  expect(row).toMatchObject({ state: "complete", capture: { status: "captured", finalOutput: "Owned final answer" } });
+  expect(row!.capture!.finalOutput).toBe("Owned final answer");
+  expect(h.deltasOf("thr_owned").findIndex(d => hasOwnedFinalCapture(d, sessionId))).toBeGreaterThan(terminalAt);
+  await h.request(1002, "thread/stop", { threadId: "thr_owned", providerThreadId, intent: "release", activeTurnId: null });
+  const published = h.deltasOf("thr_owned").filter(d => d.kind === "extension.state");
+  const persisted = restoreViewHistory([...published].reverse().map(d => JSON.parse(JSON.stringify(d.payload))));
+  expect(persisted?.rows.find(r => r.id === row!.id)?.capture?.finalOutput).toBe("Owned final answer");
   expect(assembled(h).events.filter(e => e.type === "turn/started")).toHaveLength(1);
   expect(assembled(h).items.filter(i => i.status === "completed")).toHaveLength(1);
-  expect(JSON.parse(JSON.stringify(final.payload)).rows[0].capture.finalOutput).toBe("Owned final answer");
-  expect(assembled(h).events.some(e=>e.type==="thread/extensionState/updated"&&e.kind==="pi-subagents-provider/pi-subagents-view")).toBe(true);
+  expect(assembled(h).events.some(e => e.type === "thread/extensionState/updated" && e.kind === VIEW_EXTENSION_KIND)).toBe(true);
 },15000);
 it.each(["FAKE_PI_INSPECTION_MISSING","FAKE_PI_INSPECTION_UNSUPPORTED"])("keeps known completion despite %s",async flag=>{
   vi.stubEnv(flag,"1");const {harness:h}=await start();
