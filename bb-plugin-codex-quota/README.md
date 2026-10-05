@@ -1,6 +1,6 @@
 # Codex Quota
 
-This standalone BB plugin shows quota windows for the Pi `openai-codex` account on an explicitly selected enrolled host. Its sidebar and dashboard passed installed acceptance on BB 0.43.4 with BB's Provider usage plugin disabled; see [ACCEPTANCE.md](ACCEPTANCE.md). It never calls `system.usageLimits`.
+This standalone BB plugin shows quota windows for the Pi `openai-codex` account on an explicitly selected enrolled host. Its sidebar and dashboard passed installed acceptance on BB 0.43.4 with BB's Provider usage plugin disabled. It never calls `system.usageLimits`.
 
 ## Sign-in and account scope
 
@@ -46,4 +46,4 @@ No Pi or BB transcript/session history is read. There is no collector, thread co
 
 ## Development checks
 
-From this directory run `npm test`, `npm run typecheck`, `bb plugin types --check`, and `npm run test:bundle`. Bundle tests use temporary synthetic credentials and stubbed responses for both fresh and expiring OAuth tokens, without live network. The historical host OAuth/quota probe is recorded in [FEASIBILITY.md](FEASIBILITY.md); the production probe RPC has since been removed.
+From this directory run `npm test`, `npm run typecheck`, `bb plugin types --check`, and `npm run test:bundle`. Bundle tests use temporary synthetic credentials and stubbed responses for both fresh and expiring OAuth tokens, without live network. The production probe RPC has been removed.

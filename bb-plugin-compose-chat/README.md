@@ -27,7 +27,7 @@ Disable it with the CLI. A visible, connected BB window removes the styling live
 bb plugin disable compose-chat
 ```
 
-BB defers plugin updates in hidden tabs until they become visible. Current native checks confirmed cleanup on visibility return without refreshing. Reload remains a recovery option for a stale or disconnected client. See [ACCEPTANCE.md](ACCEPTANCE.md).
+BB defers plugin updates in hidden tabs until they become visible. Current native checks confirmed cleanup on visibility return without refreshing. Reload remains a recovery option for a stale or disconnected client.
 
 A local installation points to this checkout. Do not retire its worktree while you still use it; install from a durable checkout instead.
 
@@ -81,7 +81,7 @@ Standalone actions get larger touch targets. Native split-send controls keep BB'
 
 Unit tests exercise the SDK's actual content-script registration and cleanup, draft/control preservation, scoped CSS, theme-token use, keyboard focus, disabled actions, touch rules, and reduced motion.
 
-The development fixture in `tests/preview.html` represents inspected native composer hooks, with synthetic conversation content. It is not a replacement chat UI and is never registered by the plugin. Browser checks against the fixture do not replace an installed native-BB activation check. See [ACCEPTANCE.md](ACCEPTANCE.md) for the verification performed and its limits.
+The development fixture in `tests/preview.html` represents inspected native composer hooks, with synthetic conversation content. It is not a replacement chat UI and is never registered by the plugin. Browser checks against the fixture do not replace an installed native-BB activation check.
 
 ## Design reference
 

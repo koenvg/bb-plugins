@@ -39,7 +39,7 @@
     "tsx": "^4.23.15",
     "typescript": "^5.7.0",
     "vite": "^6.4.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.5",
