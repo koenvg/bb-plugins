@@ -1,13 +1,24 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { expectReportingRules } from "./reporting-test-support";
+import { expectReportingRules, expectTaskLinkRules } from "./reporting-test-support";
 
 const skill = readFileSync(new URL("./skills/tasks/SKILL.md", import.meta.url), "utf8");
+const taskRecords = readFileSync(
+  new URL("./skills/tasks/references/task-records.md", import.meta.url),
+  "utf8",
+);
 
 describe("task reporting skill", () => {
   it("supplies concise milestone and parent-summary guidance without delegation", () => {
     expectReportingRules(skill);
+  });
+
+  it.each([
+    ["Tasks skill", skill],
+    ["task-record repair reference", taskRecords],
+  ])("keeps links unless the user requests removal in %s", (_name, guidance) => {
+    expectTaskLinkRules(guidance);
   });
 
   it("posts the documented multiline body without shell expansion", () => {

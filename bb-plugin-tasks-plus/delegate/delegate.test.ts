@@ -1,11 +1,12 @@
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
-import { createStore } from "../api";
+import { createStore, registerTasksApi } from "../api";
+import { tasksRpcContract } from "../shared/contract";
 import type { Comment, Project, Task } from "../db";
 import { displayWidth } from "../shared/text-measure";
 import { delegationRpcContract } from "./contract";
 import { buildSeedPrompt, registerDelegation } from ".";
-import { expectReportingRules } from "../reporting-test-support";
+import { expectReportingRules, expectTaskLinkRules } from "../reporting-test-support";
 
 function createTestPreset(
   store: ReturnType<typeof createStore>,
@@ -32,6 +33,72 @@ function createTestPreset(
 }
 
 describe("task delegation", () => {
+  it.each(["dispatch", "attach"])("keeps a %s link after a public update to Done", async (mode) => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "tasks",
+      sdk: {
+        threads: {
+          spawn: async () => ({ id: "thr_completed" }),
+          get: async () => makeThreadResponse({ id: "thr_completed", status: "idle" }),
+        },
+      },
+    });
+    try {
+      const store = createStore(bb);
+      const project = store.tasks.createProject({
+        name: "Completed links",
+        prefix: "KEEP",
+        color: "blue",
+        linkedBbProjectId: "proj_bb",
+      });
+      const task = store.tasks.createTask({
+        projectId: project.id,
+        title: "Retain link",
+        status: "todo",
+      });
+      registerDelegation(bb, store);
+      registerTasksApi(bb, store);
+      if (mode === "dispatch") {
+        const preset = createTestPreset(store);
+        await harness.behavior.callRpc("delegate", { taskId: task.id, presetId: preset.id });
+      } else {
+        await harness.behavior.callRpc("taskThreadsAttach", {
+          taskId: task.id,
+          threadId: "thr_completed",
+        });
+      }
+      const before = tasksRpcContract.listTaskThreads.output.parse(
+        await harness.behavior.callRpc("listTaskThreads", { taskId: task.id }),
+      );
+      expect(before.taskThreads).toEqual([
+        expect.objectContaining({ taskId: task.id, threadId: "thr_completed" }),
+      ]);
+      const updated = await harness.behavior.callRpc("updateTask", {
+        taskId: task.id,
+        status: "done",
+        authorName: "User",
+      });
+      expect(updated).toMatchObject({ ok: true, task: { id: task.id, status: "done" } });
+      expect(await harness.behavior.callRpc("listTaskThreads", { taskId: task.id })).toEqual(
+        before,
+      );
+      const linked = tasksRpcContract.getTasksForThread.output.parse(
+        await harness.behavior.callRpc("getTasksForThread", { threadId: "thr_completed" }),
+      );
+      expect(linked.tasks).toEqual([
+        expect.objectContaining({ id: task.id, key: task.key, status: "done" }),
+      ]);
+      expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(
+        mode === "dispatch" ? 1 : 0,
+      );
+      expect(harness.inspection.sdk.calls.map((call) => call.path)).toEqual(
+        mode === "dispatch" ? ["threads.spawn", "threads.get"] : ["threads.get"],
+      );
+    } finally {
+      await harness.lifecycle.dispose();
+    }
+  });
+
   it.each(["fast", "priority"])(
     "dispatches tier %s from a preset and updates the task",
     async (serviceTier) => {
@@ -444,7 +511,7 @@ describe("task delegation", () => {
 });
 
 describe("task thread detach", () => {
-  it("detaches an attached thread through taskThreadsDetach and invalidates", async () => {
+  it("removes a completed task link on explicit request without changing status or stopping threads", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
@@ -473,6 +540,7 @@ describe("task thread detach", () => {
       title: "Other work",
     });
     registerDelegation(bb, store);
+    registerTasksApi(bb, store);
 
     await harness.callRpc("taskThreadsAttach", {
       taskId: task.id,
@@ -486,6 +554,16 @@ describe("task thread detach", () => {
       taskId: otherTask.id,
       threadId: "thr_dead",
     });
+    expect(
+      await harness.behavior.callRpc("updateTask", {
+        taskId: task.id,
+        status: "done",
+        authorName: "User",
+      }),
+    ).toMatchObject({ ok: true, task: { status: "done" } });
+    const completedTask = store.tasks.getTask(task.id);
+    const commentsBeforeDetach = store.tasks.listComments(task.id);
+    const sdkCallsBeforeDetach = [...harness.inspection.sdk.calls];
     harness.realtimeSignals.length = 0;
 
     await expect(
@@ -494,6 +572,15 @@ describe("task thread detach", () => {
         threadId: "thr_dead",
       }),
     ).resolves.toEqual({ threadId: "thr_dead" });
+
+    expect(store.tasks.getTask(task.id)).toEqual(completedTask);
+    expect(store.tasks.getTask(task.id)?.status).toBe("done");
+    expect(store.tasks.listComments(task.id)).toEqual(commentsBeforeDetach);
+    expect(harness.inspection.sdk.calls).toEqual(sdkCallsBeforeDetach);
+    const linked = tasksRpcContract.getTasksForThread.output.parse(
+      await harness.behavior.callRpc("getTasksForThread", { threadId: "thr_dead" }),
+    );
+    expect(linked.tasks.map((task) => task.id)).toEqual([otherTask.id]);
 
     expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual([
       "thr_live",
@@ -521,6 +608,34 @@ describe("task thread detach", () => {
 });
 
 describe("delegation seed prompt", () => {
+  it.each([false, true])("keeps links with attachmentPending=%s", async (attachmentPending) => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    try {
+      const { tasks } = createStore(bb);
+      const project = tasks.createProject({ name: "Links", prefix: "LINK", color: "blue" });
+      const task = tasks.createTask({ projectId: project.id, title: "Keep worker link" });
+      const prompt = buildSeedPrompt({
+        task,
+        project,
+        subtasks: [],
+        blockers: [],
+        attachments: [],
+        recentComments: [],
+        presetInstructions: "",
+        attachmentPending,
+      });
+      const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
+      expectTaskLinkRules(report);
+      expect(report).toContain(
+        attachmentPending
+          ? "Local attachment can still be pending"
+          : "Your thread is already attached",
+      );
+    } finally {
+      await harness.lifecycle.dispose();
+    }
+  });
+
   it.each([false, true])("includes the reporting rules with subtasks=%s", async (withSubtasks) => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     try {
@@ -672,6 +787,7 @@ describe("delegation seed prompt", () => {
       ## Report-back contract
 
       You are working on task TASK-1. Your thread is already attached. Use bb tasks comment TASK-1 --body ... for updates and attach result artifacts. Use bb tasks update TASK-1 --status in_review when required review remains; use done only when completion criteria are met.
+      Keep task-to-thread links when work completes, enters review, is handed off, is replaced, fails, or moves to other work. Detach only when the user explicitly requests removal of that task-to-thread link. Detaching does not stop the thread or change the task status. Retained links grant no new ownership or reporting authority.
       At meaningful milestones, write one short result or current-state sentence, a blank line, and up to three flat Markdown bullets. Use plain language, real newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are valid. Combine related changes and omit unchanged updates or command-by-command pings.
       Keep material limits visible even if the update must be longer. State the outcome, next step, and any blocker or exact decision needed and its effect. Briefly state relevant checks, including unrun or blocked checks; distinguish worker-reported results from checks you verified.
       Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff evidence in the attached thread or an artifact. Link to the detail with supported task/thread, PR, or attachment links. Preserve exact commits and baselines in handoffs.

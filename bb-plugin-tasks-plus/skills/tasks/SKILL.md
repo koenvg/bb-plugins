@@ -28,8 +28,11 @@ Before dispatching a worker or changing execution presets, read
    Attach result files that belong with the task.
 6. Set the status with `bb tasks update ABC-12 --status <status>`: `in_review`
    when required review remains, `done` only when completion criteria are met.
-   When this thread's task work ends or is handed off, detach its task link
-   with `bb tasks detach ABC-12`. Detaching does not stop the thread.
+   Keep task-to-thread links when work completes, enters review, is handed off,
+   is replaced, fails, or moves to other work. Detach only when the user
+   explicitly requests removal of that task-to-thread link, with
+   `bb tasks detach ABC-12`. Detaching does not stop the thread or change the
+   task status. Retained links grant no new ownership or reporting authority.
 
 ## Reporting
 

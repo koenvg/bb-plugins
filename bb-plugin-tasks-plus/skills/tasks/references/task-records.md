@@ -31,7 +31,11 @@ new comment's author. Reporting guidance does not authorize notification.
 ## Repair thread links
 
 Inspect `bb tasks threads ABC-12` before changing links. Attach the thread
-actually doing the work. Detach a predecessor after handoff, replacement, or
-failure with `bb tasks detach ABC-12 --thread <thread-id>`.
+actually doing the work. Keep task-to-thread links when work completes, enters
+review, is handed off, is replaced, fails, or moves to other work. Detach only
+when the user explicitly requests removal of that task-to-thread link, with
+`bb tasks detach ABC-12 --thread <thread-id>`.
 
-Attaching a thread does not start its execution.
+Detaching does not stop the thread or change the task status. Retained links
+grant no new ownership or reporting authority. Attaching a thread does not
+start its execution.
