@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ActionResult, InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { GITHUB_COMMANDS } from "./commands";
+import { forgetInsights } from "./pr-availability";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
@@ -91,6 +92,7 @@ afterEach(() => {
   for (const slot of mounted) expect(slot.inspection.navigateCalls).toEqual([]);
   mounted.length = 0;
   cleanup();
+  forgetInsights();
   openPanel.mockClear();
 });
 

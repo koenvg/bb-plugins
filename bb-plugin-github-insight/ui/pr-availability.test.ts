@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InsightResult } from "../contract";
 import type { MergeAction } from "../core/merge-action";
-import { canMerge, hasPr, rememberInsight } from "./pr-availability";
+import { canMerge, hasPr, insightSnapshot, rememberInsight } from "./pr-availability";
 
 function ok(mergeAction: MergeAction): InsightResult {
   return {
@@ -77,5 +77,26 @@ describe("PR availability", () => {
     rememberInsight(`stale-${state}`, result);
     expect(hasPr(`stale-${state}`)).toBe(true);
     expect(canMerge(`stale-${state}`)).toBe(false);
+  });
+});
+
+describe("insight snapshot", () => {
+  it("has no snapshot before the first load", () => {
+    expect(insightSnapshot("thr_snapshot_unknown")).toBeNull();
+  });
+
+  it("keeps the last PR result through a failed load", () => {
+    const result = ok({ kind: "none" });
+    rememberInsight("thr_snapshot", result);
+    rememberInsight("thr_snapshot", { kind: "error", message: "gh not logged in" });
+
+    expect(insightSnapshot("thr_snapshot")).toEqual(result);
+  });
+
+  it("drops the snapshot when a later load has no PR", () => {
+    rememberInsight("thr_snapshot_gone", ok({ kind: "none" }));
+    rememberInsight("thr_snapshot_gone", { kind: "no_pr" });
+
+    expect(insightSnapshot("thr_snapshot_gone")).toBeNull();
   });
 });

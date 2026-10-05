@@ -1,20 +1,28 @@
 import type { InsightResult } from "../contract";
 import { prStatusView } from "./pr-status-view";
 
-const canMergeByThread = new Map<string, boolean>();
+type OkInsightResult = Extract<InsightResult, { kind: "ok" }>;
+
+const snapshots = new Map<string, OkInsightResult>();
 
 export function rememberInsight(threadId: string, result: InsightResult): void {
-  if (result.kind === "ok") {
-    canMergeByThread.set(threadId, prStatusView(result.insight).action !== null);
-  } else if (result.kind === "no_pr") {
-    canMergeByThread.delete(threadId);
-  }
+  if (result.kind === "ok") snapshots.set(threadId, result);
+  else if (result.kind === "no_pr") snapshots.delete(threadId);
+}
+
+export function insightSnapshot(threadId: string): OkInsightResult | null {
+  return snapshots.get(threadId) ?? null;
 }
 
 export function hasPr(threadId: string): boolean {
-  return canMergeByThread.has(threadId);
+  return snapshots.has(threadId);
 }
 
 export function canMerge(threadId: string): boolean {
-  return canMergeByThread.get(threadId) === true;
+  const snapshot = snapshots.get(threadId);
+  return snapshot !== undefined && prStatusView(snapshot.insight).action !== null;
+}
+
+export function forgetInsights(): void {
+  snapshots.clear();
 }

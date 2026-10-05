@@ -5,11 +5,15 @@ import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing
 import type { ComponentProps } from "react";
 import type { ActionResult, rpcContract } from "../contract";
 import type { RunnableMergeAction } from "../core/merge-action";
+import { forgetInsights } from "./pr-availability";
 
 installTestPluginRuntime();
 const { MergeActionButton } = await import("./merge-action-button");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 const pr = {
   number: 7,

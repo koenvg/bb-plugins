@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, within, waitFor } from "@testing-library/react
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { project, thread } from "../bb-plugin-pr-thread-list/fixtures";
 import { cancelPrPanelRequest } from "./pr-panel-navigation";
+import { forgetInsights } from "./ui/pr-availability";
 
 const insightApp = await loadPluginApp(() => import("./app"));
 const sidebarApp = await loadPluginApp(() => import("../bb-plugin-pr-thread-list/app"));
@@ -11,6 +12,7 @@ const banner = insightApp.composerCustomizations.find((entry) => entry.id === "p
   .banners![0]!;
 afterEach(() => {
   cleanup();
+  forgetInsights();
   cancelPrPanelRequest();
   localStorage.clear();
 });

@@ -7,11 +7,14 @@ import type {
 } from "@get-bb/plugin-sdk/app";
 import { useCommandIntent, type CommandTab } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
-import { rememberInsight } from "./pr-availability";
+import { rememberInsight, forgetInsights } from "./pr-availability";
 import type { InsightResult } from "../contract";
 import type { MergeAction } from "../core/merge-action";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function command(id: string) {
   const found = GITHUB_COMMANDS.find((entry) => entry.id === id);

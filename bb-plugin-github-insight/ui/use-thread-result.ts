@@ -10,6 +10,7 @@ interface ErrorResult {
 export interface ThreadResultState<R> {
   result: R | ErrorResult | null;
   refreshing: boolean;
+  revalidating: boolean;
   reload: () => void;
   refresh: () => Promise<R | ErrorResult | null>;
 }
@@ -17,24 +18,28 @@ export interface ThreadResultState<R> {
 export function useThreadResult<R>(
   threadId: string,
   fetch: (threadId: string, mode: LoadMode) => Promise<R>,
+  snapshot?: (threadId: string) => R | null,
 ): ThreadResultState<R> {
   const [loaded, setLoaded] = useState<{
     threadId: string;
     result: R | ErrorResult;
   } | null>(null);
   const [refreshingThreadId, setRefreshingThreadId] = useState<string | null>(null);
+  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null);
   const latestRequest = useRef(0);
   const refreshOwner = useRef<{ threadId: string; reloadRequested: boolean } | null>(null);
 
   const load = useCallback(
     async (mode: LoadMode) => {
       const request = ++latestRequest.current;
+      if (mode === "load") setLoadingThreadId(threadId);
       const result = await fetch(threadId, mode).catch((error: unknown): ErrorResult => ({
         kind: "error",
         message: error instanceof Error ? error.message : String(error),
       }));
       if (request !== latestRequest.current) return null;
       setLoaded({ threadId, result });
+      setLoadingThreadId((current) => (current === threadId ? null : current));
       return result;
     },
     [fetch, threadId],
@@ -76,6 +81,12 @@ export function useThreadResult<R>(
     }
   }, [load, threadId]);
 
-  const result = loaded?.threadId === threadId ? loaded.result : null;
-  return { result, refreshing: refreshingThreadId === threadId, reload, refresh };
+  const result = loaded?.threadId === threadId ? loaded.result : (snapshot?.(threadId) ?? null);
+  return {
+    result,
+    refreshing: refreshingThreadId === threadId,
+    revalidating: loadingThreadId === threadId && result !== null,
+    reload,
+    refresh,
+  };
 }

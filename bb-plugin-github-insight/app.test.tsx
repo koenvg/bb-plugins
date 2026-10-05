@@ -8,11 +8,15 @@ import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
 import { postIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
+import { forgetInsights } from "./ui/pr-availability";
 
 const app = await loadPluginApp(() => import("./app"));
 const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function check(name: string, status: Check["status"], failure: Check["failure"] = null): Check {
   return { name, status, url: `https://github.com/o/r/runs/${name}`, required: false, failure };

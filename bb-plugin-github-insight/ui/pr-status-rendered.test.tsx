@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
+import { forgetInsights } from "./pr-availability";
 
 type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runMergeAction">;
 const app = await loadPluginApp(() => import("../app"));
@@ -56,7 +57,10 @@ const rpc = (result: InsightResult) => ({
     throw new Error("Status presentation must not write to GitHub");
   },
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function renderBanner(result: InsightResult) {
   return renderSlot<object, StatusMethods>(

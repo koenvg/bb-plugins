@@ -19,8 +19,8 @@
 
 ## 4. Client snapshot
 
-- [ ] 4.1 Add a module-level snapshot map and seed `useThreadResult` from it, with a `revalidating` flag; verify hook tests: return to a thread shows the old result with no `null`, a switch to an unknown thread never shows another thread's result, `no_pr` clears the entry
-- [ ] 4.2 Show "Updated <age>" always in the PR tab, with an updating indicator while `revalidating` or `refreshing`; verify rendered tests for "Updated 3h ago", the indicator, and a failed background load that keeps the snapshot
+- [x] 4.1 Add a module-level snapshot map and seed `useThreadResult` from it, with a `revalidating` flag; verify hook tests: return to a thread shows the old result with no `null`, a switch to an unknown thread never shows another thread's result, `no_pr` clears the entry
+- [x] 4.2 Show "Updated <age>" always in the PR tab, with an updating indicator while `revalidating` or `refreshing`; verify rendered tests for "Updated 3 hours ago", the indicator, and a failed background load that keeps the snapshot
 
 ## 5. Layout
 

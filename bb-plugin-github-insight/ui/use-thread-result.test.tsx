@@ -86,3 +86,45 @@ describe("thread result refresh ownership", () => {
     expect(hook.result.current.refreshing).toBe(false);
   });
 });
+
+describe("thread result snapshot", () => {
+  it("shows the snapshot at once and replaces it when the load ends", async () => {
+    const pending = deferred<{ head: string }>();
+    const fetch = vi.fn(async () => pending.promise);
+    const snapshot = (id: string) => (id === "a" ? { head: "old" } : null);
+    const hook = renderHook(() => useThreadResult("a", fetch, snapshot));
+
+    expect(hook.result.current.result).toEqual({ head: "old" });
+    expect(hook.result.current.revalidating).toBe(true);
+
+    await act(async () => pending.resolve({ head: "new" }));
+
+    expect(hook.result.current.result).toEqual({ head: "new" });
+    expect(hook.result.current.revalidating).toBe(false);
+  });
+
+  it("is not revalidating without a snapshot", () => {
+    const hook = renderHook(() => useThreadResult("a", () => new Promise<never>(() => {})));
+
+    expect(hook.result.current.result).toBeNull();
+    expect(hook.result.current.revalidating).toBe(false);
+  });
+
+  it("shows the snapshot of the new thread, never the result of the old one", async () => {
+    const fetch = vi.fn(async (id: string) =>
+      id === "a" ? { head: "a" } : new Promise<{ head: string }>(() => {}),
+    );
+    const snapshots: Record<string, { head: string }> = { c: { head: "c-old" } };
+    const snapshot = (id: string) => snapshots[id] ?? null;
+    const hook = renderHook(({ id }) => useThreadResult(id, fetch, snapshot), {
+      initialProps: { id: "a" },
+    });
+    await waitFor(() => expect(hook.result.current.result).toEqual({ head: "a" }));
+
+    hook.rerender({ id: "b" });
+    expect(hook.result.current.result).toBeNull();
+
+    hook.rerender({ id: "c" });
+    expect(hook.result.current.result).toEqual({ head: "c-old" });
+  });
+});

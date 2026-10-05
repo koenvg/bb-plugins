@@ -4,6 +4,7 @@ import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { CheckFailure } from "../core/failure";
 import type { PrInsight } from "../core/overview";
+import { relativeTime } from "../core/relative-time";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,7 @@ export function PrTab({ threadId }: { threadId: string }) {
 
 function PrTabContent({ threadId }: { threadId: string }) {
   const insight = useInsight(threadId);
-  const { result, refreshing, refresh } = insight;
+  const { result, refreshing, revalidating, refresh } = insight;
   usePrCommands(threadId, insight);
   if (result === null) return <Notice>Loading pull request…</Notice>;
   if (result.kind === "no_pr") {
@@ -83,6 +84,7 @@ function PrTabContent({ threadId }: { threadId: string }) {
       <PrHeader
         pr={result.insight.pr}
         lifecycle={status.lifecycle}
+        age={<DataAge refreshedAt={result.refreshedAt} updating={revalidating} />}
         action={<RefreshButton refreshing={refreshing} refresh={refresh} />}
       />
       {result.error !== null && (
@@ -107,10 +109,12 @@ function PrTabContent({ threadId }: { threadId: string }) {
 function PrHeader({
   pr,
   lifecycle,
+  age,
   action,
 }: {
   pr: PrInsight["pr"];
   lifecycle: StatusRow;
+  age: ReactNode;
   action: ReactNode;
 }) {
   const merged = pr.state === "merged";
@@ -131,6 +135,7 @@ function PrHeader({
           <span className="rounded-full border border-border px-2 py-0.5">{lifecycle.text}</span>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {age}
           <UrlLink href={pr.url} className="underline-offset-2 hover:underline">
             Open on GitHub
           </UrlLink>
@@ -139,6 +144,23 @@ function PrHeader({
       </div>
       <h2 className="break-words text-sm font-semibold">{pr.title}</h2>
     </header>
+  );
+}
+
+function DataAge({ refreshedAt, updating }: { refreshedAt: number; updating: boolean }) {
+  const readAt = new Date(refreshedAt);
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums">
+      {updating && (
+        <span role="status" aria-label="Updating">
+          <Icon name="Spinner" className="size-3 text-muted-foreground" />
+        </span>
+      )}
+      Updated{" "}
+      <time dateTime={readAt.toISOString()} title={readAt.toLocaleString()}>
+        {relativeTime(readAt, new Date())}
+      </time>
+    </span>
   );
 }
 

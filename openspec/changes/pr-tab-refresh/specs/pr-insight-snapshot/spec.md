@@ -43,12 +43,12 @@ The plugin SHALL store the last good PR reading of each PR it tracks, so it surv
 
 ### Requirement: Visible data age
 
-The PR tab SHALL always show when the shown data was read from GitHub, as relative time, for example "Updated 2m ago". While a background load or a refresh runs, the tab SHALL show that it is updating. A failed background load SHALL keep the shown data and show the error, as before.
+The PR tab SHALL always show when the shown data was read from GitHub, as relative time, for example "Updated 2 minutes ago". While a background load or a refresh runs, the tab SHALL show that it is updating. A failed background load SHALL keep the shown data and show the error, as before.
 
 #### Scenario: Stored data after a restart
 
 - **WHEN** the tab shows a reading from 3 hours ago
-- **THEN** the tab shows "Updated 3h ago"
+- **THEN** the tab shows "Updated 3 hours ago"
 
 #### Scenario: Background load runs
 
