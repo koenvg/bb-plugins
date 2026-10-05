@@ -6,10 +6,10 @@ Pi with subagents remains pinned to BB 0.44.0 and SDK 0.5.29. See its [compatibi
 
 Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins-collibra](https://github.com/koenvangeert/bb-plugins-collibra) at commit `178c5c8e8dafa2f8f4f2567e855cbad7bd869836`.
 
-| Plugin            | Directory                                                         |
-| ----------------- | ----------------------------------------------------------------- |
-| Changes           | [`bb-plugin-changes`](bb-plugin-changes)                           |
-| Code Cleanup      | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)                 |
+| Plugin            | Directory                                                            |
+| ----------------- | -------------------------------------------------------------------- |
+| Changes           | [`bb-plugin-changes`](bb-plugin-changes)                             |
+| Code Cleanup      | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)                   |
 | Codex Inspired    | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)               |
 | Codex Quota       | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)                     |
 | Compose Chat      | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)                 |
