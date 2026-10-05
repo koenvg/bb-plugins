@@ -55,26 +55,33 @@ The root package contains development tools only. It does not use npm workspaces
 
 The shared [lint config](.oxlintrc.json) makes correctness violations errors. Existing findings remain warnings in specific files so this migration does not change plugin behavior. The shared [format config](.oxfmtrc.json) uses two spaces, double quotes, semicolons, and a 100-column line width. It does not sort imports or package fields. Generated output, lockfiles, test data, copied agent skills, and archived OpenSpec plans are excluded from formatting.
 
-## Running tests
+## Running tests and typechecks
 
-Use Node 24.15 or newer within Node 24. Each plugin has its own dependencies and test command. From the repository root, for example:
+Use Node 24.15 or newer within Node 24. Each plugin has its own dependencies, test command, and typecheck command. From the repository root, for example:
 
 ```sh
-cd bb-task-board
+cd bb-plugin-code-cleanup
 npm ci
 npm test
+npm run typecheck
 ```
 
-Use the same commands in any other plugin directory. Tests run once rather than watching for changes. Tasks Plus also needs the SQLite CLI on `PATH`; check it with `sqlite3 --version`. On Ubuntu, install it with `sudo apt-get update && sudo apt-get install -y sqlite3`. These test commands do not require a BB installation or account credentials.
+Run the validation commands only after setup succeeds, and inspect each command's exit status. Run tests and typecheck separately, not through an `&&` chain, so failed tests do not skip typecheck. A passing typecheck does not cancel a test failure. Tests run once rather than watching for changes.
+
+Use the same commands in any other plugin directory. Tasks Plus also needs the SQLite CLI on `PATH`; check it with `sqlite3 --version`. On Ubuntu, install it with `sudo apt-get update && sudo apt-get install -y sqlite3`. GitHub Insight needs its sibling dependencies before either validation command; from `bb-plugin-github-insight`, run `npm ci --prefix ../bb-plugin-pr-thread-list` after its own `npm ci`. Keep the repository layout intact, because Changes checks shared `review-ui` files. These validation commands do not require a BB installation or account credentials.
+
+Typechecking uses each plugin's existing local compiler and configuration. A pass applies only to the configured file set; it does not prove that excluded source or tests were checked.
 
 For Tasks Plus, run `npm ci` followed by `npm run lint` in `bb-plugin-tasks-plus`. Oxlint remains a locked development dependency; its lint command uses the shared repository config, with no global lint binary required.
 
 ## GitHub Actions
 
-The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci` and `npm test` commands shown above. CI installs the SQLite CLI for Tasks Plus and also runs its `npm run lint` command with the local Oxlint dependency.
+The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci`, `npm test`, and `npm run typecheck` commands shown above. CI installs the SQLite CLI for Tasks Plus and runs its `npm run lint` command with the local Oxlint dependency. GitHub Insight gets the sibling PR thread-list's locked dependencies before validation.
+
+Each plugin has one combined result. After required setup succeeds, both validation steps run, with tests before typecheck, even if lint or tests fail. Failed setup stops both steps. Missing scripts, missing local compilers, and failed lint, test, or typecheck commands fail the job. Cancellation or the 20-minute timeout can stop unfinished checks.
 
 A failed plugin check does not cancel the other plugin checks. New commits cancel superseded runs for the same pull request or branch. Approved fork pull requests run without repository secrets or write permissions; GitHub may require maintainer approval before they start.
 
-A separate job installs the root tools and runs `npm run check` for lint and formatting across the repository. The workflow does not run typechecks, builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
+This workflow runs tests and typechecks for all plugins and lint for Tasks Plus. A separate job installs the root tools and runs `npm run check` for lint and formatting across the repository. The workflow does not run builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
 
-When adding a plugin, give it an `npm test` script and add its directory to the workflow's `matrix.plugin` list.
+When adding a plugin, give it `npm test` and `npm run typecheck` scripts and add its directory to the workflow's `matrix.plugin` list. Include any required setup in both validation-step conditions so failed setup cannot start either check.
