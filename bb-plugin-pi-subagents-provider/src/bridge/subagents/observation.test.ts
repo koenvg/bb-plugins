@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { experimental_createDeltaAssembler as createAssembler, type ThreadEvent } from "@get-bb/plugin-sdk/provider-bridge/testing";
 import { type ThreadDelta, threadDeltaSchema } from "@get-bb/plugin-sdk/provider-bridge";
-import { createSubagentObservation } from "./observation.js";
+import { createSubagentObservation, type ObservationOptions } from "./observation.js";
 
 import { createViewStore } from "./view-store.js";
+import { type CaptureTarget } from "./capture.js";
+import { restoreViewHistory } from "../../view-history.js";
 const sessionFile = "/owned/session.jsonl";
 const root = (state = "running", children: unknown[] = []) => ({ id: "run-1", kind: "subagent", label: "reviewer", state, startedAt: 1000, updatedAt: 2000, activity: { currentTool: "read" }, children });
 function receipt(runs: unknown[], omitted = { runs: 0, children: 0, byteLimitExceeded: false }) {
@@ -13,7 +15,7 @@ function receipt(runs: unknown[], omitted = { runs: 0, children: 0, byteLimitExc
     status: { asyncSnapshot: { kind: "pi-subagents.async-status-snapshot", version: 1, generatedAt: 3000, caps: { maxRuns: 20, maxChildrenPerNode: 8, maxDepth: 3, maxStringLength: 160, maxSerializedBytes: 32768 }, omitted, runs } },
   };
 }
-function harness(view?: ReturnType<typeof createViewStore>, anchored = true) {
+function harness(view?: ReturnType<typeof createViewStore>, anchored = true, inspect?: ObservationOptions["inspect"]) {
   let value: unknown = receipt([root()]);
   let now = 3000;
   const deltas: ThreadDelta[] = [];
@@ -26,7 +28,7 @@ function harness(view?: ReturnType<typeof createViewStore>, anchored = true) {
   };
   const parentTurn = () => emit([{ kind: "input.accepted", clientRequestId: "creq_ab23456789" }, { kind: "turn.open" }, { kind: "turn.boundary", status: "completed" }]);
   if (anchored) parentTurn();
-  const observation = createSubagentObservation({ sessionFile, canAttachNativeItem: () => anchored, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {}, view });
+  const observation = createSubagentObservation({ sessionFile, canAttachNativeItem: () => anchored, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {}, view, inspect });
   const items = () => events.flatMap((event) => "item" in event && event.item.type === "backgroundTask" ? [event.item] : []);
   return { anchor: () => { anchored = true; parentTurn(); }, observation, events, items, deltas, emit, assembler, set: (next: unknown) => { value = next; }, time: (next: number) => { now = next; } };
 }
@@ -73,6 +75,41 @@ it("publishes one coherent unavailable state for equal no-anchor receipts and cl
   expect(states.at(-1)?.availability).toBe("available");
   expect(h.events.filter(e => e.type === "turn/started")).toHaveLength(1);
   h.observation.dispose("release");
+});
+it("recaptures the terminal result when settlement arrives during an earlier inspection", async () => {
+  vi.useFakeTimers();
+  let h: ReturnType<typeof harness> | undefined;
+  try {
+    const states: import("../../subagents-contract.js").ViewState[] = [];
+    const view = createViewStore(s => states.push(structuredClone(s)), () => 3000);
+    let finishFirst!: (raw: unknown) => void;
+    const first = new Promise<unknown>(resolve => { finishFirst = resolve; });
+    const reply = (target: CaptureTarget, requestId: string, finalOutput?: string) => ({ kind: "pi-subagents.inspect-reply", version: 1, requestId, asyncId: target.asyncId, task: "owned task", ...(finalOutput === undefined ? {} : { finalOutput }) });
+    const inspect = vi.fn(async (target: CaptureTarget, requestId: string): Promise<unknown> => inspect.mock.calls.length === 1 ? first : reply(target, requestId, "Owned final answer"));
+    h = harness(view, true, inspect);
+    await h.observation.refresh();
+    expect(inspect).toHaveBeenCalledTimes(1);
+    h.set(receipt([root("complete")]));
+    await h.observation.refresh();
+    expect(h.items().filter(item => item.status === "completed")).toHaveLength(1);
+    expect(view.snapshot().rows[0]?.capture?.finalOutput).toBeUndefined();
+    const [target, requestId] = inspect.mock.calls[0]!;
+    finishFirst(reply(target, requestId));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(inspect).toHaveBeenCalledTimes(1);
+    expect(view.snapshot().rows[0]?.capture?.status).toBe("captured");
+    expect(view.snapshot().rows[0]?.capture?.finalOutput).toBeUndefined();
+    h.time(3750);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(inspect).toHaveBeenCalledTimes(2);
+    expect(inspect.mock.calls[1]![0].terminal).toBe(true);
+    expect(view.snapshot().rows[0]?.capture?.finalOutput).toBe("Owned final answer");
+    h.observation.dispose("release");
+    const persisted = restoreViewHistory([...states].reverse().map(s => JSON.parse(JSON.stringify(s))));
+    expect(persisted?.rows[0]?.capture?.finalOutput).toBe("Owned final answer");
+    expect(h.events.filter(event => event.type === "turn/started")).toHaveLength(1);
+    expect(h.items().filter(item => item.status === "completed")).toHaveLength(1);
+  } finally { h?.observation.dispose("release"); vi.useRealTimers(); }
 });
 
 describe("native single-run observation", () => {
