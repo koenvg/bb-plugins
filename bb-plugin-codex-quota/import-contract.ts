@@ -4,6 +4,7 @@ const path = z
   .string()
   .min(1)
   .max(4096)
+  // oxlint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   .regex(/^\/[^\u0000-\u001f\u007f]*$/);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 export const importConfigurationSchema = z
@@ -83,6 +84,8 @@ export type ImportConfiguration = z.infer<typeof importConfigurationSchema>;
 export type ImportCommand = z.infer<typeof importCommandSchema>;
 export type ImportView = z.infer<typeof importViewSchema>;
 export type ImportDiagnostic = z.infer<typeof importDiagnosticSchema>;
-export const importUnavailable = (
-  reason: ImportView["reason"],
-): ImportView => ({ reason, configuration: null, generation: null });
+export const importUnavailable = (reason: ImportView["reason"]): ImportView => ({
+  reason,
+  configuration: null,
+  generation: null,
+});

@@ -1,17 +1,44 @@
 import type { QuotaSnapshot } from "./quota.js";
 import { FRESH_MS, MAX_AGE_MS } from "./freshness.js";
 
-export type QuotaReason = "ok" | "aged" | "expired" | "unavailable" | "identity-changed" |
-  "identity-unavailable" | "selection-changed" | "auth-required" | "auth-no-token" | "credential-store-failed" |
-  "oauth-refresh-failed" | "auth-derivation-failed" | "oauth-short-lived" | "oauth-resolution-failed" |
-  "auth-runtime-failed" | "auth-unavailable" | "auth-expired" | "auth-check-failed" |
-  "runtime-unavailable" | "network" | "service" | "unsupported";
-export type QuotaView = { state: "fresh" | "stale" | "unavailable"; reason: QuotaReason; snapshot: QuotaSnapshot | null };
-export type QuotaRead = { status: "ok"; snapshot: QuotaSnapshot } |
-  { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null };
+export type QuotaReason =
+  | "ok"
+  | "aged"
+  | "expired"
+  | "unavailable"
+  | "identity-changed"
+  | "identity-unavailable"
+  | "selection-changed"
+  | "auth-required"
+  | "auth-no-token"
+  | "credential-store-failed"
+  | "oauth-refresh-failed"
+  | "auth-derivation-failed"
+  | "oauth-short-lived"
+  | "oauth-resolution-failed"
+  | "auth-runtime-failed"
+  | "auth-unavailable"
+  | "auth-expired"
+  | "auth-check-failed"
+  | "runtime-unavailable"
+  | "network"
+  | "service"
+  | "unsupported";
+export type QuotaView = {
+  state: "fresh" | "stale" | "unavailable";
+  reason: QuotaReason;
+  snapshot: QuotaSnapshot | null;
+};
+export type QuotaRead =
+  | { status: "ok"; snapshot: QuotaSnapshot }
+  | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null };
 
 const RETRY_MS = 30_000;
-const empty = (reason: QuotaReason): QuotaView => ({ state: "unavailable", reason, snapshot: null });
+const empty = (reason: QuotaReason): QuotaView => ({
+  state: "unavailable",
+  reason,
+  snapshot: null,
+});
 
 /** Host-worker memory only. Neither identity fingerprints nor pending credentials cross RPC. */
 export class QuotaCache {
@@ -40,11 +67,22 @@ export class QuotaCache {
       this.lastFailure = null;
       return empty("expired");
     }
-    if (this.lastFailure) return { state: "stale", reason: this.lastFailure, snapshot: this.snapshot };
-    return { state: age < FRESH_MS ? "fresh" : "stale", reason: age < FRESH_MS ? "ok" : "aged", snapshot: this.snapshot };
+    if (this.lastFailure)
+      return { state: "stale", reason: this.lastFailure, snapshot: this.snapshot };
+    return {
+      state: age < FRESH_MS ? "fresh" : "stale",
+      reason: age < FRESH_MS ? "ok" : "aged",
+      snapshot: this.snapshot,
+    };
   }
 
-  async read(identity: string, load: () => Promise<QuotaRead>, recheck: () => Promise<string | null>, force = false, signal?: AbortSignal): Promise<QuotaView> {
+  async read(
+    identity: string,
+    load: () => Promise<QuotaRead>,
+    recheck: () => Promise<string | null>,
+    force = false,
+    signal?: AbortSignal,
+  ): Promise<QuotaView> {
     if (this.identity !== identity) {
       this.invalidate();
       this.identity = identity;
@@ -77,7 +115,11 @@ export class QuotaCache {
         if (generation === this.generation) this.invalidate();
         return empty("selection-changed");
       }
-      if (generation !== this.generation || this.identity !== identity || currentIdentity !== identity) {
+      if (
+        generation !== this.generation ||
+        this.identity !== identity ||
+        currentIdentity !== identity
+      ) {
         if (generation === this.generation) this.invalidate();
         return empty(currentIdentity === null ? "identity-unavailable" : "identity-changed");
       }
@@ -94,7 +136,9 @@ export class QuotaCache {
       return empty(result.status);
     })();
     this.pending = task;
-    void task.finally(() => { if (this.pending === task) this.pending = null; });
+    void task.finally(() => {
+      if (this.pending === task) this.pending = null;
+    });
     return task;
   }
 }

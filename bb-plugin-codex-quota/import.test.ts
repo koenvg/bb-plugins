@@ -3,27 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { openHistoryDatabase } from "./history-storage.js";
-import {
-  initializeHistory,
-  projectCompactRecord,
-} from "./history-projection.js";
-import {
-  initializeIdentityStorage,
-  acceptIdentityBatch,
-} from "./identity-storage.js";
+import { initializeHistory, projectCompactRecord } from "./history-projection.js";
+import { initializeIdentityStorage, acceptIdentityBatch } from "./identity-storage.js";
 import { executeImport } from "./import-engine.js";
 const owned: string[] = [];
 afterEach(async () => {
-  await Promise.all(
-    owned.splice(0).map((p) => rm(p, { recursive: true, force: true })),
-  );
+  await Promise.all(owned.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
 const instant = "2026-10-01T00:00:00.000Z";
-export const header = (
-  id = "pi-a",
-  cwd = "/unused",
-  parentSession?: string,
-) => ({
+export const header = (id = "pi-a", cwd = "/unused", parentSession?: string) => ({
   type: "session",
   version: 3,
   id,
@@ -94,8 +82,7 @@ async function fixture() {
   const path = join(sources, "provider-a.jsonl");
   await writeFile(
     path,
-    [header("pi-a", workspace), message()].map(JSON.stringify).join("\n") +
-      "\n",
+    [header("pi-a", workspace), message()].map(JSON.stringify).join("\n") + "\n",
   );
   return {
     root,
@@ -109,47 +96,140 @@ async function fixture() {
   };
 }
 
-it("does not admit unresolved live overlap after detail expiry and reopen",async()=>{
-  const f=await fixture();const time="2026-08-01T00:00:00.000Z";
-  try{
-    const old={...message(),timestamp:time,message:{...message().message,timestamp:Date.parse(time)}};
-    await writeFile(f.path,[header("pi-a",f.workspace),old].map(JSON.stringify).join("\n")+"\n");
-    projectCompactRecord(f.db,{version:1,eventId:"00000000-0000-4000-8000-000000000001",provenance:"observed",occurredAt:time,sessionId:"pi-a",workspace:f.workspace,providerSessionKey:null,claimedThreadId:null,provider:"openai-codex",model:"synthetic",inputTokens:2,outputTokens:3,cacheReadTokens:0,cacheWriteTokens:0,reasoningTokens:0,totalTokens:5,capturedCost:0.02});
-    const {maintainHistory}=await import("./history-retention.js");maintainHistory(f.db,Date.parse("2026-10-03T00:00:00Z"));expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({n:0});
-    await f.run({action:"configure",configuration:f.config});let v=await f.run({action:"start"});for(let n=0;v.generation?.state==="stopped"&&n<12;n++)v=await f.run({action:"resume"});
-    expect(v.generation).toMatchObject({state:"completed",records:0,omissions:1,diagnostics:["unresolved-overlap"]});
-    expect(f.db.prepare("SELECT total_tokens,events FROM workspace_totals").get()).toEqual({total_tokens:5,events:1});
-    const reopened=(await openHistoryDatabase(join(f.root,"usage.sqlite")))!;try{expect(reopened.prepare("SELECT provenance,confirmed,total FROM usage_compact").all()).toEqual([{provenance:"observed",confirmed:0,total:5}]);}finally{reopened.close();}
-  }finally{f.db.close();}
+it("does not admit unresolved live overlap after detail expiry and reopen", async () => {
+  const f = await fixture();
+  const time = "2026-08-01T00:00:00.000Z";
+  try {
+    const old = {
+      ...message(),
+      timestamp: time,
+      message: { ...message().message, timestamp: Date.parse(time) },
+    };
+    await writeFile(
+      f.path,
+      [header("pi-a", f.workspace), old].map(JSON.stringify).join("\n") + "\n",
+    );
+    projectCompactRecord(f.db, {
+      version: 1,
+      eventId: "00000000-0000-4000-8000-000000000001",
+      provenance: "observed",
+      occurredAt: time,
+      sessionId: "pi-a",
+      workspace: f.workspace,
+      providerSessionKey: null,
+      claimedThreadId: null,
+      provider: "openai-codex",
+      model: "synthetic",
+      inputTokens: 2,
+      outputTokens: 3,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 5,
+      capturedCost: 0.02,
+    });
+    const { maintainHistory } = await import("./history-retention.js");
+    maintainHistory(f.db, Date.parse("2026-10-03T00:00:00Z"));
+    expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 0 });
+    await f.run({ action: "configure", configuration: f.config });
+    let v = await f.run({ action: "start" });
+    for (let n = 0; v.generation?.state === "stopped" && n < 12; n++)
+      v = await f.run({ action: "resume" });
+    expect(v.generation).toMatchObject({
+      state: "completed",
+      records: 0,
+      omissions: 1,
+      diagnostics: ["unresolved-overlap"],
+    });
+    expect(f.db.prepare("SELECT total_tokens,events FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+      events: 1,
+    });
+    const reopened = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
+    try {
+      expect(
+        reopened.prepare("SELECT provenance,confirmed,total FROM usage_compact").all(),
+      ).toEqual([{ provenance: "observed", confirmed: 0, total: 5 }]);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    f.db.close();
+  }
 });
 
-it("feeds real frozen import omissions, empty results and cancellation into scoped coverage",async()=>{
-  const {readCoverage,recordCoverage}=await import("./history-coverage.js");
-  for(const kind of ["missing","invalid","empty","canceled"]){
-    const f=await fixture();try{
-      if(kind==="missing"){const {unlink}=await import("node:fs/promises");await unlink(f.path);}
-      if(kind==="empty")await writeFile(f.path,JSON.stringify(header("pi-a",f.workspace))+"\n");
-      if(kind==="invalid")await writeFile(f.path,[header("pi-a",f.workspace),{...message(),message:{...message().message,usage:{input:-1}}}].map(JSON.stringify).join("\n")+"\n");
-      await f.run({action:"configure",configuration:f.config});let view=await f.run({action:"start"});
-      if(kind==="canceled")view=await f.run({action:"cancel"});else for(let n=0;view.generation?.state==="stopped"&&n<12;n++)view=await f.run({action:"resume"});
-      const query={start:"2026-10-01T00:00:00Z",end:"2026-10-02T00:00:00Z",workspace:f.workspace};
-      recordCoverage(f.db,{...query,id:"live-inactivity",threadId:null,kind:"observed-inactivity"});
-      expect(readCoverage(f.db,query),kind).toMatchObject({zero:false,state:"incomplete",uncertain:true});
-      if(kind==="missing")expect(readCoverage(f.db,query).omissions).toBe(1);
-      if(kind==="canceled")expect(readCoverage(f.db,query).backlog).toBe(false);
-      expect(readCoverage(f.db,{...query,workspace:"/other"}),kind).toMatchObject(["empty","invalid"].includes(kind) ? {omissions:0,uncertain:false,backlog:false} : {zero:false,uncertain:true,backlog:false});
-      expect(readCoverage(f.db,{...query,start:"2026-10-04T00:00:00Z",end:"2026-10-05T00:00:00Z"}),kind).toMatchObject({omissions:0,uncertain:false,backlog:false});
-      expect(readCoverage(f.db,{...query,workspace:undefined,verifiedThread:"thr_unknown"}),kind).toMatchObject({zero:false,uncertain:true});
-    }finally{f.db.close();}
+it("feeds real frozen import omissions, empty results and cancellation into scoped coverage", async () => {
+  const { readCoverage, recordCoverage } = await import("./history-coverage.js");
+  for (const kind of ["missing", "invalid", "empty", "canceled"]) {
+    const f = await fixture();
+    try {
+      if (kind === "missing") {
+        const { unlink } = await import("node:fs/promises");
+        await unlink(f.path);
+      }
+      if (kind === "empty")
+        await writeFile(f.path, JSON.stringify(header("pi-a", f.workspace)) + "\n");
+      if (kind === "invalid")
+        await writeFile(
+          f.path,
+          [
+            header("pi-a", f.workspace),
+            { ...message(), message: { ...message().message, usage: { input: -1 } } },
+          ]
+            .map(JSON.stringify)
+            .join("\n") + "\n",
+        );
+      await f.run({ action: "configure", configuration: f.config });
+      let view = await f.run({ action: "start" });
+      if (kind === "canceled") view = await f.run({ action: "cancel" });
+      else
+        for (let n = 0; view.generation?.state === "stopped" && n < 12; n++)
+          view = await f.run({ action: "resume" });
+      const query = {
+        start: "2026-10-01T00:00:00Z",
+        end: "2026-10-02T00:00:00Z",
+        workspace: f.workspace,
+      };
+      recordCoverage(f.db, {
+        ...query,
+        id: "live-inactivity",
+        threadId: null,
+        kind: "observed-inactivity",
+      });
+      expect(readCoverage(f.db, query), kind).toMatchObject({
+        zero: false,
+        state: "incomplete",
+        uncertain: true,
+      });
+      if (kind === "missing") expect(readCoverage(f.db, query).omissions).toBe(1);
+      if (kind === "canceled") expect(readCoverage(f.db, query).backlog).toBe(false);
+      expect(readCoverage(f.db, { ...query, workspace: "/other" }), kind).toMatchObject(
+        ["empty", "invalid"].includes(kind)
+          ? { omissions: 0, uncertain: false, backlog: false }
+          : { zero: false, uncertain: true, backlog: false },
+      );
+      expect(
+        readCoverage(f.db, {
+          ...query,
+          start: "2026-10-04T00:00:00Z",
+          end: "2026-10-05T00:00:00Z",
+        }),
+        kind,
+      ).toMatchObject({ omissions: 0, uncertain: false, backlog: false });
+      expect(
+        readCoverage(f.db, { ...query, workspace: undefined, verifiedThread: "thr_unknown" }),
+        kind,
+      ).toMatchObject({ zero: false, uncertain: true });
+    } finally {
+      f.db.close();
+    }
   }
 });
 it("status and configuration never consume transcript bytes; missing roots are explicit", async () => {
   const f = await fixture();
   try {
     expect((await f.run({ action: "status" })).reason).toBe("not-configured");
-    expect(
-      (await f.run({ action: "configure", configuration: f.config })).reason,
-    ).toBe("ok");
+    expect((await f.run({ action: "configure", configuration: f.config })).reason).toBe("ok");
     await f.run({ action: "status" });
     expect(f.reads()).toBe(0);
   } finally {
@@ -166,21 +246,17 @@ it("persists frozen progress and runs only on explicit resume, with no partial t
     const reads = f.reads();
     await f.run({ action: "status" });
     expect(f.reads()).toBe(reads);
-    expect((await f.run({ action: "start" })).reason).toBe(
-      "unfinished-generation",
-    );
+    expect((await f.run({ action: "start" })).reason).toBe("unfinished-generation");
     for (let i = 0; i < 10 && v.generation?.state !== "completed"; i++)
       v = await f.run({ action: "resume" });
     expect(v.generation?.state).toBe("completed");
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
-    expect(
-      JSON.stringify(f.db.prepare("SELECT payload FROM usage_events").all()),
-    ).not.toContain("PRIVATE_PROMPT_TOOL_SECRET");
-    expect(
-      (await f.run({ action: "configure", configuration: f.config })).reason,
-    ).toBe("ok");
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
+    expect(JSON.stringify(f.db.prepare("SELECT payload FROM usage_events").all())).not.toContain(
+      "PRIVATE_PROMPT_TOOL_SECRET",
+    );
+    expect((await f.run({ action: "configure", configuration: f.config })).reason).toBe("ok");
   } finally {
     f.db.close();
   }
@@ -191,13 +267,8 @@ async function finish(f: Awaited<ReturnType<typeof fixture>>, options = {}) {
     v = await f.run({ action: "resume" }, options);
   return v;
 }
-async function start(
-  f: Awaited<ReturnType<typeof fixture>>,
-  configuration = f.config,
-) {
-  expect((await f.run({ action: "configure", configuration })).reason).toBe(
-    "ok",
-  );
+async function start(f: Awaited<ReturnType<typeof fixture>>, configuration = f.config) {
+  expect((await f.run({ action: "configure", configuration })).reason).toBe("ok");
   return f.run({ action: "start" });
 }
 it("rejects missing roots, unknown workspaces and host/path collisions without bytes", async () => {
@@ -224,13 +295,9 @@ it("rejects missing roots, unknown workspaces and host/path collisions without b
     await start(f);
     expect(
       (
-        await executeImport(
-          f.db,
-          "host-b",
-          { action: "resume" },
-          [f.workspace],
-          { signal: new AbortController().signal },
-        )
+        await executeImport(f.db, "host-b", { action: "resume" }, [f.workspace], {
+          signal: new AbortController().signal,
+        })
       ).reason,
     ).toBe("foreign-host");
     expect(f.reads()).toBe(0);
@@ -251,10 +318,7 @@ it("omits candidate symlinks before reading bytes", async () => {
   try {
     const { symlink } = await import("node:fs/promises");
     const outside = join(f.root, "outside.jsonl");
-    await writeFile(
-      outside,
-      JSON.stringify(header("outside", f.workspace)) + "\n",
-    );
+    await writeFile(outside, JSON.stringify(header("outside", f.workspace)) + "\n");
     await rm(f.path);
     await symlink(outside, f.path);
     await start(f);
@@ -304,10 +368,7 @@ it("freezes identities at header verification and omits replaced or truncated so
         const { rename } = await import("node:fs/promises");
         await rename(f.path, f.path + ".old");
       }
-      await writeFile(
-        f.path,
-        JSON.stringify(header("pi-a", f.workspace)) + "\n",
-      );
+      await writeFile(f.path, JSON.stringify(header("pi-a", f.workspace)) + "\n");
       const v = await finish(f);
       expect(v.generation?.diagnostics).toContain("source-changed");
       expect(f.reads()).toBe(old);
@@ -339,9 +400,9 @@ it("bounds oversized UTF-8 records, preserves original values and accepts distin
     await start(f);
     const v = await finish(f, { bytes: 2 * 1024 * 1024, rows: 2 });
     expect(v.generation?.diagnostics).toContain("oversize-record");
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 10 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 10,
+    });
     const records = f.db.prepare("SELECT payload FROM usage_events").all() as {
       payload: string;
     }[];
@@ -394,24 +455,22 @@ it("confirmed live overlap retains the original first owner and excludes importe
     const owner = f.db.prepare("SELECT * FROM usage_entry_owners").get();
     await start(f);
     await finish(f);
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
-    expect(f.db.prepare("SELECT * FROM usage_entry_owners").get()).toEqual(
-      owner,
-    );
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
+    expect(f.db.prepare("SELECT * FROM usage_entry_owners").get()).toEqual(owner);
     expect(
       (
-        f.db
-          .prepare("SELECT payload FROM usage_events WHERE event_id=?")
-          .get(live.eventId) as { payload: string }
+        f.db.prepare("SELECT payload FROM usage_events WHERE event_id=?").get(live.eventId) as {
+          payload: string;
+        }
       ).payload,
     ).toBe(JSON.stringify(live));
     await f.run({ action: "start" });
     await finish(f);
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
   } finally {
     f.db.close();
   }
@@ -420,12 +479,7 @@ it("quarantines unconfirmed overlap, without matching equal tokens or times", as
   const f = await fixture();
   try {
     const { importedUsage } = await import("./import-parser.js");
-    const parsed = importedUsage(
-      message(),
-      "pi-a",
-      f.workspace,
-      "provider-a.jsonl",
-    );
+    const parsed = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
     if (parsed.kind !== "usage") throw Error("fixture invalid");
     projectCompactRecord(f.db, {
       ...parsed.record,
@@ -435,12 +489,10 @@ it("quarantines unconfirmed overlap, without matching equal tokens or times", as
     await start(f);
     const v = await finish(f);
     expect(v.generation?.diagnostics).toContain("unresolved-overlap");
-    expect(
-      f.db.prepare("SELECT count(*) AS n FROM usage_events").get(),
-    ).toEqual({ n: 1 });
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
+    expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 1 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
   } finally {
     f.db.close();
   }
@@ -452,11 +504,7 @@ it("imports proven fork ancestry once and accepts the new child branch", async (
     await mkdir(ordinary);
     await writeFile(
       join(ordinary, "fork.jsonl"),
-      [
-        header("pi-fork", f.workspace, f.path),
-        message(),
-        message("novel", "entry-a"),
-      ]
+      [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
         .map(JSON.stringify)
         .join("\n") + "\n",
     );
@@ -467,20 +515,17 @@ it("imports proven fork ancestry once and accepts the new child branch", async (
       JSON.stringify({
         v,
         entries: f.db.prepare("SELECT * FROM import_entries").all(),
-        events: f.db
-          .prepare("SELECT event_id,accepted FROM usage_events")
-          .all(),
+        events: f.db.prepare("SELECT event_id,accepted FROM usage_events").all(),
       }),
     ).toBe(0);
     expect(v.generation?.replayed).toBe(1);
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 10 });
-    expect(
-      f.db
-        .prepare("SELECT session_id FROM usage_events ORDER BY session_id")
-        .all(),
-    ).toEqual([{ session_id: "pi-a" }, { session_id: "pi-fork" }]);
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 10,
+    });
+    expect(f.db.prepare("SELECT session_id FROM usage_events ORDER BY session_id").all()).toEqual([
+      { session_id: "pi-a" },
+      { session_id: "pi-fork" },
+    ]);
   } finally {
     f.db.close();
   }
@@ -492,9 +537,7 @@ it("does not count unsupported ancestry or copied IDs without parent proof", asy
     await mkdir(ordinary);
     await writeFile(
       join(ordinary, "uncertain.jsonl"),
-      [header("pi-copy", f.workspace), message()]
-        .map(JSON.stringify)
-        .join("\n") + "\n",
+      [header("pi-copy", f.workspace), message()].map(JSON.stringify).join("\n") + "\n",
     );
     await writeFile(
       join(ordinary, "foreign-parent.jsonl"),
@@ -505,9 +548,9 @@ it("does not count unsupported ancestry or copied IDs without parent proof", asy
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });
     const v = await finish(f);
     expect(v.generation?.diagnostics).toContain("unresolved-ancestry");
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
   } finally {
     f.db.close();
   }
@@ -539,10 +582,7 @@ it("yields to cancellation without committing an interrupted message slice", asy
   try {
     await writeFile(
       f.path,
-      [
-        header("pi-a", f.workspace),
-        ...Array.from({ length: 100 }, (_, i) => message("e" + i)),
-      ]
+      [header("pi-a", f.workspace), ...Array.from({ length: 100 }, (_, i) => message("e" + i))]
         .map(JSON.stringify)
         .join("\n") + "\n",
     );
@@ -568,9 +608,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
     const ordinary = join(f.root, "ordinary");
     await mkdir(ordinary);
     await Promise.all(
-      Array.from({ length: 257 }, (_, i) =>
-        writeFile(join(ordinary, `noise-${i}`), "owned"),
-      ),
+      Array.from({ length: 257 }, (_, i) => writeFile(join(ordinary, `noise-${i}`), "owned")),
     );
     const rows = Array.from({ length: 101 }, (_, i) => ({
       providerIdentity: `provider-${String(i).padStart(3, "0")}`,
@@ -587,9 +625,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
         rows: rows.slice(offset, offset + 100),
       });
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });
-    expect((await f.run({ action: "status" })).generation?.candidates).toBe(
-      100,
-    );
+    expect((await f.run({ action: "status" })).generation?.candidates).toBe(100);
     acceptIdentityBatch(f.db, {
       hostId: "host-a",
       generation: 3,
@@ -601,11 +637,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
     expect(v.generation?.candidates).toBe(102);
     expect(v.generation?.diagnostics).toContain("discovery-limit");
     expect(
-      f.db
-        .prepare(
-          "SELECT 1 FROM import_candidates WHERE name='later-provider.jsonl'",
-        )
-        .get(),
+      f.db.prepare("SELECT 1 FROM import_candidates WHERE name='later-provider.jsonl'").get(),
     ).toBeUndefined();
     expect(v.generation?.coverage).toBe("partial");
   } finally {
@@ -615,10 +647,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
 it("preserves the original imported owner when a second confirmed provider path carries the same session", async () => {
   const f = await fixture();
   try {
-    await writeFile(
-      join(f.sources, "provider-b.jsonl"),
-      await readFile(f.path),
-    );
+    await writeFile(join(f.sources, "provider-b.jsonl"), await readFile(f.path));
     acceptIdentityBatch(f.db, {
       hostId: "host-a",
       generation: 2,
@@ -635,15 +664,13 @@ it("preserves the original imported owner when a second confirmed provider path 
     });
     await start(f);
     await finish(f);
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
-    expect(
-      f.db.prepare("SELECT count(*) AS n FROM usage_entry_owners").get(),
-    ).toEqual({ n: 1 });
-    expect(
-      f.db.prepare("SELECT conflicted FROM usage_entry_owners").get(),
-    ).toEqual({ conflicted: 0 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
+    expect(f.db.prepare("SELECT count(*) AS n FROM usage_entry_owners").get()).toEqual({ n: 1 });
+    expect(f.db.prepare("SELECT conflicted FROM usage_entry_owners").get()).toEqual({
+      conflicted: 0,
+    });
     expect(
       (
         f.db.prepare("SELECT payload FROM usage_events").get() as {
@@ -681,13 +708,11 @@ it("reserves unresolved scalar exclusions across later imports and never resurre
     await f.run({ action: "start" });
     await finish(f);
     expect(
-      f.db
-        .prepare("SELECT accepted FROM usage_events WHERE event_id=?")
-        .get(p.record.eventId),
+      f.db.prepare("SELECT accepted FROM usage_events WHERE event_id=?").get(p.record.eventId),
     ).toEqual({ accepted: 0 });
-    expect(
-      f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-    ).toEqual({ total_tokens: 5 });
+    expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+      total_tokens: 5,
+    });
   } finally {
     f.db.close();
   }
@@ -735,14 +760,8 @@ it("rejects a source replacement during the read and persists no body fragments"
     expect(v.generation?.diagnostics).toContain("source-changed");
     expect(f.db.prepare("SELECT * FROM usage_events").all()).toEqual([]);
     const path = join(f.root, "usage.sqlite");
-    expect(
-      (await readFile(path)).includes(Buffer.from("PRIVATE_REPLACEMENT")),
-    ).toBe(false);
-    expect(
-      (await readFile(path)).includes(
-        Buffer.from("PRIVATE_PROMPT_TOOL_SECRET"),
-      ),
-    ).toBe(false);
+    expect((await readFile(path)).includes(Buffer.from("PRIVATE_REPLACEMENT"))).toBe(false);
+    expect((await readFile(path)).includes(Buffer.from("PRIVATE_PROMPT_TOOL_SECRET"))).toBe(false);
   } finally {
     f.db.close();
   }
@@ -752,10 +771,7 @@ it("clamps the retained month boundary and keeps missing prices explicit", async
   try {
     const m = message();
     m.message.usage.cost.total = 0;
-    await writeFile(
-      f.path,
-      [header("pi-a", f.workspace), m].map(JSON.stringify).join("\n") + "\n",
-    );
+    await writeFile(f.path, [header("pi-a", f.workspace), m].map(JSON.stringify).join("\n") + "\n");
     await f.run({ action: "configure", configuration: f.config });
     const v = await f.run(
       { action: "start" },
@@ -785,12 +801,7 @@ it.each([false, true])(
     const f = await fixture();
     try {
       const { importedUsage } = await import("./import-parser.js");
-      const usage = importedUsage(
-        message(),
-        "pi-a",
-        f.workspace,
-        "provider-a.jsonl",
-      );
+      const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
       if (usage.kind !== "usage") throw Error("Invalid synthetic record");
       const live = {
         ...usage.record,
@@ -812,11 +823,7 @@ it.each([false, true])(
       const fork = join(ordinary, "fork.jsonl");
       await writeFile(
         fork,
-        [
-          header("pi-fork", f.workspace, f.path),
-          message(),
-          message("novel", "entry-a"),
-        ]
+        [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
           .map(JSON.stringify)
           .join("\n") + "\n",
       );
@@ -836,31 +843,25 @@ it.each([false, true])(
       const v = await finish(f);
       expect(v.generation?.omissions).toBe(0);
       expect(v.generation?.replayed).toBe(chained ? 3 : 1);
-      expect(
-        f.db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-      ).toEqual({ total_tokens: chained ? 15 : 10 });
+      expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+        total_tokens: chained ? 15 : 10,
+      });
       expect(
         (
-          f.db
-            .prepare("SELECT payload FROM usage_events WHERE event_id=?")
-            .get(live.eventId) as { payload: string }
+          f.db.prepare("SELECT payload FROM usage_events WHERE event_id=?").get(live.eventId) as {
+            payload: string;
+          }
         ).payload,
       ).toBe(JSON.stringify(live));
       expect(
-        f.db
-          .prepare("SELECT event_id FROM import_entries WHERE entry='entry-a'")
-          .all(),
+        f.db.prepare("SELECT event_id FROM import_entries WHERE entry='entry-a'").all(),
       ).toEqual(
         Array.from({ length: chained ? 3 : 2 }, () => ({
           event_id: live.eventId,
         })),
       );
       expect(
-        f.db
-          .prepare(
-            "SELECT event_id FROM usage_entry_owners WHERE session_id='pi-a'",
-          )
-          .get(),
+        f.db.prepare("SELECT event_id FROM usage_entry_owners WHERE session_id='pi-a'").get(),
       ).toEqual({ event_id: live.eventId });
     } finally {
       f.db.close();
@@ -871,12 +872,7 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
   const f = await fixture();
   try {
     const { importedUsage } = await import("./import-parser.js");
-    const usage = importedUsage(
-      message(),
-      "pi-a",
-      f.workspace,
-      "provider-a.jsonl",
-    );
+    const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
     if (usage.kind !== "usage") throw Error("Invalid fixture");
     const live = {
       ...usage.record,
@@ -901,11 +897,7 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
     await mkdir(ordinary);
     await writeFile(
       join(ordinary, "fork.jsonl"),
-      [
-        header("pi-fork", f.workspace, f.path),
-        message(),
-        message("novel", "entry-a"),
-      ]
+      [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
         .map(JSON.stringify)
         .join("\n") + "\n",
     );
@@ -915,9 +907,10 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
     expect(v.generation?.replayed).toBe(0);
     expect(v.generation?.diagnostics).toEqual(["unresolved-ancestry"]);
     expect(f.db.prepare("SELECT * FROM workspace_totals").all()).toEqual([]);
-    expect(
-      f.db.prepare("SELECT event_id,conflicted FROM usage_entry_owners").get(),
-    ).toEqual({ event_id: live.eventId, conflicted: 1 });
+    expect(f.db.prepare("SELECT event_id,conflicted FROM usage_entry_owners").get()).toEqual({
+      event_id: live.eventId,
+      conflicted: 1,
+    });
   } finally {
     f.db.close();
   }

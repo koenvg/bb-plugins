@@ -6,7 +6,9 @@ const MAX_RESPONSE_BYTES = 64 * 1024;
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 function accountClaim(token: string): string | null {
   try {
-    const jwt = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as Record<string, unknown>;
+    const jwt = JSON.parse(
+      Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
     const claim = jwt["https://api.openai.com/auth"];
     if (!claim || typeof claim !== "object" || Array.isArray(claim)) return null;
     const id = (claim as Record<string, unknown>).chatgpt_account_id;
@@ -38,10 +40,18 @@ async function boundedJson(response: Response): Promise<unknown> {
 }
 
 /** Only the host process can observe raw upstream payloads and credentials. */
-async function quotaPayload(token: string, signal: AbortSignal, fetchImpl: FetchLike): Promise<
-  { status: "ok"; payload: unknown } | { status: "auth-expired" | "network" | "service" | "unsupported" }
+async function quotaPayload(
+  token: string,
+  signal: AbortSignal,
+  fetchImpl: FetchLike,
+): Promise<
+  | { status: "ok"; payload: unknown }
+  | { status: "auth-expired" | "network" | "service" | "unsupported" }
 > {
-  const headers: Record<string, string> = { Accept: "application/json", Authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
   const id = accountClaim(token);
   if (id) headers["ChatGPT-Account-Id"] = id;
   let response: Response;
@@ -60,9 +70,14 @@ async function quotaPayload(token: string, signal: AbortSignal, fetchImpl: Fetch
 }
 
 export async function fetchNormalizedQuota(
-  token: string, signal: AbortSignal, fetchImpl: FetchLike = fetch, observedAtMs = Date.now(),
-): Promise<{ status: "ok"; snapshot: import("./quota.js").QuotaSnapshot } |
-  { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null }> {
+  token: string,
+  signal: AbortSignal,
+  fetchImpl: FetchLike = fetch,
+  observedAtMs = Date.now(),
+): Promise<
+  | { status: "ok"; snapshot: import("./quota.js").QuotaSnapshot }
+  | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null }
+> {
   const read = await quotaPayload(token, signal, fetchImpl);
   if (read.status !== "ok") return { status: read.status, snapshot: null };
   const snapshot = normalizeQuota(read.payload, observedAtMs);

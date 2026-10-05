@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  mkdtempSync,
-  mkdirSync,
-  copyFileSync,
-  writeFileSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,8 +13,7 @@ try {
     ordinary = join(root, "ordinary-workspace-sessions"),
     workspace = join(root, "workspace"),
     dataDir = join(root, "host-data");
-  for (const p of [source, ordinary, workspace, dataDir, join(root, "agent")])
-    mkdirSync(p);
+  for (const p of [source, ordinary, workspace, dataDir, join(root, "agent")]) mkdirSync(p);
   process.env.PI_CODING_AGENT_DIR = join(root, "agent");
   globalThis.fetch = async () => {
     throw Error("Network forbidden");
@@ -53,10 +45,7 @@ try {
       { hostId: "host-synthetic", command, knownWorkspaces: [workspace] },
       context,
     );
-  assert.equal(
-    (await call(bundle, { action: "status" })).reason,
-    "not-configured",
-  );
+  assert.equal((await call(bundle, { action: "status" })).reason, "not-configured");
   const now = Date.now() - 86400000,
     instant = new Date(now).toISOString();
   const header = (id, parentSession) => ({
@@ -91,16 +80,11 @@ try {
   const parent = join(source, "provider-a.jsonl");
   writeFileSync(
     parent,
-    [header("pi-original"), message("entry-a")].map(JSON.stringify).join("\n") +
-      "\n",
+    [header("pi-original"), message("entry-a")].map(JSON.stringify).join("\n") + "\n",
   );
   writeFileSync(
     join(ordinary, "fork.jsonl"),
-    [
-      header("pi-child", parent),
-      message("entry-a"),
-      message("child-entry", "entry-a"),
-    ]
+    [header("pi-child", parent), message("entry-a"), message("child-entry", "entry-a")]
       .map(JSON.stringify)
       .join("\n") + "\n",
   );
@@ -109,10 +93,7 @@ try {
     ordinaryRoots: [ordinary],
     workspaces: [workspace],
   };
-  assert.equal(
-    (await call(bundle, { action: "configure", configuration })).reason,
-    "ok",
-  );
+  assert.equal((await call(bundle, { action: "configure", configuration })).reason, "ok");
   const identities = {
     hostId: "host-synthetic",
     generation: 1,
@@ -128,8 +109,7 @@ try {
     ],
   };
   assert.equal(
-    (await bundle.default.handlers.historyReadiness({ identities }, context))
-      .attribution.discovery,
+    (await bundle.default.handlers.historyReadiness({ identities }, context)).attribution.discovery,
     "complete",
   );
   let live;
@@ -154,15 +134,13 @@ try {
       totalTokens: 5,
       capturedCost: 0.02,
     };
-    const seed = await bundle.openHistoryDatabase(
-      join(dataDir, "history/usage-v1.sqlite"),
-    );
+    const seed = await bundle.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"));
     try {
       const {
         eventId,
-        provenance,
-        providerSessionKey,
-        claimedThreadId,
+        provenance: _provenance,
+        providerSessionKey: _providerSessionKey,
+        claimedThreadId: _claimedThreadId,
         ...evidence
       } = live;
       seed.transaction(() => {
@@ -175,19 +153,26 @@ try {
         seed
           .prepare("INSERT INTO usage_entry_owners VALUES (?,?,?,?,0)")
           .run(live.sessionId, "entry-a", eventId, JSON.stringify(evidence));
+        seed.prepare("INSERT INTO workspace_totals VALUES (?,5,1)").run(workspace);
         seed
-          .prepare("INSERT INTO workspace_totals VALUES (?,5,1)")
-          .run(workspace);
-        seed
-          .prepare(
-            "UPDATE history_counters SET observed_events=observed_events+1 WHERE id=1",
-          )
+          .prepare("UPDATE history_counters SET observed_events=observed_events+1 WHERE id=1")
           .run();
         // This is the reviewed schema-1 live/import fixture, not a schema-4 row
         // inserted without its compact projection. Preserve its original payload
         // and exercise the real additive migration before overlap decisions.
-        for (const table of ['usage_compact','history_retention','history_owner','collector_log_retention','usage_expired','history_coverage','history_recovery','history_reconciliation','history_legacy_pending']) seed.exec(`DROP TABLE ${table}`);
-        seed.exec('PRAGMA user_version=1');
+        for (const table of [
+          "usage_compact",
+          "history_retention",
+          "history_owner",
+          "collector_log_retention",
+          "usage_expired",
+          "history_coverage",
+          "history_recovery",
+          "history_reconciliation",
+          "history_legacy_pending",
+        ])
+          seed.exec(`DROP TABLE ${table}`);
+        seed.exec("PRAGMA user_version=1");
       });
     } finally {
       seed.close();
@@ -215,14 +200,8 @@ try {
   assert.equal(v.generation.startAt, start);
   assert.equal(v.generation.omissions, 0);
   assert.equal(v.generation.replayed, 1);
-  let db = await reload.openHistoryDatabase(
-    join(dataDir, "history/usage-v1.sqlite"),
-    true,
-  );
-  assert.equal(
-    db.prepare("SELECT total_tokens FROM workspace_totals").get().total_tokens,
-    10,
-  );
+  let db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
+  assert.equal(db.prepare("SELECT total_tokens FROM workspace_totals").get().total_tokens, 10);
   const records = db
     .prepare("SELECT payload FROM usage_events")
     .all()
@@ -230,16 +209,12 @@ try {
   assert.equal(records.length, liveOverlap ? 3 : 2);
   if (liveOverlap) {
     assert.equal(
-      db
-        .prepare("SELECT payload FROM usage_events WHERE event_id=?")
-        .get(live.eventId).payload,
+      db.prepare("SELECT payload FROM usage_events WHERE event_id=?").get(live.eventId).payload,
       JSON.stringify(live),
     );
     assert.deepEqual(
       db
-        .prepare(
-          "SELECT DISTINCT event_id FROM import_entries WHERE entry='entry-a'",
-        )
+        .prepare("SELECT DISTINCT event_id FROM import_entries WHERE entry='entry-a'")
         .all()
         .map((r) => ({ ...r })),
       [{ event_id: live.eventId }],
@@ -251,10 +226,7 @@ try {
     assert.equal(r.workspace, workspace);
   }
   assert.ok(!JSON.stringify(records).includes("PRIVATE_"));
-  assert.equal(
-    db.prepare("SELECT count(*) AS n FROM collector_meta").get().n,
-    0,
-  );
+  assert.equal(db.prepare("SELECT count(*) AS n FROM collector_meta").get().n, 0);
   db.close();
   assert.ok(
     !readFileSync(join(dataDir, "history/usage-v1.sqlite")).includes(
@@ -263,14 +235,8 @@ try {
   );
   await call(reload, { action: "start" });
   await call(reload, { action: "cancel" });
-  assert.equal(
-    (await call(reload, { action: "status" })).generation.state,
-    "canceled",
-  );
-  assert.equal(
-    (await call(reload, { action: "resume" })).reason,
-    "no-generation",
-  );
+  assert.equal((await call(reload, { action: "status" })).generation.state, "canceled");
+  assert.equal((await call(reload, { action: "resume" })).reason, "no-generation");
   // A named pipe on a direct BB candidate must not retain the worker or block the shared control queue.
   const { execFileSync } = await import("node:child_process");
   const { unlinkSync } = await import("node:fs");
@@ -287,15 +253,9 @@ try {
     "compatible",
   );
   assert.equal(leases, 0);
-  assert.equal(
-    (await reload.default.handlers.quota({}, context)).reason,
-    "auth-required",
-  );
+  assert.equal((await reload.default.handlers.quota({}, context)).reason, "auth-required");
   lifecycle.abort();
-  assert.equal(
-    (await call(reload, { action: "start" })).reason,
-    "selection-changed",
-  );
+  assert.equal((await call(reload, { action: "start" })).reason, "selection-changed");
   assert.equal(leases, 0);
   console.log(
     "Packaged import: explicit custom roots, import-only real SQLite, distinct provider/Pi IDs, verified fork ancestry and novel child, privacy, UTC/cost preservation, durable reload with no auto-resume, frozen generation, explicit cancel, quota isolation and lease/disposal passed. Node",

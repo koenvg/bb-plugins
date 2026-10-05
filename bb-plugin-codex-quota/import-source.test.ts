@@ -32,13 +32,7 @@ it.each([false, true])(
     `;
       const result = spawnSync(
         process.execPath,
-        [
-          "--experimental-strip-types",
-          "--input-type=module",
-          "-e",
-          program,
-          root,
-        ],
+        ["--experimental-strip-types", "--input-type=module", "-e", program, root],
         { encoding: "utf8", timeout: 3000, killSignal: "SIGKILL" },
       );
       expect(result.error?.message).toBeUndefined();

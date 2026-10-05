@@ -3,12 +3,26 @@ import { QuotaSelectionStore, type QuotaApi } from "./selection-store.js";
 import type { QuotaStatus } from "./contract.js";
 
 const observedAt = new Date(Date.now() - 1000).toISOString();
-const view: QuotaStatus = { state: "fresh", reason: "ok", snapshot: {
-  observedAt, plan: null, bankedResets: 2,
-  general: [{ id: "primary_window", name: "Primary", remainingPercent: 30, resetAt: null }],
-  additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: 30,
-} };
-function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
+const view: QuotaStatus = {
+  state: "fresh",
+  reason: "ok",
+  snapshot: {
+    observedAt,
+    plan: null,
+    bankedResets: 2,
+    general: [{ id: "primary_window", name: "Primary", remainingPercent: 30, resetAt: null }],
+    additional: [],
+    bindingWindowId: "primary_window",
+    bindingRemainingPercent: 30,
+  },
+};
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 describe("shared badge/dashboard selection", () => {
   it("coalesces simultaneous refresh and never publishes a late result after a host change", async () => {
@@ -18,7 +32,10 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async ({ hostId }) => { reads++; return hostId === "host_a" ? pending.promise : view; },
+      read: async ({ hostId }) => {
+        reads++;
+        return hostId === "host_a" ? pending.promise : view;
+      },
     };
     await store.connect(api);
     const badge = store.refresh(api);
@@ -38,7 +55,10 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => { reads++; return view; },
+      read: async () => {
+        reads++;
+        return view;
+      },
     };
     expect(store.getSnapshot().ready).toBe(false);
     await store.connect(api);
@@ -59,7 +79,7 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => ++reads === 1 ? view : switched.promise,
+      read: async () => (++reads === 1 ? view : switched.promise),
     };
     await store.connect(api);
     await store.refresh(api);
@@ -70,13 +90,20 @@ describe("shared badge/dashboard selection", () => {
     expect(store.getSnapshot().loading).toBe(true);
     switched.resolve({ state: "unavailable", reason: "identity-changed", snapshot: null });
     await recheck;
-    expect(store.getSnapshot().view).toEqual({ state: "unavailable", reason: "identity-changed", snapshot: null });
+    expect(store.getSnapshot().view).toEqual({
+      state: "unavailable",
+      reason: "identity-changed",
+      snapshot: null,
+    });
   });
   it("keeps a prior observation stale when selection sync temporarily fails", async () => {
     const store = new QuotaSelectionStore();
     let unavailable = false;
     const api: QuotaApi = {
-      selection: async () => { if (unavailable) throw new Error("disconnected"); return { hostId: "host_a", generation: 1 }; },
+      selection: async () => {
+        if (unavailable) throw new Error("disconnected");
+        return { hostId: "host_a", generation: 1 };
+      },
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
       read: async () => view,
     };
@@ -84,7 +111,11 @@ describe("shared badge/dashboard selection", () => {
     await store.refresh(api);
     unavailable = true;
     await store.connect(api);
-    expect(store.getSnapshot().view).toMatchObject({ state: "stale", reason: "host-offline", snapshot: view.snapshot });
+    expect(store.getSnapshot().view).toMatchObject({
+      state: "stale",
+      reason: "host-offline",
+      snapshot: view.snapshot,
+    });
     expect(store.getSnapshot().ready).toBe(true);
   });
 
@@ -96,7 +127,10 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => { reads++; return { state: "fresh", reason: "ok", snapshot }; },
+      read: async () => {
+        reads++;
+        return { state: "fresh", reason: "ok", snapshot };
+      },
     };
     await store.connect(api);
     await store.refresh(api);
@@ -131,9 +165,11 @@ describe("shared badge/dashboard selection", () => {
   it("labels a mounted view stale at five minutes and removes it at 24 hours without a refresh error", async () => {
     const store = new QuotaSelectionStore(() => 1000000);
     const snapshot = { ...view.snapshot!, observedAt: new Date(1000000).toISOString() };
-    const api: QuotaApi = { selection: async () => ({ hostId: "host_a", generation: 1 }),
+    const api: QuotaApi = {
+      selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => ({ state: "fresh", reason: "ok", snapshot }) };
+      read: async () => ({ state: "fresh", reason: "ok", snapshot }),
+    };
     await store.connect(api);
     await store.refresh(api);
     store.tick(1000000 + 299999);
@@ -141,7 +177,11 @@ describe("shared badge/dashboard selection", () => {
     store.tick(1000000 + 300000);
     expect(store.getSnapshot().view.state).toBe("stale");
     store.tick(1000000 + 86400000);
-    expect(store.getSnapshot().view).toEqual({ state: "unavailable", reason: "expired", snapshot: null });
+    expect(store.getSnapshot().view).toEqual({
+      state: "unavailable",
+      reason: "expired",
+      snapshot: null,
+    });
   });
   it("keeps a prior percentage stale when a refresh RPC fails", async () => {
     let now = Date.now();
@@ -150,14 +190,21 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => { if (fail) throw new Error("transport failure"); return view; },
+      read: async () => {
+        if (fail) throw new Error("transport failure");
+        return view;
+      },
     };
     await store.connect(api);
     await store.refresh(api);
     now += 1000;
     fail = true;
     await store.refresh(api, true);
-    expect(store.getSnapshot().view).toMatchObject({ state: "stale", reason: "host-offline", snapshot: view.snapshot });
+    expect(store.getSnapshot().view).toMatchObject({
+      state: "stale",
+      reason: "host-offline",
+      snapshot: view.snapshot,
+    });
   });
 
   it("tracks quota-owner lifetimes independently from passive subscriptions", () => {

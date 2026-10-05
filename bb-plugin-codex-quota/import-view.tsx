@@ -15,18 +15,15 @@ type Props = {
 const reasonText: Record<ImportView["reason"], string> = {
   ok: "Configured sources are not proof of complete host coverage.",
   "not-configured": "BB Pi source root is not configured.",
-  "invalid-configuration":
-    "Source roots or workspace scopes could not be verified on this host.",
+  "invalid-configuration": "Source roots or workspace scopes could not be verified on this host.",
   "unfinished-generation":
     "Resume or cancel the unfinished import before changing sources or starting another import.",
   "metadata-incomplete":
     "Verified identity metadata is incomplete. Check history readiness, then start again.",
   "no-generation": "There is no unfinished import to resume or cancel.",
   "storage-unavailable": "Import storage is unavailable. Quota still works.",
-  "storage-incompatible":
-    "Import storage is incompatible. Existing data is unchanged.",
-  "selection-changed":
-    "Host selection changed. Check import status on the owning host.",
+  "storage-incompatible": "Import storage is incompatible. Existing data is unchanged.",
+  "selection-changed": "Host selection changed. Check import status on the owning host.",
   "host-offline": "Selected host is offline.",
   "no-selection": "Select a host to manage import.",
   "foreign-host": "Import does not match the selected host.",
@@ -58,8 +55,7 @@ export function ImportPanel({
     ordinary: string;
     workspaces: string;
   } | null>(null);
-  const view =
-    !selectionPending && observation?.key === key ? observation.view : null;
+  const view = !selectionPending && observation?.key === key ? observation.view : null;
   const values =
     draft?.key === key
       ? draft
@@ -78,10 +74,7 @@ export function ImportPanel({
         generation: selection.generation,
         command,
       };
-    const valid = () =>
-      mounted.current &&
-      currentKey.current === scope &&
-      sequence.current === seq;
+    const valid = () => mounted.current && currentKey.current === scope && sequence.current === seq;
     setBusy({ key, seq });
     void Promise.resolve()
       .then(() => (valid() ? callRef.current(input) : null))
@@ -119,11 +112,7 @@ export function ImportPanel({
   }, [key]);
   const pending = selectionPending || busy?.key === key,
     unfinished = view?.generation?.state === "stopped";
-  const field = (
-    label: string,
-    name: "bbRoot" | "ordinary" | "workspaces",
-    multiline = false,
-  ) => (
+  const field = (label: string, name: "bbRoot" | "ordinary" | "workspaces", multiline = false) => (
     <label className="mt-3 block min-w-0">
       {label}
       {multiline ? (
@@ -152,15 +141,13 @@ export function ImportPanel({
         Historical import
       </summary>
       <p className="mt-2">
-        Only Start and Resume discover or read retained transcripts on the
-        selected host. Each action runs one bounded cycle. Reload never resumes
-        work.
+        Only Start and Resume discover or read retained transcripts on the selected host. Each
+        action runs one bounded cycle. Reload never resumes work.
       </p>
       <p className="mt-2">
-        Enter the actual source roots for this host, including any custom root.
-        No root is guessed. Ordinary Pi roots must be specific session
-        directories, not a home directory. Workspaces must be known BB
-        environments on this host.
+        Enter the actual source roots for this host, including any custom root. No root is guessed.
+        Ordinary Pi roots must be specific session directories, not a home directory. Workspaces
+        must be known BB environments on this host.
       </p>
       <p className="mt-2" aria-live="polite">
         {selectionPending
@@ -180,11 +167,7 @@ export function ImportPanel({
         <button
           className={button}
           disabled={
-            !selection.hostId ||
-            pending ||
-            unfinished ||
-            !values.bbRoot ||
-            !values.workspaces
+            !selection.hostId || pending || unfinished || !values.bbRoot || !values.workspaces
           }
           onClick={() =>
             activate({
@@ -201,9 +184,7 @@ export function ImportPanel({
         </button>
         <button
           className={button}
-          disabled={
-            !selection.hostId || pending || unfinished || !view?.configuration
-          }
+          disabled={!selection.hostId || pending || unfinished || !view?.configuration}
           onClick={() => activate({ action: "start" })}
         >
           Start import
@@ -224,9 +205,7 @@ export function ImportPanel({
         </button>
         <button
           className={button}
-          disabled={
-            selectionPending || !selection.hostId || (!unfinished && !pending)
-          }
+          disabled={selectionPending || !selection.hostId || (!unfinished && !pending)}
           onClick={() => activate({ action: "cancel" })}
         >
           Cancel import
@@ -235,29 +214,22 @@ export function ImportPanel({
       {view?.generation && (
         <div className="mt-3 [overflow-wrap:anywhere]">
           <p>
-            Import {view.generation.state}. Frozen UTC range:{" "}
-            {view.generation.startAt} to {view.generation.endAt}.
+            Import {view.generation.state}. Frozen UTC range: {view.generation.startAt} to{" "}
+            {view.generation.endAt}.
           </p>
-          <p>
-            Selected-host workspace scopes:{" "}
-            {view.generation.workspaces.join(", ")}.
-          </p>
+          <p>Selected-host workspace scopes: {view.generation.workspaces.join(", ")}.</p>
           {view.generation.sourceRoots && (
-            <p>
-              Frozen configured source roots:{" "}
-              {view.generation.sourceRoots.join(", ")}.
-            </p>
+            <p>Frozen configured source roots: {view.generation.sourceRoots.join(", ")}.</p>
           )}
           <p>
-            {view.generation.finished} of {view.generation.candidates}{" "}
-            candidates finished. {view.generation.bytes.toLocaleString()} bytes
-            read. {view.generation.records} usage records processed.{" "}
-            {view.generation.replayed} confirmed inherited entries excluded.{" "}
+            {view.generation.finished} of {view.generation.candidates} candidates finished.{" "}
+            {view.generation.bytes.toLocaleString()} bytes read. {view.generation.records} usage
+            records processed. {view.generation.replayed} confirmed inherited entries excluded.{" "}
             {view.generation.omissions} omissions.
           </p>
           <p>
-            Partial coverage, including when no records are found. No actual
-            usage is inferred as zero.
+            Partial coverage, including when no records are found. No actual usage is inferred as
+            zero.
           </p>
           {view.generation.diagnostics.length > 0 && (
             <p>Diagnostics: {view.generation.diagnostics.join(", ")}.</p>
@@ -265,9 +237,8 @@ export function ImportPanel({
         </div>
       )}
       <p className="mt-2">
-        Cancel stops further work. Already committed host records remain.
-        Browser cancellation or a host change cannot roll back a committed
-        operation. Check status after reconnecting.
+        Cancel stops further work. Already committed host records remain. Browser cancellation or a
+        host change cannot roll back a committed operation. Check status after reconnecting.
       </p>
     </details>
   );

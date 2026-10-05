@@ -7,7 +7,16 @@ export type QuotaApi = {
   selectHost(input: { hostId: string | null }): Promise<Selection>;
   read(input: { hostId: string; generation: number; refresh?: boolean }): Promise<QuotaStatus>;
 };
-type State = { selection: Selection; selectionPending: boolean; selectionRevision: number; view: QuotaStatus; loading: boolean; ready: boolean; hasActiveOwner: boolean; now: number };
+type State = {
+  selection: Selection;
+  selectionPending: boolean;
+  selectionRevision: number;
+  view: QuotaStatus;
+  loading: boolean;
+  ready: boolean;
+  hasActiveOwner: boolean;
+  now: number;
+};
 type RefreshOwner = {
   api: QuotaApi;
   timer: ReturnType<typeof setTimeout> | null;
@@ -16,8 +25,11 @@ type RefreshOwner = {
   failures: number;
   release: () => void;
 };
-const unavailable = (reason: "no-selection" | "foreign-host" | "host-offline"): QuotaStatus =>
-  ({ state: "unavailable", reason, snapshot: null });
+const unavailable = (reason: "no-selection" | "foreign-host" | "host-offline"): QuotaStatus => ({
+  state: "unavailable",
+  reason,
+  snapshot: null,
+});
 
 /** App-window memory only. One start/dispose owner drives refresh; views only subscribe.
  * The injected clock and platform timers are the testable time boundary.
@@ -35,9 +47,23 @@ export class QuotaSelectionStore {
   private disposed = false;
 
   constructor(private readonly now: () => number = () => Date.now()) {
-    this.state = { selection: { hostId: null, generation: 0 }, selectionPending: false, selectionRevision: 0, view: unavailable("no-selection"), loading: false, ready: false, hasActiveOwner: false, now: now() };
+    this.state = {
+      selection: { hostId: null, generation: 0 },
+      selectionPending: false,
+      selectionRevision: 0,
+      view: unavailable("no-selection"),
+      loading: false,
+      ready: false,
+      hasActiveOwner: false,
+      now: now(),
+    };
   }
-  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
   getSnapshot = () => this.state;
   private publish(next: Partial<State>) {
     this.state = { ...this.state, ...next };
@@ -62,8 +88,23 @@ export class QuotaSelectionStore {
     this.connecting = null;
     this.reading = null;
     this.selecting = null;
-    this.publish({ selection: { hostId: null, generation: 0 }, selectionPending: false, selectionRevision: this.revision, view: unavailable("no-selection"), loading: false, ready: false, now: this.now() });
-    const owner: RefreshOwner = { api, timer: null, aging: null, dueAt: 0, failures: 0, release: this.retainOwner() };
+    this.publish({
+      selection: { hostId: null, generation: 0 },
+      selectionPending: false,
+      selectionRevision: this.revision,
+      view: unavailable("no-selection"),
+      loading: false,
+      ready: false,
+      now: this.now(),
+    });
+    const owner: RefreshOwner = {
+      api,
+      timer: null,
+      aging: null,
+      dueAt: 0,
+      failures: 0,
+      release: this.retainOwner(),
+    };
     this.owner = owner;
     owner.aging = setInterval(() => this.tick(), 1000);
     void this.run(owner, false);
@@ -97,15 +138,21 @@ export class QuotaSelectionStore {
     const synced = await this.connect(owner.api);
     if (this.owner !== owner) return;
     if (onlyIfDue && this.now() < owner.dueAt) {
-      if (owner.timer === null && Number.isFinite(owner.dueAt)) this.schedule(owner, owner.dueAt - this.now());
+      if (owner.timer === null && Number.isFinite(owner.dueAt))
+        this.schedule(owner, owner.dueAt - this.now());
       return;
     }
     if (!synced) {
       if (this.revision === revision) this.settled(owner);
       return;
     }
-    if (!this.state.selection.hostId) { this.schedule(owner, 60_000); return; }
-    const changed = before.hostId !== this.state.selection.hostId || before.generation !== this.state.selection.generation;
+    if (!this.state.selection.hostId) {
+      this.schedule(owner, 60_000);
+      return;
+    }
+    const changed =
+      before.hostId !== this.state.selection.hostId ||
+      before.generation !== this.state.selection.generation;
     await this.refresh(owner.api, force && !changed);
   }
 
@@ -113,7 +160,10 @@ export class QuotaSelectionStore {
     if (this.owner !== owner) return;
     if (owner.timer !== null) clearTimeout(owner.timer);
     owner.dueAt = this.now() + delay;
-    owner.timer = setTimeout(() => { owner.timer = null; void this.run(owner, true, true); }, delay);
+    owner.timer = setTimeout(() => {
+      owner.timer = null;
+      void this.run(owner, true, true);
+    }, delay);
   }
 
   private resetSchedule(owner: RefreshOwner): void {
@@ -127,7 +177,10 @@ export class QuotaSelectionStore {
     // A fulfilled stale/unavailable response is still a failure, not recovery.
     const success = this.state.view.state === "fresh";
     owner.failures = success ? 0 : owner.failures + 1;
-    this.schedule(owner, success ? 60_000 : Math.min(60_000 * 2 ** Math.min(owner.failures - 1, 3), 300_000));
+    this.schedule(
+      owner,
+      success ? 60_000 : Math.min(60_000 * 2 ** Math.min(owner.failures - 1, 3), 300_000),
+    );
   }
 
   async connect(api: QuotaApi): Promise<boolean> {
@@ -138,12 +191,21 @@ export class QuotaSelectionStore {
       try {
         const selection = await api.selection();
         if (this.revision !== revision) return false;
-        const changed = selection.hostId !== this.state.selection.hostId || selection.generation !== this.state.selection.generation;
+        const changed =
+          selection.hostId !== this.state.selection.hostId ||
+          selection.generation !== this.state.selection.generation;
         if (changed) {
           this.revision++;
           this.reading = null;
           if (this.owner) this.resetSchedule(this.owner);
-          this.publish({ selection, selectionPending: false, selectionRevision: this.revision, view: unavailable("no-selection"), ready: selection.hostId === null, loading: false });
+          this.publish({
+            selection,
+            selectionPending: false,
+            selectionRevision: this.revision,
+            view: unavailable("no-selection"),
+            ready: selection.hostId === null,
+            loading: false,
+          });
         } else if (!this.state.ready && selection.hostId === null) {
           this.publish({ ready: true });
         }
@@ -152,14 +214,21 @@ export class QuotaSelectionStore {
         if (this.revision !== revision) return false;
         const previous = visibleView(this.state.view, this.now());
         this.publish({
-          view: previous.snapshot ? { state: "stale", reason: "host-offline", snapshot: previous.snapshot } : unavailable("host-offline"),
-          loading: false, ready: true,
+          view: previous.snapshot
+            ? { state: "stale", reason: "host-offline", snapshot: previous.snapshot }
+            : unavailable("host-offline"),
+          loading: false,
+          ready: true,
         });
         return false;
       }
     })();
     this.connecting = task;
-    try { return await task; } finally { if (this.connecting === task) this.connecting = null; }
+    try {
+      return await task;
+    } finally {
+      if (this.connecting === task) this.connecting = null;
+    }
   }
 
   async selectHost(api: QuotaApi, hostId: string | null): Promise<void> {
@@ -170,22 +239,39 @@ export class QuotaSelectionStore {
     if (this.owner) this.resetSchedule(this.owner);
     this.reading = null;
     // Other selected-host views must invalidate at switch start, not after quota/auth completes.
-    this.publish({ selectionPending: true, selectionRevision: revision, view: unavailable("no-selection"), loading: true, ready: false });
+    this.publish({
+      selectionPending: true,
+      selectionRevision: revision,
+      view: unavailable("no-selection"),
+      loading: true,
+      ready: false,
+    });
     try {
       const selection = await api.selectHost({ hostId });
       if (this.revision !== revision) return;
       this.selecting = null;
-      this.publish({ selection, selectionPending: false, view: unavailable(selection.hostId === hostId ? "no-selection" : "foreign-host"),
-        loading: false, ready: selection.hostId !== hostId || hostId === null });
+      this.publish({
+        selection,
+        selectionPending: false,
+        view: unavailable(selection.hostId === hostId ? "no-selection" : "foreign-host"),
+        loading: false,
+        ready: selection.hostId !== hostId || hostId === null,
+      });
       if (selection.hostId === hostId && hostId !== null) await this.refresh(api);
     } catch {
       if (this.revision === revision) {
         this.selecting = null;
-        this.publish({ selectionPending: false, view: unavailable("host-offline"), loading: false, ready: true });
+        this.publish({
+          selectionPending: false,
+          view: unavailable("host-offline"),
+          loading: false,
+          ready: true,
+        });
       }
     } finally {
       if (this.owner && this.revision === revision && this.owner.timer === null && !this.reading) {
-        if (!this.state.selection.hostId && this.state.view.reason === "no-selection") this.schedule(this.owner, 60_000);
+        if (!this.state.selection.hostId && this.state.view.reason === "no-selection")
+          this.schedule(this.owner, 60_000);
         else this.settled(this.owner);
       }
     }
@@ -208,8 +294,17 @@ export class QuotaSelectionStore {
     const task = (async () => {
       try {
         const result = await api.read({ hostId, generation, refresh: force });
-        if (this.revision === revision && this.state.selection.hostId === hostId && this.state.selection.generation === generation) {
-          this.publish({ view: visibleView(result, this.now()), loading: false, ready: true, now: this.now() });
+        if (
+          this.revision === revision &&
+          this.state.selection.hostId === hostId &&
+          this.state.selection.generation === generation
+        ) {
+          this.publish({
+            view: visibleView(result, this.now()),
+            loading: false,
+            ready: true,
+            now: this.now(),
+          });
         }
       } catch {
         if (this.revision === revision) {
@@ -222,7 +317,9 @@ export class QuotaSelectionStore {
       }
     })();
     this.reading = { key, promise: task };
-    try { await task; } finally {
+    try {
+      await task;
+    } finally {
       if (this.reading?.promise === task) this.reading = null;
       if (owner && this.owner === owner && this.revision === revision) this.settled(owner);
     }

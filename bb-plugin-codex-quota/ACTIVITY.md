@@ -41,5 +41,4 @@ uv run --with playwright python scripts/check-activity-preview.py
 
 Stop the temporary HTTP server after the check. Screenshots and layout evidence go to `/tmp/bbp24-evidence`, or `ACTIVITY_EVIDENCE_DIR`. The fixture denies external browser requests. It is not an installed BB slot, real sign-in, or live endpoint check.
 
-
 The OpenForge Codex Usage package declares MIT. Endpoint/field mapping and UTC weekly grouping are adapted from its `codexUsageAdapter.ts` and `normalization.ts`. Preserve the license in `LICENSE.activity`; do not import or modify that checkout.

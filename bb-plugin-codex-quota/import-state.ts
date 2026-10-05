@@ -1,10 +1,6 @@
 import type { HistoryDatabase } from "./history-storage.js";
 import type { RootProof } from "./import-source.js";
-import type {
-  ImportConfiguration,
-  ImportDiagnostic,
-  ImportView,
-} from "./import-contract.js";
+import type { ImportConfiguration, ImportDiagnostic, ImportView } from "./import-contract.js";
 export type Frozen = {
   roots: RootProof[];
   workspaces: { recorded: string; resolved: string; identity: string }[];
@@ -60,15 +56,13 @@ export function initializeImport(db: HistoryDatabase) {
  `);
 }
 export const unfinished = (db: HistoryDatabase, host: string) =>
-  db
-    .prepare(
-      "SELECT * FROM import_generations WHERE host=? AND state='stopped'",
-    )
-    .get(host) as Generation | undefined;
+  db.prepare("SELECT * FROM import_generations WHERE host=? AND state='stopped'").get(host) as
+    | Generation
+    | undefined;
 export const config = (db: HistoryDatabase, host: string) => {
-  const row = db
-    .prepare("SELECT configuration FROM import_config WHERE host=?")
-    .get(host) as { configuration: string } | undefined;
+  const row = db.prepare("SELECT configuration FROM import_config WHERE host=?").get(host) as
+    | { configuration: string }
+    | undefined;
   return row ? (JSON.parse(row.configuration) as ImportConfiguration) : null;
 };
 export function importStatus(
@@ -80,9 +74,7 @@ export function importStatus(
     g =
       unfinished(db, host) ??
       (db
-        .prepare(
-          "SELECT * FROM import_generations WHERE host=? ORDER BY rowid DESC LIMIT 1",
-        )
+        .prepare("SELECT * FROM import_generations WHERE host=? ORDER BY rowid DESC LIMIT 1")
         .get(host) as Generation | undefined);
   const counts = g
     ? (db
@@ -100,12 +92,8 @@ export function importStatus(
           state: g.state,
           startAt: g.start_at,
           endAt: g.end_at,
-          workspaces: (JSON.parse(g.frozen) as Frozen).workspaces.map(
-            (w) => w.recorded,
-          ),
-          sourceRoots: (JSON.parse(g.frozen) as Frozen).roots.map(
-            (r) => r.resolved,
-          ),
+          workspaces: (JSON.parse(g.frozen) as Frozen).workspaces.map((w) => w.recorded),
+          sourceRoots: (JSON.parse(g.frozen) as Frozen).roots.map((r) => r.resolved),
           candidates: counts!.candidates,
           finished: counts!.finished ?? 0,
           bytes: g.bytes,
@@ -118,28 +106,21 @@ export function importStatus(
       : null,
   };
 }
-export function diagnostic(
-  db: HistoryDatabase,
-  g: Generation,
-  code: ImportDiagnostic,
-  n = 1,
-) {
+export function diagnostic(db: HistoryDatabase, g: Generation, code: ImportDiagnostic, n = 1) {
   const codes = JSON.parse(g.diagnostics) as ImportDiagnostic[];
   if (!codes.includes(code) && codes.length < 20) codes.push(code);
   g.diagnostics = JSON.stringify(codes);
   g.omissions += n;
-  db.prepare(
-    "UPDATE import_generations SET diagnostics=?,omissions=? WHERE id=?",
-  ).run(g.diagnostics, g.omissions, g.id);
+  db.prepare("UPDATE import_generations SET diagnostics=?,omissions=? WHERE id=?").run(
+    g.diagnostics,
+    g.omissions,
+    g.id,
+  );
 }
-export function omit(
-  db: HistoryDatabase,
-  g: Generation,
-  c: Candidate,
-  code: ImportDiagnostic,
-) {
+export function omit(db: HistoryDatabase, g: Generation, c: Candidate, code: ImportDiagnostic) {
   diagnostic(db, g, code);
-  db.prepare(
-    "UPDATE import_candidates SET state='omitted' WHERE generation=? AND path=?",
-  ).run(g.id, c.path);
+  db.prepare("UPDATE import_candidates SET state='omitted' WHERE generation=? AND path=?").run(
+    g.id,
+    c.path,
+  );
 }

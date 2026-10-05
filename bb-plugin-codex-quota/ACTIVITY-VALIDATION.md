@@ -13,22 +13,22 @@
 
 All checks use this isolated checkout. No live credentials or upstream response logs were read.
 
-| Check | Result |
-| --- | --- |
-| Required test seams recorded before tests | `ACTIVITY.md` |
-| Test-first normalization checkpoint | Failed for missing activity module, then passed after implementation |
-| Focused normalization/fetch/cache tests | Passed, 34 tests at the first checkpoint |
-| Full affected package, `npm test` | Passed, 20 files and 169 tests after the review test fix |
-| `npm run typecheck` | Passed, new activity source/tests included |
-| `bb plugin types <absolute-package> --check` | Passed, SDK pin and host both 0.5.29 |
-| `npm run test:bundle` | Passed, self-contained host artifact with temporary synthetic Pi auth and all network stubbed |
-| `npx --yes @fission-ai/openspec validate codex-usage-history --strict` | Passed |
-| `bb plugin build <absolute-package>` | Passed after prerequisite checks |
-| Isolated React/compiled CSS browser preview | Passed desktop and 375px, no page-wide overflow |
-| Real Chromium keyboard check | Enter opens disclosure, arrow key scrolls named table, Space closes disclosure, official link remains focusable |
-| Period navigation and close | No new activity request on period change or while closed |
-| MIT source package/license | Checked and preserved in `LICENSE.activity`; no runtime source-checkout dependency |
-| Lockfile | Unchanged |
+| Check                                                                  | Result                                                                                                          |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Required test seams recorded before tests                              | `ACTIVITY.md`                                                                                                   |
+| Test-first normalization checkpoint                                    | Failed for missing activity module, then passed after implementation                                            |
+| Focused normalization/fetch/cache tests                                | Passed, 34 tests at the first checkpoint                                                                        |
+| Full affected package, `npm test`                                      | Passed, 20 files and 169 tests after the review test fix                                                        |
+| `npm run typecheck`                                                    | Passed, new activity source/tests included                                                                      |
+| `bb plugin types <absolute-package> --check`                           | Passed, SDK pin and host both 0.5.29                                                                            |
+| `npm run test:bundle`                                                  | Passed, self-contained host artifact with temporary synthetic Pi auth and all network stubbed                   |
+| `npx --yes @fission-ai/openspec validate codex-usage-history --strict` | Passed                                                                                                          |
+| `bb plugin build <absolute-package>`                                   | Passed after prerequisite checks                                                                                |
+| Isolated React/compiled CSS browser preview                            | Passed desktop and 375px, no page-wide overflow                                                                 |
+| Real Chromium keyboard check                                           | Enter opens disclosure, arrow key scrolls named table, Space closes disclosure, official link remains focusable |
+| Period navigation and close                                            | No new activity request on period change or while closed                                                        |
+| MIT source package/license                                             | Checked and preserved in `LICENSE.activity`; no runtime source-checkout dependency                              |
+| Lockfile                                                               | Unchanged                                                                                                       |
 
 The synthetic host bundle verifies actual private Pi runtime reads with temporary auth: successful normalization, cache hit, five-minute stale failure at original observation time, quota failure isolation, an account change during the endpoint read, and disposal. In-process SDK tests cover selected-host routing, invalid/foreign/offline input, host switches, strict bounded wire schemas, and content-free failures. Clock/adapter fixtures cover 24-hour expiry without a request, request coalescing, auth races, uncheckable identities, pending disposal, safe integer overflow, missing values, malformed/oversize bodies, and raw-data exclusion.
 

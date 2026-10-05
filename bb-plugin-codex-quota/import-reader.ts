@@ -3,22 +3,14 @@ import { basename, join, normalize } from "node:path";
 import { setImmediate as yieldWork } from "node:timers/promises";
 import type { HistoryDatabase } from "./history-storage.js";
 import type { ImportDiagnostic } from "./import-contract.js";
-import {
-  recordConfirmedRelationship,
-  verifyWorkspaceAlias,
-} from "./identity-storage.js";
+import { recordConfirmedRelationship, verifyWorkspaceAlias } from "./identity-storage.js";
 import {
   admitImportedUsage,
   confirmedReplay,
   excludeCompactIdentity,
 } from "./history-projection.js";
 import { confinedFile, revalidateFile } from "./import-source.js";
-import {
-  parseLine,
-  importedHeaderSchema,
-  entryIdentity,
-  importedUsage,
-} from "./import-parser.js";
+import { parseLine, importedHeaderSchema, entryIdentity, importedUsage } from "./import-parser.js";
 import {
   diagnostic,
   omit,
@@ -47,19 +39,12 @@ export async function header(
     g.bytes += bytesRead;
     const end = bytes.subarray(0, bytesRead).indexOf(10);
     if (end < 0) {
-      omit(
-        db,
-        g,
-        c,
-        bytesRead >= 64 * 1024 ? "oversize-record" : "invalid-record",
-      );
+      omit(db, g, c, bytesRead >= 64 * 1024 ? "oversize-record" : "invalid-record");
       return;
     }
     let parsed: ReturnType<typeof importedHeaderSchema.safeParse>;
     try {
-      parsed = importedHeaderSchema.safeParse(
-        parseLine(bytes.subarray(0, end)),
-      );
+      parsed = importedHeaderSchema.safeParse(parseLine(bytes.subarray(0, end)));
     } catch {
       omit(db, g, c, "invalid-record");
       return;
@@ -99,26 +84,14 @@ export async function header(
     }
     if (
       parent &&
-      !db
-        .prepare(
-          "SELECT 1 FROM import_candidates WHERE generation=? AND path=?",
-        )
-        .get(g.id, parent)
+      !db.prepare("SELECT 1 FROM import_candidates WHERE generation=? AND path=?").get(g.id, parent)
     ) {
       omit(db, g, c, "unresolved-ancestry");
       return;
     }
     db.prepare(
       "UPDATE import_candidates SET state='ready',offset=?,stamp=?,session=?,workspace=?,parent=? WHERE generation=? AND path=?",
-    ).run(
-      end + 1,
-      JSON.stringify(source.stamp),
-      h.id,
-      h.cwd,
-      parent,
-      g.id,
-      c.path,
-    );
+    ).run(end + 1, JSON.stringify(source.stamp), h.id, h.cwd, parent, g.id, c.path);
     if (c.provider) {
       await verifyWorkspaceAlias(db, h.cwd, workspace, realpath);
       await revalidateFile(source.file, f.roots[c.root], c.name, source.stamp);
@@ -134,42 +107,26 @@ export async function header(
     omit(db, g, c, source ? "source-changed" : "missing-source");
   } finally {
     if (source) await source.file.close();
-    db.prepare("UPDATE import_generations SET bytes=? WHERE id=?").run(
-      g.bytes,
-      g.id,
-    );
+    db.prepare("UPDATE import_generations SET bytes=? WHERE id=?").run(g.bytes, g.id);
   }
 }
 type Entry = { parent_entry: string | null; event_id: string | null };
-function projectEntry(
-  db: HistoryDatabase,
-  g: Generation,
-  c: Candidate,
-  value: unknown,
-) {
+function projectEntry(db: HistoryDatabase, g: Generation, c: Candidate, value: unknown) {
   const parsed = entryIdentity(value);
   if (!parsed.success) {
     diagnostic(db, g, "invalid-record");
     return;
   }
   const e = parsed.data,
-    usage = importedUsage(
-      value,
-      c.session!,
-      c.workspace!,
-      c.provider ? c.name : null,
-    );
+    usage = importedUsage(value, c.session!, c.workspace!, c.provider ? c.name : null);
   const exclude = (code: "unresolved-ancestry" | "unresolved-overlap") => {
-    if (usage.kind === "usage")
-      excludeCompactIdentity(db, usage.record.eventId);
+    if (usage.kind === "usage") excludeCompactIdentity(db, usage.record.eventId);
     diagnostic(db, g, code);
   };
   let copy: Entry | undefined;
   if (c.parent) {
     const parent = db
-      .prepare(
-        "SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'",
-      )
+      .prepare("SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'")
       .get(g.id, c.parent) as Candidate | undefined;
     if (!parent || parent.workspace !== c.workspace) {
       exclude("unresolved-ancestry");
@@ -182,15 +139,10 @@ function projectEntry(
       .get(g.id, c.parent, e.id) as Entry | undefined;
     const prior = e.parentId
       ? db
-          .prepare(
-            "SELECT 1 FROM import_entries WHERE generation=? AND path=? AND entry=?",
-          )
+          .prepare("SELECT 1 FROM import_entries WHERE generation=? AND path=? AND entry=?")
           .get(g.id, c.path, e.parentId)
       : null;
-    if (
-      (copy && copy.parent_entry !== e.parentId) ||
-      (!copy && (!e.parentId || !prior))
-    ) {
+    if ((copy && copy.parent_entry !== e.parentId) || (!copy && (!e.parentId || !prior))) {
       exclude("unresolved-ancestry");
       return;
     }
@@ -217,9 +169,7 @@ function projectEntry(
     usage.record.occurredAt <= g.end_at
   ) {
     if (copy) {
-      const original = copy.event_id
-        ? confirmedReplay(db, copy.event_id, usage.record)
-        : null;
+      const original = copy.event_id ? confirmedReplay(db, copy.event_id, usage.record) : null;
       if (!original) {
         exclude("unresolved-ancestry");
         return;
@@ -227,9 +177,12 @@ function projectEntry(
       eventId = original.eventId;
       g.replayed++;
     } else {
-      const admission=admitImportedUsage(db,usage.record,e.id);
-      if(admission.kind==="unresolved-overlap")exclude("unresolved-overlap");
-      else {eventId=admission.owner?.eventId ?? null;g.records++;}
+      const admission = admitImportedUsage(db, usage.record, e.id);
+      if (admission.kind === "unresolved-overlap") exclude("unresolved-overlap");
+      else {
+        eventId = admission.owner?.eventId ?? null;
+        g.records++;
+      }
     }
   }
   db.prepare("INSERT OR IGNORE INTO import_entries VALUES (?,?,?,?,?)").run(
@@ -256,32 +209,22 @@ export async function slice(
     o.signal.throwIfAborted();
     if (c.parent) {
       const parent = db
-        .prepare(
-          "SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'",
-        )
+        .prepare("SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'")
         .get(g.id, c.parent) as Candidate | undefined;
       if (!parent) throw Error("Import parent unavailable");
-      const p = await confinedFile(
-        f.roots[parent.root],
-        parent.name,
-        JSON.parse(parent.stamp!),
-      );
+      const p = await confinedFile(f.roots[parent.root], parent.name, JSON.parse(parent.stamp!));
       try {
-        await revalidateFile(
-          p.file,
-          f.roots[parent.root],
-          parent.name,
-          p.stamp,
-        );
+        await revalidateFile(p.file, f.roots[parent.root], parent.name, p.stamp);
       } finally {
         await p.file.close();
       }
     }
     const length = Math.min(budget.bytes, source.stamp.size - c.offset);
     if (!length) {
-      db.prepare(
-        "UPDATE import_candidates SET state='done' WHERE generation=? AND path=?",
-      ).run(g.id, c.path);
+      db.prepare("UPDATE import_candidates SET state='done' WHERE generation=? AND path=?").run(
+        g.id,
+        c.path,
+      );
       return;
     }
     const bytes = Buffer.alloc(length);
@@ -306,8 +249,7 @@ export async function slice(
       }
       budget.rows--;
       if (c.dropping) c.dropping = 0;
-      else if (end - at > 1024 * 1024)
-        operations.push({ code: "oversize-record" });
+      else if (end - at > 1024 * 1024) operations.push({ code: "oversize-record" });
       else {
         try {
           operations.push({ value: parseLine(bytes.subarray(at, end)) });
@@ -332,16 +274,13 @@ export async function slice(
       c.offset += at;
       db.prepare(
         "UPDATE import_candidates SET offset=?,dropping=?,state=? WHERE generation=? AND path=?",
-      ).run(
-        c.offset,
-        c.dropping,
-        c.offset === source!.stamp.size ? "done" : "ready",
+      ).run(c.offset, c.dropping, c.offset === source!.stamp.size ? "done" : "ready", g.id, c.path);
+      db.prepare("UPDATE import_generations SET bytes=?,records=?,replayed=? WHERE id=?").run(
+        g.bytes,
+        g.records,
+        g.replayed,
         g.id,
-        c.path,
       );
-      db.prepare(
-        "UPDATE import_generations SET bytes=?,records=?,replayed=? WHERE id=?",
-      ).run(g.bytes, g.records, g.replayed, g.id);
     });
   } catch {
     if (o.signal.aborted) throw o.signal.reason;

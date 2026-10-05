@@ -11,9 +11,7 @@ import { execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
 const roots: string[] = [];
 afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((p) => rm(p, { recursive: true, force: true })),
-  );
+  await Promise.all(roots.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp22-host-"));
@@ -121,12 +119,7 @@ it("opens status without setup, supports import-only storage, persists reload an
   const f = await fixture();
   try {
     expect(
-      (
-        await f.harness.experimental_call(
-          "historicalImport",
-          f.input({ action: "status" }),
-        )
-      ).reason,
+      (await f.harness.experimental_call("historicalImport", f.input({ action: "status" }))).reason,
     ).toBe("not-configured");
     expect(await f.configure()).toMatchObject({ reason: "ok" });
     const ready = await f.harness.experimental_call("historyReadiness", {
@@ -135,10 +128,7 @@ it("opens status without setup, supports import-only storage, persists reload an
     expect(ready.state).toBe("not-configured");
     expect(ready.attribution?.discovery).toBe("complete");
     expect(f.reads()).toBe(0);
-    await f.harness.experimental_call(
-      "historicalImport",
-      f.input({ action: "start" }),
-    );
+    await f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
     expect(f.harness.experimental_getRetainedWorkerLeaseCount()).toBe(0);
     await f.harness.experimental_dispose();
     const history = createHostHistory({
@@ -157,18 +147,15 @@ it("opens status without setup, supports import-only storage, persists reload an
     for (let i = 0; i < 10 && view.generation?.state === "stopped"; i++)
       view = await history.controlImport!({ action: "resume" }, context);
     expect(view.generation?.state).toBe("completed");
-    const db = (await openHistoryDatabase(
-      join(f.paths.dataDir, "history/usage-v1.sqlite"),
-      true,
-    ))!;
+    const db = (await openHistoryDatabase(join(f.paths.dataDir, "history/usage-v1.sqlite"), true))!;
     try {
-      expect(
-        db.prepare("SELECT total_tokens FROM workspace_totals").get(),
-      ).toEqual({ total_tokens: 2 });
+      expect(db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
+        total_tokens: 2,
+      });
       expect(db.prepare("SELECT * FROM collector_meta").all()).toEqual([]);
-      expect(
-        JSON.stringify(db.prepare("SELECT payload FROM usage_events").all()),
-      ).not.toContain("PRIVATE_");
+      expect(JSON.stringify(db.prepare("SELECT payload FROM usage_events").all())).not.toContain(
+        "PRIVATE_",
+      );
     } finally {
       db.close();
     }
@@ -216,10 +203,7 @@ it("cancels queued work before dispatch and releases lifecycle-aborted leases", 
     expect((await start).reason).toBe("selection-changed");
     await cancel;
     expect(f.reads()).toBe(0);
-    const pending = f.harness.experimental_call(
-      "historicalImport",
-      f.input({ action: "start" }),
-    );
+    const pending = f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
     await f.harness.experimental_dispose();
     await pending;
     expect(f.harness.experimental_getRetainedWorkerLeaseCount()).toBe(0);
@@ -241,10 +225,7 @@ it.each([
         identities: f.identities,
       });
       if (action === "resume")
-        await f.harness.experimental_call(
-          "historicalImport",
-          f.input({ action: "start" }),
-        );
+        await f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
       let release!: () => void, entered!: () => void;
       const wait = new Promise<void>((r) => (release = r)),
         blocked = new Promise<void>((r) => (entered = r));
@@ -309,20 +290,14 @@ it("omits a FIFO without blocking Cancel, readiness, collector controls or lease
     const path = join(f.source, "provider-a.jsonl");
     await unlink(path);
     execFileSync("mkfifo", [path]);
-    await f.harness.experimental_call(
-      "historicalImport",
-      f.input({ action: "start" }),
-    );
+    await f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
     const view = await f.harness.experimental_call(
       "historicalImport",
       f.input({ action: "resume" }),
     );
     expect(view.generation?.diagnostics).toEqual(["missing-source"]);
     expect(view.generation?.omissions).toBe(1);
-    await f.harness.experimental_call(
-      "historicalImport",
-      f.input({ action: "cancel" }),
-    );
+    await f.harness.experimental_call("historicalImport", f.input({ action: "cancel" }));
     const ready = await f.harness.experimental_call("historyReadiness", null);
     expect(ready.storage).toBe("compatible");
     await f.harness.experimental_call("collectorControl", { action: "pause" });

@@ -8,14 +8,25 @@ export function createActivityHandler(deps: {
   activeReads: Set<AbortController>;
   call(hostId: string, refresh: boolean, signal: AbortSignal): Promise<unknown>;
 }) {
-  return async ({ hostId, generation, refresh }: { hostId: string; generation: number; refresh?: boolean }): Promise<ActivityView> => {
+  return async ({
+    hostId,
+    generation,
+    refresh,
+  }: {
+    hostId: string;
+    generation: number;
+    refresh?: boolean;
+  }): Promise<ActivityView> => {
     const selection = deps.selection();
     if (!selection.hostId) return emptyActivity("no-selection");
     if (selection.generation !== generation) return emptyActivity("selection-changed");
     if (selection.hostId !== hostId) return emptyActivity("foreign-host");
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]);
-    const changed = () => signal.aborted || deps.selection().hostId !== hostId || deps.selection().generation !== generation;
+    const changed = () =>
+      signal.aborted ||
+      deps.selection().hostId !== hostId ||
+      deps.selection().generation !== generation;
     deps.activeReads.add(controller);
     try {
       const host = await abortable(deps.enrolled(hostId), signal, null);
@@ -28,7 +39,10 @@ export function createActivityHandler(deps: {
       if (!current || current.status !== "connected") return emptyActivity("host-offline");
       const parsed = activityViewSchema.safeParse(result);
       return parsed.success ? parsed.data : emptyActivity("unsupported");
-    } catch { return emptyActivity(changed() ? "selection-changed" : "host-offline"); }
-    finally { deps.activeReads.delete(controller); }
+    } catch {
+      return emptyActivity(changed() ? "selection-changed" : "host-offline");
+    } finally {
+      deps.activeReads.delete(controller);
+    }
   };
 }

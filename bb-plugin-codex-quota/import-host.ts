@@ -12,11 +12,7 @@ import { initializeIdentityStorage } from "./identity-storage.js";
 import { maintainHistory, retentionState } from "./history-retention.js";
 import { importStatus } from "./import-state.js";
 import { executeImport, type ImportOptions } from "./import-engine.js";
-import {
-  importUnavailable,
-  type ImportCommand,
-  type ImportView,
-} from "./import-contract.js";
+import { importUnavailable, type ImportCommand, type ImportView } from "./import-contract.js";
 export type ImportContext = {
   hostId: string;
   dataDir: string;
@@ -32,10 +28,7 @@ export function createImportOperation(
     bytes?: number;
   } = {},
 ) {
-  return async (
-    command: ImportCommand,
-    context: ImportContext,
-  ): Promise<ImportView> => {
+  return async (command: ImportCommand, context: ImportContext): Promise<ImportView> => {
     if (context.signal.aborted) return importUnavailable("selection-changed");
     const directory = join(context.dataDir, "history"),
       path = join(directory, "usage-v1.sqlite");
@@ -53,16 +46,13 @@ export function createImportOperation(
         if (!file.isFile() || file.isSymbolicLink())
           return importUnavailable("storage-incompatible");
         exists = true;
-        const state = await inspectHistoryStorage(factory,path);
-        if (state !== "compatible") return importUnavailable(state === "incompatible" ? "storage-incompatible" : "storage-unavailable");
+        const state = await inspectHistoryStorage(factory, path);
+        if (state !== "compatible")
+          return importUnavailable(
+            state === "incompatible" ? "storage-incompatible" : "storage-unavailable",
+          );
       } catch (e) {
-        if (
-          !e ||
-          typeof e !== "object" ||
-          !("code" in e) ||
-          e.code !== "ENOENT"
-        )
-          throw e;
+        if (!e || typeof e !== "object" || !("code" in e) || e.code !== "ENOENT") throw e;
       }
       if (!exists && command.action !== "configure")
         return importUnavailable(
@@ -77,16 +67,17 @@ export function createImportOperation(
       context.signal.throwIfAborted();
       const db = factory(path);
       try {
-        initializeHistory(
-          db,
-          new Date((deps.now ?? Date.now)()).toISOString(),
-          false,
-        );
+        initializeHistory(db, new Date((deps.now ?? Date.now)()).toISOString(), false);
         initializeIdentityStorage(db);
-        if (command.action === "status" || command.action === "start" || command.action === "resume") {
-          maintainHistory(db,(deps.now ?? Date.now)());
+        if (
+          command.action === "status" ||
+          command.action === "start" ||
+          command.action === "resume"
+        ) {
+          maintainHistory(db, (deps.now ?? Date.now)());
           context.signal.throwIfAborted();
-          if (command.action !== "status" && !retentionState(db).backfill_done) return {...importStatus(db,context.hostId),reason:"metadata-incomplete"};
+          if (command.action !== "status" && !retentionState(db).backfill_done)
+            return { ...importStatus(db, context.hostId), reason: "metadata-incomplete" };
         }
         const options: ImportOptions = {
           signal: context.signal,
@@ -95,13 +86,7 @@ export function createImportOperation(
           rows: deps.rows,
           bytes: deps.bytes,
         };
-        return await executeImport(
-          db,
-          context.hostId,
-          command,
-          context.knownWorkspaces,
-          options,
-        );
+        return await executeImport(db, context.hostId, command, context.knownWorkspaces, options);
       } finally {
         db.close();
       }

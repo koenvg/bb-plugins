@@ -1,11 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setImmediate as yieldWork } from "node:timers/promises";
 import type { HistoryDatabase } from "./history-storage.js";
-import {
-  importCommandSchema,
-  type ImportCommand,
-  type ImportView,
-} from "./import-contract.js";
+import { importCommandSchema, type ImportCommand, type ImportView } from "./import-contract.js";
 import {
   initializeImport,
   unfinished,
@@ -31,10 +27,7 @@ async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
     return;
   }
   const budget = {
-    bytes: Math.max(
-      2 * 1024 * 1024,
-      Math.min(o.bytes ?? 8 * 1024 * 1024, 8 * 1024 * 1024),
-    ),
+    bytes: Math.max(2 * 1024 * 1024, Math.min(o.bytes ?? 8 * 1024 * 1024, 8 * 1024 * 1024)),
     rows: Math.max(1, Math.min(o.rows ?? 500, 500)),
   };
   if (g.phase === "headers") {
@@ -50,9 +43,7 @@ async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
     }
     if (rows.length < Math.min(budget.rows, 32)) {
       g.phase = "read";
-      db.prepare("UPDATE import_generations SET phase='read' WHERE id=?").run(
-        g.id,
-      );
+      db.prepare("UPDATE import_generations SET phase='read' WHERE id=?").run(g.id);
     }
     return;
   }
@@ -65,18 +56,14 @@ async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
       .get(g.id) as Candidate | undefined;
     if (!c) {
       const waiting = db
-        .prepare(
-          "SELECT * FROM import_candidates WHERE generation=? AND state='ready' LIMIT 1",
-        )
+        .prepare("SELECT * FROM import_candidates WHERE generation=? AND state='ready' LIMIT 1")
         .get(g.id) as Candidate | undefined;
       if (waiting) {
         omit(db, g, waiting, "unresolved-ancestry");
         budget.rows--;
         continue;
       }
-      db.prepare(
-        "UPDATE import_generations SET state='completed' WHERE id=?",
-      ).run(g.id);
+      db.prepare("UPDATE import_generations SET state='completed' WHERE id=?").run(g.id);
       break;
     }
     await slice(db, g, f, c, o, budget);
@@ -93,25 +80,20 @@ export async function executeImport(
   const command = importCommandSchema.parse(input);
   o.signal.throwIfAborted();
   initializeImport(db);
-  const owningHost = db
-    .prepare("SELECT host FROM import_host WHERE id=1")
-    .get() as { host: string } | undefined;
+  const owningHost = db.prepare("SELECT host FROM import_host WHERE id=1").get() as
+    | { host: string }
+    | undefined;
   if (owningHost && owningHost.host !== host)
     return { reason: "foreign-host", configuration: null, generation: null };
   const receipt = db
-    .prepare(
-      "SELECT host_id,generation,complete FROM identity_receipt WHERE id=1",
-    )
+    .prepare("SELECT host_id,generation,complete FROM identity_receipt WHERE id=1")
     .get() as { host_id: string | null; generation: number; complete: number };
   if (receipt.host_id && receipt.host_id !== host)
     return { reason: "foreign-host", configuration: null, generation: null };
   let g = unfinished(db, host);
   if (command.action === "status") return importStatus(db, host);
   if (command.action === "cancel") {
-    if (g)
-      db.prepare(
-        "UPDATE import_generations SET state='canceled' WHERE id=?",
-      ).run(g.id);
+    if (g) db.prepare("UPDATE import_generations SET state='canceled' WHERE id=?").run(g.id);
     return importStatus(db, host, g ? "ok" : "no-generation");
   }
   if (command.action === "configure") {
@@ -158,13 +140,7 @@ export async function executeImport(
     start.setUTCDate(Math.min(day, last) - 9);
     db.prepare(
       "INSERT INTO import_generations VALUES (?,?,'stopped',?,?,?,'discover','',1,0,0,0,0,'[]')",
-    ).run(
-      randomUUID(),
-      host,
-      start.toISOString(),
-      end.toISOString(),
-      JSON.stringify(f),
-    );
+    ).run(randomUUID(), host, start.toISOString(), end.toISOString(), JSON.stringify(f));
     g = unfinished(db, host)!;
   } else if (!g) return importStatus(db, host, "no-generation");
   try {

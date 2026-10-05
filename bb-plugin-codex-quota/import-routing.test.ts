@@ -7,13 +7,10 @@ const request = {
   command: { action: "start" as const },
 };
 it("strict browser contract rejects filenames and untrusted evidence", () => {
-  expect(
-    importRequestSchema.safeParse({ ...request, file: "/secret" }).success,
-  ).toBe(false);
-  expect(
-    importRequestSchema.safeParse({ ...request, knownWorkspaces: ["/secret"] })
-      .success,
-  ).toBe(false);
+  expect(importRequestSchema.safeParse({ ...request, file: "/secret" }).success).toBe(false);
+  expect(importRequestSchema.safeParse({ ...request, knownWorkspaces: ["/secret"] }).success).toBe(
+    false,
+  );
   expect(
     importRequestSchema.safeParse({
       ...request,
@@ -58,11 +55,8 @@ it("status never requests scope metadata; configuration passes only selected-hos
     { hostId: "host-a", path: "/known" },
   ]);
   const call = vi.fn(
-      async (
-        _host: string,
-        _signal: AbortSignal,
-        _input: { knownWorkspaces: string[] },
-      ) => importUnavailable("not-configured"),
+      async (_host: string, _signal: AbortSignal, _input: { knownWorkspaces: string[] }) =>
+        importUnavailable("not-configured"),
     ),
     prepare = vi.fn();
   const handler = createImportHandler({
@@ -102,7 +96,7 @@ it("suppresses committed old-host results without describing rollback", async ()
       return importUnavailable("not-configured");
     },
   });
-  expect(
-    (await handler({ ...request, command: { action: "cancel" } })).reason,
-  ).toBe("selection-changed");
+  expect((await handler({ ...request, command: { action: "cancel" } })).reason).toBe(
+    "selection-changed",
+  );
 });

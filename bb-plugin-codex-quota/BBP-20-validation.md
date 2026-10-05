@@ -9,18 +9,18 @@ Parent: `bbthread://thr_2k7buag9sh`; only the parent owns epic integration and i
 
 All exits below are 0. Logs are owned synthetic worker evidence, not parent-independent acceptance.
 
-| Check | Command/result | Log |
-|---|---|---|
+| Check                                                   | Command/result                                                                                                                                                                        | Log                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Focused host/RPC/React, coverage, retention and storage | `npm test -- calendar-host.test.ts calendar-routing.test.ts calendar-app.test.tsx history-coverage.test.ts history-retention.test.ts storage-integration.test.ts`: 66 tests / 6 files | `/tmp/bbp20-focused-final.log` |
-| Complete regression suite | `npm test`: 403 tests / 52 files | `/tmp/bbp20-full.log` |
-| Static types | `npm run typecheck` | `/tmp/bbp20-type-final.log` |
-| SDK compatibility, before builds | `bb plugin types bb-plugin-codex-quota --check`: package/host 0.5.29 | `/tmp/bbp20-sdk-final.log` |
-| Final package build | `bb plugin build bb-plugin-codex-quota` | `/tmp/bbp20-build-final.log` |
-| Node 24.15.0 retained and new packaged proofs | `npm run test:bundle`: nine persistent/runtime probes plus build | `/tmp/bbp20-bundle24.log` |
-| Node 22.23.3 retained and new packaged proofs | Exact `test:bundle` Node probes, each invoked with `/Users/koen/.npm/_npx/52027bd8fc0022aa/node_modules/node/bin/node` against the same built artifact | `/tmp/bbp20-bundle22.log` |
-| Desktop / 375px browser | `uv run --with playwright python scripts/check-calendar-preview.py`: 18 state/size combinations | `/tmp/bbp20-browser-final.log` |
-| Strict spec validation | `openspec validate codex-usage-history --strict --no-interactive` | `/tmp/bbp20-openspec.log` |
-| Whitespace/integrity | `git diff --check`; unchanged SDK pin, lockfile, schema and MIT notices | Git / review scope |
+| Complete regression suite                               | `npm test`: 403 tests / 52 files                                                                                                                                                      | `/tmp/bbp20-full.log`          |
+| Static types                                            | `npm run typecheck`                                                                                                                                                                   | `/tmp/bbp20-type-final.log`    |
+| SDK compatibility, before builds                        | `bb plugin types bb-plugin-codex-quota --check`: package/host 0.5.29                                                                                                                  | `/tmp/bbp20-sdk-final.log`     |
+| Final package build                                     | `bb plugin build bb-plugin-codex-quota`                                                                                                                                               | `/tmp/bbp20-build-final.log`   |
+| Node 24.15.0 retained and new packaged proofs           | `npm run test:bundle`: nine persistent/runtime probes plus build                                                                                                                      | `/tmp/bbp20-bundle24.log`      |
+| Node 22.23.3 retained and new packaged proofs           | Exact `test:bundle` Node probes, each invoked with `/Users/koen/.npm/_npx/52027bd8fc0022aa/node_modules/node/bin/node` against the same built artifact                                | `/tmp/bbp20-bundle22.log`      |
+| Desktop / 375px browser                                 | `uv run --with playwright python scripts/check-calendar-preview.py`: 18 state/size combinations                                                                                       | `/tmp/bbp20-browser-final.log` |
+| Strict spec validation                                  | `openspec validate codex-usage-history --strict --no-interactive`                                                                                                                     | `/tmp/bbp20-openspec.log`      |
+| Whitespace/integrity                                    | `git diff --check`; unchanged SDK pin, lockfile, schema and MIT notices                                                                                                               | Git / review scope             |
 
 The nine Node probes are history; identity; import; combined live-overlap import; storage integration; new calendar; fresh OAuth; refresh OAuth; activity. The calendar proof includes persistent reopen, 12,060 accepted records / 60 entities, indexed full aggregates, bounded 50-row output, expired classes, immutable original cost/schema/control bytes, cancellation and import-only partial reporting. The older hash-pinned schema-3 artifact probe was not rerun: the artifact is not present in this worker's owned files. Schema/migration code is unchanged; the new path separately proves unsupported header/version/WAL data stays untouched.
 

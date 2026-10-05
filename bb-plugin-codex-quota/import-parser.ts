@@ -5,6 +5,7 @@ const scalar = z
   .string()
   .min(1)
   .max(256)
+  // oxlint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
   .regex(/^[^\u0000-\u001f\u007f]+$/u);
 export const importedHeaderSchema = z.object({
   type: z.literal("session"),
@@ -14,11 +15,13 @@ export const importedHeaderSchema = z.object({
     .string()
     .min(1)
     .max(4096)
+    // oxlint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
     .regex(/^\/[^\u0000-\u001f\u007f]*$/),
   parentSession: z
     .string()
     .min(1)
     .max(4096)
+    // oxlint-disable-next-line no-control-regex -- Reject control characters in untrusted input.
     .regex(/^\/[^\u0000-\u001f\u007f]*$/)
     .optional(),
 });
@@ -26,9 +29,7 @@ export function parseLine(bytes: Buffer): unknown {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
 }
 export function entryIdentity(value: unknown) {
-  return z
-    .object({ type: scalar, id: scalar, parentId: scalar.nullable() })
-    .safeParse(value);
+  return z.object({ type: scalar, id: scalar, parentId: scalar.nullable() }).safeParse(value);
 }
 export function importedUsage(
   value: unknown,
@@ -88,12 +89,7 @@ export function importedUsage(
     reasoningTokens: u.reasoning ?? 0,
     totalTokens: u.totalTokens,
     capturedCost:
-      typeof cost === "number" &&
-      Number.isFinite(cost) &&
-      cost > 0 &&
-      cost <= 1e9
-        ? cost
-        : null,
+      typeof cost === "number" && Number.isFinite(cost) && cost > 0 && cost <= 1e9 ? cost : null,
   });
   return result.success
     ? { kind: "usage" as const, record: result.data }

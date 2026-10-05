@@ -7,13 +7,11 @@ export type RootProof = {
   resolved: string;
   identity: string;
 };
-export const identity = (s: { dev: number; ino: number }) =>
-  `${s.dev}:${s.ino}`;
+export const identity = (s: { dev: number; ino: number }) => `${s.dev}:${s.ino}`;
 export async function proveRoot(configured: string): Promise<RootProof> {
   const resolved = await realpath(configured),
     stat = await lstat(resolved);
-  if (!stat.isDirectory() || resolved === "/")
-    throw Error("Import root unavailable");
+  if (!stat.isDirectory() || resolved === "/") throw Error("Import root unavailable");
   return {
     configured: normalize(configured),
     resolved,
@@ -59,13 +57,9 @@ export async function confinedFile(
   if (canonical !== path || dirname(canonical) !== root.resolved)
     throw Error("Import confinement unavailable");
   const before = await lstat(path);
-  if (!before.isFile() || before.isSymbolicLink())
-    throw Error("Import source unavailable");
+  if (!before.isFile() || before.isSymbolicLink()) throw Error("Import source unavailable");
   // Nonblocking open also rejects replacement-to-pipe races without stranding the host queue.
-  const file = await open(
-    path,
-    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-  );
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = await file.stat(),
       pathStat = await lstat(path),

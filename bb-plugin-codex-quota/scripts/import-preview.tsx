@@ -15,7 +15,10 @@ const view: ImportView = {
     startAt: "2026-06-24T00:00:00.000Z",
     endAt: "2026-10-03T00:00:00.000Z",
     workspaces: ["/synthetic/workspace/" + "long-path-".repeat(12)],
-    sourceRoots: ["/synthetic/resolved-custom-bb-root/" + "long-root-".repeat(12), "/synthetic/pi/workspace-sessions"],
+    sourceRoots: [
+      "/synthetic/resolved-custom-bb-root/" + "long-root-".repeat(12),
+      "/synthetic/pi/workspace-sessions",
+    ],
     candidates: 256,
     finished: 32,
     bytes: 8388608,
@@ -30,9 +33,7 @@ createRoot(document.getElementById("root")!).render(
   <QuotaDashboard
     now={Date.now()}
     selectedHostId="synthetic-host"
-    hosts={[
-      { id: "synthetic-host", name: "Synthetic host", status: "connected" },
-    ]}
+    hosts={[{ id: "synthetic-host", name: "Synthetic host", status: "connected" }]}
     onHostChange={() => {}}
     onRefresh={() => {}}
     view={{ state: "unavailable", reason: "auth-required", snapshot: null }}

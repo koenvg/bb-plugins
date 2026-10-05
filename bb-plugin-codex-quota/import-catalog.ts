@@ -56,12 +56,7 @@ function addCandidate(
     "INSERT OR IGNORE INTO import_candidates VALUES (?,?,?,?,?,'pending',0,0,NULL,NULL,NULL,NULL)",
   ).run(g.id, join(f.roots[root].resolved, name), root, name, provider);
 }
-export async function discover(
-  db: HistoryDatabase,
-  g: Generation,
-  f: Frozen,
-  signal: AbortSignal,
-) {
+export async function discover(db: HistoryDatabase, g: Generation, f: Frozen, signal: AbortSignal) {
   const providers = db
     .prepare(
       `SELECT DISTINCT provider_identity AS provider FROM identity_edges e JOIN identity_generations g USING(generation) WHERE g.complete=1 AND e.generation<=? AND provider_identity>? ORDER BY provider_identity LIMIT 100`,
@@ -82,9 +77,10 @@ export async function discover(
       addCandidate(db, g, f, 0, provider + ".jsonl", provider);
     }
     g.provider_cursor = providers.at(-1)?.provider ?? g.provider_cursor;
-    db.prepare(
-      "UPDATE import_generations SET provider_cursor=? WHERE id=?",
-    ).run(g.provider_cursor, g.id);
+    db.prepare("UPDATE import_generations SET provider_cursor=? WHERE id=?").run(
+      g.provider_cursor,
+      g.id,
+    );
   });
   if (providers.length === 100) return;
   if (g.root_cursor < f.roots.length) {
@@ -98,22 +94,16 @@ export async function discover(
         const entry = await directory.read();
         if (!entry) break;
         seen++;
-        if (entry.name.endsWith(".jsonl"))
-          addCandidate(db, g, f, g.root_cursor, entry.name, null);
+        if (entry.name.endsWith(".jsonl")) addCandidate(db, g, f, g.root_cursor, entry.name, null);
       }
       if (seen === 256) diagnostic(db, g, "discovery-limit");
     } finally {
       await directory.close();
     }
     g.root_cursor++;
-    db.prepare("UPDATE import_generations SET root_cursor=? WHERE id=?").run(
-      g.root_cursor,
-      g.id,
-    );
+    db.prepare("UPDATE import_generations SET root_cursor=? WHERE id=?").run(g.root_cursor, g.id);
     return;
   }
   g.phase = "headers";
-  db.prepare("UPDATE import_generations SET phase='headers' WHERE id=?").run(
-    g.id,
-  );
+  db.prepare("UPDATE import_generations SET phase='headers' WHERE id=?").run(g.id);
 }
