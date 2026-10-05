@@ -59,11 +59,13 @@ jobs:
         working-directory: ${{ matrix.plugin }}
     steps:
       - name: Check out repository
+        id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Node.js
+        id: setup_node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ">=24.15.0 <25"
@@ -71,6 +73,7 @@ jobs:
           cache-dependency-path: ${{ matrix.plugin }}/package-lock.json
 
       - name: Install SQLite CLI
+        id: install_sqlite
         if: matrix.plugin == 'bb-plugin-tasks-plus'
         run: |
           sudo apt-get update
@@ -78,6 +81,7 @@ jobs:
           sqlite3 --version
 
       - name: Install dependencies
+        id: install_dependencies
         run: npm ci
 
       - name: Lint Tasks Plus
@@ -85,8 +89,36 @@ jobs:
         run: npm run lint
 
       - name: Install PR thread list integration dependencies
+        id: install_pr_thread_list
         if: matrix.plugin == 'bb-plugin-github-insight'
         run: npm ci --prefix ../bb-plugin-pr-thread-list
 
+      # Run both checks after successful setup, even if lint or tests fail.
       - name: Run tests
+        if: >-
+          ${{
+            !cancelled() &&
+            steps.checkout.outcome == 'success' &&
+            steps.setup_node.outcome == 'success' &&
+            steps.install_dependencies.outcome == 'success' &&
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
+            (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
+          }}
         run: npm test
+
+      - name: Run typecheck
+        if: >-
+          ${{
+            !cancelled() &&
+            steps.checkout.outcome == 'success' &&
+            steps.setup_node.outcome == 'success' &&
+            steps.install_dependencies.outcome == 'success' &&
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
+            (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
+          }}
+        run: |
+          if [ ! -x node_modules/.bin/tsc ]; then
+            echo "::error::Missing locked local TypeScript compiler: node_modules/.bin/tsc"
+            exit 1
+          fi
+          npm run typecheck
