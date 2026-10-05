@@ -11,7 +11,7 @@ describe("Codex Inspired package", () => {
   it("keeps the installed plugin and theme identities and compatibility floors", () => {
     expect(manifest.name).toBe("bb-plugin-codex-inspired");
     expect(manifest.version).toBe("0.1.0");
-    expect(manifest.engines).toEqual({ bb: ">=0.44", bbPluginSdk: ">=0.5.29" });
+    expect(manifest.engines).toEqual({ bb: ">=0.45", bbPluginSdk: ">=0.6.15 <0.7" });
     expect(manifest.bb.themes).toEqual([
       {
         id: "codex-inspired",

@@ -10,7 +10,7 @@ Active rows use the lattice in place of their native activity glyph, keeping one
 
 ## Install
 
-Requires BB 0.44 or newer. From this directory:
+Requires BB 0.45 or newer. From this directory:
 
 ```sh
 npm ci
@@ -37,7 +37,7 @@ With focus in the composer, press **Ctrl+Shift+Space** to start recording. Use C
 
 Press **Enter** during recording to stop and transcribe into the draft. This does not send. Enter does nothing during transcription. After completion, edit the draft or press Enter again to send normally. A held Enter cannot send when transcription completes. **Escape** keeps BB's native cancellation behavior. Enter on the focused cancel button also cancels.
 
-These controls use native BB 0.44 attributes and button labels, not a public voice API. Missing or changed controls cause no voice action. Repeated starts are blocked while microphone permission is pending. A new native "Voice input failed" notification releases that guard. If a host update changes error markup, disable and enable the plugin to reset it. Pointer controls remain native. Focus is restored only for keyboard-controlled sessions while focus still belongs to their composer.
+These controls use native BB 0.44 and 0.45 attributes and button labels, not a public voice API. Missing or changed controls cause no voice action. Repeated starts are blocked while microphone permission is pending. A new native "Voice input failed" notification releases that guard. If a host update changes error markup, disable and enable the plugin to reset it. Pointer controls remain native. Focus is restored only for keyboard-controlled sessions while focus still belongs to their composer.
 
 ## Scope
 
@@ -47,7 +47,7 @@ These controls use native BB 0.44 attributes and button labels, not a public voi
 - Does not read or write messages, drafts, or audio. No plugin network calls, persistent storage, RPC, or polling.
 - Public SDK content scripts own style markers and voice-keyboard listeners. A DOM observer reads native voice state and error-title metadata. Abort removes all listeners and observers and restores owned attributes. BB owns frontend generation updates.
 
-BB's chat DOM is not a public API. The selectors were checked against the native BB 0.44 frontend. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
+BB's chat DOM is not a public API. The selectors were checked against the BB 0.44 and 0.45 frontend source. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
 
 ## Develop and test
 

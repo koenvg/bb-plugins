@@ -1,5 +1,7 @@
 # BB plugins
 
+Current packages target BB 0.45 and SDK 0.6.15. See [compatibility fixes and remaining limits](BB-0.45-COMPATIBILITY.md).
+
 Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins-collibra](https://github.com/koenvangeert/bb-plugins-collibra) at commit `178c5c8e8dafa2f8f4f2567e855cbad7bd869836`.
 
 | Plugin           | Directory                                                |

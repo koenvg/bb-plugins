@@ -146,11 +146,11 @@ describe("Tasks-owned report readers and compact status", () => {
     initializeTasksSchema(db);
     expect(read()).toEqual(before);
     expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
-      10,
+      11,
     );
     initializeTasksSchema(db);
     expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
-      10,
+      11,
     );
     const report = await f.report();
     await f.detach();

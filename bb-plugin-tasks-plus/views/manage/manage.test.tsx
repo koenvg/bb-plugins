@@ -709,45 +709,51 @@ describe("PresetDialog environment section", () => {
     expect(slot.queryByLabelText("Machine")).toBeNull();
   });
 
-  it("saves the host picker's provider, model, reasoning, and tier together", async () => {
-    const updates: Array<Record<string, unknown>> = [];
-    const slot = renderManagePresets([presetRow()], {
-      updatePreset: (raw: unknown) => {
-        const input = rpcInput(raw);
-        updates.push(input);
-        return { preset: { ...presetRow(), ...input } };
-      },
-    });
-    fireEvent.mouseDown(await slot.findByRole("tab", { name: "Presets" }));
-    fireEvent.click(
-      await slot.findByRole("button", {
-        name: "Edit preset FB3 BE live worktree",
-      }),
-    );
+  it.each(["fast", "priority"])(
+    "saves the host picker selection with tier %s",
+    async (serviceTier) => {
+      const updates: Array<Record<string, unknown>> = [];
+      const slot = renderManagePresets([presetRow()], {
+        updatePreset: (raw: unknown) => {
+          const input = rpcInput(raw);
+          updates.push(input);
+          return { preset: { ...presetRow(), ...input } };
+        },
+      });
+      fireEvent.mouseDown(await slot.findByRole("tab", { name: "Presets" }));
+      fireEvent.click(
+        await slot.findByRole("button", {
+          name: "Edit preset FB3 BE live worktree",
+        }),
+      );
 
-    fireEvent.change(await slot.findByLabelText("Provider ID"), {
-      target: { value: "codex" },
-    });
-    fireEvent.change(slot.getByLabelText("Model"), {
-      target: { value: "gpt-5.6-sol" },
-    });
-    fireEvent.change(slot.getByLabelText("Reasoning level"), {
-      target: { value: "high" },
-    });
-    fireEvent.change(slot.getByLabelText("Service tier"), {
-      target: { value: "fast" },
-    });
-    fireEvent.click(slot.getByRole("button", { name: "Apply execution selection" }));
-    fireEvent.click(slot.getByRole("button", { name: "Save preset" }));
+      fireEvent.change(await slot.findByLabelText("Provider ID"), {
+        target: { value: "codex" },
+      });
+      fireEvent.change(slot.getByLabelText("Model"), {
+        target: { value: "gpt-5.6-sol" },
+      });
+      fireEvent.change(slot.getByLabelText("Reasoning level"), {
+        target: { value: "high" },
+      });
+      // The SDK test picker has fixed default/fast options, not a provider catalog.
+      const tierPicker = slot.getByLabelText("Service tier") as HTMLSelectElement;
+      if (serviceTier === "priority") tierPicker.add(new Option("Priority", serviceTier));
+      fireEvent.change(slot.getByLabelText("Service tier"), {
+        target: { value: serviceTier },
+      });
+      fireEvent.click(slot.getByRole("button", { name: "Apply execution selection" }));
+      fireEvent.click(slot.getByRole("button", { name: "Save preset" }));
 
-    await waitFor(() => expect(updates).toHaveLength(1));
-    expect(updates[0]).toMatchObject({
-      providerId: "codex",
-      modelId: "gpt-5.6-sol",
-      reasoningLevel: "high",
-      serviceTier: "fast",
-    });
-  });
+      await waitFor(() => expect(updates).toHaveLength(1));
+      expect(updates[0]).toMatchObject({
+        providerId: "codex",
+        modelId: "gpt-5.6-sol",
+        reasoningLevel: "high",
+        serviceTier,
+      });
+    },
+  );
 });
 
 describe("Manage folders", () => {

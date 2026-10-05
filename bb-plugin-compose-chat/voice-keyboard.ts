@@ -59,18 +59,19 @@ function voiceButtons(form: HTMLFormElement) {
     'button[aria-label="Cancel recording"], button[aria-label="Cancel transcription"]',
   );
   const confirms = root.querySelectorAll<HTMLButtonElement>(
-    'button[aria-label="Stop and transcribe recording"], button[aria-label="Transcribing voice input"]',
+    'button[aria-label="Stop and transcribe recording"], button[aria-label="Stop and add to draft"], button[aria-label="Transcribing voice input"]',
   );
   if (cancels.length !== 1 || confirms.length !== 1) return empty;
   const cancelLabel = cancels[0]!.getAttribute("aria-label")!;
+  const confirmLabel = confirms[0]!.getAttribute("aria-label")!;
   const confirm = confirms[0]!;
   const cancel = button(root, cancelLabel);
   if (!cancel) return empty;
   if (
     cancelLabel === "Cancel recording" &&
-    confirm.getAttribute("aria-label") === "Stop and transcribe recording"
+    (confirmLabel === "Stop and transcribe recording" || confirmLabel === "Stop and add to draft")
   ) {
-    const enabledConfirm = button(root, "Stop and transcribe recording");
+    const enabledConfirm = button(root, confirmLabel);
     return enabledConfirm ? { cancel, confirm: enabledConfirm, indicator: null } : empty;
   }
   if (
@@ -100,7 +101,7 @@ type Session = {
   confirmed: boolean;
 };
 
-/** Delegate only to BB 0.44's named native controls. Never own audio or draft data. */
+/** Delegate only to BB 0.44/0.45's named native controls. Never own audio or draft data. */
 export function createVoiceKeyboardControls() {
   let mounted = false;
   let lastFocused: HTMLFormElement | null = null;

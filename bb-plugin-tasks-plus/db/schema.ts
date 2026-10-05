@@ -333,6 +333,33 @@ const MIGRATIONS = [
     );
     CREATE INDEX idx_report_context_origin ON orchestration_report_contexts(task_id, thread_id, expires_at);
   `,
+  `
+    CREATE TABLE presets_provider_tiers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      provider_id TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      reasoning_level TEXT NOT NULL,
+      permission_mode TEXT NOT NULL,
+      instructions TEXT NOT NULL,
+      builtin INTEGER NOT NULL DEFAULT 0 CHECK (builtin IN (0, 1)),
+      created_at TEXT NOT NULL,
+      environment_kind TEXT NOT NULL DEFAULT 'project-default'
+        CHECK (environment_kind IN ('project-default', 'new-worktree')),
+      base_branch TEXT,
+      machine_id TEXT,
+      service_tier TEXT CHECK (service_tier IS NULL OR length(trim(service_tier)) > 0)
+    );
+    INSERT INTO presets_provider_tiers (
+      id, name, provider_id, model_id, reasoning_level, permission_mode,
+      instructions, builtin, created_at, environment_kind, base_branch, machine_id, service_tier
+    ) SELECT
+      id, name, provider_id, model_id, reasoning_level, permission_mode,
+      instructions, builtin, created_at, environment_kind, base_branch, machine_id, service_tier
+    FROM presets;
+    DROP TABLE presets;
+    ALTER TABLE presets_provider_tiers RENAME TO presets;
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {

@@ -28,6 +28,8 @@ export function linkedPr(
     outcome: "available",
     pullRequest: {
       attention: "checks_failed",
+      autoMerge: false,
+      inMergeQueue: null,
       baseRefName: "main",
       checks: {
         failedCount: 1,
