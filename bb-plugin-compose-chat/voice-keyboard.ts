@@ -63,20 +63,21 @@ function voiceButtons(form: HTMLFormElement) {
   );
   if (cancels.length !== 1 || confirms.length !== 1) return empty;
   const cancelLabel = cancels[0]!.getAttribute("aria-label")!;
-  const confirmLabel = confirms[0]!.getAttribute("aria-label")!;
   const confirm = confirms[0]!;
   const cancel = button(root, cancelLabel);
   if (!cancel) return empty;
   if (
     cancelLabel === "Cancel recording" &&
-    (confirmLabel === "Stop and transcribe recording" || confirmLabel === "Stop and add to draft")
+    (confirm.getAttribute("aria-label") === "Stop and transcribe recording" ||
+      confirm.getAttribute("aria-label") === "Stop and add to draft")
   ) {
-    const enabledConfirm = button(root, confirmLabel);
+    const enabledConfirm = button(root, confirm.getAttribute("aria-label")!);
     return enabledConfirm ? { cancel, confirm: enabledConfirm, indicator: null } : empty;
   }
   if (
     cancelLabel === "Cancel transcription" &&
-    confirm.getAttribute("aria-label") === "Transcribing voice input" &&
+    (confirm.getAttribute("aria-label") === "Transcribing voice input" ||
+      confirm.getAttribute("aria-label") === "Stop and add to draft") &&
     confirm.type === "button" &&
     confirm.disabled &&
     visible(confirm)

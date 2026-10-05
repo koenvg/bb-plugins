@@ -1,5 +1,7 @@
 # Codex Quota
 
+Built against BB 0.45 and Plugin SDK 0.6.15. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module ownership, test seams, and durable local installation.
+
 This standalone BB plugin shows quota windows for the Pi `openai-codex` account on an explicitly selected enrolled host. Its quota-only sidebar and dashboard passed installed acceptance on BB 0.43.4 with BB's Provider usage plugin disabled. It never calls `system.usageLimits`.
 
 ## Sign-in and account scope
@@ -32,7 +34,7 @@ At narrow widths, summary cards stack and values wrap. Token tables have named f
 - `unsupported`: the private endpoint changed, its response was malformed, or it exceeded 64 KiB. Unknown fields are not repaired with quota or local usage.
 - `expired`: the observation is at least 24 hours old. A new successful read is needed before numeric activity can appear.
 
-This slice passed isolated synthetic checks only. Existing quota acceptance does not certify live activity. Installed plugin changes and live account checks still require approval. See [ACTIVITY.md](ACTIVITY.md) for test seams and preview instructions.
+This slice passed isolated synthetic checks only. Existing quota acceptance does not certify live activity. Installed plugin changes and live account checks still require approval. See [docs/ACTIVITY.md](docs/ACTIVITY.md) for test seams and preview instructions.
 
 ## Sidebar footer
 
@@ -82,7 +84,7 @@ The reporting API retains conservative current/prior known subtotals, verified t
 
 Opening the page or changing host makes the same normal, bounded readiness/index attempt used before this layout change. That attempt can maintain storage and does not prove complete collection. Chart navigation and Retry chart read the bounded index only, without quota/activity calls, transcript reads, import execution or collector/root changes. An unavailable chart offers Retry chart, or Latest 30 days for an invalid range. Collection, identity, import, account activity and additional quota windows are in the plugin's Usage collection settings section.
 
-See [CALENDAR.md](CALENDAR.md) for states, retention, keyboard use, read-only storage limits and synthetic verification. Quota and the official link remain above report failures. This slice has no installed/live acceptance and does not prove complete active-range comparisons.
+See [docs/CALENDAR.md](docs/CALENDAR.md) for states, retention, keyboard use, read-only storage limits and synthetic verification. Quota and the official link remain above report failures. This slice has no installed/live acceptance and does not prove complete active-range comparisons.
 
 ## Selected-host collection and workspace totals
 
@@ -94,7 +96,7 @@ Open **Collection and privacy** for these explicit selected-host actions:
 - **Repair collector** atomically replaces only that asset. It preserves earlier events, the immutable first observation boundary and paused state. It cannot repair a newer/unsupported database or damaged or missing control metadata on an established installation. It fails closed and does not enable a paused collector. Reinstall also cannot bypass lost control metadata.
 - **Pause capture** publishes disabled control metadata. Loaded collectors check it before each new append. Already-owned writes can finish. The database keeps the pause interval.
 - **Resume capture** enables new writes and closes the pause interval. It does not fill the gap.
-- **Prepare legacy stop proof / Retire stopped legacy logs** require paused capture and an explicit statement that every old process exited or loaded the new writer. A 15-minute source/control-bound challenge, protocol-2 fence and resumable bounded copy protect retained bodies and first ownership. Quiet files and repair are not stop proof. See [RETENTION.md](RETENTION.md) for the control steps and failure states.
+- **Prepare legacy stop proof / Retire stopped legacy logs** require paused capture and an explicit statement that every old process exited or loaded the new writer. A 15-minute source/control-bound challenge, protocol-2 fence and resumable bounded copy protect retained bodies and first ownership. Quiet files and repair are not stop proof. See [docs/RETENTION.md](docs/RETENTION.md) for the control steps and failure states.
 
 Restart existing Pi sessions yourself after installation or repair to load the new code. The plugin does not restart sessions. The **installed Pi extension can outlive BB's UI/plugin**. Closing the page, disabling BB's plugin or disconnecting the host does not stop it. Pause on the owning host before removal when possible. An offline host cannot receive new pause controls. Remove only Pi's `extensions/bb-codex-usage` directory to uninstall the extension after pausing. Keep host history data to preserve totals. No automatic removal is provided.
 
@@ -102,7 +104,7 @@ The panel shows enabled/paused state, the first boundary, captured workspace tot
 
 Totals belong to the selected host's persistent storage and one normalized captured full workspace path. The collector resolves existing filesystem aliases on that host when possible, without lowercasing paths. It retains a normalized captured path if the workspace no longer exists. Shared paths count once, even when several threads or terminal Pi sessions use them. These are not per-thread or account-wide totals. The panel shows up to 50 workspace rows and discloses truncation. Use **Check readiness** again to process remaining backlog. There is no background scan or history polling owner.
 
-Records contain only version/UUID, original UTC instant, Pi session identity, optional bounded provider-session basename, optional BB thread **claim**, actual workspace, Codex provider/model, token classes, recorded total and original positive captured cost or `null` for missing price. Non-Codex messages are ignored. Reasoning/cache values are classes, not extra total tokens. Zero or absent costs stay missing. No pricing tables, guessed prices, subscription spending or quota debits are calculated. Account sign-in does not prove historical account ownership. Calendar reports are separate from management totals. They display known captured estimates, priced-record coverage and distinct priced-entity denominators without filling missing prices. Historical import is explicit and configured separately. Retention and safe recovery are described in [RETENTION.md](RETENTION.md).
+Records contain only version/UUID, original UTC instant, Pi session identity, optional bounded provider-session basename, optional BB thread **claim**, actual workspace, Codex provider/model, token classes, recorded total and original positive captured cost or `null` for missing price. Non-Codex messages are ignored. Reasoning/cache values are classes, not extra total tokens. Zero or absent costs stay missing. No pricing tables, guessed prices, subscription spending or quota debits are calculated. Account sign-in does not prove historical account ownership. Calendar reports are separate from management totals. They display known captured estimates, priced-record coverage and distinct priced-entity denominators without filling missing prices. Historical import is explicit and configured separately. Retention and safe recovery are described in [docs/RETENTION.md](docs/RETENTION.md).
 
 The host owns `<host plugin dataDir>/history/usage-v1.sqlite`, daily `events-v1-YYYY-MM-DD.jsonl` and `confirmations-v1-YYYY-MM-DD.jsonl` partitions, retained legacy logs and `collector-control-v1.json`. BB supplies `dataDir` through its public host SDK. The installed asset contains this fixed host configuration, its code and applicable MIT notice. It has no checkout/server dependency. Per-process writes are serialized and shutdown drains owned writes. Entry confirmation checks at most 128 public in-memory session entries by object identity. It does not open transcript bodies or retain message/tool data. Pending capture/confirmation work is capped at 128; failures use one fixed content-free diagnostic.
 
@@ -118,9 +120,9 @@ Open **Historical import**. Enter the selected host's actual BB Pi source root, 
 
 Only **Start import** and **Resume import** read retained transcripts. Each action runs one bounded cycle. Reload shows durable stopped progress and never resumes automatically. One unfinished generation freezes roots, owning-host workspace proofs, UTC range and cursors. Resume or cancel it before changing sources. **Check import status** reads saved progress only. **Cancel import** stops further work; committed records remain. Host switches hide old results and cannot roll back committed host work.
 
-The panel discloses partial scoped coverage, omissions and fixed diagnostics. Imported records preserve recorded UTC time, tokens, prices and workspace. Confirmed live overlap and copied fork ancestry contribute once; unresolved duplicate-sensitive identities stay excluded. Missing data is not successful zero usage. See [IMPORT.md](IMPORT.md) for the public configuration boundary, bounds, source/alias proofs, privacy, synthetic checks and BBP-23 integration.
+The panel discloses partial scoped coverage, omissions and fixed diagnostics. Imported records preserve recorded UTC time, tokens, prices and workspace. Confirmed live overlap and copied fork ancestry contribute once; unresolved duplicate-sensitive identities stay excluded. Missing data is not successful zero usage. See [docs/IMPORT.md](docs/IMPORT.md) for the public configuration boundary, bounds, source/alias proofs, privacy, synthetic checks and BBP-23 integration.
 
-The combined storage revision is schema 4. See [STORAGE-INTEGRATION.md](STORAGE-INTEGRATION.md) for migration, compact replay/identity, import-only retention and recovery catalog delivery. The integration checks are synthetic, not installed acceptance.
+The combined storage revision is schema 4. See [docs/STORAGE-INTEGRATION.md](docs/STORAGE-INTEGRATION.md) for migration, compact replay/identity, import-only retention and recovery catalog delivery. The integration checks are synthetic, not installed acceptance.
 
 ## Verified exact-thread attribution
 
@@ -137,7 +139,7 @@ The panel distinguishes four grades:
 
 Thread totals are a verified subset of workspace totals, not extra usage to add to them. Exact totals stay hidden during unknown/partial discovery or attribution backlog. Original host, workspace, UTC instant, token values and prices do not change when current metadata changes. Previously verified evidence remains durable. Missing, archived and deleted metadata use stable labels. Missing/deleted threads have no navigation button. Up to 50 exact-thread rows are shown, with truncation disclosed. Conflicts remain ambiguous even if one thread later disappears. Filesystem aliases require proof on the owning host; no basename, prefix, substring or time-proximity matching is used.
 
-See [IDENTITY.md](IDENTITY.md) for the internal integration interface and synthetic checks. This slice has no live installed acceptance.
+See [docs/IDENTITY.md](docs/IDENTITY.md) for the internal integration interface and synthetic checks. This slice has no live installed acceptance.
 
 ## Development checks
 

@@ -1,6 +1,6 @@
 // Synthetic native controls for the built-plugin check. No microphone, audio,
 // network request, or real conversation is used here.
-export function installVoiceFixture({ form, input, commands }) {
+export function installVoiceFixture({ form, input, commands, version = "0.44" }) {
   const mic = form.querySelector('[aria-label="Start voice input"]');
   const command = commands.find((command) => command.id === "start-voice-input");
   const context = { threadId: "fixture", projectId: "fixture", openPanel: () => false };
@@ -8,10 +8,11 @@ export function installVoiceFixture({ form, input, commands }) {
   let starts = 0,
     confirms = 0,
     cancels = 0;
+  let voiceSends = 0;
   let controls;
   const state = () =>
     form.hasAttribute("data-promptbox-voice-active")
-      ? controls.querySelector("button:last-child").disabled
+      ? controls.querySelectorAll("button")[1].disabled
         ? "transcribing"
         : "recording"
       : "idle";
@@ -24,7 +25,7 @@ export function installVoiceFixture({ form, input, commands }) {
     mic.hidden = false;
     if (text) input.value += ` ${text}`;
   }
-  function recording(transcribing = false) {
+  function recording(transcribing = false, sending = false) {
     form.setAttribute("data-promptbox-voice-active", "");
     input.readOnly = true;
     input.setAttribute("aria-readonly", "true");
@@ -32,15 +33,12 @@ export function installVoiceFixture({ form, input, commands }) {
     controls ??= document.createElement("div");
     controls.setAttribute("data-promptbox-voice-controls", "");
     controls.dataset.voiceTransition = "active";
+    const draftLabel =
+      version === "0.45" ? "Stop and add to draft" : "Stop and transcribe recording";
     controls.innerHTML = `<button type="button" aria-label="${transcribing ? "Cancel transcription" : "Cancel recording"}">Cancel</button>
       <span>${transcribing ? "Transcribing" : "Synthetic recording"}</span>
-      <button type="button" aria-label="${transcribing ? "Transcribing voice input" : "Stop and add to draft"}" ${transcribing ? "disabled" : ""}>Confirm</button>`;
-    const send = document.createElement("button");
-    send.type = "button";
-    send.setAttribute("aria-label", transcribing ? "Transcribing and sending" : "Send voice input");
-    send.disabled = transcribing;
-    send.onclick = () => form.requestSubmit();
-    controls.append(send);
+      <button type="button" aria-label="${transcribing && !sending ? "Transcribing voice input" : draftLabel}" ${transcribing ? "disabled" : ""}>Confirm</button>
+      ${version === "0.45" ? `<button type="button" aria-label="${sending ? "Transcribing and sending" : "Send voice input"}" ${transcribing ? "disabled" : ""}>Send voice</button>` : ""}`;
     form.querySelector("[data-promptbox-action-row]").append(controls);
     controls.querySelector("button").onclick = () => {
       cancels++;
@@ -50,6 +48,12 @@ export function installVoiceFixture({ form, input, commands }) {
       confirms++;
       recording(true);
     };
+    const send = controls.querySelector('[aria-label="Send voice input"]');
+    if (send)
+      send.onclick = () => {
+        voiceSends++;
+        recording(true, true);
+      };
   }
   mic.onclick = () => {
     starts++;
@@ -106,6 +110,9 @@ export function installVoiceFixture({ form, input, commands }) {
     },
     get confirms() {
       return confirms;
+    },
+    get voiceSends() {
+      return voiceSends;
     },
     get cancels() {
       return cancels;

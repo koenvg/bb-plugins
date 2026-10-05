@@ -37,7 +37,7 @@ With focus in the composer, press **Ctrl+Shift+Space** to start recording. Use C
 
 Press **Enter** during recording to stop and transcribe into the draft. This does not send. Enter does nothing during transcription. After completion, edit the draft or press Enter again to send normally. A held Enter cannot send when transcription completes. **Escape** keeps BB's native cancellation behavior. Enter on the focused cancel button also cancels.
 
-These controls use native BB 0.44 and 0.45 attributes and button labels, not a public voice API. Missing or changed controls cause no voice action. Repeated starts are blocked while microphone permission is pending. A new native "Voice input failed" notification releases that guard. If a host update changes error markup, disable and enable the plugin to reset it. Pointer controls remain native. Focus is restored only for keyboard-controlled sessions while focus still belongs to their composer.
+These controls use native BB 0.44 and 0.45 attributes and button labels, not a public voice API. Enter uses "Stop and transcribe recording" or "Stop and add to draft", never "Send voice input". Missing or changed controls cause no voice action. Repeated starts are blocked while microphone permission is pending. A new native "Voice input failed" notification releases that guard. If a host update changes error markup, disable and enable the plugin to reset it. Pointer controls remain native. Focus is restored only for keyboard-controlled sessions while focus still belongs to their composer.
 
 ## Scope
 

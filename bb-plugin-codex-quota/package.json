@@ -22,9 +22,9 @@
     "branding": {
       "icon": "codex-quota-battery"
     },
-    "server": "./server.ts",
-    "app": "./app.tsx",
-    "host": "./host.ts",
+    "server": "./src/plugin/server.ts",
+    "app": "./src/plugin/app.tsx",
+    "host": "./src/plugin/host.ts",
     "skills": []
   },
   "dependencies": {

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Actual self-contained host artifact, synthetic isolated Pi auth only. All network is stubbed.
 const agentDir = mkdtempSync(join(tmpdir(), "codex-activity-"));
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
 const previousNow = Date.now;
+let harness;
 let now = previousNow();
 const writeAuth = (token) =>
   writeFileSync(
@@ -51,34 +53,35 @@ try {
         );
   };
   const { default: entry } = await import("../dist/host.js");
-  const context = () => ({ signal: new AbortController().signal });
-  const activity = await entry.handlers.activity({}, context());
+  harness = experimental_createHostEntryHarness(entry);
+  const activity = await harness.experimental_call("activity", {});
   assert.equal(activity.state, "fresh");
   assert.equal(activity.snapshot.summary.lifetimeTokens, 123);
   assert.equal(activity.snapshot.summary.currentStreakDays, null);
   assert(!JSON.stringify(activity).includes("synthetic-private"));
   const observedAt = activity.snapshot.observedAt;
-  await entry.handlers.activity({}, context());
+  await harness.experimental_call("activity", {});
   assert.equal(calls, 1);
   now += 300_000;
   fail = true;
-  const stale = await entry.handlers.activity({ refresh: true }, context());
+  const stale = await harness.experimental_call("activity", { refresh: true });
   assert.equal(stale.state, "stale");
   assert.equal(stale.reason, "service");
   assert.equal(stale.snapshot.observedAt, observedAt);
-  assert.equal((await entry.handlers.quota({}, context())).state, "fresh");
+  assert.equal((await harness.experimental_call("quota", {})).state, "fresh");
   now += 30_000;
   fail = false;
   switchDuringRead = true;
-  const changed = await entry.handlers.activity({ refresh: true }, context());
+  const changed = await harness.experimental_call("activity", { refresh: true });
   assert.equal(changed.snapshot, null);
   assert.equal(changed.reason, "identity-changed");
-  await entry.dispose?.();
-  assert.equal((await entry.handlers.activity({}, context())).snapshot, null);
+  await harness.experimental_dispose();
+  await assert.rejects(harness.experimental_call("activity", {}), /disposed/i);
   console.log(
     "Bundled activity normalization/cache/account-race/disposal + quota failure isolation passed, synthetic only.",
   );
 } finally {
+  await harness?.experimental_dispose();
   if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;

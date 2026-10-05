@@ -1,10 +1,10 @@
 // Isolated synthetic preview. No host, credentials, transcripts, installation or network.
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { QuotaDashboard } from "../quota-view.js";
-import { AccountActivity } from "../activity-view.js";
-import { HistoryReadinessPanel } from "../history-view.js";
-import type { HistoryReadiness } from "../history-contract.js";
+import { QuotaDashboard } from "../src/quota/quota-view.js";
+import { AccountActivity } from "../src/activity/activity-view.js";
+import { HistoryReadinessPanel } from "../src/history/history-view.js";
+import type { HistoryReadiness } from "../src/history/history-contract.js";
 const missing: HistoryReadiness = {
   state: "not-configured",
   reason: "not-configured",

@@ -787,7 +787,12 @@
       };
       if (params.has("voice")) {
         const { installVoiceFixture } = await import("./voice-fixture.js");
-        window.voiceFixture = installVoiceFixture({ form, input: originalInput, commands });
+        window.voiceFixture = installVoiceFixture({
+          form,
+          input: originalInput,
+          commands,
+          version: params.get("voice") === "0.45" ? "0.45" : "0.44",
+        });
       }
       window.fixture = {
         ready: true,
