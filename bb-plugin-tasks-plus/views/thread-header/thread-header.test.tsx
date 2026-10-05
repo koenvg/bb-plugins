@@ -47,6 +47,55 @@ function renderHeader(
 }
 
 describe("Thread header task chip", () => {
+  it.each([false, true])(
+    "opens an initially Done task with compact=%s without writing",
+    async (isCompactViewport) => {
+      const doneTask = { ...reviewTask, status: "done" as const };
+      const openThreadPanel = vi.fn(() => true);
+      const slot = renderHeader(() => [doneTask], { isCompactViewport, openThreadPanel });
+      const chip = await slot.findByRole("button", { name: "ABC-12 Done, open task" });
+      expect(chip.querySelector("svg")).not.toBeNull();
+      expect(chip.textContent).toContain("ABC-12");
+      if (isCompactViewport) {
+        expect(chip.textContent).not.toContain("Done");
+      } else {
+        expect(chip.textContent).toContain("Done");
+      }
+      fireEvent.click(chip);
+      expect(openThreadPanel).toHaveBeenCalledWith({
+        actionId: "task",
+        title: "ABC-12",
+        params: { taskKey: "ABC-12" },
+      });
+      expect(slot.inspection.rpcCalls.map(({ method }) => method)).toEqual(["getTasksForThread"]);
+    },
+  );
+
+  it("keeps a Done chip until its only link is removed through realtime refresh", async () => {
+    const doneTask = { ...reviewTask, status: "done" as const };
+    let tasks: Task[] = [doneTask];
+    const slot = renderHeader(() => tasks);
+    await slot.findByRole("button", { name: "ABC-12 Done, open task" });
+    await slot.behavior.emitRealtime("tasks:changed", {
+      taskId: doneTask.id,
+      projectId: PROJECT_ID,
+    });
+    await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+    expect(slot.getByRole("button", { name: "ABC-12 Done, open task" })).toBeDefined();
+
+    tasks = [];
+    await slot.behavior.emitRealtime("threads:changed", { taskId: doneTask.id });
+    await waitFor(() => {
+      expect(slot.inspection.rpcCalls).toHaveLength(3);
+      expect(slot.queryByRole("button")).toBeNull();
+      expect(slot.container.textContent).toBe("");
+    });
+    expect(doneTask.status).toBe("done");
+    expect(slot.inspection.rpcCalls.every(({ method }) => method === "getTasksForThread")).toBe(
+      true,
+    );
+  });
+
   it("shows the status icon, key and status label of the linked task", async () => {
     const slot = renderHeader(() => [reviewTask]);
 

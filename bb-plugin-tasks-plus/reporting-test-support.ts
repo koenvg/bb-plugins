@@ -26,3 +26,22 @@ export function expectReportingRules(text: string): void {
     expect(text.replace(/\s+/g, " "), rule).toMatch(pattern);
   }
 }
+
+export function expectTaskLinkRules(text: string): void {
+  const guidance = text.replace(/\s+/g, " ");
+  expect(guidance, "retain links through work changes").toMatch(
+    /keep task-to-thread links.{0,180}complet.{0,80}review.{0,80}hand.{0,80}replac.{0,80}fail.{0,80}other work/i,
+  );
+  expect(guidance, "explicit user removal request").toMatch(
+    /detach only when the user explicitly requests removal of (?:that|the) task-to-thread link/i,
+  );
+  expect(guidance, "manual detach has no execution or status effect").toMatch(
+    /detaching does not stop the thread or change the task status/i,
+  );
+  expect(guidance, "retained links grant no new authority").toMatch(
+    /retained links.{0,80}no.{0,80}ownership.{0,80}report.{0,40}authority/i,
+  );
+  expect(guidance).not.toMatch(
+    /work ends or is handed off, detach|detach a predecessor after handoff/i,
+  );
+}
