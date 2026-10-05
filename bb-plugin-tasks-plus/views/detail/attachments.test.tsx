@@ -42,10 +42,7 @@ describe("AttachmentsGrid layout", () => {
     );
     const fileCard = screen.getByText("notes.md");
     const image = screen.getAllByAltText("diagram.png")[0]!;
-    expect(
-      fileCard.compareDocumentPosition(image) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(fileCard.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -56,11 +53,7 @@ describe("AttachmentsGrid removal", () => {
     const attachment = imageAttachment();
 
     const screen = render(
-      <AttachmentsGrid
-        attachments={[attachment]}
-        onRemove={onRemove}
-        onError={onError}
-      />,
+      <AttachmentsGrid attachments={[attachment]} onRemove={onRemove} onError={onError} />,
     );
 
     fireEvent.click(screen.getByLabelText("Remove diagram.png"));
@@ -75,11 +68,7 @@ describe("AttachmentsGrid removal", () => {
     const onError = vi.fn();
 
     const screen = render(
-      <AttachmentsGrid
-        attachments={[imageAttachment()]}
-        onRemove={onRemove}
-        onError={onError}
-      />,
+      <AttachmentsGrid attachments={[imageAttachment()]} onRemove={onRemove} onError={onError} />,
     );
 
     fireEvent.click(screen.getByLabelText("Remove diagram.png"));

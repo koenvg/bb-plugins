@@ -1,9 +1,7 @@
 import type { TaskWorkStatus } from "../shared/contract.js";
 import { normalizeQueue } from "./work-status-queue.js";
 
-type Rich = NonNullable<
-  TaskWorkStatus["pullRequests"]["items"][number]["rich"]
->;
+type Rich = NonNullable<TaskWorkStatus["pullRequests"]["items"][number]["rich"]>;
 type Reason = TaskWorkStatus["pullRequests"]["items"][number]["detailsReason"];
 const KNOWN = new Set([
   "conflicts",
@@ -50,15 +48,7 @@ export function normalizeConditions(
 
   const decisions: Record<string, readonly unknown[]> = {
     mergeable: ["MERGEABLE", "CONFLICTING"],
-    mergeStateStatus: [
-      "BEHIND",
-      "BLOCKED",
-      "CLEAN",
-      "DIRTY",
-      "DRAFT",
-      "HAS_HOOKS",
-      "UNSTABLE",
-    ],
+    mergeStateStatus: ["BEHIND", "BLOCKED", "CLEAN", "DIRTY", "DRAFT", "HAS_HOOKS", "UNSTABLE"],
     reviewDecision: [null, "APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED"],
   };
   for (const [field, known] of Object.entries(decisions)) {
@@ -67,18 +57,11 @@ export function normalizeConditions(
     observations.push(`${field}: ${JSON.stringify(decision)}`);
     if (!known.includes(decision)) reason = "unsupported_conditions";
   }
-  add(
-    fields.mergeable === "CONFLICTING" || fields.mergeStateStatus === "DIRTY",
-    "conflicts",
-  );
+  add(fields.mergeable === "CONFLICTING" || fields.mergeStateStatus === "DIRTY", "conflicts");
   add(fields.reviewDecision === "CHANGES_REQUESTED", "changes_requested");
   add(fields.reviewDecision === "REVIEW_REQUIRED", "review_required");
   add(fields.mergeStateStatus === "BEHIND", "behind");
-  add(
-    fields.mergeStateStatus === "BLOCKED" ||
-      fields.mergeStateStatus === "UNSTABLE",
-    "blocked",
-  );
+  add(fields.mergeStateStatus === "BLOCKED" || fields.mergeStateStatus === "UNSTABLE", "blocked");
   add(fields.mergeStateStatus === "DRAFT", "draft");
   if ("unresolvedThreads" in fields) {
     const count = fields.unresolvedThreads;
@@ -87,8 +70,7 @@ export function normalizeConditions(
       reason = "unsupported_conditions";
     else add(count > 0, "unresolved_threads");
   }
-  if (value.pr.state === "open" && conditions.has("draft"))
-    reason = "contradictory_evidence";
+  if (value.pr.state === "open" && conditions.has("draft")) reason = "contradictory_evidence";
   const { queue, reason: queueReason } = normalizeQueue(fields.mergeQueue);
   reason ??= queueReason;
   add(queue?.state === "failed", "queue_failed");

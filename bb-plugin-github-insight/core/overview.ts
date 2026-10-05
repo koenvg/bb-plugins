@@ -146,9 +146,7 @@ export interface GitHubReader {
   fetchCheckRunDetails: (ids: string[]) => Promise<unknown>;
 }
 
-async function readOverviewPages(
-  fetchOverviewPage: GitHubReader["fetchOverviewPage"],
-): Promise<{
+async function readOverviewPages(fetchOverviewPage: GitHubReader["fetchOverviewPage"]): Promise<{
   pages: [OverviewPage, ...OverviewPage[]];
   reviewState: ReviewState;
   mergeSettings: MergeSettings;
@@ -199,9 +197,8 @@ function blockers(
     mergeable: reviewState.mergeable,
     mergeStateStatus: reviewState.mergeStateStatus,
     reviewDecision: reviewState.reviewDecision,
-    unresolvedThreads: reviewState.reviewThreads.nodes.filter(
-      (thread) => !thread.isResolved,
-    ).length,
+    unresolvedThreads: reviewState.reviewThreads.nodes.filter((thread) => !thread.isResolved)
+      .length,
     checkStatuses: checks.map((check) => check.status),
   });
 }
@@ -229,9 +226,7 @@ function mergeAction(
 
 export async function collectInsight(github: GitHubReader): Promise<PrReading> {
   const { pages, reviewState, mergeSettings } = await readOverviewPages(github.fetchOverviewPage);
-  const latest = latestCheckCandidates(
-    pages.flatMap((page) => contextsOf(page)?.nodes ?? []),
-  );
+  const latest = latestCheckCandidates(pages.flatMap((page) => contextsOf(page)?.nodes ?? []));
   const annotations = await readFailureAnnotations(
     github.fetchCheckRunDetails,
     failingCheckRunIds(latest),

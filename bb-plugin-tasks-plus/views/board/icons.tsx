@@ -25,41 +25,18 @@ function statusArtwork(status: TaskStatus) {
         />
       );
     case "todo":
-      return (
-        <circle
-          cx="7"
-          cy="7"
-          r="5.4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-        />
-      );
+      return <circle cx="7" cy="7" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.6" />;
     case "in_progress":
       return (
         <>
-          <circle
-            cx="7"
-            cy="7"
-            r="5.4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          />
+          <circle cx="7" cy="7" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
           <path d="M7 7 L7 2.4 A4.6 4.6 0 0 1 11.2 9.5 Z" fill="currentColor" />
         </>
       );
     case "in_review":
       return (
         <>
-          <circle
-            cx="7"
-            cy="7"
-            r="5.4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          />
+          <circle cx="7" cy="7" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
           <path d="M7 7 L7 2.4 A4.6 4.6 0 1 1 6.99 2.4 Z" fill="currentColor" />
         </>
       );
@@ -91,13 +68,7 @@ function statusArtwork(status: TaskStatus) {
   }
 }
 
-export function StatusIcon({
-  status,
-  className,
-}: {
-  status: TaskStatus;
-  className?: string;
-}) {
+export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
   return (
     <svg
       viewBox="0 0 14 14"
@@ -133,12 +104,7 @@ export function PriorityIcon({
         className={cn("size-3.5 shrink-0", className)}
       >
         <rect width="14" height="14" rx="3" className="fill-warning" />
-        <path
-          d="M7 3.2v4.4"
-          stroke="var(--canvas)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M7 3.2v4.4" stroke="var(--canvas)" strokeWidth="1.8" strokeLinecap="round" />
         <circle cx="7" cy="10.6" r="1.1" fill="var(--canvas)" />
       </svg>
     );
@@ -154,11 +120,7 @@ export function PriorityIcon({
       viewBox="0 0 14 14"
       aria-hidden
       data-priority-icon={priority}
-      className={cn(
-        "size-3.5 shrink-0",
-        priority === "none" && "opacity-40",
-        className,
-      )}
+      className={cn("size-3.5 shrink-0", priority === "none" && "opacity-40", className)}
     >
       {bars.map((bar, index) => (
         <rect

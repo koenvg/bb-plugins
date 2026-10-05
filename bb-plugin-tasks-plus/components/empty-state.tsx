@@ -19,9 +19,7 @@ export function EmptyState({
       </div>
       <div className="space-y-1">
         <p className="text-sm font-medium">{title}</p>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action}
     </div>

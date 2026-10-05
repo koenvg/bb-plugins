@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { GhFailure } from "../github/gh-failure";
 import prHead from "./fixtures/pr-43-head.json";
@@ -11,15 +8,9 @@ export type PullRequestResult = Awaited<
   ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>
 >;
 type AvailablePullRequest = Extract<PullRequestResult, { outcome: "available" }>;
-type Environment = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["get"]>
->;
-type ThreadListItem = Awaited<
-  ReturnType<BbPluginApi["sdk"]["threads"]["list"]>
->[number];
-type ProjectListItem = Awaited<
-  ReturnType<BbPluginApi["sdk"]["projects"]["list"]>
->[number];
+type Environment = Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["get"]>>;
+type ThreadListItem = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["list"]>>[number];
+type ProjectListItem = Awaited<ReturnType<BbPluginApi["sdk"]["projects"]["list"]>>[number];
 type SystemConfig = Awaited<ReturnType<BbPluginApi["sdk"]["system"]["config"]>>;
 type ThreadOptions = { id: string; environmentId: string | null } & Parameters<
   typeof makeThreadResponse
@@ -75,7 +66,11 @@ export function prHeadResponse({
   viewerDidAuthor = false,
 }: { oid?: string; state?: "OPEN" | "CLOSED" | "MERGED"; viewerDidAuthor?: boolean } = {}) {
   const { pullRequest } = prHead.data.repository;
-  return { data: { repository: { pullRequest: { ...pullRequest, headRefOid: oid, state, viewerDidAuthor } } } };
+  return {
+    data: {
+      repository: { pullRequest: { ...pullRequest, headRefOid: oid, state, viewerDidAuthor } },
+    },
+  };
 }
 
 export async function setup(options: {
@@ -124,7 +119,9 @@ export async function setup(options: {
       },
       system: {
         config: async () =>
-          ({ primaryHostId: options.primaryHostId === undefined ? "host-1" : options.primaryHostId }) as SystemConfig,
+          ({
+            primaryHostId: options.primaryHostId === undefined ? "host-1" : options.primaryHostId,
+          }) as SystemConfig,
       },
     },
     experimental_callHostRpc: (call) => {

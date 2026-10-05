@@ -63,13 +63,7 @@ export async function uploadAttachment(
   return { attachmentId: result.attachmentId, url: result.url };
 }
 
-export function Lightbox({
-  attachment,
-  onClose,
-}: {
-  attachment: Attachment;
-  onClose: () => void;
-}) {
+export function Lightbox({ attachment, onClose }: { attachment: Attachment; onClose: () => void }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -96,9 +90,7 @@ export function Lightbox({
       />
       <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-md bg-popover/90 px-3 py-1.5 text-xs text-popover-foreground shadow-md">
         <span className="max-w-72 truncate">{attachment.fileName}</span>
-        <span className="text-muted-foreground">
-          {formatFileSize(attachment.sizeBytes)}
-        </span>
+        <span className="text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</span>
       </div>
       <button
         type="button"
@@ -239,18 +231,12 @@ export function AttachmentsGrid({
   return (
     <div className="flex flex-col gap-2">
       {files.length > 0 ? (
-        <div className="flex flex-wrap items-start gap-2">
-          {files.map(fileCard)}
-        </div>
+        <div className="flex flex-wrap items-start gap-2">{files.map(fileCard)}</div>
       ) : null}
       {images.length > 0 ? (
-        <div className="flex flex-wrap items-start gap-2">
-          {images.map(imageTile)}
-        </div>
+        <div className="flex flex-wrap items-start gap-2">{images.map(imageTile)}</div>
       ) : null}
-      {lightbox ? (
-        <Lightbox attachment={lightbox} onClose={() => setLightbox(null)} />
-      ) : null}
+      {lightbox ? <Lightbox attachment={lightbox} onClose={() => setLightbox(null)} /> : null}
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(open) => {

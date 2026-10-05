@@ -12,9 +12,7 @@ export type PrObservation =
 
 /** Identity/lifecycle are independent from rich check/review quality. */
 export function normalizeHostPr(
-  result: Awaited<
-    ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>
-  >,
+  result: Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>>,
 ): PrObservation {
   if (result.outcome === "absent") return { outcome: "absent" };
   if (result.outcome !== "available") return { outcome: "unavailable" };
@@ -51,9 +49,7 @@ function lifecycle(evidence: readonly LifecycleEvidence[]): WorkPr["state"] {
   );
   // Complete per-URL evidence grouping preserves the slice-3 malformed-time fix.
   // Dated evidence supersedes only older dated evidence, never unorderable evidence.
-  const current = evidence.filter(
-    (e) => !Number.isFinite(e.time) || e.time === newest,
-  );
+  const current = evidence.filter((e) => !Number.isFinite(e.time) || e.time === newest);
   const states = new Set(current.map((e) => e.state));
   return states.size === 1 ? current[0]!.state : "unknown";
 }

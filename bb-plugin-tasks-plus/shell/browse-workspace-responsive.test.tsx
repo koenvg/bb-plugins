@@ -45,11 +45,7 @@ function observePanel() {
   };
 }
 
-async function hostTab(
-  slot: ReturnType<typeof setup>,
-  subPath: string,
-  visible: boolean,
-) {
+async function hostTab(slot: ReturnType<typeof setup>, subPath: string, visible: boolean) {
   slot.lifecycle.rerender(<Panel subPath={subPath} ticketVisible={visible} />);
   await act(async () => {});
 }
@@ -65,20 +61,14 @@ describe("host-controlled Ticket presentation", () => {
     const path = `${project.id}?view=list&task=TSK-3`;
     const slot = setup(`${project.id}?view=list`, {
       listTasks: (raw) => ({
-        tasks: rpcInput(raw).parentTaskId
-          ? [child]
-          : [tasks[0], tasks[1], child],
+        tasks: rpcInput(raw).parentTaskId ? [child] : [tasks[0], tasks[1], child],
         nextCursor: null,
       }),
       getTaskByKey: () => ({ task: child }),
     });
     await slot.findByRole("button", { name: "Collapse subtasks of TSK-1" });
-    fireEvent.click(
-      slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }),
-    );
-    fireEvent.click(
-      slot.getByRole("button", { name: "Expand subtasks of TSK-1" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
+    fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of TSK-1" }));
     const list = slot.getByRole("region", { name: "Ticket list" });
     const scroll = list.querySelector<HTMLElement>("[data-list-scroll]")!;
     Object.defineProperty(scroll, "scrollHeight", { value: 1400 });
@@ -101,9 +91,7 @@ describe("host-controlled Ticket presentation", () => {
     ).toBe("true");
     expect(scroll.previousElementSibling!.textContent).toBe(filters);
     expect(
-      [...list.querySelectorAll("[data-task-key]")].map((el) =>
-        el.getAttribute("data-task-key"),
-      ),
+      [...list.querySelectorAll("[data-task-key]")].map((el) => el.getAttribute("data-task-key")),
     ).toEqual(["TSK-1", "TSK-3", "TSK-2"]);
     expect(browsePreference().load()).toEqual({
       kind: "project",
@@ -155,16 +143,11 @@ describe("host-controlled Ticket presentation", () => {
     const title = await slot.findByRole("textbox", { name: "Task title" });
     const description = slot.container.querySelector(".tiptap");
     await edit(slot, "Unsent A", 1);
-    const comment = slot.container.querySelectorAll(
-      '.tiptap[contenteditable="true"]',
-    )[1];
-    fireEvent.click(
-      await slot.findByRole("switch", { name: "Notify Agent thread" }),
-    );
-    fireEvent.change(
-      slot.container.querySelectorAll('input[type="file"]')[1]!,
-      { target: { files: [new File(["A"], "a.txt")] } },
-    );
+    const comment = slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1];
+    fireEvent.click(await slot.findByRole("switch", { name: "Notify Agent thread" }));
+    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
+      target: { files: [new File(["A"], "a.txt")] },
+    });
     title.textContent = "Unblurred A";
     fireEvent.input(title);
     await edit(slot, "Description draft");
@@ -175,20 +158,14 @@ describe("host-controlled Ticket presentation", () => {
     expect(title.textContent).toBe("Unblurred A");
     expect(slot.container.querySelector(".tiptap")).toBe(description);
     expect(description?.textContent).toBe("Description draft");
-    expect(
-      slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1],
-    ).toBe(comment);
+    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]).toBe(comment);
     expect(comment?.textContent).toBe("Unsent A");
     expect(slot.getByText("a.txt")).toBeTruthy();
     expect(
-      slot
-        .getByRole("switch", { name: "Notify Agent thread" })
-        .getAttribute("aria-checked"),
+      slot.getByRole("switch", { name: "Notify Agent thread" }).getAttribute("aria-checked"),
     ).toBe("false");
     expect(
-      slot.inspection.rpcCalls.filter((c) =>
-        ["createComment", "delegate"].includes(c.method),
-      ),
+      slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -205,16 +182,10 @@ describe("host-controlled Ticket presentation", () => {
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(slot);
+    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 2");
     expect(
-      (await slot.findByRole("textbox", { name: "Task title" })).textContent,
-    ).toBe("Title 2");
-    expect(
-      slot.inspection.rpcCalls
-        .filter((c) => c.method === "updateTask")
-        .map((c) => c.input),
-    ).toEqual([
-      { taskId: tasks[0]!.id, description: "Save before changing tickets" },
-    ]);
+      slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
+    ).toEqual([{ taskId: tasks[0]!.id, description: "Save before changing tickets" }]);
   });
 
   it("does not reopen a closed host panel on refresh or steal another pane's focus", async () => {
@@ -271,8 +242,6 @@ describe("host-controlled Ticket presentation", () => {
       expect(slot.queryByRole("button", { name: "Back to list" })).toBeNull();
     }
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(
-      slot.container.querySelectorAll('[aria-current="true"]'),
-    ).toHaveLength(1);
+    expect(slot.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
   });
 });

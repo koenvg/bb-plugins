@@ -23,6 +23,7 @@ export const prHeadSchema = z.object({
 export type PrHead = z.infer<typeof prHeadSchema>;
 
 export function parsePrHead(response: unknown): PrHead {
-  const { id, headRefOid, state, viewerDidAuthor } = prHeadResponseSchema.parse(response).data.repository.pullRequest;
+  const { id, headRefOid, state, viewerDidAuthor } =
+    prHeadResponseSchema.parse(response).data.repository.pullRequest;
   return { prNodeId: id, oid: headRefOid, state, viewerIsAuthor: viewerDidAuthor };
 }

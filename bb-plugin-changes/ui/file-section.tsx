@@ -27,7 +27,17 @@ interface FileSectionProps {
   viewed: FileViewedState;
 }
 
-export function FileSection({ threadId, file, patch, lines, loadPatch, comments, openForms, view, viewed }: FileSectionProps) {
+export function FileSection({
+  threadId,
+  file,
+  patch,
+  lines,
+  loadPatch,
+  comments,
+  openForms,
+  view,
+  viewed,
+}: FileSectionProps) {
   const { visible, ref } = useNearView<HTMLElement>();
   const showsDiff = canMark(file);
   useEffect(() => {
@@ -93,7 +103,13 @@ function FileDiffWithComments({
       view={view}
       theme={theme}
       collapsed={viewed.collapsed}
-      headerPrefix={<CollapseButton path={file.path} collapsed={viewed.collapsed} onToggle={viewed.toggleCollapsed} />}
+      headerPrefix={
+        <CollapseButton
+          path={file.path}
+          collapsed={viewed.collapsed}
+          onToggle={viewed.toggleCollapsed}
+        />
+      }
       headerMetadata={
         <ViewedCheckbox
           path={file.path}
@@ -117,8 +133,12 @@ function FileDiffWithComments({
         ) : (
           <InlineCommentForm
             text={metadata.form.text}
-            onTextChange={(text) => pendingReviews.setFormText(threadId, metadata.form.anchor, text)}
-            onSubmit={() => pendingReviews.addComment(threadId, metadata.form.anchor, metadata.form.text.trim())}
+            onTextChange={(text) =>
+              pendingReviews.setFormText(threadId, metadata.form.anchor, text)
+            }
+            onSubmit={() =>
+              pendingReviews.addComment(threadId, metadata.form.anchor, metadata.form.text.trim())
+            }
             onCancel={() => pendingReviews.closeForm(threadId, metadata.form.anchor)}
           />
         )
@@ -127,7 +147,15 @@ function FileDiffWithComments({
   );
 }
 
-function CollapseButton({ path, collapsed, onToggle }: { path: string; collapsed: boolean; onToggle: () => void }) {
+function CollapseButton({
+  path,
+  collapsed,
+  onToggle,
+}: {
+  path: string;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       type="button"

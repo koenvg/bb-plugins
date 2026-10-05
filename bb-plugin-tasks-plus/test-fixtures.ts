@@ -22,9 +22,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
 
 export function rpcInput(input: unknown): Record<string, unknown> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new Error(
-      `expected an RPC input object, got ${JSON.stringify(input)}`,
-    );
+    throw new Error(`expected an RPC input object, got ${JSON.stringify(input)}`);
   }
   return Object.fromEntries(Object.entries(input));
 }

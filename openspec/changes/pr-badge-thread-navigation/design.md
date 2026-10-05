@@ -13,11 +13,13 @@ The repository already uses a browser notification between these plugins for sum
 ## Goals / Non-Goals
 
 Goals:
+
 - Keep ownership of PR panel opening inside github-insight.
 - Hide cross-bundle state, notification ordering, and one-shot consumption behind one small module interface.
 - Test navigation before mount and navigation to an already-mounted destination without timers in callers.
 
 Non-goals:
+
 - Add or change public SDK navigation methods, manipulate host panel state, or query host DOM to select a tab.
 - Open the Review panel or an individual GitHub check.
 - Change summaries, PR lookup, badge appearance, list classification, or external links within the PR panel.

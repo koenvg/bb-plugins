@@ -4,6 +4,10 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-compose-chat",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-compose-chat",
+    "format": "npm --prefix .. run format -- bb-plugin-compose-chat",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-compose-chat",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:browser": "bash tests/browser-checks.sh",
@@ -16,7 +20,9 @@
   "bb": {
     "name": "Compose Chat",
     "description": "A Compose-inspired restyle of BB's native chat, using the active theme and preserving its controls.",
-    "branding": { "icon": "MessageCircle" },
+    "branding": {
+      "icon": "MessageCircle"
+    },
     "server": "./server.ts",
     "app": "./app.tsx",
     "skills": []

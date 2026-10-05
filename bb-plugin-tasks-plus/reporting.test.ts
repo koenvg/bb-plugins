@@ -16,12 +16,16 @@ describe("task reporting skill", () => {
       .find((body) => body.startsWith("bb tasks comment ABC-12 --body"));
     expect(example, "multiline posting example").toBeDefined();
     // Replace only the external CLI boundary. No BB records are touched.
-    const output = execFileSync("bash", [
-      "--noprofile", "--norc", "-c",
-      `bb() { printf '%s\\0' "$@"; }\n${example}`,
-    ], { encoding: "utf8" });
+    const output = execFileSync(
+      "bash",
+      ["--noprofile", "--norc", "-c", `bb() { printf '%s\\0' "$@"; }\n${example}`],
+      { encoding: "utf8" },
+    );
     expect(output.split("\0")).toEqual([
-      "tasks", "comment", "ABC-12", "--body",
+      "tasks",
+      "comment",
+      "ABC-12",
+      "--body",
       "**The change is ready for review.**\n\n" +
         "- Focused checks pass for `parse()` and literal `$(name)` input.\n" +
         "- Next: complete the required review.\n" +

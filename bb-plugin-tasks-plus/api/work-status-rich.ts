@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  prChecksSchema,
-  prReviewersSchema,
-  type TaskWorkStatus,
-} from "../shared/contract.js";
+import { prChecksSchema, prReviewersSchema, type TaskWorkStatus } from "../shared/contract.js";
 import { ageRichDetails } from "../shared/work-status-freshness.js";
 import { canonicalPrIdentity } from "./work-status-pr-identity.js";
 import { normalizeConditions } from "./work-status-conditions.js";
@@ -47,8 +43,7 @@ export function normalizeRichMetadata(metadata: unknown): RichObservation {
     metadata && typeof metadata === "object" && "prSummary" in metadata
       ? metadata.prSummary
       : undefined;
-  if (packet === undefined || packet === null)
-    return { reason: "metadata_absent" };
+  if (packet === undefined || packet === null) return { reason: "metadata_absent" };
   if (typeof packet !== "object") return { reason: "invalid_metadata" };
   const fields = packet as Record<string, unknown>;
   const identity = identitySchema.safeParse(fields.pr);
@@ -67,18 +62,12 @@ export function normalizeRichMetadata(metadata: unknown): RichObservation {
   } catch {
     return { ...evidence, reason: "invalid_metadata" };
   }
-  if (fields.version !== 1)
-    return { ...evidence, reason: "unsupported_version" };
+  if (fields.version !== 1) return { ...evidence, reason: "unsupported_version" };
   const parsed = producerSchema.safeParse(packet);
-  if (!parsed.success || !url)
-    return { ...evidence, reason: "invalid_metadata" };
+  if (!parsed.success || !url) return { ...evidence, reason: "invalid_metadata" };
   const value = parsed.data;
-  const { reason: conditionReason, ...normalized } = normalizeConditions(
-    fields,
-    value,
-  );
-  const reason: RichReason | undefined =
-    value.error !== null ? "refresh_error" : conditionReason;
+  const { reason: conditionReason, ...normalized } = normalizeConditions(fields, value);
+  const reason: RichReason | undefined = value.error !== null ? "refresh_error" : conditionReason;
   return {
     ...evidence,
     reason,
@@ -105,14 +94,11 @@ export function richDetails(
   });
   if (pr.state === "unknown") return unavailable("conflict");
   const matching = observations.filter((o) => o.identity?.url === pr.url);
-  if (!matching.length)
-    return unavailable(observations[0]?.reason ?? "metadata_absent");
+  if (!matching.length) return unavailable(observations[0]?.reason ?? "metadata_absent");
   const undated = matching.filter((o) => o.time === undefined);
   if (undated.length)
     return unavailable(
-      matching.length > 1
-        ? "conflict"
-        : (undated[0]!.reason ?? "invalid_metadata"),
+      matching.length > 1 ? "conflict" : (undated[0]!.reason ?? "invalid_metadata"),
     );
   const newest = Math.max(...matching.map((o) => o.time!));
   const current = matching.filter((o) => o.time === newest);
@@ -128,29 +114,18 @@ export function richDetails(
   );
   if (fingerprints.size !== 1) return unavailable("conflict");
   const candidate = current[0]!;
-  if (!candidate.rich)
-    return unavailable(candidate.reason ?? "invalid_metadata");
-  if (candidate.identity?.state !== pr.state)
-    return unavailable("lifecycle_mismatch");
+  if (!candidate.rich) return unavailable(candidate.reason ?? "invalid_metadata");
+  if (candidate.identity?.state !== pr.state) return unavailable("lifecycle_mismatch");
   const partialRead = observations.find(
-    (o) =>
-      !o.identity &&
-      o.reason &&
-      !["metadata_absent", "identity_mismatch"].includes(o.reason),
+    (o) => !o.identity && o.reason && !["metadata_absent", "identity_mismatch"].includes(o.reason),
   );
   // Metadata may retain a former PR identity when the current host lookup fails.
   // Terminal fallback is historical evidence; only Open can certify current Ready.
   const associationReason =
-    pr.state === "open" && association === "uncertain"
-      ? "association_unavailable"
-      : undefined;
+    pr.state === "open" && association === "uncertain" ? "association_unavailable" : undefined;
   const reason = candidate.reason ?? partialRead?.reason ?? associationReason;
   const details =
-    candidate.reason === "refresh_error"
-      ? "unavailable"
-      : reason
-        ? "incomplete"
-        : "available";
+    candidate.reason === "refresh_error" ? "unavailable" : reason ? "incomplete" : "available";
   return ageRichDetails(
     {
       ...pr,

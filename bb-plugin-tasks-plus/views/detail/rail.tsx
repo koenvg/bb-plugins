@@ -11,18 +11,8 @@ import { TASK_PRIORITIES, TASK_STATUSES } from "../../shared/contract.js";
 import type { Preset } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { useTasksQuery, useTasksRpc } from "../../shell/data.js";
-import {
-  PriorityIcon,
-  StatusIcon,
-  formatDueDate,
-  isActiveThread,
-} from "./meta.js";
-import {
-  DUE_DATE_PRESETS,
-  localIsoDate,
-  PRIORITY_LABELS,
-  STATUS_LABELS,
-} from "../list/lib.js";
+import { PriorityIcon, StatusIcon, formatDueDate, isActiveThread } from "./meta.js";
+import { DUE_DATE_PRESETS, localIsoDate, PRIORITY_LABELS, STATUS_LABELS } from "../list/lib.js";
 import { DispatchControl } from "./threads.js";
 import { LabelsPicker } from "../labels-picker.js";
 import { BbProjectLinkPicker } from "../manage/bb-project-link.js";
@@ -34,11 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -52,8 +38,7 @@ interface MenuControl {
 function menuProps(control: MenuControl, menu: DetailMenu) {
   return {
     open: control.openMenu === menu,
-    onOpenChange: (open: boolean) =>
-      control.onOpenMenuChange(open ? menu : null),
+    onOpenChange: (open: boolean) => control.onOpenMenuChange(open ? menu : null),
   };
 }
 
@@ -111,9 +96,7 @@ function StatusMenu({
           <DropdownMenuItem key={status} onSelect={() => onUpdate({ status })}>
             <StatusIcon status={status} />
             {STATUS_LABELS[status]}
-            {status === task.status ? (
-              <Icon name="Check" className="ml-auto size-3.5" />
-            ) : null}
+            {status === task.status ? <Icon name="Check" className="ml-auto size-3.5" /> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -144,15 +127,10 @@ function PriorityMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {TASK_PRIORITIES.map((priority) => (
-          <DropdownMenuItem
-            key={priority}
-            onSelect={() => onUpdate({ priority })}
-          >
+          <DropdownMenuItem key={priority} onSelect={() => onUpdate({ priority })}>
             <PriorityIcon priority={priority} />
             {PRIORITY_LABELS[priority]}
-            {priority === task.priority ? (
-              <Icon name="Check" className="ml-auto size-3.5" />
-            ) : null}
+            {priority === task.priority ? <Icon name="Check" className="ml-auto size-3.5" /> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -241,11 +219,7 @@ function LabelsMenu({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-56 p-0" align="start">
-        <LabelsPicker
-          task={task}
-          labels={labels}
-          onChange={(labelIds) => onUpdate({ labelIds })}
-        />
+        <LabelsPicker task={task} labels={labels} onChange={(labelIds) => onUpdate({ labelIds })} />
       </PopoverContent>
     </Popover>
   );
@@ -267,9 +241,7 @@ function DispatchTargetMenu({
   const [selection, setSelection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const linkedBbProjectId = project.linkedBbProjectId;
-  const linkedName = bbProjects.find(
-    (candidate) => candidate.id === linkedBbProjectId,
-  )?.name;
+  const linkedName = bbProjects.find((candidate) => candidate.id === linkedBbProjectId)?.name;
 
   const save = async (linkedId: string | null) => {
     if (saving) return;
@@ -296,20 +268,14 @@ function DispatchTargetMenu({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Edit dispatch target"
-          className={triggerClassName}
-        >
+        <button type="button" aria-label="Edit dispatch target" className={triggerClassName}>
           <Icon name="ArrowUpRight" className="size-3.5 shrink-0" />
           {linkedBbProjectId !== null ? (
             <span className="truncate" title={linkedBbProjectId}>
               {linkedName ?? linkedBbProjectId}
             </span>
           ) : (
-            <span className="truncate text-muted-foreground">
-              Link a bb project…
-            </span>
+            <span className="truncate text-muted-foreground">Link a bb project…</span>
           )}
         </button>
       </PopoverTrigger>
@@ -335,12 +301,7 @@ function DispatchTargetMenu({
           ) : (
             <span />
           )}
-          <Button
-            size="sm"
-            className="h-7"
-            disabled={saving}
-            onClick={() => void save(selection)}
-          >
+          <Button size="sm" className="h-7" disabled={saving} onClick={() => void save(selection)}>
             Save
           </Button>
         </div>
@@ -368,22 +329,15 @@ export function PropertiesRail({
     onError: (message: string) => void;
     className?: string;
   }) {
-  const taskLabels = (labels ?? []).filter((label) =>
-    task.labelIds.includes(label.id),
-  );
+  const taskLabels = (labels ?? []).filter((label) => task.labelIds.includes(label.id));
   const active = threads.filter(isActiveThread);
   const bbProjects = useTasksQuery(
     async (query) => (await query.call("listBbProjects")).bbProjects,
     ["projects:changed"],
   );
   return (
-    <aside
-      data-properties-layout="rail"
-      className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}
-    >
-      <h2 className="mb-1.5 text-xs font-semibold text-muted-foreground">
-        Properties
-      </h2>
+    <aside data-properties-layout="rail" className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}>
+      <h2 className="mb-1.5 text-xs font-semibold text-muted-foreground">Properties</h2>
       <StatusMenu
         task={task}
         onUpdate={onUpdate}
@@ -396,15 +350,9 @@ export function PropertiesRail({
         triggerClassName={RAIL_ROW_CLASS}
         {...menuProps(control, "priority")}
       />
-      <DueDateMenu
-        task={task}
-        onUpdate={onUpdate}
-        triggerClassName={RAIL_ROW_CLASS}
-      />
+      <DueDateMenu task={task} onUpdate={onUpdate} triggerClassName={RAIL_ROW_CLASS} />
 
-      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">
-        Labels
-      </div>
+      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Labels</div>
       <div className="flex flex-wrap items-center gap-1 py-0.5">
         {taskLabels.map((label) => (
           <LabelChip key={label.id} label={label} />
@@ -425,9 +373,7 @@ export function PropertiesRail({
         </LabelsMenu>
       </div>
 
-      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">
-        Project
-      </div>
+      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Project</div>
       <div className="flex items-center gap-2 py-0.5 text-sm">
         <span
           aria-hidden
@@ -437,9 +383,7 @@ export function PropertiesRail({
         <span className="truncate">{project?.name ?? "…"}</span>
       </div>
 
-      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">
-        Dispatch target
-      </div>
+      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Dispatch target</div>
       {project !== undefined ? (
         <DispatchTargetMenu
           project={project}
@@ -462,23 +406,17 @@ export function PropertiesRail({
         />
       </div>
 
-      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">
-        Agents
-      </div>
+      <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Agents</div>
       <div className="flex flex-col gap-1 py-0.5 text-xs">
         {active.length > 0 ? (
           active.map((thread) => (
-            <span
-              key={thread.id}
-              className="flex items-center gap-1.5 font-medium text-success"
-            >
+            <span key={thread.id} className="flex items-center gap-1.5 font-medium text-success">
               <span
                 aria-hidden
                 className="size-1.5 shrink-0 animate-pulse rounded-full bg-success"
               />
               <span className="truncate">
-                {thread.presetName}{" "}
-                {thread.liveStatus === "starting" ? "starting" : "working"}
+                {thread.presetName} {thread.liveStatus === "starting" ? "starting" : "working"}
               </span>
             </span>
           ))
@@ -507,9 +445,7 @@ export function InlineProperties({
     onError: (message: string) => void;
     className?: string;
   }) {
-  const taskLabels = (labels ?? []).filter((label) =>
-    task.labelIds.includes(label.id),
-  );
+  const taskLabels = (labels ?? []).filter((label) => task.labelIds.includes(label.id));
   return (
     <div
       data-properties-layout="inline"
@@ -527,20 +463,11 @@ export function InlineProperties({
         triggerClassName={CHIP_CLASS}
         {...menuProps(control, "priority")}
       />
-      <DueDateMenu
-        task={task}
-        onUpdate={onUpdate}
-        triggerClassName={CHIP_CLASS}
-      />
+      <DueDateMenu task={task} onUpdate={onUpdate} triggerClassName={CHIP_CLASS} />
       {taskLabels.map((label) => (
         <LabelChip key={label.id} label={label} />
       ))}
-      <LabelsMenu
-        task={task}
-        labels={labels}
-        onUpdate={onUpdate}
-        {...menuProps(control, "labels")}
-      >
+      <LabelsMenu task={task} labels={labels} onUpdate={onUpdate} {...menuProps(control, "labels")}>
         <button
           type="button"
           aria-label="Edit labels"

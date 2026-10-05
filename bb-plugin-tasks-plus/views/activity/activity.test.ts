@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DisplayComment } from "../../shared/contract.js";
-import {
-  commentByline,
-  formatFileSize,
-  formatRelativeTime,
-  splitSystemBody,
-} from "./time.js";
+import { commentByline, formatFileSize, formatRelativeTime, splitSystemBody } from "./time.js";
 
 const NOW = Date.parse("2026-07-15T12:00:00.000Z");
 const at = (offsetMs: number) => new Date(NOW - offsetMs).toISOString();
@@ -86,9 +81,10 @@ describe("commentByline", () => {
   });
 
   it("falls back to the author name for legacy agent comments with no thread", () => {
-    expect(
-      commentByline({ ...base, threadId: null, threadTitle: null }),
-    ).toEqual({ kind: "text", name: "agent (thr_worker)" });
+    expect(commentByline({ ...base, threadId: null, threadTitle: null })).toEqual({
+      kind: "text",
+      name: "agent (thr_worker)",
+    });
   });
 
   it("never links user comments even if a thread id is present", () => {

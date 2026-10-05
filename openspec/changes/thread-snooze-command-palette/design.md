@@ -15,11 +15,13 @@ The companion `snooze-thread-subtrees` change extends the shared snooze policy t
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep one authoritative client snooze snapshot and one subscription owner per plugin frontend instance.
 - Let command callbacks inspect current state synchronously without reading React hooks or fetching during palette filtering.
 - Keep menu and command eligibility tied to the existing snooze model.
 
 **Non-Goals:**
+
 - Add a second snooze policy, a generic command framework, or a custom time picker.
 - Change server storage, scheduled wake behavior, early-wake rules, or BB's palette implementation.
 - Add snooze grouping to another sidebar provider.

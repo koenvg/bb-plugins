@@ -24,11 +24,16 @@ const STATE_REASONS: Record<Exclude<PrState, "OPEN">, string> = {
 };
 
 export function submitRules(input: SubmitRulesInput): VerdictRule[] {
-  const events: ReviewEvent[] = input.viewerIsAuthor ? ["COMMENT"] : ["COMMENT", "APPROVE", "REQUEST_CHANGES"];
+  const events: ReviewEvent[] = input.viewerIsAuthor
+    ? ["COMMENT"]
+    : ["COMMENT", "APPROVE", "REQUEST_CHANGES"];
   return events.map((event) => ({ event, disabledReason: disabledReason(event, input) }));
 }
 
-function disabledReason(event: ReviewEvent, { state, body, commentCount }: SubmitRulesInput): string | null {
+function disabledReason(
+  event: ReviewEvent,
+  { state, body, commentCount }: SubmitRulesInput,
+): string | null {
   if (state !== "OPEN") return STATE_REASONS[state];
   const hasBody = body.trim() !== "";
   if (event === "REQUEST_CHANGES" && !hasBody) return "Add a summary to request changes";

@@ -3,15 +3,28 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ActionMenu } from "./action-menu";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 function openWithTriggerAt(top: number, bottom: number, innerHeight = 1000) {
   vi.stubGlobal("innerHeight", innerHeight);
   vi.stubGlobal("innerWidth", 400);
   render(<ActionMenu label="Actions" items={[{ label: "Pin", run: () => {} }]} />);
   const trigger = screen.getByRole("button", { name: "Actions" });
-  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
-    { top, bottom, left: 360, right: 384, width: 24, height: bottom - top, x: 360, y: top, toJSON: () => ({}) });
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+    top,
+    bottom,
+    left: 360,
+    right: 384,
+    width: 24,
+    height: bottom - top,
+    x: 360,
+    y: top,
+    toJSON: () => ({}),
+  });
   fireEvent.click(trigger);
   return screen.getByRole("menu").style;
 }

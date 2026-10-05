@@ -14,14 +14,24 @@ describe("default Code Cleanup guidance", () => {
     expect(text).toMatch(/single.*tracker/i);
     expect(text).toMatch(/prefix or.*ID/i);
     expect(text).toContain("never a proj_");
-    for (const status of ["backlog", "todo", "in_progress", "in_review"]) expect(text).toContain(status);
+    for (const status of ["backlog", "todo", "in_progress", "in_review"])
+      expect(text).toContain(status);
     expect(text).toContain("nextCursor");
     expect(text).toMatch(/every.*page/i);
     expect(text).toMatch(/same filters/i);
     expect(text).toMatch(/inspect.*reuse/i);
     expect(text).toContain("create");
     expect(text).toMatch(/title.*description/i);
-    for (const field of ["location", "evidence", "problem", "desired outcome", "completion criteria", "source task", "bbthread://"]) expect(text).toContain(field);
+    for (const field of [
+      "location",
+      "evidence",
+      "problem",
+      "desired outcome",
+      "completion criteria",
+      "source task",
+      "bbthread://",
+    ])
+      expect(text).toContain(field);
     expect(text).toContain("label list");
     expect(text).toMatch(/existing labels/i);
     expect(text).toMatch(/required blockers.*verified.*keys/i);

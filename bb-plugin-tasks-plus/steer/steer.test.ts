@@ -1,15 +1,11 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { createTasksStore } from "../db";
 import { deliverCommentToLatestAgent } from ".";
 
 function setup(
-  getThread: (threadId: string) => ReturnType<typeof makeThreadResponse> = (
-    threadId,
-  ) => makeThreadResponse({ id: threadId, status: "active" }),
+  getThread: (threadId: string) => ReturnType<typeof makeThreadResponse> = (threadId) =>
+    makeThreadResponse({ id: threadId, status: "active" }),
 ) {
   const host = createFakePluginHost({
     pluginId: "tasks",
@@ -182,9 +178,7 @@ describe("comment notification delivery", () => {
     await expect(
       deliverCommentToLatestAgent(bb, store, { taskId: task.id, ...input }),
     ).resolves.toBe(0);
-    expect(harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_side_chat" }],
-    ]);
+    expect(harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_side_chat" }]]);
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 
@@ -209,9 +203,7 @@ describe("comment notification delivery", () => {
     await expect(
       deliverCommentToLatestAgent(bb, store, { taskId: task.id, ...input }),
     ).resolves.toBe(0);
-    expect(harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_plugin_side_chat" }],
-    ]);
+    expect(harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_plugin_side_chat" }]]);
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 

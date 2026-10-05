@@ -119,9 +119,7 @@ export const EXTENDED_ICON_NAMES = [
 
 export type ExtendedIconName = (typeof EXTENDED_ICON_NAMES)[number];
 
-export type ExtendedIconMap = Readonly<
-  Record<ExtendedIconName, IconSvgElement>
->;
+export type ExtendedIconMap = Readonly<Record<ExtendedIconName, IconSvgElement>>;
 
 let extendedIcons: ExtendedIconMap | null = null;
 const listeners = new Set<() => void>();
@@ -151,9 +149,7 @@ interface AppIconDefinition {
 let appIcons: ReadonlyMap<string, AppIconDefinition> = new Map();
 const appIconListeners = new Set<() => void>();
 
-export function setAppIcons(
-  next: ReadonlyMap<string, AppIconDefinition>,
-): void {
+export function setAppIcons(next: ReadonlyMap<string, AppIconDefinition>): void {
   appIcons = next;
   for (const listener of appIconListeners) listener();
 }

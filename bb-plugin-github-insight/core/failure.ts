@@ -37,9 +37,7 @@ export const checkFailureSchema = z.object({
 });
 export type CheckFailure = z.infer<typeof checkFailureSchema>;
 
-export function parseFailureAnnotations(
-  response: unknown,
-): Map<string, Annotation[]> {
+export function parseFailureAnnotations(response: unknown): Map<string, Annotation[]> {
   const runs = checkRunDetailsSchema.parse(response).data.nodes;
   const byRunId = new Map<string, Annotation[]>();
   for (const run of runs) {

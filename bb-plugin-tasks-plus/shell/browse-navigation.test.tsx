@@ -87,9 +87,7 @@ describe("compact Tasks navigation drawers", () => {
         },
       },
     );
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Project: Tenet" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Project: Tenet" }));
     const drawer = await slot.findByRole("dialog", { name: "Choose project" });
     const group = await within(drawer).findByRole("group", {
       name: "Work / Products",
@@ -100,28 +98,20 @@ describe("compact Tasks navigation drawers", () => {
         checked: true,
       }),
     ).toBeDefined();
-    fireEvent.click(
-      within(drawer).getByRole("menuitemradio", { name: "ClassSpotter" }),
-    );
+    fireEvent.click(within(drawer).getByRole("menuitemradio", { name: "ClassSpotter" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       options: { subPath: other.id },
     });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     slot.lifecycle.rerender(<CompactPanel subPath={other.id} />);
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Project: ClassSpotter" }),
-    );
-    fireEvent.click(
-      await slot.findByRole("menuitemradio", { name: "All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Project: ClassSpotter" }));
+    fireEvent.click(await slot.findByRole("menuitemradio", { name: "All projects" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       options: { subPath: "all" },
     });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     slot.lifecycle.rerender(<CompactPanel subPath="all" />);
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Project: All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Project: All projects" }));
     expect(
       await slot.findByRole("menuitemradio", {
         name: "All projects",
@@ -139,38 +129,24 @@ describe("compact Tasks navigation drawers", () => {
         rpc: {
           ...rpc,
           listProjects: () =>
-            failed
-              ? Promise.reject(new Error("offline"))
-              : { projects: [project] },
+            failed ? Promise.reject(new Error("offline")) : { projects: [project] },
         },
       },
     );
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Project: All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Project: All projects" }));
     const retry = await slot.findByRole("menuitem", { name: "Retry projects" });
     failed = false;
     fireEvent.click(retry);
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-    fireEvent.click(
-      slot.getByRole("button", { name: "Project: All projects" }),
-    );
-    expect(
-      await slot.findByRole("menuitemradio", { name: "Tenet" }),
-    ).toBeDefined();
+    fireEvent.click(slot.getByRole("button", { name: "Project: All projects" }));
+    expect(await slot.findByRole("menuitemradio", { name: "Tenet" })).toBeDefined();
   });
 
   it.each(["list", "board"])(
     "offers the alternate project view from the %s drawer",
     async (view) => {
-      const slot = renderSlot(
-        compactPanel,
-        { subPath: `${project.id}?view=${view}` },
-        { rpc },
-      );
-      fireEvent.click(
-        await slot.findByRole("button", { name: "Tasks navigation" }),
-      );
+      const slot = renderSlot(compactPanel, { subPath: `${project.id}?view=${view}` }, { rpc });
+      fireEvent.click(await slot.findByRole("button", { name: "Tasks navigation" }));
       const drawer = await slot.findByRole("dialog", {
         name: "Tasks navigation",
       });
@@ -201,12 +177,8 @@ describe("inline Tasks navigation", () => {
     expect(picker.closest("header")).not.toBeNull();
     openMenu(picker);
     const work = await slot.findByRole("group", { name: "Work" });
-    expect(
-      within(work).getByRole("menuitemradio", { name: "Tenet", checked: true }),
-    ).toBeDefined();
-    expect(
-      slot.getByRole("menuitemradio", { name: "All projects" }),
-    ).toBeDefined();
+    expect(within(work).getByRole("menuitemradio", { name: "Tenet", checked: true })).toBeDefined();
+    expect(slot.getByRole("menuitemradio", { name: "All projects" })).toBeDefined();
     fireEvent.click(slot.getByRole("menuitemradio", { name: "ClassSpotter" }));
     expect(slot.inspection.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -272,13 +244,12 @@ describe("inline Tasks navigation", () => {
     );
     await slot.findByText("Tenet work");
     openMenu(slot.getByRole("button", { name: "Project: Tenet" }));
-    fireEvent.click(
-      await slot.findByRole("menuitemradio", { name: "ClassSpotter" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitemradio", { name: "ClassSpotter" }));
     // A requested destination must not change memory before the host commits it.
-    expect(
-      JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope,
-    ).toEqual({ kind: "project", projectId: project.id });
+    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+      kind: "project",
+      projectId: project.id,
+    });
     const Panel = panel.component;
     slot.lifecycle.rerender(<Panel subPath={other.id} />);
     await slot.findByRole("button", { name: "Project: ClassSpotter" });
@@ -289,21 +260,18 @@ describe("inline Tasks navigation", () => {
     act(() => release());
     await slot.findByText("ClassSpotter work");
     openMenu(await slot.findByRole("button", { name: "Label" }));
-    expect(
-      await slot.findByRole("menuitemcheckbox", { name: "School" }),
-    ).toBeDefined();
-    expect(
-      slot.queryByRole("menuitemcheckbox", { name: "Engineering" }),
-    ).toBeNull();
+    expect(await slot.findByRole("menuitemcheckbox", { name: "School" })).toBeDefined();
+    expect(slot.queryByRole("menuitemcheckbox", { name: "Engineering" })).toBeNull();
     fireEvent.keyDown(slot.getByRole("menu"), { key: "Escape" });
     fireEvent.click(slot.getByRole("button", { name: "New task" }));
     const dialog = await slot.findByRole("dialog");
-    expect(
-      within(dialog).getByRole("combobox", { name: "Project" }).textContent,
-    ).toContain("ClassSpotter");
-    expect(
-      JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope,
-    ).toEqual({ kind: "project", projectId: other.id });
+    expect(within(dialog).getByRole("combobox", { name: "Project" }).textContent).toContain(
+      "ClassSpotter",
+    );
+    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+      kind: "project",
+      projectId: other.id,
+    });
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     openMenu(slot.getByRole("button", { name: "Project: ClassSpotter" }));
@@ -313,14 +281,12 @@ describe("inline Tasks navigation", () => {
     expect(slot.getByRole("button", { name: /Sort.*Priority/ })).toBeDefined();
     expect(slot.getByRole("button", { name: "Status" })).toBeDefined();
     openMenu(slot.getByRole("button", { name: "Project: Tenet" }));
-    fireEvent.click(
-      await slot.findByRole("menuitemradio", { name: "All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitemradio", { name: "All projects" }));
     slot.lifecycle.rerender(<Panel subPath="all" />);
     await slot.findByRole("button", { name: "Project: All projects" });
-    expect(
-      JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope,
-    ).toEqual({ kind: "all" });
+    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+      kind: "all",
+    });
   });
   it("keeps Active cross-project and reaches Manage, preset editing, and preset creation", async () => {
     const preset = {
@@ -374,18 +340,12 @@ describe("inline Tasks navigation", () => {
     });
     slot.lifecycle.rerender(<Panel subPath="active" />);
     await slot.findByText("Other project's active work");
-    expect(
-      slot.getByRole("button", { name: "Project: All projects" }),
-    ).toBeDefined();
+    expect(slot.getByRole("button", { name: "Project: All projects" })).toBeDefined();
     const activeCalls = slot.inspection.rpcCalls.filter(
-      (call) =>
-        call.method === "listTasks" &&
-        (call.input as { activeOnly?: boolean }).activeOnly,
+      (call) => call.method === "listTasks" && (call.input as { activeOnly?: boolean }).activeOnly,
     );
     expect(activeCalls.length).toBeGreaterThan(0);
-    expect(
-      activeCalls.every((call) => !("projectId" in (call.input as object))),
-    ).toBe(true);
+    expect(activeCalls.every((call) => !("projectId" in (call.input as object)))).toBe(true);
     openMenu(slot.getByRole("button", { name: "Tasks navigation" }));
     fireEvent.click(await slot.findByRole("menuitem", { name: "Manage" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
@@ -397,9 +357,7 @@ describe("inline Tasks navigation", () => {
       ctrlKey: false,
     });
     await slot.findByText("Review agent");
-    fireEvent.click(
-      slot.getByRole("button", { name: "Edit preset Review agent" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Edit preset Review agent" }));
     await slot.findByRole("dialog");
     fireEvent.keyDown(slot.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
@@ -407,13 +365,12 @@ describe("inline Tasks navigation", () => {
     await slot.findByRole("dialog");
     fireEvent.keyDown(slot.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-    expect(
-      JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope,
-    ).toEqual({ kind: "project", projectId: project.id });
+    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+      kind: "project",
+      projectId: project.id,
+    });
     openMenu(slot.getByRole("button", { name: "Tasks navigation" }));
-    fireEvent.click(
-      await slot.findByRole("menuitem", { name: "All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitem", { name: "All projects" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       options: { subPath: "all" },
     });
@@ -447,39 +404,27 @@ describe("inline Tasks navigation", () => {
         );
       } else {
         await slot.findByRole("button", { name: "Project: All projects" });
-        expect(
-          slot.inspection.rpcCalls.some(
-            (call) => call.method === "listBbProjects",
-          ),
-        ).toBe(false);
+        expect(slot.inspection.rpcCalls.some((call) => call.method === "listBbProjects")).toBe(
+          false,
+        );
         openMenu(
           slot.getByRole("button", {
-            name:
-              entry === "picker" ? "Project: All projects" : "Tasks navigation",
+            name: entry === "picker" ? "Project: All projects" : "Tasks navigation",
           }),
         );
-        fireEvent.click(
-          await slot.findByRole("menuitem", { name: "New project" }),
-        );
+        fireEvent.click(await slot.findByRole("menuitem", { name: "New project" }));
       }
       const dialog = await slot.findByRole("dialog");
-      fireEvent.change(
-        within(dialog).getByPlaceholderText("e.g. Tasks Plugin"),
-        { target: { value: "ClassSpotter" } },
-      );
-      fireEvent.click(
-        within(dialog).getByRole("button", { name: "Create project" }),
-      );
+      fireEvent.change(within(dialog).getByPlaceholderText("e.g. Tasks Plugin"), {
+        target: { value: "ClassSpotter" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Create project" }));
       await waitFor(() =>
         expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
           options: { subPath: other.id },
         }),
       );
-      expect(
-        slot.inspection.rpcCalls.some(
-          (call) => call.method === "createProject",
-        ),
-      ).toBe(true);
+      expect(slot.inspection.rpcCalls.some((call) => call.method === "createProject")).toBe(true);
     },
   );
 
@@ -513,17 +458,14 @@ describe("inline Tasks navigation", () => {
         },
       },
     );
-    openMenu(
-      await slot.findByRole("button", { name: "Project: All projects" }),
-    );
+    openMenu(await slot.findByRole("button", { name: "Project: All projects" }));
     expect(
-      within(
-        await slot.findByRole("group", { name: "Work / Products" }),
-      ).getByRole("menuitemradio", { name: "Tenet" }),
+      within(await slot.findByRole("group", { name: "Work / Products" })).getByRole(
+        "menuitemradio",
+        { name: "Tenet" },
+      ),
     ).toBeDefined();
-    expect(
-      slot.getByRole("menuitemradio", { name: "ClassSpotter" }),
-    ).toBeDefined();
+    expect(slot.getByRole("menuitemradio", { name: "ClassSpotter" })).toBeDefined();
     folderName = "Applications";
     await slot.behavior.emitRealtime("projects:changed", {
       projectId: project.id,
@@ -543,9 +485,7 @@ describe("inline Tasks navigation", () => {
         },
       },
     );
-    openMenu(
-      await slot.findByRole("button", { name: "Project: All projects" }),
-    );
+    openMenu(await slot.findByRole("button", { name: "Project: All projects" }));
     fireEvent.click(await slot.findByRole("menuitemradio", { name: "Tenet" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       options: { subPath: project.id },
@@ -555,11 +495,7 @@ describe("inline Tasks navigation", () => {
   it.each(["list", "board"])(
     "keeps project switching and menu view controls reachable from %s",
     async (view) => {
-      const slot = renderSlot(
-        panel,
-        { subPath: `${project.id}?view=${view}` },
-        { rpc },
-      );
+      const slot = renderSlot(panel, { subPath: `${project.id}?view=${view}` }, { rpc });
       await slot.findByRole("button", { name: "Project: Tenet" });
       openMenu(slot.getByRole("button", { name: "Tasks navigation" }));
       fireEvent.click(
@@ -583,9 +519,7 @@ describe("inline Tasks navigation", () => {
     );
     await slot.findByText(/Task TEN-99 was not found/);
     openMenu(slot.getByRole("button", { name: "Tasks navigation" }));
-    fireEvent.click(
-      await slot.findByRole("menuitem", { name: "All projects" }),
-    );
+    fireEvent.click(await slot.findByRole("menuitem", { name: "All projects" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       options: { subPath: "all" },
     });
@@ -599,15 +533,11 @@ describe("inline Tasks navigation", () => {
         rpc: {
           ...rpc,
           listProjects: () =>
-            failed
-              ? Promise.reject(new Error("offline"))
-              : { projects: [project] },
+            failed ? Promise.reject(new Error("offline")) : { projects: [project] },
         },
       },
     );
-    openMenu(
-      await slot.findByRole("button", { name: "Project: All projects" }),
-    );
+    openMenu(await slot.findByRole("button", { name: "Project: All projects" }));
     const retry = await slot.findByRole("menuitem", { name: "Retry projects" });
     failed = false;
     fireEvent.click(retry);

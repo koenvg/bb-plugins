@@ -45,8 +45,7 @@ export function createSafeTaskTransition() {
     },
     request(commit: () => void) {
       destination = commit;
-      if (editor?.getSnapshot().pending)
-        pendingListeners.forEach((listener) => listener());
+      if (editor?.getSnapshot().pending) pendingListeners.forEach((listener) => listener());
       return run();
     },
     retry: run,

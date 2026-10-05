@@ -8,10 +8,7 @@ export function ageRichDetails(pr: WorkPr, now: number): WorkPr {
   const time = Date.parse(pr.rich.refreshedAt);
   if (!Number.isFinite(time) || time > now)
     return { ...pr, details: "unavailable", detailsReason: "invalid_metadata" };
-  if (
-    (pr.state === "open" || pr.state === "draft") &&
-    now - time > RICH_DETAILS_MAX_AGE
-  )
+  if ((pr.state === "open" || pr.state === "draft") && now - time > RICH_DETAILS_MAX_AGE)
     return { ...pr, details: "stale", detailsReason: "expired" };
   return pr;
 }

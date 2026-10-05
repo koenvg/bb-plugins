@@ -7,10 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import {
-  experimental_useAppPanel,
-  type PluginFixedTabRegistration,
-} from "@get-bb/plugin-sdk/app";
+import { experimental_useAppPanel, type PluginFixedTabRegistration } from "@get-bb/plugin-sdk/app";
 import { useShortcutScope } from "./shortcut-provider.js";
 import { PaneVisibilityContext } from "../lib/pane-visibility.js";
 import { useTasksSession } from "../views/detail/task-session.js";
@@ -57,11 +54,7 @@ function TicketTab() {
       {populated && active !== root.current && (
         <div className="p-6 text-sm text-muted-foreground">
           <p>The ticket is open in another pane.</p>
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={() => claimOutlet(root.current!)}
-          >
+          <Button variant="outline" className="mt-3" onClick={() => claimOutlet(root.current!)}>
             Show ticket here
           </Button>
         </div>
@@ -117,10 +110,7 @@ export function TicketPanelContent({
 }) {
   const outlet = useSyncExternalStore(subscribe, currentOutlet);
   const session = useTasksSession();
-  useLayoutEffect(
-    () => session?.onPendingTransition(onReveal),
-    [session, onReveal],
-  );
+  useLayoutEffect(() => session?.onPendingTransition(onReveal), [session, onReveal]);
   const parking = useRef<HTMLDivElement>(null);
   const [container] = useState(() => {
     const element = document.createElement("div");
@@ -141,9 +131,7 @@ export function TicketPanelContent({
   useLayoutEffect(() => {
     const target = outlet ?? parking.current!;
     target.appendChild(container);
-    onOutletChange(
-      outlet || recovery ? { element: target, recovery: !outlet } : null,
-    );
+    onOutletChange(outlet || recovery ? { element: target, recovery: !outlet } : null);
   }, [outlet, recovery, container, onOutletChange]);
   return (
     <>

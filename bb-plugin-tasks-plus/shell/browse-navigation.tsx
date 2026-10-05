@@ -64,22 +64,18 @@ export function ProjectPicker({
   const projects = inventory.data;
   const projectId = route.kind === "project" ? route.projectId : null;
   const project = projects?.find((candidate) => candidate.id === projectId);
-  const label =
-    projectId === null ? "All projects" : (project?.name ?? "Project");
+  const label = projectId === null ? "All projects" : (project?.name ?? "Project");
   const folderList = folders.data ?? [];
   const knownFolderIds = new Set(folderList.map((folder) => folder.id));
   const ungrouped = (projects ?? []).filter(
-    (candidate) =>
-      candidate.folderId === null || !knownFolderIds.has(candidate.folderId),
+    (candidate) => candidate.folderId === null || !knownFolderIds.has(candidate.folderId),
   );
   const choices = (items: Project[]) =>
     items.map((item) => (
       <NavigationChoice
         key={item.id}
         selected={projectId === item.id}
-        onSelect={() =>
-          onNavigate({ kind: "project", projectId: item.id, view: null })
-        }
+        onSelect={() => onNavigate({ kind: "project", projectId: item.id, view: null })}
         textValue={item.name}
       >
         <span
@@ -95,11 +91,7 @@ export function ProjectPicker({
 
   if (projects?.length === 0 && inventory.error === null) {
     return (
-      <Button
-        variant="ghost"
-        className="h-9 min-w-0 gap-2 px-3"
-        onClick={onNewProject}
-      >
+      <Button variant="ghost" className="h-9 min-w-0 gap-2 px-3" onClick={onNewProject}>
         <Icon name="Plus" className="size-4 shrink-0" />
         <span className="truncate">New project</span>
       </Button>
@@ -124,10 +116,7 @@ export function ProjectPicker({
           <span className="min-w-0 truncate font-semibold" title={label}>
             {label}
           </span>
-          <Icon
-            name="ChevronDown"
-            className="size-4 shrink-0 text-muted-foreground"
-          />
+          <Icon name="ChevronDown" className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -145,17 +134,12 @@ export function ProjectPicker({
           <DropdownMenuSeparator />
           {choices(ungrouped)}
           {folderList.map((folder) => {
-            const items = (projects ?? []).filter(
-              (candidate) => candidate.folderId === folder.id,
-            );
+            const items = (projects ?? []).filter((candidate) => candidate.folderId === folder.id);
             if (items.length === 0) return null;
             const path = folderPath(folder, folderList);
             return (
               <DropdownMenuGroup key={folder.id} aria-label={path}>
-                <DropdownMenuLabel
-                  className="truncate text-xs text-muted-foreground"
-                  title={path}
-                >
+                <DropdownMenuLabel className="truncate text-xs text-muted-foreground" title={path}>
                   {path}
                 </DropdownMenuLabel>
                 {choices(items)}
@@ -197,29 +181,16 @@ export function TasksNavigationMenu({
           <Icon name="MoreHorizontal" className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        mobileTitle="Tasks navigation"
-        className="w-56"
-      >
-        <DropdownMenuItem
-          className="min-h-9"
-          onSelect={() => onNavigate({ kind: "all" })}
-        >
+      <DropdownMenuContent align="end" mobileTitle="Tasks navigation" className="w-56">
+        <DropdownMenuItem className="min-h-9" onSelect={() => onNavigate({ kind: "all" })}>
           <Icon name="ListView" />
           All projects
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="min-h-9"
-          onSelect={() => onNavigate({ kind: "active" })}
-        >
+        <DropdownMenuItem className="min-h-9" onSelect={() => onNavigate({ kind: "active" })}>
           <Icon name="Zap" />
           Active
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="min-h-9"
-          onSelect={() => onNavigate({ kind: "manage" })}
-        >
+        <DropdownMenuItem className="min-h-9" onSelect={() => onNavigate({ kind: "manage" })}>
           <Icon name="Settings" />
           Manage
         </DropdownMenuItem>

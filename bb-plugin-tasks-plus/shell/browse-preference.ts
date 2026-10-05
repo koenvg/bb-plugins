@@ -1,8 +1,6 @@
 import { ULID_PATTERN } from "../shared/contract.js";
 
-export type BrowseScope =
-  | { kind: "all" }
-  | { kind: "project"; projectId: string };
+export type BrowseScope = { kind: "all" } | { kind: "project"; projectId: string };
 const VERSION = 1;
 type StorageAccess = () => Pick<Storage, "getItem" | "setItem">;
 
@@ -43,8 +41,7 @@ export function createBrowsePreference(key: string, storage: StorageAccess) {
         if (raw !== lastRaw) {
           lastRaw = raw;
           const document = parseDocument(raw);
-          sessionScope =
-            document?.version === VERSION ? parseScope(document.scope) : null;
+          sessionScope = document?.version === VERSION ? parseScope(document.scope) : null;
         }
       } catch {}
       return sessionScope;
@@ -68,17 +65,11 @@ export function createBrowsePreference(key: string, storage: StorageAccess) {
 // The pinned SDK has no plugin-id hook. Namespace with this package's plugin id,
 // not a BB project id. Keep one session fallback across panel mounts.
 export const BROWSE_PREFERENCE_STORAGE_KEY = "tasks-plus:browse-preference";
-let preference = createBrowsePreference(
-  BROWSE_PREFERENCE_STORAGE_KEY,
-  () => window.localStorage,
-);
+let preference = createBrowsePreference(BROWSE_PREFERENCE_STORAGE_KEY, () => window.localStorage);
 export function browsePreference() {
   return preference;
 }
 
 export function resetBrowsePreferenceStateForTest(): void {
-  preference = createBrowsePreference(
-    BROWSE_PREFERENCE_STORAGE_KEY,
-    () => window.localStorage,
-  );
+  preference = createBrowsePreference(BROWSE_PREFERENCE_STORAGE_KEY, () => window.localStorage);
 }

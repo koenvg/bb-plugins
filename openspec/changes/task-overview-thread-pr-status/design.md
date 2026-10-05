@@ -14,11 +14,13 @@ See `proposal.md` for motivation and `specs/task-overview-work-status/spec.md` f
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Put metadata validation, freshness, deduplication, and precedence behind a small enrichment interface rather than teaching each row about SDK or GitHub response shapes.
 - Keep attachment identities and detailed statuses available while letting row presentation bound visible text.
 - Improve accuracy through read-only authoritative hydration without changing durable task or attachment lifecycle data.
 
 **Non-Goals:**
+
 - No dependency on Threads with PRs being installed and no imports from sibling plugin source files.
 - No new global GitHub polling system or refreshing archived PRs through GitHub Insight.
 - No lifecycle rewrite, task database migration, task-status automation, status-based filtering/sorting, board changes, or merge/review controls.

@@ -92,9 +92,7 @@ describe("parseReviewQueue", () => {
   });
 
   it("orders groups by repo and PRs inside a group newest update first", () => {
-    expect(
-      queue.groups.map((group) => [group.repo, group.prs.map((pr) => pr.number)]),
-    ).toEqual([
+    expect(queue.groups.map((group) => [group.repo, group.prs.map((pr) => pr.number)])).toEqual([
       ["acme/api", [15, 12]],
       ["acme/docs", [3]],
       ["acme/web", [7]],

@@ -2,10 +2,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Attachment, TasksStore } from "../db";
-import {
-  attachmentDownloadUrl,
-  MAX_ATTACHMENT_SIZE_BYTES,
-} from "../shared/attachments";
+import { attachmentDownloadUrl, MAX_ATTACHMENT_SIZE_BYTES } from "../shared/attachments";
 import { errorMessage } from "../shared/errors";
 
 const INLINE_RASTER_MIMES = new Set([
@@ -46,9 +43,7 @@ interface DatabaseListRow {
   file: string;
 }
 
-type PluginHttpContext = Parameters<
-  Parameters<BbPluginApi["http"]["route"]>[2]
->[0];
+type PluginHttpContext = Parameters<Parameters<BbPluginApi["http"]["route"]>[2]>[0];
 
 class AttachmentRequestError extends Error {
   constructor(
@@ -82,10 +77,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function removeAttachmentDescriptionReferences(
-  markdown: string,
-  attachmentId: string,
-): string {
+function removeAttachmentDescriptionReferences(markdown: string, attachmentId: string): string {
   const url = escapeRegExp(attachmentDownloadUrl(attachmentId));
   return markdown.replace(new RegExp(`!\\[[^\\]]*\\]\\(${url}\\)`, "g"), "");
 }
@@ -105,9 +97,7 @@ function pluginDataDirectory(bb: BbPluginApi): string {
 function requireStoreRoot(store: TasksStore): string {
   const root = storeRoots.get(store);
   if (!root) {
-    throw new Error(
-      "Tasks attachment helpers require registerAttachments(bb, store) first",
-    );
+    throw new Error("Tasks attachment helpers require registerAttachments(bb, store) first");
   }
   return root;
 }
@@ -115,10 +105,7 @@ function requireStoreRoot(store: TasksStore): string {
 function pathInside(root: string, blobPath: string): string {
   const absoluteRoot = resolve(root);
   const absolutePath = resolve(absoluteRoot, blobPath);
-  if (
-    absolutePath !== absoluteRoot &&
-    !absolutePath.startsWith(`${absoluteRoot}${sep}`)
-  ) {
+  if (absolutePath !== absoluteRoot && !absolutePath.startsWith(`${absoluteRoot}${sep}`)) {
     throw new Error("Attachment blob path escapes the plugin data directory");
   }
   return absolutePath;
@@ -141,9 +128,7 @@ export async function removeAttachmentBlobs(
     if (result.status === "fulfilled") return [];
     const attachment = attachments[index];
     const message = errorMessage(result.reason);
-    bb.log.warn(
-      `failed to remove attachment blob ${attachment?.id ?? "unknown"}: ${message}`,
-    );
+    bb.log.warn(`failed to remove attachment blob ${attachment?.id ?? "unknown"}: ${message}`);
     return [result.reason];
   });
   if (failures.length > 0) {
@@ -151,14 +136,9 @@ export async function removeAttachmentBlobs(
   }
 }
 
-function buildContentDisposition(
-  disposition: "inline" | "attachment",
-  fileName: string,
-): string {
+function buildContentDisposition(disposition: "inline" | "attachment", fileName: string): string {
   const visibleName = fileName.replace(BIDI_CONTROL_PATTERN, "_");
-  const asciiFallback = visibleName
-    .replace(/[^\x20-\x7e]/g, "-")
-    .replace(/["\\]/g, "_");
+  const asciiFallback = visibleName.replace(/[^\x20-\x7e]/g, "-").replace(/["\\]/g, "_");
   return `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encodeExtValue(visibleName)}`;
 }
 
@@ -176,12 +156,7 @@ function encodeExtValue(value: string): string {
 const BIDI_CONTROL_PATTERN = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
 
 function sanitizeFileName(fileName: string): string {
-  const baseName = fileName
-    .normalize("NFC")
-    .replaceAll("\\", "/")
-    .split("/")
-    .at(-1)
-    ?.trim();
+  const baseName = fileName.normalize("NFC").replaceAll("\\", "/").split("/").at(-1)?.trim();
   let sanitized = (baseName ?? "")
     .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, "_")
     .replace(BIDI_CONTROL_PATTERN, "_")
@@ -205,16 +180,10 @@ function normalizeMime(mime: string): string {
 }
 
 function isInlineRasterMime(mime: string): boolean {
-  return INLINE_RASTER_MIMES.has(
-    mime.split(";", 1)[0]?.trim().toLowerCase() ?? "",
-  );
+  return INLINE_RASTER_MIMES.has(mime.split(";", 1)[0]?.trim().toLowerCase() ?? "");
 }
 
-function bytesMatch(
-  bytes: Uint8Array,
-  offset: number,
-  expected: readonly number[],
-): boolean {
+function bytesMatch(bytes: Uint8Array, offset: number, expected: readonly number[]): boolean {
   return expected.every((value, index) => bytes[offset + index] === value);
 }
 
@@ -249,10 +218,7 @@ function inferMimeFromBytes(bytes: Uint8Array, fileName: string): string {
   const sniffed = sniffRasterMime(bytes.subarray(0, 12));
   if (sniffed) return sniffed;
   const extension = fileName.toLowerCase().match(/\.[^.]+$/u)?.[0];
-  return (
-    (extension && RASTER_MIME_BY_EXTENSION[extension]) ??
-    "application/octet-stream"
-  );
+  return (extension && RASTER_MIME_BY_EXTENSION[extension]) ?? "application/octet-stream";
 }
 
 function normalizeOwner(
@@ -262,10 +228,7 @@ function normalizeOwner(
   const normalizedTaskId = taskId?.trim() || undefined;
   const normalizedCommentId = commentId?.trim() || undefined;
   if (Boolean(normalizedTaskId) === Boolean(normalizedCommentId)) {
-    throw new AttachmentRequestError(
-      400,
-      "exactly one of taskId or commentId is required",
-    );
+    throw new AttachmentRequestError(400, "exactly one of taskId or commentId is required");
   }
   if (normalizedTaskId) return { taskId: normalizedTaskId };
   if (normalizedCommentId) return { commentId: normalizedCommentId };
@@ -282,16 +245,12 @@ function attachmentParameters(context: PluginHttpContext): {
     query.taskId ?? context.req.header("x-task-id"),
     query.commentId ?? context.req.header("x-comment-id"),
   );
-  const requestedFileName =
-    query.fileName ?? context.req.header("x-file-name") ?? "";
+  const requestedFileName = query.fileName ?? context.req.header("x-file-name") ?? "";
   if (!requestedFileName.trim()) {
     throw new AttachmentRequestError(400, "fileName is required");
   }
   const requestedMime =
-    query.mime ??
-    context.req.header("x-mime-type") ??
-    context.req.header("content-type") ??
-    "";
+    query.mime ?? context.req.header("x-mime-type") ?? context.req.header("content-type") ?? "";
   return {
     owner,
     fileName: sanitizeFileName(requestedFileName),
@@ -301,10 +260,7 @@ function attachmentParameters(context: PluginHttpContext): {
 
 async function readRequestBody(request: Request): Promise<Uint8Array> {
   const declaredLength = Number(request.headers.get("content-length"));
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > MAX_ATTACHMENT_SIZE_BYTES
-  ) {
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ATTACHMENT_SIZE_BYTES) {
     throw new AttachmentRequestError(413, "attachment exceeds the 25 MB limit");
   }
   if (!request.body) return new Uint8Array();
@@ -319,10 +275,7 @@ async function readRequestBody(request: Request): Promise<Uint8Array> {
       size += value.byteLength;
       if (size > MAX_ATTACHMENT_SIZE_BYTES) {
         await reader.cancel();
-        throw new AttachmentRequestError(
-          413,
-          "attachment exceeds the 25 MB limit",
-        );
+        throw new AttachmentRequestError(413, "attachment exceeds the 25 MB limit");
       }
       chunks.push(value);
     }
@@ -428,28 +381,21 @@ export async function deleteAttachmentById(
 
   const taskId =
     attachment.taskId ??
-    (attachment.commentId
-      ? store.getComment(attachment.commentId)?.taskId
-      : undefined);
+    (attachment.commentId ? store.getComment(attachment.commentId)?.taskId : undefined);
   const ownerTask = taskId ? store.getTask(taskId) : undefined;
   let nextDescription: string | undefined;
   if (ownerTask?.description.includes(attachmentDownloadUrl(attachment.id))) {
     if (!options.removeDescriptionReferences) {
       throw new AttachmentReferencedError(attachment);
     }
-    nextDescription = removeAttachmentDescriptionReferences(
-      ownerTask.description,
-      attachment.id,
-    );
+    nextDescription = removeAttachmentDescriptionReferences(ownerTask.description, attachment.id);
     if (nextDescription === ownerTask.description) {
       throw new AttachmentReferencedError(attachment);
     }
   }
 
   try {
-    await (options.removeBlobs ?? removeAttachmentBlobs)(bb, store, [
-      attachment,
-    ]);
+    await (options.removeBlobs ?? removeAttachmentBlobs)(bb, store, [attachment]);
   } catch (error) {
     throw new AttachmentCleanupError(attachment, error);
   }
@@ -468,9 +414,7 @@ export function publishAttachmentChanged(
 ): void {
   const taskId =
     attachment.taskId ??
-    (attachment.commentId
-      ? store.getComment(attachment.commentId)?.taskId
-      : undefined);
+    (attachment.commentId ? store.getComment(attachment.commentId)?.taskId : undefined);
   const task = taskId ? store.getTask(taskId) : undefined;
   if (!task) {
     bb.log.warn(`failed to publish attachment change ${attachment.id}`);
@@ -524,11 +468,8 @@ export function registerAttachments(
 
   bb.http.route("GET", DOWNLOAD_PATH, async (context) => {
     const attachmentId = context.req.query("attachmentId")?.trim();
-    const attachment = attachmentId
-      ? store.getAttachment(attachmentId)
-      : undefined;
-    if (!attachment)
-      return context.json({ error: "attachment not found" }, 404);
+    const attachment = attachmentId ? store.getAttachment(attachmentId) : undefined;
+    if (!attachment) return context.json({ error: "attachment not found" }, 404);
 
     const absolutePath = pathInside(root, attachment.blobPath);
     try {
@@ -536,17 +477,12 @@ export function registerAttachments(
     } catch {
       return context.json({ error: "attachment not found" }, 404);
     }
-    const disposition = isInlineRasterMime(attachment.mime)
-      ? "inline"
-      : "attachment";
+    const disposition = isInlineRasterMime(attachment.mime) ? "inline" : "attachment";
     return new Response(new Uint8Array(await readFile(absolutePath)), {
       headers: {
         "Content-Type": attachment.mime,
         "Content-Length": String(attachment.sizeBytes),
-        "Content-Disposition": buildContentDisposition(
-          disposition,
-          attachment.fileName,
-        ),
+        "Content-Disposition": buildContentDisposition(disposition, attachment.fileName),
         "X-Content-Type-Options": "nosniff",
       },
     });
@@ -562,8 +498,7 @@ export function registerAttachments(
               context.req.query("removeDescriptionReferences") === "true",
           })
         : null;
-      if (!attachment)
-        return context.json({ error: "attachment not found" }, 404);
+      if (!attachment) return context.json({ error: "attachment not found" }, 404);
       return context.json({ deleted: true });
     } catch (error) {
       return errorResponse(context, error);

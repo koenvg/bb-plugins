@@ -1,11 +1,7 @@
 import { useRef, useState } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { TaskWorkStatus, ThreadExecution } from "../../shared/contract.js";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { COARSE_POINTER_TEXT_SM_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { cn } from "@/lib/utils";
@@ -26,17 +22,12 @@ const LABELS: Record<ThreadExecution, string> = {
   idle: "Idle",
   removed: "Removed",
 };
-const CHIP =
-  `rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
+const CHIP = `rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
 
 export function threadBuckets(threads: TaskWorkStatus["threads"]) {
   return EXECUTION_ORDER.flatMap((execution) => {
-    const count = threads.filter(
-      (thread) => thread.execution === execution,
-    ).length;
-    return count
-      ? [{ execution, count, text: `${count} ${LABELS[execution]}` }]
-      : [];
+    const count = threads.filter((thread) => thread.execution === execution).length;
+    return count ? [{ execution, count, text: `${count} ${LABELS[execution]}` }] : [];
   });
 }
 
@@ -68,18 +59,10 @@ export function ThreadSummary({
   }
   const buckets = threadBuckets(meta.threads);
   const visible = buckets.slice(0, 2);
-  const hiddenCount = buckets
-    .slice(2)
-    .reduce((count, bucket) => count + bucket.count, 0);
-  const existing = meta.threads.filter(
-    (thread) => thread.execution !== "removed",
-  );
-  const archivedCount = existing.filter(
-    (thread) => thread.archive === "archived",
-  ).length;
-  const archiveUnknown = existing.some(
-    (thread) => thread.archive === "unknown",
-  );
+  const hiddenCount = buckets.slice(2).reduce((count, bucket) => count + bucket.count, 0);
+  const existing = meta.threads.filter((thread) => thread.execution !== "removed");
+  const archivedCount = existing.filter((thread) => thread.archive === "archived").length;
+  const archiveUnknown = existing.some((thread) => thread.archive === "unknown");
   const archiveText =
     archivedCount > 0
       ? archivedCount === existing.length && !archiveUnknown
@@ -107,19 +90,14 @@ export function ThreadSummary({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {
             // Enter belongs to this control, not the row's open-task shortcut.
-            if (event.key === "Enter" || event.key === " ")
-              event.stopPropagation();
+            if (event.key === "Enter" || event.key === " ") event.stopPropagation();
           }}
         >
           <Icon name="MessagesSquare" className="size-3 shrink-0" />
           {visible.map((bucket, index) => (
             <span key={bucket.execution} className="whitespace-nowrap">
               {index > 0 ? <span aria-hidden> · </span> : null}
-              <span
-                className={
-                  bucket.execution === "failed" ? "text-destructive" : undefined
-                }
-              >
+              <span className={bucket.execution === "failed" ? "text-destructive" : undefined}>
                 {bucket.text}
               </span>
             </span>
@@ -132,9 +110,7 @@ export function ThreadSummary({
               · {archiveText === "All threads archived" ? "All archived" : archiveText}
             </span>
           ) : null}
-          {archiveUnknown ? (
-            <span className="whitespace-nowrap">· Archive unavailable</span>
-          ) : null}
+          {archiveUnknown ? <span className="whitespace-nowrap">· Archive unavailable</span> : null}
           <Icon name="ChevronDown" className="size-3 shrink-0" />
         </button>
       </PopoverTrigger>
@@ -152,17 +128,14 @@ export function ThreadSummary({
         <h3 className="mb-2 text-sm font-semibold">Threads for {taskKey}</h3>
         {meta.availability === "unavailable" ? (
           <p className="mb-2 text-xs text-muted-foreground">
-            Couldn't refresh these attachments. Current activity and archive
-            state are unavailable.
+            Couldn't refresh these attachments. Current activity and archive state are unavailable.
           </p>
         ) : null}
         <ul className="space-y-3">
           {meta.threads.map((thread) => (
             <li key={thread.threadId} className="min-w-0">
               {thread.execution === "removed" ? (
-                <span className="block break-words text-sm">
-                  {thread.title}
-                </span>
+                <span className="block break-words text-sm">{thread.title}</span>
               ) : (
                 <a
                   href={`/threads/${thread.threadId}`}
@@ -186,17 +159,9 @@ export function ThreadSummary({
                   {thread.title}
                 </a>
               )}
-              <div className="break-all text-xs text-muted-foreground">
-                {thread.threadId}
-              </div>
+              <div className="break-all text-xs text-muted-foreground">{thread.threadId}</div>
               <div className="break-words text-xs text-muted-foreground">
-                <span
-                  className={
-                    thread.execution === "failed"
-                      ? "text-destructive"
-                      : undefined
-                  }
-                >
+                <span className={thread.execution === "failed" ? "text-destructive" : undefined}>
                   {LABELS[thread.execution]}
                 </span>
                 {thread.execution !== "removed" ? (

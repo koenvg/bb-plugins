@@ -5,15 +5,35 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 
 // This host owns temporary SQLite storage. It has no connection to the live BB host.
-const host = createFakePluginHost({ pluginId: "code-cleanup", sdk: { projects: { list: async () => [
-  { id: "fixture_alpha", name: "Alpha · saved custom prompt", kind: "standard" },
-  { id: "fixture_beta", name: "Beta · plugin default", kind: "standard" },
-  { id: "fixture_personal", name: "Personal · excluded", kind: "personal" },
-] as never } } });
+const host = createFakePluginHost({
+  pluginId: "code-cleanup",
+  sdk: {
+    projects: {
+      list: async () =>
+        [
+          { id: "fixture_alpha", name: "Alpha · saved custom prompt", kind: "standard" },
+          { id: "fixture_beta", name: "Beta · plugin default", kind: "standard" },
+          { id: "fixture_personal", name: "Personal · excluded", kind: "personal" },
+        ] as never,
+    },
+  },
+});
 await plugin(host.bb);
-await host.harness.behavior.runCli(["prompt", "set", "--project", "fixture_alpha", "--text", "  Fixture project guidance\n\nRecord substantial cleanup through BB Tasks only when a single tracker is linked to this project. Check for duplicates first. Keep the current work focused.\n\nThis custom prompt keeps its leading spaces and final newline.\n"]);
+await host.harness.behavior.runCli([
+  "prompt",
+  "set",
+  "--project",
+  "fixture_alpha",
+  "--text",
+  "  Fixture project guidance\n\nRecord substantial cleanup through BB Tasks only when a single tracker is linked to this project. Check for duplicates first. Keep the current work focused.\n\nThis custom prompt keeps its leading spaces and final newline.\n",
+]);
 await host.harness.behavior.runCli(["enable", "--project", "fixture_alpha"]);
-const vite = await createViteServer({ root: fileURLToPath(new URL("..", import.meta.url)), configFile: false, server: { middlewareMode: true }, appType: "custom" });
+const vite = await createViteServer({
+  root: fileURLToPath(new URL("..", import.meta.url)),
+  configFile: false,
+  server: { middlewareMode: true },
+  appType: "custom",
+});
 const server = createServer(async (req, res) => {
   if (!/^(localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i.test(req.headers.host ?? "")) {
     res.statusCode = 403;
@@ -24,30 +44,67 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/fixture-default") {
     try {
       if (req.method === "POST") {
-        let body = ""; for await (const chunk of req) { body += chunk; if (body.length > 1024) throw new Error("Request too large"); }
+        let body = "";
+        for await (const chunk of req) {
+          body += chunk;
+          if (body.length > 1024) throw new Error("Request too large");
+        }
         await host.harness.behavior.setSettings(JSON.parse(body));
       } else if (req.method !== "GET") throw new Error("GET or POST required");
-      const state = await host.harness.behavior.callRpc("getProject", { projectId: "fixture_beta" }) as { enableByDefault: boolean };
+      const state = (await host.harness.behavior.callRpc("getProject", {
+        projectId: "fixture_beta",
+      })) as { enableByDefault: boolean };
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ descriptor: host.harness.inspection.registrations.settingsDescriptors.enableByDefault, value: state.enableByDefault,
-        signals: req.method === "POST" ? host.harness.inspection.realtimeSignals.slice(-1) : [],
-      }));
-    } catch (error) { res.statusCode = 400; res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Fixture settings request failed" })); }
+      res.end(
+        JSON.stringify({
+          descriptor: host.harness.inspection.registrations.settingsDescriptors.enableByDefault,
+          value: state.enableByDefault,
+          signals: req.method === "POST" ? host.harness.inspection.realtimeSignals.slice(-1) : [],
+        }),
+      );
+    } catch (error) {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Fixture settings request failed",
+        }),
+      );
+    }
     return;
   }
   if (url.pathname.startsWith("/fixture-rpc/")) {
     try {
       if (req.method !== "POST") throw new Error("POST required");
       const method = url.pathname.slice("/fixture-rpc/".length);
-      if (!["listProjects", "getProject", "setEnablement", "setPrompt"].includes(method)) throw new Error("Unknown fixture operation");
-      let body = ""; for await (const chunk of req) { body += chunk; if (body.length > 8192) throw new Error("Request too large"); }
+      if (!["listProjects", "getProject", "setEnablement", "setPrompt"].includes(method))
+        throw new Error("Unknown fixture operation");
+      let body = "";
+      for await (const chunk of req) {
+        body += chunk;
+        if (body.length > 8192) throw new Error("Request too large");
+      }
       const scenario = url.searchParams.get("scenario");
-      await new Promise(resolve => setTimeout(resolve, scenario === "slow" ? 2000 : 200));
-      if (scenario === "load-failure" && method === "getProject") throw new Error("Fixture load failure");
-      if (scenario === "save-failure" && ["setEnablement", "setPrompt"].includes(method)) throw new Error("Fixture save failure");
-      const result = scenario === "empty" && method === "listProjects" ? [] : await host.harness.behavior.callRpc(method, JSON.parse(body));
-      res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ result }));
-    } catch (error) { res.statusCode = 400; res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Fixture request failed" })); }
+      await new Promise((resolve) => setTimeout(resolve, scenario === "slow" ? 2000 : 200));
+      if (scenario === "load-failure" && method === "getProject")
+        throw new Error("Fixture load failure");
+      if (scenario === "save-failure" && ["setEnablement", "setPrompt"].includes(method))
+        throw new Error("Fixture save failure");
+      const result =
+        scenario === "empty" && method === "listProjects"
+          ? []
+          : await host.harness.behavior.callRpc(method, JSON.parse(body));
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ result }));
+    } catch (error) {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Fixture request failed",
+        }),
+      );
+    }
     return;
   }
   if (url.pathname === "/") {
@@ -62,7 +119,14 @@ const server = createServer(async (req, res) => {
 const port = Number(process.env.PORT ?? 4888);
 server.listen(port, "127.0.0.1", () => {
   const address = server.address();
-  if (address && typeof address !== "string") console.log(`Isolated Code Cleanup Settings fixture ready at http://127.0.0.1:${address.port}`);
+  if (address && typeof address !== "string")
+    console.log(`Isolated Code Cleanup Settings fixture ready at http://127.0.0.1:${address.port}`);
 });
-async function stop() { server.close(); await vite.close(); await host.harness.lifecycle.dispose(); process.exit(0); }
-process.once("SIGTERM", stop); process.once("SIGINT", stop);
+async function stop() {
+  server.close();
+  await vite.close();
+  await host.harness.lifecycle.dispose();
+  process.exit(0);
+}
+process.once("SIGTERM", stop);
+process.once("SIGINT", stop);

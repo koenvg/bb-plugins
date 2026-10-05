@@ -14,11 +14,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Icon } from "@/components/ui/icon";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Side = "blockedBy" | "blocks";
 
@@ -69,9 +65,7 @@ function TaskPicker({
                   }}
                 >
                   <StatusIcon status={candidate.status} className="size-3" />
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {candidate.key}
-                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{candidate.key}</span>
                   <span className="min-w-0 truncate">{candidate.title}</span>
                 </CommandItem>
               ))}
@@ -99,9 +93,7 @@ function DependencyList({
   const navigation = useTasksNavigation();
   return (
     <section aria-label={SIDE_TITLES[side]} className="mt-5">
-      <h2 className="mb-1 text-xs font-semibold text-muted-foreground">
-        {SIDE_TITLES[side]}
-      </h2>
+      <h2 className="mb-1 text-xs font-semibold text-muted-foreground">{SIDE_TITLES[side]}</h2>
       {refs.map((ref) => (
         <div
           key={ref.id}
@@ -114,9 +106,7 @@ function DependencyList({
             onClick={() => navigation.go({ kind: "task", taskKey: ref.key })}
           >
             <StatusIcon status={ref.status} />
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {ref.key}
-            </span>
+            <span className="shrink-0 text-xs text-muted-foreground">{ref.key}</span>
             <span className="min-w-0 truncate">{ref.title}</span>
           </button>
           <button
@@ -144,10 +134,7 @@ export function DependencySections({
   onError: (message: string) => void;
 }) {
   const rpc = useTasksRpc();
-  const allTasks = useTasksQuery(
-    async (query) => listAllTasks(query, {}),
-    ["tasks:changed"],
-  );
+  const allTasks = useTasksQuery(async (query) => listAllTasks(query, {}), ["tasks:changed"]);
   const blockedBy = task.blockedBy ?? [];
   const blocks = task.blocks ?? [];
   const linked = new Set([
@@ -155,9 +142,7 @@ export function DependencySections({
     ...blockedBy.map((ref) => ref.id),
     ...blocks.map((ref) => ref.id),
   ]);
-  const candidates = (allTasks.data ?? []).filter(
-    (candidate) => !linked.has(candidate.id),
-  );
+  const candidates = (allTasks.data ?? []).filter((candidate) => !linked.has(candidate.id));
 
   const link = async (blockerTaskId: string, blockedTaskId: string) => {
     try {

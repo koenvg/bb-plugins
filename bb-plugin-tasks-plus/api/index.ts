@@ -91,18 +91,14 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
             `,
           )
           .all(...ids);
-        for (const row of rows)
-          labelsByTask.get(row.task_id)?.push(row.label_id);
+        for (const row of rows) labelsByTask.get(row.task_id)?.push(row.label_id);
       }
       return labelsByTask;
     },
     projectTaskCount(projectId: string): number {
       return (
         database
-          .prepare<
-            [string],
-            CountRow
-          >("SELECT COUNT(*) AS count FROM tasks WHERE project_id = ?")
+          .prepare<[string], CountRow>("SELECT COUNT(*) AS count FROM tasks WHERE project_id = ?")
           .get(projectId)?.count ?? 0
       );
     },
@@ -178,19 +174,12 @@ function taskFailure(error: TasksDomainFailure) {
   return { ok: false as const, error: error.detail };
 }
 
-export function publishTasksChanged(
-  bb: BbPluginApi,
-  taskId: string,
-  projectId: string,
-): void {
+export function publishTasksChanged(bb: BbPluginApi, taskId: string, projectId: string): void {
   const payload: TasksChangedEvent = { taskId, projectId };
   bb.realtime.publish("tasks:changed", payload);
 }
 
-export function publishProjectsChanged(
-  bb: BbPluginApi,
-  projectId: string | null,
-): void {
+export function publishProjectsChanged(bb: BbPluginApi, projectId: string | null): void {
   const payload: ProjectsChangedEvent = { projectId };
   bb.realtime.publish("projects:changed", payload);
 }
@@ -254,9 +243,7 @@ export function blockedWorkWarnings(task: Task): string[] {
     (ref) => ref.status !== "done" && ref.status !== "canceled",
   );
   if (openBlockers.length === 0) return [];
-  const list = openBlockers
-    .map((ref) => `${ref.key} (${ref.status})`)
-    .join(", ");
+  const list = openBlockers.map((ref) => `${ref.key} (${ref.status})`).join(", ");
   return [`${task.key} is blocked by ${list}`];
 }
 
@@ -274,22 +261,13 @@ function validateTaskParent(
   const parent = store.tasks.getTask(parentTaskId);
   if (!parent) throw new Error(`Task not found: ${parentTaskId}`);
   if (parent.projectId !== projectId) {
-    fail(
-      "subtask_project_mismatch",
-      "A sub-task must belong to the same project as its parent",
-    );
+    fail("subtask_project_mismatch", "A sub-task must belong to the same project as its parent");
   }
   if (parent.parentTaskId !== null) {
-    fail(
-      "subtask_depth_exceeded",
-      "Tasks support at most one level of sub-tasks",
-    );
+    fail("subtask_depth_exceeded", "Tasks support at most one level of sub-tasks");
   }
   if (ownTaskId && store.tasks.listSubtasks(ownTaskId).length > 0) {
-    fail(
-      "subtask_depth_exceeded",
-      "A task with sub-tasks cannot itself become a sub-task",
-    );
+    fail("subtask_depth_exceeded", "A task with sub-tasks cannot itself become a sub-task");
   }
 }
 
@@ -301,10 +279,7 @@ function validateTaskLabels(
   for (const labelId of labelIds) {
     const label = store.tasks.getLabel(labelId);
     if (!label || label.projectId !== projectId) {
-      fail(
-        "label_project_mismatch",
-        `Task labels must belong to the task project: ${labelId}`,
-      );
+      fail("label_project_mismatch", `Task labels must belong to the task project: ${labelId}`);
     }
   }
 }
@@ -314,9 +289,7 @@ function replaceTaskLabels(
   taskId: string,
   labelIds: readonly string[],
 ): void {
-  const current = new Set(
-    store.tasks.listTaskLabels(taskId).map((link) => link.labelId),
-  );
+  const current = new Set(store.tasks.listTaskLabels(taskId).map((link) => link.labelId));
   const next = new Set(labelIds);
   for (const labelId of current) {
     if (!next.has(labelId)) store.tasks.removeTaskLabel(taskId, labelId);
@@ -326,20 +299,13 @@ function replaceTaskLabels(
   }
 }
 
-function labelsChanged(
-  before: readonly string[],
-  after: readonly string[],
-): boolean {
+function labelsChanged(before: readonly string[], after: readonly string[]): boolean {
   if (before.length !== after.length) return true;
   const afterSet = new Set(after);
   return before.some((labelId) => !afterSet.has(labelId));
 }
 
-function labelChangeBody(
-  store: TasksApiStore,
-  taskId: string,
-  authorName: string,
-): string {
+function labelChangeBody(store: TasksApiStore, taskId: string, authorName: string): string {
   const names = store.tasks
     .listLabelsForTask(taskId)
     .map((label) => label.name)
@@ -379,15 +345,10 @@ function attachmentMetadata(attachment: StoredAttachment): AttachmentMetadata {
   };
 }
 
-function attachmentsForTasks(
-  store: TasksStore,
-  taskIds: readonly string[],
-): StoredAttachment[] {
+function attachmentsForTasks(store: TasksStore, taskIds: readonly string[]): StoredAttachment[] {
   return taskIds.flatMap((taskId) => [
     ...store.listAttachmentsForTask(taskId),
-    ...store
-      .listComments(taskId)
-      .flatMap((comment) => store.listAttachmentsForComment(comment.id)),
+    ...store.listComments(taskId).flatMap((comment) => store.listAttachmentsForComment(comment.id)),
   ]);
 }
 
@@ -431,9 +392,7 @@ async function resolveProviderBadges(
   bb: BbPluginApi,
   threadInfo: ReadonlyMap<string, AgentThreadInfo>,
 ): Promise<Map<string, CommentProvider>> {
-  const providerIds = new Set(
-    [...threadInfo.values()].map((info) => info.providerId),
-  );
+  const providerIds = new Set([...threadInfo.values()].map((info) => info.providerId));
   const badges = new Map<string, CommentProvider>();
   if (providerIds.size === 0) return badges;
   let providers: Awaited<ReturnType<typeof bb.sdk.providers.list>>;
@@ -490,9 +449,7 @@ export async function createComment(
       body: comment.body,
       authorName: comment.authorName,
     });
-    comment = store.transaction(() =>
-      store.tasks.updateComment(comment.id, { notifiedCount }),
-    );
+    comment = store.transaction(() => store.tasks.updateComment(comment.id, { notifiedCount }));
   }
 
   publishCommentsChanged(bb, input.taskId);
@@ -513,16 +470,13 @@ async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(limit, items.length) },
-    async () => {
-      while (nextIndex < items.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        results[index] = await work(items[index]!);
-      }
-    },
-  );
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await work(items[index]!);
+    }
+  });
   await Promise.all(workers);
   return results;
 }
@@ -557,9 +511,7 @@ async function listTaskPullRequests(
     [...threadIdsByEnvironment.entries()],
     PULL_REQUEST_LOOKUP_CONCURRENCY,
     async ([environmentId, threadIds]) => {
-      let result: Awaited<
-        ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>
-      >;
+      let result: Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>>;
       try {
         result = await bb.sdk.environments.pullRequest({ environmentId });
       } catch {
@@ -600,11 +552,8 @@ async function listTaskPullRequests(
     },
   );
 
-  const threadOrder = new Map(
-    taskThreads.map((taskThread, index) => [taskThread.threadId, index]),
-  );
-  const orderByThread = (threadId: string) =>
-    threadOrder.get(threadId) ?? Number.MAX_SAFE_INTEGER;
+  const threadOrder = new Map(taskThreads.map((taskThread, index) => [taskThread.threadId, index]));
+  const orderByThread = (threadId: string) => threadOrder.get(threadId) ?? Number.MAX_SAFE_INTEGER;
   const pullRequests = [...byUrl.values()].map((pullRequest) => ({
     ...pullRequest,
     threadIds: [...pullRequest.threadIds].sort(
@@ -613,9 +562,7 @@ async function listTaskPullRequests(
   }));
 
   return {
-    pullRequests: pullRequests.sort((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt),
-    ),
+    pullRequests: pullRequests.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
     unavailableThreadIds: [...unavailable].sort(
       (left, right) => orderByThread(left) - orderByThread(right),
     ),
@@ -677,10 +624,7 @@ export function registerHandlers(
     renameProjectPrefix(input) {
       try {
         if (store.projectPrefixExists(input.prefix, input.projectId)) {
-          fail(
-            "project_prefix_conflict",
-            `Project prefix is already in use: ${input.prefix}`,
-          );
+          fail("project_prefix_conflict", `Project prefix is already in use: ${input.prefix}`);
         }
         const project = store.tasks.updateProject(input.projectId, {
           prefix: input.prefix,
@@ -760,18 +704,14 @@ export function registerHandlers(
         const current = store.tasks.getTask(input.taskId);
         if (!current) throw new Error(`Task not found: ${input.taskId}`);
         const parentTaskId =
-          input.parentTaskId === undefined
-            ? current.parentTaskId
-            : input.parentTaskId;
+          input.parentTaskId === undefined ? current.parentTaskId : input.parentTaskId;
         validateTaskParent(store, current.projectId, parentTaskId, current.id);
         if (input.labelIds) {
           validateTaskLabels(store, current.projectId, input.labelIds);
         }
 
         const result = store.transaction(() => {
-          const beforeLabelIds = store.tasks
-            .listTaskLabels(current.id)
-            .map((link) => link.labelId);
+          const beforeLabelIds = store.tasks.listTaskLabels(current.id).map((link) => link.labelId);
           const updated = store.tasks.updateTask(current.id, {
             title: input.title,
             description: input.description,
@@ -787,9 +727,7 @@ export function registerHandlers(
 
           const bodies: string[] = [];
           if (updated.status !== current.status) {
-            bodies.push(
-              `Status changed to ${displayName(updated.status)} by ${input.authorName}`,
-            );
+            bodies.push(`Status changed to ${displayName(updated.status)} by ${input.authorName}`);
           }
           if (updated.priority !== current.priority) {
             bodies.push(
@@ -822,10 +760,7 @@ export function registerHandlers(
         if (result.systemCommentsWritten > 0) {
           publishCommentsChanged(bb, result.task.id);
         }
-        const warnings =
-          input.status === "in_progress"
-            ? blockedWorkWarnings(result.task)
-            : [];
+        const warnings = input.status === "in_progress" ? blockedWorkWarnings(result.task) : [];
         return warnings.length > 0
           ? { ok: true, task: result.task, warnings }
           : { ok: true, task: result.task };
@@ -868,15 +803,10 @@ export function registerHandlers(
     },
     addTaskDependency(input) {
       try {
-        const added = store.tasks.addTaskDependency(
-          input.blockerTaskId,
-          input.blockedTaskId,
-        );
+        const added = store.tasks.addTaskDependency(input.blockerTaskId, input.blockedTaskId);
         const [blocker, blocked] = apiTasks(
           store,
-          [input.blockerTaskId, input.blockedTaskId].map(
-            (taskId) => store.tasks.getTask(taskId)!,
-          ),
+          [input.blockerTaskId, input.blockedTaskId].map((taskId) => store.tasks.getTask(taskId)!),
         );
         if (added) {
           publishTasksChanged(bb, blocker.id, blocker.projectId);
@@ -891,10 +821,7 @@ export function registerHandlers(
       }
     },
     removeTaskDependency(input) {
-      const removed = store.tasks.removeTaskDependency(
-        input.blockerTaskId,
-        input.blockedTaskId,
-      );
+      const removed = store.tasks.removeTaskDependency(input.blockerTaskId, input.blockedTaskId);
       if (removed) {
         for (const taskId of [input.blockerTaskId, input.blockedTaskId]) {
           const task = store.tasks.getTask(taskId);
@@ -996,14 +923,9 @@ export function registerHandlers(
     },
     async deleteAttachment(input) {
       try {
-        const attachment = await deleteAttachmentById(
-          bb,
-          store.tasks,
-          input.attachmentId,
-          {
-            removeDescriptionReferences: input.removeDescriptionReferences,
-          },
-        );
+        const attachment = await deleteAttachmentById(bb, store.tasks, input.attachmentId, {
+          removeDescriptionReferences: input.removeDescriptionReferences,
+        });
         return attachment
           ? {
               ok: true,
@@ -1087,9 +1009,7 @@ export function registerHandlers(
           ).filter((thread) => {
             if (query.length === 0) return true;
             const title = thread.title ?? thread.titleFallback ?? "";
-            return title
-              .toLocaleLowerCase()
-              .includes(query.toLocaleLowerCase());
+            return title.toLocaleLowerCase().includes(query.toLocaleLowerCase());
           });
       return {
         threads: threads

@@ -3,22 +3,34 @@ import type { ProjectSettingsStore } from "./project-settings";
 import { defaultGuidance } from "./guidance";
 
 /** Shared project validation and field-scoped operations for CLI and Settings. */
-export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsStore, getDefault: () => boolean) {
+export function projectConfiguration(
+  bb: BbPluginApi,
+  settings: ProjectSettingsStore,
+  getDefault: () => boolean,
+) {
   async function listProjects() {
     const projects = await bb.sdk.projects.list({ includePersonal: true });
-    return projects.filter(project => project.kind === "standard").map(({ id, name }) => ({ id, name }));
+    return projects
+      .filter((project) => project.kind === "standard")
+      .map(({ id, name }) => ({ id, name }));
   }
   async function requireProject(projectId: string) {
-    if (!(await listProjects()).some(project => project.id === projectId)) {
+    if (!(await listProjects()).some((project) => project.id === projectId)) {
       throw new PluginCliError(`No standard project with ID ${projectId}`, {
-        code: "project_not_found", hint: "Use a standard project ID from `bb project list`.",
+        code: "project_not_found",
+        hint: "Use a standard project ID from `bb project list`.",
       });
     }
   }
   function snapshot(projectId: string) {
     const enableByDefault = getDefault();
     const state = settings.get(projectId, enableByDefault);
-    return { projectId, ...state, enableByDefault, effectivePrompt: state.prompt ?? defaultGuidance(projectId) };
+    return {
+      projectId,
+      ...state,
+      enableByDefault,
+      effectivePrompt: state.prompt ?? defaultGuidance(projectId),
+    };
   }
   return {
     listProjects,
@@ -34,7 +46,9 @@ export function projectConfiguration(bb: BbPluginApi, settings: ProjectSettingsS
     async setPrompt(projectId: string, prompt: string | null) {
       await requireProject(projectId);
       if (prompt !== null && (prompt.trim() === "" || prompt.length > 4096)) {
-        throw new PluginCliError("Prompt must be nonblank and at most 4096 characters", { code: "invalid_value" });
+        throw new PluginCliError("Prompt must be nonblank and at most 4096 characters", {
+          code: "invalid_value",
+        });
       }
       if (prompt === null) settings.resetPrompt(projectId);
       else settings.setPrompt(projectId, prompt);

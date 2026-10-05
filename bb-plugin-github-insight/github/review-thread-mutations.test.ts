@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isPendingReply, replyToThreadArgs, setThreadResolvedArgs } from "./review-thread-mutations";
+import {
+  isPendingReply,
+  replyToThreadArgs,
+  setThreadResolvedArgs,
+} from "./review-thread-mutations";
 
 const THREAD = "PRRT_kwDOUpGL5s6lyX41";
 
@@ -13,7 +17,9 @@ describe("replyToThreadArgs", () => {
   it("passes the body as one raw GraphQL variable, unchanged", () => {
     const args = replyToThreadArgs({ threadId: THREAD, body });
 
-    expect(args).toEqual(expect.arrayContaining(["-f", `body=${body}`, "-f", `threadId=${THREAD}`]));
+    expect(args).toEqual(
+      expect.arrayContaining(["-f", `body=${body}`, "-f", `threadId=${THREAD}`]),
+    );
     expect(args[args.indexOf(`body=${body}`) - 1]).toBe("-f");
   });
 

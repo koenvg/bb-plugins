@@ -79,10 +79,12 @@ it("allows only the latest requested thread to open", () => {
 });
 
 it("does not let a stale acknowledgement clear a newer request", () => {
-  disposals.push(receivePrPanel("thread-a", () => {
-    requestPrPanel("thread-b", () => {});
-    return true;
-  }));
+  disposals.push(
+    receivePrPanel("thread-a", () => {
+      requestPrPanel("thread-b", () => {});
+      return true;
+    }),
+  );
   requestPrPanel("thread-a", () => {});
   const open = vi.fn(() => true);
   disposals.push(receivePrPanel("thread-b", open));
@@ -107,10 +109,12 @@ it("retains a declined request for a receiver with a side panel", () => {
 
 it("does not open twice when registration reenters the receiver", () => {
   const duplicate = vi.fn(() => true);
-  disposals.push(receivePrPanel("thread-b", () => {
-    disposals.push(receivePrPanel("thread-b", duplicate));
-    return true;
-  }));
+  disposals.push(
+    receivePrPanel("thread-b", () => {
+      disposals.push(receivePrPanel("thread-b", duplicate));
+      return true;
+    }),
+  );
   requestPrPanel("thread-b", () => {});
   expect(duplicate).not.toHaveBeenCalled();
 });
@@ -118,7 +122,11 @@ it("does not open twice when registration reenters the receiver", () => {
 it("contains an opening failure and lets a later receiver handle the request", () => {
   requestPrPanel("thread-b", () => {});
   expect(() => {
-    disposals.push(receivePrPanel("thread-b", () => { throw new Error("panel unavailable"); }));
+    disposals.push(
+      receivePrPanel("thread-b", () => {
+        throw new Error("panel unavailable");
+      }),
+    );
   }).not.toThrow();
   const open = vi.fn(() => true);
   disposals.push(receivePrPanel("thread-b", open));

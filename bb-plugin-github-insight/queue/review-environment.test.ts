@@ -4,7 +4,11 @@ import { isSharedEnvironment } from "./review-environment";
 
 type Environment = NewThreadRequest["environment"];
 
-const provider = (environmentProviderId: string): Environment => ({ type: "provider", environmentProviderId, inputs: {} });
+const provider = (environmentProviderId: string): Environment => ({
+  type: "provider",
+  environmentProviderId,
+  inputs: {},
+});
 
 describe("isSharedEnvironment", () => {
   it.each<[string, Environment]>([
@@ -19,7 +23,10 @@ describe("isSharedEnvironment", () => {
   });
 
   it.each<[string, Environment]>([
-    ["host managed-worktree", { type: "host", workspace: { type: "managed-worktree", baseBranch: { kind: "default" } } }],
+    [
+      "host managed-worktree",
+      { type: "host", workspace: { type: "managed-worktree", baseBranch: { kind: "default" } } },
+    ],
     ["git-worktree provider", provider("git-worktree")],
     ["unknown provider", provider("remote-sandbox")],
   ])("is not shared for %s", (_, environment) => {

@@ -87,10 +87,7 @@ const tasksA = [
 
 const tasksB = [task(PROJECT_B, 1, "todo"), task(PROJECT_B, 2, "in_progress")];
 
-function applyListFilters(
-  tasks: Task[],
-  input: Record<string, unknown>,
-): Task[] {
+function applyListFilters(tasks: Task[], input: Record<string, unknown>): Task[] {
   let next = tasks;
   if (Array.isArray(input.statuses) && input.statuses.length > 0) {
     const allowed = new Set(input.statuses);
@@ -161,9 +158,7 @@ function baseRpc(
         if (labelIds.length === 0) next = [];
         else {
           const allowed = new Set(labelIds);
-          next = next.filter((item) =>
-            item.labelIds.some((id) => allowed.has(id)),
-          );
+          next = next.filter((item) => item.labelIds.some((id) => allowed.has(id)));
         }
       }
       return { tasks: next };
@@ -176,39 +171,24 @@ function baseRpc(
 }
 
 function renderProject(projectId: string) {
-  return renderSlot(
-    app.navPanels[0]!,
-    { subPath: projectId },
-    { rpc: baseRpc() },
-  );
+  return renderSlot(app.navPanels[0]!, { subPath: projectId }, { rpc: baseRpc() });
 }
 
-async function selectSort(
-  slot: ReturnType<typeof renderProject>,
-  label: string,
-) {
+async function selectSort(slot: ReturnType<typeof renderProject>, label: string) {
   fireEvent.click(slot.getByRole("button", { name: /Sort/ }));
   const drawer = await slot.findByRole("dialog", { name: "Sort tasks" });
-  fireEvent.click(
-    await within(drawer).findByRole("menuitemcheckbox", { name: label }),
-  );
+  fireEvent.click(await within(drawer).findByRole("menuitemcheckbox", { name: label }));
 }
 
 describe("list filter/sort preference persistence", () => {
   it("restores sort and filters after unmount (navigation / remount)", async () => {
     const registration = app.navPanels[0]!;
-    const slot = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await slot.findByText("ALP-1");
 
     await selectSort(slot, "Priority");
     await waitFor(() =>
-      expect(slot.getByRole("button", { name: /Sort/ }).textContent).toContain(
-        "Priority",
-      ),
+      expect(slot.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority"),
     );
 
     fireEvent.click(slot.getByRole("button", { name: /^Status/ }));
@@ -218,25 +198,15 @@ describe("list filter/sort preference persistence", () => {
     fireEvent.click(doneOption);
 
     await waitFor(() => {
-      expect(
-        window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY),
-      ).not.toBeNull();
+      expect(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)).not.toBeNull();
     });
 
     slot.lifecycle.unmount();
 
-    const remounted = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const remounted = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await remounted.findByText("ALP-3");
-    expect(
-      remounted.getByRole("button", { name: /Sort/ }).textContent,
-    ).toContain("Priority");
-    expect(
-      remounted.getByRole("button", { name: /^Status/ }).textContent,
-    ).toContain("Done");
+    expect(remounted.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority");
+    expect(remounted.getByRole("button", { name: /^Status/ }).textContent).toContain("Done");
     expect(remounted.queryByText("ALP-1")).toBeNull();
     expect(remounted.queryByText("ALP-2")).toBeNull();
     expect(remounted.getByText("ALP-3")).toBeDefined();
@@ -244,49 +214,27 @@ describe("list filter/sort preference persistence", () => {
 
   it("keeps project A and project B preferences independent", async () => {
     const registration = app.navPanels[0]!;
-    const slotA = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const slotA = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await slotA.findByText("ALP-1");
     await selectSort(slotA, "Priority");
     await waitFor(() =>
-      expect(slotA.getByRole("button", { name: /Sort/ }).textContent).toContain(
-        "Priority",
-      ),
+      expect(slotA.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority"),
     );
     slotA.lifecycle.unmount();
 
-    const slotB = renderSlot(
-      registration,
-      { subPath: PROJECT_B },
-      { rpc: baseRpc() },
-    );
+    const slotB = renderSlot(registration, { subPath: PROJECT_B }, { rpc: baseRpc() });
     await slotB.findByText("BET-1");
-    expect(
-      slotB.getByRole("button", { name: /Sort/ }).textContent,
-    ).not.toContain("Priority");
+    expect(slotB.getByRole("button", { name: /Sort/ }).textContent).not.toContain("Priority");
     await selectSort(slotB, "Due date");
     await waitFor(() =>
-      expect(slotB.getByRole("button", { name: /Sort/ }).textContent).toContain(
-        "Due date",
-      ),
+      expect(slotB.getByRole("button", { name: /Sort/ }).textContent).toContain("Due date"),
     );
     slotB.lifecycle.unmount();
 
-    const backToA = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const backToA = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await backToA.findByText("ALP-1");
-    expect(backToA.getByRole("button", { name: /Sort/ }).textContent).toContain(
-      "Priority",
-    );
-    expect(
-      backToA.getByRole("button", { name: /Sort/ }).textContent,
-    ).not.toContain("Due date");
+    expect(backToA.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority");
+    expect(backToA.getByRole("button", { name: /Sort/ }).textContent).not.toContain("Due date");
   });
 
   it("remembers an explicit clear across remount", async () => {
@@ -308,11 +256,7 @@ describe("list filter/sort preference persistence", () => {
       }),
     );
 
-    const slot = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await slot.findByText("ALP-3");
     fireEvent.click(slot.getByRole("button", { name: /Clear/ }));
     await waitFor(() => {
@@ -321,16 +265,10 @@ describe("list filter/sort preference persistence", () => {
     expect(slot.queryByRole("button", { name: /Clear/ })).toBeNull();
 
     slot.lifecycle.unmount();
-    const remounted = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const remounted = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await remounted.findByText("ALP-1");
     expect(remounted.queryByRole("button", { name: /Clear/ })).toBeNull();
-    expect(
-      remounted.getByRole("button", { name: /Sort/ }).textContent,
-    ).toContain("Priority");
+    expect(remounted.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority");
     expect(remounted.getByText("ALP-2")).toBeDefined();
   });
 
@@ -342,20 +280,14 @@ describe("list filter/sort preference persistence", () => {
     await slot.findByText("ALP-1");
     await selectSort(slot, "Priority");
     await waitFor(() =>
-      expect(slot.getByRole("button", { name: /Sort/ }).textContent).toContain(
-        "Priority",
-      ),
+      expect(slot.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority"),
     );
     expect(slot.getByText("ALP-2")).toBeDefined();
   });
 
   it("isolates All tasks preference from Active", async () => {
     const registration = app.navPanels[0]!;
-    const allSlot = renderSlot(
-      registration,
-      { subPath: "all" },
-      { rpc: baseRpc() },
-    );
+    const allSlot = renderSlot(registration, { subPath: "all" }, { rpc: baseRpc() });
     await allSlot.findByText("ALP-1");
     await selectSort(allSlot, "Priority");
     allSlot.lifecycle.unmount();
@@ -372,9 +304,7 @@ describe("list filter/sort preference persistence", () => {
       },
     );
     await activeSlot.findByText("ALP-9");
-    expect(
-      activeSlot.getByRole("button", { name: /Sort/ }).textContent,
-    ).not.toContain("Priority");
+    expect(activeSlot.getByRole("button", { name: /Sort/ }).textContent).not.toContain("Priority");
   });
 
   it("persists priority and label filters and sends resolved label ids", async () => {
@@ -383,14 +313,12 @@ describe("list filter/sort preference persistence", () => {
     const rpc = baseRpc({}, listTasksCalls);
     const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc });
     await slot.findByText("ALP-1");
-    expect(
-      slot.container.querySelector('[data-task-key="ALP-1"]')?.textContent,
-    ).not.toContain("Bug");
+    expect(slot.container.querySelector('[data-task-key="ALP-1"]')?.textContent).not.toContain(
+      "Bug",
+    );
 
     fireEvent.click(slot.getByRole("button", { name: /^Priority/ }));
-    fireEvent.click(
-      await slot.findByRole("menuitemcheckbox", { name: /Urgent/ }),
-    );
+    fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: /Urgent/ }));
     pageKeyboardEscape(slot);
 
     fireEvent.click(slot.getByRole("button", { name: /^Label/ }));
@@ -398,15 +326,9 @@ describe("list filter/sort preference persistence", () => {
     pageKeyboardEscape(slot);
 
     await waitFor(() => {
-      const stored = JSON.parse(
-        window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!,
-      );
-      expect(stored.scopes[`project:${PROJECT_A}`].filters.priorities).toEqual([
-        "urgent",
-      ]);
-      expect(stored.scopes[`project:${PROJECT_A}`].filters.labelNames).toEqual([
-        "Bug",
-      ]);
+      const stored = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
+      expect(stored.scopes[`project:${PROJECT_A}`].filters.priorities).toEqual(["urgent"]);
+      expect(stored.scopes[`project:${PROJECT_A}`].filters.labelNames).toEqual(["Bug"]);
     });
 
     await waitFor(() => {
@@ -422,18 +344,10 @@ describe("list filter/sort preference persistence", () => {
     });
 
     slot.lifecycle.unmount();
-    const remounted = renderSlot(
-      registration,
-      { subPath: PROJECT_A },
-      { rpc: baseRpc() },
-    );
+    const remounted = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await remounted.findByRole("button", { name: /Priority/ });
-    expect(
-      remounted.getByRole("button", { name: /^Priority/ }).textContent,
-    ).toContain("Urgent");
-    expect(
-      remounted.getByRole("button", { name: /^Label/ }).textContent,
-    ).toContain("Bug");
+    expect(remounted.getByRole("button", { name: /^Priority/ }).textContent).toContain("Urgent");
+    expect(remounted.getByRole("button", { name: /^Label/ }).textContent).toContain("Bug");
   });
 
   it("matches nothing for stale label names once the catalog is loaded", async () => {
@@ -457,14 +371,10 @@ describe("list filter/sort preference persistence", () => {
     const rpc = baseRpc({}, listTasksCalls);
     const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_A }, { rpc });
     await slot.findByRole("button", { name: /^Label/ });
-    expect(slot.getByRole("button", { name: /^Label/ }).textContent).toContain(
-      "DeletedLabel",
-    );
+    expect(slot.getByRole("button", { name: /^Label/ }).textContent).toContain("DeletedLabel");
     await waitFor(() => {
       expect(
-        listTasksCalls.some(
-          (call) => Array.isArray(call.labelIds) && call.labelIds.length === 0,
-        ),
+        listTasksCalls.some((call) => Array.isArray(call.labelIds) && call.labelIds.length === 0),
       ).toBe(true);
     });
     await waitFor(() => {

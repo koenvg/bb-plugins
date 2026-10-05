@@ -18,7 +18,10 @@ export function buildReviewPrompt(comments: readonly PendingComment[]): string {
   const items = sortComments(comments).map((comment, index) => {
     const prefix = `${index + 1}. `;
     const location = `\`${comment.path}:${comment.line}${comment.side === "deletions" ? " (deleted line)" : ""}\``;
-    const body = comment.body.trim().split("\n").join(`\n${" ".repeat(prefix.length)}`);
+    const body = comment.body
+      .trim()
+      .split("\n")
+      .join(`\n${" ".repeat(prefix.length)}`);
     return `${prefix}${location} - ${body}`;
   });
   return [OPENING, items.join("\n"), CLOSING].join("\n\n");

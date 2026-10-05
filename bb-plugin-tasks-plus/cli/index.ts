@@ -41,11 +41,7 @@ import {
 } from "../shared/contract";
 import { attachmentDownloadUrl } from "../shared/attachments";
 import { errorMessage } from "../shared/errors";
-import {
-  TASK_SORTS,
-  TASKS_PAGE_DEFAULT_LIMIT,
-  TASKS_PAGE_MAX_LIMIT,
-} from "../shared/pagination";
+import { TASK_SORTS, TASKS_PAGE_DEFAULT_LIMIT, TASKS_PAGE_MAX_LIMIT } from "../shared/pagination";
 import { bytes, detail, oneLine, table } from "./format";
 import { allocatePrefix } from "./prefix";
 import { seedDemo } from "./seed";
@@ -98,10 +94,7 @@ type TasksDomain = ReturnType<typeof registerHandlers>;
 type ListTasksInput = Parameters<TasksDomain["listTasks"]>[0];
 
 class CliError extends PluginCliError {
-  constructor(
-    message: string,
-    options?: { code?: string; hint?: string; exitCode?: number },
-  ) {
+  constructor(message: string, options?: { code?: string; hint?: string; exitCode?: number }) {
     super(oneLine(message), options);
   }
 }
@@ -117,22 +110,16 @@ function friendlyError(error: unknown): string {
   if (message.includes("UNIQUE constraint failed: projects.prefix")) {
     return "project prefix is already in use";
   }
-  if (
-    message.includes("UNIQUE constraint failed: labels.project_id, labels.name")
-  ) {
+  if (message.includes("UNIQUE constraint failed: labels.project_id, labels.name")) {
     return "label name is already in use in this project";
   }
   return message;
 }
 
-async function guard(
-  action: () => Promise<string | PluginCliResult>,
-): Promise<PluginCliResult> {
+async function guard(action: () => Promise<string | PluginCliResult>): Promise<PluginCliResult> {
   try {
     const result = await action();
-    return typeof result === "string"
-      ? { exitCode: 0, stdout: result }
-      : result;
+    return typeof result === "string" ? { exitCode: 0, stdout: result } : result;
   } catch (error) {
     if (error instanceof PluginCliError) throw error;
     throw new CliError(friendlyError(error));
@@ -179,10 +166,7 @@ async function readClientFile(
     path,
   });
   return {
-    bytes: Buffer.from(
-      file.content,
-      file.contentEncoding === "base64" ? "base64" : "utf8",
-    ),
+    bytes: Buffer.from(file.content, file.contentEncoding === "base64" ? "base64" : "utf8"),
     text: file.contentEncoding === "utf8" ? file.content : null,
   };
 }
@@ -248,10 +232,7 @@ function derivePrefix(name: string, projects: readonly Project[]): string {
   let base = name.toUpperCase().replace(/[^A-Z0-9]/gu, "");
   if (!base || !/^[A-Z]/u.test(base)) base = `P${base}`;
   base = base.slice(0, 10);
-  const prefix = allocatePrefix(
-    base,
-    new Set(projects.map((project) => project.prefix)),
-  );
+  const prefix = allocatePrefix(base, new Set(projects.map((project) => project.prefix)));
   if (prefix === null) {
     throw new CliError(`could not derive a unique prefix from ${name}`);
   }
@@ -264,13 +245,8 @@ async function listProjects(domain: TasksDomain): Promise<Project[]> {
   ).projects;
 }
 
-function bbProjectIdHint(
-  address: string,
-  projects: readonly Project[],
-): string {
-  const linked = projects.filter(
-    (project) => project.linkedBbProjectId === address,
-  );
+function bbProjectIdHint(address: string, projects: readonly Project[]): string {
+  const linked = projects.filter((project) => project.linkedBbProjectId === address);
   const first = linked[0];
   if (linked.length === 1 && first) {
     return `${address} is a bb project id; its tracker project is ${first.prefix} — re-run with --project ${first.prefix}`;
@@ -278,23 +254,17 @@ function bbProjectIdHint(
   return `${address} is a bb project id, but --project takes a tracker project prefix or id; run bb tasks project list`;
 }
 
-async function resolveProject(
-  domain: TasksDomain,
-  address: string,
-): Promise<Project> {
+async function resolveProject(domain: TasksDomain, address: string): Promise<Project> {
   const normalized = address.trim().toUpperCase();
   const projects = await listProjects(domain);
   const project = projects.find(
-    (candidate) =>
-      candidate.id === normalized || candidate.prefix === normalized,
+    (candidate) => candidate.id === normalized || candidate.prefix === normalized,
   );
   if (!project) {
     const trimmed = address.trim();
     throw new CliError(`project not found: ${address}`, {
       code: "project_not_found",
-      ...(BB_PROJECT_ID_PATTERN.test(trimmed)
-        ? { hint: bbProjectIdHint(trimmed, projects) }
-        : {}),
+      ...(BB_PROJECT_ID_PATTERN.test(trimmed) ? { hint: bbProjectIdHint(trimmed, projects) } : {}),
     });
   }
   return project;
@@ -307,10 +277,9 @@ async function defaultProject(
 ): Promise<Project | undefined> {
   if (!ctx.projectId) {
     if (required) {
-      throw new CliError(
-        "missing --project and no BB project context is available",
-        { code: "missing_required" },
-      );
+      throw new CliError("missing --project and no BB project context is available", {
+        code: "missing_required",
+      });
     }
     return undefined;
   }
@@ -338,9 +307,7 @@ async function selectedProject(
   address: string | undefined,
   required: boolean,
 ): Promise<Project | undefined> {
-  return address
-    ? resolveProject(domain, address)
-    : defaultProject(domain, ctx, required);
+  return address ? resolveProject(domain, address) : defaultProject(domain, ctx, required);
 }
 
 async function requiredProject(
@@ -350,9 +317,7 @@ async function requiredProject(
 ): Promise<Project> {
   if (address) return resolveProject(domain, address);
   const linked = ctx.projectId
-    ? (await listProjects(domain)).filter(
-        (project) => project.linkedBbProjectId === ctx.projectId,
-      )
+    ? (await listProjects(domain)).filter((project) => project.linkedBbProjectId === ctx.projectId)
     : [];
   const suggestion = linked.length === 1 ? linked[0] : undefined;
   throw new CliError("missing required option --project", {
@@ -363,10 +328,7 @@ async function requiredProject(
   });
 }
 
-async function resolveFolder(
-  domain: TasksDomain,
-  address: string,
-): Promise<Folder> {
+async function resolveFolder(domain: TasksDomain, address: string): Promise<Folder> {
   const folders = tasksRpcContract.listFolders.output.parse(
     await domain.listFolders(tasksRpcContract.listFolders.input.parse(null)),
   ).folders;
@@ -389,25 +351,18 @@ async function resolveFolder(
   return byName[0]!;
 }
 
-async function resolveTask(
-  domain: TasksDomain,
-  address: string,
-): Promise<Task> {
+async function resolveTask(domain: TasksDomain, address: string): Promise<Task> {
   const normalized = address.trim().toUpperCase();
   if (ULID_PATTERN.test(normalized)) {
     const result = tasksRpcContract.getTask.output.parse(
-      await domain.getTask(
-        tasksRpcContract.getTask.input.parse({ taskId: normalized }),
-      ),
+      await domain.getTask(tasksRpcContract.getTask.input.parse({ taskId: normalized })),
     );
     if (!result.task) throw taskNotFound(address);
     return result.task;
   }
   if (!TASK_KEY_PATTERN.test(normalized)) throw taskNotFound(address);
   const result = tasksRpcContract.getTaskByKey.output.parse(
-    await domain.getTaskByKey(
-      tasksRpcContract.getTaskByKey.input.parse({ taskKey: normalized }),
-    ),
+    await domain.getTaskByKey(tasksRpcContract.getTaskByKey.input.parse({ taskKey: normalized })),
   );
   if (!result.task) throw taskNotFound(address);
   return result.task;
@@ -424,10 +379,7 @@ async function resolveTaskIds(
   return ids;
 }
 
-function withWarnings(
-  stdout: string,
-  warnings: readonly string[],
-): string | PluginCliResult {
+function withWarnings(stdout: string, warnings: readonly string[]): string | PluginCliResult {
   if (warnings.length === 0) return stdout;
   return {
     exitCode: 0,
@@ -454,10 +406,7 @@ function taskNotFound(address: string): CliError {
   return new CliError(`task not found: ${address}`, { code: "task_not_found" });
 }
 
-async function listAllTasks(
-  domain: TasksDomain,
-  input: ListTasksInput,
-): Promise<Task[]> {
+async function listAllTasks(domain: TasksDomain, input: ListTasksInput): Promise<Task[]> {
   const tasks: Task[] = [];
   let cursor = input.cursor;
   do {
@@ -479,9 +428,7 @@ async function listAllTasks(
 function resolvePreset(presets: readonly Preset[], address: string): Preset {
   const normalized = address.trim().toLowerCase();
   const matches = presets.filter(
-    (preset) =>
-      preset.id.toLowerCase() === normalized ||
-      preset.name.toLowerCase() === normalized,
+    (preset) => preset.id.toLowerCase() === normalized || preset.name.toLowerCase() === normalized,
   );
   if (matches.length === 0) {
     throw new CliError(`preset not found: ${address}`, {
@@ -503,9 +450,7 @@ async function listTaskAttachments(
 ): Promise<Attachment[]> {
   const attachments = [
     ...tasksRpcContract.listAttachments.output.parse(
-      await domain.listAttachments(
-        tasksRpcContract.listAttachments.input.parse({ taskId }),
-      ),
+      await domain.listAttachments(tasksRpcContract.listAttachments.input.parse({ taskId })),
     ).attachments,
   ];
   for (const comment of comments) {
@@ -529,9 +474,7 @@ async function listPresets(domain: TasksDomain): Promise<Preset[]> {
 }
 
 function presetEnvironmentLabel(preset: Preset): string {
-  return preset.environmentKind === "new-worktree"
-    ? "worktree"
-    : "project-default";
+  return preset.environmentKind === "new-worktree" ? "worktree" : "project-default";
 }
 
 function presetEnvironmentKind(
@@ -549,18 +492,13 @@ function presetServiceTier(
   return value === "none" ? null : value;
 }
 
-async function resolveMachineId(
-  domain: TasksDomain,
-  address: string,
-): Promise<string> {
+async function resolveMachineId(domain: TasksDomain, address: string): Promise<string> {
   const machines = tasksRpcContract.listMachines.output.parse(
     await domain.listMachines(tasksRpcContract.listMachines.input.parse({})),
   ).machines;
   const normalized = address.trim().toLocaleLowerCase();
   const matches = machines.filter(
-    (machine) =>
-      machine.id === address.trim() ||
-      machine.name.toLocaleLowerCase() === normalized,
+    (machine) => machine.id === address.trim() || machine.name.toLocaleLowerCase() === normalized,
   );
   if (matches.length === 0) {
     throw new CliError(`machine not found: ${address}`, {
@@ -589,14 +527,9 @@ function validatePresetTargetOptions(input: {
   }
 }
 
-async function projectLabels(
-  domain: TasksDomain,
-  projectId: string,
-): Promise<Label[]> {
+async function projectLabels(domain: TasksDomain, projectId: string): Promise<Label[]> {
   return tasksRpcContract.listLabels.output.parse(
-    await domain.listLabels(
-      tasksRpcContract.listLabels.input.parse({ projectId }),
-    ),
+    await domain.listLabels(tasksRpcContract.listLabels.input.parse({ projectId })),
   ).labels;
 }
 
@@ -615,21 +548,14 @@ function resolveLabel(labels: readonly Label[], address: string): Label {
   return label;
 }
 
-function projectTable(
-  projects: readonly Project[],
-  folders: readonly Folder[],
-) {
-  const folderNames = new Map(
-    folders.map((folder) => [folder.id, folder.name]),
-  );
+function projectTable(projects: readonly Project[], folders: readonly Folder[]) {
+  const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]));
   return table(
     ["PREFIX", "NAME", "FOLDER", "BB PROJECT", "ID"],
     projects.map((project) => [
       project.prefix,
       project.name,
-      project.folderId
-        ? (folderNames.get(project.folderId) ?? project.folderId)
-        : "-",
+      project.folderId ? (folderNames.get(project.folderId) ?? project.folderId) : "-",
       project.linkedBbProjectId ?? "-",
       project.id,
     ]),
@@ -654,10 +580,7 @@ async function labelsForTaskList(
   return labels;
 }
 
-function resolveInvokingThreadId(
-  thread: string | undefined,
-  ctx: PluginCliContext,
-): string {
+function resolveInvokingThreadId(thread: string | undefined, ctx: PluginCliContext): string {
   const threadId = thread ?? process.env.BB_THREAD_ID ?? ctx.threadId;
   if (!threadId) {
     throw new CliError("missing --thread and BB_THREAD_ID is not set", {
@@ -678,9 +601,7 @@ function groupCommand(
     hidden: true,
     description: [
       "Subcommands:",
-      ...subcommands.map(
-        ([name, text]) => `  bb tasks ${group} ${name.padEnd(width)}  ${text}`,
-      ),
+      ...subcommands.map(([name, text]) => `  bb tasks ${group} ${name.padEnd(width)}  ${text}`),
     ].join("\n"),
     positionals: [
       {
@@ -710,8 +631,7 @@ export function registerTasksCli(
   bb.cli.register(
     defineCli({
       name: "tasks",
-      summary:
-        "Create and manage task-tracker projects, tasks, labels, and comments",
+      summary: "Create and manage task-tracker projects, tasks, labels, and comments",
       description:
         "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).",
       commands: {
@@ -730,16 +650,12 @@ export function registerTasksCli(
           },
         }),
 
-        project: groupCommand(
-          "project",
-          "Create, list, show, or update tracker projects",
-          [
-            ["create", "Create a tracker project"],
-            ["list", "List tracker projects"],
-            ["show", "Show one tracker project"],
-            ["update", "Rename, recolor, refile, or relink a project"],
-          ],
-        ),
+        project: groupCommand("project", "Create, list, show, or update tracker projects", [
+          ["create", "Create a tracker project"],
+          ["list", "List tracker projects"],
+          ["show", "Show one tracker project"],
+          ["update", "Rename, recolor, refile, or relink a project"],
+        ]),
         "project create": cliCommand({
           summary: "Create a tracker project",
           options: {
@@ -763,8 +679,7 @@ export function registerTasksCli(
               type: "string",
               placeholder: "proj_id",
               aliases: ["bb-project", "link-project"],
-              description:
-                "bb project id (proj_...) whose threads track this tracker project",
+              description: "bb project id (proj_...) whose threads track this tracker project",
             },
             color: {
               type: "string",
@@ -773,16 +688,13 @@ export function registerTasksCli(
             },
             json: JSON_OPTION,
           },
-          unexpectedPositionalHint:
-            "the project name belongs in --name <name>.",
+          unexpectedPositionalHint: "the project name belongs in --name <name>.",
           run(input) {
             return guard(async () => {
               const name = input.options.name;
               const projects = await listProjects(domain);
               const folderAddress = input.options.folder;
-              const folder = folderAddress
-                ? await resolveFolder(domain, folderAddress)
-                : undefined;
+              const folder = folderAddress ? await resolveFolder(domain, folderAddress) : undefined;
               const result = tasksRpcContract.createProject.output.parse(
                 await domain.createProject(
                   tasksRpcContract.createProject.input.parse({
@@ -809,9 +721,7 @@ export function registerTasksCli(
             return guard(async () => {
               const projects = await listProjects(domain);
               const folders = tasksRpcContract.listFolders.output.parse(
-                await domain.listFolders(
-                  tasksRpcContract.listFolders.input.parse(null),
-                ),
+                await domain.listFolders(tasksRpcContract.listFolders.input.parse(null)),
               ).folders;
               return input.options.json
                 ? JSON.stringify({ projects })
@@ -831,10 +741,7 @@ export function registerTasksCli(
           options: { json: JSON_OPTION },
           run(input) {
             return guard(async () => {
-              const project = await resolveProject(
-                domain,
-                input.positionals["prefix-or-id"],
-              );
+              const project = await resolveProject(domain, input.positionals["prefix-or-id"]);
               const folder = project.folderId
                 ? await resolveFolder(domain, project.folderId)
                 : null;
@@ -887,8 +794,7 @@ export function registerTasksCli(
             "rename-prefix": {
               type: "string",
               placeholder: "PREFIX",
-              description:
-                "New task key prefix; existing task keys are rewritten",
+              description: "New task key prefix; existing task keys are rewritten",
             },
             json: JSON_OPTION,
           },
@@ -901,14 +807,9 @@ export function registerTasksCli(
           ],
           run(input) {
             return guard(async () => {
-              const project = await resolveProject(
-                domain,
-                input.positionals["prefix-or-id"],
-              );
+              const project = await resolveProject(domain, input.positionals["prefix-or-id"]);
               const folderAddress = input.options.folder;
-              const folder = folderAddress
-                ? await resolveFolder(domain, folderAddress)
-                : undefined;
+              const folder = folderAddress ? await resolveFolder(domain, folderAddress) : undefined;
               const changes = {
                 name: input.options.name,
                 color: input.options.color,
@@ -947,13 +848,8 @@ export function registerTasksCli(
                     ...changes,
                   })
                 : undefined;
-              if (
-                renameInput &&
-                store.projectPrefixExists(renameInput.prefix, project.id)
-              ) {
-                throw new CliError(
-                  `Project prefix is already in use: ${renameInput.prefix}`,
-                );
+              if (renameInput && store.projectPrefixExists(renameInput.prefix, project.id)) {
+                throw new CliError(`Project prefix is already in use: ${renameInput.prefix}`);
               }
               const updated = store.transaction(() =>
                 store.tasks.updateProject(project.id, {
@@ -972,16 +868,12 @@ export function registerTasksCli(
           },
         }),
 
-        folder: groupCommand(
-          "folder",
-          "Create, list, update, or delete project folders",
-          [
-            ["create", "Create a folder"],
-            ["list", "List folders"],
-            ["update", "Rename or move a folder"],
-            ["delete", "Delete a folder, keeping its contents"],
-          ],
-        ),
+        folder: groupCommand("folder", "Create, list, update, or delete project folders", [
+          ["create", "Create a folder"],
+          ["list", "List folders"],
+          ["update", "Rename or move a folder"],
+          ["delete", "Delete a folder, keeping its contents"],
+        ]),
         "folder create": cliCommand({
           summary: "Create a project folder",
           options: {
@@ -1001,9 +893,7 @@ export function registerTasksCli(
           run(input) {
             return guard(async () => {
               const parentAddress = input.options.parent;
-              const parent = parentAddress
-                ? await resolveFolder(domain, parentAddress)
-                : undefined;
+              const parent = parentAddress ? await resolveFolder(domain, parentAddress) : undefined;
               const result = tasksRpcContract.createFolder.output.parse(
                 await domain.createFolder(
                   tasksRpcContract.createFolder.input.parse({
@@ -1024,13 +914,9 @@ export function registerTasksCli(
           run(input) {
             return guard(async () => {
               const result = tasksRpcContract.listFolders.output.parse(
-                await domain.listFolders(
-                  tasksRpcContract.listFolders.input.parse(null),
-                ),
+                await domain.listFolders(tasksRpcContract.listFolders.input.parse(null)),
               );
-              const names = new Map(
-                result.folders.map((folder) => [folder.id, folder.name]),
-              );
+              const names = new Map(result.folders.map((folder) => [folder.id, folder.name]));
               return input.options.json
                 ? JSON.stringify(result)
                 : table(
@@ -1038,8 +924,7 @@ export function registerTasksCli(
                     result.folders.map((folder) => [
                       folder.name,
                       folder.parentFolderId
-                        ? (names.get(folder.parentFolderId) ??
-                          folder.parentFolderId)
+                        ? (names.get(folder.parentFolderId) ?? folder.parentFolderId)
                         : "-",
                       folder.id,
                     ]),
@@ -1070,30 +955,19 @@ export function registerTasksCli(
             },
             json: JSON_OPTION,
           },
-          constraints: [
-            { kind: "at-most-one", options: ["parent", "no-parent"] },
-          ],
+          constraints: [{ kind: "at-most-one", options: ["parent", "no-parent"] }],
           run(input) {
             return guard(async () => {
-              const folder = await resolveFolder(
-                domain,
-                input.positionals["id-or-name"],
-              );
+              const folder = await resolveFolder(domain, input.positionals["id-or-name"]);
               const parentAddress = input.options.parent;
               const noParent = input.options["no-parent"];
               const name = input.options.name;
-              if (
-                name === undefined &&
-                parentAddress === undefined &&
-                !noParent
-              ) {
+              if (name === undefined && parentAddress === undefined && !noParent) {
                 throw new CliError("no folder changes were provided", {
                   code: "no_changes",
                 });
               }
-              const parent = parentAddress
-                ? await resolveFolder(domain, parentAddress)
-                : null;
+              const parent = parentAddress ? await resolveFolder(domain, parentAddress) : null;
               const renameInput =
                 name === undefined
                   ? undefined
@@ -1156,12 +1030,8 @@ export function registerTasksCli(
               const projectCount = result.movedProjectIds.length;
               const folderCount = result.movedFolderIds.length;
               const moved = [
-                projectCount > 0
-                  ? `${projectCount} project${projectCount > 1 ? "s" : ""}`
-                  : null,
-                folderCount > 0
-                  ? `${folderCount} subfolder${folderCount > 1 ? "s" : ""}`
-                  : null,
+                projectCount > 0 ? `${projectCount} project${projectCount > 1 ? "s" : ""}` : null,
+                folderCount > 0 ? `${folderCount} subfolder${folderCount > 1 ? "s" : ""}` : null,
               ].filter((part) => part !== null);
               return moved.length === 0
                 ? `Deleted folder ${folder.name}`
@@ -1172,8 +1042,7 @@ export function registerTasksCli(
 
         create: cliCommand({
           summary: "Create a task",
-          unexpectedPositionalHint:
-            "the task title belongs in --title <title>.",
+          unexpectedPositionalHint: "the task title belongs in --title <title>.",
           options: {
             project: PROJECT_OPTION,
             title: {
@@ -1186,14 +1055,12 @@ export function registerTasksCli(
               type: "string",
               placeholder: "markdown",
               aliases: ["body", "details", "text", "content"],
-              description:
-                "Markdown description; use --description-file for long text",
+              description: "Markdown description; use --description-file for long text",
             },
             "description-file": {
               type: "string",
               placeholder: "path",
-              description:
-                "Read the description from this UTF-8 file on the invoking machine",
+              description: "Read the description from this UTF-8 file on the invoking machine",
             },
             priority: {
               type: "enum",
@@ -1207,8 +1074,7 @@ export function registerTasksCli(
               split: ",",
               placeholder: "name",
               aliases: ["labels"],
-              description:
-                "Existing label name; repeat the flag or pass a comma-separated list",
+              description: "Existing label name; repeat the flag or pass a comma-separated list",
             },
             due: {
               type: "string",
@@ -1219,8 +1085,7 @@ export function registerTasksCli(
             parent: {
               type: "string",
               placeholder: "key-or-id",
-              description:
-                "Parent task key or id; tasks support at most one level of sub-tasks",
+              description: "Parent task key or id; tasks support at most one level of sub-tasks",
             },
             attach: {
               type: "string",
@@ -1245,20 +1110,12 @@ export function registerTasksCli(
                 resolve(ctx.cwd ?? process.cwd(), path),
               );
               const descriptionFile = input.options["description-file"];
-              const usesClientFiles =
-                attachPaths.length > 0 || descriptionFile !== undefined;
+              const usesClientFiles = attachPaths.length > 0 || descriptionFile !== undefined;
               if (input.options.machine !== undefined && !usesClientFiles) {
-                throw new CliError(
-                  "--machine requires --attach or --description-file",
-                );
+                throw new CliError("--machine requires --attach or --description-file");
               }
               const clientHostId = usesClientFiles
-                ? await resolveClientHostId(
-                    bb,
-                    domain,
-                    input.options.machine,
-                    ctx,
-                  )
+                ? await resolveClientHostId(bb, domain, input.options.machine, ctx)
                 : undefined;
               const attachSources: Array<{ path: string; bytes: Buffer }> = [];
               for (const path of attachPaths) {
@@ -1267,21 +1124,12 @@ export function registerTasksCli(
                   bytes: await readAttachmentSource(bb, clientHostId, path),
                 });
               }
-              const project = await selectedProject(
-                domain,
-                ctx,
-                input.options.project,
-                true,
-              );
+              const project = await selectedProject(domain, ctx, input.options.project, true);
               if (!project) throw new CliError("project is required");
               const labels = await projectLabels(domain, project.id);
-              const labelIds = input.options.label.map(
-                (name) => resolveLabel(labels, name).id,
-              );
+              const labelIds = input.options.label.map((name) => resolveLabel(labels, name).id);
               const parentAddress = input.options.parent;
-              const parent = parentAddress
-                ? await resolveTask(domain, parentAddress)
-                : undefined;
+              const parent = parentAddress ? await resolveTask(domain, parentAddress) : undefined;
               const created = tasksRpcContract.createTask.input.parse({
                 projectId: project.id,
                 title: input.options.title,
@@ -1299,23 +1147,16 @@ export function registerTasksCli(
                 labelIds,
               });
               const task = unwrapTask(
-                tasksRpcContract.createTask.output.parse(
-                  await domain.createTask(created),
-                ),
+                tasksRpcContract.createTask.output.parse(await domain.createTask(created)),
               );
               const attachments: Attachment[] = [];
-              const failedAttachments: Array<{ path: string; error: string }> =
-                [];
+              const failedAttachments: Array<{ path: string; error: string }> = [];
               for (const source of attachSources) {
                 try {
-                  const attachment = await saveAttachmentFromBytes(
-                    store.tasks,
-                    source.bytes,
-                    {
-                      taskId: task.id,
-                      fileName: attachmentFileName(source.path),
-                    },
-                  );
+                  const attachment = await saveAttachmentFromBytes(store.tasks, source.bytes, {
+                    taskId: task.id,
+                    fileName: attachmentFileName(source.path),
+                  });
                   publishAttachmentChanged(bb, store.tasks, attachment);
                   attachments.push(attachment);
                 } catch (error) {
@@ -1330,12 +1171,10 @@ export function registerTasksCli(
                 : [
                     `Created ${task.key}  ${task.title}`,
                     ...attachments.map(
-                      (attachment) =>
-                        `Attached ${attachment.fileName}  ${attachment.id}`,
+                      (attachment) => `Attached ${attachment.fileName}  ${attachment.id}`,
                     ),
                     ...failedAttachments.map(
-                      (entry) =>
-                        `Failed to attach ${entry.path}: ${entry.error}`,
+                      (entry) => `Failed to attach ${entry.path}: ${entry.error}`,
                     ),
                     ...failedAttachments.map(
                       (entry) =>
@@ -1380,8 +1219,7 @@ export function registerTasksCli(
               split: ",",
               placeholder: "name",
               aliases: ["labels"],
-              description:
-                "Keep only tasks carrying these label names; repeat or comma-separate",
+              description: "Keep only tasks carrying these label names; repeat or comma-separate",
             },
             active: {
               type: "boolean",
@@ -1417,26 +1255,19 @@ export function registerTasksCli(
             cursor: {
               type: "string",
               placeholder: "opaque",
-              description:
-                "Continue from a previous page's nextCursor with identical filters",
+              description: "Continue from a previous page's nextCursor with identical filters",
             },
             json: JSON_OPTION,
           },
           constraints: [{ kind: "at-most-one", options: ["ready", "blocked"] }],
           run(input, ctx) {
             return guard(async () => {
-              const project = await selectedProject(
-                domain,
-                ctx,
-                input.options.project,
-                false,
-              );
+              const project = await selectedProject(domain, ctx, input.options.project, false);
               const projects = project ? [project] : await listProjects(domain);
               const labelById = await labelsForTaskList(domain, projects);
               const labelIds = input.options.label.map((name) => {
                 const matches = [...labelById.values()].filter(
-                  (label) =>
-                    label.name.toLowerCase() === name.trim().toLowerCase(),
+                  (label) => label.name.toLowerCase() === name.trim().toLowerCase(),
                 );
                 if (matches.length === 0) {
                   throw new CliError(`label not found: ${name}`, {
@@ -1456,14 +1287,9 @@ export function registerTasksCli(
                 await domain.listTasks(
                   tasksRpcContract.listTasks.input.parse({
                     projectId: project?.id,
-                    statuses:
-                      input.options.status.length > 0
-                        ? input.options.status
-                        : undefined,
+                    statuses: input.options.status.length > 0 ? input.options.status : undefined,
                     priorities:
-                      input.options.priority.length > 0
-                        ? input.options.priority
-                        : undefined,
+                      input.options.priority.length > 0 ? input.options.priority : undefined,
                     labelIds: labelIds.length > 0 ? labelIds : undefined,
                     activeOnly: input.options.active,
                     search: input.options.search,
@@ -1480,19 +1306,16 @@ export function registerTasksCli(
               );
               const tasks = [];
               for (const task of result.tasks) {
-                const threadResult =
-                  tasksRpcContract.listTaskThreads.output.parse(
-                    await domain.listTaskThreads(
-                      tasksRpcContract.listTaskThreads.input.parse({
-                        taskId: task.id,
-                      }),
-                    ),
-                  );
+                const threadResult = tasksRpcContract.listTaskThreads.output.parse(
+                  await domain.listTaskThreads(
+                    tasksRpcContract.listTaskThreads.input.parse({
+                      taskId: task.id,
+                    }),
+                  ),
+                );
                 tasks.push({
                   ...task,
-                  labels: task.labelIds.map(
-                    (id) => labelById.get(id)?.name ?? id,
-                  ),
+                  labels: task.labelIds.map((id) => labelById.get(id)?.name ?? id),
                   agentsWorking: threadResult.taskThreads.filter((thread) =>
                     ACTIVE_THREAD_STATUSES.has(thread.liveStatus),
                   ).length,
@@ -1506,16 +1329,7 @@ export function registerTasksCli(
                 });
               }
               const output = table(
-                [
-                  "KEY",
-                  "STATUS",
-                  "PRIORITY",
-                  "DUE",
-                  "TITLE",
-                  "LABELS",
-                  "AGENTS",
-                  "BLOCKED BY",
-                ],
+                ["KEY", "STATUS", "PRIORITY", "DUE", "TITLE", "LABELS", "AGENTS", "BLOCKED BY"],
                 tasks.map((task) => [
                   task.key,
                   task.status,
@@ -1543,18 +1357,11 @@ export function registerTasksCli(
           options: { json: JSON_OPTION },
           run(input) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
               const project = await resolveProject(domain, task.projectId);
               const allLabels = await projectLabels(domain, project.id);
-              const labelById = new Map(
-                allLabels.map((label) => [label.id, label]),
-              );
-              const labels = task.labelIds
-                .map((id) => labelById.get(id)!)
-                .filter(Boolean);
+              const labelById = new Map(allLabels.map((label) => [label.id, label]));
+              const labels = task.labelIds.map((id) => labelById.get(id)!).filter(Boolean);
               const subtasks = await listAllTasks(
                 domain,
                 tasksRpcContract.listTasks.input.parse({
@@ -1568,11 +1375,7 @@ export function registerTasksCli(
                   }),
                 ),
               ).comments;
-              const attachments = await listTaskAttachments(
-                domain,
-                task.id,
-                comments,
-              );
+              const attachments = await listTaskAttachments(domain, task.id, comments);
               const taskThreads = tasksRpcContract.listTaskThreads.output.parse(
                 await domain.listTaskThreads(
                   tasksRpcContract.listTaskThreads.input.parse({
@@ -1610,19 +1413,11 @@ export function registerTasksCli(
                   ["ID", task.id],
                   ["Project", `${project.prefix} — ${project.name}`],
                   ["Status", task.status],
-                  [
-                    "Blocked",
-                    task.blocked
-                      ? `yes, by ${openBlockerKeys(task).join(", ")}`
-                      : "no",
-                  ],
+                  ["Blocked", task.blocked ? `yes, by ${openBlockerKeys(task).join(", ")}` : "no"],
                   ["Priority", task.priority],
                   ["Due", task.dueDate ?? "-"],
                   ["Parent", task.parentTaskId ?? "-"],
-                  [
-                    "Labels",
-                    labels.map((label) => label.name).join(", ") || "-",
-                  ],
+                  ["Labels", labels.map((label) => label.name).join(", ") || "-"],
                   ["Created", task.createdAt],
                   ["Updated", task.updatedAt],
                 ]),
@@ -1713,8 +1508,7 @@ export function registerTasksCli(
               type: "string",
               placeholder: "markdown",
               aliases: ["body", "details", "text", "content"],
-              description:
-                "Replacement markdown description; use --description-file for long text",
+              description: "Replacement markdown description; use --description-file for long text",
             },
             "description-file": {
               type: "string",
@@ -1744,8 +1538,7 @@ export function registerTasksCli(
               repeatable: true,
               split: ",",
               placeholder: "name",
-              description:
-                "Existing label name to add; repeat or comma-separate",
+              description: "Existing label name to add; repeat or comma-separate",
             },
             "remove-label": {
               type: "string",
@@ -1759,16 +1552,14 @@ export function registerTasksCli(
               repeatable: true,
               split: ",",
               placeholder: "key-or-id",
-              description:
-                "Task that must be done before this task; repeat or comma-separate",
+              description: "Task that must be done before this task; repeat or comma-separate",
             },
             "unblocked-by": {
               type: "string",
               repeatable: true,
               split: ",",
               placeholder: "key-or-id",
-              description:
-                "Remove this task from the blockers; repeat or comma-separate",
+              description: "Remove this task from the blockers; repeat or comma-separate",
             },
             machine: MACHINE_OPTION,
             json: JSON_OPTION,
@@ -1788,27 +1579,17 @@ export function registerTasksCli(
           ],
           run(input, ctx) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
               const dueDate = input.options.due;
               const noDue = input.options["no-due"];
               const parentAddress = input.options.parent;
               const noParent = input.options["no-parent"];
               const parent =
-                parentAddress === undefined
-                  ? undefined
-                  : await resolveTask(domain, parentAddress);
+                parentAddress === undefined ? undefined : await resolveTask(domain, parentAddress);
               const descriptionFile = input.options["description-file"];
               const clientHostId =
                 descriptionFile !== undefined
-                  ? await resolveClientHostId(
-                      bb,
-                      domain,
-                      input.options.machine,
-                      ctx,
-                    )
+                  ? await resolveClientHostId(bb, domain, input.options.machine, ctx)
                   : undefined;
               const description = await readTextOption(
                 bb,
@@ -1826,12 +1607,8 @@ export function registerTasksCli(
                 nextLabels.delete(resolveLabel(labels, name).id);
               }
               const labelsChanged =
-                input.options["add-label"].length > 0 ||
-                input.options["remove-label"].length > 0;
-              const addBlockerTaskIds = await resolveTaskIds(
-                domain,
-                input.options["blocked-by"],
-              );
+                input.options["add-label"].length > 0 || input.options["remove-label"].length > 0;
+              const addBlockerTaskIds = await resolveTaskIds(domain, input.options["blocked-by"]);
               const removeBlockerTaskIds = await resolveTaskIds(
                 domain,
                 input.options["unblocked-by"],
@@ -1863,9 +1640,7 @@ export function registerTasksCli(
                     description,
                     dueDate: noDue ? null : dueDate,
                     parentTaskId:
-                      parentAddress === undefined && !noParent
-                        ? undefined
-                        : (parent?.id ?? null),
+                      parentAddress === undefined && !noParent ? undefined : (parent?.id ?? null),
                     labelIds: labelsChanged ? [...nextLabels] : undefined,
                     addBlockerTaskIds,
                     removeBlockerTaskIds,
@@ -1877,15 +1652,10 @@ export function registerTasksCli(
               const warnings = result.ok ? (result.warnings ?? []) : [];
               if (input.options.json) {
                 return JSON.stringify(
-                  warnings.length > 0
-                    ? { task: updated, warnings }
-                    : { task: updated },
+                  warnings.length > 0 ? { task: updated, warnings } : { task: updated },
                 );
               }
-              return withWarnings(
-                `Updated ${updated.key}  ${updated.title}`,
-                warnings,
-              );
+              return withWarnings(`Updated ${updated.key}  ${updated.title}`, warnings);
             });
           },
         }),
@@ -1904,14 +1674,12 @@ export function registerTasksCli(
             "body-file": {
               type: "string",
               placeholder: "path",
-              description:
-                "Read the comment from this UTF-8 file on the invoking machine",
+              description: "Read the comment from this UTF-8 file on the invoking machine",
             },
             author: {
               type: "string",
               placeholder: "name",
-              description:
-                "Display name for the comment; defaults to the invoking thread or cli",
+              description: "Display name for the comment; defaults to the invoking thread or cli",
             },
             notify: {
               type: "boolean",
@@ -1927,19 +1695,11 @@ export function registerTasksCli(
           ],
           run(input, ctx) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
               const bodyFile = input.options["body-file"];
               const clientHostId =
                 bodyFile !== undefined
-                  ? await resolveClientHostId(
-                      bb,
-                      domain,
-                      input.options.machine,
-                      ctx,
-                    )
+                  ? await resolveClientHostId(bb, domain, input.options.machine, ctx)
                   : undefined;
               const body = await readTextOption(
                 bb,
@@ -1992,11 +1752,7 @@ export function registerTasksCli(
           unexpectedPositionalHint: "the label name belongs in --name <name>.",
           run(input, ctx) {
             return guard(async () => {
-              const project = await requiredProject(
-                domain,
-                ctx,
-                input.options.project,
-              );
+              const project = await requiredProject(domain, ctx, input.options.project);
               const result = tasksRpcContract.createLabel.output.parse(
                 await domain.createLabel(
                   tasksRpcContract.createLabel.input.parse({
@@ -2017,11 +1773,7 @@ export function registerTasksCli(
           options: { project: REQUIRED_PROJECT_OPTION, json: JSON_OPTION },
           run(input, ctx) {
             return guard(async () => {
-              const project = await requiredProject(
-                domain,
-                ctx,
-                input.options.project,
-              );
+              const project = await requiredProject(domain, ctx, input.options.project);
               const labels = await projectLabels(domain, project.id);
               return input.options.json
                 ? JSON.stringify({ labels })
@@ -2045,11 +1797,7 @@ export function registerTasksCli(
           options: { project: REQUIRED_PROJECT_OPTION, json: JSON_OPTION },
           run(input, ctx) {
             return guard(async () => {
-              const project = await requiredProject(
-                domain,
-                ctx,
-                input.options.project,
-              );
+              const project = await requiredProject(domain, ctx, input.options.project);
               const label = resolveLabel(
                 await projectLabels(domain, project.id),
                 input.positionals["name-or-id"],
@@ -2068,16 +1816,12 @@ export function registerTasksCli(
           },
         }),
 
-        attachment: groupCommand(
-          "attachment",
-          "Add, download, list, or remove task attachments",
-          [
-            ["add", "Attach a file to a task or comment"],
-            ["get", "Download an attachment to a path"],
-            ["list", "List a task's attachments"],
-            ["remove", "Remove an attachment"],
-          ],
-        ),
+        attachment: groupCommand("attachment", "Add, download, list, or remove task attachments", [
+          ["add", "Attach a file to a task or comment"],
+          ["get", "Download an attachment to a path"],
+          ["list", "List a task's attachments"],
+          ["remove", "Remove an attachment"],
+        ]),
         "attachment add": cliCommand({
           summary: "Attach a file to a task or comment",
           description:
@@ -2085,8 +1829,7 @@ export function registerTasksCli(
           positionals: [
             {
               name: "key-or-comment-id",
-              description:
-                "Task key such as ABC-12, a task ULID, or a comment ULID",
+              description: "Task key such as ABC-12, a task ULID, or a comment ULID",
               required: true,
             },
           ],
@@ -2108,10 +1851,7 @@ export function registerTasksCli(
           run(input, ctx) {
             return guard(async () => {
               const ownerAddress = input.positionals["key-or-comment-id"];
-              const sourcePath = resolve(
-                ctx.cwd ?? process.cwd(),
-                input.options.file,
-              );
+              const sourcePath = resolve(ctx.cwd ?? process.cwd(), input.options.file);
               const normalizedOwner = ownerAddress.trim().toUpperCase();
               const comment = ULID_PATTERN.test(normalizedOwner)
                 ? store.tasks.getComment(normalizedOwner)
@@ -2130,20 +1870,11 @@ export function registerTasksCli(
                 input.options.machine,
                 ctx,
               );
-              const content = await readAttachmentSource(
-                bb,
-                clientHostId,
-                sourcePath,
-              );
-              const attachment = await saveAttachmentFromBytes(
-                store.tasks,
-                content,
-                {
-                  ...owner,
-                  fileName:
-                    input.options.name ?? attachmentFileName(sourcePath),
-                },
-              );
+              const content = await readAttachmentSource(bb, clientHostId, sourcePath);
+              const attachment = await saveAttachmentFromBytes(store.tasks, content, {
+                ...owner,
+                fileName: input.options.name ?? attachmentFileName(sourcePath),
+              });
               publishAttachmentChanged(bb, store.tasks, attachment);
               return input.options.json
                 ? JSON.stringify({
@@ -2172,18 +1903,14 @@ export function registerTasksCli(
               placeholder: "path",
               short: "o",
               aliases: ["output", "to"],
-              description:
-                "Destination path; missing parent directories are created",
+              description: "Destination path; missing parent directories are created",
             },
             machine: MACHINE_OPTION,
             json: JSON_OPTION,
           },
           run(input, ctx) {
             return guard(async () => {
-              const outPath = resolve(
-                ctx.cwd ?? process.cwd(),
-                input.options.out,
-              );
+              const outPath = resolve(ctx.cwd ?? process.cwd(), input.options.out);
               const clientHostId = await resolveClientHostId(
                 bb,
                 domain,
@@ -2207,10 +1934,7 @@ export function registerTasksCli(
           options: { json: JSON_OPTION },
           run(input) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
               const comments = tasksRpcContract.listComments.output.parse(
                 await domain.listComments(
                   tasksRpcContract.listComments.input.parse({
@@ -2218,11 +1942,7 @@ export function registerTasksCli(
                   }),
                 ),
               ).comments;
-              const attachments = await listTaskAttachments(
-                domain,
-                task.id,
-                comments,
-              );
+              const attachments = await listTaskAttachments(domain, task.id, comments);
               return input.options.json
                 ? JSON.stringify({ task, attachments })
                 : table(
@@ -2250,8 +1970,7 @@ export function registerTasksCli(
           options: {
             "remove-references": {
               type: "boolean",
-              description:
-                "Also strip the attachment's links from the task description",
+              description: "Also strip the attachment's links from the task description",
             },
             json: JSON_OPTION,
           },
@@ -2262,8 +1981,7 @@ export function registerTasksCli(
                 await domain.deleteAttachment(
                   tasksRpcContract.deleteAttachment.input.parse({
                     attachmentId: attachmentId.trim(),
-                    removeDescriptionReferences:
-                      input.options["remove-references"],
+                    removeDescriptionReferences: input.options["remove-references"],
                   }),
                 ),
               );
@@ -2283,17 +2001,13 @@ export function registerTasksCli(
           },
         }),
 
-        preset: groupCommand(
-          "preset",
-          "List, show, create, update, or delete dispatch presets",
-          [
-            ["list", "List dispatch presets"],
-            ["show", "Show one preset"],
-            ["create", "Create a preset"],
-            ["update", "Update a preset"],
-            ["delete", "Delete a preset"],
-          ],
-        ),
+        preset: groupCommand("preset", "List, show, create, update, or delete dispatch presets", [
+          ["list", "List dispatch presets"],
+          ["show", "Show one preset"],
+          ["create", "Create a preset"],
+          ["update", "Update a preset"],
+          ["delete", "Delete a preset"],
+        ]),
         "preset list": cliCommand({
           summary: "List dispatch presets",
           options: { json: JSON_OPTION },
@@ -2410,8 +2124,7 @@ export function registerTasksCli(
               type: "enum",
               values: PRESET_ENVIRONMENTS,
               default: "project-default",
-              description:
-                "Where the thread runs; --base-branch and --machine require worktree",
+              description: "Where the thread runs; --base-branch and --machine require worktree",
             },
             "base-branch": {
               type: "string",
@@ -2450,15 +2163,12 @@ export function registerTasksCli(
                     providerId: input.options.provider,
                     modelId: input.options.model,
                     reasoningLevel: input.options.reasoning,
-                    serviceTier:
-                      presetServiceTier(input.options["service-tier"]) ?? null,
+                    serviceTier: presetServiceTier(input.options["service-tier"]) ?? null,
                     permissionMode: input.options.permission,
                     environmentKind,
                     baseBranch: baseBranch ?? null,
                     machineId:
-                      machine === undefined
-                        ? null
-                        : await resolveMachineId(domain, machine),
+                      machine === undefined ? null : await resolveMachineId(domain, machine),
                     instructions: input.options.instructions ?? "",
                   }),
                 ),
@@ -2554,22 +2264,15 @@ export function registerTasksCli(
                     providerId: input.options.provider,
                     modelId: input.options.model,
                     reasoningLevel: input.options.reasoning,
-                    serviceTier: presetServiceTier(
-                      input.options["service-tier"],
-                    ),
+                    serviceTier: presetServiceTier(input.options["service-tier"]),
                     permissionMode: input.options.permission,
-                    environmentKind:
-                      environmentOption === undefined
-                        ? undefined
-                        : environmentKind,
+                    environmentKind: environmentOption === undefined ? undefined : environmentKind,
                     baseBranch:
-                      environmentOption !== undefined &&
-                      environmentKind === "project-default"
+                      environmentOption !== undefined && environmentKind === "project-default"
                         ? null
                         : baseBranch,
                     machineId:
-                      environmentOption !== undefined &&
-                      environmentKind === "project-default"
+                      environmentOption !== undefined && environmentKind === "project-default"
                         ? null
                         : machine === undefined
                           ? undefined
@@ -2624,8 +2327,7 @@ export function registerTasksCli(
               type: "string",
               required: true,
               placeholder: "name-or-id",
-              description:
-                "Dispatch preset name or id; run bb tasks preset list to see them",
+              description: "Dispatch preset name or id; run bb tasks preset list to see them",
             },
             instructions: {
               type: "string",
@@ -2637,14 +2339,8 @@ export function registerTasksCli(
           },
           run(input) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
-              const preset = resolvePreset(
-                await listPresets(domain),
-                input.options.preset,
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
+              const preset = resolvePreset(await listPresets(domain), input.options.preset);
               const result = delegationRpcContract.delegate.output.parse(
                 await delegationHandlers(bb, store).delegate(
                   delegationRpcContract.delegate.input.parse({
@@ -2675,30 +2371,22 @@ export function registerTasksCli(
               type: "string",
               placeholder: "thread-id",
               aliases: ["thread-id"],
-              description:
-                "Thread to attach; defaults to BB_THREAD_ID or the invoking thread",
+              description: "Thread to attach; defaults to BB_THREAD_ID or the invoking thread",
             },
             json: JSON_OPTION,
           },
           run(input, ctx) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
+              const threadId = resolveInvokingThreadId(input.options.thread, ctx);
+              const result = delegationRpcContract.taskThreadsAttach.output.parse(
+                await delegationHandlers(bb, store).taskThreadsAttach(
+                  delegationRpcContract.taskThreadsAttach.input.parse({
+                    taskId: task.id,
+                    threadId,
+                  }),
+                ),
               );
-              const threadId = resolveInvokingThreadId(
-                input.options.thread,
-                ctx,
-              );
-              const result =
-                delegationRpcContract.taskThreadsAttach.output.parse(
-                  await delegationHandlers(bb, store).taskThreadsAttach(
-                    delegationRpcContract.taskThreadsAttach.input.parse({
-                      taskId: task.id,
-                      threadId,
-                    }),
-                  ),
-                );
               return input.options.json
                 ? JSON.stringify({ task, ...result })
                 : `Attached ${result.threadId} to ${task.key}`;
@@ -2714,30 +2402,22 @@ export function registerTasksCli(
               type: "string",
               placeholder: "thread-id",
               aliases: ["thread-id"],
-              description:
-                "Thread to detach; defaults to BB_THREAD_ID or the invoking thread",
+              description: "Thread to detach; defaults to BB_THREAD_ID or the invoking thread",
             },
             json: JSON_OPTION,
           },
           run(input, ctx) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
+              const threadId = resolveInvokingThreadId(input.options.thread, ctx);
+              const result = delegationRpcContract.taskThreadsDetach.output.parse(
+                await delegationHandlers(bb, store).taskThreadsDetach(
+                  delegationRpcContract.taskThreadsDetach.input.parse({
+                    taskId: task.id,
+                    threadId,
+                  }),
+                ),
               );
-              const threadId = resolveInvokingThreadId(
-                input.options.thread,
-                ctx,
-              );
-              const result =
-                delegationRpcContract.taskThreadsDetach.output.parse(
-                  await delegationHandlers(bb, store).taskThreadsDetach(
-                    delegationRpcContract.taskThreadsDetach.input.parse({
-                      taskId: task.id,
-                      threadId,
-                    }),
-                  ),
-                );
               return input.options.json
                 ? JSON.stringify({ task, ...result })
                 : `Detached ${result.threadId} from ${task.key}`;
@@ -2751,10 +2431,7 @@ export function registerTasksCli(
           options: { json: JSON_OPTION },
           run(input) {
             return guard(async () => {
-              const task = await resolveTask(
-                domain,
-                input.positionals["key-or-id"],
-              );
+              const task = await resolveTask(domain, input.positionals["key-or-id"]);
               const result = tasksRpcContract.listTaskThreads.output.parse(
                 await domain.listTaskThreads(
                   tasksRpcContract.listTaskThreads.input.parse({
@@ -2779,8 +2456,7 @@ export function registerTasksCli(
         }),
 
         "seed-demo": cliCommand({
-          summary:
-            "Create sample folders, projects, labels, tasks, and comments",
+          summary: "Create sample folders, projects, labels, tasks, and comments",
           options: {
             yes: {
               type: "boolean",
@@ -2791,10 +2467,9 @@ export function registerTasksCli(
           run(input, ctx) {
             return guard(async () => {
               if (!input.options.yes) {
-                throw new CliError(
-                  "seed-demo creates sample data; re-run with --yes",
-                  { code: "confirmation_required" },
-                );
+                throw new CliError("seed-demo creates sample data; re-run with --yes", {
+                  code: "confirmation_required",
+                });
               }
               const result = await seedDemo(domain, ctx.projectId);
               return input.options.json

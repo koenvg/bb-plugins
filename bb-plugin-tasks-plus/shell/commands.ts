@@ -1,9 +1,5 @@
 import type { PluginCommandRegistration } from "@get-bb/plugin-sdk/app";
-import {
-  canRunTasksCommand,
-  openTasksPanel,
-  sendPanelIntent,
-} from "./command-bridge.js";
+import { canRunTasksCommand, openTasksPanel, sendPanelIntent } from "./command-bridge.js";
 
 export const TASKS_COMMANDS: readonly PluginCommandRegistration[] = [
   {

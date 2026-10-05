@@ -40,9 +40,7 @@ describe("listScrollScopeKey", () => {
     expect(listScrollScopeKey({ ...base, filters: a })).toBe(
       listScrollScopeKey({ ...base, filters: b }),
     );
-    expect(listScrollScopeKey({ ...base, filters: a })).not.toBe(
-      listScrollScopeKey(base),
-    );
+    expect(listScrollScopeKey({ ...base, filters: a })).not.toBe(listScrollScopeKey(base));
   });
 
   it("does not collide distinct label filters that share a delimiter", () => {
@@ -62,9 +60,7 @@ describe("listScrollScopeKey", () => {
   });
 
   it("distinguishes sort while holding the list fixed", () => {
-    expect(listScrollScopeKey(base)).not.toBe(
-      listScrollScopeKey({ ...base, sort: "priority" }),
-    );
+    expect(listScrollScopeKey(base)).not.toBe(listScrollScopeKey({ ...base, sort: "priority" }));
   });
 });
 
@@ -193,9 +189,7 @@ describe("useListScrollRestoration", () => {
         node = el;
       },
     };
-    const view = render(
-      <Harness {...props} visible={false} scrollHeight={0} />,
-    );
+    const view = render(<Harness {...props} visible={false} scrollHeight={0} />);
     expect(readListScroll(scopeKey)).toBe(680);
     view.rerender(<Harness {...props} visible scrollHeight={2000} />);
     expect(node.scrollTop).toBe(680);
@@ -221,12 +215,7 @@ describe("useListScrollRestoration", () => {
     };
 
     const first = render(
-      <Harness
-        scopeKey="all|"
-        contentReady
-        scrollHeight={2000}
-        onReady={capture}
-      />,
+      <Harness scopeKey="all|" contentReady scrollHeight={2000} onReady={capture} />,
     );
     const firstEl = el as unknown as HTMLDivElement;
     act(() => {
@@ -237,14 +226,7 @@ describe("useListScrollRestoration", () => {
     expect(readListScroll("all|")).toBe(800);
 
     el = null;
-    render(
-      <Harness
-        scopeKey="all|"
-        contentReady
-        scrollHeight={1000}
-        onReady={capture}
-      />,
-    );
+    render(<Harness scopeKey="all|" contentReady scrollHeight={1000} onReady={capture} />);
     const secondEl = el as unknown as HTMLDivElement;
     expect(secondEl.scrollTop).toBe(500);
   });

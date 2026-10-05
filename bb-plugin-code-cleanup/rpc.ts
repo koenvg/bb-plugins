@@ -17,13 +17,20 @@ export const settingsContract = defineRpcContract({
   },
   getProject: { input: projectInput, output: projectState },
   setEnablement: {
-    input: z.strictObject({ projectId: z.string().min(1), enabledOverride: z.boolean().nullable() }),
+    input: z.strictObject({
+      projectId: z.string().min(1),
+      enabledOverride: z.boolean().nullable(),
+    }),
     output: projectState,
   },
   setPrompt: {
     input: z.strictObject({
       projectId: z.string().min(1),
-      prompt: z.string().max(4096).refine(text => text.trim() !== "", "Prompt must be nonblank").nullable(),
+      prompt: z
+        .string()
+        .max(4096)
+        .refine((text) => text.trim() !== "", "Prompt must be nonblank")
+        .nullable(),
     }),
     output: projectState,
   },

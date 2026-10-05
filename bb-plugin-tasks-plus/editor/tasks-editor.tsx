@@ -104,9 +104,7 @@ const EDITOR_CSS = `
 `;
 
 function ensureEditorStyles(): void {
-  const existing = document.head.querySelector<HTMLStyleElement>(
-    `[${STYLE_MARKER}]`,
-  );
+  const existing = document.head.querySelector<HTMLStyleElement>(`[${STYLE_MARKER}]`);
   if (existing) {
     existing.textContent = EDITOR_CSS;
     return;
@@ -197,9 +195,7 @@ interface TasksEditorProps {
   placeholder?: string;
   readOnly?: boolean;
   variant?: "doc" | "comment";
-  onUploadImage?: (
-    file: File,
-  ) => Promise<{ url: string; attachmentId: string }>;
+  onUploadImage?: (file: File) => Promise<{ url: string; attachmentId: string }>;
   onAttachFiles?: (files: File[]) => void;
   mentionItems?: (query: string) => Promise<MentionItem[]>;
   onOpenThread?: (threadId: string) => void;
@@ -248,11 +244,7 @@ export function TasksEditor({
   const canSubmitWithEnterKey = Boolean(onSubmit) && !isPointerCoarse;
   const canSubmitWithEnterRef = useRef(canSubmitWithEnterKey);
   canSubmitWithEnterRef.current = canSubmitWithEnterKey;
-  const editorEnterKeyHint = onSubmit
-    ? isPointerCoarse
-      ? "enter"
-      : "send"
-    : undefined;
+  const editorEnterKeyHint = onSubmit ? (isPointerCoarse ? "enter" : "send") : undefined;
 
   const [, setRevision] = useState(0);
   const [mention, setMentionState] = useState<MentionPopoverState | null>(null);
@@ -272,16 +264,11 @@ export function TasksEditor({
       const handler = uploadRef.current;
       if (!handler || !file.type.startsWith("image/")) return false;
       const result = await handler(file);
-      editor
-        .chain()
-        .focus()
-        .setImage({ src: result.url, alt: file.name })
-        .run();
+      editor.chain().focus().setImage({ src: result.url, alt: file.name }).run();
       return true;
     };
     const mentionHandle: MentionSuggestionHandle = {
-      getItems: (query) =>
-        mentionItemsRef.current?.(query) ?? Promise.resolve([]),
+      getItems: (query) => mentionItemsRef.current?.(query) ?? Promise.resolve([]),
       onChange: (props: SuggestionProps<MentionItem, MentionItem>) => {
         const previous = mentionRef.current;
         setMentionRef.current({
@@ -308,9 +295,7 @@ export function TasksEditor({
         if (event.key === "ArrowUp") {
           setMentionRef.current({
             ...state,
-            selectedIndex:
-              (state.selectedIndex - 1 + state.items.length) %
-              state.items.length,
+            selectedIndex: (state.selectedIndex - 1 + state.items.length) % state.items.length,
           });
           return true;
         }
@@ -344,14 +329,8 @@ export function TasksEditor({
           if (openMention && openMention.items.length > 0) return false;
 
           const withPrimaryMod =
-            (event.metaKey || event.ctrlKey) &&
-            !event.altKey &&
-            !event.shiftKey;
-          const plainEnter =
-            !event.shiftKey &&
-            !event.metaKey &&
-            !event.ctrlKey &&
-            !event.altKey;
+            (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey;
+          const plainEnter = !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
 
           if (event.shiftKey && !withPrimaryMod) return false;
           if (!withPrimaryMod && !plainEnter) return false;
@@ -369,9 +348,7 @@ export function TasksEditor({
             return true;
           }
           if (!uploadRef.current) return false;
-          const file = files.find((candidate) =>
-            candidate.type.startsWith("image/"),
-          );
+          const file = files.find((candidate) => candidate.type.startsWith("image/"));
           if (!file) return false;
           void upload(file);
           return true;
@@ -385,9 +362,7 @@ export function TasksEditor({
             return true;
           }
           if (!uploadRef.current) return false;
-          const file = files.find((candidate) =>
-            candidate.type.startsWith("image/"),
-          );
+          const file = files.find((candidate) => candidate.type.startsWith("image/"));
           if (!file) return false;
           event.preventDefault();
           void upload(file);
@@ -401,10 +376,7 @@ export function TasksEditor({
       const paragraph = editor.state.schema.nodes.paragraph;
       if (paragraph && last && last.type.isLeaf) {
         editor.view.dispatch(
-          editor.state.tr.insert(
-            editor.state.doc.content.size,
-            paragraph.create(),
-          ),
+          editor.state.tr.insert(editor.state.doc.content.size, paragraph.create()),
         );
       }
     }
@@ -484,13 +456,7 @@ export function TasksEditor({
     .map((item, index) => ({ item, index }))
     .filter((entry) => entry.item.type === "thread");
 
-  const mentionRow = ({
-    item,
-    index,
-  }: {
-    item: MentionItem;
-    index: number;
-  }) => (
+  const mentionRow = ({ item, index }: { item: MentionItem; index: number }) => (
     <button
       key={item.id}
       type="button"
@@ -506,14 +472,9 @@ export function TasksEditor({
       onClick={() => mention?.command(item)}
     >
       {item.type === "task" ? (
-        <span className="shrink-0 font-medium text-muted-foreground">
-          {item.key}
-        </span>
+        <span className="shrink-0 font-medium text-muted-foreground">{item.key}</span>
       ) : (
-        <HugeiconsIcon
-          icon={BubbleChatIcon}
-          className="size-3.5 shrink-0 text-muted-foreground"
-        />
+        <HugeiconsIcon icon={BubbleChatIcon} className="size-3.5 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 flex-1 truncate">{item.title}</span>
     </button>
@@ -521,10 +482,7 @@ export function TasksEditor({
 
   const focusOnEmptyMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (readOnly) return;
-    if (
-      event.target === wrapperRef.current ||
-      event.target === rootRef.current
-    ) {
+    if (event.target === wrapperRef.current || event.target === rootRef.current) {
       event.preventDefault();
       editorRef.current?.commands.focus("end");
     }
@@ -555,9 +513,7 @@ export function TasksEditor({
               aria-pressed={editor ? action.isActive(editor) : false}
               className={cn(
                 "size-7 text-muted-foreground",
-                editor && action.isActive(editor)
-                  ? "bg-accent text-accent-foreground"
-                  : undefined,
+                editor && action.isActive(editor) ? "bg-accent text-accent-foreground" : undefined,
               )}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -577,11 +533,7 @@ export function TasksEditor({
           role="listbox"
           aria-label="Mention a task or thread"
           className="fixed z-50 max-h-64 w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-          style={
-            mentionRect
-              ? { top: mentionRect.bottom + 4, left: mentionRect.left }
-              : undefined
-          }
+          style={mentionRect ? { top: mentionRect.bottom + 4, left: mentionRect.left } : undefined}
         >
           {taskItems.length > 0 ? (
             <div className="px-2 pb-0.5 pt-1 text-2xs font-semibold text-muted-foreground">

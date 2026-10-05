@@ -1,9 +1,6 @@
 import { stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { registerAttachments } from "../attachments";
 import { attachmentDownloadUrl } from "../shared/attachments";
@@ -81,9 +78,7 @@ describe("Tasks RPC domain API", () => {
       status: "todo",
     });
 
-    await expect(
-      harness.behavior.callRpc("sidebarSummary", null),
-    ).resolves.toEqual({
+    await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
       projects: [
         { projectId: empty.id, taskCount: 0, activeAgentCount: 0 },
         { projectId: mixed.id, taskCount: 4, activeAgentCount: 4 },
@@ -123,12 +118,8 @@ describe("Tasks RPC domain API", () => {
         liveStatus: "working",
       });
 
-      await expect(
-        harness.behavior.callRpc("sidebarSummary", null),
-      ).resolves.toEqual({
-        projects: [
-          { projectId: project.id, taskCount: 0, activeAgentCount: 1 },
-        ],
+      await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
+        projects: [{ projectId: project.id, taskCount: 0, activeAgentCount: 1 }],
       });
       await harness.lifecycle.dispose();
     },
@@ -158,12 +149,8 @@ describe("Tasks RPC domain API", () => {
         liveStatus: "working",
       });
 
-      await expect(
-        harness.behavior.callRpc("sidebarSummary", null),
-      ).resolves.toEqual({
-        projects: [
-          { projectId: project.id, taskCount: 1, activeAgentCount: 1 },
-        ],
+      await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
+        projects: [{ projectId: project.id, taskCount: 1, activeAgentCount: 1 }],
       });
       for (const [status, taskCount] of [
         ["done", 0],
@@ -175,19 +162,13 @@ describe("Tasks RPC domain API", () => {
         await expect(
           harness.behavior.callRpc(method, { taskId: task.id, status }),
         ).resolves.toMatchObject({ ok: true, task: { status } });
-        await expect(
-          harness.behavior.callRpc("sidebarSummary", null),
-        ).resolves.toEqual({
-          projects: [
-            { projectId: project.id, taskCount, activeAgentCount: 1 },
-          ],
+        await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
+          projects: [{ projectId: project.id, taskCount, activeAgentCount: 1 }],
         });
         await expect(
           harness.behavior.callRpc("listTasks", { projectId: project.id }),
         ).resolves.toMatchObject({ tasks: [{ id: task.id, status }] });
-        expect(
-          harness.inspection.realtimeSignals.slice(signalsBefore),
-        ).toContainEqual({
+        expect(harness.inspection.realtimeSignals.slice(signalsBefore)).toContainEqual({
           channel: "tasks:changed",
           payload: { taskId: task.id, projectId: project.id },
         });
@@ -255,9 +236,11 @@ describe("Tasks RPC domain API", () => {
       payload: { taskId: task.id, projectId: project.id },
     });
 
-    await expect(
-      harness.callRpc("deleteAttachment", { attachmentId }),
-    ).resolves.toEqual({ ok: true, deleted: false, attachment: null });
+    await expect(harness.callRpc("deleteAttachment", { attachmentId })).resolves.toEqual({
+      ok: true,
+      deleted: false,
+      attachment: null,
+    });
     await harness.dispose();
   });
 
@@ -266,8 +249,7 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }) =>
-            makeThreadResponse({ id: threadId, status: "active" }),
+          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
           send: async () => undefined,
         },
       },
@@ -548,9 +530,7 @@ describe("Tasks RPC domain API", () => {
     const result = tasksRpcContract.listComments.output.parse(
       await harness.callRpc("listComments", { taskId: task.id }),
     );
-    const byBody = new Map(
-      result.comments.map((comment) => [comment.body, comment]),
-    );
+    const byBody = new Map(result.comments.map((comment) => [comment.body, comment]));
     expect(byBody.get("Codex")?.provider).toEqual({
       id: "codex",
       name: "Codex",
@@ -608,9 +588,7 @@ describe("Tasks RPC domain API", () => {
       { id: "proj_personal", name: "Personal" },
       { id: "proj_bb", name: "bb" },
     ]);
-    expect(harness.sdk.callsTo("projects.list")).toEqual([
-      [{ includePersonal: true }],
-    ]);
+    expect(harness.sdk.callsTo("projects.list")).toEqual([[{ includePersonal: true }]]);
     await harness.dispose();
   });
 
@@ -673,13 +651,7 @@ describe("Tasks RPC domain API", () => {
             archived: {
               results: [
                 {
-                  thread: thread(
-                    "thr_middle",
-                    "Middle match",
-                    null,
-                    20,
-                    "error",
-                  ),
+                  thread: thread("thr_middle", "Middle match", null, 20, "error"),
                 },
               ],
             },
@@ -693,17 +665,13 @@ describe("Tasks RPC domain API", () => {
     });
     registerTasksApi(bb, createStore(bb));
 
-    await expect(
-      harness.callRpc("searchThreads", { query: "match", limit: 2 }),
-    ).resolves.toEqual({
+    await expect(harness.callRpc("searchThreads", { query: "match", limit: 2 })).resolves.toEqual({
       threads: [
         { id: "thr_new", title: "New fallback", status: "active" },
         { id: "thr_middle", title: "Middle match", status: "error" },
       ],
     });
-    await expect(
-      harness.callRpc("searchThreads", { query: "" }),
-    ).resolves.toEqual({
+    await expect(harness.callRpc("searchThreads", { query: "" })).resolves.toEqual({
       threads: [
         { id: "thr_recent_new", title: "Recent new", status: "starting" },
         { id: "thr_recent_old", title: "Recent old", status: "idle" },
@@ -818,8 +786,7 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }) =>
-            makeThreadResponse({ id: threadId, status: "active" }),
+          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
           send: async (input) => {
             if (input.threadId === "thr_failing") {
               throw new Error("active turn finished");
@@ -920,12 +887,9 @@ describe("Tasks RPC domain API", () => {
         `/attachments/upload?commentId=${comment.id}&fileName=comment.txt&mime=text%2Fplain`,
         { body: "comment blob", headers: { "content-type": "text/plain" } },
       );
-      const taskAttachmentId = (
-        (await taskUpload.json()) as { attachmentId: string }
-      ).attachmentId;
-      const commentAttachmentId = (
-        (await commentUpload.json()) as { attachmentId: string }
-      ).attachmentId;
+      const taskAttachmentId = ((await taskUpload.json()) as { attachmentId: string }).attachmentId;
+      const commentAttachmentId = ((await commentUpload.json()) as { attachmentId: string })
+        .attachmentId;
       const taskAttachment = store.tasks.getAttachment(taskAttachmentId);
       const commentAttachment = store.tasks.getAttachment(commentAttachmentId);
       if (!taskAttachment || !commentAttachment) {
@@ -937,14 +901,13 @@ describe("Tasks RPC domain API", () => {
         .all()
         .find((entry) => entry.name === "main");
       if (!database) throw new Error("test database path is missing");
-      const blobDirectories = [taskAttachment, commentAttachment].map(
-        (attachment) =>
-          dirname(join(dirname(database.file), attachment.blobPath)),
+      const blobDirectories = [taskAttachment, commentAttachment].map((attachment) =>
+        dirname(join(dirname(database.file), attachment.blobPath)),
       );
 
-      await expect(
-        harness.callRpc("deleteTask", { taskId: task.id }),
-      ).resolves.toEqual({ deleted: true });
+      await expect(harness.callRpc("deleteTask", { taskId: task.id })).resolves.toEqual({
+        deleted: true,
+      });
       for (const blobDirectory of blobDirectories) {
         await expect(stat(blobDirectory)).rejects.toMatchObject({
           code: "ENOENT",
@@ -976,8 +939,7 @@ describe("Tasks RPC domain API", () => {
         `/attachments/upload?taskId=${task.id}&fileName=project.txt&mime=text%2Fplain`,
         { body: "project blob", headers: { "content-type": "text/plain" } },
       );
-      const attachmentId = ((await upload.json()) as { attachmentId: string })
-        .attachmentId;
+      const attachmentId = ((await upload.json()) as { attachmentId: string }).attachmentId;
       const attachment = store.tasks.getAttachment(attachmentId);
       if (!attachment) throw new Error("attachment row was not created");
       const database = bb.storage
@@ -986,9 +948,7 @@ describe("Tasks RPC domain API", () => {
         .all()
         .find((entry) => entry.name === "main");
       if (!database) throw new Error("test database path is missing");
-      const blobDirectory = dirname(
-        join(dirname(database.file), attachment.blobPath),
-      );
+      const blobDirectory = dirname(join(dirname(database.file), attachment.blobPath));
 
       await expect(
         harness.callRpc("deleteProject", {
@@ -1143,9 +1103,7 @@ describe("Tasks RPC domain API", () => {
         },
       ],
     });
-    await expect(
-      harness.callRpc("deleteProject", { projectId: project.id }),
-    ).resolves.toEqual({
+    await expect(harness.callRpc("deleteProject", { projectId: project.id })).resolves.toEqual({
       ok: false,
       error: {
         code: "project_not_empty",
@@ -1346,9 +1304,9 @@ describe("Tasks RPC domain API", () => {
         builtin: true,
       },
     });
-    await expect(
-      harness.callRpc("deletePreset", { presetId: preset.id }),
-    ).resolves.toEqual({ deleted: true });
+    await expect(harness.callRpc("deletePreset", { presetId: preset.id })).resolves.toEqual({
+      deleted: true,
+    });
     expect(store.tasks.getPreset(preset.id)).toBeUndefined();
 
     await harness.dispose();
@@ -1415,10 +1373,7 @@ describe("Tasks RPC domain API", () => {
       projectId: project.id,
       title: "Ship it",
     });
-    for (const threadId of [
-      ...Object.keys(environmentByThread),
-      "thr_deleted00",
-    ]) {
+    for (const threadId of [...Object.keys(environmentByThread), "thr_deleted00"]) {
       store.tasks.upsertTaskThread({
         taskId: task.id,
         threadId,
@@ -1511,12 +1466,7 @@ describe("Tasks RPC domain API", () => {
       projectId: project.id,
       title: "Ship it",
     });
-    for (const threadId of [
-      "thr_no_auth00",
-      "thr_no_auth01",
-      "thr_absent000",
-      "thr_crash0000",
-    ]) {
+    for (const threadId of ["thr_no_auth00", "thr_no_auth01", "thr_absent000", "thr_crash0000"]) {
       store.tasks.upsertTaskThread({
         taskId: task.id,
         threadId,
@@ -1570,11 +1520,7 @@ describe("Tasks RPC domain API", () => {
       projectId: project.id,
       title: "Ship it",
     });
-    for (const threadId of [
-      "thr_alpha0000",
-      "thr_alpha0001",
-      "thr_beta00000",
-    ]) {
+    for (const threadId of ["thr_alpha0000", "thr_alpha0001", "thr_beta00000"]) {
       store.tasks.upsertTaskThread({
         taskId: task.id,
         threadId,
@@ -1601,9 +1547,7 @@ describe("Tasks RPC domain API", () => {
     });
     resolvers.get("env_b")!({ outcome: "absent" });
 
-    const result = tasksRpcContract.listTaskPullRequests.output.parse(
-      await resultPromise,
-    );
+    const result = tasksRpcContract.listTaskPullRequests.output.parse(await resultPromise);
     expect(result.pullRequests).toHaveLength(1);
     expect(result.pullRequests[0]).toMatchObject({ number: 21 });
     expect([...result.pullRequests[0]!.threadIds].sort()).toEqual([
@@ -1645,8 +1589,7 @@ describe("Tasks RPC domain API", () => {
           get: async ({ threadId }: { threadId: string }) =>
             makeThreadResponse({
               id: threadId,
-              environmentId:
-                threadId === "thr_stale0000" ? "env_stale" : "env_fresh",
+              environmentId: threadId === "thr_stale0000" ? "env_stale" : "env_fresh",
             }),
         },
         environments: {

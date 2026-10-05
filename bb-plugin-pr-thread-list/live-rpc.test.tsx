@@ -8,7 +8,10 @@ afterEach(cleanup);
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
-  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
   return { promise, resolve, reject };
 };
 
@@ -17,7 +20,11 @@ it("distinguishes loading and failed loads from successful empty results and rec
   const read = () => request.promise;
   function Probe() {
     const [value, , status] = useLiveRpc("changed", read);
-    return <output>{status}:{value === null ? "unanswered" : JSON.stringify(value)}</output>;
+    return (
+      <output>
+        {status}:{value === null ? "unanswered" : JSON.stringify(value)}
+      </output>
+    );
   }
   const slot = renderSlot({ component: Probe }, {});
   expect(slot.getByText("loading:unanswered")).toBeTruthy();

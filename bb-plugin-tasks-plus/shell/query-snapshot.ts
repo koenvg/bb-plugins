@@ -44,10 +44,7 @@ function pruneOtherSnapshotVersions(): void {
   } catch {}
 }
 
-export function readQuerySnapshot<T>(
-  name: string,
-  schema: z.ZodType<T>,
-): T | undefined {
+export function readQuerySnapshot<T>(name: string, schema: z.ZodType<T>): T | undefined {
   pruneOtherSnapshotVersions();
   try {
     const raw = window.localStorage.getItem(querySnapshotStorageKey(name));
@@ -59,18 +56,11 @@ export function readQuerySnapshot<T>(
   }
 }
 
-export function writeQuerySnapshot(
-  name: string,
-  value: unknown,
-  revision: number,
-): void {
+export function writeQuerySnapshot(name: string, value: unknown, revision: number): void {
   pruneOtherSnapshotVersions();
   if (revision < (writtenRevisions.get(name) ?? 0)) return;
   writtenRevisions.set(name, revision);
   try {
-    window.localStorage.setItem(
-      querySnapshotStorageKey(name),
-      JSON.stringify(value),
-    );
+    window.localStorage.setItem(querySnapshotStorageKey(name), JSON.stringify(value));
   } catch {}
 }

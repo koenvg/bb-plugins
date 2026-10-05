@@ -1,10 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
@@ -73,17 +70,14 @@ it("shares thread reads across sequential visible chunks, retains every associat
     { rows: tasks },
     {
       rpc: {
-        listTaskWorkStatus: (input) =>
-          harness.behavior.callRpc("listTaskWorkStatus", input),
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
       },
     },
   );
   await waitFor(() => expect(latest?.size).toBe(501));
   expect(get).toHaveBeenCalledTimes(2);
   for (const id of ["thr_shared", "thr_unreadable"])
-    expect(
-      get.mock.calls.filter(([input]) => input.threadId === id),
-    ).toHaveLength(1);
+    expect(get.mock.calls.filter(([input]) => input.threadId === id)).toHaveLength(1);
   for (const task of tasks) {
     expect(latest!.get(task.id)!.threads).toHaveLength(2);
     expect(latest!.get(task.id)).toMatchObject({
@@ -109,14 +103,10 @@ it("shares thread reads across sequential visible chunks, retains every associat
   status = "idle";
   unreadable = false;
   fireEvent.click(slot.getByText("Refresh"));
-  await waitFor(() =>
-    expect(latest!.get(tasks[500]!.id)!.threads[0]!.execution).toBe("idle"),
-  );
+  await waitFor(() => expect(latest!.get(tasks[500]!.id)!.threads[0]!.execution).toBe("idle"));
   expect(get).toHaveBeenCalledTimes(4);
   for (const id of ["thr_shared", "thr_unreadable"])
-    expect(
-      get.mock.calls.filter(([input]) => input.threadId === id),
-    ).toHaveLength(2);
+    expect(get.mock.calls.filter(([input]) => input.threadId === id)).toHaveLength(2);
   for (const task of tasks) {
     expect(latest!.get(task.id)!.threads).toHaveLength(2);
     expect(latest!.get(task.id)!.threads).toEqual(
@@ -192,14 +182,12 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
     {},
     {
       rpc: {
-        listTaskWorkStatus: (input) =>
-          harness.behavior.callRpc("listTaskWorkStatus", input),
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
       },
     },
   );
   await act(async () => {});
-  const control = () =>
-    slot.getByRole("button", { name: new RegExp(`Threads for ${task.key}`) });
+  const control = () => slot.getByRole("button", { name: new RegExp(`Threads for ${task.key}`) });
   expect(control().textContent).toContain("1 Failed");
   expect(control().textContent).toContain("All archived");
   archivedAt = null;
@@ -233,29 +221,23 @@ it("shares settled environment successes, absence and failures across 501 sequen
       id: threadId,
       status: "idle",
       environmentId:
-        threadId === "thr_a" || threadId === "thr_b"
-          ? "env_shared"
-          : `env_${threadId}`,
+        threadId === "thr_a" || threadId === "thr_b" ? "env_shared" : `env_${threadId}`,
     }),
   );
-  const pullRequest = vi.fn(
-    async ({ environmentId }: { environmentId: string }) => {
-      if (environmentId === "env_thr_none")
-        return { outcome: "absent" as const };
-      if (environmentId === "env_thr_bad" && phase === 0)
-        throw new Error("offline");
-      return {
-        outcome: "available" as const,
-        pullRequest: {
-          url: `https://github.com/koenvg/${environmentId === "env_shared" ? "bb-plugins" : "other"}/pull/42`,
-          number: 42,
-          title: "Work",
-          state: phase === 0 ? ("open" as const) : ("merged" as const),
-          updatedAt: "2026-10-02T00:00:00Z",
-        },
-      };
-    },
-  );
+  const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
+    if (environmentId === "env_thr_none") return { outcome: "absent" as const };
+    if (environmentId === "env_thr_bad" && phase === 0) throw new Error("offline");
+    return {
+      outcome: "available" as const,
+      pullRequest: {
+        url: `https://github.com/koenvg/${environmentId === "env_shared" ? "bb-plugins" : "other"}/pull/42`,
+        number: 42,
+        title: "Work",
+        state: phase === 0 ? ("open" as const) : ("merged" as const),
+        updatedAt: "2026-10-02T00:00:00Z",
+      },
+    };
+  });
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: { threads: { get }, environments: { pullRequest } },
@@ -302,8 +284,7 @@ it("shares settled environment successes, absence and failures across 501 sequen
     {},
     {
       rpc: {
-        listTaskWorkStatus: (input) =>
-          harness.behavior.callRpc("listTaskWorkStatus", input),
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
       },
     },
   );
@@ -347,16 +328,13 @@ it("shares settled environment successes, absence and failures across 501 sequen
       },
     }),
   );
-  for (const task of tasks)
-    expect(latest!.get(task.id)!.pullRequests.items).toHaveLength(2);
+  for (const task of tasks) expect(latest!.get(task.id)!.pullRequests.items).toHaveLength(2);
   expect(get).toHaveBeenCalledTimes(8);
   expect(store.tasks.listTaskThreads(tasks[0]!.id)).toEqual(before);
   expect(store.tasks.getTask(tasks[0]!.id)!.status).toBe("in_review");
   expect(
     harness.inspection.sdk.calls.every((call) =>
-      ["threads.get", "environments.pullRequest", "plugins.list"].includes(
-        call.path,
-      ),
+      ["threads.get", "environments.pullRequest", "plugins.list"].includes(call.path),
     ),
   ).toBe(true);
   expect(harness.realtimeSignals).toEqual([]);

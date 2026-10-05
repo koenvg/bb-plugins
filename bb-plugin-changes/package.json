@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-changes",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-changes",
+    "format": "npm --prefix .. run format -- bb-plugin-changes",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-changes",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"

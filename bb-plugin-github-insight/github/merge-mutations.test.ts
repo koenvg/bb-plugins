@@ -36,7 +36,10 @@ describe("mergePullRequestArgs", () => {
 });
 
 describe("enqueuePullRequestArgs", () => {
-  const enqueue = { pullRequestId: request.pullRequestId, expectedHeadOid: request.expectedHeadOid };
+  const enqueue = {
+    pullRequestId: request.pullRequestId,
+    expectedHeadOid: request.expectedHeadOid,
+  };
 
   it("passes the PR id and head commit as raw GraphQL variables", () => {
     expect(enqueuePullRequestArgs(enqueue)).toEqual([

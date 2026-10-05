@@ -6,19 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  keyLabel,
-  SHORTCUT_SCOPE_LABELS,
-  SHORTCUTS,
-  type ShortcutScope,
-} from "./shortcuts.js";
+import { keyLabel, SHORTCUT_SCOPE_LABELS, SHORTCUTS, type ShortcutScope } from "./shortcuts.js";
 
-const SCOPE_ORDER: readonly ShortcutScope[] = [
-  "panel",
-  "list",
-  "board",
-  "detail",
-];
+const SCOPE_ORDER: readonly ShortcutScope[] = ["panel", "list", "board", "detail"];
 
 export function ShortcutHelpDialog({
   open,
@@ -44,9 +34,7 @@ export function ShortcutHelpDialog({
       >
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>
-            Single keys work when you are not typing.
-          </DialogDescription>
+          <DialogDescription>Single keys work when you are not typing.</DialogDescription>
         </DialogHeader>
         {SCOPE_ORDER.map((scope) => (
           <section key={scope} aria-labelledby={`shortcuts-${scope}`}>
@@ -57,23 +45,21 @@ export function ShortcutHelpDialog({
               {SHORTCUT_SCOPE_LABELS[scope]}
             </h3>
             <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 text-sm">
-              {SHORTCUTS.filter((shortcut) => shortcut.scope === scope).map(
-                (shortcut) => (
-                  <div key={shortcut.id} className="contents">
-                    <dt>{shortcut.label}</dt>
-                    <dd className="flex justify-end gap-1">
-                      {shortcut.keys.map((key) => (
-                        <kbd
-                          key={key}
-                          className="min-w-5 rounded border border-border bg-secondary px-1 text-center font-sans text-2xs leading-5 text-muted-foreground"
-                        >
-                          {keyLabel(key)}
-                        </kbd>
-                      ))}
-                    </dd>
-                  </div>
-                ),
-              )}
+              {SHORTCUTS.filter((shortcut) => shortcut.scope === scope).map((shortcut) => (
+                <div key={shortcut.id} className="contents">
+                  <dt>{shortcut.label}</dt>
+                  <dd className="flex justify-end gap-1">
+                    {shortcut.keys.map((key) => (
+                      <kbd
+                        key={key}
+                        className="min-w-5 rounded border border-border bg-secondary px-1 text-center font-sans text-2xs leading-5 text-muted-foreground"
+                      >
+                        {keyLabel(key)}
+                      </kbd>
+                    ))}
+                  </dd>
+                </div>
+              ))}
             </dl>
           </section>
         ))}

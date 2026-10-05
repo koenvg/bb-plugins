@@ -10,8 +10,12 @@ export function usePrPanelNavigation(threadId: string): void {
     // Parent host effects reset the compact drawer on thread changes. Open after
     // they finish, otherwise that reset hides a successfully selected PR tab.
     queueMicrotask(() => {
-      if (!disposed) dispose = receivePrPanel(threadId, () => navigate.openThreadPanel({ actionId: "pr" }));
+      if (!disposed)
+        dispose = receivePrPanel(threadId, () => navigate.openThreadPanel({ actionId: "pr" }));
     });
-    return () => { disposed = true; dispose?.(); };
+    return () => {
+      disposed = true;
+      dispose?.();
+    };
   }, [threadId, navigate]);
 }

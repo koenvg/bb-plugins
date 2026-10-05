@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
@@ -12,10 +6,7 @@ import { cn } from "@/lib/utils";
 import { MAX_ATTACHMENT_SIZE_BYTES } from "../shared/attachments.js";
 import { errorMessage } from "../shared/errors.js";
 import { formatFileSize } from "../views/activity/time.js";
-import {
-  uploadAttachment,
-  type AttachmentOwnerRef,
-} from "../views/detail/attachments.js";
+import { uploadAttachment, type AttachmentOwnerRef } from "../views/detail/attachments.js";
 
 export interface StagedAttachment {
   id: number;
@@ -88,17 +79,13 @@ export function useStagedAttachmentRetry(
     );
     try {
       await uploadAttachment(entry.file, entry.owner);
-      setPendingFiles((files) =>
-        files.filter((candidate) => candidate.id !== entry.id),
-      );
+      setPendingFiles((files) => files.filter((candidate) => candidate.id !== entry.id));
       onUploaded?.();
     } catch (cause) {
       const message = errorMessage(cause);
       setPendingFiles((files) =>
         files.map((candidate) =>
-          candidate.id === entry.id
-            ? { ...candidate, busy: false, error: message }
-            : candidate,
+          candidate.id === entry.id ? { ...candidate, busy: false, error: message } : candidate,
         ),
       );
     } finally {
@@ -110,10 +97,7 @@ export function useStagedAttachmentRetry(
 function ChipThumbnail({ file }: { file: File }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (
-      !file.type.startsWith("image/") ||
-      typeof URL.createObjectURL !== "function"
-    ) {
+    if (!file.type.startsWith("image/") || typeof URL.createObjectURL !== "function") {
       setPreviewUrl(null);
       return;
     }
@@ -164,12 +148,7 @@ export function AttachmentChip({
         />
       )}
       <span className="max-w-40 truncate">{entry.file.name}</span>
-      <span
-        className={cn(
-          "text-2xs",
-          broken ? "text-destructive/80" : "text-muted-foreground",
-        )}
-      >
+      <span className={cn("text-2xs", broken ? "text-destructive/80" : "text-muted-foreground")}>
         {formatFileSize(entry.file.size)}
       </span>
       {entry.error ? <span className="sr-only">{entry.error}</span> : null}

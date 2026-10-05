@@ -28,9 +28,7 @@ async function createTask(
   },
 ): Promise<Task> {
   const parsed = tasksRpcContract.createTask.input.parse(input);
-  const result = tasksRpcContract.createTask.output.parse(
-    await domain.createTask(parsed),
-  );
+  const result = tasksRpcContract.createTask.output.parse(await domain.createTask(parsed));
   if (!result.ok) throw new Error(result.error.message);
   return result.task;
 }
@@ -54,14 +52,10 @@ export async function seedDemo(
   const prefixes = new Set(existing.map((project) => project.prefix));
 
   const productFolder = tasksRpcContract.createFolder.output.parse(
-    await domain.createFolder(
-      tasksRpcContract.createFolder.input.parse({ name: "Product" }),
-    ),
+    await domain.createFolder(tasksRpcContract.createFolder.input.parse({ name: "Product" })),
   ).folder;
   const lifeFolder = tasksRpcContract.createFolder.output.parse(
-    await domain.createFolder(
-      tasksRpcContract.createFolder.input.parse({ name: "Life" }),
-    ),
+    await domain.createFolder(tasksRpcContract.createFolder.input.parse({ name: "Life" })),
   ).folder;
 
   const projects = [];
@@ -90,9 +84,7 @@ export async function seedDemo(
   ]) {
     projects.push(
       tasksRpcContract.createProject.output.parse(
-        await domain.createProject(
-          tasksRpcContract.createProject.input.parse(input),
-        ),
+        await domain.createProject(tasksRpcContract.createProject.input.parse(input)),
       ).project,
     );
   }

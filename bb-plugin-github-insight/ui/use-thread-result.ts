@@ -29,12 +29,10 @@ export function useThreadResult<R>(
   const load = useCallback(
     async (mode: LoadMode) => {
       const request = ++latestRequest.current;
-      const result = await fetch(threadId, mode).catch(
-        (error: unknown): ErrorResult => ({
-          kind: "error",
-          message: error instanceof Error ? error.message : String(error),
-        }),
-      );
+      const result = await fetch(threadId, mode).catch((error: unknown): ErrorResult => ({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      }));
       if (request !== latestRequest.current) return null;
       setLoaded({ threadId, result });
       return result;

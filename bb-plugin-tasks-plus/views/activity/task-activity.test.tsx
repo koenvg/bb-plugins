@@ -1,16 +1,6 @@
 // @vitest-environment jsdom
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComment, createStore } from "../../api/index.js";
 import type { Attachment, DisplayComment } from "../../shared/contract.js";
@@ -88,10 +78,7 @@ describe("mounted-session comment ownership", () => {
     vi.stubGlobal("fetch", upload);
     const view = (taskId: string) => (
       <CommentDraftsProvider>
-        <CommentComposer
-          taskId={taskId}
-          notificationTarget={{ kind: "ready", title: "Agent" }}
-        />
+        <CommentComposer taskId={taskId} notificationTarget={{ kind: "ready", title: "Agent" }} />
       </CommentDraftsProvider>
     );
     const slot = render(view("A"));
@@ -103,24 +90,16 @@ describe("mounted-session comment ownership", () => {
       target: { files: [new File(["A"], "a.txt")] },
     });
     slot.rerender(view("B"));
-    expect(
-      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
-    ).toBe("");
+    expect((screen.getByLabelText("Comment body") as HTMLTextAreaElement).value).toBe("");
     expect(screen.queryByText("a.txt")).toBeNull();
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("true");
     fireEvent.change(screen.getByLabelText("Comment body"), {
       target: { value: "Only B" },
     });
     slot.rerender(view("A"));
-    expect(
-      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
-    ).toBe("Only A");
+    expect((screen.getByLabelText("Comment body") as HTMLTextAreaElement).value).toBe("Only A");
     expect(screen.getByText("a.txt")).toBeTruthy();
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe(
-      "false",
-    );
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false");
     expect(rpcCall).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Remove a.txt" }));
@@ -129,9 +108,7 @@ describe("mounted-session comment ownership", () => {
     expect(screen.queryByText("a.txt")).toBeNull();
     slot.unmount();
     render(view("A"));
-    expect(
-      (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
-    ).toBe("");
+    expect((screen.getByLabelText("Comment body") as HTMLTextAreaElement).value).toBe("");
   });
   it("keeps explicit send and failed-upload completion with A across a switch, without clearing newer text", async () => {
     let finishSend!: (result: unknown) => void;
@@ -152,10 +129,7 @@ describe("mounted-session comment ownership", () => {
     vi.stubGlobal("fetch", fetchMock);
     const view = (taskId: string) => (
       <CommentDraftsProvider>
-        <CommentComposer
-          taskId={taskId}
-          notificationTarget={{ kind: "ready", title: "Agent" }}
-        />
+        <CommentComposer taskId={taskId} notificationTarget={{ kind: "ready", title: "Agent" }} />
       </CommentDraftsProvider>
     );
     const slot = render(view("A"));
@@ -172,48 +146,31 @@ describe("mounted-session comment ownership", () => {
         target: { value: "Keep B" },
       });
       slot.rerender(view("A"));
-      expect(
-        (screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true);
+      expect((screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
       fireEvent.change(screen.getByLabelText("Comment body"), {
         target: { value: "New A" },
       });
       slot.rerender(view("B"));
-      await act(async () =>
-        finishSend({ comment: { ...comment("user"), id: "comment-A" } }),
-      );
+      await act(async () => finishSend({ comment: { ...comment("user"), id: "comment-A" } }));
       await waitFor(() =>
-        expect(
-          fetchMock.mock.calls.some(([url]) =>
-            url.includes("commentId=comment-A"),
-          ),
-        ).toBe(true),
-      );
-      await act(async () =>
-        finishUpload(
-          new Response(JSON.stringify({ error: "Offline" }), { status: 500 }),
+        expect(fetchMock.mock.calls.some(([url]) => url.includes("commentId=comment-A"))).toBe(
+          true,
         ),
       );
-      expect(
-        (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
-      ).toBe("Keep B");
+      await act(async () =>
+        finishUpload(new Response(JSON.stringify({ error: "Offline" }), { status: 500 })),
+      );
+      expect((screen.getByLabelText("Comment body") as HTMLTextAreaElement).value).toBe("Keep B");
       expect(screen.queryByText("a.txt")).toBeNull();
       slot.rerender(view("A"));
-      expect(
-        (screen.getByLabelText("Comment body") as HTMLTextAreaElement).value,
-      ).toBe("New A");
-      expect(
-        screen.getByRole("button", { name: "Retry upload of a.txt" }),
-      ).toBeTruthy();
+      expect((screen.getByLabelText("Comment body") as HTMLTextAreaElement).value).toBe("New A");
+      expect(screen.getByRole("button", { name: "Retry upload of a.txt" })).toBeTruthy();
       fetchMock.mockResolvedValue(
-        new Response(
-          JSON.stringify({ attachmentId: "file-A", url: "/file-A" }),
-        ),
+        new Response(JSON.stringify({ attachmentId: "file-A", url: "/file-A" })),
       );
-      fireEvent.click(
-        screen.getByRole("button", { name: "Retry upload of a.txt" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "Retry upload of a.txt" }));
       slot.rerender(view("B"));
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
       slot.rerender(view("A"));
@@ -235,11 +192,7 @@ describe("mounted-session comment ownership", () => {
   });
 });
 describe("AttachmentTracks", () => {
-  const attachment = (
-    id: string,
-    fileName: string,
-    isImage: boolean,
-  ): Attachment => ({
+  const attachment = (id: string, fileName: string, isImage: boolean): Attachment => ({
     id,
     taskId: "01HZZZZZZZZZZZZZZZZZZZZZT1",
     commentId: "01HZZZZZZZZZZZZZZZZZZZZZC1",
@@ -263,17 +216,13 @@ describe("AttachmentTracks", () => {
     );
     const file = screen.getByText("notes.md");
     const image = screen.getByAltText("shot-a.png");
-    expect(
-      file.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(file.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("keeps each caption inside its own image figure", () => {
     const screen = render(
       <AttachmentTracks
-        attachments={[
-          attachment("01HZZZZZZZZZZZZZZZZZZZZ1I1", "shot.png", true),
-        ]}
+        attachments={[attachment("01HZZZZZZZZZZZZZZZZZZZZ1I1", "shot.png", true)]}
         onOpenImage={() => {}}
       />,
     );
@@ -298,9 +247,9 @@ describe("agent notification target", () => {
     expect(agentNotificationTarget([comment("user")])).toEqual({
       kind: "none",
     });
-    expect(
-      agentNotificationTarget([comment("agent", "thr_private", null)]),
-    ).toEqual({ kind: "unavailable" });
+    expect(agentNotificationTarget([comment("agent", "thr_private", null)])).toEqual({
+      kind: "unavailable",
+    });
   });
 });
 
@@ -344,8 +293,7 @@ describe("AgentNotificationControl", () => {
   });
 
   it("names the full destination even for a long thread title", () => {
-    const title =
-      "Make all of the filters in the task list remembered across reloads";
+    const title = "Make all of the filters in the task list remembered across reloads";
     render(
       <AgentNotificationControl
         target={{ kind: "ready", title }}
@@ -354,9 +302,7 @@ describe("AgentNotificationControl", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("switch", { name: `Notify ${title}` }),
-    ).toBeTruthy();
+    expect(screen.getByRole("switch", { name: `Notify ${title}` })).toBeTruthy();
   });
 
   it("never reads as on and cannot be toggled while unavailable", () => {
@@ -397,10 +343,7 @@ describe("AgentNotificationControl", () => {
   });
 });
 
-async function renderComposerWithTask(options?: {
-  body?: string;
-  holdSend?: boolean;
-}) {
+async function renderComposerWithTask(options?: { body?: string; holdSend?: boolean }) {
   let releaseSend!: () => void;
   const sendGate = options?.holdSend
     ? new Promise<void>((resolve) => {
@@ -414,8 +357,7 @@ async function renderComposerWithTask(options?: {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, status: "active" }),
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
         send: async () => sendGate,
       },
     },
@@ -460,10 +402,7 @@ async function renderComposerWithTask(options?: {
   });
 
   render(
-    <CommentComposer
-      taskId={task.id}
-      notificationTarget={{ kind: "ready", title: "Worker" }}
-    />,
+    <CommentComposer taskId={task.id} notificationTarget={{ kind: "ready", title: "Worker" }} />,
   );
   if (options?.body !== undefined) {
     fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
@@ -485,21 +424,16 @@ describe("CommentComposer", () => {
       fireEvent.click(submit);
 
       await waitFor(() => expect(rpcCall).toHaveBeenCalledTimes(1));
-      await waitFor(() =>
-        expect(harness.sdk.callsTo("threads.send")).toHaveLength(1),
-      );
+      await waitFor(() => expect(harness.sdk.callsTo("threads.send")).toHaveLength(1));
       expect(
-        store.tasks
-          .listComments(task.id)
-          .filter((entry) => entry.body === "Only once"),
+        store.tasks.listComments(task.id).filter((entry) => entry.body === "Only once"),
       ).toHaveLength(1);
 
       releaseSend();
       await waitFor(() =>
         expect(
-          store.tasks
-            .listComments(task.id)
-            .find((entry) => entry.body === "Only once")?.notifiedCount,
+          store.tasks.listComments(task.id).find((entry) => entry.body === "Only once")
+            ?.notifiedCount,
         ).toBe(1),
       );
     } finally {
@@ -520,9 +454,7 @@ describe("CommentComposer", () => {
 
       await waitFor(() => expect(rpcCall).toHaveBeenCalledTimes(1));
       expect(
-        store.tasks
-          .listComments(task.id)
-          .filter((entry) => entry.body === "From keyboard"),
+        store.tasks.listComments(task.id).filter((entry) => entry.body === "From keyboard"),
       ).toHaveLength(1);
       releaseSend();
     } finally {
@@ -574,10 +506,9 @@ describe("CommentComposer", () => {
         key: "Enter",
       });
       expect(rpcCall).not.toHaveBeenCalled();
-      expect(
-        (screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true);
+      expect((screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
     } finally {
       releaseSend();
       await harness.dispose();
@@ -594,11 +525,9 @@ describe("CommentComposer", () => {
         metaKey: true,
       });
       await waitFor(() => expect(rpcCall).toHaveBeenCalledTimes(1));
-      expect(
-        store.tasks
-          .listComments(task.id)
-          .some((entry) => entry.body === "Mod submit"),
-      ).toBe(true);
+      expect(store.tasks.listComments(task.id).some((entry) => entry.body === "Mod submit")).toBe(
+        true,
+      );
     } finally {
       releaseSend();
       await harness.dispose();

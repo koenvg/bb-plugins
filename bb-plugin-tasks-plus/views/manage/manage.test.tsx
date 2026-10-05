@@ -32,9 +32,7 @@ if (!window.matchMedia) {
 
 const app = await loadPluginApp(() => import("../../app"));
 const { derivePrefix } = await import("./shared.js");
-const { describePresetEnvironment, savePresetDraft } = await import(
-  "./preset-dialog.js"
-);
+const { describePresetEnvironment, savePresetDraft } = await import("./preset-dialog.js");
 
 afterEach(cleanup);
 
@@ -213,9 +211,7 @@ describe("NewTaskDialog", () => {
     fireEvent.change(title, { target: { value: "First" } });
     fireEvent.click(slot.getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(createCalls).toHaveLength(1));
-    expect((slot.getByLabelText("Task title") as HTMLInputElement).value).toBe(
-      "",
-    );
+    expect((slot.getByLabelText("Task title") as HTMLInputElement).value).toBe("");
     expect(slot.navigateCalls).toEqual([]);
   });
 
@@ -317,10 +313,7 @@ describe("NewTaskDialog attachments", () => {
     fetchCalls.length = 0;
     failFileNames.clear();
     uploadGate = null;
-    globalThis.fetch = (async (
-      input: RequestInfo | URL,
-      init?: RequestInit,
-    ) => {
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/plugins/tasks-plus/token")) {
         return new Response(JSON.stringify({ token: "test-token" }), {
@@ -337,10 +330,9 @@ describe("NewTaskDialog attachments", () => {
           ? new Response(JSON.stringify({ error: "disk full" }), {
               status: 500,
             })
-          : new Response(
-              JSON.stringify({ attachmentId: "att-1", url: "/download" }),
-              { status: 201 },
-            );
+          : new Response(JSON.stringify({ attachmentId: "att-1", url: "/download" }), {
+              status: 201,
+            });
       }
       return originalFetch(input, init);
     }) as typeof fetch;
@@ -362,10 +354,7 @@ describe("NewTaskDialog attachments", () => {
     }),
   });
 
-  const openDialogWithTitle = async (
-    slot: ReturnType<typeof renderSlot>,
-    title: string,
-  ) => {
+  const openDialogWithTitle = async (slot: ReturnType<typeof renderSlot>, title: string) => {
     fireEvent.click(await slot.findByRole("button", { name: /New task/ }));
     const titleInput = await slot.findByLabelText("Task title");
     fireEvent.change(titleInput, { target: { value: title } });
@@ -376,17 +365,12 @@ describe("NewTaskDialog attachments", () => {
     fireEvent.paste(target, { clipboardData: { files: [file], types: [] } });
 
   it("uploads staged files to the created task and navigates on success", async () => {
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "With files");
     pasteFile(titleInput, new File(["png"], "shot.png", { type: "image/png" }));
     await slot.findByText("shot.png");
 
-    const picker =
-      document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
     fireEvent.change(picker, {
       target: {
         files: [new File(["doc"], "notes.txt", { type: "text/plain" })],
@@ -412,31 +396,20 @@ describe("NewTaskDialog attachments", () => {
 
   it("recovers from a failed upload with a retryable chip bound to the created task", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "Partial failure");
     pasteFile(titleInput, new File(["ok"], "good.png", { type: "image/png" }));
-    pasteFile(
-      titleInput,
-      new File(["nope"], "bad.bin", { type: "application/zip" }),
-    );
+    pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
     await slot.findByText("bad.bin");
 
     fireEvent.click(slot.getByRole("button", { name: "Create task" }));
     const alert = await slot.findByRole("alert");
-    expect(alert.textContent).toContain(
-      "was created, but 1 attachment failed to upload",
-    );
+    expect(alert.textContent).toContain("was created, but 1 attachment failed to upload");
     expect(slot.navigateCalls).toEqual([]);
     expect(slot.queryByText("good.png")).toBeNull();
 
     failFileNames.clear();
-    fireEvent.click(
-      slot.getByRole("button", { name: "Retry upload of bad.bin" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Retry upload of bad.bin" }));
     await waitFor(() =>
       expect(slot.navigateCalls).toContainEqual({
         method: "toPluginPanel",
@@ -444,26 +417,21 @@ describe("NewTaskDialog attachments", () => {
         options: { subPath: "task/TSK-5" },
       }),
     );
-    const retryQuery = new URL(fetchCalls.at(-1)!, "http://bb.test")
-      .searchParams;
+    const retryQuery = new URL(fetchCalls.at(-1)!, "http://bb.test").searchParams;
     expect(retryQuery.get("taskId")).toBe(TASK_ID);
     expect(retryQuery.get("fileName")).toBe("bad.bin");
   });
 
   it("blocks creation while an oversized file is staged, until it is removed", async () => {
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "Too big");
     const big = new File(["x"], "big.bin", { type: "application/zip" });
     Object.defineProperty(big, "size", { value: 25 * 1024 * 1024 + 1 });
     pasteFile(titleInput, big);
     const chip = await slot.findByText("big.bin");
-    expect(
-      chip.closest("span")?.parentElement?.getAttribute("title"),
-    ).toContain("Over the 25 MB attachment limit");
+    expect(chip.closest("span")?.parentElement?.getAttribute("title")).toContain(
+      "Over the 25 MB attachment limit",
+    );
 
     await slot.findByText(/Remove attachments over the 25 MB limit/);
     const createButton = slot.getByRole("button", {
@@ -491,11 +459,7 @@ describe("NewTaskDialog attachments", () => {
       fileName: "slow.png",
       promise: new Promise((resolve) => (release = resolve)),
     };
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "In flight");
     pasteFile(titleInput, new File(["x"], "slow.png", { type: "image/png" }));
     await slot.findByText("slow.png");
@@ -525,16 +489,9 @@ describe("NewTaskDialog attachments", () => {
 
   it("blocks accidental dismissal during recovery until skipped explicitly", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "Sticky recovery");
-    pasteFile(
-      titleInput,
-      new File(["nope"], "bad.bin", { type: "application/zip" }),
-    );
+    pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
     await slot.findByText("bad.bin");
     fireEvent.click(slot.getByRole("button", { name: "Create task" }));
     await slot.findByRole("alert");
@@ -543,9 +500,7 @@ describe("NewTaskDialog attachments", () => {
     expect(slot.getByRole("alert")).toBeDefined();
     expect(slot.navigateCalls).toEqual([]);
 
-    fireEvent.click(
-      slot.getByRole("button", { name: "Skip attachments and open task" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Skip attachments and open task" }));
     await waitFor(() =>
       expect(slot.navigateCalls).toContainEqual({
         method: "toPluginPanel",
@@ -557,16 +512,9 @@ describe("NewTaskDialog attachments", () => {
 
   it("runs retry single-flight so double activation uploads exactly once", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(
-      app.navPanels[0]!,
-      { subPath: PROJECT_ID },
-      { rpc: dialogRpc() },
-    );
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
     const titleInput = await openDialogWithTitle(slot, "Retry once");
-    pasteFile(
-      titleInput,
-      new File(["nope"], "bad.bin", { type: "application/zip" }),
-    );
+    pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
     await slot.findByText("bad.bin");
     fireEvent.click(slot.getByRole("button", { name: "Create task" }));
     await slot.findByRole("alert");
@@ -629,10 +577,7 @@ describe("describePresetEnvironment", () => {
       ),
     ).toBe("Worktree · default · default");
     expect(
-      describePresetEnvironment(
-        presetRow({ machineId: "mach_gone" }) as never,
-        MACHINES,
-      ),
+      describePresetEnvironment(presetRow({ machineId: "mach_gone" }) as never, MACHINES),
     ).toBe("Worktree · main · mach_gone");
     expect(
       describePresetEnvironment(
@@ -711,10 +656,7 @@ describe("savePresetDraft", () => {
 });
 
 describe("PresetDialog environment section", () => {
-  function renderManagePresets(
-    presets: unknown[],
-    rpcOverrides: Record<string, unknown> = {},
-  ) {
+  function renderManagePresets(presets: unknown[], rpcOverrides: Record<string, unknown> = {}) {
     return renderSlot(
       app.navPanels[0]!,
       { subPath: "manage" },
@@ -737,29 +679,17 @@ describe("PresetDialog environment section", () => {
     const slot = renderManagePresets([presetRow({ reasoningLevel: "ultra" })]);
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Presets" }));
     await slot.findByText("Worktree · main · Sawyer Air");
-    fireEvent.click(
-      slot.getByRole("button", { name: "Edit preset FB3 BE live worktree" }),
-    );
-    const branch = (await slot.findByLabelText(
-      "Base branch",
-    )) as HTMLInputElement;
+    fireEvent.click(slot.getByRole("button", { name: "Edit preset FB3 BE live worktree" }));
+    const branch = (await slot.findByLabelText("Base branch")) as HTMLInputElement;
     expect(branch.value).toBe("main");
     expect(branch.placeholder).toBe("project default base — leave empty");
     expect(slot.getByLabelText("Machine")).toBeDefined();
     await waitFor(() =>
-      expect(
-        (slot.getByLabelText("Reasoning level") as HTMLInputElement).value,
-      ).toBe("ultra"),
+      expect((slot.getByLabelText("Reasoning level") as HTMLInputElement).value).toBe("ultra"),
     );
-    expect(
-      slot.getByTestId("bb-provider-model-picker").dataset.routingKind,
-    ).toBe("host");
-    expect(slot.getByTestId("bb-provider-model-picker").dataset.routingId).toBe(
-      "mach_1",
-    );
-    expect(slot.getByTestId("bb-permission-mode-picker").dataset.align).toBe(
-      "start",
-    );
+    expect(slot.getByTestId("bb-provider-model-picker").dataset.routingKind).toBe("host");
+    expect(slot.getByTestId("bb-provider-model-picker").dataset.routingId).toBe("mach_1");
+    expect(slot.getByTestId("bb-permission-mode-picker").dataset.align).toBe("start");
   });
 
   it("hides worktree fields for project-default presets", async () => {
@@ -773,9 +703,7 @@ describe("PresetDialog environment section", () => {
     ]);
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Presets" }));
     await slot.findByText("Project default");
-    fireEvent.click(
-      slot.getByRole("button", { name: "Edit preset Default env" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Edit preset Default env" }));
     await slot.findByLabelText("Execution environment");
     expect(slot.queryByLabelText("Base branch")).toBeNull();
     expect(slot.queryByLabelText("Machine")).toBeNull();
@@ -809,9 +737,7 @@ describe("PresetDialog environment section", () => {
     fireEvent.change(slot.getByLabelText("Service tier"), {
       target: { value: "fast" },
     });
-    fireEvent.click(
-      slot.getByRole("button", { name: "Apply execution selection" }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Apply execution selection" }));
     fireEvent.click(slot.getByRole("button", { name: "Save preset" }));
 
     await waitFor(() => expect(updates).toHaveLength(1));
@@ -871,13 +797,9 @@ describe("Manage folders", () => {
       },
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder bb" }));
 
-    await slot.findByText(
-      "1 project and 1 subfolder move to the top level. No tasks are deleted.",
-    );
+    await slot.findByText("1 project and 1 subfolder move to the top level. No tasks are deleted.");
     fireEvent.click(slot.getByRole("button", { name: "Delete folder" }));
     await waitFor(() => expect(deleteCalls).toHaveLength(1));
     expect(deleteCalls[0]).toMatchObject({ folderId: parentFolder.id });
@@ -904,9 +826,7 @@ describe("Manage folders", () => {
       },
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder bb" }));
 
     await slot.findByText("Checking what the folder contains…");
     expect(slot.queryByText(/The folder is empty/)).toBeNull();
@@ -916,13 +836,9 @@ describe("Manage folders", () => {
     expect(deleteCalls).toHaveLength(0);
 
     releaseProjects!();
-    await slot.findByText(
-      "1 project and 1 subfolder move to the top level. No tasks are deleted.",
-    );
+    await slot.findByText("1 project and 1 subfolder move to the top level. No tasks are deleted.");
     await waitFor(() =>
-      expect(
-        slot.getByRole("button", { name: "Delete folder" }),
-      ).toHaveProperty("disabled", false),
+      expect(slot.getByRole("button", { name: "Delete folder" })).toHaveProperty("disabled", false),
     );
     fireEvent.click(slot.getByRole("button", { name: "Delete folder" }));
     await waitFor(() => expect(deleteCalls).toHaveLength(1));
@@ -935,16 +851,9 @@ describe("Manage folders", () => {
       },
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
-    );
-    await slot.findByText(
-      "Could not load the folder's contents: projects unavailable",
-    );
-    expect(slot.getByRole("button", { name: "Delete folder" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder bb" }));
+    await slot.findByText("Could not load the folder's contents: projects unavailable");
+    expect(slot.getByRole("button", { name: "Delete folder" })).toHaveProperty("disabled", true);
   });
 
   it("blocks deleting on stale rows after a refresh fails", async () => {
@@ -961,24 +870,16 @@ describe("Manage folders", () => {
       },
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
-    );
-    await slot.findByText(
-      "1 project and 1 subfolder move to the top level. No tasks are deleted.",
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder bb" }));
+    await slot.findByText("1 project and 1 subfolder move to the top level. No tasks are deleted.");
     fireEvent.click(slot.getByRole("button", { name: "Cancel" }));
 
     projectsUnavailable = true;
     await slot.behavior.emitRealtime("projects:changed", {
       projectId: PROJECT_ID,
     });
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
-    );
-    await slot.findByText(
-      "Could not load the folder's contents: projects unavailable",
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder bb" }));
+    await slot.findByText("Could not load the folder's contents: projects unavailable");
     expect(slot.queryByText(/move to the top level/)).toBeNull();
     const confirm = slot.getByRole("button", { name: "Delete folder" });
     expect(confirm).toHaveProperty("disabled", true);
@@ -993,9 +894,7 @@ describe("Manage folders", () => {
       },
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder archive" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder archive" }));
     await slot.findByText("The folder is empty.");
     fireEvent.click(slot.getByRole("button", { name: "Delete folder" }));
     await slot.findByRole("alert");
@@ -1015,9 +914,7 @@ describe("Manage folders", () => {
       }),
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
-    fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder archive" }),
-    );
+    fireEvent.click(await slot.findByRole("button", { name: "Delete folder archive" }));
     await slot.findByText("The folder is empty.");
     const callsBeforeDelete = folderCalls;
     fireEvent.click(slot.getByRole("button", { name: "Delete folder" }));
@@ -1061,9 +958,7 @@ describe("NewProjectDialog", () => {
     fireEvent.change(await slot.findByPlaceholderText("e.g. Tasks Plugin"), {
       target: { value: "Home Lab" },
     });
-    expect((slot.getByPlaceholderText("TSK") as HTMLInputElement).value).toBe(
-      "HL",
-    );
+    expect((slot.getByPlaceholderText("TSK") as HTMLInputElement).value).toBe("HL");
     fireEvent.click(slot.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(createCalls).toHaveLength(1));
     expect(createCalls[0]).toMatchObject({
@@ -1091,9 +986,7 @@ describe("NewProjectDialog", () => {
     const prefix = slot.getByPlaceholderText("TSK");
     fireEvent.change(prefix, { target: { value: "9x" } });
     expect((prefix as HTMLInputElement).value).toBe("9X");
-    await slot.findByText(
-      "Use 1–10 uppercase letters and digits, starting with a letter.",
-    );
+    await slot.findByText("Use 1–10 uppercase letters and digits, starting with a letter.");
     expect(
       (
         slot.getByRole("button", {

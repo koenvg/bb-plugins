@@ -24,9 +24,7 @@ export function derivePrefix(name: string): string {
     .split(" ")
     .filter(Boolean);
   const raw =
-    words.length >= 2
-      ? words.map((word) => word[0]).join("")
-      : (words[0] ?? "").slice(0, 3);
+    words.length >= 2 ? words.map((word) => word[0]).join("") : (words[0] ?? "").slice(0, 3);
   return raw.replace(/^[0-9]+/, "").slice(0, 10);
 }
 
@@ -46,11 +44,7 @@ export function ColorSwatchPicker({
   onChange: (color: string) => void;
 }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="Color"
-      className="flex flex-wrap gap-1.5"
-    >
+    <div role="radiogroup" aria-label="Color" className="flex flex-wrap gap-1.5">
       {COLOR_PALETTE.map((swatch) => (
         <button
           key={swatch.value}
@@ -62,8 +56,7 @@ export function ColorSwatchPicker({
           onClick={() => onChange(swatch.value)}
           className={cn(
             "size-5 rounded-md",
-            value === swatch.value &&
-              "ring-2 ring-ring ring-offset-2 ring-offset-background",
+            value === swatch.value && "ring-2 ring-ring ring-offset-2 ring-offset-background",
           )}
           style={{ backgroundColor: swatch.value }}
         />
@@ -92,9 +85,7 @@ export function CheckboxField({
       <span
         className={cn(
           "flex size-3.5 items-center justify-center rounded-sm border",
-          checked
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-input",
+          checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
         )}
       >
         {checked ? <Icon name="Check" className="size-3" /> : null}
@@ -115,9 +106,7 @@ export function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
       {children}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>

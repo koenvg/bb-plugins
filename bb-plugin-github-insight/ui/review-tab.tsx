@@ -26,10 +26,7 @@ import { useThreadResult } from "./use-thread-result";
 
 function useReview(threadId: string) {
   const rpc = useRpc<typeof rpcContract>();
-  const fetchReview = useCallback(
-    (id: string) => rpc.call("getReview", { threadId: id }),
-    [rpc],
-  );
+  const fetchReview = useCallback((id: string) => rpc.call("getReview", { threadId: id }), [rpc]);
   const state = useThreadResult(threadId, fetchReview);
 
   useRealtime(REVIEW_UPDATED_CHANNEL, (payload) => {
@@ -65,19 +62,38 @@ export function ReviewTab({ threadId }: { threadId: string }) {
 function ReviewTabContent({ threadId }: { threadId: string }) {
   const { result, refreshing, refresh, reload } = useReview(threadId);
   const submitRequest = useSubmitCommand(threadId, result);
-  if (result === null) return <Padded><Notice>Loading pull request…</Notice></Padded>;
+  if (result === null)
+    return (
+      <Padded>
+        <Notice>Loading pull request…</Notice>
+      </Padded>
+    );
   if (result.kind === "no_pr") {
-    return <Padded><Notice>No pull request for this thread</Notice></Padded>;
+    return (
+      <Padded>
+        <Notice>No pull request for this thread</Notice>
+      </Padded>
+    );
   }
   if (result.kind === "error") {
     return (
       <Padded>
-        <RefreshError message={result.message} refreshedAt={null} retry={refresh} busy={refreshing} />
+        <RefreshError
+          message={result.message}
+          refreshedAt={null}
+          retry={refresh}
+          busy={refreshing}
+        />
       </Padded>
     );
   }
   return (
-    <ThreadActionsProvider key={threadId} threadId={threadId} drafts={result.drafts} onWritten={reload}>
+    <ThreadActionsProvider
+      key={threadId}
+      threadId={threadId}
+      drafts={result.drafts}
+      onWritten={reload}
+    >
       <CommentDraftsProvider key={threadId} threadId={threadId} onWritten={reload}>
         <ReviewContent
           threadId={threadId}
@@ -122,7 +138,9 @@ function ReviewContent({
   submitRequest,
 }: ReviewContentProps) {
   const [showResolved, setShowResolved] = useState(false);
-  const [submitOpen, setSubmitOpen] = useState(() => commentDrafts.length > 0 || summaryDraft !== null);
+  const [submitOpen, setSubmitOpen] = useState(
+    () => commentDrafts.length > 0 || summaryDraft !== null,
+  );
   useEffect(() => {
     if (!submitRequest) return;
     setSubmitOpen(true);
@@ -132,10 +150,19 @@ function ReviewContent({
   const { selection, selectedIds, deselect } = useThreadSelectionState(openIds);
   const agent = useSendToAgent(threadId, deselect);
   const visible = useMemo(() => visibleThreads(threads, showResolved), [threads, showResolved]);
-  const placedByPath = useMemo(() => groupByPath(visible.placed, ({ thread }) => thread.path), [visible.placed]);
+  const placedByPath = useMemo(
+    () => groupByPath(visible.placed, ({ thread }) => thread.path),
+    [visible.placed],
+  );
   const counts = useMemo(() => openThreadCounts(threads), [threads]);
-  const draftsByCommit = useMemo(() => splitByCommit(commentDrafts, head.oid), [commentDrafts, head.oid]);
-  const draftsByPath = useMemo(() => groupByPath(draftsByCommit.atHead, (draft) => draft.path), [draftsByCommit.atHead]);
+  const draftsByCommit = useMemo(
+    () => splitByCommit(commentDrafts, head.oid),
+    [commentDrafts, head.oid],
+  );
+  const draftsByPath = useMemo(
+    () => groupByPath(draftsByCommit.atHead, (draft) => draft.path),
+    [draftsByCommit.atHead],
+  );
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2 text-xs">
@@ -169,7 +196,10 @@ function ReviewContent({
         onWritten={reload}
       />
       {agent.outcome?.result.kind === "error" && (
-        <div role="alert" className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div
+          role="alert"
+          className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
           {agent.outcome.result.message}
         </div>
       )}
@@ -194,7 +224,9 @@ function ReviewContent({
 function useSendToAgent(threadId: string, onSent: (reviewThreadIds: readonly string[]) => void) {
   const rpc = useRpc<typeof rpcContract>();
   const [sending, setSending] = useState(false);
-  const [outcome, setOutcome] = useState<{ result: SendToAgentResult; requested: number } | null>(null);
+  const [outcome, setOutcome] = useState<{ result: SendToAgentResult; requested: number } | null>(
+    null,
+  );
 
   async function send(reviewThreadIds: readonly string[]) {
     setSending(true);
@@ -250,7 +282,9 @@ function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactN
     <span
       className={cn(
         "inline-flex h-5 items-center rounded-full px-2 tabular-nums",
-        emphasis ? "bg-foreground/[0.07] font-medium text-foreground" : "bg-muted text-muted-foreground",
+        emphasis
+          ? "bg-foreground/[0.07] font-medium text-foreground"
+          : "bg-muted text-muted-foreground",
       )}
     >
       {children}
@@ -258,7 +292,13 @@ function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactN
   );
 }
 
-function ShowResolvedSwitch({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+function ShowResolvedSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
     <label className="flex cursor-pointer select-none items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
       <input

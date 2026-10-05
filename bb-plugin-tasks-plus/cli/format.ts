@@ -13,30 +13,21 @@ export function table(
   if (rows.length === 0) return emptyMessage;
   const normalized = rows.map((row) => row.map(oneLine));
   const widths = headers.map((header, index) =>
-    Math.max(
-      header.length,
-      ...normalized.map((row) => (row[index] ?? "").length),
-    ),
+    Math.max(header.length, ...normalized.map((row) => (row[index] ?? "").length)),
   );
   const render = (row: readonly string[]) =>
     row
       .map((value, index) =>
-        index === row.length - 1
-          ? value
-          : value.padEnd(widths[index] ?? value.length),
+        index === row.length - 1 ? value : value.padEnd(widths[index] ?? value.length),
       )
       .join("  ")
       .trimEnd();
   return [render([...headers]), ...normalized.map(render)].join("\n");
 }
 
-export function detail(
-  fields: readonly (readonly [string, unknown])[],
-): string {
+export function detail(fields: readonly (readonly [string, unknown])[]): string {
   const width = Math.max(...fields.map(([label]) => label.length));
-  return fields
-    .map(([label, value]) => `${label.padEnd(width)}  ${oneLine(value)}`)
-    .join("\n");
+  return fields.map(([label, value]) => `${label.padEnd(width)}  ${oneLine(value)}`).join("\n");
 }
 
 export function bytes(value: number): string {

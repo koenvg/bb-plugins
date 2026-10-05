@@ -5,17 +5,35 @@ import { visibleItems, type ListOptions } from "./list-model";
 import type { PrSummary } from "./pr-insight";
 
 const options: ListOptions = {
-  tab: "attention", mode: "project", lifecycles: ["active"], sort: "title",
-  direction: "asc", collapsedGroups: [], collapsedThreads: [],
+  tab: "attention",
+  mode: "project",
+  lifecycles: ["active"],
+  sort: "title",
+  direction: "asc",
+  collapsedGroups: [],
+  collapsedThreads: [],
 };
 const conflicts: PrSummary = {
-  number: 42, url: "https://example.com/pull/42", state: "open",
-  failedChecks: 0, passedChecks: 0, runningChecks: 0, pendingReviews: 0,
-  blockers: ["conflicts"], failedNames: [], pendingNames: [], mergeQueue: null,
+  number: 42,
+  url: "https://example.com/pull/42",
+  state: "open",
+  failedChecks: 0,
+  passedChecks: 0,
+  runningChecks: 0,
+  pendingReviews: 0,
+  blockers: ["conflicts"],
+  failedNames: [],
+  pendingNames: [],
+  mergeQueue: null,
 };
 const prs = new Map([["problem", conflicts]]);
 const activity = (changes: Partial<PluginSidebarThread["activity"]>) => ({
-  workflows: 0, backgroundAgents: 0, backgroundCommands: 0, planMode: 0, goals: 0, ...changes,
+  workflows: 0,
+  backgroundAgents: 0,
+  backgroundCommands: 0,
+  planMode: 0,
+  goals: 0,
+  ...changes,
 });
 const work: [string, Partial<PluginSidebarThread>][] = [
   ["starting", { status: "starting" }],
@@ -42,12 +60,21 @@ const rows = (changes: Record<string, Partial<PluginSidebarThread>> = {}) => [
   thread({ id: "leaf", displayTitle: "C leaf", parentThreadId: "mid", ...changes.leaf }),
   thread({ id: "problem", displayTitle: "D problem", parentThreadId: "top", ...changes.problem }),
 ];
-const shape = (threads: PluginSidebarThread[], tab: "attention" | "inflight", summaries = prs,
-  snoozed: ReadonlyMap<string, number> = new Map()) =>
+const shape = (
+  threads: PluginSidebarThread[],
+  tab: "attention" | "inflight",
+  summaries = prs,
+  snoozed: ReadonlyMap<string, number> = new Map(),
+) =>
   visibleItems(threads, [project], [], { ...options, tab }, summaries, snoozed)
     .filter((item) => item.kind === "thread")
     .map((item) => [item.id, item.depth, item.context]);
-const tree = [["top", 0, false], ["mid", 1, false], ["leaf", 2, false], ["problem", 1, false]];
+const tree = [
+  ["top", 0, false],
+  ["mid", 1, false],
+  ["leaf", 2, false],
+  ["problem", 1, false],
+];
 
 // The same public list derivation checks membership, nesting, and exclusivity.
 describe("tree-wide tab priority", () => {
@@ -60,22 +87,31 @@ describe("tree-wide tab priority", () => {
   });
 
   describe.each(["top", "mid", "leaf"])("attention at %s", (id) => {
-    it.each(directAttention)("keeps the running, conflicted tree in Needs attention for %s", (_, changes) => {
-      const threads = rows({ problem: { status: "active" }, [id]: changes });
-      expect(shape(threads, "attention")).toEqual(tree);
-      expect(shape(threads, "inflight")).toEqual([]);
-    });
+    it.each(directAttention)(
+      "keeps the running, conflicted tree in Needs attention for %s",
+      (_, changes) => {
+        const threads = rows({ problem: { status: "active" }, [id]: changes });
+        expect(shape(threads, "attention")).toEqual(tree);
+        expect(shape(threads, "inflight")).toEqual([]);
+      },
+    );
   });
 
   const waiting: PrSummary = { ...conflicts, blockers: ["checks_running"], runningChecks: 1 };
-  const waitingTop = new Map([["top", waiting], ["problem", conflicts]]);
+  const waitingTop = new Map([
+    ["top", waiting],
+    ["problem", conflicts],
+  ]);
 
   it.each([
     ["snoozed", {}, new Map([["excluded", 9_000]])],
     ["archived", { isArchived: true, archivedAt: 1 }, new Map<string, number>()],
     ["hidden", { isHidden: true }, new Map<string, number>()],
   ] as const)("ignores %s work when an awake child has conflicts", (_, changes, snoozed) => {
-    const threads = [...rows(), thread({ id: "excluded", parentThreadId: "mid", status: "active", ...changes })];
+    const threads = [
+      ...rows(),
+      thread({ id: "excluded", parentThreadId: "mid", status: "active", ...changes }),
+    ];
     expect(shape(threads, "attention", waitingTop, snoozed)).toEqual(tree);
     expect(shape(threads, "inflight", waitingTop, snoozed)).toEqual([]);
   });
@@ -86,13 +122,19 @@ describe("tree-wide tab priority", () => {
   ] as const)("ignores a working %s ancestor rendered only as context", (_, changes, snoozed) => {
     const threads = rows({ top: { status: "active", ...changes } });
     expect(shape(threads, "attention", waitingTop, snoozed)).toEqual([
-      ["top", 0, true], ["mid", 1, false], ["leaf", 2, false], ["problem", 1, false],
+      ["top", 0, true],
+      ["mid", 1, false],
+      ["leaf", 2, false],
+      ["problem", 1, false],
     ]);
     expect(shape(threads, "inflight", waitingTop, snoozed)).toEqual([]);
   });
 
   it("does not let work in an unrelated tree hide conflicts", () => {
-    const threads = [...rows(), thread({ id: "elsewhere", displayTitle: "Elsewhere", status: "active" })];
+    const threads = [
+      ...rows(),
+      thread({ id: "elsewhere", displayTitle: "Elsewhere", status: "active" }),
+    ];
     expect(shape(threads, "attention", waitingTop)).toEqual(tree);
     expect(shape(threads, "inflight", waitingTop)).toEqual([["elsewhere", 0, false]]);
   });

@@ -6,17 +6,9 @@ import { DependencyBadges } from "../dependencies.js";
 import type { TaskRowMeta } from "./data.js";
 import { formatDueDate } from "./lib.js";
 import type { EditFn } from "./property-menus.js";
-import {
-  PriorityEditor,
-  StatusEditor,
-  TaskContextMenu,
-} from "./property-menus.js";
+import { PriorityEditor, StatusEditor, TaskContextMenu } from "./property-menus.js";
 import { LabelsPicker } from "../labels-picker.js";
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { ThreadSummary } from "./thread-summary.js";
 import { PrSummary } from "./pr-summary.js";
 import {
@@ -26,8 +18,7 @@ import {
 
 export type RowMenu = "status" | "priority" | "labels";
 
-const RAIL_CHIP_CLASS =
-  `flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
+const RAIL_CHIP_CLASS = `flex items-center gap-1 rounded-md border border-border px-1.5 py-px text-muted-foreground ${COARSE_POINTER_TEXT_SM_CLASS}`;
 
 interface TaskRowProps {
   task: Task;
@@ -169,18 +160,12 @@ export function TaskRow({
             </span>
             <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden @4xl:shrink-0">
               {subProgress !== undefined && subProgress.total > 0 ? (
-                <span
-                  title="Subtasks done"
-                  className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}
-                >
+                <span title="Subtasks done" className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
                   <Icon name="GitBranch" className="size-3 shrink-0" />
                   {subProgress.done}/{subProgress.total}
                 </span>
               ) : null}
-              <DependencyBadges
-                task={task}
-                className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)}
-              />
+              <DependencyBadges task={task} className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)} />
               <ThreadSummary taskKey={task.key} meta={meta} />
               <PrSummary taskKey={task.key} meta={meta} />
               {task.dueDate !== null ? (

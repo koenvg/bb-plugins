@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import type { TaskStatus } from "../db";
 import { createStore, registerTasksApi } from ".";
@@ -17,8 +14,7 @@ function setup() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, status: "active" }),
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
         send: async () => undefined,
       },
     },
@@ -59,9 +55,7 @@ describe("unblocked comment", () => {
     const comments = store.tasks
       .listComments(abc2.id)
       .filter((comment) => comment.kind === "system");
-    expect(comments).toMatchObject([
-      { body: "Unblocked: ABC-1 is done", notifiedCount: 0 },
-    ]);
+    expect(comments).toMatchObject([{ body: "Unblocked: ABC-1 is done", notifiedCount: 0 }]);
     expect(harness.sdk.callsTo("threads.send")).toEqual([]);
     expect(harness.realtimeSignals).toContainEqual({
       channel: "comments:changed",

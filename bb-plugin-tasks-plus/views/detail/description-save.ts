@@ -17,9 +17,7 @@ export interface DescriptionSaver {
 }
 
 /** Description-only adapter. Detail uses the same queue for all autosaved fields. */
-export function createDescriptionSaver(
-  options: DescriptionSaverOptions,
-): DescriptionSaver {
+export function createDescriptionSaver(options: DescriptionSaverOptions): DescriptionSaver {
   const sessions = new Map<string, TaskEditSession>();
   return {
     onChange(taskId, markdown) {
@@ -33,8 +31,7 @@ export function createDescriptionSaver(
               ? { ok: true }
               : {
                   ok: false,
-                  errorMessage:
-                    result.errorMessage ?? "Could not save description.",
+                  errorMessage: result.errorMessage ?? "Could not save description.",
                 };
           },
         });
@@ -42,9 +39,7 @@ export function createDescriptionSaver(
       }
       session.stage({ description: markdown }, options.delayMs);
     },
-    flush: (taskId) =>
-      sessions.get(taskId)?.flush() ?? Promise.resolve({ ok: true }),
-    hasPending: () =>
-      [...sessions.values()].some((session) => session.getSnapshot().pending),
+    flush: (taskId) => sessions.get(taskId)?.flush() ?? Promise.resolve({ ok: true }),
+    hasPending: () => [...sessions.values()].some((session) => session.getSnapshot().pending),
   };
 }

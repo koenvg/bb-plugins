@@ -57,8 +57,7 @@ export function describePresetEnvironment(
   const machine =
     preset.machineId === null
       ? "default"
-      : (machines.find((entry) => entry.id === preset.machineId)?.name ??
-        preset.machineId);
+      : (machines.find((entry) => entry.id === preset.machineId)?.name ?? preset.machineId);
   return `Worktree · ${branch} · ${machine}`;
 }
 
@@ -166,9 +165,7 @@ export function PresetDialog({
     providerId: draft.providerId,
     model: draft.modelId,
     reasoningLevel: draft.reasoningLevel,
-    ...(draft.serviceTier === undefined
-      ? {}
-      : { serviceTier: draft.serviceTier }),
+    ...(draft.serviceTier === undefined ? {} : { serviceTier: draft.serviceTier }),
   };
   const pickerRouting =
     draft.environmentKind === "new-worktree" && draft.machineId.trim() !== ""
@@ -181,8 +178,7 @@ export function PresetDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Edit preset" : "New preset"}</DialogTitle>
           <DialogDescription>
-            Presets pick the provider, model, and guardrails for dispatched
-            threads.
+            Presets pick the provider, model, and guardrails for dispatched threads.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -207,9 +203,7 @@ export function PresetDialog({
                   serviceTier: value.serviceTier,
                 }))
               }
-              {...(pickerRouting === undefined
-                ? {}
-                : { routing: pickerRouting })}
+              {...(pickerRouting === undefined ? {} : { routing: pickerRouting })}
               className="h-8 max-w-full"
             />
           </Field>
@@ -219,9 +213,7 @@ export function PresetDialog({
                 providerId={draft.providerId}
                 value={draft.permissionMode}
                 onChange={(value) => set("permissionMode", value)}
-                {...(pickerRouting === undefined
-                  ? {}
-                  : { routing: pickerRouting })}
+                {...(pickerRouting === undefined ? {} : { routing: pickerRouting })}
                 align="start"
                 className="h-8 max-w-full"
               />
@@ -235,9 +227,7 @@ export function PresetDialog({
                 setDraft((current) => ({
                   ...current,
                   environmentKind: kind,
-                  ...(kind === "new-worktree"
-                    ? {}
-                    : { baseBranch: "", machineId: "" }),
+                  ...(kind === "new-worktree" ? {} : { baseBranch: "", machineId: "" }),
                 }));
               }}
             >
@@ -266,41 +256,24 @@ export function PresetDialog({
               </Field>
               <Field label="Machine">
                 <Select
-                  value={
-                    draft.machineId === ""
-                      ? DEFAULT_MACHINE_VALUE
-                      : draft.machineId
-                  }
+                  value={draft.machineId === "" ? DEFAULT_MACHINE_VALUE : draft.machineId}
                   onValueChange={(value) =>
-                    set(
-                      "machineId",
-                      value === DEFAULT_MACHINE_VALUE ? "" : value,
-                    )
+                    set("machineId", value === DEFAULT_MACHINE_VALUE ? "" : value)
                   }
                 >
                   <SelectTrigger aria-label="Machine" className="h-8">
-                    <SelectValue
-                      placeholder={
-                        machines === undefined ? "Loading…" : "Machine"
-                      }
-                    />
+                    <SelectValue placeholder={machines === undefined ? "Loading…" : "Machine"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={DEFAULT_MACHINE_VALUE}>
-                      Default machine
-                    </SelectItem>
+                    <SelectItem value={DEFAULT_MACHINE_VALUE}>Default machine</SelectItem>
                     {(machines ?? []).map((machine) => (
                       <SelectItem key={machine.id} value={machine.id}>
                         {machine.name}
                       </SelectItem>
                     ))}
                     {draft.machineId !== "" &&
-                    !(machines ?? []).some(
-                      (machine) => machine.id === draft.machineId,
-                    ) ? (
-                      <SelectItem value={draft.machineId}>
-                        {draft.machineId}
-                      </SelectItem>
+                    !(machines ?? []).some((machine) => machine.id === draft.machineId) ? (
+                      <SelectItem value={draft.machineId}>{draft.machineId}</SelectItem>
                     ) : null}
                   </SelectContent>
                 </Select>
@@ -333,9 +306,7 @@ export function PresetDialog({
               setError(null);
               onSave(draft)
                 .then(() => onOpenChange(false))
-                .catch((saveError: unknown) =>
-                  setError(errorMessage(saveError)),
-                )
+                .catch((saveError: unknown) => setError(errorMessage(saveError)))
                 .finally(() => setSubmitting(false));
             }}
           >

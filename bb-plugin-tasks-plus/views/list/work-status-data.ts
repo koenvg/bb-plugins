@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useInvalidation, useTasksRpc } from "../../shell/data.js";
 import { useTasksRefresh } from "../../shell/refresh.js";
-import {
-  WORK_STATUS_TASK_LIMIT,
-  type Task,
-  type TaskWorkStatus,
-} from "../../shared/contract.js";
+import { WORK_STATUS_TASK_LIMIT, type Task, type TaskWorkStatus } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { ageRichDetails } from "../../shared/work-status-freshness.js";
 
@@ -16,9 +12,7 @@ function ageStatus(status: TaskWorkStatus): TaskWorkStatus {
     ...status,
     pullRequests: {
       ...status.pullRequests,
-      items: status.pullRequests.items.map((pr) =>
-        ageRichDetails(pr, Date.now()),
-      ),
+      items: status.pullRequests.items.map((pr) => ageRichDetails(pr, Date.now())),
     },
   };
 }
@@ -43,18 +37,13 @@ function unavailable(previous?: TaskWorkStatus): TaskWorkStatus {
         details: pr.details === "stale" ? "stale" : "unavailable",
         detailsReason: pr.details === "stale" ? "expired" : "refresh_failed",
       })),
-      unavailableThreadIds: (previous?.threads ?? []).map(
-        (thread) => thread.threadId,
-      ),
+      unavailableThreadIds: (previous?.threads ?? []).map((thread) => thread.threadId),
     },
   };
 }
 
 /** One coalesced visible-list refresh, independent of task/detail query contracts. */
-export function useTaskListMeta(
-  tasks: readonly Task[] | undefined,
-  scope = "",
-) {
+export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") {
   const rpc = useTasksRpc();
   const { generation } = useTasksRefresh();
   const previousGeneration = useRef(generation);
@@ -87,9 +76,7 @@ export function useTaskListMeta(
     if (retained.current?.key === input.current.key) {
       const data = ageData(retained.current.data);
       retained.current = { key: input.current.key, data };
-      setState((state) =>
-        state.key === input.current.key ? { ...state, data } : state,
-      );
+      setState((state) => (state.key === input.current.key ? { ...state, data } : state));
     }
     queued.current = true;
     if (running.current) return;
@@ -100,9 +87,7 @@ export function useTaskListMeta(
           queued.current = false;
           const current = input.current;
           const previous =
-            retained.current?.key === current.key
-              ? retained.current.data
-              : undefined;
+            retained.current?.key === current.key ? retained.current.data : undefined;
           setState({
             key: current.key,
             data: previous,
@@ -113,21 +98,11 @@ export function useTaskListMeta(
           let error: string | null = null;
           // One bounded observation session for this refresh's sequential chunks.
           let refreshId =
-            current.ids.length > WORK_STATUS_TASK_LIMIT
-              ? crypto.randomUUID()
-              : undefined;
+            current.ids.length > WORK_STATUS_TASK_LIMIT ? crypto.randomUUID() : undefined;
           try {
-            for (
-              let offset = 0;
-              offset < current.ids.length;
-              offset += WORK_STATUS_TASK_LIMIT
-            ) {
-              if (!mounted.current || input.current.version !== current.version)
-                break;
-              const chunk = current.ids.slice(
-                offset,
-                offset + WORK_STATUS_TASK_LIMIT,
-              );
+            for (let offset = 0; offset < current.ids.length; offset += WORK_STATUS_TASK_LIMIT) {
+              if (!mounted.current || input.current.version !== current.version) break;
+              const chunk = current.ids.slice(offset, offset + WORK_STATUS_TASK_LIMIT);
               const step =
                 offset === 0
                   ? "start"
@@ -149,8 +124,7 @@ export function useTaskListMeta(
                   );
               } catch (cause) {
                 error = errorMessage(cause);
-                for (const id of chunk)
-                  data.set(id, unavailable(previous?.get(id)));
+                for (const id of chunk) data.set(id, unavailable(previous?.get(id)));
               }
             }
           } finally {
@@ -167,8 +141,7 @@ export function useTaskListMeta(
               }
             }
           }
-          if (!mounted.current || input.current.version !== current.version)
-            continue;
+          if (!mounted.current || input.current.version !== current.version) continue;
           retained.current = { key: current.key, data };
           setState({ key: current.key, data, error, isLoading: false });
         }

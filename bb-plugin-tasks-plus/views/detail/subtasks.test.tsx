@@ -111,18 +111,10 @@ const plainSubtask = task(4, { parentTaskId: task(1).id });
 
 describe("sub-task rows in the parent detail view", () => {
   it("show dependency badges per sub-task", async () => {
-    const slot = renderParent(() => [
-      blockedSubtask,
-      blockingSubtask,
-      plainSubtask,
-    ]);
+    const slot = renderParent(() => [blockedSubtask, blockingSubtask, plainSubtask]);
 
-    expect(
-      (await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1"),
-    ).toBeTruthy();
-    expect(
-      (await subtaskRow(slot, "ABC-3")).getByText("Blocks 2"),
-    ).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1")).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-3")).getByText("Blocks 2")).toBeTruthy();
     const plain = await subtaskRow(slot, "ABC-4");
     expect(plain.queryByText(/Blocked by|Blocks/)).toBeNull();
   });
@@ -130,9 +122,7 @@ describe("sub-task rows in the parent detail view", () => {
   it("drop the blocked badge when the blocker is done", async () => {
     let current = blockedSubtask;
     const slot = renderParent(() => [current]);
-    expect(
-      (await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1"),
-    ).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1")).toBeTruthy();
 
     current = {
       ...blockedSubtask,
@@ -146,9 +136,7 @@ describe("sub-task rows in the parent detail view", () => {
     });
 
     await waitFor(async () =>
-      expect(
-        (await subtaskRow(slot, "ABC-2")).queryByText("Blocked by 1"),
-      ).toBeNull(),
+      expect((await subtaskRow(slot, "ABC-2")).queryByText("Blocked by 1")).toBeNull(),
     );
   });
 });

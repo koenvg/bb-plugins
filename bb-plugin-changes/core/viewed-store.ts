@@ -29,7 +29,10 @@ function withoutCollapsed(collapsed: ReadonlyMap<string, boolean>, paths: readon
 }
 
 async function saveError(save: Save): Promise<string | null> {
-  const result = await save().catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
+  const result = await save().catch((error: unknown) => ({
+    kind: "error" as const,
+    message: messageOf(error),
+  }));
   return result.kind === "error" ? `Could not save viewed state: ${result.message}` : null;
 }
 
@@ -61,7 +64,10 @@ export function createViewedStore() {
       update(key, (entry) => ({ ...entry, error }));
     },
     setCollapsed(key: string, path: string, collapsed: boolean) {
-      update(key, (entry) => ({ ...entry, collapsed: new Map(entry.collapsed).set(path, collapsed) }));
+      update(key, (entry) => ({
+        ...entry,
+        collapsed: new Map(entry.collapsed).set(path, collapsed),
+      }));
     },
     async setViewed(key: string, path: string, identity: string | null, save: Save) {
       const previous = get(key).marks?.[path] ?? null;
@@ -76,12 +82,15 @@ export function createViewedStore() {
       const error = await saveError(save);
       if (error === null) return;
       if (writes.get(writeKey) !== write) update(key, (entry) => ({ ...entry, error }));
-      else update(key, (entry) => ({ ...entry, marks: withMark(entry.marks, path, previous), error }));
+      else
+        update(key, (entry) => ({ ...entry, marks: withMark(entry.marks, path, previous), error }));
     },
     async prune(key: string, paths: readonly string[], save: Save) {
       update(key, (entry) => ({
         ...entry,
-        marks: Object.fromEntries(Object.entries(entry.marks ?? {}).filter(([path]) => !paths.includes(path))),
+        marks: Object.fromEntries(
+          Object.entries(entry.marks ?? {}).filter(([path]) => !paths.includes(path)),
+        ),
         collapsed: withoutCollapsed(entry.collapsed, paths),
       }));
       const error = await saveError(save);

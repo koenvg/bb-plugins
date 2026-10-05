@@ -31,16 +31,44 @@ function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {})
   };
 }
 
-function queueOf(prs: QueuePr[], tracked: QueuePr[] = [], gone: PullRequestRef[] = []): FetchedQueue {
-  return { requests: { groups: prs.map((pr) => ({ repo: pr.repo, prs: [pr] })), truncated: false }, tracked, gone };
+function queueOf(
+  prs: QueuePr[],
+  tracked: QueuePr[] = [],
+  gone: PullRequestRef[] = [],
+): FetchedQueue {
+  return {
+    requests: { groups: prs.map((pr) => ({ repo: pr.repo, prs: [pr] })), truncated: false },
+    tracked,
+    gone,
+  };
 }
 
-function project(id: string, gitRemoteUrl: string | null, updatedAt: number, kind: QueueProject["kind"] = "standard"): QueueProject {
+function project(
+  id: string,
+  gitRemoteUrl: string | null,
+  updatedAt: number,
+  kind: QueueProject["kind"] = "standard",
+): QueueProject {
   return { id, kind, gitRemoteUrl, updatedAt };
 }
 
-function thread(id: string, environmentId: string | null, updatedAt: number, archivedAt: number | null = null, overrides: Partial<QueueThread> = {}): QueueThread {
-  return { id, environmentId, updatedAt, archivedAt, createdAt: 1, status: "active", hasPendingInteraction: false, ...overrides };
+function thread(
+  id: string,
+  environmentId: string | null,
+  updatedAt: number,
+  archivedAt: number | null = null,
+  overrides: Partial<QueueThread> = {},
+): QueueThread {
+  return {
+    id,
+    environmentId,
+    updatedAt,
+    archivedAt,
+    createdAt: 1,
+    status: "active",
+    hasPendingInteraction: false,
+    ...overrides,
+  };
 }
 
 function reviewThread(id: string, overrides: Partial<QueueThread> = {}): QueueThread {
@@ -48,7 +76,15 @@ function reviewThread(id: string, overrides: Partial<QueueThread> = {}): QueueTh
 }
 
 function reviewPrEntry(repo: string, number: number) {
-  return { "review-pr": { v: 1, repo, number, title: `PR ${number}`, url: `https://github.com/${repo}/pull/${number}` } };
+  return {
+    "review-pr": {
+      v: 1,
+      repo,
+      number,
+      title: `PR ${number}`,
+      url: `https://github.com/${repo}/pull/${number}`,
+    },
+  };
 }
 
 function metadataOf(byThread: Record<string, unknown>) {
@@ -62,7 +98,7 @@ function linkedTo(owner: string, repo: string, number: number): PrResolution {
 function fakeKv(entries = new Map<string, unknown>()) {
   return {
     entries,
-    get: async <T,>(key: string) => entries.get(key) as T | undefined,
+    get: async <T>(key: string) => entries.get(key) as T | undefined,
     set: async (key: string, value: unknown) => {
       entries.set(key, structuredClone(value));
     },
@@ -75,7 +111,10 @@ function fakeKv(entries = new Map<string, unknown>()) {
 
 function mark(repo: string, number: number, headOid: string) {
   const [owner, name] = repo.split("/");
-  return [`reviewed:${repo}#${number}`, { v: 1, owner, repo: name, number, headOid, markedAt: 1 }] as const;
+  return [
+    `reviewed:${repo}#${number}`,
+    { v: 1, owner, repo: name, number, headOid, markedAt: 1 },
+  ] as const;
 }
 
 function serviceWith(overrides: Partial<ReviewQueueServiceDeps> = {}) {
@@ -173,7 +212,9 @@ describe("review queue service", () => {
 
   it("ignores a personal project with a matching remote", async () => {
     const { service } = serviceWith({
-      listProjects: async () => [project("prj_personal", "https://github.com/acme/api", 1, "personal")],
+      listProjects: async () => [
+        project("prj_personal", "https://github.com/acme/api", 1, "personal"),
+      ],
     });
 
     const pr = firstReviewRequest(await service.refreshReviewQueue());
@@ -183,7 +224,10 @@ describe("review queue service", () => {
 
   it("gives no projects and no thread when nothing matches", async () => {
     const { service } = serviceWith({
-      listProjects: async () => [project("prj_web", "https://github.com/acme/web", 1), project("prj_none", null, 2)],
+      listProjects: async () => [
+        project("prj_web", "https://github.com/acme/web", 1),
+        project("prj_none", null, 2),
+      ],
       listThreads: async () => [thread("thr_1", "env_1", 1)],
       resolveEnvironmentPr: async () => linkedTo("acme", "api", 99),
     });
@@ -195,7 +239,11 @@ describe("review queue service", () => {
 
   it("links the most recently updated thread whose PR matches", async () => {
     const { service } = serviceWith({
-      listThreads: async () => [thread("thr_old", "env_old", 1), thread("thr_new", "env_new", 2), thread("thr_other", "env_other", 3)],
+      listThreads: async () => [
+        thread("thr_old", "env_old", 1),
+        thread("thr_new", "env_new", 2),
+        thread("thr_other", "env_other", 3),
+      ],
       resolveEnvironmentPr: async (environmentId) =>
         environmentId === "env_other" ? linkedTo("acme", "api", 16) : linkedTo("acme", "api", 15),
     });
@@ -219,7 +267,11 @@ describe("review queue service", () => {
   it("resolves the PR of a shared environment once per refresh", async () => {
     const resolved: string[] = [];
     const { service } = serviceWith({
-      listThreads: async () => [thread("thr_1", "env_1", 1), thread("thr_2", "env_1", 2), thread("thr_3", null, 3)],
+      listThreads: async () => [
+        thread("thr_1", "env_1", 1),
+        thread("thr_2", "env_1", 2),
+        thread("thr_3", null, 3),
+      ],
       resolveEnvironmentPr: async (environmentId) => {
         resolved.push(environmentId);
         return { kind: "no_pr" };
@@ -233,7 +285,10 @@ describe("review queue service", () => {
 
   it("links the other threads when the PR lookup of one environment fails", async () => {
     const { service } = serviceWith({
-      listThreads: async () => [thread("thr_broken", "env_broken", 2), thread("thr_ok", "env_ok", 1)],
+      listThreads: async () => [
+        thread("thr_broken", "env_broken", 2),
+        thread("thr_ok", "env_ok", 1),
+      ],
       resolveEnvironmentPr: async (environmentId) => {
         if (environmentId === "env_broken") throw new Error("environment not found");
         return linkedTo("acme", "api", 15);
@@ -271,7 +326,11 @@ describe("review queue service", () => {
       },
     });
 
-    expect(await service.refreshReviewQueue()).toEqual({ kind: "error", message: "gh not installed", lastGood: null });
+    expect(await service.refreshReviewQueue()).toEqual({
+      kind: "error",
+      message: "gh not installed",
+      lastGood: null,
+    });
   });
 
   it("reports no host available and calls no host without a primary host", async () => {
@@ -316,16 +375,21 @@ describe("review queue service", () => {
     ["idle", false, "idle"],
     ["error", false, "error"],
     ["idle", true, "needs_you"],
-  ] as const)("shows a %s thread (pending interaction %s) as %s on the PR row", async (status, hasPendingInteraction, shown) => {
-    const { service } = serviceWith({
-      listReviewThreads: async () => [reviewThread("thr_review", { status, hasPendingInteraction })],
-      readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/api", 15) }),
-    });
+  ] as const)(
+    "shows a %s thread (pending interaction %s) as %s on the PR row",
+    async (status, hasPendingInteraction, shown) => {
+      const { service } = serviceWith({
+        listReviewThreads: async () => [
+          reviewThread("thr_review", { status, hasPendingInteraction }),
+        ],
+        readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/api", 15) }),
+      });
 
-    const pr = firstReviewRequest(await service.refreshReviewQueue());
+      const pr = firstReviewRequest(await service.refreshReviewQueue());
 
-    expect(pr.thread).toEqual({ id: "thr_review", status: shown, isReviewThread: true });
-  });
+      expect(pr.thread).toEqual({ id: "thr_review", status: shown, isReviewThread: true });
+    },
+  );
 
   it("marks a thread linked only by its branch as not a review thread", async () => {
     const { service } = serviceWith({
@@ -349,7 +413,8 @@ describe("review queue service", () => {
       ],
       readPluginMetadata: async (threadId) => {
         if (threadId === "thr_broken") throw new Error("thread not found");
-        if (threadId === "thr_v2") return { "review-pr": { ...reviewPrEntry("acme/api", 15)["review-pr"], v: 2 } };
+        if (threadId === "thr_v2")
+          return { "review-pr": { ...reviewPrEntry("acme/api", 15)["review-pr"], v: 2 } };
         if (threadId === "thr_archived") return reviewPrEntry("acme/api", 15);
         return {};
       },
@@ -364,7 +429,11 @@ describe("review queue service", () => {
 describe("PR list content", () => {
   it("fetches the PRs of marks and of unarchived review threads once each", async () => {
     const { service, kv, trackedCalls } = serviceWith({
-      listReviewThreads: async () => [reviewThread("thr_a"), reviewThread("thr_b"), reviewThread("thr_old", { archivedAt: 3 })],
+      listReviewThreads: async () => [
+        reviewThread("thr_a"),
+        reviewThread("thr_b"),
+        reviewThread("thr_old", { archivedAt: 3 }),
+      ],
       readPluginMetadata: metadataOf({
         thr_a: reviewPrEntry("Acme/API", 15),
         thr_b: reviewPrEntry("acme/web", 3),
@@ -388,7 +457,9 @@ describe("PR list content", () => {
       fetchReviewQueue: async () => queueOf([queuePr("acme/api", 15)], [queuePr("acme/api", 15)]),
     });
 
-    expect(allPrs(await service.refreshReviewQueue()).map((pr) => [pr.number, pr.requested])).toEqual([[15, true]]);
+    expect(
+      allPrs(await service.refreshReviewQueue()).map((pr) => [pr.number, pr.requested]),
+    ).toEqual([[15, true]]);
   });
 
   it("keeps a marked PR that is no longer requested", async () => {
@@ -397,7 +468,10 @@ describe("PR list content", () => {
     });
     kv.entries.set(...mark("acme/api", 15, "head-15"));
 
-    expect(sections(await service.refreshReviewQueue())).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+    expect(sections(await service.refreshReviewQueue())).toEqual({
+      needsReview: [],
+      reviewed: [["acme/api", [15]]],
+    });
   });
 
   it("keeps a PR with a review thread that is no longer requested", async () => {
@@ -423,10 +497,14 @@ describe("PR list content", () => {
   it("deletes the marks of merged, closed, and missing PRs and leaves them out", async () => {
     const { service, kv } = serviceWith({
       fetchReviewQueue: async () =>
-        queueOf([], [], [
-          { owner: "acme", repo: "api", number: 15 },
-          { owner: "acme", repo: "web", number: 3 },
-        ]),
+        queueOf(
+          [],
+          [],
+          [
+            { owner: "acme", repo: "api", number: 15 },
+            { owner: "acme", repo: "web", number: 3 },
+          ],
+        ),
       listReviewThreads: async () => [reviewThread("thr_review")],
       readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/web", 3) }),
     });
@@ -509,7 +587,10 @@ describe("stored review queue", () => {
 
   it("reads an entry of another version as loading", async () => {
     const { service, kv } = serviceWith();
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 1, result: { kind: "error", message: "x", lastGood: null } });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
+      v: 1,
+      result: { kind: "error", message: "x", lastGood: null },
+    });
 
     expect(await service.getReviewQueue()).toEqual({ kind: "loading" });
   });
@@ -586,7 +667,12 @@ describe("review-queue background service", () => {
 });
 
 describe("startReview", () => {
-  const pr = { repo: "acme/api", number: 15, title: "PR 15", url: "https://github.com/acme/api/pull/15" };
+  const pr = {
+    repo: "acme/api",
+    number: 15,
+    title: "PR 15",
+    url: "https://github.com/acme/api/pull/15",
+  };
   const request = {
     projectId: "prj_api",
     environment: { type: "provider", environmentProviderId: "git-worktree", inputs: {} },
@@ -763,7 +849,10 @@ describe("archiveReview", () => {
       },
     });
 
-    expect(await service.archiveReview("thr_review")).toEqual({ kind: "error", message: "thread not found" });
+    expect(await service.archiveReview("thr_review")).toEqual({
+      kind: "error",
+      message: "thread not found",
+    });
   });
 });
 
@@ -797,7 +886,9 @@ describe("markReviewed", () => {
     const { service, hostIds, published } = serviceWith();
     await service.refreshReviewQueue();
 
-    expect(await service.markReviewed({ repo: "Acme/API", number: 15, headOid: "head-15" })).toEqual({ kind: "ok" });
+    expect(
+      await service.markReviewed({ repo: "Acme/API", number: 15, headOid: "head-15" }),
+    ).toEqual({ kind: "ok" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
     expect(sections(published[1]!)).toEqual({ needsReview: [], reviewed: [["Acme/API", [15]]] });
@@ -828,7 +919,12 @@ describe("markReviewed", () => {
 
     const stored = await service.getReviewQueue();
     if (stored.kind === "loading") throw new Error("expected a stored view");
-    expect(allPrs(stored).filter((pr) => pr.review === "reviewed").map((pr) => pr.number).sort()).toEqual([15, 16]);
+    expect(
+      allPrs(stored)
+        .filter((pr) => pr.review === "reviewed")
+        .map((pr) => pr.number)
+        .sort(),
+    ).toEqual([15, 16]);
   });
 
   it("rejects a repository that is not owner/name", async () => {
@@ -882,7 +978,9 @@ describe("markReviewed", () => {
       },
     });
 
-    expect(await service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" })).toEqual({
+    expect(
+      await service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" }),
+    ).toEqual({
       kind: "error",
       message: "disk full",
     });
@@ -926,6 +1024,9 @@ describe("markNeedsReview", () => {
       },
     });
 
-    expect(await service.markNeedsReview({ repo: "acme/api", number: 15 })).toEqual({ kind: "error", message: "disk full" });
+    expect(await service.markNeedsReview({ repo: "acme/api", number: 15 })).toEqual({
+      kind: "error",
+      message: "disk full",
+    });
   });
 });

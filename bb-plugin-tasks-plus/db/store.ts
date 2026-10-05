@@ -231,10 +231,7 @@ function normalizedFilterValues(values: readonly string[] | undefined) {
   return values === undefined ? null : [...new Set(values)].sort();
 }
 
-function taskQueryFingerprint(
-  filters: ListTasksFilters,
-  sort: TaskSort,
-): string {
+function taskQueryFingerprint(filters: ListTasksFilters, sort: TaskSort): string {
   const normalized = JSON.stringify({
     projectId: filters.projectId ?? null,
     statuses: normalizedFilterValues(filters.statuses),
@@ -246,9 +243,7 @@ function taskQueryFingerprint(
         ? { specified: false, value: null }
         : { specified: true, value: filters.parentTaskId },
     search: filters.search?.trim() || null,
-    ...(filters.dependency === undefined
-      ? {}
-      : { dependency: filters.dependency }),
+    ...(filters.dependency === undefined ? {} : { dependency: filters.dependency }),
     sort,
   });
   return createHash("sha256").update(normalized).digest("base64url");
@@ -325,10 +320,7 @@ function validateDueDate(dueDate: string | null): string | null {
     throw new Error("dueDate must be an ISO date in YYYY-MM-DD format");
   }
   const parsed = new Date(`${dueDate}T00:00:00.000Z`);
-  if (
-    Number.isNaN(parsed.valueOf()) ||
-    parsed.toISOString().slice(0, 10) !== dueDate
-  ) {
+  if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== dueDate) {
     throw new Error("dueDate must be a valid calendar date");
   }
   return dueDate;
@@ -360,9 +352,7 @@ function validateBlobPath(blobPath: string): string {
     /^[A-Za-z]:[\\/]/.test(path) ||
     segments.includes("..")
   ) {
-    throw new Error(
-      "Attachment blobPath must be relative to the plugin data directory",
-    );
+    throw new Error("Attachment blobPath must be relative to the plugin data directory");
   }
   return path;
 }
@@ -468,10 +458,7 @@ function presetFromRow(row: PresetRow): Preset {
     providerId: row.provider_id,
     modelId: row.model_id,
     reasoningLevel: presetReasoningLevelSchema.parse(row.reasoning_level),
-    serviceTier:
-      row.service_tier === null
-        ? null
-        : presetServiceTierSchema.parse(row.service_tier),
+    serviceTier: row.service_tier === null ? null : presetServiceTierSchema.parse(row.service_tier),
     permissionMode: presetPermissionModeSchema.parse(row.permission_mode),
     environmentKind: row.environment_kind,
     baseBranch: row.base_branch,
@@ -492,70 +479,43 @@ function validatePresetEnvironment(input: {
   machineId: string | null;
 } {
   const baseBranch =
-    input.baseBranch === null
-      ? null
-      : requireNonEmpty(input.baseBranch, "Preset baseBranch");
+    input.baseBranch === null ? null : requireNonEmpty(input.baseBranch, "Preset baseBranch");
   const machineId =
-    input.machineId === null
-      ? null
-      : requireNonEmpty(input.machineId, "Preset machineId");
-  if (
-    input.environmentKind === "project-default" &&
-    (baseBranch !== null || machineId !== null)
-  ) {
-    throw new Error(
-      "Preset baseBranch and machineId require environmentKind new-worktree",
-    );
+    input.machineId === null ? null : requireNonEmpty(input.machineId, "Preset machineId");
+  if (input.environmentKind === "project-default" && (baseBranch !== null || machineId !== null)) {
+    throw new Error("Preset baseBranch and machineId require environmentKind new-worktree");
   }
   return { environmentKind: input.environmentKind, baseBranch, machineId };
 }
 
 export function escapeLike(value: string): string {
-  return value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("%", "\\%")
-    .replaceAll("_", "\\_");
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 }
 
 export interface TasksStoreOptions {
   onTasksUnblocked?(taskIds: readonly string[]): void;
 }
 
-export function createTasksStore(
-  db: PluginDatabase,
-  options: TasksStoreOptions = {},
-) {
+export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions = {}) {
   initializeTasksSchema(db);
 
-  const getFolderRow = db.prepare<[string], FolderRow>(
-    "SELECT * FROM folders WHERE id = ?",
-  );
-  const getProjectRow = db.prepare<[string], ProjectRow>(
-    "SELECT * FROM projects WHERE id = ?",
-  );
+  const getFolderRow = db.prepare<[string], FolderRow>("SELECT * FROM folders WHERE id = ?");
+  const getProjectRow = db.prepare<[string], ProjectRow>("SELECT * FROM projects WHERE id = ?");
   const taskSelect = `
     SELECT t.*, p.prefix AS project_prefix
     FROM tasks t
     JOIN projects p ON p.id = t.project_id
   `;
-  const getTaskRow = db.prepare<[string], TaskRow>(
-    `${taskSelect} WHERE t.id = ?`,
-  );
-  const getLabelRow = db.prepare<[string], LabelRow>(
-    "SELECT * FROM labels WHERE id = ?",
-  );
-  const getCommentRow = db.prepare<[string], CommentRow>(
-    "SELECT * FROM comments WHERE id = ?",
-  );
+  const getTaskRow = db.prepare<[string], TaskRow>(`${taskSelect} WHERE t.id = ?`);
+  const getLabelRow = db.prepare<[string], LabelRow>("SELECT * FROM labels WHERE id = ?");
+  const getCommentRow = db.prepare<[string], CommentRow>("SELECT * FROM comments WHERE id = ?");
   const getAttachmentRow = db.prepare<[string], AttachmentRow>(
     "SELECT * FROM attachments WHERE id = ?",
   );
   const getTaskThreadRow = db.prepare<[string], TaskThreadRow>(
     "SELECT * FROM task_threads WHERE id = ?",
   );
-  const getPresetRow = db.prepare<[string], PresetRow>(
-    "SELECT * FROM presets WHERE id = ?",
-  );
+  const getPresetRow = db.prepare<[string], PresetRow>("SELECT * FROM presets WHERE id = ?");
 
   function getFolder(id: string): Folder | undefined {
     const row = getFolderRow.get(id);
@@ -593,12 +553,7 @@ export function createTasksStore(
     validateFolderParent(parentFolderId, id);
     db.prepare<[string, string, string | null, string]>(
       "INSERT INTO folders (id, name, parent_folder_id, created_at) VALUES (?, ?, ?, ?)",
-    ).run(
-      id,
-      requireNonEmpty(input.name, "Folder name"),
-      parentFolderId,
-      nowIso(),
-    );
+    ).run(id, requireNonEmpty(input.name, "Folder name"), parentFolderId, nowIso());
     return requireFolder(id);
   }
 
@@ -614,16 +569,12 @@ export function createTasksStore(
   function updateFolder(id: string, input: UpdateFolderInput): Folder {
     const current = requireFolder(id);
     const parentFolderId =
-      input.parentFolderId === undefined
-        ? current.parentFolderId
-        : input.parentFolderId;
+      input.parentFolderId === undefined ? current.parentFolderId : input.parentFolderId;
     validateFolderParent(parentFolderId, id);
     db.prepare<[string, string | null, string]>(
       "UPDATE folders SET name = ?, parent_folder_id = ? WHERE id = ?",
     ).run(
-      input.name === undefined
-        ? current.name
-        : requireNonEmpty(input.name, "Folder name"),
+      input.name === undefined ? current.name : requireNonEmpty(input.name, "Folder name"),
       parentFolderId,
       id,
     );
@@ -636,22 +587,16 @@ export function createTasksStore(
   const selectChildFolderIds = db.prepare<[string], { id: string }>(
     "SELECT id FROM folders WHERE parent_folder_id = ? ORDER BY name COLLATE NOCASE, id",
   );
-  const deleteFolderRow = db.prepare<[string]>(
-    "DELETE FROM folders WHERE id = ?",
-  );
+  const deleteFolderRow = db.prepare<[string]>("DELETE FROM folders WHERE id = ?");
 
-  const deleteFolderTransaction = db.transaction(
-    (id: string): DeleteFolderResult => {
-      const movedProjectIds = selectFolderProjectIds
-        .all(id)
-        .map((row) => row.id);
-      const movedFolderIds = selectChildFolderIds.all(id).map((row) => row.id);
-      const deleted = deleteFolderRow.run(id).changes > 0;
-      return deleted
-        ? { deleted, movedProjectIds, movedFolderIds }
-        : { deleted, movedProjectIds: [], movedFolderIds: [] };
-    },
-  );
+  const deleteFolderTransaction = db.transaction((id: string): DeleteFolderResult => {
+    const movedProjectIds = selectFolderProjectIds.all(id).map((row) => row.id);
+    const movedFolderIds = selectChildFolderIds.all(id).map((row) => row.id);
+    const deleted = deleteFolderRow.run(id).changes > 0;
+    return deleted
+      ? { deleted, movedProjectIds, movedFolderIds }
+      : { deleted, movedProjectIds: [], movedFolderIds: [] };
+  });
 
   function deleteFolder(id: string): DeleteFolderResult {
     return deleteFolderTransaction(id);
@@ -672,9 +617,7 @@ export function createTasksStore(
     const id = createOrValidateUlid(input.id);
     const folderId = input.folderId ?? null;
     if (folderId !== null) requireFolder(folderId);
-    db.prepare<
-      [string, string, string, string, string | null, string | null, string]
-    >(
+    db.prepare<[string, string, string, string, string | null, string | null, string]>(
       `
       INSERT INTO projects
         (id, name, prefix, next_task_number, color, folder_id, linked_bb_project_id, created_at)
@@ -695,9 +638,7 @@ export function createTasksStore(
   function listProjects(folderId?: string | null): Project[] {
     if (folderId === undefined) {
       return db
-        .prepare<[], ProjectRow>(
-          "SELECT * FROM projects ORDER BY name COLLATE NOCASE, id",
-        )
+        .prepare<[], ProjectRow>("SELECT * FROM projects ORDER BY name COLLATE NOCASE, id")
         .all()
         .map(projectFromRow);
     }
@@ -718,8 +659,7 @@ export function createTasksStore(
 
   function updateProject(id: string, input: UpdateProjectInput): Project {
     const current = requireProject(id);
-    const folderId =
-      input.folderId === undefined ? current.folderId : input.folderId;
+    const folderId = input.folderId === undefined ? current.folderId : input.folderId;
     if (folderId !== null) requireFolder(folderId);
     db.prepare<[string, string, string, string | null, string | null, string]>(
       `
@@ -728,15 +668,9 @@ export function createTasksStore(
       WHERE id = ?
     `,
     ).run(
-      input.name === undefined
-        ? current.name
-        : requireNonEmpty(input.name, "Project name"),
-      input.prefix === undefined
-        ? current.prefix
-        : validatePrefix(input.prefix),
-      input.color === undefined
-        ? current.color
-        : requireNonEmpty(input.color, "Project color"),
+      input.name === undefined ? current.name : requireNonEmpty(input.name, "Project name"),
+      input.prefix === undefined ? current.prefix : validatePrefix(input.prefix),
+      input.color === undefined ? current.color : requireNonEmpty(input.color, "Project color"),
       folderId,
       input.linkedBbProjectId === undefined
         ? current.linkedBbProjectId
@@ -747,10 +681,7 @@ export function createTasksStore(
   }
 
   function deleteProject(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM projects WHERE id = ?").run(id)
-        .changes > 0
-    );
+    return db.prepare<[string]>("DELETE FROM projects WHERE id = ?").run(id).changes > 0;
   }
 
   function getTask(id: string): Task | undefined {
@@ -783,13 +714,10 @@ export function createTasksStore(
     ownId?: string,
   ): void {
     if (parentTaskId === null) return;
-    if (parentTaskId === ownId)
-      throw new Error("A task cannot be its own parent");
+    if (parentTaskId === ownId) throw new Error("A task cannot be its own parent");
     const parent = requireTask(parentTaskId);
     if (parent.projectId !== projectId) {
-      throw new Error(
-        "A sub-task must belong to the same project as its parent",
-      );
+      throw new Error("A sub-task must belong to the same project as its parent");
     }
     if (parent.parentTaskId !== null) {
       throw new Error("Tasks support at most one level of sub-tasks");
@@ -801,85 +729,79 @@ export function createTasksStore(
         )
         .get(ownId);
       if (hasChildren) {
-        throw new Error(
-          "A task with sub-tasks cannot itself become a sub-task",
-        );
+        throw new Error("A task with sub-tasks cannot itself become a sub-task");
       }
     }
   }
 
-  const createTaskTransaction = db.transaction(
-    (input: CreateTaskInput): Task => {
-      const project = requireProject(input.projectId);
-      const id = createOrValidateUlid(input.id);
-      const status = input.status ?? "backlog";
-      const parentTaskId = input.parentTaskId ?? null;
-      validateTaskParent(project.id, parentTaskId, id);
-      const position =
-        db
-          .prepare<[string, Task["status"]], { position: number }>(
-            `
+  const createTaskTransaction = db.transaction((input: CreateTaskInput): Task => {
+    const project = requireProject(input.projectId);
+    const id = createOrValidateUlid(input.id);
+    const status = input.status ?? "backlog";
+    const parentTaskId = input.parentTaskId ?? null;
+    validateTaskParent(project.id, parentTaskId, id);
+    const position =
+      db
+        .prepare<[string, Task["status"]], { position: number }>(
+          `
           SELECT COALESCE(MAX(position), 0) + ${POSITION_STEP} AS position
           FROM tasks WHERE project_id = ? AND status = ?
         `,
-          )
-          .get(project.id, status)?.position ?? POSITION_STEP;
-      const createdAt = nowIso();
+        )
+        .get(project.id, status)?.position ?? POSITION_STEP;
+    const createdAt = nowIso();
 
-      const allocated = db
-        .prepare<[string, number]>(
-          `
+    const allocated = db
+      .prepare<[string, number]>(
+        `
         UPDATE projects
         SET next_task_number = next_task_number + 1
         WHERE id = ? AND next_task_number = ?
       `,
-        )
-        .run(project.id, project.nextTaskNumber);
-      if (allocated.changes !== 1) {
-        throw new Error(
-          `Could not allocate the next task number for ${project.id}`,
-        );
-      }
+      )
+      .run(project.id, project.nextTaskNumber);
+    if (allocated.changes !== 1) {
+      throw new Error(`Could not allocate the next task number for ${project.id}`);
+    }
 
-      db.prepare<
-        [
-          string,
-          string,
-          number,
-          string,
-          string,
-          Task["status"],
-          Task["priority"],
-          string | null,
-          string | null,
-          number,
-          string,
-          string,
-        ]
-      >(
-        `
+    db.prepare<
+      [
+        string,
+        string,
+        number,
+        string,
+        string,
+        Task["status"],
+        Task["priority"],
+        string | null,
+        string | null,
+        number,
+        string,
+        string,
+      ]
+    >(
+      `
       INSERT INTO tasks (
         id, project_id, number, title, description, status, priority, due_date,
         parent_task_id, position, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-      ).run(
-        id,
-        project.id,
-        project.nextTaskNumber,
-        requireNonEmpty(input.title, "Task title"),
-        input.description ?? "",
-        status,
-        input.priority ?? "none",
-        validateDueDate(input.dueDate ?? null),
-        parentTaskId,
-        position,
-        createdAt,
-        createdAt,
-      );
-      return requireTask(id);
-    },
-  );
+    ).run(
+      id,
+      project.id,
+      project.nextTaskNumber,
+      requireNonEmpty(input.title, "Task title"),
+      input.description ?? "",
+      status,
+      input.priority ?? "none",
+      validateDueDate(input.dueDate ?? null),
+      parentTaskId,
+      position,
+      createdAt,
+      createdAt,
+    );
+    return requireTask(id);
+  });
 
   function createTask(input: CreateTaskInput): Task {
     return createTaskTransaction(input);
@@ -970,21 +892,16 @@ export function createTasksStore(
         JOIN tasks b ON b.id = d.blocker_task_id
         WHERE d.blocked_task_id = t.id AND b.status ${OPEN_STATUS_SQL}
       )`;
-      clauses.push(
-        filters.dependency === "blocked" ? openBlocker : `NOT ${openBlocker}`,
-      );
+      clauses.push(filters.dependency === "blocked" ? openBlocker : `NOT ${openBlocker}`);
     }
 
     const limit = filters.limit ?? TASKS_PAGE_DEFAULT_LIMIT;
     if (!Number.isInteger(limit) || limit < 1 || limit > TASKS_PAGE_MAX_LIMIT) {
-      throw new Error(
-        `Task page limit must be an integer from 1 to ${TASKS_PAGE_MAX_LIMIT}`,
-      );
+      throw new Error(`Task page limit must be an integer from 1 to ${TASKS_PAGE_MAX_LIMIT}`);
     }
     const sort = filters.sort ?? "manual";
     const query = taskQueryFingerprint(filters, sort);
-    const cursor =
-      filters.cursor === undefined ? null : decodeTaskCursor(filters.cursor);
+    const cursor = filters.cursor === undefined ? null : decodeTaskCursor(filters.cursor);
     if (cursor !== null && cursor.sort !== sort) {
       throw new TasksPageCursorError(
         "cursor_query_mismatch",
@@ -1022,14 +939,11 @@ export function createTasksStore(
       parameters.cursorId = cursor.key.id;
     }
     parameters.pageLimit = limit + 1;
-    const filteredWhere =
-      clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const filteredWhere = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
 
     const readPage = db.transaction((): ListTasksPage => {
       const revision = db
-        .prepare<[], TaskListRevisionRow>(
-          "SELECT revision FROM task_list_revision WHERE id = 1",
-        )
+        .prepare<[], TaskListRevisionRow>("SELECT revision FROM task_list_revision WHERE id = 1")
         .get()?.revision;
       if (revision === undefined) {
         throw new Error("Task-list revision state is unavailable");
@@ -1165,68 +1079,60 @@ export function createTasksStore(
     if (taskIds.length > 0) options.onTasksUnblocked?.(taskIds);
   }
 
-  const updateTaskTransaction = db.transaction(
-    (id: string, input: UpdateTaskInput): Task => {
-      const current = requireTask(id);
-      const status = input.status ?? current.status;
-      const parentTaskId =
-        input.parentTaskId === undefined
-          ? current.parentTaskId
-          : input.parentTaskId;
-      validateTaskParent(current.projectId, parentTaskId, id);
+  const updateTaskTransaction = db.transaction((id: string, input: UpdateTaskInput): Task => {
+    const current = requireTask(id);
+    const status = input.status ?? current.status;
+    const parentTaskId =
+      input.parentTaskId === undefined ? current.parentTaskId : input.parentTaskId;
+    validateTaskParent(current.projectId, parentTaskId, id);
 
-      let position = current.position;
-      if (status !== current.status) {
-        position =
-          db
-            .prepare<[string, Task["status"]], { position: number }>(
-              `
+    let position = current.position;
+    if (status !== current.status) {
+      position =
+        db
+          .prepare<[string, Task["status"]], { position: number }>(
+            `
               SELECT COALESCE(MAX(position), 0) + ${POSITION_STEP} AS position
               FROM tasks WHERE project_id = ? AND status = ?
             `,
-            )
-            .get(current.projectId, status)?.position ?? POSITION_STEP;
-      }
+          )
+          .get(current.projectId, status)?.position ?? POSITION_STEP;
+    }
 
-      db.prepare<
-        [
-          string,
-          string,
-          Task["status"],
-          Task["priority"],
-          string | null,
-          string | null,
-          number,
-          string,
-          string,
-        ]
-      >(
-        `
+    db.prepare<
+      [
+        string,
+        string,
+        Task["status"],
+        Task["priority"],
+        string | null,
+        string | null,
+        number,
+        string,
+        string,
+      ]
+    >(
+      `
         UPDATE tasks SET
           title = ?, description = ?, status = ?, priority = ?, due_date = ?,
           parent_task_id = ?, position = ?, updated_at = ?
         WHERE id = ?
       `,
-      ).run(
-        input.title === undefined
-          ? current.title
-          : requireNonEmpty(input.title, "Task title"),
-        input.description ?? current.description,
-        status,
-        input.priority ?? current.priority,
-        input.dueDate === undefined
-          ? current.dueDate
-          : validateDueDate(input.dueDate),
-        parentTaskId,
-        position,
-        nowIso(),
-        id,
-      );
-      const updated = requireTask(id);
-      commentOnUnblockedTasks(current, updated);
-      return updated;
-    },
-  );
+    ).run(
+      input.title === undefined ? current.title : requireNonEmpty(input.title, "Task title"),
+      input.description ?? current.description,
+      status,
+      input.priority ?? current.priority,
+      input.dueDate === undefined ? current.dueDate : validateDueDate(input.dueDate),
+      parentTaskId,
+      position,
+      nowIso(),
+      id,
+    );
+    const updated = requireTask(id);
+    commentOnUnblockedTasks(current, updated);
+    return updated;
+  });
 
   function updateTask(id: string, input: UpdateTaskInput): Task {
     return updateTaskTransaction(id, input);
@@ -1246,12 +1152,8 @@ export function createTasksStore(
       `,
       )
       .all(projectId, status, excludedTaskId);
-    const update = db.prepare<[number, string]>(
-      "UPDATE tasks SET position = ? WHERE id = ?",
-    );
-    rows.forEach((row, index) =>
-      update.run((index + 1) * POSITION_STEP, row.id),
-    );
+    const update = db.prepare<[number, string]>("UPDATE tasks SET position = ? WHERE id = ?");
+    rows.forEach((row, index) => update.run((index + 1) * POSITION_STEP, row.id));
   }
 
   const updatePositionTransaction = db.transaction(
@@ -1261,18 +1163,11 @@ export function createTasksStore(
         throw new Error("A task cannot be its own reorder neighbor");
       }
 
-      const readNeighbor = (
-        neighborId: string | null | undefined,
-      ): Task | undefined => {
+      const readNeighbor = (neighborId: string | null | undefined): Task | undefined => {
         if (neighborId == null) return undefined;
         const neighbor = requireTask(neighborId);
-        if (
-          neighbor.projectId !== task.projectId ||
-          neighbor.status !== input.status
-        ) {
-          throw new Error(
-            "Reorder neighbors must be in the destination project and status",
-          );
+        if (neighbor.projectId !== task.projectId || neighbor.status !== input.status) {
+          throw new Error("Reorder neighbors must be in the destination project and status");
         }
         return neighbor;
       };
@@ -1280,9 +1175,7 @@ export function createTasksStore(
       let before = readNeighbor(input.beforeTaskId);
       let after = readNeighbor(input.afterTaskId);
       if (before && after && before.position >= after.position) {
-        throw new Error(
-          "The before neighbor must sort before the after neighbor",
-        );
+        throw new Error("The before neighbor must sort before the after neighbor");
       }
 
       const gapIsExhausted =
@@ -1329,15 +1222,10 @@ export function createTasksStore(
   }
 
   function deleteTask(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM tasks WHERE id = ?").run(id).changes > 0
-    );
+    return db.prepare<[string]>("DELETE FROM tasks WHERE id = ?").run(id).changes > 0;
   }
 
-  const findBlockerChain = db.prepare<
-    { blocker: string; blocked: string },
-    { path: string }
-  >(
+  const findBlockerChain = db.prepare<{ blocker: string; blocked: string }, { path: string }>(
     `
     WITH RECURSIVE chain(task_id, path) AS (
       SELECT @blocker, @blocker
@@ -1389,17 +1277,11 @@ export function createTasksStore(
     },
   );
 
-  function addTaskDependency(
-    blockerTaskId: string,
-    blockedTaskId: string,
-  ): boolean {
+  function addTaskDependency(blockerTaskId: string, blockedTaskId: string): boolean {
     return addTaskDependencyTransaction(blockerTaskId, blockedTaskId);
   }
 
-  function removeTaskDependency(
-    blockerTaskId: string,
-    blockedTaskId: string,
-  ): boolean {
+  function removeTaskDependency(blockerTaskId: string, blockedTaskId: string): boolean {
     return (
       db
         .prepare<[string, string]>(
@@ -1437,9 +1319,7 @@ export function createTasksStore(
       .map(taskFromRow);
   }
 
-  function dependencyState(
-    taskIds: readonly string[],
-  ): Map<string, TaskDependencyState> {
+  function dependencyState(taskIds: readonly string[]): Map<string, TaskDependencyState> {
     const states = new Map<string, TaskDependencyState>();
     for (const taskId of taskIds) {
       states.set(taskId, {
@@ -1497,10 +1377,7 @@ export function createTasksStore(
             title: row.blocked_title,
             status: row.blocked_status,
           });
-          if (
-            isOpenStatus(row.blocker_status) &&
-            isOpenStatus(row.blocked_status)
-          ) {
+          if (isOpenStatus(row.blocker_status) && isOpenStatus(row.blocked_status)) {
             blocker.openBlockedIds.push(row.blocked_id);
           }
         }
@@ -1547,25 +1424,16 @@ export function createTasksStore(
 
   function updateLabel(id: string, input: UpdateLabelInput): Label {
     const current = requireLabel(id);
-    db.prepare<[string, string, string]>(
-      "UPDATE labels SET name = ?, color = ? WHERE id = ?",
-    ).run(
-      input.name === undefined
-        ? current.name
-        : requireNonEmpty(input.name, "Label name"),
-      input.color === undefined
-        ? current.color
-        : requireNonEmpty(input.color, "Label color"),
+    db.prepare<[string, string, string]>("UPDATE labels SET name = ?, color = ? WHERE id = ?").run(
+      input.name === undefined ? current.name : requireNonEmpty(input.name, "Label name"),
+      input.color === undefined ? current.color : requireNonEmpty(input.color, "Label color"),
       id,
     );
     return requireLabel(id);
   }
 
   function deleteLabel(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM labels WHERE id = ?").run(id).changes >
-      0
-    );
+    return db.prepare<[string]>("DELETE FROM labels WHERE id = ?").run(id).changes > 0;
   }
 
   function addTaskLabel(taskId: string, labelId: string): TaskLabel {
@@ -1586,9 +1454,7 @@ export function createTasksStore(
   function removeTaskLabel(taskId: string, labelId: string): boolean {
     return (
       db
-        .prepare<[string, string]>(
-          "DELETE FROM task_labels WHERE task_id = ? AND label_id = ?",
-        )
+        .prepare<[string, string]>("DELETE FROM task_labels WHERE task_id = ? AND label_id = ?")
         .run(taskId, labelId).changes > 0
     );
   }
@@ -1699,11 +1565,7 @@ export function createTasksStore(
       `
       UPDATE comments SET body = ?, notified_count = ? WHERE id = ?
     `,
-    ).run(
-      input.body ?? current.body,
-      input.notifiedCount ?? current.notifiedCount,
-      id,
-    );
+    ).run(input.body ?? current.body, input.notifiedCount ?? current.notifiedCount, id);
     return requireComment(id);
   }
 
@@ -1722,25 +1584,13 @@ export function createTasksStore(
     const taskId = input.taskId ?? null;
     const commentId = input.commentId ?? null;
     if ((taskId === null) === (commentId === null)) {
-      throw new Error(
-        "An attachment must belong to exactly one task or comment",
-      );
+      throw new Error("An attachment must belong to exactly one task or comment");
     }
     if (taskId !== null) requireTask(taskId);
     if (commentId !== null) requireComment(commentId);
     const id = createOrValidateUlid(input.id);
     db.prepare<
-      [
-        string,
-        string | null,
-        string | null,
-        string,
-        string,
-        number,
-        string,
-        number,
-        string,
-      ]
+      [string, string | null, string | null, string, string, number, string, number, string]
     >(
       `
       INSERT INTO attachments (
@@ -1784,10 +1634,7 @@ export function createTasksStore(
       .map(attachmentFromRow);
   }
 
-  function updateAttachment(
-    id: string,
-    input: UpdateAttachmentInput,
-  ): Attachment {
+  function updateAttachment(id: string, input: UpdateAttachmentInput): Attachment {
     const current = requireAttachment(id);
     db.prepare<[string, string, number, string, number, string]>(
       `
@@ -1799,13 +1646,9 @@ export function createTasksStore(
       input.fileName === undefined
         ? current.fileName
         : requireNonEmpty(input.fileName, "Attachment fileName"),
-      input.mime === undefined
-        ? current.mime
-        : requireNonEmpty(input.mime, "Attachment mime"),
+      input.mime === undefined ? current.mime : requireNonEmpty(input.mime, "Attachment mime"),
       input.sizeBytes ?? current.sizeBytes,
-      input.blobPath === undefined
-        ? current.blobPath
-        : validateBlobPath(input.blobPath),
+      input.blobPath === undefined ? current.blobPath : validateBlobPath(input.blobPath),
       (input.isImage ?? current.isImage) ? 1 : 0,
       id,
     );
@@ -1813,10 +1656,7 @@ export function createTasksStore(
   }
 
   function deleteAttachment(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM attachments WHERE id = ?").run(id)
-        .changes > 0
-    );
+    return db.prepare<[string]>("DELETE FROM attachments WHERE id = ?").run(id).changes > 0;
   }
 
   function getTaskThread(id: string): TaskThread | undefined {
@@ -1824,10 +1664,7 @@ export function createTasksStore(
     return row ? taskThreadFromRow(row) : undefined;
   }
 
-  function getTaskThreadByThreadId(
-    taskId: string,
-    threadId: string,
-  ): TaskThread | undefined {
+  function getTaskThreadByThreadId(taskId: string, threadId: string): TaskThread | undefined {
     const row = db
       .prepare<[string, string], TaskThreadRow>(
         `
@@ -1875,18 +1712,7 @@ export function createTasksStore(
     requireTask(input.taskId);
     const id = createOrValidateUlid(input.id);
     const timestamp = nowIso();
-    db.prepare<
-      [
-        string,
-        string,
-        string,
-        string,
-        string,
-        TaskThreadLiveStatus,
-        string,
-        string,
-      ]
-    >(
+    db.prepare<[string, string, string, string, string, TaskThreadLiveStatus, string, string]>(
       `
       INSERT INTO task_threads (
         id, task_id, thread_id, preset_name, title, live_status, attached_at, updated_at
@@ -1928,10 +1754,7 @@ export function createTasksStore(
       .map(taskThreadFromRow);
   }
 
-  function updateTaskThreadStatus(
-    id: string,
-    liveStatus: TaskThreadLiveStatus,
-  ): TaskThread {
+  function updateTaskThreadStatus(id: string, liveStatus: TaskThreadLiveStatus): TaskThread {
     const current = requireTaskThread(id);
     db.prepare<[string, string, TaskThreadLiveStatus, string, string]>(
       `
@@ -1944,10 +1767,7 @@ export function createTasksStore(
   }
 
   function deleteTaskThread(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM task_threads WHERE id = ?").run(id)
-        .changes > 0
-    );
+    return db.prepare<[string]>("DELETE FROM task_threads WHERE id = ?").run(id).changes > 0;
   }
 
   function getPreset(id: string): Preset | undefined {
@@ -2020,10 +1840,8 @@ export function createTasksStore(
     const current = requirePreset(id);
     const environment = validatePresetEnvironment({
       environmentKind: input.environmentKind ?? current.environmentKind,
-      baseBranch:
-        input.baseBranch === undefined ? current.baseBranch : input.baseBranch,
-      machineId:
-        input.machineId === undefined ? current.machineId : input.machineId,
+      baseBranch: input.baseBranch === undefined ? current.baseBranch : input.baseBranch,
+      machineId: input.machineId === undefined ? current.machineId : input.machineId,
     });
     db.prepare<
       [
@@ -2049,9 +1867,7 @@ export function createTasksStore(
       WHERE id = ?
     `,
     ).run(
-      input.name === undefined
-        ? current.name
-        : requireNonEmpty(input.name, "Preset name"),
+      input.name === undefined ? current.name : requireNonEmpty(input.name, "Preset name"),
       input.providerId === undefined
         ? current.providerId
         : requireNonEmpty(input.providerId, "Preset providerId"),
@@ -2076,10 +1892,7 @@ export function createTasksStore(
   }
 
   function deletePreset(id: string): boolean {
-    return (
-      db.prepare<[string]>("DELETE FROM presets WHERE id = ?").run(id).changes >
-      0
-    );
+    return db.prepare<[string]>("DELETE FROM presets WHERE id = ?").run(id).changes > 0;
   }
 
   return {

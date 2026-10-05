@@ -15,12 +15,7 @@ import {
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { PriorityIcon, StatusIcon } from "./icons.js";
-import {
-  PRIORITY_LABELS,
-  SORT_LABELS,
-  STATUS_LABELS,
-  type LabelFilterOption,
-} from "./lib.js";
+import { PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, type LabelFilterOption } from "./lib.js";
 
 function toggled<T>(values: readonly T[], value: T, checked: boolean): T[] {
   if (checked) return values.includes(value) ? [...values] : [...values, value];
@@ -68,13 +63,7 @@ function FilterChip({
   );
 }
 
-function SortChip({
-  sort,
-  onChange,
-}: {
-  sort: TaskSort;
-  onChange: (sort: TaskSort) => void;
-}) {
+function SortChip({ sort, onChange }: { sort: TaskSort; onChange: (sort: TaskSort) => void }) {
   const active = sort !== "manual";
   return (
     <DropdownMenu>
@@ -82,16 +71,10 @@ function SortChip({
         <button type="button" className={chipTriggerClass(active)}>
           <Icon name="Sort" className="size-3" />
           Sort
-          {active ? (
-            <span className="font-medium">{SORT_LABELS[sort]}</span>
-          ) : null}
+          {active ? <span className="font-medium">{SORT_LABELS[sort]}</span> : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="min-w-44"
-        mobileTitle="Sort tasks"
-      >
+      <DropdownMenuContent align="end" className="min-w-44" mobileTitle="Sort tasks">
         {TASK_SORTS.map((option) => (
           <DropdownMenuCheckboxItem
             key={option}
@@ -191,17 +174,14 @@ export function ListFilterBar({
   taskCount: number | undefined;
 }) {
   const keepOpen = (event: Event) => event.preventDefault();
-  const showLabelChip =
-    labelOptions.length > 0 || filters.labelNames.length > 0;
+  const showLabelChip = labelOptions.length > 0 || filters.labelNames.length > 0;
   return (
     <div className="flex shrink-0 items-center gap-1.5 border-b border-border-hairline px-3.5 py-1.5">
       <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
         <FilterChip
           icon="Circle"
           label="Status"
-          selectedNames={filters.statuses.map(
-            (status) => STATUS_LABELS[status],
-          )}
+          selectedNames={filters.statuses.map((status) => STATUS_LABELS[status])}
         >
           {TASK_STATUSES.map((status) => (
             <DropdownMenuCheckboxItem
@@ -225,9 +205,7 @@ export function ListFilterBar({
         <FilterChip
           icon="ArrowUpDown"
           label="Priority"
-          selectedNames={filters.priorities.map(
-            (priority) => PRIORITY_LABELS[priority],
-          )}
+          selectedNames={filters.priorities.map((priority) => PRIORITY_LABELS[priority])}
         >
           {TASK_PRIORITIES.map((priority) => (
             <DropdownMenuCheckboxItem
@@ -237,11 +215,7 @@ export function ListFilterBar({
               onCheckedChange={(checked) =>
                 onChange({
                   ...filters,
-                  priorities: toggled(
-                    filters.priorities,
-                    priority,
-                    checked === true,
-                  ),
+                  priorities: toggled(filters.priorities, priority, checked === true),
                 })
               }
             >
@@ -253,11 +227,7 @@ export function ListFilterBar({
           ))}
         </FilterChip>
         {showLabelChip ? (
-          <FilterChip
-            icon="ListTodo"
-            label="Label"
-            selectedNames={filters.labelNames}
-          >
+          <FilterChip icon="ListTodo" label="Label" selectedNames={filters.labelNames}>
             {labelOptions.map((option) => (
               <DropdownMenuCheckboxItem
                 key={option.name}
@@ -266,11 +236,7 @@ export function ListFilterBar({
                 onCheckedChange={(checked) =>
                   onChange({
                     ...filters,
-                    labelNames: toggled(
-                      filters.labelNames,
-                      option.name,
-                      checked === true,
-                    ),
+                    labelNames: toggled(filters.labelNames, option.name, checked === true),
                   })
                 }
               >
@@ -285,9 +251,7 @@ export function ListFilterBar({
               </DropdownMenuCheckboxItem>
             ))}
             {filters.labelNames
-              .filter(
-                (name) => !labelOptions.some((option) => option.name === name),
-              )
+              .filter((name) => !labelOptions.some((option) => option.name === name))
               .map((name) => (
                 <DropdownMenuCheckboxItem
                   key={`stale:${name}`}
@@ -296,19 +260,12 @@ export function ListFilterBar({
                   onCheckedChange={(checked) =>
                     onChange({
                       ...filters,
-                      labelNames: toggled(
-                        filters.labelNames,
-                        name,
-                        checked === true,
-                      ),
+                      labelNames: toggled(filters.labelNames, name, checked === true),
                     })
                   }
                 >
                   <span className="flex items-center gap-2 text-muted-foreground">
-                    <span
-                      aria-hidden
-                      className="size-2 rounded-full bg-muted-foreground/40"
-                    />
+                    <span aria-hidden className="size-2 rounded-full bg-muted-foreground/40" />
                     {name}
                     <span className="text-xs">(unavailable)</span>
                   </span>
@@ -336,9 +293,7 @@ export function ListFilterBar({
       </div>
       <SortChip sort={sort} onChange={onSortChange} />
       <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-subtle-foreground">
-        {taskCount === undefined
-          ? ""
-          : `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`}
+        {taskCount === undefined ? "" : `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`}
       </span>
     </div>
   );

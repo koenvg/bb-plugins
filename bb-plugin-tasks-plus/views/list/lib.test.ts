@@ -57,11 +57,7 @@ describe("buildListTree", () => {
       subDone: 1,
       subTotal: 3,
     });
-    expect(tree[0]?.children.map((child) => child.id)).toEqual([
-      "C1",
-      "C2",
-      "C3",
-    ]);
+    expect(tree[0]?.children.map((child) => child.id)).toEqual(["C1", "C2", "C3"]);
     expect(tree[1]).toMatchObject({ children: [], subDone: 0, subTotal: 0 });
   });
 
@@ -116,15 +112,9 @@ describe("groupListTree", () => {
       parentTaskId: "P1",
     });
     const scope = [parent, low, urgent];
-    const groups = groupListTree(
-      buildListTree(scope, scope, false),
-      "priority",
-    );
+    const groups = groupListTree(buildListTree(scope, scope, false), "priority");
     expect(groups.map((group) => group.status)).toEqual(["in_progress"]);
-    expect(groups[0]?.entries[0]?.children.map((child) => child.id)).toEqual([
-      "C2",
-      "C1",
-    ]);
+    expect(groups[0]?.entries[0]?.children.map((child) => child.id)).toEqual(["C2", "C1"]);
   });
 });
 
@@ -158,15 +148,13 @@ describe("formatDueDate", () => {
 
 describe("activeWorkLabel", () => {
   it("distinguishes starting from working for a single agent", () => {
-    expect(activeWorkLabel([{ liveStatus: "starting" }])).toBe(
-      "Agent starting",
-    );
+    expect(activeWorkLabel([{ liveStatus: "starting" }])).toBe("Agent starting");
     expect(activeWorkLabel([{ liveStatus: "working" }])).toBe("Agent working");
   });
 
   it("counts multiple live agents", () => {
-    expect(
-      activeWorkLabel([{ liveStatus: "working" }, { liveStatus: "starting" }]),
-    ).toBe("2 agents working");
+    expect(activeWorkLabel([{ liveStatus: "working" }, { liveStatus: "starting" }])).toBe(
+      "2 agents working",
+    );
   });
 });

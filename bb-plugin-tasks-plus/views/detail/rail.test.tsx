@@ -2,10 +2,7 @@
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  installTestPluginRuntime,
-  renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 
 if (!window.matchMedia) {
@@ -106,26 +103,22 @@ describe("dispatch target rail control", () => {
 
   it("shows the linked bb project's name and unlinks it", async () => {
     const updateCalls: Array<Record<string, unknown>> = [];
-    const slot = renderSlot(
-      { component: RailHarness },
-      railProps(BB_PROJECT_ID),
-      {
-        rpc: {
-          listBbProjects: () => ({
-            bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
-          }),
-          updateProject: (raw: unknown) => {
-            const input = rpcInput(raw);
-            updateCalls.push(input);
-            return {
-              project: {
-                ...projectRow(input.linkedBbProjectId as string | null),
-              },
-            };
-          },
+    const slot = renderSlot({ component: RailHarness }, railProps(BB_PROJECT_ID), {
+      rpc: {
+        listBbProjects: () => ({
+          bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
+        }),
+        updateProject: (raw: unknown) => {
+          const input = rpcInput(raw);
+          updateCalls.push(input);
+          return {
+            project: {
+              ...projectRow(input.linkedBbProjectId as string | null),
+            },
+          };
         },
       },
-    );
+    });
     const trigger = slot.getByRole("button", {
       name: "Edit dispatch target",
     });

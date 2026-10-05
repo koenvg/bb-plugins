@@ -53,12 +53,8 @@ function renderDetail(
     return { id: t.id, key: t.key, title: t.title, status: t.status };
   };
   const withLinks = (t: Task): Task => {
-    const blockedBy = links
-      .filter(([, b]) => b === t.id)
-      .map(([a]) => refOf(a!));
-    const blocks = links
-      .filter(([a]) => a === t.id)
-      .map(([, b]) => refOf(b!));
+    const blockedBy = links.filter(([, b]) => b === t.id).map(([a]) => refOf(a!));
+    const blocks = links.filter(([a]) => a === t.id).map(([, b]) => refOf(b!));
     return {
       ...t,
       blockedBy,
@@ -68,9 +64,7 @@ function renderDetail(
       blocked: blockedBy.length > 0,
     };
   };
-  const cycle = options.cycleOn?.map(
-    (n) => base.find((t) => t.number === n)!.id,
-  );
+  const cycle = options.cycleOn?.map((n) => base.find((t) => t.number === n)!.id);
   return renderSlot(
     app.navPanels[0]!,
     { subPath: "task/ABC-5" },
@@ -108,11 +102,7 @@ function renderDetail(
         listComments: () => ({ comments: [] }),
         addTaskDependency: (raw) => {
           const input = rpcInput(raw);
-          if (
-            cycle &&
-            input.blockerTaskId === cycle[0] &&
-            input.blockedTaskId === cycle[1]
-          ) {
+          if (cycle && input.blockerTaskId === cycle[0] && input.blockedTaskId === cycle[1]) {
             return {
               ok: false,
               error: {
@@ -122,12 +112,8 @@ function renderDetail(
               },
             };
           }
-          links.push([
-            input.blockerTaskId as string,
-            input.blockedTaskId as string,
-          ]);
-          const find = (id: unknown) =>
-            withLinks(base.find((t) => t.id === id)!);
+          links.push([input.blockerTaskId as string, input.blockedTaskId as string]);
+          const find = (id: unknown) => withLinks(base.find((t) => t.id === id)!);
           return {
             ok: true,
             added: true,
@@ -187,9 +173,7 @@ describe("task detail dependency sections", () => {
     const blockedBy = await section(slot, "Blocked by");
     await blockedBy.findByText("ABC-3");
 
-    fireEvent.click(
-      blockedBy.getByRole("button", { name: "Remove ABC-3 from Blocked by" }),
-    );
+    fireEvent.click(blockedBy.getByRole("button", { name: "Remove ABC-3 from Blocked by" }));
 
     await waitFor(() => expect(blockedBy.queryByText("ABC-3")).toBeNull());
   });

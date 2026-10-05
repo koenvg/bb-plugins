@@ -30,10 +30,7 @@ interface TaskListQuery {
   sort?: TaskSort;
 }
 
-export async function listAllTasks(
-  rpc: TasksRpc,
-  input: TaskListQuery = {},
-): Promise<Task[]> {
+export async function listAllTasks(rpc: TasksRpc, input: TaskListQuery = {}): Promise<Task[]> {
   const tasks: Task[] = [];
   let cursor: string | undefined;
   do {
@@ -93,8 +90,7 @@ export function useTasksQuery<T>(
   } = {},
 ): TasksQuery<T> {
   const rpc = useTasksRpc();
-  const { generation, beginGenerationWork, endGenerationWork } =
-    useTasksRefresh();
+  const { generation, beginGenerationWork, endGenerationWork } = useTasksRefresh();
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const snapshotRef = useRef(options.snapshot);
@@ -122,8 +118,7 @@ export function useTasksQuery<T>(
     setState((current) => ({ ...current, isLoading: true }));
     const seq = ++seqRef.current;
     const snapshot = snapshotRef.current;
-    const snapshotRevision =
-      snapshot === undefined ? 0 : claimQuerySnapshotRevision(snapshot.name);
+    const snapshotRevision = snapshot === undefined ? 0 : claimQuerySnapshotRevision(snapshot.name);
     return fetcherRef.current(rpc).then(
       (data) => {
         if (snapshot !== undefined) {
@@ -165,9 +160,7 @@ export function useTasksQuery<T>(
     // Inputs can change before the fetch effect runs. Retain the old data for
     // display, but never let callers treat it as a settled current result.
     isLoading:
-      state.isLoading ||
-      state.depsKey !== depsKey ||
-      previousGenerationRef.current !== generation,
+      state.isLoading || state.depsKey !== depsKey || previousGenerationRef.current !== generation,
     refresh,
   };
 }
@@ -231,9 +224,7 @@ export function useMentionItems() {
           ...(trimmed ? { search: trimmed } : {}),
           limit: 8,
         }),
-        rpc
-          .call("searchThreads", { query: trimmed, limit: 5 })
-          .catch(() => ({ threads: [] })),
+        rpc.call("searchThreads", { query: trimmed, limit: 5 }).catch(() => ({ threads: [] })),
       ]);
       return [
         ...taskResult.tasks.slice(0, 8).map((task) => ({

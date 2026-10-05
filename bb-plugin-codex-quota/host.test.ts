@@ -17,58 +17,113 @@ describe("Codex Quota host entry", () => {
     let calls = 0;
     const entry = createQuotaHostEntry({
       auth: async () => ({ status: "ok", token: "secret", identity: account }),
-      read: async () => ({ status: "ok", snapshot: {
-        observedAt: new Date(now).toISOString(), plan: null, bankedResets: null,
-        general: [{ id: "primary_window", name: "Primary", remainingPercent: ++calls === 1 ? 42 : 65, resetAt: null }],
-        additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: calls === 1 ? 42 : 65,
-      } }), now: () => now,
+      read: async () => ({
+        status: "ok",
+        snapshot: {
+          observedAt: new Date(now).toISOString(),
+          plan: null,
+          bankedResets: null,
+          general: [
+            {
+              id: "primary_window",
+              name: "Primary",
+              remainingPercent: ++calls === 1 ? 42 : 65,
+              resetAt: null,
+            },
+          ],
+          additional: [],
+          bindingWindowId: "primary_window",
+          bindingRemainingPercent: calls === 1 ? 42 : 65,
+        },
+      }),
+      now: () => now,
     });
     const harness = experimental_createHostEntryHarness(entry);
-    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(42);
-    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(42);
+    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(
+      42,
+    );
+    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(
+      42,
+    );
     expect(calls).toBe(1);
     account = "account-b";
-    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(65);
+    expect((await harness.experimental_call("quota", {})).snapshot?.bindingRemainingPercent).toBe(
+      65,
+    );
     expect(calls).toBe(2);
     await harness.experimental_dispose();
   });
   it("rechecks account identity after a delayed quota response and never returns the old account", async () => {
     const observedAt = Date.UTC(2026, 3, 23, 12);
-    const snapshot: QuotaSnapshot = { observedAt: new Date(observedAt).toISOString(), plan: null, bankedResets: 0,
+    const snapshot: QuotaSnapshot = {
+      observedAt: new Date(observedAt).toISOString(),
+      plan: null,
+      bankedResets: 0,
       general: [{ id: "primary_window", name: "Primary", remainingPercent: 42, resetAt: null }],
-      additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: 42 };
+      additional: [],
+      bindingWindowId: "primary_window",
+      bindingRemainingPercent: 42,
+    };
     let active = "account-a";
     let resolveRead!: (result: { status: "ok"; snapshot: QuotaSnapshot }) => void;
-    const read = new Promise<{ status: "ok"; snapshot: QuotaSnapshot }>((done) => { resolveRead = done; });
+    const read = new Promise<{ status: "ok"; snapshot: QuotaSnapshot }>((done) => {
+      resolveRead = done;
+    });
     let started!: () => void;
-    const readStarted = new Promise<void>((done) => { started = done; });
+    const readStarted = new Promise<void>((done) => {
+      started = done;
+    });
     const entry = createQuotaHostEntry({
       auth: async () => ({ status: "ok", token: "secret", identity: active }),
-      read: async () => { started(); return read; }, now: () => observedAt,
+      read: async () => {
+        started();
+        return read;
+      },
+      now: () => observedAt,
     });
     const harness = experimental_createHostEntryHarness(entry);
     const pending = harness.experimental_call("quota", {});
     await readStarted;
     active = "account-b";
     resolveRead({ status: "ok", snapshot });
-    expect(await pending).toEqual({ state: "unavailable", reason: "identity-changed", snapshot: null });
+    expect(await pending).toEqual({
+      state: "unavailable",
+      reason: "identity-changed",
+      snapshot: null,
+    });
     expect(JSON.stringify(await pending)).not.toContain("secret");
     await harness.experimental_dispose();
   });
 
   it("discards a cancelled host read before publishing it to the host cache", async () => {
     const observedAt = Date.UTC(2026, 3, 23, 12);
-    const snapshot: QuotaSnapshot = { observedAt: new Date(observedAt).toISOString(), plan: null, bankedResets: null,
+    const snapshot: QuotaSnapshot = {
+      observedAt: new Date(observedAt).toISOString(),
+      plan: null,
+      bankedResets: null,
       general: [{ id: "primary_window", name: "Primary", remainingPercent: 42, resetAt: null }],
-      additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: 42 };
+      additional: [],
+      bindingWindowId: "primary_window",
+      bindingRemainingPercent: 42,
+    };
     let finish!: () => void;
     let started!: () => void;
-    const delayed = new Promise<void>((done) => { finish = done; });
-    const entered = new Promise<void>((done) => { started = done; });
+    const delayed = new Promise<void>((done) => {
+      finish = done;
+    });
+    const entered = new Promise<void>((done) => {
+      started = done;
+    });
     let calls = 0;
     const entry = createQuotaHostEntry({
       auth: async () => ({ status: "ok", token: "secret", identity: "account-a" }),
-      read: async () => { if (++calls === 1) { started(); await delayed; } return { status: "ok", snapshot }; },
+      read: async () => {
+        if (++calls === 1) {
+          started();
+          await delayed;
+        }
+        return { status: "ok", snapshot };
+      },
       now: () => observedAt,
     });
     const harness = experimental_createHostEntryHarness(entry);
@@ -77,7 +132,11 @@ describe("Codex Quota host entry", () => {
     await entered;
     controller.abort();
     finish();
-    expect(await pending).toEqual({ state: "unavailable", reason: "selection-changed", snapshot: null });
+    expect(await pending).toEqual({
+      state: "unavailable",
+      reason: "selection-changed",
+      snapshot: null,
+    });
     expect((await harness.experimental_call("quota", {})).state).toBe("fresh");
     expect(calls).toBe(2);
     await harness.experimental_dispose();
@@ -87,25 +146,55 @@ describe("Codex Quota host entry", () => {
     let calls = 0;
     let checkable = true;
     const entry = createQuotaHostEntry({
-      auth: async () => checkable ? ({ status: "ok", token: "secret", identity: "account-a" }) : ({ status: "auth-unavailable" }),
-      read: async () => { calls++; return { status: "ok" as const, snapshot: {
-        observedAt: new Date(observedAt).toISOString(), plan: null, bankedResets: null,
-        general: [{ id: "primary_window", name: "Primary", remainingPercent: 25, resetAt: null }],
-        additional: [], bindingWindowId: "primary_window", bindingRemainingPercent: 25,
-      } }; }, now: () => observedAt,
+      auth: async () =>
+        checkable
+          ? { status: "ok", token: "secret", identity: "account-a" }
+          : { status: "auth-unavailable" },
+      read: async () => {
+        calls++;
+        return {
+          status: "ok" as const,
+          snapshot: {
+            observedAt: new Date(observedAt).toISOString(),
+            plan: null,
+            bankedResets: null,
+            general: [
+              { id: "primary_window", name: "Primary", remainingPercent: 25, resetAt: null },
+            ],
+            additional: [],
+            bindingWindowId: "primary_window",
+            bindingRemainingPercent: 25,
+          },
+        };
+      },
+      now: () => observedAt,
     });
     const first = experimental_createHostEntryHarness(entry);
     expect((await first.experimental_call("quota", {})).state).toBe("fresh");
     expect((await first.experimental_call("quota", {})).state).toBe("fresh");
     expect(calls).toBe(1);
     checkable = false;
-    expect(await first.experimental_call("quota", {})).toEqual({ state: "unavailable", reason: "auth-unavailable", snapshot: null });
+    expect(await first.experimental_call("quota", {})).toEqual({
+      state: "unavailable",
+      reason: "auth-unavailable",
+      snapshot: null,
+    });
     await first.experimental_dispose();
-    const second = experimental_createHostEntryHarness(createQuotaHostEntry({
-      auth: async () => ({ status: "ok", token: "secret", identity: "account-a" }),
-      read: async () => { calls++; return { status: "network" as const, snapshot: null }; }, now: () => observedAt,
-    }));
-    expect(await second.experimental_call("quota", {})).toEqual({ state: "unavailable", reason: "network", snapshot: null });
+    const second = experimental_createHostEntryHarness(
+      createQuotaHostEntry({
+        auth: async () => ({ status: "ok", token: "secret", identity: "account-a" }),
+        read: async () => {
+          calls++;
+          return { status: "network" as const, snapshot: null };
+        },
+        now: () => observedAt,
+      }),
+    );
+    expect(await second.experimental_call("quota", {})).toEqual({
+      state: "unavailable",
+      reason: "network",
+      snapshot: null,
+    });
     expect(calls).toBe(2);
     await second.experimental_dispose();
   });

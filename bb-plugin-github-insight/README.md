@@ -21,13 +21,14 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `core/`: pure parsing. One entry per check name (newest run), mapped to `failed`, `running`, `cancelled`, `passed`, or `skipped`. `buildReviewers` puts open requests (pending) before latest reviews. `buildBlockers` gives the blockers in fixed order, and `blocked` only when no other code applies.
 - `core/merge-queue.ts`: maps the PR's merge queue entry (read in the first overview page, no extra request) to a queue state. A queued PR has no blockers, so the composer banner shows "Queued".
 
-  | GitHub entry state | Queue state | PR tab text |
-  |---|---|---|
-  | `QUEUED` | `queued` | In merge queue (#N) |
-  | `AWAITING_CHECKS` | `awaiting_checks` | Merge queue checks running (#N) |
-  | `MERGEABLE`, `LOCKED` | `merging` | Merging |
-  | `UNMERGEABLE` | `failed` | Merge queue failed (problem tone) |
-  | no entry | none | none |
+  | GitHub entry state    | Queue state       | PR tab text                       |
+  | --------------------- | ----------------- | --------------------------------- |
+  | `QUEUED`              | `queued`          | In merge queue (#N)               |
+  | `AWAITING_CHECKS`     | `awaiting_checks` | Merge queue checks running (#N)   |
+  | `MERGEABLE`, `LOCKED` | `merging`         | Merging                           |
+  | `UNMERGEABLE`         | `failed`          | Merge queue failed (problem tone) |
+  | no entry              | none              | none                              |
+
 - `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`, or a "Queued" label), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `bannerState` in `core/banner.ts` picks the row (see "Merge and enqueue"). The text opens the PR tab.
 - `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
@@ -98,16 +99,16 @@ app --markReviewed / markNeedsReview--> server --> kv "reviewed:<owner/repo#n>"
 
 After each refresh, the plugin writes a `prSummary` metadata entry on each thread of the PR (`core/summary.ts`, max 4 KiB). Other plugins, such as pr-thread-list, read it.
 
-| Field | Value |
-|---|---|
-| `version` | `1` |
-| `updatedAt` | ISO time of the last good refresh |
-| `pr` | `{ number, url, state }`, `state` is `open`, `draft`, `merged`, or `closed` |
-| `checks` | counts per status (`failed`, `running`, `cancelled`, `passed`, `skipped`) and `failedNames` (max 5) |
-| `reviewers` | `pending`, `approved`, `changesRequested` counts and `pendingNames` (max 5) |
-| `blockers` | blocker codes, `[]` while the PR is in a merge queue |
+| Field        | Value                                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `version`    | `1`                                                                                                                                                                                  |
+| `updatedAt`  | ISO time of the last good refresh                                                                                                                                                    |
+| `pr`         | `{ number, url, state }`, `state` is `open`, `draft`, `merged`, or `closed`                                                                                                          |
+| `checks`     | counts per status (`failed`, `running`, `cancelled`, `passed`, `skipped`) and `failedNames` (max 5)                                                                                  |
+| `reviewers`  | `pending`, `approved`, `changesRequested` counts and `pendingNames` (max 5)                                                                                                          |
+| `blockers`   | blocker codes, `[]` while the PR is in a merge queue                                                                                                                                 |
 | `mergeQueue` | `{ position, state }` with `state` `queued`, `awaiting_checks`, `merging`, or `failed`, or `null` when the PR is not in a queue. Optional: a reader treats a missing field as `null` |
-| `error` | the last refresh error, or `null` |
+| `error`      | the last refresh error, or `null`                                                                                                                                                    |
 
 ## Review threads
 
@@ -149,11 +150,11 @@ bb github-insight review summary --body-file <path>
 
 Plugin kv keys (`review/draft-store.ts`, schemas in `core/review-drafts.ts`). An entry of another version reads as no draft.
 
-| Key | Value |
-|---|---|
-| `draft:<owner>/<repo>#<n>:<reviewThreadId>` | reply draft: `{ body, updatedAt, source }` |
-| `comment:<owner>/<repo>#<n>:<draftId>` | comment draft: `{ v: 1, path, side, line, startLine, body, commitOid, updatedAt, source }` |
-| `summary:<owner>/<repo>#<n>` | summary draft: `{ v: 1, body, updatedAt, source }` |
+| Key                                         | Value                                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `draft:<owner>/<repo>#<n>:<reviewThreadId>` | reply draft: `{ body, updatedAt, source }`                                                 |
+| `comment:<owner>/<repo>#<n>:<draftId>`      | comment draft: `{ v: 1, path, side, line, startLine, body, commitOid, updatedAt, source }` |
+| `summary:<owner>/<repo>#<n>`                | summary draft: `{ v: 1, body, updatedAt, source }`                                         |
 
 Submit (RPC `submitReview({ threadId, event, body })`, only from the Review tab):
 
@@ -176,25 +177,25 @@ submitReview --> server: load the review again (files, threads, head, drafts fro
 
 The PR tab shows one merge action below the PR header (`core/merge-action.ts`):
 
-| PR | Action |
-|---|---|
-| merged, closed, or draft | none |
+| PR                                            | Action                    |
+| --------------------------------------------- | ------------------------- |
+| merged, closed, or draft                      | none                      |
 | in the merge queue (also with running checks) | "Queued" label, no button |
-| has merge blockers | none |
-| base branch has a merge queue | "Enqueue" button |
-| repository allows your default merge method | merge button |
-| other | none |
+| has merge blockers                            | none                      |
+| base branch has a merge queue                 | "Enqueue" button          |
+| repository allows your default merge method   | merge button              |
+| other                                         | none                      |
 
 The composer banner of the thread shows the same action, with the same `MergeActionButton` and `useMergeAction` as the tab (`core/banner.ts`):
 
-| PR | Banner |
-|---|---|
-| merged | Pull request merged, violet merge icon, no merge action |
-| closed | hidden |
-| in the merge queue | "Queued", no button |
-| has merge blockers | the top blockers, no button |
-| merge or enqueue action | "Ready to merge" or "Ready to enqueue" + the button |
-| other | hidden |
+| PR                      | Banner                                                  |
+| ----------------------- | ------------------------------------------------------- |
+| merged                  | Pull request merged, violet merge icon, no merge action |
+| closed                  | hidden                                                  |
+| in the merge queue      | "Queued", no button                                     |
+| has merge blockers      | the top blockers, no button                             |
+| merge or enqueue action | "Ready to merge" or "Ready to enqueue" + the button     |
+| other                   | hidden                                                  |
 
 The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and banner share one operation state per thread in this window. Both buttons show "Merging…" or "Enqueuing…" and stay disabled during a write, including when one view opens later. Requests from different entry points cannot start a second write while one is running.
 
@@ -229,14 +230,14 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 - `isAvailable` must be sync, so `useInsight` writes each load into `ui/pr-availability.ts` (in memory). A PR sets the entry, no PR deletes it, and a failed load keeps it.
 - The composer banner loads the insight of each thread you open. Until that first load ends, no command shows.
 
-| Command | Opens | Then |
-|---|---|---|
-| GitHub: Merge PR | no panel | loads current PR data; confirm dialog for merge, enqueue at once; feedback in chat |
-| GitHub: Open PR tab | PR tab | nothing |
-| GitHub: Open Review tab | Review tab | nothing |
-| GitHub: Submit review | Review tab | opens the submit panel; the user submits |
-| GitHub: Refresh PR | PR tab | the refresh button's action |
-| GitHub: Open PR on GitHub | PR tab | opens the PR URL |
+| Command                   | Opens      | Then                                                                               |
+| ------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| GitHub: Merge PR          | no panel   | loads current PR data; confirm dialog for merge, enqueue at once; feedback in chat |
+| GitHub: Open PR tab       | PR tab     | nothing                                                                            |
+| GitHub: Open Review tab   | Review tab | nothing                                                                            |
+| GitHub: Submit review     | Review tab | opens the submit panel; the user submits                                           |
+| GitHub: Refresh PR        | PR tab     | the refresh button's action                                                        |
+| GitHub: Open PR on GitHub | PR tab     | opens the PR URL                                                                   |
 
 ```
 merge command --> chat merge intent --> fresh PR load --> confirm or enqueue

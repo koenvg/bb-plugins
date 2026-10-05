@@ -30,9 +30,7 @@ export function listScrollScopeKey(params: {
   const priorities = JSON.stringify([...params.filters.priorities].sort());
   const labels = JSON.stringify([...params.filters.labelNames].sort());
   const dependency =
-    params.filters.dependency === undefined
-      ? ""
-      : `|d=${params.filters.dependency}`;
+    params.filters.dependency === undefined ? "" : `|d=${params.filters.dependency}`;
   return `${list}|s=${statuses}|p=${priorities}|l=${labels}${dependency}|sort=${params.sort}`;
 }
 
@@ -110,11 +108,7 @@ export function useListScrollRestoration(
       pending.current = null;
       return;
     }
-    const clamped = resolveRestoreTarget(
-      saved,
-      el.scrollHeight,
-      el.clientHeight,
-    );
+    const clamped = resolveRestoreTarget(saved, el.scrollHeight, el.clientHeight);
     el.scrollTop = clamped;
     lastApplied.current = clamped;
     pending.current = clamped < saved && loading ? saved : null;
@@ -125,11 +119,7 @@ export function useListScrollRestoration(
     if (el === null) return;
     if (!visible || restoredScope.current !== scopeKey) return;
     if (pending.current === null) return;
-    const clamped = resolveRestoreTarget(
-      pending.current,
-      el.scrollHeight,
-      el.clientHeight,
-    );
+    const clamped = resolveRestoreTarget(pending.current, el.scrollHeight, el.clientHeight);
     el.scrollTop = clamped;
     lastApplied.current = clamped;
     if (clamped >= pending.current || !loading) pending.current = null;
@@ -150,9 +140,7 @@ export function useListScrollRestoration(
       }
       lastOffset.current = el.scrollTop;
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() =>
-        writeListScroll(scopeKey, el.scrollTop),
-      );
+      raf = requestAnimationFrame(() => writeListScroll(scopeKey, el.scrollTop));
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {

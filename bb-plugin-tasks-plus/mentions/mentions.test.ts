@@ -40,15 +40,11 @@ describe("@task mention provider", () => {
       });
       bb.storage
         .database()
-        .prepare<[string, string]>(
-          "UPDATE tasks SET updated_at = ? WHERE id = ?",
-        )
+        .prepare<[string, string]>("UPDATE tasks SET updated_at = ? WHERE id = ?")
         .run("2026-07-15T18:00:00.000Z", linkedTask.id);
       bb.storage
         .database()
-        .prepare<[string, string]>(
-          "UPDATE tasks SET updated_at = ? WHERE id = ?",
-        )
+        .prepare<[string, string]>("UPDATE tasks SET updated_at = ? WHERE id = ?")
         .run("2026-07-15T19:00:00.000Z", otherTask.id);
 
       expect(
@@ -80,10 +76,7 @@ describe("@task mention provider", () => {
         projectId: null,
         threadId: null,
       });
-      expect(recentTitleMatches.map((item) => item.id)).toEqual([
-        otherTask.id,
-        linkedTask.id,
-      ]);
+      expect(recentTitleMatches.map((item) => item.id)).toEqual([otherTask.id, linkedTask.id]);
 
       const linkedTitleMatches = await provider.search({
         trigger: "@",
@@ -91,10 +84,7 @@ describe("@task mention provider", () => {
         projectId: "proj_linked",
         threadId: "thr_composer",
       });
-      expect(linkedTitleMatches.map((item) => item.id)).toEqual([
-        linkedTask.id,
-        otherTask.id,
-      ]);
+      expect(linkedTitleMatches.map((item) => item.id)).toEqual([linkedTask.id, otherTask.id]);
 
       for (let index = 0; index < 12; index += 1) {
         store.tasks.createTask({
@@ -167,17 +157,13 @@ describe("@task mention provider", () => {
 
       const { context } = await provider.resolve(task.id);
       expect(context).toContain("# MEN-1 · Resolve rich context");
-      expect(context).toContain(
-        "The full task description belongs in agent context.",
-      );
+      expect(context).toContain("The full task description belongs in agent context.");
       expect(context).toContain("MEN-2 · Verify mention output — Done");
       expect(context).toMatch(/- 01[0-9A-HJKMNP-TV-Z]{24} · acceptance\.md/);
       expect(context).toContain("Fetch with: bb tasks attachment get ");
       expect(context).toContain("Sawyer · User");
       expect(context).toContain("thr_worker · Mention worker · Working");
-      expect(context).toContain(
-        "You can act on this task with the bb tasks CLI.",
-      );
+      expect(context).toContain("You can act on this task with the bb tasks CLI.");
       expect(context).toContain(
         "first run: bb tasks attach MEN-1 (attaches THIS thread so the task shows you as working)",
       );
@@ -191,9 +177,7 @@ describe("@task mention provider", () => {
   it("rejects an unknown task id", async () => {
     const { harness, provider } = setup();
     try {
-      expect(() => provider.resolve("missing-task-id")).toThrow(
-        "Task not found: missing-task-id",
-      );
+      expect(() => provider.resolve("missing-task-id")).toThrow("Task not found: missing-task-id");
     } finally {
       await harness.dispose();
     }

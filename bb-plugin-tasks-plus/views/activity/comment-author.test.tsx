@@ -40,12 +40,7 @@ describe("CommentAuthor", () => {
 
   it("renders the author name as plain text when the title is unresolved", () => {
     const onOpenThread = vi.fn();
-    render(
-      <CommentAuthor
-        comment={{ ...base, threadTitle: null }}
-        onOpenThread={onOpenThread}
-      />,
-    );
+    render(<CommentAuthor comment={{ ...base, threadTitle: null }} onOpenThread={onOpenThread} />);
 
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("agent (thr_worker)")).toBeTruthy();

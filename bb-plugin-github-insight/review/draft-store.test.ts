@@ -81,7 +81,10 @@ describe("draft store", () => {
     await store.save(pr, "PRRT_resolved", draft);
     await store.save(pr, "PRRT_gone", draft);
 
-    const drafts = await store.liveDrafts(pr, allThreads(thread("PRRT_open"), thread("PRRT_resolved", true)));
+    const drafts = await store.liveDrafts(
+      pr,
+      allThreads(thread("PRRT_open"), thread("PRRT_resolved", true)),
+    );
 
     expect(drafts).toEqual({ PRRT_open: draft });
     expect([...data.keys()]).toEqual(["draft:collibra/frontend#25259:PRRT_open"]);
@@ -93,7 +96,10 @@ describe("draft store", () => {
     await store.save(pr, "PRRT_resolved", draft);
     await store.save(pr, "PRRT_unread", draft);
 
-    const drafts = await store.liveDrafts(pr, { threads: [thread("PRRT_resolved", true)], complete: false });
+    const drafts = await store.liveDrafts(pr, {
+      threads: [thread("PRRT_resolved", true)],
+      complete: false,
+    });
 
     expect(drafts).toEqual({});
     expect([...data.keys()]).toEqual(["draft:collibra/frontend#25259:PRRT_unread"]);
@@ -133,7 +139,9 @@ describe("comment drafts", () => {
 
     await createDraftStore(kv).saveComment(pr, "d1", comment);
 
-    expect(Object.fromEntries(data)).toEqual({ "comment:collibra/frontend#25259:d1": { v: 1, ...comment } });
+    expect(Object.fromEntries(data)).toEqual({
+      "comment:collibra/frontend#25259:d1": { v: 1, ...comment },
+    });
   });
 
   it("lists the comment drafts of the PR with their ids, by path and line", async () => {
@@ -158,7 +166,9 @@ describe("comment drafts", () => {
 
     await store.saveComment(pr, "d1", { ...comment, body: "Edited", source: "user" });
 
-    expect(await store.comments(pr)).toEqual([{ id: "d1", ...comment, body: "Edited", source: "user" }]);
+    expect(await store.comments(pr)).toEqual([
+      { id: "d1", ...comment, body: "Edited", source: "user" },
+    ]);
   });
 
   it("reads one comment draft by id, or null when it is gone", async () => {
@@ -205,7 +215,9 @@ describe("summary draft", () => {
 
     await createDraftStore(kv).saveSummary(pr, summary);
 
-    expect(Object.fromEntries(data)).toEqual({ "summary:collibra/frontend#25259": { v: 1, ...summary } });
+    expect(Object.fromEntries(data)).toEqual({
+      "summary:collibra/frontend#25259": { v: 1, ...summary },
+    });
   });
 
   it("keeps only the last summary", async () => {

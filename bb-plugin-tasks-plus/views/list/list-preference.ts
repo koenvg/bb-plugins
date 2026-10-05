@@ -5,11 +5,7 @@ import {
   type TaskStatus,
 } from "../../shared/contract.js";
 import { TASK_SORTS, type TaskSort } from "../../shared/pagination.js";
-import {
-  EMPTY_FILTERS,
-  type DependencyFilter,
-  type ListFilterState,
-} from "./filter-bar.js";
+import { EMPTY_FILTERS, type DependencyFilter, type ListFilterState } from "./filter-bar.js";
 
 export const LIST_PREFERENCE_STORAGE_KEY = "bb-tasks:list-preferences";
 export const LIST_PREFERENCE_VERSION = 1 as const;
@@ -44,10 +40,7 @@ const STATUS_SET = new Set<string>(TASK_STATUSES);
 const PRIORITY_SET = new Set<string>(TASK_PRIORITIES);
 const SORT_SET = new Set<string>(TASK_SORTS);
 
-function uniqueValidValues<T extends string>(
-  values: unknown,
-  allowed: ReadonlySet<string>,
-): T[] {
+function uniqueValidValues<T extends string>(values: unknown, allowed: ReadonlySet<string>): T[] {
   if (!Array.isArray(values)) return [];
   const seen = new Set<string>();
   const result: T[] = [];
@@ -103,10 +96,7 @@ export function sanitizeListPreference(raw: unknown): ListPreference {
   return {
     filters: {
       statuses: uniqueValidValues<TaskStatus>(filtersRaw.statuses, STATUS_SET),
-      priorities: uniqueValidValues<TaskPriority>(
-        filtersRaw.priorities,
-        PRIORITY_SET,
-      ),
+      priorities: uniqueValidValues<TaskPriority>(filtersRaw.priorities, PRIORITY_SET),
       labelNames: uniqueLabelNames(filtersRaw.labelNames),
       ...sanitizeDependency(filtersRaw.dependency),
     },
@@ -124,11 +114,7 @@ function readStorage(): ParsedStorage | null {
     const raw = window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (
-      parsed === null ||
-      typeof parsed !== "object" ||
-      Array.isArray(parsed)
-    ) {
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
     const record = parsed as Record<string, unknown>;
@@ -140,11 +126,8 @@ function readStorage(): ParsedStorage | null {
       return null;
     }
     const version =
-      typeof record.version === "number" && Number.isFinite(record.version)
-        ? record.version
-        : null;
-    const isFutureVersion =
-      version !== null && version > LIST_PREFERENCE_VERSION;
+      typeof record.version === "number" && Number.isFinite(record.version) ? record.version : null;
+    const isFutureVersion = version !== null && version > LIST_PREFERENCE_VERSION;
     if (version !== null && version < LIST_PREFERENCE_VERSION) {
       return null;
     }
@@ -168,10 +151,7 @@ export function loadListPreference(scope: ListPreferenceScope): ListPreference {
   return sanitizeListPreference(document.scopes[scope]);
 }
 
-export function storeListPreference(
-  scope: ListPreferenceScope,
-  preference: ListPreference,
-): void {
+export function storeListPreference(scope: ListPreferenceScope, preference: ListPreference): void {
   const sanitized = sanitizeListPreference(preference);
   try {
     const existing = readStorage();
@@ -184,9 +164,6 @@ export function storeListPreference(
       version: LIST_PREFERENCE_VERSION,
       scopes,
     };
-    window.localStorage.setItem(
-      LIST_PREFERENCE_STORAGE_KEY,
-      JSON.stringify(document),
-    );
+    window.localStorage.setItem(LIST_PREFERENCE_STORAGE_KEY, JSON.stringify(document));
   } catch {}
 }

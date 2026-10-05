@@ -3,7 +3,10 @@ import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import { messageOf, type ChangesResult } from "../core/changes";
 
-export type PatchState = { kind: "loaded"; patch: string } | { kind: "loading" } | { kind: "error"; message: string };
+export type PatchState =
+  | { kind: "loaded"; patch: string }
+  | { kind: "loading" }
+  | { kind: "error"; message: string };
 
 export type LoadedChanges = Extract<ChangesResult, { kind: "ok" }>;
 

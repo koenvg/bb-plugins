@@ -17,7 +17,10 @@ describe("targetOf", () => {
     [{ target: "all", mergeBaseBranch: "origin/main" }, { kind: "all" }],
     [{ target: "uncommitted" }, { kind: "uncommitted" }],
     [{ target: "branch_committed", mergeBaseBranch: "origin/main" }, { kind: "branch_committed" }],
-    [{ target: "commit", sha: "abc1234def" }, { kind: "commit", sha: "abc1234def" }],
+    [
+      { target: "commit", sha: "abc1234def" },
+      { kind: "commit", sha: "abc1234def" },
+    ],
   ] as const)("gives the target of query %j", (query, target) => {
     expect(targetOf(query)).toEqual(target);
   });

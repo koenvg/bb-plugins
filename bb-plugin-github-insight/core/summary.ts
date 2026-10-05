@@ -58,7 +58,8 @@ export function buildSummary({
   error: string | null;
 }): PrSummary {
   const { pr, checks, reviewers, blockers, mergeQueue } = insight;
-  const countChecks = (status: CheckStatus) => countWhere(checks, (check) => check.status === status);
+  const countChecks = (status: CheckStatus) =>
+    countWhere(checks, (check) => check.status === status);
   const countReviewers = (state: Reviewer["state"]) =>
     countWhere(reviewers, (reviewer) => reviewer.state === state);
   const pending = reviewers.filter((reviewer) => reviewer.state === "pending");

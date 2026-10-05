@@ -19,9 +19,7 @@ describe("CommentProviderAvatar", () => {
 
     expect(screen.getByRole("img", { name: "Codex" })).toBeTruthy();
     const mask = container.querySelector("[data-provider-logo]");
-    expect(mask?.getAttribute("data-provider-logo")).toBe(
-      "/api/v1/system/providers/codex/logo",
-    );
+    expect(mask?.getAttribute("data-provider-logo")).toBe("/api/v1/system/providers/codex/logo");
     expect(mask?.getAttribute("data-provider-id")).toBe("codex");
     expect(container.querySelector("svg > title")).toBeNull();
   });

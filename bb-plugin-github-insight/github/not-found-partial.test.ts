@@ -14,7 +14,10 @@ describe("readNotFoundPartial", () => {
   });
 
   it("refuses a response with another error type", () => {
-    const response = { data: { t0: null }, errors: [notFound(["t0"]), { type: "FORBIDDEN", message: "no" }] };
+    const response = {
+      data: { t0: null },
+      errors: [notFound(["t0"]), { type: "FORBIDDEN", message: "no" }],
+    };
 
     expect(readNotFoundPartial(JSON.stringify(response))).toBeNull();
   });

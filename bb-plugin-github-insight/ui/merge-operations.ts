@@ -40,7 +40,10 @@ export function createMergeOperations() {
     } catch (error) {
       result = { kind: "error", message: messageOf(error) };
     }
-    publish(threadId, result.kind === "error" ? { ...result, headOid: request.expectedHeadOid } : IDLE);
+    publish(
+      threadId,
+      result.kind === "error" ? { ...result, headOid: request.expectedHeadOid } : IDLE,
+    );
   }
   function dismiss(threadId: string) {
     if (snapshot(threadId).kind === "error") publish(threadId, IDLE);

@@ -18,12 +18,11 @@ import {
 } from "./overlay-trigger.js";
 import { usePointerCoarse } from "./hooks/use-pointer-coarse.js";
 
-const ResponsivePopoverContext =
-  React.createContext<ResponsiveOverlayContextValue>({
-    isCompactViewport: false,
-    open: false,
-    onOpenChange: () => {},
-  });
+const ResponsivePopoverContext = React.createContext<ResponsiveOverlayContextValue>({
+  isCompactViewport: false,
+  open: false,
+  onOpenChange: () => {},
+});
 
 function useResponsivePopover() {
   return React.useContext(ResponsivePopoverContext);
@@ -36,29 +35,17 @@ function Popover({
   defaultOpen,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  const ctx = useResponsiveRoot(
-    controlledOpen,
-    controlledOnChange,
-    defaultOpen,
-  );
+  const ctx = useResponsiveRoot(controlledOpen, controlledOnChange, defaultOpen);
 
   if (ctx.isCompactViewport) {
     return (
-      <ResponsivePopoverContext.Provider value={ctx}>
-        {children}
-      </ResponsivePopoverContext.Provider>
+      <ResponsivePopoverContext.Provider value={ctx}>{children}</ResponsivePopoverContext.Provider>
     );
   }
 
   return (
-    <PopoverPrimitive.Root
-      open={ctx.open}
-      onOpenChange={ctx.onOpenChange}
-      {...props}
-    >
-      <ResponsivePopoverContext.Provider value={ctx}>
-        {children}
-      </ResponsivePopoverContext.Provider>
+    <PopoverPrimitive.Root open={ctx.open} onOpenChange={ctx.onOpenChange} {...props}>
+      <ResponsivePopoverContext.Provider value={ctx}>{children}</ResponsivePopoverContext.Provider>
     </PopoverPrimitive.Root>
   );
 }
@@ -136,8 +123,7 @@ const PopoverContent = React.forwardRef<
     const scopeProps = usePortalScopeProps();
 
     React.useEffect(() => {
-      if (!open || isCompactViewport || isPointerCoarse || !autoFocusRef)
-        return;
+      if (!open || isCompactViewport || isPointerCoarse || !autoFocusRef) return;
       const frame = window.requestAnimationFrame(() => {
         const target = autoFocusRef.current;
         target?.focus();

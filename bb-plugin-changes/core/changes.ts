@@ -10,7 +10,9 @@ export type DiffTarget = z.infer<typeof diffTargetSchema>;
 
 export const diffQuerySchema = z.discriminatedUnion("target", [
   z.object({ target: z.literal("uncommitted") }).strict(),
-  z.object({ target: z.enum(["all", "branch_committed"]), mergeBaseBranch: z.string().min(1) }).strict(),
+  z
+    .object({ target: z.enum(["all", "branch_committed"]), mergeBaseBranch: z.string().min(1) })
+    .strict(),
   z.object({ target: z.literal("commit"), sha: z.string().min(1) }).strict(),
 ]);
 export type DiffQuery = z.infer<typeof diffQuerySchema>;

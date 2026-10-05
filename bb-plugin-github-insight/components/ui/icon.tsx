@@ -1,10 +1,4 @@
-import {
-  Component,
-  createContext,
-  useContext,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { Component, createContext, useContext, type CSSProperties, type ReactNode } from "react";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import Alert02Icon from "@hugeicons/core-free-icons/Alert02Icon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
@@ -216,13 +210,9 @@ export type IconName = string;
 
 const CORE_ICON_NAMES = Object.keys(CORE_ICON_MAP) as readonly CoreIconName[];
 
-export const ICON_NAMES: readonly BuiltinIconName[] = [
-  ...CORE_ICON_NAMES,
-  ...EXTENDED_ICON_NAMES,
-];
+export const ICON_NAMES: readonly BuiltinIconName[] = [...CORE_ICON_NAMES, ...EXTENDED_ICON_NAMES];
 
-const CORE_ICON_LOOKUP: Readonly<Record<string, IconSvgElement | undefined>> =
-  CORE_ICON_MAP;
+const CORE_ICON_LOOKUP: Readonly<Record<string, IconSvgElement | undefined>> = CORE_ICON_MAP;
 
 let extendedIconsLoad: Promise<void> | null = null;
 
@@ -293,27 +283,18 @@ export function Icon({ name, fallback = "Zap", ...props }: IconProps) {
     () => getPluginAssetIcon(fallback),
     () => getPluginAssetIcon(fallback),
   );
-  const requestedExists =
-    custom !== undefined || isBuiltinIconName(name) || asset !== undefined;
+  const requestedExists = custom !== undefined || isBuiltinIconName(name) || asset !== undefined;
   const resolved = requestedExists ? name : fallback;
   const definition = requestedExists ? custom : fallbackCustom;
   const resolvedAsset = requestedExists ? asset : fallbackAsset;
   const CustomIcon = definition?.component;
   if (ancestors.includes(resolved)) {
-    return (
-      <BuiltinIcon
-        name={isBuiltinIconName(resolved) ? resolved : "Zap"}
-        {...props}
-      />
-    );
+    return <BuiltinIcon name={isBuiltinIconName(resolved) ? resolved : "Zap"} {...props} />;
   }
   if (CustomIcon !== undefined && definition !== undefined) {
     return (
       <IconAncestors.Provider value={[...ancestors, resolved]}>
-        <IconErrorBoundary
-          key={definition.key}
-          fallback={<BuiltinIcon name="Zap" {...props} />}
-        >
+        <IconErrorBoundary key={definition.key} fallback={<BuiltinIcon name="Zap" {...props} />}>
           <span
             className={cn("inline-flex size-6 shrink-0", props.className)}
             style={props.style}
@@ -330,16 +311,9 @@ export function Icon({ name, fallback = "Zap", ...props }: IconProps) {
     );
   }
   if (CustomIcon === undefined && resolvedAsset !== undefined) {
-    return (
-      <PluginAssetIcon url={resolvedAsset} resolved={resolved} {...props} />
-    );
+    return <PluginAssetIcon url={resolvedAsset} resolved={resolved} {...props} />;
   }
-  return (
-    <BuiltinIcon
-      name={isBuiltinIconName(resolved) ? resolved : "Zap"}
-      {...props}
-    />
-  );
+  return <BuiltinIcon name={isBuiltinIconName(resolved) ? resolved : "Zap"} {...props} />;
 }
 
 function PluginAssetIcon({
@@ -418,13 +392,8 @@ function ExtendedIcon({
   "aria-hidden": ariaHidden,
   "aria-label": ariaLabel,
 }: IconProps) {
-  const extendedIcons: Readonly<
-    Record<string, IconSvgElement | undefined>
-  > | null = useSyncExternalStore(
-    subscribeExtendedIcons,
-    getExtendedIcons,
-    getExtendedIcons,
-  );
+  const extendedIcons: Readonly<Record<string, IconSvgElement | undefined>> | null =
+    useSyncExternalStore(subscribeExtendedIcons, getExtendedIcons, getExtendedIcons);
   const icon = extendedIcons?.[name];
   if (icon === undefined) {
     void preloadExtendedIcons().catch(() => undefined);

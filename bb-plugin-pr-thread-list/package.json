@@ -49,6 +49,10 @@
     "vitest": "^5.0.1"
   },
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-pr-thread-list",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-pr-thread-list",
+    "format": "npm --prefix .. run format -- bb-plugin-pr-thread-list",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-pr-thread-list",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"

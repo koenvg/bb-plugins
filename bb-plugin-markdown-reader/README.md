@@ -53,15 +53,15 @@ Local raster images support PNG, JPEG, GIF, WebP, AVIF, BMP, and ICO. SVG, HTML,
 
 Fences with an explicit supported language receive lightweight highlighting up to 20 KiB of rendered UTF-8 code, including its final newline. The byte guard runs before tokenization. Unknown or missing languages, larger fences, and tokenizer failures stay plain readable code. There is no auto-detection, JSON parsing, pretty printing, or source reconstruction. Preview preserves the Markdown parser's rendered code text; Raw always preserves the complete exact original, including CRLF.
 
-| Bundled language | Accepted labels |
-| --- | --- |
-| JSON | `json` |
-| JavaScript | `javascript`, `js` |
-| TypeScript | `typescript`, `ts` |
-| Shell | `bash`, `sh`, `shell` |
-| Python | `python`, `py` |
-| Markup | `markup`, `html`, `xml` |
-| CSS | `css` |
+| Bundled language | Accepted labels         |
+| ---------------- | ----------------------- |
+| JSON             | `json`                  |
+| JavaScript       | `javascript`, `js`      |
+| TypeScript       | `typescript`, `ts`      |
+| Shell            | `bash`, `sh`, `shell`   |
+| Python           | `python`, `py`          |
+| Markup           | `markup`, `html`, `xml` |
+| CSS              | `css`                   |
 
 Labels are case-insensitive. JSX, TSX, JSON5, and other unlisted labels remain plain. Markup-like code renders as passive text and spans, not document HTML. Inline code and unlabelled indented blocks stay plain.
 

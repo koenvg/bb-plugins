@@ -32,9 +32,12 @@
     "bb-plugin"
   ],
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-tasks-plus",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-tasks-plus",
+    "format": "npm --prefix .. run format -- bb-plugin-tasks-plus",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-tasks-plus",
     "build": "bb plugin build",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {

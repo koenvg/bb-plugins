@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
 import { tasksRpcContract } from "../shared/contract.js";
@@ -43,21 +40,27 @@ it("reports Ready through public RPC and presentation only with explicit complet
 it("withholds Ready from fresh metadata when the current environment PR association is unreadable", async () => {
   const { read, store, task, harness } = setup(
     { thr_a: clearSummary() },
-    { host: async () => { throw Error("offline"); } },
+    {
+      host: async () => {
+        throw Error("offline");
+      },
+    },
   );
   const before = store.tasks.listTaskThreads(task.id);
   const result = await read();
   expect(result.pullRequests).toMatchObject({
     availability: "partial",
     unavailableThreadIds: ["thr_a"],
-    items: [{
-      url: URL,
-      state: "open",
-      threadIds: ["thr_a"],
-      details: "incomplete",
-      detailsReason: "association_unavailable",
-      rich: { readiness: "unknown", checks: { passed: 3 } },
-    }],
+    items: [
+      {
+        url: URL,
+        state: "open",
+        threadIds: ["thr_a"],
+        details: "incomplete",
+        detailsReason: "association_unavailable",
+        rich: { readiness: "unknown", checks: { passed: 3 } },
+      },
+    ],
   });
   expect(primaryBucket(result.pullRequests.items[0]!).label).not.toContain("Ready");
   expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
@@ -68,7 +71,11 @@ it("withholds Ready from fresh metadata when the current environment PR associat
 it("retains a known conflict when current association uncertainty suppresses Ready", async () => {
   const { read } = setup(
     { thr_a: clearSummary({ blockers: ["conflicts"] }) },
-    { host: async () => { throw Error("offline"); } },
+    {
+      host: async () => {
+        throw Error("offline");
+      },
+    },
   );
   const pr = (await read()).pullRequests.items[0]!;
   expect(pr).toMatchObject({
@@ -84,7 +91,11 @@ it.each(["merged", "closed"] as const)(
   async (state) => {
     const { read } = setup(
       { thr_a: clearSummary({ pr: { url: URL, number: 42, state } }) },
-      { host: async () => { throw Error("offline"); } },
+      {
+        host: async () => {
+          throw Error("offline");
+        },
+      },
     );
     const pr = (await read()).pullRequests.items[0]!;
     expect(pr).toMatchObject({
@@ -182,24 +193,21 @@ it.each([
   ["awaiting_checks", "Queued, awaiting checks"],
   ["merging", "Queued, merging"],
   ["failed", "Queue failed"],
-])(
-  "retains additive %s queue activity despite an empty blockers array",
-  async (state, label) => {
-    const { read } = setup({
-      thr_a: clearSummary({ mergeQueue: { position: 2, state } }),
-    });
-    const pr = (await read()).pullRequests.items[0]!;
-    expect(pr).toMatchObject({
-      details: "available",
-      rich: { queue: { state, position: 2 } },
-    });
-    expect(primaryBucket(pr)).toMatchObject({
-      label,
-      problem: state === "failed",
-    });
-    expect(pr.rich?.readiness).toBe("blocked");
-  },
-);
+])("retains additive %s queue activity despite an empty blockers array", async (state, label) => {
+  const { read } = setup({
+    thr_a: clearSummary({ mergeQueue: { position: 2, state } }),
+  });
+  const pr = (await read()).pullRequests.items[0]!;
+  expect(pr).toMatchObject({
+    details: "available",
+    rich: { queue: { state, position: 2 } },
+  });
+  expect(primaryBucket(pr)).toMatchObject({
+    label,
+    problem: state === "failed",
+  });
+  expect(pr.rich?.readiness).toBe("blocked");
+});
 
 it.each([
   [{ state: "queued", position: 2, newRule: "blocked" }, "Queued"],
@@ -260,19 +268,10 @@ it.each([
     "Changes requested",
   ],
   [
-    [
-      "blocked",
-      "checks_running",
-      "review_required",
-      "unresolved_threads",
-      "behind",
-    ],
+    ["blocked", "checks_running", "review_required", "unresolved_threads", "behind"],
     "Other merge blockers",
   ],
-  [
-    ["checks_running", "review_required", "unresolved_threads", "behind"],
-    "Checks running",
-  ],
+  [["checks_running", "review_required", "unresolved_threads", "behind"], "Checks running"],
   [["review_required", "unresolved_threads", "behind"], "Awaiting review"],
   [["unresolved_threads", "behind"], "Unresolved comments"],
   [["behind"], "Behind"],
@@ -301,11 +300,7 @@ it.each(["draft", "merged", "closed"] as const)(
     });
     const pr = (await read()).pullRequests.items[0]!;
     expect(primaryBucket(pr).label).toBe(
-      state === "draft"
-        ? "Draft, conflicts"
-        : state === "merged"
-          ? "Merged"
-          : "Closed",
+      state === "draft" ? "Draft, conflicts" : state === "merged" ? "Merged" : "Closed",
     );
   },
 );
@@ -316,9 +311,7 @@ it.each([false, true])(
     const { read } = setup(
       {
         thr_a: clearSummary(),
-        thr_b: partialRead
-          ? null
-          : clearSummary({ blockers: ["checks_failed"] }),
+        thr_b: partialRead ? null : clearSummary({ blockers: ["checks_failed"] }),
       },
       partialRead
         ? {
@@ -360,12 +353,7 @@ function summary(overrides: Record<string, unknown> = {}) {
       changesRequested: 1,
       pendingNames: ["koen"],
     },
-    blockers: [
-      "checks_failed",
-      "checks_running",
-      "review_required",
-      "changes_requested",
-    ],
+    blockers: ["checks_failed", "checks_running", "review_required", "changes_requested"],
     mergeQueue: null,
     error: null,
     ...overrides,
@@ -388,9 +376,7 @@ function setup(
       })),
   );
   const getMetadata = vi.fn(async ({ threadId }: { threadId: string }) =>
-    options.getMetadata
-      ? options.getMetadata(threadId)
-      : { prSummary: metadata[threadId] },
+    options.getMetadata ? options.getMetadata(threadId) : { prSummary: metadata[threadId] },
   );
   const host = vi.fn(async ({ environmentId }: { environmentId: string }) =>
     options.host
@@ -443,10 +429,7 @@ function setup(
       liveStatus: "completed",
     });
   registerTasksApi(bb, store);
-  const read = async (refresh?: {
-    id: string;
-    step: "start" | "continue" | "finish";
-  }) =>
+  const read = async (refresh?: { id: string; step: "start" | "continue" | "finish" }) =>
     tasksRpcContract.listTaskWorkStatus.output.parse(
       await harness.behavior.callRpc("listTaskWorkStatus", {
         taskIds: [task.id],
@@ -523,18 +506,10 @@ it.each(["open", "draft", "merged", "closed"] as const)(
 it.each([
   [summary({ version: 2 }), "unavailable", "unsupported_version"],
   [summary({ updatedAt: "yesterday" }), "unavailable", "invalid_metadata"],
-  [
-    summary({ updatedAt: "2026-10-03T12:00:00Z" }),
-    "unavailable",
-    "invalid_metadata",
-  ],
+  [summary({ updatedAt: "2026-10-03T12:00:00Z" }), "unavailable", "invalid_metadata"],
   [summary({ checks: { failed: -1 } }), "unavailable", "invalid_metadata"],
   [summary({ error: "GitHub offline" }), "unavailable", "refresh_error"],
-  [
-    summary({ blockers: ["future_rule", "checks_failed"] }),
-    "incomplete",
-    "unsupported_conditions",
-  ],
+  [summary({ blockers: ["future_rule", "checks_failed"] }), "incomplete", "unsupported_conditions"],
   [
     summary({ mergeQueue: { state: "WAITING", extra: "unknown" } }),
     "incomplete",
@@ -620,9 +595,7 @@ it.each([
       thr_new: summary({ updatedAt: "2026-10-02T11:55:00Z" }),
     };
     const { read } = setup(
-      Object.fromEntries(
-        order.map((id) => [id, packets[id as keyof typeof packets]]),
-      ),
+      Object.fromEntries(order.map((id) => [id, packets[id as keyof typeof packets]])),
     );
     expect((await read()).pullRequests.items[0]).toMatchObject({
       state: "open",
@@ -634,14 +607,8 @@ it.each([
 );
 
 it.each([
-  [
-    summary({ checks: { failed: -1 }, updatedAt: "2026-10-02T11:59:00Z" }),
-    "unavailable",
-  ],
-  [
-    summary({ checks: { failed: -1 }, updatedAt: "2026-10-02T10:00:00Z" }),
-    "available",
-  ],
+  [summary({ checks: { failed: -1 }, updatedAt: "2026-10-02T11:59:00Z" }), "unavailable"],
+  [summary({ checks: { failed: -1 }, updatedAt: "2026-10-02T10:00:00Z" }), "available"],
   [
     summary({
       checks: {
@@ -752,11 +719,7 @@ it.each([
 ] as const)(
   "isolates optional integration availability failures %# and checks only once per refresh",
   async (plugins, reason) => {
-    const {
-      read,
-      getMetadata,
-      plugins: detection,
-    } = setup(undefined, { plugins });
+    const { read, getMetadata, plugins: detection } = setup(undefined, { plugins });
     const id = "00000000-0000-4000-8000-000000000001";
     for (const step of ["start", "continue", "finish"] as const)
       expect((await read({ id, step })).pullRequests.items[0]).toMatchObject({
@@ -818,18 +781,14 @@ it("bounds combined thread/environment/metadata retention at 4096 with explicit 
   expect(getMetadata).toHaveBeenCalledTimes(1296);
   expect(plugins).toHaveBeenCalledTimes(1);
   await vi.advanceTimersByTimeAsync(60_000);
-  expect((await read({ id, step: "continue" })).availability).toBe(
-    "unavailable",
-  );
+  expect((await read({ id, step: "continue" })).availability).toBe("unavailable");
   expect(getMetadata).toHaveBeenCalledTimes(1296);
   expect((await read()).pullRequests.items[0]?.details).toBe("available");
   expect(getMetadata).toHaveBeenCalledTimes(2696);
   const other = "00000000-0000-4000-8000-000000000002";
   await read({ id: other, step: "start" });
   await read({ id: other, step: "finish" });
-  expect((await read({ id: other, step: "continue" })).availability).toBe(
-    "unavailable",
-  );
+  expect((await read({ id: other, step: "continue" })).availability).toBe("unavailable");
   expect(vi.getTimerCount()).toBe(0);
 });
 
@@ -845,9 +804,7 @@ it("shares the global eight-read SDK concurrency limit with optional detection a
     active--;
   };
   const { read } = setup(
-    Object.fromEntries(
-      Array.from({ length: 12 }, (_, i) => [`thr_${i}`, summary()]),
-    ),
+    Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`thr_${i}`, summary()])),
     {
       plugins: async () => {
         await pause();

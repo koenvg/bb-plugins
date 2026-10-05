@@ -58,7 +58,10 @@ describe("viewed store", () => {
       ALL_A,
       "src/a.ts",
       "5:aaaa",
-      () => new Promise((resolve) => (failFirst = () => resolve({ kind: "error", message: "disk full" }))),
+      () =>
+        new Promise(
+          (resolve) => (failFirst = () => resolve({ kind: "error", message: "disk full" })),
+        ),
     );
     await store.setViewed(ALL_A, "src/a.ts", null, saved);
     await store.setViewed(ALL_A, "src/a.ts", "5:aaaa", saved);

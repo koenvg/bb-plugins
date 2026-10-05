@@ -9,13 +9,7 @@ export interface TaskEdit {
 }
 
 type EditField = keyof TaskEdit;
-const EDIT_FIELDS: readonly EditField[] = [
-  "status",
-  "priority",
-  "dueDate",
-  "labelIds",
-  "position",
-];
+const EDIT_FIELDS: readonly EditField[] = ["status", "priority", "dueDate", "labelIds", "position"];
 
 interface TaskEntry {
   edit: TaskEdit;
@@ -57,10 +51,7 @@ export function applyEdit(task: Task, edit: TaskEdit | undefined): Task {
   };
 }
 
-export function editedTasks(
-  serverTasks: readonly Task[],
-  entries: TaskEntries,
-): Task[] {
+export function editedTasks(serverTasks: readonly Task[], entries: TaskEntries): Task[] {
   if (entries.size === 0) return [...serverTasks];
   return serverTasks.map((task) => applyEdit(task, entries.get(task.id)?.edit));
 }
@@ -172,10 +163,7 @@ function sameEntries(a: TaskEntries, b: TaskEntries): boolean {
   return true;
 }
 
-export function reconcileEntries(
-  entries: TaskEntries,
-  tasks: readonly Task[],
-): TaskEntries {
+export function reconcileEntries(entries: TaskEntries, tasks: readonly Task[]): TaskEntries {
   if (entries.size === 0) return entries;
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const next = new Map<string, TaskEntry>();
@@ -186,8 +174,7 @@ export function reconcileEntries(
     const gens: Partial<Record<EditField, number>> = {};
     for (const field of EDIT_FIELDS) {
       const value = entry.edit[field];
-      if (value === undefined || fieldSettled(task, field, entry.edit))
-        continue;
+      if (value === undefined || fieldSettled(task, field, entry.edit)) continue;
       Object.assign(edit, { [field]: value });
       gens[field] = entry.gens[field];
     }

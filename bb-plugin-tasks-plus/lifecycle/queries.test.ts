@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { createStore } from "../api";
@@ -11,10 +8,7 @@ interface ExecutedStatement {
   sql: string;
 }
 
-function recordStatements(
-  db: Database.Database,
-  executed: ExecutedStatement[],
-): void {
+function recordStatements(db: Database.Database, executed: ExecutedStatement[]): void {
   const prepare = db.prepare.bind(db);
   Object.defineProperty(db, "prepare", {
     configurable: true,
@@ -48,8 +42,7 @@ function fixture(taskCount: number, mappingCount: number) {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, status: "active" }),
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
       },
     },
   });
@@ -128,9 +121,7 @@ describe("lifecycle SQL scope", () => {
         );
         expect(f.harness.realtimeSignals).toEqual([]);
         expect(f.queries).toHaveLength(5);
-        expect(
-          f.queries.every((q) => q.sql.includes("WHERE thread_id = ?")),
-        ).toBe(true);
+        expect(f.queries.every((q) => q.sql.includes("WHERE thread_id = ?"))).toBe(true);
       } finally {
         await f.dispose();
       }
@@ -164,8 +155,7 @@ describe("lifecycle SQL scope", () => {
             id: "thr_shared",
             status: status === "deleted" ? "idle" : status,
           });
-          if (status === "active")
-            await f.harness.emitThreadEvent("thread.active", { thread });
+          if (status === "active") await f.harness.emitThreadEvent("thread.active", { thread });
           else if (status === "idle")
             await f.harness.emitThreadEvent("thread.idle", {
               thread,
@@ -200,10 +190,9 @@ describe("lifecycle SQL scope", () => {
             );
           }
           for (const task of f.tasks.slice(0, count)) {
-            expect(
-              f.store.tasks.getTaskThreadByThreadId(task.id, "thr_shared")
-                ?.liveStatus,
-            ).toBe(expected);
+            expect(f.store.tasks.getTaskThreadByThreadId(task.id, "thr_shared")?.liveStatus).toBe(
+              expected,
+            );
             const recorded = f.store.tasks.listComments(task.id);
             expect(recorded).toHaveLength(comments);
             expect(
@@ -216,9 +205,7 @@ describe("lifecycle SQL scope", () => {
             ).toBe(true);
             expect(f.store.tasks.getTask(task.id)!.status).toBe("backlog");
           }
-          expect(
-            f.store.tasks.getTaskThread(f.mappings[count]!.id)?.liveStatus,
-          ).toBe("working");
+          expect(f.store.tasks.getTaskThread(f.mappings[count]!.id)?.liveStatus).toBe("working");
         };
         await transition("active", "working", 0, 0);
         await transition("idle", "idle", 3, 0);
@@ -254,9 +241,7 @@ describe("lifecycle SQL scope", () => {
           thread: makeThreadResponse({ id: "thr_worker_0", status, deletedAt }),
         });
         expect(f.queries).toHaveLength(statements);
-        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe(
-          expected,
-        );
+        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe(expected);
       } finally {
         await f.dispose();
       }
@@ -267,13 +252,7 @@ describe("lifecycle SQL scope", () => {
     const f = fixture(1, 1);
     try {
       await registerLifecycle(f.bb, f.store);
-      for (const status of [
-        "todo",
-        "in_progress",
-        "in_review",
-        "done",
-        "canceled",
-      ] as const) {
+      for (const status of ["todo", "in_progress", "in_review", "done", "canceled"] as const) {
         f.store.tasks.updateTask(f.tasks[0]!.id, { status });
         f.queries.length = 0;
         await f.harness.emitThreadEvent("thread.idle", {
@@ -281,9 +260,7 @@ describe("lifecycle SQL scope", () => {
           lastAssistantText: null,
         });
         expect(f.queries).toHaveLength(status === "todo" ? 4 : 1);
-        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe(
-          "idle",
-        );
+        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe("idle");
         expect(f.store.tasks.getTask(f.tasks[0]!.id)?.status).toBe(status);
       }
     } finally {
@@ -308,9 +285,7 @@ describe("lifecycle SQL scope", () => {
       );
       expect(
         plan.some((row) =>
-          row.detail.includes(
-            "USING INDEX idx_task_threads_thread (thread_id=?)",
-          ),
+          row.detail.includes("USING INDEX idx_task_threads_thread (thread_id=?)"),
         ),
       ).toBe(true);
       f.store.tasks.deleteTask(f.tasks[0]!.id);

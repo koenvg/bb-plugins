@@ -69,9 +69,7 @@ function detailRpc(overrides: Record<string, unknown> = {}) {
     sidebarSummary: () => ({ projects: [] }),
     getTaskByKey: () => ({ task }),
     listTasks: (input: unknown) =>
-      input !== null && rpcInput(input).parentTaskId
-        ? { tasks: [] }
-        : { tasks: [task] },
+      input !== null && rpcInput(input).parentTaskId ? { tasks: [] } : { tasks: [task] },
     listLabels: () => ({ labels: [] }),
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({
@@ -156,9 +154,7 @@ describe("task detail pull request pills", () => {
       {
         rpc: detailRpc({
           listTaskThreads: () => ({
-            taskThreads: detached
-              ? []
-              : [taskThreadRow(THREAD_ROW_ID, "thr_worker000", "Worker")],
+            taskThreads: detached ? [] : [taskThreadRow(THREAD_ROW_ID, "thr_worker000", "Worker")],
           }),
           taskThreadsDetach: (input: unknown) => {
             detached = true;

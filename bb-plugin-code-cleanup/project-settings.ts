@@ -15,10 +15,15 @@ export function openProjectSettings(bb: BbPluginApi) {
     `ALTER TABLE project_settings ADD COLUMN enabled_override INTEGER CHECK (enabled_override IN (0, 1))`,
     `UPDATE project_settings SET enabled_override = enabled`,
   ]);
-  const getRow = db.prepare("SELECT enabled_override, prompt FROM project_settings WHERE project_id = ?");
-  const setEnabled = db.prepare(`INSERT INTO project_settings (project_id, enabled, enabled_override)
+  const getRow = db.prepare(
+    "SELECT enabled_override, prompt FROM project_settings WHERE project_id = ?",
+  );
+  const setEnabled =
+    db.prepare(`INSERT INTO project_settings (project_id, enabled, enabled_override)
     VALUES (?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET enabled = excluded.enabled, enabled_override = excluded.enabled_override`);
-  const clearEnabled = db.prepare("UPDATE project_settings SET enabled_override = NULL WHERE project_id = ?");
+  const clearEnabled = db.prepare(
+    "UPDATE project_settings SET enabled_override = NULL WHERE project_id = ?",
+  );
   const setPrompt = db.prepare(`INSERT INTO project_settings (project_id, prompt)
     VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET prompt = excluded.prompt`);
 
@@ -26,7 +31,11 @@ export function openProjectSettings(bb: BbPluginApi) {
     get(projectId: string, enableByDefault = false): ProjectSettings {
       const row = getRow.get(projectId) as Row | undefined;
       const enabledOverride = row?.enabled_override == null ? null : row.enabled_override === 1;
-      return { enabled: enabledOverride ?? enableByDefault, enabledOverride, prompt: row?.prompt ?? null };
+      return {
+        enabled: enabledOverride ?? enableByDefault,
+        enabledOverride,
+        prompt: row?.prompt ?? null,
+      };
     },
     setEnabled(projectId: string, enabled: boolean | null): void {
       if (enabled === null) clearEnabled.run(projectId);

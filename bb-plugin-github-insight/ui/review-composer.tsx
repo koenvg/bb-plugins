@@ -30,7 +30,13 @@ function findReviewRequest(view: ReviewQueueView | null, route: ReviewRoute): Li
   return null;
 }
 
-export function ReviewComposerPage({ route, queue }: { route: ReviewRoute; queue: ReviewQueueState }) {
+export function ReviewComposerPage({
+  route,
+  queue,
+}: {
+  route: ReviewRoute;
+  queue: ReviewQueueState;
+}) {
   const navigation = usePullRequestsNavigation();
   const [latchedPr, setLatchedPr] = useState<LinkedQueuePr | null>(null);
   const pr = latchedPr ?? findReviewRequest(queue.view, route);
@@ -75,7 +81,10 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
     setError(null);
     try {
       const { repo, number, title, url } = pr;
-      const { threadId } = await rpc.call("startReview", { pr: { repo, number, title, url }, request });
+      const { threadId } = await rpc.call("startReview", {
+        pr: { repo, number, title, url },
+        request,
+      });
       navigation.toThread(threadId);
     } catch (failure) {
       setError(messageOf(failure));

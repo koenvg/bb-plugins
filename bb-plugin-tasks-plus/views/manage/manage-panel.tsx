@@ -103,15 +103,11 @@ function LabelsSection() {
   const rpc = useTasksRpc();
   const projects = useProjects();
   const projectList = projects.data ?? [];
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null,
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const projectId = selectedProjectId ?? projectList[0]?.id ?? null;
   const labels = useTasksQuery(
     async (rpc) =>
-      projectId
-        ? (await rpc.call("listLabels", { projectId })).labels
-        : ([] as Label[]),
+      projectId ? (await rpc.call("listLabels", { projectId })).labels : ([] as Label[]),
     ["projects:changed"],
     [projectId],
   );
@@ -214,9 +210,7 @@ function LabelsSection() {
           </div>
         ))}
         {(labels.data ?? []).length === 0 ? (
-          <p className="px-3 py-2 text-sm text-muted-foreground">
-            No labels yet.
-          </p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">No labels yet.</p>
         ) : null}
       </div>
       <LabelEditorRow
@@ -250,9 +244,7 @@ function LabelsSection() {
         onConfirm={() => {
           const target = confirmDelete;
           if (target) {
-            void run(() =>
-              rpc.call("deleteLabel", { labelId: target.label.id }),
-            );
+            void run(() => rpc.call("deleteLabel", { labelId: target.label.id }));
           }
         }}
       />
@@ -263,10 +255,7 @@ function LabelsSection() {
 function PresetsSection() {
   const rpc = useTasksRpc();
   const presets = usePresets();
-  const machines = useTasksQuery(
-    async (rpc) => (await rpc.call("listMachines", {})).machines,
-    [],
-  );
+  const machines = useTasksQuery(async (rpc) => (await rpc.call("listMachines", {})).machines, []);
   const [dialog, setDialog] = useState<{
     key: number;
     editing: Preset | null;
@@ -313,25 +302,16 @@ function PresetsSection() {
               <tr key={preset.id} className="group">
                 <td className="px-3 py-2">
                   <span className="flex items-center gap-2">
-                    <Icon
-                      name="Bot"
-                      className="size-3.5 text-muted-foreground"
-                    />
+                    <Icon name="Bot" className="size-3.5 text-muted-foreground" />
                     {preset.name}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {preset.providerId}
-                </td>
+                <td className="px-3 py-2 text-muted-foreground">{preset.providerId}</td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                   {preset.modelId}
                 </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {preset.reasoningLevel}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {preset.serviceTier ?? "—"}
-                </td>
+                <td className="px-3 py-2 text-muted-foreground">{preset.reasoningLevel}</td>
+                <td className="px-3 py-2 text-muted-foreground">{preset.serviceTier ?? "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {PERMISSION_LABELS[preset.permissionMode]}
                 </td>
@@ -351,9 +331,7 @@ function PresetsSection() {
                       variant="ghost"
                       className="size-6 text-muted-foreground"
                       aria-label={`Edit preset ${preset.name}`}
-                      onClick={() =>
-                        setDialog({ key: Date.now(), editing: preset })
-                      }
+                      onClick={() => setDialog({ key: Date.now(), editing: preset })}
                     >
                       <Icon name="Edit" className="size-3.5" />
                     </Button>
@@ -367,9 +345,7 @@ function PresetsSection() {
                         rpc
                           .call("deletePreset", { presetId: preset.id })
                           .then(() => presets.refresh())
-                          .catch((deleteError: unknown) =>
-                            setError(errorMessage(deleteError)),
-                          );
+                          .catch((deleteError: unknown) => setError(errorMessage(deleteError)));
                       }}
                     >
                       <Icon name="Trash2" className="size-3.5" />
@@ -380,10 +356,7 @@ function PresetsSection() {
             ))}
             {(presets.data ?? []).length === 0 ? (
               <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-3 text-sm text-muted-foreground"
-                >
+                <td colSpan={8} className="px-3 py-3 text-sm text-muted-foreground">
                   No presets yet.
                 </td>
               </tr>
@@ -460,12 +433,7 @@ function FolderRow({
           >
             Save
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7"
-            onClick={() => setRenaming(false)}
-          >
+          <Button size="sm" variant="ghost" className="h-7" onClick={() => setRenaming(false)}>
             Cancel
           </Button>
         </>
@@ -474,9 +442,7 @@ function FolderRow({
           <span className="flex-1 truncate text-sm">{folder.name}</span>
           <Select
             value={folder.parentFolderId ?? ROOT_PARENT}
-            onValueChange={(value) =>
-              void onMove(value === ROOT_PARENT ? null : value)
-            }
+            onValueChange={(value) => void onMove(value === ROOT_PARENT ? null : value)}
           >
             <SelectTrigger
               aria-label={`Parent of ${folder.name}`}
@@ -549,16 +515,10 @@ function FoldersSection() {
     const projectCount = (projects.data ?? []).filter(
       (project) => project.folderId === folder.id,
     ).length;
-    const subfolderCount = folderList.filter(
-      (entry) => entry.parentFolderId === folder.id,
-    ).length;
+    const subfolderCount = folderList.filter((entry) => entry.parentFolderId === folder.id).length;
     const moved = [
-      projectCount > 0
-        ? `${projectCount} project${projectCount > 1 ? "s" : ""}`
-        : null,
-      subfolderCount > 0
-        ? `${subfolderCount} subfolder${subfolderCount > 1 ? "s" : ""}`
-        : null,
+      projectCount > 0 ? `${projectCount} project${projectCount > 1 ? "s" : ""}` : null,
+      subfolderCount > 0 ? `${subfolderCount} subfolder${subfolderCount > 1 ? "s" : ""}` : null,
     ].filter((part) => part !== null);
     return moved.length === 0
       ? "The folder is empty."
@@ -579,9 +539,7 @@ function FoldersSection() {
               folder={folder}
               rootFolders={rootFolders}
               onRename={(name) =>
-                run(() =>
-                  rpc.call("renameFolder", { folderId: folder.id, name }),
-                )
+                run(() => rpc.call("renameFolder", { folderId: folder.id, name }))
               }
               onMove={(parentFolderId) =>
                 run(() =>
@@ -638,9 +596,7 @@ export function ManagePanel() {
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4">
       <header className="space-y-1">
         <h2 className="text-base font-semibold">Manage</h2>
-        <p className="text-sm text-muted-foreground">
-          Labels, agent presets, and folders.
-        </p>
+        <p className="text-sm text-muted-foreground">Labels, agent presets, and folders.</p>
       </header>
       <Tabs defaultValue="labels">
         <TabsList>

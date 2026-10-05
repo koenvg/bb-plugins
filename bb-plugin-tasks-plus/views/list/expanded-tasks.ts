@@ -19,11 +19,7 @@ function readStorage(): ParsedStorage | null {
     const raw = window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (
-      parsed === null ||
-      typeof parsed !== "object" ||
-      Array.isArray(parsed)
-    ) {
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
     const record = parsed as Record<string, unknown>;
@@ -47,9 +43,7 @@ function readStorage(): ParsedStorage | null {
 
 function validIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return [
-    ...new Set(value.filter((id): id is string => typeof id === "string")),
-  ];
+  return [...new Set(value.filter((id): id is string => typeof id === "string"))];
 }
 
 export function loadExpandedTasks(scope: string): Set<string> {
@@ -73,10 +67,7 @@ export function storeExpandedTasks(
       version: EXPANDED_TASKS_VERSION,
       scopes,
     };
-    window.localStorage.setItem(
-      EXPANDED_TASKS_STORAGE_KEY,
-      JSON.stringify(document),
-    );
+    window.localStorage.setItem(EXPANDED_TASKS_STORAGE_KEY, JSON.stringify(document));
   } catch {}
 }
 
@@ -103,8 +94,7 @@ export function useExpandedTasks(
   useEffect(() => {
     setSession({ filterKey, overrides: NO_OVERRIDES });
   }, [filterKey]);
-  const overrides =
-    session.filterKey === filterKey ? session.overrides : NO_OVERRIDES;
+  const overrides = session.filterKey === filterKey ? session.overrides : NO_OVERRIDES;
 
   const isExpanded = (entry: ListTreeEntry): boolean =>
     filterKey === null

@@ -9,27 +9,18 @@ type PaneRef = RefObject<HTMLElement | null>;
 
 /** Recheck ownership when asynchronous work finishes, not only on keydown.
  * Mandatory focus transfer out of a hidden pane is handled separately. */
-export function canRestoreBrowseFocus(
-  list: HTMLElement,
-  detail: HTMLElement,
-): boolean {
+export function canRestoreBrowseFocus(list: HTMLElement, detail: HTMLElement): boolean {
   const active = document.activeElement;
   return (
     !hasOpenOverlay() &&
     !isEditableTarget(active) &&
-    (active === document.body ||
-      list.contains(active) ||
-      detail.contains(active))
+    (active === document.body || list.contains(active) || detail.contains(active))
   );
 }
 
 /** Focus is an accepted navigation effect, not a second selected identity.
  * Arm only inside request(commit), never from its shared boolean promise. */
-export function useBrowseFocus(
-  selectedKey: string | null,
-  listRef: PaneRef,
-  detailRef: PaneRef,
-) {
+export function useBrowseFocus(selectedKey: string | null, listRef: PaneRef, detailRef: PaneRef) {
   const [intent, setIntent] = useState<{
     key: string;
     origin: string | null;
@@ -38,14 +29,10 @@ export function useBrowseFocus(
   const [, setReadyRevision] = useState(0);
   const cancel = useCallback(() => setIntent(null), []);
   const arm = useCallback(
-    (key: string, target: BrowseFocusTarget) =>
-      setIntent({ key, origin: selectedKey, target }),
+    (key: string, target: BrowseFocusTarget) => setIntent({ key, origin: selectedKey, target }),
     [selectedKey],
   );
-  const onReady = useCallback(
-    () => setReadyRevision((revision) => revision + 1),
-    [],
-  );
+  const onReady = useCallback(() => setReadyRevision((revision) => revision + 1), []);
 
   useLayoutEffect(() => {
     if (!intent) return;
@@ -59,9 +46,7 @@ export function useBrowseFocus(
     const target =
       intent.target === "row" && !list.hidden
         ? [...list.querySelectorAll<HTMLElement>("[data-nav-item]")].find(
-            (row) =>
-              row.closest<HTMLElement>("[data-task-key]")?.dataset.taskKey ===
-              selectedKey,
+            (row) => row.closest<HTMLElement>("[data-task-key]")?.dataset.taskKey === selectedKey,
           )
         : !detail.hidden &&
             [...detail.querySelectorAll<HTMLElement>("[data-detail-key]")].some(
@@ -73,8 +58,7 @@ export function useBrowseFocus(
     cancel();
     if (!canRestoreBrowseFocus(list, detail)) return;
     target.focus({ preventScroll: true });
-    if (target !== detail)
-      target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (target !== detail) target.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
   return { cancel, arm, onReady };
 }
@@ -103,11 +87,7 @@ export function useBrowseShortcuts({
   const move = (delta: -1 | 1) => {
     if (!canMove) return false;
     const target =
-      order.keys[
-        index < 0
-          ? 0
-          : Math.max(0, Math.min(order.keys.length - 1, index + delta))
-      ]!;
+      order.keys[index < 0 ? 0 : Math.max(0, Math.min(order.keys.length - 1, index + delta))]!;
     requestSelection(target, "row");
     return true;
   };
@@ -116,12 +96,7 @@ export function useBrowseShortcuts({
     "list.previous": () => move(-1),
     "list.open": () => {
       const key = focusedTaskKey(listRef.current);
-      if (
-        !key ||
-        listRef.current?.hidden ||
-        !order.settled ||
-        !order.keys.includes(key)
-      )
+      if (!key || listRef.current?.hidden || !order.settled || !order.keys.includes(key))
         return false;
       requestSelection(key, "detail");
     },

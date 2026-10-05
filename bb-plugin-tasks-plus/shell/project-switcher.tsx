@@ -1,23 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "../components/ui/button.js";
-import {
-  Command,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "../components/ui/command.js";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "../components/ui/dialog.js";
+import { Command, CommandInput, CommandItem, CommandList } from "../components/ui/command.js";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../components/ui/dialog.js";
 import { useCommandState } from "cmdk";
 import type { Project } from "../shared/contract.js";
 import { useFolders, type useProjects } from "./data.js";
@@ -47,10 +31,7 @@ export function ProjectSwitcher({
       selectedRef.current = false;
       const active = document.activeElement;
       previousFocusRef.current =
-        active instanceof HTMLElement &&
-        focusReturnRef.current?.contains(active)
-          ? active
-          : null;
+        active instanceof HTMLElement && focusReturnRef.current?.contains(active) ? active : null;
     }
     wasOpenRef.current = open;
   }, [open, focusReturnRef]);
@@ -58,8 +39,7 @@ export function ProjectSwitcher({
     if (selectedRef.current) return;
     const previous = previousFocusRef.current;
     const target =
-      previous?.isConnected &&
-      !previous.closest('[hidden], [inert], [aria-hidden="true"]')
+      previous?.isConnected && !previous.closest('[hidden], [inert], [aria-hidden="true"]')
         ? previous
         : focusReturnRef.current;
     target?.focus({ preventScroll: true });
@@ -103,9 +83,7 @@ function ProjectChoices({
     input?.focus({ preventScroll: true });
   }, []);
   const available =
-    !inventory.isLoading &&
-    inventory.error === null &&
-    inventory.data !== undefined;
+    !inventory.isLoading && inventory.error === null && inventory.data !== undefined;
   const search = query.trim().toLocaleLowerCase();
   const matches = (inventory.data ?? []).filter(
     (project) =>
@@ -117,9 +95,7 @@ function ProjectChoices({
   // Focus when the input mounts, then after the host palette restores its focus.
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
-    const frame = requestAnimationFrame(() =>
-      inputRef.current?.focus({ preventScroll: true }),
-    );
+    const frame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, []);
   const select = (id: string) => {
@@ -146,8 +122,8 @@ function ProjectChoices({
         </Button>
       </div>
       <DialogDescription className="sr-only">
-        Search Tasks projects by name or prefix. Use Ctrl+N and Ctrl+P or arrow
-        keys, then Enter to select.
+        Search Tasks projects by name or prefix. Use Ctrl+N and Ctrl+P or arrow keys, then Enter to
+        select.
       </DialogDescription>
       <Command
         label="Search projects"
@@ -166,18 +142,13 @@ function ProjectChoices({
           // cmdk otherwise also claims modified arrows and Ctrl+J/K.
           // Stop its handler without cancelling the browser's unrelated key.
           const commandKey =
-            ["ArrowDown", "ArrowUp", "Home", "End", "Enter"].includes(
-              event.key,
-            ) ||
+            ["ArrowDown", "ArrowUp", "Home", "End", "Enter"].includes(event.key) ||
             (event.ctrlKey && ["n", "p", "j", "k"].includes(event.key));
           if (
             event.nativeEvent.isComposing ||
             event.keyCode === 229 ||
             (commandKey &&
-              (event.ctrlKey ||
-                event.altKey ||
-                event.metaKey ||
-                event.shiftKey) &&
+              (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) &&
               !plainCtrl)
           ) {
             event.stopPropagation();
@@ -193,17 +164,12 @@ function ProjectChoices({
         />
         <CommandList className="max-h-[min(300px,50dvh)] p-1" label="Projects">
           {status !== null ? (
-            <div
-              role="status"
-              className="px-3 py-5 text-sm text-muted-foreground"
-            >
+            <div role="status" className="px-3 py-5 text-sm text-muted-foreground">
               {status}
             </div>
           ) : null}
           {matches.map((project) => {
-            const folder = folders.data?.find(
-              (item) => item.id === project.folderId,
-            );
+            const folder = folders.data?.find((item) => item.id === project.folderId);
             const path = folder ? folderPath(folder, folders.data ?? []) : null;
             return (
               <CommandItem
@@ -216,14 +182,10 @@ function ProjectChoices({
                 <div className="min-w-0 flex-1">
                   <div className="break-words font-medium">{project.name}</div>
                   {path ? (
-                    <div className="break-words text-xs text-muted-foreground">
-                      {path}
-                    </div>
+                    <div className="break-words text-xs text-muted-foreground">{path}</div>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {project.prefix}
-                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">{project.prefix}</span>
                 {project.id === currentProjectId ? (
                   <span className="shrink-0 text-xs">Current</span>
                 ) : null}
@@ -248,12 +210,7 @@ function SelectionAnnouncement({ projects }: { projects: Project[] }) {
   const selectedId = useCommandState((state) => state.value);
   const project = projects.find((item) => item.id === selectedId);
   return (
-    <span
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-      className="sr-only"
-    >
+    <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
       {project ? `Selected ${project.name}, ${project.prefix}` : ""}
     </span>
   );

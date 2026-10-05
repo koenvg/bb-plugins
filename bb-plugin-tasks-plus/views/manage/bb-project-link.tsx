@@ -21,9 +21,7 @@ export function BbProjectLinkPicker({
   noneLabel?: string;
 }) {
   const unavailableSelection =
-    value !== null && !bbProjects.some((project) => project.id === value)
-      ? value
-      : null;
+    value !== null && !bbProjects.some((project) => project.id === value) ? value : null;
   return (
     <Select
       value={value ?? NO_LINK}
@@ -39,9 +37,7 @@ export function BbProjectLinkPicker({
       <SelectContent>
         <SelectItem value={NO_LINK}>{noneLabel}</SelectItem>
         {unavailableSelection !== null ? (
-          <SelectItem value={unavailableSelection}>
-            Unavailable · {unavailableSelection}
-          </SelectItem>
+          <SelectItem value={unavailableSelection}>Unavailable · {unavailableSelection}</SelectItem>
         ) : null}
         {bbProjects.map((project) => (
           <SelectItem key={project.id} value={project.id}>
