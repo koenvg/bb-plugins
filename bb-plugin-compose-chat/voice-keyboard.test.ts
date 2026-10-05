@@ -11,7 +11,7 @@ const settle = async () => {
   await Promise.resolve();
 };
 
-function fixture() {
+function fixture(version: "0.44" | "0.45" = "0.44") {
   const form = document.createElement("form");
   form.dataset.promptbox = "";
   form.innerHTML = `<div data-promptbox-input-region><div contenteditable="true" role="textbox" tabindex="0">Keep my draft</div></div>
@@ -22,6 +22,7 @@ function fixture() {
   const mic = form.querySelector<HTMLButtonElement>('[aria-label="Start voice input"]')!;
   const starts = vi.fn();
   const confirms = vi.fn();
+  const voiceSends = vi.fn();
   const cancels = vi.fn();
   const submits = vi.fn();
   mic.onclick = starts;
@@ -34,24 +35,33 @@ function fixture() {
     if (event.key === "Enter" && !event.defaultPrevented) form.requestSubmit();
   });
   let controls: HTMLDivElement | undefined;
-  function active(state: "recording" | "transcribing" = "recording") {
+  function active(state: "recording" | "transcribing" = "recording", sending = false) {
     form.dataset.promptboxVoiceActive = "";
     editor.contentEditable = "false";
     editor.setAttribute("aria-readonly", "true");
     controls ??= document.createElement("div");
     controls.dataset.promptboxVoiceControls = "";
     controls.dataset.voiceTransition = "active";
+    const draftLabel =
+      version === "0.45" ? "Stop and add to draft" : "Stop and transcribe recording";
     controls.innerHTML = `<button type="button" aria-label="${state === "recording" ? "Cancel recording" : "Cancel transcription"}">Cancel</button>
-      <button type="button" aria-label="${state === "recording" ? "Stop and transcribe recording" : "Transcribing voice input"}" ${state === "transcribing" ? "disabled" : ""}>Confirm</button>`;
+      <button type="button" aria-label="${state === "transcribing" && !sending ? "Transcribing voice input" : draftLabel}" ${state === "transcribing" ? "disabled" : ""}>Confirm</button>
+      ${version === "0.45" ? `<button type="button" aria-label="${sending ? "Transcribing and sending" : "Send voice input"}" ${state === "transcribing" ? "disabled" : ""}>Send voice</button>` : ""}`;
     form.append(controls);
     controls.querySelector<HTMLButtonElement>("button")!.onclick = () => {
       cancels();
       finish();
     };
-    controls.querySelector<HTMLButtonElement>("button:last-child")!.onclick = () => {
+    controls.querySelectorAll<HTMLButtonElement>("button")[1]!.onclick = () => {
       confirms();
       active("transcribing");
     };
+    const send = controls.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]');
+    if (send)
+      send.onclick = () => {
+        voiceSends();
+        active("transcribing", true);
+      };
   }
   function finish(text?: string) {
     form.removeAttribute("data-promptbox-voice-active");
@@ -61,7 +71,7 @@ function fixture() {
     editor.removeAttribute("aria-readonly");
     if (text) editor.append(` ${text}`);
   }
-  return { form, editor, mic, starts, confirms, cancels, submits, active, finish };
+  return { form, editor, mic, starts, confirms, voiceSends, cancels, submits, active, finish };
 }
 function key(target: EventTarget, key: string, options: KeyboardEventInit = {}) {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...options });
@@ -72,8 +82,7 @@ async function mount() {
   const app = await loadPluginApp(appDefinition);
   const mounted = await mountPluginContentScripts(app, { pluginId: "compose-chat" });
   mounts.push(() => mounted.lifecycle.dispose());
-  // SDK 0.5.29 returns these validated registrations, but omits them from its
-  // published CapturedPluginApp declaration.
+  // The public harness returns validated commands, but omits them from its declaration.
   const commands = (app as typeof app & { commandPaletteActions: PluginCommandRegistration[] })
     .commandPaletteActions;
   const command = commands.find((command) => command.id === "start-voice-input")!;
@@ -194,6 +203,66 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     expect(f.submits).toHaveBeenCalledOnce();
     expect(f.editor.textContent).toBe("Keep my draft Transcript");
   });
+  it("stops BB 0.45 recording into the draft on Enter, never using Send voice input", async () => {
+    const f = fixture("0.45");
+    f.editor.focus();
+    const { command } = await mount();
+    await command.run(context);
+    f.active();
+    await settle();
+    expect(key(f.editor, "Enter").defaultPrevented).toBe(true);
+    expect(f.confirms).toHaveBeenCalledOnce();
+    expect(f.voiceSends).not.toHaveBeenCalled();
+    key(f.editor, "Enter");
+    expect(f.submits).not.toHaveBeenCalled();
+    f.finish("Transcript");
+    await settle();
+    expect(document.activeElement).toBe(f.editor);
+    key(f.editor, "Enter", { repeat: true });
+    expect(f.submits).not.toHaveBeenCalled();
+    key(f.editor, "Enter");
+    expect(f.submits).toHaveBeenCalledOnce();
+    expect(f.editor.textContent).toBe("Keep my draft Transcript");
+  });
+  it("keeps native Send voice input separate and permits cancel during its transcription", async () => {
+    const f = fixture("0.45");
+    f.editor.focus();
+    await mount();
+    f.active();
+    await settle();
+    f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]')!.click();
+    await settle();
+    expect(f.voiceSends).toHaveBeenCalledOnce();
+    expect(key(f.editor, "Enter").defaultPrevented).toBe(true);
+    const cancel = f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel transcription"]')!;
+    cancel.focus();
+    key(cancel, "Enter");
+    expect(f.cancels).toHaveBeenCalledOnce();
+    expect(f.confirms).not.toHaveBeenCalled();
+    expect(f.voiceSends).toHaveBeenCalledOnce();
+    expect(f.submits).not.toHaveBeenCalled();
+  });
+  it.each(["Stop and transcribe recording", "Stop and add to draft"])(
+    "rejects ambiguous BB 0.45 draft controls with extra %s",
+    async (label) => {
+      const f = fixture("0.45");
+      f.editor.focus();
+      await mount();
+      f.active();
+      const extra = document.createElement("button");
+      extra.type = "button";
+      extra.setAttribute("aria-label", label);
+      const extraConfirm = vi.fn();
+      extra.onclick = extraConfirm;
+      f.form.querySelector("[data-promptbox-voice-controls]")!.append(extra);
+      await settle();
+      key(f.editor, "Enter");
+      expect(f.confirms).not.toHaveBeenCalled();
+      expect(extraConfirm).not.toHaveBeenCalled();
+      expect(f.voiceSends).not.toHaveBeenCalled();
+      expect(f.submits).not.toHaveBeenCalled();
+    },
+  );
   it("latches confirmation before the native state update and survives synchronous completion", async () => {
     const f = fixture();
     f.editor.focus();
