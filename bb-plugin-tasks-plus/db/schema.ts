@@ -259,6 +259,80 @@ const MIGRATIONS = [
       UPDATE task_list_revision SET revision = revision + 1 WHERE id = 1;
     END;
   `,
+  `
+    CREATE TABLE orchestration_runs (
+      id TEXT PRIMARY KEY,
+      epic_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      coordinator_thread_id TEXT NOT NULL,
+      invocation_reference TEXT NOT NULL UNIQUE,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX idx_orchestration_runs_epic ON orchestration_runs(epic_id);
+    CREATE TABLE orchestration_run_requests (
+      invocation_reference TEXT PRIMARY KEY,
+      payload TEXT NOT NULL
+    );
+  `,
+  `
+    ALTER TABLE task_threads ADD COLUMN role TEXT CHECK(role IN ('implementation', 'orchestrator', 'integration'));
+    ALTER TABLE task_threads ADD COLUMN primary_owner INTEGER NOT NULL DEFAULT 0 CHECK(primary_owner IN (0, 1) AND (primary_owner = 0 OR role IS NOT NULL));
+    CREATE UNIQUE INDEX idx_task_threads_primary_role ON task_threads(task_id, role) WHERE primary_owner = 1;
+    CREATE TABLE orchestration_owners (
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('implementation', 'orchestrator', 'integration')),
+      association_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      PRIMARY KEY(task_id, role),
+      UNIQUE(task_id, association_id)
+    );
+    CREATE TABLE orchestration_dispatch_claims (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('implementation', 'orchestrator', 'integration')),
+      run_id TEXT NOT NULL,
+      coordinator_thread_id TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      thread_id TEXT,
+      association_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      released_at TEXT,
+      reason TEXT
+    );
+    CREATE UNIQUE INDEX idx_orchestration_live_claim ON orchestration_dispatch_claims(task_id, role) WHERE released_at IS NULL;
+    CREATE INDEX idx_orchestration_claim_thread ON orchestration_dispatch_claims(thread_id);
+  `,
+  `
+    CREATE TABLE orchestration_reports (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      thread_id TEXT NOT NULL,
+      retry_key TEXT NOT NULL,
+      outcome TEXT NOT NULL CHECK(outcome IN ('completed','review_ready','blocked','failed','needs_decision')),
+      created_at TEXT NOT NULL,
+      report_json TEXT NOT NULL,
+      delivery_json TEXT NOT NULL,
+      decision_response TEXT,
+      UNIQUE(thread_id, retry_key)
+    );
+    CREATE INDEX idx_orchestration_reports_task ON orchestration_reports(task_id, created_at DESC, id DESC);
+    CREATE TABLE orchestration_report_intents (
+      report_id TEXT PRIMARY KEY REFERENCES orchestration_reports(id) ON DELETE CASCADE,
+      generation TEXT NOT NULL,
+      body_hash TEXT NOT NULL,
+      receipt_id TEXT UNIQUE,
+      phase TEXT NOT NULL CHECK(phase IN ('reserved','queued','dispatched','cancelled','rejected'))
+    );
+    CREATE TABLE orchestration_report_contexts (
+      token_hash TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      origin_json TEXT NOT NULL
+    );
+    CREATE INDEX idx_report_context_origin ON orchestration_report_contexts(task_id, thread_id, expires_at);
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {

@@ -7,6 +7,13 @@ import {
   type PluginCliContext,
   type PluginCliResult,
 } from "@get-bb/plugin-sdk";
+import { runCommands } from "../orchestration/run-cli";
+import type { RunController } from "../orchestration/run";
+import { dispatchCommands } from "../orchestration/dispatch-cli";
+import { recoveryCommands } from "../orchestration/recovery-cli";
+import type { Dispatcher } from "../orchestration/dispatch";
+import { reportCommands } from "../orchestration/report-cli";
+import type { Reporter } from "../orchestration/report";
 import { z } from "zod";
 
 import {
@@ -45,6 +52,8 @@ import { TASK_SORTS, TASKS_PAGE_DEFAULT_LIMIT, TASKS_PAGE_MAX_LIMIT } from "../s
 import { bytes, detail, oneLine, table } from "./format";
 import { allocatePrefix } from "./prefix";
 import { seedDemo } from "./seed";
+import { orchestrationStatusCommands } from "../orchestration/status-cli";
+import type { StatusOptions } from "../orchestration";
 
 const TASK_KEY_PATTERN = /^([A-Z][A-Z0-9]{0,9})-(\d+)$/;
 const BB_PROJECT_ID_PATTERN = /^proj_[A-Za-z0-9_-]+$/;
@@ -626,6 +635,10 @@ export function registerTasksCli(
   bb: BbPluginApi,
   store: TasksApiStore,
   status: PluginStatus,
+  orchestrationOptions: StatusOptions = {},
+  runs?: RunController,
+  dispatcher?: Dispatcher,
+  reporter?: Reporter,
 ): void {
   const domain = registerHandlers(bb, store);
   bb.cli.register(
@@ -635,6 +648,11 @@ export function registerTasksCli(
       description:
         "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).",
       commands: {
+        ...orchestrationStatusCommands(bb, store, orchestrationOptions),
+        ...(runs ? runCommands(runs) : {}),
+        ...(dispatcher ? dispatchCommands(bb, dispatcher) : {}),
+        ...(reporter ? reportCommands(bb, reporter) : {}),
+        ...(dispatcher ? recoveryCommands(bb, dispatcher) : {}),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

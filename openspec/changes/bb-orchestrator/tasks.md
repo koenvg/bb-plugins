@@ -1,47 +1,52 @@
-# Tasks
+# Implementation checklist
 
-## 1. Verify plugin-only activation contracts
+## Approved release boundary
 
-- [ ] 1.1 Add focused provider-path fixtures for BB selected-skill mentions and exact native invocations using current SDK input/provenance. Verify Pi selection translation, user-authored identity, and persisted invocation references without modifying core or SDK code.
-- [ ] 1.2 Verify current BB behavior for queued first turns, dispatch-hook rejection, created thread rows, and lost spawn responses. Record the observed recovery rules and test that rejection never implies permission to spawn a replacement.
-- [ ] 1.3 Add activation guard tests rejecting quoted commands, automatic skill consideration, agent/system notifications, mixed messages without identifiable user invocation, stale invocations, and metadata-only claims. Verify no rejected case calls `threads.spawn` or changes Tasks.
-- [ ] 1.4 Document verified provider paths and fail-closed unsupported-path behavior in Tasks-plus documentation. Verify every support claim names an actual BB-path check rather than a frontmatter-only test.
+The BBP-33 manual-first contract supersedes automatic coordination for this release. BBP-39/40/41 are deferred top-level backlog, not completed. Historical activation/dispatch tests are evidence, not acceptance of removed automation. BBP-51 remains the known native user-classification limit.
 
-## 2. Add Tasks-owned state and compact epic status
+## Retained implementation
 
-- [ ] 2.1 Add additive migrations and focused orchestration store methods for runs, tracker-scope fingerprints, nullable task-thread roles/ownership, dispatch claims, and linked reports. Verify migration of existing records, uniqueness constraints, and rollback-safe preservation with database tests.
-- [ ] 2.2 Implement the bounded read-only epic projection using Tasks dependency/association queries and bounded BB activity/interaction lookups. Verify the independent-subtask/dependent-subtask fixture, read-before-run behavior, and no spawn/send mutations.
-- [ ] 2.3 Expose `bb tasks orchestrate status <epic> --json` through the existing CLI/RPC conventions. Verify idle versus done, missing owner versus untouched, unknown/stale activity, report references, pending decisions, and epic acceptance state in contract tests.
-- [ ] 2.4 Enforce 100-subtask and 128-KiB response limits with explicit auxiliary overflow counts and complete-list errors. Verify large comments, attachments, results, and interactions cannot produce an apparently complete partial dispatch list.
-- [ ] 2.5 Document the compact response and state distinctions in the Tasks skill reference or README. Verify examples use real declared commands and preserve existing status and dependency semantics.
+- [x] Bundle the manual-only bb-orchestrator skill with scope-record controls and compact status, without substitute ordinary Tasks/thread automation.
+- [x] Retain native-approved scope records, bounded selection/fingerprints, explicit pause/resume, persisted request/decision identities and interrupted views after reload.
+- [x] Retain compact status with independent task/worker/native readiness, owner/claim history, bounded outcomes/results/questions/delivery and unknown/stale/omitted information.
+- [x] Add migration-10 reports/private contexts and preserve earlier private receipt intents without another migration or destructive upgrade.
+- [x] Store all five bounded report outcomes and linked non-notifying comments atomically; retain immutable provenance, conflict rejection and stable native/capability/CLI/RPC retries.
+- [x] Cut production orchestrator dispatch/adoption before execution/claim effects. New reports suppress delivery without send/spawn/queue/recheck or receipt creation.
+- [x] Keep ordinary Tasks delegation, manual attachment, comment --notify and non-notifying Unblocked behavior separate.
+- [ ] Integrate BBP-37 bookkeeping recovery, original-child attachment and live/released history lookup, plus BBP-86 canonical UI consumers. Owned by BBP-42, not BBP-38.
+- [ ] Verify retained UI/browser workflow and whole combined package in BBP-42. Child checks do not establish epic acceptance.
 
-## 3. Implement authorized runs and safe dispatch-or-reuse
+## Deferred, not delivered
 
-- [ ] 3.1 Implement run begin, pause, and explicit resume bound to verified user invocation/approval, epic scope, presets, and baseline references. Verify duplicate invocation reuse, missing-parameter interaction, scope fingerprint changes, restricted-approval separation, and startup/enable without orchestration sends.
-- [ ] 3.2 Extend task-thread associations with explicit owner adoption and role selection while preserving manual attach/detach. Verify existing owner reuse without reseeding, ambiguous legacy attachments, in-progress and todo tickets with prior work but no owners, and missing/failed/manually stopped workers.
-- [ ] 3.3 Extend the delegation module with a transactionally reserved dispatch claim and parent/task/attempt metadata at spawn. Reuse preset/environment resolution and ticket prompt construction. Verify concurrent same-task requests across runs invoke spawn at most once and local association/status changes commit together.
-- [ ] 3.4 Add orchestration-specific dispatch and continuation admission checks using current dependencies, scope, handoffs, and approved run state. Verify blocked and reopened prerequisites, delayed capacity admission, paused runs, and unchanged legacy warning behavior.
-- [ ] 3.5 Implement explicit reconciliation and operator recovery of known or ambiguous creation attempts. Verify failure before creation, response loss, attachment failure, worker activation before attachment, restart, unavailable listings, zero/multiple matches, and recovery without another spawn or compensation deletion.
-- [ ] 3.6 Add explicit owner replacement/claim-resolution commands under the orchestration namespace. Verify fresh reconciliation, cross-project refusal, active-creation refusal, original-worker precedence, history preservation, duplicate-risk warning, and no spawn/resume side effect.
-- [ ] 3.7 Document dispatch outcomes, adoption, ambiguous-failure recovery, capacity reuse, and disable/rollback limits. Verify documented recovery examples against disposable fixtures and confirm no scheduler or polling loop was added.
+- [ ] DEFERRED: orchestrator worker spawning/seeding, dispatch/reuse execution, queue retry, continuation/recheck and wakeup.
+- [ ] DEFERRED: report notifications and native-parent coalescing as orchestration delivery.
+- [ ] DEFERRED BBP-39: automatic recorded-answer/interaction routing.
+- [ ] DEFERRED BBP-40: automated prerequisite artifact/baseline delivery.
+- [ ] DEFERRED BBP-41: integration/acceptance-role worker dispatch and automated acceptance.
+- [ ] DEFERRED: new live provider/full-access fixture, notice-path repair or further platform diagnosis for this release.
 
-## 4. Record reports, decisions, and artifact handoffs
+## BBP-38 completion gates
 
-- [ ] 4.1 Implement the bounded worker-report contract, task/comment links, contextual thread validation, and report retry identity. Verify all five outcome kinds, active-turn reports, recoverable pre-attachment reports, wrong-worker rejection, deduplication, and explicit task status behavior.
-- [ ] 4.2 Reuse native parent notifications and add targeted report-reference delivery only where needed for active-turn or differently parented adopted workers. Verify coalescing/delivery identities, paused/unapproved runs, failed/ambiguous delivery state, and unchanged `comment --notify` and "Unblocked" behavior.
-- [ ] 4.3 Aggregate existing BB interactions and unresolved free-form decision reports in epic status. Route recorded user answers to the original interaction or worker. Verify user provenance, stale/mismatched/conflicting decisions, identical answer retries, and no coordinator-generated restricted approval.
-- [ ] 4.4 Extend worker seed/continuation context with prerequisite report/artifact references and intended baseline. Verify missing artifacts, canceled prerequisites, incompatible reported baselines, worker-specific instructions, and no duplicate handoff messages on dispatch retry.
-- [ ] 4.5 Add integration/verification role dispatch attached to the existing epic using the same ownership and claim rules. Verify completed subtasks still require whole-epic acceptance, evidence/baseline reporting, failed acceptance, and separation of additional scope suggestions.
-- [ ] 4.6 Document the report convention, decision routing, baseline references, and integration acceptance evidence. Verify sample reports validate and workers are not given a mandatory discovery phase or OpenSpec-specific workflow.
+- [x] Production-module/public-entrypoint no-agent-input, stored-report, historical retry and ordinary Tasks regressions pass. Final focused checks: 129 tests in 19 files.
+- [x] Required full tests, typecheck, lint, build/package and diff checks pass. Final full checks: 703 tests in 74 files; five existing lint warnings and the SDK-pin/build-version warning remain.
+- [x] Exactly one fresh-context read-only complete-diff review from 1eee962a6a095ec7d30080c9823f28f00b5162a3 returned. Its unused delivery-framework blocker was removed; affected focused/full/static/package checks passed. No second review ran.
+- [x] Fresh bounded read-only original-fixture boundary confirmed on 2026-10-05 at 10:47:22.936Z through 10:47:23.665Z. Original child idle, worker/owner queues empty, run/private guard paused, hold true and gate enabled/running; history retained. No fixture mutation/unload.
+- [x] Authorized local cumulative handoff recorded by this commit with evidence/support limits; no push/PR/merge/publication.
 
-## 5. Bundle the coordination-only skill
+BBP-42 must independently validate the complete combined diff, run its one completion review and deliver the final acceptance handoff. BBP-33 remains in progress until that acceptance stage. TENET-30 and BBP-8 remain read-only examples.
 
-- [ ] 5.1 Add `bb-plugin-tasks-plus/skills/bb-orchestrator/SKILL.md` with the accepted name/heading, manual-only metadata, and short coordination instructions. Verify its text forbids repository inspection, implementation, tests, review, integration, and failure investigation by the coordinator, including generic native failure-inspection advice.
-- [ ] 5.2 Add only the necessary command/support reference outside the short skill and confirm existing manifest/package skill inclusion. Verify command discovery and package artifacts include the new skill without changing the plugin's Tasks identity or BB picker behavior.
-- [ ] 5.3 Verify bundled skill discovery and explicit activation through actual installed BB provider paths using disposable fixtures. Check install/enable/reload and ordinary task discussion perform no orchestration; explicit invocation starts one approved run; unsupported paths refuse safely. Record the tested provider/version matrix.
+## Integrated recovery history
 
-## 6. Verify the full plugin workflow
+BBP-37 verified original checklist items 3.5 through 3.7 with isolated CLI/RPC/SQLite regressions and one earlier native original-child recovery checkpoint. The current release retains only bookkeeping operations, original-child attachment and live/released history. It does not restore dispatch execution. Recovery uses migration 9; stored reports use migration 10. Historical evidence and its cleanup incident remain in orchestration/recovery-verification.md. Prior BBP-34/35 status, scope and skill checks remain historical evidence; combined retained acceptance belongs to BBP-42.
 
-- [ ] 6.1 Exercise a disposable epic with independent and dependent tickets, worker reuse, an active-turn question, a user answer, and artifact handoffs. Verify event-driven coordination, no repeated routine-dispatch approval, and no coordinator repository/test/review/integration commands.
-- [ ] 6.2 Exercise an epic whose subtasks are done but whose integration worker first fails acceptance and later reports verified evidence. Verify separate epic state, delegation of diagnosis/repair, approval of any added scope, and outcome reporting from worker references.
-- [ ] 6.3 Run the package's focused and full tests, typecheck, lint, and `bb plugin build` after implementation. Verify compatibility of existing Tasks workflows, metadata migrations, startup inactivity, and the generated skill package; do not use TENET-30 or BBP-8 as mutable test data.
+## Readable approval UI history
+
+BBP-86 verified original section 7 with isolated renderer and corrected offline browser checks. Its complete run-scope-fields.ts projection and both server/browser consumers are retained. Labels do not change bound identity, fingerprints or canonical submission. Current scope-record wording and independent combined browser acceptance belong to BBP-42. No prior native/picker UI proof is claimed.
+
+## BBP-42 combined acceptance
+
+- [x] Integrate BBP-38, BBP-37 and BBP-86 exactly once from 1eee962a6a095ec7d30080c9823f28f00b5162a3. Preserve the completed BBP-36 branch and both canonical UI consumers.
+- [x] Keep all new orchestration agent input deferred. Register bookkeeping recovery without execution/admission/delivery callbacks. Preserve original-child and released-owner history.
+- [x] Verify focused/full/static/build/package checks and isolated production approval UI/manual record behavior. See orchestration/manual-first-verification.md and task attachments for checks and limits.
+- [x] Received the one read-only whole-feature review from epic baseline e06bfb1ef19a338f68bca0fc1b99bea425a6ab63. Resolved all three findings and reran affected checks without a second review.
+      Local delivery, capability-free attachments, coordinator handoff, BBP-42 status and worker detachment are recorded in the BBP-42 task attachments after the source checks pass. BBP-33 status remains the parent's decision.

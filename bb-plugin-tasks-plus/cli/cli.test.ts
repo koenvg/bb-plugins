@@ -69,8 +69,8 @@ describe("bb tasks CLI", () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     await plugin(bb);
 
-    expect(stdout(await harness.runCli(["--help"]))).toContain(
-      "bb tasks seed-demo          Create sample folders, projects, labels, tasks, and comments",
+    expect(stdout(await harness.runCli(["--help"]))).toMatch(
+      /bb tasks seed-demo\s+Create sample folders, projects, labels, tasks, and comments/,
     );
     await expect(harness.runCli(["seed-demo"])).resolves.toMatchObject({
       exitCode: 1,
@@ -1033,8 +1033,8 @@ describe("bb tasks CLI", () => {
     stdout(await harness.runCli(["project", "create", "--name", "Detach", "--prefix", "DET"]));
     stdout(await harness.runCli(["create", "--project", "DET", "--title", "Work"]));
 
-    expect(stdout(await harness.runCli(["--help"]))).toContain(
-      "bb tasks detach             Detach an agent thread from a task",
+    expect(stdout(await harness.runCli(["--help"]))).toMatch(
+      /bb tasks detach\s+Detach an agent thread from a task/,
     );
 
     stdout(await harness.runCli(["attach", "DET-1", "--thread", "thr_dead_worker"]));
@@ -1670,7 +1670,7 @@ describe("bb tasks CLI", () => {
 
     const top = await harness.runCli(["--help"]);
     expect(top).toMatchObject({ exitCode: 0, stderr: "" });
-    expect(top.stdout).toContain("bb tasks list               List and filter");
+    expect(top.stdout).toMatch(/bb tasks list\s+List and filter/);
 
     const statusHelp = stdout(await harness.runCli(["status", "--help"]));
     expect(statusHelp).toContain("Plugin health only");

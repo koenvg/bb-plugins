@@ -2,96 +2,49 @@
 
 ## Purpose
 
-Records explicit worker outcomes and artifact handoffs in Tasks, brings actionable questions to the epic coordinator, and routes actual user decisions back to their originating workers.
+Store explicit bounded worker outcomes and readable non-notifying comments. Notification, answer routing and automated artifact/integration delivery are deferred for this release.
 
 ## ADDED Requirements
 
-### Requirement: Explicit task-linked worker reports
+### Requirement: Immutable task-linked reports
 
-Workers SHALL report `completed`, `review_ready`, `blocked`, `failed`, or `needs_decision` with task/thread identity, a bounded summary, and relevant result or evidence references. Reports SHALL be recorded in Tasks and linked to a readable task comment. The reporting context SHALL match an attached worker or a recoverable authorized dispatch attempt. Report retries SHALL deduplicate by report identity. Reports MUST NOT infer ticket or epic completion from worker idle state, and task status changes SHALL remain explicit.
+Workers SHALL report completed, review_ready, blocked, failed or needs_decision, with bounded summary and typed result/evidence references. Needs_decision SHALL require a question. Native worker/project identity or its private origin-scoped capability SHALL match an attached worker or retained original recoverable claim. Reports and readable comments SHALL commit atomically with zero notifications. Task/run status, artifact readiness and epic acceptance MUST NOT change from reporting.
 
-#### Scenario: Review-ready implementation
+#### Scenario: Report while active or paused
 
-- **WHEN** a worker reports `review_ready` with its review artifact references
-- **THEN** Tasks records that outcome without silently marking the task or epic done
+- **WHEN** a validated worker stores an outcome
+- **THEN** the report/comment retain original task/thread/association/claim/run/project/role and issue no agent input
 
-#### Scenario: Repeated report
+#### Scenario: Wrong worker
 
-- **WHEN** the worker repeats the same report after losing its response
-- **THEN** the existing report and comment are returned without duplicating them
+- **WHEN** identity is supplied through caller IDs, CLI environment or metadata without genuine native/capability authority
+- **THEN** the write refuses without attachment, status mutation or notification
 
-#### Scenario: Wrong reporting worker
+### Requirement: Retry identity and historical preservation
 
-- **WHEN** a thread without a validated association or recoverable claim reports against a task
-- **THEN** the report is rejected without attaching that thread or accepting its outcome
+The worker/key identity SHALL deduplicate identical payloads to the original report/comment and delivery state, including after detach/reload. Conflicting payloads SHALL refuse. Earlier contexts, receipt intents, failures and claim/approval history SHALL remain stored without replay, new receipt binding or fabricated settlement.
 
-### Requirement: Actionable notifications without polling
+#### Scenario: Legacy queued report retry
 
-Actionable worker reports and pending decisions SHALL notify the approved coordinator through existing BB parent notifications or targeted BB messages. A report made while a worker remains active or from an adopted worker with another parent SHALL still be deliverable without waiting for idle. Notifications SHALL use stable report/interaction references, prevent redundant delivery attempts for the same known outcome, and expose failed or ambiguous delivery in compact status. Notifications MUST NOT start an unapproved or paused run or require an agent polling loop. Existing `comment --notify` targeting and non-notifying "Unblocked" comments SHALL remain unchanged.
+- **WHEN** the worker repeats a historical report identity
+- **THEN** the original queued/failure/uncertain delivery stays as recorded, and no send/recheck/queue action occurs
 
-#### Scenario: Active worker asks a question
+### Requirement: Manual delivery status
 
-- **WHEN** an authorized active worker reports `needs_decision`
-- **THEN** the coordinator receives an actionable question reference without waiting for the worker to become idle
+New reports SHALL expose suppressed delivery with a clear manual-first reason, no delivery receipt/reference and no attempted timestamp. They MUST NOT create a private receipt intent, send a notification or wake an agent. Ordinary comment --notify and non-notifying Unblocked behavior SHALL remain unchanged.
 
-#### Scenario: Adopted worker has another parent
+#### Scenario: Decision-needed report
 
-- **WHEN** a worker adopted by the run reports a blocker but remains parented to another BB thread
-- **THEN** the report reaches the run's coordinator without stealing that worker's parent relationship
+- **WHEN** a worker stores a question
+- **THEN** status exposes the unresolved question and original references for an operator, without automatic delivery or answer routing
 
-#### Scenario: Notification failure
+### Requirement: Informational result and question readers
 
-- **WHEN** BB cannot confirm delivery of a report notification
-- **THEN** the report remains stored and its delivery uncertainty is visible for explicit reconciliation
+Synchronous Tasks-owned readers SHALL provide bounded original report/result/baseline/question/delivery data with total/omitted counts. Unavailable/stale state SHALL remain explicit. Reported references and native done/canceled dependencies MUST NOT imply artifact delivery or acceptance.
 
-### Requirement: Epic-level decision collection and answer routing
+#### Scenario: Complete subtasks
 
-Compact status SHALL collect existing pending BB interactions and unresolved free-form `needs_decision` reports for run workers with their task, worker, and decision identities. User answers SHALL return to the originating BB interaction or exact reporting worker and be recorded with their Tasks references. Stale, mismatched, or conflicting answers SHALL be rejected. An identical answer retry SHALL return its prior outcome. The coordinator MUST NOT invent an answer or approve a restricted action from general run authority.
+- **WHEN** all subtasks have completed reports
+- **THEN** epic acceptance remains separate and unknown without explicit authoritative evidence
 
-#### Scenario: User answers a worker question
-
-- **WHEN** the user answers an unresolved question through the coordinator
-- **THEN** the answer is recorded and routed to the original worker or interaction, not to the latest task commenter
-
-#### Scenario: Answer targets a resolved interaction
-
-- **WHEN** an answer names an interaction already resolved or no longer associated with the run
-- **THEN** the operation reports the stale decision without applying the answer elsewhere
-
-#### Scenario: Separate approval remains required
-
-- **WHEN** a worker's pending interaction asks permission to publish or merge
-- **THEN** it remains an actual user approval request and the coordinator cannot authorize it solely because the epic run is approved
-
-### Requirement: Deliverable and baseline handoffs
-
-Workers consuming prerequisites SHALL receive stable prerequisite report/artifact references and the intended integration baseline with their assignment or deliberate continuation. Native `done` or `canceled` status alone MUST NOT establish delivery of required code or artifacts. Missing references, incompatible baselines, or a canceled prerequisite whose deliverable is still required SHALL produce a handoff blocker or explicit decision. Dispatch retries MUST NOT duplicate handoff messages.
-
-#### Scenario: Downstream consumes completed work
-
-- **WHEN** a prerequisite is done with usable result references and a compatible reported baseline
-- **THEN** its downstream worker receives those references and the intended baseline without the coordinator inspecting the repository
-
-#### Scenario: Done without deliverable
-
-- **WHEN** a prerequisite is done but its required result reference is absent
-- **THEN** downstream work remains handoff-blocked even though native dependencies are resolved
-
-#### Scenario: Canceled prerequisite
-
-- **WHEN** a canceled prerequisite still supplies a deliverable needed by approved downstream work
-- **THEN** the coordinator requests an explicit handoff/scope decision instead of treating cancellation as artifact delivery
-
-### Requirement: Explicit integration acceptance report
-
-The epic integration worker SHALL report the baseline it integrated or verified, acceptance evidence references, and unresolved acceptance gaps. The coordinator SHALL summarize those reported facts without performing integration or verification. A failed acceptance report MUST NOT be converted to success based on completed subtasks.
-
-#### Scenario: Whole-epic verification succeeds
-
-- **WHEN** the integration worker explicitly reports that epic acceptance criteria are met and supplies baseline and evidence references
-- **THEN** the coordinator can report the epic outcome from that record
-
-#### Scenario: Whole-epic verification fails
-
-- **WHEN** the integration worker reports a failed acceptance criterion
-- **THEN** the failed outcome and references remain visible and any diagnosis or repair is delegated within approved scope or referred to the user for approval
+BBP-39 answer routing, BBP-40 artifact delivery and BBP-41 acceptance-role orchestration remain deferred backlog. The earlier installed post-pause failures remain failed evidence; this release does not repair or diagnose them.

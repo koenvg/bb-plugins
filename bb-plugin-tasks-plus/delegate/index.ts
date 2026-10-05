@@ -55,6 +55,7 @@ interface SeedPromptInput {
   recentComments: readonly Comment[];
   presetInstructions: string;
   extraInstructions?: string;
+  attachmentPending?: boolean;
 }
 
 function markdownSection(title: string, body: string): string {
@@ -102,7 +103,7 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
     markdownSection(
       "Report-back contract",
       [
-        `You are working on task ${input.task.key}. Your thread is already attached. Use bb tasks comment ${input.task.key} --body ... for updates and attach result artifacts. Use bb tasks update ${input.task.key} --status in_review when required review remains; use done only when completion criteria are met.`,
+        `You are working on task ${input.task.key}. ${input.attachmentPending ? "Local attachment can still be pending. Your creation metadata identifies the task and attempt." : "Your thread is already attached."} Use bb tasks comment ${input.task.key} --body ... for updates and attach result artifacts. Use bb tasks update ${input.task.key} --status in_review when required review remains; use done only when completion criteria are met.`,
         "At meaningful milestones, write one short result or current-state sentence, a blank line, and up to three flat Markdown bullets. Use plain language, real newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are valid. Combine related changes and omit unchanged updates or command-by-command pings.",
         "Keep material limits visible even if the update must be longer. State the outcome, next step, and any blocker or exact decision needed and its effect. Briefly state relevant checks, including unrun or blocked checks; distinguish worker-reported results from checks you verified.",
         "Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff evidence in the attached thread or an artifact. Link to the detail with supported task/thread, PR, or attachment links. Preserve exact commits and baselines in handoffs.",
@@ -110,6 +111,7 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
         "Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.",
         "Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.",
         "See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.",
+        `Follow task ${input.task.key}, its linked specifications, acceptance criteria and applicable project instructions. Report explicit outcomes with native tasks_report using taskId ${input.task.id}: completed, review_ready, blocked, failed or needs_decision. Use a stable retry key, a bounded summary, an explicit question for needs_decision, typed result/evidence references and baseline references. Keep the returned report/comment IDs in your final output. Reports can be made during an active turn; idle activity is not task completion. Reporting does not change task status. Set status explicitly with bb tasks update ${input.task.key} --status in_review or --status done only when your ticket gates are met. For CLI/RPC reporting, issue a private file with native tasks_report_context; never print or attach its contents. CLI thread IDs are not report authority. If native reporting is unavailable, state the transport blocker and use an ordinary Tasks comment without claiming a durable report. ${input.attachmentPending ? "Local attachment can still be pending. The original authorized creation claim and native child facts must match before a report is accepted." : "Your thread is attached to the task."}`,
       ].join("\n"),
     ),
   ];
@@ -284,44 +286,17 @@ export function handlers(
 ): PluginRpcHandlers<typeof delegationRpcContract> {
   return {
     async delegate(input) {
-      const task = requireTask(store.tasks, input.taskId);
-      const project = requireProject(store.tasks, task.projectId);
-      const linkedBbProjectId = requireLinkedBbProject(project);
-      const preset = requirePreset(store.tasks, input.presetId);
-      const comments = store.tasks.listComments(task.id);
-      const recentComments = comments.slice(-5);
-      const title = delegatedThreadTitle(task);
-      const execution = presetExecutionSchema.parse({
-        providerId: preset.providerId,
-        model: preset.modelId,
-        reasoningLevel: preset.reasoningLevel,
-        serviceTier: preset.serviceTier,
-        permissionMode: preset.permissionMode,
-      });
-      const prompt = buildSeedPrompt({
-        task,
-        project,
-        subtasks: store.tasks.listSubtasks(task.id),
-        blockers: store.tasks.listBlockers(task.id),
-        attachments: collectAttachments(store.tasks, task.id, comments),
-        recentComments,
-        presetInstructions: preset.instructions,
-        extraInstructions: input.extraInstructions,
-      });
-
-      const environment = await presetSpawnEnvironment(bb, preset);
+      const prepared = await prepareTaskWorker(
+        bb,
+        store.tasks,
+        input.taskId,
+        input.presetId,
+        input.extraInstructions,
+      );
+      const { task, preset, args } = prepared;
+      const title = args.title;
       const thread = await bb.sdk.threads
-        .spawn({
-          projectId: linkedBbProjectId,
-          environment,
-          providerId: execution.providerId,
-          model: execution.model,
-          reasoningLevel: execution.reasoningLevel,
-          ...(execution.serviceTier === null ? {} : { serviceTier: execution.serviceTier }),
-          permissionMode: execution.permissionMode,
-          title,
-          prompt,
-        })
+        .spawn(args)
         .catch((error: unknown) => mapSpawnTargetError(error, preset));
 
       const taskThread = store.transaction(() => {
@@ -404,6 +379,53 @@ export function handlers(
       return { threadId: taskThread.threadId };
     },
   };
+}
+
+// Shared creation input. Orchestration adds durable claim and parent correlation;
+// legacy delegation keeps its current warning and always-spawn behavior.
+export async function prepareTaskWorker(
+  bb: BbPluginApi,
+  store: TasksStore,
+  taskId: string,
+  presetId: string,
+  extraInstructions?: string,
+  attachmentState: "attached" | "pending" = "attached",
+) {
+  const task = requireTask(store, taskId);
+  const project = requireProject(store, task.projectId);
+  const projectId = requireLinkedBbProject(project);
+  const preset = requirePreset(store, presetId);
+  const execution = presetExecutionSchema.parse({
+    providerId: preset.providerId,
+    model: preset.modelId,
+    reasoningLevel: preset.reasoningLevel,
+    serviceTier: preset.serviceTier,
+    permissionMode: preset.permissionMode,
+  });
+  const comments = store.listComments(task.id);
+  const prompt = buildSeedPrompt({
+    task,
+    project,
+    subtasks: store.listSubtasks(task.id),
+    blockers: store.listBlockers(task.id),
+    attachments: collectAttachments(store, task.id, comments),
+    recentComments: comments.slice(-5),
+    presetInstructions: preset.instructions,
+    extraInstructions,
+    attachmentPending: attachmentState === "pending",
+  });
+  const args = {
+    projectId,
+    environment: await presetSpawnEnvironment(bb, preset),
+    providerId: execution.providerId,
+    model: execution.model,
+    reasoningLevel: execution.reasoningLevel,
+    ...(execution.serviceTier === null ? {} : { serviceTier: execution.serviceTier }),
+    permissionMode: execution.permissionMode,
+    title: delegatedThreadTitle(task),
+    prompt,
+  };
+  return { task, preset, args };
 }
 
 export function registerDelegation(bb: BbPluginApi, store: TasksApiStore): void {
