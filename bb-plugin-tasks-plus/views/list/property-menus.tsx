@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode } from "react";
 import {
   TASK_STATUSES,
   type Label,
@@ -251,11 +251,37 @@ export function TaskContextMenu({
   onEdit,
   projectLabels,
   children,
+  referenceDate = localIsoDate(0),
 }: {
   task: Task;
   onEdit: EditFn;
   projectLabels: readonly Label[];
   children: ReactNode;
+  referenceDate?: string;
+}) {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <TaskContextMenuContents
+        task={task}
+        onEdit={onEdit}
+        projectLabels={projectLabels}
+        referenceDate={referenceDate}
+      />
+    </ContextMenu>
+  );
+}
+
+const TaskContextMenuContents = memo(function TaskContextMenuContents({
+  task,
+  onEdit,
+  projectLabels,
+  referenceDate,
+}: {
+  task: Task;
+  onEdit: EditFn;
+  projectLabels: readonly Label[];
+  referenceDate: string;
 }) {
   const toggleLabel = (labelId: string) => {
     const labelIds = task.labelIds.includes(labelId)
@@ -264,120 +290,117 @@ export function TaskContextMenu({
     onEdit(task, { labelIds });
   };
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="min-w-44">
+    <ContextMenuContent className="min-w-44">
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <StatusIcon status={task.status} />
+          <span>Status</span>
+          <ContextMenuShortcut>S</ContextMenuShortcut>
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent className="min-w-48">
+          {TASK_STATUSES.map((status) => (
+            <ContextMenuItem
+              key={status}
+              aria-current={status === task.status ? "true" : undefined}
+              onSelect={() => {
+                if (status !== task.status) onEdit(task, { status });
+              }}
+            >
+              <span className="flex flex-1 items-center gap-2">
+                <StatusIcon status={status} />
+                {STATUS_LABELS[status]}
+                {status === task.status ? <span className="sr-only"> (current)</span> : null}
+              </span>
+              {status === task.status ? (
+                <Icon name="Check" aria-hidden className="size-3.5" />
+              ) : null}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <PriorityIcon priority={task.priority} />
+          <span>Priority</span>
+          <ContextMenuShortcut>P</ContextMenuShortcut>
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent className="min-w-44">
+          {PRIORITY_MENU_ORDER.map((priority) => (
+            <ContextMenuItem
+              key={priority}
+              aria-current={priority === task.priority ? "true" : undefined}
+              onSelect={() => {
+                if (priority !== task.priority) onEdit(task, { priority });
+              }}
+            >
+              <span className="flex flex-1 items-center gap-2">
+                <PriorityIcon priority={priority} />
+                {PRIORITY_LABELS[priority]}
+                {priority === task.priority ? <span className="sr-only"> (current)</span> : null}
+              </span>
+              {priority === task.priority ? (
+                <Icon name="Check" aria-hidden className="size-3.5" />
+              ) : null}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <Icon name="Clock" className="size-3.5" />
+          <span>Due date</span>
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent className="min-w-44">
+          {DUE_DATE_PRESETS.map(([label, days]) => {
+            const value = localIsoDate(days, new Date(`${referenceDate}T00:00:00`));
+            return (
+              <ContextMenuItem key={label} onSelect={() => onEdit(task, { dueDate: value })}>
+                <span>{label}</span>
+                <span className="ml-auto text-2xs text-subtle-foreground">
+                  {formatDueDate(value, new Date(`${referenceDate}T00:00:00`))}
+                </span>
+              </ContextMenuItem>
+            );
+          })}
+          {task.dueDate !== null ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={() => onEdit(task, { dueDate: null })}>
+                <Icon name="X" className="size-3.5" />
+                <span>No due date</span>
+              </ContextMenuItem>
+            </>
+          ) : null}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      {projectLabels.length > 0 ? (
         <ContextMenuSub>
           <ContextMenuSubTrigger>
-            <StatusIcon status={task.status} />
-            <span>Status</span>
-            <ContextMenuShortcut>S</ContextMenuShortcut>
+            <Icon name="ListTodo" className="size-3.5" />
+            <span>Labels</span>
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="min-w-48">
-            {TASK_STATUSES.map((status) => (
-              <ContextMenuItem
-                key={status}
-                aria-current={status === task.status ? "true" : undefined}
-                onSelect={() => {
-                  if (status !== task.status) onEdit(task, { status });
-                }}
+            {projectLabels.map((label) => (
+              <ContextMenuCheckboxItem
+                key={label.id}
+                checked={task.labelIds.includes(label.id)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => toggleLabel(label.id)}
               >
-                <span className="flex flex-1 items-center gap-2">
-                  <StatusIcon status={status} />
-                  {STATUS_LABELS[status]}
-                  {status === task.status ? <span className="sr-only"> (current)</span> : null}
-                </span>
-                {status === task.status ? (
-                  <Icon name="Check" aria-hidden className="size-3.5" />
-                ) : null}
-              </ContextMenuItem>
+                <span
+                  aria-hidden
+                  className="mr-2 size-2 rounded-full"
+                  style={{ backgroundColor: label.color }}
+                />
+                {label.name}
+              </ContextMenuCheckboxItem>
             ))}
           </ContextMenuSubContent>
         </ContextMenuSub>
-
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <PriorityIcon priority={task.priority} />
-            <span>Priority</span>
-            <ContextMenuShortcut>P</ContextMenuShortcut>
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent className="min-w-44">
-            {PRIORITY_MENU_ORDER.map((priority) => (
-              <ContextMenuItem
-                key={priority}
-                aria-current={priority === task.priority ? "true" : undefined}
-                onSelect={() => {
-                  if (priority !== task.priority) onEdit(task, { priority });
-                }}
-              >
-                <span className="flex flex-1 items-center gap-2">
-                  <PriorityIcon priority={priority} />
-                  {PRIORITY_LABELS[priority]}
-                  {priority === task.priority ? <span className="sr-only"> (current)</span> : null}
-                </span>
-                {priority === task.priority ? (
-                  <Icon name="Check" aria-hidden className="size-3.5" />
-                ) : null}
-              </ContextMenuItem>
-            ))}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <Icon name="Clock" className="size-3.5" />
-            <span>Due date</span>
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent className="min-w-44">
-            {DUE_DATE_PRESETS.map(([label, days]) => {
-              const value = localIsoDate(days);
-              return (
-                <ContextMenuItem key={label} onSelect={() => onEdit(task, { dueDate: value })}>
-                  <span>{label}</span>
-                  <span className="ml-auto text-2xs text-subtle-foreground">
-                    {formatDueDate(value)}
-                  </span>
-                </ContextMenuItem>
-              );
-            })}
-            {task.dueDate !== null ? (
-              <>
-                <ContextMenuSeparator />
-                <ContextMenuItem onSelect={() => onEdit(task, { dueDate: null })}>
-                  <Icon name="X" className="size-3.5" />
-                  <span>No due date</span>
-                </ContextMenuItem>
-              </>
-            ) : null}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-
-        {projectLabels.length > 0 ? (
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>
-              <Icon name="ListTodo" className="size-3.5" />
-              <span>Labels</span>
-            </ContextMenuSubTrigger>
-            <ContextMenuSubContent className="min-w-48">
-              {projectLabels.map((label) => (
-                <ContextMenuCheckboxItem
-                  key={label.id}
-                  checked={task.labelIds.includes(label.id)}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={() => toggleLabel(label.id)}
-                >
-                  <span
-                    aria-hidden
-                    className="mr-2 size-2 rounded-full"
-                    style={{ backgroundColor: label.color }}
-                  />
-                  {label.name}
-                </ContextMenuCheckboxItem>
-              ))}
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-        ) : null}
-      </ContextMenuContent>
-    </ContextMenu>
+      ) : null}
+    </ContextMenuContent>
   );
-}
+});
