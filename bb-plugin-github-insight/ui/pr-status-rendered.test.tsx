@@ -7,7 +7,7 @@ import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
 
-type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runMergeAction">;
+type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction">;
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
@@ -53,7 +53,7 @@ const ok = (insight: PrInsight): InsightResult => ({
 const rpc = (result: InsightResult) => ({
   getInsight: () => result,
   refresh: () => result,
-  runMergeAction: () => {
+  runPrAction: () => {
     throw new Error("Status presentation must not write to GitHub");
   },
 });
@@ -98,7 +98,7 @@ describe("PR state parity", () => {
     expect(chat.inspection.navigateCalls).toEqual([
       { method: "openThreadPanel", options: { actionId: "pr" } },
     ]);
-    expect(chat.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
+    expect(chat.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });
 
   it("keeps Draft beside failed checks and conflicts without repeating Draft in the banner", async () => {

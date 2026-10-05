@@ -9,7 +9,7 @@ import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
-import { createMergeWrites } from "./merge/merge-writes";
+import { createPrWrites } from "./merge/pr-writes";
 import { createPrLookup } from "./pr-lookup";
 import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
@@ -129,12 +129,18 @@ export default async function plugin(bb: BbPluginApi) {
     now: Date.now,
   });
 
-  const merges = createMergeWrites({
+  const merges = createPrWrites({
     cachedPr: (threadId) => service.cachedPr(threadId),
     mergePullRequest: async ({ hostId }, request) =>
       unwrap(await host.call("mergePullRequest", request, { hostId })),
     enqueuePullRequest: async ({ hostId }, request) =>
       unwrap(await host.call("enqueuePullRequest", request, { hostId })),
+    updatePullRequestBranch: async ({ hostId }, request) =>
+      unwrap(await host.call("updatePullRequestBranch", request, { hostId })),
+    enablePullRequestAutoMerge: async ({ hostId }, request) =>
+      unwrap(await host.call("enablePullRequestAutoMerge", request, { hostId })),
+    disablePullRequestAutoMerge: async ({ hostId }, request) =>
+      unwrap(await host.call("disablePullRequestAutoMerge", request, { hostId })),
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
     warn: (message) => bb.log.warn(message),
   });
@@ -165,7 +171,7 @@ export default async function plugin(bb: BbPluginApi) {
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),
-    runMergeAction: (request) => merges.runMergeAction(request),
+    runPrAction: (request) => merges.runPrAction(request),
   });
 
   bb.cli.register(

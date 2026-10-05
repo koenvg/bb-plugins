@@ -65,7 +65,7 @@ const unusedReviewRpc = {
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
   markReviewed: () => ({ kind: "error" as const, message: "unused" }),
   markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),
-  runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
+  runPrAction: () => ({ kind: "error" as const, message: "unused" }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");
@@ -421,10 +421,10 @@ describe("PR tab", () => {
 const readyInsight = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
 
 function renderMergeTab({
-  runMergeAction = () => ({ kind: "ok" }),
+  runPrAction = () => ({ kind: "ok" }),
   result = () => readyInsight,
 }: {
-  runMergeAction?: () => ActionResult | Promise<ActionResult>;
+  runPrAction?: () => ActionResult | Promise<ActionResult>;
   result?: () => InsightResult;
 } = {}) {
   return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
@@ -435,7 +435,7 @@ function renderMergeTab({
         getInsight: result,
         refresh: result,
         ...unusedReviewRpc,
-        runMergeAction,
+        runPrAction,
       },
     },
   );
@@ -447,7 +447,7 @@ const rejectedMerge = {
 } as const;
 
 function mergeCalls(slot: ReturnType<typeof renderMergeTab>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 async function openMergeDialog(slot: ReturnType<typeof renderMergeTab>) {
@@ -521,7 +521,7 @@ describe("PR tab merge", () => {
   it("disables the button while the merge runs", async () => {
     let finish: (result: ActionResult) => void = () => {};
     const slot = renderMergeTab({
-      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+      runPrAction: () => new Promise((resolve) => (finish = resolve)),
     });
 
     const dialog = await openMergeDialog(slot);
@@ -535,7 +535,7 @@ describe("PR tab merge", () => {
   });
 
   it("shows the GitHub error and gives the button back when the merge fails", async () => {
-    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge });
+    const slot = renderMergeTab({ runPrAction: () => rejectedMerge });
 
     const dialog = await openMergeDialog(slot);
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
@@ -549,7 +549,7 @@ describe("PR tab merge", () => {
 
   it("drops the merge error once the tab shows a new head commit", async () => {
     let current = readyInsight;
-    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge, result: () => current });
+    const slot = renderMergeTab({ runPrAction: () => rejectedMerge, result: () => current });
     const dialog = await openMergeDialog(slot);
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
     await slot.findByRole("alert");
@@ -596,7 +596,7 @@ describe("PR tab enqueue", () => {
     let finish: (result: ActionResult) => void = () => {};
     const slot = renderMergeTab({
       result: () => enqueueInsight,
-      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+      runPrAction: () => new Promise((resolve) => (finish = resolve)),
     });
 
     fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
@@ -612,7 +612,7 @@ describe("PR tab enqueue", () => {
     const message = "Pull request is not mergeable";
     const slot = renderMergeTab({
       result: () => enqueueInsight,
-      runMergeAction: () => ({ kind: "error", message }),
+      runPrAction: () => ({ kind: "error", message }),
     });
 
     fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
@@ -663,14 +663,14 @@ const banner = app.composerCustomizations
 
 function renderBanner(
   result: InsightResult | (() => InsightResult),
-  runMergeAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
+  runPrAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
 ) {
   const getInsight = typeof result === "function" ? result : () => result;
   return renderSlot<object, typeof rpcContract>(
     banner,
     {},
     {
-      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runMergeAction },
+      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runPrAction },
       composer: { scope: { kind: "thread", threadId: "thr_1" } },
       openThreadPanel: () => true,
     },
@@ -753,7 +753,7 @@ describe("Composer banner", () => {
     expect(slot.inspection.navigateCalls).toEqual([
       { method: "openThreadPanel", options: { actionId: "pr" } },
     ]);
-    expect(slot.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
+    expect(slot.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });
 
   it("shows Closed without obsolete blockers", async () => {
@@ -795,7 +795,7 @@ describe("Composer banner", () => {
 const readyBanner = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
 
 function bannerMergeCalls(slot: ReturnType<typeof renderBanner>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 describe("Composer banner merge action", () => {

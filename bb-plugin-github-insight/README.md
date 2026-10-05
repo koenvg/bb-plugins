@@ -15,7 +15,7 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Review tab and the CLI both use it.
 - `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads").
 - `review/review-writes.ts`: the review thread writes. `reply` posts a reply, and for "Post + resolve" then resolves the thread. When the resolve fails, the reply stays posted and the error shows. `setResolved` resolves or unresolves. Only the tab's RPCs call it. The CLI does not. After a successful resolve or unresolve, both refresh the PR insight and write `prSummary` before they return. Then the tab posts `{ threadId }` on the `github-insight.summary-written` BroadcastChannel (`ui/summary-written.ts`), and the pr-thread-list sidebar reads the summary again.
-- `merge/merge-writes.ts`: the merge and enqueue writes (see "Merge and enqueue").
+- `merge/pr-writes.ts`: the merge and enqueue writes (see "Merge and enqueue").
 - `refresh/insight-service.ts`: keeps the last insight per PR in memory. The `pr-poller` service refreshes each open PR every 60 seconds, one refresh per PR, max 4 at once. When a thread goes idle, `server.ts` calls `refreshOnIdle`, which refreshes that thread's PR at once. When BB links no PR yet, it tries one more time after 10 seconds. A merged or closed PR gets one last refresh. After a rate limit, it waits until the reset time or 5 minutes. After a refresh that changes the data, it publishes `insight.updated` with the thread ids and writes the reading to the kv entry `insight:<owner>/<repo>#<number>` (`{ v: 1, refreshedAt, reading }`). On a memory miss, for example after a restart, `getInsight` returns that stored reading with its original time at once and refreshes it in the background. An entry of another version reads as no entry. Each poll deletes the entries of PRs that no thread links, but only when bb could read the PR of every thread.
 - `host.ts`: reads a `--body-file` (`readTextFile`), and runs `gh api graphql`, and `gh api --paginate --slurp` for the PR files, with the `gh` login of the host. It returns the raw JSON, or a failure: `gh_missing`, `gh_logged_out`, `rate_limited` (with the reset time from `gh api rate_limit`), or `failed`.
 - `core/`: pure parsing. One entry per check name (newest run), mapped to `failed`, `running`, `cancelled`, `passed`, or `skipped`. `buildReviewers` puts open requests (pending) before latest reviews. `buildBlockers` gives the blockers in fixed order, and `blocked` only when no other code applies.
@@ -187,7 +187,7 @@ The PR tab shows one merge action below the PR header (`core/merge-action.ts`):
 | repository allows your default merge method   | merge button                         |
 | other                                         | none                                 |
 
-The composer banner of the thread shows the same action, with the same `MergeActionButton` and `useMergeAction` as the tab (`ui/pr-status-view.ts`):
+The composer banner of the thread shows the same action, with the same `MergeActionButton` and `usePrAction` as the tab (`ui/pr-status-view.ts`):
 
 | PR                                  | Banner                                                             |
 | ----------------------------------- | ------------------------------------------------------------------ |
@@ -216,7 +216,7 @@ merge button --> confirm dialog (#number, title, method) --Cancel--> no write
                         |                              |
                      Confirm                           |
                         v                              v
-runMergeAction({ threadId, action, expectedHeadOid }) --> server
+runPrAction({ threadId, action, expectedHeadOid }) --> server
    cached action or head commit differs? --> error "The PR changed. Refresh and try again."
    host: gh api graphql mergePullRequest(pullRequestId, mergeMethod, expectedHeadOid)
       or gh api graphql enqueuePullRequest(pullRequestId, expectedHeadOid)

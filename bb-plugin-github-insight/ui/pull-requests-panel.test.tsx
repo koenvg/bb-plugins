@@ -109,7 +109,7 @@ const unusedRpc = {
   deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
-  runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
+  runPrAction: () => ({ kind: "error" as const, message: "unused" }),
 };
 
 type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;

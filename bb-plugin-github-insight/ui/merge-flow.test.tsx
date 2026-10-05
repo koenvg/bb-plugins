@@ -53,7 +53,7 @@ function fixture(initial: InsightResult = ok()) {
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
   const write = vi.fn(async (): Promise<ActionResult> => ({ kind: "ok" }));
   const options = {
-    rpc: { getInsight, refresh, runMergeAction: write },
+    rpc: { getInsight, refresh, runPrAction: write },
     composer: { scope: { kind: "thread" as const, threadId: "flow" } },
   };
   const mountBanner = () => {

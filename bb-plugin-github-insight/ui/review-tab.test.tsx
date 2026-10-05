@@ -158,7 +158,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         archiveReview: () => ({ kind: "error", message: "unused" }),
         markReviewed: () => ({ kind: "error", message: "unused" }),
         markNeedsReview: () => ({ kind: "error", message: "unused" }),
-        runMergeAction: () => ({ kind: "error", message: "unused" }),
+        runPrAction: () => ({ kind: "error", message: "unused" }),
       },
     },
   );

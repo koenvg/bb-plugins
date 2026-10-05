@@ -2,6 +2,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostContract, type GhResult } from "./contract";
+import {
+  disableAutoMergeArgs,
+  enableAutoMergeArgs,
+  updatePullRequestBranchArgs,
+} from "./github/branch-mutations";
 import { checkRunDetailsArgs } from "./github/check-run-details-query";
 import {
   classifyGhFailure,
@@ -42,6 +47,12 @@ export default experimental_defineHostEntry({
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>
       runGhJson(enqueuePullRequestArgs(request), context.signal),
+    updatePullRequestBranch: (request, context) =>
+      runGhJson(updatePullRequestBranchArgs(request), context.signal),
+    enablePullRequestAutoMerge: (request, context) =>
+      runGhJson(enableAutoMergeArgs(request), context.signal),
+    disablePullRequestAutoMerge: (request, context) =>
+      runGhJson(disableAutoMergeArgs(request), context.signal),
     submitReview: (request, context) =>
       runGhJson(ADD_REVIEW_ARGS, context.signal, addPullRequestReviewInput(request)),
   },

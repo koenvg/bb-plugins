@@ -1,22 +1,31 @@
-import type { ActionResult, RunMergeActionRequest } from "../contract";
+import type { ActionResult, PrAction, RunPrActionRequest } from "../contract";
 import { messageOf } from "./error-message";
 
-type Request = Omit<RunMergeActionRequest, "threadId">;
-export type MergeOperationState =
+type Request = Omit<RunPrActionRequest, "threadId">;
+export type PrOperationState =
   | { kind: "idle" }
   | ({ kind: "running" } & Request)
   | { kind: "error"; message: string; headOid: string };
 
-const IDLE: MergeOperationState = { kind: "idle" };
+const IDLE: PrOperationState = { kind: "idle" };
 
-export function createMergeOperations() {
-  const states = new Map<string, MergeOperationState>();
+export const PR_ACTION_BUSY_LABEL: Record<PrAction, string> = {
+  merge: "Merging…",
+  enqueue: "Enqueuing…",
+  "update-merge": "Updating…",
+  "update-rebase": "Updating…",
+  "enable-auto-merge": "Enabling…",
+  "disable-auto-merge": "Disabling…",
+};
+
+export function createPrOperations() {
+  const states = new Map<string, PrOperationState>();
   const listeners = new Map<string, Set<() => void>>();
-  const snapshot = (threadId: string): MergeOperationState => states.get(threadId) ?? IDLE;
+  const snapshot = (threadId: string): PrOperationState => states.get(threadId) ?? IDLE;
   const prune = (threadId: string) => {
     if (!listeners.has(threadId) && snapshot(threadId).kind !== "running") states.delete(threadId);
   };
-  function publish(threadId: string, state: MergeOperationState) {
+  function publish(threadId: string, state: PrOperationState) {
     states.set(threadId, state);
     listeners.get(threadId)?.forEach((notify) => notify());
     prune(threadId);
@@ -51,4 +60,4 @@ export function createMergeOperations() {
   return { snapshot, subscribe, run, dismiss };
 }
 
-export const mergeOperations = createMergeOperations();
+export const prOperations = createPrOperations();

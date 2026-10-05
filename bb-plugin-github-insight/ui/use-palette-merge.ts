@@ -4,8 +4,8 @@ import type { PrInsight } from "../core/overview";
 import type { RunnableMergeAction } from "../core/merge-action";
 import { useCommandIntent } from "./command-intents";
 import { prStatusView } from "./pr-status-view";
-import { mergeOperations } from "./merge-operations";
-import { useMergeAction } from "./use-merge-action";
+import { prOperations } from "./pr-operations";
+import { usePrAction } from "./use-pr-action";
 import type { useInsight } from "./use-insight";
 
 interface Target {
@@ -48,7 +48,7 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     state: operation,
     run,
     dismiss: dismissOperation,
-  } = useMergeAction(
+  } = usePrAction(
     threadId,
     insight.result?.kind === "ok" ? insight.result.insight.pr.headOid : undefined,
   );
@@ -75,14 +75,14 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     void run({ action: target.action.kind, expectedHeadOid: target.pr.headOid });
   }
   async function prepare() {
-    if (busy.current || mergeOperations.snapshot(threadId).kind === "running") return;
+    if (busy.current || prOperations.snapshot(threadId).kind === "running") return;
     busy.current = true;
     const attempt = ++generation.current;
     dismissOperation();
     setState({ kind: "preparing" });
     const result = await insight.refresh();
     if (attempt !== generation.current) return;
-    if (mergeOperations.snapshot(threadId).kind === "running") {
+    if (prOperations.snapshot(threadId).kind === "running") {
       busy.current = false;
       setState(IDLE);
       return;

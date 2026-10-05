@@ -31,18 +31,18 @@
 
 ## 6. Shared write path
 
-- [ ] 6.1 Generalize `createMergeWrites` and the app merge operation state into PR writes with a `kind` (D5), one operation per thread across all kinds; verify the existing merge-flow and merge-operations tests still pass, plus a test that a branch update and a merge for one thread send one write
+- [x] 6.1 Generalize `createMergeWrites` and the app merge operation state into PR writes with a `kind` (D5), one operation per thread across all kinds; verify the existing merge-flow and merge-operations tests still pass, plus a test that a branch update and a merge for one thread send one write
 
 ## 7. Update branch
 
-- [ ] 7.1 Add the `updatePullRequestBranch` mutation args and host handler; verify an args test for `MERGE` and `REBASE` with `expectedHeadOid`
+- [x] 7.1 Add the `updatePullRequestBranch` mutation args and host handler; verify an args test for `MERGE` and `REBASE` with `expectedHeadOid`
 - [ ] 7.2 Add the `localCommitsAhead` RPC and its host git handler (D6) with `count` and `unknown` results; verify tests for a count, no environment, other branch, fork PR, no remote ref, and a failed git command
 - [ ] 7.3 Render the "Update branch" split button, the rebase confirm dialog, the disabled rebase item with its reason, "Updating…", errors, and the pull reminder; verify rendered tests for every scenario in the `pr-branch-update` spec
 - [ ] 7.4 Document "Update branch" in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
 
 ## 8. Auto-merge
 
-- [ ] 8.1 Add the `enablePullRequestAutoMerge` and `disablePullRequestAutoMerge` mutation args and host handlers; verify args tests
+- [x] 8.1 Add the `enablePullRequestAutoMerge` and `disablePullRequestAutoMerge` mutation args and host handlers; verify args tests
 - [ ] 8.2 Render "Enable auto-merge (<method>)", "Auto-merge on (<method>)" with "Disable", "Enabling…", "Disabling…", and errors; verify rendered tests for every scenario in the `pr-auto-merge` spec
 - [ ] 8.3 Document auto-merge in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
 

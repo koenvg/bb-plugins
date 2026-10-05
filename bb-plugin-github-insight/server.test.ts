@@ -2377,7 +2377,7 @@ describe("archiveReview", () => {
   });
 });
 
-describe("runMergeAction", () => {
+describe("runPrAction", () => {
   const HEAD = pageOne.data.repository.pullRequest.headRefOid;
 
   const readyPage = {
@@ -2424,7 +2424,7 @@ describe("runMergeAction", () => {
     const harness = await setupWithPr();
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2444,10 +2444,34 @@ describe("runMergeAction", () => {
     expect(overviewRefreshes(harness)).toHaveLength(2);
   });
 
+  it("updates a branch that is behind through the thread's host and refreshes", async () => {
+    const harness = await setupWithPr(pages());
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runPrAction", {
+      threadId: "thr_1",
+      action: "update-rebase",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(writes("updatePullRequestBranch")(harness)).toEqual([
+      {
+        input: {
+          pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
+          expectedHeadOid: HEAD,
+          updateMethod: "REBASE",
+        },
+        hostId: "host-1",
+      },
+    ]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
   it("does not merge before the tab has read the PR", async () => {
     const harness = await setupWithPr();
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2468,7 +2492,7 @@ describe("runMergeAction", () => {
     );
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2490,7 +2514,7 @@ describe("runMergeAction", () => {
     });
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2510,7 +2534,7 @@ describe("runMergeAction", () => {
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
     const { id, headRefOid } = readyToEnqueuePage.data.repository.pullRequest;
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "enqueue",
       expectedHeadOid: headRefOid,

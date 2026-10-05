@@ -8,7 +8,8 @@ import {
 import type { PrInsight } from "../core/overview";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { useMergeAction } from "./use-merge-action";
+import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
+import { usePrAction } from "./use-pr-action";
 
 type ButtonSize = "default" | "compact";
 
@@ -46,10 +47,10 @@ export function MergeActionButton({
   disabled = false,
   showError = true,
 }: MergeActionButtonProps) {
-  const { state, run } = useMergeAction(threadId, pr.headOid);
+  const { state, run } = usePrAction(threadId, pr.headOid);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const running = state.kind === "running";
-  const busyLabel = running && state.action === "enqueue" ? "Enqueuing…" : "Merging…";
+  const busyLabel = running ? PR_ACTION_BUSY_LABEL[state.action] : "Merging…";
   const runAction = () => void run({ action: action.kind, expectedHeadOid: pr.headOid });
   return (
     <div className="flex min-w-0 shrink-0 flex-col items-start gap-1">

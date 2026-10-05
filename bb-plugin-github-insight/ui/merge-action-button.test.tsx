@@ -35,17 +35,17 @@ type Props = ComponentProps<typeof MergeActionButton>;
 function renderButton(
   action: RunnableMergeAction,
   props: Partial<Props> = {},
-  runMergeAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
+  runPrAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
 ) {
   return renderSlot<Props, typeof rpcContract>(
     { component: MergeActionButton },
     { threadId: "thr_1", pr, action, ...props },
-    { rpc: { runMergeAction } as never },
+    { rpc: { runPrAction } as never },
   );
 }
 
 function mergeCalls(slot: ReturnType<typeof renderButton>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 describe("MergeActionButton", () => {

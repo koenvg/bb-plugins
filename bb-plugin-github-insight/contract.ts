@@ -80,6 +80,17 @@ export type MergePullRequestRequest = z.infer<typeof mergePullRequestRequestSche
 const enqueuePullRequestRequestSchema = mergePullRequestRequestSchema.omit({ mergeMethod: true });
 export type EnqueuePullRequestRequest = z.infer<typeof enqueuePullRequestRequestSchema>;
 
+const updatePullRequestBranchRequestSchema = enqueuePullRequestRequestSchema
+  .extend({ updateMethod: z.enum(["MERGE", "REBASE"]) })
+  .strict();
+export type UpdatePullRequestBranchRequest = z.infer<typeof updatePullRequestBranchRequestSchema>;
+
+const enableAutoMergeRequestSchema = mergePullRequestRequestSchema;
+export type EnableAutoMergeRequest = z.infer<typeof enableAutoMergeRequestSchema>;
+
+const disableAutoMergeRequestSchema = z.object({ pullRequestId: z.string().min(1) }).strict();
+export type DisableAutoMergeRequest = z.infer<typeof disableAutoMergeRequestSchema>;
+
 const addPullRequestReviewRequestSchema = z
   .object({
     pullRequestId: z.string().min(1),
@@ -139,6 +150,18 @@ export const hostContract = defineRpcContract({
   },
   enqueuePullRequest: {
     input: enqueuePullRequestRequestSchema,
+    output: ghResultSchema,
+  },
+  updatePullRequestBranch: {
+    input: updatePullRequestBranchRequestSchema,
+    output: ghResultSchema,
+  },
+  enablePullRequestAutoMerge: {
+    input: enableAutoMergeRequestSchema,
+    output: ghResultSchema,
+  },
+  disablePullRequestAutoMerge: {
+    input: disableAutoMergeRequestSchema,
     output: ghResultSchema,
   },
   submitReview: {
@@ -283,14 +306,24 @@ export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
 export const startReviewResultSchema = z.object({ threadId: z.string() });
 export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
 
-const runMergeActionRequestSchema = z
+export const prActionSchema = z.enum([
+  "merge",
+  "enqueue",
+  "update-merge",
+  "update-rebase",
+  "enable-auto-merge",
+  "disable-auto-merge",
+]);
+export type PrAction = z.infer<typeof prActionSchema>;
+
+const runPrActionRequestSchema = z
   .object({
     threadId: z.string().min(1),
-    action: z.enum(["merge", "enqueue"]),
+    action: prActionSchema,
     expectedHeadOid: z.string().min(1),
   })
   .strict();
-export type RunMergeActionRequest = z.infer<typeof runMergeActionRequestSchema>;
+export type RunPrActionRequest = z.infer<typeof runPrActionRequestSchema>;
 
 export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
@@ -311,5 +344,5 @@ export const rpcContract = defineRpcContract({
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
   markReviewed: { input: markReviewedRequestSchema, output: actionResultSchema },
   markNeedsReview: { input: markNeedsReviewRequestSchema, output: actionResultSchema },
-  runMergeAction: { input: runMergeActionRequestSchema, output: actionResultSchema },
+  runPrAction: { input: runPrActionRequestSchema, output: actionResultSchema },
 });
