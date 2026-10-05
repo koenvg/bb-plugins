@@ -45,7 +45,12 @@ export function FileSection({
   }, [visible, showsDiff, loadPatch, file.path]);
 
   return (
-    <section ref={ref} aria-label={file.path} className="min-h-10 border-b border-border">
+    <section
+      ref={ref}
+      aria-label={file.path}
+      data-path={file.path}
+      className="min-h-10 border-b border-border"
+    >
       {!showsDiff ? (
         <FileNotice file={file}>{file.binary ? "Binary file" : "Diff too large"}</FileNotice>
       ) : (!visible && !viewed.collapsed) || patch.kind === "loading" ? (

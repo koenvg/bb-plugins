@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
@@ -13,6 +13,7 @@ import type {
   SendFeedbackResult,
 } from "../core/changes";
 import { patchIdentity, type GetViewedResult, type UpdateViewedResult } from "../core/viewed-files";
+import { OUTLINE_WIDTH_KEY } from "./use-outline-width";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -103,6 +104,7 @@ function file(path: string, overrides: Partial<ChangedFile> = {}): ChangedFile {
     deletions: 1,
     binary: false,
     loadMode: "auto",
+    status: "modified",
     ...overrides,
   };
 }
@@ -196,6 +198,21 @@ describe("Changes tab", () => {
     await waitFor(() =>
       expect(slot.getByTestId("diff-summary").textContent).toBe("2 files+34-50/2 viewed"),
     );
+  });
+
+  it("shows the file sections folders first, then files, by name", async () => {
+    const slot = renderTab({
+      getChanges: () => changes([file("README.md"), file("src/b.ts"), file("src/ui/a.ts")]),
+    });
+
+    await slot.findAllByTestId("file-diff");
+    const sections = slot.getAllByRole("region");
+
+    expect(sections.map((section) => section.getAttribute("aria-label"))).toEqual([
+      "src/ui/a.ts",
+      "src/b.ts",
+      "README.md",
+    ]);
   });
 
   it("shows Binary file and Diff too large instead of a diff", async () => {
@@ -751,5 +768,534 @@ describe("Viewed files", () => {
     expect(await slot.findByText("Could not save viewed state: disk full")).toBeTruthy();
     expect(checkbox(slot).checked).toBe(false);
     expect(diffOf(slot).dataset.collapsed).toBe("false");
+  });
+});
+
+describe("file outline", () => {
+  function outline(slot: Slot) {
+    return within(slot.getByRole("navigation", { name: "Files" }));
+  }
+
+  async function addCommentIn(slot: Slot, path: string, button: string, text: string) {
+    const section = await slot.findByRole("region", { name: path });
+    fireEvent.click(await within(section).findByRole("button", { name: button }));
+    fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), { target: { value: text } });
+    fireEvent.click(slot.getByRole("button", { name: "Add to review" }));
+  }
+
+  it("shows folder rows and file rows with counts, pending comments, and the full path as tooltip", async () => {
+    const slot = renderTab({
+      getChanges: () =>
+        changes([
+          file("src/b.ts", { additions: 2, deletions: 0 }),
+          file("src/a.ts", { additions: 12, deletions: 3 }),
+        ]),
+    });
+    await addCommentIn(slot, "src/a.ts", "+ additions 1", "one");
+    await addCommentIn(slot, "src/a.ts", "+ additions 2", "two");
+
+    const files = outline(slot);
+    const rowA = files.getByRole("button", { name: /a\.ts/ });
+
+    expect(files.getByText("src")).toBeTruthy();
+    expect(rowA.title).toBe("src/a.ts");
+    expect(rowA.textContent).toBe("a.ts22 pending commentsM+12-3");
+    expect(files.getByRole("button", { name: /b\.ts/ }).textContent).toBe("b.tsM+2-0");
+  });
+
+  it.each([
+    ["added", "A", "Added"],
+    ["modified", "M", "Modified"],
+    ["deleted", "D", "Deleted"],
+    ["renamed", "R", "Renamed"],
+    ["copied", "C", "Copied"],
+    ["type_changed", "T", "Type changed"],
+    ["untracked", "U", "Untracked"],
+  ] as const)("shows a %s file with the badge %s", async (status, letter, label) => {
+    const slot = renderTab({ getChanges: () => changes([file("src/a.ts", { status })]) });
+    await slot.findAllByTestId("file-diff");
+
+    expect(outline(slot).getByRole("img", { name: label }).textContent).toBe(letter);
+  });
+
+  it("shows a file-type icon per file and the generic icon for an unknown type", async () => {
+    const slot = renderTab({ getChanges: () => changes([file("src/a.ts"), file("notes.xyz")]) });
+    await slot.findAllByTestId("file-diff");
+    const files = outline(slot);
+
+    expect(
+      files
+        .getByRole("button", { name: /^a\.ts/ })
+        .querySelector("[data-icon]")
+        ?.getAttribute("data-icon"),
+    ).toBe("typescript");
+    expect(
+      files
+        .getByRole("button", { name: /^notes\.xyz/ })
+        .querySelector("[data-icon]")
+        ?.getAttribute("data-icon"),
+    ).toBe("file");
+  });
+
+  it("shows the parts of a merged folder and one indent guide per level", async () => {
+    const slot = renderTab({
+      getChanges: () =>
+        changes([file("src/ui/lib/a.ts"), file("src/ui/lib/b.ts"), file("src/d.ts")]),
+    });
+    await slot.findAllByTestId("file-diff");
+    const files = outline(slot);
+
+    expect(files.getByRole("button", { name: "src" })).toBeTruthy();
+    const lib = files.getByRole("button", { name: "ui/lib" });
+    expect(within(lib).getByText("ui")).toBeTruthy();
+    expect(within(lib).getByText("lib")).toBeTruthy();
+    expect(
+      files
+        .getByRole("button", { name: /^a\.ts/ })
+        .closest("li")!
+        .querySelectorAll("[data-indent-guide]"),
+    ).toHaveLength(2);
+  });
+
+  it("folds and unfolds a folder without changing the diff sections", async () => {
+    const slot = renderTab({
+      getChanges: () => changes([file("src/a.ts"), file("src/b.ts"), file("README.md")]),
+    });
+    await slot.findAllByTestId("file-diff");
+    const files = outline(slot);
+    const folder = files.getByRole("button", { name: "src" });
+
+    fireEvent.click(folder);
+
+    expect(folder.getAttribute("aria-expanded")).toBe("false");
+    expect(files.queryByRole("button", { name: /^a\.ts/ })).toBeNull();
+    expect(files.getByRole("button", { name: /^README\.md/ })).toBeTruthy();
+    expect(slot.getAllByRole("region")).toHaveLength(3);
+
+    fireEvent.click(folder);
+
+    expect(folder.getAttribute("aria-expanded")).toBe("true");
+    expect(files.getByRole("button", { name: /^a\.ts/ })).toBeTruthy();
+  });
+
+  it("opens all folders again when the diff target changes", async () => {
+    let call = 0;
+    const slot = renderTab({
+      getChanges: () =>
+        call++ === 0 ? changes([file("src/a.ts")]) : changes([file("src/a.ts"), file("src/b.ts")]),
+    });
+    await slot.findAllByTestId("file-diff");
+    fireEvent.click(outline(slot).getByRole("button", { name: "src" }));
+
+    fireEvent.change(slot.getByRole("combobox", { name: "Diff target" }), {
+      target: { value: "uncommitted" },
+    });
+
+    await waitFor(() => expect(outline(slot).getByRole("button", { name: /^b\.ts/ })).toBeTruthy());
+    expect(outline(slot).getByRole("button", { name: "src" }).getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+  });
+
+  it("keeps folders folded after a refresh", async () => {
+    const slot = renderTab({ getChanges: () => changes([file("src/a.ts"), file("README.md")]) });
+    await slot.findAllByTestId("file-diff");
+    fireEvent.click(outline(slot).getByRole("button", { name: "src" }));
+
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(callsTo(slot, "getChanges")).toHaveLength(2));
+    expect(outline(slot).getByRole("button", { name: "src" }).getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+  });
+
+  it("marks no row when the current file is in a folded folder", async () => {
+    const slot = renderTab({ getChanges: () => changes([file("src/a.ts"), file("README.md")]) });
+    await slot.findAllByTestId("file-diff");
+    await waitFor(() =>
+      expect(
+        outline(slot)
+          .getByRole("button", { name: /^a\.ts/ })
+          .getAttribute("aria-current"),
+      ).toBe("true"),
+    );
+
+    fireEvent.click(outline(slot).getByRole("button", { name: "src" }));
+
+    expect(
+      slot.getByRole("navigation", { name: "Files" }).querySelector("[aria-current]"),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["while loading", () => new Promise<ChangesResult>(() => {})],
+    ["on a load error", () => ({ kind: "error", message: "boom" }) as ChangesResult],
+    ["without a git repository", () => ({ kind: "no_git" }) as ChangesResult],
+    ["when nothing changed", () => changes([])],
+  ])("shows no outline %s", async (_, getChanges) => {
+    const slot = renderTab({ getChanges });
+
+    await act(async () => {});
+
+    expect(slot.queryByRole("navigation", { name: "Files" })).toBeNull();
+  });
+
+  describe("resize handle", () => {
+    beforeEach(() => {
+      localStorage.clear();
+      Element.prototype.setPointerCapture = vi.fn();
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const width = parseFloat(this.style.width) || 0;
+        return {
+          top: 0,
+          bottom: 0,
+          height: 0,
+          left: 0,
+          right: width,
+          width,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      delete (Element.prototype as Partial<Element>).setPointerCapture;
+    });
+
+    async function renderHandle() {
+      const slot = renderTab({ getChanges: () => changes([file("a.ts")]) });
+      await slot.findAllByTestId("file-diff");
+      const handle = slot.getByRole("separator", { name: "Resize file outline" });
+      return { slot, handle, width: () => Number(handle.getAttribute("aria-valuenow")) };
+    }
+
+    function drag(handle: HTMLElement, from: number, to: number) {
+      fireEvent.pointerDown(handle, { clientX: from, pointerId: 1, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: to, pointerId: 1 });
+      fireEvent.pointerUp(handle, { clientX: to, pointerId: 1 });
+    }
+
+    it("starts at 320px", async () => {
+      const { slot, width } = await renderHandle();
+
+      expect(width()).toBe(320);
+      expect(slot.getByRole("navigation", { name: "Files" }).parentElement!.style.width).toBe(
+        "320px",
+      );
+    });
+
+    it("drags wider and saves the width on release", async () => {
+      const { handle, width } = await renderHandle();
+
+      fireEvent.pointerDown(handle, { clientX: 500, pointerId: 1, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: 600, pointerId: 1 });
+
+      expect(width()).toBe(420);
+      expect(localStorage.getItem(OUTLINE_WIDTH_KEY)).toBeNull();
+
+      fireEvent.pointerUp(handle, { clientX: 600, pointerId: 1 });
+
+      expect(localStorage.getItem(OUTLINE_WIDTH_KEY)).toBe("420");
+    });
+
+    it("stops at 520px", async () => {
+      const { handle, width } = await renderHandle();
+
+      drag(handle, 500, 880);
+
+      expect(width()).toBe(520);
+    });
+
+    it("ignores pointer moves without a drag", async () => {
+      const { handle, width } = await renderHandle();
+
+      fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
+
+      expect(width()).toBe(320);
+    });
+
+    it("resets to 320px on double-click", async () => {
+      const { handle, width } = await renderHandle();
+      drag(handle, 500, 600);
+
+      fireEvent.doubleClick(handle);
+
+      expect(width()).toBe(320);
+      expect(localStorage.getItem(OUTLINE_WIDTH_KEY)).toBeNull();
+    });
+
+    it("moves 10px per arrow key", async () => {
+      const { handle, width } = await renderHandle();
+
+      fireEvent.keyDown(handle, { key: "ArrowRight" });
+      expect(width()).toBe(330);
+
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
+      expect(width()).toBe(310);
+      expect(localStorage.getItem(OUTLINE_WIDTH_KEY)).toBe("310");
+    });
+
+    it("starts the arrow keys from the width on screen", async () => {
+      const { handle, width } = await renderHandle();
+      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(() => ({
+        top: 0,
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 368,
+        width: 368,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }));
+
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
+
+      expect(width()).toBe(358);
+    });
+
+    it("ends the drag when the pointer capture is lost", async () => {
+      const { handle, width } = await renderHandle();
+      fireEvent.pointerDown(handle, { clientX: 500, pointerId: 1, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: 550, pointerId: 1 });
+
+      fireEvent.lostPointerCapture(handle, { pointerId: 1 });
+      fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
+
+      expect(width()).toBe(370);
+      expect(localStorage.getItem(OUTLINE_WIDTH_KEY)).toBe("370");
+    });
+
+    it("opens with the saved width", async () => {
+      localStorage.setItem(OUTLINE_WIDTH_KEY, "400");
+
+      const { width } = await renderHandle();
+
+      expect(width()).toBe(400);
+    });
+  });
+
+  describe("navigation", () => {
+    const heights = new Map<string, number>();
+    const AREA_TOP = 50;
+    const AREA_HEIGHT = 400;
+    const ROW_HEIGHT = 30;
+    const NAV_HEIGHT = 60;
+    let resizeCallbacks: ResizeObserverCallback[] = [];
+
+    class FakeResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe() {
+        resizeCallbacks.push(this.callback);
+      }
+      disconnect() {
+        resizeCallbacks = resizeCallbacks.filter((callback) => callback !== this.callback);
+      }
+    }
+
+    function rect(top: number, height: number): DOMRect {
+      return {
+        top,
+        bottom: top + height,
+        height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    }
+
+    function layOut(sizes: Record<string, number>) {
+      for (const [path, height] of Object.entries(sizes)) heights.set(path, height);
+    }
+
+    function resize() {
+      act(() => {
+        for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
+      });
+    }
+
+    beforeEach(() => {
+      heights.clear();
+      resizeCallbacks = [];
+      vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+      Element.prototype.scrollIntoView = vi.fn();
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const area = this.closest<HTMLElement>("[data-diff-scroll-area]");
+        if (this.matches("[data-diff-scroll-area]")) return rect(AREA_TOP, AREA_HEIGHT);
+        if (area !== null && this.matches("section[data-path]")) {
+          let top = AREA_TOP - area.scrollTop;
+          for (const section of Array.from(
+            area.querySelectorAll<HTMLElement>("section[data-path]"),
+          )) {
+            if (section === this) break;
+            top += heights.get(section.dataset.path!) ?? 0;
+          }
+          return rect(top, heights.get(this.dataset.path!) ?? 0);
+        }
+        const nav = this.closest<HTMLElement>("nav");
+        if (this.tagName === "NAV") return rect(0, NAV_HEIGHT);
+        if (nav !== null && this.tagName === "BUTTON") {
+          const index = Array.from(nav.querySelectorAll("li")).indexOf(this.closest("li")!);
+          return rect(index * ROW_HEIGHT - nav.scrollTop, ROW_HEIGHT);
+        }
+        return rect(0, 0);
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    async function renderFiles(paths: string[]) {
+      const slot = renderTab({ getChanges: () => changes(paths.map((path) => file(path))) });
+      await slot.findAllByTestId("file-diff");
+      layOut(Object.fromEntries(paths.map((path) => [path, 500])));
+      const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+      return Object.assign(slot, { area });
+    }
+
+    function row(slot: Slot, name: string) {
+      return outline(slot).getByRole("button", {
+        name: new RegExp(`^${name.replace(".", "\\.")}`),
+      });
+    }
+
+    it("scrolls the clicked file to the top of the diff", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+
+      fireEvent.click(row(slot, "c.ts"));
+
+      expect(slot.area.scrollTop).toBe(1000);
+    });
+
+    it("keeps the clicked file at the top while diffs above it change height", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+      fireEvent.click(row(slot, "c.ts"));
+
+      layOut({ "b.ts": 800 });
+      resize();
+
+      expect(slot.area.scrollTop).toBe(1300);
+    });
+
+    it("stops holding the clicked file when the user scrolls", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+      fireEvent.click(row(slot, "c.ts"));
+
+      fireEvent.wheel(slot.area);
+      layOut({ "b.ts": 800 });
+      resize();
+
+      expect(slot.area.scrollTop).toBe(1000);
+    });
+
+    it("stops holding the clicked file one second after the last height change", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+      vi.useFakeTimers();
+      fireEvent.click(row(slot, "c.ts"));
+
+      vi.advanceTimersByTime(1000);
+      layOut({ "b.ts": 800 });
+      resize();
+
+      expect(slot.area.scrollTop).toBe(1000);
+    });
+
+    it("stops holding the clicked file when the diff target changes", async () => {
+      let call = 0;
+      const slot = renderTab({
+        getChanges: () =>
+          call++ === 0
+            ? changes(["a.ts", "b.ts", "c.ts"].map((path) => file(path)))
+            : changes([file("a.ts")]),
+      });
+      await slot.findAllByTestId("file-diff");
+      layOut({ "a.ts": 500, "b.ts": 500, "c.ts": 500 });
+      const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+      fireEvent.click(row(slot, "c.ts"));
+
+      fireEvent.change(slot.getByRole("combobox", { name: "Diff target" }), {
+        target: { value: "uncommitted" },
+      });
+      await waitFor(() => expect(slot.getAllByRole("region")).toHaveLength(1));
+      resize();
+
+      expect(area.scrollTop).toBe(1000);
+    });
+
+    it("stops holding the clicked file on a key press anywhere", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+      fireEvent.click(row(slot, "c.ts"));
+
+      fireEvent.keyDown(document.body, { key: "PageDown" });
+      layOut({ "b.ts": 800 });
+      resize();
+
+      expect(slot.area.scrollTop).toBe(1000);
+    });
+
+    it("does not scroll the diff when a folder row is clicked", async () => {
+      const slot = await renderFiles(["lib/a.ts", "src/b.ts", "src/c.ts"]);
+
+      fireEvent.click(outline(slot).getByRole("button", { name: "src" }));
+
+      expect(slot.area.scrollTop).toBe(0);
+    });
+
+    it("still jumps to a file outside a folded folder", async () => {
+      const slot = await renderFiles(["lib/a.ts", "src/b.ts", "c.ts"]);
+      fireEvent.click(outline(slot).getByRole("button", { name: "lib" }));
+
+      fireEvent.click(row(slot, "c.ts"));
+
+      expect(slot.area.scrollTop).toBe(1000);
+      expect(row(slot, "c.ts").getAttribute("aria-current")).toBe("true");
+    });
+
+    it("marks the file at the top of the diff and follows the scroll", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+
+      expect(row(slot, "a.ts").getAttribute("aria-current")).toBe("true");
+
+      slot.area.scrollTop = 600;
+      fireEvent.scroll(slot.area);
+
+      await waitFor(() => expect(row(slot, "b.ts").getAttribute("aria-current")).toBe("true"));
+      expect(row(slot, "a.ts").getAttribute("aria-current")).toBeNull();
+    });
+
+    it("marks the clicked file at once", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);
+
+      fireEvent.click(row(slot, "c.ts"));
+
+      expect(row(slot, "c.ts").getAttribute("aria-current")).toBe("true");
+    });
+
+    it("scrolls the outline to the marked row only when the row is out of view", async () => {
+      const slot = await renderFiles(["a.ts", "b.ts", "c.ts", "d.ts"]);
+
+      fireEvent.click(row(slot, "b.ts"));
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+      fireEvent.click(row(slot, "d.ts"));
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(row(slot, "d.ts"));
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    });
   });
 });

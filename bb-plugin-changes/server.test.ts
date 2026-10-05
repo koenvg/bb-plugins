@@ -196,6 +196,7 @@ describe("getChanges", () => {
           deletions: 1,
           binary: false,
           loadMode: "auto",
+          status: "modified",
         },
         {
           path: "logo.png",
@@ -204,6 +205,7 @@ describe("getChanges", () => {
           deletions: 0,
           binary: true,
           loadMode: "auto",
+          status: "untracked",
         },
         {
           path: "big.json",
@@ -212,6 +214,7 @@ describe("getChanges", () => {
           deletions: 0,
           binary: false,
           loadMode: "too_large",
+          status: "added",
         },
         {
           path: "src/new.ts",
@@ -220,6 +223,7 @@ describe("getChanges", () => {
           deletions: 2,
           binary: false,
           loadMode: "on_demand",
+          status: "renamed",
         },
       ],
       patches: { "src/a.ts": "@@ -1 +1 @@\n-a\n+b\n" },
@@ -291,6 +295,33 @@ describe("getChanges", () => {
     });
 
     expect(result).toEqual({ kind: "no_git" });
+  });
+
+  it("reports a deleted file as deleted", async () => {
+    const { harness } = await setup({
+      diffFiles: {
+        ...AVAILABLE_FILES,
+        files: [
+          {
+            path: "gone.ts",
+            previousPath: null,
+            additions: 0,
+            deletions: 4,
+            binary: false,
+            loadMode: "auto",
+            changeKind: "deleted",
+            origin: "tracked",
+          },
+        ],
+      } as DiffFilesResult,
+    });
+
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
+
+    expect(result).toMatchObject({ kind: "ok", files: [{ path: "gone.ts", status: "deleted" }] });
   });
 
   it("keeps the message of an unavailable diff", async () => {

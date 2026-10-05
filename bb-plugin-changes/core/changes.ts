@@ -24,6 +24,15 @@ export const changedFileSchema = z.object({
   deletions: z.number(),
   binary: z.boolean(),
   loadMode: z.enum(["auto", "on_demand", "too_large"]),
+  status: z.enum([
+    "added",
+    "modified",
+    "deleted",
+    "renamed",
+    "copied",
+    "type_changed",
+    "untracked",
+  ]),
 });
 export type ChangedFile = z.infer<typeof changedFileSchema>;
 

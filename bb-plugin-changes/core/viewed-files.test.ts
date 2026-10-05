@@ -13,6 +13,7 @@ function file(path: string, overrides: Partial<ChangedFile> = {}): ChangedFile {
     deletions: 1,
     binary: false,
     loadMode: "auto",
+    status: "modified",
     ...overrides,
   };
 }
