@@ -44,6 +44,18 @@ describe("default Code Cleanup guidance", () => {
     expect(text).not.toMatch(/bb task-board|\bopenforge\b|--\w/);
   });
 
+  it("makes merge-dependent cleanup wait for the current ticket, not the reverse", () => {
+    const text = defaultGuidance("proj_example");
+    expect(text).toMatch(/if.*new cleanup.*current change.*merge/i);
+    expect(text).toMatch(/save.*new ticket as blocked by the current ticket/i);
+    expect(text).toMatch(/never make the current ticket wait for.*cleanup/i);
+    expect(text).toMatch(/only required blockers.*verified.*keys/i);
+    expect(text).toMatch(/missing keys.*incomplete recording/i);
+    expect(text).toMatch(/failed.*dependency writes.*incomplete recording/i);
+    expect(text).toMatch(/report.*confirmed.*key/i);
+    expect(text).toMatch(/report.*error.*never claim success/i);
+  });
+
   it("is concise and below the instruction limit for real project IDs", () => {
     for (const id of ["proj_example", "proj_gjz4e6jtmg", `proj_${"x".repeat(64)}`]) {
       expect(defaultGuidance(id).length).toBeLessThanOrEqual(4096);
