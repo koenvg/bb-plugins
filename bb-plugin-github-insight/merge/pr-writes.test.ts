@@ -16,6 +16,7 @@ const insight: PrInsight = {
     headOid: HEAD,
     headRefName: "feature",
     headOwner: null,
+    isCrossRepository: false,
     baseRefName: "main",
     author: "koenvg",
     additions: 1,
@@ -254,6 +255,24 @@ describe("runPrAction branch update and auto-merge", () => {
     });
 
     const result = await writes.runPrAction({ ...request, action: "disable-auto-merge" });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(autoMerges).toEqual([["disable", target, { pullRequestId: "PR_7" }]]);
+  });
+
+  it("disables auto-merge also after a new head commit", async () => {
+    const { writes, autoMerges } = writesWith({
+      cachedPr: async () => ({
+        ...cached,
+        insight: { ...insight, autoMergeAction: { kind: "disable", method: "SQUASH" } },
+      }),
+    });
+
+    const result = await writes.runPrAction({
+      ...request,
+      action: "disable-auto-merge",
+      expectedHeadOid: "older",
+    });
 
     expect(result).toEqual({ kind: "ok" });
     expect(autoMerges).toEqual([["disable", target, { pullRequestId: "PR_7" }]]);

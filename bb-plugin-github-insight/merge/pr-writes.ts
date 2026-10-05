@@ -79,7 +79,8 @@ function gitHubWriteOf(cached: CachedPr, request: RunPrActionRequest): Written<G
   if (cached.kind === "no_pr") return { ok: false, message: NO_PR_MESSAGE };
   if (cached.kind === "error") return { ok: false, message: cached.message };
   if (cached.kind === "not_cached") return { ok: false, message: NOT_READ_MESSAGE };
-  if (cached.insight.pr.headOid !== request.expectedHeadOid) return STALE;
+  const headGuarded = request.action !== "disable-auto-merge";
+  if (headGuarded && cached.insight.pr.headOid !== request.expectedHeadOid) return STALE;
   const send = writeFor(cached, request);
   return send === null ? STALE : { ok: true, value: send };
 }

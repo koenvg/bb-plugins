@@ -84,7 +84,7 @@ export function prStatusView(insight: PrInsight): PrStatusView {
   }
 
   status.blockers = insight.blockers;
-  const compactBlockers = insight.blockers.filter((blocker) => blocker.code !== "draft");
+  const compactBlockers = listedBlockers(insight.blockers);
   const parts = bannerParts({ ...insight, blockers: compactBlockers });
   if (parts.length > 0) {
     status.detail = {
@@ -111,6 +111,10 @@ export function prStatusView(insight: PrInsight): PrStatusView {
 
 export type SummaryLine = StatusRow & { more: number };
 
+export function listedBlockers(blockers: readonly Blocker[]): Blocker[] {
+  return blockers.filter((blocker) => blocker.code !== "draft");
+}
+
 export function prSummaryLine(insight: PrInsight): SummaryLine | null {
   if (insight.pr.state === "closed" || insight.pr.state === "merged") return null;
   const { detail } = prStatusView(insight);
@@ -123,7 +127,7 @@ export function prSummaryLine(insight: PrInsight): SummaryLine | null {
       more: 0,
     };
   }
-  const [first, ...rest] = insight.blockers.filter((blocker) => blocker.code !== "draft");
+  const [first, ...rest] = listedBlockers(insight.blockers);
   if (first !== undefined) {
     return {
       text: first.text,

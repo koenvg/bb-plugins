@@ -25,6 +25,7 @@ const behind: PrInsight = {
     headOid: HEAD,
     headRefName: "feature",
     headOwner: null,
+    isCrossRepository: false,
     baseRefName: "main",
     author: "koenvg",
     additions: 1,
@@ -152,6 +153,26 @@ describe("Update branch", () => {
     ).toBe(true);
     expect(
       (view.getByRole("button", { name: "Update branch" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("shows the newest local commit check when an older one answers late", async () => {
+    const answers: ((result: LocalCommitsAhead) => void)[] = [];
+    const { view, localCommitsAhead } = renderTab();
+    localCommitsAhead.mockImplementation(
+      () => new Promise<LocalCommitsAhead>((resolve) => answers.push(resolve)),
+    );
+    const toggle = await view.findByRole("button", { name: "More update options" });
+
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    await act(async () => answers[1]!({ kind: "count", count: 0 }));
+    await act(async () => answers[0]!({ kind: "count", count: 3 }));
+
+    expect(view.queryByText("3 unpushed commits. Push first.")).toBeNull();
+    expect(
+      (view.getByRole("button", { name: "Update with rebase…" }) as HTMLButtonElement).disabled,
     ).toBe(false);
   });
 

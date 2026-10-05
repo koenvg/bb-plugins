@@ -23,6 +23,7 @@ const pr = {
   headOid: "abc123",
   headRefName: "feature",
   headOwner: null,
+  isCrossRepository: false,
   baseRefName: "main",
   author: "koenvg",
   additions: 1,

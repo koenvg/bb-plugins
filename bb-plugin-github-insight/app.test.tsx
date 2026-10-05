@@ -30,6 +30,7 @@ const pr = {
   headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
   headRefName: "feature",
   headOwner: null,
+  isCrossRepository: false,
   baseRefName: "main",
   author: "koenvg",
   additions: 1,

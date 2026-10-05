@@ -21,6 +21,7 @@ const waiting: PrInsight = {
     headOid: HEAD,
     headRefName: "feature",
     headOwner: null,
+    isCrossRepository: false,
     baseRefName: "main",
     author: "koenvg",
     additions: 1,
@@ -132,5 +133,20 @@ describe("Auto-merge", () => {
       (view.getByRole("button", { name: "Enable auto-merge (squash)" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("keeps its own label but waits while another PR write runs", async () => {
+    let finish!: (result: ActionResult) => void;
+    const { view } = renderTab(
+      { ...autoMergeOn, canUpdateBranch: true },
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+
+    fireEvent.click(await view.findByRole("button", { name: "Update branch" }));
+
+    const disable = await view.findByRole("button", { name: "Disable" });
+    await waitFor(() => expect((disable as HTMLButtonElement).disabled).toBe(true));
+    expect(view.getByRole("button", { name: "Updating…" })).toBeTruthy();
+    await act(async () => finish({ kind: "ok" }));
   });
 });

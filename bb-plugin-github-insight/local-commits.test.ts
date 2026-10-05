@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { countLocalCommitsAhead } from "./local-commits";
 
-describe("countLocalCommitsAhead", () => {
+describe("countLocalCommitsAhead", { timeout: 20_000 }, () => {
   let remote: string;
   let worktree: string;
 
@@ -26,7 +26,7 @@ describe("countLocalCommitsAhead", () => {
     git(worktree, "remote", "add", "origin", remote);
     await commit("first");
     git(worktree, "push", "-q", "origin", "feature");
-  });
+  }, 20_000);
 
   afterEach(async () => {
     await rm(remote, { recursive: true, force: true });

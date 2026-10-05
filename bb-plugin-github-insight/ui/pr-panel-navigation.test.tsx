@@ -49,6 +49,7 @@ const readyInsight: InsightResult = {
       headOid: "head-42",
       headRefName: "feature",
       headOwner: null,
+      isCrossRepository: false,
       baseRefName: "main",
       author: "koenvg",
       additions: 1,

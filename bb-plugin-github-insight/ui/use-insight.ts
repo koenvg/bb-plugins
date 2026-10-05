@@ -30,7 +30,6 @@ export function useInsight(threadId: string) {
   );
 
   useEffect(() => {
-    // Only retain results accepted by useThreadResult, never a late RPC response.
     if (result !== null) rememberInsight(threadId, result);
   }, [threadId, result]);
 

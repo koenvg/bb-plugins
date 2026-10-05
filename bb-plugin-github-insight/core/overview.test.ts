@@ -81,6 +81,7 @@ describe("collectInsight on PR 25337", () => {
       headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
       headRefName: "feat/ootb-domain-type-ids",
       headOwner: null,
+      isCrossRepository: false,
       baseRefName: "master",
       author: "koenvg",
       additions: 120,
@@ -396,6 +397,7 @@ describe("collectInsight on cli/cli PR 14583", () => {
     expect(insight.pr).toMatchObject({
       headRefName: "bagtoad/add-accessibility-md",
       headOwner: null,
+      isCrossRepository: false,
       baseRefName: "trunk",
       author: "BagToad",
       additions: 122,

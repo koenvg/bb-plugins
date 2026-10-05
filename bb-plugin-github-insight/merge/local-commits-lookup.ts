@@ -15,7 +15,7 @@ export function createLocalCommitsLookup(deps: LocalCommitsLookupDeps) {
   async function localCommitsAhead(threadId: string): Promise<LocalCommitsAhead> {
     try {
       const cached = await deps.cachedPr(threadId);
-      if (cached.kind !== "cached" || cached.insight.pr.headOwner !== null) return UNKNOWN;
+      if (cached.kind !== "cached" || cached.insight.pr.isCrossRepository) return UNKNOWN;
       const environmentId = await deps.environmentIdOf(threadId);
       if (environmentId === null) return UNKNOWN;
       const { hostId, path } = await deps.environment(environmentId);

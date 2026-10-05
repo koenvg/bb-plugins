@@ -9,9 +9,12 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
-import { usePrAction } from "./use-pr-action";
+import type { PrAction } from "../contract";
+import { usePrActionButton } from "./use-pr-action";
 
 type ButtonSize = "default" | "compact";
+
+const MERGE_ACTIONS: ReadonlySet<PrAction> = new Set(["merge", "enqueue"]);
 
 const BUTTON_CLASS =
   "inline-flex shrink-0 items-center whitespace-nowrap rounded-md font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60";
@@ -42,10 +45,14 @@ export function MergeActionButton({
   disabled = false,
   showError = true,
 }: MergeActionButtonProps) {
-  const { state, run } = usePrAction(threadId, pr.headOid);
+  const { busy, ownRunning, ownError, run } = usePrActionButton(
+    threadId,
+    pr.headOid,
+    MERGE_ACTIONS,
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const running = state.kind === "running";
-  const busyLabel = running ? PR_ACTION_BUSY_LABEL[state.action] : "Merging…";
+  const running = ownRunning !== null;
+  const busyLabel = ownRunning ? PR_ACTION_BUSY_LABEL[ownRunning] : "Merging…";
   const runAction = () => void run({ action: action.kind, expectedHeadOid: pr.headOid });
   return (
     <div className="flex min-w-0 shrink-0 flex-col items-start gap-1">
@@ -55,7 +62,7 @@ export function MergeActionButton({
           label="Enqueue"
           busyLabel={busyLabel}
           running={running}
-          disabled={disabled || running}
+          disabled={disabled || busy}
           size={size}
           onClick={runAction}
         />
@@ -63,14 +70,14 @@ export function MergeActionButton({
         <MergeConfirmation
           pr={pr}
           method={action.method}
-          running={running}
+          running={busy}
           trigger={
             <ActionButton
               icon="GitMerge"
               label={MERGE_METHOD_LABEL[action.method]}
               busyLabel={busyLabel}
               running={running}
-              disabled={disabled || running}
+              disabled={disabled || busy}
               size={size}
             />
           }
@@ -79,9 +86,9 @@ export function MergeActionButton({
           confirm={runAction}
         />
       )}
-      {showError && state.kind === "error" && (
+      {showError && ownError !== null && (
         <p role="alert" className="break-words text-xs text-destructive">
-          {state.message}
+          {ownError}
         </p>
       )}
     </div>

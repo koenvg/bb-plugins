@@ -21,6 +21,7 @@ const insight: PrInsight = {
     headOid: "a",
     headRefName: "kvg/fix-total",
     headOwner: null,
+    isCrossRepository: false,
     baseRefName: "main",
     author: "koenvg",
     additions: 42,
@@ -121,6 +122,21 @@ describe("PR summary line", () => {
     expect(summaryOf(view)).toBe("Merge conflicts+2 more");
     const list = view.getByRole("region", { name: "Merge blockers" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("counts Draft in neither the summary line nor the blocker list", async () => {
+    const view = renderTab({
+      ...insight,
+      pr: { ...insight.pr, state: "draft" },
+      blockers: [
+        { code: "review_required", text: "Review required" },
+        { code: "draft", text: "Draft" },
+      ],
+    });
+    await view.findByText("#25707");
+
+    expect(summaryOf(view)).toBe("Review required");
+    expect(view.queryByRole("region", { name: "Merge blockers" })).toBeNull();
   });
 
   it("shows a ready PR", async () => {

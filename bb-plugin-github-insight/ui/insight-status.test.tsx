@@ -21,6 +21,7 @@ const base: PrInsight = {
     headOid: "a",
     headRefName: "feature",
     headOwner: null,
+    isCrossRepository: false,
     baseRefName: "main",
     author: "koenvg",
     additions: 1,

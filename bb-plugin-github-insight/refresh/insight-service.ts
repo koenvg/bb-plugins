@@ -44,7 +44,7 @@ export interface InsightServiceDeps {
 type CacheEntry = (
   | { good: PrReading & { refreshedAt: number }; error: string | null }
   | { good: null; error: string }
-) & { summaryError: string | null; threadIds: Set<string> };
+) & { summaryError: string | null; threadIds: Set<string>; fromStorage?: true };
 
 export type CachedPr =
   | Exclude<PrResolution, { kind: "pr" }>
@@ -192,6 +192,7 @@ export function createInsightService(deps: InsightServiceDeps) {
         error: null,
         summaryError: null,
         threadIds: new Set([threadId]),
+        fromStorage: true,
       };
     } catch (error) {
       deps.warn(`Reading stored PR insight for ${key} failed: ${errorText(error)}`);
@@ -236,7 +237,7 @@ export function createInsightService(deps: InsightServiceDeps) {
         : { good: null, error: message, ...failure };
     }
     entries.set(key, next);
-    if (!sameData(previous, next)) {
+    if (previous?.fromStorage === true || !sameData(previous, next)) {
       deps.publish([...next.threadIds]);
       await storeReading(key, next);
     }

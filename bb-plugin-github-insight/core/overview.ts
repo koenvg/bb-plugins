@@ -130,6 +130,7 @@ export const prInsightSchema = z.object({
     headOid: z.string(),
     headRefName: z.string(),
     headOwner: z.string().nullable(),
+    isCrossRepository: z.boolean(),
     baseRefName: z.string(),
     author: z.string().nullable(),
     additions: z.number(),
@@ -207,6 +208,7 @@ function prHeader(page: OverviewPage, reviewState: ReviewState): PrInsight["pr"]
     headOwner: reviewState.isCrossRepository
       ? (reviewState.headRepositoryOwner?.login ?? null)
       : null,
+    isCrossRepository: reviewState.isCrossRepository,
     baseRefName: reviewState.baseRefName,
     author: reviewState.author?.login ?? null,
     additions: reviewState.additions,

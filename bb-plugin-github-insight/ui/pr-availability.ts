@@ -6,7 +6,7 @@ type OkInsightResult = Extract<InsightResult, { kind: "ok" }>;
 const snapshots = new Map<string, OkInsightResult>();
 
 export function rememberInsight(threadId: string, result: InsightResult): void {
-  if (result.kind === "ok") snapshots.set(threadId, result);
+  if (result.kind === "ok") snapshots.set(threadId, { ...result, error: null });
   else if (result.kind === "no_pr") snapshots.delete(threadId);
 }
 

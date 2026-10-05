@@ -335,6 +335,26 @@ describe("insight snapshot", () => {
     });
   });
 
+  it("tells open tabs and stores the new time when the background refresh finds the same data", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
+    const stored = await storedReading();
+    vi.setSystemTime(new Date("2026-09-24T13:00:00Z"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored },
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    await settle();
+
+    expect(harness.realtimeSignals).toHaveLength(1);
+    expect(await harness.kv.get(KEY)).toMatchObject({
+      refreshedAt: Date.parse("2026-09-24T13:00:00Z"),
+    });
+  });
+
   it("calls GitHub when the stored value has an unknown version", async () => {
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1" }],
@@ -2631,6 +2651,17 @@ describe("localCommitsAhead", () => {
 
   it("does not know for a fork PR", async () => {
     const harness = await setupRead({ host: counting(undefined, forkPage()) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for a fork PR whose fork was deleted", async () => {
+    const deletedFork = forkPage();
+    deletedFork.data.repository.pullRequest.headRepositoryOwner = null as never;
+    const harness = await setupRead({ host: counting(undefined, deletedFork) });
 
     expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
       kind: "unknown",

@@ -15,6 +15,7 @@ function ok(mergeAction: MergeAction): InsightResult {
         headOid: "abc",
         headRefName: "feature",
         headOwner: null,
+        isCrossRepository: false,
         baseRefName: "main",
         author: "koenvg",
         additions: 1,
@@ -91,6 +92,13 @@ describe("insight snapshot", () => {
     rememberInsight("thr_snapshot", { kind: "error", message: "gh not logged in" });
 
     expect(insightSnapshot("thr_snapshot")).toEqual(result);
+  });
+
+  it("keeps the PR result without the error of a failed refresh", () => {
+    const failedRefresh = ok({ kind: "none" }) as Extract<InsightResult, { kind: "ok" }>;
+    rememberInsight("thr_snapshot_error", { ...failedRefresh, error: "gh not logged in" });
+
+    expect(insightSnapshot("thr_snapshot_error")?.error).toBeNull();
   });
 
   it("drops the snapshot when a later load has no PR", () => {

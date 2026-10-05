@@ -42,6 +42,7 @@ function insight(overrides: Partial<PrInsight> = {}): PrInsight {
       headOid: "abc",
       headRefName: "feature",
       headOwner: null,
+      isCrossRepository: false,
       baseRefName: "main",
       author: "koenvg",
       additions: 1,

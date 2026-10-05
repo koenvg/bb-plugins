@@ -15,7 +15,13 @@ import { BranchUpdateButton, PullReminder } from "./branch-update-button";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
-import { prStatusView, prSummaryLine, type StatusRow, type SummaryLine } from "./pr-status-view";
+import {
+  listedBlockers,
+  prStatusView,
+  prSummaryLine,
+  type StatusRow,
+  type SummaryLine,
+} from "./pr-status-view";
 
 const OPEN_STATUSES: readonly CheckStatus[] = ["failed", "cancelled", "running"];
 
@@ -115,7 +121,7 @@ function PrTabContent({ threadId }: { threadId: string }) {
           onUpdated={() => setBranchUpdated(true)}
         />
       )}
-      <BlockerList blockers={status.blockers} />
+      <BlockerList blockers={listedBlockers(status.blockers)} />
       <ReviewerList reviewers={result.insight.reviewers} />
       <CheckList checks={result.insight.checks} />
     </div>

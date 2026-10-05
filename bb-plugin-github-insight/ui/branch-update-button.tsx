@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { LocalCommitsAhead, PrAction, rpcContract } from "../contract";
 import { countOf } from "../core/blockers";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
 import { SECONDARY_BUTTON } from "./controls";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
-import { usePrAction } from "./use-pr-action";
+import { usePrActionButton } from "./use-pr-action";
 
 const UPDATE_ACTIONS: ReadonlySet<PrAction> = new Set(["update-merge", "update-rebase"]);
 
@@ -29,11 +29,15 @@ interface BranchUpdateButtonProps {
 
 export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButtonProps) {
   const rpc = useRpc<typeof rpcContract>();
-  const { state, run } = usePrAction(threadId, pr.headOid);
+  const { busy, ownRunning, ownError, run } = usePrActionButton(
+    threadId,
+    pr.headOid,
+    UPDATE_ACTIONS,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [localCommits, setLocalCommits] = useState<LocalCommitsCheck>({ kind: "checking" });
-  const running = state.kind === "running";
+  const latestCheck = useRef(0);
 
   async function update(action: "update-merge" | "update-rebase") {
     const result = await run({ action, expectedHeadOid: pr.headOid });
@@ -44,12 +48,12 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
     const opening = !menuOpen;
     setMenuOpen(opening);
     if (!opening) return;
+    const check = ++latestCheck.current;
     setLocalCommits({ kind: "checking" });
-    setLocalCommits(
-      await rpc
-        .call("localCommitsAhead", { threadId })
-        .catch((): LocalCommitsAhead => ({ kind: "unknown" })),
-    );
+    const result = await rpc
+      .call("localCommitsAhead", { threadId })
+      .catch((): LocalCommitsAhead => ({ kind: "unknown" }));
+    if (check === latestCheck.current) setLocalCommits(result);
   }
 
   const blocker = rebaseBlocker(localCommits);
@@ -59,21 +63,21 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
         <button
           type="button"
           className={cn(SECONDARY_BUTTON, "rounded-r-none")}
-          disabled={running}
+          disabled={busy}
           onClick={() => void update("update-merge")}
         >
           <Icon
-            name={running ? "Spinner" : "GitBranch"}
-            className={cn("size-3.5", running && "animate-spin motion-reduce:animate-none")}
+            name={ownRunning ? "Spinner" : "GitBranch"}
+            className={cn("size-3.5", ownRunning && "animate-spin motion-reduce:animate-none")}
           />
-          {running ? PR_ACTION_BUSY_LABEL[state.action] : "Update branch"}
+          {ownRunning ? PR_ACTION_BUSY_LABEL[ownRunning] : "Update branch"}
         </button>
         <button
           type="button"
           aria-label="More update options"
           aria-expanded={menuOpen}
           className={cn(SECONDARY_BUTTON, "-ml-px rounded-l-none px-1.5")}
-          disabled={running}
+          disabled={busy}
           onClick={() => void toggleMenu()}
         >
           <Icon name={menuOpen ? "ChevronUp" : "ChevronDown"} className="size-3.5" />
@@ -93,12 +97,12 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
               </>
             }
             confirmLabel="Update with rebase"
-            running={running}
+            running={busy}
             trigger={
               <button
                 type="button"
                 className="text-xs underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-50"
-                disabled={running || blocker !== null}
+                disabled={busy || blocker !== null}
               >
                 Update with rebase…
               </button>
@@ -110,9 +114,9 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
           {blocker !== null && <p className="text-xs text-muted-foreground">{blocker}</p>}
         </div>
       )}
-      {state.kind === "error" && UPDATE_ACTIONS.has(state.action) && (
+      {ownError !== null && (
         <p role="alert" className="break-words text-xs text-destructive">
-          {state.message}
+          {ownError}
         </p>
       )}
     </div>

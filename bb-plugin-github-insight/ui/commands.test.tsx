@@ -70,6 +70,7 @@ describe("GitHub palette commands", () => {
           headOid: "abc",
           headRefName: "feature",
           headOwner: null,
+          isCrossRepository: false,
           baseRefName: "main",
           author: "koenvg",
           additions: 1,
