@@ -13,9 +13,9 @@
 
 ## 3. Server snapshot
 
-- [ ] 3.1 Store the last good reading per PR in kv under `insight:<owner>/<repo>#<number>` with a versioned zod schema, written only when the data changed; verify insight-service tests: write on change, no write on same data, bad stored value is dropped
-- [ ] 3.2 On a memory miss, return the stored reading with its original `refreshedAt` and start a background refresh that publishes an update; verify a test that a fresh service with a filled kv returns the stored reading without waiting for `fetchInsight`, then publishes
-- [ ] 3.3 Prune stored readings of PRs that no unarchived thread links to on each poll; verify a test with one linked and one unlinked stored PR
+- [x] 3.1 Store the last good reading per PR in kv under `insight:<owner>/<repo>#<number>` with a versioned zod schema, written only when the data changed; verify insight-service tests: write on change, no write on same data, bad stored value is dropped
+- [x] 3.2 On a memory miss, return the stored reading with its original `refreshedAt` and start a background refresh that publishes an update; verify a test that a fresh service with a filled kv returns the stored reading without waiting for `fetchInsight`, then publishes
+- [x] 3.3 Prune stored readings of PRs that no unarchived thread links to on each poll; verify a test with one linked and one unlinked stored PR
 
 ## 4. Client snapshot
 

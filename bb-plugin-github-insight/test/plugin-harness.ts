@@ -131,5 +131,5 @@ export async function setup(options: {
   });
   for (const [key, value] of Object.entries(options.kv ?? {})) await bb.storage.kv.set(key, value);
   await plugin(bb);
-  return harness;
+  return Object.assign(harness, { kv: bb.storage.kv });
 }

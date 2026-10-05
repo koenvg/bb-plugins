@@ -54,6 +54,7 @@ export default async function plugin(bb: BbPluginApi) {
     removeSummary: async (threadId) => {
       await bb.sdk.threads.updatePluginMetadata({ threadId, remove: [SUMMARY_METADATA_KEY] });
     },
+    kv: bb.storage.kv,
     warn: (message) => bb.log.warn(message),
   });
 

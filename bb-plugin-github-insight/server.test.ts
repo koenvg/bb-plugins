@@ -230,6 +230,171 @@ describe("refresh", () => {
   });
 });
 
+describe("insight snapshot", () => {
+  const KEY = "insight:collibra/frontend#25337";
+
+  function withTitle(title: string) {
+    return {
+      ...pageOne,
+      data: {
+        repository: {
+          ...pageOne.data.repository,
+          pullRequest: { ...pageOne.data.repository.pullRequest, title },
+        },
+      },
+    };
+  }
+
+  async function storedReading(first: unknown = pageOne) {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(first),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    return harness.kv.get(KEY);
+  }
+
+  it("stores the last good reading of the PR", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
+
+    expect(await storedReading()).toMatchObject({
+      v: 1,
+      refreshedAt: Date.parse("2026-09-24T10:00:00Z"),
+      reading: {
+        insight: { pr: { number: 25337 } },
+        pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
+      },
+    });
+  });
+
+  it("does not store again when a refresh finds the same data", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    const stored = (await harness.kv.get(KEY)) as Record<string, unknown>;
+    await harness.kv.set(KEY, { ...stored, refreshedAt: 1 });
+
+    await harness.behavior.callRpc("refresh", { threadId: "thr_1" });
+
+    expect(await harness.kv.get(KEY)).toMatchObject({ refreshedAt: 1 });
+  });
+
+  it("does not store a failed first read", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => failed({ kind: "gh_logged_out" }),
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(await harness.kv.get(KEY)).toBeUndefined();
+  });
+
+  it("returns the stored reading after a restart without waiting for GitHub", async () => {
+    const stored = await storedReading(withTitle("Stored title"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => new Promise(() => {}),
+      kv: { [KEY]: stored },
+    });
+
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      insight: { pr: { title: "Stored title" } },
+      refreshedAt: (stored as { refreshedAt: number }).refreshedAt,
+      error: null,
+    });
+  });
+
+  it("refreshes a stored reading in the background and tells open tabs", async () => {
+    const stored = await storedReading(withTitle("Stored title"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored },
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    await settle();
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+    expect(harness.realtimeSignals).toHaveLength(1);
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    expect(result).toMatchObject({
+      kind: "ok",
+      insight: { pr: { title: pageOne.data.repository.pullRequest.title } },
+    });
+  });
+
+  it("calls GitHub when the stored value has an unknown version", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: { v: 0 } },
+    });
+
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(result).toMatchObject({ kind: "ok", insight: { pr: { number: 25337 } } });
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("returns no PR instead of a stored reading when bb links no PR", async () => {
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      kv: { [KEY]: stored },
+    });
+
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toEqual({
+      kind: "no_pr",
+    });
+  });
+
+  it("deletes stored readings of PRs that no thread links on a poll", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored, "insight:o/r#1": stored },
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    run.controller.abort();
+
+    expect(await harness.kv.list("insight:")).toEqual([KEY]);
+  });
+
+  it("keeps stored readings when bb cannot read the PR of a thread", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: { outcome: "unavailable", message: "gh not found" } },
+      kv: { [KEY]: stored },
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    run.controller.abort();
+
+    expect(await harness.kv.list("insight:")).toEqual([KEY]);
+  });
+});
+
 describe("pr-poller", () => {
   beforeEach(() => {
     vi.useFakeTimers({
