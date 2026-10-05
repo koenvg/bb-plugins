@@ -1,3 +1,4 @@
+import { compareFilePaths } from "./file-order";
 import type { PendingComment } from "./pending-review";
 
 const OPENING = "Please address the following review comments:";
@@ -10,7 +11,9 @@ const CLOSING = [
 
 export function sortComments(comments: readonly PendingComment[]): PendingComment[] {
   return [...comments].sort((a, b) =>
-    a.path === b.path ? a.line - b.line || a.side.localeCompare(b.side) : a.path < b.path ? -1 : 1,
+    a.path === b.path
+      ? a.line - b.line || a.side.localeCompare(b.side)
+      : compareFilePaths(a.path, b.path),
   );
 }
 

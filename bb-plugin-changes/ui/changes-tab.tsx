@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,13 @@ import { pendingReviews, type OpenForm, type PendingComment } from "../core/pend
 import { placeByAnchor, type FileLines } from "../core/place-comments";
 import { buildReviewPrompt, sortComments } from "../core/review-prompt";
 import { messageOf } from "../core/changes";
+import { compareFilePaths } from "../core/file-order";
+import { FileOutline } from "./file-outline";
 import { FileSection } from "./file-section";
 import { NotInDiff } from "./not-in-diff";
 import { SendFeedbackDialog } from "./send-feedback-dialog";
 import { useChanges } from "./use-changes";
+import { useFileNavigation } from "./use-file-navigation";
 import { usePatches, type LoadedChanges, type PatchState, type Patches } from "./use-patches";
 import { usePendingReview } from "./use-pending-review";
 import { useViewed, type Viewed } from "./use-viewed";
@@ -33,15 +36,25 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
   const review = usePendingReview(threadId);
   const feedback = useSendFeedback(threadId);
   const loaded = result?.kind === "ok" ? result : null;
-  const patches = usePatches(threadId, loaded);
-  const viewed = useViewed(threadId, loaded, patches);
+  const sorted = useMemo(
+    () => loaded && { ...loaded, files: [...loaded.files].sort(byPath) },
+    [loaded],
+  );
+  const patches = usePatches(threadId, sorted);
+  const viewed = useViewed(threadId, sorted, patches);
+  const files = sorted?.files ?? NO_FILES;
+  const commentCounts = useMemo(() => countByPath(review.comments), [review.comments]);
+  const paths = useMemo(() => files.map((file) => file.path), [files]);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const navigation = useFileNavigation(scrollArea, content, paths);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="@container flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <TargetPicker target={target} commits={loaded?.commits ?? []} onChange={setTarget} />
-          {loaded !== null && <DiffSummary files={loaded.files} viewed={viewed.counts} />}
+          {loaded !== null && <DiffSummary files={files} viewed={viewed.counts} />}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           {viewed.error !== null && (
@@ -78,24 +91,37 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
           </button>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {result === null ? (
-          <Notice>Loading changes…</Notice>
-        ) : result.kind === "no_git" ? (
-          <Notice>No git repository for this thread</Notice>
-        ) : result.kind === "error" ? (
-          <LoadError message={result.message} retry={refresh} busy={loading} />
-        ) : (
-          <FileList
-            threadId={threadId}
-            changes={result}
-            patches={patches}
-            viewed={viewed}
-            comments={review.comments}
-            openForms={review.openForms}
-            view={view}
+      <div className="flex min-h-0 flex-1">
+        {files.length > 0 && (
+          <FileOutline
+            key={targetKey(target)}
+            files={files}
+            commentCounts={commentCounts}
+            current={navigation.current}
+            onSelect={navigation.jumpTo}
           />
         )}
+        <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
+          <div ref={content}>
+            {result === null ? (
+              <Notice>Loading changes…</Notice>
+            ) : result.kind === "no_git" ? (
+              <Notice>No git repository for this thread</Notice>
+            ) : result.kind === "error" ? (
+              <LoadError message={result.message} retry={refresh} busy={loading} />
+            ) : (
+              <FileList
+                threadId={threadId}
+                changes={sorted ?? result}
+                patches={patches}
+                viewed={viewed}
+                comments={review.comments}
+                openForms={review.openForms}
+                view={view}
+              />
+            )}
+          </div>
+        </div>
       </div>
       {feedback.dialog !== null && (
         <SendFeedbackDialog
@@ -192,6 +218,17 @@ function FileList({
 
 const NONE: readonly PendingComment[] = [];
 const NO_FORMS: readonly OpenForm[] = [];
+const NO_FILES: readonly ChangedFile[] = [];
+
+function countByPath(comments: readonly PendingComment[]): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const { path } of comments) counts.set(path, (counts.get(path) ?? 0) + 1);
+  return counts;
+}
+
+function byPath(a: ChangedFile, b: ChangedFile): number {
+  return compareFilePaths(a.path, b.path);
+}
 
 function fileLines(file: ChangedFile, state: PatchState): FileLines {
   if (file.binary || file.loadMode === "too_large") return "absent";

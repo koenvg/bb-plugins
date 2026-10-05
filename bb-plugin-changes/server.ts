@@ -93,14 +93,17 @@ async function getChanges(
     return {
       kind: "ok",
       query,
-      files: diff.files.map(({ path, previousPath, additions, deletions, binary, loadMode }) => ({
-        path,
-        previousPath,
-        additions,
-        deletions,
-        binary,
-        loadMode,
-      })),
+      files: diff.files.map(
+        ({ path, previousPath, additions, deletions, binary, loadMode, changeKind, origin }) => ({
+          path,
+          previousPath,
+          additions,
+          deletions,
+          binary,
+          loadMode,
+          status: origin === "untracked" ? ("untracked" as const) : changeKind,
+        }),
+      ),
       patches: Object.fromEntries(diff.initialPatches.map(({ path, patch }) => [path, patch])),
       commits,
     };

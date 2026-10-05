@@ -34,6 +34,18 @@ describe("buildReviewPrompt", () => {
     );
   });
 
+  it("lists comments in a subfolder before comments on files of the parent folder", () => {
+    const prompt = buildReviewPrompt([
+      comment("src/b.ts", "additions", 1, "Parent file"),
+      comment("src/ui/a.ts", "additions", 9, "Second in a.ts"),
+      comment("src/ui/a.ts", "deletions", 2, "First in a.ts"),
+    ]);
+
+    expect(prompt).toContain(
+      "1. `src/ui/a.ts:2 (deleted line)` - First in a.ts\n2. `src/ui/a.ts:9` - Second in a.ts\n3. `src/b.ts:1` - Parent file",
+    );
+  });
+
   it("indents the next lines of a multi-line comment under its item", () => {
     const prompt = buildReviewPrompt([
       comment("a.ts", "additions", 1, "First line\nSecond line\n"),

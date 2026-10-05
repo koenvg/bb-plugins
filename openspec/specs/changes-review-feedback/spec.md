@@ -87,7 +87,7 @@ A pending comment whose file or line is not in the current diff SHALL show in a 
 
 ### Requirement: Review prompt
 
-"Send feedback (N)" SHALL show N, the number of pending comments, and SHALL be disabled when N is 0. Clicking it SHALL open a dialog with the review prompt in an editable text box. The prompt SHALL start with "Please address the following review comments:" and list each comment as a numbered line `` `path:line` - text ``, with " (deleted line)" after the line number for old-side comments, in file order and then line order. It SHALL end with an instruction to check each comment against the current code first, fix the valid ones at their location, and explain why for each comment that is invalid, stale, or already addressed.
+"Send feedback (N)" SHALL show N, the number of pending comments, and SHALL be disabled when N is 0. Clicking it SHALL open a dialog with the review prompt in an editable text box. The prompt SHALL start with "Please address the following review comments:" and list each comment as a numbered line `` `path:line` - text ``, with " (deleted line)" after the line number for old-side comments, in file outline order and then line order. It SHALL end with an instruction to check each comment against the current code first, fix the valid ones at their location, and explain why for each comment that is invalid, stale, or already addressed.
 
 #### Scenario: Prompt content
 
@@ -98,6 +98,11 @@ A pending comment whose file or line is not in the current diff SHALL show in a 
 
 - **WHEN** the pending review is empty
 - **THEN** "Send feedback (0)" is disabled
+
+#### Scenario: Folder before file in the prompt
+
+- **WHEN** the pending review has a comment on `src/b.ts` and a comment on `src/ui/a.ts`
+- **THEN** the prompt lists the comment on `src/ui/a.ts` first
 
 ### Requirement: Send the review to the agent
 
