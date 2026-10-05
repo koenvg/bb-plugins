@@ -1,4 +1,6 @@
 {
+  "phase": "Initial host checks before the user-requested creation of Draft PR #92",
+  "markReadyFollowUp": "host-draft-matrix.json",
   "plugin": {
     "id": "github-insight",
     "status": "running",

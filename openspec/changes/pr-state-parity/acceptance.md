@@ -4,10 +4,11 @@
 
 - Change: `pr-state-parity` in `bb-plugin-github-insight`.
 - Baseline: `9fd87e4ef4607b8bbe9430ebd82ff3f91fa4d8db`. The checks below ran on the working-tree implementation before its PR commit.
+- Implementation commit: `b9dc379`. The follow-up PR commit adds only acceptance evidence and task metadata; the installed executable build is unchanged.
 - Plugin version: `0.1.0`. Built with BB `0.44.0` and Plugin SDK `0.5.29`.
 - `dist/app.js` SHA-256: `3a558b3b9d7e64b484413ec68e0bf27d0196415c6fd8e1575232c07d488f665a`.
 - `dist/app.css` SHA-256: `4ab908a5ad660f2344cbfd81438eb5280b0cfe2930b29cd186fc6a6e6340a16d`.
-- The user approved replacing the installed plugin for live host checks. The final build is installed from a stable copy outside the worktree. No live PR was changed during acceptance checks. The prior source remains untouched and is available for rollback.
+- The user approved replacing the installed plugin for live host checks. The final build is installed from a stable copy outside the worktree. Draft PR #92 was created at the user's request before the final host check. No Mark ready, merge, or enqueue action was used during checks. The prior source remains untouched and is available for rollback.
 
 ## Checks passed
 
@@ -54,7 +55,7 @@ Screenshots were inspected after adding the missing base reset to the preview. T
 
 ## Installed host checks
 
-[Host acceptance receipt](evidence/host-acceptance.json) records passed, blocked, skipped, and unverified checks.
+[Initial host acceptance receipt](evidence/host-acceptance.json) records the checks before PR creation. [Final Draft host matrix](evidence/host-draft-matrix.json) records the follow-up after the user requested Draft PR #92.
 
 - The approved install moved plugin `github-insight` from `/Users/koen/workspace/bb-plugins/bb-plugin-github-insight` to `/Users/koen/.bb/local-plugins/github-insight-pr-state-parity.ToPKlb`. This is a complete package/dependency copy, not a reference to a disposable worktree.
 - `bb plugin list` reports `running`, a compatible frontend, and running `pr-poller` and `review-queue` services. Frontend asset generation: `cc69b1134dd5d746`. The installed files and served JavaScript match the final build hashes above.
@@ -62,14 +63,16 @@ Screenshots were inspected after adding the missing base reset to the preview. T
 - Browser: existing Arc, verified as the listener on port 9222. Dedicated Browser Use daemon: `pr-parity-arc-kh5e9-verify`. Owned tab: `4FCF1A221DCD77D31391C28DCDFFF631`, now closed. Checked the current thread in the real BB web host, not the fixture.
 - Real Changed files control was visible and enabled at 1615px and 390px. Activating it opened the actual file list. Activating its README row opened the actual Diff panel at both widths. [Normal-width capture](evidence/host-changed-files-normal.jpg) and [compact capture](evidence/host-changed-files-compact.jpg) show the light-theme controls. The file count increased as evidence files were added.
 - These live functional activations used the real DOM buttons' `click()` handlers. Background Arc pointer/key attempts did not produce a verified UI result and are not counted as keyboard acceptance. The fixture keyboard checks remain recorded separately.
-- Two inspection scripts had selector-string quoting errors and were rerun with corrected quoting. An initial broad Mark ready text match also matched tool transcript buttons; it was discarded. The final exact button-name check found no offered Mark ready control. None of these inspection failures is presented as accepted UI evidence.
-- Live dark-theme media emulation changed the host background to `#202020`, but the control interaction/capture was not repeated in dark mode. The full light/dark presentation matrix remains fixture evidence, not live-host proof.
-- Mark ready remains blocked as stated below. No Mark ready, merge, enqueue, PR-link, or other GitHub write action was used. No suppression failure was established on this no-PR page.
+- Two inspection scripts had selector-string quoting errors and were rerun with corrected quoting. An initial broad Mark ready text match also matched tool transcript buttons; it was discarded. The initial exact button-name check found no offered Mark ready control on the no-PR thread. The later check below uses the user-requested Draft PR. None of these inspection failures is presented as accepted UI evidence.
+- After the user requested PR creation, Draft PR #92 linked to this thread through normal host detection. The final build showed Draft with empty blockers beside the host's Changed files and Mark ready controls in four real-host cases: 1615px and 390px, each in light and dark themes. Each control fit the viewport, was enabled, and passed a hit-target check. Mark ready also appeared as a button in the accessibility tree. It was not activated.
+- Final captures: [light normal](evidence/host-draft-light-normal.jpg), [dark normal](evidence/host-draft-dark-normal.jpg), [light compact](evidence/host-draft-light-compact.jpg), and [dark compact](evidence/host-draft-dark-compact.jpg). All four were inspected. File counts changed as the evidence files were added.
+- The first final-matrix attempt ran before Draft had remounted after resize and failed. The accepted matrix waits for the Draft button. An earlier very narrow split-pane composer also hid Mark ready in the host's tiny-control group; the final normal-width cases use the composer with that panel closed. This does not establish a native-suppression defect, and no suppression CSS was changed.
+- Second owned Arc tab: `FB8B512B3703EA55994B26A400490861`, now closed. Media, device, and focus overrides were cleared before closing it. No Mark ready, merge, enqueue, or PR-link write was used.
 
-## Pending acceptance
+## Acceptance limits
 
-- Task 4.3 is not complete. Real Changed files controls passed with the installed build at normal and compact widths. Mark ready was not offered on the inspected BB thread, which has no linked PR. The inspected candidate environments also reported no linked PR. A read-only GitHub list found Draft PR #85, but no listed BB environment branch matched it. No PR link or live record was changed to create a test case.
-- A user-selected existing BB thread with a linked Draft PR is needed to check an offered Mark ready control. The signed-in browser check used the user's existing Arc session.
+- All 15 OpenSpec tasks are complete. Task 4.3's previously missing offered Mark ready check passed after the user-requested creation of Draft PR #92.
+- Mark ready visibility, enabled state, hit target, and accessibility presence were checked, not its write operation. Live pointer/keyboard activation remains unverified; fixture status/Retry keyboard checks passed. The final live light/dark captures prove presence and layout, not dark-theme Changed files activation. Those activation checks ran in light mode.
 - Native badge suppression remains owned by BBP-113 and `hide-native-pr-badge`. Its CSS was not changed. No new runtime suppression failure is claimed from these fixture checks.
 - Native desktop checks were skipped because they were not requested. Browser evidence does not prove native desktop behavior.
 
@@ -77,4 +80,4 @@ Screenshots were inspected after adding the missing base reset to the preview. T
 
 The headless fixture session was closed after its receipts and four final captures were copied here. Its temporary Vite server was stopped. Temporary preview sources and logs remain at `/tmp/pr-state-parity.UAKuLS` for debugging; they are not installed or part of the package build.
 
-The task-created Arc tab was also closed. Its media, device, and focus overrides were cleared first. Existing tabs, cookies, and logins were preserved. The approved final plugin build remains installed from the stable copy recorded above. The old source and backup were retained; no rollback was needed.
+Both task-created Arc tabs were also closed. Their media, device, and focus overrides were cleared first. Existing tabs, cookies, and logins were preserved. The approved final plugin build remains installed from the stable copy recorded above. The old source and backup were retained; no rollback was needed.
