@@ -83,6 +83,6 @@ describe("conditional guidance", () => {
       (await replacement.harness.behavior.resolveAgentConfiguration(context("proj_a")))
         .instructions ?? "";
     expect(defaultText).toBe(defaultGuidance("proj_a"));
-    expect(defaultText.match(/Code Cleanup for project/g)).toHaveLength(1);
+    expect(defaultText.match(/Code Cleanup for BB project/g)).toHaveLength(1);
   });
 });

@@ -67,9 +67,11 @@ npm test
 
 Use the same commands in any other plugin directory. Tests run once rather than watching for changes. Tasks Plus also needs the SQLite CLI on `PATH`; check it with `sqlite3 --version`. On Ubuntu, install it with `sudo apt-get update && sudo apt-get install -y sqlite3`. These test commands do not require a BB installation or account credentials.
 
+For Tasks Plus, run `npm ci` followed by `npm run lint` in `bb-plugin-tasks-plus`. Oxlint remains a locked development dependency; its lint command uses the shared repository config, with no global lint binary required.
+
 ## GitHub Actions
 
-The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci` and `npm test` commands shown above. CI installs the SQLite CLI for Tasks Plus.
+The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci` and `npm test` commands shown above. CI installs the SQLite CLI for Tasks Plus and also runs its `npm run lint` command with the local Oxlint dependency.
 
 A failed plugin check does not cancel the other plugin checks. New commits cancel superseded runs for the same pull request or branch. Approved fork pull requests run without repository secrets or write permissions; GitHub may require maintainer approval before they start.
 

@@ -80,6 +80,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint Tasks Plus
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        run: npm run lint
+
       - name: Install PR thread list integration dependencies
         if: matrix.plugin == 'bb-plugin-github-insight'
         run: npm ci --prefix ../bb-plugin-pr-thread-list

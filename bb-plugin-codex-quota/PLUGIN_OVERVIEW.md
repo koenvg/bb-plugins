@@ -1,4 +1,4 @@
-The selected-host Pi Codex OAuth and quota endpoint, sidebar badge, and dashboard passed installed acceptance on BB 0.43.4 with Provider usage disabled. See [ACCEPTANCE.md](ACCEPTANCE.md).
+The selected-host Pi Codex OAuth and quota endpoint, sidebar badge, and dashboard passed installed acceptance on BB 0.43.4 with Provider usage disabled.
 
 ## Account view
 

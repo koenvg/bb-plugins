@@ -7,7 +7,8 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "noEmit": true,
+    "jsx": "react-jsx",
     "skipLibCheck": false
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "*.tsx", "preview/**/*.ts", "preview/**/*.tsx"]
 }

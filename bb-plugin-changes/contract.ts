@@ -7,6 +7,11 @@ import {
   patchesResultSchema,
   sendFeedbackResultSchema,
 } from "./core/changes";
+import {
+  getViewedResultSchema,
+  updateViewedResultSchema,
+  viewedMarksSchema,
+} from "./core/viewed-files";
 
 export const rpcContract = defineRpcContract({
   getChanges: {
@@ -26,5 +31,20 @@ export const rpcContract = defineRpcContract({
   sendFeedback: {
     input: z.object({ threadId: z.string().min(1), text: z.string().regex(/\S/) }).strict(),
     output: sendFeedbackResultSchema,
+  },
+  getViewed: {
+    input: z.object({ threadId: z.string().min(1), target: diffTargetSchema }).strict(),
+    output: getViewedResultSchema,
+  },
+  updateViewed: {
+    input: z
+      .object({
+        threadId: z.string().min(1),
+        target: diffTargetSchema,
+        set: viewedMarksSchema,
+        remove: z.array(z.string()),
+      })
+      .strict(),
+    output: updateViewedResultSchema,
   },
 });

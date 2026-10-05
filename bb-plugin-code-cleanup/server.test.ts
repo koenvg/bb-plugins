@@ -95,9 +95,11 @@ describe("project management CLI", () => {
     const root = await host.harness.behavior.runCli(["--help"]);
     expect(root.exitCode).toBe(0);
     expect(root.stdout).toContain("prompt set");
+    expect(root.stdout).toContain("enablement reset");
     for (const args of [
       ["prompt", "set", "--help"],
       ["show", "--help"],
+      ["enablement", "reset", "--help"],
     ]) {
       const result = await host.harness.behavior.runCli(args);
       expect(result.exitCode).toBe(0);

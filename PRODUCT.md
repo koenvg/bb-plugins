@@ -55,7 +55,6 @@ Current plugins:
 ## Evidence on Hand
 
 - Per-plugin README.md and PLUGIN_OVERVIEW.md.
-- `bb-plugin-codex-quota/ACCEPTANCE.md`: installed acceptance on BB 0.43.4.
 - `bb-plugin-liquid-glass/COMPATIBILITY.md`: observed host hooks and validation.
 - `openspec/specs` and `openspec/changes`: specs per capability.
 - No user counts, testimonials, or marketplace listings exist. Do not invent them.

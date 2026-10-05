@@ -7,7 +7,7 @@ import { DiffStat } from "../../review-ui/diff-stat";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../review-ui/styles";
 import type { DiffView } from "../../review-ui/review-file-diff";
 import type { rpcContract } from "../contract";
-import type { BranchCommit, ChangedFile, DiffTarget } from "../core/changes";
+import { targetKey, type BranchCommit, type ChangedFile, type DiffTarget } from "../core/changes";
 import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
 import { placeByAnchor, type FileLines } from "../core/place-comments";
 import { buildReviewPrompt, sortComments } from "../core/review-prompt";
@@ -16,8 +16,9 @@ import { FileSection } from "./file-section";
 import { NotInDiff } from "./not-in-diff";
 import { SendFeedbackDialog } from "./send-feedback-dialog";
 import { useChanges } from "./use-changes";
-import { usePatches, type LoadedChanges, type PatchState } from "./use-patches";
+import { usePatches, type LoadedChanges, type PatchState, type Patches } from "./use-patches";
 import { usePendingReview } from "./use-pending-review";
+import { useViewed, type Viewed } from "./use-viewed";
 
 export function ChangesTab({ threadId }: { threadId: string }) {
   return <ChangesTabContent key={threadId} threadId={threadId} />;
@@ -32,15 +33,22 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
   const review = usePendingReview(threadId);
   const feedback = useSendFeedback(threadId);
   const loaded = result?.kind === "ok" ? result : null;
+  const patches = usePatches(threadId, loaded);
+  const viewed = useViewed(threadId, loaded, patches);
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <TargetPicker target={target} commits={loaded?.commits ?? []} onChange={setTarget} />
-          {loaded !== null && <DiffSummary files={loaded.files} />}
+          {loaded !== null && <DiffSummary files={loaded.files} viewed={viewed.counts} />}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
+          {viewed.error !== null && (
+            <span role="alert" className="mr-1.5 text-xs text-destructive">
+              {viewed.error}
+            </span>
+          )}
           {feedback.status !== null && (
             <span role="status" className="mr-1.5 text-xs text-muted-foreground">
               {feedback.status}
@@ -81,6 +89,8 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
           <FileList
             threadId={threadId}
             changes={result}
+            patches={patches}
+            viewed={viewed}
             comments={review.comments}
             openForms={review.openForms}
             view={view}
@@ -103,13 +113,22 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
 interface FileListProps {
   threadId: string;
   changes: LoadedChanges;
+  patches: Patches;
+  viewed: Viewed;
   comments: readonly PendingComment[];
   openForms: ReadonlyMap<string, OpenForm>;
   view: DiffView;
 }
 
-function FileList({ threadId, changes, comments, openForms, view }: FileListProps) {
-  const patches = usePatches(threadId, changes);
+function FileList({
+  threadId,
+  changes,
+  patches,
+  viewed,
+  comments,
+  openForms,
+  view,
+}: FileListProps) {
   const linesByPath = useMemo(
     () =>
       new Map(
@@ -163,6 +182,7 @@ function FileList({ threadId, changes, comments, openForms, view }: FileListProp
             comments={placedComments.byPath.get(file.path) ?? NONE}
             openForms={placedForms.byPath.get(file.path) ?? NO_FORMS}
             view={view}
+            viewed={viewed.of(file.path)}
           />
         );
       })}
@@ -243,10 +263,6 @@ function parseTarget(value: string): DiffTarget {
   return ALL_CHANGES;
 }
 
-function targetValue(target: DiffTarget): string {
-  return target.kind === "commit" ? `commit:${target.sha}` : target.kind;
-}
-
 function TargetPicker({
   target,
   commits,
@@ -262,7 +278,7 @@ function TargetPicker({
     <select
       aria-label="Diff target"
       className="h-7 rounded-md border border-border bg-background px-2 text-xs"
-      value={targetValue(target)}
+      value={targetKey(target)}
       onChange={(event) => onChange(parseTarget(event.target.value))}
     >
       {STATIC_TARGETS.map(({ value, label }) => (
@@ -270,9 +286,7 @@ function TargetPicker({
           {label}
         </option>
       ))}
-      {selectedCommitMissing && (
-        <option value={targetValue(target)}>{target.sha.slice(0, 7)}</option>
-      )}
+      {selectedCommitMissing && <option value={targetKey(target)}>{target.sha.slice(0, 7)}</option>}
       {commits.map((commit) => (
         <option key={commit.sha} value={`commit:${commit.sha}`}>
           {commit.shortSha} {commit.subject}
@@ -317,7 +331,13 @@ function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffV
   );
 }
 
-function DiffSummary({ files }: { files: readonly ChangedFile[] }) {
+function DiffSummary({
+  files,
+  viewed,
+}: {
+  files: readonly ChangedFile[];
+  viewed: { viewed: number; markable: number } | null;
+}) {
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
   return (
@@ -327,6 +347,11 @@ function DiffSummary({ files }: { files: readonly ChangedFile[] }) {
     >
       {files.length} {files.length === 1 ? "file" : "files"}
       <DiffStat additions={additions} deletions={deletions} />
+      {viewed !== null && viewed.markable > 0 && (
+        <span>
+          {viewed.viewed}/{viewed.markable} viewed
+        </span>
+      )}
     </span>
   );
 }

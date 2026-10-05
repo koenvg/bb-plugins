@@ -12,6 +12,7 @@ import type {
   PatchesResult,
   SendFeedbackResult,
 } from "../core/changes";
+import { patchIdentity, type GetViewedResult, type UpdateViewedResult } from "../core/viewed-files";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -19,15 +20,27 @@ vi.mock("@pierre/diffs/react", () => ({
     options,
     lineAnnotations = [],
     renderAnnotation,
+    renderHeaderPrefix,
     renderHeaderMetadata,
   }: {
     fileDiff: FileDiffMetadata;
-    options: { diffStyle?: string; onGutterUtilityClick?: (range: SelectedLineRange) => void };
+    options: {
+      diffStyle?: string;
+      collapsed?: boolean;
+      onGutterUtilityClick?: (range: SelectedLineRange) => void;
+    };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
+    renderHeaderPrefix?: () => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
   }) => (
-    <div data-testid="file-diff" data-path={fileDiff.name} data-diff-style={options.diffStyle}>
+    <div
+      data-testid="file-diff"
+      data-path={fileDiff.name}
+      data-diff-style={options.diffStyle}
+      data-collapsed={String(options.collapsed ?? false)}
+    >
+      {renderHeaderPrefix?.()}
       <span>{fileDiff.prevName}</span>
       {renderHeaderMetadata?.()}
       {(["additions", "deletions"] as const).flatMap((side) =>
@@ -109,6 +122,8 @@ interface Handlers {
   getChanges?: (input: unknown) => ChangesResult | Promise<ChangesResult>;
   getPatches?: (input: { paths: string[] }) => PatchesResult | Promise<PatchesResult>;
   sendFeedback?: (input: { text: string }) => SendFeedbackResult | Promise<SendFeedbackResult>;
+  getViewed?: (input: { target: unknown }) => GetViewedResult | Promise<GetViewedResult>;
+  updateViewed?: () => UpdateViewedResult | Promise<UpdateViewedResult>;
 }
 
 function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
@@ -127,6 +142,8 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
             ),
           })),
         sendFeedback: handlers.sendFeedback ?? (() => ({ kind: "sent", delivery: "sent" })),
+        getViewed: handlers.getViewed ?? (() => ({ kind: "ok", marks: {} })),
+        updateViewed: handlers.updateViewed ?? (() => ({ kind: "ok" })),
       },
     },
   );
@@ -156,7 +173,9 @@ describe("Changes tab", () => {
   it("loads all changes of its thread and shows the summary", async () => {
     const slot = renderTab();
 
-    expect((await slot.findByTestId("diff-summary")).textContent).toBe("1 file+34-5");
+    await waitFor(() =>
+      expect(slot.getByTestId("diff-summary").textContent).toBe("1 file+34-50/1 viewed"),
+    );
     expect((slot.getByRole("combobox", { name: "Diff target" }) as HTMLSelectElement).value).toBe(
       "all",
     );
@@ -174,7 +193,9 @@ describe("Changes tab", () => {
         ]),
     });
 
-    expect((await slot.findByTestId("diff-summary")).textContent).toBe("2 files+34-5");
+    await waitFor(() =>
+      expect(slot.getByTestId("diff-summary").textContent).toBe("2 files+34-50/2 viewed"),
+    );
   });
 
   it("shows Binary file and Diff too large instead of a diff", async () => {
@@ -541,5 +562,194 @@ describe("send feedback", () => {
       ((await slot.findByRole("textbox", { name: "Review prompt" })) as HTMLTextAreaElement).value,
     ).toContain("`src/a.ts:2` - x");
     expect(callsTo(slot, "sendFeedback")).toEqual([]);
+  });
+});
+
+describe("Viewed files", () => {
+  const PATCH_B = PATCH_A.replace("+new", "+newer");
+  const A_LOADED = changes([file("src/a.ts")], { patches: { "src/a.ts": PATCH_A } });
+  const VIEWED_A: GetViewedResult = { kind: "ok", marks: { "src/a.ts": patchIdentity(PATCH_A) } };
+
+  function diffOf(slot: Slot, path = "src/a.ts") {
+    return slot.getAllByTestId("file-diff").find((diff) => diff.dataset.path === path)!;
+  }
+
+  function checkbox(slot: Slot, path = "src/a.ts") {
+    return slot.getByRole("checkbox", { name: `Viewed ${path}` }) as HTMLInputElement;
+  }
+
+  async function viewedTab(handlers: Handlers = {}, threadId?: string) {
+    const slot = renderTab(
+      { getChanges: () => A_LOADED, getViewed: () => VIEWED_A, ...handlers },
+      threadId,
+    );
+    await waitFor(() => expect(checkbox(slot).checked).toBe(true));
+    return slot;
+  }
+
+  it("collapses a file and saves its patch identity when the user checks Viewed", async () => {
+    const slot = renderTab({ getChanges: () => A_LOADED });
+    await waitFor(() => expect(checkbox(slot).disabled).toBe(false));
+
+    fireEvent.click(checkbox(slot));
+
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+    expect(slot.getByTestId("diff-summary").textContent).toContain("1/1 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([
+      {
+        threadId: slot.threadId,
+        target: { kind: "all" },
+        set: { "src/a.ts": patchIdentity(PATCH_A) },
+        remove: [],
+      },
+    ]);
+  });
+
+  it("shows a stored mark collapsed and expands the file when the user unchecks Viewed", async () => {
+    const slot = await viewedTab();
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+
+    fireEvent.click(checkbox(slot));
+
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
+    expect(callsTo(slot, "updateViewed")).toEqual([
+      { threadId: slot.threadId, target: { kind: "all" }, set: {}, remove: ["src/a.ts"] },
+    ]);
+  });
+
+  it("has no Viewed checkbox and no counter for binary and too large files", async () => {
+    const slot = renderTab({
+      getChanges: () =>
+        changes([file("logo.png", { binary: true }), file("big.json", { loadMode: "too_large" })]),
+    });
+
+    await slot.findByText("Binary file");
+    await waitFor(() => expect(callsTo(slot, "getViewed")).toHaveLength(1));
+
+    expect(slot.queryByRole("checkbox")).toBeNull();
+    expect(slot.getByTestId("diff-summary").textContent).not.toContain("viewed");
+  });
+
+  it("expands a viewed file without a change to the mark or the counter", async () => {
+    const slot = await viewedTab();
+
+    fireEvent.click(slot.getByRole("button", { name: "Expand src/a.ts" }));
+
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
+    expect(checkbox(slot).checked).toBe(true);
+    expect(slot.getByTestId("diff-summary").textContent).toContain("1/1 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("collapses a file that is not viewed and keeps it not viewed", async () => {
+    const slot = renderTab({ getChanges: () => A_LOADED });
+    await waitFor(() => expect(checkbox(slot).disabled).toBe(false));
+
+    fireEvent.click(slot.getByRole("button", { name: "Collapse src/a.ts" }));
+
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+    expect(checkbox(slot).checked).toBe(false);
+  });
+
+  it("collapses an expanded viewed file again when the user unchecks and checks Viewed", async () => {
+    const slot = await viewedTab();
+    fireEvent.click(slot.getByRole("button", { name: "Expand src/a.ts" }));
+
+    fireEvent.click(checkbox(slot));
+    fireEvent.click(checkbox(slot));
+
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+  });
+
+  it("keeps an expanded viewed file expanded after the tab unmounts and mounts again", async () => {
+    const first = await viewedTab();
+    fireEvent.click(first.getByRole("button", { name: "Expand src/a.ts" }));
+    first.unmount();
+
+    const second = renderTab({ getChanges: () => A_LOADED }, first.threadId);
+
+    await waitFor(() => expect(checkbox(second).checked).toBe(true));
+    expect(diffOf(second).dataset.collapsed).toBe("false");
+  });
+
+  it("drops the mark and expands the file when its patch changes", async () => {
+    let load = 0;
+    const slot = await viewedTab({
+      getChanges: () =>
+        changes([file("src/a.ts")], { patches: { "src/a.ts": load++ === 0 ? PATCH_A : PATCH_B } }),
+    });
+    fireEvent.click(slot.getByRole("button", { name: "Expand src/a.ts" }));
+    fireEvent.click(slot.getByRole("button", { name: "Collapse src/a.ts" }));
+
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(checkbox(slot).checked).toBe(false));
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
+    expect(slot.getByTestId("diff-summary").textContent).toContain("0/1 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([
+      { threadId: slot.threadId, target: { kind: "all" }, set: {}, remove: ["src/a.ts"] },
+    ]);
+  });
+
+  it("drops the mark of a file that left the diff", async () => {
+    const slot = renderTab({
+      getChanges: () => A_LOADED,
+      getViewed: () => ({ kind: "ok", marks: { "src/gone.ts": patchIdentity(PATCH_A) } }),
+    });
+
+    await waitFor(() =>
+      expect(callsTo(slot, "updateViewed")).toEqual([
+        { threadId: slot.threadId, target: { kind: "all" }, set: {}, remove: ["src/gone.ts"] },
+      ]),
+    );
+  });
+
+  it("keeps the marks when a refresh fails", async () => {
+    let load = 0;
+    const slot = await viewedTab({
+      getChanges: () => (load++ === 0 ? A_LOADED : { kind: "error", message: "permission denied" }),
+    });
+
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+
+    await slot.findByText("permission denied");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("keeps marks per diff target", async () => {
+    const slot = await viewedTab({
+      getChanges: (input) =>
+        (input as { target: { kind: string } }).target.kind === "uncommitted"
+          ? { ...A_LOADED, query: { target: "uncommitted" } }
+          : A_LOADED,
+      getViewed: ({ target }) =>
+        (target as { kind: string }).kind === "all" ? VIEWED_A : { kind: "ok", marks: {} },
+    });
+
+    fireEvent.change(slot.getByRole("combobox", { name: "Diff target" }), {
+      target: { value: "uncommitted" },
+    });
+
+    await waitFor(() =>
+      expect(callsTo(slot, "getViewed")).toContainEqual({
+        threadId: slot.threadId,
+        target: { kind: "uncommitted" },
+      }),
+    );
+    await waitFor(() => expect(checkbox(slot).checked).toBe(false));
+  });
+
+  it("puts the checkbox back and shows the error when the save fails", async () => {
+    const slot = renderTab({
+      getChanges: () => A_LOADED,
+      updateViewed: () => ({ kind: "error", message: "disk full" }),
+    });
+    await waitFor(() => expect(checkbox(slot).disabled).toBe(false));
+
+    fireEvent.click(checkbox(slot));
+
+    expect(await slot.findByText("Could not save viewed state: disk full")).toBeTruthy();
+    expect(checkbox(slot).checked).toBe(false);
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
   });
 });
