@@ -750,7 +750,8 @@ test.each([2, 3, 4])(
         ).reason,
         damage,
       ).toBe("storage-incompatible");
-      expect(await readFile(f.path), damage).toEqual(before);
+      // Compare every SQLite byte without deep object equality's Buffer overhead.
+      expect((await readFile(f.path)).equals(before), damage).toBe(true);
       expect(await readdir(f.directory), damage).toEqual(files);
       expect(await readFile(join(f.directory, "collector-control-v1.json")), damage).toEqual(
         control,
