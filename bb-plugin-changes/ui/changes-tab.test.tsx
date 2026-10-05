@@ -683,12 +683,14 @@ describe("Viewed files", () => {
 
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
 
-    await waitFor(() => expect(checkbox(slot).checked).toBe(false));
-    expect(diffOf(slot).dataset.collapsed).toBe("false");
-    expect(slot.getByTestId("diff-summary").textContent).toContain("0/1 viewed");
-    expect(callsTo(slot, "updateViewed")).toEqual([
-      { threadId: slot.threadId, target: { kind: "all" }, set: {}, remove: ["src/a.ts"] },
-    ]);
+    await waitFor(() => {
+      expect(checkbox(slot).checked).toBe(false);
+      expect(diffOf(slot).dataset.collapsed).toBe("false");
+      expect(slot.getByTestId("diff-summary").textContent).toContain("0/1 viewed");
+      expect(callsTo(slot, "updateViewed")).toEqual([
+        { threadId: slot.threadId, target: { kind: "all" }, set: {}, remove: ["src/a.ts"] },
+      ]);
+    });
   });
 
   it("drops the mark of a file that left the diff", async () => {
