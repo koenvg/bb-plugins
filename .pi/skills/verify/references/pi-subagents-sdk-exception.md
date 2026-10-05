@@ -4,7 +4,7 @@ This is the only approved exception to the SDK checker gate in this project. It 
 
 ## Approval and scope
 
-The operator approved this exception in [parent thread](bbthread://thr_ayuie4fy3w):
+The operator approved this exception in the parent coordination thread:
 
 > Do you approve this exception for pi-subagents only? It would not authorize installation or paid tests.
 
@@ -12,7 +12,7 @@ The operator answered `yes`. The approved terms require matching SDK versions, t
 
 Scope is this BB Plugins project, `proj_gjz4e6jtmg`, package `bb-plugin-pi-subagents-provider`, plugin ID `pi-subagents-provider`, provider ID `pi-subagents`, with BB **0.44.0** and SDK **0.5.29**. Approval does not extend to another package/provider, another project, or any other BB/SDK version. New cases need explicit approval and evidence.
 
-The [diagnostic investigation](bbthread://thr_qg5tdt8479) found no supported current-instance solution under the original mandatory gate. This policy exception is the resolution. Server activation remains untested.
+The diagnostic investigation found no supported current-instance solution under the original mandatory gate. This policy exception is the resolution. Server activation remains untested.
 
 ## Accept only when every condition holds
 
