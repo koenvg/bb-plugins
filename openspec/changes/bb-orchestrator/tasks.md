@@ -49,4 +49,4 @@ BBP-86 verified original section 7 with isolated renderer and corrected offline 
 - [x] Keep all new orchestration agent input deferred. Register bookkeeping recovery without execution/admission/delivery callbacks. Preserve original-child and released-owner history.
 - [x] Verify focused/full/static/build/package checks and isolated production approval UI/manual record behavior. See orchestration/manual-first-verification.md and task attachments for checks and limits.
 - [x] Received the one read-only whole-feature review from epic baseline e06bfb1ef19a338f68bca0fc1b99bea425a6ab63. Resolved all three findings and reran affected checks without a second review.
-Local delivery, capability-free attachments, coordinator handoff, BBP-42 status and worker detachment are recorded in the BBP-42 task attachments after the source checks pass. BBP-33 status remains the parent's decision.
+      Local delivery, capability-free attachments, coordinator handoff, BBP-42 status and worker detachment are recorded in the BBP-42 task attachments after the source checks pass. BBP-33 status remains the parent's decision.
