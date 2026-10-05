@@ -1,11 +1,11 @@
 // Isolated synthetic preview only. No BB connection, auth, collectors, transcript reads, or live network.
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { QuotaDashboard } from "../quota-view.js";
-import { AccountActivity } from "../activity-view.js";
-import { normalizeActivity } from "../activity.js";
-import type { ActivityApi } from "../activity-request-state.js";
-import { HistoryReadinessPanel } from "../history-view.js";
+import { QuotaDashboard } from "../src/quota/quota-view.js";
+import { AccountActivity } from "../src/activity/activity-view.js";
+import { normalizeActivity } from "../src/activity/activity.js";
+import type { ActivityApi } from "../src/activity/activity-request-state.js";
+import { HistoryReadinessPanel } from "../src/history/history-view.js";
 const now = Date.now();
 let activityCalls = 0;
 const read: ActivityApi = async () => {

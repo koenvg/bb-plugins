@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
-import { QuotaDashboard } from "../quota-view.js";
-import { HistoryReadinessPanel } from "../history-view.js";
-import type { ImportView } from "../import-contract.js";
+import { QuotaDashboard } from "../src/quota/quota-view.js";
+import { HistoryReadinessPanel } from "../src/history/history-view.js";
+import type { ImportView } from "../src/history/import/import-contract.js";
 const view: ImportView = {
   reason: "ok",
   configuration: {

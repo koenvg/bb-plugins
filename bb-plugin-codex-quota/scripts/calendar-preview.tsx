@@ -1,11 +1,11 @@
 // Owned synthetic React preview. No BB installation, host, account or transcript access.
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { QuotaDashboard } from "../quota-view.js";
-import { CalendarReportPanel } from "../calendar-panel.js";
-import { calendarSnapshot } from "../calendar-test-support.js";
-import { shiftDate } from "../calendar-time.js";
-import { comparisonReasons } from "../calendar-comparison.js";
+import { QuotaDashboard } from "../src/quota/quota-view.js";
+import { CalendarReportPanel } from "../src/history/calendar/calendar-panel.js";
+import { calendarSnapshot } from "../src/history/calendar/calendar-test-support.js";
+import { shiftDate } from "../src/history/calendar/calendar-time.js";
+import { comparisonReasons } from "../src/history/calendar/calendar-comparison.js";
 const params = new URLSearchParams(location.search),
   state = params.get("state") ?? "partial",
   now = Date.parse("2026-10-01T12:00:00Z");

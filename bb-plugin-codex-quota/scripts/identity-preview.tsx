@@ -1,9 +1,9 @@
 // Synthetic UI only. No SDK, host state, credentials or transcripts.
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { QuotaDashboard } from "../quota-view.js";
-import { HistoryReadinessPanel } from "../history-view.js";
-import type { HistoryReadiness } from "../history-contract.js";
+import { QuotaDashboard } from "../src/quota/quota-view.js";
+import { HistoryReadinessPanel } from "../src/history/history-view.js";
+import type { HistoryReadiness } from "../src/history/history-contract.js";
 export const syntheticHistory: HistoryReadiness = {
   state: "available",
   reason: "ok",
