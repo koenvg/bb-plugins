@@ -1,4 +1,4 @@
-import { useBbNavigate, useComposerView } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useComposer } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { MergeActionButton, MergeConfirmation } from "./merge-action-button";
@@ -13,7 +13,7 @@ const TEXT_BUTTON_CLASS =
   "flex min-h-8 min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
 export function ComposerBanner() {
-  const { scope } = useComposerView();
+  const { scope } = useComposer();
   if (scope.kind !== "thread") return null;
   return <ThreadBanner key={scope.threadId} threadId={scope.threadId} />;
 }

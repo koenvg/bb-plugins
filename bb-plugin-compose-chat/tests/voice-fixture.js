@@ -34,13 +34,19 @@ export function installVoiceFixture({ form, input, commands }) {
     controls.dataset.voiceTransition = "active";
     controls.innerHTML = `<button type="button" aria-label="${transcribing ? "Cancel transcription" : "Cancel recording"}">Cancel</button>
       <span>${transcribing ? "Transcribing" : "Synthetic recording"}</span>
-      <button type="button" aria-label="${transcribing ? "Transcribing voice input" : "Stop and transcribe recording"}" ${transcribing ? "disabled" : ""}>Confirm</button>`;
+      <button type="button" aria-label="${transcribing ? "Transcribing voice input" : "Stop and add to draft"}" ${transcribing ? "disabled" : ""}>Confirm</button>`;
+    const send = document.createElement("button");
+    send.type = "button";
+    send.setAttribute("aria-label", transcribing ? "Transcribing and sending" : "Send voice input");
+    send.disabled = transcribing;
+    send.onclick = () => form.requestSubmit();
+    controls.append(send);
     form.querySelector("[data-promptbox-action-row]").append(controls);
     controls.querySelector("button").onclick = () => {
       cancels++;
       finish();
     };
-    controls.querySelector("button:last-child").onclick = () => {
+    controls.querySelectorAll("button")[1].onclick = () => {
       confirms++;
       recording(true);
     };

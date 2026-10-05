@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
-import { useComposerView } from "@get-bb/plugin-sdk/app";
+import { useComposer } from "@get-bb/plugin-sdk/app";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { InsightResult, rpcContract } from "../contract";
@@ -146,7 +146,7 @@ it("opens a visible compact PR panel when the destination mounts", async () => {
   const Banner = banner.component;
   let openDrawer = () => false;
   function CompactHost() {
-    const { scope } = useComposerView();
+    const { scope } = useComposer();
     const threadId = scope.kind === "thread" ? scope.threadId : null;
     const [drawerThreadId, setDrawerThreadId] = useState<string | null>(null);
     // BB resets its transient drawer on thread changes in a parent effect.

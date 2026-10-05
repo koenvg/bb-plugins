@@ -784,110 +784,113 @@ describe("bb tasks CLI", () => {
     await harness.dispose();
   });
 
-  it("creates, updates, lists, and deletes delegation presets", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        hosts: {
-          list: async () => [
-            { id: "host_air", name: "Sawyer Air" },
-            { id: "host_box", name: "Build box" },
-          ],
+  it.each(["fast", "priority"])(
+    "creates, updates, lists, and deletes presets with tier %s",
+    async (serviceTier) => {
+      const { bb, harness } = createFakePluginHost({
+        pluginId: "tasks",
+        sdk: {
+          hosts: {
+            list: async () => [
+              { id: "host_air", name: "Sawyer Air" },
+              { id: "host_box", name: "Build box" },
+            ],
+          },
         },
-      },
-    });
-    await plugin(bb);
+      });
+      await plugin(bb);
 
-    const created = JSON.parse(
-      stdout(
-        await harness.runCli([
-          "preset",
-          "create",
-          "--name",
-          "CLI worker",
-          "--provider",
-          "codex",
-          "--model",
-          "gpt-5.6-sol",
-          "--reasoning",
-          "high",
-          "--service-tier",
-          "fast",
-          "--permission",
-          "accept-edits",
-          "--environment",
-          "worktree",
-          "--base-branch",
-          "main",
-          "--machine",
-          "Sawyer Air",
-          "--instructions",
-          "Start with the failing test.",
-          "--json",
-        ]),
-      ),
-    ).preset;
-    expect(created).toMatchObject({
-      name: "CLI worker",
-      providerId: "codex",
-      modelId: "gpt-5.6-sol",
-      reasoningLevel: "high",
-      serviceTier: "fast",
-      permissionMode: "accept-edits",
-      environmentKind: "new-worktree",
-      baseBranch: "main",
-      machineId: "host_air",
-      builtin: false,
-    });
-    const shown = stdout(await harness.runCli(["preset", "show", "CLI worker"]));
-    expect(shown).toContain("Environment   worktree");
-    expect(shown).toContain("Base branch   main");
-    expect(shown).toContain("Machine       host_air");
-    expect(shown).toContain("Service tier  fast");
+      const created = JSON.parse(
+        stdout(
+          await harness.runCli([
+            "preset",
+            "create",
+            "--name",
+            "CLI worker",
+            "--provider",
+            "codex",
+            "--model",
+            "gpt-5.6-sol",
+            "--reasoning",
+            "high",
+            "--service-tier",
+            serviceTier,
+            "--permission",
+            "accept-edits",
+            "--environment",
+            "worktree",
+            "--base-branch",
+            "main",
+            "--machine",
+            "Sawyer Air",
+            "--instructions",
+            "Start with the failing test.",
+            "--json",
+          ]),
+        ),
+      ).preset;
+      expect(created).toMatchObject({
+        name: "CLI worker",
+        providerId: "codex",
+        modelId: "gpt-5.6-sol",
+        reasoningLevel: "high",
+        serviceTier: serviceTier,
+        permissionMode: "accept-edits",
+        environmentKind: "new-worktree",
+        baseBranch: "main",
+        machineId: "host_air",
+        builtin: false,
+      });
+      const shown = stdout(await harness.runCli(["preset", "show", "CLI worker"]));
+      expect(shown).toContain("Environment   worktree");
+      expect(shown).toContain("Base branch   main");
+      expect(shown).toContain("Machine       host_air");
+      expect(shown).toContain(`Service tier  ${serviceTier}`);
 
-    const updated = JSON.parse(
-      stdout(
-        await harness.runCli([
-          "preset",
-          "update",
-          "CLI worker",
-          "--reasoning",
-          "ultra",
-          "--service-tier",
-          "none",
-          "--name",
-          "CLI reviewer",
-          "--environment",
-          "project-default",
-          "--json",
-        ]),
-      ),
-    ).preset;
-    expect(updated).toMatchObject({
-      id: created.id,
-      name: "CLI reviewer",
-      reasoningLevel: "ultra",
-      serviceTier: null,
-      environmentKind: "project-default",
-      baseBranch: null,
-      machineId: null,
-    });
+      const updated = JSON.parse(
+        stdout(
+          await harness.runCli([
+            "preset",
+            "update",
+            "CLI worker",
+            "--reasoning",
+            "ultra",
+            "--service-tier",
+            "none",
+            "--name",
+            "CLI reviewer",
+            "--environment",
+            "project-default",
+            "--json",
+          ]),
+        ),
+      ).preset;
+      expect(updated).toMatchObject({
+        id: created.id,
+        name: "CLI reviewer",
+        reasoningLevel: "ultra",
+        serviceTier: null,
+        environmentKind: "project-default",
+        baseBranch: null,
+        machineId: null,
+      });
 
-    const listTable = stdout(await harness.runCli(["preset", "list"]));
-    expect(listTable).toContain("ENVIRONMENT");
-    expect(listTable).toContain("BASE BRANCH");
-    expect(listTable).toContain("MACHINE");
-    expect(listTable).toContain("SERVICE TIER");
+      const listTable = stdout(await harness.runCli(["preset", "list"]));
+      expect(listTable).toContain("ENVIRONMENT");
+      expect(listTable).toContain("BASE BRANCH");
+      expect(listTable).toContain("MACHINE");
+      expect(listTable).toContain("SERVICE TIER");
 
-    const listed = JSON.parse(stdout(await harness.runCli(["preset", "list", "--json"]))).presets;
-    expect(listed).toEqual([expect.objectContaining({ id: created.id, name: "CLI reviewer" })]);
+      const listed = JSON.parse(stdout(await harness.runCli(["preset", "list", "--json"]))).presets;
+      expect(listed).toEqual([expect.objectContaining({ id: created.id, name: "CLI reviewer" })]);
 
-    expect(
-      JSON.parse(stdout(await harness.runCli(["preset", "delete", "CLI reviewer", "--json"]))),
-    ).toMatchObject({ deleted: true, preset: { id: created.id } });
+      expect(
+        JSON.parse(stdout(await harness.runCli(["preset", "delete", "CLI reviewer", "--json"]))),
+      ).toMatchObject({ deleted: true, preset: { id: created.id } });
 
-    await harness.dispose();
-  });
+      await harness.dispose();
+    },
+  );
 
   it("reports friendly preset target validation errors", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });

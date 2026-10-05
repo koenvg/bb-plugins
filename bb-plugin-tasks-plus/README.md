@@ -5,6 +5,8 @@ agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
 subtasks, Markdown comments, attachments, agent presets, and a full CLI.
 
+The package targets BB 0.45 and SDK 0.6.15. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. Orchestration activation and native-origin reporting remain restricted to their earlier verified Pi/BB 0.44 path pending [BBP-140](bbtask://BBP-140). See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
+
 ## Manual-first orchestration
 
 The bundled `bb-orchestrator` skill reads compact status and manages approved scope records. Begin/resume require the retained exact invocation and native BB approval. Pause changes the scope record only. These controls do not start, stop, resume or send input to workers. Scope pause does not cancel native queue work.

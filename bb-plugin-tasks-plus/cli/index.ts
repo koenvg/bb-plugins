@@ -61,7 +61,6 @@ const ACTIVE_THREAD_STATUSES = new Set(["starting", "working"]);
 const DEFAULT_PROJECT_COLOR = "blue";
 const DEFAULT_LABEL_COLOR = "gray";
 
-const PRESET_SERVICE_TIERS = ["default", "fast", "none"] as const;
 const PRESET_ENVIRONMENTS = ["project-default", "worktree"] as const;
 
 const JSON_OPTION = {
@@ -494,9 +493,7 @@ function presetEnvironmentKind(
   return value === "worktree" ? "new-worktree" : "project-default";
 }
 
-function presetServiceTier(
-  value: (typeof PRESET_SERVICE_TIERS)[number] | undefined,
-): "default" | "fast" | null | undefined {
+function presetServiceTier(value: string | undefined): string | null | undefined {
   if (value === undefined) return undefined;
   return value === "none" ? null : value;
 }
@@ -2134,9 +2131,9 @@ export function registerTasksCli(
               description: "Permission mode for the dispatched thread",
             },
             "service-tier": {
-              type: "enum",
-              values: PRESET_SERVICE_TIERS,
-              description: "Service tier; none clears it",
+              type: "string",
+              placeholder: "id",
+              description: "Provider service tier id; none clears it",
             },
             environment: {
               type: "enum",
@@ -2229,9 +2226,9 @@ export function registerTasksCli(
               description: "Permission mode for the dispatched thread",
             },
             "service-tier": {
-              type: "enum",
-              values: PRESET_SERVICE_TIERS,
-              description: "Service tier; none clears it",
+              type: "string",
+              placeholder: "id",
+              description: "Provider service tier id; none clears it",
             },
             environment: {
               type: "enum",

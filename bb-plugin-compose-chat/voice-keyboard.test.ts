@@ -11,7 +11,7 @@ const settle = async () => {
   await Promise.resolve();
 };
 
-function fixture() {
+function fixture(version: "0.44" | "0.45" = "0.44") {
   const form = document.createElement("form");
   form.dataset.promptbox = "";
   form.innerHTML = `<div data-promptbox-input-region><div contenteditable="true" role="textbox" tabindex="0">Keep my draft</div></div>
@@ -42,13 +42,24 @@ function fixture() {
     controls.dataset.promptboxVoiceControls = "";
     controls.dataset.voiceTransition = "active";
     controls.innerHTML = `<button type="button" aria-label="${state === "recording" ? "Cancel recording" : "Cancel transcription"}">Cancel</button>
-      <button type="button" aria-label="${state === "recording" ? "Stop and transcribe recording" : "Transcribing voice input"}" ${state === "transcribing" ? "disabled" : ""}>Confirm</button>`;
+      <button type="button" aria-label="${state === "recording" ? (version === "0.45" ? "Stop and add to draft" : "Stop and transcribe recording") : "Transcribing voice input"}" ${state === "transcribing" ? "disabled" : ""}>Confirm</button>`;
     form.append(controls);
+    if (version === "0.45") {
+      const send = document.createElement("button");
+      send.type = "button";
+      send.setAttribute(
+        "aria-label",
+        state === "recording" ? "Send voice input" : "Transcribing and sending",
+      );
+      send.disabled = state === "transcribing";
+      send.onclick = submits;
+      controls.append(send);
+    }
     controls.querySelector<HTMLButtonElement>("button")!.onclick = () => {
       cancels();
       finish();
     };
-    controls.querySelector<HTMLButtonElement>("button:last-child")!.onclick = () => {
+    controls.querySelectorAll<HTMLButtonElement>("button")[1]!.onclick = () => {
       confirms();
       active("transcribing");
     };
@@ -172,6 +183,28 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await settle();
     await command.run(context);
     expect(f.starts).toHaveBeenCalledTimes(2);
+  });
+  it("adds BB 0.45 voice input to the draft with Enter, never through its send button", async () => {
+    const f = fixture("0.45");
+    f.editor.focus();
+    const { command } = await mount();
+    await command.run(context);
+    f.active();
+    await settle();
+    const send = f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]')!;
+    expect(send.hasAttribute("aria-keyshortcuts")).toBe(false);
+    key(f.editor, "Enter");
+    expect(f.confirms).toHaveBeenCalledOnce();
+    expect(f.submits).not.toHaveBeenCalled();
+    key(f.editor, "Enter");
+    expect(f.submits).not.toHaveBeenCalled();
+    f.finish("Transcript");
+    await settle();
+    expect(document.activeElement).toBe(f.editor);
+    key(f.editor, "Enter", { repeat: true });
+    expect(f.submits).not.toHaveBeenCalled();
+    key(f.editor, "Enter");
+    expect(f.submits).toHaveBeenCalledOnce();
   });
   it("confirms once, blocks Enter during transcription, restores focus, and requires a new press to send", async () => {
     const f = fixture();

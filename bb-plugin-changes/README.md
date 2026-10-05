@@ -8,7 +8,7 @@ Review the diff of a bb thread file by file, and write comments on its lines. Th
 bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirectory bb-plugin-changes
 ```
 
-Requires bb 0.44 or later (`@get-bb/plugin-sdk` 0.5.29).
+Requires bb 0.45 or later (`@get-bb/plugin-sdk` 0.6.15).
 
 ## The Changes tab
 

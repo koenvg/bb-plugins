@@ -73,11 +73,11 @@ describe("migration 8 compatibility", () => {
       expect(tasks.getTask(task.id)?.parentTaskId).toBe(epic.id);
       expect(tasks.listComments(task.id).some((row) => row.id === comment.id)).toBe(true);
       expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
-        10,
+        11,
       );
       initializeTasksSchema(db);
       expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
-        10,
+        11,
       );
       expect(db.prepare("SELECT * FROM orchestration_runs").all()).toEqual([]);
       expect(db.prepare("SELECT * FROM orchestration_run_requests").all()).toEqual([]);

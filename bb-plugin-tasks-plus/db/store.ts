@@ -13,6 +13,7 @@ import {
   presetPermissionModeSchema,
   presetReasoningLevelSchema,
   presetServiceTierSchema,
+  type PresetServiceTier,
   ULID_PATTERN,
 } from "../shared/contract.js";
 import type {
@@ -1791,7 +1792,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
         string,
         string,
         string,
-        "default" | "fast" | null,
+        PresetServiceTier | null,
         string,
         PresetEnvironmentKind,
         string | null,
@@ -1849,7 +1850,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
         string,
         string,
         string,
-        "default" | "fast" | null,
+        PresetServiceTier | null,
         string,
         PresetEnvironmentKind,
         string | null,

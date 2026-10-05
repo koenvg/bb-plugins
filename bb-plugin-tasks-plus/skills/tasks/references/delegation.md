@@ -4,7 +4,7 @@ not already exist. Dispatch requires an existing preset.
 
 Create or update the same execution selection exposed in the Tasks UI with
 `--provider`, `--model`, `--reasoning`, and optional
-`--service-tier default|fast|none`:
+`--service-tier <id>`. Use the provider's tier id, such as `default`, `fast`, or `priority`:
 
 ```sh
 bb tasks preset create --name "Codex high" --provider codex \

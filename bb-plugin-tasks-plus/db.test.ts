@@ -48,7 +48,7 @@ describe("tasks storage", () => {
       expect(
         db.prepare<[], { count: number }>("SELECT COUNT(*) AS count FROM schema_version").get()
           ?.count,
-      ).toBe(10);
+      ).toBe(11);
     } finally {
       await harness.dispose();
     }
@@ -58,7 +58,7 @@ describe("tasks storage", () => {
     const { db, harness } = setup();
     try {
       db.exec(`
-        DELETE FROM schema_version WHERE version IN (3, 6);
+        DELETE FROM schema_version WHERE version IN (3, 6, 11);
         DROP TABLE presets;
         CREATE TABLE presets (
           id TEXT PRIMARY KEY,
@@ -88,6 +88,56 @@ describe("tasks storage", () => {
         machineId: null,
         serviceTier: null,
       });
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it("preserves legacy presets while allowing provider-defined service tiers", async () => {
+    const { db, harness } = setup();
+    try {
+      db.exec(`
+        DELETE FROM schema_version WHERE version = 11;
+        DROP TABLE presets;
+        CREATE TABLE presets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          provider_id TEXT NOT NULL,
+          model_id TEXT NOT NULL,
+          reasoning_level TEXT NOT NULL,
+          permission_mode TEXT NOT NULL,
+          instructions TEXT NOT NULL,
+          builtin INTEGER NOT NULL DEFAULT 0 CHECK (builtin IN (0, 1)),
+          created_at TEXT NOT NULL,
+          environment_kind TEXT NOT NULL DEFAULT 'project-default'
+            CHECK (environment_kind IN ('project-default', 'new-worktree')),
+          base_branch TEXT,
+          machine_id TEXT,
+          service_tier TEXT CHECK (service_tier IN ('default', 'fast'))
+        );
+        INSERT INTO presets VALUES
+          ('01J00000000000000000000000', 'Legacy fast', 'codex', 'gpt-5', 'high',
+           'full', 'Keep instructions', 1, '2026-07-15T00:00:00.000Z',
+           'new-worktree', 'main', 'host_1', 'fast'),
+          ('01J00000000000000000000001', 'Legacy default', 'codex', 'gpt-5', 'medium',
+           'auto', '', 0, '2026-07-15T00:00:00.000Z', 'project-default', NULL, NULL, 'default'),
+          ('01J00000000000000000000002', 'Legacy unset', 'codex', 'gpt-5', 'low',
+           'accept-edits', '', 0, '2026-07-15T00:00:00.000Z', 'project-default', NULL, NULL, NULL);
+      `);
+      const before = db.prepare("SELECT * FROM presets ORDER BY id").all();
+      const store = createTasksStore(db);
+      expect(db.prepare("SELECT * FROM presets ORDER BY id").all()).toEqual(before);
+      const preset = store.getPreset("01J00000000000000000000000")!;
+      expect(store.updatePreset(preset.id, { serviceTier: "priority" })?.serviceTier).toBe(
+        "priority",
+      );
+      createTasksStore(db);
+      expect(store.getPreset(preset.id)?.serviceTier).toBe("priority");
+      expect(() =>
+        db.prepare("UPDATE presets SET service_tier = '' WHERE id = ?").run(preset.id),
+      ).toThrow();
+      expect(() => store.createPreset({ ...preset, name: "legacy FAST" })).toThrow();
+      expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     } finally {
       await harness.dispose();
     }
