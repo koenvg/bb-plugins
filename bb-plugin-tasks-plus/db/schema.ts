@@ -303,6 +303,36 @@ const MIGRATIONS = [
     CREATE UNIQUE INDEX idx_orchestration_live_claim ON orchestration_dispatch_claims(task_id, role) WHERE released_at IS NULL;
     CREATE INDEX idx_orchestration_claim_thread ON orchestration_dispatch_claims(thread_id);
   `,
+  `
+    CREATE TABLE orchestration_reports (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      thread_id TEXT NOT NULL,
+      retry_key TEXT NOT NULL,
+      outcome TEXT NOT NULL CHECK(outcome IN ('completed','review_ready','blocked','failed','needs_decision')),
+      created_at TEXT NOT NULL,
+      report_json TEXT NOT NULL,
+      delivery_json TEXT NOT NULL,
+      decision_response TEXT,
+      UNIQUE(thread_id, retry_key)
+    );
+    CREATE INDEX idx_orchestration_reports_task ON orchestration_reports(task_id, created_at DESC, id DESC);
+    CREATE TABLE orchestration_report_intents (
+      report_id TEXT PRIMARY KEY REFERENCES orchestration_reports(id) ON DELETE CASCADE,
+      generation TEXT NOT NULL,
+      body_hash TEXT NOT NULL,
+      receipt_id TEXT UNIQUE,
+      phase TEXT NOT NULL CHECK(phase IN ('reserved','queued','dispatched','cancelled','rejected'))
+    );
+    CREATE TABLE orchestration_report_contexts (
+      token_hash TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      origin_json TEXT NOT NULL
+    );
+    CREATE INDEX idx_report_context_origin ON orchestration_report_contexts(task_id, thread_id, expires_at);
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {

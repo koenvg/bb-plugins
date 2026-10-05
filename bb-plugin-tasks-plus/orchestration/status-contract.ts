@@ -92,6 +92,23 @@ const runValueSchema = z
     baselineReferences: referencesSchema,
   })
   .strict();
+const reportDeliveryValueSchema = z
+  .object({
+    id: z.string(),
+    state: z.enum([
+      "pending",
+      "native",
+      "sent",
+      "queued",
+      "suppressed",
+      "failed",
+      "ambiguous",
+    ]),
+    reason: excerptSchema,
+    reference: z.string().nullable(),
+    attemptedAt: z.string().nullable(),
+  })
+  .strict();
 const reportValueSchema = z
   .object({
     id: z.string(),
@@ -107,6 +124,11 @@ const reportValueSchema = z
     createdAt: z.string(),
     summary: excerptSchema,
     resultReferences: referencesSchema,
+    baselineReferences: referencesSchema.optional(),
+    delivery: reportDeliveryValueSchema.optional(),
+    runId: z.string().nullable().optional(),
+    claimId: z.string().nullable().optional(),
+    associationId: z.string().nullable().optional(),
   })
   .strict();
 const acceptanceValueSchema = z
@@ -214,6 +236,18 @@ const taskStatusSchema = taskIdentitySchema
     dispatch: available(z.array(claimSchema)),
     nativeDecisions: nativeDecisionsSchema,
     latestOutcome: available(reportValueSchema),
+    reportDeliveries: available(
+      listSchema(
+        z
+          .object({
+            reportId: z.string(),
+            threadId: z.string(),
+            delivery: reportDeliveryValueSchema,
+          })
+          .strict(),
+        STATUS_LIMITS.resultsPerReport,
+      ),
+    ).optional(),
     handoff: handoffSchema,
     reportedDecisions: available(
       listSchema(decisionSchema, STATUS_LIMITS.decisionsPerWorker),
@@ -312,8 +346,15 @@ type RunData = Omit<z.infer<typeof runValueSchema>, "baselineReferences"> & {
 };
 type ReportData = Omit<
   z.infer<typeof reportValueSchema>,
-  "summary" | "resultReferences"
-> & { summary: string; resultReferences: readonly string[] };
+  "summary" | "resultReferences" | "baselineReferences" | "delivery"
+> & {
+  summary: string;
+  resultReferences: readonly string[];
+  baselineReferences?: readonly string[];
+  delivery?: Omit<z.infer<typeof reportDeliveryValueSchema>, "reason"> & {
+    reason: string;
+  };
+};
 type AcceptanceData = Omit<
   z.infer<typeof acceptanceValueSchema>,
   "baselineReferences" | "evidenceReferences"
@@ -330,6 +371,17 @@ export interface TaskCoordinationData {
   reportedDecisions?: Availability<
     Array<Omit<DecisionStatus, "question"> & { question: string }>
   >;
+  reportedDecisionTotal?: number;
+  reportDeliveries?: Availability<{
+    items: Array<{
+      reportId: string;
+      threadId: string;
+      delivery: Omit<z.infer<typeof reportDeliveryValueSchema>, "reason"> & {
+        reason: string;
+      };
+    }>;
+    total: number;
+  }>;
 }
 export interface CoordinationSnapshot {
   run?: Availability<RunData>;

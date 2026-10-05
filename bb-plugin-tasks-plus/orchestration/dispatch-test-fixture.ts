@@ -8,11 +8,29 @@ import plugin from "../server";
 import { createStore } from "../api";
 import { dispatchRpcContract } from "./dispatch-contract";
 
+import { createDispatchStore } from "./dispatch-store";
+
+// Storage-only setup for historical ownership, not a dispatch or agent input.
+export function historicalOwner(f: any) {
+  const claims = createDispatchStore(f.bb.storage.database());
+  const claim = claims.reserve(f.input);
+  const association = f.store.tasks.upsertTaskThread({
+    taskId: f.task.id, threadId: "thr_worker", presetName: "Fixture", title: "Historical owner", liveStatus: "working",
+  });
+  claims.designate({ taskId: f.task.id, role: "implementation", runId: f.input.runId, threadId: "thr_worker", associationId: association.id });
+  f.store.tasks.updateTask(f.task.id, { status: "in_progress" });
+  const saved = claims.update(claim.id, { phase: "attached", threadId: "thr_worker", associationId: association.id });
+  f.workers.set("thr_worker", makeThreadResponse({ id: "thr_worker", projectId: "proj_fixture", providerId: "pi", parentThreadId: "thr_coordinator", originPluginId: f.bb.pluginId, createdAt: Date.now() }));
+  return saved;
+}
 export const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
-export async function fixture(taskCount = 1) {
+export async function fixture(
+  taskCount = 1,
+  initialize: typeof plugin = plugin,
+) {
   let requests: any[] = [];
   let decisions: any[] = [];
   let interruptions: any[] = [];
@@ -73,7 +91,7 @@ export async function fixture(taskCount = 1) {
     },
   });
   cleanups.push(() => harness.lifecycle.dispose());
-  await plugin(bb);
+  await initialize(bb);
   const store = createStore(bb);
   const project = store.tasks.createProject({
     name: "Disposable",
@@ -224,7 +242,7 @@ export async function fixture(taskCount = 1) {
     setReadInterruptions: (fn: typeof readInterruptions) => {
       readInterruptions = fn;
     },
-    approveRun: async (coordinatorThreadId = "thr_coordinator") => {
+    approveRun: async (coordinatorThreadId = "thr_coordinator", action: "begin" | "resume" = "begin") => {
       const requestId = `creq_next_${requests.length}`;
       requests.unshift({
         ...requests[0],
@@ -238,13 +256,13 @@ export async function fixture(taskCount = 1) {
           input: [
             {
               type: "text",
-              text: `/skill:bb-orchestrator ${JSON.stringify({ action: "begin", config })}`,
+              text: `/skill:bb-orchestrator ${JSON.stringify(action === "begin" ? { action, config } : { action, runId: input.runId })}`,
               mentions: [],
             },
           ],
         },
       });
-      const args = ["orchestrate", "begin", "--request", requestId, "--json"];
+      const args = ["orchestrate", action, "--request", requestId, "--json"];
       const context = { threadId: coordinatorThreadId };
       await harness.behavior.runCli(args, context);
       await vi.waitFor(() =>
@@ -314,4 +332,10 @@ export async function fixture(taskCount = 1) {
       );
     },
   };
+}
+export function expectNoAgentInput(harness: any) {
+  for (const method of ["threads.spawn", "threads.send", "threads.queuedMessages.create", "threads.queuedMessages.send", "threads.stop"]) {
+    expect(harness.sdk.callsTo(method), method).toHaveLength(0);
+  }
+  expect(harness.registrations.hooks["message.dispatch"]).toBeFalsy();
 }

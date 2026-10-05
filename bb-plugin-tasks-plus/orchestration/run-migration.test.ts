@@ -41,7 +41,7 @@ describe("migration 8 compatibility", () => {
       });
       // Migration 8 adds tables only. Remove them to reconstruct the exact v7 table layout.
       db.exec(
-        "DROP TABLE orchestration_dispatch_claims; DROP TABLE orchestration_owners; DROP INDEX idx_task_threads_primary_role; ALTER TABLE task_threads DROP COLUMN primary_owner; ALTER TABLE task_threads DROP COLUMN role; DROP TABLE orchestration_run_requests; DROP TABLE orchestration_runs; DELETE FROM schema_version WHERE version >= 8;",
+        "DROP TABLE orchestration_report_intents; DROP TABLE orchestration_report_contexts; DROP TABLE orchestration_reports; DROP TABLE orchestration_dispatch_claims; DROP TABLE orchestration_owners; DROP INDEX idx_task_threads_primary_role; ALTER TABLE task_threads DROP COLUMN primary_owner; ALTER TABLE task_threads DROP COLUMN role; DROP TABLE orchestration_run_requests; DROP TABLE orchestration_runs; DELETE FROM schema_version WHERE version >= 8;",
       );
       const tables = [
         "projects",
@@ -53,28 +53,34 @@ describe("migration 8 compatibility", () => {
         "task_dependencies",
         "task_list_revision",
       ];
-      const readLegacyRows = () => tables.map((name) =>
-        db.prepare(`SELECT * FROM ${name}`).all().map((row) => {
-          const { role: _role, primary_owner: _owner, ...legacy } = row as Record<string, unknown>;
-          return legacy;
-        }),
-      );
+      const readLegacyRows = () =>
+        tables.map((name) =>
+          db
+            .prepare(`SELECT * FROM ${name}`)
+            .all()
+            .map((row) => {
+              const {
+                role: _role,
+                primary_owner: _owner,
+                ...legacy
+              } = row as Record<string, unknown>;
+              return legacy;
+            }),
+        );
       const before = readLegacyRows();
       initializeTasksSchema(db);
-      expect(
-        readLegacyRows(),
-      ).toEqual(before);
+      expect(readLegacyRows()).toEqual(before);
       expect(tasks.getTask(task.id)?.parentTaskId).toBe(epic.id);
       expect(
         tasks.listComments(task.id).some((row) => row.id === comment.id),
       ).toBe(true);
       expect(
         db.prepare("SELECT version FROM schema_version ORDER BY version").all(),
-      ).toHaveLength(9);
+      ).toHaveLength(10);
       initializeTasksSchema(db);
       expect(
         db.prepare("SELECT version FROM schema_version ORDER BY version").all(),
-      ).toHaveLength(9);
+      ).toHaveLength(10);
       expect(db.prepare("SELECT * FROM orchestration_runs").all()).toEqual([]);
       expect(
         db.prepare("SELECT * FROM orchestration_run_requests").all(),

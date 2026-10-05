@@ -40,7 +40,7 @@ describe("task dependency schema", () => {
       .prepare<[], { version: number }>("SELECT version FROM schema_version ORDER BY version")
       .all()
       .map((row) => row.version);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(
       db
         .prepare<[], { name: string }>(

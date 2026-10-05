@@ -4,6 +4,8 @@
 
 Gives coordinators one bounded view of an epic's current Tasks state, worker activity, explicit outcomes, and pending decisions without reconstructing comments or transcripts.
 
+This first release is manual-first. Stored reports and suppressed delivery are informational. Scope phases are records, not worker start/stop authority. New orchestrator execution, notification, answers and artifact/integration automation are deferred.
+
 ## ADDED Requirements
 
 ### Requirement: Compact read-only epic status

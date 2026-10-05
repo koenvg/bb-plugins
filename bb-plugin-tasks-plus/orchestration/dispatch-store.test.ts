@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixture } from "./dispatch-test-fixture";
+import { fixture, historicalOwner } from "./dispatch-test-fixture";
 import { createDispatchStore } from "./dispatch-store";
 import { createRunStore } from "./run-store";
 import { initializeTasksSchema } from "../db/schema";
@@ -53,7 +53,7 @@ describe("migration 9 and durable task/role claims", () => {
   });
   it("preserves ownership after manual detach and rejects duplicate role designation", async () => {
     const f = await fixture();
-    await f.dispatch();
+    historicalOwner(f);
     const claims = createDispatchStore(f.bb.storage.database());
     const owner = claims.owners(f.task.id)[0]!;
     expect(() => f.store.transaction(() => claims.designate(owner))).toThrow(

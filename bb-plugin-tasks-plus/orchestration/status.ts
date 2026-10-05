@@ -112,14 +112,60 @@ function taskProjection(
         ? {
             state: "present",
             value: {
-              ...latestOutcome.value,
+              id: latestOutcome.value.id,
+              commentId: latestOutcome.value.commentId,
+              threadId: latestOutcome.value.threadId,
+              outcome: latestOutcome.value.outcome,
+              createdAt: latestOutcome.value.createdAt,
+              ...(latestOutcome.value.runId !== undefined
+                ? { runId: latestOutcome.value.runId }
+                : {}),
+              ...(latestOutcome.value.claimId !== undefined
+                ? { claimId: latestOutcome.value.claimId }
+                : {}),
+              ...(latestOutcome.value.associationId !== undefined
+                ? { associationId: latestOutcome.value.associationId }
+                : {}),
               summary: excerpt(latestOutcome.value.summary),
               resultReferences: references(
                 latestOutcome.value.resultReferences,
               ),
+              ...(latestOutcome.value.baselineReferences
+                ? {
+                    baselineReferences: references(
+                      latestOutcome.value.baselineReferences,
+                    ),
+                  }
+                : {}),
+              ...(latestOutcome.value.delivery
+                ? {
+                    delivery: {
+                      ...latestOutcome.value.delivery,
+                      reason: excerpt(latestOutcome.value.delivery.reason),
+                    },
+                  }
+                : {}),
             },
           }
         : (latestOutcome ?? unknown("report_extension_unavailable")),
+    reportDeliveries:
+      data?.reportDeliveries?.state === "present"
+        ? {
+            state: "present",
+            value: cappedList(
+              data.reportDeliveries.value.items.map((item) => ({
+                ...item,
+                delivery: {
+                  ...item.delivery,
+                  reason: excerpt(item.delivery.reason),
+                },
+              })),
+              STATUS_LIMITS.resultsPerReport,
+              data.reportDeliveries.value.total,
+            ),
+          }
+        : (data?.reportDeliveries ??
+          unknown("report_delivery_extension_unavailable")),
     handoff: openBlockerCount
       ? { state: "blocked", reason: "native_dependencies_open" }
       : (data?.handoff ??
@@ -141,6 +187,7 @@ function taskProjection(
                 question: excerpt(item.question),
               })),
               STATUS_LIMITS.decisionsPerWorker,
+              data?.reportedDecisionTotal,
             ),
           }
         : (reportedDecisions ??
@@ -216,7 +263,17 @@ function reduceAuxiliary(status: EpicStatus) {
         0,
       );
       removeListItems(task.latestOutcome.value.resultReferences);
+      if (task.latestOutcome.value.baselineReferences)
+        removeListItems(task.latestOutcome.value.baselineReferences);
+      if (task.latestOutcome.value.delivery)
+        task.latestOutcome.value.delivery.reason = excerpt(
+          "",
+          task.latestOutcome.value.delivery.reason.totalCharacters,
+          0,
+        );
     }
+    if (task.reportDeliveries?.state === "present")
+      removeListItems(task.reportDeliveries.value);
     if (task.reportedDecisions.state === "present")
       removeListItems(task.reportedDecisions.value);
   }

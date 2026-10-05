@@ -29,7 +29,8 @@ export function RunApprovalForm({
     <section className="space-y-3 p-3">
       <h2>{interaction.title}</h2>
       <p>
-        Approve existing task scope, execution selection and baseline only. This
+        Approve this scope record, recorded selection and baseline only. No worker
+        starts or receives input. Scope pause does not cancel native work. This
         does not approve publication, merge, production or added task scope.
         BB-recorded user classification does not prove human identity. See
         BBP-51.

@@ -5,13 +5,17 @@ agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
 subtasks, Markdown comments, attachments, agent presets, and a full CLI.
 
-## Manual orchestration run controls
+## Manual-first orchestration
 
-The bundled `bb-orchestrator` skill has heading `BB Orchestrator` and is manual-only. Begin, pause and resume bind an exact persisted invocation to the coordinator, existing epic scope, execution preset and intended baseline. Begin/resume use one native BB approval form; request retries reuse the same run or pending form. These controls create no workers and send no worker messages.
+The bundled `bb-orchestrator` skill reads compact status and manages approved scope records. Begin/resume require the retained exact invocation and native BB approval. Pause changes the scope record only. These controls do not start, stop, resume or send input to workers. Scope pause does not cancel native queue work.
 
-Read [run-control commands and limits](skills/bb-orchestrator/references/run-controls.md). The temporary boundary trusts BB-recorded user classification, not proof of human identity. BB 0.44.0 can classify agent self-sends as user/null. Tracker task BBP-51 is the separate investigation follow-up. Publishing, merges, production and scope additions still need separate approval.
+New orchestrator dispatch/adoption entrypoints return `deferred` before claim creation or execution. Reports store outcomes and linked non-notifying comments, with delivery `suppressed`. Automatic notifications, answers, artifact delivery and integration-role execution are deferred. The skill does not use ordinary Tasks or thread APIs to recreate them. Existing operator-led Tasks worker controls and `comment --notify` stay separate and unchanged.
 
-Migration 8 adds run/request tables only. Reload makes active authority interrupted through a new controller generation, without changing workers or automatically resuming. BBP-36 combines these records with BBP-34's independent compact status implementation. Whole-epic acceptance remains a separate worker outcome.
+Read [scope controls and limits](skills/bb-orchestrator/references/run-controls.md) and [stored worker reports](skills/bb-orchestrator/references/worker-reports.md). Production reporting enables only the previously verified Pi native-origin storage path on BB 0.44.0. Other providers/versions refuse new native issuance. CLI identity cannot mint a capability. Isolated SDK tests are not fresh installed support.
+
+Migrations 8/9/10 retain run requests, ownership/claim history, reports, private contexts and earlier private receipt intents. The runtime creates no new receipt intent and never replays or settles historical deliveries. Reload presents active scope as interrupted without changing workers.
+
+The two historical post-pause notice executions remain failed evidence. Their cause is not proved and this cut does not repair that path. The original isolated fixture must keep its paused loaded gate and hold until separate cleanup approval. Plugin unload can remove a guard without cancelling previously accepted native work. No new native fixture is part of this release.
 
 ## Install
 
@@ -367,56 +371,15 @@ registry. Actual persistence, run activation, safe dispatch, answer routing, and
 acceptance verification belong to later slices. Extension fixture tests prove the
 projection contract only, not real provider activation or stored report evidence.
 
-## Safe dispatch and ownership
+## Deferred dispatch and retained history
 
-Within a durable approved active run, the coordinator can request an existing approved implementation subtask without a new routine approval:
+`orchestrateDispatch` and `orchestrateAdopt`, and their CLI forms `orchestrate dispatch` and `orchestrate adopt`, retain strict input validation but return `outcome: "deferred"`, a manual-first reason, null thread/claim and no candidates. They do not perform eligibility lookups, allocate claims, adopt owners, attach workers, seed, spawn or continue work. This applies to approved, paused, interrupted and historical retry contexts.
 
-```sh
-bb tasks orchestrate dispatch ABC-12 --run <run-id> --role implementation --json
-bb tasks orchestrate adopt ABC-12 --run <run-id> --association <association-id> --json
-```
+Migration 9 ownership and claim records remain readable. Detachment preserves original owner/claim identity. Bookkeeping recovery is owned by BBP-37 and integrated separately by BBP-42. Recovery must preserve original-child precedence and live/released history; it must never send, resume or replace a child automatically. This cut adds no recovery command or migration.
 
-Both commands use the invoking coordinator thread. `--thread` is available outside thread context, but cannot override an invoking thread. RPC methods are `orchestrateDispatch` and `orchestrateAdopt`. Their strict inputs contain `runId`, `coordinatorThreadId`, `taskId`, and `role`. Adoption also requires `associationId`. Omitted role defaults to `implementation`. Other roles remain reserved for their owning slices; this slice cannot dispatch the epic as an implementation task.
+`createDispatcher(..., {readHandoffs})` retains the synchronous coordination-reader extension. Scope, roles, claims and reports feed the same bounded read transaction; handoff/acceptance claims remain unknown unless an authoritative record exists. Report references do not establish artifact delivery. Task done/canceled status does not establish epic acceptance.
 
-Admission checks the controller's effective active run, current tracker fingerprints, scope, preset and baseline intent. It reads the live coordinator, native BB project, and supported provider/version. It refuses unapproved tasks, closed tasks, native blockers, or unresolved handoffs. Scope or execution changes require separate approval. Pending, canceled, failed, paused and reloaded/interrupted approval state grants no dispatch authority. A failed or aborted CLI transport does not invalidate a later durable native approval or release request identity. Only the final approved run is used.
-
-The verified coordinator path remains Pi on exact BB 0.44.0. BB-recorded user/null classification and native decisions do not prove human identity. Agent self-sends can satisfy that temporary boundary; BBP-51 tracks it. Run authority does not approve publication, merging, production or added scope.
-
-The result contains `outcome`, `reason`, nullable `threadId` and `claim`, and complete adoption `candidates`:
-
-- `created`: the original child has a primary association and local status update.
-- `reused`: return the designated owner without spawn, seed, send or interruption.
-- `adopted`: explicitly designate a selected native attachment. Other attachments remain. Adoption does not change task status or parentage.
-- `resolution_needed`: legacy candidates, prior work, detached/missing/failed/stopped owners, or conflicting claims prevent another spawn.
-- `unresolved`: a reserved or partially completed creation still owns the task/role claim.
-
-A native thread can have only one live orchestration claim in this slice. Adoption refuses a thread claimed for another task/run. Legacy manual multi-attachment remains available. Historical ambiguous claims refuse admission before sender classification and prevent reuse. A different run returns `resolution_needed` for the original owner. It does not retag that owner or permit a new coordinator to continue it.
-
-Native done/canceled status alone does not prove a result handoff. Until the report slice supplies authoritative handoff state, tasks with native prerequisites refuse dispatch with `handoff_unresolved`. Independent tasks have no native prerequisite handoff. Worker context carries approved baseline references and available prerequisite references, not a claim that repository contents or a checkout baseline were verified. Missing or incompatible handoffs must not be replaced by metadata or coordinator guesses.
-
-### Persistence and retry contract
-
-Migration 9 follows migration 8. It adds nullable `task_threads.role`, `primary_owner`, `orchestration_owners`, and `orchestration_dispatch_claims`. Existing associations stay undesignated. Active primary task/role and task/association designations are unique. Detachment preserves the owning identity and claim as unresolved history rather than permitting a replacement.
-
-`createDispatchStore` exposes `get`, `live`, `forThread`, `claims`, `owners`, `reserve`, `update`, `designate`, and `priorWork`. Its typed `DispatchClaim` includes task/role, run/coordinator, attempt ID, native child and association IDs, phase, reason, creation/update timestamps, and nullable `releasedAt`. The live unique task/role claim spans requests, runs and reloads. There is no expiry, lease or automatic release.
-
-`forThread` returns at most two live claims, sufficient to detect ambiguity. It is not a complete candidate-list API. `orchestration_owners` owns the task/role designation pointer. `task_threads` owns the live manual association and mirrors the designation fields within the same transaction. A detached pointer remains unresolved. Claims retain the attempt identity and original run/coordinator independently of attachment. Future recovery must preserve claim history rather than add more designation mirrors.
-
-Claim phases are `reserved`, `creating`, `created`, `attached`, `creation_unknown`, `attachment_failed`, and `admission_rejected`. The attempt ID is the creation correlation key. BB receives the parent and version-1 `pluginMetadata.orchestration` record with attempt/task/role/run/coordinator/project IDs at creation. Metadata is a lookup hint, never authority. Native identity, project, parent and Tasks claim must agree. A first turn can record the original child before local attachment completes.
-
-Tasks association, ownership, comment, eligible task status and successful claim update commit in one local transaction. BB creation is a separate operation. No SQLite transaction is held across SDK calls. Response loss, creation errors and admission rejection retain the claim, even with zero observed children. No child is deleted as compensation. An ordinary retry can finish local attachment for the same known returned child under its original approved run. It never creates or seeds another worker. Unknown creation and rejected admission need explicit recovery; BBP-37 owns those operator commands. No recovery or claim-release command is invented here.
-
-### Delayed admission and status
-
-The existing `message.dispatch` hook checks native first-turn drains, mixed queued groups containing those turns, and coordinator-requested continuations. It rechecks live authority, project, scope, dependencies, handoffs, owner association and selected execution. It refuses manually stopped owners. The approved permission mode and reasoning are not raised. An unspecified service tier accepts BB's native default tier. Already accepted independent worker turns can finish; no orchestration scheduler, polling loop, queue drain or automatic resume is added. Original claims keep their run binding; starting another run does not resume them.
-
-After all native reads finish, one synchronous Tasks transaction rechecks the live claim, effective run, scope, execution, task, blockers, handoffs and owner association. No SDK await separates that snapshot from `proceed`. Pauses or local changes during a native lookup reject admission and retain identity. Sender checks include every recorded coordinator for the original run's epic, including historical coordinators with delayed queue rows. They do not rely on an editable task parent or only the latest run.
-
-BB queues, environment providers and concurrency-limit still own scheduling. Legacy `bb tasks dispatch` still warns and proceeds on native blockers. Manual attach/detach commands keep their existing behavior. Plugin admission requires the plugin to be active. BB 0.44.0's explicit user Send-now overrides the hook pass; this plugin does not use that override. Pause runs and clear or resolve queued work through existing BB controls before disabling or rolling back. Disabling does not cancel already accepted work, and enabling does not authorize resume.
-
-`createDispatcher(..., {readHandoffs})` accepts a synchronous Tasks-owned handoff reader for the later report slice. It is not exposed as an RPC bypass. Its `readCoordination` projects effective runs, designated roles and unresolved claims into compact status. The server passes the same options to `registerTasksCli` argument 4 and `registerOrchestrationStatus` argument 3. Status reads remain read-only, inside a Tasks read transaction, with bounded native reads. Reports, reported decisions and epic acceptance stay unknown until their owning slices exist. The complete 100-subtask/128-KiB limits, auxiliary overflow counts, timestamps and unknown external coverage remain unchanged. More than 100 legacy adoption candidates returns `ownership_size_limit`, not a partial decision list.
-
-Validation notes and native probe limits are in [`orchestration/dispatch-verification.md`](orchestration/dispatch-verification.md).
+Historical dispatch verification is in [the original evidence notes](orchestration/dispatch-verification.md). It is not acceptance of the removed automation. Current no-agent-input tests exercise production registration, scope controls, deferred CLI/RPC calls, report tool/CLI/RPC retries, reload and retained delivery intent history.
 
 ## CLI reference
 

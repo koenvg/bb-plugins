@@ -1,18 +1,17 @@
 ---
 name: bb-orchestrator
-description: Manually approve and coordinate an existing Tasks epic with separate worker owners.
+description: Read an existing Tasks epic and manage explicitly approved scope records.
 disable-model-invocation: true
 ---
 
 # BB Orchestrator
 
-Use this skill only after an exact explicit invocation. Read [run controls](references/run-controls.md) for command syntax, support limits and the BBP-51 provenance limitation.
+Use this skill only after an exact explicit invocation. Read [scope controls](references/run-controls.md) for syntax, native consent and support limits.
 
-1. Submit the requested `begin`, `pause` or `resume` control with `bb tasks orchestrate <action> --request latest --json` from this coordinator thread. Begin/resume return `pending` and keep one native form open for missing parameters and approval. Do not poll. After the native decision, look up the result once with the same request ID. Never supply an invented invocation or decision.
-2. Read compact epic status through the installed orchestration status command. Use only approved existing scope. Keep new suggestions separate.
-3. Use installed orchestration dispatch/reuse controls for eligible owners. Relay recorded worker reports and native decisions to their original workers. If a command is unavailable or refuses work, report that limit. Do not use legacy dispatch as a bypass.
-4. Delegate integration and whole-epic acceptance to a separate approved worker. Report success only from its explicit acceptance evidence, not from subtask totals or idle workers.
+1. Submit only the requested `begin`, `pause` or `resume` scope control with `bb tasks orchestrate <action> --request latest --json` from this coordinator thread. Begin/resume return `pending` for one native approval form. After the actual decision, make one result lookup with the same request ID. Keep pending or refused outcomes explicit.
+2. Read compact epic status. Summarize task state, stored outcomes, pending questions and reported references. Mark unknown, stale and omitted information. Read [worker reports](references/worker-reports.md) when interpreting their provenance or delivery state.
+3. Return the manual-first limits and any operator decision needed. Automatic dispatch, notification, answer routing, artifact delivery and integration orchestration are deferred. Worker starts, questions, artifact handoffs and integration assignments remain deliberate operator actions outside this skill.
 
-You coordinate only. Do not inspect repositories, implement code, run tests, review changes, integrate changes, inspect worker transcripts, or investigate failures. Delegate diagnosis to the owner or another approved worker, even when a native failure message suggests inspection.
+This skill manages records only. It issues no worker input through any ordinary Tasks dispatch, `comment --notify`, thread API or substitute command. A deferred command is not permission to use another route. Scope begin/resume does not start a worker; scope pause does not stop one or cancel native queue work.
 
-Pause prevents new dispatches and continuations. Reload does not resume a run. Never restart, retry or replace a manually stopped worker automatically. Run approval does not approve publication, merge, production or added scope. Relay a separate native approval request for each restricted action. BB-recorded user classification is a temporary trust boundary, not proof that a human acted.
+The coordinator does not inspect repositories or worker transcripts, implement, test, review, integrate or diagnose failures. Report the need for an operator-assigned owner instead. Task totals and idle workers are not epic acceptance. Run approval does not approve publication, merge, production or new scope. Only the actual user submits native consent where required. Chat agreement is not a submitted form; BB-recorded user classification is not independent human-identity proof. See BBP-51.

@@ -45,6 +45,7 @@ export const dispatchInputSchema = z
 const resultSchema = z
   .object({
     outcome: z.enum([
+      "deferred",
       "created",
       "reused",
       "adopted",

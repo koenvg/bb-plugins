@@ -2,101 +2,36 @@
 
 ## Purpose
 
-Lets a user explicitly coordinate an existing Tasks epic through a short bundled skill while workers perform all repository and acceptance work.
+Manage manually approved scope records and summarize an existing Tasks epic. The approved manual-first contract supersedes automated coordination for the first release.
 
 ## ADDED Requirements
 
-### Requirement: Bundled manual skill
+### Requirement: Bundled manual-only record skill
+Tasks-plus SHALL bundle bb-orchestrator with heading BB Orchestrator and manual-only metadata. The skill SHALL use only scope controls and status reads. It MUST NOT issue agent input or route around deferred automation through ordinary Tasks dispatch, comment notification or thread APIs. Install, enable, reload, discovery and automatic consideration MUST NOT start a scope run or worker.
 
-The Tasks-plus plugin SHALL bundle a skill named `bb-orchestrator` with document heading "BB Orchestrator". BB's existing picker SHALL continue to display the invocation name. Installing, enabling, reloading, discovering, or automatically considering the skill MUST NOT create a run, dispatch a worker, or resume orchestration.
+#### Scenario: Deferred operation
+- **WHEN** a coordinator needs a worker start, answer, handoff or integration assignment
+- **THEN** the skill returns the need for a deliberate operator action, not an alternative execution command
 
-#### Scenario: Install without invocation
+### Requirement: Native-approved scope records
+Begin/resume SHALL validate an exact persisted explicit invocation and actual native submitted approval using the retained verified provider contract. Chat agreement and old consent MUST NOT substitute for a submitted form. The temporary BBP-51 user/null boundary is not independent human-identity proof. Unsupported, stale, mixed, quoted, cross-thread and observed system/agent input SHALL refuse scope control.
 
-- **WHEN** the plugin is installed or enabled while an unfinished epic exists
-- **THEN** the skill becomes available without creating workers, changing tickets, or starting a run
+#### Scenario: Scope approval
+- **WHEN** the native decision approves existing epic/subtask scope, recorded preset and baseline
+- **THEN** one scope record is stored, duplicate requests reuse it, and no worker input or claim is created
 
-#### Scenario: Accepted presentation
+### Requirement: Scope pause is not native cancellation
+Scope pause SHALL update only the scope record. It MUST NOT stop a worker, cancel a queue or claim to revoke accepted native work. Reload SHALL read prior active scope as interrupted without resuming workers. Restricted actions and scope additions SHALL retain separate approval.
 
-- **WHEN** the user selects the bundled skill in BB
-- **THEN** its invocation name is `bb-orchestrator` and its document heading is "BB Orchestrator"
+#### Scenario: Scope pause with an existing worker
+- **WHEN** the operator pauses scope
+- **THEN** the record becomes paused and the worker/native queue remains unchanged
 
-### Requirement: Explicit activation through verified provider paths
-
-A run SHALL begin only from an identifiable exact explicit selected-skill or native invocation recorded by BB as `user` with no sender thread, bound to an existing epic and approved scope. This temporary boundary does not prove actual human identity. BB 0.44.0 can classify agent self-sends as user/null; this known limitation is accepted temporarily and tracked separately in BBP-51. The system MUST verify each supported BB provider path, rather than infer support from frontmatter. Observed agent/system messages, cross-thread notifications, quoted commands, automatic consideration, and editable metadata MUST NOT authorize activation. Stale, mixed, or ambiguous invocations SHALL be rejected. An unverified path SHALL refuse activation. Missing parameters SHALL be resolved through an explicit native decision before dispatch.
-
-#### Scenario: Explicit approved invocation
-
-- **WHEN** the user invokes the skill through a verified BB path with an existing epic, approved subtasks, and valid execution selection
-- **THEN** one run is bound to that invocation and coordinator thread
-- **AND** repeated processing of the same invocation returns that run
-
-#### Scenario: Automatic consideration cannot authorize work
-
-- **WHEN** an agent loads the skill or requests run creation without a corresponding explicit user invocation
-- **THEN** no run or worker is created
-
-#### Scenario: Missing initial parameters
-
-- **WHEN** explicit invocation does not identify the epic or execution selection unambiguously
-- **THEN** the coordinator asks the user for the missing parameters before creating a worker
-
-#### Scenario: Unsupported provider path
-
-- **WHEN** the current provider path cannot establish explicit invocation with existing BB interfaces
-- **THEN** activation is refused without spawning and without changing core or SDK behavior
-
-### Requirement: Coordination-only role
-
-The orchestrator SHALL read compact epic state, dispatch or reuse eligible workers, receive reports and questions, relay user decisions, coordinate dependencies, delegate integration and whole-epic verification, and report the outcome. It MUST NOT inspect repositories, implement code, run tests, review changes, integrate changes, or investigate failures. Workers SHALL follow their assigned tickets, linked specifications, acceptance criteria, and applicable project instructions without an imposed discovery phase or OpenSpec-specific workflow.
+### Requirement: Coordination and acceptance stay separate
+The coordinator SHALL summarize records and operator decisions only. It MUST NOT inspect repositories/transcripts, implement, test, review, integrate or diagnose. Epic success SHALL require separate explicit integration evidence; done subtasks and idle workers MUST NOT imply acceptance.
 
 #### Scenario: Worker failure
+- **WHEN** a report records failure
+- **THEN** the failure and references remain visible without automatic worker wakeup, diagnosis assignment or acceptance
 
-- **WHEN** a worker reports a failure or BB sends a generic suggestion to inspect the failed child
-- **THEN** the coordinator delegates any diagnosis and reports the blocker without inspecting repository contents or investigating the worker transcript
-
-#### Scenario: Task-specific workflow
-
-- **WHEN** a ticket specifies a direct implementation, investigation, review, or non-code deliverable
-- **THEN** its worker follows that ticket and project instructions without an added generic discovery phase
-
-### Requirement: Approved scope and separate restricted approvals
-
-An active run SHALL coordinate only its approved existing subtasks and the epic's approved integration/verification work. Routine eligible dispatches SHALL NOT require repeated approval. New tasks, scope suggestions, and changed tracker scope SHALL remain separate until user approval. Run authorization MUST NOT authorize publishing, merging, production actions, or other independently restricted operations.
-
-#### Scenario: Routine dispatch
-
-- **WHEN** an approved subtask becomes eligible during an active run
-- **THEN** the coordinator can dispatch or reuse its owner without asking for another routine-dispatch approval
-
-#### Scenario: Scope changes
-
-- **WHEN** a new subtask appears, a worker suggests extra work, or approved tracker scope changes
-- **THEN** the new or changed work is shown separately and is not dispatched under the existing approval
-
-#### Scenario: Restricted operation
-
-- **WHEN** a worker needs a merge, publication, or production action
-- **THEN** the coordinator relays the separate approval request and does not answer it from run authority
-
-### Requirement: Explicit pause and resume
-
-Pausing a run SHALL prevent new coordinator-requested dispatches and continuations. A manually stopped worker MUST NOT be automatically restarted, retried, or replaced. Resuming paused or interrupted orchestration SHALL require an explicit user request. Plugin enable or restart MUST NOT count as that request.
-
-#### Scenario: Pause with reports arriving
-
-- **WHEN** a paused run receives a worker report
-- **THEN** the report is retained but the coordinator does not dispatch dependent work until explicit resume
-
-### Requirement: Delegated epic acceptance
-
-Integration and whole-epic acceptance verification SHALL belong to a separate worker attached to the existing epic. The coordinator SHALL report epic success only from that worker's explicit acceptance outcome and result references. All subtasks being done MUST NOT automatically complete the epic. Failed acceptance SHALL remain visible and any repair outside approved scope SHALL require user approval.
-
-#### Scenario: Subtasks complete but acceptance remains
-
-- **WHEN** every approved subtask is done and no whole-epic acceptance report exists
-- **THEN** the epic remains unverified and integration/verification is delegated rather than performed by the coordinator
-
-#### Scenario: Acceptance gap
-
-- **WHEN** the integration worker reports unmet epic acceptance criteria
-- **THEN** the coordinator reports the gap and delegates approved repair or requests a scope decision without diagnosing or fixing it itself
+Automated dispatch, answer routing, artifact delivery and integration/acceptance-role execution are deferred, not release acceptance requirements or delivered capabilities.

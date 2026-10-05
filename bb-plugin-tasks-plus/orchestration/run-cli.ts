@@ -4,9 +4,9 @@ import type { RunController } from "./run";
 export function runCommands(controller: RunController) {
   const command = (action: "begin" | "pause" | "resume") =>
     cliCommand({
-      summary: `${action} an approved orchestration run from a persisted explicit invocation`,
+      summary: `${action} an orchestration scope record from a persisted explicit invocation`,
       description:
-        "Uses BB-recorded user classification, not proof of human identity. See BBP-51. No worker side effects.",
+        "Manual-first scope bookkeeping only. No worker input, start or stop. Pause does not cancel native work. BB-recorded user classification is not human-identity proof; see BBP-51.",
       options: {
         request: {
           type: "string",

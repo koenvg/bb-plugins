@@ -11,6 +11,8 @@ import { runCommands } from "../orchestration/run-cli";
 import type { RunController } from "../orchestration/run";
 import { dispatchCommands } from "../orchestration/dispatch-cli";
 import type { Dispatcher } from "../orchestration/dispatch";
+import { reportCommands } from "../orchestration/report-cli";
+import type { Reporter } from "../orchestration/report";
 import { z } from "zod";
 
 import {
@@ -635,6 +637,7 @@ export function registerTasksCli(
   orchestrationOptions: StatusOptions = {},
   runs?: RunController,
   dispatcher?: Dispatcher,
+  reporter?: Reporter,
 ): void {
   const domain = registerHandlers(bb, store);
   bb.cli.register(
@@ -647,6 +650,7 @@ export function registerTasksCli(
         ...orchestrationStatusCommands(bb, store, orchestrationOptions),
         ...(runs ? runCommands(runs) : {}),
         ...(dispatcher ? dispatchCommands(bb, dispatcher) : {}),
+        ...(reporter ? reportCommands(bb, reporter) : {}),
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:

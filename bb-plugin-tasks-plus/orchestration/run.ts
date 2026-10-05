@@ -86,8 +86,8 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         rendererId: "orchestrator-run",
         title:
           request.action === "begin"
-            ? "Approve orchestration run"
-            : "Resume orchestration run",
+            ? "Approve orchestration scope record"
+            : "Resume orchestration scope record",
         payload,
         describeSubmission(value) {
           return {
@@ -322,7 +322,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
       if (run.phase !== "active")
         refuse(
           "run_inactive",
-          "Pause or interruption prevents dispatch/continuation. Explicit resume is required.",
+          "This scope record is paused or interrupted. Explicit native resume is required. Scope controls do not execute or stop workers.",
         );
       assertCurrentScope(store.tasks, run);
       return run;

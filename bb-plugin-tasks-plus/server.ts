@@ -11,6 +11,8 @@ import { registerOrchestrationStatus } from "./orchestration";
 
 import { createRunController } from "./orchestration/run";
 import { createDispatcher } from "./orchestration/dispatch";
+import { createReporter, type ReporterOptions } from "./orchestration/report";
+import { withReportCoordination } from "./orchestration/report-coordination";
 const TASKS_PLUGIN_NAME = "Tasks";
 export const TASKS_PLUGIN_VERSION = "0.1.2";
 
@@ -26,6 +28,14 @@ function statusPayload() {
 }
 
 export default async function plugin(bb: BbPluginApi) {
+  return registerTasks(bb);
+}
+
+/** Production enables only the previously verified Pi native-origin storage path. Tests can select other isolated origins; no option enables agent delivery. */
+export async function registerTasks(
+  bb: BbPluginApi,
+  reportOptions: ReporterOptions = { nativeProviders: ["pi"] },
+) {
   bb.log.info(`${TASKS_PLUGIN_NAME} ${TASKS_PLUGIN_VERSION} loaded`);
 
   const store = createStore(bb);
@@ -33,10 +43,25 @@ export default async function plugin(bb: BbPluginApi) {
   registerAttachments(bb, store.tasks);
   const runs = createRunController(bb, store);
   runs.register();
+  const reporter = createReporter(bb, store, runs, reportOptions);
+  reporter.register();
   const dispatcher = createDispatcher(bb, store, runs);
   dispatcher.register();
-  const orchestrationOptions = { readCoordination: dispatcher.readCoordination };
-  registerTasksCli(bb, store, statusPayload(), orchestrationOptions, runs, dispatcher);
+  const orchestrationOptions = {
+    readCoordination: withReportCoordination(
+      dispatcher.readCoordination,
+      reporter.reports,
+    ),
+  };
+  registerTasksCli(
+    bb,
+    store,
+    statusPayload(),
+    orchestrationOptions,
+    runs,
+    dispatcher,
+    reporter,
+  );
   registerDelegation(bb, store);
   registerOrchestrationStatus(bb, store, orchestrationOptions);
   registerMentions(bb, store);

@@ -10,11 +10,9 @@ import { roleSchema } from "./dispatch-contract";
 export function dispatchCommands(bb: BbPluginApi, dispatcher: Dispatcher) {
   const command = (adopt: boolean) =>
     cliCommand({
-      summary: adopt
-        ? "Explicitly adopt a legacy task worker association"
-        : "Safely dispatch or reuse an approved task owner",
+      summary: adopt ? "Deferred orchestrator adoption" : "Deferred orchestrator dispatch",
       description:
-        "Requires a current approved run. Unknown ownership, claims and handoffs refuse another spawn. No new approval for routine eligible work.",
+        "Manual-first release. Returns deferred without creating a claim, worker or agent input. Scope approval is bookkeeping, not worker execution.",
       positionals: [
         {
           name: "task",
