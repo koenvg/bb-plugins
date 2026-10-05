@@ -69,6 +69,14 @@ export function diffQuery(target: DiffTarget, baseBranch: string): DiffQuery {
   }
 }
 
+export function targetOf(query: DiffQuery): DiffTarget {
+  return query.target === "commit" ? { kind: "commit", sha: query.sha } : { kind: query.target };
+}
+
+export function targetKey(target: DiffTarget): string {
+  return target.kind === "commit" ? `commit:${target.sha}` : target.kind;
+}
+
 export type PatchTarget =
   | { type: "uncommitted" }
   | { type: "all" | "branch_committed"; mergeBaseBranch: string }

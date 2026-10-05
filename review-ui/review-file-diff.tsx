@@ -17,6 +17,9 @@ export interface ReviewFileDiffProps<T> {
   onAddComment: (side: DiffSide, line: number) => void;
   view: DiffView;
   theme: CodeTheme;
+  headerPrefix?: ReactNode;
+  headerMetadata?: ReactNode;
+  collapsed?: boolean;
 }
 
 export function ReviewFileDiff<T>({
@@ -26,6 +29,9 @@ export function ReviewFileDiff<T>({
   onAddComment,
   view,
   theme,
+  headerPrefix,
+  headerMetadata,
+  collapsed = false,
 }: ReviewFileDiffProps<T>) {
   return (
     <FileDiff
@@ -35,12 +41,15 @@ export function ReviewFileDiff<T>({
         themeType: theme.mode,
         overflow: "wrap",
         stickyHeader: true,
+        collapsed,
         diffStyle: view,
         enableGutterUtility: true,
         onGutterUtilityClick: (range) => onAddComment(range.side ?? "additions", range.start),
       }}
       lineAnnotations={annotations}
       renderAnnotation={renderAnnotation}
+      renderHeaderPrefix={headerPrefix === undefined ? undefined : () => headerPrefix}
+      renderHeaderMetadata={headerMetadata === undefined ? undefined : () => headerMetadata}
     />
   );
 }

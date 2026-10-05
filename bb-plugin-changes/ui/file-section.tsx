@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Icon } from "@/components/ui/icon";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
 import { commentAnchorLine, type DiffLines } from "../../review-ui/diff-lines";
@@ -7,8 +8,10 @@ import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
 import { ReviewFileDiff, type DiffView } from "../../review-ui/review-file-diff";
 import type { ChangedFile } from "../core/changes";
+import { canMark } from "../core/viewed-files";
 import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
 import type { PatchState } from "./use-patches";
+import type { FileViewedState } from "./use-viewed";
 
 type Annotation = { kind: "comment"; comment: PendingComment } | { kind: "form"; form: OpenForm };
 
@@ -21,11 +24,12 @@ interface FileSectionProps {
   comments: readonly PendingComment[];
   openForms: readonly OpenForm[];
   view: DiffView;
+  viewed: FileViewedState;
 }
 
-export function FileSection({ threadId, file, patch, lines, loadPatch, comments, openForms, view }: FileSectionProps) {
+export function FileSection({ threadId, file, patch, lines, loadPatch, comments, openForms, view, viewed }: FileSectionProps) {
   const { visible, ref } = useNearView<HTMLElement>();
-  const showsDiff = !file.binary && file.loadMode !== "too_large";
+  const showsDiff = canMark(file);
   useEffect(() => {
     if (visible && showsDiff) loadPatch(file.path);
   }, [visible, showsDiff, loadPatch, file.path]);
@@ -34,7 +38,7 @@ export function FileSection({ threadId, file, patch, lines, loadPatch, comments,
     <section ref={ref} aria-label={file.path} className="min-h-10 border-b border-border">
       {!showsDiff ? (
         <FileNotice file={file}>{file.binary ? "Binary file" : "Diff too large"}</FileNotice>
-      ) : !visible || patch.kind === "loading" ? (
+      ) : (!visible && !viewed.collapsed) || patch.kind === "loading" ? (
         <FileNotice file={file}>Loading diff…</FileNotice>
       ) : patch.kind === "error" ? (
         <FileNotice file={file}>{patch.message}</FileNotice>
@@ -47,6 +51,7 @@ export function FileSection({ threadId, file, patch, lines, loadPatch, comments,
           comments={comments}
           openForms={openForms}
           view={view}
+          viewed={viewed}
         />
       )}
     </section>
@@ -61,6 +66,7 @@ function FileDiffWithComments({
   comments,
   openForms,
   view,
+  viewed,
 }: Omit<FileSectionProps, "patch" | "loadPatch"> & { patch: string }) {
   const theme = useCodeTheme();
   const fileDiff = useMemo(() => parseFileDiff(patch), [patch]);
@@ -86,6 +92,16 @@ function FileDiffWithComments({
       annotations={annotations}
       view={view}
       theme={theme}
+      collapsed={viewed.collapsed}
+      headerPrefix={<CollapseButton path={file.path} collapsed={viewed.collapsed} onToggle={viewed.toggleCollapsed} />}
+      headerMetadata={
+        <ViewedCheckbox
+          path={file.path}
+          checked={viewed.viewed}
+          disabled={!viewed.canToggleViewed}
+          onToggle={viewed.toggleViewed}
+        />
+      }
       onAddComment={(side, line) =>
         pendingReviews.openForm(threadId, {
           path: file.path,
@@ -108,6 +124,45 @@ function FileDiffWithComments({
         )
       }
     />
+  );
+}
+
+function CollapseButton({ path, collapsed, onToggle }: { path: string; collapsed: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={`${collapsed ? "Expand" : "Collapse"} ${path}`}
+      aria-expanded={!collapsed}
+      className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      onClick={onToggle}
+    >
+      <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="size-3.5" />
+    </button>
+  );
+}
+
+function ViewedCheckbox({
+  path,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  path: string;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground has-[:disabled]:cursor-default has-[:disabled]:opacity-50">
+      <input
+        type="checkbox"
+        aria-label={`Viewed ${path}`}
+        checked={checked}
+        disabled={disabled}
+        onChange={onToggle}
+      />
+      Viewed
+    </label>
   );
 }
 

@@ -9,6 +9,7 @@ export type LoadedChanges = Extract<ChangesResult, { kind: "ok" }>;
 
 export interface Patches {
   stateOf(path: string): PatchState;
+  currentPatch(path: string): string | null;
   load(path: string): void;
 }
 
@@ -17,7 +18,7 @@ interface Entry {
   changes: LoadedChanges;
 }
 
-export function usePatches(threadId: string, changes: LoadedChanges): Patches {
+export function usePatches(threadId: string, changes: LoadedChanges | null): Patches {
   const rpc = useRpc<typeof rpcContract>();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(new Map());
   const requested = useRef(new WeakMap<LoadedChanges, Set<string>>());
@@ -57,6 +58,7 @@ export function usePatches(threadId: string, changes: LoadedChanges): Patches {
 
   const load = useCallback(
     (path: string) => {
+      if (changes === null) return;
       const paths = requested.current.get(changes) ?? new Set<string>();
       requested.current.set(changes, paths);
       if (paths.has(path) || changes.patches[path] !== undefined) return;
@@ -77,7 +79,7 @@ export function usePatches(threadId: string, changes: LoadedChanges): Patches {
 
   const stateOf = useCallback(
     (path: string): PatchState => {
-      const initial = changes.patches[path];
+      const initial = changes?.patches[path];
       if (initial !== undefined) return { kind: "loaded", patch: initial };
       const entry = entries.get(path);
       if (entry === undefined) return { kind: "loading" };
@@ -88,5 +90,15 @@ export function usePatches(threadId: string, changes: LoadedChanges): Patches {
     [changes, entries],
   );
 
-  return useMemo(() => ({ stateOf, load }), [stateOf, load]);
+  const currentPatch = useCallback(
+    (path: string): string | null => {
+      const initial = changes?.patches[path];
+      if (initial !== undefined) return initial;
+      const entry = entries.get(path);
+      return entry?.changes === changes && entry.state.kind === "loaded" ? entry.state.patch : null;
+    },
+    [changes, entries],
+  );
+
+  return useMemo(() => ({ stateOf, currentPatch, load }), [stateOf, currentPatch, load]);
 }

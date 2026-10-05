@@ -57,6 +57,7 @@ async function setup(
     diffPatch?: DiffPatchResult;
     send?: SendResult | Error;
     remoteBranches?: string[];
+    kv?: Record<string, unknown>;
   } = {},
 ) {
   const calls: Calls = { status: [], diffFiles: [], diffPatch: [], send: [] };
@@ -104,9 +105,10 @@ async function setup(
       },
     },
   });
+  for (const [key, value] of Object.entries(options.kv ?? {})) await bb.storage.kv.set(key, value);
   await plugin(bb);
   dispose = () => harness.dispose();
-  return { harness, calls };
+  return { harness, calls, kv: bb.storage.kv };
 }
 
 describe("getChanges", () => {
@@ -264,5 +266,86 @@ describe("sendFeedback", () => {
     const result = await harness.callRpc("sendFeedback", { threadId: "thr_1", text: "Fix it" });
 
     expect(result).toEqual({ kind: "error", message: "thread archived" });
+  });
+});
+
+describe("viewed marks", () => {
+  const ALL = { kind: "all" } as const;
+  const KEY = "viewed:v1:thr_1:all";
+
+  it("reads the marks of a thread and target", async () => {
+    const { harness } = await setup({
+      kv: {
+        [KEY]: { v: 1, marks: { "src/a.ts": "5:aaaa" } },
+        "viewed:v1:thr_1:uncommitted": { v: 1, marks: { "src/b.ts": "5:bbbb" } },
+      },
+    });
+
+    const result = await harness.callRpc("getViewed", { threadId: "thr_1", target: ALL });
+
+    expect(result).toEqual({ kind: "ok", marks: { "src/a.ts": "5:aaaa" } });
+  });
+
+  it("reads a bad stored value as no marks", async () => {
+    const { harness } = await setup({ kv: { [KEY]: { v: 2, marks: "?" } } });
+
+    const result = await harness.callRpc("getViewed", { threadId: "thr_1", target: ALL });
+
+    expect(result).toEqual({ kind: "ok", marks: {} });
+  });
+
+  it("sets and removes marks in one update, per commit sha", async () => {
+    const commit = { kind: "commit", sha: "abc1234def" } as const;
+    const { harness, kv } = await setup({
+      kv: { "viewed:v1:thr_1:commit:abc1234def": { v: 1, marks: { "src/a.ts": "5:aaaa", "src/b.ts": "5:bbbb" } } },
+    });
+
+    const result = await harness.callRpc("updateViewed", {
+      threadId: "thr_1",
+      target: commit,
+      set: { "src/c.ts": "5:cccc" },
+      remove: ["src/a.ts"],
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(await kv.get("viewed:v1:thr_1:commit:abc1234def")).toEqual({
+      v: 1,
+      marks: { "src/b.ts": "5:bbbb", "src/c.ts": "5:cccc" },
+    });
+  });
+
+  it("deletes the key when no marks are left", async () => {
+    const { harness, kv } = await setup({ kv: { [KEY]: { v: 1, marks: { "src/a.ts": "5:aaaa" } } } });
+
+    await harness.callRpc("updateViewed", { threadId: "thr_1", target: ALL, set: {}, remove: ["src/a.ts"] });
+
+    expect(await kv.list("viewed:")).toEqual([]);
+  });
+
+  it("keeps both changes of two parallel updates", async () => {
+    const { harness, kv } = await setup();
+
+    await Promise.all([
+      harness.callRpc("updateViewed", { threadId: "thr_1", target: ALL, set: { "src/a.ts": "5:aaaa" }, remove: [] }),
+      harness.callRpc("updateViewed", { threadId: "thr_1", target: ALL, set: { "src/b.ts": "5:bbbb" }, remove: [] }),
+    ]);
+
+    expect(await kv.get(KEY)).toEqual({ v: 1, marks: { "src/a.ts": "5:aaaa", "src/b.ts": "5:bbbb" } });
+  });
+
+  it("returns a storage error as an error result", async () => {
+    const { harness, kv } = await setup();
+    kv.set = async () => {
+      throw new Error("disk full");
+    };
+
+    const result = await harness.callRpc("updateViewed", {
+      threadId: "thr_1",
+      target: ALL,
+      set: { "src/a.ts": "5:aaaa" },
+      remove: [],
+    });
+
+    expect(result).toEqual({ kind: "error", message: "disk full" });
   });
 });
