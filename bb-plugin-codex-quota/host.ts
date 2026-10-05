@@ -7,7 +7,16 @@ import { experimental_defineHostEntry } from "@get-bb/plugin-sdk";
 import { hostContract } from "./contract.js";
 import { fetchNormalizedQuota } from "./feasibility.js";
 import { QuotaCache, type QuotaRead, type QuotaReason, type QuotaView } from "./quota-cache.js";
+import { createActivityHostReader } from "./activity-host.js";
+import { fetchNormalizedActivity } from "./activity-fetch.js";
+import type { ActivityRead } from "./activity-contract.js";
 
+import { createHostHistory, type HostHistory } from "./history-host.js";
+import { calendarUnavailable } from "./calendar-contract.js";
+import { importUnavailable } from "./import-contract.js";
+// Internal named exports let packaged tests exercise the runtime adapter and exact collector asset.
+export { openHistoryDatabase } from "./history-storage.js";
+export { packagedCollectorAsset } from "./collector-compatibility.js";
 // The BB host artifact is self-contained; Pi AI's variable OAuth imports cannot resolve beside it.
 registerBunOAuthFlows();
 
@@ -90,7 +99,9 @@ async function resolvePiAuth(signal: AbortSignal): Promise<AuthState> {
 type Dependencies = {
   auth: (signal: AbortSignal) => Promise<AuthState>;
   read: (token: string, signal: AbortSignal) => Promise<QuotaRead>;
+  activityRead?: (token: string, signal: AbortSignal) => Promise<ActivityRead>;
   now?: () => number;
+  history?: HostHistory;
 };
 const unavailable = (reason: QuotaReason): QuotaView => ({
   state: "unavailable",
@@ -100,10 +111,61 @@ const unavailable = (reason: QuotaReason): QuotaView => ({
 
 export function createQuotaHostEntry(deps: Dependencies) {
   const cache = new QuotaCache(deps.now);
+  const history = deps.history ?? createHostHistory();
+  const activity = createActivityHostReader({
+    auth: deps.auth,
+    read: deps.activityRead ?? (async () => ({ status: "unsupported", snapshot: null })),
+    now: deps.now,
+  });
   return experimental_defineHostEntry({
     contract: hostContract,
+    dispose: () => activity.dispose(),
     handlers: {
       ping: async () => ({ reachable: true }),
+      calendarReport: async (calendar, context) =>
+        (
+          await history.read({
+            calendar,
+            dataDir: context.experimental_paths.dataDir,
+            signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+          })
+        ).calendar ?? calendarUnavailable("unsupported"),
+      historicalImport: async ({ hostId, command, knownWorkspaces }, context) => {
+        const signal = AbortSignal.any([context.signal, context.lifecycle.signal]);
+        if (signal.aborted || !history.controlImport)
+          return importUnavailable(signal.aborted ? "selection-changed" : "unsupported");
+        const lease =
+          command.action === "start" || command.action === "resume"
+            ? context.experimental_retainWorker()
+            : null;
+        try {
+          signal.throwIfAborted();
+          return await history.controlImport(command, {
+            hostId,
+            knownWorkspaces,
+            dataDir: context.experimental_paths.dataDir,
+            signal,
+          });
+        } finally {
+          await lease?.dispose();
+        }
+      },
+      historyReadiness: async (input, context) =>
+        history.read({
+          dataDir: context.experimental_paths.dataDir,
+          identities: input?.identities,
+          signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+        }),
+      collectorControl: async ({ action, confirmation }, context) =>
+        history.control(
+          action,
+          {
+            dataDir: context.experimental_paths.dataDir,
+            signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+          },
+          confirmation,
+        ),
+      activity: async ({ refresh }, context) => activity.read(refresh === true, context.signal),
       quota: async ({ refresh }, context) => {
         const signal = AbortSignal.any([context.signal, AbortSignal.timeout(12_000)]);
         const auth = await deps.auth(signal);
@@ -126,4 +188,8 @@ export function createQuotaHostEntry(deps: Dependencies) {
   });
 }
 
-export default createQuotaHostEntry({ auth: resolvePiAuth, read: fetchNormalizedQuota });
+export default createQuotaHostEntry({
+  auth: resolvePiAuth,
+  read: fetchNormalizedQuota,
+  activityRead: fetchNormalizedActivity,
+});

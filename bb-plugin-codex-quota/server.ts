@@ -1,7 +1,20 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, quotaViewSchema } from "./contract.js";
+import { activityViewSchema } from "./activity-contract.js";
+import { createActivityHandler } from "./activity-server.js";
 
+import {
+  historyReadinessSchema,
+  historyRequestSchema,
+  collectorRequestSchema,
+} from "./history-contract.js";
+import { createHistoryReader } from "./history-routing.js";
+import { createIdentityHistoryCall } from "./identity-server.js";
+import { importRequestSchema, importViewSchema } from "./import-contract.js";
+import { createImportHandler } from "./import-routing.js";
+import { calendarQuerySchema, calendarReportSchema } from "./calendar-contract.js";
+import { createCalendarReader } from "./calendar-routing.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z
@@ -28,6 +41,23 @@ export const rpcContract = defineRpcContract({
       .strict(),
     output: quotaViewSchema,
   },
+  historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  calendarReport: {
+    input: historyRequestSchema.extend({ query: calendarQuerySchema }),
+    output: calendarReportSchema,
+  },
+  collectorControl: { input: collectorRequestSchema, output: historyReadinessSchema },
+  historicalImport: { input: importRequestSchema, output: importViewSchema },
+  activity: {
+    input: z
+      .object({
+        hostId: hostIdSchema,
+        generation: generationSchema,
+        refresh: z.boolean().optional(),
+      })
+      .strict(),
+    output: activityViewSchema,
+  },
 });
 
 const unavailable = (
@@ -47,10 +77,56 @@ export default function plugin(bb: BbPluginApi) {
       ? host
       : null;
   };
+  const readHistory = createHistoryReader({
+    selection,
+    enrolled,
+    activeReads,
+    call: createIdentityHistoryCall(bb, (hostId, signal, input) =>
+      hostClient.call("historyReadiness", input, { hostId, signal }),
+    ),
+  });
+  const collectorControl = createHistoryReader({
+    selection,
+    enrolled,
+    activeReads,
+    call: (hostId, signal, action, confirmation) =>
+      hostClient.call(
+        "collectorControl",
+        { action: action!, ...(confirmation ? { confirmation } : {}) },
+        { hostId, signal },
+      ),
+  });
+  bb.onDispose(() => {
+    for (const controller of activeReads) controller.abort();
+  });
   bb.rpc.register(rpcContract, {
+    calendarReport: createCalendarReader({
+      selection,
+      enrolled,
+      activeReads,
+      call: (hostId, signal, query) => hostClient.call("calendarReport", query, { hostId, signal }),
+    }),
+    historyReadiness: readHistory,
+    collectorControl,
+    historicalImport: createImportHandler({
+      selection,
+      enrolled,
+      activeReads,
+      sdk: bb.sdk,
+      prepare: readHistory,
+      call: (hostId, signal, input) =>
+        hostClient.call("historicalImport", input, { hostId, signal }),
+    }),
     async selection() {
       return selection();
     },
+    activity: createActivityHandler({
+      selection,
+      enrolled,
+      activeReads,
+      call: (hostId, refresh, signal) =>
+        hostClient.call("activity", { refresh }, { hostId, signal }),
+    }),
     async selectHost({ hostId }) {
       const request = ++selectionRequest;
       if (hostId !== null) {

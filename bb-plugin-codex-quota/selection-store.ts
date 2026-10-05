@@ -9,6 +9,8 @@ export type QuotaApi = {
 };
 type State = {
   selection: Selection;
+  selectionPending: boolean;
+  selectionRevision: number;
   view: QuotaStatus;
   loading: boolean;
   ready: boolean;
@@ -47,6 +49,8 @@ export class QuotaSelectionStore {
   constructor(private readonly now: () => number = () => Date.now()) {
     this.state = {
       selection: { hostId: null, generation: 0 },
+      selectionPending: false,
+      selectionRevision: 0,
       view: unavailable("no-selection"),
       loading: false,
       ready: false,
@@ -86,6 +90,8 @@ export class QuotaSelectionStore {
     this.selecting = null;
     this.publish({
       selection: { hostId: null, generation: 0 },
+      selectionPending: false,
+      selectionRevision: this.revision,
       view: unavailable("no-selection"),
       loading: false,
       ready: false,
@@ -194,6 +200,8 @@ export class QuotaSelectionStore {
           if (this.owner) this.resetSchedule(this.owner);
           this.publish({
             selection,
+            selectionPending: false,
+            selectionRevision: this.revision,
             view: unavailable("no-selection"),
             ready: selection.hostId === null,
             loading: false,
@@ -230,13 +238,21 @@ export class QuotaSelectionStore {
     this.connecting = null;
     if (this.owner) this.resetSchedule(this.owner);
     this.reading = null;
-    this.publish({ view: unavailable("no-selection"), loading: true, ready: false });
+    // Other selected-host views must invalidate at switch start, not after quota/auth completes.
+    this.publish({
+      selectionPending: true,
+      selectionRevision: revision,
+      view: unavailable("no-selection"),
+      loading: true,
+      ready: false,
+    });
     try {
       const selection = await api.selectHost({ hostId });
       if (this.revision !== revision) return;
       this.selecting = null;
       this.publish({
         selection,
+        selectionPending: false,
         view: unavailable(selection.hostId === hostId ? "no-selection" : "foreign-host"),
         loading: false,
         ready: selection.hostId !== hostId || hostId === null,
@@ -245,7 +261,12 @@ export class QuotaSelectionStore {
     } catch {
       if (this.revision === revision) {
         this.selecting = null;
-        this.publish({ view: unavailable("host-offline"), loading: false, ready: true });
+        this.publish({
+          selectionPending: false,
+          view: unavailable("host-offline"),
+          loading: false,
+          ready: true,
+        });
       }
     } finally {
       if (this.owner && this.revision === revision && this.owner.timer === null && !this.reading) {

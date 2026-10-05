@@ -11,6 +11,12 @@
     "skipLibCheck": false
   },
   "include": [
+    "activity*.ts",
+    "calendar*.ts",
+    "calendar*.tsx",
+    "scripts/calendar-preview.tsx",
+    "activity*.tsx",
+    "scripts/activity-preview.tsx",
     "server.ts",
     "host.ts",
     "contract.ts",
@@ -22,6 +28,7 @@
     "freshness.ts",
     "selection-store.ts",
     "selection-store.test.ts",
+    "selection-integration.test.tsx",
     "quota-view.tsx",
     "quota-view.test.tsx",
     "feasibility.test.ts",
@@ -29,6 +36,13 @@
     "host.test.ts",
     "app.tsx",
     "app.test.tsx",
-    "sdk-surface.test.ts"
+    "sdk-surface.test.ts",
+    "history-*.ts",
+    "history-*.tsx",
+    "collector*.ts",
+    "collector*.tsx",
+    "usage-record.ts",
+    "live-history.test.ts",
+    "scripts/collector-preview.tsx"
   ]
 }
