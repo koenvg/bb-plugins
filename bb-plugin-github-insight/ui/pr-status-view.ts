@@ -1,4 +1,5 @@
 import type { IconName } from "@/components/ui/icon";
+import { AUTO_MERGE_METHOD_LABEL } from "../core/auto-merge";
 import { bannerParts } from "../core/banner";
 import type { Blocker } from "../core/blockers";
 import type { RunnableMergeAction } from "../core/merge-action";
@@ -106,4 +107,30 @@ export function prStatusView(insight: PrInsight): PrStatusView {
     };
   }
   return status;
+}
+
+export type SummaryLine = StatusRow & { more: number };
+
+export function prSummaryLine(insight: PrInsight): SummaryLine | null {
+  if (insight.pr.state === "closed" || insight.pr.state === "merged") return null;
+  const { detail } = prStatusView(insight);
+  if (detail?.kind === "queue") return { ...detail, more: 0 };
+  if (insight.autoMergeAction.kind === "disable") {
+    return {
+      text: `Auto-merge on (${AUTO_MERGE_METHOD_LABEL[insight.autoMergeAction.method]})`,
+      icon: "GitMerge",
+      iconClassName: "text-success",
+      more: 0,
+    };
+  }
+  const [first, ...rest] = insight.blockers.filter((blocker) => blocker.code !== "draft");
+  if (first !== undefined) {
+    return {
+      text: first.text,
+      icon: "AlertCircle",
+      iconClassName: blockerTone(first.code),
+      more: rest.length,
+    };
+  }
+  return detail?.kind === "ready" ? { ...detail, more: 0 } : null;
 }

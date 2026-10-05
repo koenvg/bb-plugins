@@ -16,6 +16,13 @@ const pr = {
   state: "open" as const,
   url: "https://github.com/o/r/pull/7",
   headOid: "a",
+  headRefName: "feature",
+  headOwner: null,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 };
 const emptyInsight: PrInsight = {
   pr,
@@ -24,6 +31,8 @@ const emptyInsight: PrInsight = {
   checks: [],
   reviewers: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 const blocked: PrInsight = {
   ...emptyInsight,

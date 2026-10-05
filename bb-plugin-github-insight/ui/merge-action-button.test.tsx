@@ -17,6 +17,13 @@ const pr = {
   state: "open",
   url: "https://github.com/o/r/pull/7",
   headOid: "abc123",
+  headRefName: "feature",
+  headOwner: null,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 } as const;
 
 type Props = ComponentProps<typeof MergeActionButton>;

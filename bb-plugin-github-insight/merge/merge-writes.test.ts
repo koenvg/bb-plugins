@@ -8,12 +8,27 @@ const target = { ref: { owner: "o", repo: "r", number: 7 }, hostId: "host-1", op
 const HEAD = "2c850077d3529aa67c8178c80d09517377124ea9";
 
 const insight: PrInsight = {
-  pr: { number: 7, title: "t", state: "open", url: "https://github.com/o/r/pull/7", headOid: HEAD },
+  pr: {
+    number: 7,
+    title: "t",
+    state: "open",
+    url: "https://github.com/o/r/pull/7",
+    headOid: HEAD,
+    headRefName: "feature",
+    headOwner: null,
+    baseRefName: "main",
+    author: "koenvg",
+    additions: 1,
+    deletions: 0,
+    changedFiles: 1,
+  },
   mergeAction: { kind: "merge", method: "REBASE" },
   blockers: [],
   reviewers: [],
   checks: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 
 const cached: CachedPr = { kind: "cached", target, insight, pullRequestId: "PR_7" };

@@ -18,12 +18,21 @@ const base: PrInsight = {
     state: "draft",
     url: "https://github.com/o/r/pull/1",
     headOid: "a",
+    headRefName: "feature",
+    headOwner: null,
+    baseRefName: "main",
+    author: "koenvg",
+    additions: 1,
+    deletions: 0,
+    changedFiles: 1,
   },
   mergeAction: { kind: "none" },
   blockers: [],
   checks: [],
   reviewers: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 const refreshedAt = Date.parse("2026-10-05T09:00:00Z");
 const ok = (insight = base, error: string | null = null): InsightResult => ({

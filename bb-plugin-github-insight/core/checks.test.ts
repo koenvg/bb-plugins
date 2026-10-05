@@ -22,6 +22,7 @@ function checkRun(overrides: Partial<CheckRunNode> = {}): CheckRunNode {
     startedAt: "2026-09-24T10:00:00Z",
     title: null,
     summary: null,
+    isRequired: false,
     ...overrides,
   };
 }
@@ -34,6 +35,7 @@ function statusContext(overrides: Partial<StatusContextNode> = {}): StatusContex
     description: null,
     targetUrl: "https://example.com/storybook",
     createdAt: "2026-09-24T10:00:00Z",
+    isRequired: false,
     ...overrides,
   };
 }

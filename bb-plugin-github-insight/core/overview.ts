@@ -16,6 +16,8 @@ import {
   mergeStateStatusSchema,
   reviewDecisionSchema,
 } from "./blockers";
+import { autoMergeActionSchema, buildAutoMergeAction, type AutoMergeAction } from "./auto-merge";
+import { canUpdateBranch } from "./branch-update";
 import { parseFailureAnnotations, type Annotation } from "./failure";
 import { mergeQueueEntrySchema, mergeQueueSchema, toMergeQueue } from "./merge-queue";
 import {
@@ -79,6 +81,7 @@ const firstPageSchema = z.object({
       mergeCommitAllowed: z.boolean(),
       squashMergeAllowed: z.boolean(),
       rebaseMergeAllowed: z.boolean(),
+      autoMergeAllowed: z.boolean(),
       pullRequest: z.object({
         id: z.string(),
         headRefOid: z.string(),
@@ -86,6 +89,15 @@ const firstPageSchema = z.object({
         mergeable: mergeableSchema,
         mergeStateStatus: mergeStateStatusSchema,
         mergeQueueEntry: mergeQueueEntrySchema,
+        headRefName: z.string(),
+        baseRefName: z.string(),
+        isCrossRepository: z.boolean(),
+        headRepositoryOwner: z.object({ login: z.string() }).nullable(),
+        author: z.object({ login: z.string() }).nullable(),
+        additions: z.number(),
+        deletions: z.number(),
+        changedFiles: z.number(),
+        autoMergeRequest: z.object({ mergeMethod: mergeMethodSchema }).nullable(),
         reviewDecision: reviewDecisionSchema,
         reviewRequests: z.object({ nodes: z.array(reviewRequestNodeSchema) }),
         latestOpinionatedReviews: z.object({ nodes: z.array(reviewNodeSchema) }),
@@ -116,8 +128,17 @@ export const prInsightSchema = z.object({
     state: prStateSchema,
     url: z.string(),
     headOid: z.string(),
+    headRefName: z.string(),
+    headOwner: z.string().nullable(),
+    baseRefName: z.string(),
+    author: z.string().nullable(),
+    additions: z.number(),
+    deletions: z.number(),
+    changedFiles: z.number(),
   }),
   mergeAction: mergeActionSchema,
+  autoMergeAction: autoMergeActionSchema,
+  canUpdateBranch: z.boolean(),
   blockers: z.array(blockerSchema),
   reviewers: z.array(reviewerSchema),
   checks: z.array(checkSchema),
@@ -182,6 +203,15 @@ function prHeader(page: OverviewPage, reviewState: ReviewState): PrInsight["pr"]
     state,
     url: pr.url,
     headOid: reviewState.headRefOid,
+    headRefName: reviewState.headRefName,
+    headOwner: reviewState.isCrossRepository
+      ? (reviewState.headRepositoryOwner?.login ?? null)
+      : null,
+    baseRefName: reviewState.baseRefName,
+    author: reviewState.author?.login ?? null,
+    additions: reviewState.additions,
+    deletions: reviewState.deletions,
+    changedFiles: reviewState.changedFiles,
   };
 }
 
@@ -216,11 +246,32 @@ function mergeAction(
     isMergeQueueEnabled: reviewState.isMergeQueueEnabled,
     isInMergeQueue: mergeQueue !== null,
     defaultMethod: settings.viewerDefaultMergeMethod,
-    allowedMethods: {
-      MERGE: settings.mergeCommitAllowed,
-      SQUASH: settings.squashMergeAllowed,
-      REBASE: settings.rebaseMergeAllowed,
-    },
+    allowedMethods: allowedMethods(settings),
+  });
+}
+
+function allowedMethods(settings: MergeSettings) {
+  return {
+    MERGE: settings.mergeCommitAllowed,
+    SQUASH: settings.squashMergeAllowed,
+    REBASE: settings.rebaseMergeAllowed,
+  };
+}
+
+function autoMergeAction(
+  reviewState: ReviewState,
+  settings: MergeSettings,
+  prState: PrInsight["pr"]["state"],
+  prBlockers: readonly Blocker[],
+): AutoMergeAction {
+  return buildAutoMergeAction({
+    prState,
+    blockers: prBlockers,
+    isMergeQueueEnabled: reviewState.isMergeQueueEnabled,
+    autoMergeAllowed: settings.autoMergeAllowed,
+    autoMergeMethod: reviewState.autoMergeRequest?.mergeMethod ?? null,
+    defaultMethod: settings.viewerDefaultMergeMethod,
+    allowedMethods: allowedMethods(settings),
   });
 }
 
@@ -239,6 +290,13 @@ export async function collectInsight(github: GitHubReader): Promise<PrReading> {
     insight: {
       pr,
       mergeAction: mergeAction(reviewState, mergeSettings, pr.state, prBlockers, mergeQueue),
+      autoMergeAction: autoMergeAction(reviewState, mergeSettings, pr.state, prBlockers),
+      canUpdateBranch: canUpdateBranch({
+        prState: pr.state,
+        mergeable: reviewState.mergeable,
+        mergeStateStatus: reviewState.mergeStateStatus,
+        mergeQueue,
+      }),
       blockers: prBlockers,
       reviewers: buildReviewers(
         reviewState.reviewRequests.nodes,

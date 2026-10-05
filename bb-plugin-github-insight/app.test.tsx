@@ -15,7 +15,7 @@ const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
 afterEach(cleanup);
 
 function check(name: string, status: Check["status"], failure: Check["failure"] = null): Check {
-  return { name, status, url: `https://github.com/o/r/runs/${name}`, failure };
+  return { name, status, url: `https://github.com/o/r/runs/${name}`, required: false, failure };
 }
 
 const pr = {
@@ -24,6 +24,13 @@ const pr = {
   state: "open",
   url: "https://github.com/collibra/frontend/pull/25337",
   headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
+  headRefName: "feature",
+  headOwner: null,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 } as const;
 
 const emptyInsight: PrInsight = {
@@ -33,6 +40,8 @@ const emptyInsight: PrInsight = {
   reviewers: [],
   checks: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 
 const unusedReviewRpc = {
@@ -87,6 +96,8 @@ const insight = ok({
     check("typecheck", "passed"),
   ],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 });
 
 function renderTab(

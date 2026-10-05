@@ -24,6 +24,7 @@ export const checkRunNodeSchema = z.object({
   startedAt: z.string().nullable(),
   title: z.string().nullable(),
   summary: z.string().nullable(),
+  isRequired: z.boolean(),
 });
 export type CheckRunNode = z.infer<typeof checkRunNodeSchema>;
 
@@ -34,6 +35,7 @@ export const statusContextNodeSchema = z.object({
   description: z.string().nullable(),
   targetUrl: z.string().nullable(),
   createdAt: z.string(),
+  isRequired: z.boolean(),
 });
 export type StatusContextNode = z.infer<typeof statusContextNodeSchema>;
 
@@ -46,6 +48,7 @@ export const checkSchema = z.object({
   name: z.string(),
   status: checkStatusSchema,
   url: z.string().nullable(),
+  required: z.boolean(),
   failure: checkFailureSchema.nullable(),
 });
 export type Check = z.infer<typeof checkSchema>;
@@ -91,6 +94,7 @@ export interface CheckCandidate {
   status: CheckStatus;
   url: string | null;
   runId: string | null;
+  required: boolean;
   reasonTexts: readonly (string | null)[];
   recency: readonly [time: number, tieBreak: number];
 }
@@ -102,6 +106,7 @@ function toCandidate(node: CheckNode): CheckCandidate {
       status: mapCheckRunStatus(node.status, node.conclusion),
       url: node.detailsUrl,
       runId: node.id,
+      required: node.isRequired,
       reasonTexts: [node.title, node.summary],
       recency: [
         node.startedAt === null ? NOT_STARTED : Date.parse(node.startedAt),
@@ -114,6 +119,7 @@ function toCandidate(node: CheckNode): CheckCandidate {
     status: mapStatusContextState(node.state),
     url: node.targetUrl,
     runId: null,
+    required: node.isRequired,
     // A status context has no annotations, so its description can come first.
     reasonTexts: [node.description],
     recency: [Date.parse(node.createdAt), 0],
@@ -148,12 +154,13 @@ export function toCheck(
   candidate: CheckCandidate,
   annotationsByRunId: ReadonlyMap<string, readonly Annotation[]>,
 ): Check {
-  const { name, status, url, runId, reasonTexts } = candidate;
+  const { name, status, url, runId, required, reasonTexts } = candidate;
   const annotations = runId === null ? [] : (annotationsByRunId.get(runId) ?? []);
   return {
     name,
     status,
     url,
+    required,
     failure: FAILING_STATUSES.has(status) ? checkFailure(reasonTexts, annotations) : null,
   };
 }
