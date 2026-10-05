@@ -24,7 +24,7 @@ describe("visible history readiness independent from quota", () => {
     expect(await screen.findByText(/History storage is unavailable/)).toBeTruthy();
     expect(screen.getByText("42% remaining")).toBeTruthy(); expect(screen.getAllByText(/1 hour.*left/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Open Codex Usage/ }).getAttribute("href")).toBe("https://chatgpt.com/codex/settings/usage");
-    fireEvent.click(screen.getByRole("button", { name: /^Refresh$/ })); expect(refresh).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh allowance" })); expect(refresh).toHaveBeenCalledOnce();
   });
   it("clears previous-host display immediately and excludes late results even when switching back", async () => {
     let complete!: (value: HistoryReadiness) => void;

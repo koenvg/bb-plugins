@@ -41,7 +41,7 @@ function fixture() {
     },
   };
   const owner = renderSlot(app.appOverlays.find((slot) => slot.id === "quota-refresh")!, {}, options);
-  const page = renderSlot(app.navPanels[0]!, { subPath: "" }, options);
+  const page = renderSlot(app.settingsSections[0]!, {}, options);
   const queries = within(page.container);
   const openActivity = async () => {
     await act(async () => { const details = queries.getByText("Account details and activity").closest("details")!; details.open = true; fireEvent(details, new Event("toggle")); });

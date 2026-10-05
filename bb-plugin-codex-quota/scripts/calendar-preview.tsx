@@ -10,7 +10,7 @@ const params=new URLSearchParams(location.search),state=params.get("state")??"pa
 function Preview(){
  const [hostId,setHostId]=useState<string|null>("host_synthetic");
  return <><p className="px-5 py-2 text-sm">Owned synthetic BBP-21 preview. Not installed acceptance.</p><QuotaDashboard selectedHostId={hostId} hosts={[{id:"host_synthetic",name:"Synthetic host",status:"connected"}]} now={now} view={{state:"fresh",reason:"ok",snapshot:{observedAt:new Date(now).toISOString(),plan:null,general:[{id:"primary_window",name:"5 hours",remainingPercent:42,resetAt:new Date(now+3600000).toISOString()}],additional:[],bindingWindowId:"primary_window",bindingRemainingPercent:42,bankedResets:0}}} onHostChange={setHostId} onRefresh={()=>{document.body.dataset.quotaActions=String(Number(document.body.dataset.quotaActions??0)+1);}} history={<details className="mt-8 border-t border-border pt-4 text-sm"><summary>Collection and history management</summary><button type="button">Check readiness</button></details>}>
-  <CalendarReportPanel now={now} selection={{hostId,generation:1}} onOpenThread={id=>{document.body.dataset.openedThread=id;}} read={async({query})=>{
+  <CalendarReportPanel now={now} selection={{hostId,generation:1}} read={async({query})=>{
    document.body.dataset.reportCalls=String(Number(document.body.dataset.reportCalls??0)+1);
    document.body.dataset.lastQuery=JSON.stringify(query);
    if(state==="loading")return new Promise(()=>{});

@@ -9,7 +9,7 @@ const snapshot = () => normalizeActivity({ stats: { lifetime_tokens: 42, daily_u
 const fresh = () => ({ state: "fresh" as const, reason: "ok" as const, snapshot: snapshot() });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 async function toggle(container: HTMLElement, open: boolean) {
-  await act(async () => { const details = container.querySelector("details")!; details.open = open; fireEvent(details, new Event("toggle")); });
+  await act(async () => { const details = Array.from(container.querySelectorAll("details")).find(item => item.querySelector("summary")?.textContent === "Account details and activity")!; details.open = open; fireEvent(details, new Event("toggle")); });
 }
 describe("account activity disclosure and presentation", () => {
   it("renders each unknown separately, scopes every table, and expires numbers without a request", () => {
@@ -69,11 +69,51 @@ describe("account activity disclosure and presentation", () => {
       activity: async () => { activityCalls++; return { state: "unavailable", reason: "service", snapshot: null }; },
     } };
     const owner = renderSlot(installed.appOverlays.find(slot => slot.id === "quota-refresh")!, {}, options);
-    const page = renderSlot(installed.navPanels[0]!, { subPath: "" }, options);
+    const page = renderSlot(installed.settingsSections[0]!, {}, options);
     await waitFor(() => expect(page.getByText("42% remaining")).toBeTruthy()); expect(activityCalls).toBe(0);
     await toggle(page.container, true); await waitFor(() => expect(page.getByRole("status", { name: "Account activity status" }).textContent).toContain("service"));
     expect(quotaCalls).toBe(1); expect(activityCalls).toBe(1); expect(page.getByText("42% remaining")).toBeTruthy();
     expect(page.getByRole("link", { name: /Open Codex Usage/ })).toBeTruthy();
     page.lifecycle.unmount(); owner.lifecycle.unmount();
+  });
+  it.each(["settled", "pending"] as const)("stops hidden activity when plugin settings unmount with a %s read", async (mode) => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    const set = vi.spyOn(globalThis, "setInterval"), clear = vi.spyOn(globalThis, "clearInterval");
+    const installed = await loadPluginApp(() => import("./app.js"));
+    let activityCalls = 0, quotaCalls = 0, finish!: (value: ReturnType<typeof fresh>) => void;
+    const options = { sdk: { hosts: { list: async () => [makeHostResponse({ id: "a" }), makeHostResponse({ id: "b" })] } }, rpc: {
+      selection: async () => ({ hostId: "a", generation: 1 }),
+      selectHost: async (input: unknown) => ({ hostId: (input as { hostId: string }).hostId, generation: 2 }),
+      read: async () => { quotaCalls++; return { state: "fresh", reason: "ok", snapshot: {
+        observedAt: new Date().toISOString(), plan: null, bankedResets: 0, additional: [],
+        general: [{ id: "primary_window", name: "5 hours", remainingPercent: 42, resetAt: null }], bindingWindowId: "primary_window", bindingRemainingPercent: 42,
+      } }; },
+      activity: async () => { activityCalls++; return mode === "pending" ? new Promise<ReturnType<typeof fresh>>(resolve => { finish = resolve; }) : fresh(); },
+    } };
+    const owner = renderSlot(installed.appOverlays.find(slot => slot.id === "quota-refresh")!, {}, options);
+    const page = renderSlot(installed.settingsSections[0]!, {}, options);
+    await act(async () => { await Promise.resolve(); });
+    expect(page.getByText("42% remaining")).toBeTruthy();
+    expect(activityCalls).toBe(0);
+    const intervalsBeforeActivity = set.mock.calls.length;
+    await toggle(page.container, true); expect(activityCalls).toBe(1);
+    expect(set.mock.calls.length).toBe(intervalsBeforeActivity + 1);
+    const activityTimer = set.mock.results.at(-1)!.value;
+    const quotaTimer = set.mock.results[0]!.value;
+    page.lifecycle.unmount();
+    expect(clear).toHaveBeenCalledWith(activityTimer);
+    expect(clear).not.toHaveBeenCalledWith(quotaTimer);
+    expect(page.queryByRole("status", { name: "Account activity status" })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(360_000); });
+    expect(activityCalls).toBe(1); expect(quotaCalls).toBeGreaterThan(1);
+    if (mode === "pending") await act(async () => { finish(fresh()); });
+    const reopened = renderSlot(installed.settingsSections[0]!, {}, options);
+    fireEvent.change(reopened.getByRole("combobox", { name: "Codex host" }), { target: { value: "b" } });
+    await act(async () => { await Promise.resolve(); });
+    expect(activityCalls).toBe(1);
+    const inner = Array.from(reopened.container.querySelectorAll("details")).find(item => item.querySelector("summary")?.textContent === "Account details and activity")!;
+    expect(inner.open).toBe(false); expect(activityCalls).toBe(1);
+    reopened.lifecycle.unmount(); owner.lifecycle.unmount();
   });
 });

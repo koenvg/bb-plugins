@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { definePluginApp, useBbNavigate, useRpc, useSdk } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server.js";
 import { QuotaSelectionStore, type QuotaApi } from "./selection-store.js";
-import { QuotaBadge, QuotaBattery, QuotaDashboard } from "./quota-view.js";
+import { QuotaBadge, QuotaBattery, QuotaDashboard, QuotaOtherLimits } from "./quota-view.js";
+import { QuotaSummary } from "./quota-summary.js";
 import { QuotaFooterRuntime } from "./footer-runtime.js";
 import type { FooterTarget } from "./footer-adapter.js";
 import { AccountActivity } from "./activity-view.js";
@@ -73,23 +74,51 @@ function useHostOptions() {
   return hosts;
 }
 
+/** Preserve the page-open index update. Date and metric navigation remain read-only. */
+function useReportPreparation(selection: { hostId: string | null; generation: number }, pending: boolean, revision: number) {
+  const rpc = useRpc<typeof rpcContract>(), rpcRef = useRef(rpc);
+  rpcRef.current = rpc;
+  const key = JSON.stringify([selection.hostId, selection.generation, revision, pending]);
+  const [preparedKey, setPreparedKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!selection.hostId || pending) return;
+    const controller = new AbortController(), input = { ...selection, hostId: selection.hostId };
+    void Promise.resolve().then(() => controller.signal.aborted ? null : rpcRef.current.call("historyReadiness", input))
+      .catch(() => null).then(() => { if (!controller.signal.aborted) setPreparedKey(key); });
+    return () => controller.abort();
+  }, [key]);
+  // Settled preparation is not proof of complete collection; the report validates its own facts.
+  return !selection.hostId || !pending && preparedKey === key;
+}
+
 function QuotaPage() {
   const { state, api } = useQuota();
   const hosts = useHostOptions();
-  const activityRpc = useRpc<typeof rpcContract>();
   const hostId = state.selection.hostId;
   const selected = hosts.find((host) => host.id === hostId);
   const options = hostId && !selected ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }] : hosts;
+  const prepared = useReportPreparation(state.selection, state.selectionPending, state.selectionRevision);
   return <QuotaDashboard view={state.view} now={state.now} loading={state.loading} ready={state.ready} hosts={options}
     selectedHostId={hostId}
-    history={<details className="mt-8 min-w-0 border-t border-border pt-4 text-sm"><summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">Collection and history management</summary><HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} /></details>}
     onHostChange={(id) => { void shared.selectHost(api, id); }}
     onRefresh={() => { void shared.refresh(api, true); }}>
-      <CalendarReportSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} now={state.now} />
-      <AccountActivity selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} read={(input) => activityRpc.call("activity", input)} />
+      <CalendarReportSection selection={state.selection} selectionPending={state.selectionPending} preparationPending={!prepared} selectionRevision={state.selectionRevision} now={state.now} />
     </QuotaDashboard>;
 }
 
+function UsageSettings() {
+  const { state, api } = useQuota();
+  const hosts = useHostOptions();
+  const rpc = useRpc<typeof rpcContract>();
+  return <section className="min-w-0" aria-label="Usage collection settings">
+    <QuotaSummary view={state.view} now={state.now} loading={state.loading} ready={state.ready}
+      selectedHostId={state.selection.hostId} hosts={state.selection.hostId && !hosts.some(host => host.id === state.selection.hostId) ? [...hosts, { id: state.selection.hostId, name: "Selected host", status: "unknown" }] : hosts}
+      onHostChange={id => { void shared.selectHost(api, id); }} onRefresh={() => { void shared.refresh(api, true); }} />
+    <QuotaOtherLimits view={state.view} now={state.now} />
+    <AccountActivity selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} read={input => rpc.call("activity", input)} />
+    <HistoryReadinessSection selection={state.selection} selectionPending={state.selectionPending} selectionRevision={state.selectionRevision} />
+  </section>;
+}
 function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
   const { state } = useQuota();
   const hosts = useHostOptions();
@@ -126,6 +155,7 @@ export default definePluginApp((app) => {
   });
   app.slots.experimental_appOverlay({ id: "quota-footer", component: QuotaFooter });
   app.slots.experimental_appOverlay({ id: "quota-refresh", component: QuotaRefreshOwner });
+  app.slots.settingsSection({ id: "usage-settings", title: "Usage collection", component: UsageSettings });
   app.slots.navPanel({
     id: "quota",
     title: "Codex Quota",

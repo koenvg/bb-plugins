@@ -22,7 +22,7 @@ describe("readiness in the existing quota panel", () => {
       },
     };
     const owner = renderSlot(app.appOverlays.find((item) => item.id === "quota-refresh")!, {}, options);
-    const page = renderSlot(app.navPanels[0]!, { subPath: "" }, options);
+    const page = renderSlot(app.settingsSections[0]!, {}, options);
     const queries = within(page.container);
     await queries.findByText("History not configured on this host.");
     await queries.findByText("42% remaining");
@@ -63,7 +63,7 @@ describe("readiness in the existing quota panel", () => {
       },
     };
     const owner = renderSlot(app.appOverlays.find((item) => item.id === "quota-refresh")!, {}, options);
-    const page = renderSlot(app.navPanels[0]!, { subPath: "" }, options);
+    const page = renderSlot(app.settingsSections[0]!, {}, options);
     const queries = within(page.container);
     await queries.findByText("History not configured on this host.");
     await queries.findByRole("option", { name: "Host B" });

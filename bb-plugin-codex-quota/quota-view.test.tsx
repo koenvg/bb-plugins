@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QuotaDashboard, QuotaBadge, QuotaBattery } from "./quota-view.js";
+import { QuotaDashboard, QuotaBadge, QuotaBattery, QuotaOtherLimits } from "./quota-view.js";
 import { visibleView } from "./freshness.js";
 import type { QuotaStatus } from "./contract.js";
 
@@ -23,7 +23,7 @@ describe("Codex quota UI", () => {
     const onHostChange = vi.fn();
     const { container } = render(<QuotaDashboard {...props} selectedHostId={null} view={absent} onHostChange={onHostChange} />);
     expect(screen.getByText(/Select a host to view/i)).toBeTruthy();
-    expect(screen.getByText("Unknown")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "No host selected" })).toBeTruthy();
     const link = screen.getByRole("link", { name: /Open Codex Usage/i });
     expect(link.getAttribute("href")).toBe("https://chatgpt.com/codex/settings/usage");
     fireEvent.change(screen.getByRole("combobox", { name: /Codex host/i }), { target: { value: "host_1" } });
@@ -40,29 +40,26 @@ describe("Codex quota UI", () => {
     expect(page.getByRole("region", { name: "Codex allowance summary" })).toBe(summary);
     expect(page.getByText("25% remaining")).toBeTruthy();
     expect(page.container.querySelectorAll(".bg-card")).toHaveLength(0);
-    const extra = page.getByText("Other limits").closest("details");
-    expect(extra?.open).toBe(false);
-    fireEvent.click(page.getByText("Other limits"));
-    expect(extra?.open).toBe(true);
+    expect(page.queryByText("Other limits")).toBeNull();
     page.rerender(<QuotaDashboard {...props} view={{ state: "unavailable", reason: "host-offline", snapshot: null }} ready />);
     expect(page.getByRole("region", { name: "Codex allowance summary" })).toBe(summary);
     expect(page.getByText(/host is offline/i)).toBeTruthy();
     expect(summary.querySelector("h2")?.textContent).toBe("—");
   });
 
-  it("renders 0% and 100% remaining, windows and reset labels without treating unknown as zero", () => {
+  it("renders 0% and 100% remaining and binding reset labels without treating unknown as zero", () => {
     const { rerender } = render(<QuotaDashboard {...props} view={fresh(0)} />);
     expect(screen.getByText("0% remaining")).toBeTruthy();
     expect(screen.getByText("1 hour left · 5 hours window")).toBeTruthy();
-    expect(screen.getByText(/Resets.*23 April/i)).toBeTruthy();
-    expect(screen.getByText("Code review")).toBeTruthy();
-    expect(screen.getByText("0 available")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "General allowance windows" })).toBeNull();
+    expect(screen.queryByText("Code review")).toBeNull();
+    expect(screen.queryByText(/^Banked resets/)).toBeNull();
     rerender(<QuotaDashboard {...props} view={fresh(100)} />);
     expect(screen.getByText("100% remaining")).toBeTruthy();
     expect(screen.getByRole("status").textContent?.trim()).toBe("");
     expect(screen.queryByText(/^Updated /)).toBeNull();
     expect(screen.getByRole("status").textContent).not.toMatch(/Fresh observation|· fresh/i);
-    expect(screen.getByText(/Reset unknown/i)).toBeTruthy();
+    expect(screen.queryByText(/Reset unknown/i)).toBeNull();
   });
 
   it("uses the binding window for the summary and each row's own reset", () => {
@@ -76,15 +73,17 @@ describe("Codex quota UI", () => {
     } };
     const page = render(<QuotaDashboard {...props} view={view} />);
     expect(screen.getByText("6 days, 6 hours left · 7 days window")).toBeTruthy();
-    const general = within(screen.getByRole("region", { name: "General allowance windows" }));
-    expect(general.getByText("6 days, 6 hours left")).toBeTruthy();
-    expect(general.getByText("1 hour left")).toBeTruthy();
-    fireEvent.click(screen.getByText("Other limits"));
-    expect(within(screen.getByRole("region", { name: "Code review allowance" })).getByText("15 minutes left")).toBeTruthy();
-    const dates = screen.getAllByText(/^Resets /).map((node) => node.textContent);
-    page.rerender(<QuotaDashboard {...props} view={view} now={observedAt + 60_000} />);
-    expect(general.getByText("59 minutes left")).toBeTruthy();
-    expect(screen.getAllByText(/^Resets /).map((node) => node.textContent)).toEqual(dates);
+    expect(page.queryByRole("region", { name: "General allowance windows" })).toBeNull();
+    const summary = within(screen.getByRole("region", { name: "Codex allowance summary" }));
+    expect(summary.getByText("6 days, 6 hours left · 7 days window")).toBeTruthy();
+    expect(summary.queryByText("1 hour left")).toBeNull();
+    const settings = render(<QuotaOtherLimits view={view} now={observedAt} />);
+    fireEvent.click(settings.getByText("Other limits"));
+    expect(within(settings.getByRole("region", { name: "Code review allowance" })).getByText("15 minutes left")).toBeTruthy();
+    const dates = settings.getAllByText(/^Resets /).map(node => node.textContent);
+    settings.rerender(<QuotaOtherLimits view={view} now={observedAt + 60_000} />);
+    expect(within(settings.getByRole("region", { name: "Code review allowance" })).getByText("14 minutes left")).toBeTruthy();
+    expect(settings.getAllByText(/^Resets /).map(node => node.textContent)).toEqual(dates);
     expect(screen.getByText("20% remaining")).toBeTruthy();
   });
 
@@ -94,7 +93,7 @@ describe("Codex quota UI", () => {
     } };
     render(<QuotaDashboard {...props} view={view} />);
     expect(screen.getByText("Reset unknown · 5 hours window")).toBeTruthy();
-    expect(screen.getByText("Reset unknown")).toBeTruthy();
+    expect(screen.queryByText("0% remaining")).toBeNull();
     expect(screen.queryByText(/^Resets /)).toBeNull();
   });
 
@@ -119,7 +118,7 @@ describe("Codex quota UI", () => {
     } };
     render(<QuotaDashboard {...props} view={view} />);
     expect(screen.getByRole("status").textContent).toBe("Allowance unavailable");
-    expect(screen.getByText("Code review")).toBeTruthy();
+    expect(screen.queryByText("Code review")).toBeNull();
     expect(screen.getByRole("region", { name: "Codex allowance summary" }).textContent).not.toMatch(/left|Updated/);
   });
 
