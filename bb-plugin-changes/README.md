@@ -21,6 +21,26 @@ Open **Changes** from the new-tab list in a thread's right panel.
 - Each file has its own section. A binary file shows "Binary file". A file that is too large shows "Diff too large". A diff loads when its section comes near the visible area.
 - **Refresh** (the arrow icon) loads the diff again. The last diff stays visible while it loads.
 
+## Viewed files
+
+- Check **Viewed** in a file header to mark the file as viewed. The file collapses to its header.
+- Uncheck **Viewed** to remove the mark. The file expands.
+- The chevron at the start of a file header expands or collapses the file. It does not change the mark.
+- The top shows how many files you viewed, for example `2/3 viewed`. Binary files and files with "Diff too large" cannot be marked, and do not count.
+
+A mark is linked to the patch you saw. When the file changes in any way, the mark drops and the file expands again. A mark also drops when the file leaves the diff.
+
+Marks are per thread and per diff target, so a mark on **All changes** does not show on **Uncommitted**. They stay after a bb reload. The chevron state is lost when bb reloads.
+
+When a mark cannot be saved, the checkbox goes back and the tab shows "Could not save viewed state" with the error.
+
+The plugin saves marks in its kv storage, one entry per thread and target:
+
+```text
+key:   viewed:v1:<threadId>:<target>     target = all | uncommitted | branch_committed | commit:<sha>
+value: { "v": 1, "marks": { "<path>": "<length>:<fnv1a32 of the patch>" } }
+```
+
 ## Inline comments
 
 1. Move the pointer over a line and click **+** in the gutter.
@@ -57,6 +77,7 @@ The plugin never commits, pushes, or writes to GitHub.
 ## Known limits
 
 - bb's own Changes tab stays visible next to this one.
+- The marks of deleted threads stay in kv storage.
 - bb 0.44 can fail to list the branch commits for some branches. Then the picker shows no commits, and the diff still loads. The plugin log shows "Branch commits unavailable".
 
 ## Development
