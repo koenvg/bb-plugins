@@ -602,6 +602,7 @@ it("yields to cancellation without committing an interrupted message slice", asy
     f.db.close();
   }
 });
+// Real filesystem and SQLite work across 101 identities can exceed Vitest's 5s default on CI.
 it("paginates frozen BB identities and bounds ordinary discovery without scanning BB directories", async () => {
   const f = await fixture();
   try {
@@ -643,7 +644,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
   } finally {
     f.db.close();
   }
-});
+}, 15_000);
 it("preserves the original imported owner when a second confirmed provider path carries the same session", async () => {
   const f = await fixture();
   try {
