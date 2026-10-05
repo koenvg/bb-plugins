@@ -13,7 +13,7 @@ function receipt(runs: unknown[], omitted = { runs: 0, children: 0, byteLimitExc
     status: { asyncSnapshot: { kind: "pi-subagents.async-status-snapshot", version: 1, generatedAt: 3000, caps: { maxRuns: 20, maxChildrenPerNode: 8, maxDepth: 3, maxStringLength: 160, maxSerializedBytes: 32768 }, omitted, runs } },
   };
 }
-function harness(view?: ReturnType<typeof createViewStore>) {
+function harness(view?: ReturnType<typeof createViewStore>, anchored = true) {
   let value: unknown = receipt([root()]);
   let now = 3000;
   const deltas: ThreadDelta[] = [];
@@ -24,9 +24,11 @@ function harness(view?: ReturnType<typeof createViewStore>) {
     deltas.push(...batch);
     events.push(...assembler.assemble({ threadId: "thread-1", deltas: batch }));
   };
-  const observation = createSubagentObservation({ sessionFile, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {}, view });
+  const parentTurn = () => emit([{ kind: "input.accepted", clientRequestId: "creq_ab23456789" }, { kind: "turn.open" }, { kind: "turn.boundary", status: "completed" }]);
+  if (anchored) parentTurn();
+  const observation = createSubagentObservation({ sessionFile, canAttachNativeItem: () => anchored, generation: 1, now: () => now, emit, reconcile: async () => value, schedule: () => () => {}, view });
   const items = () => events.flatMap((event) => "item" in event && event.item.type === "backgroundTask" ? [event.item] : []);
-  return { observation, events, items, deltas, emit, assembler, set: (next: unknown) => { value = next; }, time: (next: number) => { now = next; } };
+  return { anchor: () => { anchored = true; parentTurn(); }, observation, events, items, deltas, emit, assembler, set: (next: unknown) => { value = next; }, time: (next: number) => { now = next; } };
 }
 it("keeps native accounting equal when a supported long session ID exceeds presentation limits",async()=>{
   const value=receipt([root()]);value.sessionId="s".repeat(1800);value.ping.session.sessionId=value.sessionId;
@@ -34,9 +36,47 @@ it("keeps native accounting equal when a supported long session ID exceeds prese
   await a.observation.refresh();await b.observation.refresh();expect(b.deltas).toEqual(a.deltas);expect(b.items()).toHaveLength(1);expect(view.snapshot().omitted).toBeGreaterThan(0);
   a.observation.dispose("release");b.observation.dispose("release");
 });
+it("does not let failed detail publication suppress native settlement or disposal", async () => {
+  const view = createViewStore(() => { throw new Error("Rejected detail publication"); }, () => 3000);
+  const h = harness(view);
+  await h.observation.refresh().catch(() => {});
+  expect(h.items().at(-1)?.status).toBe("pending");
+  expect(() => h.observation.dispose("release")).not.toThrow();
+  expect(h.items().at(-1)?.status).toBe("interrupted");
+});
+it("discloses the SDK anchor limit without emitting progress for an unopened item", async () => {
+  const h = harness(undefined, false);
+  await h.observation.refresh();
+  expect(h.items()).toEqual([]);
+  expect(h.observation.state().reason).toContain("observed parent turn");
+  h.anchor();
+  await h.observation.refresh();
+  expect(h.events.filter(e => e.type === "item/started")).toHaveLength(1);
+  h.set(receipt([root("complete")]));
+  await h.observation.refresh();
+  expect(h.items().at(-1)?.status).toBe("completed");
+  expect(h.events.filter(e => e.type === "turn/started")).toHaveLength(1);
+});
+it("publishes one coherent unavailable state for equal no-anchor receipts and clears it on a real turn", async () => {
+  const states: import("../../subagents-contract.js").ViewState[] = [];
+  const view = createViewStore(s => states.push(structuredClone(s)), () => 3000);
+  const h = harness(view, false);
+  h.observation.tool({ type: "tool_execution_end", toolName: "subagent", result: { details: { mode: "single", runId: "earlier-foreground", results: [{ index: 0, agent: "reader", task: "read", finalOutput: "accepted output", exitCode: 0 }] } } });
+  await h.observation.refresh();
+  expect(states).toHaveLength(1);
+  expect(states.every(s => s.availability === "unavailable" && s.reason.includes("observed parent turn"))).toBe(true);
+  for (let i = 0; i < 80; i++) { h.time(3000 + i * 5000); await h.observation.refresh(); }
+  expect(states).toHaveLength(1);
+  expect(states[0]!.rows.some(r => r.capture?.finalOutput === "accepted output")).toBe(true);
+  h.anchor(); await h.observation.refresh();
+  expect(states).toHaveLength(2);
+  expect(states.at(-1)?.availability).toBe("available");
+  expect(h.events.filter(e => e.type === "turn/started")).toHaveLength(1);
+  h.observation.dispose("release");
+});
 
 describe("native single-run observation", () => {
-  it("opens native work without a turn and keeps it through parent idle and silence", async () => {
+  it("opens native work on the existing parent turn without an extra turn and keeps it through parent idle and silence", async () => {
     const h = harness();
     await h.observation.refresh();
     expect(h.items()).toHaveLength(1);
@@ -45,7 +85,6 @@ describe("native single-run observation", () => {
     expect(h.items()[0]!.description).toContain("reviewer");
     expect(h.items()[0]!.summary).toContain("2s");
     expect(h.items()[0]!.summary).toContain("read");
-    h.emit([{ kind: "input.accepted", clientRequestId: "creq_ab23456789" }, { kind: "turn.open" }, { kind: "turn.boundary", status: "completed" }]);
     expect(h.assembler.getOpenTurnId("thread-1")).toBeUndefined();
     h.time(1000000);
     h.observation.widget({ method: "setWidget", widgetKey: "subagent-async" });

@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const VIEW_KIND = "pi-subagents-view";
-export const VIEW_EXTENSION_KIND = "pi-subagents/pi-subagents-view";
+export const PLUGIN_ID = "pi-subagents-provider";
+export const VIEW_EXTENSION_KIND = `${PLUGIN_ID}/${VIEW_KIND}` as const;
 export const VIEW_BYTES = 256 * 1024;
 const count = z.number().int().nonnegative().max(8_640_000_000_000_000);
 export const captureSchema = z.object({

@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-/** Owned, model-free fixture for the inspected public package RPC v1. */
+/** Owned, model-free fixture for the Pi 1.0.0 widget wire and pi-subagents 0.75.0 public RPC v1. */
 export function fakePackageRpc(session, sendWidget) {
   const bus = new EventEmitter();
   const events = { on(name, handler) { bus.on(name, handler); return () => bus.off(name, handler); }, emit(name, value) { bus.emit(name, value); } };
@@ -21,7 +21,7 @@ export function fakePackageRpc(session, sendWidget) {
       const [, requestId, asyncId, childId] = message.split(/\s+/);
       const run = runs.find(r => r.id === asyncId);
       const reply = { kind: "pi-subagents.inspect-reply", version: 1, requestId, asyncId, ...(childId && childId !== "--lines" ? { childId } : {}), ...(process.env.FAKE_PI_INSPECTION_MISSING === "1" ? { error: { code: "not_found", message: "Owned result artifact is missing" } } : { status: run?.state, task: "Review owned fixture files", messages: [{ role: "assistant", kind: "text", text: "Read the owned fixture" }], ...(run?.state === "complete" ? { finalOutput: "Owned final answer" } : {}), truncated: { task: false, messages: 0, finalOutput: false } }) };
-      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-inspect", lines: ["PI_SUBAGENT_INSPECT_JSON:" + JSON.stringify(reply)] });
+      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-inspect", widgetLines: ["PI_SUBAGENT_INSPECT_JSON:" + JSON.stringify(reply)] });
       sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-inspect" });
     },
     start() {
@@ -30,13 +30,13 @@ export function fakePackageRpc(session, sendWidget) {
       const start = Date.now();
       runs = [{ id: "owned-run-1", kind: "subagent", label: "owned fake reviewer", state: "running", startedAt: start, updatedAt: start, activity: { currentTool: "read" } }];
       events.emit("subagent:async-started", { asyncId: "owned-run-1" });
-      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-async", lines: ["PI_SUBAGENT_ASYNC_JSON:" + JSON.stringify(snapshot())] });
+      sendWidget({ type: "extension_ui_request", method: "setWidget", widgetKey: "subagent-async", widgetLines: ["PI_SUBAGENT_ASYNC_JSON:" + JSON.stringify(snapshot())] });
       if (process.env.FAKE_PI_SUBAGENT_HOLD !== "1") {
         setTimeout(() => {
           runs = [{ ...runs[0], state: "complete", endedAt: Date.now(), updatedAt: Date.now() }];
           events.emit("subagent:async-complete", { asyncId: "owned-run-1" });
           events.emit("subagent:async-complete", { asyncId: "owned-run-1" });
-        }, 800);
+        }, process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1" ? 1600 : 800);
       }
     },
   };

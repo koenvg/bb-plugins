@@ -33,7 +33,7 @@ export function createInspectionChannel(options: {
     widget(request: Record<string,unknown>): boolean {
       if (request.method !== "setWidget" || request.widgetKey !== "subagent-inspect") return false;
       if (!pending || closed) return true;
-      const lines = request.lines;
+      const lines = request.widgetLines;
       if (!Array.isArray(lines) || lines.length !== 1 || typeof lines[0] !== "string" || !lines[0].startsWith(INSPECTION_PREFIX) || Buffer.byteLength(lines[0],"utf8") > 64 * 1024 + INSPECTION_PREFIX.length) return true;
       try { const value = JSON.parse(lines[0].slice(INSPECTION_PREFIX.length)); if (value?.requestId === pending.requestId) pending.resolve(value); } catch { /* Invalid data cannot supply capture evidence. */ }
       return true;
