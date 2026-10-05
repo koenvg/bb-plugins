@@ -52,7 +52,9 @@ The storage schema, collector asset, import format, prices, attribution rules, a
 
 The main seams are server RPC, host RPC, and the history module's interface. Tests cover host/account switches, unavailable hosts, malformed results, cancellation, disposal, serialized storage work, and worker leases. Packaged checks use temporary SQLite files and synthetic credentials. They do not prove live collection or billed charges.
 
-New and changed request/lifetime tests are included in the TypeScript check. Other historical gaps remain tracked in BBP-93. Shared selected-host guard work corresponds to BBP-94. Footer work remains separate in BBP-61.
+`src/selection/selected-host.test.ts` runs the same public RPC guard matrix for quota, activity, readiness, collector controls, calendar reports, and import status. It checks malformed input and output, foreign hosts, enrollment loss, and offline hosts before dispatch and before publication. It also holds each request stage while switching, clearing or restoring selection, or disposing the server. Callers must settle before the held adapter returns, with the feed's own unavailable result.
+
+New and changed request/lifetime tests are included in the TypeScript check. Other historical gaps remain tracked in BBP-93. The shared selected-host guard and its cross-feed checks cover BBP-94. Footer work remains separate in BBP-61.
 
 ## Local deployment
 
