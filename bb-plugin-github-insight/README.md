@@ -204,7 +204,7 @@ The lifecycle stays readable at compact widths; long detail truncates first. Clo
 
 Before the first result, both views show "Loading pull request…". An initial read failure shows an error and Retry, not an invented PR state. A failed refresh keeps the last good state and details with the error, original update time, and Retry. This includes transport failures after a good read. Refresh progress does not erase known status. A confirmed no-PR result clears retained data and hides normal banner status; explicit palette feedback can still show.
 
-Both views use the same `useInsight` read and realtime path. They load independently, so one can briefly be at a different read stage. After both consume the same result, their lifecycle and queue status agree. There is no additional fetch source or polling timer. Retained data belongs to one thread and is cleared on navigation or no-PR results.
+Both views use the same `useInsight` read and realtime path. They load independently, so one can briefly be at a different read stage. After both consume the same result, their lifecycle and queue status agree. There is no additional fetch source or polling timer. Retained data belongs to one thread. It stays in the window across navigation, so a return to the thread shows it at once (see `ui/pr-availability.ts`), and a no-PR result clears it.
 
 The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and banner share one operation state per thread in this window. Both buttons show "Merging…" or "Enqueuing…" and stay disabled during a write, including when one view opens later. Requests from different entry points cannot start a second write while one is running.
 
@@ -231,6 +231,27 @@ runPrAction({ threadId, action, expectedHeadOid }) --> server
 - The merge or enqueue runs as the `gh` user of the thread's host, with the permissions of that user.
 - Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. No CLI command merges or enqueues.
 - The overview query reads `isMergeQueueEnabled` and `mergeQueueEntry`. GitHub Enterprise Server versions without these fields are not supported: the PR tab shows an error.
+
+## Update branch
+
+The PR tab shows an "Update branch" split button when `canUpdateBranch` is true (`core/branch-update.ts`): the PR is open or draft, GitHub reports the branch `BEHIND`, it has no conflicts, and it is not in the merge queue.
+
+```
+"Update branch" -------------------------------> runPrAction(update-merge)
+chevron --> localCommitsAhead(threadId)
+              server: cached PR head branch + bb.sdk.environments.get (path, hostId)
+              host:   git rev-parse --abbrev-ref HEAD  (must be the head branch)
+                      git rev-list --count refs/remotes/origin/<branch>..HEAD
+            "Update with rebase…" (disabled with the reason, or)
+              --> confirm dialog --Cancel--> no write
+              --> runPrAction(update-rebase)
+server: gh api graphql updatePullRequestBranch(pullRequestId, expectedHeadOid, updateMethod)
+```
+
+- The main part merges the base into the branch at once, without a dialog. A merge never makes the agent lose work: its next push is rejected until it pulls.
+- A rebase rewrites the remote branch, so the agent's local branch no longer matches it. The tab checks the worktree first. "N unpushed commits. Push first." or "Cannot check local commits" disables the rebase. The check returns `unknown` for a fork PR, a thread without a worktree path, another checked-out branch, a missing `origin/<branch>` ref, or a failed git command. `sdk.environments.status` with `mergeBaseBranch` is not used, because bb rejects its own merge-base response.
+- After an update, the tab shows "Branch updated on GitHub. Pull before you push." until you dismiss it or switch threads.
+- Branch update shares the operation state of merge and enqueue (`ui/pr-operations.ts`): one write per thread at a time, "Updating…" while it runs, and the GitHub error below the button.
 
 ## Command palette
 
@@ -280,4 +301,4 @@ bb plugin dev
 
 ## Test fixtures
 
-`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. `test/fixtures/pr-43-head.json` is the `github/pr-head-query.ts` response for the merged `koenvg/bb-plugins#43`. Re-record with the queries in `github/`. `test/fixtures/review-queue-tracked.json` is written by hand in the shape of a real `github/review-queue-query.ts` response with tracked PRs: an open PR, a merged PR, a missing repository and a missing PR (`null` with `NOT_FOUND` errors), and a PR that the search also returns.
+`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. The branch, author, diff size, `autoMergeAllowed`, `autoMergeRequest`, and `isRequired` fields of the three `collibra/frontend` overview fixtures were added by hand after the query got them. `test/fixtures/pr-cli-14583-overview-required-checks.json` is the overview query for the public `cli/cli#14583`, trimmed to its 3 required checks and 2 optional checks. `test/fixtures/pr-43-head.json` is the `github/pr-head-query.ts` response for the merged `koenvg/bb-plugins#43`. Re-record with the queries in `github/`. `test/fixtures/review-queue-tracked.json` is written by hand in the shape of a real `github/review-queue-query.ts` response with tracked PRs: an open PR, a merged PR, a missing repository and a missing PR (`null` with `NOT_FOUND` errors), and a PR that the search also returns.

@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
 import { useCommandIntent, type IntentOf } from "./command-intents";
+import { BranchUpdateButton, PullReminder } from "./branch-update-button";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
@@ -62,6 +63,7 @@ export function PrTab({ threadId }: { threadId: string }) {
 function PrTabContent({ threadId }: { threadId: string }) {
   const insight = useInsight(threadId);
   const { result, refreshing, revalidating, refresh } = insight;
+  const [branchUpdated, setBranchUpdated] = useState(false);
   usePrCommands(threadId, insight);
   if (result === null) return <Notice>Loading pull request…</Notice>;
   if (result.kind === "no_pr") {
@@ -90,8 +92,16 @@ function PrTabContent({ threadId }: { threadId: string }) {
           busy={refreshing}
         />
       )}
+      {branchUpdated && <PullReminder dismiss={() => setBranchUpdated(false)} />}
       {status.action !== null && (
         <MergeActionButton threadId={threadId} pr={result.insight.pr} action={status.action} />
+      )}
+      {result.insight.canUpdateBranch && (
+        <BranchUpdateButton
+          threadId={threadId}
+          pr={result.insight.pr}
+          onUpdated={() => setBranchUpdated(true)}
+        />
       )}
       <BlockerList blockers={status.blockers} />
       <ReviewerList reviewers={result.insight.reviewers} />

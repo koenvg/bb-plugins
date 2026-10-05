@@ -5,7 +5,7 @@ type Request = Omit<RunPrActionRequest, "threadId">;
 export type PrOperationState =
   | { kind: "idle" }
   | ({ kind: "running" } & Request)
-  | { kind: "error"; message: string; headOid: string };
+  | { kind: "error"; message: string; headOid: string; action: PrAction };
 
 const IDLE: PrOperationState = { kind: "idle" };
 
@@ -40,8 +40,12 @@ export function createPrOperations() {
       prune(threadId);
     };
   }
-  async function run(threadId: string, request: Request, send: () => Promise<ActionResult>) {
-    if (snapshot(threadId).kind === "running") return;
+  async function run(
+    threadId: string,
+    request: Request,
+    send: () => Promise<ActionResult>,
+  ): Promise<ActionResult | null> {
+    if (snapshot(threadId).kind === "running") return null;
     publish(threadId, { kind: "running", ...request });
     let result: ActionResult;
     try {
@@ -51,8 +55,11 @@ export function createPrOperations() {
     }
     publish(
       threadId,
-      result.kind === "error" ? { ...result, headOid: request.expectedHeadOid } : IDLE,
+      result.kind === "error"
+        ? { ...result, headOid: request.expectedHeadOid, action: request.action }
+        : IDLE,
     );
+    return result;
   }
   function dismiss(threadId: string) {
     if (snapshot(threadId).kind === "error") publish(threadId, IDLE);

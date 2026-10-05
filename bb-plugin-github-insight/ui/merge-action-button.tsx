@@ -1,5 +1,4 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import {
   MERGE_METHOD_LABEL,
   type MergeMethod,
@@ -8,6 +7,7 @@ import {
 import type { PrInsight } from "../core/overview";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "./confirm-dialog";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 import { usePrAction } from "./use-pr-action";
 
@@ -24,11 +24,6 @@ const ICON_SIZE_CLASS: Record<ButtonSize, string> = {
   compact: "size-3.5",
 };
 const PRIMARY_CLASS = cn(BUTTON_CLASS, "bg-foreground text-background hover:bg-foreground/90");
-const OUTLINE_CLASS = cn(
-  BUTTON_CLASS,
-  SIZE_CLASS.default,
-  "border border-input hover:bg-state-hover",
-);
 
 interface MergeActionButtonProps {
   threadId: string;
@@ -139,30 +134,20 @@ export function MergeConfirmation({
 }: MergeConfirmationProps) {
   const label = MERGE_METHOD_LABEL[method];
   return (
-    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
-      {trigger && <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger>}
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 flex w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-background p-6 shadow-sm">
-          <AlertDialog.Title className="text-base font-semibold">
-            Merge pull request #{pr.number}?
-          </AlertDialog.Title>
-          <AlertDialog.Description className="flex flex-col gap-1 text-sm text-muted-foreground">
-            <span className="break-words text-foreground">{pr.title}</span>
-            <span>Method: {label}</span>
-          </AlertDialog.Description>
-          <div className="flex justify-end gap-2">
-            <AlertDialog.Cancel className={OUTLINE_CLASS}>Cancel</AlertDialog.Cancel>
-            <AlertDialog.Action
-              className={cn(PRIMARY_CLASS, SIZE_CLASS.default)}
-              onClick={confirm}
-              disabled={running}
-            >
-              {label}
-            </AlertDialog.Action>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <ConfirmDialog
+      title={`Merge pull request #${pr.number}?`}
+      description={
+        <>
+          <span className="break-words text-foreground">{pr.title}</span>
+          <span>Method: {label}</span>
+        </>
+      }
+      confirmLabel={label}
+      running={running}
+      trigger={trigger}
+      open={open}
+      onOpenChange={onOpenChange}
+      confirm={confirm}
+    />
   );
 }

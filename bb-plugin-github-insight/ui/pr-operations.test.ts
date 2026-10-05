@@ -66,6 +66,7 @@ describe("shared merge operations", () => {
     expect(operations.snapshot("a")).toEqual({
       kind: "error",
       message: "rejected",
+      action: "merge",
       headOid: "head-a",
     });
     offAgain();
@@ -81,6 +82,7 @@ describe("shared merge operations", () => {
     expect(operations.snapshot("a")).toEqual({
       kind: "error",
       message: "offline",
+      action: "merge",
       headOid: "head-a",
     });
     operations.dismiss("a");
