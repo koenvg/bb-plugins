@@ -40,14 +40,12 @@ const project = {
   createdAt: "2026-07-15T00:00:00.000Z",
 };
 
-const labels: Label[] = ["bug", "frontend", "needs-design"].map(
-  (name, index) => ({
-    id: `01HZZZZZZZZZZZZZZZZZZZZZL${index}`,
-    projectId: PROJECT_ID,
-    name,
-    color: "#5e6ad2",
-  }),
-);
+const labels: Label[] = ["bug", "frontend", "needs-design"].map((name, index) => ({
+  id: `01HZZZZZZZZZZZZZZZZZZZZZL${index}`,
+  projectId: PROJECT_ID,
+  name,
+  color: "#5e6ad2",
+}));
 
 const busyTask: Task = makeTask({
   id: "01HZZZZZZZZZZZZZZZZZZZZZT1",
@@ -118,11 +116,7 @@ function renderList(rich = false) {
                               changesRequested: 1,
                               pendingNames: ["koen"],
                             },
-                            conditions: [
-                              "checks_failed",
-                              "changes_requested",
-                              "review_required",
-                            ],
+                            conditions: ["checks_failed", "changes_requested", "review_required"],
                           },
                         }
                       : {}),
@@ -139,19 +133,15 @@ function renderList(rich = false) {
                 ],
                 unavailableThreadIds: [`${workerThread.threadId}_4`],
               },
-              threads: [
-                "failed",
-                "working",
-                "idle",
-                "starting",
-                "unavailable",
-              ].map((execution, index) => ({
-                threadId: `${workerThread.threadId}_${index}`,
-                title: workerThread.title,
-                presetName: workerThread.presetName,
-                execution,
-                archive: index === 0 ? "archived" : "unarchived",
-              })),
+              threads: ["failed", "working", "idle", "starting", "unavailable"].map(
+                (execution, index) => ({
+                  threadId: `${workerThread.threadId}_${index}`,
+                  title: workerThread.title,
+                  presetName: workerThread.presetName,
+                  execution,
+                  archive: index === 0 ? "archived" : "unarchived",
+                }),
+              ),
             },
           },
         }),
@@ -252,8 +242,8 @@ describe("responsive list structure", () => {
     expect(control.className).toContain("z-10");
     expect(control.className).toContain("flex-wrap");
     expect(slot.getByText(busyTask.title).className).toContain("@4xl:min-w-64");
-    expect(
-      slot.getByRole("button", { name: /Threads for TSK-1/ }).textContent,
-    ).toContain("1 archived");
+    expect(slot.getByRole("button", { name: /Threads for TSK-1/ }).textContent).toContain(
+      "1 archived",
+    );
   });
 });

@@ -1,9 +1,6 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { hostContract, rpcContract, type GhResult, type ReviewResult } from "./contract";
-import {
-  INSIGHT_UPDATED_CHANNEL,
-  type InsightUpdated,
-} from "./core/insight-updated";
+import { INSIGHT_UPDATED_CHANNEL, type InsightUpdated } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
 import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
@@ -34,7 +31,9 @@ export default async function plugin(bb: BbPluginApi) {
 
   const service = createInsightService({
     listThreads: async () =>
-      (await bb.sdk.threads.list({ includeHidden: true })).filter((thread) => thread.archivedAt === null),
+      (await bb.sdk.threads.list({ includeHidden: true })).filter(
+        (thread) => thread.archivedAt === null,
+      ),
     resolvePr,
     resolveEnvironmentPr,
     fetchInsight: ({ ref, hostId }) =>
@@ -59,18 +58,24 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   const drafts = createDraftStore(bb.storage.kv);
-  const publishReviewUpdate = (update: ReviewUpdated) => bb.realtime.publish(REVIEW_UPDATED_CHANNEL, update);
+  const publishReviewUpdate = (update: ReviewUpdated) =>
+    bb.realtime.publish(REVIEW_UPDATED_CHANNEL, update);
 
   const review = createReviewService({
     resolvePr,
-    fetchPrFiles: async ({ ref, hostId }) => unwrap(await host.call("fetchPrFiles", ref, { hostId })),
+    fetchPrFiles: async ({ ref, hostId }) =>
+      unwrap(await host.call("fetchPrFiles", ref, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
     drafts,
     publish: publishReviewUpdate,
     sendMessage: async (threadId, text) => {
-      const result = await bb.sdk.threads.send({ threadId, mode: "auto", input: [{ type: "text", text, mentions: [] }] });
+      const result = await bb.sdk.threads.send({
+        threadId,
+        mode: "auto",
+        input: [{ type: "text", text, mentions: [] }],
+      });
       return result.delivery;
     },
   });
@@ -82,7 +87,8 @@ export default async function plugin(bb: BbPluginApi) {
     setThreadResolved: async ({ hostId }, threadId, resolved) =>
       unwrap(await host.call("setThreadResolved", { threadId, resolved }, { hostId })),
     loadReview: (threadId) => review.load(threadId),
-    submitReview: async ({ hostId }, request) => unwrap(await host.call("submitReview", request, { hostId })),
+    submitReview: async ({ hostId }, request) =>
+      unwrap(await host.call("submitReview", request, { hostId })),
     drafts,
     publish: publishReviewUpdate,
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
@@ -95,10 +101,14 @@ export default async function plugin(bb: BbPluginApi) {
   const reviewQueue = createReviewQueueService({
     primaryHostId: async () => (await bb.sdk.system.config()).primaryHostId,
     fetchReviewQueue: async (hostId, tracked) =>
-      parseReviewQueue(unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })), tracked),
+      parseReviewQueue(
+        unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })),
+        tracked,
+      ),
     listProjects: () => bb.sdk.projects.list(),
     listThreads: () => bb.sdk.threads.list({ includeHidden: true }),
-    listReviewThreads: () => bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
+    listReviewThreads: () =>
+      bb.sdk.threads.list({ includeHidden: true, originPluginId: bb.pluginId }),
     readPluginMetadata: (threadId) => bb.sdk.threads.getPluginMetadata({ threadId }),
     spawnReviewThread: async (pr, request) => {
       const thread = await bb.sdk.threads.spawn({
@@ -148,7 +158,9 @@ export default async function plugin(bb: BbPluginApi) {
     submitReview: (request) => writes.submitReview(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),
-    startReview: async ({ pr, request }) => ({ threadId: await reviewQueue.startReview(pr, request) }),
+    startReview: async ({ pr, request }) => ({
+      threadId: await reviewQueue.startReview(pr, request),
+    }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),

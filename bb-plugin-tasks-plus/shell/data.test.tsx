@@ -85,12 +85,15 @@ afterEach(cleanup);
 describe("Tasks query identity", () => {
   it("keeps retained results loading from the first render with changed inputs", async () => {
     const pending = deferred<Response>();
-    const probe = setup((key) => key === first.key ? { task: first } : pending.promise);
+    const probe = setup((key) => (key === first.key ? { task: first } : pending.promise));
     await waitFor(() => expect(probe.current().isLoading).toBe(false));
 
     probe.change(second.key);
     expect(probe.current()).toEqual({
-      taskKey: second.key, resultKey: first.key, isLoading: true, error: null,
+      taskKey: second.key,
+      resultKey: first.key,
+      isLoading: true,
+      error: null,
     });
     expect(probe.frames.filter((frame) => frame.taskKey === second.key)).not.toContainEqual(
       expect.objectContaining({ isLoading: false }),
@@ -98,16 +101,17 @@ describe("Tasks query identity", () => {
 
     await act(async () => pending.resolve({ task: second }));
     expect(probe.current()).toEqual({
-      taskKey: second.key, resultKey: second.key, isLoading: false, error: null,
+      taskKey: second.key,
+      resultKey: second.key,
+      isLoading: false,
+      error: null,
     });
   });
 
   it("does not report an earlier input's error while new inputs load", async () => {
     const pending = deferred<Response>();
     const probe = setup((key) =>
-      key === first.key
-        ? Promise.reject(new Error("First request failed"))
-        : pending.promise,
+      key === first.key ? Promise.reject(new Error("First request failed")) : pending.promise,
     );
     await waitFor(() => expect(probe.current().error).toBe("First request failed"));
 
@@ -116,12 +120,18 @@ describe("Tasks query identity", () => {
       expect.objectContaining({ error: "First request failed" }),
     );
     expect(probe.current()).toEqual({
-      taskKey: second.key, resultKey: null, isLoading: true, error: null,
+      taskKey: second.key,
+      resultKey: null,
+      isLoading: true,
+      error: null,
     });
 
     await act(async () => pending.reject(new Error("Second request failed")));
     expect(probe.current()).toEqual({
-      taskKey: second.key, resultKey: null, isLoading: false, error: "Second request failed",
+      taskKey: second.key,
+      resultKey: null,
+      isLoading: false,
+      error: "Second request failed",
     });
   });
 
@@ -148,12 +158,14 @@ describe("Tasks query identity", () => {
 
       response = { task: changed ? second : first };
       fireEvent.click(probe.slot.getByRole("button", { name: "Retry query" }));
-      await waitFor(() => expect(probe.current()).toEqual({
-        taskKey: changed ? second.key : first.key,
-        resultKey: changed ? second.key : first.key,
-        isLoading: false,
-        error: null,
-      }));
+      await waitFor(() =>
+        expect(probe.current()).toEqual({
+          taskKey: changed ? second.key : first.key,
+          resultKey: changed ? second.key : first.key,
+          isLoading: false,
+          error: null,
+        }),
+      );
     },
   );
 
@@ -161,7 +173,7 @@ describe("Tasks query identity", () => {
     "ignores a late %s for previous inputs",
     async (outcome) => {
       const pending = deferred<Response>();
-      const probe = setup((key) => key === first.key ? pending.promise : { task: second });
+      const probe = setup((key) => (key === first.key ? pending.promise : { task: second }));
       probe.change(second.key);
       await waitFor(() => expect(probe.current().isLoading).toBe(false));
 
@@ -170,7 +182,10 @@ describe("Tasks query identity", () => {
         else pending.reject(new Error("Old request failed"));
       });
       expect(probe.current()).toEqual({
-        taskKey: second.key, resultKey: second.key, isLoading: false, error: null,
+        taskKey: second.key,
+        resultKey: second.key,
+        isLoading: false,
+        error: null,
       });
     },
   );
@@ -188,7 +203,10 @@ describe("Tasks query identity", () => {
     expect(probe.current().resultKey).toBe(first.key);
     await act(async () => pending.resolve({ task: null }));
     expect(probe.current()).toEqual({
-      taskKey: first.key, resultKey: null, isLoading: false, error: null,
+      taskKey: first.key,
+      resultKey: null,
+      isLoading: false,
+      error: null,
     });
   });
 });

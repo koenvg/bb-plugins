@@ -25,8 +25,7 @@ const execFileAsync = promisify(execFile);
 export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
-    fetchOverviewPage: (request, context) =>
-      runGhJson(overviewPageArgs(request), context.signal),
+    fetchOverviewPage: (request, context) => runGhJson(overviewPageArgs(request), context.signal),
     fetchCheckRunDetails: (request, context) =>
       runGhJson(checkRunDetailsArgs(request), context.signal),
     fetchPrFiles: (request, context) => runGhJson(prFilesArgs(request), context.signal),
@@ -37,7 +36,8 @@ export default experimental_defineHostEntry({
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
     setThreadResolved: (request, context) =>
       runGhJson(setThreadResolvedArgs(request), context.signal),
-    fetchReviewQueue: ({ tracked }, context) => runGhJsonAllowingNotFound(reviewQueueArgs(tracked), context.signal),
+    fetchReviewQueue: ({ tracked }, context) =>
+      runGhJsonAllowingNotFound(reviewQueueArgs(tracked), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>
@@ -94,7 +94,9 @@ async function readRateLimitReset(signal: AbortSignal): Promise<number | null> {
 }
 
 function stdoutOf(error: unknown): string {
-  return typeof error === "object" && error !== null && "stdout" in error ? String(error.stdout) : "";
+  return typeof error === "object" && error !== null && "stdout" in error
+    ? String(error.stdout)
+    : "";
 }
 
 function processError(error: unknown): GhProcessError {

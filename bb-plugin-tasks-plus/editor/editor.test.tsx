@@ -59,10 +59,7 @@ describe("markdown round-trip", () => {
     ["link", "Read the [bb guide](https://example.com/guide)."],
     ["image", "![diagram](https://example.com/diagram.png)"],
     ["mention", "Blocked on [TSK-42](bbtask://TSK-42) for review."],
-    [
-      "thread mention",
-      "Discussed in [Fix login flow](bbthread://thr_a82u8wp8qq) yesterday.",
-    ],
+    ["thread mention", "Discussed in [Fix login flow](bbthread://thr_a82u8wp8qq) yesterday."],
     [
       "mixed document",
       "## Plan\n\nShip the **editor** with `tiptap`.\n\n- [x] parse\n- [ ] serialize\n\n> Notes on [TSK-7](bbtask://TSK-7)\n\n```\nplain code\n```",
@@ -73,8 +70,7 @@ describe("markdown round-trip", () => {
   });
 
   it("preserves table rows and cells", () => {
-    const markdown =
-      "| Item | Owner |\n| --- | --- |\n| Parser | Ada |\n| Styles | Lin |";
+    const markdown = "| Item | Owner |\n| --- | --- |\n| Parser | Ada |\n| Styles | Lin |";
 
     expect(roundTrip(markdown).trimEnd()).toBe(markdown);
   });
@@ -89,8 +85,7 @@ describe("markdown round-trip", () => {
   });
 
   it("preserves a pipe inside a table-cell link destination", () => {
-    const markdown =
-      "| Value |\n| --- |\n| [destination](https://example.com/a\\|b) |";
+    const markdown = "| Value |\n| --- |\n| [destination](https://example.com/a\\|b) |";
 
     expect(roundTrip(markdown).trimEnd()).toBe(
       "| Value |\n| --- |\n| [destination](https://example.com/a%7Cb) |",
@@ -108,18 +103,12 @@ describe("markdown round-trip", () => {
     const onChange = vi.fn();
     let editor: Editor | null = null;
     render(
-      <TasksEditor
-        value={value}
-        onChange={onChange}
-        onEditorReady={(ready) => (editor = ready)}
-      />,
+      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
     );
 
     editor!.chain().focus("end").insertContent(" elsewhere").run();
 
-    await waitFor(() =>
-      expect(onChange).toHaveBeenLastCalledWith(`${value} elsewhere`),
-    );
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`${value} elsewhere`));
   });
 
   it("renders table headers and cells", () => {
@@ -146,23 +135,18 @@ describe("mention extension", () => {
     const findMentions = () => {
       const found: Array<Record<string, unknown>> = [];
       editor.state.doc.descendants((node) => {
-        if (node.type.name === "taskMention")
-          found.push(node.attrs as Record<string, unknown>);
+        if (node.type.name === "taskMention") found.push(node.attrs as Record<string, unknown>);
       });
       return found;
     };
     try {
       expect(findMentions()).toEqual([{ key: "TSK-42", label: "TSK-42" }]);
-      const pill = editor.view.dom.querySelector(
-        '[data-task-mention="TSK-42"]',
-      );
+      const pill = editor.view.dom.querySelector('[data-task-mention="TSK-42"]');
       expect(pill?.classList.contains("bb-tasks-mention")).toBe(true);
       expect(pill?.textContent).toBe("TSK-42");
       editor.commands.setContent("[docs](https://example.com)");
       expect(findMentions()).toEqual([]);
-      expect(editor.storage.markdown.getMarkdown()).toBe(
-        "[docs](https://example.com)",
-      );
+      expect(editor.storage.markdown.getMarkdown()).toBe("[docs](https://example.com)");
     } finally {
       editor.destroy();
     }
@@ -190,9 +174,7 @@ describe("mention extension", () => {
                 key: "TSK-7",
                 title: "Detail panel",
               },
-            ].filter((item) =>
-              item.key.toLowerCase().includes(query.toLowerCase()),
-            ),
+            ].filter((item) => item.key.toLowerCase().includes(query.toLowerCase())),
           )
         }
         onEditorReady={(editor) => {
@@ -204,12 +186,8 @@ describe("mention extension", () => {
     instance!.chain().focus().insertContent("@").run();
     const option = await screen.findByText("Round-trip review");
     fireEvent.click(option.closest("button")!);
-    await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith("[TSK-42](bbtask://TSK-42) "),
-    );
-    expect(
-      screen.container.querySelector('[data-task-mention="TSK-42"]'),
-    ).toBeTruthy();
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("[TSK-42](bbtask://TSK-42) "));
+    expect(screen.container.querySelector('[data-task-mention="TSK-42"]')).toBeTruthy();
   });
 
   it("stays inert without a mentionItems prop", async () => {
@@ -260,13 +238,9 @@ describe("mention extension", () => {
     expect(screen.getByText("Tasks")).toBeTruthy();
     fireEvent.click(screen.getByText("Fix login flow").closest("button")!);
     await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith(
-        "[Fix login flow](bbthread://thr_a82u8wp8qq) ",
-      ),
+      expect(onChange).toHaveBeenCalledWith("[Fix login flow](bbthread://thr_a82u8wp8qq) "),
     );
-    expect(
-      screen.container.querySelector('[data-thread-mention="thr_a82u8wp8qq"]'),
-    ).toBeTruthy();
+    expect(screen.container.querySelector('[data-thread-mention="thr_a82u8wp8qq"]')).toBeTruthy();
   });
 });
 
@@ -277,9 +251,7 @@ describe("thread mention extension", () => {
       content: "See [Fix login flow](bbthread://thr_a82u8wp8qq).",
     });
     try {
-      const pill = editor.view.dom.querySelector(
-        '[data-thread-mention="thr_a82u8wp8qq"]',
-      );
+      const pill = editor.view.dom.querySelector('[data-thread-mention="thr_a82u8wp8qq"]');
       expect(pill?.classList.contains("bb-tasks-thread-mention")).toBe(true);
       expect(pill?.textContent).toBe("Fix login flow");
       expect(pill?.querySelector("svg.bb-tasks-mention-icon")).toBeTruthy();
@@ -302,9 +274,7 @@ describe("thread mention extension", () => {
         onOpenThread={onOpenThread}
       />,
     );
-    const pill = screen.container.querySelector(
-      '[data-thread-mention="thr_a82u8wp8qq"]',
-    );
+    const pill = screen.container.querySelector('[data-thread-mention="thr_a82u8wp8qq"]');
     fireEvent.click(pill!);
     expect(onOpenThread).toHaveBeenCalledWith("thr_a82u8wp8qq");
   });
@@ -318,11 +288,7 @@ describe("heading toggle", () => {
     });
   }
 
-  function selectBlocks(
-    editor: Editor,
-    fromBlock: number,
-    toBlock = fromBlock,
-  ) {
+  function selectBlocks(editor: Editor, fromBlock: number, toBlock = fromBlock) {
     const positions: number[] = [];
     editor.state.doc.forEach((_node, offset) => {
       positions.push(offset + 2);
@@ -338,9 +304,7 @@ describe("heading toggle", () => {
     try {
       selectBlocks(editor, 2);
       editor.chain().toggleHeading({ level: 2 }).run();
-      expect(editor.storage.markdown.getMarkdown()).toBe(
-        "First\n\n## Second\n\nThird",
-      );
+      expect(editor.storage.markdown.getMarkdown()).toBe("First\n\n## Second\n\nThird");
     } finally {
       editor.destroy();
     }
@@ -351,9 +315,7 @@ describe("heading toggle", () => {
     try {
       selectBlocks(editor, 2, 3);
       editor.chain().toggleHeading({ level: 2 }).run();
-      expect(editor.storage.markdown.getMarkdown()).toBe(
-        "First\n\n## Second\n\n## Third",
-      );
+      expect(editor.storage.markdown.getMarkdown()).toBe("First\n\n## Second\n\n## Third");
     } finally {
       editor.destroy();
     }
@@ -364,9 +326,7 @@ describe("heading toggle", () => {
     try {
       selectBlocks(editor, 2);
       editor.chain().toggleHeading({ level: 2 }).run();
-      expect(editor.storage.markdown.getMarkdown()).toBe(
-        "First\n\nSecond\n\nThird",
-      );
+      expect(editor.storage.markdown.getMarkdown()).toBe("First\n\nSecond\n\nThird");
     } finally {
       editor.destroy();
     }
@@ -378,9 +338,7 @@ describe("heading toggle", () => {
       selectBlocks(editor, 3);
       editor.commands.setTextSelection(editor.state.selection.from);
       editor.chain().toggleHeading({ level: 2 }).run();
-      expect(editor.storage.markdown.getMarkdown()).toBe(
-        "First\n\nSecond\n\n## Third",
-      );
+      expect(editor.storage.markdown.getMarkdown()).toBe("First\n\nSecond\n\n## Third");
     } finally {
       editor.destroy();
     }
@@ -390,35 +348,24 @@ describe("heading toggle", () => {
 describe("TasksEditor component", () => {
   it("renders checklists and reports checkbox toggles as markdown", async () => {
     const onChange = vi.fn();
-    const screen = render(
-      <TasksEditor value={"- [ ] write tests"} onChange={onChange} />,
-    );
+    const screen = render(<TasksEditor value={"- [ ] write tests"} onChange={onChange} />);
     const checkbox = screen.container.querySelector<HTMLInputElement>(
       'ul[data-type="taskList"] input[type="checkbox"]',
     );
     expect(checkbox).toBeTruthy();
     fireEvent.click(checkbox!);
-    await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith("- [x] write tests"),
-    );
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("- [x] write tests"));
   });
 
   it("renders read-only without a toolbar or editable surface", () => {
     const screen = render(
-      <TasksEditor
-        value={"**Done** deal"}
-        onChange={() => undefined}
-        readOnly
-        variant="comment"
-      />,
+      <TasksEditor value={"**Done** deal"} onChange={() => undefined} readOnly variant="comment" />,
     );
     expect(screen.queryByRole("toolbar")).toBeNull();
     const surface = screen.container.querySelector(".tiptap");
     expect(surface?.getAttribute("contenteditable")).toBe("false");
     expect(surface?.querySelector("strong")?.textContent).toBe("Done");
-    expect(
-      screen.container.querySelector('[data-variant="comment"]'),
-    ).toBeTruthy();
+    expect(screen.container.querySelector('[data-variant="comment"]')).toBeTruthy();
   });
 
   it("renders pasted Markdown as rich content", async () => {
@@ -434,9 +381,7 @@ describe("TasksEditor component", () => {
     });
 
     await waitFor(() => expect(screen.getByRole("table")).toBeTruthy());
-    expect(
-      screen.container.querySelector('[data-task-mention="TSK-42"]'),
-    ).toBeTruthy();
+    expect(screen.container.querySelector('[data-task-mention="TSK-42"]')).toBeTruthy();
     expect(onChange.mock.lastCall?.[0]?.trimEnd()).toBe(markdown);
   });
 
@@ -459,42 +404,30 @@ describe("TasksEditor component", () => {
     const pasteEvent = {
       clipboardData: { files: [file] },
     } as unknown as ClipboardEvent;
-    expect(
-      handlePaste!.call(editor!.view, editor!.view, pasteEvent, null as never),
-    ).toBe(true);
+    expect(handlePaste!.call(editor!.view, editor!.view, pasteEvent, null as never)).toBe(true);
     expect(onAttachFiles).toHaveBeenCalledWith([file]);
     expect(onUploadImage).not.toHaveBeenCalled();
 
     const textPaste = {
       clipboardData: { files: [] },
     } as unknown as ClipboardEvent;
-    expect(
-      handlePaste!.call(editor!.view, editor!.view, textPaste, null as never),
-    ).toBe(false);
+    expect(handlePaste!.call(editor!.view, editor!.view, textPaste, null as never)).toBe(false);
 
     const preventDefault = vi.fn();
     const dropEvent = {
       dataTransfer: { files: [file] },
       preventDefault,
     } as unknown as DragEvent;
-    expect(
-      handleDrop!.call(
-        editor!.view,
-        editor!.view,
-        dropEvent,
-        null as never,
-        false,
-      ),
-    ).toBe(true);
+    expect(handleDrop!.call(editor!.view, editor!.view, dropEvent, null as never, false)).toBe(
+      true,
+    );
     expect(preventDefault).toHaveBeenCalled();
     expect(onAttachFiles).toHaveBeenCalledTimes(2);
   });
 
   it("replaces the document when the value prop changes externally", async () => {
     const onChange = vi.fn();
-    const screen = render(
-      <TasksEditor value={"original"} onChange={onChange} />,
-    );
+    const screen = render(<TasksEditor value={"original"} onChange={onChange} />);
     screen.rerender(<TasksEditor value={"replaced"} onChange={onChange} />);
     await screen.findByText("replaced");
     expect(onChange).not.toHaveBeenCalled();
@@ -543,10 +476,7 @@ describe("TasksEditor submit-on-Enter", () => {
     expect(surface.getAttribute("enterkeyhint")).toBe("send");
 
     expect(
-      callHandleKeyDown(
-        editor!,
-        new KeyboardEvent("keydown", { key: "Enter", cancelable: true }),
-      ),
+      callHandleKeyDown(editor!, new KeyboardEvent("keydown", { key: "Enter", cancelable: true })),
     ).toBe(true);
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
@@ -670,10 +600,7 @@ describe("TasksEditor submit-on-Enter", () => {
     );
     editor!.commands.focus("end");
     expect(
-      callHandleKeyDown(
-        editor!,
-        new KeyboardEvent("keydown", { key: "Enter", cancelable: true }),
-      ),
+      callHandleKeyDown(editor!, new KeyboardEvent("keydown", { key: "Enter", cancelable: true })),
     ).toBe(false);
   });
 
@@ -705,9 +632,7 @@ describe("TasksEditor submit-on-Enter", () => {
     await screen.findByText("Pick me");
     fireEvent.keyDown(getEditorSurface(screen.container), { key: "Enter" });
     await waitFor(() =>
-      expect(
-        screen.container.querySelector('[data-task-mention="TSK-1"]'),
-      ).toBeTruthy(),
+      expect(screen.container.querySelector('[data-task-mention="TSK-1"]')).toBeTruthy(),
     );
     expect(onSubmit).not.toHaveBeenCalled();
   });

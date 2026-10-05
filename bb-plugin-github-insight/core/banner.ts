@@ -10,8 +10,7 @@ export function bannerParts(insight: PrInsight): string[] {
   const { pr, blockers, reviewers } = insight;
   if (pr.state === "merged" || pr.state === "closed" || blockers.length === 0) return [];
 
-  const textOf = (code: Blocker["code"]) =>
-    blockers.find((blocker) => blocker.code === code)?.text;
+  const textOf = (code: Blocker["code"]) => blockers.find((blocker) => blocker.code === code)?.text;
   const pendingReviews = reviewers.filter((reviewer) => reviewer.state === "pending").length;
   const topOther = blockers.find(
     (blocker) =>

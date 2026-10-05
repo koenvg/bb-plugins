@@ -3,7 +3,11 @@ import type { DraftStore } from "./draft-store";
 import type { ReviewLoad } from "./review-service";
 import { createReviewWrites } from "./review-writes";
 
-const target = { ref: { owner: "collibra", repo: "frontend", number: 25259 }, hostId: "host-1", openOnBb: true };
+const target = {
+  ref: { owner: "collibra", repo: "frontend", number: 25259 },
+  hostId: "host-1",
+  openOnBb: true,
+};
 const loaded: ReviewLoad = {
   kind: "ok",
   target,
@@ -31,7 +35,9 @@ function writesWith(overrides: Partial<Deps> = {}) {
     submitReview: async () => ({ data: {} }),
     drafts: { delete: async () => {} } as unknown as DraftStore,
     publish: () => {},
-    refreshAfterWrite: async (threadId) => { refreshed.push(threadId); },
+    refreshAfterWrite: async (threadId) => {
+      refreshed.push(threadId);
+    },
     markReviewed: async (ref, commitOid) => {
       marked.push([ref, commitOid]);
       return { kind: "ok" };
@@ -43,7 +49,9 @@ function writesWith(overrides: Partial<Deps> = {}) {
   return { writes, refreshed, marked };
 }
 
-const failing = async () => { throw new Error("gh down"); };
+const failing = async () => {
+  throw new Error("gh down");
+};
 
 describe("review writes", () => {
   it("reports a posted reply as posted when its draft cannot be deleted", async () => {
@@ -53,24 +61,39 @@ describe("review writes", () => {
       warn: (message) => warnings.push(message),
     });
 
-    const result = await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: false });
+    const result = await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: false,
+    });
 
     expect(result).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
-    expect(warnings).toEqual(["Posted a reply to PRRT_a, but could not delete its draft: Error: disk full"]);
+    expect(warnings).toEqual([
+      "Posted a reply to PRRT_a, but could not delete its draft: Error: disk full",
+    ]);
   });
 
-  it.each([true, false])("refreshes the PR insight after setting resolved to %s", async (resolved) => {
-    const { writes, refreshed } = writesWith();
+  it.each([true, false])(
+    "refreshes the PR insight after setting resolved to %s",
+    async (resolved) => {
+      const { writes, refreshed } = writesWith();
 
-    await writes.setResolved({ threadId: "thr_1", reviewThreadId: "PRRT_a", resolved });
+      await writes.setResolved({ threadId: "thr_1", reviewThreadId: "PRRT_a", resolved });
 
-    expect(refreshed).toEqual(["thr_1"]);
-  });
+      expect(refreshed).toEqual(["thr_1"]);
+    },
+  );
 
   it("refreshes the PR insight after a post and resolve", async () => {
     const { writes, refreshed } = writesWith();
 
-    await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: true });
+    await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: true,
+    });
 
     expect(refreshed).toEqual(["thr_1"]);
   });
@@ -78,7 +101,12 @@ describe("review writes", () => {
   it("does not refresh the PR insight after a post without resolve", async () => {
     const { writes, refreshed } = writesWith();
 
-    await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: false });
+    await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: false,
+    });
 
     expect(refreshed).toEqual([]);
   });
@@ -87,7 +115,12 @@ describe("review writes", () => {
     const { writes, refreshed } = writesWith({ setThreadResolved: failing });
 
     await writes.setResolved({ threadId: "thr_1", reviewThreadId: "PRRT_a", resolved: true });
-    await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: true });
+    await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: true,
+    });
 
     expect(refreshed).toEqual([]);
   });
@@ -95,7 +128,12 @@ describe("review writes", () => {
   it("does not refresh the PR insight when the post fails", async () => {
     const { writes, refreshed } = writesWith({ replyToThread: failing });
 
-    await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: true });
+    await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: true,
+    });
 
     expect(refreshed).toEqual([]);
   });
@@ -103,8 +141,17 @@ describe("review writes", () => {
   it("reports the write as done when the refresh after it fails", async () => {
     const { writes } = writesWith({ refreshAfterWrite: failing });
 
-    const resolved = await writes.setResolved({ threadId: "thr_1", reviewThreadId: "PRRT_a", resolved: true });
-    const posted = await writes.reply({ threadId: "thr_1", reviewThreadId: "PRRT_a", body: "Done", resolve: true });
+    const resolved = await writes.setResolved({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      resolved: true,
+    });
+    const posted = await writes.reply({
+      threadId: "thr_1",
+      reviewThreadId: "PRRT_a",
+      body: "Done",
+      resolve: true,
+    });
 
     expect(resolved).toEqual({ kind: "ok" });
     expect(posted).toEqual({ kind: "posted", pendingReviewUrl: null, resolveError: null });
@@ -113,7 +160,9 @@ describe("review writes", () => {
   it("reports a submitted review as submitted when its drafts cannot be deleted", async () => {
     const warnings: string[] = [];
     const { writes, refreshed } = writesWith({
-      drafts: { deleteReviewDrafts: () => Promise.reject(new Error("disk full")) } as unknown as DraftStore,
+      drafts: {
+        deleteReviewDrafts: () => Promise.reject(new Error("disk full")),
+      } as unknown as DraftStore,
       warn: (message) => warnings.push(message),
     });
 
@@ -121,7 +170,9 @@ describe("review writes", () => {
 
     expect(result).toEqual({ kind: "submitted" });
     expect(refreshed).toEqual(["thr_1"]);
-    expect(warnings).toEqual(["Submitted a review on thread thr_1, but could not delete its drafts: Error: disk full"]);
+    expect(warnings).toEqual([
+      "Submitted a review on thread thr_1, but could not delete its drafts: Error: disk full",
+    ]);
   });
 
   it("reports the submit as done when the refresh after it fails", async () => {
@@ -130,7 +181,9 @@ describe("review writes", () => {
       refreshAfterWrite: failing,
     });
 
-    expect(await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" })).toEqual({ kind: "submitted" });
+    expect(await writes.submitReview({ threadId: "thr_1", event: "APPROVE", body: "" })).toEqual({
+      kind: "submitted",
+    });
   });
 
   const noDraftsLeft = { deleteReviewDrafts: async () => {} } as unknown as DraftStore;
@@ -144,10 +197,23 @@ describe("review writes", () => {
   });
 
   it("marks the PR reviewed at the commit of older comment drafts", async () => {
-    const commentDraft = { id: "d1", path: "a.ts", side: "RIGHT", line: 3, startLine: null, body: "Nit", commitOid: "abc123", updatedAt: 1, source: "agent" };
+    const commentDraft = {
+      id: "d1",
+      path: "a.ts",
+      side: "RIGHT",
+      line: 3,
+      startLine: null,
+      body: "Nit",
+      commitOid: "abc123",
+      updatedAt: 1,
+      source: "agent",
+    };
     const { writes, marked } = writesWith({
       drafts: noDraftsLeft,
-      loadReview: async () => (loaded.kind === "ok" ? { ...loaded, review: { ...loaded.review, commentDrafts: [commentDraft] } } : loaded) as ReviewLoad,
+      loadReview: async () =>
+        (loaded.kind === "ok"
+          ? { ...loaded, review: { ...loaded.review, commentDrafts: [commentDraft] } }
+          : loaded) as ReviewLoad,
     });
 
     await writes.submitReview({ threadId: "thr_1", event: "COMMENT", body: "" });
@@ -159,7 +225,12 @@ describe("review writes", () => {
     const { writes, marked } = writesWith({
       drafts: noDraftsLeft,
       loadReview: async () =>
-        (loaded.kind === "ok" ? { ...loaded, review: { ...loaded.review, head: { ...loaded.review.head, viewerIsAuthor: true } } } : loaded) as ReviewLoad,
+        (loaded.kind === "ok"
+          ? {
+              ...loaded,
+              review: { ...loaded.review, head: { ...loaded.review.head, viewerIsAuthor: true } },
+            }
+          : loaded) as ReviewLoad,
     });
 
     await writes.submitReview({ threadId: "thr_1", event: "COMMENT", body: "Thanks" });

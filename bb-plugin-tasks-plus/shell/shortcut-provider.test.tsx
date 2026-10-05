@@ -2,11 +2,7 @@
 import { useRef } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  ShortcutOwner,
-  ShortcutProvider,
-  useShortcuts,
-} from "./shortcut-provider.js";
+import { ShortcutOwner, ShortcutProvider, useShortcuts } from "./shortcut-provider.js";
 
 afterEach(cleanup);
 it.each([false, true])(
@@ -61,9 +57,7 @@ it.each([false, true])(
       const button = view.getByRole("button", { name: pane });
       button.focus();
       for (const key of ["s", "p", "l"]) fireEvent.keyDown(button, { key });
-      expect(pane === "list" ? listAction : detailAction).toHaveBeenCalledTimes(
-        3,
-      );
+      expect(pane === "list" ? listAction : detailAction).toHaveBeenCalledTimes(3);
       expect(pane === "list" ? detailAction : listAction).toHaveBeenCalledTimes(
         pane === "list" ? 0 : 3,
       );

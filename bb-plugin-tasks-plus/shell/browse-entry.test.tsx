@@ -95,21 +95,15 @@ describe("remembered Tasks entry", () => {
 
     const reopened = open("", {}, "proj_two");
     await reopened.findByText("Tenet");
-    expect(
-      reopened
-        .getByRole("button", { name: "Board" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(reopened.navigateCalls).toEqual([
-      destination(`${project.id}?view=board`, true),
-    ]);
+    expect(reopened.getByRole("button", { name: "Board" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(reopened.navigateCalls).toEqual([destination(`${project.id}?view=board`, true)]);
     reopened.lifecycle.rerender(<Panel subPath={`${project.id}?view=board`} />);
     fireEvent.click(reopened.getByRole("button", { name: "Refresh tasks" }));
     await waitFor(() =>
       expect(
-        reopened
-          .getByRole("button", { name: "Refresh tasks" })
-          .getAttribute("aria-busy"),
+        reopened.getByRole("button", { name: "Refresh tasks" }).getAttribute("aria-busy"),
       ).toBe("false"),
     );
     expect(reopened.navigateCalls).toHaveLength(1);
@@ -133,10 +127,7 @@ describe("remembered Tasks entry", () => {
     "does not invalidate remembered scope from stale snapshot $snapshot",
     async ({ snapshot }) => {
       rememberProject();
-      window.localStorage.setItem(
-        querySnapshotStorageKey("projects"),
-        JSON.stringify(snapshot),
-      );
+      window.localStorage.setItem(querySnapshotStorageKey("projects"), JSON.stringify(snapshot));
       const inventory = deferred<{ projects: Project[] }>();
       const slot = open("", { listProjects: () => inventory.promise });
       expect(slot.getByRole("status").textContent).toBe("Loading projects…");
@@ -145,18 +136,13 @@ describe("remembered Tasks entry", () => {
       expect(remembered()).toEqual({ kind: "project", projectId: project.id });
       await act(async () => inventory.resolve({ projects: [project, other] }));
       await slot.findByText("Tenet");
-      expect(slot.navigateCalls).toEqual([
-        destination(`${project.id}?view=list`, true),
-      ]);
+      expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
     },
   );
 
   it("falls back once only after successful confirmation of a deleted project", async () => {
     rememberProject();
-    window.localStorage.setItem(
-      querySnapshotStorageKey("projects"),
-      JSON.stringify([project]),
-    );
+    window.localStorage.setItem(querySnapshotStorageKey("projects"), JSON.stringify([project]));
     const inventory = deferred<{ projects: Project[] }>();
     const slot = open("", { listProjects: () => inventory.promise });
     expect(slot.navigateCalls).toEqual([]);
@@ -170,15 +156,11 @@ describe("remembered Tasks entry", () => {
 
   it("retains scope on inventory failure, exposes retry, and waits through the retry", async () => {
     rememberProject();
-    window.localStorage.setItem(
-      querySnapshotStorageKey("projects"),
-      JSON.stringify([]),
-    );
+    window.localStorage.setItem(querySnapshotStorageKey("projects"), JSON.stringify([]));
     const retry = deferred<{ projects: Project[] }>();
     let retrying = false;
     const slot = open("", {
-      listProjects: () =>
-        retrying ? retry.promise : Promise.reject(new Error("offline")),
+      listProjects: () => (retrying ? retry.promise : Promise.reject(new Error("offline"))),
     });
     await slot.findByRole("alert");
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
@@ -190,9 +172,7 @@ describe("remembered Tasks entry", () => {
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
     await act(async () => retry.resolve({ projects: [project] }));
     await slot.findByText("Tenet");
-    expect(slot.navigateCalls).toEqual([
-      destination(`${project.id}?view=list`, true),
-    ]);
+    expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
   });
 
   it.each(["active", "manage"])(
@@ -227,9 +207,9 @@ describe("remembered Tasks entry", () => {
       listTaskThreads: () => ({ taskThreads: [] }),
       listTaskDependencies: () => ({ blockers: [], blocking: [] }),
     });
-    expect(
-      (await slot.findByRole("textbox", { name: "Task title" })).textContent,
-    ).toBe("Cross-project task");
+    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
+      "Cross-project task",
+    );
     expect(slot.navigateCalls).toEqual([]);
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
     slot.lifecycle.unmount();
@@ -243,20 +223,16 @@ describe("remembered Tasks entry", () => {
     const slot = open(`${other.id}?view=list`, {
       listProjects: () => new Promise(() => {}),
     });
-    expect(
-      slot.getByRole("button", { name: "List" }).getAttribute("aria-pressed"),
-    ).toBe("true");
+    expect(slot.getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe("true");
     expect(slot.navigateCalls).toEqual([]);
     expect(remembered()).toEqual({ kind: "project", projectId: other.id });
     slot.lifecycle.unmount();
     const reopened = open();
     await reopened.findByText("ClassSpotter");
     // Explicit URL views do not rewrite the existing view preference.
-    expect(
-      reopened
-        .getByRole("button", { name: "Board" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+    expect(reopened.getByRole("button", { name: "Board" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 
   it("does not redirect a later explicit destination when old inventory completes", async () => {
@@ -287,9 +263,7 @@ describe("remembered Tasks entry", () => {
       selected.lifecycle.unmount();
       const restored = open();
       await restored.findByText("ClassSpotter");
-      expect(restored.navigateCalls).toEqual([
-        destination(`${other.id}?view=list`, true),
-      ]);
+      expect(restored.navigateCalls).toEqual([destination(`${other.id}?view=list`, true)]);
       restored.lifecycle.unmount();
       const all = open("all");
       await all.findByText("All projects");
@@ -317,8 +291,7 @@ describe("remembered Tasks entry", () => {
       initial.lifecycle.unmount();
       const reopened = open();
       await reopened.findByText("ClassSpotter");
-      if (raw.includes("99"))
-        expect(window.localStorage.getItem(storageKey)).toBe(raw);
+      if (raw.includes("99")) expect(window.localStorage.getItem(storageKey)).toBe(raw);
     },
   );
 
@@ -344,50 +317,40 @@ describe("remembered Tasks entry", () => {
     });
     await slot.findByText("Visible task");
     expect(slot.queryByText("Filtered task")).toBeNull();
-    expect(window.localStorage.getItem("bb-tasks:list-preferences")).toBe(
-      before,
-    );
+    expect(window.localStorage.getItem("bb-tasks:list-preferences")).toBe(before);
   });
 
   it.each([
     ["go-all", "all", "All projects"],
     ["go-active", "active", "Active"],
     ["go-manage", "manage", "Manage"],
-  ])(
-    "palette %s has explicit precedence over remembered project",
-    async (id, subPath, label) => {
-      rememberProject();
-      const slot = open(project.id);
-      await slot.findByText("Tenet");
-      act(() => {
-        void TASKS_COMMANDS.find((command) => command.id === id)!.run({
-          projectId: "unrelated-bb-project",
-          threadId: null,
-          openPanel: () => false,
-        });
+  ])("palette %s has explicit precedence over remembered project", async (id, subPath, label) => {
+    rememberProject();
+    const slot = open(project.id);
+    await slot.findByText("Tenet");
+    act(() => {
+      void TASKS_COMMANDS.find((command) => command.id === id)!.run({
+        projectId: "unrelated-bb-project",
+        threadId: null,
+        openPanel: () => false,
       });
-      expect(slot.navigateCalls).toEqual([destination(subPath)]);
-      // The SDK harness records navigation but does not update host routes.
-      slot.lifecycle.rerender(<Panel subPath={subPath} />);
-      await slot.findAllByText(label);
-      expect(remembered()).toEqual(
-        subPath === "all"
-          ? { kind: "all" }
-          : { kind: "project", projectId: project.id },
-      );
-    },
-  );
+    });
+    expect(slot.navigateCalls).toEqual([destination(subPath)]);
+    // The SDK harness records navigation but does not update host routes.
+    slot.lifecycle.rerender(<Panel subPath={subPath} />);
+    await slot.findAllByText(label);
+    expect(remembered()).toEqual(
+      subPath === "all" ? { kind: "all" } : { kind: "project", projectId: project.id },
+    );
+  });
 
   it("the project navigation command wins over remembered All", async () => {
     const slot = open("all");
     await slot.findByText("All projects");
-    fireEvent.keyDown(
-      slot.getByRole("button", { name: "Project: All projects" }),
-      { key: "ArrowDown" },
-    );
-    fireEvent.click(
-      await slot.findByRole("menuitemradio", { name: "ClassSpotter" }),
-    );
+    fireEvent.keyDown(slot.getByRole("button", { name: "Project: All projects" }), {
+      key: "ArrowDown",
+    });
+    fireEvent.click(await slot.findByRole("menuitemradio", { name: "ClassSpotter" }));
     expect(slot.navigateCalls).toEqual([destination(other.id)]);
     slot.lifecycle.rerender(<Panel subPath={other.id} />);
     expect(remembered()).toEqual({ kind: "project", projectId: other.id });
@@ -399,30 +362,24 @@ describe("remembered Tasks entry", () => {
       const nextInventory = deferred<{ projects: Project[] }>();
       let refreshing = false;
       const slot = open("active", {
-        listProjects: () =>
-          refreshing ? nextInventory.promise : { projects: [other] },
+        listProjects: () => (refreshing ? nextInventory.promise : { projects: [other] }),
       });
       await waitFor(() =>
-        expect(
-          window.localStorage.getItem(querySnapshotStorageKey("projects")),
-        ).toContain(other.id),
+        expect(window.localStorage.getItem(querySnapshotStorageKey("projects"))).toContain(
+          other.id,
+        ),
       );
       rememberProject();
       refreshing = true;
-      if (mode === "manual")
-        fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
+      if (mode === "manual") fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
       else await slot.behavior.emitRealtime("projects:changed", {});
       slot.lifecycle.rerender(<Panel subPath="" />);
       expect(slot.getByRole("status").textContent).toBe("Loading projects…");
       expect(remembered()).toEqual({ kind: "project", projectId: project.id });
       expect(slot.navigateCalls).toEqual([]);
-      await act(async () =>
-        nextInventory.resolve({ projects: [project, other] }),
-      );
+      await act(async () => nextInventory.resolve({ projects: [project, other] }));
       await slot.findByText("Tenet");
-      expect(slot.navigateCalls).toEqual([
-        destination(`${project.id}?view=list`, true),
-      ]);
+      expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
     },
   );
 
@@ -433,11 +390,9 @@ describe("remembered Tasks entry", () => {
     rememberProject();
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
     await waitFor(() =>
-      expect(
-        slot
-          .getByRole("button", { name: "Refresh tasks" })
-          .getAttribute("aria-busy"),
-      ).toBe("false"),
+      expect(slot.getByRole("button", { name: "Refresh tasks" }).getAttribute("aria-busy")).toBe(
+        "false",
+      ),
     );
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
     slot.lifecycle.unmount();

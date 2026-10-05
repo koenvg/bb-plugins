@@ -49,7 +49,8 @@ describe("checkAnchor", () => {
   it("rejects a range across 2 hunks and names the ranges of that side", () => {
     expect(checkAnchor([file], anchor({ startLine: 12, line: 41 }))).toEqual({
       ok: false,
-      reason: "Lines 12-41 are not all in the diff of src/a.ts on the RIGHT side. Diff ranges: 10-13, 41-42",
+      reason:
+        "Lines 12-41 are not all in the diff of src/a.ts on the RIGHT side. Diff ranges: 10-13, 41-42",
     });
   });
 

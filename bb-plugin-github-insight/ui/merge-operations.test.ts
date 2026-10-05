@@ -5,7 +5,9 @@ import type { ActionResult } from "../contract";
 const request = { action: "merge" as const, expectedHeadOid: "head-a" };
 function deferred() {
   let resolve!: (result: ActionResult) => void;
-  const promise = new Promise<ActionResult>((done) => { resolve = done; });
+  const promise = new Promise<ActionResult>((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -27,7 +29,8 @@ describe("shared merge operations", () => {
     pending.resolve({ kind: "ok" });
     await run;
     expect(operations.snapshot("a")).toEqual({ kind: "idle" });
-    offA(); offB();
+    offA();
+    offB();
   });
 
   it("keeps active work after unsubscribe and isolates threads", async () => {
@@ -46,7 +49,11 @@ describe("shared merge operations", () => {
     expect(sendB).toHaveBeenCalledTimes(1);
     pending.resolve({ kind: "error", message: "rejected" });
     await run;
-    expect(operations.snapshot("a")).toEqual({ kind: "error", message: "rejected", headOid: "head-a" });
+    expect(operations.snapshot("a")).toEqual({
+      kind: "error",
+      message: "rejected",
+      headOid: "head-a",
+    });
     offAgain();
     expect(operations.snapshot("a")).toEqual({ kind: "idle" });
   });
@@ -54,8 +61,14 @@ describe("shared merge operations", () => {
   it("releases the guard after an RPC rejects and supports dismissing errors", async () => {
     const operations = createMergeOperations();
     const off = operations.subscribe("a", () => {});
-    await operations.run("a", request, async () => { throw new Error("offline"); });
-    expect(operations.snapshot("a")).toEqual({ kind: "error", message: "offline", headOid: "head-a" });
+    await operations.run("a", request, async () => {
+      throw new Error("offline");
+    });
+    expect(operations.snapshot("a")).toEqual({
+      kind: "error",
+      message: "offline",
+      headOid: "head-a",
+    });
     operations.dismiss("a");
     expect(operations.snapshot("a")).toEqual({ kind: "idle" });
     const send = vi.fn(async () => ({ kind: "ok" as const }));

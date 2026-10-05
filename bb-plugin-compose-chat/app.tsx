@@ -4,7 +4,7 @@ import { createVoiceKeyboardControls } from "./voice-keyboard.js";
 import "./app.css";
 import "./motion.css";
 
-export default definePluginApp(app => {
+export default definePluginApp((app) => {
   app.contentScripts.register({ id: "chat-styles", mount: mountStyles });
   const voice = createVoiceKeyboardControls();
   app.contentScripts.register({ id: "voice-keyboard", mount: voice.mount });

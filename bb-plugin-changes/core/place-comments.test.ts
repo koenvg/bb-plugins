@@ -6,7 +6,11 @@ import { placeByAnchor, type FileLines } from "./place-comments";
 const LINES = diffLines("@@ -10,3 +40,3 @@\n keep\n-old\n+new\n keep\n");
 
 function place(anchors: CommentAnchor[], files: Record<string, FileLines>) {
-  return placeByAnchor(anchors, (anchor) => anchor, (path) => files[path] ?? "absent");
+  return placeByAnchor(
+    anchors,
+    (anchor) => anchor,
+    (path) => files[path] ?? "absent",
+  );
 }
 
 function anchor(path: string, side: CommentAnchor["side"], line: number): CommentAnchor {
@@ -15,7 +19,11 @@ function anchor(path: string, side: CommentAnchor["side"], line: number): Commen
 
 describe("placeByAnchor", () => {
   it("places new-side, old-side, and context-line anchors under their file", () => {
-    const anchors = [anchor("a.ts", "additions", 41), anchor("a.ts", "deletions", 11), anchor("a.ts", "additions", 40)];
+    const anchors = [
+      anchor("a.ts", "additions", 41),
+      anchor("a.ts", "deletions", 11),
+      anchor("a.ts", "additions", 40),
+    ];
 
     const placement = place(anchors, { "a.ts": LINES });
 

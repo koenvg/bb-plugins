@@ -59,9 +59,7 @@ describe("initial label-filtered browse selection", () => {
       const slot = setup(`${scope}?task=TSK-1`, {
         listProjects: () => projects.promise,
         listLabels: (raw) =>
-          rpcInput(raw).projectId === project.id
-            ? labels.promise
-            : { labels: [] },
+          rpcInput(raw).projectId === project.id ? labels.promise : { labels: [] },
         listTasks: (raw) => {
           const ids = rpcInput(raw).labelIds as string[] | undefined;
           return ids?.includes(label.id)
@@ -73,9 +71,7 @@ describe("initial label-filtered browse selection", () => {
       await waitFor(() =>
         expect(
           slot.inspection.rpcCalls.some(
-            (c) =>
-              c.method === "listTasks" &&
-              Array.isArray(rpcInput(c.input).labelIds),
+            (c) => c.method === "listTasks" && Array.isArray(rpcInput(c.input).labelIds),
           ),
         ).toBe(true),
       );
@@ -86,9 +82,7 @@ describe("initial label-filtered browse selection", () => {
       await waitFor(() =>
         expect(
           slot.inspection.rpcCalls.some(
-            (c) =>
-              c.method === "listLabels" &&
-              rpcInput(c.input).projectId === project.id,
+            (c) => c.method === "listLabels" && rpcInput(c.input).projectId === project.id,
           ),
         ).toBe(true),
       );
@@ -99,20 +93,16 @@ describe("initial label-filtered browse selection", () => {
           slot.inspection.rpcCalls.some(
             (c) =>
               c.method === "listTasks" &&
-              (rpcInput(c.input).labelIds as string[] | undefined)?.includes(
-                label.id,
-              ),
+              (rpcInput(c.input).labelIds as string[] | undefined)?.includes(label.id),
           ),
         ).toBe(true),
       );
       expect(slot.inspection.navigateCalls).toEqual([]);
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
-      await act(async () =>
-        matches.resolve({ tasks: [selected], nextCursor: null }),
+      await act(async () => matches.resolve({ tasks: [selected], nextCursor: null }));
+      expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
+        selected.title,
       );
-      expect(
-        (await slot.findByRole("textbox", { name: "Task title" })).textContent,
-      ).toBe(selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },
@@ -135,9 +125,7 @@ describe("initial label-filtered browse selection", () => {
       await waitFor(() =>
         expect(
           slot.inspection.rpcCalls.some(
-            (c) =>
-              c.method === "listTasks" &&
-              Array.isArray(rpcInput(c.input).labelIds),
+            (c) => c.method === "listTasks" && Array.isArray(rpcInput(c.input).labelIds),
           ),
         ).toBe(true),
       );
@@ -146,9 +134,9 @@ describe("initial label-filtered browse selection", () => {
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
       failed = false;
       fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
-      expect(
-        (await slot.findByRole("textbox", { name: "Task title" })).textContent,
-      ).toBe(selected.title);
+      expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
+        selected.title,
+      );
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },

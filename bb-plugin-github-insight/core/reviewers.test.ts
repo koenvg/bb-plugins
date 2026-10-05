@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildReviewers,
-  type ReviewNode,
-  type ReviewRequestNode,
-} from "./reviewers";
+import { buildReviewers, type ReviewNode, type ReviewRequestNode } from "./reviewers";
 
 function teamRequest(slug: string, asCodeOwner = true): ReviewRequestNode {
   return { asCodeOwner, requestedReviewer: { __typename: "Team", slug } };
@@ -35,9 +31,7 @@ describe("buildReviewers", () => {
   });
 
   it("shows a re-requested reviewer as pending", () => {
-    expect(
-      buildReviewers([userRequest("bob")], [review("bob", "CHANGES_REQUESTED")]),
-    ).toEqual([
+    expect(buildReviewers([userRequest("bob")], [review("bob", "CHANGES_REQUESTED")])).toEqual([
       { name: "bob", kind: "user", state: "pending", codeOwner: false },
     ]);
   });

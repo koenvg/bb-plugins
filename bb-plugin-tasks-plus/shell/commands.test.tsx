@@ -115,9 +115,7 @@ describe("tasks palette commands", () => {
     const panel = renderSlot(tasksPanel, { subPath: "all" }, { rpc });
     await panel.findByText("No projects yet");
     run("show-shortcuts");
-    expect(
-      await panel.findByRole("dialog", { name: "Keyboard shortcuts" }),
-    ).toBeDefined();
+    expect(await panel.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeDefined();
     expect(panel.navigateCalls).toEqual([]);
   });
   it("opens the panel and delivers one project picker when Tasks was closed", async () => {

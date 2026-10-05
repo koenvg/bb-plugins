@@ -9,44 +9,83 @@ import { cancelPrPanelRequest, requestPrPanel } from "../pr-panel-navigation";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
-afterEach(() => { cleanup(); cancelPrPanelRequest(); });
+afterEach(() => {
+  cleanup();
+  cancelPrPanelRequest();
+});
 
 it("opens the matching destination even when its blocker banner is hidden", async () => {
   requestPrPanel("thread-b", () => {});
-  const slot = renderSlot<object, Pick<typeof rpcContract, "getInsight">>(banner, {}, {
-    composer: { scope: { kind: "thread", threadId: "thread-b" } },
-    context: { threadId: "thread-b" },
-    rpc: { getInsight: () => ({ kind: "no_pr" }) },
-    openThreadPanel: () => true,
-  });
-  await waitFor(() => expect(slot.inspection.navigateCalls).toEqual([
-    { method: "openThreadPanel", options: { actionId: "pr" } },
-  ]));
+  const slot = renderSlot<object, Pick<typeof rpcContract, "getInsight">>(
+    banner,
+    {},
+    {
+      composer: { scope: { kind: "thread", threadId: "thread-b" } },
+      context: { threadId: "thread-b" },
+      rpc: { getInsight: () => ({ kind: "no_pr" }) },
+      openThreadPanel: () => true,
+    },
+  );
+  await waitFor(() =>
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]),
+  );
   expect(slot.queryByRole("button")).toBeNull();
 });
 
 const readyInsight: InsightResult = {
-  kind: "ok", refreshedAt: Date.now(), error: null,
-  insight: { pr: { number: 42, title: "Ready PR", state: "open", url: "https://github.com/o/r/pull/42", headOid: "head-42" },
-    mergeAction: { kind: "none" }, mergeQueue: null,
-    blockers: [], reviewers: [], checks: [] },
+  kind: "ok",
+  refreshedAt: Date.now(),
+  error: null,
+  insight: {
+    pr: {
+      number: 42,
+      title: "Ready PR",
+      state: "open",
+      url: "https://github.com/o/r/pull/42",
+      headOid: "head-42",
+    },
+    mergeAction: { kind: "none" },
+    mergeQueue: null,
+    blockers: [],
+    reviewers: [],
+    checks: [],
+  },
 };
 
-function mount(threadId = "thread-b", getInsight: () => InsightResult | Promise<InsightResult> = () => readyInsight,
-  openThreadPanel = () => true) {
-  return renderSlot<object, Pick<typeof rpcContract, "getInsight">>(banner, {}, {
-    composer: { scope: { kind: "thread", threadId } }, context: { threadId },
-    rpc: { getInsight }, openThreadPanel,
-  });
+function mount(
+  threadId = "thread-b",
+  getInsight: () => InsightResult | Promise<InsightResult> = () => readyInsight,
+  openThreadPanel = () => true,
+) {
+  return renderSlot<object, Pick<typeof rpcContract, "getInsight">>(
+    banner,
+    {},
+    {
+      composer: { scope: { kind: "thread", threadId } },
+      context: { threadId },
+      rpc: { getInsight },
+      openThreadPanel,
+    },
+  );
 }
 
 it("opens from an already-mounted receiver without waiting for insight", async () => {
   let resolve!: (result: InsightResult) => void;
-  const slot = mount("thread-b", () => new Promise((done) => { resolve = done; }));
+  const slot = mount(
+    "thread-b",
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
   act(() => requestPrPanel("thread-b", () => {}));
-  await waitFor(() => expect(slot.inspection.navigateCalls).toEqual([
-    { method: "openThreadPanel", options: { actionId: "pr" } },
-  ]));
+  await waitFor(() =>
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]),
+  );
   await act(async () => resolve(readyInsight));
   expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
   expect(slot.inspection.navigateCalls).toHaveLength(1);
@@ -84,9 +123,11 @@ it("keeps a declined embedded-surface request for the destination side panel", a
   await waitFor(() => expect(declined).toHaveBeenCalledOnce());
   embedded.lifecycle.unmount();
   const main = mount();
-  await waitFor(() => expect(main.inspection.navigateCalls).toEqual([
-    { method: "openThreadPanel", options: { actionId: "pr" } },
-  ]));
+  await waitFor(() =>
+    expect(main.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]),
+  );
 });
 
 it("opens a visible compact PR panel when the destination mounts", async () => {
@@ -98,16 +139,30 @@ it("opens a visible compact PR panel when the destination mounts", async () => {
     const [drawerThreadId, setDrawerThreadId] = useState<string | null>(null);
     // BB resets its transient drawer on thread changes in a parent effect.
     useEffect(() => setDrawerThreadId(null), [threadId]);
-    openDrawer = () => { setDrawerThreadId(threadId); return true; };
-    return <><Banner /><aside aria-label="PR panel" hidden={drawerThreadId !== threadId}>PR</aside></>;
+    openDrawer = () => {
+      setDrawerThreadId(threadId);
+      return true;
+    };
+    return (
+      <>
+        <Banner />
+        <aside aria-label="PR panel" hidden={drawerThreadId !== threadId}>
+          PR
+        </aside>
+      </>
+    );
   }
   requestPrPanel("thread-b", () => {});
-  const slot = renderSlot({ component: CompactHost }, {}, {
-    composer: { scope: { kind: "thread", threadId: "thread-b" } },
-    context: { threadId: "thread-b" },
-    rpc: { getInsight: () => readyInsight },
-    openThreadPanel: () => openDrawer(),
-  });
+  const slot = renderSlot(
+    { component: CompactHost },
+    {},
+    {
+      composer: { scope: { kind: "thread", threadId: "thread-b" } },
+      context: { threadId: "thread-b" },
+      rpc: { getInsight: () => readyInsight },
+      openThreadPanel: () => openDrawer(),
+    },
+  );
   expect(await slot.findByRole("complementary", { name: "PR panel" })).toBeTruthy();
 });
 

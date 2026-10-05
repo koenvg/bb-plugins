@@ -9,10 +9,7 @@ export interface RenderedListTree {
   count: number | undefined;
 }
 
-export type SelectionUnavailable = (
-  taskKey: string,
-  stillUnavailable: () => boolean,
-) => void;
+export type SelectionUnavailable = (taskKey: string, stillUnavailable: () => boolean) => void;
 
 export function visibleTreeTasks(tree: RenderedListTree) {
   return tree.groups.flatMap((group) =>
@@ -34,14 +31,11 @@ export function useSelectionTree(
 ) {
   const previous = useRef(candidate);
   const missing =
-    selectedKey !== null &&
-    !visibleTreeTasks(candidate).some((task) => task.key === selectedKey);
+    selectedKey !== null && !visibleTreeTasks(candidate).some((task) => task.key === selectedKey);
   const retained = Boolean(
     onUnavailable &&
-      missing &&
-      visibleTreeTasks(previous.current).some(
-        (task) => task.key === selectedKey,
-      ),
+    missing &&
+    visibleTreeTasks(previous.current).some((task) => task.key === selectedKey),
   );
   const tree = retained ? previous.current : candidate;
   const latest = useRef({ selectedKey, missing, settled });
@@ -55,11 +49,7 @@ export function useSelectionTree(
     if (!selectedKey || !missing || !settled) return;
     onUnavailable?.(selectedKey, () => {
       const current = latest.current;
-      return (
-        current.selectedKey === selectedKey &&
-        current.missing &&
-        current.settled
-      );
+      return current.selectedKey === selectedKey && current.missing && current.settled;
     });
   }, [selectedKey, missing, settled, onUnavailable, reconcileRevision]);
   return { tree, retained };

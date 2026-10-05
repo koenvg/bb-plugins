@@ -17,7 +17,8 @@ const reportingRules: Record<string, RegExp> = {
   "parent responsibility": /only the agent.{0,50}responsible for (?:the |a )?parent/is,
   "fresh parent state": /read current (?:parent and child|task) state/i,
   "uncertain state": /(?:unavailable|conflicting).{0,60}(?:unknown|uncertain)/is,
-  "acceptance is separate": /(?:child|subtask).{0,50}(?:count|done).{0,70}(?:acceptance|epic completion)/is,
+  "acceptance is separate":
+    /(?:child|subtask).{0,50}(?:count|done).{0,70}(?:acceptance|epic completion)/is,
 };
 
 export function expectReportingRules(text: string): void {

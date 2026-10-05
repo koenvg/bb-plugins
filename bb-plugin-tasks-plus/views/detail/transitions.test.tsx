@@ -80,16 +80,10 @@ describe("safe standalone detail navigation", () => {
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(slot.inspection.navigateCalls).toEqual([]);
     await changeDescription(slot, "Latest A");
-    await act(async () =>
-      reply.resolve({ ok: false, error: { message: "Cannot save" } }),
-    );
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Cannot save",
-    );
+    await act(async () => reply.resolve({ ok: false, error: { message: "Cannot save" } }));
+    expect((await slot.findByRole("alert")).textContent).toContain("Cannot save");
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(slot.container.querySelector(".tiptap")?.textContent).toContain(
-      "Latest A",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toContain("Latest A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(writes[1]).toMatchObject({
@@ -121,14 +115,10 @@ describe("safe standalone detail navigation", () => {
     };
     await slot.behavior.emitRealtime("tasks:changed", {});
     await waitFor(() =>
-      expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-        "Newer server content",
-      ),
+      expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer server content"),
     );
     await act(async () => reply.resolve({ ok: true, task: saved }));
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Newer server content",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer server content");
   });
   it("waits for a property write, then accepts later server edits rather than freezing the local value", async () => {
     const reply = deferred<unknown>();
@@ -157,44 +147,32 @@ describe("safe standalone detail navigation", () => {
     };
     await slot.behavior.emitRealtime("tasks:changed", {});
     await waitFor(() =>
-      expect(
-        slot.getAllByRole("button", { name: /Urgent/ }).length,
-      ).toBeGreaterThan(0),
+      expect(slot.getAllByRole("button", { name: /Urgent/ }).length).toBeGreaterThan(0),
     );
   });
   it("retains unsent comment text and files through actual shell A-B-A navigation", async () => {
     const slot = setup();
     await slot.findByRole("textbox", { name: "Task title" });
     await act(async () => {
-      const comment =
-        slot.container.querySelectorAll<HTMLElement>(".tiptap")[1]!;
+      const comment = slot.container.querySelectorAll<HTMLElement>(".tiptap")[1]!;
       comment.innerHTML = "<p>Unsent A</p>";
       fireEvent.input(comment);
     });
-    fireEvent.change(
-      slot.container.querySelectorAll('input[type="file"]')[1]!,
-      {
-        target: { files: [new File(["A"], "a.txt")] },
-      },
-    );
+    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
+      target: { files: [new File(["A"], "a.txt")] },
+    });
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
     );
     expect(slot.queryByText("a.txt")).toBeNull();
     expect(slot.container.textContent).not.toContain("Unsent A");
     slot.lifecycle.rerender(<Panel subPath="task/TSK-1" />);
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 1"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1"),
     );
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(
-      slot.container.querySelectorAll(".tiptap")[1]?.textContent,
-    ).toContain("Unsent A");
+    expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toContain("Unsent A");
     expect(
       slot.inspection.rpcCalls.filter((call) =>
         ["createComment", "updateTask", "delegate"].includes(call.method),
@@ -216,24 +194,20 @@ describe("safe standalone detail navigation", () => {
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     slot.lifecycle.rerender(<Panel subPath="task/TSK-3" />);
     await waitFor(() => expect(writes).toHaveLength(1));
-    expect(
-      slot.getByRole("textbox", { name: "Task title" }).textContent,
-    ).toContain("Unblurred title");
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain(
+      "Unblurred title",
+    );
     expect(writes[0]).toMatchObject({
       taskId: tasks[0]!.id,
       title: "Unblurred title",
     });
     await act(async () => reply.resolve({ ok: true, task: tasks[0] }));
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toContain("Title 3"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 3"),
     );
     expect(
       slot.inspection.rpcCalls.some(
-        (call) =>
-          call.method === "getTaskByKey" &&
-          rpcInput(call.input).taskKey === "TSK-2",
+        (call) => call.method === "getTaskByKey" && rpcInput(call.input).taskKey === "TSK-2",
       ),
     ).toBe(false);
   });
@@ -255,9 +229,7 @@ describe("safe standalone detail navigation", () => {
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
     );
   });
   it("never renders late A data or A's local subtask form under B", async () => {
@@ -283,14 +255,10 @@ describe("safe standalone detail navigation", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     await waitFor(() =>
-      expect(
-        slot.getByRole("textbox", { name: "Task title" }).textContent,
-      ).toContain("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2"),
     );
     expect(slot.queryByDisplayValue("Only A")).toBeNull();
     await act(async () => late.resolve({ task: tasks[0]! }));
-    expect(
-      slot.getByRole("textbox", { name: "Task title" }).textContent,
-    ).toContain("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2");
   });
 });

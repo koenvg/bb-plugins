@@ -50,9 +50,7 @@ export const PRIORITY_MENU_ORDER: readonly TaskPriority[] = [
 export function statusForShortcut(key: string): TaskStatus | null {
   if (!/^[0-9]$/.test(key)) return null;
   const index = Number(key) - 1;
-  return index >= 0 && index < TASK_STATUSES.length
-    ? (TASK_STATUSES[index] ?? null)
-    : null;
+  return index >= 0 && index < TASK_STATUSES.length ? (TASK_STATUSES[index] ?? null) : null;
 }
 
 export function priorityForShortcut(key: string): TaskPriority | null {
@@ -101,16 +99,10 @@ function PickerOption({
         {label}
         {active ? <span className="sr-only"> (current)</span> : null}
       </span>
-      <span
-        aria-hidden
-        className="flex w-4 items-center justify-center text-subtle-foreground"
-      >
+      <span aria-hidden className="flex w-4 items-center justify-center text-subtle-foreground">
         {active ? <Icon name="Check" className="size-3.5" /> : null}
       </span>
-      <span
-        aria-hidden
-        className="w-3 text-right text-2xs tabular-nums text-subtle-foreground"
-      >
+      <span aria-hidden className="w-3 text-right text-2xs tabular-nums text-subtle-foreground">
         {shortcut}
       </span>
     </>
@@ -293,9 +285,7 @@ export function TaskContextMenu({
                 <span className="flex flex-1 items-center gap-2">
                   <StatusIcon status={status} />
                   {STATUS_LABELS[status]}
-                  {status === task.status ? (
-                    <span className="sr-only"> (current)</span>
-                  ) : null}
+                  {status === task.status ? <span className="sr-only"> (current)</span> : null}
                 </span>
                 {status === task.status ? (
                   <Icon name="Check" aria-hidden className="size-3.5" />
@@ -323,9 +313,7 @@ export function TaskContextMenu({
                 <span className="flex flex-1 items-center gap-2">
                   <PriorityIcon priority={priority} />
                   {PRIORITY_LABELS[priority]}
-                  {priority === task.priority ? (
-                    <span className="sr-only"> (current)</span>
-                  ) : null}
+                  {priority === task.priority ? <span className="sr-only"> (current)</span> : null}
                 </span>
                 {priority === task.priority ? (
                   <Icon name="Check" aria-hidden className="size-3.5" />
@@ -344,10 +332,7 @@ export function TaskContextMenu({
             {DUE_DATE_PRESETS.map(([label, days]) => {
               const value = localIsoDate(days);
               return (
-                <ContextMenuItem
-                  key={label}
-                  onSelect={() => onEdit(task, { dueDate: value })}
-                >
+                <ContextMenuItem key={label} onSelect={() => onEdit(task, { dueDate: value })}>
                   <span>{label}</span>
                   <span className="ml-auto text-2xs text-subtle-foreground">
                     {formatDueDate(value)}
@@ -358,9 +343,7 @@ export function TaskContextMenu({
             {task.dueDate !== null ? (
               <>
                 <ContextMenuSeparator />
-                <ContextMenuItem
-                  onSelect={() => onEdit(task, { dueDate: null })}
-                >
+                <ContextMenuItem onSelect={() => onEdit(task, { dueDate: null })}>
                   <Icon name="X" className="size-3.5" />
                   <span>No due date</span>
                 </ContextMenuItem>

@@ -27,8 +27,13 @@ function threadSection({ thread, line, outdated }: OpenThread): string[] {
     `## Review thread ${thread.id}`,
     outdated ? `${location} (outdated: the code changed since this comment)` : location,
     ...(snippet === null ? [] : [fenced(snippet)]),
-    ...thread.comments.flatMap((comment) => [`${comment.author} wrote:`, capCommentBody(comment.body)]),
-    ...(thread.hasMoreComments && lastUrl !== undefined ? [`More comments on GitHub: ${lastUrl}`] : []),
+    ...thread.comments.flatMap((comment) => [
+      `${comment.author} wrote:`,
+      capCommentBody(comment.body),
+    ]),
+    ...(thread.hasMoreComments && lastUrl !== undefined
+      ? [`More comments on GitHub: ${lastUrl}`]
+      : []),
   ];
 }
 

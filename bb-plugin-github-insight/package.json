@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "npm --prefix .. run lint -- bb-plugin-github-insight",
+    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-github-insight",
+    "format": "npm --prefix .. run format -- bb-plugin-github-insight",
+    "format:check": "npm --prefix .. run format:check -- bb-plugin-github-insight",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "bb plugin build"

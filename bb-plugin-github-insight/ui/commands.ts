@@ -32,7 +32,8 @@ function intentCommand<Tab extends CommandTab>(
     isAvailable: availableWhen(check),
     run: (context) => {
       const { threadId } = context;
-      if (threadId !== null && context.openPanel({ actionId: tab })) postIntent(threadId, tab, intent);
+      if (threadId !== null && context.openPanel({ actionId: tab }))
+        postIntent(threadId, tab, intent);
     },
   };
 }

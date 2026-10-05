@@ -6,14 +6,7 @@ export const checkRunNodeSchema = z.object({
   id: z.string(),
   databaseId: z.number(),
   name: z.string(),
-  status: z.enum([
-    "COMPLETED",
-    "IN_PROGRESS",
-    "PENDING",
-    "QUEUED",
-    "REQUESTED",
-    "WAITING",
-  ]),
+  status: z.enum(["COMPLETED", "IN_PROGRESS", "PENDING", "QUEUED", "REQUESTED", "WAITING"]),
   conclusion: z
     .enum([
       "ACTION_REQUIRED",
@@ -46,13 +39,7 @@ export type StatusContextNode = z.infer<typeof statusContextNodeSchema>;
 
 export type CheckNode = CheckRunNode | StatusContextNode;
 
-export const checkStatusSchema = z.enum([
-  "failed",
-  "running",
-  "cancelled",
-  "passed",
-  "skipped",
-]);
+export const checkStatusSchema = z.enum(["failed", "running", "cancelled", "passed", "skipped"]);
 export type CheckStatus = z.infer<typeof checkStatusSchema>;
 
 export const checkSchema = z.object({
@@ -63,10 +50,7 @@ export const checkSchema = z.object({
 });
 export type Check = z.infer<typeof checkSchema>;
 
-const CONCLUSION_STATUS: Record<
-  NonNullable<CheckRunNode["conclusion"]>,
-  CheckStatus
-> = {
+const CONCLUSION_STATUS: Record<NonNullable<CheckRunNode["conclusion"]>, CheckStatus> = {
   FAILURE: "failed",
   TIMED_OUT: "failed",
   ACTION_REQUIRED: "failed",
@@ -94,16 +78,11 @@ export function mapCheckRunStatus(
   return CONCLUSION_STATUS[conclusion];
 }
 
-export function mapStatusContextState(
-  state: StatusContextNode["state"],
-): CheckStatus {
+export function mapStatusContextState(state: StatusContextNode["state"]): CheckStatus {
   return CONTEXT_STATE_STATUS[state];
 }
 
-const FAILING_STATUSES: ReadonlySet<CheckStatus> = new Set([
-  "failed",
-  "cancelled",
-]);
+const FAILING_STATUSES: ReadonlySet<CheckStatus> = new Set(["failed", "cancelled"]);
 
 const NOT_STARTED = Number.POSITIVE_INFINITY;
 
@@ -148,9 +127,7 @@ function isNewer(candidate: CheckCandidate, current: CheckCandidate): boolean {
   return candidateTieBreak > currentTieBreak;
 }
 
-export function latestCheckCandidates(
-  nodes: readonly CheckNode[],
-): CheckCandidate[] {
+export function latestCheckCandidates(nodes: readonly CheckNode[]): CheckCandidate[] {
   const newestByName = new Map<string, CheckCandidate>();
   for (const candidate of nodes.map(toCandidate)) {
     const current = newestByName.get(candidate.name);
@@ -161,13 +138,9 @@ export function latestCheckCandidates(
   return [...newestByName.values()];
 }
 
-export function failingCheckRunIds(
-  candidates: readonly CheckCandidate[],
-): string[] {
+export function failingCheckRunIds(candidates: readonly CheckCandidate[]): string[] {
   return candidates.flatMap((candidate) =>
-    candidate.runId !== null && FAILING_STATUSES.has(candidate.status)
-      ? [candidate.runId]
-      : [],
+    candidate.runId !== null && FAILING_STATUSES.has(candidate.status) ? [candidate.runId] : [],
   );
 }
 
@@ -176,14 +149,11 @@ export function toCheck(
   annotationsByRunId: ReadonlyMap<string, readonly Annotation[]>,
 ): Check {
   const { name, status, url, runId, reasonTexts } = candidate;
-  const annotations =
-    runId === null ? [] : (annotationsByRunId.get(runId) ?? []);
+  const annotations = runId === null ? [] : (annotationsByRunId.get(runId) ?? []);
   return {
     name,
     status,
     url,
-    failure: FAILING_STATUSES.has(status)
-      ? checkFailure(reasonTexts, annotations)
-      : null,
+    failure: FAILING_STATUSES.has(status) ? checkFailure(reasonTexts, annotations) : null,
   };
 }

@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  Command,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "../components/ui/command.js";
+import { Command, CommandInput, CommandItem, CommandList } from "../components/ui/command.js";
 import { useRef, useState } from "react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { CompactViewportOverrideProvider } from "../components/ui/hooks/use-compact-viewport.js";
@@ -135,9 +130,7 @@ describe("project picker command contract", () => {
     const input = slot.getByRole("combobox");
     input.focus();
     const selected = (name: string) =>
-      expect(
-        slot.getByRole("option", { name }).getAttribute("aria-selected"),
-      ).toBe("true");
+      expect(slot.getByRole("option", { name }).getAttribute("aria-selected")).toBe("true");
     await waitFor(() => selected("One"));
     fireEvent.keyDown(input, { key: "n", ctrlKey: true });
     selected("Two");
@@ -184,9 +177,7 @@ describe("Tasks project switcher", () => {
     fireEvent.change(input, { target: { value: "pRoD" } });
     await waitFor(() => expect(slot.getAllByRole("option")).toHaveLength(2));
     fireEvent.keyDown(input, { key: "n", ctrlKey: true });
-    expect(slot.getAllByRole("option")[1]!.getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(slot.getAllByRole("option")[1]!.getAttribute("aria-selected")).toBe("true");
     expect((input as HTMLInputElement).value).toBe("pRoD");
     expect(document.activeElement).toBe(input);
     expect(slot.onSelect).not.toHaveBeenCalled();
@@ -207,25 +198,15 @@ describe("Tasks project switcher", () => {
       await waitFor(() => expect(slot.getAllByRole("option")).toHaveLength(1));
       fireEvent.keyDown(input, { key: "Escape" });
       await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-      await waitFor(() =>
-        expect(document.activeElement?.getAttribute("aria-label")).toBe(
-          "Tasks",
-        ),
-      );
+      await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Tasks"));
       expect(slot.onSelect).not.toHaveBeenCalled();
-      expect(
-        fireEvent.keyDown(document.activeElement!, { key: "n", ctrlKey: true }),
-      ).toBe(true);
-      expect(
-        fireEvent.keyDown(document.activeElement!, { key: "p", ctrlKey: true }),
-      ).toBe(true);
+      expect(fireEvent.keyDown(document.activeElement!, { key: "n", ctrlKey: true })).toBe(true);
+      expect(fireEvent.keyDown(document.activeElement!, { key: "p", ctrlKey: true })).toBe(true);
       fireEvent.click(slot.getByRole("button", { name: "Open picker" }));
       const reopened = await slot.findByRole("combobox");
       expect((reopened as HTMLInputElement).value).toBe("");
       await waitFor(() =>
-        expect(
-          slot.getAllByRole("option")[0]!.getAttribute("aria-selected"),
-        ).toBe("true"),
+        expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true"),
       );
       fireEvent.click(slot.getByRole("button", { name: "Close" }));
       await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
@@ -251,9 +232,7 @@ describe("Tasks project switcher", () => {
       { key: "ArrowDown", shiftKey: true },
     ]) {
       expect(fireEvent.keyDown(input, event)).toBe(true);
-      expect(
-        slot.getAllByRole("option")[0]!.getAttribute("aria-selected"),
-      ).toBe("true");
+      expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true");
     }
     const hostShortcut = vi.fn();
     window.addEventListener("keydown", hostShortcut);
@@ -279,37 +258,28 @@ describe("Tasks project switcher", () => {
     [{ data: undefined, isLoading: true, error: null }, "Loading projects"],
     [{ data: projects, isLoading: true, error: null }, "Loading projects"],
     [{ data: [], isLoading: false, error: null }, "No projects yet"],
-    [
-      { data: projects, isLoading: false, error: "Inventory unavailable" },
-      "Inventory unavailable",
-    ],
-  ])(
-    "prevents selection without usable inventory: %s",
-    async (state, message) => {
-      const inventory = { ...readyInventory(), ...state };
-      const slot = setupPicker(inventory);
-      const input = await slot.findByRole("combobox");
-      await slot.findByText(message);
-      expect(slot.queryAllByRole("option", { selected: true })).toHaveLength(0);
-      fireEvent.keyDown(input, { key: "Enter" });
-      for (const option of slot.queryAllByRole("option"))
-        fireEvent.click(option);
-      expect(slot.onSelect).not.toHaveBeenCalled();
-      if (state.error) {
-        const retry = slot.getByRole("button", { name: "Retry projects" });
-        retry.focus();
-        expect(document.activeElement).toBe(retry);
-        fireEvent.click(retry);
-        expect(inventory.refresh).toHaveBeenCalledOnce();
-        slot.rerenderInventory(readyInventory());
-        await waitFor(() =>
-          expect(
-            slot.getAllByRole("option")[0]!.getAttribute("aria-selected"),
-          ).toBe("true"),
-        );
-      }
-    },
-  );
+    [{ data: projects, isLoading: false, error: "Inventory unavailable" }, "Inventory unavailable"],
+  ])("prevents selection without usable inventory: %s", async (state, message) => {
+    const inventory = { ...readyInventory(), ...state };
+    const slot = setupPicker(inventory);
+    const input = await slot.findByRole("combobox");
+    await slot.findByText(message);
+    expect(slot.queryAllByRole("option", { selected: true })).toHaveLength(0);
+    fireEvent.keyDown(input, { key: "Enter" });
+    for (const option of slot.queryAllByRole("option")) fireEvent.click(option);
+    expect(slot.onSelect).not.toHaveBeenCalled();
+    if (state.error) {
+      const retry = slot.getByRole("button", { name: "Retry projects" });
+      retry.focus();
+      expect(document.activeElement).toBe(retry);
+      fireEvent.click(retry);
+      expect(inventory.refresh).toHaveBeenCalledOnce();
+      slot.rerenderInventory(readyInventory());
+      await waitFor(() =>
+        expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true"),
+      );
+    }
+  });
 
   it("removes stale choices and uses identity for pointer selection", async () => {
     const slot = setupPicker();
@@ -320,11 +290,9 @@ describe("Tasks project switcher", () => {
       data: projects.filter((p) => p.id !== "two"),
     });
     await waitFor(() => expect(slot.getAllByRole("option")).toHaveLength(2));
-    expect(
-      slot
-        .getAllByRole("option")
-        .some((o) => o.getAttribute("data-value") === "two"),
-    ).toBe(false);
+    expect(slot.getAllByRole("option").some((o) => o.getAttribute("data-value") === "two")).toBe(
+      false,
+    );
     fireEvent.click(slot.getAllByRole("option")[1]!);
     expect(slot.onSelect).toHaveBeenCalledExactlyOnceWith("three");
   });

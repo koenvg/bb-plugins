@@ -3,7 +3,7 @@
 ## 1. Skill entry and verification scope
 
 - [x] 1.1 Check for a conflicting `verify` skill, then initialize the repository-local skill at `.pi/skills/verify/` using the skill-creator workflow. Add BB-specific frontmatter and the standard `/skill:verify` invocation. Verify the directory contains a valid `SKILL.md`, does not shadow an unrelated skill, and no global copy is created.
-- [x] 1.2 Write the target-resolution and evidence-checklist steps, including committed changes, multiple plugin packages, and relevant OpenSpec scenarios. Walk through the spec's ambiguous-target and clean-working-tree cases; record in this change's `verification.md` that the first asks before installation and the second produces checks for the supplied change.
+- [x] 1.2 Write the target-resolution and evidence-checklist steps, including committed changes, multiple plugin packages, and relevant OpenSpec scenarios. Walk through the spec's ambiguous-target and clean-working-tree cases; record in the historical verification record that the first asks before installation and the second produces checks for the supplied change.
 - [x] 1.3 Add discovery of package checks, dependency prerequisites, a read-only SDK compatibility check where supported, and `bb plugin build`, with no automatic source or dependency repairs. Walk through build failure and missing-test-script cases against the package shapes in this repository; verify the skill blocks installation on failure without claiming missing tests passed.
 
 ## 2. Installation and approval boundaries
@@ -21,11 +21,11 @@
 
 ## 4. Integration validation
 
-- [x] 4.1 Run the skill-creator validator, check all relative reference links, and confirm Pi discovers the installed skill after reload or in a fresh session. Review the complete skill against every requirement and scenario in `specs/plugin-verification/spec.md`; record the coverage and remaining limits in `verification.md`.
+- [x] 4.1 Run the skill-creator validator, check all relative reference links, and confirm Pi discovers the installed skill after reload or in a fresh session. Review the complete skill against every requirement and scenario in `specs/plugin-verification/spec.md`; record the coverage and remaining limits in the historical verification record.
 - [x] 4.2 Run one bounded end-to-end verification on an explicitly identified plugin, obtaining any required source-switch or test-action approval first. Confirm local checks, exact-source activation, a changed browser-visible interaction, safe screenshot evidence, runtime diagnostics, and cleanup. Keep this task incomplete if access or approval blocks the live run, and record the blocker rather than declaring success.
 - [x] 4.3 Run `openspec validate plugin-verification-skill --strict`, inspect repository and skill-directory changes for accidental plugin mutations, and deliver the skill path plus the integration evidence and final BB state. Verify the summary distinguishes skill validation from the tested plugin's result and names any unfinished checks.
 
 ## 5. Separately approved SDK prerequisite update
 
-- [x] 5.1 Update only `bb-plugin-pr-thread-list`'s SDK/type dependency pins and lockfile to the running BB SDK. Verify `bb plugin types --check`, the existing tests, typecheck, and build pass; record dependency changes and any remaining compatibility issues in `verification.md`.
+- [x] 5.1 Update only `bb-plugin-pr-thread-list`'s SDK/type dependency pins and lockfile to the running BB SDK. Verify `bb plugin types --check`, the existing tests, typecheck, and build pass; record dependency changes and any remaining compatibility issues in the historical verification record.
 - [x] 5.2 Run the required read-only completion review for this newly authorized dependency-change scope, resolve findings, and rerun affected checks. Verify the review evidence distinguishes this SDK work from the already-reviewed verification skill.

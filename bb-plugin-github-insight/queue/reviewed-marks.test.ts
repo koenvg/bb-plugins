@@ -4,7 +4,7 @@ import { createReviewedMarks } from "./reviewed-marks";
 function fakeKv(entries = new Map<string, unknown>()) {
   return {
     entries,
-    get: async <T,>(key: string) => entries.get(key) as T | undefined,
+    get: async <T>(key: string) => entries.get(key) as T | undefined,
     set: async (key: string, value: unknown) => {
       entries.set(key, structuredClone(value));
     },
@@ -51,7 +51,10 @@ describe("reviewed marks", () => {
   it("ignores an invalid stored mark and keys of other features", async () => {
     const kv = fakeKv(
       new Map<string, unknown>([
-        ["reviewed:acme/api#15", { v: 2, owner: "acme", repo: "api", number: 15, headOid: "abc123", markedAt: 1 }],
+        [
+          "reviewed:acme/api#15",
+          { v: 2, owner: "acme", repo: "api", number: 15, headOid: "abc123", markedAt: 1 },
+        ],
         ["summary:acme/api#15", { body: "x" }],
       ]),
     );

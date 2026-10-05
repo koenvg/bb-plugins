@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, renderHook } from "@testing-library/react";
-import type { PluginCommandContext, PluginTargetedPanelActionOpenOptions } from "@get-bb/plugin-sdk/app";
+import type {
+  PluginCommandContext,
+  PluginTargetedPanelActionOpenOptions,
+} from "@get-bb/plugin-sdk/app";
 import { useCommandIntent, type CommandTab } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { rememberInsight } from "./pr-availability";
@@ -56,7 +59,13 @@ describe("GitHub palette commands", () => {
     return {
       kind: "ok",
       insight: {
-        pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+        pr: {
+          number: 1,
+          title: "t",
+          state: "open",
+          url: "https://github.com/o/r/pull/1",
+          headOid: "abc",
+        },
         mergeAction,
         blockers: [],
         reviewers: [],
@@ -69,10 +78,18 @@ describe("GitHub palette commands", () => {
   }
 
   function listed(threadId: string | null) {
-    return GITHUB_COMMANDS.filter((entry) => entry.isAvailable?.(context(threadId).ctx) ?? true).map(({ id }) => id);
+    return GITHUB_COMMANDS.filter(
+      (entry) => entry.isAvailable?.(context(threadId).ctx) ?? true,
+    ).map(({ id }) => id);
   }
 
-  const ALL_BUT_MERGE = ["open-pr-tab", "open-review-tab", "submit-review", "refresh-pr", "open-pr-on-github"];
+  const ALL_BUT_MERGE = [
+    "open-pr-tab",
+    "open-review-tab",
+    "submit-review",
+    "refresh-pr",
+    "open-pr-on-github",
+  ];
 
   it("lists no command without a thread", () => {
     expect(listed(null)).toEqual([]);

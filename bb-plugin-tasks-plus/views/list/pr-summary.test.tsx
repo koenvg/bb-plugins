@@ -91,25 +91,16 @@ it("shows a direct accessible GitHub link for one shared PR and all associated t
   const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
   expect(dialog.textContent).toContain("Details unavailable");
   expect(dialog.textContent).toContain("Work on bb");
-  expect(
-    slot.getByRole("link", { name: /Open thread Worker thr_a/ }),
-  ).toBeTruthy();
+  expect(slot.getByRole("link", { name: /Open thread Worker thr_a/ })).toBeTruthy();
   fireEvent.click(slot.getByRole("link", { name: /Open thread Worker thr_b/ }));
-  expect(slot.inspection.navigateCalls).toEqual([
-    { method: "toThread", threadId: "thr_b" },
-  ]);
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_b" }]);
   expect(onOpen).not.toHaveBeenCalled();
 });
 
 it("bounds multiple lifecycle buckets but keeps open, draft and incomplete work visible ahead of merged outcomes", async () => {
   const { slot, onOpen } = row(
     meta(
-      [
-        pr("merged", "merged"),
-        pr("closed", "closed"),
-        pr("open"),
-        pr("draft", "other"),
-      ],
+      [pr("merged", "merged"), pr("closed", "closed"), pr("open"), pr("draft", "other")],
       ["thr_b"],
     ),
   );
@@ -163,12 +154,8 @@ it.each([false, true])(
     expect(keys).toEqual([]);
     fireEvent.click(trigger);
     const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
-    (
-      await slot.findByRole("link", { name: /Open GitHub PR acme\/other #42/ })
-    ).focus();
-    expect(document.activeElement?.getAttribute("href")).toContain(
-      "/other/pull/42",
-    );
+    (await slot.findByRole("link", { name: /Open GitHub PR acme\/other #42/ })).focus();
+    expect(document.activeElement?.getAttribute("href")).toContain("/other/pull/42");
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
@@ -180,9 +167,7 @@ it.each([false, true])(
 
 it("distinguishes initial PR loading, authoritative absence, lookup unavailable, partial merged and unknown lifecycle", async () => {
   const initial = row(undefined);
-  expect(initial.slot.getByText("PRs loading").getAttribute("aria-busy")).toBe(
-    "true",
-  );
+  expect(initial.slot.getByText("PRs loading").getAttribute("aria-busy")).toBe("true");
   initial.slot.lifecycle.unmount();
   const absent = row(meta([]));
   expect(absent.slot.queryByText(/PR/)).toBeNull();
@@ -202,18 +187,15 @@ it("distinguishes initial PR loading, authoritative absence, lookup unavailable,
   ).toBeTruthy();
   unavailable.slot.lifecycle.unmount();
   const partial = row(meta([pr("merged")], ["thr_b"]));
+  expect(partial.slot.getByRole("link", { name: /Open GitHub PR.*Merged/ })).toBeTruthy();
   expect(
-    partial.slot.getByRole("link", { name: /Open GitHub PR.*Merged/ }),
-  ).toBeTruthy();
-  expect(
-    partial.slot.getByRole("button", { name: /PR details.*lookup unavailable/ })
-      .textContent,
+    partial.slot.getByRole("button", { name: /PR details.*lookup unavailable/ }).textContent,
   ).toContain("Details incomplete");
   partial.slot.lifecycle.unmount();
   const unknown = row(meta([pr("unknown"), pr("merged", "other")]));
-  expect(
-    unknown.slot.getByRole("button", { name: /PRs for ABC-1/ }).textContent,
-  ).toContain("1 Lifecycle unavailable");
+  expect(unknown.slot.getByRole("button", { name: /PRs for ABC-1/ }).textContent).toContain(
+    "1 Lifecycle unavailable",
+  );
 });
 
 function richPr(
@@ -257,9 +239,9 @@ it.each([false, true])(
   async (isCompact) => {
     compact = isCompact;
     const { slot, onOpen } = row(meta([richPr()]));
-    expect(
-      slot.getByRole("link", { name: /Open GitHub PR.*Open/ }).textContent,
-    ).toContain("Conflicts");
+    expect(slot.getByRole("link", { name: /Open GitHub PR.*Open/ }).textContent).toContain(
+      "Conflicts",
+    );
     fireEvent.click(slot.getByRole("button", { name: /PR details for ABC-1/ }));
     const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
     await waitFor(() => {
@@ -373,10 +355,7 @@ it.each([false, true])(
       mergeObservations: ["unresolvedThreads: 2"],
     });
     const { slot, onOpen } = row(
-      meta(
-        [ready, richPr("merged", "merged"), blocked, pr("unknown", "unknown")],
-        ["thr_missing"],
-      ),
+      meta([ready, richPr("merged", "merged"), blocked, pr("unknown", "unknown")], ["thr_missing"]),
     );
     const trigger = slot.getByRole("button", { name: /PRs for ABC-1: 4 PRs/ });
     expect(trigger.textContent).toContain("1 Conflicts");
@@ -403,14 +382,7 @@ it.each([false, true])(
   },
 );
 
-it.each([
-  "failed",
-  "running",
-  "cancelled",
-  "review",
-  "queue",
-  "missing_counts",
-])(
+it.each(["failed", "running", "cancelled", "review", "queue", "missing_counts"])(
   "does not trust a retained readiness hint over contradictory %s normalized evidence",
   (contradiction) => {
     const candidate = richPr();
@@ -437,8 +409,8 @@ it.each([
     if (contradiction === "missing_counts")
       Object.assign(candidate.rich.checks, { failed: undefined });
     const { slot } = row(meta([candidate]));
-    expect(
-      slot.getByRole("link", { name: /Open GitHub PR/ }).textContent,
-    ).not.toContain("Ready to merge");
+    expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).not.toContain(
+      "Ready to merge",
+    );
   },
 );

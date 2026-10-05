@@ -2,10 +2,7 @@ import type { Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 
 export type TaskEditPatch = Partial<
-  Pick<
-    Task,
-    "title" | "description" | "status" | "priority" | "dueDate" | "labelIds"
-  >
+  Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "labelIds">
 >;
 export type SaveOutcome = { ok: true } | { ok: false; errorMessage: string };
 export interface EditSnapshot {

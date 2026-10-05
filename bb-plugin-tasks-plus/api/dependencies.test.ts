@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import type { z } from "zod";
 import type { TaskStatus } from "../db";
@@ -19,8 +16,7 @@ function setup() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, status: "active" }),
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
       },
     },
   });
@@ -37,10 +33,7 @@ function setup() {
   const rpc = <K extends keyof TasksRpcContract>(
     name: K,
     input: z.input<TasksRpcContract[K]["input"]>,
-  ) =>
-    harness.callRpc(name, input) as Promise<
-      z.output<TasksRpcContract[K]["output"]>
-    >;
+  ) => harness.callRpc(name, input) as Promise<z.output<TasksRpcContract[K]["output"]>>;
   return { harness, rpc, store, project, task };
 }
 
@@ -57,9 +50,7 @@ describe("task dependency API", () => {
     const blocker = await rpc("getTask", { taskId: abc1.id });
 
     expect(blocked.task).toMatchObject({
-      blockedBy: [
-        { id: abc1.id, key: "ABC-1", title: "Blocker", status: "todo" },
-      ],
+      blockedBy: [{ id: abc1.id, key: "ABC-1", title: "Blocker", status: "todo" }],
       blocks: [],
       openBlockerCount: 1,
       openBlockedCount: 0,
@@ -128,9 +119,7 @@ describe("task dependency API", () => {
       ok: false,
       error: { code: "dependency_cycle" },
     });
-    expect(result.ok ? "" : result.error.message).toContain(
-      "ABC-1 blocks ABC-2 blocks ABC-1",
-    );
+    expect(result.ok ? "" : result.error.message).toContain("ABC-1 blocks ABC-2 blocks ABC-1");
     expect(store.tasks.listBlockers(abc1.id)).toEqual([]);
   });
 

@@ -66,10 +66,7 @@ function requestRefresh() {
   const generation = sharedSnapshot.generation + 1;
   updateSharedSnapshot({ generation, isRefreshing: true });
   queueMicrotask(() => {
-    if (
-      sharedSnapshot.generation === generation &&
-      pendingGenerationWork === 0
-    ) {
+    if (sharedSnapshot.generation === generation && pendingGenerationWork === 0) {
       updateSharedSnapshot({ ...sharedSnapshot, isRefreshing: false });
     }
   });
@@ -125,10 +122,7 @@ export function TasksRefreshProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     updateConnectionState(registrationId, connectionState);
   }, [connectionState, registrationId]);
-  useEffect(
-    () => () => removeConnectionState(registrationId),
-    [registrationId],
-  );
+  useEffect(() => () => removeConnectionState(registrationId), [registrationId]);
 
   const value = useMemo(
     () => ({
@@ -140,11 +134,7 @@ export function TasksRefreshProvider({ children }: { children: ReactNode }) {
     }),
     [snapshot],
   );
-  return (
-    <TasksRefreshContext.Provider value={value}>
-      {children}
-    </TasksRefreshContext.Provider>
-  );
+  return <TasksRefreshContext.Provider value={value}>{children}</TasksRefreshContext.Provider>;
 }
 
 export function useTasksRefresh(): TasksRefreshState {

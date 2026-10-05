@@ -91,18 +91,13 @@ export function primaryBucket(pr: WorkPr) {
   };
 }
 export function aggregatePrs(items: readonly WorkPr[]) {
-  const buckets = new Map<
-    string,
-    ReturnType<typeof primaryBucket> & { count: number }
-  >();
+  const buckets = new Map<string, ReturnType<typeof primaryBucket> & { count: number }>();
   for (const pr of items) {
     const bucket = primaryBucket(pr);
     const previous = buckets.get(bucket.key);
     buckets.set(bucket.key, { ...bucket, count: (previous?.count ?? 0) + 1 });
   }
-  return [...buckets.values()].sort(
-    (a, b) => a.rank - b.rank || a.label.localeCompare(b.label),
-  );
+  return [...buckets.values()].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label));
 }
 const REASONS: Record<NonNullable<WorkPr["detailsReason"]>, string> = {
   integration_absent: "GitHub Insight is not installed.",
@@ -114,10 +109,8 @@ const REASONS: Record<NonNullable<WorkPr["detailsReason"]>, string> = {
   unsupported_version: "The summary version is unsupported.",
   unsupported_conditions: "Some reported conditions are unsupported.",
   unsupported_queue: "Some merge queue evidence cannot be interpreted.",
-  missing_prerequisites:
-    "Merge readiness prerequisites were not explicitly reported.",
-  contradictory_evidence:
-    "Reported counts or lifecycle prerequisites contradict other evidence.",
+  missing_prerequisites: "Merge readiness prerequisites were not explicitly reported.",
+  contradictory_evidence: "Reported counts or lifecycle prerequisites contradict other evidence.",
   refresh_error: "The producer reported a refresh error.",
   conflict: "Observations conflict without decisive newer evidence.",
   identity_mismatch: "The summary refers to a different current PR.",

@@ -36,9 +36,7 @@ function Probe({ ids, scope }: { ids: string[]; scope: string }) {
   return (
     <>
       <button onClick={refresh.refresh}>Refresh</button>
-      <output>
-        {JSON.stringify(query.data ? [...query.data] : "loading")}
-      </output>
+      <output>{JSON.stringify(query.data ? [...query.data] : "loading")}</output>
     </>
   );
 }
@@ -59,10 +57,7 @@ afterEach(() => {
 
 describe("visible work status loading", () => {
   it("deduplicates and chunks visible IDs without legacy, comment or media reads", async () => {
-    const ids = Array.from(
-      { length: 1001 },
-      (_, i) => `01H${String(i).padStart(23, "0")}`,
-    );
+    const ids = Array.from({ length: 1001 }, (_, i) => `01H${String(i).padStart(23, "0")}`);
     const calls: string[][] = [];
     const slot = renderSlot(
       { component: Root },
@@ -78,9 +73,7 @@ describe("visible work status loading", () => {
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(
-        ids[1000],
-      ),
+      expect(slot.container.querySelector("output")!.textContent).toContain(ids[1000]),
     );
     expect(calls.map((c) => c.length)).toEqual([500, 500, 1]);
     expect(new Set(calls.flat()).size).toBe(1001);
@@ -107,16 +100,12 @@ describe("visible work status loading", () => {
       },
     );
     await act(async () => {});
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      "working",
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain("working");
     await act(() => vi.advanceTimersByTimeAsync(59_999));
     expect(calls).toBe(1);
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(calls).toBe(2);
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      "idle",
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain("idle");
     await slot.behavior.emitRealtime("threads:changed", { taskId: ID });
     expect(calls).toBe(3);
     await slot.behavior.emitRealtime("tasks:changed", { taskId: ID });
@@ -143,9 +132,7 @@ describe("visible work status loading", () => {
         rpc: {
           listTaskWorkStatus: (raw) => {
             calls.push(rpcInput(raw).taskIds as string[]);
-            return new Promise<ReturnType<typeof result>>((resolve) =>
-              releases.push(resolve),
-            );
+            return new Promise<ReturnType<typeof result>>((resolve) => releases.push(resolve));
           },
         },
       },
@@ -157,17 +144,11 @@ describe("visible work status loading", () => {
     expect(calls).toHaveLength(1);
     await act(async () => releases.shift()!(result([ID])));
     await waitFor(() => expect(calls).toHaveLength(2));
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(
-      ID,
-    );
+    expect(slot.container.querySelector("output")!.textContent).not.toContain(ID);
     expect(calls[1]).toEqual([OTHER]);
     await act(async () => releases.shift()!(result([OTHER], "failed")));
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      "failed",
-    );
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(
-      ID,
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain("failed");
+    expect(slot.container.querySelector("output")!.textContent).not.toContain(ID);
   });
 
   it("rejects an old response even after returning to the same list scope", async () => {
@@ -180,9 +161,7 @@ describe("visible work status loading", () => {
         rpc: {
           listTaskWorkStatus: () => {
             calls++;
-            return new Promise<ReturnType<typeof result>>((resolve) =>
-              releases.push(resolve),
-            );
+            return new Promise<ReturnType<typeof result>>((resolve) => releases.push(resolve));
           },
         },
       },
@@ -191,14 +170,10 @@ describe("visible work status loading", () => {
     slot.lifecycle.rerender(<Root ids={[OTHER]} scope="two" />);
     slot.lifecycle.rerender(<Root ids={[ID]} scope="one" />);
     await act(async () => releases.shift()!(result([ID], "failed")));
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(
-      "failed",
-    );
+    expect(slot.container.querySelector("output")!.textContent).not.toContain("failed");
     expect(calls).toBe(2);
     await act(async () => releases.shift()!(result([ID], "idle")));
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      "idle",
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain("idle");
   });
 
   it("does not retain a current claim after a failed refresh and preserves identities as unavailable", async () => {
@@ -218,26 +193,18 @@ describe("visible work status loading", () => {
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(
-        "working",
-      ),
+      expect(slot.container.querySelector("output")!.textContent).toContain("working"),
     );
     fail = true;
     await slot.behavior.emitRealtime("threads:changed", {});
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(
-        "unavailable",
-      ),
+      expect(slot.container.querySelector("output")!.textContent).toContain("unavailable"),
     );
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      "thr_worker",
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain("thr_worker");
     expect(slot.container.querySelector("output")!.textContent).not.toContain(
       '"execution":"working"',
     );
-    expect(slot.container.querySelector("output")!.textContent).toContain(
-      '"archive":"unknown"',
-    );
+    expect(slot.container.querySelector("output")!.textContent).toContain('"archive":"unknown"');
     expect(slot.container.querySelector("output")!.textContent).not.toContain(
       '"archive":"archived"',
     );
@@ -246,10 +213,7 @@ describe("visible work status loading", () => {
   it.each(["scope change", "unmount"])(
     "finishes an interrupted chunk session after %s without reading hidden rows",
     async (reason) => {
-      const ids = Array.from(
-        { length: 501 },
-        (_, i) => `01H${String(i).padStart(23, "0")}`,
-      );
+      const ids = Array.from({ length: 501 }, (_, i) => `01H${String(i).padStart(23, "0")}`);
       const calls: Record<string, unknown>[] = [];
       let release!: (value: ReturnType<typeof result>) => void;
       const slot = renderSlot(
@@ -282,12 +246,8 @@ describe("visible work status loading", () => {
       if (reason === "unmount") expect(calls).toHaveLength(2);
       else {
         expect(calls[2]).toEqual({ taskIds: [OTHER] });
-        expect(slot.container.querySelector("output")!.textContent).toContain(
-          "idle",
-        );
-        expect(
-          slot.container.querySelector("output")!.textContent,
-        ).not.toContain("failed");
+        expect(slot.container.querySelector("output")!.textContent).toContain("idle");
+        expect(slot.container.querySelector("output")!.textContent).not.toContain("failed");
       }
     },
   );
@@ -323,15 +283,11 @@ describe("visible work status loading", () => {
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(
-        '"state":"merged"',
-      ),
+      expect(slot.container.querySelector("output")!.textContent).toContain('"state":"merged"'),
     );
     fireEvent.click(slot.getByText("Refresh"));
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(
-        '"state":"unknown"',
-      ),
+      expect(slot.container.querySelector("output")!.textContent).toContain('"state":"unknown"'),
     );
     const row = JSON.parse(
       slot.container.querySelector("output")!.textContent!,

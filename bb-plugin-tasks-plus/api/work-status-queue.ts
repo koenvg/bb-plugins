@@ -19,10 +19,7 @@ export function normalizeQueue(value: unknown): {
   if (value === undefined) return { reason: "missing_prerequisites" };
   if (value === null) return {};
   const parsed = schema.safeParse(value);
-  const fields =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : {};
+  const fields = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const state = states.includes(fields.state as (typeof states)[number])
     ? (fields.state as (typeof states)[number])
     : "unknown";

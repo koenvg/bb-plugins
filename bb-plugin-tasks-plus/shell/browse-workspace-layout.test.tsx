@@ -20,10 +20,7 @@ function capture(slot: ReturnType<typeof setup>, width: number, pane: string) {
   const directory = process.env.TASKS_LAYOUT_CAPTURE;
   if (!directory) return;
   mkdirSync(directory, { recursive: true });
-  writeFileSync(
-    join(directory, `panel-${width}-${pane}.html`),
-    slot.container.innerHTML,
-  );
+  writeFileSync(join(directory, `panel-${width}-${pane}.html`), slot.container.innerHTML);
   writeFileSync(
     join(directory, "editor.css"),
     document.querySelector("[data-bb-tasks-editor-styles]")?.textContent ?? "",
@@ -51,8 +48,7 @@ describe("responsive browse markup", () => {
       const child = {
         ...tasks[2]!,
         parentTaskId: parent.id,
-        title:
-          "Nested task with a long title that still needs readable identity and metadata",
+        title: "Nested task with a long title that still needs readable identity and metadata",
         openBlockerCount: 1,
         blocked: true,
       };
@@ -64,8 +60,7 @@ describe("responsive browse markup", () => {
           id: `sample-${n}`,
           key: `TSK-${n + 4}`,
           number: n + 4,
-          title:
-            "Check compact browsing, independent scrolling, and safe editor transitions",
+          title: "Check compact browsing, independent scrolling, and safe editor transitions",
         })),
       ];
       const slot = setup("all?task=TSK-1", {
@@ -88,9 +83,7 @@ describe("responsive browse markup", () => {
       });
       await slot.findByRole("textbox", { name: "Task title" });
       capture(slot, width, "detail");
-      fireEvent.click(
-        slot.getByRole("button", { name: "Expand subtasks of TSK-1" }),
-      );
+      fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of TSK-1" }));
       const list = slot.getByRole("region", { name: "Ticket list" });
       expect(
         within(list)

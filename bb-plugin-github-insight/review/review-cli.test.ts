@@ -33,7 +33,9 @@ describe("review CLI", () => {
     };
   }
 
-  function reviewHost(options: { threads?: () => unknown; file?: unknown; headOid?: () => string } = {}) {
+  function reviewHost(
+    options: { threads?: () => unknown; file?: unknown; headOid?: () => string } = {},
+  ) {
     return ({ method }: HostCall) => {
       if (method === "fetchPrFiles") return ok(prFiles);
       if (method === "fetchReviewThreads") return ok(options.threads?.() ?? reviewThreads);
@@ -52,13 +54,17 @@ describe("review CLI", () => {
   }
 
   async function draftsOf(harness: Awaited<ReturnType<typeof setup>>) {
-    const result = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as ReviewResult;
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
     if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
     return result.drafts;
   }
 
   async function commentDraftsOf(harness: Awaited<ReturnType<typeof setup>>) {
-    const result = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as ReviewResult;
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
     if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
     return result.commentDrafts;
   }
@@ -112,10 +118,14 @@ describe("review CLI", () => {
   it("lists the unresolved threads as JSON", async () => {
     const harness = await setupWithPr();
 
-    const result = await harness.behavior.runCli(["review", "list", "--json"], { threadId: "thr_1" });
+    const result = await harness.behavior.runCli(["review", "list", "--json"], {
+      threadId: "thr_1",
+    });
 
     expect(result.exitCode).toBe(0);
-    const { threads } = JSON.parse(result.stdout) as { threads: { id: string; outdated: boolean }[] };
+    const { threads } = JSON.parse(result.stdout) as {
+      threads: { id: string; outdated: boolean }[];
+    };
     expect(threads.map(({ id, outdated }) => [id, outdated])).toEqual([
       ["PRRT_kwDOHI7l-86jxqt3", false],
       [OPEN, false],
@@ -129,7 +139,9 @@ describe("review CLI", () => {
     const result = await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(`${OPEN}  apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts:46`);
+    expect(result.stdout).toContain(
+      `${OPEN}  apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts:46`,
+    );
     expect(result.stdout).not.toContain(RESOLVED);
   });
 
@@ -137,38 +149,58 @@ describe("review CLI", () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
     const harness = await setupWithPr();
 
-    const saved = await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Renamed in abc123"], {
-      threadId: "thr_1",
-    });
+    const saved = await harness.behavior.runCli(
+      ["review", "draft", OPEN, "--body", "Renamed in abc123"],
+      {
+        threadId: "thr_1",
+      },
+    );
 
     expect(saved).toMatchObject({ exitCode: 0, stdout: `Saved draft for ${OPEN}\n` });
     expect(harness.realtimeSignals).toEqual([
       { channel: "review.updated", payload: { threadId: "thr_1" } },
     ]);
     expect(await draftsOf(harness)).toEqual({
-      [OPEN]: { body: "Renamed in abc123", updatedAt: Date.parse("2026-09-24T10:00:00Z"), source: "agent" },
+      [OPEN]: {
+        body: "Renamed in abc123",
+        updatedAt: Date.parse("2026-09-24T10:00:00Z"),
+        source: "agent",
+      },
     });
-    const listed = await harness.behavior.runCli(["review", "list", "--json"], { threadId: "thr_1" });
-    const { threads } = JSON.parse(listed.stdout) as { threads: { id: string; hasDraft: boolean }[] };
+    const listed = await harness.behavior.runCli(["review", "list", "--json"], {
+      threadId: "thr_1",
+    });
+    const { threads } = JSON.parse(listed.stdout) as {
+      threads: { id: string; hasDraft: boolean }[];
+    };
     expect(threads.filter((thread) => thread.hasDraft).map((thread) => thread.id)).toEqual([OPEN]);
   });
 
   it("replaces the old draft of the same thread", async () => {
     const harness = await setupWithPr();
 
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "First"], { threadId: "thr_1" });
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Second"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "First"], {
+      threadId: "thr_1",
+    });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Second"], {
+      threadId: "thr_1",
+    });
 
-    expect(await draftsOf(harness)).toEqual({ [OPEN]: expect.objectContaining({ body: "Second" }) });
+    expect(await draftsOf(harness)).toEqual({
+      [OPEN]: expect.objectContaining({ body: "Second" }),
+    });
   });
 
   it("reads --body-file on the thread's host, relative to the working directory", async () => {
     const harness = await setupWithPr();
 
-    const result = await harness.behavior.runCli(["review", "draft", OPEN, "--body-file", "reply.md"], {
-      threadId: "thr_1",
-      cwd: "/work/repo",
-    });
+    const result = await harness.behavior.runCli(
+      ["review", "draft", OPEN, "--body-file", "reply.md"],
+      {
+        threadId: "thr_1",
+        cwd: "/work/repo",
+      },
+    );
 
     expect(result.exitCode).toBe(0);
     expect(harness.experimental_hostRpcCalls).toContainEqual(
@@ -178,7 +210,9 @@ describe("review CLI", () => {
         input: { path: "reply.md", cwd: "/work/repo" },
       }),
     );
-    expect(await draftsOf(harness)).toEqual({ [OPEN]: expect.objectContaining({ body: "From file" }) });
+    expect(await draftsOf(harness)).toEqual({
+      [OPEN]: expect.objectContaining({ body: "From file" }),
+    });
   });
 
   it("names the file error and saves nothing", async () => {
@@ -186,26 +220,31 @@ describe("review CLI", () => {
       reviewHost({ file: { ok: false, message: "File not found: reply.md" } }),
     );
 
-    const result = await harness.behavior.runCli(["review", "draft", OPEN, "--body-file", "reply.md"], {
-      threadId: "thr_1",
-    });
+    const result = await harness.behavior.runCli(
+      ["review", "draft", OPEN, "--body-file", "reply.md"],
+      {
+        threadId: "thr_1",
+      },
+    );
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("File not found: reply.md");
     expect(await draftsOf(harness)).toEqual({});
   });
 
-  it.each([
-    [["--body", "a", "--body-file", "b.md"]],
-    [[]],
-  ])("needs exactly one of --body and --body-file: %j", async (bodyArgs) => {
-    const harness = await setupWithPr();
+  it.each([[["--body", "a", "--body-file", "b.md"]], [[]]])(
+    "needs exactly one of --body and --body-file: %j",
+    async (bodyArgs) => {
+      const harness = await setupWithPr();
 
-    const result = await harness.behavior.runCli(["review", "draft", OPEN, ...bodyArgs], { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(["review", "draft", OPEN, ...bodyArgs], {
+        threadId: "thr_1",
+      });
 
-    expect(result.exitCode).not.toBe(0);
-    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
-  });
+      expect(result.exitCode).not.toBe(0);
+      expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+    },
+  );
 
   it("refuses an empty draft", async () => {
     const harness = await setupWithPr();
@@ -222,9 +261,12 @@ describe("review CLI", () => {
   it("names an unknown thread id and saves nothing", async () => {
     const harness = await setupWithPr();
 
-    const result = await harness.behavior.runCli(["review", "draft", "PRRT_typo", "--body", "Done"], {
-      threadId: "thr_1",
-    });
+    const result = await harness.behavior.runCli(
+      ["review", "draft", "PRRT_typo", "--body", "Done"],
+      {
+        threadId: "thr_1",
+      },
+    );
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("Unknown review thread: PRRT_typo");
@@ -247,13 +289,27 @@ describe("review CLI", () => {
 
     await harness.behavior.runCli(["review", "list", "--json"], { threadId: "thr_1" });
     await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], { threadId: "thr_1" });
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body-file", "reply.md"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], {
+      threadId: "thr_1",
+    });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body-file", "reply.md"], {
+      threadId: "thr_1",
+    });
     await harness.behavior.runCli(
-      ["review", "comment", "apps/shell/e2e/utils/elements/createTreeGrid.ts", "--line", "3", "--body", "Hm"],
+      [
+        "review",
+        "comment",
+        "apps/shell/e2e/utils/elements/createTreeGrid.ts",
+        "--line",
+        "3",
+        "--body",
+        "Hm",
+      ],
       { threadId: "thr_1" },
     );
-    await harness.behavior.runCli(["review", "summary", "--body-file", "summary.md"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "summary", "--body-file", "summary.md"], {
+      threadId: "thr_1",
+    });
 
     const methods = new Set(harness.experimental_hostRpcCalls.map((call) => call.method));
     expect([...methods].sort()).toEqual(READ_METHODS);
@@ -262,7 +318,9 @@ describe("review CLI", () => {
   it("hides the draft of a thread that got resolved", async () => {
     let threads: unknown = reviewThreads;
     const harness = await setupWithPr(reviewHost({ threads: () => threads }));
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], {
+      threadId: "thr_1",
+    });
 
     threads = threadsWithResolved(OPEN);
 
@@ -272,7 +330,9 @@ describe("review CLI", () => {
   it("does not bring back the draft of a resolved thread when it is reopened", async () => {
     let threads: unknown = reviewThreads;
     const harness = await setupWithPr(reviewHost({ threads: () => threads }));
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], {
+      threadId: "thr_1",
+    });
     threads = threadsWithResolved(OPEN);
     await draftsOf(harness);
 
@@ -288,16 +348,22 @@ describe("review CLI", () => {
         repository: {
           pullRequest: {
             ...page,
-            reviewThreads: { ...page.reviewThreads, pageInfo: { hasNextPage: true, endCursor: "next" } },
+            reviewThreads: {
+              ...page.reviewThreads,
+              pageInfo: { hasNextPage: true, endCursor: "next" },
+            },
           },
         },
       },
     };
     const harness = await setupWithPr(reviewHost({ threads: () => endless }));
 
-    const result = await harness.behavior.runCli(["review", "draft", "PRRT_later", "--body", "Done"], {
-      threadId: "thr_1",
-    });
+    const result = await harness.behavior.runCli(
+      ["review", "draft", "PRRT_later", "--body", "Done"],
+      {
+        threadId: "thr_1",
+      },
+    );
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("Unknown review thread: PRRT_later");
@@ -306,11 +372,15 @@ describe("review CLI", () => {
 
   it("keeps a draft across a plugin reload", async () => {
     const harness = await setupWithPr();
-    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], { threadId: "thr_1" });
+    await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], {
+      threadId: "thr_1",
+    });
 
     const reloaded = await harness.reload(plugin);
 
-    expect(await draftsOf(reloaded.harness)).toEqual({ [OPEN]: expect.objectContaining({ body: "Done" }) });
+    expect(await draftsOf(reloaded.harness)).toEqual({
+      [OPEN]: expect.objectContaining({ body: "Done" }),
+    });
   });
 
   describe("review comment", () => {
@@ -324,9 +394,12 @@ describe("review CLI", () => {
       vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(comment("--line", "3", "--body", "Null check missing"), {
-        threadId: "thr_1",
-      });
+      const result = await harness.behavior.runCli(
+        comment("--line", "3", "--body", "Null check missing"),
+        {
+          threadId: "thr_1",
+        },
+      );
 
       expect(result.exitCode).toBe(0);
       const [draft] = await commentDraftsOf(harness);
@@ -342,7 +415,9 @@ describe("review CLI", () => {
         updatedAt: Date.parse("2026-09-24T10:00:00Z"),
         source: "agent",
       });
-      expect(harness.realtimeSignals).toEqual([{ channel: "review.updated", payload: { threadId: "thr_1" } }]);
+      expect(harness.realtimeSignals).toEqual([
+        { channel: "review.updated", payload: { threadId: "thr_1" } },
+      ]);
     });
 
     it("saves a range on the old side", async () => {
@@ -362,25 +437,37 @@ describe("review CLI", () => {
     it("reads --body-file relative to the working directory", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(comment("--line", "3", "--body-file", "notes.md"), {
-        threadId: "thr_1",
-        cwd: "/work/repo",
-      });
+      const result = await harness.behavior.runCli(
+        comment("--line", "3", "--body-file", "notes.md"),
+        {
+          threadId: "thr_1",
+          cwd: "/work/repo",
+        },
+      );
 
       expect(result.exitCode).toBe(0);
       expect(harness.experimental_hostRpcCalls).toContainEqual(
-        expect.objectContaining({ method: "readTextFile", input: { path: "notes.md", cwd: "/work/repo" } }),
+        expect.objectContaining({
+          method: "readTextFile",
+          input: { path: "notes.md", cwd: "/work/repo" },
+        }),
       );
-      expect(await commentDraftsOf(harness)).toEqual([expect.objectContaining({ body: "From file" })]);
+      expect(await commentDraftsOf(harness)).toEqual([
+        expect.objectContaining({ body: "From file" }),
+      ]);
     });
 
     it("names the diff ranges for a line outside the diff and saves nothing", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(comment("--line", "300", "--body", "Hm"), { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(comment("--line", "300", "--body", "Hm"), {
+        threadId: "thr_1",
+      });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(`Line 300 is not in the diff of ${FILE} on the RIGHT side. Diff ranges: 1-5, 146-154`);
+      expect(result.stderr).toContain(
+        `Line 300 is not in the diff of ${FILE} on the RIGHT side. Diff ranges: 1-5, 146-154`,
+      );
       expect(await commentDraftsOf(harness)).toEqual([]);
       expect(harness.realtimeSignals).toHaveLength(0);
     });
@@ -401,9 +488,12 @@ describe("review CLI", () => {
     it("refuses a start line after the line", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(comment("--start-line", "4", "--line", "3", "--body", "Hm"), {
-        threadId: "thr_1",
-      });
+      const result = await harness.behavior.runCli(
+        comment("--start-line", "4", "--line", "3", "--body", "Hm"),
+        {
+          threadId: "thr_1",
+        },
+      );
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Start line 4 is after line 3");
@@ -412,7 +502,9 @@ describe("review CLI", () => {
     it("refuses an empty body", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(comment("--line", "3", "--body", "  \n"), { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(comment("--line", "3", "--body", "  \n"), {
+        threadId: "thr_1",
+      });
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Comment is empty");
@@ -426,10 +518,14 @@ describe("review CLI", () => {
       await harness.behavior.runCli(comment("--line", "4", "--body", "Two"), { threadId: "thr_1" });
       headOid = "def456";
 
-      const result = await harness.behavior.runCli(comment("--line", "5", "--body", "Three"), { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(comment("--line", "5", "--body", "Three"), {
+        threadId: "thr_1",
+      });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("2 comment drafts are at commit abc123, but the PR head is def456");
+      expect(result.stderr).toContain(
+        "2 comment drafts are at commit abc123, but the PR head is def456",
+      );
       expect(result.stderr).toContain("Submit or delete those drafts first");
       expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["One", "Two"]);
     });
@@ -447,7 +543,9 @@ describe("review CLI", () => {
 
   describe("review summary", () => {
     async function summaryOf(harness: Awaited<ReturnType<typeof setup>>) {
-      const result = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as ReviewResult;
+      const result = (await harness.behavior.callRpc("getReview", {
+        threadId: "thr_1",
+      })) as ReviewResult;
       if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
       return result.summaryDraft;
     }
@@ -456,9 +554,12 @@ describe("review CLI", () => {
       vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(["review", "summary", "--body", "Two bugs, see comments."], {
-        threadId: "thr_1",
-      });
+      const result = await harness.behavior.runCli(
+        ["review", "summary", "--body", "Two bugs, see comments."],
+        {
+          threadId: "thr_1",
+        },
+      );
 
       expect(result).toMatchObject({ exitCode: 0, stdout: "Saved summary draft\n" });
       expect(await summaryOf(harness)).toEqual({
@@ -466,14 +567,20 @@ describe("review CLI", () => {
         updatedAt: Date.parse("2026-09-24T10:00:00Z"),
         source: "agent",
       });
-      expect(harness.realtimeSignals).toEqual([{ channel: "review.updated", payload: { threadId: "thr_1" } }]);
+      expect(harness.realtimeSignals).toEqual([
+        { channel: "review.updated", payload: { threadId: "thr_1" } },
+      ]);
     });
 
     it("keeps only the second summary", async () => {
       const harness = await setupWithPr();
 
-      await harness.behavior.runCli(["review", "summary", "--body", "First"], { threadId: "thr_1" });
-      await harness.behavior.runCli(["review", "summary", "--body", "Second"], { threadId: "thr_1" });
+      await harness.behavior.runCli(["review", "summary", "--body", "First"], {
+        threadId: "thr_1",
+      });
+      await harness.behavior.runCli(["review", "summary", "--body", "Second"], {
+        threadId: "thr_1",
+      });
 
       expect(await summaryOf(harness)).toEqual(expect.objectContaining({ body: "Second" }));
     });
@@ -481,14 +588,20 @@ describe("review CLI", () => {
     it("reads --body-file relative to the working directory", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(["review", "summary", "--body-file", "summary.md"], {
-        threadId: "thr_1",
-        cwd: "/work/repo",
-      });
+      const result = await harness.behavior.runCli(
+        ["review", "summary", "--body-file", "summary.md"],
+        {
+          threadId: "thr_1",
+          cwd: "/work/repo",
+        },
+      );
 
       expect(result.exitCode).toBe(0);
       expect(harness.experimental_hostRpcCalls).toContainEqual(
-        expect.objectContaining({ method: "readTextFile", input: { path: "summary.md", cwd: "/work/repo" } }),
+        expect.objectContaining({
+          method: "readTextFile",
+          input: { path: "summary.md", cwd: "/work/repo" },
+        }),
       );
       expect(await summaryOf(harness)).toEqual(expect.objectContaining({ body: "From file" }));
     });
@@ -496,7 +609,9 @@ describe("review CLI", () => {
     it("refuses an empty summary", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(["review", "summary", "--body", " "], { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(["review", "summary", "--body", " "], {
+        threadId: "thr_1",
+      });
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Summary is empty");
@@ -524,20 +639,44 @@ describe("review CLI", () => {
       ]) {
         await harness.behavior.runCli(["review", "comment", FILE, ...args], { threadId: "thr_1" });
       }
-      await harness.behavior.runCli(["review", "summary", "--body", "Two notes."], { threadId: "thr_1" });
+      await harness.behavior.runCli(["review", "summary", "--body", "Two notes."], {
+        threadId: "thr_1",
+      });
       return harness;
     }
 
     it("adds the comment drafts and the summary to --json", async () => {
       const harness = await setupWithDrafts();
 
-      const result = await harness.behavior.runCli(["review", "list", "--json"], { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(["review", "list", "--json"], {
+        threadId: "thr_1",
+      });
 
-      const listed = JSON.parse(result.stdout) as { threads: unknown[]; comments: unknown[]; summary: unknown };
+      const listed = JSON.parse(result.stdout) as {
+        threads: unknown[];
+        comments: unknown[];
+        summary: unknown;
+      };
       expect(listed.threads).toHaveLength(3);
       expect(listed.comments).toEqual([
-        { id: expect.any(String), path: FILE, side: "RIGHT", line: 3, startLine: null, body: "First", commitOid: "def456" },
-        { id: expect.any(String), path: FILE, side: "RIGHT", line: 147, startLine: 146, body: "Second", commitOid: "def456" },
+        {
+          id: expect.any(String),
+          path: FILE,
+          side: "RIGHT",
+          line: 3,
+          startLine: null,
+          body: "First",
+          commitOid: "def456",
+        },
+        {
+          id: expect.any(String),
+          path: FILE,
+          side: "RIGHT",
+          line: 147,
+          startLine: 146,
+          body: "Second",
+          commitOid: "def456",
+        },
       ]);
       expect(listed.summary).toBe("Two notes.");
     });
@@ -545,7 +684,9 @@ describe("review CLI", () => {
     it("has empty comments and a null summary in --json without drafts", async () => {
       const harness = await setupWithPr();
 
-      const result = await harness.behavior.runCli(["review", "list", "--json"], { threadId: "thr_1" });
+      const result = await harness.behavior.runCli(["review", "list", "--json"], {
+        threadId: "thr_1",
+      });
 
       expect(JSON.parse(result.stdout)).toMatchObject({ comments: [], summary: null });
     });
@@ -556,7 +697,9 @@ describe("review CLI", () => {
       const result = await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
 
       expect(result.stdout).toContain(`\nComment drafts:\n`);
-      expect(result.stdout).toMatch(new RegExp(`[a-z0-9]{8}  ${FILE}:146-147  RIGHT\\n    Second\\n`));
+      expect(result.stdout).toMatch(
+        new RegExp(`[a-z0-9]{8}  ${FILE}:146-147  RIGHT\\n    Second\\n`),
+      );
       expect(result.stdout.endsWith("Summary draft:\n    Two notes.\n")).toBe(true);
     });
   });

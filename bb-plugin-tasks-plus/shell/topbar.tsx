@@ -6,12 +6,7 @@ import type { ResolvedTasksRoute, TaskViewMode, TasksRoute } from "./routes.js";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTasksRefresh } from "./refresh.js";
 import { useShortcuts } from "./shortcut-provider.js";
 import { ProjectPicker, TasksNavigationMenu } from "./browse-navigation.js";
@@ -25,10 +20,7 @@ interface PagerPosition {
   nextKey: string | null;
 }
 
-export function pagerPosition(
-  tasks: readonly Task[],
-  taskKey: string,
-): PagerPosition | null {
+export function pagerPosition(tasks: readonly Task[], taskKey: string): PagerPosition | null {
   const ordered = groupTasksByStatus(tasks).flatMap((group) => group.tasks);
   const wanted = taskKey.toUpperCase();
   const index = ordered.findIndex((task) => task.key.toUpperCase() === wanted);
@@ -154,10 +146,7 @@ function RefreshTasksButton() {
             disabled={isRefreshing}
             onClick={handleRefresh}
           >
-            <Icon
-              name="RotateCcw"
-              className={cn("size-3.5", isRefreshing && "animate-spin")}
-            />
+            <Icon name="RotateCcw" className={cn("size-3.5", isRefreshing && "animate-spin")} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">{REFRESH_TASKS_LABEL}</TooltipContent>
@@ -277,22 +266,16 @@ export function TasksTopbar({
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14">
       <div className="min-w-0 flex-1 overflow-hidden">{breadcrumb}</div>
-      {route.kind === "task" &&
-      (pagerScope !== null || projects !== undefined) ? (
+      {route.kind === "task" && (pagerScope !== null || projects !== undefined) ? (
         <TaskPager
           taskKey={route.taskKey}
-          projectId={
-            pagerScope !== null ? pagerScope.projectId : (project?.id ?? null)
-          }
+          projectId={pagerScope !== null ? pagerScope.projectId : (project?.id ?? null)}
           onNavigate={onNavigate}
         />
       ) : null}
       {route.kind === "project" ? (
         <span className="hidden @md:block">
-          <ViewToggle
-            view={route.view}
-            onChange={(view) => onNavigate({ ...route, view })}
-          />
+          <ViewToggle view={route.view} onChange={(view) => onNavigate({ ...route, view })} />
         </span>
       ) : null}
       <RefreshTasksButton />
@@ -300,21 +283,12 @@ export function TasksTopbar({
       route.kind !== "entry" &&
       route.kind !== "task" &&
       route.kind !== "manage" ? (
-        <Button
-          size="sm"
-          className="h-9 shrink-0 gap-2"
-          aria-label="New task"
-          onClick={onNewTask}
-        >
+        <Button size="sm" className="h-9 shrink-0 gap-2" aria-label="New task" onClick={onNewTask}>
           <Icon name="Plus" className="size-3.5" />
           <span className="hidden @lg:inline">New task</span>
         </Button>
       ) : null}
-      <TasksNavigationMenu
-        route={route}
-        onNavigate={onNavigate}
-        onNewProject={onNewProject}
-      />
+      <TasksNavigationMenu route={route} onNavigate={onNavigate} onNewProject={onNewProject} />
     </header>
   );
 }

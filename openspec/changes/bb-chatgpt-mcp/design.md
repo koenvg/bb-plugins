@@ -68,15 +68,15 @@ Why not an unauthenticated endpoint or token in the URL: it would expose agent e
 
 ### 3. Expose seven tools, not SDK methods
 
-| Tool | Input | Result and BB operation |
-| --- | --- | --- |
-| `bb_list_projects` | Optional page controls | Allowed project IDs and names from `projects.list` |
-| `bb_list_threads` | Project ID, page controls | Bounded visible thread summaries from `threads.list` |
-| `bb_get_thread` | Thread ID | Current status, latest bounded output, pending-interaction indicator from `threads.get`, `output`, and interaction reads |
-| `bb_start_thread` | Project ID, prompt, optional title, operation key | Ordinary visible thread from `threads.spawn`, using `environment: { type: "project-default" }` and BB execution defaults |
-| `bb_send_message` | Thread ID, message, operation key | `threads.send` with normal auto behavior, reporting accepted or queued state |
-| `bb_stop_thread` | Thread ID, operation key | `threads.stop`, preserving history and reporting any remaining queued state rather than promising queue deletion |
-| `bb_get_operation` | Operation ID | Owner/project-scoped persisted outcome, with thread ID when known |
+| Tool               | Input                                             | Result and BB operation                                                                                                  |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `bb_list_projects` | Optional page controls                            | Allowed project IDs and names from `projects.list`                                                                       |
+| `bb_list_threads`  | Project ID, page controls                         | Bounded visible thread summaries from `threads.list`                                                                     |
+| `bb_get_thread`    | Thread ID                                         | Current status, latest bounded output, pending-interaction indicator from `threads.get`, `output`, and interaction reads |
+| `bb_start_thread`  | Project ID, prompt, optional title, operation key | Ordinary visible thread from `threads.spawn`, using `environment: { type: "project-default" }` and BB execution defaults |
+| `bb_send_message`  | Thread ID, message, operation key                 | `threads.send` with normal auto behavior, reporting accepted or queued state                                             |
+| `bb_stop_thread`   | Thread ID, operation key                          | `threads.stop`, preserving history and reporting any remaining queued state rather than promising queue deletion         |
+| `bb_get_operation` | Operation ID                                      | Owner/project-scoped persisted outcome, with thread ID when known                                                        |
 
 Schemas reject unknown fields and blank input. Start and send accept text only, not attachments, paths, terminal commands, permission overrides, or arbitrary SDK parameters. A normal agent can still act on the user's files and external services under its configured permissions. A project allowlist restricts MCP access to BB objects; it is not a filesystem sandbox for the agent.
 

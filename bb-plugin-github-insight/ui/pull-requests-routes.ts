@@ -3,9 +3,7 @@ import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 
 export const PANEL_PATH = "pull-requests";
 
-export type PullRequestsRoute =
-  | { kind: "list" }
-  | { kind: "review"; repo: string; number: number };
+export type PullRequestsRoute = { kind: "list" } | { kind: "review"; repo: string; number: number };
 
 function decodeSegment(segment: string): string {
   try {

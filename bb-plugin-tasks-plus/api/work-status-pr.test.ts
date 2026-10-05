@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
 import { createWorkStatusReader } from "./work-status.js";
@@ -25,9 +22,7 @@ const refresh = (i: number, step: "start" | "continue" | "finish") => ({
   step,
 });
 function setup(
-  get: (input: {
-    threadId: string;
-  }) => Promise<ReturnType<typeof makeThreadResponse>>,
+  get: (input: { threadId: string }) => Promise<ReturnType<typeof makeThreadResponse>>,
   pullRequest: (input: { environmentId: string }) => Promise<unknown>,
 ) {
   const { bb, harness } = createFakePluginHost({
@@ -66,25 +61,20 @@ function setup(
 
 describe("basic list PR lifecycle without optional plugins", () => {
   it("deduplicates canonical URLs, keeps all shared threads and equal numbers in different repositories, and preserves all four states", async () => {
-    const pullRequest = vi.fn(
-      async ({ environmentId }: { environmentId: string }) => {
-        switch (environmentId) {
-          case "env_a":
-            return pr(
-              "open",
-              "https://GITHUB.com/Acme/BB/pull/42/?from=bb#discussion",
-            );
-          case "env_b":
-            return pr("open");
-          case "env_draft":
-            return pr("draft", "https://github.com/acme/other/pull/42");
-          case "env_merged":
-            return pr("merged", "https://github.com/acme/merged/pull/42");
-          default:
-            return pr("closed", "https://github.com/acme/closed/pull/42");
-        }
-      },
-    );
+    const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
+      switch (environmentId) {
+        case "env_a":
+          return pr("open", "https://GITHUB.com/Acme/BB/pull/42/?from=bb#discussion");
+        case "env_b":
+          return pr("open");
+        case "env_draft":
+          return pr("draft", "https://github.com/acme/other/pull/42");
+        case "env_merged":
+          return pr("merged", "https://github.com/acme/merged/pull/42");
+        default:
+          return pr("closed", "https://github.com/acme/closed/pull/42");
+      }
+    });
     const { read, attach, store, task, harness } = setup(
       async ({ threadId }) =>
         makeThreadResponse({
@@ -95,14 +85,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
         }),
       pullRequest,
     );
-    for (const id of [
-      "thr_a",
-      "thr_b",
-      "thr_draft",
-      "thr_merged",
-      "thr_closed",
-    ])
-      attach(id);
+    for (const id of ["thr_a", "thr_b", "thr_draft", "thr_merged", "thr_closed"]) attach(id);
     const before = store.tasks.listTaskThreads(task.id);
     const result = await read();
     expect(result.pullRequests.availability).toBe("available");
@@ -124,39 +107,32 @@ describe("basic list PR lifecycle without optional plugins", () => {
       ]),
     );
     expect(pullRequest).toHaveBeenCalledTimes(5);
-    expect(
-      result.threads.every(
-        (t) => t.execution === "failed" && t.archive === "archived",
-      ),
-    ).toBe(true);
+    expect(result.threads.every((t) => t.execution === "failed" && t.archive === "archived")).toBe(
+      true,
+    );
     expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
     expect(
       harness.inspection.sdk.calls.every((call) =>
-        ["threads.get", "environments.pullRequest", "plugins.list"].includes(
-          call.path,
-        ),
+        ["threads.get", "environments.pullRequest", "plugins.list"].includes(call.path),
       ),
     ).toBe(true);
     expect(harness.realtimeSignals).toEqual([]);
   });
 
   it("keeps merged work alongside partial, explicit unavailable, unreadable and removed attachments, and confirms absence only from completed reads", async () => {
-    const pullRequest = vi.fn(
-      async ({ environmentId }: { environmentId: string }) => {
-        if (environmentId === "env_absent") return { outcome: "absent" };
-        if (environmentId === "env_error") throw new Error("offline");
-        if (environmentId === "env_unavailable")
-          return { outcome: "unavailable", message: "offline" };
-        return pr("merged");
-      },
-    );
+    const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
+      if (environmentId === "env_absent") return { outcome: "absent" };
+      if (environmentId === "env_error") throw new Error("offline");
+      if (environmentId === "env_unavailable")
+        return { outcome: "unavailable", message: "offline" };
+      return pr("merged");
+    });
     const { read, attach } = setup(async ({ threadId }) => {
       if (threadId === "thr_unreadable") throw new Error("offline");
       return makeThreadResponse({
         id: threadId,
-        environmentId:
-          threadId === "thr_no_env" ? null : `env_${threadId.slice(4)}`,
+        environmentId: threadId === "thr_no_env" ? null : `env_${threadId.slice(4)}`,
         deletedAt: threadId === "thr_removed" ? 1 : null,
       });
     }, pullRequest);
@@ -184,8 +160,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
     expect(result.pullRequests.unavailableThreadIds).toHaveLength(4);
     expect(pullRequest).toHaveBeenCalledTimes(4);
     const absent = setup(
-      async ({ threadId }) =>
-        makeThreadResponse({ id: threadId, environmentId: "env_absent" }),
+      async ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_absent" }),
       pullRequest,
     );
     absent.attach("thr_absent");
@@ -201,22 +176,18 @@ describe("basic list PR lifecycle without optional plugins", () => {
     "javascript:alert(42)",
     "https://github.com/acme/bb/pull/43",
     "https://github.com/acme/bb/issues/42",
-  ])(
-    "treats invalid identity %s as unavailable, not confirmed absence",
-    async (url) => {
-      const { read, attach } = setup(
-        async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, environmentId: "env_pr" }),
-        async () => pr("open", url),
-      );
-      attach("thr_a");
-      expect((await read()).pullRequests).toEqual({
-        availability: "unavailable",
-        items: [],
-        unavailableThreadIds: ["thr_a"],
-      });
-    },
-  );
+  ])("treats invalid identity %s as unavailable, not confirmed absence", async (url) => {
+    const { read, attach } = setup(
+      async ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_pr" }),
+      async () => pr("open", url),
+    );
+    attach("thr_a");
+    expect((await read()).pullRequests).toEqual({
+      availability: "unavailable",
+      items: [],
+      unavailableThreadIds: ["thr_a"],
+    });
+  });
 
   it("uses a newer lifecycle and exposes unresolved same-identity conflicts without losing links or threads", async () => {
     const { read, attach } = setup(
@@ -226,9 +197,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
           environmentId: `env_${threadId.slice(4)}`,
         }),
       async ({ environmentId }) =>
-        environmentId === "env_a"
-          ? pr("merged", undefined, "2026-10-01T00:00:00Z")
-          : pr("open"),
+        environmentId === "env_a" ? pr("merged", undefined, "2026-10-01T00:00:00Z") : pr("open"),
     );
     attach("thr_a");
     attach("thr_b");
@@ -242,8 +211,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
           id: threadId,
           environmentId: `env_${threadId.slice(4)}`,
         }),
-      async ({ environmentId }) =>
-        environmentId === "env_a" ? pr("merged") : pr("open"),
+      async ({ environmentId }) => (environmentId === "env_a" ? pr("merged") : pr("open")),
     );
     conflicting.attach("thr_a");
     conflicting.attach("thr_b");
@@ -283,9 +251,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
         attach(id);
         vi.advanceTimersByTime(1_000);
       }
-      expect(
-        store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId),
-      ).toEqual(order);
+      expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual(order);
       expect((await read()).pullRequests).toMatchObject({
         availability: "available",
         items: [
@@ -374,27 +340,24 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const first = await reader([task.id], refresh(1, "start"));
     expect(get).toHaveBeenCalledTimes(2050);
     expect(pullRequest).toHaveBeenCalledTimes(2046);
-    expect(
-      first.byTaskId[task.id]!.pullRequests.unavailableThreadIds,
-    ).toHaveLength(4);
+    expect(first.byTaskId[task.id]!.pullRequests.unavailableThreadIds).toHaveLength(4);
     await reader([task.id], refresh(1, "continue"));
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     await vi.advanceTimersByTimeAsync(60_000);
     expect(
-      (await reader([task.id], refresh(1, "continue"))).byTaskId[task.id]!
-        .pullRequests.availability,
+      (await reader([task.id], refresh(1, "continue"))).byTaskId[task.id]!.pullRequests
+        .availability,
     ).toBe("unavailable");
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     attached = attached.slice(-4);
     expect(
-      (await reader([task.id], refresh(2, "start"))).byTaskId[task.id]!
-        .pullRequests.availability,
+      (await reader([task.id], refresh(2, "start"))).byTaskId[task.id]!.pullRequests.availability,
     ).toBe("available");
     expect(pullRequest).toHaveBeenCalledTimes(2050);
     await reader([], refresh(2, "finish"));
     expect(
-      (await reader([task.id], refresh(2, "continue"))).byTaskId[task.id]!
-        .pullRequests.availability,
+      (await reader([task.id], refresh(2, "continue"))).byTaskId[task.id]!.pullRequests
+        .availability,
     ).toBe("unavailable");
     reader.dispose();
     expect(vi.getTimerCount()).toBe(0);

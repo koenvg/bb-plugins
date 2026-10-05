@@ -15,19 +15,19 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 
 **Needs attention** and **In flight** show only active threads. Each active thread is in one of them. The first rule that matches decides:
 
-| Rule | Tab |
-|---|---|
-| Is snoozed | Neither (shows in **Snoozed** in All) |
-| Waits for an approval or an answer, has an unread error, or has a queued message that failed to send | Needs attention |
-| Has unread output | Needs attention |
-| Runs, has background work, or has a queued message that waits | In flight |
-| Has an active child thread, at any depth (runs, has background work, has a queued message, or needs you) | In flight |
-| Has no PR, or no usable PR summary | Needs attention |
-| Open PR has a failed merge queue entry | Needs attention |
-| Open PR is queued or merging in a merge queue | In flight |
-| PR has failed checks, requested changes, conflicts, or unresolved comments | Needs attention |
-| Open PR has checks running or waits for a required review | In flight |
-| Any other PR (ready, draft, behind, blocked, merged, closed) | Needs attention |
+| Rule                                                                                                     | Tab                                   |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Is snoozed                                                                                               | Neither (shows in **Snoozed** in All) |
+| Waits for an approval or an answer, has an unread error, or has a queued message that failed to send     | Needs attention                       |
+| Has unread output                                                                                        | Needs attention                       |
+| Runs, has background work, or has a queued message that waits                                            | In flight                             |
+| Has an active child thread, at any depth (runs, has background work, has a queued message, or needs you) | In flight                             |
+| Has no PR, or no usable PR summary                                                                       | Needs attention                       |
+| Open PR has a failed merge queue entry                                                                   | Needs attention                       |
+| Open PR is queued or merging in a merge queue                                                            | In flight                             |
+| PR has failed checks, requested changes, conflicts, or unresolved comments                               | Needs attention                       |
+| Open PR has checks running or waits for a required review                                                | In flight                             |
+| Any other PR (ready, draft, behind, blocked, merged, closed)                                             | Needs attention                       |
 
 A thread tree moves as one unit. The first matching tree-wide rule decides its tab:
 
@@ -51,12 +51,12 @@ Snooze marks every included member read without stopping running work. The membe
 
 The whole stored group wakes and returns through the normal tree-tab rules when:
 
-| Event | Unread behavior |
-|---|---|
-| The shared deadline comes, checked each minute on the server even with no client open | Remaining non-archived members are marked unread |
-| You select **Wake now** on any member, in its menu or the palette | Read state is unchanged |
-| Any member completes or fails a run | BB's signaling member keeps its ordinary attention/unread state; other members are not marked unread |
-| Any member waits for approval or an answer, has an unread error, or a queued message fails, as observed by an open plugin frontend | The group wakes without manufacturing unread output on other members |
+| Event                                                                                                                              | Unread behavior                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| The shared deadline comes, checked each minute on the server even with no client open                                              | Remaining non-archived members are marked unread                                                     |
+| You select **Wake now** on any member, in its menu or the palette                                                                  | Read state is unchanged                                                                              |
+| Any member completes or fails a run                                                                                                | BB's signaling member keeps its ordinary attention/unread state; other members are not marked unread |
+| Any member waits for approval or an answer, has an unread error, or a queued message fails, as observed by an open plugin frontend | The group wakes without manufacturing unread output on other members                                 |
 
 Archiving one member removes only that member's snooze. Other members stay snoozed and still wake together. Unarchive does not restore membership. PR-only changes and attention signals from threads outside the captured group do not wake it.
 
@@ -104,12 +104,12 @@ A thread row with a PR shows a PR icon on the right of the second line. The PR i
 
 An open PR in a merge queue shows its queue state instead of its blockers:
 
-| Queue state | Word | Tone | Icon |
-|---|---|---|---|
-| `queued` | **Queued #N** | waiting | none |
-| `awaiting_checks` | **Queued #N** | waiting | running checks |
-| `merging` | **Merging** | ready | none |
-| `failed` | **Queue failed** | problem | checks failed |
+| Queue state       | Word             | Tone    | Icon           |
+| ----------------- | ---------------- | ------- | -------------- |
+| `queued`          | **Queued #N**    | waiting | none           |
+| `awaiting_checks` | **Queued #N**    | waiting | running checks |
+| `merging`         | **Merging**      | ready   | none           |
+| `failed`          | **Queue failed** | problem | checks failed  |
 
 A summary without `mergeQueue`, or with an invalid one, reads as not queued.
 

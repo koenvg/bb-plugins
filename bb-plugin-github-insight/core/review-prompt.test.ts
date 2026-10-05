@@ -23,7 +23,9 @@ describe("buildReviewPrompt", () => {
   });
 
   it("names both draft commands", () => {
-    expect(prompt).toContain("bb github-insight review comment <path> --line <n> --body-file <file>");
+    expect(prompt).toContain(
+      "bb github-insight review comment <path> --line <n> --body-file <file>",
+    );
     expect(prompt).toContain("bb github-insight review summary --body-file <file>");
   });
 

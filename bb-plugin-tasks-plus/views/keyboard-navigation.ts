@@ -24,8 +24,7 @@ export function focusedNavItem(container: HTMLElement | null): HTMLElement | nul
 
 export function focusedTaskKey(container: HTMLElement | null): string | null {
   return (
-    focusedNavItem(container)?.closest<HTMLElement>("[data-task-key]")?.dataset
-      .taskKey ?? null
+    focusedNavItem(container)?.closest<HTMLElement>("[data-task-key]")?.dataset.taskKey ?? null
   );
 }
 
@@ -49,38 +48,26 @@ function currentItem(
     return undefined;
   }
   const task = active.closest("[data-task-key]");
-  return items.find(
-    (item) => item === active || item.closest("[data-task-key]") === task,
-  );
+  return items.find((item) => item === active || item.closest("[data-task-key]") === task);
 }
 
-export function moveFocusInList(
-  container: HTMLElement | null,
-  delta: 1 | -1,
-): boolean {
+export function moveFocusInList(container: HTMLElement | null, delta: 1 | -1): boolean {
   if (container === null) return false;
   const items = navItems(container);
   if (items.length === 0) return false;
   const current = currentItem(container, items);
   return focusItem(
-    current === undefined
-      ? items[0]
-      : items[clamp(items.indexOf(current) + delta, items.length)],
+    current === undefined ? items[0] : items[clamp(items.indexOf(current) + delta, items.length)],
   );
 }
 
-export function moveFocusAcrossColumns(
-  container: HTMLElement | null,
-  delta: 1 | -1,
-): boolean {
+export function moveFocusAcrossColumns(container: HTMLElement | null, delta: 1 | -1): boolean {
   if (container === null) return false;
   const columns = [...container.querySelectorAll<HTMLElement>(COLUMN)].filter(
     (column) => navItems(column).length > 0,
   );
   const current = focusedNavItem(container);
-  const columnIndex = columns.findIndex(
-    (column) => current !== null && column.contains(current),
-  );
+  const columnIndex = columns.findIndex((column) => current !== null && column.contains(current));
   if (columnIndex === -1) return focusItem(navItems(container)[0]);
   const target = columns[columnIndex + delta];
   if (target === undefined) return true;
@@ -89,10 +76,7 @@ export function moveFocusAcrossColumns(
   return focusItem(targetItems[clamp(row, targetItems.length)]);
 }
 
-export function moveFocusInColumn(
-  container: HTMLElement | null,
-  delta: 1 | -1,
-): boolean {
+export function moveFocusInColumn(container: HTMLElement | null, delta: 1 | -1): boolean {
   if (container === null) return false;
   const current = focusedNavItem(container);
   const column = current?.closest<HTMLElement>(COLUMN);

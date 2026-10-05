@@ -26,18 +26,12 @@ function readStorage(): ParsedStorage | null {
     const raw = window.localStorage.getItem(VIEW_PREFERENCE_STORAGE_KEY);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (
-      parsed === null ||
-      typeof parsed !== "object" ||
-      Array.isArray(parsed)
-    ) {
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
     const record = parsed as Record<string, unknown>;
     const version =
-      typeof record.version === "number" && Number.isFinite(record.version)
-        ? record.version
-        : null;
+      typeof record.version === "number" && Number.isFinite(record.version) ? record.version : null;
     if (version !== null && version < VIEW_PREFERENCE_VERSION) return null;
     const projects =
       record.projects !== null &&
@@ -58,11 +52,7 @@ function readStorage(): ParsedStorage | null {
 export function loadViewMode(projectId: string): TaskViewMode {
   const document = readStorage();
   if (document === null) return DEFAULT_VIEW_MODE;
-  return (
-    asViewMode(document.projects[projectId]) ??
-    document.lastUsed ??
-    DEFAULT_VIEW_MODE
-  );
+  return asViewMode(document.projects[projectId]) ?? document.lastUsed ?? DEFAULT_VIEW_MODE;
 }
 
 export function storeViewMode(projectId: string, view: TaskViewMode): void {
@@ -80,9 +70,6 @@ export function storeViewMode(projectId: string, view: TaskViewMode): void {
       lastUsed: view,
       projects,
     };
-    window.localStorage.setItem(
-      VIEW_PREFERENCE_STORAGE_KEY,
-      JSON.stringify(document),
-    );
+    window.localStorage.setItem(VIEW_PREFERENCE_STORAGE_KEY, JSON.stringify(document));
   } catch {}
 }

@@ -11,9 +11,7 @@ import {
 describe("PRIORITY_MENU_ORDER", () => {
   it("lists No priority first (0) and covers every priority once", () => {
     expect(PRIORITY_MENU_ORDER[0]).toBe("none");
-    expect([...PRIORITY_MENU_ORDER].sort()).toEqual(
-      [...TASK_PRIORITIES].sort(),
-    );
+    expect([...PRIORITY_MENU_ORDER].sort()).toEqual([...TASK_PRIORITIES].sort());
   });
 });
 

@@ -1,10 +1,6 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import {
-  TASK_SORTS,
-  TASKS_PAGE_DEFAULT_LIMIT,
-  TASKS_PAGE_MAX_LIMIT,
-} from "./pagination.js";
+import { TASK_SORTS, TASKS_PAGE_DEFAULT_LIMIT, TASKS_PAGE_MAX_LIMIT } from "./pagination.js";
 
 export const TASK_STATUSES = [
   "backlog",
@@ -15,13 +11,7 @@ export const TASK_STATUSES = [
   "canceled",
 ] as const;
 
-export const TASK_PRIORITIES = [
-  "urgent",
-  "high",
-  "medium",
-  "low",
-  "none",
-] as const;
+export const TASK_PRIORITIES = ["urgent", "high", "medium", "low", "none"] as const;
 
 export const TASK_THREAD_LIVE_STATUSES = [
   "starting",
@@ -31,10 +21,7 @@ export const TASK_THREAD_LIVE_STATUSES = [
   "failed",
 ] as const;
 
-export const PRESET_ENVIRONMENT_KINDS = [
-  "project-default",
-  "new-worktree",
-] as const;
+export const PRESET_ENVIRONMENT_KINDS = ["project-default", "new-worktree"] as const;
 
 export const ULID_PATTERN = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 export const PROJECT_PREFIX_PATTERN = /^[A-Z][A-Z0-9]{0,9}$/;
@@ -55,11 +42,7 @@ export const presetReasoningLevelSchema = z.enum([
 export type PresetReasoningLevel = z.infer<typeof presetReasoningLevelSchema>;
 export const presetServiceTierSchema = z.enum(["default", "fast"]);
 export type PresetServiceTier = z.infer<typeof presetServiceTierSchema>;
-export const PRESET_PERMISSION_MODES = [
-  "accept-edits",
-  "auto",
-  "full",
-] as const;
+export const PRESET_PERMISSION_MODES = ["accept-edits", "auto", "full"] as const;
 export const presetPermissionModeSchema = z.enum(PRESET_PERMISSION_MODES);
 export type PresetPermissionMode = z.infer<typeof presetPermissionModeSchema>;
 const presetEnvironmentKindSchema = z.enum(PRESET_ENVIRONMENT_KINDS);
@@ -75,10 +58,7 @@ const dueDateSchema = z
   .regex(ISO_DATE_PATTERN)
   .refine((value) => {
     const parsed = new Date(`${value}T00:00:00.000Z`);
-    return (
-      !Number.isNaN(parsed.valueOf()) &&
-      parsed.toISOString().slice(0, 10) === value
-    );
+    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
   }, "must be a valid calendar date in YYYY-MM-DD format");
 const taskStatusSchema = z.enum(TASK_STATUSES);
 const taskPrioritySchema = z.enum(TASK_PRIORITIES);
@@ -178,10 +158,7 @@ const commentProviderSchema = z
     icon: z.object({ glyph: z.string() }).strict().nullable(),
     strings: z
       .object({
-        iconTint: z
-          .object({ light: z.string(), dark: z.string() })
-          .strict()
-          .nullable(),
+        iconTint: z.object({ light: z.string(), dark: z.string() }).strict().nullable(),
       })
       .strict(),
   })
@@ -275,13 +252,7 @@ const prRichSchema = z
     mergeObservations: z.array(z.string()).max(4).optional(),
     queue: z
       .object({
-        state: z.enum([
-          "queued",
-          "awaiting_checks",
-          "merging",
-          "failed",
-          "unknown",
-        ]),
+        state: z.enum(["queued", "awaiting_checks", "merging", "failed", "unknown"]),
         position: z.number().int().positive().nullable(),
         reported: z.string().max(4096),
       })
@@ -427,10 +398,7 @@ const attachmentDeleteResultSchema = z.union([
 const taskLabelsSchema = z
   .array(idSchema)
   .max(100)
-  .refine(
-    (ids) => new Set(ids).size === ids.length,
-    "must not contain duplicates",
-  );
+  .refine((ids) => new Set(ids).size === ids.length, "must not contain duplicates");
 
 const updateTaskInputSchema = z
   .object({
@@ -555,15 +523,11 @@ export const tasksRpcContract = defineRpcContract({
     output: z.object({ folder: folderSchema }).strict(),
   },
   renameFolder: {
-    input: z
-      .object({ folderId: idSchema, name: nonBlankStringSchema })
-      .strict(),
+    input: z.object({ folderId: idSchema, name: nonBlankStringSchema }).strict(),
     output: z.object({ folder: folderSchema }).strict(),
   },
   moveFolder: {
-    input: z
-      .object({ folderId: idSchema, parentFolderId: idSchema.nullable() })
-      .strict(),
+    input: z.object({ folderId: idSchema, parentFolderId: idSchema.nullable() }).strict(),
     output: z.object({ folder: folderSchema }).strict(),
   },
   deleteFolder: {
@@ -587,11 +551,7 @@ export const tasksRpcContract = defineRpcContract({
         prefix: projectPrefixSchema,
         color: nonBlankStringSchema,
         folderId: idSchema.nullable().default(null),
-        linkedBbProjectId: z
-          .string()
-          .startsWith("proj_")
-          .nullable()
-          .default(null),
+        linkedBbProjectId: z.string().startsWith("proj_").nullable().default(null),
       })
       .strict(),
     output: z.object({ project: projectSchema }).strict(),
@@ -601,15 +561,11 @@ export const tasksRpcContract = defineRpcContract({
     output: z.object({ project: projectSchema }).strict(),
   },
   renameProjectPrefix: {
-    input: z
-      .object({ projectId: idSchema, prefix: projectPrefixSchema })
-      .strict(),
+    input: z.object({ projectId: idSchema, prefix: projectPrefixSchema }).strict(),
     output: projectMutationResultSchema,
   },
   deleteProject: {
-    input: z
-      .object({ projectId: idSchema, force: z.boolean().default(false) })
-      .strict(),
+    input: z.object({ projectId: idSchema, force: z.boolean().default(false) }).strict(),
     output: projectDeleteResultSchema,
   },
   listProjects: {
@@ -663,12 +619,7 @@ export const tasksRpcContract = defineRpcContract({
         search: z.string().optional(),
         dependency: z.enum(["ready", "blocked"]).optional(),
         sort: taskSortSchema.default("manual"),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(TASKS_PAGE_MAX_LIMIT)
-          .default(TASKS_PAGE_DEFAULT_LIMIT),
+        limit: z.number().int().min(1).max(TASKS_PAGE_MAX_LIMIT).default(TASKS_PAGE_DEFAULT_LIMIT),
         cursor: nonBlankStringSchema.optional(),
       })
       .strict(),
@@ -680,9 +631,7 @@ export const tasksRpcContract = defineRpcContract({
       .strict(),
   },
   addTaskDependency: {
-    input: z
-      .object({ blockerTaskId: idSchema, blockedTaskId: idSchema })
-      .strict(),
+    input: z.object({ blockerTaskId: idSchema, blockedTaskId: idSchema }).strict(),
     output: z.discriminatedUnion("ok", [
       z
         .object({
@@ -692,15 +641,11 @@ export const tasksRpcContract = defineRpcContract({
           blocked: taskSchema,
         })
         .strict(),
-      z
-        .object({ ok: z.literal(false), error: tasksDomainErrorSchema })
-        .strict(),
+      z.object({ ok: z.literal(false), error: tasksDomainErrorSchema }).strict(),
     ]),
   },
   removeTaskDependency: {
-    input: z
-      .object({ blockerTaskId: idSchema, blockedTaskId: idSchema })
-      .strict(),
+    input: z.object({ blockerTaskId: idSchema, blockedTaskId: idSchema }).strict(),
     output: z.object({ removed: z.boolean() }).strict(),
   },
   boardMove: {
@@ -778,16 +723,11 @@ export const tasksRpcContract = defineRpcContract({
         taskIds: z
           .array(idSchema)
           .transform((ids) => [...new Set(ids)])
-          .refine(
-            (ids) => ids.length <= WORK_STATUS_TASK_LIMIT,
-            "at most 500 unique task IDs",
-          ),
+          .refine((ids) => ids.length <= WORK_STATUS_TASK_LIMIT, "at most 500 unique task IDs"),
         refresh: workStatusRefreshSchema.optional(),
       })
       .strict(),
-    output: z
-      .object({ byTaskId: z.record(idSchema, taskWorkStatusSchema) })
-      .strict(),
+    output: z.object({ byTaskId: z.record(idSchema, taskWorkStatusSchema) }).strict(),
   },
   listTaskThreads: {
     input: z.object({ taskId: idSchema }).strict(),
@@ -818,20 +758,14 @@ export const tasksRpcContract = defineRpcContract({
       })
       .strict()
       .superRefine((input, ctx) => {
-        if (
-          input.environmentKind === "project-default" &&
-          input.baseBranch !== null
-        ) {
+        if (input.environmentKind === "project-default" && input.baseBranch !== null) {
           ctx.addIssue({
             code: "custom",
             path: ["baseBranch"],
             message: "requires environmentKind new-worktree",
           });
         }
-        if (
-          input.environmentKind === "project-default" &&
-          input.machineId !== null
-        ) {
+        if (input.environmentKind === "project-default" && input.machineId !== null) {
           ctx.addIssue({
             code: "custom",
             path: ["machineId"],
@@ -857,9 +791,7 @@ export const tasksRpcContract = defineRpcContract({
     input: z.object({}).strict(),
     output: z
       .object({
-        machines: z.array(
-          z.object({ id: z.string(), name: z.string() }).strict(),
-        ),
+        machines: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
       })
       .strict(),
   },
@@ -889,18 +821,14 @@ export const tasksRpcContract = defineRpcContract({
     output: z
       .object({
         bbProjects: z.array(
-          z
-            .object({ id: z.string().startsWith("proj_"), name: z.string() })
-            .strict(),
+          z.object({ id: z.string().startsWith("proj_"), name: z.string() }).strict(),
         ),
       })
       .strict(),
   },
   sidebarOpenTaskCount: {
     input: z.null(),
-    output: z
-      .object({ openTaskCount: z.number().int().nonnegative() })
-      .strict(),
+    output: z.object({ openTaskCount: z.number().int().nonnegative() }).strict(),
   },
   sidebarSummary: {
     input: z.null(),

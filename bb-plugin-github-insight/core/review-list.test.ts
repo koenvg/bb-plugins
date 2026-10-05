@@ -3,7 +3,12 @@ import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 import { parsePrFiles } from "./pr-files";
 import type { ListedCommentDraft } from "./review-drafts";
-import { formatReviewDrafts, formatReviewList, reviewListEntries, type ReviewListEntry } from "./review-list";
+import {
+  formatReviewDrafts,
+  formatReviewList,
+  reviewListEntries,
+  type ReviewListEntry,
+} from "./review-list";
 import { MAX_COMMENT_BODY_CHARS, parseReviewThreads } from "./review-threads";
 import { placeThreads } from "./thread-placement";
 
@@ -42,13 +47,21 @@ describe("reviewListEntries", () => {
 
   it("cuts a comment body at 4000 characters", () => {
     const [placed] = placement.placed;
-    const longComment = { ...placed!.thread.comments[0]!, body: "x".repeat(MAX_COMMENT_BODY_CHARS + 1) };
+    const longComment = {
+      ...placed!.thread.comments[0]!,
+      body: "x".repeat(MAX_COMMENT_BODY_CHARS + 1),
+    };
     const entries = reviewListEntries(
-      { placed: [{ ...placed!, thread: { ...placed!.thread, comments: [longComment] } }], outdated: [] },
+      {
+        placed: [{ ...placed!, thread: { ...placed!.thread, comments: [longComment] } }],
+        outdated: [],
+      },
       {},
     );
 
-    expect(entries[0]!.comments[0]!.body).toBe(`${"x".repeat(MAX_COMMENT_BODY_CHARS)}\n[cut at 4000 characters]`);
+    expect(entries[0]!.comments[0]!.body).toBe(
+      `${"x".repeat(MAX_COMMENT_BODY_CHARS)}\n[cut at 4000 characters]`,
+    );
   });
 });
 
@@ -61,7 +74,12 @@ describe("formatReviewList", () => {
     hasDraft: true,
     hasMoreComments: false,
     comments: [
-      { author: "alice", createdAt: "2026-09-18T14:34:40Z", body: "Rename this.\nPlease.", url: "u1" },
+      {
+        author: "alice",
+        createdAt: "2026-09-18T14:34:40Z",
+        body: "Rename this.\nPlease.",
+        url: "u1",
+      },
       { author: "bob", createdAt: "2026-09-18T15:00:00Z", body: "Agreed.", url: "u2" },
     ],
   };
@@ -82,7 +100,14 @@ describe("formatReviewList", () => {
 
   it("marks an unknown line and more comments on GitHub", () => {
     const text = formatReviewList([
-      { ...entry, line: null, outdated: false, hasDraft: false, hasMoreComments: true, comments: [] },
+      {
+        ...entry,
+        line: null,
+        outdated: false,
+        hasDraft: false,
+        hasMoreComments: true,
+        comments: [],
+      },
     ]);
 
     expect(text).toBe("PRRT_a  src/a.ts:?\n  More comments on GitHub\n");
@@ -119,9 +144,18 @@ describe("formatReviewDrafts", () => {
   });
 
   it("prints each comment draft with its id, path, line or range, side, and body, then the summary", () => {
-    const range = { ...comment, id: "e5f6a7b8", side: "LEFT" as const, startLine: 10, line: 12, body: "Why?" };
+    const range = {
+      ...comment,
+      id: "e5f6a7b8",
+      side: "LEFT" as const,
+      startLine: 10,
+      line: 12,
+      body: "Why?",
+    };
 
-    expect(formatReviewDrafts([comment, range], { body: "Looks good.", updatedAt: 1, source: "agent" })).toBe(
+    expect(
+      formatReviewDrafts([comment, range], { body: "Looks good.", updatedAt: 1, source: "agent" }),
+    ).toBe(
       [
         "Comment drafts:",
         "a1b2c3d4  src/a.ts:42  RIGHT",
@@ -138,6 +172,8 @@ describe("formatReviewDrafts", () => {
   });
 
   it("prints only the summary when there are no comment drafts", () => {
-    expect(formatReviewDrafts([], { body: "LGTM", updatedAt: 1, source: "user" })).toBe("Summary draft:\n    LGTM\n");
+    expect(formatReviewDrafts([], { body: "LGTM", updatedAt: 1, source: "user" })).toBe(
+      "Summary draft:\n    LGTM\n",
+    );
   });
 });

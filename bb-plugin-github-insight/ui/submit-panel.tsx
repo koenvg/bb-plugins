@@ -46,7 +46,14 @@ interface SubmitPanelProps {
   onWritten: () => void;
 }
 
-export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, onWritten }: SubmitPanelProps) {
+export function SubmitPanel({
+  threadId,
+  open,
+  head,
+  commentCount,
+  summaryDraft,
+  onWritten,
+}: SubmitPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const headingId = useId();
   const reasonId = useId();
@@ -56,7 +63,12 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<SubmitReviewResult | null>(null);
 
-  const rules = submitRules({ viewerIsAuthor: head.viewerIsAuthor, state: head.state, body: summary.text, commentCount });
+  const rules = submitRules({
+    viewerIsAuthor: head.viewerIsAuthor,
+    state: head.state,
+    body: summary.text,
+    commentCount,
+  });
   const selected = rules.find((rule) => rule.event === event) ?? rules[0]!;
 
   async function submit() {
@@ -66,7 +78,11 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
     await commentDrafts.flushAll();
     const result = await rpc
       .call("submitReview", { threadId, event: selected.event, body: summary.text })
-      .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error), url: null }));
+      .catch((error: unknown) => ({
+        kind: "error" as const,
+        message: messageOf(error),
+        url: null,
+      }));
     if (result.kind === "submitted") {
       summary.clear();
       onWritten();
@@ -83,14 +99,18 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
       className="flex shrink-0 flex-col gap-2 border-b border-border bg-muted/30 px-3 py-2.5 text-sm"
     >
       <div className="flex items-center gap-2 text-xs">
-        <h2 id={headingId} className="font-medium">Submit review</h2>
+        <h2 id={headingId} className="font-medium">
+          Submit review
+        </h2>
         {summary.fromAgent && (
           <span className="flex items-center gap-1 text-primary">
             <Icon name="Bot" className="size-3.5" />
             Summary from agent
           </span>
         )}
-        <span className="ml-auto text-muted-foreground tabular-nums">{commentsText(commentCount)}</span>
+        <span className="ml-auto text-muted-foreground tabular-nums">
+          {commentsText(commentCount)}
+        </span>
       </div>
       <textarea
         aria-label="Summary"
@@ -124,7 +144,9 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
         </button>
       </div>
       {selected.disabledReason !== null && (
-        <p id={reasonId} className="text-xs text-muted-foreground">{selected.disabledReason}</p>
+        <p id={reasonId} className="text-xs text-muted-foreground">
+          {selected.disabledReason}
+        </p>
       )}
       {summary.saveError !== null && <ErrorText>{summary.saveError}</ErrorText>}
       {outcome?.kind === "error" && (
@@ -133,7 +155,10 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
           {outcome.url !== null && (
             <>
               {" "}
-              <UrlLink href={outcome.url} className="font-medium underline-offset-2 hover:underline">
+              <UrlLink
+                href={outcome.url}
+                className="font-medium underline-offset-2 hover:underline"
+              >
                 Open the PR
               </UrlLink>
             </>
@@ -148,7 +173,8 @@ export function SubmitPanel({ threadId, open, head, commentCount, summaryDraft, 
       )}
       {outcome?.kind === "submitted" && outcome.markError !== undefined && (
         <ErrorText>
-          Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull Requests panel.
+          Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull
+          Requests panel.
         </ErrorText>
       )}
     </section>
@@ -175,7 +201,14 @@ function VerdictOption({
           : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
-      <input type="radio" name="verdict" className="sr-only" checked={checked} disabled={disabled} onChange={select} />
+      <input
+        type="radio"
+        name="verdict"
+        className="sr-only"
+        checked={checked}
+        disabled={disabled}
+        onChange={select}
+      />
       {VERDICT_LABELS[event]}
     </label>
   );

@@ -40,14 +40,10 @@ function renderHeader(
     openThreadPanel = () => true,
   }: { isCompactViewport?: boolean; openThreadPanel?: () => boolean } = {},
 ) {
-  return renderSlot(
-    app.threadHeaderActions[0]!,
-    headerProps(isCompactViewport),
-    {
-      rpc: { getTasksForThread: () => ({ tasks: getTasks() }) },
-      openThreadPanel,
-    },
-  );
+  return renderSlot(app.threadHeaderActions[0]!, headerProps(isCompactViewport), {
+    rpc: { getTasksForThread: () => ({ tasks: getTasks() }) },
+    openThreadPanel,
+  });
 }
 
 describe("Thread header task chip", () => {
@@ -80,11 +76,9 @@ describe("Thread header task chip", () => {
     const slot = renderHeader(() => []);
 
     await waitFor(() =>
-      expect(
-        slot.inspection.rpcCalls.some(
-          ({ method }) => method === "getTasksForThread",
-        ),
-      ).toBe(true),
+      expect(slot.inspection.rpcCalls.some(({ method }) => method === "getTasksForThread")).toBe(
+        true,
+      ),
     );
     expect(slot.container.textContent).toBe("");
     expect(slot.queryByRole("button")).toBeNull();
@@ -102,9 +96,7 @@ describe("Thread header task chip", () => {
       title: "ABC-12",
       params: { taskKey: "ABC-12" },
     });
-    expect(
-      slot.inspection.rpcCalls.map(({ method }) => method),
-    ).toEqual(["getTasksForThread"]);
+    expect(slot.inspection.rpcCalls.map(({ method }) => method)).toEqual(["getTasksForThread"]);
   });
 
   it("updates the status when the task changes", async () => {
@@ -118,9 +110,7 @@ describe("Thread header task chip", () => {
       projectId: PROJECT_ID,
     });
 
-    expect(
-      await slot.findByRole("button", { name: "ABC-12 Done, open task" }),
-    ).toBeDefined();
+    expect(await slot.findByRole("button", { name: "ABC-12 Done, open task" })).toBeDefined();
   });
 
   it("keeps the chip when a refresh fails", async () => {
@@ -152,9 +142,7 @@ describe("Thread header task chip", () => {
       taskId: reviewTask.id,
     });
 
-    expect(
-      await slot.findByRole("button", { name: /ABC-12/ }),
-    ).toBeDefined();
+    expect(await slot.findByRole("button", { name: /ABC-12/ })).toBeDefined();
   });
 
   it("hides the status label on a compact viewport but keeps it in the name", async () => {

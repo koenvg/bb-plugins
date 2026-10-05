@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkFailure,
-  parseFailureAnnotations,
-  type AnnotationNode,
-} from "./failure";
+import { checkFailure, parseFailureAnnotations, type AnnotationNode } from "./failure";
 
 function annotation(
   level: AnnotationNode["annotationLevel"],
@@ -18,9 +14,7 @@ function annotation(
   };
 }
 
-function detailsResponse(
-  runs: Record<string, AnnotationNode[]>,
-): unknown {
+function detailsResponse(runs: Record<string, AnnotationNode[]>): unknown {
   return {
     data: {
       nodes: Object.entries(runs).map(([id, nodes]) => ({
@@ -57,9 +51,10 @@ describe("parseFailureAnnotations", () => {
 
 describe("checkFailure", () => {
   it("uses the first failure annotation when the check has no reason text", () => {
-    const failure = checkFailure(["", null], [
-      { path: ".github", line: 1, message: "Process completed with exit code 1." },
-    ]);
+    const failure = checkFailure(
+      ["", null],
+      [{ path: ".github", line: 1, message: "Process completed with exit code 1." }],
+    );
 
     expect(failure.reason).toBe("Process completed with exit code 1.");
   });
@@ -67,12 +62,8 @@ describe("checkFailure", () => {
   it("prefers the first reason text that is not blank", () => {
     const annotations = [{ path: "a", line: 1, message: "annotation" }];
 
-    expect(checkFailure(["3 tests failed", "s"], annotations).reason).toBe(
-      "3 tests failed",
-    );
-    expect(checkFailure([" ", "Lint failed"], annotations).reason).toBe(
-      "Lint failed",
-    );
+    expect(checkFailure(["3 tests failed", "s"], annotations).reason).toBe("3 tests failed");
+    expect(checkFailure([" ", "Lint failed"], annotations).reason).toBe("Lint failed");
   });
 
   it("shows at most 5 annotations and gives the total", () => {

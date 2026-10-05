@@ -23,7 +23,16 @@ mutation ($threadId: ID!) {
 
 // `-f` sends the value as a raw string: gh does not read `@file` or convert types.
 export function replyToThreadArgs({ threadId, body }: ReplyToThreadRequest): string[] {
-  return ["api", "graphql", "-f", `query=${REPLY_MUTATION}`, "-f", `threadId=${threadId}`, "-f", `body=${body}`];
+  return [
+    "api",
+    "graphql",
+    "-f",
+    `query=${REPLY_MUTATION}`,
+    "-f",
+    `threadId=${threadId}`,
+    "-f",
+    `body=${body}`,
+  ];
 }
 
 export function setThreadResolvedArgs({ threadId, resolved }: SetThreadResolvedRequest): string[] {
@@ -41,5 +50,7 @@ const replyResponseSchema = z.object({
 
 export function isPendingReply(response: unknown): boolean {
   const parsed = replyResponseSchema.safeParse(response);
-  return parsed.success && parsed.data.data.addPullRequestReviewThreadReply.comment.state === "PENDING";
+  return (
+    parsed.success && parsed.data.data.addPullRequestReviewThreadReply.comment.state === "PENDING"
+  );
 }

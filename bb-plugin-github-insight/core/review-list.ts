@@ -20,10 +20,7 @@ export interface ReviewListEntry {
   comments: ReviewListComment[];
 }
 
-export function reviewListEntries(
-  placement: ThreadPlacement,
-  drafts: Drafts,
-): ReviewListEntry[] {
+export function reviewListEntries(placement: ThreadPlacement, drafts: Drafts): ReviewListEntry[] {
   return openThreads(placement).map(({ thread, line, outdated }) => ({
     id: thread.id,
     path: thread.path,
@@ -46,7 +43,9 @@ export function formatReviewList(entries: readonly ReviewListEntry[]): string {
 }
 
 function formatEntry(entry: ReviewListEntry): string {
-  const tags = [entry.outdated && "[outdated]", entry.hasDraft && "[draft]"].filter(Boolean).join(" ");
+  const tags = [entry.outdated && "[outdated]", entry.hasDraft && "[draft]"]
+    .filter(Boolean)
+    .join(" ");
   const heading = `${entry.id}  ${entry.path}:${entry.line ?? "?"}`;
   const lines = [tags === "" ? heading : `${heading}  ${tags}`];
   for (const comment of entry.comments) {
@@ -63,16 +62,23 @@ export function reviewCommentEntries(drafts: readonly ListedCommentDraft[]): Rev
   return drafts.map(({ updatedAt: _, source: __, ...entry }) => entry);
 }
 
-export function formatReviewDrafts(comments: readonly ReviewCommentEntry[], summary: SummaryDraft | null): string {
+export function formatReviewDrafts(
+  comments: readonly ReviewCommentEntry[],
+  summary: SummaryDraft | null,
+): string {
   const sections: string[] = [];
   if (comments.length > 0) {
     const lines = ["Comment drafts:"];
     for (const { id, path, side, line, startLine, body } of comments) {
-      lines.push(`${id}  ${path}:${startLine === null ? line : `${startLine}-${line}`}  ${side}`, ...indented(body));
+      lines.push(
+        `${id}  ${path}:${startLine === null ? line : `${startLine}-${line}`}  ${side}`,
+        ...indented(body),
+      );
     }
     sections.push(`${lines.join("\n")}\n`);
   }
-  if (summary !== null) sections.push(`${["Summary draft:", ...indented(summary.body)].join("\n")}\n`);
+  if (summary !== null)
+    sections.push(`${["Summary draft:", ...indented(summary.body)].join("\n")}\n`);
   return sections.join("\n");
 }
 

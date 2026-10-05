@@ -33,7 +33,10 @@ function gitHubWriteOf(cached: CachedPr, request: RunMergeActionRequest): Writte
   const { target, pullRequestId } = cached;
   const { expectedHeadOid } = request;
   if (mergeAction.kind === "enqueue") {
-    return { ok: true, value: { action: "enqueue", target, request: { pullRequestId, expectedHeadOid } } };
+    return {
+      ok: true,
+      value: { action: "enqueue", target, request: { pullRequestId, expectedHeadOid } },
+    };
   }
   if (mergeAction.kind === "merge") {
     return {

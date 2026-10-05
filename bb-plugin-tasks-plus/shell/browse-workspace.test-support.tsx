@@ -45,11 +45,11 @@ export const panelSize = { width: 1000 };
 export function useWorkspaceTestLifecycle() {
   beforeEach(() => {
     panelSize.width = 1000;
-    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
-      function (this: HTMLElement) {
-        return this.tagName === "MAIN" ? panelSize.width : 0;
-      },
-    );
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.tagName === "MAIN" ? panelSize.width : 0;
+    });
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -128,15 +128,11 @@ export function deferred<T>() {
   });
   return { promise, resolve };
 }
-export async function edit(
-  slot: ReturnType<typeof setup>,
-  text: string,
-  index = 0,
-) {
+export async function edit(slot: ReturnType<typeof setup>, text: string, index = 0) {
   await act(async () => {
-    const editor = slot.container.querySelectorAll<HTMLElement>(
-      ' .tiptap[contenteditable="true"]',
-    )[index]!;
+    const editor = slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[
+      index
+    ]!;
     editor.innerHTML = `<p>${text}</p>`;
     fireEvent.input(editor);
   });

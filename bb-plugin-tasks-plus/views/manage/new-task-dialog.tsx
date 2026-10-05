@@ -32,11 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -51,8 +47,7 @@ import { cn } from "@/lib/utils";
 import { CheckboxField, DEFAULT_COLOR } from "./shared.js";
 import { PRIORITY_LABELS, STATUS_LABELS } from "../list/lib.js";
 
-const CHIP_TRIGGER =
-  "h-7 w-auto gap-1.5 rounded-md px-2 text-xs text-muted-foreground";
+const CHIP_TRIGGER = "h-7 w-auto gap-1.5 rounded-md px-2 text-xs text-muted-foreground";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -105,16 +100,13 @@ export function NewTaskDialog({
   }, [open]);
 
   const projectList = projects.data ?? [];
-  const effectiveProjectId =
-    selectedProjectId ?? projectId ?? projectList[0]?.id ?? null;
-  const project =
-    projectList.find((entry) => entry.id === effectiveProjectId) ?? null;
+  const effectiveProjectId = selectedProjectId ?? projectId ?? projectList[0]?.id ?? null;
+  const project = projectList.find((entry) => entry.id === effectiveProjectId) ?? null;
 
   const labels = useTasksQuery(
     async (rpc) =>
       effectiveProjectId
-        ? (await rpc.call("listLabels", { projectId: effectiveProjectId }))
-            .labels
+        ? (await rpc.call("listLabels", { projectId: effectiveProjectId })).labels
         : [],
     ["projects:changed"],
     [effectiveProjectId],
@@ -127,9 +119,7 @@ export function NewTaskDialog({
 
   const toggleLabel = (labelId: string) =>
     setLabelIds((current) =>
-      current.includes(labelId)
-        ? current.filter((id) => id !== labelId)
-        : [...current, labelId],
+      current.includes(labelId) ? current.filter((id) => id !== labelId) : [...current, labelId],
     );
 
   const createLabelFromQuery = async () => {
@@ -179,9 +169,7 @@ export function NewTaskDialog({
     // oxlint-disable-next-line react/exhaustive-deps
   }, [createdTask, pendingFiles.length]);
 
-  const hasOversized = pendingFiles.some(
-    (entry) => entry.status === "oversized",
-  );
+  const hasOversized = pendingFiles.some((entry) => entry.status === "oversized");
   const canSubmit =
     effectiveProjectId !== null &&
     title.trim().length > 0 &&
@@ -238,9 +226,7 @@ export function NewTaskDialog({
     () => (labels.data ?? []).filter((label) => labelIds.includes(label.id)),
     [labels.data, labelIds],
   );
-  const failedCount = pendingFiles.filter(
-    (entry) => entry.status === "failed",
-  ).length;
+  const failedCount = pendingFiles.filter((entry) => entry.status === "failed").length;
 
   return (
     <Dialog open={open} onOpenChange={requestClose}>
@@ -253,8 +239,7 @@ export function NewTaskDialog({
           }
         }}
         onPaste={(event) => {
-          if (event.defaultPrevented || submitting || createdTask !== null)
-            return;
+          if (event.defaultPrevented || submitting || createdTask !== null) return;
           const files = [...(event.clipboardData?.files ?? [])];
           if (files.length === 0) return;
           event.preventDefault();
@@ -278,13 +263,12 @@ export function NewTaskDialog({
         {createdTask ? (
           <div className="px-4 pt-2">
             <p role="alert" className="text-sm">
-              Task <span className="font-medium">{createdTask.key}</span> was
-              created, but {failedCount} attachment
+              Task <span className="font-medium">{createdTask.key}</span> was created, but{" "}
+              {failedCount} attachment
               {failedCount === 1 ? "" : "s"} failed to upload.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Retry the uploads below, remove a file to skip it, or skip them
-              all and open the task.
+              Retry the uploads below, remove a file to skip it, or skip them all and open the task.
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {pendingFiles.map((entry) => (
@@ -292,11 +276,7 @@ export function NewTaskDialog({
                   key={entry.id}
                   entry={entry}
                   onRemove={() => removeFile(entry.id)}
-                  onRetry={
-                    entry.status === "failed"
-                      ? () => void retryUpload(entry)
-                      : undefined
-                  }
+                  onRetry={entry.status === "failed" ? () => void retryUpload(entry) : undefined}
                 />
               ))}
             </div>
@@ -346,19 +326,10 @@ export function NewTaskDialog({
           ) : null}
         </div>
         <div
-          className={cn(
-            "flex flex-wrap items-center gap-1.5 px-4 pt-3",
-            createdTask && "hidden",
-          )}
+          className={cn("flex flex-wrap items-center gap-1.5 px-4 pt-3", createdTask && "hidden")}
         >
-          <Select
-            value={effectiveProjectId ?? undefined}
-            onValueChange={changeProject}
-          >
-            <SelectTrigger
-              aria-label="Project"
-              className={cn(CHIP_TRIGGER, "max-w-44")}
-            >
+          <Select value={effectiveProjectId ?? undefined} onValueChange={changeProject}>
+            <SelectTrigger aria-label="Project" className={cn(CHIP_TRIGGER, "max-w-44")}>
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
@@ -376,10 +347,7 @@ export function NewTaskDialog({
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={status}
-            onValueChange={(value) => setStatus(value as TaskStatus)}
-          >
+          <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
             <SelectTrigger aria-label="Status" className={CHIP_TRIGGER}>
               <SelectValue />
             </SelectTrigger>
@@ -391,10 +359,7 @@ export function NewTaskDialog({
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={priority}
-            onValueChange={(value) => setPriority(value as TaskPriority)}
-          >
+          <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
             <SelectTrigger aria-label="Priority" className={CHIP_TRIGGER}>
               <SelectValue />
             </SelectTrigger>
@@ -445,11 +410,7 @@ export function NewTaskDialog({
                   onValueChange={setLabelQuery}
                 />
                 <CommandList>
-                  <CommandEmpty
-                    className={
-                      labelQuery.trim() !== "" ? "p-1 text-left" : undefined
-                    }
-                  >
+                  <CommandEmpty className={labelQuery.trim() !== "" ? "p-1 text-left" : undefined}>
                     {labelQuery.trim() !== "" ? (
                       <button
                         type="button"
@@ -538,11 +499,7 @@ export function NewTaskDialog({
                     event.target.value = "";
                   }}
                 />
-                <Button
-                  size="sm"
-                  disabled={!canSubmit}
-                  onClick={() => void submit()}
-                >
+                <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>
                   Create task
                 </Button>
               </div>

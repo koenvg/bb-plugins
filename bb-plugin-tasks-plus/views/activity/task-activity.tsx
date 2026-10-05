@@ -7,20 +7,11 @@ import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import Notification02Icon from "@hugeicons/core-free-icons/Notification02Icon";
 import NotificationOff02Icon from "@hugeicons/core-free-icons/NotificationOff02Icon";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { TasksEditor } from "../../editor/tasks-editor.js";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
-import {
-  useMentionItems,
-  useTasksQuery,
-  useTasksRpc,
-} from "../../shell/data.js";
+import { useMentionItems, useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { Lightbox } from "../detail/attachments.js";
 import {
   AttachmentChip,
@@ -31,18 +22,9 @@ import {
   type StagedAttachment,
 } from "../../components/staged-attachments.js";
 import { attachmentDownloadUrl } from "../../shared/attachments.js";
-import type {
-  Attachment,
-  Comment,
-  DisplayComment,
-} from "../../shared/contract.js";
+import type { Attachment, Comment, DisplayComment } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
-import {
-  formatFileSize,
-  formatRelativeTime,
-  splitSystemBody,
-  useNowTick,
-} from "./time.js";
+import { formatFileSize, formatRelativeTime, splitSystemBody, useNowTick } from "./time.js";
 import { CommentAuthor } from "./comment-author.js";
 import { CommentProviderAvatar } from "./provider-logo.js";
 
@@ -183,10 +165,7 @@ export function AttachmentTracks({
       ) : null}
       {images.length > 0 ? (
         <div
-          className={cn(
-            "flex flex-wrap items-start gap-x-2.5 gap-y-2",
-            files.length > 0 && "mt-2",
-          )}
+          className={cn("flex flex-wrap items-start gap-x-2.5 gap-y-2", files.length > 0 && "mt-2")}
         >
           {images.map((attachment) => (
             <ImageAttachmentFigure
@@ -209,15 +188,14 @@ function SystemEvent({ comment, nowMs }: { comment: Comment; nowMs: number }) {
         className="mx-[7px] size-2 shrink-0 rounded-full border-2 border-muted bg-card"
       />
       <span className="min-w-0 truncate">
-        {splitSystemBody(comment.body, comment.authorName).map(
-          (segment, index) =>
-            segment.bold ? (
-              <span key={index} className="font-medium text-foreground/80">
-                {segment.text}
-              </span>
-            ) : (
-              <span key={index}>{segment.text}</span>
-            ),
+        {splitSystemBody(comment.body, comment.authorName).map((segment, index) =>
+          segment.bold ? (
+            <span key={index} className="font-medium text-foreground/80">
+              {segment.text}
+            </span>
+          ) : (
+            <span key={index}>{segment.text}</span>
+          ),
         )}
         <span className="text-muted-foreground/70">
           {" · "}
@@ -260,14 +238,9 @@ function CommentCard({ entry, nowMs }: { entry: FeedEntry; nowMs: number }) {
           onOpenThread={(threadId) => navigate.toThread(threadId)}
         />
         {attachments.length > 0 ? (
-          <AttachmentTracks
-            attachments={attachments}
-            onOpenImage={setLightbox}
-          />
+          <AttachmentTracks attachments={attachments} onOpenImage={setLightbox} />
         ) : null}
-        {lightbox ? (
-          <Lightbox attachment={lightbox} onClose={() => setLightbox(null)} />
-        ) : null}
+        {lightbox ? <Lightbox attachment={lightbox} onClose={() => setLightbox(null)} /> : null}
         {comment.kind === "user" && comment.notifiedCount > 0 ? (
           <div className="mt-1 flex items-center gap-1 text-2xs font-medium text-success">
             <HugeiconsIcon icon={Notification02Icon} className="size-2.5" />
@@ -289,11 +262,7 @@ export function CommentComposer(props: ComposerProps) {
   return <TaskCommentComposer key={props.taskId} {...props} />;
 }
 
-function TaskCommentComposer({
-  taskId,
-  notificationTarget,
-  onEditorReady,
-}: ComposerProps) {
+function TaskCommentComposer({ taskId, notificationTarget, onEditorReady }: ComposerProps) {
   const rpc = useTasksRpc();
   const navigate = useBbNavigate();
   const mentionItems = useMentionItems();
@@ -303,13 +272,10 @@ function TaskCommentComposer({
   const setNotify = (notify: boolean) => record.update({ notify });
   const setError = (error: string | null) => record.update({ error });
   const setPendingFiles = (
-    value:
-      | StagedAttachment[]
-      | ((files: StagedAttachment[]) => StagedAttachment[]),
+    value: StagedAttachment[] | ((files: StagedAttachment[]) => StagedAttachment[]),
   ) =>
     record.update((current) => ({
-      pendingFiles:
-        typeof value === "function" ? value(current.pendingFiles) : value,
+      pendingFiles: typeof value === "function" ? value(current.pendingFiles) : value,
     }));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -319,9 +285,7 @@ function TaskCommentComposer({
   const removeFile = (id: number) =>
     setPendingFiles((files) => files.filter((entry) => entry.id !== id));
 
-  const retryUpload = useStagedAttachmentRetry(setPendingFiles, () =>
-    setError(null),
-  );
+  const retryUpload = useStagedAttachmentRetry(setPendingFiles, () => setError(null));
 
   const send = async () => {
     const submitted = record.getSnapshot();
@@ -376,18 +340,12 @@ function TaskCommentComposer({
               key={entry.id}
               entry={entry}
               onRemove={() => removeFile(entry.id)}
-              onRetry={
-                entry.status === "failed"
-                  ? () => void retryUpload(entry)
-                  : undefined
-              }
+              onRetry={entry.status === "failed" ? () => void retryUpload(entry) : undefined}
             />
           ))}
         </div>
       ) : null}
-      {error ? (
-        <div className="mt-2 text-xs text-destructive">{error}</div>
-      ) : null}
+      {error ? <div className="mt-2 text-xs text-destructive">{error}</div> : null}
       <div className="mt-2 flex items-center gap-1.5">
         <AgentNotificationControl
           target={notificationTarget}
@@ -401,8 +359,7 @@ function TaskCommentComposer({
           className="hidden"
           onChange={(event) => {
             const files = [...(event.target.files ?? [])];
-            if (files.length > 0)
-              setPendingFiles((current) => [...current, ...stageFiles(files)]);
+            if (files.length > 0) setPendingFiles((current) => [...current, ...stageFiles(files)]);
             event.target.value = "";
           }}
         />
@@ -487,10 +444,7 @@ interface TaskActivityProps {
   onCommentEditorReady?: (editor: Editor) => void;
 }
 
-export function TaskActivity({
-  taskId,
-  onCommentEditorReady,
-}: TaskActivityProps) {
+export function TaskActivity({ taskId, onCommentEditorReady }: TaskActivityProps) {
   const feed = useActivityFeed(taskId);
   const nowMs = useNowTick();
   const entries = useMemo(() => feed.data ?? [], [feed.data]);
@@ -510,19 +464,13 @@ export function TaskActivity({
             "before:absolute before:bottom-1.5 before:left-[11px] before:top-1.5 before:w-px before:bg-border-hairline",
         )}
       >
-        {feed.error ? (
-          <div className="text-xs text-destructive">{feed.error}</div>
-        ) : null}
+        {feed.error ? <div className="text-xs text-destructive">{feed.error}</div> : null}
         {entries.length === 0 && !feed.isLoading && !feed.error ? (
           <div className="text-xs text-muted-foreground">No activity yet.</div>
         ) : null}
         {entries.map((entry) =>
           entry.comment.kind === "system" ? (
-            <SystemEvent
-              key={entry.comment.id}
-              comment={entry.comment}
-              nowMs={nowMs}
-            />
+            <SystemEvent key={entry.comment.id} comment={entry.comment} nowMs={nowMs} />
           ) : (
             <CommentCard key={entry.comment.id} entry={entry} nowMs={nowMs} />
           ),

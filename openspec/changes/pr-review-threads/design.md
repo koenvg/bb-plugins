@@ -12,11 +12,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - One GitHub read path (files + threads) for the tab and the CLI.
 - Keep GitHub response parsing, thread placement, and the agent prompt in pure functions with tests on recorded responses.
 - Keep the host entry narrow: one handler per GitHub call, no general "run any query" handler.
 
 **Non-Goals:**
+
 - Background polling of review threads. The tab loads on open, after writes, and on refresh.
 - A shared review UI package for other plugins.
 - A local database of threads. GitHub is the source of truth. Only drafts are stored locally.

@@ -23,14 +23,42 @@ const LIFECYCLE: Record<PrInsight["pr"]["state"], StatusRow> = {
   open: { text: "Open", icon: "GitPullRequest", iconClassName: "text-muted-foreground" },
   draft: { text: "Draft", icon: "GitPullRequest", iconClassName: "text-muted-foreground" },
   closed: { text: "Closed", icon: "GitPullRequest", iconClassName: "text-muted-foreground" },
-  merged: { text: "Pull request merged", icon: "GitMerge", iconClassName: "text-violet-700 [.dark_&]:text-violet-300" },
+  merged: {
+    text: "Pull request merged",
+    icon: "GitMerge",
+    iconClassName: "text-violet-700 [.dark_&]:text-violet-300",
+  },
 };
 
-const QUEUE_ROW: Record<NonNullable<PrInsight["mergeQueue"]>["state"], (position: number) => StatusDetail> = {
-  queued: (position) => ({ kind: "queue", text: `In merge queue (#${position})`, icon: "Circle", iconClassName: "text-muted-foreground" }),
-  awaiting_checks: (position) => ({ kind: "queue", text: `Merge queue checks running (#${position})`, icon: "Spinner", iconClassName: "text-attention" }),
-  merging: () => ({ kind: "queue", text: "Merging", icon: "CircleCheck", iconClassName: "text-success" }),
-  failed: () => ({ kind: "queue", text: "Merge queue failed", icon: "CircleX", iconClassName: "text-destructive", textClassName: "text-destructive" }),
+const QUEUE_ROW: Record<
+  NonNullable<PrInsight["mergeQueue"]>["state"],
+  (position: number) => StatusDetail
+> = {
+  queued: (position) => ({
+    kind: "queue",
+    text: `In merge queue (#${position})`,
+    icon: "Circle",
+    iconClassName: "text-muted-foreground",
+  }),
+  awaiting_checks: (position) => ({
+    kind: "queue",
+    text: `Merge queue checks running (#${position})`,
+    icon: "Spinner",
+    iconClassName: "text-attention",
+  }),
+  merging: () => ({
+    kind: "queue",
+    text: "Merging",
+    icon: "CircleCheck",
+    iconClassName: "text-success",
+  }),
+  failed: () => ({
+    kind: "queue",
+    text: "Merge queue failed",
+    icon: "CircleX",
+    iconClassName: "text-destructive",
+    textClassName: "text-destructive",
+  }),
 };
 
 /** Lifecycle governs visibility. Merge detail never changes that lifecycle. */
@@ -44,7 +72,12 @@ export function prStatusView(insight: PrInsight): PrStatusView {
       return status;
     }
     if (insight.mergeAction.kind === "queued") {
-      status.detail = { kind: "queue", text: "In merge queue", icon: "Circle", iconClassName: "text-muted-foreground" };
+      status.detail = {
+        kind: "queue",
+        text: "In merge queue",
+        icon: "Circle",
+        iconClassName: "text-muted-foreground",
+      };
       return status;
     }
   }
@@ -53,10 +86,24 @@ export function prStatusView(insight: PrInsight): PrStatusView {
   const compactBlockers = insight.blockers.filter((blocker) => blocker.code !== "draft");
   const parts = bannerParts({ ...insight, blockers: compactBlockers });
   if (parts.length > 0) {
-    status.detail = { kind: "blockers", text: parts.join(" · "), icon: "AlertCircle", iconClassName: blockerTone(compactBlockers[0]!.code) };
-  } else if (insight.pr.state === "open" && insight.blockers.length === 0 && (insight.mergeAction.kind === "merge" || insight.mergeAction.kind === "enqueue")) {
+    status.detail = {
+      kind: "blockers",
+      text: parts.join(" · "),
+      icon: "AlertCircle",
+      iconClassName: blockerTone(compactBlockers[0]!.code),
+    };
+  } else if (
+    insight.pr.state === "open" &&
+    insight.blockers.length === 0 &&
+    (insight.mergeAction.kind === "merge" || insight.mergeAction.kind === "enqueue")
+  ) {
     status.action = insight.mergeAction;
-    status.detail = { kind: "ready", text: insight.mergeAction.kind === "enqueue" ? "Ready to enqueue" : "Ready to merge", icon: "CircleCheck", iconClassName: "text-success" };
+    status.detail = {
+      kind: "ready",
+      text: insight.mergeAction.kind === "enqueue" ? "Ready to enqueue" : "Ready to merge",
+      icon: "CircleCheck",
+      iconClassName: "text-success",
+    };
   }
   return status;
 }

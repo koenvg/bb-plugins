@@ -7,16 +7,26 @@ export interface SnoozeThread {
   isHidden: boolean;
 }
 
-type ServerThread = Pick<Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["list"]>>[number],
-  "id" | "parentThreadId" | "archivedAt" | "visibility">;
+type ServerThread = Pick<
+  Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["list"]>>[number],
+  "id" | "parentThreadId" | "archivedAt" | "visibility"
+>;
 
 export const snoozeThreadFromServer = (row: ServerThread): SnoozeThread => ({
-  id: row.id, parentThreadId: row.parentThreadId, isArchived: row.archivedAt !== null, isHidden: row.visibility === "hidden",
+  id: row.id,
+  parentThreadId: row.parentThreadId,
+  isArchived: row.archivedAt !== null,
+  isHidden: row.visibility === "hidden",
 });
 
 /** Fetch both lifecycles: excluded parents can still connect active descendants. */
 export async function listSnoozeThreads(threads: {
-  list(args: { archived: boolean; includeHidden: boolean; limit: number; offset: number }): Promise<readonly ServerThread[]>;
+  list(args: {
+    archived: boolean;
+    includeHidden: boolean;
+    limit: number;
+    offset: number;
+  }): Promise<readonly ServerThread[]>;
 }): Promise<SnoozeThread[]> {
   const rows = new Map<string, SnoozeThread>();
   for (const archived of [false, true]) {
@@ -30,7 +40,10 @@ export async function listSnoozeThreads(threads: {
 }
 
 /** Captured membership, independent of sidebar grouping, collapse, and projects. */
-export function subtreeMembers<T extends SnoozeThread>(threads: readonly T[], selectedId: string): T[] {
+export function subtreeMembers<T extends SnoozeThread>(
+  threads: readonly T[],
+  selectedId: string,
+): T[] {
   const byId = new Map(threads.map((thread) => [thread.id, thread]));
   const children = new Map<string, string[]>();
   for (const thread of threads) {
@@ -39,7 +52,9 @@ export function subtreeMembers<T extends SnoozeThread>(threads: readonly T[], se
     ids.push(thread.id);
     children.set(thread.parentThreadId, ids);
   }
-  const pending = [selectedId], visited = new Set<string>(), members: T[] = [];
+  const pending = [selectedId],
+    visited = new Set<string>(),
+    members: T[] = [];
   while (pending.length) {
     const id = pending.pop()!;
     if (visited.has(id)) continue;
@@ -47,7 +62,7 @@ export function subtreeMembers<T extends SnoozeThread>(threads: readonly T[], se
     const thread = byId.get(id);
     if (!thread) continue;
     if (!thread.isArchived && !thread.isHidden) members.push(thread);
-    pending.push(...children.get(id) ?? []);
+    pending.push(...(children.get(id) ?? []));
   }
   return members;
 }

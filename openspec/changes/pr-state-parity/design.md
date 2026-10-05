@@ -39,19 +39,19 @@ Alternative rejected: add Draft and Closed branches only in the banner. That fix
 
 ### 3. Separate lifecycle from detail and available actions
 
-| Input | Lifecycle/outcome | Compact detail | Merge action |
-| --- | --- | --- | --- |
-| Draft, no blockers | Draft | None | None |
-| Draft, blockers | Draft | Existing compact summary, without duplicate Draft | None |
-| Open, blockers | Open | Existing compact summary | None |
-| Open, valid action | Open | Ready to merge/enqueue | Existing action |
-| Open, no action | Open | None | None |
-| Open, queued | Open | In merge queue (#N) | None |
-| Open, awaiting_checks | Open | Merge queue checks running (#N) | None |
-| Open, merging | Open | Merging | None |
-| Open, failed queue | Open | Merge queue failed, problem tone | None |
-| Closed | Closed | None | None |
-| Merged | Pull request merged | None | None |
+| Input                 | Lifecycle/outcome   | Compact detail                                    | Merge action    |
+| --------------------- | ------------------- | ------------------------------------------------- | --------------- |
+| Draft, no blockers    | Draft               | None                                              | None            |
+| Draft, blockers       | Draft               | Existing compact summary, without duplicate Draft | None            |
+| Open, blockers        | Open                | Existing compact summary                          | None            |
+| Open, valid action    | Open                | Ready to merge/enqueue                            | Existing action |
+| Open, no action       | Open                | None                                              | None            |
+| Open, queued          | Open                | In merge queue (#N)                               | None            |
+| Open, awaiting_checks | Open                | Merge queue checks running (#N)                   | None            |
+| Open, merging         | Open                | Merging                                           | None            |
+| Open, failed queue    | Open                | Merge queue failed, problem tone                  | None            |
+| Closed                | Closed              | None                                              | None            |
+| Merged                | Pull request merged | None                                              | None            |
 
 An absent action reason is not available in the current insight contract. Show Open without inventing a reason or changing the backend. Do not add a passed-check count to the banner in this change; the side panel remains the full-detail view.
 

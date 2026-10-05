@@ -43,9 +43,9 @@ describe("bannerParts", () => {
 
   it("counts pending reviewers only", () => {
     const approved: Reviewer = { ...pending("c"), state: "approved" };
-    expect(
-      bannerParts(insight([reviewRequired], [pending("a"), pending("b"), approved])),
-    ).toEqual(["2 reviews pending"]);
+    expect(bannerParts(insight([reviewRequired], [pending("a"), pending("b"), approved]))).toEqual([
+      "2 reviews pending",
+    ]);
   });
 
   it("shows only the most important other blocker", () => {

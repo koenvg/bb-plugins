@@ -105,7 +105,9 @@ function rowsOf(view: ReviewQueueView): QueueRow[] {
 }
 
 function mergeRows({ requests, tracked }: FetchedQueue): QueueRow[] {
-  const rows = requests.groups.flatMap((group) => group.prs.map((pr) => ({ ...pr, requested: true })));
+  const rows = requests.groups.flatMap((group) =>
+    group.prs.map((pr) => ({ ...pr, requested: true })),
+  );
   const keys = new Set(rows.map((row) => prKey(row.repo, row.number)));
   for (const pr of tracked) {
     const key = prKey(pr.repo, pr.number);
@@ -121,14 +123,20 @@ function needsYou(pr: LinkedQueuePr): boolean {
 }
 
 function byAttentionThenUpdate(a: LinkedQueuePr, b: LinkedQueuePr): number {
-  return Number(needsYou(b)) - Number(needsYou(a)) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+  return (
+    Number(needsYou(b)) - Number(needsYou(a)) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  );
 }
 
 function sectionOf(prs: LinkedQueuePr[]): QueueSection {
   const byRepo = new Map<string, LinkedQueuePr[]>();
   for (const pr of prs) byRepo.set(pr.repo, [...(byRepo.get(pr.repo) ?? []), pr]);
   return [...byRepo]
-    .map(([repo, group]) => ({ repo, prs: group.sort(byAttentionThenUpdate), attention: group.some(needsYou) }))
+    .map(([repo, group]) => ({
+      repo,
+      prs: group.sort(byAttentionThenUpdate),
+      attention: group.some(needsYou),
+    }))
     .sort((a, b) => Number(b.attention) - Number(a.attention) || a.repo.localeCompare(b.repo))
     .map(({ repo, prs: group }) => ({ repo, prs: group }));
 }
@@ -213,7 +221,11 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return byPr;
   }
 
-  async function linkView(rows: QueueRow[], truncated: boolean, loadedAt: number): Promise<ReviewQueueView> {
+  async function linkView(
+    rows: QueueRow[],
+    truncated: boolean,
+    loadedAt: number,
+  ): Promise<ReviewQueueView> {
     const loadingReviews = startedReviews();
     const [projectIds, reviews, threads, marked] = await Promise.all([
       projectIdsByRepo(),
@@ -227,7 +239,11 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     const linkThread = (thread: QueueThread | undefined): LinkedThread | null =>
       thread === undefined
         ? null
-        : { id: thread.id, status: threadStatus(thread), isReviewThread: reviewThreadIds.has(thread.id) };
+        : {
+            id: thread.id,
+            status: threadStatus(thread),
+            isReviewThread: reviewThreadIds.has(thread.id),
+          };
     const linked = rows.flatMap((row): LinkedQueuePr[] => {
       const key = prKey(row.repo, row.number);
       const reviewedHead = reviewedHeads.get(key) ?? null;
@@ -251,7 +267,10 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
 
   async function trackedRefs(): Promise<PullRequestRef[]> {
     const [marked, reviews] = await Promise.all([marks.list(), startedReviews()]);
-    const refs = [...marked.map((mark) => mark.ref), ...reviews.map(({ pr }) => refOf(pr.repo, pr.number))];
+    const refs = [
+      ...marked.map((mark) => mark.ref),
+      ...reviews.map(({ pr }) => refOf(pr.repo, pr.number)),
+    ];
     const byKey = new Map<string, PullRequestRef>();
     for (const ref of refs) {
       if (ref !== null && !byKey.has(refKey(ref))) byKey.set(refKey(ref), ref);
@@ -264,7 +283,9 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
       gone.map((ref) =>
         marks
           .delete(ref)
-          .catch((error) => deps.warn(`Could not delete the reviewed mark of ${refKey(ref)}: ${errorText(error)}`)),
+          .catch((error) =>
+            deps.warn(`Could not delete the reviewed mark of ${refKey(ref)}: ${errorText(error)}`),
+          ),
       ),
     );
   }
@@ -285,7 +306,9 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
       const previous = await readStored().catch(() => null);
       result = { kind: "error", message: errorText(error), lastGood: previous && viewOf(previous) };
     }
-    await store(result).catch((error) => deps.warn(`Review queue store failed: ${errorText(error)}`));
+    await store(result).catch((error) =>
+      deps.warn(`Review queue store failed: ${errorText(error)}`),
+    );
     return result;
   }
 
@@ -356,7 +379,11 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return view !== null && rowsOf(view).some((row) => prKey(row.repo, row.number) === refKey(ref));
   }
 
-  async function markReviewed({ repo, number, headOid }: MarkReviewedRequest): Promise<ActionResult> {
+  async function markReviewed({
+    repo,
+    number,
+    headOid,
+  }: MarkReviewedRequest): Promise<ActionResult> {
     const ref = refOf(repo, number);
     if (ref === null) return { kind: "error", message: INVALID_REPOSITORY_MESSAGE };
     try {

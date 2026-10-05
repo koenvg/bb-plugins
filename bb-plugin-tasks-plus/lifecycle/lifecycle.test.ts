@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../api";
 import type { TaskThreadLiveStatus } from "../db";
@@ -68,9 +65,7 @@ describe("task thread lifecycle", () => {
 
     await registerLifecycle(fixture.bb, fixture.store);
 
-    expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_worker" }],
-    ]);
+    expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_worker" }]]);
 
     await fixture.harness.dispose();
   });
@@ -87,9 +82,7 @@ describe("task thread lifecycle", () => {
       }),
     });
 
-    expect(
-      fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus,
-    ).toBe("completed");
+    expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("completed");
     expect(fixture.store.tasks.listComments(fixture.taskId)).toContainEqual(
       expect.objectContaining({
         kind: "system",
@@ -120,12 +113,8 @@ describe("task thread lifecycle", () => {
       error: "provider exited",
     });
 
-    expect(
-      fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus,
-    ).toBe("failed");
-    const commentsAfterFailure = fixture.store.tasks.listComments(
-      fixture.taskId,
-    );
+    expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("failed");
+    const commentsAfterFailure = fixture.store.tasks.listComments(fixture.taskId);
     expect(commentsAfterFailure).toContainEqual(
       expect.objectContaining({
         kind: "system",
@@ -144,12 +133,8 @@ describe("task thread lifecycle", () => {
         status: "active",
       }),
     });
-    expect(
-      fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus,
-    ).toBe("working");
-    expect(fixture.store.tasks.listComments(fixture.taskId)).toEqual(
-      commentsAfterFailure,
-    );
+    expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("working");
+    expect(fixture.store.tasks.listComments(fixture.taskId)).toEqual(commentsAfterFailure);
 
     await fixture.harness.dispose();
   });
@@ -159,12 +144,8 @@ describe("task thread lifecycle", () => {
 
     await registerLifecycle(fixture.bb, fixture.store);
 
-    expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_worker" }],
-    ]);
-    expect(
-      fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus,
-    ).toBe("idle");
+    expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_worker" }]]);
+    expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("idle");
     expect(fixture.harness.realtimeSignals).toEqual([
       { channel: "threads:changed", payload: { taskId: fixture.taskId } },
       { channel: "comments:changed", payload: { taskId: fixture.taskId } },
@@ -175,17 +156,14 @@ describe("task thread lifecycle", () => {
 
   it("registers all lifecycle listeners before startup reconciliation", async () => {
     let handlersAtFirstRead:
-      | ReturnType<
-          typeof createFakePluginHost
-        >["harness"]["registrations"]["threadEventHandlers"]
+      | ReturnType<typeof createFakePluginHost>["harness"]["registrations"]["threadEventHandlers"]
       | undefined;
     const host = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
           get: async () => {
-            handlersAtFirstRead =
-              host.harness.registrations.threadEventHandlers;
+            handlersAtFirstRead = host.harness.registrations.threadEventHandlers;
             return makeThreadResponse({
               id: "thr_fast",
               status: "starting",
@@ -245,9 +223,7 @@ describe("task thread lifecycle", () => {
       }),
     });
 
-    expect(
-      fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus,
-    ).toBe("working");
+    expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("working");
     expect(fixture.harness.sdk.callsTo("threads.get")).toHaveLength(1);
     expect(fixture.harness.sdk.callsTo("subscribe")).toEqual([]);
 
@@ -293,12 +269,8 @@ describe("task thread lifecycle", () => {
       await registerLifecycle(host.bb, store);
       const service = host.harness.runService("thread-status-reconcile");
 
-      await vi.advanceTimersByTimeAsync(
-        THREAD_STATUS_RECONCILE_INTERVAL_MS - 1,
-      );
-      expect(store.tasks.getTaskThread(tracked.id)?.liveStatus).toBe(
-        "starting",
-      );
+      await vi.advanceTimersByTimeAsync(THREAD_STATUS_RECONCILE_INTERVAL_MS - 1);
+      expect(store.tasks.getTaskThread(tracked.id)?.liveStatus).toBe("starting");
 
       await vi.advanceTimersByTimeAsync(1);
       expect(store.tasks.getTaskThread(tracked.id)?.liveStatus).toBe("working");
@@ -317,8 +289,7 @@ describe("task thread lifecycle", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () =>
-            makeThreadResponse({ id: "thr_later", status: "active" }),
+          get: async () => makeThreadResponse({ id: "thr_later", status: "active" }),
         },
       },
     });
@@ -347,15 +318,11 @@ describe("task thread lifecycle", () => {
       await vi.advanceTimersByTimeAsync(THREAD_STATUS_IDLE_INTERVAL_MS);
       expect(host.harness.sdk.callsTo("threads.get")).toEqual([]);
 
-      await vi.advanceTimersByTimeAsync(
-        THREAD_STATUS_RECONCILE_INTERVAL_MS - 1,
-      );
+      await vi.advanceTimersByTimeAsync(THREAD_STATUS_RECONCILE_INTERVAL_MS - 1);
       expect(host.harness.sdk.callsTo("threads.get")).toEqual([]);
 
       await vi.advanceTimersByTimeAsync(1);
-      expect(host.harness.sdk.callsTo("threads.get")).toEqual([
-        [{ threadId: "thr_later" }],
-      ]);
+      expect(host.harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_later" }]]);
       expect(store.tasks.getTaskThread(tracked.id)?.liveStatus).toBe("working");
 
       service.controller.abort();

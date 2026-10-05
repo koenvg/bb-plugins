@@ -7,7 +7,7 @@ import { DiffStat } from "../../review-ui/diff-stat";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../review-ui/styles";
 import type { DiffView } from "../../review-ui/review-file-diff";
 import type { rpcContract } from "../contract";
-import type { BranchCommit, ChangedFile, DiffTarget } from "../core/changes";
+import { targetKey, type BranchCommit, type ChangedFile, type DiffTarget } from "../core/changes";
 import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
 import { placeByAnchor, type FileLines } from "../core/place-comments";
 import { buildReviewPrompt, sortComments } from "../core/review-prompt";
@@ -16,8 +16,9 @@ import { FileSection } from "./file-section";
 import { NotInDiff } from "./not-in-diff";
 import { SendFeedbackDialog } from "./send-feedback-dialog";
 import { useChanges } from "./use-changes";
-import { usePatches, type LoadedChanges, type PatchState } from "./use-patches";
+import { usePatches, type LoadedChanges, type PatchState, type Patches } from "./use-patches";
 import { usePendingReview } from "./use-pending-review";
+import { useViewed, type Viewed } from "./use-viewed";
 
 export function ChangesTab({ threadId }: { threadId: string }) {
   return <ChangesTabContent key={threadId} threadId={threadId} />;
@@ -32,15 +33,22 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
   const review = usePendingReview(threadId);
   const feedback = useSendFeedback(threadId);
   const loaded = result?.kind === "ok" ? result : null;
+  const patches = usePatches(threadId, loaded);
+  const viewed = useViewed(threadId, loaded, patches);
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <TargetPicker target={target} commits={loaded?.commits ?? []} onChange={setTarget} />
-          {loaded !== null && <DiffSummary files={loaded.files} />}
+          {loaded !== null && <DiffSummary files={loaded.files} viewed={viewed.counts} />}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
+          {viewed.error !== null && (
+            <span role="alert" className="mr-1.5 text-xs text-destructive">
+              {viewed.error}
+            </span>
+          )}
           {feedback.status !== null && (
             <span role="status" className="mr-1.5 text-xs text-muted-foreground">
               {feedback.status}
@@ -81,6 +89,8 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
           <FileList
             threadId={threadId}
             changes={result}
+            patches={patches}
+            viewed={viewed}
             comments={review.comments}
             openForms={review.openForms}
             view={view}
@@ -103,32 +113,62 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
 interface FileListProps {
   threadId: string;
   changes: LoadedChanges;
+  patches: Patches;
+  viewed: Viewed;
   comments: readonly PendingComment[];
   openForms: ReadonlyMap<string, OpenForm>;
   view: DiffView;
 }
 
-function FileList({ threadId, changes, comments, openForms, view }: FileListProps) {
-  const patches = usePatches(threadId, changes);
+function FileList({
+  threadId,
+  changes,
+  patches,
+  viewed,
+  comments,
+  openForms,
+  view,
+}: FileListProps) {
   const linesByPath = useMemo(
-    () => new Map(changes.files.map((file) => [file.path, fileLines(file, patches.stateOf(file.path))])),
+    () =>
+      new Map(
+        changes.files.map((file) => [file.path, fileLines(file, patches.stateOf(file.path))]),
+      ),
     [changes.files, patches],
   );
-  const linesOf = useCallback((path: string): FileLines => linesByPath.get(path) ?? "absent", [linesByPath]);
-  const placedComments = useMemo(() => placeByAnchor(comments, (comment) => comment, linesOf), [comments, linesOf]);
-  const placedForms = useMemo(() => placeByAnchor(openForms.values(), (form) => form.anchor, linesOf), [openForms, linesOf]);
+  const linesOf = useCallback(
+    (path: string): FileLines => linesByPath.get(path) ?? "absent",
+    [linesByPath],
+  );
+  const placedComments = useMemo(
+    () => placeByAnchor(comments, (comment) => comment, linesOf),
+    [comments, linesOf],
+  );
+  const placedForms = useMemo(
+    () => placeByAnchor(openForms.values(), (form) => form.anchor, linesOf),
+    [openForms, linesOf],
+  );
 
   useEffect(() => {
     for (const comment of comments) if (linesByPath.has(comment.path)) patches.load(comment.path);
-    for (const { anchor } of openForms.values()) if (linesByPath.has(anchor.path)) patches.load(anchor.path);
+    for (const { anchor } of openForms.values())
+      if (linesByPath.has(anchor.path)) patches.load(anchor.path);
   }, [comments, openForms, linesByPath, patches]);
 
-  if (changes.files.length === 0 && placedComments.notInDiff.length === 0 && placedForms.notInDiff.length === 0) {
+  if (
+    changes.files.length === 0 &&
+    placedComments.notInDiff.length === 0 &&
+    placedForms.notInDiff.length === 0
+  ) {
     return <Notice>No changes</Notice>;
   }
   return (
     <>
-      <NotInDiff threadId={threadId} comments={placedComments.notInDiff} forms={placedForms.notInDiff} />
+      <NotInDiff
+        threadId={threadId}
+        comments={placedComments.notInDiff}
+        forms={placedForms.notInDiff}
+      />
       {changes.files.map((file) => {
         const lines = linesByPath.get(file.path);
         return (
@@ -142,6 +182,7 @@ function FileList({ threadId, changes, comments, openForms, view }: FileListProp
             comments={placedComments.byPath.get(file.path) ?? NONE}
             openForms={placedForms.byPath.get(file.path) ?? NO_FORMS}
             view={view}
+            viewed={viewed.of(file.path)}
           />
         );
       })}
@@ -173,7 +214,12 @@ function useSendFeedback(threadId: string) {
   function open(comments: readonly PendingComment[]) {
     const snapshot = sortComments(comments);
     setStatus(null);
-    setDialog({ comments: snapshot, prompt: buildReviewPrompt(snapshot), sending: false, error: null });
+    setDialog({
+      comments: snapshot,
+      prompt: buildReviewPrompt(snapshot),
+      sending: false,
+      error: null,
+    });
   }
 
   async function send(text: string) {
@@ -195,7 +241,13 @@ function useSendFeedback(threadId: string) {
     setStatus(result.delivery === "queued" ? "Queued until the agent is idle" : "Sent to agent");
   }
 
-  return { dialog, status, open, send: (text: string) => void send(text), close: () => setDialog(null) };
+  return {
+    dialog,
+    status,
+    open,
+    send: (text: string) => void send(text),
+    close: () => setDialog(null),
+  };
 }
 
 const STATIC_TARGETS = [
@@ -211,10 +263,6 @@ function parseTarget(value: string): DiffTarget {
   return ALL_CHANGES;
 }
 
-function targetValue(target: DiffTarget): string {
-  return target.kind === "commit" ? `commit:${target.sha}` : target.kind;
-}
-
 function TargetPicker({
   target,
   commits,
@@ -224,12 +272,13 @@ function TargetPicker({
   commits: readonly BranchCommit[];
   onChange: (target: DiffTarget) => void;
 }) {
-  const selectedCommitMissing = target.kind === "commit" && !commits.some((commit) => commit.sha === target.sha);
+  const selectedCommitMissing =
+    target.kind === "commit" && !commits.some((commit) => commit.sha === target.sha);
   return (
     <select
       aria-label="Diff target"
       className="h-7 rounded-md border border-border bg-background px-2 text-xs"
-      value={targetValue(target)}
+      value={targetKey(target)}
       onChange={(event) => onChange(parseTarget(event.target.value))}
     >
       {STATIC_TARGETS.map(({ value, label }) => (
@@ -237,7 +286,7 @@ function TargetPicker({
           {label}
         </option>
       ))}
-      {selectedCommitMissing && <option value={targetValue(target)}>{target.sha.slice(0, 7)}</option>}
+      {selectedCommitMissing && <option value={targetKey(target)}>{target.sha.slice(0, 7)}</option>}
       {commits.map((commit) => (
         <option key={commit.sha} value={`commit:${commit.sha}`}>
           {commit.shortSha} {commit.subject}
@@ -257,7 +306,11 @@ const VIEWS = [
 
 function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffView) => void }) {
   return (
-    <div role="group" aria-label="Diff view" className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
+    <div
+      role="group"
+      aria-label="Diff view"
+      className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+    >
       {VIEWS.map((option) => (
         <button
           key={option.view}
@@ -278,30 +331,63 @@ function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffV
   );
 }
 
-function DiffSummary({ files }: { files: readonly ChangedFile[] }) {
+function DiffSummary({
+  files,
+  viewed,
+}: {
+  files: readonly ChangedFile[];
+  viewed: { viewed: number; markable: number } | null;
+}) {
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
   return (
-    <span data-testid="diff-summary" className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
+    <span
+      data-testid="diff-summary"
+      className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums"
+    >
       {files.length} {files.length === 1 ? "file" : "files"}
       <DiffStat additions={additions} deletions={deletions} />
+      {viewed !== null && viewed.markable > 0 && (
+        <span>
+          {viewed.viewed}/{viewed.markable} viewed
+        </span>
+      )}
     </span>
   );
 }
 
 function Notice({ children }: { children: ReactNode }) {
   return (
-    <div role="status" className="m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+    <div
+      role="status"
+      className="m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
+    >
       {children}
     </div>
   );
 }
 
-function LoadError({ message, retry, busy }: { message: string; retry: () => void; busy: boolean }) {
+function LoadError({
+  message,
+  retry,
+  busy,
+}: {
+  message: string;
+  retry: () => void;
+  busy: boolean;
+}) {
   return (
-    <div role="alert" className="m-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+    <div
+      role="alert"
+      className="m-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+    >
       <span className="min-w-0 break-words text-destructive">{message}</span>
-      <button type="button" className={cn(SECONDARY_BUTTON, "ml-auto")} onClick={retry} disabled={busy}>
+      <button
+        type="button"
+        className={cn(SECONDARY_BUTTON, "ml-auto")}
+        onClick={retry}
+        disabled={busy}
+      >
         Retry
       </button>
     </div>

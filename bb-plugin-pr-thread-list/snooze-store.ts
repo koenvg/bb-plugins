@@ -10,7 +10,11 @@ export const SNOOZE_MIGRATIONS = [
    CREATE INDEX snoozes_group_id ON snoozes (group_id);`,
 ];
 
-export interface DueSnoozeGroup { id: string; wakeAt: number; threadIds: string[] }
+export interface DueSnoozeGroup {
+  id: string;
+  wakeAt: number;
+  threadIds: string[];
+}
 type Row = { thread_id: string; wake_at: number; group_id: string };
 
 export function createSnoozeStore(db: Database.Database) {
@@ -20,23 +24,38 @@ export function createSnoozeStore(db: Database.Database) {
     WHERE group_id IS NULL OR group_id IN (
       SELECT group_id FROM snoozes GROUP BY group_id
       HAVING min(wake_at) <> max(wake_at) OR min(snoozed_at) <> max(snoozed_at))`);
-  const all = db.prepare<[], Row>("SELECT thread_id, wake_at, group_id FROM snoozes ORDER BY thread_id");
+  const all = db.prepare<[], Row>(
+    "SELECT thread_id, wake_at, group_id FROM snoozes ORDER BY thread_id",
+  );
   const upsert = db.prepare<[string, number, number, string]>(
     `INSERT INTO snoozes (thread_id, wake_at, snoozed_at, group_id) VALUES (?, ?, ?, ?)
-     ON CONFLICT (thread_id) DO UPDATE SET wake_at = excluded.wake_at, snoozed_at = excluded.snoozed_at, group_id = excluded.group_id`);
-  const replace = db.transaction((ids: readonly string[], wakeAt: number, snoozedAt: number, groupId: string) => {
-    for (const id of ids) upsert.run(id, wakeAt, snoozedAt, groupId);
-  });
+     ON CONFLICT (thread_id) DO UPDATE SET wake_at = excluded.wake_at, snoozed_at = excluded.snoozed_at, group_id = excluded.group_id`,
+  );
+  const replace = db.transaction(
+    (ids: readonly string[], wakeAt: number, snoozedAt: number, groupId: string) => {
+      for (const id of ids) upsert.run(id, wakeAt, snoozedAt, groupId);
+    },
+  );
   const remove = db.prepare<[string]>("DELETE FROM snoozes WHERE thread_id = ?");
-  const endGroup = db.prepare<[string]>("DELETE FROM snoozes WHERE group_id = (SELECT group_id FROM snoozes WHERE thread_id = ?)");
-  const due = db.prepare<[number], Row>("SELECT thread_id, wake_at, group_id FROM snoozes WHERE wake_at <= ? ORDER BY thread_id");
-  const removeDue = db.prepare<[string, number]>("DELETE FROM snoozes WHERE group_id = ? AND wake_at <= ?");
-  const owns = db.prepare<[string, string]>("SELECT 1 FROM snoozes WHERE thread_id = ? AND group_id = ?");
+  const endGroup = db.prepare<[string]>(
+    "DELETE FROM snoozes WHERE group_id = (SELECT group_id FROM snoozes WHERE thread_id = ?)",
+  );
+  const due = db.prepare<[number], Row>(
+    "SELECT thread_id, wake_at, group_id FROM snoozes WHERE wake_at <= ? ORDER BY thread_id",
+  );
+  const removeDue = db.prepare<[string, number]>(
+    "DELETE FROM snoozes WHERE group_id = ? AND wake_at <= ?",
+  );
+  const owns = db.prepare<[string, string]>(
+    "SELECT 1 FROM snoozes WHERE thread_id = ? AND group_id = ?",
+  );
   return {
     snapshot(): Snoozes {
       const rows = all.all();
-      return { snoozes: Object.fromEntries(rows.map((row) => [row.thread_id, row.wake_at])),
-        groups: Object.fromEntries(rows.map((row) => [row.thread_id, row.group_id])) };
+      return {
+        snoozes: Object.fromEntries(rows.map((row) => [row.thread_id, row.wake_at])),
+        groups: Object.fromEntries(rows.map((row) => [row.thread_id, row.group_id])),
+      };
     },
     replaceGroup(ids: readonly string[], wakeAt: number, snoozedAt: number): string {
       const id = randomUUID();
@@ -49,7 +68,11 @@ export function createSnoozeStore(db: Database.Database) {
     due(now: number): DueSnoozeGroup[] {
       const groups = new Map<string, DueSnoozeGroup>();
       for (const row of due.all(now)) {
-        const group = groups.get(row.group_id) ?? { id: row.group_id, wakeAt: row.wake_at, threadIds: [] };
+        const group = groups.get(row.group_id) ?? {
+          id: row.group_id,
+          wakeAt: row.wake_at,
+          threadIds: [],
+        };
         group.threadIds.push(row.thread_id);
         groups.set(row.group_id, group);
       }

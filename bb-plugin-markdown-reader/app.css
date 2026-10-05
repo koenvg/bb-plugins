@@ -1,0 +1,422 @@
+.markdown-reader {
+  container: markdown-reader / inline-size;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 14px;
+}
+.markdown-reader,
+.markdown-reader * {
+  box-sizing: border-box;
+}
+.markdown-reader .mr-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 24px;
+  min-height: 72px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.markdown-reader .mr-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.markdown-reader .mr-filename,
+.markdown-reader .mr-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-reader .mr-filename {
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.markdown-reader .mr-path {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.markdown-reader .mr-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.markdown-reader .mr-view-controls {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-recessed);
+  border-radius: var(--radius);
+}
+.markdown-reader .mr-reader-actions {
+  display: flex;
+  gap: 4px;
+}
+.markdown-reader .mr-controls button,
+.markdown-reader .mr-state button {
+  min-height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted-foreground);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.markdown-reader .mr-view-controls button[aria-pressed="true"] {
+  background: var(--state-active);
+  color: var(--foreground);
+}
+.markdown-reader .mr-reader-actions button[aria-pressed="true"] {
+  color: var(--foreground);
+  font-weight: 550;
+}
+.markdown-reader button:hover {
+  background: var(--state-hover);
+  color: var(--foreground);
+}
+.markdown-reader button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.markdown-reader :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.markdown-reader .mr-content {
+  padding: 68px 48px 100px;
+}
+.markdown-reader .mr-prose,
+.markdown-reader .mr-state,
+.markdown-reader .mr-raw {
+  max-width: 720px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.markdown-reader .mr-state {
+  color: var(--muted-foreground);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.markdown-reader .mr-content > .mr-state:not(:last-child) {
+  margin-bottom: 28px;
+}
+.markdown-reader .mr-prose {
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.markdown-reader .mr-prose h1 {
+  font-size: 39px;
+  line-height: 1.2;
+  font-weight: 680;
+  letter-spacing: -0.035em;
+  margin: 0 0 24px;
+}
+.markdown-reader .mr-prose h1:not(:first-child) {
+  margin-top: 54px;
+}
+.markdown-reader .mr-prose h2 {
+  font-size: 21px;
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 46px 0 14px;
+}
+.markdown-reader .mr-prose h3 {
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 34px 0 12px;
+}
+.markdown-reader .mr-prose h4 {
+  font-size: 16px;
+  margin: 28px 0 10px;
+}
+.markdown-reader .mr-prose h5 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+}
+.markdown-reader .mr-prose h6 {
+  font-size: 14px;
+  margin: 24px 0 8px;
+}
+.markdown-reader .mr-prose p {
+  margin: 0 0 18px;
+}
+.markdown-reader .mr-prose strong {
+  font-weight: 620;
+}
+.markdown-reader .mr-prose ul,
+.markdown-reader .mr-prose ol {
+  padding-left: 24px;
+  margin: 16px 0 24px;
+}
+.markdown-reader .mr-prose ul {
+  list-style: disc outside;
+}
+.markdown-reader .mr-prose ol {
+  list-style: decimal outside;
+}
+.markdown-reader .mr-prose li ul {
+  list-style-type: circle;
+}
+.markdown-reader .mr-prose li {
+  padding-left: 4px;
+  margin: 8px 0;
+}
+.markdown-reader .mr-prose .task-list-item {
+  list-style-type: none;
+}
+.markdown-reader .mr-prose input[type="checkbox"] {
+  accent-color: var(--foreground);
+  margin-left: -20px;
+  margin-right: 8px;
+}
+.markdown-reader .mr-prose blockquote {
+  margin: 22px 0;
+  padding: 4px 0 4px 22px;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+}
+.markdown-reader .mr-prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+.markdown-reader .mr-prose code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.82em;
+  background: var(--surface-recessed);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.markdown-reader .mr-prose pre,
+.markdown-reader .mr-raw {
+  background: var(--surface-recessed);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 18px 20px;
+  overflow-x: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.9;
+  tab-size: 2;
+}
+.markdown-reader .mr-prose pre {
+  margin: 22px 0;
+}
+.markdown-reader .mr-prose pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  border-radius: 0;
+}
+.markdown-reader .mr-prose pre .token {
+  color: var(--foreground);
+}
+.markdown-reader .mr-prose pre .token.comment,
+.markdown-reader .mr-prose pre .token.prolog {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.markdown-reader .mr-prose pre .token.keyword,
+.markdown-reader .mr-prose pre .token.boolean,
+.markdown-reader .mr-prose pre .token.property {
+  font-weight: 650;
+}
+.markdown-reader .mr-prose pre .token.string {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.markdown-reader .mr-table-scroll {
+  overflow-x: auto;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.markdown-reader .mr-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.65;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.markdown-reader .mr-prose th {
+  background: var(--surface-recessed);
+  font-weight: 550;
+  color: var(--muted-foreground);
+}
+.markdown-reader .mr-prose th,
+.markdown-reader .mr-prose td {
+  padding: 12px 16px;
+  vertical-align: top;
+  min-width: 120px;
+}
+.markdown-reader .mr-prose tr + tr td,
+.markdown-reader .mr-prose tbody tr:first-child td {
+  border-top: 1px solid var(--border);
+}
+.markdown-reader .mr-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 36px 0;
+}
+.markdown-reader .mr-inert-link {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 4px;
+}
+.markdown-reader .mr-image-placeholder {
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+}
+.markdown-reader .mr-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 22px 0;
+}
+.markdown-reader .mr-image-error {
+  font-size: 12px;
+}
+.markdown-reader .mr-document-layout {
+  max-width: 720px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.markdown-reader .mr-document-layout[data-outline="aside"] {
+  max-width: 944px;
+  display: grid;
+  grid-template-columns: minmax(0, 720px) 164px;
+  gap: 60px;
+}
+.markdown-reader .mr-document-layout .mr-prose {
+  width: 100%;
+}
+.markdown-reader .mr-outline-aside {
+  align-self: start;
+  position: sticky;
+  top: 92px;
+  max-height: calc(100cqh - 116px);
+  overflow-y: auto;
+}
+.markdown-reader .mr-outline-aside,
+.markdown-reader .mr-outline-inline {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  min-width: 0;
+}
+.markdown-reader .mr-outline-aside p {
+  margin: 0 0 15px;
+  font-weight: 550;
+}
+.markdown-reader .mr-outline-inline {
+  margin: 0 0 34px;
+}
+.markdown-reader .mr-outline-inline summary {
+  cursor: pointer;
+  padding: 8px 0;
+  min-height: 36px;
+}
+.markdown-reader .mr-outline-aside button,
+.markdown-reader .mr-outline-inline button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  padding: 8px 4px;
+  min-height: 36px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.markdown-reader .mr-prose a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+.markdown-reader .mr-raw {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.markdown-reader .mr-source-line {
+  display: block;
+  min-height: 1lh;
+}
+.markdown-reader .mr-source-line[data-highlighted="true"] {
+  background: var(--state-active);
+  box-shadow: inset 3px 0 var(--ring);
+}
+.markdown-reader .mr-prose [data-footnotes] > .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@container markdown-reader (max-width: 1080px) {
+  .markdown-reader .mr-content {
+    padding: 52px 40px 80px;
+  }
+  .markdown-reader .mr-prose h1 {
+    font-size: 34px;
+  }
+}
+@container markdown-reader (max-width: 600px) {
+  .markdown-reader .mr-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 16px;
+  }
+  .markdown-reader .mr-controls {
+    flex-wrap: wrap;
+    gap: 8px 20px;
+  }
+  .markdown-reader .mr-reader-actions {
+    flex-wrap: wrap;
+  }
+  .markdown-reader .mr-content {
+    padding: 38px 24px 64px;
+  }
+  .markdown-reader .mr-prose {
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  .markdown-reader .mr-prose h1 {
+    font-size: 30px;
+  }
+  .markdown-reader .mr-prose h2 {
+    font-size: 20px;
+  }
+  .markdown-reader .mr-prose th,
+  .markdown-reader .mr-prose td {
+    padding: 11px 12px;
+  }
+}
+@media (pointer: coarse) {
+  .markdown-reader .mr-controls button,
+  .markdown-reader .mr-state button {
+    min-height: 44px;
+  }
+}

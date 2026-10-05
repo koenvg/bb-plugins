@@ -14,7 +14,11 @@ import type { ReviewQueueState } from "./use-review-queue";
 const CI_MARK: Record<CiState, { text: string; icon: IconName; className: string }> = {
   passed: { text: "CI passed", icon: "CircleCheck", className: "text-success" },
   failed: { text: "CI failed", icon: "CircleX", className: "text-destructive" },
-  running: { text: "CI running", icon: "Spinner", className: "animate-spin text-attention [animation-duration:3s] motion-reduce:animate-none" },
+  running: {
+    text: "CI running",
+    icon: "Spinner",
+    className: "animate-spin text-attention [animation-duration:3s] motion-reduce:animate-none",
+  },
   none: { text: "No checks", icon: "Circle", className: "text-subtle-foreground" },
 };
 
@@ -27,11 +31,22 @@ const REVIEW_DECISION_LABEL: Record<
   REVIEW_REQUIRED: { text: "Review required", className: "text-subtle-foreground" },
 };
 
-const STATUS_LABEL: Record<ReviewThreadStatus, { text: string; dotClass: string; pillClass?: string }> = {
+const STATUS_LABEL: Record<
+  ReviewThreadStatus,
+  { text: string; dotClass: string; pillClass?: string }
+> = {
   running: { text: "Running", dotClass: "animate-pulse bg-success motion-reduce:animate-none" },
-  needs_you: { text: "Needs you", dotClass: "bg-attention", pillClass: "border-attention/50 bg-attention/15 text-foreground" },
+  needs_you: {
+    text: "Needs you",
+    dotClass: "bg-attention",
+    pillClass: "border-attention/50 bg-attention/15 text-foreground",
+  },
   idle: { text: "Idle", dotClass: "bg-muted-foreground" },
-  error: { text: "Error", dotClass: "bg-destructive", pillClass: "border-destructive/40 bg-destructive/5 text-destructive" },
+  error: {
+    text: "Error",
+    dotClass: "bg-destructive",
+    pillClass: "border-destructive/40 bg-destructive/5 text-destructive",
+  },
 };
 
 const ICON_ACTION_CLASS =
@@ -70,9 +85,10 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
     setActionError(null);
     setBusyKey(key, true);
     const { repo, number, headOid } = pr;
-    const result = await (reviewed
-      ? rpc.call("markReviewed", { repo, number, headOid })
-      : rpc.call("markNeedsReview", { repo, number })
+    const result = await (
+      reviewed
+        ? rpc.call("markReviewed", { repo, number, headOid })
+        : rpc.call("markNeedsReview", { repo, number })
     ).catch((failure: unknown) => ({ kind: "error" as const, message: messageOf(failure) }));
     if (result.kind === "error") setActionError(result.message);
     setBusyKey(key, false);
@@ -96,7 +112,9 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
   const withoutArchivedThreads = (section: QueueSection): QueueSection =>
     section.map((group) => ({
       repo: group.repo,
-      prs: group.prs.map((pr) => (pr.thread !== null && archived.has(pr.thread.id) ? { ...pr, thread: null } : pr)),
+      prs: group.prs.map((pr) =>
+        pr.thread !== null && archived.has(pr.thread.id) ? { ...pr, thread: null } : pr,
+      ),
     }));
   const needsReview = withoutArchivedThreads(view?.needsReview ?? []);
   const reviewed = withoutArchivedThreads(view?.reviewed ?? []);
@@ -140,7 +158,11 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
                 <RefreshButton refreshing={refreshing} refresh={refresh} />
               </>
             }
-            footer={view.truncated && <p className="px-1 text-xs text-muted-foreground">Showing first 50</p>}
+            footer={
+              view.truncated && (
+                <p className="px-1 text-xs text-muted-foreground">Showing first 50</p>
+              )
+            }
           />
           <QueueSectionView
             label="Reviewed"
@@ -165,7 +187,9 @@ function CaughtUp() {
         <Icon name="CircleCheck" className="size-5 text-success" />
       </span>
       <p className="text-sm font-medium">Nothing to review</p>
-      <p className="text-xs text-muted-foreground">New review requests and new pushes show up here.</p>
+      <p className="text-xs text-muted-foreground">
+        New review requests and new pushes show up here.
+      </p>
     </div>
   );
 }
@@ -198,7 +222,15 @@ interface QueueSectionViewProps {
   collapsible?: boolean;
 }
 
-function QueueSectionView({ label, section, empty, actions, headerEnd, footer, collapsible = false }: QueueSectionViewProps) {
+function QueueSectionView({
+  label,
+  section,
+  empty,
+  actions,
+  headerEnd,
+  footer,
+  collapsible = false,
+}: QueueSectionViewProps) {
   const [expanded, setExpanded] = useState(!collapsible);
   const count = countOf(section);
   const title = (
@@ -222,7 +254,10 @@ function QueueSectionView({ label, section, empty, actions, headerEnd, footer, c
             >
               <Icon
                 name="ChevronRight"
-                className={cn("size-4 text-muted-foreground transition-transform duration-200", expanded && "rotate-90")}
+                className={cn(
+                  "size-4 text-muted-foreground transition-transform duration-200",
+                  expanded && "rotate-90",
+                )}
               />
               {title}
             </button>
@@ -230,7 +265,9 @@ function QueueSectionView({ label, section, empty, actions, headerEnd, footer, c
             title
           )}
         </h2>
-        {headerEnd !== undefined && <div className="ml-auto flex shrink-0 items-center gap-2">{headerEnd}</div>}
+        {headerEnd !== undefined && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">{headerEnd}</div>
+        )}
       </div>
       {expanded &&
         (count === 0
@@ -239,10 +276,15 @@ function QueueSectionView({ label, section, empty, actions, headerEnd, footer, c
               <div key={group.repo} className="flex min-w-0 flex-col gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5 px-1 text-xs">
                   <Icon name="FolderGit" className="size-3.5 shrink-0 text-subtle-foreground" />
-                  <h3 data-testid="queue-group" className="min-w-0 truncate font-medium text-muted-foreground">
+                  <h3
+                    data-testid="queue-group"
+                    className="min-w-0 truncate font-medium text-muted-foreground"
+                  >
                     {group.repo}
                   </h3>
-                  <span className="shrink-0 tabular-nums text-subtle-foreground">{group.prs.length}</span>
+                  <span className="shrink-0 tabular-nums text-subtle-foreground">
+                    {group.prs.length}
+                  </span>
                   {!group.prs.some((pr) => pr.projectIds.length > 0) && (
                     <span className="min-w-0 truncate text-subtle-foreground">
                       <span aria-hidden="true">· </span>
@@ -252,7 +294,12 @@ function QueueSectionView({ label, section, empty, actions, headerEnd, footer, c
                 </div>
                 <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
                   {group.prs.map((pr) => (
-                    <QueueRow key={pr.number} pr={pr} actions={actions} quiet={label === "Reviewed"} />
+                    <QueueRow
+                      key={pr.number}
+                      pr={pr}
+                      actions={actions}
+                      quiet={label === "Reviewed"}
+                    />
                   ))}
                 </ul>
               </div>
@@ -270,7 +317,15 @@ function Separator() {
   );
 }
 
-function QueueRow({ pr, actions, quiet }: { pr: LinkedQueuePr; actions: CardHandlers; quiet: boolean }) {
+function QueueRow({
+  pr,
+  actions,
+  quiet,
+}: {
+  pr: LinkedQueuePr;
+  actions: CardHandlers;
+  quiet: boolean;
+}) {
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
   const status = pr.thread === null ? null : STATUS_LABEL[pr.thread.status];
@@ -279,13 +334,24 @@ function QueueRow({ pr, actions, quiet }: { pr: LinkedQueuePr; actions: CardHand
       aria-label={`${pr.repo}#${pr.number}`}
       className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 transition-colors duration-150 hover:bg-state-hover hover:duration-0 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]"
     >
-      <span data-testid="queue-ci" title={ci.text} className="mt-0.5 flex size-4 items-center justify-center">
+      <span
+        data-testid="queue-ci"
+        title={ci.text}
+        className="mt-0.5 flex size-4 items-center justify-center"
+      >
         <Icon name={ci.icon} className={cn("size-4", ci.className)} />
         <span className="sr-only">{ci.text}</span>
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <h4 className={cn("min-w-0 break-words text-sm font-semibold", quiet && "font-medium text-muted-foreground")}>
-          <span className="font-mono text-xs font-normal tabular-nums text-subtle-foreground">#{pr.number}</span>{" "}
+        <h4
+          className={cn(
+            "min-w-0 break-words text-sm font-semibold",
+            quiet && "font-medium text-muted-foreground",
+          )}
+        >
+          <span className="font-mono text-xs font-normal tabular-nums text-subtle-foreground">
+            #{pr.number}
+          </span>{" "}
           {pr.title}
         </h4>
         <div
@@ -298,27 +364,44 @@ function QueueRow({ pr, actions, quiet }: { pr: LinkedQueuePr; actions: CardHand
               <Separator />
             </>
           )}
-          <time dateTime={pr.updatedAt} title={new Date(pr.updatedAt).toLocaleString()} className="shrink-0 tabular-nums">
+          <time
+            dateTime={pr.updatedAt}
+            title={new Date(pr.updatedAt).toLocaleString()}
+            className="shrink-0 tabular-nums"
+          >
             {relativeTime(new Date(pr.updatedAt), new Date())}
           </time>
           {decision !== null && (
             <>
               <Separator />
-              <span data-testid="queue-review-decision" className={cn("shrink-0", decision.className)}>
+              <span
+                data-testid="queue-review-decision"
+                className={cn("shrink-0", decision.className)}
+              >
                 {decision.text}
               </span>
             </>
           )}
-          {(pr.draft || pr.review === "updated_since_review" || status !== null) && <span className="w-1" />}
+          {(pr.draft || pr.review === "updated_since_review" || status !== null) && (
+            <span className="w-1" />
+          )}
           {pr.draft && <span className={LABEL_CLASS}>Draft</span>}
           {pr.review === "updated_since_review" && (
-            <span className={cn(LABEL_CLASS, "flex items-center gap-1 border-attention/50 bg-attention/10 text-foreground")}>
+            <span
+              className={cn(
+                LABEL_CLASS,
+                "flex items-center gap-1 border-attention/50 bg-attention/10 text-foreground",
+              )}
+            >
               <Icon name="ArrowUp" className="size-3 text-attention" />
               Updated since review
             </span>
           )}
           {status !== null && (
-            <span data-testid="review-status" className={cn(LABEL_CLASS, "flex items-center gap-1.5", status.pillClass)}>
+            <span
+              data-testid="review-status"
+              className={cn(LABEL_CLASS, "flex items-center gap-1.5", status.pillClass)}
+            >
               <span aria-hidden="true" className={cn("size-1.5 rounded-full", status.dotClass)} />
               {status.text}
             </span>
@@ -384,7 +467,12 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
           className={cn("size-4", busy && "animate-spin motion-reduce:animate-none")}
         />
       </button>
-      <UrlLink href={pr.url} aria-label="Open on GitHub" title="Open on GitHub" className={ICON_ACTION_CLASS}>
+      <UrlLink
+        href={pr.url}
+        aria-label="Open on GitHub"
+        title="Open on GitHub"
+        className={ICON_ACTION_CLASS}
+      >
         <Icon name="Github" className="size-4" />
       </UrlLink>
     </div>

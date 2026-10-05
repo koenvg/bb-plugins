@@ -10,13 +10,7 @@ const STATUS_COLOR_CLASS: Record<TaskStatus, string> = {
   canceled: "text-subtle-foreground",
 };
 
-export function StatusIcon({
-  status,
-  className,
-}: {
-  status: TaskStatus;
-  className?: string;
-}) {
+export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
   const ring = (dashed: boolean) => (
     <circle
       cx="7"
@@ -97,22 +91,8 @@ export function PriorityIcon({
         aria-hidden
         className={cn("size-3.5 shrink-0 text-warning", className)}
       >
-        <rect
-          x="0.5"
-          y="0.5"
-          width="13"
-          height="13"
-          rx="3"
-          fill="currentColor"
-        />
-        <rect
-          x="6.2"
-          y="3"
-          width="1.6"
-          height="5.2"
-          rx="0.8"
-          fill="var(--background)"
-        />
+        <rect x="0.5" y="0.5" width="13" height="13" rx="3" fill="currentColor" />
+        <rect x="6.2" y="3" width="1.6" height="5.2" rx="0.8" fill="var(--background)" />
         <circle cx="7" cy="10.6" r="1" fill="var(--background)" />
       </svg>
     );
@@ -127,11 +107,7 @@ export function PriorityIcon({
     <svg
       viewBox="0 0 14 14"
       aria-hidden
-      className={cn(
-        "size-3.5 shrink-0",
-        priority === "none" && "opacity-40",
-        className,
-      )}
+      className={cn("size-3.5 shrink-0", priority === "none" && "opacity-40", className)}
     >
       {bars.map((bar, index) => (
         <rect

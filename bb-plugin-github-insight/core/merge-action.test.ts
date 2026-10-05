@@ -82,7 +82,10 @@ describe("buildMergeAction", () => {
     expect(action).toEqual({ kind: "queued" });
   });
 
-  it.each(["merged", "closed"] as const)("gives no action for a %s PR that was queued", (prState) => {
-    expect(buildMergeAction(input({ prState, isInMergeQueue: true }))).toEqual({ kind: "none" });
-  });
+  it.each(["merged", "closed"] as const)(
+    "gives no action for a %s PR that was queued",
+    (prState) => {
+      expect(buildMergeAction(input({ prState, isInMergeQueue: true }))).toEqual({ kind: "none" });
+    },
+  );
 });

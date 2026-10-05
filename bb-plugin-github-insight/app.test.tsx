@@ -14,11 +14,7 @@ const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
 
 afterEach(cleanup);
 
-function check(
-  name: string,
-  status: Check["status"],
-  failure: Check["failure"] = null,
-): Check {
+function check(name: string, status: Check["status"], failure: Check["failure"] = null): Check {
   return { name, status, url: `https://github.com/o/r/runs/${name}`, failure };
 }
 
@@ -66,31 +62,31 @@ function ok(insight: PrInsight, error: string | null = null): InsightResult {
 }
 
 const insight = ok({
-    pr,
-    mergeAction: { kind: "none" },
-    blockers: [
-      { code: "checks_failed", text: "1 check failed" },
-      { code: "review_required", text: "Review required" },
-    ],
-    reviewers: [
-      { name: "ai-governance", kind: "team", state: "pending", codeOwner: true },
-      { name: "alice", kind: "user", state: "approved", codeOwner: false },
-    ],
-    checks: [
-      check("lint", "passed"),
-      check("a11y-test", "failed", {
-        reason: "Process completed with exit code 1.",
-        annotations: [
-          { path: ".github", line: 4092, message: "Process completed with exit code 1." },
-        ],
-        annotationCount: 1,
-      }),
-      check("e2e", "cancelled", { reason: "", annotations: [], annotationCount: 0 }),
-      check("build", "running"),
-      check("container", "skipped"),
-      check("typecheck", "passed"),
-    ],
-    mergeQueue: null,
+  pr,
+  mergeAction: { kind: "none" },
+  blockers: [
+    { code: "checks_failed", text: "1 check failed" },
+    { code: "review_required", text: "Review required" },
+  ],
+  reviewers: [
+    { name: "ai-governance", kind: "team", state: "pending", codeOwner: true },
+    { name: "alice", kind: "user", state: "approved", codeOwner: false },
+  ],
+  checks: [
+    check("lint", "passed"),
+    check("a11y-test", "failed", {
+      reason: "Process completed with exit code 1.",
+      annotations: [
+        { path: ".github", line: 4092, message: "Process completed with exit code 1." },
+      ],
+      annotationCount: 1,
+    }),
+    check("e2e", "cancelled", { reason: "", annotations: [], annotationCount: 0 }),
+    check("build", "running"),
+    check("container", "skipped"),
+    check("typecheck", "passed"),
+  ],
+  mergeQueue: null,
 });
 
 function renderTab(
@@ -143,17 +139,19 @@ describe("PR tab", () => {
     await slot.findByText("feat(*): add ootbDomainTypesIds constants");
     expect(slot.getByText("#25337")).toBeTruthy();
     expect(slot.getByText("Open")).toBeTruthy();
-    expect(
-      slot.getByRole("link", { name: /open on github/i }).getAttribute("href"),
-    ).toBe("https://github.com/collibra/frontend/pull/25337");
+    expect(slot.getByRole("link", { name: /open on github/i }).getAttribute("href")).toBe(
+      "https://github.com/collibra/frontend/pull/25337",
+    );
   });
 
   it("makes the merged outcome explicit while keeping PR details and checks visible", async () => {
-    const slot = renderTab(ok({
-      ...emptyInsight,
-      pr: { ...pr, state: "merged" },
-      checks: [check("lint", "passed")],
-    }));
+    const slot = renderTab(
+      ok({
+        ...emptyInsight,
+        pr: { ...pr, state: "merged" },
+        checks: [check("lint", "passed")],
+      }),
+    );
 
     const heading = await slot.findByRole("heading", { name: "Pull request merged" });
     expect(heading.closest('[role="status"]')).toBeTruthy();
@@ -229,22 +227,14 @@ describe("PR tab", () => {
     const headings = slot
       .getAllByTestId("check-group-heading")
       .map((heading) => heading.textContent);
-    expect(headings).toEqual([
-      "1 failed",
-      "1 cancelled",
-      "1 running",
-      "2 passed",
-      "1 skipped",
-    ]);
+    expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed", "1 skipped"]);
   });
 
   it("links each check to GitHub", async () => {
     const slot = renderTab(insight);
 
     const link = await slot.findByRole("link", { name: "a11y-test" });
-    expect(link.getAttribute("href")).toBe(
-      "https://github.com/o/r/runs/a11y-test",
-    );
+    expect(link.getAttribute("href")).toBe("https://github.com/o/r/runs/a11y-test");
   });
 
   it("collapses passed and skipped checks until the user expands them", async () => {
@@ -313,10 +303,7 @@ describe("PR tab", () => {
     fireEvent.click(await slot.findByRole("button", { name: "Retry" }));
 
     await slot.findByText("#25337");
-    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual([
-      "getInsight",
-      "refresh",
-    ]);
+    expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual(["getInsight", "refresh"]);
   });
 
   it("keeps the last good data with its time when the last refresh failed", async () => {
@@ -326,7 +313,9 @@ describe("PR tab", () => {
     expect(within(alert).getByText("rate limited")).toBeTruthy();
     expect(within(alert).getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(
-      within(alert).getByText(/last updated/i).querySelector("time")?.dateTime,
+      within(alert)
+        .getByText(/last updated/i)
+        .querySelector("time")?.dateTime,
     ).toBe("2026-09-24T10:00:00.000Z");
     expect(slot.getByText("#25337")).toBeTruthy();
   });
@@ -340,10 +329,7 @@ describe("PR tab", () => {
 
   it("shows progress during a manual refresh and then the new data", async () => {
     let finish: (result: InsightResult) => void = () => {};
-    const slot = renderTab(
-      insight,
-      () => new Promise((resolve) => (finish = resolve)),
-    );
+    const slot = renderTab(insight, () => new Promise((resolve) => (finish = resolve)));
 
     fireEvent.click(await slot.findByRole("button", { name: "Refresh" }));
 
@@ -362,10 +348,7 @@ describe("PR tab", () => {
     const Tab = prTab.component;
     slot.lifecycle.rerender(<Tab threadId="thr_2" params={null} />);
 
-    expect(await slot.findByRole("button", { name: "Refresh" })).toHaveProperty(
-      "disabled",
-      false,
-    );
+    expect(await slot.findByRole("button", { name: "Refresh" })).toHaveProperty("disabled", false);
   });
 
   it("shows new data when the server says this thread's insight changed", async () => {
@@ -402,9 +385,7 @@ describe("PR tab", () => {
   });
 
   it("shows a failed queue entry in the problem tone", async () => {
-    const slot = renderTab(
-      ok({ ...emptyInsight, mergeQueue: { position: 1, state: "failed" } }),
-    );
+    const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 1, state: "failed" } }));
 
     const queue = await slot.findByRole("region", { name: "Merge queue" });
     expect(within(queue).getByRole("listitem").className).toContain("text-destructive");
@@ -547,7 +528,10 @@ describe("PR tab merge", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
 
     expect((await slot.findByRole("alert")).textContent).toBe(rejectedMerge.message);
-    expect(slot.getByRole("button", { name: "Squash and merge" })).toHaveProperty("disabled", false);
+    expect(slot.getByRole("button", { name: "Squash and merge" })).toHaveProperty(
+      "disabled",
+      false,
+    );
   });
 
   it("drops the merge error once the tab shows a new head commit", async () => {
@@ -557,7 +541,11 @@ describe("PR tab merge", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
     await slot.findByRole("alert");
 
-    current = ok({ ...emptyInsight, pr: { ...pr, headOid: "9f1e" }, mergeAction: { kind: "merge", method: "SQUASH" } });
+    current = ok({
+      ...emptyInsight,
+      pr: { ...pr, headOid: "9f1e" },
+      mergeAction: { kind: "merge", method: "SQUASH" },
+    });
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
     expect(slot.queryByRole("alert")).toBeNull();
@@ -600,7 +588,10 @@ describe("PR tab enqueue", () => {
 
     fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
 
-    expect(await slot.findByRole("button", { name: "Enqueuing…" })).toHaveProperty("disabled", true);
+    expect(await slot.findByRole("button", { name: "Enqueuing…" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     await act(async () => finish({ kind: "ok" }));
   });
 
@@ -645,7 +636,11 @@ describe("PR tab enqueue", () => {
     });
 
     await slot.findByText("Merge queue checks running (#2)");
-    expect(slot.queryByRole("button", { name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i })).toBeNull();
+    expect(
+      slot.queryByRole("button", {
+        name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -767,7 +762,9 @@ describe("Composer banner", () => {
   it("keeps showing the last good data when the last refresh failed", async () => {
     const slot = renderBanner(ok(blocked, "rate limited"));
 
-    expect((await slot.findByRole("button", { name: /Open/ })).textContent).toContain("2 checks failed");
+    expect((await slot.findByRole("button", { name: /Open/ })).textContent).toContain(
+      "2 checks failed",
+    );
   });
 
   it("updates when the server says this thread's insight changed", async () => {
@@ -851,8 +848,14 @@ describe("Composer banner merge action", () => {
       }),
     );
 
-    expect(await slot.findByRole("button", { name: "Open: Merge queue checks running (#2)" })).toBeTruthy();
-    expect(slot.queryByRole("button", { name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i })).toBeNull();
+    expect(
+      await slot.findByRole("button", { name: "Open: Merge queue checks running (#2)" }),
+    ).toBeTruthy();
+    expect(
+      slot.queryByRole("button", {
+        name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i,
+      }),
+    ).toBeNull();
   });
 
   it("shows the blockers and no merge button for a PR with blockers", async () => {
@@ -892,8 +895,9 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 
 describe("palette command availability", () => {
   const listed = (threadId: string) =>
-    GITHUB_COMMANDS.filter((entry) => entry.isAvailable?.({ threadId, projectId: null, openPanel: () => true }))
-      .map(({ id }) => id);
+    GITHUB_COMMANDS.filter((entry) =>
+      entry.isAvailable?.({ threadId, projectId: null, openPanel: () => true }),
+    ).map(({ id }) => id);
 
   it("lists the commands once the composer banner has loaded a ready PR", async () => {
     const slot = renderSlot<object, typeof rpcContract>(
@@ -912,7 +916,10 @@ describe("palette command availability", () => {
     expect(listed("thr_banner")).toHaveLength(6);
   });
 
-  function renderBannerFor(threadId: string, getInsight: () => InsightResult | Promise<InsightResult>) {
+  function renderBannerFor(
+    threadId: string,
+    getInsight: () => InsightResult | Promise<InsightResult>,
+  ) {
     return renderSlot<object, typeof rpcContract>(
       banner,
       {},
@@ -940,7 +947,9 @@ describe("palette command availability", () => {
     let finishFirst: (result: InsightResult) => void = () => {};
     let loads = 0;
     const slot = renderBannerFor("thr_stale", () =>
-      loads++ === 0 ? new Promise<InsightResult>((resolve) => (finishFirst = resolve)) : ok(emptyInsight),
+      loads++ === 0
+        ? new Promise<InsightResult>((resolve) => (finishFirst = resolve))
+        : ok(emptyInsight),
     );
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_stale"] });
     await settle();
@@ -984,5 +993,4 @@ describe("PR tab palette commands", () => {
 
     expect(slot.inspection.navigateCalls).toEqual([]);
   });
-
 });

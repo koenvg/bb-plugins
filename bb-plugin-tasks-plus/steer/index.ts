@@ -10,11 +10,7 @@ interface DeliverCommentInput {
   authorName: string;
 }
 
-function steerPrompt(
-  taskKey: string,
-  authorName: string,
-  body: string,
-): string {
+function steerPrompt(taskKey: string, authorName: string, body: string): string {
   return (
     `New comment on task ${taskKey} from ${authorName}: ${body}\n\n` +
     "Treat this as updated context for your work on this task; " +
@@ -30,10 +26,7 @@ export async function deliverCommentToLatestAgent(
   const task = store.getTask(input.taskId);
   if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
-  const latestReply = store.getLatestAgentComment(
-    input.taskId,
-    input.commentId,
-  );
+  const latestReply = store.getLatestAgentComment(input.taskId, input.commentId);
   if (!latestReply || latestReply.threadId === null) return 0;
 
   const threadId = latestReply.threadId;

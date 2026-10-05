@@ -1,6 +1,12 @@
 import { useState, type KeyboardEvent } from "react";
 import { PRIMARY_BUTTON, QUIET_BUTTON, TEXTAREA } from "../../review-ui/styles";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface SendFeedbackDialogProps {
   initialPrompt: string;
@@ -10,7 +16,13 @@ interface SendFeedbackDialogProps {
   onClose: () => void;
 }
 
-export function SendFeedbackDialog({ initialPrompt, sending, error, onSend, onClose }: SendFeedbackDialogProps) {
+export function SendFeedbackDialog({
+  initialPrompt,
+  sending,
+  error,
+  onSend,
+  onClose,
+}: SendFeedbackDialogProps) {
   const [text, setText] = useState(initialPrompt);
   const blank = text.trim() === "";
 
@@ -44,7 +56,12 @@ export function SendFeedbackDialog({ initialPrompt, sending, error, onSend, onCl
           <button type="button" className={QUIET_BUTTON} disabled={sending} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className={PRIMARY_BUTTON} disabled={blank || sending} onClick={() => onSend(text)}>
+          <button
+            type="button"
+            className={PRIMARY_BUTTON}
+            disabled={blank || sending}
+            onClick={() => onSend(text)}
+          >
             {sending ? "Sending…" : "Send to agent"}
           </button>
         </DialogFooter>

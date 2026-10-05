@@ -26,9 +26,7 @@ async function move(slot: ReturnType<typeof setup>, key: string, n: number) {
   await waitFor(() => expect(document.activeElement).toBe(row(slot, n)));
   expect(row(slot, n).getAttribute("aria-current")).toBe("true");
   await waitFor(() =>
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
-      `Title ${n}`,
-    ),
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Title ${n}`),
   );
 }
 
@@ -39,9 +37,7 @@ describe("browse keyboard selection", () => {
       const slot = setup();
       await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
       await move(slot, key, 1);
-      expect(slot.getByRole("region", { name: "Ticket list" }).hidden).toBe(
-        false,
-      );
+      expect(slot.getByRole("region", { name: "Ticket list" }).hidden).toBe(false);
     },
   );
 
@@ -159,14 +155,10 @@ describe("browse focus transitions", () => {
     press("j");
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    await act(async () =>
-      saved.resolve({ ok: false, error: { message: "Offline" } }),
-    );
+    await act(async () => saved.resolve({ ok: false, error: { message: "Offline" } }));
     await slot.findByRole("alert");
     expect(document.activeElement).toBe(detail(slot));
-    expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
-      "Keep origin",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep origin");
     retry = true;
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));

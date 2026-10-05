@@ -21,7 +21,11 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
       )}
     >
       {thread.resolved && (
-        <ResolvedSummary thread={thread} expanded={expanded} toggle={() => setExpanded((current) => !current)} />
+        <ResolvedSummary
+          thread={thread}
+          expanded={expanded}
+          toggle={() => setExpanded((current) => !current)}
+        />
       )}
       {open && (
         <>
@@ -30,7 +34,11 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
               <CommentView
                 key={comment.id}
                 comment={comment}
-                trailing={index === 0 && !thread.resolved ? <AgentToggle reviewThreadId={thread.id} /> : null}
+                trailing={
+                  index === 0 && !thread.resolved ? (
+                    <AgentToggle reviewThreadId={thread.id} />
+                  ) : null
+                }
               />
             ))}
           </div>
@@ -42,7 +50,15 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
   );
 }
 
-function ResolvedSummary({ thread, expanded, toggle }: { thread: ReviewThread; expanded: boolean; toggle: () => void }) {
+function ResolvedSummary({
+  thread,
+  expanded,
+  toggle,
+}: {
+  thread: ReviewThread;
+  expanded: boolean;
+  toggle: () => void;
+}) {
   const first = thread.comments[0];
   return (
     <button
@@ -57,8 +73,13 @@ function ResolvedSummary({ thread, expanded, toggle }: { thread: ReviewThread; e
       <Icon name="CircleCheck" className="size-3.5 shrink-0" />
       <span className="shrink-0 font-medium text-foreground">{first?.author}</span>
       <span className="shrink-0">Resolved</span>
-      {!expanded && first !== undefined && <span className="min-w-0 truncate opacity-80">{firstLine(first.body)}</span>}
-      <Icon name={expanded ? "ChevronDown" : "ChevronRight"} className="ml-auto size-3.5 shrink-0" />
+      {!expanded && first !== undefined && (
+        <span className="min-w-0 truncate opacity-80">{firstLine(first.body)}</span>
+      )}
+      <Icon
+        name={expanded ? "ChevronDown" : "ChevronRight"}
+        className="ml-auto size-3.5 shrink-0"
+      />
     </button>
   );
 }
@@ -158,7 +179,10 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
   return (
     <section
       aria-labelledby={hasDraft ? headingId : undefined}
-      className={cn("flex flex-col gap-2 border-t border-border/70 px-3 py-2.5", hasDraft ? "bg-primary/[0.04]" : "bg-muted/30")}
+      className={cn(
+        "flex flex-col gap-2 border-t border-border/70 px-3 py-2.5",
+        hasDraft ? "bg-primary/[0.04]" : "bg-muted/30",
+      )}
     >
       {hasDraft && (
         <h3 id={headingId} className="flex items-center gap-1.5 text-xs font-medium text-primary">
@@ -171,10 +195,7 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
           aria-label="Reply"
           placeholder="Reply…"
           rows={2}
-          className={cn(
-            TEXTAREA,
-            hasDraft ? "border-primary/30" : "border-border",
-          )}
+          className={cn(TEXTAREA, hasDraft ? "border-primary/30" : "border-border")}
           value={replyText}
           disabled={busy}
           onChange={(event) => actions.setReplyText(thread.id, event.target.value)}
@@ -189,30 +210,58 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
       {pendingReviewUrl !== null && (
         <p role="status" className="text-xs text-muted-foreground">
           Reply added to your pending review.{" "}
-          <UrlLink href={pendingReviewUrl} className="font-medium text-foreground underline-offset-2 hover:underline">
+          <UrlLink
+            href={pendingReviewUrl}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
             Open the PR
           </UrlLink>
         </p>
       )}
       <div className="flex items-center gap-1.5">
         {thread.resolved ? (
-          <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void actions.setResolved(thread.id, false)}>
+          <button
+            type="button"
+            className={QUIET_BUTTON}
+            disabled={busy}
+            onClick={() => void actions.setResolved(thread.id, false)}
+          >
             Unresolve
           </button>
         ) : (
           <>
-            <button type="button" className={PRIMARY_BUTTON} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: false })}>
+            <button
+              type="button"
+              className={PRIMARY_BUTTON}
+              disabled={!canPost}
+              onClick={() => void actions.post(thread.id, { resolve: false })}
+            >
               Post
             </button>
-            <button type="button" className={SECONDARY_BUTTON} disabled={!canPost} onClick={() => void actions.post(thread.id, { resolve: true })}>
+            <button
+              type="button"
+              className={SECONDARY_BUTTON}
+              disabled={!canPost}
+              onClick={() => void actions.post(thread.id, { resolve: true })}
+            >
               Post + resolve
             </button>
             {hasDraft && (
-              <button type="button" className={QUIET_BUTTON} disabled={busy} onClick={() => void actions.discardDraft(thread.id)}>
+              <button
+                type="button"
+                className={QUIET_BUTTON}
+                disabled={busy}
+                onClick={() => void actions.discardDraft(thread.id)}
+              >
                 Discard
               </button>
             )}
-            <button type="button" className={cn(QUIET_BUTTON, "ml-auto")} disabled={busy} onClick={() => void actions.setResolved(thread.id, true)}>
+            <button
+              type="button"
+              className={cn(QUIET_BUTTON, "ml-auto")}
+              disabled={busy}
+              onClick={() => void actions.setResolved(thread.id, true)}
+            >
               <Icon name="Check" className="size-3.5" />
               Resolve
             </button>

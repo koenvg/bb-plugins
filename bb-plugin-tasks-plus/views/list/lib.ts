@@ -121,10 +121,7 @@ interface ListTreeGroup {
   entries: ListTreeEntry[];
 }
 
-export function groupListTree(
-  entries: readonly ListTreeEntry[],
-  sort: TaskSort,
-): ListTreeGroup[] {
+export function groupListTree(entries: readonly ListTreeEntry[], sort: TaskSort): ListTreeGroup[] {
   const byId = new Map(entries.map((entry) => [entry.task.id, entry]));
   return groupTasksByStatus(
     sortTasks(
@@ -135,9 +132,7 @@ export function groupListTree(
     status: group.status,
     entries: group.tasks.flatMap((task) => {
       const entry = byId.get(task.id);
-      return entry
-        ? [{ ...entry, children: sortTasks(entry.children, sort) }]
-        : [];
+      return entry ? [{ ...entry, children: sortTasks(entry.children, sort) }] : [];
     }),
   }));
 }
@@ -148,9 +143,7 @@ export interface LabelFilterOption {
   labelIds: string[];
 }
 
-export function labelFilterOptions(
-  labels: readonly Label[],
-): LabelFilterOption[] {
+export function labelFilterOptions(labels: readonly Label[]): LabelFilterOption[] {
   const byName = new Map<string, LabelFilterOption>();
   for (const label of labels) {
     const existing = byName.get(label.name);
@@ -170,9 +163,7 @@ export function selectedLabelIds(
   selectedNames: readonly string[],
 ): string[] {
   const selected = new Set(selectedNames);
-  return options
-    .filter((option) => selected.has(option.name))
-    .flatMap((option) => option.labelIds);
+  return options.filter((option) => selected.has(option.name)).flatMap((option) => option.labelIds);
 }
 
 export function formatDueDate(dueDate: string, today = new Date()): string {
@@ -184,17 +175,12 @@ export function formatDueDate(dueDate: string, today = new Date()): string {
   });
 }
 
-export function activeWorkLabel(
-  threads: readonly { liveStatus: string }[],
-): string {
+export function activeWorkLabel(threads: readonly { liveStatus: string }[]): string {
   if (threads.length === 1) {
-    return threads[0]?.liveStatus === "starting"
-      ? "Agent starting"
-      : "Agent working";
+    return threads[0]?.liveStatus === "starting" ? "Agent starting" : "Agent working";
   }
   return `${threads.length} agents working`;
 }
-
 
 export function localIsoDate(daysFromNow: number): string {
   const date = new Date();

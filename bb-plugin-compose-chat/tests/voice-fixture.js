@@ -2,54 +2,114 @@
 // network request, or real conversation is used here.
 export function installVoiceFixture({ form, input, commands }) {
   const mic = form.querySelector('[aria-label="Start voice input"]');
-  const command = commands.find(command => command.id === 'start-voice-input');
-  const context = { threadId: 'fixture', projectId: 'fixture', openPanel: () => false };
+  const command = commands.find((command) => command.id === "start-voice-input");
+  const context = { threadId: "fixture", projectId: "fixture", openPanel: () => false };
   let binding = command.defaultShortcut;
-  let starts = 0, confirms = 0, cancels = 0;
+  let starts = 0,
+    confirms = 0,
+    cancels = 0;
   let controls;
-  const state = () => form.hasAttribute('data-promptbox-voice-active')
-    ? controls.querySelector('button:last-child').disabled ? 'transcribing' : 'recording'
-    : 'idle';
-  function finish(text = '') {
-    form.removeAttribute('data-promptbox-voice-active'); controls?.remove(); controls = null;
-    input.readOnly = false; input.removeAttribute('aria-readonly'); mic.hidden = false;
+  const state = () =>
+    form.hasAttribute("data-promptbox-voice-active")
+      ? controls.querySelector("button:last-child").disabled
+        ? "transcribing"
+        : "recording"
+      : "idle";
+  function finish(text = "") {
+    form.removeAttribute("data-promptbox-voice-active");
+    controls?.remove();
+    controls = null;
+    input.readOnly = false;
+    input.removeAttribute("aria-readonly");
+    mic.hidden = false;
     if (text) input.value += ` ${text}`;
   }
   function recording(transcribing = false) {
-    form.setAttribute('data-promptbox-voice-active', ''); input.readOnly = true;
-    input.setAttribute('aria-readonly', 'true'); mic.hidden = true;
-    controls ??= document.createElement('div');
-    controls.setAttribute('data-promptbox-voice-controls', ''); controls.dataset.voiceTransition = 'active';
-    controls.innerHTML = `<button type="button" aria-label="${transcribing ? 'Cancel transcription' : 'Cancel recording'}">Cancel</button>
-      <span>${transcribing ? 'Transcribing' : 'Synthetic recording'}</span>
-      <button type="button" aria-label="${transcribing ? 'Transcribing voice input' : 'Stop and transcribe recording'}" ${transcribing ? 'disabled' : ''}>Confirm</button>`;
-    form.querySelector('[data-promptbox-action-row]').append(controls);
-    controls.querySelector('button').onclick = () => { cancels++; finish(); };
-    controls.querySelector('button:last-child').onclick = () => { confirms++; recording(true); };
+    form.setAttribute("data-promptbox-voice-active", "");
+    input.readOnly = true;
+    input.setAttribute("aria-readonly", "true");
+    mic.hidden = true;
+    controls ??= document.createElement("div");
+    controls.setAttribute("data-promptbox-voice-controls", "");
+    controls.dataset.voiceTransition = "active";
+    controls.innerHTML = `<button type="button" aria-label="${transcribing ? "Cancel transcription" : "Cancel recording"}">Cancel</button>
+      <span>${transcribing ? "Transcribing" : "Synthetic recording"}</span>
+      <button type="button" aria-label="${transcribing ? "Transcribing voice input" : "Stop and transcribe recording"}" ${transcribing ? "disabled" : ""}>Confirm</button>`;
+    form.querySelector("[data-promptbox-action-row]").append(controls);
+    controls.querySelector("button").onclick = () => {
+      cancels++;
+      finish();
+    };
+    controls.querySelector("button:last-child").onclick = () => {
+      confirms++;
+      recording(true);
+    };
   }
-  mic.onclick = () => { starts++; recording(); };
+  mic.onclick = () => {
+    starts++;
+    recording();
+  };
   // This is a fixture host-command dispatcher, not plugin runtime code. Change
   // binding to exercise rebinding/disabled behavior without a hard-coded plugin listener.
-  window.addEventListener('keydown', event => {
+  window.addEventListener("keydown", (event) => {
     if (event.defaultPrevented || event.repeat || event.isComposing || !binding) return;
-    const key = event.key === ' ' ? 'Space' : event.key;
-    if (key !== binding.key || event.ctrlKey !== !!binding.control || event.shiftKey !== !!binding.shift || event.metaKey !== !!binding.meta || event.altKey !== !!binding.alt) return;
+    const key = event.key === " " ? "Space" : event.key;
+    if (
+      key !== binding.key ||
+      event.ctrlKey !== !!binding.control ||
+      event.shiftKey !== !!binding.shift ||
+      event.metaKey !== !!binding.meta ||
+      event.altKey !== !!binding.alt
+    )
+      return;
     if (!command.isAvailable(context)) return;
-    event.preventDefault(); command.run(context);
+    event.preventDefault();
+    command.run(context);
   });
-  input.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.defaultPrevented && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing) {
-      event.preventDefault(); form.requestSubmit();
+  input.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Enter" &&
+      !event.defaultPrevented &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.isComposing
+    ) {
+      event.preventDefault();
+      form.requestSubmit();
     }
   });
   // Simulate native cancellation. The plugin leaves this listener unchanged.
-  window.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && state() !== 'idle') { event.preventDefault(); cancels++; finish(); }
-  }, true);
-  input.value = 'Keep my draft'; input.focus();
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape" && state() !== "idle") {
+        event.preventDefault();
+        cancels++;
+        finish();
+      }
+    },
+    true,
+  );
+  input.value = "Keep my draft";
+  input.focus();
   return {
-    get starts() { return starts; }, get confirms() { return confirms; }, get cancels() { return cancels; },
-    get state() { return state(); }, finish,
-    bind(next) { binding = next; },
+    get starts() {
+      return starts;
+    },
+    get confirms() {
+      return confirms;
+    },
+    get cancels() {
+      return cancels;
+    },
+    get state() {
+      return state();
+    },
+    finish,
+    bind(next) {
+      binding = next;
+    },
   };
 }

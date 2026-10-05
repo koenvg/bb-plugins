@@ -43,7 +43,10 @@ const OWN_PR_MESSAGE = "On your own pull request you can only comment";
 function draftsCommit(drafts: readonly ListedCommentDraft[], headOid: string): Written<string> {
   const commits = [...new Set(drafts.map(({ commitOid }) => commitOid))];
   if (commits.length > 1) {
-    return { ok: false, message: `Comment drafts are on more than one commit (${commits.join(", ")}). Delete the older ones.` };
+    return {
+      ok: false,
+      message: `Comment drafts are on more than one commit (${commits.join(", ")}). Delete the older ones.`,
+    };
   }
   return { ok: true, value: commits[0] ?? headOid };
 }
@@ -54,13 +57,20 @@ function reviewInput(
   body: string,
 ): Written<AddPullRequestReviewRequest> {
   const { viewerIsAuthor, state } = head;
-  const rule = submitRules({ viewerIsAuthor, state, body, commentCount: commentDrafts.length })
-    .find((candidate) => candidate.event === event);
+  const rule = submitRules({
+    viewerIsAuthor,
+    state,
+    body,
+    commentCount: commentDrafts.length,
+  }).find((candidate) => candidate.event === event);
   if (rule === undefined) return { ok: false, message: OWN_PR_MESSAGE };
   if (rule.disabledReason !== null) return { ok: false, message: rule.disabledReason };
   const empty = commentDrafts.find((draft) => draft.body.trim() === "");
   if (empty !== undefined) {
-    return { ok: false, message: `Comment draft on ${empty.path}:${empty.line} is empty. Add text or delete it.` };
+    return {
+      ok: false,
+      message: `Comment draft on ${empty.path}:${empty.line} is empty. Add text or delete it.`,
+    };
   }
   const commit = draftsCommit(commentDrafts, head.oid);
   if (!commit.ok) return commit;
@@ -71,7 +81,13 @@ function reviewInput(
       commitOid: commit.value,
       event,
       body,
-      threads: commentDrafts.map(({ path, side, line, startLine, body }) => ({ path, side, line, startLine, body })),
+      threads: commentDrafts.map(({ path, side, line, startLine, body }) => ({
+        path,
+        side,
+        line,
+        startLine,
+        body,
+      })),
     },
   };
 }
@@ -89,37 +105,65 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     });
   }
 
-  async function reply({ threadId, reviewThreadId, body, resolve }: ReplyRequest): Promise<ReplyResult> {
+  async function reply({
+    threadId,
+    reviewThreadId,
+    body,
+    resolve,
+  }: ReplyRequest): Promise<ReplyResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "post_failed", message: target.message };
     const posted = await write(() => deps.replyToThread(target.value, reviewThreadId, body));
     if (!posted.ok) return { kind: "post_failed", message: posted.message };
     await deps.drafts.delete(target.value.ref, reviewThreadId).catch((error: unknown) => {
-      deps.warn(`Posted a reply to ${reviewThreadId}, but could not delete its draft: ${String(error)}`);
+      deps.warn(
+        `Posted a reply to ${reviewThreadId}, but could not delete its draft: ${String(error)}`,
+      );
     });
     const pendingReviewUrl = isPendingReply(posted.value) ? pullRequestUrl(target.value.ref) : null;
     if (!resolve) return { kind: "posted", pendingReviewUrl, resolveError: null };
     const resolved = await write(() => deps.setThreadResolved(target.value, reviewThreadId, true));
     if (resolved.ok) await refreshAfterWrite(threadId);
-    return { kind: "posted", pendingReviewUrl, resolveError: resolved.ok ? null : resolved.message };
+    return {
+      kind: "posted",
+      pendingReviewUrl,
+      resolveError: resolved.ok ? null : resolved.message,
+    };
   }
 
-  async function setResolved({ threadId, reviewThreadId, resolved }: SetResolvedRequest): Promise<ActionResult> {
+  async function setResolved({
+    threadId,
+    reviewThreadId,
+    resolved,
+  }: SetResolvedRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
-    const written = await write(() => deps.setThreadResolved(target.value, reviewThreadId, resolved));
+    const written = await write(() =>
+      deps.setThreadResolved(target.value, reviewThreadId, resolved),
+    );
     if (written.ok) await refreshAfterWrite(threadId);
     return written.ok ? { kind: "ok" } : { kind: "error", message: written.message };
   }
 
-  async function saveDraft({ threadId, reviewThreadId, body }: SaveDraftRequest): Promise<ActionResult> {
+  async function saveDraft({
+    threadId,
+    reviewThreadId,
+    body,
+  }: SaveDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
-    await deps.drafts.save(target.value.ref, reviewThreadId, { body, updatedAt: deps.now(), source: "user" });
+    await deps.drafts.save(target.value.ref, reviewThreadId, {
+      body,
+      updatedAt: deps.now(),
+      source: "user",
+    });
     return { kind: "ok" };
   }
 
-  async function discardDraft({ threadId, reviewThreadId }: DiscardDraftRequest): Promise<ActionResult> {
+  async function discardDraft({
+    threadId,
+    reviewThreadId,
+  }: DiscardDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     await deps.drafts.delete(target.value.ref, reviewThreadId);
@@ -127,16 +171,28 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     return { kind: "ok" };
   }
 
-  async function saveCommentDraft({ threadId, draftId, body }: SaveCommentDraftRequest): Promise<ActionResult> {
+  async function saveCommentDraft({
+    threadId,
+    draftId,
+    body,
+  }: SaveCommentDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     const draft = await deps.drafts.comment(target.value.ref, draftId);
     if (draft === null) return { kind: "error", message: `Comment draft ${draftId} is gone` };
-    await deps.drafts.saveComment(target.value.ref, draftId, { ...draft, body, updatedAt: deps.now(), source: "user" });
+    await deps.drafts.saveComment(target.value.ref, draftId, {
+      ...draft,
+      body,
+      updatedAt: deps.now(),
+      source: "user",
+    });
     return { kind: "ok" };
   }
 
-  async function deleteCommentDraft({ threadId, draftId }: DeleteCommentDraftRequest): Promise<ActionResult> {
+  async function deleteCommentDraft({
+    threadId,
+    draftId,
+  }: DeleteCommentDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     await deps.drafts.deleteComment(target.value.ref, draftId);
@@ -144,31 +200,51 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     return { kind: "ok" };
   }
 
-  async function saveSummaryDraft({ threadId, body }: SaveSummaryDraftRequest): Promise<ActionResult> {
+  async function saveSummaryDraft({
+    threadId,
+    body,
+  }: SaveSummaryDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
-    await deps.drafts.saveSummary(target.value.ref, { body, updatedAt: deps.now(), source: "user" });
+    await deps.drafts.saveSummary(target.value.ref, {
+      body,
+      updatedAt: deps.now(),
+      source: "user",
+    });
     return { kind: "ok" };
   }
 
-  async function submitReview({ threadId, event, body }: SubmitReviewRequest): Promise<SubmitReviewResult> {
+  async function submitReview({
+    threadId,
+    event,
+    body,
+  }: SubmitReviewRequest): Promise<SubmitReviewResult> {
     const loaded = await deps.loadReview(threadId);
     if (loaded.kind !== "ok") {
-      return { kind: "error", message: loaded.kind === "error" ? loaded.message : NO_PR_MESSAGE, url: null };
+      return {
+        kind: "error",
+        message: loaded.kind === "error" ? loaded.message : NO_PR_MESSAGE,
+        url: null,
+      };
     }
     const input = reviewInput(loaded.review, event, body);
     if (!input.ok) return { kind: "error", message: input.message, url: null };
     const { ref } = loaded.target;
     const submitted = await write(() => deps.submitReview(loaded.target, input.value));
-    if (!submitted.ok) return { kind: "error", ...submitReviewError(submitted.message, pullRequestUrl(ref)) };
+    if (!submitted.ok)
+      return { kind: "error", ...submitReviewError(submitted.message, pullRequestUrl(ref)) };
     await deps.drafts.deleteReviewDrafts(ref).catch((error: unknown) => {
-      deps.warn(`Submitted a review on thread ${threadId}, but could not delete its drafts: ${String(error)}`);
+      deps.warn(
+        `Submitted a review on thread ${threadId}, but could not delete its drafts: ${String(error)}`,
+      );
     });
     deps.publish({ threadId });
     await refreshAfterWrite(threadId);
     if (loaded.review.head.viewerIsAuthor) return { kind: "submitted" };
     const marked = await deps.markReviewed(ref, input.value.commitOid);
-    return marked.kind === "error" ? { kind: "submitted", markError: marked.message } : { kind: "submitted" };
+    return marked.kind === "error"
+      ? { kind: "submitted", markError: marked.message }
+      : { kind: "submitted" };
   }
 
   return {

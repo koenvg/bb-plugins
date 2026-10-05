@@ -10,8 +10,21 @@ type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runMer
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
-const pr = { number: 7, title: "Status parity", state: "open" as const, url: "https://github.com/o/r/pull/7", headOid: "a" };
-const emptyInsight: PrInsight = { pr, mergeAction: { kind: "none" }, blockers: [], checks: [], reviewers: [], mergeQueue: null };
+const pr = {
+  number: 7,
+  title: "Status parity",
+  state: "open" as const,
+  url: "https://github.com/o/r/pull/7",
+  headOid: "a",
+};
+const emptyInsight: PrInsight = {
+  pr,
+  mergeAction: { kind: "none" },
+  blockers: [],
+  checks: [],
+  reviewers: [],
+  mergeQueue: null,
+};
 const blocked: PrInsight = {
   ...emptyInsight,
   blockers: [
@@ -21,28 +34,46 @@ const blocked: PrInsight = {
   ],
   reviewers: [{ name: "ai-governance", kind: "team", state: "pending", codeOwner: true }],
 };
-const ok = (insight: PrInsight): InsightResult => ({ kind: "ok", insight, refreshedAt: 1, error: null });
+const ok = (insight: PrInsight): InsightResult => ({
+  kind: "ok",
+  insight,
+  refreshedAt: 1,
+  error: null,
+});
 const rpc = (result: InsightResult) => ({
   getInsight: () => result,
   refresh: () => result,
-  runMergeAction: () => { throw new Error("Status presentation must not write to GitHub"); },
+  runMergeAction: () => {
+    throw new Error("Status presentation must not write to GitHub");
+  },
 });
 afterEach(cleanup);
 
 function renderBanner(result: InsightResult) {
-  return renderSlot<object, StatusMethods>(banner, {}, {
-    rpc: rpc(result),
-    composer: { scope: { kind: "thread", threadId: "thr_1" } },
-    openThreadPanel: () => true,
-  });
+  return renderSlot<object, StatusMethods>(
+    banner,
+    {},
+    {
+      rpc: rpc(result),
+      composer: { scope: { kind: "thread", threadId: "thr_1" } },
+      openThreadPanel: () => true,
+    },
+  );
 }
 function renderTab(result: InsightResult) {
-  return renderSlot<PluginThreadPanelProps, StatusMethods>(tab, { threadId: "thr_1", params: null }, { rpc: rpc(result) });
+  return renderSlot<PluginThreadPanelProps, StatusMethods>(
+    tab,
+    { threadId: "thr_1", params: null },
+    { rpc: rpc(result) },
+  );
 }
 
 describe("PR state parity", () => {
   it.each([
-    ["draft", "Draft"], ["open", "Open"], ["closed", "Closed"], ["merged", "Pull request merged"],
+    ["draft", "Draft"],
+    ["open", "Open"],
+    ["closed", "Closed"],
+    ["merged", "Pull request merged"],
   ] as const)("keeps %s visible in both views without an action", async (state, label) => {
     const data = ok({ ...emptyInsight, pr: { ...pr, state } });
     const chat = renderBanner(data);
@@ -51,43 +82,69 @@ describe("PR state parity", () => {
     await within(panel.container).findByText(label);
     expect(chat.container.querySelector("button button")).toBeNull();
     fireEvent.click(status);
-    expect(chat.inspection.navigateCalls).toEqual([{ method: "openThreadPanel", options: { actionId: "pr" } }]);
+    expect(chat.inspection.navigateCalls).toEqual([
+      { method: "openThreadPanel", options: { actionId: "pr" } },
+    ]);
     expect(chat.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
   });
 
   it("keeps Draft beside failed checks and conflicts without repeating Draft in the banner", async () => {
-    const data = ok({ ...emptyInsight, pr: { ...pr, state: "draft" }, blockers: [
-      { code: "checks_failed", text: "1 check failed" },
-      { code: "conflicts", text: "Merge conflicts" },
-      { code: "draft", text: "Draft" },
-    ] });
+    const data = ok({
+      ...emptyInsight,
+      pr: { ...pr, state: "draft" },
+      blockers: [
+        { code: "checks_failed", text: "1 check failed" },
+        { code: "conflicts", text: "Merge conflicts" },
+        { code: "draft", text: "Draft" },
+      ],
+    });
     const chat = renderBanner(data);
     const panel = renderTab(data);
-    const button = await within(chat.container).findByRole("button", { name: /Draft.*1 check failed.*Merge conflicts/ });
+    const button = await within(chat.container).findByRole("button", {
+      name: /Draft.*1 check failed.*Merge conflicts/,
+    });
     expect(button.textContent?.match(/Draft/g)).toHaveLength(1);
     await within(panel.container).findByRole("region", { name: "Merge blockers" });
     expect(panel.container.querySelector("header")?.textContent).toContain("Draft");
     expect(within(chat.container).queryByText(/Ready to/)).toBeNull();
   });
 
-  it.each(["closed", "merged"] as const)("suppresses stale details and actions for %s in both views", async (state) => {
-    const data = ok({ ...blocked, pr: { ...pr, state }, mergeQueue: { position: 3, state: "failed" }, mergeAction: { kind: "enqueue" } });
-    const chat = renderBanner(data);
-    const panel = renderTab(data);
-    await within(chat.container).findByRole("button", { name: state === "closed" ? "Closed" : "Pull request merged" });
-    await within(panel.container).findByText(state === "closed" ? "Closed" : "Pull request merged");
-    for (const container of [chat.container, panel.container]) {
-      expect(within(container).queryByText("2 checks failed")).toBeNull();
-      expect(within(container).queryByText("Merge queue failed")).toBeNull();
-      expect(within(container).queryByRole("button", { name: "Enqueue" })).toBeNull();
-    }
-  });
+  it.each(["closed", "merged"] as const)(
+    "suppresses stale details and actions for %s in both views",
+    async (state) => {
+      const data = ok({
+        ...blocked,
+        pr: { ...pr, state },
+        mergeQueue: { position: 3, state: "failed" },
+        mergeAction: { kind: "enqueue" },
+      });
+      const chat = renderBanner(data);
+      const panel = renderTab(data);
+      await within(chat.container).findByRole("button", {
+        name: state === "closed" ? "Closed" : "Pull request merged",
+      });
+      await within(panel.container).findByText(
+        state === "closed" ? "Closed" : "Pull request merged",
+      );
+      for (const container of [chat.container, panel.container]) {
+        expect(within(container).queryByText("2 checks failed")).toBeNull();
+        expect(within(container).queryByText("Merge queue failed")).toBeNull();
+        expect(within(container).queryByRole("button", { name: "Enqueue" })).toBeNull();
+      }
+    },
+  );
 
   it.each([
-    ["queued", "In merge queue (#3)"], ["awaiting_checks", "Merge queue checks running (#3)"],
-    ["merging", "Merging"], ["failed", "Merge queue failed"],
+    ["queued", "In merge queue (#3)"],
+    ["awaiting_checks", "Merge queue checks running (#3)"],
+    ["merging", "Merging"],
+    ["failed", "Merge queue failed"],
   ] as const)("shows matching %s queue detail in both views", async (state, text) => {
-    const data = ok({ ...blocked, mergeQueue: { position: 3, state }, mergeAction: { kind: "queued" } });
+    const data = ok({
+      ...blocked,
+      mergeQueue: { position: 3, state },
+      mergeAction: { kind: "queued" },
+    });
     const chat = renderBanner(data);
     const panel = renderTab(data);
     await within(chat.container).findByText(text);
@@ -98,7 +155,8 @@ describe("PR state parity", () => {
       expect(within(container).queryByText("Queued", { exact: true })).toBeNull();
       expect(within(container).queryByText("Pull request merged")).toBeNull();
       expect(within(container).queryByRole("button", { name: "Enqueue" })).toBeNull();
-      if (state === "failed") expect(within(container).getByText(text).className).toContain("text-destructive");
+      if (state === "failed")
+        expect(within(container).getByText(text).className).toContain("text-destructive");
     }
   });
 });

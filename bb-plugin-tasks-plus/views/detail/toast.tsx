@@ -10,10 +10,7 @@ export function useDetailToasts() {
   const [toasts, setToasts] = useState<DetailToast[]>([]);
   const nextIdRef = useRef(1);
   const timersRef = useRef<number[]>([]);
-  useEffect(
-    () => () => timersRef.current.forEach((timer) => clearTimeout(timer)),
-    [],
-  );
+  useEffect(() => () => timersRef.current.forEach((timer) => clearTimeout(timer)), []);
   const push = useCallback((message: string) => {
     const id = nextIdRef.current++;
     setToasts((current) => [...current, { id, message }]);
@@ -45,10 +42,7 @@ export function DetailToasts({
           role="status"
           className="pointer-events-auto flex max-w-md items-center gap-2 rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md border-destructive/50"
         >
-          <Icon
-            name="AlertCircle"
-            className="size-4 shrink-0 text-destructive"
-          />
+          <Icon name="AlertCircle" className="size-4 shrink-0 text-destructive" />
           <span className="min-w-0 flex-1">{toast.message}</span>
           <button
             type="button"

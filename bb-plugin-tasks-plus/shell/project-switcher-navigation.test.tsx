@@ -26,9 +26,7 @@ const listProjects = () => ({ projects: [project, other] });
 function openPicker() {
   act(
     () =>
-      void TASKS_COMMANDS.find(
-        (command) => command.id === "switch-project",
-      )!.run({
+      void TASKS_COMMANDS.find((command) => command.id === "switch-project")!.run({
         threadId: null,
         projectId: null,
         openPanel: () => false,
@@ -74,9 +72,7 @@ describe("project picker shell navigation", () => {
         kind: "project",
         projectId: other.id,
       });
-      expect(slot.container.textContent).toContain(
-        width < 448 ? "No tasks" : "Todo",
-      );
+      expect(slot.container.textContent).toContain(width < 448 ? "No tasks" : "Todo");
     },
   );
 
@@ -107,12 +103,10 @@ describe("project picker shell navigation", () => {
     const slot = setup(`${project.id}?view=list&task=TSK-1`, {
       listProjects,
       listTasks: (raw) => ({
-        tasks:
-          (raw as { projectId?: string }).projectId === other.id ? [] : tasks,
+        tasks: (raw as { projectId?: string }).projectId === other.id ? [] : tasks,
         nextCursor: null,
       }),
-      updateTask: () =>
-        ++writes === 1 ? pending.promise : { ok: true, task: tasks[0] },
+      updateTask: () => (++writes === 1 ? pending.promise : { ok: true, task: tasks[0] }),
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Unsaved project switch draft");
@@ -128,18 +122,12 @@ describe("project picker shell navigation", () => {
       kind: "project",
       projectId: project.id,
     });
-    await act(async () =>
-      pending.resolve({ ok: false, error: { message: "Save refused" } }),
-    );
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Save refused",
-    );
+    await act(async () => pending.resolve({ ok: false, error: { message: "Save refused" } }));
+    expect((await slot.findByRole("alert")).textContent).toContain("Save refused");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
       "Unsaved project switch draft",
     );
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
-      "Title 1",
-    );
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
     expect(browsePreference().load()).toEqual({
       kind: "project",
       projectId: project.id,

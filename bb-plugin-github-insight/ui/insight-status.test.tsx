@@ -12,39 +12,77 @@ const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
 const tab = app.threadPanelActions.find((t) => t.id === "pr")!;
 const base: PrInsight = {
-  pr: { number: 1, title: "Thread A", state: "draft", url: "https://github.com/o/r/pull/1", headOid: "a" },
-  mergeAction: { kind: "none" }, blockers: [], checks: [], reviewers: [], mergeQueue: null,
+  pr: {
+    number: 1,
+    title: "Thread A",
+    state: "draft",
+    url: "https://github.com/o/r/pull/1",
+    headOid: "a",
+  },
+  mergeAction: { kind: "none" },
+  blockers: [],
+  checks: [],
+  reviewers: [],
+  mergeQueue: null,
 };
 const refreshedAt = Date.parse("2026-10-05T09:00:00Z");
-const ok = (insight = base, error: string | null = null): InsightResult => ({ kind: "ok", insight, refreshedAt, error });
+const ok = (insight = base, error: string | null = null): InsightResult => ({
+  kind: "ok",
+  insight,
+  refreshedAt,
+  error,
+});
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 function fixture(initial: InsightResult = ok()) {
   let current = initial;
   const read = vi.fn(async (_input: { threadId: string }): Promise<InsightResult> => current);
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
-  const options = { rpc: { getInsight: read, refresh }, composer: { scope: { kind: "thread" as const, threadId: "a" } } };
+  const options = {
+    rpc: { getInsight: read, refresh },
+    composer: { scope: { kind: "thread" as const, threadId: "a" } },
+  };
   const chat = renderSlot<object, ReadMethods>(banner, {}, options);
-  const panel = renderSlot<PluginThreadPanelProps, ReadMethods>(tab, { threadId: "a", params: null }, options);
+  const panel = renderSlot<PluginThreadPanelProps, ReadMethods>(
+    tab,
+    { threadId: "a", params: null },
+    options,
+  );
   const views = [within(chat.container), within(panel.container)];
   const reload = async () => {
     await chat.behavior.emitRealtime("insight.updated", { threadIds: ["a"] });
     await panel.behavior.emitRealtime("insight.updated", { threadIds: ["a"] });
   };
-  return { chat, panel, views, read, refresh, reload, set: (result: InsightResult) => { current = result; } };
+  return {
+    chat,
+    panel,
+    views,
+    read,
+    refresh,
+    reload,
+    set: (result: InsightResult) => {
+      current = result;
+    },
+  };
 }
 afterEach(cleanup);
 
 describe("PR insight availability in both views", () => {
   it("shows first-load progress and hides the banner only after confirmed no-PR", async () => {
     const pending = deferred<InsightResult>();
-    const options = { rpc: { getInsight: () => pending.promise }, composer: { scope: { kind: "thread" as const, threadId: "loading" } } };
+    const options = {
+      rpc: { getInsight: () => pending.promise },
+      composer: { scope: { kind: "thread" as const, threadId: "loading" } },
+    };
     const chat = renderSlot(banner, {}, options);
     const panel = renderSlot(tab, { threadId: "loading", params: null }, options);
-    for (const slot of [chat, panel]) expect(within(slot.container).getByRole("status").textContent).toBe("Loading pull request…");
+    for (const slot of [chat, panel])
+      expect(within(slot.container).getByRole("status").textContent).toBe("Loading pull request…");
     await act(async () => pending.resolve({ kind: "no_pr" }));
     expect(chat.container.textContent).toBe("");
     expect(within(panel.container).getByText("No pull request for this thread")).toBeTruthy();
@@ -64,26 +102,32 @@ describe("PR insight availability in both views", () => {
     expect(f.panel.inspection.navigateCalls).toEqual([]);
   });
 
-  it.each(["draft", "open"] as const)("retains a good %s after transport failures and clears the error after recovery", async (state) => {
-    const data = ok({ ...base, pr: { ...base.pr, state } });
-    const f = fixture(data);
-    const label = state === "draft" ? "Draft" : "Open";
-    for (const view of f.views) await view.findByText(label);
-    f.read.mockRejectedValue(new Error("transport failed"));
-    await f.reload();
-    for (const view of f.views) {
-      expect(view.getByText(label)).toBeTruthy();
-      expect(view.getByRole("alert").textContent).toContain("transport failed");
-    }
-    for (const slot of [f.chat, f.panel]) expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(new Date(refreshedAt).toISOString());
-    f.refresh.mockResolvedValue(data);
-    for (const view of f.views) fireEvent.click(view.getByRole("button", { name: "Retry" }));
-    await act(async () => {});
-    for (const view of f.views) {
-      expect(view.getByText(label)).toBeTruthy();
-      expect(view.queryByRole("alert")).toBeNull();
-    }
-  });
+  it.each(["draft", "open"] as const)(
+    "retains a good %s after transport failures and clears the error after recovery",
+    async (state) => {
+      const data = ok({ ...base, pr: { ...base.pr, state } });
+      const f = fixture(data);
+      const label = state === "draft" ? "Draft" : "Open";
+      for (const view of f.views) await view.findByText(label);
+      f.read.mockRejectedValue(new Error("transport failed"));
+      await f.reload();
+      for (const view of f.views) {
+        expect(view.getByText(label)).toBeTruthy();
+        expect(view.getByRole("alert").textContent).toContain("transport failed");
+      }
+      for (const slot of [f.chat, f.panel])
+        expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(
+          new Date(refreshedAt).toISOString(),
+        );
+      f.refresh.mockResolvedValue(data);
+      for (const view of f.views) fireEvent.click(view.getByRole("button", { name: "Retry" }));
+      await act(async () => {});
+      for (const view of f.views) {
+        expect(view.getByText(label)).toBeTruthy();
+        expect(view.queryByRole("alert")).toBeNull();
+      }
+    },
+  );
 
   it("keeps a server-cached draft with refresh error and last good time", async () => {
     const f = fixture(ok(base, "rate limited"));
@@ -91,11 +135,17 @@ describe("PR insight availability in both views", () => {
       await view.findByText("Draft");
       expect(view.getByRole("alert").textContent).toContain("rate limited");
     }
-    for (const slot of [f.chat, f.panel]) expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(new Date(refreshedAt).toISOString());
+    for (const slot of [f.chat, f.panel])
+      expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(
+        new Date(refreshedAt).toISOString(),
+      );
   });
 
   it("keeps status and details during refresh with progress in each view", async () => {
-    const data = ok({ ...base, blockers: [{ code: "checks_failed", text: "1 check failed" }] }, "previous failure");
+    const data = ok(
+      { ...base, blockers: [{ code: "checks_failed", text: "1 check failed" }] },
+      "previous failure",
+    );
     const f = fixture(data);
     for (const view of f.views) await view.findByText("Draft");
     const pending = deferred<InsightResult>();
@@ -130,10 +180,38 @@ describe("PR insight availability in both views", () => {
     for (const view of f.views) await view.findByText("Draft");
     const updates: [PrInsight, string][] = [
       [{ ...base, pr: { ...base.pr, state: "open" } }, "Open"],
-      [{ ...base, pr: { ...base.pr, state: "open" }, mergeQueue: { position: 2, state: "queued" } }, "In merge queue (#2)"],
-      [{ ...base, pr: { ...base.pr, state: "open" }, mergeQueue: { position: 2, state: "awaiting_checks" } }, "Merge queue checks running (#2)"],
-      [{ ...base, pr: { ...base.pr, state: "open" }, mergeQueue: { position: 2, state: "merging" } }, "Merging"],
-      [{ ...base, pr: { ...base.pr, state: "open" }, mergeQueue: { position: 2, state: "failed" } }, "Merge queue failed"],
+      [
+        {
+          ...base,
+          pr: { ...base.pr, state: "open" },
+          mergeQueue: { position: 2, state: "queued" },
+        },
+        "In merge queue (#2)",
+      ],
+      [
+        {
+          ...base,
+          pr: { ...base.pr, state: "open" },
+          mergeQueue: { position: 2, state: "awaiting_checks" },
+        },
+        "Merge queue checks running (#2)",
+      ],
+      [
+        {
+          ...base,
+          pr: { ...base.pr, state: "open" },
+          mergeQueue: { position: 2, state: "merging" },
+        },
+        "Merging",
+      ],
+      [
+        {
+          ...base,
+          pr: { ...base.pr, state: "open" },
+          mergeQueue: { position: 2, state: "failed" },
+        },
+        "Merge queue failed",
+      ],
       [{ ...base, pr: { ...base.pr, state: "closed" } }, "Closed"],
       [{ ...base, pr: { ...base.pr, state: "merged" } }, "Pull request merged"],
     ];
@@ -153,7 +231,9 @@ describe("PR insight availability in both views", () => {
     const f = fixture();
     await within(f.chat.container).findByText("Draft");
     const pending = deferred<InsightResult>();
-    f.read.mockImplementation(({ threadId }) => threadId === "a" ? pending.promise : Promise.reject(new Error("B read failed")));
+    f.read.mockImplementation(({ threadId }) =>
+      threadId === "a" ? pending.promise : Promise.reject(new Error("B read failed")),
+    );
     await f.chat.behavior.emitRealtime("insight.updated", { threadIds: ["a"] });
     await f.chat.behavior.setComposerScope({ kind: "thread", threadId: "b" });
     const view = within(f.chat.container);

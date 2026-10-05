@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import type { Draft, Drafts } from "../core/drafts";
@@ -22,7 +30,13 @@ interface LocalState {
   pendingReviewUrl: string | null;
 }
 
-const IDLE: LocalState = { typedText: null, dismissedDraftAt: null, busy: false, error: null, pendingReviewUrl: null };
+const IDLE: LocalState = {
+  typedText: null,
+  dismissedDraftAt: null,
+  busy: false,
+  error: null,
+  pendingReviewUrl: null,
+};
 
 interface ThreadActions {
   stateOf(reviewThreadId: string): ThreadActionState;
@@ -50,7 +64,10 @@ export function ThreadActionsProvider({
   const busyIds = useRef(new Set<string>());
 
   const update = useCallback((reviewThreadId: string, patch: Partial<LocalState>) => {
-    setStates((current) => ({ ...current, [reviewThreadId]: { ...(current[reviewThreadId] ?? IDLE), ...patch } }));
+    setStates((current) => ({
+      ...current,
+      [reviewThreadId]: { ...(current[reviewThreadId] ?? IDLE), ...patch },
+    }));
   }, []);
 
   const draftOf = useCallback(
@@ -65,14 +82,24 @@ export function ThreadActionsProvider({
     (reviewThreadId: string): ThreadActionState => {
       const { typedText, busy, error, pendingReviewUrl } = states[reviewThreadId] ?? IDLE;
       const draft = draftOf(reviewThreadId);
-      return { replyText: typedText ?? draft?.body ?? "", hasDraft: draft !== undefined, busy, error, pendingReviewUrl };
+      return {
+        replyText: typedText ?? draft?.body ?? "",
+        hasDraft: draft !== undefined,
+        busy,
+        error,
+        pendingReviewUrl,
+      };
     },
     [states, draftOf],
   );
 
-  const reportSaveError = useCallback((reviewThreadId: string, error: string) => update(reviewThreadId, { error }), [update]);
+  const reportSaveError = useCallback(
+    (reviewThreadId: string, error: string) => update(reviewThreadId, { error }),
+    [update],
+  );
   const saveDraft = useCallback(
-    (reviewThreadId: string, body: string) => rpc.call("saveDraft", { threadId, reviewThreadId, body }),
+    (reviewThreadId: string, body: string) =>
+      rpc.call("saveDraft", { threadId, reviewThreadId, body }),
     [rpc, threadId],
   );
   const draftSaves = useDraftSaves(saveDraft, reportSaveError);
@@ -139,7 +166,12 @@ export function ThreadActionsProvider({
           .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
         if (result.kind === "error") return { error: result.message };
         onWritten();
-        return { typedText: null, dismissedDraftAt: draft?.updatedAt ?? null, error: null, pendingReviewUrl: null };
+        return {
+          typedText: null,
+          dismissedDraftAt: draft?.updatedAt ?? null,
+          error: null,
+          pendingReviewUrl: null,
+        };
       });
     },
     [rpc, threadId, draftOf, runExclusive, draftSaves, onWritten],

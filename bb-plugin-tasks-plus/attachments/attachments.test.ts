@@ -3,10 +3,7 @@ import { dirname, join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { createTasksStore } from "../db";
-import {
-  attachmentDownloadUrl,
-  MAX_ATTACHMENT_SIZE_BYTES,
-} from "../shared/attachments";
+import { attachmentDownloadUrl, MAX_ATTACHMENT_SIZE_BYTES } from "../shared/attachments";
 import { deleteAttachmentById, registerAttachments } from ".";
 
 function setup(options?: Parameters<typeof registerAttachments>[2]) {
@@ -77,13 +74,9 @@ describe("task attachments", () => {
         sizeBytes: 9,
         isImage: true,
       });
-      expect(attachment?.blobPath).toBe(
-        join("blobs", result.attachmentId, "unsafe.png"),
-      );
+      expect(attachment?.blobPath).toBe(join("blobs", result.attachmentId, "unsafe.png"));
       if (!attachment) throw new Error("attachment row was not created");
-      expect(await readFile(join(root, attachment.blobPath), "utf8")).toBe(
-        "png bytes",
-      );
+      expect(await readFile(join(root, attachment.blobPath), "utf8")).toBe("png bytes");
       expect(harness.realtimeSignals).toEqual([
         {
           channel: "tasks:changed",
@@ -144,11 +137,7 @@ describe("task attachments", () => {
   it("downloads with image-aware headers", async () => {
     const { harness, task } = setup();
     try {
-      const uploaded = await upload(
-        harness,
-        task.id,
-        new TextEncoder().encode("image"),
-      );
+      const uploaded = await upload(harness, task.id, new TextEncoder().encode("image"));
       const { attachmentId } = (await uploaded.json()) as {
         attachmentId: string;
       };
@@ -297,13 +286,7 @@ describe("task attachments", () => {
   it("deletes both the attachment row and blob directory", async () => {
     const { harness, root, store, task } = setup();
     try {
-      const uploaded = await upload(
-        harness,
-        task.id,
-        "document",
-        "note.txt",
-        "text/plain",
-      );
+      const uploaded = await upload(harness, task.id, "document", "note.txt", "text/plain");
       const { attachmentId } = (await uploaded.json()) as {
         attachmentId: string;
       };
@@ -341,13 +324,7 @@ describe("task attachments", () => {
   it("deleteAttachmentById removes the row and blob and returns the attachment", async () => {
     const { bb, harness, root, store, task } = setup();
     try {
-      const uploaded = await upload(
-        harness,
-        task.id,
-        "document",
-        "note.txt",
-        "text/plain",
-      );
+      const uploaded = await upload(harness, task.id, "document", "note.txt", "text/plain");
       const { attachmentId } = (await uploaded.json()) as {
         attachmentId: string;
       };
@@ -395,9 +372,7 @@ describe("task attachments", () => {
       });
       expect(store.getAttachment(attachmentId)).toEqual(attachment);
       expect(store.getTask(task.id)?.description).toBe(description);
-      await expect(
-        readFile(join(root, attachment.blobPath), "utf8"),
-      ).resolves.toBe("image");
+      await expect(readFile(join(root, attachment.blobPath), "utf8")).resolves.toBe("image");
       expect(harness.realtimeSignals).toHaveLength(signalsBeforeDelete);
     } finally {
       await harness.dispose();
@@ -430,9 +405,7 @@ describe("task attachments", () => {
           'Attachment "image.png" is used in the task description. Remove it from the description before deleting the attachment.',
       });
       expect(store.getAttachment(attachmentId)).toEqual(attachment);
-      await expect(
-        readFile(join(root, attachment.blobPath), "utf8"),
-      ).resolves.toBe("image");
+      await expect(readFile(join(root, attachment.blobPath), "utf8")).resolves.toBe("image");
       expect(harness.realtimeSignals).toHaveLength(signalsBeforeDelete);
 
       const confirmed = await harness.fetchHttp(
@@ -443,9 +416,9 @@ describe("task attachments", () => {
       expect(confirmed.status).toBe(200);
       expect(store.getAttachment(attachmentId)).toBeUndefined();
       expect(store.getTask(task.id)?.description).toBe("");
-      await expect(
-        stat(dirname(join(root, attachment.blobPath))),
-      ).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(stat(dirname(join(root, attachment.blobPath)))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
       expect(harness.realtimeSignals).toHaveLength(signalsBeforeDelete + 1);
     } finally {
       await harness.dispose();

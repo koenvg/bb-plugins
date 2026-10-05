@@ -6,11 +6,7 @@ type CommentByline =
   | { kind: "text"; name: string };
 
 export function commentByline(comment: DisplayComment): CommentByline {
-  if (
-    comment.kind === "agent" &&
-    comment.threadId !== null &&
-    comment.threadTitle !== null
-  ) {
+  if (comment.kind === "agent" && comment.threadId !== null && comment.threadTitle !== null) {
     return {
       kind: "thread-link",
       threadId: comment.threadId,
@@ -36,10 +32,7 @@ interface SystemBodySegment {
   bold: boolean;
 }
 
-export function splitSystemBody(
-  body: string,
-  authorName: string,
-): SystemBodySegment[] {
+export function splitSystemBody(body: string, authorName: string): SystemBodySegment[] {
   const suffix = `by ${authorName}`;
   if (authorName.trim() !== "" && body.endsWith(suffix)) {
     const prefix = body.slice(0, body.length - authorName.length);

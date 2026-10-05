@@ -1,7 +1,4 @@
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { createStore } from "../api";
 import type { Comment, Project, Task } from "../db";
@@ -40,8 +37,7 @@ describe("task delegation", () => {
       sdk: {
         threads: {
           spawn: async () => ({ id: "thr_delegated" }),
-          get: async () =>
-            makeThreadResponse({ id: "thr_delegated", status: "starting" }),
+          get: async () => makeThreadResponse({ id: "thr_delegated", status: "starting" }),
         },
       },
     });
@@ -81,9 +77,7 @@ describe("task delegation", () => {
           serviceTier: "fast",
           permissionMode: "full",
           title: "TASK-1 · Implement delegation",
-          prompt: expect.stringContaining(
-            "Run the focused tests before reporting back.",
-          ),
+          prompt: expect.stringContaining("Run the focused tests before reporting back."),
           origin: "plugin",
           originPluginId: "tasks",
         }),
@@ -138,8 +132,7 @@ describe("task delegation", () => {
       sdk: {
         threads: {
           spawn: async () => ({ id: "thr_fast" }),
-          get: async () =>
-            makeThreadResponse({ id: "thr_fast", status: "active" }),
+          get: async () => makeThreadResponse({ id: "thr_fast", status: "active" }),
         },
       },
     });
@@ -162,9 +155,7 @@ describe("task delegation", () => {
       presetId: preset.id,
     });
 
-    expect(harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_fast" }],
-    ]);
+    expect(harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_fast" }]]);
     expect(store.tasks.listTaskThreads(task.id)).toEqual([
       expect.objectContaining({
         threadId: "thr_fast",
@@ -181,8 +172,7 @@ describe("task delegation", () => {
       sdk: {
         threads: {
           spawn: async () => ({ id: "thr_wide_title" }),
-          get: async () =>
-            makeThreadResponse({ id: "thr_wide_title", status: "starting" }),
+          get: async () => makeThreadResponse({ id: "thr_wide_title", status: "starting" }),
         },
       },
     });
@@ -206,9 +196,7 @@ describe("task delegation", () => {
     });
 
     const title = `TASK-1 · ${"调".repeat(55)}`;
-    expect(harness.sdk.callsTo("threads.spawn")).toEqual([
-      [expect.objectContaining({ title })],
-    ]);
+    expect(harness.sdk.callsTo("threads.spawn")).toEqual([[expect.objectContaining({ title })]]);
     expect(displayWidth(title)).toBeLessThanOrEqual(120);
 
     await harness.dispose();
@@ -220,8 +208,7 @@ describe("task delegation", () => {
       sdk: {
         threads: {
           spawn: async () => ({ id: "thr_worktree" }),
-          get: async () =>
-            makeThreadResponse({ id: "thr_worktree", status: "starting" }),
+          get: async () => makeThreadResponse({ id: "thr_worktree", status: "starting" }),
         },
       },
     });
@@ -364,8 +351,7 @@ describe("task delegation", () => {
       }),
     ).rejects.toMatchObject({
       code: "handler_error",
-      message:
-        "Could not create a worktree on host_missing from missing-branch: Host not found",
+      message: "Could not create a worktree on host_missing from missing-branch: Host not found",
     });
 
     await harness.dispose();
@@ -432,9 +418,7 @@ describe("task delegation", () => {
         threadId: "thr_existing",
       }),
     ).resolves.toEqual({ threadId: "thr_existing" });
-    expect(harness.sdk.callsTo("threads.get")).toEqual([
-      [{ threadId: "thr_existing" }],
-    ]);
+    expect(harness.sdk.callsTo("threads.get")).toEqual([[{ threadId: "thr_existing" }]]);
     expect(store.tasks.listTaskThreads(task.id)).toEqual([
       expect.objectContaining({
         threadId: "thr_existing",
@@ -507,14 +491,12 @@ describe("task thread detach", () => {
       }),
     ).resolves.toEqual({ threadId: "thr_dead" });
 
-    expect(
-      store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId),
-    ).toEqual(["thr_live"]);
-    expect(
-      store.tasks
-        .listTaskThreads(otherTask.id)
-        .map((thread) => thread.threadId),
-    ).toEqual(["thr_dead"]);
+    expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual([
+      "thr_live",
+    ]);
+    expect(store.tasks.listTaskThreads(otherTask.id).map((thread) => thread.threadId)).toEqual([
+      "thr_dead",
+    ]);
     expect(harness.realtimeSignals).toEqual([
       { channel: "threads:changed", payload: { taskId: task.id } },
       {
@@ -545,8 +527,14 @@ describe("delegation seed prompt", () => {
         ? [tasks.createTask({ projectId: project.id, title: "Child", parentTaskId: task.id })]
         : [];
       const prompt = buildSeedPrompt({
-        task, project, subtasks, blockers: [], attachments: [], recentComments: [],
-        presetInstructions: "Keep the preset.", extraInstructions: "Keep the request.",
+        task,
+        project,
+        subtasks,
+        blockers: [],
+        attachments: [],
+        recentComments: [],
+        presetInstructions: "Keep the preset.",
+        extraInstructions: "Keep the request.",
       });
       const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
       expectReportingRules(report);
@@ -577,8 +565,7 @@ describe("delegation seed prompt", () => {
       number: 1,
       key: "TASK-1",
       title: "Delegate work",
-      description:
-        "Implement **preset-driven** delegation.\n\nKeep the prompt useful.",
+      description: "Implement **preset-driven** delegation.\n\nKeep the prompt useful.",
       status: "todo",
       priority: "high",
       dueDate: null,

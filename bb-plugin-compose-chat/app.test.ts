@@ -33,11 +33,14 @@ describe("Compose Chat's public content-script lifecycle", () => {
   });
 
   it("leaves the existing input, controls, and event handlers untouched", async () => {
-    document.body.innerHTML = '<form data-promptbox><textarea>Keep my draft</textarea><button type="button">Stop run</button></form>';
+    document.body.innerHTML =
+      '<form data-promptbox><textarea>Keep my draft</textarea><button type="button">Stop run</button></form>';
     const field = document.querySelector("textarea")!;
     const button = document.querySelector("button")!;
     let clicks = 0;
-    button.addEventListener("click", () => { clicks += 1; });
+    button.addEventListener("click", () => {
+      clicks += 1;
+    });
     const original = document.body.innerHTML;
     const app = await loadPluginApp(appDefinition);
     const mounted = await mountPluginContentScripts(app, { pluginId: "compose-chat" });
@@ -82,7 +85,10 @@ describe("Compose Chat's public content-script lifecycle", () => {
   it("pauses motion in hidden documents and releases its visibility listener", () => {
     let visibility = "visible";
     const original = Object.getOwnPropertyDescriptor(document, "visibilityState");
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
     const motionMarker = "data-compose-chat-motion";
     document.documentElement.setAttribute(motionMarker, "previous");
     try {

@@ -65,18 +65,12 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
       input.mergeable === "CONFLICTING" || input.mergeStateStatus === "DIRTY",
       { code: "conflicts", text: "Merge conflicts" },
     ],
-    [
-      failed > 0,
-      { code: "checks_failed", text: `${countOf(failed, "check")} failed` },
-    ],
+    [failed > 0, { code: "checks_failed", text: `${countOf(failed, "check")} failed` }],
     [
       input.reviewDecision === "CHANGES_REQUESTED",
       { code: "changes_requested", text: "Changes requested" },
     ],
-    [
-      input.mergeStateStatus === "BEHIND",
-      { code: "behind", text: "Branch out of date" },
-    ],
+    [input.mergeStateStatus === "BEHIND", { code: "behind", text: "Branch out of date" }],
     [
       input.reviewDecision === "REVIEW_REQUIRED",
       { code: "review_required", text: "Review required" },
@@ -88,10 +82,7 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
         text: countOf(input.unresolvedThreads, "unresolved thread"),
       },
     ],
-    [
-      running > 0,
-      { code: "checks_running", text: `${countOf(running, "check")} running` },
-    ],
+    [running > 0, { code: "checks_running", text: `${countOf(running, "check")} running` }],
     [input.prState === "draft", { code: "draft", text: "Draft" }],
   ];
   const blockers = candidates.flatMap(([applies, blocker]) => (applies ? [blocker] : []));

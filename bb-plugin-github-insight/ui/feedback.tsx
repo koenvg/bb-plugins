@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils";
 const BUTTON_CLASS =
   "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md border disabled:cursor-default border-border px-2 text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
-export function RefreshButton({ refreshing, refresh }: { refreshing: boolean; refresh: () => void }) {
+export function RefreshButton({
+  refreshing,
+  refresh,
+}: {
+  refreshing: boolean;
+  refresh: () => void;
+}) {
   return (
     <button type="button" className={BUTTON_CLASS} onClick={refresh} disabled={refreshing}>
       <Icon

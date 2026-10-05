@@ -13,12 +13,14 @@ The saved configuration was inspected during this discussion: all 12 current sta
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep configuration resolution and validation behind one module interface shared by CLI, RPC, and agent assembly.
 - Add a discoverable Settings section using the public SDK and native BB styling.
 - Preserve existing effective choices while adding a distinct inherited state.
 - Keep errors and unsaved drafts visible instead of treating unknown or stale state as saved.
 
 **Non-Goals:**
+
 - BB core changes, a separate navigation page, or repository instruction files.
 - A task-tracker creation UI, task dispatch, task scanning, or direct cross-plugin task writes.
 - A new global custom-prompt system or migration of existing custom prompts to the factory text.
@@ -51,6 +53,7 @@ Alternative rejected: treating a missing row as the only inherited state fails w
 Keep storage and atomic prompt comparison inside `project-settings.ts`. Put project validation and configuration actions behind a package-local module used by both the existing CLI and new RPC handlers. Keep the factory focused on registration; avoid a second resolver or duplicated validation branch for the UI.
 
 Use a strict, runtime-validated contract in `rpc.ts`, with Zod 4 as a package dependency:
+
 - `listProjects`: returns standard project IDs and names, without personal projects.
 - `getProject`: accepts a project ID and returns its resolved configuration and current default.
 - `setEnablement`: accepts a project ID and `enabledOverride: boolean | null`.

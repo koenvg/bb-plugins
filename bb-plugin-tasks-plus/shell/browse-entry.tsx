@@ -31,35 +31,22 @@ export function useBrowseRoute(
   const explicitRoute = useMemo(() => resolveView(requested), [requested]);
   const route = useMemo(() => {
     if (requested.kind !== "entry") return explicitRoute;
-    if (
-      projects.isLoading ||
-      projects.error !== null ||
-      projects.data === undefined
-    )
+    if (projects.isLoading || projects.error !== null || projects.data === undefined)
       return requested;
     const scope = preference.load();
     return resolveView(
-      scope?.kind === "project" &&
-        projects.data.some((project) => project.id === scope.projectId)
+      scope?.kind === "project" && projects.data.some((project) => project.id === scope.projectId)
         ? { ...scope, view: null }
         : { kind: "all" },
     );
-  }, [
-    requested,
-    explicitRoute,
-    projects.isLoading,
-    projects.error,
-    projects.data,
-    preference,
-  ]);
+  }, [requested, explicitRoute, projects.isLoading, projects.error, projects.data, preference]);
   const replacedEntry = useRef(false);
   useEffect(() => {
     if (requested.kind !== "entry") replacedEntry.current = false;
     if (route.kind === "entry") return;
     if (requested.kind === "entry" && replacedEntry.current) return;
     if (route.kind === "all") preference.store({ kind: "all" });
-    if (route.kind === "project")
-      preference.store({ kind: "project", projectId: route.projectId });
+    if (route.kind === "project") preference.store({ kind: "project", projectId: route.projectId });
     if (requested.kind === "entry") {
       replacedEntry.current = true;
       navigation.go(route, { replace: true });

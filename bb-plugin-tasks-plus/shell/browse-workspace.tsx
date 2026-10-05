@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -12,11 +6,7 @@ import { ListView, type VisibleTaskOrder } from "../views/list/index.js";
 import { DetailView } from "../views/detail/index.js";
 import { useTasksSession } from "../views/detail/task-session.js";
 import { ShortcutOwner } from "./shortcut-provider.js";
-import {
-  TicketPanelContent,
-  useOpenTicketPanel,
-  type TicketAttachment,
-} from "./ticket-panel.js";
+import { TicketPanelContent, useOpenTicketPanel, type TicketAttachment } from "./ticket-panel.js";
 import {
   canRestoreBrowseFocus,
   useBrowseFocus,
@@ -31,10 +21,7 @@ import {
   type ResolvedTasksRoute,
 } from "./routes.js";
 
-export type BrowseRoute = Extract<
-  ResolvedTasksRoute,
-  { kind: "all" | "active" | "project" }
->;
+export type BrowseRoute = Extract<ResolvedTasksRoute, { kind: "all" | "active" | "project" }>;
 
 /** The accepted route is the only selected identity. The list owns its rendered order;
  * this boundary owns composition and safe requests, never another editor session. */
@@ -122,8 +109,7 @@ export function BrowseWorkspace({
         // A saved navigation must still point at a confirmed visible result.
         if (
           target &&
-          (!latestOrder.current.settled ||
-            !latestOrder.current.keys.includes(taskKey!))
+          (!latestOrder.current.settled || !latestOrder.current.keys.includes(taskKey!))
         )
           return;
         // Only an accepted destination consumes its reveal. A failed request
@@ -133,14 +119,7 @@ export function BrowseWorkspace({
         if (taskKey !== selectedKey || !target) commitSelection(taskKey);
       });
     },
-    [
-      session,
-      commitSelection,
-      selectedKey,
-      focus.cancel,
-      focus.arm,
-      openTicket,
-    ],
+    [session, commitSelection, selectedKey, focus.cancel, focus.arm, openTicket],
   );
 
   useEffect(() => {
@@ -178,8 +157,7 @@ export function BrowseWorkspace({
     revealedSelection.current = selectedKey;
   }, [selectedKey, openTicket]);
   useEffect(() => {
-    if (noProjects && selectedKey)
-      onMissing(selectedKey, () => latestNoProjects.current);
+    if (noProjects && selectedKey) onMissing(selectedKey, () => latestNoProjects.current);
   }, [noProjects, selectedKey, onMissing, contextRevision]);
   const readyKey = selectedKey === validatedKey ? selectedKey : null;
   const detailHidden = !detailVisible;
@@ -219,25 +197,18 @@ export function BrowseWorkspace({
       (detailHidden && detail.contains(document.activeElement))
     ) {
       const target =
-        list.querySelector<HTMLElement>(
-          '[data-nav-item][aria-current="true"]',
-        ) ?? list;
+        list.querySelector<HTMLElement>('[data-nav-item][aria-current="true"]') ?? list;
       target.focus({ preventScroll: true });
     }
   }, [detailHidden, contextRevision, recovering]);
   return (
-    <div
-      className="flex flex-col h-full min-h-0 overflow-hidden"
-      data-browse-layout="native"
-    >
+    <div className="flex flex-col h-full min-h-0 overflow-hidden" data-browse-layout="native">
       {recovering && (
         <div
           role="status"
           className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-sm"
         >
-          <span className="flex-1">
-            BB couldn't open the Ticket pane. Recover your edits here.
-          </span>
+          <span className="flex-1">BB couldn't open the Ticket pane. Recover your edits here.</span>
           <Button variant="outline" size="sm" onClick={openTicket}>
             Try Ticket pane again
           </Button>
@@ -322,9 +293,7 @@ export function BrowseWorkspace({
                     size="sm"
                     className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                     aria-label="Open standalone ticket"
-                    onClick={() =>
-                      navigation.go({ kind: "task", taskKey: selectedKey })
-                    }
+                    onClick={() => navigation.go({ kind: "task", taskKey: selectedKey })}
                   >
                     <Icon name="ArrowUpRight" className="size-3.5" />
                   </Button>
@@ -339,10 +308,7 @@ export function BrowseWorkspace({
                     />
                   </TaskLinkNavigationContext.Provider>
                 ) : (
-                  <p
-                    role="status"
-                    className="p-6 text-sm text-muted-foreground"
-                  >
+                  <p role="status" className="p-6 text-sm text-muted-foreground">
                     Waiting for the ticket list…
                   </p>
                 )}

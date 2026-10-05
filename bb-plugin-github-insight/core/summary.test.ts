@@ -34,7 +34,13 @@ function reviewer(name: string, overrides: Partial<Reviewer> = {}): Reviewer {
 
 function insight(overrides: Partial<PrInsight> = {}): PrInsight {
   return {
-    pr: { number: 1, title: "t", state: "open", url: "https://github.com/o/r/pull/1", headOid: "abc" },
+    pr: {
+      number: 1,
+      title: "t",
+      state: "open",
+      url: "https://github.com/o/r/pull/1",
+      headOid: "abc",
+    },
     mergeAction: { kind: "none" },
     blockers: [],
     reviewers: [],
@@ -99,11 +105,13 @@ describe("buildSummary on PR 25337", () => {
     const json = JSON.stringify(buildSummary({ insight: recorded, refreshedAt, error: null }));
 
     expect(new TextEncoder().encode(json).length).toBeLessThan(MAX_SUMMARY_BYTES);
-    const failureTexts = recorded.checks.flatMap((candidate) =>
-      candidate.failure === null
-        ? []
-        : [candidate.failure.reason, ...candidate.failure.annotations.map((a) => a.message)],
-    ).filter((text) => text !== "");
+    const failureTexts = recorded.checks
+      .flatMap((candidate) =>
+        candidate.failure === null
+          ? []
+          : [candidate.failure.reason, ...candidate.failure.annotations.map((a) => a.message)],
+      )
+      .filter((text) => text !== "");
     expect(failureTexts.length).toBeGreaterThan(0);
     for (const text of failureTexts) expect(json).not.toContain(text);
   });
@@ -203,21 +211,31 @@ describe("shouldWriteSummary", () => {
 
   it("skips a summary with the same data and a recent write", () => {
     expect(
-      shouldWriteSummary({ summary: written, writtenAt: refreshedAt }, refreshedLater(60_000), later(60_000)),
+      shouldWriteSummary(
+        { summary: written, writtenAt: refreshedAt },
+        refreshedLater(60_000),
+        later(60_000),
+      ),
     ).toBe(false);
   });
 
   it("writes when the data changed", () => {
     const next = { ...written, error: "rate limited" };
 
-    expect(shouldWriteSummary({ summary: written, writtenAt: refreshedAt }, next, later(1))).toBe(true);
+    expect(shouldWriteSummary({ summary: written, writtenAt: refreshedAt }, next, later(1))).toBe(
+      true,
+    );
   });
 
   it("writes a newer refresh time once the last write is 30 minutes old", () => {
     const next = refreshedLater(SUMMARY_HEARTBEAT_MS);
 
     expect(
-      shouldWriteSummary({ summary: written, writtenAt: refreshedAt }, next, later(SUMMARY_HEARTBEAT_MS)),
+      shouldWriteSummary(
+        { summary: written, writtenAt: refreshedAt },
+        next,
+        later(SUMMARY_HEARTBEAT_MS),
+      ),
     ).toBe(true);
   });
 
@@ -225,7 +243,11 @@ describe("shouldWriteSummary", () => {
     const failing = { ...written, error: "rate limited" };
 
     expect(
-      shouldWriteSummary({ summary: failing, writtenAt: refreshedAt }, failing, later(2 * SUMMARY_HEARTBEAT_MS)),
+      shouldWriteSummary(
+        { summary: failing, writtenAt: refreshedAt },
+        failing,
+        later(2 * SUMMARY_HEARTBEAT_MS),
+      ),
     ).toBe(false);
   });
 });

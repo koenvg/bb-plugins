@@ -1,6 +1,10 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { MERGE_METHOD_LABEL, type MergeMethod, type RunnableMergeAction } from "../core/merge-action";
+import {
+  MERGE_METHOD_LABEL,
+  type MergeMethod,
+  type RunnableMergeAction,
+} from "../core/merge-action";
 import type { PrInsight } from "../core/overview";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -19,7 +23,11 @@ const ICON_SIZE_CLASS: Record<ButtonSize, string> = {
   compact: "size-3.5",
 };
 const PRIMARY_CLASS = cn(BUTTON_CLASS, "bg-foreground text-background hover:bg-foreground/90");
-const OUTLINE_CLASS = cn(BUTTON_CLASS, SIZE_CLASS.default, "border border-input hover:bg-state-hover");
+const OUTLINE_CLASS = cn(
+  BUTTON_CLASS,
+  SIZE_CLASS.default,
+  "border border-input hover:bg-state-hover",
+);
 
 interface MergeActionButtonProps {
   threadId: string;
@@ -30,7 +38,14 @@ interface MergeActionButtonProps {
   showError?: boolean;
 }
 
-export function MergeActionButton({ threadId, pr, action, size = "default", disabled = false, showError = true }: MergeActionButtonProps) {
+export function MergeActionButton({
+  threadId,
+  pr,
+  action,
+  size = "default",
+  disabled = false,
+  showError = true,
+}: MergeActionButtonProps) {
   const { state, run } = useMergeAction(threadId, pr.headOid);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const running = state.kind === "running";
@@ -53,7 +68,16 @@ export function MergeActionButton({ threadId, pr, action, size = "default", disa
           pr={pr}
           method={action.method}
           running={running}
-          trigger={<ActionButton icon="GitMerge" label={MERGE_METHOD_LABEL[action.method]} busyLabel={busyLabel} running={running} disabled={disabled || running} size={size} />}
+          trigger={
+            <ActionButton
+              icon="GitMerge"
+              label={MERGE_METHOD_LABEL[action.method]}
+              busyLabel={busyLabel}
+              running={running}
+              disabled={disabled || running}
+              size={size}
+            />
+          }
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
           confirm={runAction}
@@ -103,7 +127,15 @@ interface MergeConfirmationProps {
   confirm: () => void;
 }
 
-export function MergeConfirmation({ pr, method, running, trigger, open, onOpenChange, confirm }: MergeConfirmationProps) {
+export function MergeConfirmation({
+  pr,
+  method,
+  running,
+  trigger,
+  open,
+  onOpenChange,
+  confirm,
+}: MergeConfirmationProps) {
   const label = MERGE_METHOD_LABEL[method];
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -120,7 +152,11 @@ export function MergeConfirmation({ pr, method, running, trigger, open, onOpenCh
           </AlertDialog.Description>
           <div className="flex justify-end gap-2">
             <AlertDialog.Cancel className={OUTLINE_CLASS}>Cancel</AlertDialog.Cancel>
-            <AlertDialog.Action className={cn(PRIMARY_CLASS, SIZE_CLASS.default)} onClick={confirm} disabled={running}>
+            <AlertDialog.Action
+              className={cn(PRIMARY_CLASS, SIZE_CLASS.default)}
+              onClick={confirm}
+              disabled={running}
+            >
               {label}
             </AlertDialog.Action>
           </div>

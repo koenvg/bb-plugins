@@ -21,7 +21,8 @@ type Annotation =
 
 export function PrFileDiff({ file, threads, commentDrafts }: ThreadsProps & { file: ReviewFile }) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
-  if (fileDiff === null) return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
+  if (fileDiff === null)
+    return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
   return <LazyFileDiff fileDiff={fileDiff} threads={threads} commentDrafts={commentDrafts} />;
 }
 
@@ -40,7 +41,11 @@ function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { 
   );
 }
 
-function LazyFileDiff({ fileDiff, threads, commentDrafts }: ThreadsProps & { fileDiff: FileDiffMetadata }) {
+function LazyFileDiff({
+  fileDiff,
+  threads,
+  commentDrafts,
+}: ThreadsProps & { fileDiff: FileDiffMetadata }) {
   const { visible, ref } = useVisibleOnce<HTMLElement>();
   const theme = useCodeTheme();
   const lineAnnotations = useMemo(
@@ -63,7 +68,12 @@ function LazyFileDiff({ fileDiff, threads, commentDrafts }: ThreadsProps & { fil
       {visible && (
         <FileDiff
           fileDiff={fileDiff}
-          options={{ theme: theme.name, themeType: theme.mode, overflow: "wrap", stickyHeader: true }}
+          options={{
+            theme: theme.name,
+            themeType: theme.mode,
+            overflow: "wrap",
+            stickyHeader: true,
+          }}
           lineAnnotations={lineAnnotations}
           renderHeaderMetadata={() => <ThreadCount count={threads.length} />}
           renderAnnotation={({ metadata }) =>

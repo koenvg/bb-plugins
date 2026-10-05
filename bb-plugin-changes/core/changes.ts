@@ -10,7 +10,9 @@ export type DiffTarget = z.infer<typeof diffTargetSchema>;
 
 export const diffQuerySchema = z.discriminatedUnion("target", [
   z.object({ target: z.literal("uncommitted") }).strict(),
-  z.object({ target: z.enum(["all", "branch_committed"]), mergeBaseBranch: z.string().min(1) }).strict(),
+  z
+    .object({ target: z.enum(["all", "branch_committed"]), mergeBaseBranch: z.string().min(1) })
+    .strict(),
   z.object({ target: z.literal("commit"), sha: z.string().min(1) }).strict(),
 ]);
 export type DiffQuery = z.infer<typeof diffQuerySchema>;
@@ -67,6 +69,14 @@ export function diffQuery(target: DiffTarget, baseBranch: string): DiffQuery {
     case "branch_committed":
       return { target: target.kind, mergeBaseBranch: baseBranch };
   }
+}
+
+export function targetOf(query: DiffQuery): DiffTarget {
+  return query.target === "commit" ? { kind: "commit", sha: query.sha } : { kind: query.target };
+}
+
+export function targetKey(target: DiffTarget): string {
+  return target.kind === "commit" ? `commit:${target.sha}` : target.kind;
 }
 
 export type PatchTarget =

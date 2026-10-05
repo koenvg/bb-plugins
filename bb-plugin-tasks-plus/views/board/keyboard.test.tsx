@@ -48,12 +48,7 @@ function task(number: number, status: Task["status"]): Task {
   });
 }
 
-const TASKS = [
-  task(1, "todo"),
-  task(2, "todo"),
-  task(3, "in_progress"),
-  task(5, "done"),
-];
+const TASKS = [task(1, "todo"), task(2, "todo"), task(3, "in_progress"), task(5, "done")];
 
 function render(calls: { method: string; input: unknown }[] = []) {
   return renderSlot(
@@ -104,8 +99,7 @@ describe("board cards", () => {
     expect(
       slot.navigateCalls.filter(
         (call) =>
-          "options" in call &&
-          (call.options as { subPath?: string }).subPath === "task/TSK-1",
+          "options" in call && (call.options as { subPath?: string }).subPath === "task/TSK-1",
       ),
     ).toHaveLength(2);
   });

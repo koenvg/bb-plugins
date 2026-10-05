@@ -1,10 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { tasksRpcContract } from "../../shared/contract.js";
@@ -135,8 +132,7 @@ function host(
       liveStatus: "working",
     });
   registerTasksApi(bb, store);
-  const call = (method: string, input: unknown) =>
-    harness.behavior.callRpc(method, input);
+  const call = (method: string, input: unknown) => harness.behavior.callRpc(method, input);
   return { harness, store, project, task, reads, call };
 }
 
@@ -152,27 +148,9 @@ it.each([
   ["stale", { updatedAt: "2020-01-01T00:00:00Z" }, "present", false, false],
   ["refresh error", { error: "offline" }, "present", false, false],
   ["missing queue", { mergeQueue: undefined }, "present", false, false],
-  [
-    "unknown queue",
-    { mergeQueue: { state: "FUTURE" } },
-    "present",
-    false,
-    false,
-  ],
-  [
-    "queued",
-    { mergeQueue: { state: "queued", position: 1 } },
-    "present",
-    false,
-    false,
-  ],
-  [
-    "queue failed",
-    { mergeQueue: { state: "failed", position: 1 } },
-    "present",
-    false,
-    false,
-  ],
+  ["unknown queue", { mergeQueue: { state: "FUTURE" } }, "present", false, false],
+  ["queued", { mergeQueue: { state: "queued", position: 1 } }, "present", false, false],
+  ["queue failed", { mergeQueue: { state: "failed", position: 1 } }, "present", false, false],
   ["unknown blocker", { blockers: ["FUTURE"] }, "present", false, false],
   ["conflict", { blockers: ["conflicts"] }, "present", false, false],
   [
@@ -223,20 +201,8 @@ it.each([
     false,
     false,
   ],
-  [
-    "review requested",
-    { reviewDecision: "CHANGES_REQUESTED" },
-    "present",
-    false,
-    false,
-  ],
-  [
-    "review pending",
-    { reviewDecision: "REVIEW_REQUIRED" },
-    "present",
-    false,
-    false,
-  ],
+  ["review requested", { reviewDecision: "CHANGES_REQUESTED" }, "present", false, false],
+  ["review pending", { reviewDecision: "REVIEW_REQUIRED" }, "present", false, false],
   ["unknown mergeability", { mergeable: "UNKNOWN" }, "present", false, false],
   ["missing counts", { checks: {} }, "present", false, false],
   [
@@ -264,10 +230,7 @@ it.each([
     const before = store.tasks.listTaskThreads(task.id);
     const onOpen = vi.fn();
     function Overview() {
-      const meta = useTaskListMeta(
-        [{ ...task, labelIds: [] }],
-        "all",
-      ).data?.get(task.id);
+      const meta = useTaskListMeta([{ ...task, labelIds: [] }], "all").data?.get(task.id);
       return (
         <TaskRow
           task={{ ...task, labelIds: [] }}
@@ -302,28 +265,18 @@ it.each([
       name: /Open GitHub PR acme\/bb #42/,
     });
     expect(link.textContent?.includes("Ready to merge")).toBe(ready);
-    expect(
-      slot.getByRole("button", { name: /Change status, currently In Review/ }),
-    ).toBeTruthy();
-    expect(
-      slot.getByRole("button", { name: /Threads for/ }).textContent,
-    ).toContain("All archived");
-    expect(
-      slot.getByRole("button", { name: /Threads for/ }).textContent,
-    ).toContain("2 Failed");
+    expect(slot.getByRole("button", { name: /Change status, currently In Review/ })).toBeTruthy();
+    expect(slot.getByRole("button", { name: /Threads for/ }).textContent).toContain("All archived");
+    expect(slot.getByRole("button", { name: /Threads for/ }).textContent).toContain("2 Failed");
     fireEvent.click(slot.getByRole("button", { name: /PR details/ }));
     const dialog = await slot.findByRole("dialog", {
       name: `PRs for ${task.key}`,
     });
-    expect(
-      within(dialog).getAllByRole("link", { name: /Open thread/ }),
-    ).toHaveLength(2);
+    expect(within(dialog).getAllByRole("link", { name: /Open thread/ })).toHaveLength(2);
     if (integration === "absent")
       expect(dialog.textContent).toContain("GitHub Insight is not installed");
-    if (_name === "unknown queue")
-      expect(dialog.textContent).toContain("FUTURE");
-    if (_name === "queue failed")
-      expect(dialog.textContent).toContain("Queue failed");
+    if (_name === "unknown queue") expect(dialog.textContent).toContain("FUTURE");
+    if (_name === "queue failed") expect(dialog.textContent).toContain("Queue failed");
     expect(onOpen).not.toHaveBeenCalled();
     expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
@@ -389,12 +342,7 @@ it.each(["all", "project", "active"])(
     const slot = renderSlot(
       app.navPanels[0]!,
       {
-        subPath:
-          scope === "project"
-            ? project.id
-            : scope === "active"
-              ? "active"
-              : "all",
+        subPath: scope === "project" ? project.id : scope === "active" ? "active" : "all",
       },
       { rpc },
     );
@@ -409,8 +357,7 @@ it.each(["all", "project", "active"])(
     expect(childRow.getAttribute("data-dimmed")).toBeNull();
     for (const row of [parentRow, childRow])
       expect(
-        within(row as HTMLElement).getByRole("link", { name: /Open GitHub PR/ })
-          .textContent,
+        within(row as HTMLElement).getByRole("link", { name: /Open GitHub PR/ }).textContent,
       ).toContain("Conflicts");
     fireEvent.click(childControl);
     const dialog = await slot.findByRole("dialog", {
@@ -424,9 +371,7 @@ it.each(["all", "project", "active"])(
     await waitFor(() => expect(document.activeElement).toBe(childControl));
     expect(
       slot.inspection.rpcCalls.filter((c) =>
-        /listComments|listAttachments|update|archive|merge|review/i.test(
-          c.method,
-        ),
+        /listComments|listAttachments|update|archive|merge|review/i.test(c.method),
       ),
     ).toEqual([]);
     expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
@@ -444,10 +389,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     active = 0,
     peak = 0;
   const counts = { threads: 0, environments: 0, metadata: 0, plugins: 0 };
-  const sdkRead = async <T,>(
-    kind: keyof typeof counts,
-    read: () => T,
-  ): Promise<T> => {
+  const sdkRead = async <T,>(kind: keyof typeof counts, read: () => T): Promise<T> => {
     counts[kind]++;
     active++;
     peak = Math.max(peak, active);
@@ -498,9 +440,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
       plugins: {
         list: () =>
           sdkRead("plugins", () => ({
-            plugins: [
-              { id: "github-insight", enabled: true, status: "running" },
-            ],
+            plugins: [{ id: "github-insight", enabled: true, status: "running" }],
           })),
       },
       threads: {
@@ -510,12 +450,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
             if (id === "error") throw Error("offline");
             return makeThreadResponse({
               id: threadId,
-              status:
-                id === "conflict"
-                  ? "error"
-                  : id === "ready_a"
-                    ? "active"
-                    : "idle",
+              status: id === "conflict" ? "error" : id === "ready_a" ? "active" : "idle",
               archivedAt: id === "ready_a" ? null : 1,
               deletedAt: id === "removed" ? 1 : null,
               environmentId: id === "idle" ? null : `env_${repo(id)}`,
@@ -618,8 +553,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     {},
     {
       rpc: {
-        listTaskWorkStatus: (input) =>
-          harness.behavior.callRpc("listTaskWorkStatus", input),
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
       },
     },
   );
@@ -630,13 +564,13 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   expect(control.getAttribute("aria-label")).toContain("2 lookups unavailable");
   expect(control.textContent).toContain("Details incomplete");
   expect(control.getAttribute("aria-label")).toContain("1 Ready to merge");
-  expect(
-    latest?.get(mixed.id)?.threads.find((t) => t.threadId === "thr_removed"),
-  ).toMatchObject({ execution: "removed", archive: "unknown" });
-  expect(
-    slot.getByRole("link", { name: /Open GitHub PR acme\/ready #42/ })
-      .textContent,
-  ).toContain("Ready to merge");
+  expect(latest?.get(mixed.id)?.threads.find((t) => t.threadId === "thr_removed")).toMatchObject({
+    execution: "removed",
+    archive: "unknown",
+  });
+  expect(slot.getByRole("link", { name: /Open GitHub PR acme\/ready #42/ }).textContent).toContain(
+    "Ready to merge",
+  );
   const terminalRow = slot
     .getByRole("link", { name: /Open GitHub PR acme\/merged #42/ })
     .closest("[data-task-key]")!;
@@ -655,9 +589,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   expect(peak).toBe(8);
   fireEvent.click(control);
   const dialog = await slot.findByRole("dialog", { name: "PRs for MIX-1" });
-  expect(
-    within(dialog).getAllByRole("link", { name: /Open GitHub PR/ }),
-  ).toHaveLength(6);
+  expect(within(dialog).getAllByRole("link", { name: /Open GitHub PR/ })).toHaveLength(6);
   expect(dialog.textContent).toContain("FUTURE");
   expect(dialog.textContent).toContain("Details stale");
   expect(dialog.textContent).toContain("Behind");
@@ -672,8 +604,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   await waitFor(() => expect(counts.metadata).toBe(20));
   await waitFor(() =>
     expect(
-      slot.getByRole("link", { name: /Open GitHub PR acme\/ready #42/ })
-        .textContent,
+      slot.getByRole("link", { name: /Open GitHub PR acme\/ready #42/ }).textContent,
     ).toContain("Conflicts"),
   );
   expect(counts).toEqual({
@@ -682,9 +613,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     metadata: 20,
     plugins: 2,
   });
-  expect(tasks.map((task) => store.tasks.listTaskThreads(task.id))).toEqual(
-    before,
-  );
+  expect(tasks.map((task) => store.tasks.listTaskThreads(task.id))).toEqual(before);
   expect(store.tasks.getTask(mixed.id)?.status).toBe("in_review");
   expect(store.tasks.getTask(terminal.id)?.status).toBe("in_review");
   expect(harness.realtimeSignals).toEqual([]);

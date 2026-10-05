@@ -62,9 +62,7 @@ describe("parsePrFiles", () => {
   });
 
   it("parses the recorded response", () => {
-    expect(
-      parsePrFiles(recordedFiles).map(({ path, patch }) => [path, patch !== null]),
-    ).toEqual([
+    expect(parsePrFiles(recordedFiles).map(({ path, patch }) => [path, patch !== null])).toEqual([
       ["plugins/github-insight/app.tsx", true],
       ["plugins/github-insight/core/pr-ref.ts", true],
       ["plugins/github-insight/package-lock.json", false],

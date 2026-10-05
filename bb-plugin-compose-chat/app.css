@@ -22,7 +22,9 @@
 
 /* Only an expanded follow-up gets a shared writing/action frame. Do not
    reveal the native footer, change its height, or override its overflow. */
-:root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer]:not(:has([data-promptbox-compact])) {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-follow-up-composer]:not(:has([data-promptbox-compact])) {
   border: 1px solid var(--compose-line);
   border-radius: var(--compose-radius);
   background: var(--compose-surface);
@@ -31,27 +33,38 @@
   transition: border-color 150ms ease-out;
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer]:not(:has([data-promptbox-compact])) > form[data-promptbox] {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-follow-up-composer]:not(:has([data-promptbox-compact]))
+  > form[data-promptbox] {
   border: 0;
   border-radius: inherit;
   background: transparent;
   box-shadow: none;
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer]:not(:has([data-promptbox-compact])) > [data-follow-up-composer-footer] {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-follow-up-composer]:not(:has([data-promptbox-compact]))
+  > [data-follow-up-composer-footer] {
   border-top: 1px solid var(--compose-line);
   margin-top: 0;
 }
 
 /* New-thread controls stay in their native sibling footer. Join only the
    immediate form/footer pair; banners and environment fields stay outside. */
-:root[data-compose-chat="active"] [data-app-composer]:not(:has([data-follow-up-composer])) form[data-promptbox]:has(+ div [data-promptbox-project-control]) {
+:root[data-compose-chat="active"]
+  [data-app-composer]:not(:has([data-follow-up-composer]))
+  form[data-promptbox]:has(+ div [data-promptbox-project-control]) {
   border-end-start-radius: 0;
   border-end-end-radius: 0;
   box-shadow: 0 -4px 16px -8px var(--compose-shadow-color);
 }
 
-:root[data-compose-chat="active"] [data-app-composer]:not(:has([data-follow-up-composer])) form[data-promptbox] + div:has([data-promptbox-project-control]) {
+:root[data-compose-chat="active"]
+  [data-app-composer]:not(:has([data-follow-up-composer]))
+  form[data-promptbox]
+  + div:has([data-promptbox-project-control]) {
   border: 1px solid var(--compose-line);
   border-top: 0;
   border-end-start-radius: var(--compose-radius);
@@ -62,22 +75,35 @@
 }
 
 :root[data-compose-chat="active"] [data-app-composer] form[data-promptbox]:focus-within,
-:root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer]:not(:has([data-promptbox-compact])):focus-within {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-follow-up-composer]:not(:has([data-promptbox-compact])):focus-within {
   border-color: var(--compose-line);
   outline: none;
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer]:not(:has([data-promptbox-compact])) > form[data-promptbox]:focus-within {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-follow-up-composer]:not(:has([data-promptbox-compact]))
+  > form[data-promptbox]:focus-within {
   outline: none;
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *) {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-promptbox-action-row]
+  button:not([data-promptbox-send-menu] *) {
   border-radius: var(--radius, 8px);
   min-block-size: 32px;
-  transition: background-color 150ms ease-out, color 150ms ease-out, scale 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    scale 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-promptbox-submit-action]:not([data-promptbox-send-menu] *) {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-promptbox-submit-action]:not([data-promptbox-send-menu] *) {
   min-inline-size: 32px;
   border-radius: var(--radius, 8px);
   background: var(--foreground);
@@ -96,19 +122,30 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-submit-action]):not(:disabled):hover {
+  :root[data-compose-chat="active"]
+    [data-app-composer]
+    [data-promptbox-action-row]
+    button:not([data-promptbox-submit-action]):not(:disabled):hover {
     background: var(--state-hover);
   }
-  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-submit-action]:not(:disabled):hover {
+  :root[data-compose-chat="active"]
+    [data-app-composer]
+    [data-promptbox-submit-action]:not(:disabled):hover {
     background: color-mix(in oklab, var(--foreground) 90%, var(--background));
   }
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-submit-action]):not(:disabled):active {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-promptbox-action-row]
+  button:not([data-promptbox-submit-action]):not(:disabled):active {
   background: var(--state-active);
 }
 
-:root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *):not(:disabled):active {
+:root[data-compose-chat="active"]
+  [data-app-composer]
+  [data-promptbox-action-row]
+  button:not([data-promptbox-send-menu] *):not(:disabled):active {
   scale: 0.96;
 }
 
@@ -128,7 +165,12 @@
   line-height: 1.65;
 }
 
-:root[data-compose-chat="active"] [data-timeline-row-list] :is([data-timeline-row-id*="\:user\:"], [data-timeline-row-id*="\:user-seed\:"]) .group\/message > div > .rounded-xl {
+:root[data-compose-chat="active"]
+  [data-timeline-row-list]
+  :is([data-timeline-row-id*="\:user\:"], [data-timeline-row-id*="\:user-seed\:"])
+  .group\/message
+  > div
+  > .rounded-xl {
   background: var(--compose-message);
   border-color: transparent;
   border-radius: calc(var(--radius, 8px) + 2px);
@@ -141,7 +183,11 @@
   padding-inline-start: var(--compose-activity-inset);
 }
 
-:root[data-compose-chat="active"] [data-timeline-row-list] [data-markdown-preview] :not(pre) > code {
+:root[data-compose-chat="active"]
+  [data-timeline-row-list]
+  [data-markdown-preview]
+  :not(pre)
+  > code {
   border-radius: calc(var(--radius, 8px) / 2);
   background: var(--surface-recessed);
   padding-inline: 0.3em;
@@ -156,7 +202,10 @@
 /* Enlarge standalone targets only. Native split-send segments own their
    widths, hiding, and joined corners; BB also owns compact footer behavior. */
 @media (pointer: coarse) {
-  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *) {
+  :root[data-compose-chat="active"]
+    [data-app-composer]
+    [data-promptbox-action-row]
+    button:not([data-promptbox-send-menu] *) {
     min-block-size: 44px;
     min-inline-size: 44px;
   }
@@ -165,10 +214,16 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-compose-chat="active"] [data-app-composer] form[data-promptbox],
   :root[data-compose-chat="active"] [data-app-composer] [data-follow-up-composer],
-  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *) {
+  :root[data-compose-chat="active"]
+    [data-app-composer]
+    [data-promptbox-action-row]
+    button:not([data-promptbox-send-menu] *) {
     transition: none;
   }
-  :root[data-compose-chat="active"] [data-app-composer] [data-promptbox-action-row] button:not([data-promptbox-send-menu] *):not(:disabled):active {
+  :root[data-compose-chat="active"]
+    [data-app-composer]
+    [data-promptbox-action-row]
+    button:not([data-promptbox-send-menu] *):not(:disabled):active {
     scale: 1;
   }
 }

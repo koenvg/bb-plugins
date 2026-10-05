@@ -5,7 +5,12 @@ import { isActive, needsAttention } from "./row-cues";
 export type AttentionTab = "attention" | "inflight";
 export type Tab = AttentionTab | "all";
 
-const PROBLEMS: readonly BlockerCode[] = ["conflicts", "checks_failed", "changes_requested", "unresolved_threads"];
+const PROBLEMS: readonly BlockerCode[] = [
+  "conflicts",
+  "checks_failed",
+  "changes_requested",
+  "unresolved_threads",
+];
 const WAITING: readonly BlockerCode[] = ["checks_running", "review_required"];
 
 export function threadsWithActiveDescendant(threads: readonly PluginSidebarThread[]): Set<string> {
@@ -26,21 +31,36 @@ export function threadsWithActiveDescendant(threads: readonly PluginSidebarThrea
 
 type AttentionReason = "urgent" | "settled";
 
-function attentionReason(thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionReason | null {
+function attentionReason(
+  thread: PluginSidebarThread,
+  pr: PrSummary | null,
+  hasActiveDescendant: boolean,
+): AttentionReason | null {
   if (needsAttention(thread) || thread.isUnread) return "urgent";
   if (isActive(thread) || hasActiveDescendant) return null;
   if (!pr) return "settled";
   if (pr.mergeQueue) return pr.mergeQueue.state === "failed" ? "urgent" : null;
   if (pr.blockers.some((code) => PROBLEMS.includes(code))) return "urgent";
-  if (pr.state === "open" && (pr.runningChecks > 0 || pr.blockers.some((code) => WAITING.includes(code)))) return null;
+  if (
+    pr.state === "open" &&
+    (pr.runningChecks > 0 || pr.blockers.some((code) => WAITING.includes(code)))
+  )
+    return null;
   return "settled";
 }
 
-export const tabFor = (thread: PluginSidebarThread, pr: PrSummary | null, hasActiveDescendant: boolean): AttentionTab =>
-  attentionReason(thread, pr, hasActiveDescendant) ? "attention" : "inflight";
+export const tabFor = (
+  thread: PluginSidebarThread,
+  pr: PrSummary | null,
+  hasActiveDescendant: boolean,
+): AttentionTab => (attentionReason(thread, pr, hasActiveDescendant) ? "attention" : "inflight");
 
-export function pullsTreeToAttention(thread: PluginSidebarThread, pr: PrSummary | null,
-  hasActiveDescendant: boolean, isTop: boolean): boolean {
+export function pullsTreeToAttention(
+  thread: PluginSidebarThread,
+  pr: PrSummary | null,
+  hasActiveDescendant: boolean,
+  isTop: boolean,
+): boolean {
   const reason = attentionReason(thread, pr, hasActiveDescendant);
   return reason !== null && (isTop || reason !== "settled");
 }
