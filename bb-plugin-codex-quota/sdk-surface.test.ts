@@ -41,11 +41,23 @@ describe("public SDK and quota-only boundary", () => {
       ["scripts/check-bundled-money.mjs", "pathToFileURL(artifact"], // Owned copied host artifact, real SQLite and original import prices.
       ["import-source.test.ts", '${JSON.stringify(new URL("./import-source.ts", import.meta.url'], // Owned sibling source in a hard-deadline child process.
     ]);
+    const hostHarnessProbes = new Set([
+      "scripts/check-bundled-oauth.mjs",
+      "scripts/check-bundled-activity.mjs",
+    ]);
     expect(
-      scan.violations.filter(
-        (entry) =>
-          entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier,
-      ),
+      scan.violations.filter((entry) => {
+        // Only these synthetic probes may use the public test harness outside *.test.ts.
+        if (
+          entry.reason === "outside-allowlist" &&
+          entry.specifier === "@get-bb/plugin-sdk/testing/host" &&
+          hostHarnessProbes.has(entry.file)
+        )
+          return false;
+        return (
+          entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier
+        );
+      }),
     ).toEqual([]);
     expect(scan.files.length).toBeGreaterThan(10);
   });

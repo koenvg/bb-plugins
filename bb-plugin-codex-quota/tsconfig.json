@@ -11,6 +11,10 @@
     "skipLibCheck": false
   },
   "include": [
+    "selected-host*.ts",
+    "account*.ts",
+    "pi-auth.ts",
+    "import-routing*.ts",
     "activity*.ts",
     "calendar*.ts",
     "calendar*.tsx",

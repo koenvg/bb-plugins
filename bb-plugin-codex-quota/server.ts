@@ -1,20 +1,23 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, quotaViewSchema } from "./contract.js";
-import { activityViewSchema } from "./activity-contract.js";
-import { createActivityHandler } from "./activity-server.js";
+import { activityViewSchema, emptyActivity } from "./activity-contract.js";
 
 import {
   historyReadinessSchema,
+  historyUnavailable,
   historyRequestSchema,
   collectorRequestSchema,
 } from "./history-contract.js";
-import { createHistoryReader } from "./history-routing.js";
+import { createSelectedHost } from "./selected-host.js";
 import { createIdentityHistoryCall } from "./identity-server.js";
 import { importRequestSchema, importViewSchema } from "./import-contract.js";
 import { createImportHandler } from "./import-routing.js";
-import { calendarQuerySchema, calendarReportSchema } from "./calendar-contract.js";
-import { createCalendarReader } from "./calendar-routing.js";
+import {
+  calendarQuerySchema,
+  calendarReportSchema,
+  calendarUnavailable,
+} from "./calendar-contract.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z
@@ -66,120 +69,91 @@ const unavailable = (
 
 export default function plugin(bb: BbPluginApi) {
   const hostClient = bb.hosts.experimental_client({ contract: hostContract });
-  let selectedHostId: string | null = null;
-  let generation = 0;
-  let selectionRequest = 0;
-  const activeReads = new Set<AbortController>();
-  const selection = () => ({ hostId: selectedHostId, generation });
-  const enrolled = async (hostId: string) => {
-    const host = await bb.sdk.hosts.get({ hostId });
-    return host.id === hostId && host.type === "persistent" && host.lifecycle.phase === "active"
-      ? host
-      : null;
-  };
-  const readHistory = createHistoryReader({
-    selection,
-    enrolled,
-    activeReads,
-    call: createIdentityHistoryCall(bb, (hostId, signal, input) =>
-      hostClient.call("historyReadiness", input, { hostId, signal }),
-    ),
+  const session = createSelectedHost({
+    async enrolled(hostId) {
+      const host = await bb.sdk.hosts.get({ hostId });
+      return host.id === hostId && host.type === "persistent" && host.lifecycle.phase === "active"
+        ? host
+        : null;
+    },
   });
-  const collectorControl = createHistoryReader({
-    selection,
-    enrolled,
-    activeReads,
-    call: (hostId, signal, action, confirmation) =>
-      hostClient.call(
-        "collectorControl",
-        { action: action!, ...(confirmation ? { confirmation } : {}) },
-        { hostId, signal },
-      ),
-  });
-  bb.onDispose(() => {
-    for (const controller of activeReads) controller.abort();
-  });
+  bb.onDispose(() => session.dispose());
+  const historyCall = createIdentityHistoryCall(bb, (hostId, signal, input) =>
+    hostClient.call("historyReadiness", input, { hostId, signal }),
+  );
+  const readHistory = (input: import("./history-contract.js").HistoryRequest) =>
+    session.request(input, {
+      schema: historyReadinessSchema,
+      unavailable: historyUnavailable,
+      call: (signal) => historyCall(input.hostId, signal),
+    });
   bb.rpc.register(rpcContract, {
-    calendarReport: createCalendarReader({
-      selection,
-      enrolled,
-      activeReads,
-      call: (hostId, signal, query) => hostClient.call("calendarReport", query, { hostId, signal }),
-    }),
+    selection: async () => session.selection(),
+    selectHost: ({ hostId }) => session.select(hostId),
+    read: (input) =>
+      session.request(input, {
+        schema: quotaViewSchema,
+        unavailable,
+        errorReason: "host-offline",
+        call: (signal) =>
+          hostClient.call(
+            "quota",
+            { refresh: input.refresh === true },
+            { hostId: input.hostId, signal },
+          ),
+      }),
+    activity: (input) =>
+      session.request(input, {
+        schema: activityViewSchema,
+        unavailable: emptyActivity,
+        errorReason: "host-offline",
+        timeoutMs: 12_000,
+        call: (signal) =>
+          hostClient.call(
+            "activity",
+            { refresh: input.refresh === true },
+            { hostId: input.hostId, signal },
+          ),
+      }),
     historyReadiness: readHistory,
-    collectorControl,
+    collectorControl: (input) =>
+      session.request(input, {
+        schema: historyReadinessSchema,
+        unavailable: historyUnavailable,
+        call: (signal) =>
+          hostClient.call(
+            "collectorControl",
+            {
+              action: input.action,
+              ...(input.confirmation ? { confirmation: input.confirmation } : {}),
+            },
+            { hostId: input.hostId, signal },
+          ),
+      }),
+    calendarReport: (input) => {
+      const query = structuredClone(input.query);
+      const key = JSON.stringify(query);
+      return session.request(input, {
+        schema: calendarReportSchema,
+        unavailable: calendarUnavailable,
+        call: async (signal) => {
+          const result = await hostClient.call("calendarReport", query, {
+            hostId: input.hostId,
+            signal,
+          });
+          return result.state === "unavailable" || JSON.stringify(result.query) === key
+            ? result
+            : calendarUnavailable("unsupported");
+        },
+      });
+    },
     historicalImport: createImportHandler({
-      selection,
-      enrolled,
-      activeReads,
+      session,
       sdk: bb.sdk,
       prepare: readHistory,
       call: (hostId, signal, input) =>
         hostClient.call("historicalImport", input, { hostId, signal }),
     }),
-    async selection() {
-      return selection();
-    },
-    activity: createActivityHandler({
-      selection,
-      enrolled,
-      activeReads,
-      call: (hostId, refresh, signal) =>
-        hostClient.call("activity", { refresh }, { hostId, signal }),
-    }),
-    async selectHost({ hostId }) {
-      const request = ++selectionRequest;
-      if (hostId !== null) {
-        try {
-          if (!(await enrolled(hostId))) return selection();
-        } catch {
-          return selection();
-        }
-      }
-      if (request !== selectionRequest) return selection();
-      if (selectedHostId !== hostId) {
-        selectedHostId = hostId;
-        generation++;
-        for (const controller of activeReads) controller.abort();
-      }
-      return selection();
-    },
-    async read({ hostId, generation: requestedGeneration, refresh }) {
-      if (selectedHostId === null) return unavailable("no-selection");
-      if (requestedGeneration !== generation) return unavailable("selection-changed");
-      if (hostId !== selectedHostId) return unavailable("foreign-host");
-      const controller = new AbortController();
-      activeReads.add(controller);
-      try {
-        const host = await enrolled(hostId);
-        if (
-          controller.signal.aborted ||
-          requestedGeneration !== generation ||
-          hostId !== selectedHostId
-        )
-          return unavailable("selection-changed");
-        if (!host || host.status !== "connected") return unavailable("host-offline");
-        const result = await hostClient.call(
-          "quota",
-          { refresh: refresh === true },
-          { hostId, signal: controller.signal },
-        );
-        if (requestedGeneration !== generation || hostId !== selectedHostId)
-          return unavailable("selection-changed");
-        const current = await enrolled(hostId);
-        if (requestedGeneration !== generation || hostId !== selectedHostId)
-          return unavailable("selection-changed");
-        if (!current || current.status !== "connected") return unavailable("host-offline");
-        const parsed = quotaViewSchema.safeParse(result);
-        return parsed.success ? parsed.data : unavailable("unsupported");
-      } catch {
-        return requestedGeneration !== generation || hostId !== selectedHostId
-          ? unavailable("selection-changed")
-          : unavailable("host-offline");
-      } finally {
-        activeReads.delete(controller);
-      }
-    },
     async ping({ hostId }) {
       try {
         const host = await bb.sdk.hosts.get({ hostId });

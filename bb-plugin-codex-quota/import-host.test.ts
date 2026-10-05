@@ -5,7 +5,8 @@ import { afterEach, expect, it } from "vitest";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 import { createHostHistory } from "./history-host.js";
 import { createQuotaHostEntry } from "./host.js";
-import { createImportHandler } from "./import-routing.js";
+import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
+import plugin from "./server.js";
 import { openHistoryDatabase } from "./history-storage.js";
 import { execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
@@ -229,52 +230,77 @@ it.each([
       let release!: () => void, entered!: () => void;
       const wait = new Promise<void>((r) => (release = r)),
         blocked = new Promise<void>((r) => (entered = r));
-      const accountRead = new AbortController(),
-        activeReads = new Set([accountRead]);
+      let releaseAccount!: () => void, enteredAccount!: () => void;
+      const accountHeld = new Promise<void>((resolve) => {
+        releaseAccount = resolve;
+      });
+      const accountStarted = new Promise<void>((resolve) => {
+        enteredAccount = resolve;
+      });
+      let accountSignal: AbortSignal | undefined;
       const dispatches: string[] = [];
       let pages = 0;
-      const handler = createImportHandler({
-        selection: () => ({ hostId: "host-a", generation: 1 }),
-        enrolled: async () => ({ status: "connected" }),
-        activeReads,
-        prepare: async () => {
-          if (stage === "identity") {
-            entered();
-            await wait;
-          }
-          return ready;
-        },
+      const server = createFakePluginHost({
+        pluginId: "codex-quota",
         sdk: {
-          environments: {
-            list: async () => {
-              if (++pages === 1)
-                return Array.from({ length: 50 }, () => ({
-                  hostId: "host-a",
-                  path: f.workspace,
-                }));
+          hosts: {
+            get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }),
+          },
+        },
+        experimental_callHostRpc: async ({ method, signal, input }) => {
+          if (method === "quota") {
+            accountSignal = signal;
+            enteredAccount();
+            await accountHeld;
+            return { state: "unavailable", reason: "service", snapshot: null };
+          }
+          if (method === "historyReadiness") {
+            if (stage === "identity") {
               entered();
               await wait;
-              return [];
-            },
-          } as any,
-        },
-        call: async (_host, signal, input) => {
-          dispatches.push(input.command.action);
-          signal.throwIfAborted();
+            }
+            return ready;
+          }
+          if (method !== "historicalImport") throw Error("unexpected dispatch");
+          dispatches.push((input as { command: { action: string } }).command.action);
+          signal?.throwIfAborted();
           return f.harness.experimental_call("historicalImport", input);
         },
       });
+      await plugin(server.bb);
+      server.harness.inspection.sdk.stub("environments.list", async () => {
+        if (++pages === 1)
+          return Array.from({ length: 50 }, () => ({ hostId: "host-a", path: f.workspace }));
+        entered();
+        await wait;
+        return [];
+      });
+      await server.harness.behavior.callRpc("selectHost", { hostId: "host-a" });
       const request = { hostId: "host-a", generation: 1 };
-      const pending = handler({ ...request, command: { action } });
-      await blocked;
-      await handler({ ...request, command: { action: "cancel" } });
-      release();
-      await pending;
-      expect(dispatches).toEqual(["cancel"]);
-      expect(f.reads()).toBe(0);
-      expect(f.harness.experimental_getRetainedWorkerLeaseCount()).toBe(0);
-      expect(activeReads).toEqual(new Set([accountRead]));
-      expect(accountRead.signal.aborted).toBe(false);
+      const account = server.harness.behavior.callRpc("read", request);
+      await accountStarted;
+      try {
+        const pending = server.harness.behavior.callRpc("historicalImport", {
+          ...request,
+          command: { action },
+        });
+        await blocked;
+        await server.harness.behavior.callRpc("historicalImport", {
+          ...request,
+          command: { action: "cancel" },
+        });
+        release();
+        expect(await pending).toMatchObject({ reason: "selection-changed" });
+        expect(dispatches).toEqual(["cancel"]);
+        expect(f.reads()).toBe(0);
+        expect(f.harness.experimental_getRetainedWorkerLeaseCount()).toBe(0);
+        expect(accountSignal?.aborted).toBe(false);
+      } finally {
+        release();
+        releaseAccount();
+        await account;
+        await server.harness.lifecycle.dispose();
+      }
     } finally {
       await f.harness.experimental_dispose();
     }

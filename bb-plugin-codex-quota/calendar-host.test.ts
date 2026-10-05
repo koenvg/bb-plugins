@@ -411,17 +411,16 @@ it("uses durable unfinished and canceled import evidence to prevent a false scop
   expect(canceled.days[0].coverage.omissions).toBeGreaterThan(0);
   await f.harness.experimental_dispose();
   const reopened = createHostHistory({ now: () => now });
-  const snapshot = await reopened.read({
-    dataDir: f.dataDir,
-    signal: new AbortController().signal,
-    calendar: {
+  const snapshot = await reopened.report(
+    {
       startDate: "2026-09-01",
       timezone: "UTC",
       group: "workspace",
       scope: { kind: "host" },
     },
-  });
-  expect(snapshot.calendar).toMatchObject({
+    { dataDir: f.dataDir, signal: new AbortController().signal },
+  );
+  expect(snapshot).toMatchObject({
     days: expect.arrayContaining([
       expect.objectContaining({
         coverage: expect.objectContaining({ zero: false, uncertain: true }),
@@ -651,8 +650,8 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
     group: "workspace" as const,
     scope: { kind: "host" as const },
   };
-  const context = { dataDir: f.dataDir, signal: new AbortController().signal, calendar: query };
-  const detail = (await history.read(context)).calendar!;
+  const context = { dataDir: f.dataDir, signal: new AbortController().signal };
+  const detail = await history.report(query, context);
   expect(detail).toMatchObject({
     state: "partial",
     summary: { totalTokens: 10 },
@@ -667,13 +666,14 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
     ]),
   });
   clock = Date.parse("2027-02-01T12:00:00Z");
-  expect((await history.read(context)).calendar).toEqual({
+  expect(await history.report(query, context)).toEqual({
     state: "unavailable",
     reason: "range-unavailable",
   });
-  expect(
-    (await history.read({ ...context, calendar: { ...query, startDate: "2026-11-01" } })).calendar,
-  ).toMatchObject({ compactFrom: "2026-10-23T00:00:00.000Z", previous: false });
+  expect(await history.report({ ...query, startDate: "2026-11-01" }, context)).toMatchObject({
+    compactFrom: "2026-10-23T00:00:00.000Z",
+    previous: false,
+  });
   expect(await readFile(f.path)).toEqual(before);
   const db = (await openHistoryDatabase(f.path, true))!;
   expect(db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 1 });
@@ -694,7 +694,7 @@ it("does not restore logically expired detail after the clock rolls behind a sav
   await f.harness.experimental_dispose();
 });
 
-it("keeps comparison on the optional HostHistory.read calendar path without readiness maintenance", async () => {
+it("keeps comparison on the explicit read-only history report interface without readiness maintenance", async () => {
   const f = await calendarFixture();
   put(f.db, 1);
   f.db.close();
@@ -706,12 +706,11 @@ it("keeps comparison on the optional HostHistory.read calendar path without read
     scope: { kind: "host" as const },
     comparison: true,
   };
-  const snapshot = await f.history.read({
+  const snapshot = await f.history.report(query, {
     dataDir: f.dataDir,
     signal: new AbortController().signal,
-    calendar: query,
   });
-  expect(snapshot.calendar).toMatchObject({
+  expect(snapshot).toMatchObject({
     query,
     summary: { totalTokens: 10, money: { capturedCost: null } },
     comparison: {
@@ -723,8 +722,7 @@ it("keeps comparison on the optional HostHistory.read calendar path without read
   });
   expect(await readFile(f.path)).toEqual(before);
   expect(
-    (await f.history.read({ dataDir: f.dataDir, signal: AbortSignal.abort(), calendar: query }))
-      .calendar,
+    await f.history.report(query, { dataDir: f.dataDir, signal: AbortSignal.abort() }),
   ).toEqual({ state: "unavailable", reason: "selection-changed" });
   await f.harness.experimental_dispose();
 });

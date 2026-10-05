@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Run against bb plugin build's actual self-contained host artifact. No real credentials or network.
 const agentDir = mkdtempSync(join(tmpdir(), "codex-quota-oauth-"));
@@ -14,6 +15,7 @@ const refreshedAccess = `e30.${Buffer.from(
 ).toString("base64url")}.synthetic-signature`;
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
+let harness;
 try {
   writeFileSync(
     join(agentDir, "auth.json"),
@@ -56,10 +58,8 @@ try {
     );
   };
   const { default: entry } = await import("../dist/host.js");
-  const result = await entry.handlers.quota(
-    { refresh: false },
-    { signal: new AbortController().signal },
-  );
+  harness = experimental_createHostEntryHarness(entry);
+  const result = await harness.experimental_call("quota", { refresh: false });
   if (result.state !== "fresh")
     console.log(
       "Synthetic failure:",
@@ -81,6 +81,7 @@ try {
     `Bundled OAuth ${refresh ? "refresh" : "fresh-token"} + bounded quota read: passed (synthetic)`,
   );
 } finally {
+  await harness?.experimental_dispose();
   if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;

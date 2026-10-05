@@ -1,5 +1,7 @@
 # Codex Quota
 
+Built against BB 0.45 and Plugin SDK 0.6.15. See [ARCHITECTURE.md](ARCHITECTURE.md) for module ownership, test seams, and durable local installation.
+
 This standalone BB plugin shows quota windows for the Pi `openai-codex` account on an explicitly selected enrolled host. Its quota-only sidebar and dashboard passed installed acceptance on BB 0.43.4 with BB's Provider usage plugin disabled. It never calls `system.usageLimits`.
 
 ## Sign-in and account scope
