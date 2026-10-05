@@ -1,10 +1,10 @@
 # Background child observation
 
-BBP-71 adds source-level observation for one background run. Installed retention and completion acceptance have not run. Do not present the provider as lifecycle-safe on the basis of these tests.
+BBP-71 adds source-level observation for one background run. Installed target `3dd482939def82e87d73038dfe945f838bf637ce` failed idle retention, state publication, and detail capture. This source correction has no new installed acceptance. Do not present the provider as lifecycle-safe on the basis of these tests.
 
 ## Protocol boundary
 
-Static inspection used pi-subagents 0.75.0 and Pi 0.84.0. The bridge uses the package's documented process-local event-bus RPC, not a copied implementation or an imported package module. It requires RPC v1, `statusProjection` v1, and `asyncStatusSnapshot` kind `pi-subagents.async-status-snapshot`, version 1. There is no package semantic-version field in the public ping. The capability check is the runtime compatibility gate, not a promise about all later package releases.
+Static inspection used pi-subagents 0.75.0 and Pi 1.0.0 for this correction. Existing type fixtures remain pinned to Pi 0.84.0. The bridge uses the package's documented process-local event-bus RPC, not a copied implementation or an imported package module. It requires RPC v1, `statusProjection` v1, and `asyncStatusSnapshot` kind `pi-subagents.async-status-snapshot`, version 1. There is no package semantic-version field in the public ping. The capability check is the runtime compatibility gate, not a promise about all later package releases.
 
 Status observation requests only `ping` and untargeted `status` through `subagents:rpc:v1:request`. Each request has a unique ID and temporary correlated reply listener. The later read-only capture path uses the registered public inspection command; its separate guard, limits, and persistence boundary are in [SUBAGENTS.md](SUBAGENTS.md). Neither path acknowledges completion, enables extensions, or requests spawn, resume, stop, steer, or management. The package may restore/reconcile its normal status or inspect its own canonical artifacts. BB itself does not read those artifacts or control execution.
 
@@ -26,9 +26,13 @@ Missing rows never prove completion, even in a snapshot with zero omissions. Pre
 
 ## Native row and settlement
 
-The bridge emits published SDK v3 `item.progress` snapshots with type `backgroundTask`, task type `local_subagent`, and status `pending` while represented execution is live. The native row includes the package label and run ID in its description. Its summary includes reported execution state, elapsed seconds from the package start time, reported tool/activity, and `result not captured`. Missing timing or activity stays explicit. The summary is a bounded observation, not a transcript or a promise of current activity during silence.
+The bridge emits published SDK v3 native item starts, progress snapshots, and closes with type `backgroundTask`, task type `local_subagent`, and status `pending` while represented execution is live. The native row includes the package label and run ID in its description. Its summary includes reported execution state, elapsed seconds from the package start time, reported tool/activity, and `result not captured`. Missing timing or activity stays explicit. The summary is a bounded observation, not a transcript or a promise of current activity during silence.
 
-All updates, including the terminal snapshot, use the same generation/run key. SDK 0.5.29 permits thread-scoped background snapshots without an open or previous foreground turn. Using a terminal progress snapshot also avoids the SDK's identity change when a progress-only item is later closed. Native runtime background-work tracking uses the item's status on progress events, so a terminal snapshot removes its open-work entry. Static source inspection confirms this rule; tests verify the public assembler's actual IDs and statuses. This is not an installed runtime proof. Native completion timestamps tied specifically to a completed event are not supplied by this path; elapsed time remains in the summary.
+SDK 0.5.29 can assemble progress-only rows, but BB rejects their progress before `item/started`. The bridge now opens each native item once with `item.open`, attached to the last observed parent turn after its safe idle boundary, then sends progress and one `item.close`. That existing open item gives the close a stable native ID. No new parent turn is created. Tests check start-before-progress, stable identity, and one settlement through the public assembler. These are source checks, not installed retention proof.
+
+A first native start requested while the parent streams text waits for that turn's boundary. SDK 0.5.29 treats item opening as an assistant-stream boundary. Deferring this start preserves the ordinary parent's message identity and matching completion. Progress for an already opened native item does not need this delay.
+
+The pinned SDK cannot open a native item without a current or last turn. A fresh bridge generation with restored live work but no observed parent turn reports native accounting unavailable and emits no unanchored progress. It continues read-only observation. A later real parent turn permits accounting after its idle boundary. This case does not prove idle retention before that turn. No synthetic turn or guessed historical turn ID is used.
 
 Queued/running roots and descendants remain live. A complete, failed, stopped, rejected, paused, or partial root with a live descendant stays pending. When complete supported package coverage has no known live node, complete maps to completed, failed/rejected maps to failed, and paused/stopped/partial maps to interrupted. Partial is not reported as success or as a proven failure. The original package state remains in the summary. A terminal snapshot is emitted once. Inspection availability is separate from execution state and cannot hold execution open. The native summary still says `result not captured`; captured detail is in the separate panel.
 
@@ -38,7 +42,7 @@ The observer sends no turn-open/boundary events. Parent turns still end through 
 
 ## Exit, release, and replacement
 
-Exit, explicit release, and session replacement dispose the observer and cancel scheduled reads. Each unconfirmed native run receives one interrupted snapshot with an unknown-outcome message. This ends the local retention claim, not the underlying child's execution. It does not label the child successful, kill it, relaunch it, or promise its survival.
+Exit, explicit release, and session replacement dispose the observer and cancel scheduled reads. Each unconfirmed native run receives one interrupted native close with an unknown-outcome message. This ends the local retention claim, not the underlying child's execution. It does not label the child successful, kill it, relaunch it, or promise its survival.
 
 The inherited provider still handles process shutdown, interrupt, and session release. A replacement/resumed Pi session can reconstruct current activity from compatible package status without launching a child. This is fresh observation, not durable recovery of captured results or a guarantee that old artifacts survive. A late reply from the disposed observer cannot alter the replacement generation.
 

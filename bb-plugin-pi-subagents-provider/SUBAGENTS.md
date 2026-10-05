@@ -18,7 +18,7 @@ Foreground detail comes from structured `subagent` partial/final Details, not re
 
 ## Persistence and recovery
 
-The bridge emits public `extension.state`, qualified as `pi-subagents/pi-subagents-view`, with a declared Zod schema. State version 1 has at most 128 rows and 256 KiB. IDs carry session identity, owning path, and published run/child identity. Repeated local step IDs under different parents stay distinct. No UI object or arbitrary artifact path is stored.
+The bridge emits public `extension.state`, qualified as `pi-subagents-provider/pi-subagents-view`, with a declared Zod schema. State version 1 has at most 128 rows and 256 KiB. IDs carry session identity, owning path, and published run/child identity. Repeated local step IDs under different parents stay distinct. No UI object or arbitrary artifact path is stored.
 
 The panel reads public `sdk.threads.events.list` for the newest 64 extension-state events and validates only this provider's qualified kind. It refreshes every four seconds and aborts on disposal. It restores earlier accepted captures within this bounded window when a newer state has an unavailable capture. The original capture time is retained; a failed attempt has a separate attempt time. Old missing live rows become unknown, not successful or proven still running. Unknown versions and malformed state remain explicit. A full history window warns that older captures may be outside the window.
 

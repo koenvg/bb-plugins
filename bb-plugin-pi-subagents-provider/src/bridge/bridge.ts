@@ -202,6 +202,8 @@ interface ThreadSession {
   sessionSerial: number;
   observation: SubagentObservation;
   observationReady: boolean;
+  nativeTurnObserved: boolean;
+  nativeTurnActive: boolean;
   closing: boolean;
   providerThreadId: string;
   cwd: string;
@@ -336,13 +338,21 @@ function emitForSession(
   method: string,
   params: Record<string, unknown>,
 ): void {
-  sendThreadDeltas(
-    threadId,
-    piDeltaTranslator.translate(
-      { jsonrpc: "2.0", method, params },
-      { threadId, cwd: sessions.get(threadId)?.cwd },
-    ),
+  const deltas = piDeltaTranslator.translate(
+    { jsonrpc: "2.0", method, params },
+    { threadId, cwd: sessions.get(threadId)?.cwd },
   );
+  sendThreadDeltas(threadId, deltas);
+  const current = sessions.get(threadId);
+  if (current) for (const delta of deltas) {
+    if (delta.kind === "turn.open") {
+      current.nativeTurnObserved = true;
+      current.nativeTurnActive = true;
+    } else if (delta.kind === "turn.boundary" || delta.kind === "provider.error" && delta.settlesTurn === true) {
+      current.nativeTurnActive = false;
+      current.observation.hint();
+    }
+  }
 }
 
 function sendThreadIdentity(threadId: string, providerThreadId: string): void {
@@ -813,6 +823,7 @@ async function constructPiThreadSession(
     sessionSerial,
     observation: createSubagentObservation({
       sessionFile: sessionOptions.sessionFilePath,
+      canAttachNativeItem: () => sessions.get(threadId)?.sessionSerial === sessionSerial && sessions.get(threadId)?.nativeTurnObserved === true && sessions.get(threadId)?.nativeTurnActive === false,
       generation: sessionSerial,
       reconcile: () => session.readSubagentStatus(),
       view,
@@ -820,6 +831,8 @@ async function constructPiThreadSession(
       emit: (deltas) => sendThreadDeltas(threadId, deltas),
     }),
     observationReady: false,
+    nativeTurnObserved: false,
+    nativeTurnActive: false,
     closing: false,
     providerThreadId,
     cwd: usablePersistedSessionCwd(providerThreadId) ?? params.cwd,

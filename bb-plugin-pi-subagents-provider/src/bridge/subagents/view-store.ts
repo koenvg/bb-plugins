@@ -4,6 +4,11 @@ import { type CaptureTarget } from "./capture.js";
 import { type RunNode } from "./protocol.js";
 import { foregroundRows } from "./foreground.js";
 export interface ViewOwner { sessionId: string; sessionFile: string; generation: number; }
+export interface ViewAssessment { availability: ViewState["availability"]; reason: string; }
+interface ViewObservationOptions extends Partial<ViewAssessment> {
+  settledRoots?: ReadonlySet<string>;
+  foreground?: readonly { details: unknown; final: boolean }[];
+}
 const terminal = (state: string) => !["running", "queued", "unknown", "detached"].includes(state);
 export function createViewStore(publish: (state: ViewState) => void, now = Date.now) {
   const rows = new Map<string, ViewRow>(); let omitted = 0;
@@ -25,11 +30,20 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
     if (isDeepStrictEqual(previous && { ...previous, observedAt: 0 }, { ...validated, observedAt: 0 })) return false;
     rows.delete(row.id); rows.set(row.id, validated); return true;
   }
+  function putForeground(owner: ViewOwner, details: unknown, final: boolean) {
+    const projected = foregroundRows(owner, details, final, now());
+    if (!projected.length) { availability = "unavailable"; reason = "Foreground identity or supported detail is unavailable"; return; }
+    for (const row of projected) {
+      const previous = rows.get(row.id);
+      if (previous && terminal(previous.state) && !terminal(row.state)) continue;
+      put({ ...row, capture: row.capture ?? previous?.capture });
+    }
+  }
   return {
     snapshot,
     availability(value: ViewState["availability"], detail: string) { if (availability !== value || reason !== detail) { availability = value; reason = detail.slice(0,500); emit(); } },
-    background(owner: ViewOwner, roots: readonly RunNode[], incomplete: boolean, settledRoots: ReadonlySet<string> = new Set()): CaptureTarget[] {
-      availability = "available"; reason = ""; const targets: CaptureTarget[] = [];
+    background(owner: ViewOwner, roots: readonly RunNode[], incomplete: boolean, options: ViewObservationOptions = {}): CaptureTarget[] {
+      availability = options.availability ?? "available"; reason = options.reason ?? ""; const targets: CaptureTarget[] = [];
       function visit(node: RunNode, path: string[], parentId: string | undefined, canonicalOwner: string | undefined) {
         const canonical = node.kind === "workflow" || node.kind === "subagent";
         const owningRun = canonical ? node.id : canonicalOwner;
@@ -40,21 +54,16 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
         // Its descendants cannot inherit the enclosing workflow's inspect address.
         if (!owningRun) row.capture = { status: "unavailable", capturedAt: previous?.capture?.capturedAt ?? now(), reason: "Canonical inspection owner is unavailable for this projected descendant" };
         const changed = put(row);
-        if (owningRun && (changed || parentId === undefined && settledRoots.has(node.id))) targets.push({ ...owner, id, asyncId: owningRun, childId: canonical ? undefined : node.id, terminal: terminal(node.state) });
+        if (owningRun && (changed || parentId === undefined && options.settledRoots?.has(node.id))) targets.push({ ...owner, id, asyncId: owningRun, childId: canonical ? undefined : node.id, terminal: terminal(node.state) });
         for (const child of node.children ?? []) visit(child, [...path,node.id], id, canonical ? owningRun : undefined);
       }
       for (const root of roots) visit(root, [], undefined, root.id);
+      for (const event of options.foreground ?? []) putForeground(owner, event.details, event.final);
       emit(); return targets;
     },
-    foreground(owner: ViewOwner, details: unknown, final: boolean) {
-      const projected = foregroundRows(owner, details, final, now());
-      if (!projected.length) { availability = "unavailable"; reason = "Foreground identity or supported detail is unavailable"; emit(); return; }
-      availability = "available"; reason = "";
-      for (const row of projected) {
-        const previous = rows.get(row.id);
-        if (previous && terminal(previous.state) && !terminal(row.state)) continue;
-        put({ ...row, capture: row.capture ?? previous?.capture });
-      }
+    foreground(owner: ViewOwner, details: unknown, final: boolean, assessment: ViewAssessment = { availability: "available", reason: "" }) {
+      availability = assessment.availability; reason = assessment.reason;
+      putForeground(owner, details, final);
       emit();
     },
     capture(id: string, capture: Capture) {

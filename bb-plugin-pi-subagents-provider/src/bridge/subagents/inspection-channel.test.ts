@@ -9,7 +9,7 @@ it("checks capability and session before command dispatch without a prompt fallb
 });
 it("requires handled acknowledgement and a correlated widget in the same session", async () => {
   const q = createInspectionChannel({ context: async () => context, command: async () => {
-    q.widget({ method:"setWidget",widgetKey:"subagent-inspect",lines:[INSPECTION_PREFIX+JSON.stringify({requestId:"req",asyncId:"owned-run"})] });
+    q.widget({ method:"setWidget",widgetKey:"subagent-inspect",widgetLines:[INSPECTION_PREFIX+JSON.stringify({requestId:"req",asyncId:"owned-run"})] });
     q.widget({ method:"setWidget",widgetKey:"subagent-inspect" });
     return { disposition:"handled" };
   }, current: () => true });
@@ -20,8 +20,8 @@ it("requires handled acknowledgement and a correlated widget in the same session
 it("ignores foreign request IDs, rejects started prompts and invalidates replacement replies", async () => {
   let current = context;
   const q = createInspectionChannel({ context: async () => current, command: async () => {
-    q.widget({method:"setWidget",widgetKey:"subagent-inspect",lines:[INSPECTION_PREFIX+JSON.stringify({requestId:"foreign"})]});
-    q.widget({method:"setWidget",widgetKey:"subagent-inspect",lines:[INSPECTION_PREFIX+JSON.stringify({requestId:"req",asyncId:"owned-run"})]});
+    q.widget({method:"setWidget",widgetKey:"subagent-inspect",widgetLines:[INSPECTION_PREFIX+JSON.stringify({requestId:"foreign"})]});
+    q.widget({method:"setWidget",widgetKey:"subagent-inspect",widgetLines:[INSPECTION_PREFIX+JSON.stringify({requestId:"req",asyncId:"owned-run"})]});
     current={...context,sessionId:"replacement"}; return {disposition:"handled"};
   },current:()=>true });
   await expect(q.inspect(target,"req")).rejects.toThrow("replaced");

@@ -464,7 +464,7 @@ async function runPrompt(text) {
     ? ""
     : toolMatch
       ? `Tool said: ${toolResultText}`
-      : `Response to: ${text}`;
+      : process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1" ? "AB" : `Response to: ${text}`;
   const assistant = {
     role: "assistant",
     content: [{ type: "text", text: reply }],
@@ -481,11 +481,15 @@ async function runPrompt(text) {
       type: "message_update",
       assistantMessageEvent: {
         type: "text_delta",
-        delta: reply,
+        delta: process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1" ? "A" : reply,
         contentIndex: 0,
       },
       message: assistant,
     });
+    if (process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1") {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      event({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "B", contentIndex: 0 }, message: assistant });
+    }
   }
   event({ type: "message_end", message: assistant });
   event({ type: "turn_end", message: assistant, toolResults: [] });
