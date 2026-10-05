@@ -229,7 +229,7 @@ runPrAction({ threadId, action, expectedHeadOid }) --> server
 - All values go to GitHub as GraphQL variables.
 - While a merge or enqueue runs, the banner shows progress instead of "Ready to merge" or "Ready to enqueue". An error shows in the tab and banner; a still-valid action is available again. The banner error can be dismissed and an error for an older head commit does not appear for a new head.
 - The merge or enqueue runs as the `gh` user of the thread's host, with the permissions of that user.
-- Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. No CLI command merges or enqueues.
+- Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. Only a click in the tab updates the branch or changes auto-merge. No CLI command writes any of these.
 - The overview query reads `isMergeQueueEnabled` and `mergeQueueEntry`. GitHub Enterprise Server versions without these fields are not supported: the PR tab shows an error.
 
 ## Update branch
@@ -252,6 +252,20 @@ server: gh api graphql updatePullRequestBranch(pullRequestId, expectedHeadOid, u
 - A rebase rewrites the remote branch, so the agent's local branch no longer matches it. The tab checks the worktree first. "N unpushed commits. Push first." or "Cannot check local commits" disables the rebase. The check returns `unknown` for a fork PR, a thread without a worktree path, another checked-out branch, a missing `origin/<branch>` ref, or a failed git command. `sdk.environments.status` with `mergeBaseBranch` is not used, because bb rejects its own merge-base response.
 - After an update, the tab shows "Branch updated on GitHub. Pull before you push." until you dismiss it or switch threads.
 - Branch update shares the operation state of merge and enqueue (`ui/pr-operations.ts`): one write per thread at a time, "Updating…" while it runs, and the GitHub error below the button.
+
+## Auto-merge
+
+`core/auto-merge.ts` builds `autoMergeAction` from the first overview page (`autoMergeRequest`, `autoMergeAllowed`, and the merge settings):
+
+| PR                                                                                                                                          | Tab                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| open or draft, auto-merge on (also when set on github.com)                                                                                  | "Auto-merge on (method)" in the summary line, "Disable" |
+| open, not draft, repo allows auto-merge, no merge queue, default method allowed, and every blocker is "checks running" or "review required" | "Enable auto-merge (method)"                            |
+| other                                                                                                                                       | none                                                    |
+
+- Both buttons run at once, without a dialog: `runPrAction(enable-auto-merge)` sends `enablePullRequestAutoMerge(pullRequestId, mergeMethod, expectedHeadOid)` with your default merge method. `runPrAction(disable-auto-merge)` sends `disablePullRequestAutoMerge(pullRequestId)` and does not check the head commit.
+- A failed check, conflicts, an out-of-date branch, or changes requested hide "Enable auto-merge". GitHub has the final say: a rejected request shows the GitHub error.
+- Auto-merge shares the operation state of the other PR writes: "Enabling…" or "Disabling…" while it runs, one write per thread at a time.
 
 ## Command palette
 

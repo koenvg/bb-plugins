@@ -9,6 +9,7 @@ See the checks of a thread's pull request, and the pull requests that wait for y
 - Failed and cancelled checks show why: a reason and up to 5 failure annotations.
 - A banner above the composer shows Draft, Open, Closed, or the merged outcome, independently of blockers or available actions. Draft stays beside failed checks or conflicts. Queue state and position match the PR tab. Only an eligible Open PR has a merge or enqueue button. Clicking status opens the PR tab without a write.
 - "Update branch" when the branch is behind its base. It merges the base in at once. "Update with rebase…" asks first, and is off while the thread's worktree has unpushed commits. After an update, a note says to pull before the next push.
+- "Enable auto-merge (method)" when only running checks or a missing review block the merge. When auto-merge is on, the summary line says so, with "Disable".
 - Updates by itself every 60 seconds while the PR is open. A refresh button updates it at once. The tab always shows "Updated <age>".
 - Shows the last known PR at once when you return to a thread or restart bb, then updates it in the background.
 - Errors show as "gh not installed", "gh not logged in", or "rate limited", with a retry button. Both the PR tab and composer show initial loading, read failures, and Retry. A failed refresh keeps visibly stale last-good data with its time. Confirmed no-PR hides normal banner status.

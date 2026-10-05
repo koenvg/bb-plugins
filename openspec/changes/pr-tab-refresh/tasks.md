@@ -43,8 +43,8 @@
 ## 8. Auto-merge
 
 - [x] 8.1 Add the `enablePullRequestAutoMerge` and `disablePullRequestAutoMerge` mutation args and host handlers; verify args tests
-- [ ] 8.2 Render "Enable auto-merge (<method>)", "Auto-merge on (<method>)" with "Disable", "Enabling…", "Disabling…", and errors; verify rendered tests for every scenario in the `pr-auto-merge` spec
-- [ ] 8.3 Document auto-merge in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
+- [x] 8.2 Render "Enable auto-merge (<method>)", "Auto-merge on (<method>)" with "Disable", "Enabling…", "Disabling…", and errors; verify rendered tests for every scenario in the `pr-auto-merge` spec
+- [x] 8.3 Document auto-merge in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
 
 ## 9. Integration
 

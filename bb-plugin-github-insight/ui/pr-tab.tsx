@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
 import { useCommandIntent, type IntentOf } from "./command-intents";
+import { AutoMergeButton } from "./auto-merge-button";
 import { BranchUpdateButton, PullReminder } from "./branch-update-button";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
@@ -75,6 +76,7 @@ function PrTabContent({ threadId }: { threadId: string }) {
     );
   }
   const status = prStatusView(result.insight);
+  const { autoMergeAction } = result.insight;
   return (
     <div className="flex flex-col gap-4">
       <PrHeader
@@ -83,7 +85,14 @@ function PrTabContent({ threadId }: { threadId: string }) {
         age={<DataAge refreshedAt={result.refreshedAt} updating={revalidating} />}
         action={<RefreshButton refreshing={refreshing} refresh={refresh} />}
       />
-      <PrSummary line={prSummaryLine(result.insight)} />
+      <PrSummary
+        line={prSummaryLine(result.insight)}
+        action={
+          autoMergeAction.kind === "disable" && (
+            <AutoMergeButton threadId={threadId} pr={result.insight.pr} action={autoMergeAction} />
+          )
+        }
+      />
       {result.error !== null && (
         <RefreshError
           message={result.error}
@@ -95,6 +104,9 @@ function PrTabContent({ threadId }: { threadId: string }) {
       {branchUpdated && <PullReminder dismiss={() => setBranchUpdated(false)} />}
       {status.action !== null && (
         <MergeActionButton threadId={threadId} pr={result.insight.pr} action={status.action} />
+      )}
+      {autoMergeAction.kind === "enable" && (
+        <AutoMergeButton threadId={threadId} pr={result.insight.pr} action={autoMergeAction} />
       )}
       {result.insight.canUpdateBranch && (
         <BranchUpdateButton
@@ -174,10 +186,10 @@ function PrMeta({ pr }: { pr: PrInsight["pr"] }) {
   );
 }
 
-function PrSummary({ line }: { line: SummaryLine | null }) {
+function PrSummary({ line, action }: { line: SummaryLine | null; action: ReactNode }) {
   if (line === null) return null;
   return (
-    <p
+    <div
       role="status"
       aria-label="Merge status"
       className="flex items-center gap-2 text-sm font-medium"
@@ -187,7 +199,8 @@ function PrSummary({ line }: { line: SummaryLine | null }) {
       {line.more > 0 && (
         <span className="text-xs font-normal text-muted-foreground">+{line.more} more</span>
       )}
-    </p>
+      {action}
+    </div>
   );
 }
 
