@@ -50,4 +50,4 @@
 
 - [x] 9.1 Verify `bb github-insight --help` shows no write command for merge, branch update, or auto-merge, and the composer banner and palette offer no branch update
 - [x] 9.2 Run `npm test`, typecheck, and lint for `bb-plugin-github-insight`; verify all pass
-- [ ] 9.3 In a running bb: switch between 2 threads with PRs and verify no loading notice on return; restart bb and verify the stored data shows with its age; update a behind branch with merge; verify rebase is disabled with unpushed commits; enable and disable auto-merge on a PR with running checks
+- [x] 9.3 In a running bb: switch between 2 threads with PRs and verify no loading notice on return; restart bb and verify the stored data shows with its age; update a behind branch with merge; verify rebase is disabled with unpushed commits; enable and disable auto-merge on a PR with running checks
