@@ -68,13 +68,19 @@ Generalize `createMergeWrites` and the app's shared merge operation state into P
 - Why: separate paths would let a merge and a branch update run at the same time on one PR.
 - The existing merge spec keeps its labels and behavior. Only the type of the operation grows.
 
-### 6. Unpushed commit check through the bb SDK
+### 6. Unpushed commit check through a host git call
 
-A new RPC `localCommitsAhead({ threadId })` resolves the thread's environment and calls `sdk.environments.status({ environmentId, mergeBaseBranch: "origin/<headRefName>" })`. The count of `workspace.mergeBase.commits` is the number of local commits that are not on the remote PR branch. The result is `{ kind: "count", count }` or `{ kind: "unknown" }`.
+A new RPC `localCommitsAhead({ threadId })` reads the thread's environment with `sdk.environments.get` (`path`, `hostId`). A new host handler runs, in that path on that host:
 
-`unknown` covers: no environment, status `not_applicable` or `unavailable`, a workspace branch other than `headRefName`, a fork PR, or a thrown error (bb 0.44 can reject merge-base status, see `bb-plugin-changes/server.ts`).
+1. `git rev-parse --abbrev-ref HEAD`, which must equal `headRefName`
+2. `git rev-list --count refs/remotes/origin/<headRefName>..HEAD`
 
-- Why the SDK and not a host `git` call: bb already knows the worktree path and runs git there. The plugin needs no path.
+The count is the number of local commits that are not on the remote PR branch. The result is `{ kind: "count", count }` or `{ kind: "unknown" }`.
+
+`unknown` covers: no environment, no path, a fork PR, a checked-out branch other than `headRefName`, no `origin/<headRefName>` ref, or a failed git command.
+
+- Spike result (task 1.2): `sdk.environments.status({ environmentId, mergeBaseBranch })` fails in bb with HTTP 502, because bb rejects its own merge-base response (missing `shortSha` and `subject`). `sdk.environments.get` returns `path`, `hostId`, and `branchName`. `git rev-list --count origin/main..HEAD` on this branch gave the correct count, 2.
+- Alternative: `@{u}` instead of `origin/<headRefName>`. Rejected, because agent branches do not always have an upstream set.
 - The app calls it when the "Update branch" menu opens, not on each render.
 
 ### 7. Layout

@@ -3,7 +3,7 @@
 ## 1. Spike
 
 - [x] 1.1 With `gh api graphql`, run the extended overview query (D3) on an open PR that has a required check, an optional check, and a status context; verify `isRequired`, `autoMergeRequest`, `autoMergeAllowed`, branch fields, and diff counts come back, and record a trimmed response as a test fixture
-- [ ] 1.2 In a running bb, call `sdk.environments.status({ environmentId, mergeBaseBranch: "origin/<headRefName>" })` on a thread worktree with 2 unpushed commits and with 0; verify `mergeBase.commits` has 2 and 0 entries, and record the result in design.md D6 (or the fallback if it does not work)
+- [x] 1.2 In a running bb, call `sdk.environments.status({ environmentId, mergeBaseBranch: "origin/<headRefName>" })` on a thread worktree with 2 unpushed commits and with 0; verify `mergeBase.commits` has 2 and 0 entries, and record the result in design.md D6 (or the fallback if it does not work)
 
 ## 2. PR data
 
@@ -36,7 +36,7 @@
 ## 7. Update branch
 
 - [ ] 7.1 Add the `updatePullRequestBranch` mutation args and host handler; verify an args test for `MERGE` and `REBASE` with `expectedHeadOid`
-- [ ] 7.2 Add the `localCommitsAhead` RPC (D6) with `count` and `unknown` results; verify server tests for a count, no environment, other branch, fork PR, `unavailable` status, and a thrown error
+- [ ] 7.2 Add the `localCommitsAhead` RPC and its host git handler (D6) with `count` and `unknown` results; verify tests for a count, no environment, other branch, fork PR, no remote ref, and a failed git command
 - [ ] 7.3 Render the "Update branch" split button, the rebase confirm dialog, the disabled rebase item with its reason, "Updating…", errors, and the pull reminder; verify rendered tests for every scenario in the `pr-branch-update` spec
 - [ ] 7.4 Document "Update branch" in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
 
