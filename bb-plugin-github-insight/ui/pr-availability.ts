@@ -1,11 +1,11 @@
 import type { InsightResult } from "../contract";
+import { prStatusView } from "./pr-status-view";
 
 const canMergeByThread = new Map<string, boolean>();
 
 export function rememberInsight(threadId: string, result: InsightResult): void {
   if (result.kind === "ok") {
-    const { kind } = result.insight.mergeAction;
-    canMergeByThread.set(threadId, kind === "merge" || kind === "enqueue");
+    canMergeByThread.set(threadId, prStatusView(result.insight).action !== null);
   } else if (result.kind === "no_pr") {
     canMergeByThread.delete(threadId);
   }

@@ -2,9 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
-import type { MergeAction } from "../core/merge-action";
 import type { CheckFailure } from "../core/failure";
-import type { MergeQueue } from "../core/merge-queue";
 import type { PrInsight } from "../core/overview";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -14,6 +12,7 @@ import { useCommandIntent, type IntentOf } from "./command-intents";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
+import { prStatusView, type StatusRow, type StatusDetail } from "./pr-status-view";
 
 const STATUS_ORDER: readonly CheckStatus[] = [
   "failed",
@@ -31,41 +30,6 @@ const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = 
   running: { name: "Spinner", className: "text-attention" },
   passed: { name: "CircleCheck", className: "text-success" },
   skipped: { name: "Circle", className: "text-muted-foreground" },
-};
-
-const QUEUE_ROW: Record<
-  NonNullable<MergeQueue>["state"],
-  {
-    text: (position: number) => string;
-    icon: IconName;
-    iconClassName: string;
-    textClassName?: string;
-  }
-> = {
-  queued: {
-    text: (position) => `In merge queue (#${position})`,
-    icon: "Circle",
-    iconClassName: "text-muted-foreground",
-  },
-  awaiting_checks: {
-    text: (position) => `Merge queue checks running (#${position})`,
-    icon: "Spinner",
-    iconClassName: "text-attention",
-  },
-  merging: { text: () => "Merging", icon: "CircleCheck", iconClassName: "text-success" },
-  failed: {
-    text: () => "Merge queue failed",
-    icon: "CircleX",
-    iconClassName: "text-destructive",
-    textClassName: "text-destructive",
-  },
-};
-
-const PR_STATE_LABEL: Record<PrInsight["pr"]["state"], string> = {
-  open: "Open",
-  draft: "Draft",
-  closed: "Closed",
-  merged: "Merged",
 };
 
 const REVIEWER_STATE_LABEL: Record<Reviewer["state"], string> = {
@@ -113,10 +77,12 @@ function PrTabContent({ threadId }: { threadId: string }) {
       <RefreshError message={result.message} refreshedAt={null} retry={refresh} busy={refreshing} />
     );
   }
+  const status = prStatusView(result.insight);
   return (
     <div className="flex flex-col gap-4">
       <PrHeader
         pr={result.insight.pr}
+        lifecycle={status.lifecycle}
         action={<RefreshButton refreshing={refreshing} refresh={refresh} />}
       />
       {result.error !== null && (
@@ -127,20 +93,26 @@ function PrTabContent({ threadId }: { threadId: string }) {
           busy={refreshing}
         />
       )}
-      <MergeQueueStatus mergeQueue={result.insight.mergeQueue} />
-      <MergeActionRow
-        threadId={threadId}
-        pr={result.insight.pr}
-        action={result.insight.mergeAction}
-      />
-      <BlockerList blockers={result.insight.blockers} />
+      <MergeQueueStatus row={status.detail} />
+      {status.action !== null && (
+        <MergeActionButton threadId={threadId} pr={result.insight.pr} action={status.action} />
+      )}
+      <BlockerList blockers={status.blockers} />
       <ReviewerList reviewers={result.insight.reviewers} />
       <CheckList checks={result.insight.checks} />
     </div>
   );
 }
 
-function PrHeader({ pr, action }: { pr: PrInsight["pr"]; action: ReactNode }) {
+function PrHeader({
+  pr,
+  lifecycle,
+  action,
+}: {
+  pr: PrInsight["pr"];
+  lifecycle: StatusRow;
+  action: ReactNode;
+}) {
   const merged = pr.state === "merged";
   return (
     <header className={cn("flex min-w-0 flex-col", merged ? "gap-2" : "gap-1")}>
@@ -150,15 +122,13 @@ function PrHeader({ pr, action }: { pr: PrInsight["pr"]; action: ReactNode }) {
           className="flex items-center gap-2 rounded-md bg-violet-500/10 px-3 py-3 text-violet-700 [.dark_&]:text-violet-300"
         >
           <Icon name="GitMerge" aria-hidden="true" className="size-5 shrink-0" />
-          <h2 className="text-sm font-semibold">Pull request merged</h2>
+          <h2 className="text-sm font-semibold">{lifecycle.text}</h2>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-mono tabular-nums">#{pr.number}</span>
         {!merged && (
-          <span className="rounded-full border border-border px-2 py-0.5">
-            {PR_STATE_LABEL[pr.state]}
-          </span>
+          <span className="rounded-full border border-border px-2 py-0.5">{lifecycle.text}</span>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <UrlLink href={pr.url} className="underline-offset-2 hover:underline">
@@ -177,28 +147,15 @@ const SECTION_HEADING_CLASS = "text-xs font-medium text-muted-foreground";
 const LABEL_CLASS =
   "shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground";
 
-interface MergeActionRowProps {
-  threadId: string;
-  pr: PrInsight["pr"];
-  action: MergeAction;
-}
-
-function MergeActionRow({ threadId, pr, action }: MergeActionRowProps) {
-  if (action.kind === "none") return null;
-  if (action.kind === "queued") return <span className={cn(LABEL_CLASS, "w-fit")}>Queued</span>;
-  return <MergeActionButton threadId={threadId} pr={pr} action={action} />;
-}
-
-function MergeQueueStatus({ mergeQueue }: { mergeQueue: MergeQueue }) {
-  if (mergeQueue === null) return null;
-  const row = QUEUE_ROW[mergeQueue.state];
+function MergeQueueStatus({ row }: { row: StatusDetail | null }) {
+  if (row?.kind !== "queue") return null;
   return (
     <section aria-label="Merge queue" className="flex flex-col gap-1">
       <h3 className={SECTION_HEADING_CLASS}>Merge queue</h3>
       <ul className="flex flex-col">
         <li className={cn("flex items-center gap-2 py-0.5 text-sm", row.textClassName)}>
           <Icon name={row.icon} className={cn("size-4 shrink-0", row.iconClassName)} />
-          {row.text(mergeQueue.position)}
+          {row.text}
         </li>
       </ul>
     </section>

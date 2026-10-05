@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bannerParts, bannerState } from "./banner";
+import { bannerParts } from "./banner";
 import { buildBlockers, type Blocker } from "./blockers";
-import type { MergeAction } from "./merge-action";
 import type { PrInsight } from "./overview";
 import type { Reviewer } from "./reviewers";
 
@@ -78,65 +77,5 @@ describe("bannerParts", () => {
 
   it.each(["merged", "closed"] as const)("is empty for a %s PR", (state) => {
     expect(bannerParts({ ...insight([failed]), pr: { ...pr, state } })).toEqual([]);
-  });
-});
-
-describe("bannerState", () => {
-  function withAction(mergeAction: MergeAction, blockers: Blocker[] = []): PrInsight {
-    return { ...insight(blockers), mergeAction };
-  }
-
-  it("shows the blocker parts and the top blocker for a PR with blockers", () => {
-    expect(bannerState(insight([failed, behind]))).toEqual({
-      kind: "blockers",
-      parts: ["2 checks failed", "Branch out of date"],
-      topCode: "checks_failed",
-    });
-  });
-
-  it("offers the merge for a PR that is ready to merge", () => {
-    expect(bannerState(withAction({ kind: "merge", method: "SQUASH" }))).toEqual({
-      kind: "ready",
-      action: { kind: "merge", method: "SQUASH" },
-    });
-  });
-
-  it("offers the enqueue for a PR that is ready to enqueue", () => {
-    expect(bannerState(withAction({ kind: "enqueue" }))).toEqual({
-      kind: "ready",
-      action: { kind: "enqueue" },
-    });
-  });
-
-  it("shows queued for a queued PR, also with running checks", () => {
-    expect(bannerState(withAction({ kind: "queued" }, [running]))).toEqual({ kind: "queued" });
-  });
-
-  it("is hidden for an open PR without blockers that offers no action", () => {
-    expect(bannerState(insight([]))).toEqual({ kind: "hidden" });
-  });
-
-  it.each([
-    { kind: "none" },
-    { kind: "merge", method: "SQUASH" },
-    { kind: "enqueue" },
-    { kind: "queued" },
-  ] satisfies MergeAction[])(
-    "shows merged before stale blockers or action $kind",
-    (mergeAction) => {
-      expect(
-        bannerState({
-          ...insight([failed]),
-          mergeAction,
-          pr: { ...pr, state: "merged" },
-        }),
-      ).toEqual({ kind: "merged" });
-    },
-  );
-
-  it("is hidden for a closed PR", () => {
-    expect(bannerState({ ...insight([failed]), pr: { ...pr, state: "closed" } })).toEqual({
-      kind: "hidden",
-    });
   });
 });

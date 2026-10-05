@@ -1,0 +1,210 @@
+[
+  {
+    "width": 1615,
+    "bg": "#ffffff",
+    "draft": {
+      "label": "Draft",
+      "rect": {
+        "x": 604.5,
+        "y": 756,
+        "width": 722,
+        "height": 32,
+        "top": 756,
+        "right": 1326.5,
+        "bottom": 788,
+        "left": 604.5
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "markReady": {
+      "rect": {
+        "x": 1236.65625,
+        "y": 803,
+        "width": 81.84375,
+        "height": 24,
+        "top": 803,
+        "right": 1318.5,
+        "bottom": 827,
+        "left": 1236.65625
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "files": {
+      "rect": {
+        "x": 608.5,
+        "y": 802,
+        "width": 176.703125,
+        "height": 26,
+        "top": 802,
+        "right": 785.203125,
+        "bottom": 828,
+        "left": 608.5
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "theme": "light",
+    "capture": "host-draft-light-normal.jpg"
+  },
+  {
+    "width": 1615,
+    "bg": "#202020",
+    "draft": {
+      "label": "Draft",
+      "rect": {
+        "x": 604.5,
+        "y": 756,
+        "width": 722,
+        "height": 32,
+        "top": 756,
+        "right": 1326.5,
+        "bottom": 788,
+        "left": 604.5
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "markReady": {
+      "rect": {
+        "x": 1236.65625,
+        "y": 803,
+        "width": 81.84375,
+        "height": 24,
+        "top": 803,
+        "right": 1318.5,
+        "bottom": 827,
+        "left": 1236.65625
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "files": {
+      "rect": {
+        "x": 608.5,
+        "y": 802,
+        "width": 176.703125,
+        "height": 26,
+        "top": 802,
+        "right": 785.203125,
+        "bottom": 828,
+        "left": 608.5
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "theme": "dark",
+    "capture": "host-draft-dark-normal.jpg"
+  },
+  {
+    "width": 390,
+    "bg": "#ffffff",
+    "draft": {
+      "label": "Draft",
+      "rect": {
+        "x": 17,
+        "y": 625,
+        "width": 352,
+        "height": 32,
+        "top": 625,
+        "right": 369,
+        "bottom": 657,
+        "left": 17
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "markReady": {
+      "rect": {
+        "x": 279.15625,
+        "y": 672,
+        "width": 81.84375,
+        "height": 24,
+        "top": 672,
+        "right": 361,
+        "bottom": 696,
+        "left": 279.15625
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "files": {
+      "rect": {
+        "x": 21,
+        "y": 671,
+        "width": 185.546875,
+        "height": 26,
+        "top": 671,
+        "right": 206.546875,
+        "bottom": 697,
+        "left": 21
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "theme": "light",
+    "capture": "host-draft-light-compact.jpg"
+  },
+  {
+    "width": 390,
+    "bg": "#202020",
+    "draft": {
+      "label": "Draft",
+      "rect": {
+        "x": 17,
+        "y": 625,
+        "width": 352,
+        "height": 32,
+        "top": 625,
+        "right": 369,
+        "bottom": 657,
+        "left": 17
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "markReady": {
+      "rect": {
+        "x": 279.15625,
+        "y": 672,
+        "width": 81.84375,
+        "height": 24,
+        "top": 672,
+        "right": 361,
+        "bottom": 696,
+        "left": 279.15625
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "files": {
+      "rect": {
+        "x": 21,
+        "y": 671,
+        "width": 185.546875,
+        "height": 26,
+        "top": 671,
+        "right": 206.546875,
+        "bottom": 697,
+        "left": 21
+      },
+      "disabled": false,
+      "visible": true,
+      "hit": true
+    },
+    "theme": "dark",
+    "capture": "host-draft-dark-compact.jpg"
+  }
+]

@@ -222,12 +222,48 @@ describe("palette merge without side-panel navigation", () => {
       return failed;
     });
     await merge();
-    expect(screen.getByRole("alert").textContent).toContain("rate limited");
+    expect(
+      screen
+        .getAllByRole("alert")
+        .map((alert) => alert.textContent)
+        .join(" "),
+    ).toContain("rate limited");
     f.set(ok());
     await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(f.write).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["state", "failed", 3, "merging", 3, "Merge queue failed", "Merging"],
+    ["position", "queued", 3, "queued", 4, "In merge queue (#3)", "In merge queue (#4)"],
+  ] as const)(
+    "clears old palette feedback when queue %s changes without a new head",
+    async (_, fromState, fromPosition, toState, toPosition, oldText, newText) => {
+      const queued = {
+        ...ready,
+        mergeAction: { kind: "queued" as const },
+        mergeQueue: { position: fromPosition, state: fromState },
+      };
+      const f = fixture(ok(queued));
+      const chat = f.mountBanner();
+      const panel = f.mountTab();
+      await within(chat.container).findByText(oldText);
+      await merge();
+      expect(within(chat.container).getByRole("alert").textContent).toContain(oldText);
+
+      f.set(ok({ ...queued, mergeQueue: { position: toPosition, state: toState } }));
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+      await panel.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+
+      for (const slot of [chat, panel])
+        expect(within(slot.container).getByText(newText)).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(f.refresh).toHaveBeenCalledTimes(1);
+      expect(f.write).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["closed", "review"])(
     "keeps a %s side panel unchanged through merge progress",
@@ -335,19 +371,37 @@ describe("palette merge without side-panel navigation", () => {
     expect(openPanel).not.toHaveBeenCalled();
   });
 
+  it("dismissing an operation error does not dismiss a later read failure", async () => {
+    const f = fixture();
+    f.write.mockResolvedValue({ kind: "error", message: "merge denied" });
+    const chat = f.mountBanner();
+    await screen.findByText("Ready to merge");
+    await merge();
+    await confirm();
+    await screen.findByText("merge denied");
+    f.set(ok(ready, "read rate limited"));
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss merge message" }));
+    expect(screen.getByRole("alert").textContent).toContain("read rate limited");
+    expect(screen.queryByText("merge denied")).toBeNull();
+  });
+
   it.each([
     ["missing", { kind: "no_pr" } as InsightResult, "No pull request for this thread"],
     [
-      "closed",
-      ok({ ...ready, pr: { ...pr, state: "closed" }, mergeAction: { kind: "none" } }),
-      "Pull request closed",
+      "draft with stale action",
+      ok({ ...ready, pr: { ...pr, state: "draft" } }),
+      "This pull request cannot merge.",
     ],
     [
-      "merged",
-      ok({ ...ready, pr: { ...pr, state: "merged" }, mergeAction: { kind: "none" } }),
-      "Pull request merged",
+      "queue failure with stale action",
+      ok({ ...ready, mergeQueue: { position: 3, state: "failed" } }),
+      "Merge queue failed",
     ],
-    ["queued", ok({ ...ready, mergeAction: { kind: "queued" } }), "Queued"],
+    ["closed", ok({ ...ready, pr: { ...pr, state: "closed" } }), "Pull request closed"],
+    ["merged", ok({ ...ready, pr: { ...pr, state: "merged" } }), "Pull request merged"],
+    ["queued", ok({ ...ready, mergeAction: { kind: "queued" } }), "In merge queue"],
     [
       "blocked",
       ok({
@@ -359,19 +413,32 @@ describe("palette merge without side-panel navigation", () => {
     ],
     ["failed load", { kind: "error", message: "offline" } as InsightResult, "offline"],
     ["retained data", ok(ready, "rate limited"), "rate limited"],
-  ])("shows %s feedback even when the normal banner is hidden", async (_, result, text) => {
-    const f = fixture();
-    const chat = f.mountBanner();
-    await screen.findByText("Ready to merge");
-    f.refresh.mockResolvedValue(result);
-    await merge();
-    expect(within(chat.container).getByRole("alert").textContent).toContain(text);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(f.write).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss merge message" }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(openPanel).not.toHaveBeenCalled();
-  });
+  ])(
+    "shows %s feedback without hiding read failures when command feedback is dismissed",
+    async (_, result, text) => {
+      const f = fixture();
+      const chat = f.mountBanner();
+      await screen.findByText("Ready to merge");
+      f.refresh.mockResolvedValue(result);
+      await merge();
+      expect(
+        within(chat.container)
+          .getAllByRole("alert")
+          .map((alert) => alert.textContent)
+          .join(" "),
+      ).toContain(text);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(f.write).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Dismiss merge message" }));
+      const hasReadError =
+        result.kind === "error" || (result.kind === "ok" && result.error !== null);
+      if (hasReadError) {
+        expect(screen.getByRole("alert").textContent).toContain(text);
+        expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+      } else expect(screen.queryByRole("alert")).toBeNull();
+      expect(openPanel).not.toHaveBeenCalled();
+    },
+  );
 
   it("enqueues immediately once and shows failure without panel navigation", async () => {
     const f = fixture(ok({ ...ready, mergeAction: { kind: "enqueue" } }));

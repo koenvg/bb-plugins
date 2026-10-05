@@ -1,0 +1,31 @@
+{
+  "text": "Status keyboard: {\n  focused: 'Draft: 2 checks failed, including a long browser check on a branch with many changed files · Merge conflicts',\n  evidence: { writes: 0, opens: 1 }\n}\n\nStale data: {\n  chat: 'Draft\\nFixture transport failed\\nLast updated 12:00\\nRetry',\n  panel: '#7\\n' +\n    'Draft\\n' +\n    'Open on GitHub\\n' +\n    'Refresh\\n' +\n    'Show PR state in the composer\\n' +\n    'Fixture transport failed\\n' +\n    'Last updated 12:00\\n' +\n    'Retry\\n' +\n    'No checks on the head commit',\n  times: [ '2024-10-01T10:00:00.000Z', '2024-10-01T10:00:00.000Z' ],\n  evidence: { writes: 0, opens: 1 }\n}\n\nRetry keyboard: { chat: 'Draft', evidence: { writes: 0, opens: 1 } }\n\nInitial loading: { chat: 'Loading pull request…', panel: 'Loading pull request…' }\n\n[JSHandle]",
+  "images": [
+    {
+      "path": "/private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bb-host-browser-automation-VLsAGe/db-3VRVTJ/tmp/shot-1791191370840-8.jpg",
+      "mimeType": "image/jpeg",
+      "width": 960,
+      "height": 720
+    },
+    {
+      "path": "/private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bb-host-browser-automation-VLsAGe/db-3VRVTJ/tmp/shot-1791191370901-9.jpg",
+      "mimeType": "image/jpeg",
+      "width": 960,
+      "height": 720
+    },
+    {
+      "path": "/private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bb-host-browser-automation-VLsAGe/db-3VRVTJ/tmp/shot-1791191370978-10.jpg",
+      "mimeType": "image/jpeg",
+      "width": 390,
+      "height": 850
+    },
+    {
+      "path": "/private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bb-host-browser-automation-VLsAGe/db-3VRVTJ/tmp/shot-1791191371064-11.jpg",
+      "mimeType": "image/jpeg",
+      "width": 390,
+      "height": 850
+    }
+  ],
+  "exitCode": 0,
+  "hostId": "host_dt6w76k4w8"
+}
