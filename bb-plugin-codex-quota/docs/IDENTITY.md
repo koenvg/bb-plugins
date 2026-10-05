@@ -27,6 +27,34 @@ Keep these interfaces when integrating the sibling retention projection:
 
 `recordConfirmedRelationship(db, {sessionId, providerIdentity, workspace})` is internal only. Call it only after an explicitly approved import has confined and verified a file/header on its owning host. `verifyWorkspaceAlias` accepts an owning-host `realpath` function. A successful full-path alias proof permits an import relationship to match a recorded path but never rewrites that path. Failures, unknown aliases, prefixes and basenames are not evidence. BBP-22 calls this through explicit configured-source import. No real installed import was part of BBP-19 or BBP-22 development checks.
 
+## Removed environments and unknown ownership
+
+Discovery first uses the environment list. For missing ownership, it uses public
+`environments.get` metadata. Destroyed environments can still prove their owning
+host. One lookup per environment per generation runs as a durable step. Each
+history read keeps the four-step limit, including lookups. Cancellation does not
+record a lookup failure.
+
+`discovery_ownership` records pending, resolved, no-environment, no-host, or
+lookup-failed status. Unresolved threads do not stop later pages. Their retained
+`thread/identity` events become host-neutral uncertainty rows with
+`ownershipUnknown: true` and no title. These rows go to each host catalog to
+prevent a conflicting identity from appearing unique. They never create a
+host-local edge, thread label, or exact binding. Only matching usage identities
+remain non-exact. Unrelated verified identities can reach exact totals.
+
+A completed batch means the metadata scan finished, not that every thread's
+ownership is known. The host stores uncertain provider identities separately.
+Changes to that set trigger bounded re-resolution, including removal of a prior
+exact match. Uncertainty survives missing metadata. Only positive ownership
+evidence for that thread can clear it. A later generation can send a host-neutral
+resolution marker with `ownershipUnknown: false`. This marker cannot create a
+binding. The server carries retained uncertainty and resolution markers into
+later catalogs in 50-row steps, including for hosts that missed earlier delivery.
+Catalog fingerprints include uncertainty, so unchanged reads retain their receipt. Unexpected
+metadata or storage errors reach the caller and produce a fixed warning without
+raw SDK payloads.
+
 ## Validation
 
 Run focused `identity-*.test.ts*` tests, full `npm test`, typecheck, SDK `--check`, then the complete bundle suite. `scripts/check-bundled-identity.mjs` copies the host artifact outside its dependency tree, forbids network and exercises real temporary persistent SQLite. Run it on both the current Node runtime and Node 22. Run strict OpenSpec and the final build after bundle checks.

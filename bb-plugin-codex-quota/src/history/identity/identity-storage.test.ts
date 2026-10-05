@@ -368,3 +368,65 @@ it("does not replace a resumable delivery with a partial newer catalog heartbeat
   reconcileIdentity(db, signal());
   expect(identityView(db).threads[0]?.totalTokens).toBe(3);
 });
+
+it("revokes only uncertain identities and keeps multi-batch uncertainty changes stable", async () => {
+  const { db } = await fixture();
+  capture(db, 1);
+  acceptIdentityBatch(db, batch());
+  reconcileIdentity(db, signal());
+  expect(identityView(db).threads[0]?.totalTokens).toBe(3);
+  const uncertain = {
+    threadId: "thr_unknown",
+    providerIdentity: "provider-a",
+    title: null,
+    state: "archived",
+    ownershipUnknown: true,
+  } as const;
+  for (let generation = 2; generation <= 3; generation++) {
+    acceptIdentityBatch(db, { ...batch(generation), total: 2 });
+    expect(identityView(db).threads).toEqual([]);
+    acceptIdentityBatch(db, { ...batch(generation, [uncertain]), offset: 1, total: 2 });
+    reconcileIdentity(db, signal());
+    expect(identityView(db).threads).toEqual([]);
+    expect(identityView(db).grades.find((g) => g.grade === "workspace-only")?.totalTokens).toBe(3);
+    expect(db.prepare("SELECT revision FROM identity_receipt").get()).toEqual({ revision: 2 });
+  }
+  acceptIdentityBatch(db, batch(4, []));
+  reconcileIdentity(db, signal());
+  // Disappearance is not proof that the unresolved thread belonged to another host.
+  expect(identityView(db).threads).toEqual([]);
+  expect(db.prepare("SELECT revision FROM identity_receipt").get()).toEqual({ revision: 2 });
+  // Remove uncertainty on the final page, not the page that starts this generation.
+  acceptIdentityBatch(db, { ...batch(5), total: 2 });
+  acceptIdentityBatch(db, {
+    ...batch(5, [{ ...uncertain, providerIdentity: null, ownershipUnknown: false }]),
+    offset: 1,
+    total: 2,
+  });
+  reconcileIdentity(db, signal());
+  expect(identityView(db).threads[0]?.totalTokens).toBe(3);
+  expect(db.prepare("SELECT revision FROM identity_receipt").get()).toEqual({ revision: 3 });
+});
+
+it("keeps uncertainty revision changes across an abandoned partial delivery", async () => {
+  const { db } = await fixture();
+  capture(db, 1);
+  acceptIdentityBatch(db, batch());
+  reconcileIdentity(db, signal());
+  acceptIdentityBatch(db, {
+    ...batch(2, [
+      {
+        threadId: "thr_unknown",
+        providerIdentity: "provider-a",
+        title: null,
+        state: "archived",
+        ownershipUnknown: true,
+      },
+    ]),
+    total: 2,
+  });
+  acceptIdentityBatch(db, batch(3, []));
+  reconcileIdentity(db, signal());
+  expect(identityView(db).threads).toEqual([]);
+  expect(identityView(db).grades.find((g) => g.grade === "workspace-only")?.totalTokens).toBe(3);
+});

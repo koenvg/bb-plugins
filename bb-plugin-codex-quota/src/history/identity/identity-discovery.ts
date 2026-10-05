@@ -13,7 +13,15 @@ import {
 type Sdk = Pick<BbPluginApi["sdk"], "threads" | "environments">;
 type State = {
   generation: number;
-  phase: "environments" | "active" | "archived" | "events" | "fingerprint" | "complete";
+  phase:
+    | "environments"
+    | "active"
+    | "archived"
+    | "ownership"
+    | "events"
+    | "uncertainty"
+    | "fingerprint"
+    | "complete";
   offset: number;
   returnPhase: "active" | "archived";
   threadOffset: number;
@@ -21,6 +29,8 @@ type State = {
   afterSeq: number;
   finishedAt: number;
   catalog: CatalogCursor;
+  uncertaintyThread?: string;
+  uncertaintyProvider?: string;
 };
 const initial = (generation: number): State => ({
   generation,
@@ -43,6 +53,10 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       CREATE TABLE IF NOT EXISTS discovery_environments (generation INTEGER NOT NULL, environment_id TEXT NOT NULL, host_id TEXT NOT NULL, PRIMARY KEY(generation,environment_id));
       CREATE TABLE IF NOT EXISTS discovery_threads (generation INTEGER NOT NULL, thread_id TEXT NOT NULL, host_id TEXT NOT NULL, title TEXT, state TEXT NOT NULL, scanned INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(generation,thread_id));
       CREATE INDEX IF NOT EXISTS discovery_pending ON discovery_threads(generation,scanned,thread_id);
+      CREATE TABLE IF NOT EXISTS discovery_ownership (generation INTEGER NOT NULL, thread_id TEXT NOT NULL, environment_id TEXT, reason TEXT NOT NULL, PRIMARY KEY(generation,thread_id));
+      CREATE INDEX IF NOT EXISTS discovery_ownership_pending ON discovery_ownership(generation,reason,environment_id);
+      CREATE INDEX IF NOT EXISTS discovery_ownership_environment ON discovery_ownership(generation,environment_id,reason);
+      CREATE TABLE IF NOT EXISTS discovery_resolved (generation INTEGER NOT NULL, thread_id TEXT NOT NULL, PRIMARY KEY(generation,thread_id));
       CREATE TABLE IF NOT EXISTS discovery_rows (id INTEGER PRIMARY KEY, generation INTEGER NOT NULL, host_id TEXT NOT NULL, thread_id TEXT NOT NULL, provider_identity TEXT, title TEXT, state TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS discovery_delivery ON discovery_rows(generation,host_id,id);
       CREATE TABLE IF NOT EXISTS discovery_receipts (generation INTEGER NOT NULL, host_id TEXT NOT NULL, offset INTEGER NOT NULL, last_id INTEGER NOT NULL, total INTEGER NOT NULL, PRIMARY KEY(generation,host_id));`);
@@ -87,13 +101,13 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       database.transaction(() => {
         for (const thread of page) {
           if (thread.providerId !== "pi") continue;
-          if (!thread.environmentId) throw Error("Identity environment unavailable");
-          const env = database
-            .prepare(
-              "SELECT host_id FROM discovery_environments WHERE generation=? AND environment_id=?",
-            )
-            .get(state.generation, thread.environmentId) as { host_id: string } | undefined;
-          if (!env) throw Error("Identity host unavailable");
+          const env = thread.environmentId
+            ? (database
+                .prepare(
+                  "SELECT host_id FROM discovery_environments WHERE generation=? AND environment_id=?",
+                )
+                .get(state.generation, thread.environmentId) as { host_id: string } | undefined)
+            : undefined;
           const row = identityRowSchema.safeParse({
             threadId: thread.id,
             providerIdentity: null,
@@ -110,12 +124,68 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             .prepare(
               "INSERT OR IGNORE INTO discovery_threads(generation,thread_id,host_id,title,state) VALUES (?,?,?,?,?)",
             )
-            .run(state.generation, thread.id, env.host_id, row.data.title, row.data.state);
+            .run(state.generation, thread.id, env?.host_id ?? "", row.data.title, row.data.state);
+          if (!env)
+            database
+              .prepare(`INSERT OR IGNORE INTO discovery_ownership VALUES (?,?,?,
+              coalesce((SELECT reason FROM discovery_ownership WHERE generation=? AND environment_id=? AND reason!='pending' LIMIT 1),?))`)
+              .run(
+                state.generation,
+                thread.id,
+                thread.environmentId,
+                state.generation,
+                thread.environmentId,
+                thread.environmentId ? "pending" : "no-environment",
+              );
         }
         state.offset += page.length;
         state.returnPhase = phase;
         state.threadOffset = page.length < PAGE ? -1 : state.offset;
+        state.phase = "ownership";
+        save(database, state);
+      });
+      return;
+    }
+    if (state.phase === "ownership") {
+      const pending = database
+        .prepare(
+          "SELECT environment_id FROM discovery_ownership WHERE generation=? AND reason='pending' ORDER BY environment_id LIMIT 1",
+        )
+        .get(state.generation) as { environment_id: string } | undefined;
+      if (!pending) {
         state.phase = "events";
+        save(database, state);
+        return;
+      }
+      let hostId = "";
+      let reason = "no-host";
+      try {
+        const env = await sdk.environments.get({ environmentId: pending.environment_id, signal });
+        signal.throwIfAborted();
+        if (env.id === pending.environment_id && env.hostId) {
+          hostId = env.hostId;
+          reason = "resolved";
+        }
+      } catch {
+        signal.throwIfAborted();
+        reason = "lookup-failed";
+      }
+      signal.throwIfAborted();
+      database.transaction(() => {
+        if (hostId) {
+          database
+            .prepare("INSERT OR REPLACE INTO discovery_environments VALUES (?,?,?)")
+            .run(state.generation, pending.environment_id, hostId);
+          database
+            .prepare(`UPDATE discovery_threads SET host_id=? WHERE generation=? AND thread_id IN
+            (SELECT thread_id FROM discovery_ownership WHERE generation=? AND environment_id=? AND reason='pending')`)
+            .run(hostId, state.generation, state.generation, pending.environment_id);
+        }
+        database
+          .prepare(
+            "UPDATE discovery_ownership SET reason=? WHERE generation=? AND environment_id=? AND reason='pending'",
+          )
+          .run(reason, state.generation, pending.environment_id);
         save(database, state);
       });
       return;
@@ -135,7 +205,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         | undefined;
       if (!next) {
         if (state.threadOffset < 0) {
-          state.phase = state.returnPhase === "active" ? "archived" : "fingerprint";
+          state.phase = state.returnPhase === "active" ? "archived" : "uncertainty";
           state.offset = 0;
         } else {
           state.phase = state.returnPhase;
@@ -163,7 +233,33 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             .prepare(
               "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,?,?,NULL,?,?)",
             )
-            .run(state.generation, next.host_id, next.thread_id, next.title, next.state);
+            .run(
+              state.generation,
+              next.host_id,
+              next.thread_id,
+              next.host_id ? next.title : null,
+              next.state,
+            );
+        if (
+          state.afterSeq === 0 &&
+          next.host_id &&
+          database
+            .prepare(
+              "SELECT 1 FROM discovery_rows WHERE generation=? AND host_id='' AND thread_id=? LIMIT 1",
+            )
+            .get(state.generation - 1, next.thread_id)
+        ) {
+          // Resolve earlier host-neutral uncertainty on every host without
+          // claiming this thread belongs to any other receiving host.
+          database
+            .prepare("INSERT OR IGNORE INTO discovery_resolved VALUES (?,?)")
+            .run(state.generation, next.thread_id);
+          database
+            .prepare(
+              "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,'',?,NULL,NULL,?)",
+            )
+            .run(state.generation, next.thread_id, next.state);
+        }
         let seq = state.afterSeq;
         for (const event of page) {
           // Reject non-progressing or wrong-scope pages instead of declaring completeness.
@@ -178,7 +274,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
           const row = identityRowSchema.safeParse({
             threadId: next.thread_id,
             providerIdentity: event.data.providerThreadId,
-            title: next.title,
+            title: next.host_id ? next.title : null,
             state: next.state,
           });
           if (!row.success) throw Error("Identity evidence unavailable");
@@ -191,7 +287,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
               next.host_id,
               next.thread_id,
               row.data.providerIdentity,
-              next.title,
+              next.host_id ? next.title : null,
               next.state,
             );
         }
@@ -205,6 +301,51 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         }
         save(database, state);
       });
+    }
+    if (state.phase === "uncertainty") {
+      // Carry retained host-neutral evidence into the next catalog. Absence of
+      // metadata is not proof of ownership, including for an offline host.
+      const rows = database
+        .prepare(`SELECT thread_id,provider_identity,state,
+        EXISTS(SELECT 1 FROM discovery_resolved d WHERE d.generation=r.generation AND d.thread_id=r.thread_id) AS resolved
+        FROM discovery_rows r WHERE generation=? AND host_id='' AND
+        (thread_id,coalesce(provider_identity,''))>(?,?)
+        ORDER BY thread_id,coalesce(provider_identity,'') LIMIT 50`)
+        .all(
+          state.generation - 1,
+          state.uncertaintyThread ?? "",
+          state.uncertaintyProvider ?? "",
+        ) as {
+        thread_id: string;
+        provider_identity: string | null;
+        state: string;
+        resolved: number;
+      }[];
+      signal.throwIfAborted();
+      database.transaction(() => {
+        for (const row of rows) {
+          signal.throwIfAborted();
+          state.uncertaintyThread = row.thread_id;
+          state.uncertaintyProvider = row.provider_identity ?? "";
+          const current = database
+            .prepare("SELECT host_id FROM discovery_threads WHERE generation=? AND thread_id=?")
+            .get(state.generation, row.thread_id) as { host_id: string } | undefined;
+          // Advance over every source row, even if this proof must not be carried.
+          if (current && (current.host_id || row.resolved)) continue;
+          if (row.resolved)
+            database
+              .prepare("INSERT OR IGNORE INTO discovery_resolved VALUES (?,?)")
+              .run(state.generation, row.thread_id);
+          database
+            .prepare(
+              "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,'',?,?,NULL,?)",
+            )
+            .run(state.generation, row.thread_id, row.provider_identity, row.state);
+        }
+        if (rows.length < PAGE) state.phase = "fingerprint";
+        save(database, state);
+      });
+      return;
     }
     if (state.phase === "fingerprint")
       database.transaction(() => {
@@ -225,13 +366,10 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       state = initial(state.generation + 1);
       save(database, state);
     }
-    try {
-      for (let calls = 0; calls < 4 && state.phase !== "complete"; calls++)
-        await advance(database, state, signal);
-    } catch {
-      signal.throwIfAborted();
-      return { hostId, generation: state.generation, offset: 0, total: null, rows: [] };
-    }
+    // Metadata lookup failures are explicit per-entry uncertainty. Other failures
+    // must reach the caller, not masquerade as a successful partial heartbeat.
+    for (let calls = 0; calls < 4 && state.phase !== "complete"; calls++)
+      await advance(database, state, signal);
     signal.throwIfAborted();
     if (state.phase !== "complete")
       return { hostId, generation: state.generation, offset: 0, total: null, rows: [] };
@@ -250,17 +388,22 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     }
     const rows = database
       .prepare(
-        "SELECT id,thread_id AS threadId,provider_identity AS providerIdentity,title,state FROM discovery_rows WHERE generation=? AND host_id=? AND id>? ORDER BY id LIMIT 100",
+        "SELECT id,thread_id AS threadId,provider_identity AS providerIdentity,title,state,host_id,EXISTS(SELECT 1 FROM discovery_resolved d WHERE d.generation=r.generation AND d.thread_id=r.thread_id) AS ownership_resolved FROM discovery_rows r WHERE generation=? AND host_id IN (?, '') AND id>? ORDER BY id LIMIT 100",
       )
       .all(generation, hostId, receipt.last_id) as (IdentityBatch["rows"][number] & {
       id: number;
+      host_id: string;
+      ownership_resolved: number;
     })[];
     const batch = {
       hostId,
       generation,
       offset: receipt.offset,
       total: receipt.total,
-      rows: rows.map(({ id: _id, ...row }) => row),
+      rows: rows.map(({ id: _id, host_id, ownership_resolved, ...row }) => ({
+        ...row,
+        ...(!host_id ? { ownershipUnknown: !ownership_resolved } : {}),
+      })),
     };
     deliveryIds.set(batch, rows.at(-1)?.id ?? receipt.last_id);
     return batch;

@@ -21,6 +21,8 @@ export function initializeIdentityStorage(db: HistoryDatabase) {
     CREATE TABLE IF NOT EXISTS identity_batches (generation INTEGER NOT NULL, offset INTEGER NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(generation,offset));
     CREATE TABLE IF NOT EXISTS identity_edges (generation INTEGER NOT NULL, provider_identity TEXT NOT NULL, thread_id TEXT NOT NULL, PRIMARY KEY(generation,provider_identity,thread_id));
     CREATE INDEX IF NOT EXISTS identity_provider ON identity_edges(provider_identity,generation,thread_id);
+    CREATE TABLE IF NOT EXISTS identity_uncertain (thread_id TEXT NOT NULL, provider_identity TEXT NOT NULL, PRIMARY KEY(thread_id,provider_identity));
+    CREATE INDEX IF NOT EXISTS identity_uncertain_provider ON identity_uncertain(provider_identity);
     CREATE TABLE IF NOT EXISTS identity_metadata (generation INTEGER NOT NULL, thread_id TEXT NOT NULL, title TEXT, state TEXT NOT NULL, PRIMARY KEY(generation,thread_id));
     CREATE TABLE IF NOT EXISTS identity_imports (session_id TEXT NOT NULL, provider_identity TEXT NOT NULL, workspace TEXT NOT NULL, PRIMARY KEY(session_id,workspace,provider_identity));
     CREATE TABLE IF NOT EXISTS identity_aliases (recorded TEXT NOT NULL, verified TEXT NOT NULL, PRIMARY KEY(recorded,verified));
@@ -82,8 +84,8 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
         throw Error("Identity batch gap");
       }
       db.prepare(
-        "UPDATE identity_receipt SET host_id=?,generation=?,received=0,complete=0,expected_total=NULL,evidence_changed=0 WHERE id=1",
-      ).run(batch.hostId, batch.generation);
+        "UPDATE identity_receipt SET host_id=?,generation=?,received=0,complete=0,expected_total=NULL,evidence_changed=? WHERE id=1",
+      ).run(batch.hostId, batch.generation, prior.complete ? 0 : prior.evidence_changed);
       db.prepare("INSERT OR IGNORE INTO identity_generations VALUES (?,0)").run(batch.generation);
     }
     const current = receipt(db);
@@ -100,6 +102,29 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
     if (!stored) {
       if (batch.offset !== current.received) throw Error("Identity batch overlap");
       for (const row of batch.rows) {
+        if (row.ownershipUnknown) {
+          if (
+            row.providerIdentity &&
+            !db
+              .prepare("SELECT 1 FROM identity_uncertain WHERE thread_id=? AND provider_identity=?")
+              .get(row.threadId, row.providerIdentity)
+          ) {
+            db.prepare("INSERT INTO identity_uncertain VALUES (?,?)").run(
+              row.threadId,
+              row.providerIdentity,
+            );
+            db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
+          }
+          continue; // Never store unknown ownership as host-local edges or metadata.
+        }
+        // Only positive ownership evidence can clear retained uncertainty.
+        if (
+          db.prepare("SELECT 1 FROM identity_uncertain WHERE thread_id=? LIMIT 1").get(row.threadId)
+        ) {
+          db.prepare("DELETE FROM identity_uncertain WHERE thread_id=?").run(row.threadId);
+          db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
+        }
+        if (row.ownershipUnknown === false) continue; // Host-neutral resolution, not a binding.
         if (row.providerIdentity) {
           if (
             !db
@@ -307,6 +332,12 @@ export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limi
           row.workspace,
           row.workspace,
         ) as { threadId: string }[];
+      const uncertain = db
+        .prepare(`SELECT 1 FROM identity_uncertain u WHERE
+        (u.provider_identity=? OR u.provider_identity IN
+          (SELECT provider_identity FROM identity_imports WHERE session_id=? AND
+            (workspace=? OR workspace IN (SELECT verified FROM identity_aliases WHERE recorded=?)))) LIMIT 1`)
+        .get(row.provider_key?.slice(0, -6) ?? null, row.session_id, row.workspace, row.workspace);
       const result = resolveCandidates(
         {
           sessionId: row.session_id,
@@ -315,7 +346,7 @@ export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limi
           workspace: row.workspace,
         },
         candidates.map((c) => c.threadId),
-        true,
+        !uncertain,
       );
       if (row.projected) adjust(db, row.grade, row.thread_id, -row.total, -1);
       if (row.accepted) adjust(db, result.grade, result.threadId, row.total, 1);

@@ -22,6 +22,8 @@ export const identityRowSchema = z
       .nullable(),
     title: scalar(256).nullable(),
     state: z.enum(["available", "archived", "deleted"]),
+    // Host-neutral unknown or resolved ownership. Neither can bind a thread.
+    ownershipUnknown: z.boolean().optional(),
   })
   .strict();
 // Internal server-to-host batch. Nothing here comes from browser request fields.
