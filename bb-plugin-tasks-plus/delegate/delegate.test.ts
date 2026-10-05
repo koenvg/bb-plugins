@@ -11,6 +11,7 @@ function createTestPreset(
   store: ReturnType<typeof createStore>,
   overrides: Partial<{
     environmentKind: "project-default" | "new-worktree";
+    serviceTier: string;
     baseBranch: string | null;
     machineId: string | null;
   }> = {},
@@ -20,7 +21,7 @@ function createTestPreset(
     providerId: "claude-code",
     modelId: "claude-sonnet-5",
     reasoningLevel: "high",
-    serviceTier: "fast",
+    serviceTier: overrides.serviceTier ?? "fast",
     permissionMode: "full",
     environmentKind: overrides.environmentKind ?? "project-default",
     baseBranch: overrides.baseBranch ?? null,
@@ -31,100 +32,103 @@ function createTestPreset(
 }
 
 describe("task delegation", () => {
-  it("spawns from a preset, attaches the thread, advances status, comments, and invalidates", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        threads: {
-          spawn: async () => ({ id: "thr_delegated" }),
-          get: async () => makeThreadResponse({ id: "thr_delegated", status: "starting" }),
+  it.each(["fast", "priority"])(
+    "dispatches tier %s from a preset and updates the task",
+    async (serviceTier) => {
+      const { bb, harness } = createFakePluginHost({
+        pluginId: "tasks",
+        sdk: {
+          threads: {
+            spawn: async () => ({ id: "thr_delegated" }),
+            get: async () => makeThreadResponse({ id: "thr_delegated", status: "starting" }),
+          },
         },
-      },
-    });
-    const store = createStore(bb);
-    const project = store.tasks.createProject({
-      name: "Tasks plugin",
-      prefix: "TASK",
-      color: "blue",
-      linkedBbProjectId: "proj_bb",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Implement delegation",
-      description: "Build the core agent loop.",
-      status: "todo",
-    });
-    registerDelegation(bb, store);
-    const preset = createTestPreset(store);
+      });
+      const store = createStore(bb);
+      const project = store.tasks.createProject({
+        name: "Tasks plugin",
+        prefix: "TASK",
+        color: "blue",
+        linkedBbProjectId: "proj_bb",
+      });
+      const task = store.tasks.createTask({
+        projectId: project.id,
+        title: "Implement delegation",
+        description: "Build the core agent loop.",
+        status: "todo",
+      });
+      registerDelegation(bb, store);
+      const preset = createTestPreset(store, { serviceTier });
 
-    const result = delegationRpcContract.delegate.output.parse(
-      await harness.callRpc("delegate", {
-        taskId: task.id,
-        presetId: preset.id,
-        extraInstructions: "Run the focused tests before reporting back.",
-      }),
-    );
+      const result = delegationRpcContract.delegate.output.parse(
+        await harness.callRpc("delegate", {
+          taskId: task.id,
+          presetId: preset.id,
+          extraInstructions: "Run the focused tests before reporting back.",
+        }),
+      );
 
-    expect(result).toEqual({ threadId: "thr_delegated" });
-    expect(harness.sdk.callsTo("threads.spawn")).toEqual([
-      [
+      expect(result).toEqual({ threadId: "thr_delegated" });
+      expect(harness.sdk.callsTo("threads.spawn")).toEqual([
+        [
+          expect.objectContaining({
+            projectId: "proj_bb",
+            environment: { type: "project-default" },
+            providerId: "claude-code",
+            model: "claude-sonnet-5",
+            reasoningLevel: "high",
+            serviceTier,
+            permissionMode: "full",
+            title: "TASK-1 · Implement delegation",
+            prompt: expect.stringContaining("Run the focused tests before reporting back."),
+            origin: "plugin",
+            originPluginId: "tasks",
+          }),
+        ],
+      ]);
+      expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
+        prompt: expect.stringContaining("40-80 words"),
+      });
+      expect(store.tasks.listTaskThreads(task.id)).toEqual([
         expect.objectContaining({
-          projectId: "proj_bb",
-          environment: { type: "project-default" },
-          providerId: "claude-code",
-          model: "claude-sonnet-5",
-          reasoningLevel: "high",
-          serviceTier: "fast",
-          permissionMode: "full",
+          taskId: task.id,
+          threadId: "thr_delegated",
+          presetName: "Test worker",
           title: "TASK-1 · Implement delegation",
-          prompt: expect.stringContaining("Run the focused tests before reporting back."),
-          origin: "plugin",
-          originPluginId: "tasks",
+          liveStatus: "starting",
         }),
-      ],
-    ]);
-    expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
-      prompt: expect.stringContaining("40-80 words"),
-    });
-    expect(store.tasks.listTaskThreads(task.id)).toEqual([
-      expect.objectContaining({
-        taskId: task.id,
-        threadId: "thr_delegated",
-        presetName: "Test worker",
-        title: "TASK-1 · Implement delegation",
-        liveStatus: "starting",
-      }),
-    ]);
-    expect(store.tasks.getTask(task.id)?.status).toBe("in_progress");
-    expect(store.tasks.listComments(task.id)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "system",
-          authorName: "Tasks",
-          presetName: "Test worker",
-          threadId: "thr_delegated",
-          body: "Status changed to In Progress · dispatched to Test worker",
-        }),
-        expect.objectContaining({
-          kind: "system",
-          authorName: "Tasks",
-          presetName: "Test worker",
-          threadId: "thr_delegated",
-          body: "Dispatched to Test worker",
-        }),
-      ]),
-    );
-    expect(harness.realtimeSignals).toEqual([
-      { channel: "threads:changed", payload: { taskId: task.id } },
-      {
-        channel: "tasks:changed",
-        payload: { taskId: task.id, projectId: project.id },
-      },
-      { channel: "comments:changed", payload: { taskId: task.id } },
-    ]);
+      ]);
+      expect(store.tasks.getTask(task.id)?.status).toBe("in_progress");
+      expect(store.tasks.listComments(task.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "system",
+            authorName: "Tasks",
+            presetName: "Test worker",
+            threadId: "thr_delegated",
+            body: "Status changed to In Progress · dispatched to Test worker",
+          }),
+          expect.objectContaining({
+            kind: "system",
+            authorName: "Tasks",
+            presetName: "Test worker",
+            threadId: "thr_delegated",
+            body: "Dispatched to Test worker",
+          }),
+        ]),
+      );
+      expect(harness.realtimeSignals).toEqual([
+        { channel: "threads:changed", payload: { taskId: task.id } },
+        {
+          channel: "tasks:changed",
+          payload: { taskId: task.id, projectId: project.id },
+        },
+        { channel: "comments:changed", payload: { taskId: task.id } },
+      ]);
 
-    await harness.dispose();
-  });
+      await harness.dispose();
+    },
+  );
 
   it("corrects the attached row when a delegated thread becomes active immediately", async () => {
     const { bb, harness } = createFakePluginHost({

@@ -210,6 +210,8 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await command.run(context);
     f.active();
     await settle();
+    const send = f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]')!;
+    expect(send.hasAttribute("aria-keyshortcuts")).toBe(false);
     expect(key(f.editor, "Enter").defaultPrevented).toBe(true);
     expect(f.confirms).toHaveBeenCalledOnce();
     expect(f.voiceSends).not.toHaveBeenCalled();

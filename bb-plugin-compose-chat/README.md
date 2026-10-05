@@ -10,7 +10,7 @@ Active rows use the lattice in place of their native activity glyph, keeping one
 
 ## Install
 
-Requires BB 0.44 or newer. From this directory:
+Requires BB 0.45 or newer. From this directory:
 
 ```sh
 npm ci
@@ -47,7 +47,7 @@ These controls use native BB 0.44 and 0.45 attributes and button labels, not a p
 - Does not read or write messages, drafts, or audio. No plugin network calls, persistent storage, RPC, or polling.
 - Public SDK content scripts own style markers and voice-keyboard listeners. A DOM observer reads native voice state and error-title metadata. Abort removes all listeners and observers and restores owned attributes. BB owns frontend generation updates.
 
-BB's chat DOM is not a public API. The selectors were checked against the native BB 0.44 frontend. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
+BB's chat DOM is not a public API. The selectors were checked against the BB 0.44 and 0.45 frontend source. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
 
 ## Develop and test
 

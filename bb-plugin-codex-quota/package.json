@@ -13,8 +13,8 @@
     "build": "bb plugin build"
   },
   "engines": {
-    "bb": ">=0.43",
-    "bbPluginSdk": ">=0.5.9"
+    "bb": ">=0.45",
+    "bbPluginSdk": ">=0.6.15 <0.7"
   },
   "bb": {
     "name": "Codex Quota",

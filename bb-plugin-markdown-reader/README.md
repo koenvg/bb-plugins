@@ -71,7 +71,7 @@ The toolbar, reading column, and optional outline respond to the actual reader w
 
 ## Compatibility and local build
 
-Verified against BB Plugin SDK **0.5.29** and the current BB build command. The manifest requires BB **>=0.44** and SDK **>=0.5.29 <0.6**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
+The package targets BB **>=0.45** and Plugin SDK **>=0.6.15 <0.7**, with declarations pinned to **0.6.15**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
 From this package directory, with Node 24.15 or newer within Node 24 and a compatible `bb` CLI:
 
