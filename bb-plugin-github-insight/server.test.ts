@@ -2548,12 +2548,12 @@ describe("runPrAction", () => {
     expect(overviewRefreshes(harness)).toHaveLength(2);
   });
 
-  it("offers no CLI command that merges or enqueues", async () => {
+  it("offers no CLI command that merges, enqueues, updates the branch, or changes auto-merge", async () => {
     const harness = await setupWithPr();
 
     const help = await harness.behavior.runCli(["--help"]);
 
-    expect(help.stdout).not.toMatch(/merge|enqueue/i);
+    expect(help.stdout).not.toMatch(/merge|enqueue|update|rebase/i);
     expect(merges(harness)).toEqual([]);
     expect(enqueues(harness)).toEqual([]);
   });

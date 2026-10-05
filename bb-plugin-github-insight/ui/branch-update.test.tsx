@@ -13,6 +13,7 @@ type Methods = Pick<
 >;
 const app = await loadPluginApp(() => import("../app"));
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
 
 const HEAD = "head-a";
 const behind: PrInsight = {
@@ -201,5 +202,24 @@ describe("Update branch", () => {
     expect(await view.findByText("Branch updated on GitHub. Pull before you push.")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
     expect(view.queryByText("Branch updated on GitHub. Pull before you push.")).toBeNull();
+  });
+
+  it("is not offered in the composer banner", async () => {
+    const slot = renderSlot<object, Methods>(
+      banner,
+      {},
+      {
+        rpc: {
+          getInsight: async () => ok(behind),
+          refresh: async () => ok(behind),
+          runPrAction: async () => ({ kind: "ok" }),
+          localCommitsAhead: async () => ({ kind: "unknown" }),
+        },
+        composer: { scope: { kind: "thread", threadId: "thr_update" } },
+      },
+    );
+
+    await within(slot.container).findByText("Branch out of date");
+    expect(within(slot.container).queryByRole("button", { name: /update/i })).toBeNull();
   });
 });
