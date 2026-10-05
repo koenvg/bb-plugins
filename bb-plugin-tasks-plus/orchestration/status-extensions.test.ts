@@ -46,10 +46,7 @@ describe("compact status extension contract", () => {
               createdAt: "2026-10-03T00:00:00.000Z",
               outcome: "review_ready",
               summary: "Large summary".repeat(10000),
-              resultReferences: Array.from(
-                { length: 12 },
-                (_, i) => `attachment:${i}`,
-              ),
+              resultReferences: Array.from({ length: 12 }, (_, i) => `attachment:${i}`),
             },
           },
           reportedDecisions: {
@@ -228,10 +225,9 @@ describe("compact status extension contract", () => {
     });
     const invalid = structuredClone(result);
     invalid.status.epic.attachments.omitted = 99;
-    expect(
-      orchestrationStatusContract.orchestrateStatus.output.safeParse(invalid)
-        .success,
-    ).toBe(false);
+    expect(orchestrationStatusContract.orchestrateStatus.output.safeParse(invalid).success).toBe(
+      false,
+    );
   });
 
   it("rejects one native owner association designated under multiple roles", async () => {
@@ -245,28 +241,21 @@ describe("compact status extension contract", () => {
           ownership: {
             state: "known",
             reason: "duplicate_association",
-            owners: ["orchestrator" as const, "integration" as const].map(
-              (role) => ({
-                associationId: owner.id,
-                threadId: owner.threadId,
-                role,
-              }),
-            ),
+            owners: ["orchestrator" as const, "integration" as const].map((role) => ({
+              associationId: owner.id,
+              threadId: owner.threadId,
+              role,
+            })),
           },
         },
       ],
     ]);
-    const before = f.bb.storage
-      .database()
-      .prepare("SELECT total_changes() AS n")
-      .get();
+    const before = f.bb.storage.database().prepare("SELECT total_changes() AS n").get();
     expect(await f.read()).toMatchObject({
       ok: false,
       error: { code: "epic_status_extension_invalid" },
     });
-    expect(
-      f.bb.storage.database().prepare("SELECT total_changes() AS n").get(),
-    ).toEqual(before);
+    expect(f.bb.storage.database().prepare("SELECT total_changes() AS n").get()).toEqual(before);
     expect(f.get).not.toHaveBeenCalled();
     expect(f.spawn).not.toHaveBeenCalled();
     expect(f.send).not.toHaveBeenCalled();

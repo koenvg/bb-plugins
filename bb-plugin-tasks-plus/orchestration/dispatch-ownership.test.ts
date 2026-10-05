@@ -9,9 +9,18 @@ describe("manual-first ownership history", () => {
     const original = historicalOwner(f);
     const claims = createDispatchStore(f.bb.storage.database());
     const owners = claims.owners(f.task.id);
-    for (let n = 0; n < 2; n++) expect(await f.dispatch()).toMatchObject({ outcome: "deferred", claim: null });
-    await f.harness.behavior.callRpc("taskThreadsDetach", { taskId: f.task.id, threadId: original.threadId });
-    expect(await f.harness.behavior.callRpc("orchestrateAdopt", { ...f.input, associationId: original.associationId })).toMatchObject({ outcome: "deferred" });
+    for (let n = 0; n < 2; n++)
+      expect(await f.dispatch()).toMatchObject({ outcome: "deferred", claim: null });
+    await f.harness.behavior.callRpc("taskThreadsDetach", {
+      taskId: f.task.id,
+      threadId: original.threadId,
+    });
+    expect(
+      await f.harness.behavior.callRpc("orchestrateAdopt", {
+        ...f.input,
+        associationId: original.associationId,
+      }),
+    ).toMatchObject({ outcome: "deferred" });
     expect(claims.get(original.id)).toEqual(original);
     expect(claims.owners(f.task.id)).toEqual(owners);
     expectNoAgentInput(f.harness);

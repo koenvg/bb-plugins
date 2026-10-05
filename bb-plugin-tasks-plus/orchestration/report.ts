@@ -44,18 +44,12 @@ export function createReporter(
     claimId: current.claimId,
     runId: current.runId,
   });
-  function retry(
-    payload: ReportPayload,
-    threadId: string,
-  ): WorkerReport | null {
+  function retry(payload: ReportPayload, threadId: string): WorkerReport | null {
     const existing = reports.retry(threadId, payload.key);
     if (!existing) return null;
     const original = nativeReportInputSchema.parse(
       Object.fromEntries(
-        Object.keys(payload).map((key) => [
-          key,
-          existing[key as keyof WorkerReport],
-        ]),
+        Object.keys(payload).map((key) => [key, existing[key as keyof WorkerReport]]),
       ),
     );
     if (fingerprint(original) !== fingerprint(payload))
@@ -71,28 +65,18 @@ export function createReporter(
     expiresAt = Infinity,
   ): Promise<WorkerReport> {
     if (payload.taskId !== origin.taskId)
-      refuse(
-        "report_context_invalid",
-        "Report context belongs to another task.",
-      );
+      refuse("report_context_invalid", "Report context belongs to another task.");
     const previous = retry(payload, origin.threadId);
     if (previous) return previous;
-    if (expiresAt <= Date.now())
-      refuse("report_context_invalid", "Report context is expired.");
+    if (expiresAt <= Date.now()) refuse("report_context_invalid", "Report context is expired.");
     const observed = await context.observe(payload.taskId, origin.threadId);
     const saved = store.transaction(() => {
       const duplicate = retry(payload, origin.threadId);
       if (duplicate) return { report: duplicate, created: false };
       if (expiresAt <= Date.now())
-        refuse(
-          "report_context_invalid",
-          "Report context expired during validation.",
-        );
+        refuse("report_context_invalid", "Report context expired during validation.");
       const current = context.local(payload.taskId, origin.threadId, observed);
-      if (
-        fingerprint(originFor(payload.taskId, origin.threadId, current)) !==
-        fingerprint(origin)
-      )
+      if (fingerprint(originFor(payload.taskId, origin.threadId, current)) !== fingerprint(origin))
         refuse(
           "report_context_conflict",
           "Original report context changed. Issue a new native context; do not retag the old one.",
@@ -128,7 +112,8 @@ export function createReporter(
         delivery: {
           id: `report-delivery:${id}`,
           state: "suppressed",
-          reason: "Manual-first release: agent notification is deferred. Report and non-notifying comment stored.",
+          reason:
+            "Manual-first release: agent notification is deferred. Report and non-notifying comment stored.",
           reference: null,
           attemptedAt: null,
         },
@@ -139,10 +124,7 @@ export function createReporter(
     publishCommentsChanged(bb, payload.taskId);
     return saved.report;
   }
-  async function verifiedNativeOrigin(
-    taskId: string,
-    native: PluginAgentToolContext,
-  ) {
+  async function verifiedNativeOrigin(taskId: string, native: PluginAgentToolContext) {
     if (!options.nativeProviders?.length)
       refuse(
         "report_transport_unverified",
@@ -160,39 +142,23 @@ export function createReporter(
         "This provider/BB version is outside the verified native reporting transport contract. Do not use CLI origin as a bypass.",
       );
     if (observed.thread.projectId !== native.projectId)
-      refuse(
-        "report_wrong_worker",
-        "Native tool project and worker context disagree.",
-      );
+      refuse("report_wrong_worker", "Native tool project and worker context disagree.");
     const origin = store.transaction(() =>
-      originFor(
-        taskId,
-        native.threadId,
-        context.local(taskId, native.threadId, observed),
-      ),
+      originFor(taskId, native.threadId, context.local(taskId, native.threadId, observed)),
     );
     return { origin, observed };
   }
-  async function nativeReport(
-    input: ReportPayload,
-    native: PluginAgentToolContext,
-  ) {
+  async function nativeReport(input: ReportPayload, native: PluginAgentToolContext) {
     const payload = nativeReportInputSchema.parse(input);
     // Host-provided identity, not CLI env, RPC input or editable metadata. A
     // recorded retry can retain provenance after detachment without a new send.
     const previous = retry(payload, native.threadId);
     if (previous) {
       if (previous.bbProjectId !== native.projectId)
-        refuse(
-          "report_context_conflict",
-          "Recorded report and native project disagree.",
-        );
+        refuse("report_context_conflict", "Recorded report and native project disagree.");
       return previous;
     }
-    return record(
-      payload,
-      (await verifiedNativeOrigin(payload.taskId, native)).origin,
-    );
+    return record(payload, (await verifiedNativeOrigin(payload.taskId, native)).origin);
   }
   async function issueContext(taskId: string, native: PluginAgentToolContext) {
     const { origin, observed } = await verifiedNativeOrigin(taskId, native);
@@ -206,16 +172,10 @@ export function createReporter(
         context.local(taskId, native.threadId, observed),
       );
       if (fingerprint(current) !== fingerprint(origin))
-        refuse(
-          "report_context_conflict",
-          "Worker context changed during issuance.",
-        );
+        refuse("report_context_conflict", "Worker context changed during issuance.");
       return capabilities.issue(origin);
     });
-    const path = join(
-      location.storageRootPath,
-      `.tasks-report-context-${randomUUID()}`,
-    );
+    const path = join(location.storageRootPath, `.tasks-report-context-${randomUUID()}`);
     try {
       const result = await bb.sdk.files.write({
         hostId: location.hostId,
@@ -224,8 +184,7 @@ export function createReporter(
         content: token,
         mode: 0o600,
       });
-      if (result.outcome !== "written")
-        throw new Error("Context file was not written");
+      if (result.outcome !== "written") throw new Error("Context file was not written");
       // Return only the private file location. Tokens never enter tool results,
       // plugin logs, task comments, metadata or attached verification evidence.
       return { contextFile: path, hostId: location.hostId };
@@ -255,16 +214,14 @@ export function createReporter(
         description:
           "Record an explicit bounded task outcome from this native worker. Task status stays unchanged. Report retries return the existing report/comment.",
         parameters: nativeReportInputSchema,
-        execute: async (input, native) =>
-          JSON.stringify(await nativeReport(input, native)),
+        execute: async (input, native) => JSON.stringify(await nativeReport(input, native)),
       });
       bb.agents.registerTool({
         name: "tasks_report_context",
         description:
           "Issue a scoped report capability as a private file for CLI/RPC use. Uses this native worker identity, not supplied thread metadata. Do not attach, print or log the file contents.",
         parameters: z.object({ taskId: idSchema }).strict(),
-        execute: async ({ taskId }, native) =>
-          JSON.stringify(await issueContext(taskId, native)),
+        execute: async ({ taskId }, native) => JSON.stringify(await issueContext(taskId, native)),
       });
       bb.agents.configure((native) => ({
         tools: options.nativeProviders?.includes(native.provider.id)

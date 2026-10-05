@@ -1,8 +1,5 @@
 import type { ReportStore } from "./report-store";
-import type {
-  CoordinationReader,
-  TaskCoordinationData,
-} from "./status-contract";
+import type { CoordinationReader, TaskCoordinationData } from "./status-contract";
 import { STATUS_LIMITS } from "./status-contract";
 
 export function withReportCoordination(
@@ -14,14 +11,8 @@ export function withReportCoordination(
     const tasks = new Map<string, TaskCoordinationData>(snapshot.tasks);
     for (const taskId of taskIds) {
       const latest = reports.latest(taskId);
-      const questions = reports.decisions(
-        taskId,
-        STATUS_LIMITS.decisionsPerWorker,
-      );
-      const deliveries = reports.deliveries(
-        taskId,
-        STATUS_LIMITS.resultsPerReport,
-      );
+      const questions = reports.decisions(taskId, STATUS_LIMITS.decisionsPerWorker);
+      const deliveries = reports.deliveries(taskId, STATUS_LIMITS.resultsPerReport);
       tasks.set(taskId, {
         ...tasks.get(taskId),
         latestOutcome: latest

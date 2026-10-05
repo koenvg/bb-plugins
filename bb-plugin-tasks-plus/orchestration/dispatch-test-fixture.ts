@@ -15,22 +15,43 @@ export function historicalOwner(f: any) {
   const claims = createDispatchStore(f.bb.storage.database());
   const claim = claims.reserve(f.input);
   const association = f.store.tasks.upsertTaskThread({
-    taskId: f.task.id, threadId: "thr_worker", presetName: "Fixture", title: "Historical owner", liveStatus: "working",
+    taskId: f.task.id,
+    threadId: "thr_worker",
+    presetName: "Fixture",
+    title: "Historical owner",
+    liveStatus: "working",
   });
-  claims.designate({ taskId: f.task.id, role: "implementation", runId: f.input.runId, threadId: "thr_worker", associationId: association.id });
+  claims.designate({
+    taskId: f.task.id,
+    role: "implementation",
+    runId: f.input.runId,
+    threadId: "thr_worker",
+    associationId: association.id,
+  });
   f.store.tasks.updateTask(f.task.id, { status: "in_progress" });
-  const saved = claims.update(claim.id, { phase: "attached", threadId: "thr_worker", associationId: association.id });
-  f.workers.set("thr_worker", makeThreadResponse({ id: "thr_worker", projectId: "proj_fixture", providerId: "pi", parentThreadId: "thr_coordinator", originPluginId: f.bb.pluginId, createdAt: Date.now() }));
+  const saved = claims.update(claim.id, {
+    phase: "attached",
+    threadId: "thr_worker",
+    associationId: association.id,
+  });
+  f.workers.set(
+    "thr_worker",
+    makeThreadResponse({
+      id: "thr_worker",
+      projectId: "proj_fixture",
+      providerId: "pi",
+      parentThreadId: "thr_coordinator",
+      originPluginId: f.bb.pluginId,
+      createdAt: Date.now(),
+    }),
+  );
   return saved;
 }
 export const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
-export async function fixture(
-  taskCount = 1,
-  initialize: typeof plugin = plugin,
-) {
+export async function fixture(taskCount = 1, initialize: typeof plugin = plugin) {
   let requests: any[] = [];
   let decisions: any[] = [];
   let interruptions: any[] = [];
@@ -156,13 +177,10 @@ export async function fixture(
       },
     },
   ];
-  await harness.behavior.runCli(
-    ["orchestrate", "begin", "--request", "creq_fixture", "--json"],
-    { threadId: "thr_coordinator" },
-  );
-  await vi.waitFor(() =>
-    expect(harness.inspection.pendingInteractions).toHaveLength(1),
-  );
+  await harness.behavior.runCli(["orchestrate", "begin", "--request", "creq_fixture", "--json"], {
+    threadId: "thr_coordinator",
+  });
+  await vi.waitFor(() => expect(harness.inspection.pendingInteractions).toHaveLength(1));
   const form = harness.inspection.pendingInteractions[0]!;
   const value = {
     approved: true,
@@ -211,9 +229,7 @@ export async function fixture(
   const dispatch = () =>
     harness.behavior
       .callRpc("orchestrateDispatch", input)
-      .then((value) =>
-        dispatchRpcContract.orchestrateDispatch.output.parse(value),
-      );
+      .then((value) => dispatchRpcContract.orchestrateDispatch.output.parse(value));
   const hook = async (threadId = "thr_worker") =>
     harness.registrations.hooks["message.dispatch"]!(
       makeMessageDispatchHookContext({
@@ -256,7 +272,10 @@ export async function fixture(
     setReadInterruptions: (fn: typeof readInterruptions) => {
       readInterruptions = fn;
     },
-    approveRun: async (coordinatorThreadId = "thr_coordinator", action: "begin" | "resume" = "begin") => {
+    approveRun: async (
+      coordinatorThreadId = "thr_coordinator",
+      action: "begin" | "resume" = "begin",
+    ) => {
       const requestId = `creq_next_${requests.length}`;
       requests.unshift({
         ...requests[0],
@@ -279,9 +298,7 @@ export async function fixture(
       const args = ["orchestrate", action, "--request", requestId, "--json"];
       const context = { threadId: coordinatorThreadId };
       await harness.behavior.runCli(args, context);
-      await vi.waitFor(() =>
-        expect(harness.inspection.pendingInteractions).toHaveLength(1),
-      );
+      await vi.waitFor(() => expect(harness.inspection.pendingInteractions).toHaveLength(1));
       const form = harness.inspection.pendingInteractions[0]!;
       const value = {
         approved: true,
@@ -309,9 +326,7 @@ export async function fixture(
         },
       });
       harness.behavior.submitInteraction(form.id, value);
-      const result = JSON.parse(
-        (await harness.behavior.runCli(args, context)).stdout!,
-      );
+      const result = JSON.parse((await harness.behavior.runCli(args, context)).stdout!);
       expect(result.outcome).toBe("run");
       return result.run;
     },
@@ -348,7 +363,15 @@ export async function fixture(
   };
 }
 export function expectNoAgentInput(harness: any) {
-  for (const method of ["threads.spawn", "threads.send", "threads.queuedMessages.create", "threads.queuedMessages.send", "threads.stop"]) {
+  for (const method of [
+    "threads.spawn",
+    "threads.send",
+    "threads.queuedMessages.create",
+    "threads.queuedMessages.send",
+    "threads.stop",
+    "threads.resume",
+    "threads.recheck",
+  ]) {
     expect(harness.sdk.callsTo(method), method).toHaveLength(0);
   }
   expect(harness.registrations.hooks["message.dispatch"]).toBeFalsy();

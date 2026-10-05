@@ -1,8 +1,4 @@
-import {
-  cliCommand,
-  PluginCliError,
-  type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+import { cliCommand, PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Dispatcher } from "./dispatch";
 import { resolveStatusEpicId } from "./status-store";
 import { roleSchema } from "./dispatch-contract";
@@ -49,17 +45,12 @@ export function dispatchCommands(bb: BbPluginApi, dispatcher: Dispatcher) {
         const coordinatorThreadId = context.threadId ?? input.options.thread;
         if (
           !coordinatorThreadId ||
-          (context.threadId &&
-            input.options.thread &&
-            context.threadId !== input.options.thread)
+          (context.threadId && input.options.thread && context.threadId !== input.options.thread)
         )
           throw new PluginCliError("Use your coordinator thread context", {
             code: "run_context_invalid",
           });
-        const taskId = resolveStatusEpicId(
-          bb.storage.database(),
-          input.positionals.task,
-        );
+        const taskId = resolveStatusEpicId(bb.storage.database(), input.positionals.task);
         if (!taskId)
           throw new PluginCliError("Task not found", {
             code: "task_not_found",

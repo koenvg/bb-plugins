@@ -2,10 +2,7 @@ import type { TasksApiStore } from "../api";
 import type { RunController } from "./run";
 import { assertCurrentScope } from "./run-scope";
 import type { DispatchStore } from "./dispatch-store";
-import type {
-  CoordinationReader,
-  TaskCoordinationData,
-} from "./status-contract";
+import type { CoordinationReader, TaskCoordinationData } from "./status-contract";
 import { nativeHandoff, type HandoffReader } from "./dispatch-eligibility";
 
 export function coordinationReader(
@@ -39,8 +36,7 @@ export function coordinationReader(
         : attempts.length
           ? {
               state: "resolution_needed" as const,
-              reason:
-                "A durable claim exists without an attached primary owner.",
+              reason: "A durable claim exists without an attached primary owner.",
               owners: [],
             }
           : {

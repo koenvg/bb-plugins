@@ -6,7 +6,13 @@ import { registerTasks } from "../server";
 
 export const decodeTool = (result: any) =>
   JSON.parse(typeof result === "string" ? result : result.content[0].text);
-export async function reportFixture(count = 1, attach = true, provider = "codex", initialize = (bb: Parameters<typeof registerTasks>[0]) => registerTasks(bb, { nativeProviders: [provider] })) {
+export async function reportFixture(
+  count = 1,
+  attach = true,
+  provider = "codex",
+  initialize = (bb: Parameters<typeof registerTasks>[0]) =>
+    registerTasks(bb, { nativeProviders: [provider] }),
+) {
   const f = await fixture(count, initialize);
   const files = new Map<string, string>();
   let notices = 0;
@@ -60,19 +66,11 @@ export async function reportFixture(count = 1, attach = true, provider = "codex"
     context = nativeContext,
   ): Promise<WorkerReport> =>
     decodeTool(
-      await f.harness.behavior.callAgentTool(
-        "tasks_report",
-        { ...payload, ...change },
-        context,
-      ),
+      await f.harness.behavior.callAgentTool("tasks_report", { ...payload, ...change }, context),
     );
   const issue = async (taskId = f.task.id, context = nativeContext) => {
     const result = decodeTool(
-      await f.harness.behavior.callAgentTool(
-        "tasks_report_context",
-        { taskId },
-        context,
-      ),
+      await f.harness.behavior.callAgentTool("tasks_report_context", { taskId }, context),
     );
     return { ...result, token: files.get(result.contextFile)! };
   };

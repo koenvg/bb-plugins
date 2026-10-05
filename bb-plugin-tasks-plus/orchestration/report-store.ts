@@ -1,8 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  workerReportSchema,
-  type WorkerReport,
-} from "./report-contract";
+import { workerReportSchema, type WorkerReport } from "./report-contract";
 
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
 type Row = { report: string; delivery: string };
@@ -19,11 +16,7 @@ const parse = (row: Row | undefined): WorkerReport | null =>
 export function createReportStore(db: Database) {
   const get = (id: string) =>
     parse(
-      db
-        .prepare<[string], Row>(
-          `SELECT ${columns} FROM orchestration_reports WHERE id=?`,
-        )
-        .get(id),
+      db.prepare<[string], Row>(`SELECT ${columns} FROM orchestration_reports WHERE id=?`).get(id),
     );
   return {
     get,

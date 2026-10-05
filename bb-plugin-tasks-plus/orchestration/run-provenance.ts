@@ -23,10 +23,7 @@ export async function readInvocation(
       "Run control is verified only for BB 0.44.0 Pi. Other paths refuse activation.",
     );
   if (thread.deletedAt !== null || thread.archivedAt !== null)
-    refuse(
-      "coordinator_unavailable",
-      "The coordinator is deleted or archived.",
-    );
+    refuse("coordinator_unavailable", "The coordinator is deleted or archived.");
   const rows = await bb.sdk.threads.events.list({
     threadId: coordinator,
     types: ["client/turn/requested"],
@@ -37,9 +34,7 @@ export async function readInvocation(
     requestId === "latest"
       ? rows[0]
       : rows.find(
-          (row) =>
-            row.type === "client/turn/requested" &&
-            row.data.requestId === requestId,
+          (row) => row.type === "client/turn/requested" && row.data.requestId === requestId,
         );
   if (!latest || latest.type !== "client/turn/requested")
     refuse(
@@ -54,10 +49,7 @@ export async function readInvocation(
   const key = `${coordinator}:${latest.data.requestId}:${latest.seq}`;
   const replay = isReplay(key);
   if (!replay && latest !== rows[0])
-    refuse(
-      "stale_invocation",
-      "Use the latest persisted invocation in this coordinator thread.",
-    );
+    refuse("stale_invocation", "Use the latest persisted invocation in this coordinator thread.");
   const data = latest.data;
   // BB-recorded user classification is the temporary boundary, not human identity.
   // BB 0.44.0 agent self-sends can pass this check. See BBP-51.
@@ -102,10 +94,8 @@ export async function readInvocation(
       resource.name === "bb-orchestrator" &&
       mention.start === 0 &&
       mention.end === resource.name.length + 1 &&
-      input.text.slice(0, mention.end) ===
-        `${resource.trigger}bb-orchestrator` &&
-      (input.text.length === mention.end ||
-        /^\s/.test(input.text.slice(mention.end)))
+      input.text.slice(0, mention.end) === `${resource.trigger}bb-orchestrator` &&
+      (input.text.length === mention.end || /^\s/.test(input.text.slice(mention.end)))
     )
       argumentsText = input.text.slice(mention.end).trim();
   }

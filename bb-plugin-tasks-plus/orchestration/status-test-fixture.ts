@@ -1,9 +1,6 @@
 // Disposable Tasks/BB SDK fixture. No production tasks or provider activation.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, vi } from "vitest";
 import { createStore } from "../api";
 import { registerTasksCli } from "../cli";
@@ -17,21 +14,17 @@ afterEach(async () => {
 });
 
 export function setup() {
-  const get = vi.fn<BbPluginApi["sdk"]["threads"]["get"]>(
-    async ({ threadId }) => {
-      if (threadId === "thr_missing")
-        throw Object.assign(new Error("gone"), { code: "thread_not_found" });
-      if (threadId === "thr_unknown") throw new Error("offline");
-      return makeThreadResponse({
-        id: threadId,
-        status: threadId === "thr_failed" ? "error" : "idle",
-        deletedAt: threadId === "thr_deleted" ? Date.now() : null,
-      });
-    },
-  );
-  const list = vi.fn<BbPluginApi["sdk"]["threads"]["interactions"]["list"]>(
-    async () => [],
-  );
+  const get = vi.fn<BbPluginApi["sdk"]["threads"]["get"]>(async ({ threadId }) => {
+    if (threadId === "thr_missing")
+      throw Object.assign(new Error("gone"), { code: "thread_not_found" });
+    if (threadId === "thr_unknown") throw new Error("offline");
+    return makeThreadResponse({
+      id: threadId,
+      status: threadId === "thr_failed" ? "error" : "idle",
+      deletedAt: threadId === "thr_deleted" ? Date.now() : null,
+    });
+  });
+  const list = vi.fn<BbPluginApi["sdk"]["threads"]["interactions"]["list"]>(async () => []);
   const spawn = vi.fn();
   const send = vi.fn();
   const { bb, harness } = createFakePluginHost({
@@ -60,10 +53,7 @@ export function setup() {
     title: "Disposable epic",
     status: "in_progress",
   });
-  const child = (
-    title: string,
-    status: "todo" | "in_progress" | "done" = "todo",
-  ) =>
+  const child = (title: string, status: "todo" | "in_progress" | "done" = "todo") =>
     store.tasks.createTask({
       projectId: project.id,
       parentTaskId: epic.id,

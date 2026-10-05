@@ -3,7 +3,7 @@ import { z } from "zod";
 import { claimSchema, dispatchInputSchema } from "./dispatch-contract";
 
 export const RECOVERY_WARNING =
-  "A successful listing does not prove absence or rule out delayed creation. Release or replacement can cause duplicate work. Resolution does not spawn, send, resume or delete. A later dispatch needs separate current admission.";
+  "A successful listing does not prove absence or rule out delayed creation. Release or replacement can cause duplicate work. Resolution does not spawn, send, resume or delete. All new orchestrator dispatch/adoption remains deferred.";
 export const recoveryInputSchema = dispatchInputSchema
   .extend({ claimId: z.string().min(1) })
   .strict();
@@ -17,9 +17,7 @@ export const resolutionDecisionSchema = recoveryInputSchema
   .strict()
   .refine(
     (value) =>
-      value.action === "replace"
-        ? value.associationId !== null
-        : value.associationId === null,
+      value.action === "replace" ? value.associationId !== null : value.associationId === null,
     "Replacement requires an association; release must not select one",
   );
 export const resolutionRecordSchema = z
@@ -42,37 +40,9 @@ export function readResolution(reason: string | null) {
     return null;
   }
 }
-export function releasedDispatchGrant(
-  claim: z.infer<typeof claimSchema> | null,
-  input: z.infer<typeof dispatchInputSchema>,
-): boolean {
-  if (!claim?.releasedAt) return false;
-  const record = readResolution(claim.reason);
-  return (
-    !!record &&
-    record.decision.action === "release" &&
-    record.decision.associationId === null &&
-    record.replacementClaimId === null &&
-    record.decision.claimId === claim.id &&
-    record.decision.taskId === claim.taskId &&
-    record.decision.role === claim.role &&
-    record.decision.runId === claim.runId &&
-    record.decision.coordinatorThreadId === claim.coordinatorThreadId &&
-    claim.taskId === input.taskId &&
-    claim.role === input.role &&
-    claim.runId === input.runId &&
-    claim.coordinatorThreadId === input.coordinatorThreadId
-  );
-}
 export const recoveryResultSchema = z
   .object({
-    outcome: z.enum([
-      "recovered",
-      "reused",
-      "unresolved",
-      "released",
-      "replaced",
-    ]),
+    outcome: z.enum(["recovered", "reused", "unresolved", "released", "replaced"]),
     reason: z.string(),
     warning: z.literal(RECOVERY_WARNING),
     claim: claimSchema,

@@ -11,8 +11,7 @@ export function runCommands(controller: RunController) {
         request: {
           type: "string",
           required: true,
-          description:
-            "Persisted request ID, or latest, in this coordinator thread",
+          description: "Persisted request ID, or latest, in this coordinator thread",
         },
         thread: {
           type: "string",
@@ -24,9 +23,7 @@ export function runCommands(controller: RunController) {
         const coordinatorThreadId = context.threadId ?? input.options.thread;
         if (
           !coordinatorThreadId ||
-          (context.threadId &&
-            input.options.thread &&
-            context.threadId !== input.options.thread)
+          (context.threadId && input.options.thread && context.threadId !== input.options.thread)
         )
           throw new PluginCliError("Use your coordinator thread context", {
             code: "run_context_invalid",

@@ -12,9 +12,13 @@ describe("manual-first startup and reload", () => {
     const loaded = await f.harness.lifecycle.reload(plugin);
     try {
       expectNoAgentInput(loaded.harness);
-      expect(await loaded.harness.behavior.callRpc("orchestrateDispatch", f.input)).toMatchObject({ outcome: "deferred" });
+      expect(await loaded.harness.behavior.callRpc("orchestrateDispatch", f.input)).toMatchObject({
+        outcome: "deferred",
+      });
       expect(createDispatchStore(loaded.bb.storage.database()).get(original.id)).toEqual(original);
       expectNoAgentInput(loaded.harness);
-    } finally { await loaded.harness.lifecycle.dispose(); }
+    } finally {
+      await loaded.harness.lifecycle.dispose();
+    }
   });
 });

@@ -19,11 +19,7 @@ export function excerpt(
     omittedCharacters: total - kept,
   };
 }
-export function cappedList<T>(
-  items: readonly T[],
-  limit: number,
-  total = items.length,
-) {
+export function cappedList<T>(items: readonly T[], limit: number, total = items.length) {
   const kept = items.slice(0, limit);
   return { items: kept, total, omitted: total - kept.length };
 }
@@ -39,11 +35,7 @@ export function references(items: readonly string[]) {
     omitted: items.length - kept.length,
   };
 }
-export function removeListItems<T>(list: {
-  items: T[];
-  total: number;
-  omitted: number;
-}) {
+export function removeListItems<T>(list: { items: T[]; total: number; omitted: number }) {
   list.items = [];
   list.omitted = list.total;
 }

@@ -7,24 +7,14 @@ import { readEpicStatus } from "./status";
 describe("composed dispatch status contract", () => {
   it("projects readiness without leaking dispatch handoff references", async () => {
     const f = await fixture();
-    const dispatcher = createDispatcher(
-      f.bb,
-      f.store,
-      createRunController(f.bb, f.store),
-      {
-        readHandoffs: () => ({
-          state: "ready",
-          reason: "Fixture report available",
-          references: ["report:fixture"],
-        }),
-      },
-    );
-    const result = await readEpicStatus(
-      f.bb,
-      f.store,
-      f.epic.id,
-      dispatcher.readCoordination,
-    );
+    const dispatcher = createDispatcher(f.bb, f.store, createRunController(f.bb, f.store), {
+      readHandoffs: () => ({
+        state: "ready",
+        reason: "Fixture report available",
+        references: ["report:fixture"],
+      }),
+    });
+    const result = await readEpicStatus(f.bb, f.store, f.epic.id, dispatcher.readCoordination);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error.code);
     expect(result.status.subtasks[0]!.handoff).toEqual({

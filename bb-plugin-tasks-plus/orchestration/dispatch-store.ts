@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  claimSchema,
-  type DispatchClaim,
-  type WorkerRole,
-} from "./dispatch-contract";
+import { claimSchema, type DispatchClaim, type WorkerRole } from "./dispatch-contract";
 
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
 export interface Owner {
@@ -19,10 +15,9 @@ const ownerColumns = `task_id AS taskId, role, association_id AS associationId, 
 export function createDispatchStore(db: Database) {
   const read = (where: string, value: string): DispatchClaim | null => {
     const row = db
-      .prepare<
-        [string],
-        DispatchClaim
-      >(`SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE ${where}`)
+      .prepare<[string], DispatchClaim>(
+        `SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE ${where}`,
+      )
       .get(value);
     return row ? claimSchema.parse(row) : null;
   };
@@ -39,16 +34,17 @@ export function createDispatchStore(db: Database) {
     },
     // Existence only: released originals are not unowned legacy candidates.
     hasHistoryForThread(threadId: string): boolean {
-      return !!db.prepare<[string], { found: number }>(
-        "SELECT 1 AS found FROM orchestration_dispatch_claims WHERE thread_id = ? LIMIT 1",
-      ).get(threadId);
+      return !!db
+        .prepare<[string], { found: number }>(
+          "SELECT 1 AS found FROM orchestration_dispatch_claims WHERE thread_id = ? LIMIT 1",
+        )
+        .get(threadId);
     },
     live(taskId: string, role: WorkerRole): DispatchClaim | null {
       const row = db
-        .prepare<
-          [string, string],
-          DispatchClaim
-        >(`SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE task_id = ? AND role = ? AND released_at IS NULL`)
+        .prepare<[string, string], DispatchClaim>(
+          `SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE task_id = ? AND role = ? AND released_at IS NULL`,
+        )
         .get(taskId, role);
       return row ? claimSchema.parse(row) : null;
     },
@@ -62,10 +58,9 @@ export function createDispatchStore(db: Database) {
     },
     owners(taskId: string): Owner[] {
       return db
-        .prepare<
-          [string],
-          Owner
-        >(`SELECT ${ownerColumns} FROM orchestration_owners WHERE task_id = ? ORDER BY role`)
+        .prepare<[string], Owner>(
+          `SELECT ${ownerColumns} FROM orchestration_owners WHERE task_id = ? ORDER BY role`,
+        )
         .all(taskId);
     },
     reserve(input: {
@@ -102,9 +97,7 @@ export function createDispatchStore(db: Database) {
     },
     update(
       id: string,
-      change: Partial<
-        Pick<DispatchClaim, "phase" | "threadId" | "associationId" | "reason">
-      >,
+      change: Partial<Pick<DispatchClaim, "phase" | "threadId" | "associationId" | "reason">>,
     ): DispatchClaim {
       const row = read("id = ?", id);
       if (!row) throw new Error("Dispatch claim missing");
@@ -115,26 +108,13 @@ export function createDispatchStore(db: Database) {
       });
       db.prepare(
         `UPDATE orchestration_dispatch_claims SET phase=?,thread_id=?,association_id=?,updated_at=?,reason=? WHERE id=?`,
-      ).run(
-        next.phase,
-        next.threadId,
-        next.associationId,
-        next.updatedAt,
-        next.reason,
-        id,
-      );
+      ).run(next.phase, next.threadId, next.associationId, next.updatedAt, next.reason, id);
       return next;
     },
     designate(owner: Owner) {
       db.prepare(
         `INSERT INTO orchestration_owners(task_id,role,association_id,thread_id,run_id) VALUES(?,?,?,?,?)`,
-      ).run(
-        owner.taskId,
-        owner.role,
-        owner.associationId,
-        owner.threadId,
-        owner.runId,
-      );
+      ).run(owner.taskId, owner.role, owner.associationId, owner.threadId, owner.runId);
       const result = db
         .prepare(
           `UPDATE task_threads SET role=?,primary_owner=1 WHERE id=? AND task_id=? AND thread_id=?`,
@@ -144,10 +124,9 @@ export function createDispatchStore(db: Database) {
     },
     latest(taskId: string, role: WorkerRole): DispatchClaim | null {
       const row = db
-        .prepare<
-          [string, string],
-          DispatchClaim
-        >(`SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE task_id=? AND role=? ORDER BY rowid DESC LIMIT 1`)
+        .prepare<[string, string], DispatchClaim>(
+          `SELECT ${claimColumns} FROM orchestration_dispatch_claims WHERE task_id=? AND role=? ORDER BY rowid DESC LIMIT 1`,
+        )
         .get(taskId, role);
       return row ? claimSchema.parse(row) : null;
     },
@@ -156,9 +135,7 @@ export function createDispatchStore(db: Database) {
       const claim = read("id = ?", id);
       if (!claim || claim.releasedAt) throw new Error("Live claim changed");
       const now = new Date().toISOString();
-      db.prepare(`UPDATE task_threads SET primary_owner=0 WHERE id=?`).run(
-        claim.associationId,
-      );
+      db.prepare(`UPDATE task_threads SET primary_owner=0 WHERE id=?`).run(claim.associationId);
       db.prepare(
         `DELETE FROM orchestration_owners WHERE task_id=? AND role=? AND run_id=? AND thread_id=?`,
       ).run(claim.taskId, claim.role, claim.runId, claim.threadId);
@@ -169,10 +146,9 @@ export function createDispatchStore(db: Database) {
     },
     priorWork(taskId: string): boolean {
       return !!db
-        .prepare<
-          [string, string, string],
-          { found: number }
-        >(`SELECT 1 AS found WHERE EXISTS(SELECT 1 FROM comments WHERE task_id=? AND (kind='agent' OR thread_id IS NOT NULL)) OR EXISTS(SELECT 1 FROM attachments WHERE task_id=?) OR EXISTS(SELECT 1 FROM orchestration_dispatch_claims WHERE task_id=?)`)
+        .prepare<[string, string, string], { found: number }>(
+          `SELECT 1 AS found WHERE EXISTS(SELECT 1 FROM comments WHERE task_id=? AND (kind='agent' OR thread_id IS NOT NULL)) OR EXISTS(SELECT 1 FROM attachments WHERE task_id=?) OR EXISTS(SELECT 1 FROM orchestration_dispatch_claims WHERE task_id=?)`,
+        )
         .get(taskId, taskId, taskId);
     },
   };

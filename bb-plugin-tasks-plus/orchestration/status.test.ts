@@ -6,44 +6,31 @@ import { setup } from "./status-test-fixture";
 describe("compact epic status public contract", () => {
   it("reads a three-independent-plus-one-dependent frontier without any mutations or a run", async () => {
     const f = setup();
-    const [a, b, c, d] = [
-      f.child("A"),
-      f.child("B"),
-      f.child("C"),
-      f.child("D"),
-    ];
+    const [a, b, c, d] = [f.child("A"), f.child("B"), f.child("C"), f.child("D")];
     f.store.tasks.addTaskDependency(a.id, d.id);
     f.store.tasks.addTaskDependency(b.id, d.id);
     f.attach(c.id, "thr_idle");
-    const before = f.bb.storage
-      .database()
-      .prepare("SELECT total_changes() AS n")
-      .get();
+    const before = f.bb.storage.database().prepare("SELECT total_changes() AS n").get();
     const result = await f.read();
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error.message);
-    expect(
-      result.status.subtasks.map((t) => [t.id, t.nativeReadiness]),
-    ).toEqual([
+    expect(result.status.subtasks.map((t) => [t.id, t.nativeReadiness])).toEqual([
       [a.id, "ready"],
       [b.id, "ready"],
       [c.id, "ready"],
       [d.id, "blocked"],
     ]);
-    expect(result.status.subtasks[3]?.dependencies.map((t) => t.id)).toEqual([
-      a.id,
-      b.id,
-    ]);
+    expect(result.status.subtasks[3]?.dependencies.map((t) => t.id)).toEqual([a.id, b.id]);
     expect(result.status.run).toEqual({
       state: "unknown",
       reason: "run_extension_unavailable",
     });
-    expect(result.status.subtasks[2]?.workers.items[0]?.activity).toMatchObject(
-      { state: "fresh", value: "idle", observedAt: expect.any(String) },
-    );
-    expect(
-      f.bb.storage.database().prepare("SELECT total_changes() AS n").get(),
-    ).toEqual(before);
+    expect(result.status.subtasks[2]?.workers.items[0]?.activity).toMatchObject({
+      state: "fresh",
+      value: "idle",
+      observedAt: expect.any(String),
+    });
+    expect(f.bb.storage.database().prepare("SELECT total_changes() AS n").get()).toEqual(before);
     expect(f.spawn).not.toHaveBeenCalled();
     expect(f.send).not.toHaveBeenCalled();
   });
@@ -54,20 +41,22 @@ describe("compact epic status public contract", () => {
       f.attach(f.child(name, "in_progress").id, `thr_${name}`);
     const result = await f.read();
     if (!result.ok) throw new Error(result.error.message);
-    expect(result.status.subtasks.map((t) => t.status)).toEqual(
-      Array(5).fill("in_progress"),
+    expect(result.status.subtasks.map((t) => t.status)).toEqual(Array(5).fill("in_progress"));
+    expect(result.status.subtasks.map((t) => t.workers.items[0]?.activity.value)).toEqual([
+      "idle",
+      "missing",
+      "deleted",
+      "failed",
+      "unknown",
+    ]);
+    expect(result.status.subtasks[4]?.workers.items[0]?.activity).toMatchObject({
+      state: "stale",
+      cachedValue: "idle",
+      cachedAt: expect.any(String),
+    });
+    expect(result.status.subtasks.every((t) => t.ownership.state === "resolution_needed")).toBe(
+      true,
     );
-    expect(
-      result.status.subtasks.map((t) => t.workers.items[0]?.activity.value),
-    ).toEqual(["idle", "missing", "deleted", "failed", "unknown"]);
-    expect(result.status.subtasks[4]?.workers.items[0]?.activity).toMatchObject(
-      { state: "stale", cachedValue: "idle", cachedAt: expect.any(String) },
-    );
-    expect(
-      result.status.subtasks.every(
-        (t) => t.ownership.state === "resolution_needed",
-      ),
-    ).toBe(true);
   });
 
   it("reflects manual association changes and prior agent work without guessing untouched", async () => {
@@ -131,31 +120,14 @@ describe("compact epic status public contract", () => {
         subtasks: [{ title: { text: "CLI child" } }],
       },
     });
+    expect((await f.harness.runCli(["orchestrate", "status", "--help"])).stdout).toContain(
+      "128 KiB",
+    );
     expect(
-      (await f.harness.runCli(["orchestrate", "status", "--help"])).stdout,
-    ).toContain("128 KiB");
-    expect(
-      (
-        await f.harness.runCli([
-          "orchestrate",
-          "status",
-          f.epic.key,
-          "--bogus",
-          "--json",
-        ])
-      ).exitCode,
+      (await f.harness.runCli(["orchestrate", "status", f.epic.key, "--bogus", "--json"])).exitCode,
     ).toBe(1);
     expect(
-      JSON.parse(
-        (
-          await f.harness.runCli([
-            "orchestrate",
-            "status",
-            "STAT-999",
-            "--json",
-          ])
-        ).stdout,
-      ),
+      JSON.parse((await f.harness.runCli(["orchestrate", "status", "STAT-999", "--json"])).stdout),
     ).toMatchObject({ ok: false, error: { code: "task_not_found" } });
     expect(
       orchestrationStatusContract.orchestrateStatus.input.safeParse({
@@ -164,12 +136,7 @@ describe("compact epic status public contract", () => {
       }).success,
     ).toBe(false);
     for (let i = 0; i < 100; i++) f.child(String(i));
-    const oversized = await f.harness.runCli([
-      "orchestrate",
-      "status",
-      f.epic.id,
-      "--json",
-    ]);
+    const oversized = await f.harness.runCli(["orchestrate", "status", f.epic.id, "--json"]);
     expect(oversized.exitCode).toBe(1);
     expect(JSON.parse(oversized.stdout)).toMatchObject({
       ok: false,
@@ -190,11 +157,7 @@ describe("compact epic status public contract", () => {
         createdAt: Date.now(),
         resolvedAt: null,
         status:
-          i === 8
-            ? ("resolved" as const)
-            : i === 7
-              ? ("resolving" as const)
-              : ("pending" as const),
+          i === 8 ? ("resolved" as const) : i === 7 ? ("resolving" as const) : ("pending" as const),
         statusReason: null,
         resolution: null,
         origin: {
@@ -225,9 +188,7 @@ describe("compact epic status public contract", () => {
       unobservedWorkers: 0,
     });
     expect(Array.from(decisions!.items[0]!.question.text)).toHaveLength(240);
-    expect(
-      result.status.subtasks[1]?.workers.items[0]?.decisions,
-    ).toMatchObject({
+    expect(result.status.subtasks[1]?.workers.items[0]?.decisions).toMatchObject({
       state: "unknown",
       total: null,
       omitted: null,
@@ -238,14 +199,13 @@ describe("compact epic status public contract", () => {
   it("rejects mismatched external identities instead of attributing another worker's decisions", async () => {
     const f = setup();
     f.attach(f.child("Wrong identity").id, "thr_requested");
-    f.get.mockImplementation(async () =>
-      makeThreadResponse({ id: "thr_other", status: "idle" }),
-    );
+    f.get.mockImplementation(async () => makeThreadResponse({ id: "thr_other", status: "idle" }));
     const result = await f.read();
     if (!result.ok) throw new Error(result.error.message);
-    expect(result.status.subtasks[0]?.workers.items[0]?.activity).toMatchObject(
-      { state: "stale", value: "unknown" },
-    );
+    expect(result.status.subtasks[0]?.workers.items[0]?.activity).toMatchObject({
+      state: "stale",
+      value: "unknown",
+    });
     expect(f.list).not.toHaveBeenCalled();
   });
 

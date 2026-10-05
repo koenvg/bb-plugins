@@ -4,9 +4,7 @@ import { STATUS_LIMITS, type WorkerStatus } from "./status-contract";
 import { excerpt } from "./status-values";
 
 type Thread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
-type Interactions = Awaited<
-  ReturnType<BbPluginApi["sdk"]["threads"]["interactions"]["list"]>
->;
+type Interactions = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["interactions"]["list"]>>;
 interface Observation {
   activity: Pick<
     WorkerStatus["activity"],
@@ -24,10 +22,7 @@ function unknownDecisions(reason: string): WorkerStatus["decisions"] {
     omitted: null,
   };
 }
-export function unobservedWorker(
-  worker: NativeWorker,
-  reason: string,
-): WorkerStatus {
+export function unobservedWorker(worker: NativeWorker, reason: string): WorkerStatus {
   return {
     associationId: worker.id,
     threadId: worker.threadId,
@@ -72,14 +67,11 @@ function activity(thread: Thread): WorkerStatus["activity"]["value"] {
 }
 function question(payload: Interactions[number]["payload"]): string {
   if ("title" in payload) return payload.title;
-  if ("questions" in payload)
-    return payload.questions.map((q) => q.prompt).join("\n");
+  if ("questions" in payload) return payload.questions.map((q) => q.prompt).join("\n");
   if ("reason" in payload) return payload.reason ?? payload.kind;
   return "Pending interaction";
 }
-async function lookup<T>(
-  operation: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
+async function lookup<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -96,10 +88,7 @@ async function lookup<T>(
     clearTimeout(timer);
   }
 }
-async function observe(
-  bb: BbPluginApi,
-  threadId: string,
-): Promise<Observation> {
+async function observe(bb: BbPluginApi, threadId: string): Promise<Observation> {
   const attemptedAt = new Date().toISOString();
   let thread: Thread;
   try {
@@ -119,9 +108,7 @@ async function observe(
         attemptedAt,
         reason: missing ? null : "external_lookup_failed",
       },
-      decisions: unknownDecisions(
-        missing ? "worker_missing" : "external_lookup_failed",
-      ),
+      decisions: unknownDecisions(missing ? "worker_missing" : "external_lookup_failed"),
     };
   }
   const observedAt = new Date().toISOString();
@@ -147,17 +134,15 @@ async function observe(
     const pending = interactions.filter(
       (item) => item.status === "pending" || item.status === "resolving",
     );
-    const items = pending
-      .slice(0, STATUS_LIMITS.decisionsPerWorker)
-      .map((item) => ({
-        id: item.id,
-        taskId: "",
-        threadId,
-        kind: item.payload.kind,
-        state: item.status as "pending" | "resolving",
-        createdAt: new Date(item.createdAt).toISOString(),
-        question: excerpt(question(item.payload)),
-      }));
+    const items = pending.slice(0, STATUS_LIMITS.decisionsPerWorker).map((item) => ({
+      id: item.id,
+      taskId: "",
+      threadId,
+      kind: item.payload.kind,
+      state: item.status as "pending" | "resolving",
+      createdAt: new Date(item.createdAt).toISOString(),
+      question: excerpt(question(item.payload)),
+    }));
     return {
       activity: currentActivity,
       decisions: {
@@ -187,15 +172,12 @@ export async function observeWorkers(
   const observations = new Map<string, Observation>();
   let next = 0;
   await Promise.all(
-    Array.from(
-      { length: Math.min(ids.length, STATUS_LIMITS.lookupConcurrency) },
-      async () => {
-        while (next < ids.length) {
-          const id = ids[next++]!;
-          observations.set(id, await observe(bb, id));
-        }
-      },
-    ),
+    Array.from({ length: Math.min(ids.length, STATUS_LIMITS.lookupConcurrency) }, async () => {
+      while (next < ids.length) {
+        const id = ids[next++]!;
+        observations.set(id, await observe(bb, id));
+      }
+    }),
   );
   return observations;
 }

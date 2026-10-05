@@ -46,23 +46,18 @@ export type SnapshotResult =
   | { ok: true; snapshot: NativeSnapshot }
   | Extract<StatusResult, { ok: false }>;
 
-export function resolveStatusEpicId(
-  db: Database,
-  address: string,
-): string | undefined {
+export function resolveStatusEpicId(db: Database, address: string): string | undefined {
   const normalized = address.trim().toUpperCase();
   const key = /^([A-Z][A-Z0-9]{0,9})-(\d+)$/.exec(normalized);
   if (key) {
     return db
-      .prepare<
-        [string, string],
-        { id: string }
-      >("SELECT t.id FROM tasks t JOIN projects p ON p.id = t.project_id WHERE p.prefix = ? COLLATE NOCASE AND t.number = ?")
+      .prepare<[string, string], { id: string }>(
+        "SELECT t.id FROM tasks t JOIN projects p ON p.id = t.project_id WHERE p.prefix = ? COLLATE NOCASE AND t.number = ?",
+      )
       .get(key[1]!, key[2]!)?.id;
   }
-  return db
-    .prepare<[string], { id: string }>("SELECT id FROM tasks WHERE id = ?")
-    .get(normalized)?.id;
+  return db.prepare<[string], { id: string }>("SELECT id FROM tasks WHERE id = ?").get(normalized)
+    ?.id;
 }
 
 const scopeSql = "SELECT id FROM tasks WHERE id = ? OR parent_task_id = ?";
@@ -73,27 +68,19 @@ export function readStatusSnapshot(
   readCoordination?: CoordinationReader,
 ): SnapshotResult {
   return store.transaction(() => {
-    if (
-      !db
-        .prepare<[string], { id: string }>("SELECT id FROM tasks WHERE id = ?")
-        .get(epicId)
-    ) {
+    if (!db.prepare<[string], { id: string }>("SELECT id FROM tasks WHERE id = ?").get(epicId)) {
       return {
         ok: false,
         error: { code: "task_not_found", message: `Task not found: ${epicId}` },
       };
     }
     const subtasks = db
-      .prepare<
-        [string],
-        { n: number }
-      >("SELECT COUNT(*) AS n FROM tasks WHERE parent_task_id = ?")
+      .prepare<[string], { n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE parent_task_id = ?")
       .get(epicId)!.n;
     const workers = db
-      .prepare<
-        [string, string],
-        { n: number }
-      >(`SELECT COUNT(*) AS n FROM task_threads WHERE task_id IN (${scopeSql})`)
+      .prepare<[string, string], { n: number }>(
+        `SELECT COUNT(*) AS n FROM task_threads WHERE task_id IN (${scopeSql})`,
+      )
       .get(epicId, epicId)!.n;
     const dependencyCounts = db
       .prepare<[string, string], { n: number; bytes: number }>(
@@ -105,10 +92,7 @@ export function readStatusSnapshot(
       )
       .get(epicId, epicId)!;
     const counts = { subtasks, workers, dependencies: dependencyCounts.n };
-    if (
-      subtasks > STATUS_LIMITS.subtasks ||
-      dependencyCounts.bytes > STATUS_LIMITS.bytes
-    ) {
+    if (subtasks > STATUS_LIMITS.subtasks || dependencyCounts.bytes > STATUS_LIMITS.bytes) {
       return {
         ok: false,
         error: {
@@ -201,10 +185,7 @@ export function readStatusSnapshot(
       const owners = coordination.tasks?.get(task.id)?.ownership?.owners ?? [];
       for (const owner of owners) {
         const association = store.tasks.getTaskThread(owner.associationId);
-        if (
-          association?.taskId === task.id &&
-          association.threadId === owner.threadId
-        ) {
+        if (association?.taskId === task.id && association.threadId === owner.threadId) {
           task.ownerWorkers.push(association);
         }
       }
@@ -244,10 +225,7 @@ export function readStatusSnapshot(
       });
     }
     const dependencyRows = db
-      .prepare<
-        [string, string],
-        { task_id: string; id: string; key: string; status: TaskStatus }
-      >(
+      .prepare<[string, string], { task_id: string; id: string; key: string; status: TaskStatus }>(
         `
       SELECT d.blocked_task_id AS task_id, b.id, p.prefix || '-' || b.number AS key, b.status
       FROM task_dependencies d JOIN tasks b ON b.id = d.blocker_task_id JOIN projects p ON p.id = b.project_id
@@ -256,9 +234,7 @@ export function readStatusSnapshot(
       )
       .all(epicId, epicId);
     for (const row of dependencyRows)
-      taskMap
-        .get(row.task_id)!
-        .dependencies.push({ id: row.id, key: row.key, status: row.status });
+      taskMap.get(row.task_id)!.dependencies.push({ id: row.id, key: row.key, status: row.status });
     const epic = taskMap.get(epicId)!;
     return {
       ok: true,

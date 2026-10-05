@@ -2,11 +2,7 @@ import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { idSchema } from "../shared/contract";
 
-export const roleSchema = z.enum([
-  "implementation",
-  "orchestrator",
-  "integration",
-]);
+export const roleSchema = z.enum(["implementation", "orchestrator", "integration"]);
 export type WorkerRole = z.infer<typeof roleSchema>;
 export const claimPhaseSchema = z.enum([
   "reserved",
@@ -55,18 +51,14 @@ const resultSchema = z
     reason: z.string(),
     threadId: z.string().nullable(),
     claim: claimSchema.nullable(),
-    candidates: z.array(
-      z.object({ associationId: z.string(), threadId: z.string() }).strict(),
-    ),
+    candidates: z.array(z.object({ associationId: z.string(), threadId: z.string() }).strict()),
   })
   .strict();
 export type DispatchResult = z.infer<typeof resultSchema>;
 export const dispatchRpcContract = defineRpcContract({
   orchestrateDispatch: { input: dispatchInputSchema, output: resultSchema },
   orchestrateAdopt: {
-    input: dispatchInputSchema
-      .extend({ associationId: z.string().min(1) })
-      .strict(),
+    input: dispatchInputSchema.extend({ associationId: z.string().min(1) }).strict(),
     output: resultSchema,
   },
 });

@@ -1,10 +1,6 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import {
-  idSchema,
-  TASK_STATUSES,
-  TASK_THREAD_LIVE_STATUSES,
-} from "../shared/contract";
+import { idSchema, TASK_STATUSES, TASK_THREAD_LIVE_STATUSES } from "../shared/contract";
 
 export const STATUS_LIMITS = {
   subtasks: 100,
@@ -20,9 +16,7 @@ export const STATUS_LIMITS = {
   lookupTimeoutMs: 2000,
 } as const;
 
-const unknownSchema = z
-  .object({ state: z.literal("unknown"), reason: z.string() })
-  .strict();
+const unknownSchema = z.object({ state: z.literal("unknown"), reason: z.string() }).strict();
 const absentSchema = z.object({ state: z.literal("absent") }).strict();
 function available<S extends z.ZodType>(schema: S) {
   return z.union([
@@ -48,10 +42,7 @@ const excerptSchema = z
       value.totalCharacters === characters + value.omittedCharacters
     );
   }, "Invalid excerpt limit or overflow count");
-function listSchema<S extends z.ZodType>(
-  item: S,
-  limit: number = STATUS_LIMITS.resultsPerReport,
-) {
+function listSchema<S extends z.ZodType>(item: S, limit: number = STATUS_LIMITS.resultsPerReport) {
   return z
     .object({
       items: z.array(item).max(limit),
@@ -95,15 +86,7 @@ const runValueSchema = z
 const reportDeliveryValueSchema = z
   .object({
     id: z.string(),
-    state: z.enum([
-      "pending",
-      "native",
-      "sent",
-      "queued",
-      "suppressed",
-      "failed",
-      "ambiguous",
-    ]),
+    state: z.enum(["pending", "native", "sent", "queued", "suppressed", "failed", "ambiguous"]),
     reason: excerptSchema,
     reference: z.string().nullable(),
     attemptedAt: z.string().nullable(),
@@ -114,13 +97,7 @@ const reportValueSchema = z
     id: z.string(),
     commentId: z.string(),
     threadId: z.string(),
-    outcome: z.enum([
-      "completed",
-      "review_ready",
-      "blocked",
-      "failed",
-      "needs_decision",
-    ]),
+    outcome: z.enum(["completed", "review_ready", "blocked", "failed", "needs_decision"]),
     createdAt: z.string(),
     summary: excerptSchema,
     resultReferences: referencesSchema,
@@ -249,9 +226,7 @@ const taskStatusSchema = taskIdentitySchema
       ),
     ).optional(),
     handoff: handoffSchema,
-    reportedDecisions: available(
-      listSchema(decisionSchema, STATUS_LIMITS.decisionsPerWorker),
-    ),
+    reportedDecisions: available(listSchema(decisionSchema, STATUS_LIMITS.decisionsPerWorker)),
   })
   .strict();
 const countsSchema = z
@@ -269,14 +244,9 @@ export const epicStatusSchema = z
     limits: z
       .object(
         Object.fromEntries(
-          Object.entries(STATUS_LIMITS).map(([key, value]) => [
-            key,
-            z.literal(value),
-          ]),
+          Object.entries(STATUS_LIMITS).map(([key, value]) => [key, z.literal(value)]),
         ) as {
-          [K in keyof typeof STATUS_LIMITS]: z.ZodLiteral<
-            (typeof STATUS_LIMITS)[K]
-          >;
+          [K in keyof typeof STATUS_LIMITS]: z.ZodLiteral<(typeof STATUS_LIMITS)[K]>;
         },
       )
       .strict(),
@@ -368,9 +338,7 @@ export interface TaskCoordinationData {
   dispatch?: Availability<z.infer<typeof claimSchema>[]>;
   latestOutcome?: Availability<ReportData>;
   handoff?: z.infer<typeof handoffSchema>;
-  reportedDecisions?: Availability<
-    Array<Omit<DecisionStatus, "question"> & { question: string }>
-  >;
+  reportedDecisions?: Availability<Array<Omit<DecisionStatus, "question"> & { question: string }>>;
   reportedDecisionTotal?: number;
   reportDeliveries?: Availability<{
     items: Array<{

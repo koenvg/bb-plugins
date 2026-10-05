@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 import { createStore } from "../api";
 import { runRpcContract } from "./run-contract";
@@ -110,19 +107,16 @@ async function setup() {
     return request;
   };
   const cli = (action: string, requestId = request.data.requestId) =>
-    harness.behavior.runCli(
-      ["orchestrate", action, "--request", requestId, "--json"],
-      { threadId: "thr_coordinator" },
-    );
+    harness.behavior.runCli(["orchestrate", action, "--request", requestId, "--json"], {
+      threadId: "thr_coordinator",
+    });
   async function approve(
     promise: ReturnType<typeof cli>,
     override?: (value: any) => any,
     record = true,
     useInitial = false,
   ) {
-    await vi.waitFor(() =>
-      expect(harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(harness.inspection.pendingInteractions).toHaveLength(1));
     const form = harness.inspection.pendingInteractions[0]!;
     const preview = useInitial
       ? (form.payload as any).initial
@@ -210,9 +204,7 @@ describe("approved run controls through CLI and RPC", () => {
     "checks the complete native form at the %i-byte boundary",
     async (bytes) => {
       const f = await setup();
-      f.config.baselineReferences = Array.from({ length: 16 }, (_, i) =>
-        `${i}:`.padEnd(1024, "x"),
-      );
+      f.config.baselineReferences = Array.from({ length: 16 }, (_, i) => `${i}:`.padEnd(1024, "x"));
       f.store.tasks.updateTask(f.task.id, { description: "" });
       const event = f.invoke();
       const preview = runRpcContract.orchestratePreview.output.parse(
@@ -236,18 +228,14 @@ describe("approved run controls through CLI and RPC", () => {
       if (bytes === 48 * 1024) {
         expect(result.outcome).toBe("pending");
         const form = f.harness.inspection.pendingInteractions[0]!;
-        expect(Buffer.byteLength(JSON.stringify(form.payload), "utf8")).toBe(
-          bytes,
-        );
+        expect(Buffer.byteLength(JSON.stringify(form.payload), "utf8")).toBe(bytes);
       } else {
         expect(result.outcome).toBe("cancelled");
         expect(result.error.code).toBe("approval_size_limit");
         expect(f.harness.inspection.pendingInteractions).toHaveLength(0);
         expect(JSON.parse((await f.cli("begin")).stdout!)).toEqual(result);
       }
-      expect(
-        createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id),
-      ).toBeNull();
+      expect(createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
       f.noWorkers();
     },
   );
@@ -276,9 +264,7 @@ describe("approved run controls through CLI and RPC", () => {
     const f = await setup();
     f.invoke();
     const pending = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     expect(JSON.parse((await f.cli("begin")).stdout!).outcome).toBe("pending");
     const result = await f.approve(pending);
     expect(result.run.phase).toBe("active");
@@ -309,18 +295,14 @@ describe("approved run controls through CLI and RPC", () => {
     f.invoke();
     const result = await f.approve(f.cli("begin"), undefined, false);
     expect(result.error.code).toBe("decision_unverified");
-    expect(
-      createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id),
-    ).toBeNull();
+    expect(createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
     f.noWorkers();
   });
   it("rejects tracker scope changes during the approval", async () => {
     const f = await setup();
     f.invoke();
     const promise = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     f.store.tasks.updateTask(f.task.id, { description: "Changed scope" });
     const result = await f.approve(promise);
     expect(result.error.code).toBe("decision_mismatch");
@@ -331,9 +313,7 @@ describe("approved run controls through CLI and RPC", () => {
     expect(f.harness.inspection.pendingInteractions).toHaveLength(0);
     const fresh = await f.harness.lifecycle.reload(plugin);
     expect(fresh.harness.inspection.pendingInteractions).toHaveLength(0);
-    expect(
-      createRunStore(fresh.bb.storage.database()).latestForEpic(f.epic.id),
-    ).toBeNull();
+    expect(createRunStore(fresh.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
     f.noWorkers();
   });
   it("pauses explicitly, then resumes the same run with a separate native decision", async () => {
@@ -354,9 +334,7 @@ describe("approved run controls through CLI and RPC", () => {
     const f = await setup();
     f.invoke();
     const result = await f.approve(f.cli("begin"));
-    const before = createRunStore(f.bb.storage.database()).getRun(
-      result.run.id,
-    );
+    const before = createRunStore(f.bb.storage.database()).getRun(result.run.id);
     const fresh = await f.harness.lifecycle.reload(plugin);
     const output = await fresh.harness.behavior.runCli(
       ["orchestrate", "begin", "--request", "request1", "--json"],
@@ -364,9 +342,7 @@ describe("approved run controls through CLI and RPC", () => {
     );
     const retry = JSON.parse(output.stdout!);
     expect(retry.run.phase).toBe("interrupted");
-    expect(
-      createRunStore(fresh.bb.storage.database()).getRun(result.run.id),
-    ).toEqual(before);
+    expect(createRunStore(fresh.bb.storage.database()).getRun(result.run.id)).toEqual(before);
     f.noWorkers();
   });
   it("scope checks exclude status/comments but detect description/preset changes", async () => {
@@ -388,32 +364,21 @@ describe("approved run controls through CLI and RPC", () => {
     { initiator: "user", senderThreadId: "thr_other" },
     { inputGroups: [[], []] },
     { retryOfRequestId: "original" },
-  ])(
-    "rejects mixed, cross-thread or retry provenance %j",
-    async (overrides) => {
-      const f = await setup();
-      f.invoke(undefined, overrides);
-      expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-        "invocation_required",
-      );
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(0);
-      f.noWorkers();
-    },
-  );
+  ])("rejects mixed, cross-thread or retry provenance %j", async (overrides) => {
+    const f = await setup();
+    f.invoke(undefined, overrides);
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("invocation_required");
+    expect(f.harness.inspection.pendingInteractions).toHaveLength(0);
+    f.noWorkers();
+  });
   it("rejects stale input, action mismatch and wrong coordinator", async () => {
     const f = await setup();
     f.invoke();
     f.getRequest().createdAt -= 20 * 60_000;
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "stale_invocation",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("stale_invocation");
     f.invoke({ action: "pause", runId: "missing" });
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "decision_mismatch",
-    );
-    expect(JSON.parse((await f.cli("pause")).stdout!).error.code).toBe(
-      "run_context_invalid",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("decision_mismatch");
+    expect(JSON.parse((await f.cli("pause")).stdout!).error.code).toBe("run_context_invalid");
   });
   it("preview does not approve restricted operations or create records", async () => {
     const f = await setup();
@@ -421,46 +386,39 @@ describe("approved run controls through CLI and RPC", () => {
       coordinatorThreadId: "thr_coordinator",
       config: f.config,
     });
-    expect(
-      createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id),
-    ).toBeNull();
+    expect(createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
     f.invoke({ action: "publish", config: f.config });
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "invocation_ambiguous",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("invocation_ambiguous");
     f.noWorkers();
   });
-  it.each(["/", "$"])(
-    "accepts one exact leading selected-skill mention %s",
-    async (trigger) => {
-      const f = await setup();
-      f.invoke();
-      const text = `${trigger}bb-orchestrator ${JSON.stringify({ action: "begin", config: f.config })}`;
-      f.getRequest().data.input = [
-        {
-          type: "text",
-          text,
-          mentions: [
-            {
-              start: 0,
-              end: 16,
-              resource: {
-                kind: "command",
-                source: "skill",
-                name: "bb-orchestrator",
-                label: "bb-orchestrator",
-                trigger,
-                origin: "user",
-                argumentHint: null,
-              },
+  it.each(["/", "$"])("accepts one exact leading selected-skill mention %s", async (trigger) => {
+    const f = await setup();
+    f.invoke();
+    const text = `${trigger}bb-orchestrator ${JSON.stringify({ action: "begin", config: f.config })}`;
+    f.getRequest().data.input = [
+      {
+        type: "text",
+        text,
+        mentions: [
+          {
+            start: 0,
+            end: 16,
+            resource: {
+              kind: "command",
+              source: "skill",
+              name: "bb-orchestrator",
+              label: "bb-orchestrator",
+              trigger,
+              origin: "user",
+              argumentHint: null,
             },
-          ],
-        },
-      ];
-      expect((await f.approve(f.cli("begin"))).run.phase).toBe("active");
-      f.noWorkers();
-    },
-  );
+          },
+        ],
+      },
+    ];
+    expect((await f.approve(f.cli("begin"))).run.phase).toBe("active");
+    f.noWorkers();
+  });
   it("reuses an older recorded invocation and never opens another form", async () => {
     const f = await setup();
     f.invoke();
@@ -475,9 +433,7 @@ describe("approved run controls through CLI and RPC", () => {
     f.invoke();
     const first = f.cli("begin");
     const second = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     const interaction = f.harness.inspection.pendingInteractions[0]!;
     f.harness.behavior.cancelInteraction(interaction.id);
     const results = await Promise.all([first, second]);
@@ -485,21 +441,15 @@ describe("approved run controls through CLI and RPC", () => {
       "pending",
       "pending",
     ]);
-    expect(JSON.parse((await f.cli("begin")).stdout!).outcome).toBe(
-      "cancelled",
-    );
-    expect(
-      createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id),
-    ).toBeNull();
+    expect(JSON.parse((await f.cli("begin")).stdout!).outcome).toBe("cancelled");
+    expect(createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
     f.noWorkers();
   });
   it("does not reopen a pending decision after reload", async () => {
     const f = await setup();
     f.invoke();
     const pending = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     const fresh = await f.harness.lifecycle.reload(plugin);
     const result = await fresh.harness.behavior.runCli(
       ["orchestrate", "begin", "--request", "request1", "--json"],
@@ -514,16 +464,12 @@ describe("approved run controls through CLI and RPC", () => {
     const f = await setup();
     f.invoke();
     const old = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     f.invoke();
     expect((await f.approve(old)).error.code).toBe("stale_invocation");
     f.invoke();
     const changed = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     f.store.tasks.updatePreset(f.preset.id, {
       instructions: "Changed execution instruction",
     });
@@ -536,24 +482,18 @@ describe("approved run controls through CLI and RPC", () => {
       action: "begin",
       config: { ...f.config, tasks: [f.task.id, f.task.key] },
     });
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "scope_invalid",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("scope_invalid");
     f.store.tasks.updateProject(f.epic.projectId, {
       linkedBbProjectId: "proj_other",
     });
     f.invoke();
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "project_mismatch",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("project_mismatch");
     f.store.tasks.updateProject(f.epic.projectId, {
       linkedBbProjectId: "proj_fixture",
     });
     f.store.tasks.updateTask(f.epic.id, { description: "x".repeat(49 * 1024) });
     f.invoke();
-    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe(
-      "approval_size_limit",
-    );
+    expect(JSON.parse((await f.cli("begin")).stdout!).error.code).toBe("approval_size_limit");
     expect(f.harness.inspection.pendingInteractions).toHaveLength(0);
     f.noWorkers();
   });
@@ -574,8 +514,7 @@ describe("approved run controls through CLI and RPC", () => {
     }));
     expect(expanded.error.code).toBe("decision_mismatch");
     expect(
-      createRunStore(f.bb.storage.database()).getRun(begun.run.id)
-        ?.baselineReferences,
+      createRunStore(f.bb.storage.database()).getRun(begun.run.id)?.baselineReferences,
     ).toEqual(f.config.baselineReferences);
     f.noWorkers();
   });
@@ -583,16 +522,10 @@ describe("approved run controls through CLI and RPC", () => {
     const f = await setup();
     f.invoke();
     const pending = f.cli("begin");
-    await vi.waitFor(() =>
-      expect(f.harness.inspection.pendingInteractions).toHaveLength(1),
-    );
+    await vi.waitFor(() => expect(f.harness.inspection.pendingInteractions).toHaveLength(1));
     f.moveCoordinator("proj_other");
-    expect((await f.approve(pending, undefined, true, true)).error.code).toBe(
-      "project_mismatch",
-    );
-    expect(
-      createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id),
-    ).toBeNull();
+    expect((await f.approve(pending, undefined, true, true)).error.code).toBe("project_mismatch");
+    expect(createRunStore(f.bb.storage.database()).latestForEpic(f.epic.id)).toBeNull();
     f.noWorkers();
   });
   it("waits for native validation on the single post-submission result lookup", async () => {
@@ -604,9 +537,7 @@ describe("approved run controls through CLI and RPC", () => {
       expect(
         f.harness.inspection.sdk
           .callsTo("threads.events.list")
-          .some((call) =>
-            JSON.stringify(call).includes("system/interaction/lifecycle"),
-          ),
+          .some((call) => JSON.stringify(call).includes("system/interaction/lifecycle")),
       ).toBe(true),
     );
     const lookup = f.cli("begin");

@@ -33,11 +33,14 @@ Begin/resume return pending immediately. The form belongs to the plugin, not the
 ## Record and history
 
 Migration 8 retains run/request identities, selected task fingerprints, coordinator/project, preset snapshot, baselines, decision references, generation and timestamps. Scope includes existing direct subtasks. New tasks, a different epic, preset ID or baseline need separate scope approval. Selected scope is bounded to 100 tasks, sixteen baselines and a 48-KiB native form. Oversized scope refuses rather than truncating consent.
+
 ## Approval form
 
-The form shows selected task scope, coordinator, worker execution, permissions and intended baseline. Full-access permissions have a visible warning. Publication, merge, production and added scope still need separate approval.
+The form shows selected task scope, coordinator, recorded execution selection, permissions and intended baseline. Full-access permissions have a visible warning. Publication, merge, production and added scope still need separate approval.
+This is a record, not an execution grant. Full-access text states that no worker starts or receives input. Approval and scope resume do not issue agent input.
 
-Technical details retain editable run-parameters JSON, complete scope text and the exact bound proposal, including full IDs and fingerprints. Details start collapsed when a preview exists and open when parameters are missing. Changing parameters clears the preview; check scope and selection again before approval. The buttons say `Approve run` or `Approve resume`, plus `Cancel`.
+Technical details retain editable run-parameters JSON, complete scope text and the exact bound proposal, including full IDs and fingerprints. Details start collapsed when a preview exists and open when parameters are missing. Changing parameters clears the preview; check scope and selection again before approval. The buttons say `Approve scope` or `Resume scope`, plus `Cancel`.
+Approval and cancel stay outside the bounded scroll area for scope details. Long values and technical details scroll without moving the action row out of view.
 
 Task names come from bounded read-only lookups and are shown only when identity, membership and tracker fingerprints match the approved snapshot. The coordinator name must match its thread/project identity. Unavailable or changed names fall back to exact bound IDs. Names and styling grant no authority. Submission still sends the complete proposal without replacing identities or shortening hashes.
 

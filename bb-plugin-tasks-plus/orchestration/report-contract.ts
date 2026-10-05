@@ -33,21 +33,9 @@ export const reportPayloadSchema = z
     key: z.string().trim().min(1).max(REPORT_LIMITS.key),
     outcome: reportOutcomeSchema,
     summary: z.string().trim().min(1).max(REPORT_LIMITS.summary),
-    question: z
-      .string()
-      .trim()
-      .min(1)
-      .max(REPORT_LIMITS.question)
-      .nullable()
-      .default(null),
-    resultReferences: z
-      .array(resultReferenceSchema)
-      .max(REPORT_LIMITS.results)
-      .default([]),
-    baselineReferences: z
-      .array(reference)
-      .max(REPORT_LIMITS.baselines)
-      .default([]),
+    question: z.string().trim().min(1).max(REPORT_LIMITS.question).nullable().default(null),
+    resultReferences: z.array(resultReferenceSchema).max(REPORT_LIMITS.results).default([]),
+    baselineReferences: z.array(reference).max(REPORT_LIMITS.baselines).default([]),
   })
   .strict();
 const hasQuestion = (value: z.infer<typeof reportPayloadSchema>) =>
@@ -76,15 +64,7 @@ export type ReportOrigin = z.infer<typeof reportOriginSchema>;
 export const reportDeliverySchema = z
   .object({
     id: reference,
-    state: z.enum([
-      "pending",
-      "native",
-      "sent",
-      "queued",
-      "suppressed",
-      "failed",
-      "ambiguous",
-    ]),
+    state: z.enum(["pending", "native", "sent", "queued", "suppressed", "failed", "ambiguous"]),
     reason: z.string().max(2000),
     reference: reference.nullable(),
     attemptedAt: z.string().nullable(),

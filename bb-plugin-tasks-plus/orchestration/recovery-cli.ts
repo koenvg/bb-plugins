@@ -1,8 +1,4 @@
-import {
-  cliCommand,
-  PluginCliError,
-  type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+import { cliCommand, PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Dispatcher } from "./dispatch";
 import { resolveStatusEpicId } from "./status-store";
 import { roleSchema } from "./dispatch-contract";
@@ -67,8 +63,7 @@ export function recoveryCommands(bb: BbPluginApi, dispatcher: Dispatcher) {
               reconciliation: {
                 type: "string" as const,
                 required: true as const,
-                description:
-                  "Exact reconciliation identity in recorded decision",
+                description: "Exact reconciliation identity in recorded decision",
               },
               request: {
                 type: "string" as const,
@@ -77,8 +72,7 @@ export function recoveryCommands(bb: BbPluginApi, dispatcher: Dispatcher) {
               },
               "acknowledge-delayed-creation": {
                 type: "boolean" as const,
-                description:
-                  "Acknowledge delayed creation and duplicate-work risk",
+                description: "Acknowledge delayed creation and duplicate-work risk",
               },
             }
           : {}),
@@ -88,17 +82,12 @@ export function recoveryCommands(bb: BbPluginApi, dispatcher: Dispatcher) {
         const coordinatorThreadId = context.threadId ?? input.options.thread;
         if (
           !coordinatorThreadId ||
-          (context.threadId &&
-            input.options.thread &&
-            context.threadId !== input.options.thread)
+          (context.threadId && input.options.thread && context.threadId !== input.options.thread)
         )
           throw new PluginCliError("Use your coordinator thread context", {
             code: "run_context_invalid",
           });
-        const taskId = resolveStatusEpicId(
-          bb.storage.database(),
-          input.positionals.task,
-        );
+        const taskId = resolveStatusEpicId(bb.storage.database(), input.positionals.task);
         if (!taskId)
           throw new PluginCliError("Task not found", {
             code: "task_not_found",

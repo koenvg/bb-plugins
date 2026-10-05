@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 
 const disposals: Array<() => Promise<void>> = [];
@@ -71,23 +68,16 @@ describe("manual run public CLI", () => {
     expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
     expect(harness.inspection.pendingInteractions).toHaveLength(0);
   });
-  it.each(["agent", "system"] as const)(
-    "rejects recorded %s",
-    async (initiator) => {
-      const { harness } = await fixture("/skill:bb-orchestrator", initiator);
-      const result = await harness.behavior.runCli(
-        ["orchestrate", "begin", "--request", "request1", "--json"],
-        { threadId: "thr_coordinator" },
-      );
-      expect(JSON.parse(result.stdout!).error.code).toBe("invocation_required");
-    },
-  );
-  it("refuses an unverified provider", async () => {
-    const { harness } = await fixture(
-      "/skill:bb-orchestrator",
-      "user",
-      "codex",
+  it.each(["agent", "system"] as const)("rejects recorded %s", async (initiator) => {
+    const { harness } = await fixture("/skill:bb-orchestrator", initiator);
+    const result = await harness.behavior.runCli(
+      ["orchestrate", "begin", "--request", "request1", "--json"],
+      { threadId: "thr_coordinator" },
     );
+    expect(JSON.parse(result.stdout!).error.code).toBe("invocation_required");
+  });
+  it("refuses an unverified provider", async () => {
+    const { harness } = await fixture("/skill:bb-orchestrator", "user", "codex");
     const result = await harness.behavior.runCli(
       ["orchestrate", "begin", "--request", "request1", "--json"],
       { threadId: "thr_coordinator" },
@@ -107,12 +97,7 @@ describe("manual run public CLI", () => {
     expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
   });
   it("refuses an unverified BB version without opening an interaction", async () => {
-    const { harness } = await fixture(
-      "/skill:bb-orchestrator",
-      "user",
-      "pi",
-      "0.43.0",
-    );
+    const { harness } = await fixture("/skill:bb-orchestrator", "user", "pi", "0.43.0");
     const result = await harness.behavior.runCli(
       ["orchestrate", "begin", "--request", "request1", "--json"],
       { threadId: "thr_coordinator" },

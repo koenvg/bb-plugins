@@ -2,10 +2,7 @@
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { webcrypto } from "node:crypto";
 import plugin from "../server";
 import { createStore } from "../api";
@@ -81,8 +78,7 @@ async function fixture() {
       })
       .then((result) => runRpcContract.orchestratePreview.output.parse(result));
   const initial = await preview();
-  const getTask = (input: unknown) =>
-    harness.behavior.callRpc("getTask", input);
+  const getTask = (input: unknown) => harness.behavior.callRpc("getTask", input);
   const show = (
     options: {
       taskResponse?: (input: unknown) => unknown;
@@ -159,25 +155,16 @@ describe("bound approval display through public preview RPC", () => {
           ? { projectId: "proj_foreign" }
           : {};
     const { slot, submit } = f.show({ taskResponse, coordinator });
-    await waitFor(() =>
-      expect(slot.getByText(`${f.epic.key} · ${f.epic.title}`)).toBeTruthy(),
-    );
-    if (
-      [
-        "changed-description",
-        "wrong-task-project",
-        "wrong-task-parent",
-      ].includes(mode)
-    ) {
+    await waitFor(() => expect(slot.getByText(`${f.epic.key} · ${f.epic.title}`)).toBeTruthy());
+    if (["changed-description", "wrong-task-project", "wrong-task-parent"].includes(mode)) {
       expect(slot.getByText(f.task.id)).toBeTruthy();
       expect(slot.queryByText(`${f.task.key} · ${f.task.title}`)).toBeNull();
-    } else
-      expect(slot.getByText(`${f.task.key} · ${f.task.title}`)).toBeTruthy();
+    } else expect(slot.getByText(`${f.task.key} · ${f.task.title}`)).toBeTruthy();
     if (mode.startsWith("wrong-coordinator")) {
       expect(slot.getByText("thr_fixture")).toBeTruthy();
       expect(slot.queryByText("Fixture coordinator")).toBeNull();
     }
-    fireEvent.click(slot.getByText("Approve run"));
+    fireEvent.click(slot.getByText("Approve scope"));
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith({
         approved: true,
@@ -197,8 +184,7 @@ describe("bound approval display through public preview RPC", () => {
     let held = true;
     const { slot } = f.show({
       taskResponse: (input) => {
-        if (held && (input as { taskId: string }).taskId === f.task.id)
-          return oldResponse;
+        if (held && (input as { taskId: string }).taskId === f.task.id) return oldResponse;
         return f.getTask(input);
       },
     });
@@ -211,15 +197,9 @@ describe("bound approval display through public preview RPC", () => {
       target: { value: JSON.stringify(f.config) },
     });
     fireEvent.click(slot.getByText("Check scope and selection"));
-    await waitFor(() =>
-      expect(
-        slot.getByText(`${f.task.key} · Fresh checked scope`),
-      ).toBeTruthy(),
-    );
+    await waitFor(() => expect(slot.getByText(`${f.task.key} · Fresh checked scope`)).toBeTruthy());
     await act(async () => {
-      rejectOld(
-        new Error("Old display lookup failed after proposal replacement"),
-      );
+      rejectOld(new Error("Old display lookup failed after proposal replacement"));
       await oldResponse.catch(() => undefined);
     });
     expect(slot.getByText(`${f.task.key} · Fresh checked scope`)).toBeTruthy();

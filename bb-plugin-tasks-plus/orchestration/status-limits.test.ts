@@ -38,9 +38,7 @@ describe("compact status limits and readonly store bounds", () => {
       omitted: 7,
     });
     expect(f.get).toHaveBeenCalledTimes(5);
-    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(
-      128 * 1024,
-    );
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(128 * 1024);
   });
   it("supports 100 subtasks and bounds distinct external lookups and concurrency", async () => {
     const f = setup();
@@ -66,14 +64,8 @@ describe("compact status limits and readonly store bounds", () => {
     });
     expect(f.get).toHaveBeenCalledTimes(100);
     expect(maximum).toBeLessThanOrEqual(4);
-    expect(
-      result.status.subtasks.some(
-        (t) => t.nativeDecisions.unobservedWorkers > 0,
-      ),
-    ).toBe(true);
-    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(
-      128 * 1024,
-    );
+    expect(result.status.subtasks.some((t) => t.nativeDecisions.unobservedWorkers > 0)).toBe(true);
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(128 * 1024);
   });
   it("reduces auxiliary payloads before returning a complete required-state byte error", async () => {
     const f = setup();
@@ -91,9 +83,7 @@ describe("compact status limits and readonly store bounds", () => {
               outcome: "completed" as const,
               createdAt: "2026-10-03T00:00:00.000Z",
               summary: "😀".repeat(10000),
-              resultReferences: Array(12).fill(
-                "https://example.com/" + "x".repeat(900),
-              ),
+              resultReferences: Array(12).fill("https://example.com/" + "x".repeat(900)),
             },
           },
         },
@@ -110,9 +100,7 @@ describe("compact status limits and readonly store bounds", () => {
         resultReferences: { total: 12, omitted: 12, items: [] },
       },
     });
-    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(
-      128 * 1024,
-    );
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(128 * 1024);
     f.coordination.run = {
       state: "present",
       value: {
@@ -163,10 +151,7 @@ describe("compact status limits and readonly store bounds", () => {
 
   it("times out unavailable activity and cancels the SDK lookup without writing stale observations", async () => {
     const f = setup();
-    const association = f.attach(
-      f.child("Hung external lookup").id,
-      "thr_hung",
-    );
+    const association = f.attach(f.child("Hung external lookup").id, "thr_hung");
     let aborted = false;
     f.get.mockImplementation(({ signal }) => {
       signal?.addEventListener("abort", () => {
@@ -180,9 +165,7 @@ describe("compact status limits and readonly store bounds", () => {
       await vi.advanceTimersByTimeAsync(2001);
       const result = await resultPromise;
       if (!result.ok) throw new Error(result.error.message);
-      expect(
-        result.status.subtasks[0]?.workers.items[0]?.activity,
-      ).toMatchObject({
+      expect(result.status.subtasks[0]?.workers.items[0]?.activity).toMatchObject({
         state: "stale",
         value: "unknown",
         observedAt: null,

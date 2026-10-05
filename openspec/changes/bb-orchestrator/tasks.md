@@ -42,3 +42,11 @@ BBP-37 verified original checklist items 3.5 through 3.7 with isolated CLI/RPC/S
 ## Readable approval UI history
 
 BBP-86 verified original section 7 with isolated renderer and corrected offline browser checks. Its complete run-scope-fields.ts projection and both server/browser consumers are retained. Labels do not change bound identity, fingerprints or canonical submission. Current scope-record wording and independent combined browser acceptance belong to BBP-42. No prior native/picker UI proof is claimed.
+
+## BBP-42 combined acceptance
+
+- [x] Integrate BBP-38, BBP-37 and BBP-86 exactly once from 1eee962a6a095ec7d30080c9823f28f00b5162a3. Preserve the completed BBP-36 branch and both canonical UI consumers.
+- [x] Keep all new orchestration agent input deferred. Register bookkeeping recovery without execution/admission/delivery callbacks. Preserve original-child and released-owner history.
+- [x] Verify focused/full/static/build/package checks and isolated production approval UI/manual record behavior. See orchestration/manual-first-verification.md and task attachments for checks and limits.
+- [x] Received the one read-only whole-feature review from epic baseline e06bfb1ef19a338f68bca0fc1b99bea425a6ab63. Resolved all three findings and reran affected checks without a second review.
+Local delivery, capability-free attachments, coordinator handoff, BBP-42 status and worker detachment are recorded in the BBP-42 task attachments after the source checks pass. BBP-33 status remains the parent's decision.

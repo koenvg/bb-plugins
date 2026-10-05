@@ -1,9 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  publishCommentsChanged,
-  publishTasksChanged,
-  type TasksApiStore,
-} from "../api";
+import { publishCommentsChanged, publishTasksChanged, type TasksApiStore } from "../api";
 import { createSystemComment, publishThreadsChanged } from "../delegate";
 import type { DispatchStore } from "./dispatch-store";
 import type { RunController } from "./run";
@@ -11,10 +7,7 @@ import { currentCoordinator, workerUsable } from "./dispatch-eligibility";
 import { refuse } from "./run-provenance";
 import { fingerprint } from "./run-scope";
 import { relinquishableWorker } from "./recovery-worker";
-import {
-  observeRecovery,
-  type RecoveryObservation,
-} from "./recovery-observation";
+import { observeRecovery, type RecoveryObservation } from "./recovery-observation";
 import { readRecoveryDecision } from "./recovery-decision";
 import {
   RECOVERY_WARNING,
@@ -89,11 +82,7 @@ export function createRecovery(
   }
   function publish(input: RecoveryInput) {
     publishThreadsChanged(bb, input.taskId);
-    publishTasksChanged(
-      bb,
-      input.taskId,
-      store.tasks.getTask(input.taskId)!.projectId,
-    );
+    publishTasksChanged(bb, input.taskId, store.tasks.getTask(input.taskId)!.projectId);
     publishCommentsChanged(bb, input.taskId);
   }
   function attach(
@@ -149,21 +138,18 @@ export function createRecovery(
           "unresolved",
           "Another designation conflicts with the original attempt.",
         );
-      const association = store.tasks.getTaskThreadByThreadId(
-        task.id,
-        thread.id,
-      );
+      const association = store.tasks.getTaskThreadByThreadId(task.id, thread.id);
       if (owner && association?.id === owner.associationId) {
         // A verified unchanged owner is stronger evidence than interrupted bookkeeping.
         // Admission rejection remains execution state; recovery does not clear it.
-        const completed = claim.threadId === thread.id &&
-          ["attached", "admission_rejected"].includes(claim.phase)
-          ? claim
-          : claims.update(claim.id, {
-              threadId: thread.id,
-              phase: claim.phase === "admission_rejected" ? claim.phase : "attached",
-              reason: claim.phase === "admission_rejected" ? claim.reason : null,
-            });
+        const completed =
+          claim.threadId === thread.id && ["attached", "admission_rejected"].includes(claim.phase)
+            ? claim
+            : claims.update(claim.id, {
+                threadId: thread.id,
+                phase: claim.phase === "admission_rejected" ? claim.phase : "attached",
+                reason: claim.phase === "admission_rejected" ? claim.reason : null,
+              });
         return output(
           completed,
           observation,
@@ -204,10 +190,7 @@ export function createRecovery(
       const completed = claims.update(claim.id, {
         threadId: thread.id,
         associationId: attached.id,
-        phase:
-          claim.phase === "admission_rejected"
-            ? "admission_rejected"
-            : "attached",
+        phase: claim.phase === "admission_rejected" ? "admission_rejected" : "attached",
         reason: claim.phase === "admission_rejected" ? claim.reason : null,
       });
       return output(
@@ -239,18 +222,13 @@ export function createRecovery(
     if (result.outcome === "recovered") publish(checked);
     return result;
   }
-  async function link(
-    input: RecoveryInput & { threadId: string },
-  ): Promise<RecoveryResult> {
+  async function link(input: RecoveryInput & { threadId: string }): Promise<RecoveryResult> {
     const { threadId, ...request } = input;
     const { claim, snapshot, observation } = await inspect(
       recoveryInputSchema.parse(request),
       threadId,
     );
-    if (
-      observation.candidates.length !== 1 ||
-      observation.candidates[0]?.id !== threadId
-    )
+    if (observation.candidates.length !== 1 || observation.candidates[0]?.id !== threadId)
       return output(
         claim,
         observation,
@@ -262,9 +240,7 @@ export function createRecovery(
     return result;
   }
   async function resolve(
-    input: Parameters<
-      typeof recoveryRpcContract.orchestrateResolve.input.parse
-    >[0],
+    input: Parameters<typeof recoveryRpcContract.orchestrateResolve.input.parse>[0],
   ): Promise<RecoveryResult> {
     const parsed = recoveryRpcContract.orchestrateResolve.input.parse(input);
     const { requestId, ...parameters } = parsed;
@@ -277,11 +253,7 @@ export function createRecovery(
       claimId: decision.claimId,
     });
     const { run, claim, snapshot, observation } = await inspect(request);
-    const decisionReference = await readRecoveryDecision(
-      bb,
-      decision,
-      requestId,
-    );
+    const decisionReference = await readRecoveryDecision(bb, decision, requestId);
     const previous = readResolution(claim.reason);
     if (claim.releasedAt) {
       if (
@@ -290,32 +262,59 @@ export function createRecovery(
         fingerprint(previous.decision) === fingerprint(decision)
       ) {
         if (previous.decision.action === "release")
-          return output(claim, observation, "released", "Return the recorded release. No operation is replayed.");
+          return output(
+            claim,
+            observation,
+            "released",
+            "Return the recorded release. No operation is replayed.",
+          );
         const replacement = claims.get(previous.replacementClaimId ?? "");
         const nativeReason = replacement?.threadId
           ? await workerUsable(bb, replacement.threadId, run.bbProjectId)
           : "Recorded replacement identity is missing.";
         if ((await readRecoveryDecision(bb, decision, requestId)) !== decisionReference)
-          refuse("recovery_decision_stale", "The recorded decision changed during retry validation.");
+          refuse(
+            "recovery_decision_stale",
+            "The recorded decision changed during retry validation.",
+          );
         return store.transaction(() => {
           fresh(request, snapshot);
           const current = claims.get(replacement?.id ?? "");
           const owner = claims.owners(claim.taskId).find((row) => row.role === claim.role);
           if (
-            !observation.complete || nativeReason || !replacement || !current ||
+            !observation.complete ||
+            nativeReason ||
+            !replacement ||
+            !current ||
             fingerprint(current) !== fingerprint(replacement) ||
-            current.releasedAt || current.phase !== "attached" ||
-            current.taskId !== claim.taskId || current.role !== claim.role ||
-            current.runId !== claim.runId || current.coordinatorThreadId !== claim.coordinatorThreadId ||
-            !current.threadId || current.associationId !== decision.associationId ||
+            current.releasedAt ||
+            current.phase !== "attached" ||
+            current.taskId !== claim.taskId ||
+            current.role !== claim.role ||
+            current.runId !== claim.runId ||
+            current.coordinatorThreadId !== claim.coordinatorThreadId ||
+            !current.threadId ||
+            current.associationId !== decision.associationId ||
             claims.live(claim.taskId, claim.role)?.id !== current.id ||
             claims.forThread(current.threadId).length !== 1 ||
-            owner?.threadId !== current.threadId || owner?.runId !== current.runId ||
+            owner?.threadId !== current.threadId ||
+            owner?.runId !== current.runId ||
             owner?.associationId !== current.associationId ||
-            store.tasks.getTaskThreadByThreadId(claim.taskId, current.threadId)?.id !== current.associationId
+            store.tasks.getTaskThreadByThreadId(claim.taskId, current.threadId)?.id !==
+              current.associationId
           )
-            return output(claim, observation, "unresolved", "The recorded replacement claim and worker could not be verified. No resolution is replayed.");
-          return output(current, observation, "replaced", "Return the exact recorded replacement. No operation is replayed.");
+            return output(
+              claim,
+              observation,
+              "unresolved",
+              "The recorded replacement claim and worker could not be verified. No resolution is replayed.",
+            );
+          return output(
+            current,
+            observation,
+            "replaced",
+            "Return the exact recorded replacement. No operation is replayed.",
+          );
         });
       }
       refuse(
@@ -358,21 +357,13 @@ export function createRecovery(
           : "The active or usable original worker takes precedence. It cannot be replaced.",
       );
     const chosen = decision.associationId
-      ? store.tasks
-          .listTaskThreads(request.taskId)
-          .find((row) => row.id === decision.associationId)
+      ? store.tasks.listTaskThreads(request.taskId).find((row) => row.id === decision.associationId)
       : null;
     if (decision.action === "replace") {
       if (!chosen || chosen.threadId === claim.threadId)
-        refuse(
-          "replacement_invalid",
-          "Select another current task association.",
-        );
+        refuse("replacement_invalid", "Select another current task association.");
       if (await workerUsable(bb, chosen.threadId, run.bbProjectId))
-        refuse(
-          "replacement_invalid",
-          "Replacement worker/project/history could not be verified.",
-        );
+        refuse("replacement_invalid", "Replacement worker/project/history could not be verified.");
       const metadata = await bb.sdk.threads.getPluginMetadata({
         threadId: chosen.threadId,
         signal: AbortSignal.timeout(1500),
@@ -383,13 +374,7 @@ export function createRecovery(
           "A correlated worker must be recovered in its original claim, not adopted as a replacement.",
         );
     }
-    const finalObservation = await observeRecovery(
-      bb,
-      store,
-      claims,
-      claim,
-      run,
-    );
+    const finalObservation = await observeRecovery(bb, store, claims, claim, run);
     if (!finalObservation.complete || finalObservation.candidates.length > 1)
       return output(claim, finalObservation);
     if (finalObservation.candidates.length === 1 && !claim.associationId) {
@@ -404,22 +389,15 @@ export function createRecovery(
       );
     // Re-read provenance after native worker observations, then commit with no
     // SDK await after the final local state and claim checks.
-    if (
-      (await readRecoveryDecision(bb, decision, requestId)) !==
-      decisionReference
-    )
-      refuse(
-        "recovery_decision_stale",
-        "The recorded decision changed during reconciliation.",
-      );
+    if ((await readRecoveryDecision(bb, decision, requestId)) !== decisionReference)
+      refuse("recovery_decision_stale", "The recorded decision changed during reconciliation.");
     const resolved = store.transaction(() => {
       fresh(request, snapshot);
       if (claims.live(request.taskId, request.role)?.id !== claim.id)
         refuse("recovery_state_changed", "The live claim changed.");
       if (
         chosen &&
-        (store.tasks.getTaskThreadByThreadId(request.taskId, chosen.threadId)
-          ?.id !== chosen.id ||
+        (store.tasks.getTaskThreadByThreadId(request.taskId, chosen.threadId)?.id !== chosen.id ||
           claims.hasHistoryForThread(chosen.threadId))
       )
         refuse(
@@ -436,10 +414,7 @@ export function createRecovery(
         previousReason: claim.reason,
         replacementClaimId: null as string | null,
       };
-      claims.release(
-        claim.id,
-        JSON.stringify(resolutionRecordSchema.parse(record)),
-      );
+      claims.release(claim.id, JSON.stringify(resolutionRecordSchema.parse(record)));
       let next = claims.get(claim.id)!;
       if (chosen) {
         const newClaim = claims.reserve(request);
@@ -476,24 +451,10 @@ export function createRecovery(
     publish(request);
     return resolved;
   }
-  async function checkReleased(
-    input: RecoveryInput,
-  ): Promise<RecoveryResult | null> {
-    const { claim, observation } = await inspect(input);
-    if (!observation.complete || observation.candidates.length)
-      return output(
-        claim,
-        observation,
-        "unresolved",
-        "A delayed original or incomplete reconciliation blocks new dispatch. Preserve the recorded release and recover its original context.",
-      );
-    return null;
-  }
   return {
     reconcile,
     link,
     resolve,
-    checkReleased,
     register() {
       bb.rpc.register(recoveryRpcContract, {
         orchestrateReconcile: reconcile,

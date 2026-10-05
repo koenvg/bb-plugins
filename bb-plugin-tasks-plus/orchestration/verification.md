@@ -14,17 +14,17 @@ The test copy uses production bundles with a fixture namespace and a fixture-onl
 
 ## Verified paths
 
-| Path | Recorded evidence | Result |
-| --- | --- | --- |
-| Install/enable, skill discovery, ordinary first turn | Exported skill capability; ordinary request `creq_eftni2cw5k`; isolated storage contained zero runs and requests | No orchestration |
-| Exact native `/skill:bb-orchestrator` with a missing baseline | Request `creq_psyq34nd4k`, event sequence 58; native form `pint_rwqafnmarx`; public `orchestratePreview` supplies the complete selection | One submitted native decision created one run |
-| Native decision persistence | Resolved lifecycle `evt_r69ccuh8kv`, sequence 83, matching invocation/decision UUID and submitted proposal | Run `6d99655a-281c-4c79-921e-9399063f21b9`, active |
-| Selected `/bb-orchestrator` pause | Request `creq_a63npczyhu`, sequence 84, one source=skill mention at offsets 0..16; actual Pi executed the fixture pause command | Same run, paused; no approval form |
-| Selected `$bb-orchestrator` resume | Request `creq_2iadehsg9d`, sequence 110; native form `pint_tkf4jvdnny`; resolved lifecycle `evt_29mmx5nsra`, sequence 133 | Same run, active with a new approval reference |
-| Identical completed request retry | Repeated public resume RPC with the same request ID | Identical result, one run and zero pending forms |
-| Plugin reload | Replayed begin request through the new controller; compared stored payload before/after | Returned interrupted; stored active record unchanged; no automatic resume |
-| Observed cross-thread native text | BB recorded initiator=agent, sender=`thr_ibnafuu3tv` | `invocation_required`; no new form/run |
-| Quoted ordinary discussion | BB recorded user/null, but no exact leading invocation | `invocation_required`; one existing run, zero pending forms |
+| Path                                                          | Recorded evidence                                                                                                                        | Result                                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Install/enable, skill discovery, ordinary first turn          | Exported skill capability; ordinary request `creq_eftni2cw5k`; isolated storage contained zero runs and requests                         | No orchestration                                                          |
+| Exact native `/skill:bb-orchestrator` with a missing baseline | Request `creq_psyq34nd4k`, event sequence 58; native form `pint_rwqafnmarx`; public `orchestratePreview` supplies the complete selection | One submitted native decision created one run                             |
+| Native decision persistence                                   | Resolved lifecycle `evt_r69ccuh8kv`, sequence 83, matching invocation/decision UUID and submitted proposal                               | Run `6d99655a-281c-4c79-921e-9399063f21b9`, active                        |
+| Selected `/bb-orchestrator` pause                             | Request `creq_a63npczyhu`, sequence 84, one source=skill mention at offsets 0..16; actual Pi executed the fixture pause command          | Same run, paused; no approval form                                        |
+| Selected `$bb-orchestrator` resume                            | Request `creq_2iadehsg9d`, sequence 110; native form `pint_tkf4jvdnny`; resolved lifecycle `evt_29mmx5nsra`, sequence 133                | Same run, active with a new approval reference                            |
+| Identical completed request retry                             | Repeated public resume RPC with the same request ID                                                                                      | Identical result, one run and zero pending forms                          |
+| Plugin reload                                                 | Replayed begin request through the new controller; compared stored payload before/after                                                  | Returned interrupted; stored active record unchanged; no automatic resume |
+| Observed cross-thread native text                             | BB recorded initiator=agent, sender=`thr_ibnafuu3tv`                                                                                     | `invocation_required`; no new form/run                                    |
+| Quoted ordinary discussion                                    | BB recorded user/null, but no exact leading invocation                                                                                   | `invocation_required`; one existing run, zero pending forms               |
 
 The positive fixture deliberately uses the accepted BBP-51 limitation: a same-thread agent send becomes BB-recorded user/null. Native form responses use BB's public interaction response command. These checks prove the declared BB-recorded input/decision contract, not that a human selected a skill or answered a form. No other provider/version has installed positive support evidence. The runtime rejects non-Pi or non-0.44.0 activation. Negative provider cases also have public CLI harness tests.
 

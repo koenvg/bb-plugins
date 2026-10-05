@@ -9,11 +9,5 @@ type TrackerScopeTask = {
 };
 
 export function trackerScopeFields(task: TrackerScopeTask) {
-  return [
-    task.id,
-    task.projectId,
-    task.parentTaskId,
-    task.title,
-    task.description,
-  ] as const;
+  return [task.id, task.projectId, task.parentTaskId, task.title, task.description] as const;
 }

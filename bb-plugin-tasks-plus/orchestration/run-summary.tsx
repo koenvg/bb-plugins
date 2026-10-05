@@ -17,10 +17,7 @@ function useDisplayNames(proposal: RunProposal) {
   const [names, setNames] = useState<DisplayNames | null>(null);
   useEffect(() => {
     let current = true;
-    const ids = [
-      proposal.epicId,
-      ...proposal.approvedTaskIds.slice(0, RUN_LIMITS.tasks),
-    ];
+    const ids = [proposal.epicId, ...proposal.approvedTaskIds.slice(0, RUN_LIMITS.tasks)];
     const tasks = Promise.all(
       ids.map(async (id) => {
         try {
@@ -28,12 +25,9 @@ function useDisplayNames(proposal: RunProposal) {
           if (
             task?.id === id &&
             task.projectId === proposal.projectId &&
-            task.parentTaskId ===
-              (id === proposal.epicId ? null : proposal.epicId)
+            task.parentTaskId === (id === proposal.epicId ? null : proposal.epicId)
           ) {
-            const bytes = new TextEncoder().encode(
-              JSON.stringify(trackerScopeFields(task)),
-            );
+            const bytes = new TextEncoder().encode(JSON.stringify(trackerScopeFields(task)));
             const digest = await crypto.subtle.digest("SHA-256", bytes);
             const hash = Array.from(new Uint8Array(digest), (byte) =>
               byte.toString(16).padStart(2, "0"),
@@ -51,8 +45,7 @@ function useDisplayNames(proposal: RunProposal) {
     const coordinator = sdk.threads
       .get({ threadId: proposal.coordinatorThreadId })
       .then((thread) =>
-        thread.id === proposal.coordinatorThreadId &&
-        thread.projectId === proposal.bbProjectId
+        thread.id === proposal.coordinatorThreadId && thread.projectId === proposal.bbProjectId
           ? thread.title?.trim() || null
           : null,
       )
@@ -76,9 +69,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="m-0 break-words [overflow-wrap:anywhere]">
-        {value || "Not specified"}
-      </dd>
+      <dd className="m-0 break-words [overflow-wrap:anywhere]">{value || "Not specified"}</dd>
     </div>
   );
 }
@@ -90,20 +81,16 @@ export function RunSummary({ proposal }: { proposal: RunProposal }) {
   return (
     <div className="@container min-w-0 space-y-4">
       {execution.permissionMode === "full" && (
-        <div
-          role="note"
-          className="rounded-md border-2 border-border bg-muted p-3 text-sm"
-        >
+        <div role="note" className="rounded-md border-2 border-border bg-muted p-3 text-sm">
           <p className="font-semibold">Warning: full access</p>
-          <p>Selected workers will use full-access permissions.</p>
           <p>
-            Publication, merge, production and added scope need separate
-            approval.
+            Recorded selection uses full-access permissions. No worker starts or receives input.
           </p>
+          <p>Publication, merge, production and added scope need separate approval.</p>
         </div>
       )}
       <section aria-label="Selected scope" className="min-w-0 space-y-2">
-        <h2 className="text-sm font-semibold">Run scope</h2>
+        <h2 className="text-sm font-semibold">Scope record</h2>
         <p className="break-words font-medium [overflow-wrap:anywhere]">
           {names?.tasks[proposal.epicId] ?? proposal.epicId}
         </p>
@@ -121,40 +108,26 @@ export function RunSummary({ proposal }: { proposal: RunProposal }) {
           Names are display only. Exact scope and IDs are in technical details.
         </p>
       </section>
-      <section aria-label="Worker execution" className="min-w-0 space-y-2">
-        <h2 className="text-sm font-semibold">Worker execution</h2>
+      <section aria-label="Recorded selection" className="min-w-0 space-y-2">
+        <h2 className="text-sm font-semibold">Recorded selection</h2>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm @sm:grid-cols-3">
-          <Fact
-            label="Coordinator"
-            value={names?.coordinator ?? proposal.coordinatorThreadId}
-          />
+          <Fact label="Coordinator" value={names?.coordinator ?? proposal.coordinatorThreadId} />
           <Fact label="Provider" value={execution.providerId} />
           <Fact label="Model" value={execution.modelId} />
           <Fact label="Reasoning" value={execution.reasoningLevel} />
           <Fact label="Permissions" value={execution.permissionMode} />
           <Fact label="Environment" value={execution.environmentKind} />
-          {execution.baseBranch && (
-            <Fact label="Base branch" value={execution.baseBranch} />
-          )}
-          {execution.serviceTier && (
-            <Fact label="Service tier" value={execution.serviceTier} />
-          )}
-          {execution.machineId && (
-            <Fact label="Machine" value={execution.machineId} />
-          )}
+          {execution.baseBranch && <Fact label="Base branch" value={execution.baseBranch} />}
+          {execution.serviceTier && <Fact label="Service tier" value={execution.serviceTier} />}
+          {execution.machineId && <Fact label="Machine" value={execution.machineId} />}
         </dl>
-        <p className="text-xs text-muted-foreground">
-          This form does not start a worker.
-        </p>
+        <p className="text-xs text-muted-foreground">This form does not start a worker.</p>
       </section>
       <section aria-label="Intended baseline" className="min-w-0 space-y-2">
         <h2 className="text-sm font-semibold">Intended baseline</h2>
         <ul className="max-h-24 space-y-1 overflow-y-auto text-sm">
           {proposal.baselineReferences.map((reference) => (
-            <li
-              key={reference}
-              className="break-words [overflow-wrap:anywhere]"
-            >
+            <li key={reference} className="break-words [overflow-wrap:anywhere]">
               {reference}
             </li>
           ))}

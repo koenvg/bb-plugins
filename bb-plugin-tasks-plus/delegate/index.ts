@@ -111,7 +111,7 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
         "Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.",
         "Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.",
         "See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.",
-      `Follow task ${input.task.key}, its linked specifications, acceptance criteria and applicable project instructions. Report explicit outcomes with native tasks_report using taskId ${input.task.id}: completed, review_ready, blocked, failed or needs_decision. Use a stable retry key, a bounded summary, an explicit question for needs_decision, typed result/evidence references and baseline references. Keep the returned report/comment IDs in your final output. Reports can be made during an active turn; idle activity is not task completion. Reporting does not change task status. Set status explicitly with bb tasks update ${input.task.key} --status in_review or --status done only when your ticket gates are met. For CLI/RPC reporting, issue a private file with native tasks_report_context; never print or attach its contents. CLI thread IDs are not report authority. If native reporting is unavailable, state the transport blocker and use an ordinary Tasks comment without claiming a durable report. ${input.attachmentPending ? "Local attachment can still be pending. The original authorized creation claim and native child facts must match before a report is accepted." : "Your thread is attached to the task."}`,
+        `Follow task ${input.task.key}, its linked specifications, acceptance criteria and applicable project instructions. Report explicit outcomes with native tasks_report using taskId ${input.task.id}: completed, review_ready, blocked, failed or needs_decision. Use a stable retry key, a bounded summary, an explicit question for needs_decision, typed result/evidence references and baseline references. Keep the returned report/comment IDs in your final output. Reports can be made during an active turn; idle activity is not task completion. Reporting does not change task status. Set status explicitly with bb tasks update ${input.task.key} --status in_review or --status done only when your ticket gates are met. For CLI/RPC reporting, issue a private file with native tasks_report_context; never print or attach its contents. CLI thread IDs are not report authority. If native reporting is unavailable, state the transport blocker and use an ordinary Tasks comment without claiming a durable report. ${input.attachmentPending ? "Local attachment can still be pending. The original authorized creation claim and native child facts must match before a report is accepted." : "Your thread is attached to the task."}`,
       ].join("\n"),
     ),
   ];
@@ -420,9 +420,7 @@ export async function prepareTaskWorker(
     providerId: execution.providerId,
     model: execution.model,
     reasoningLevel: execution.reasoningLevel,
-    ...(execution.serviceTier === null
-      ? {}
-      : { serviceTier: execution.serviceTier }),
+    ...(execution.serviceTier === null ? {} : { serviceTier: execution.serviceTier }),
     permissionMode: execution.permissionMode,
     title: delegatedThreadTitle(task),
     prompt,
@@ -430,9 +428,6 @@ export async function prepareTaskWorker(
   return { task, preset, args };
 }
 
-export function registerDelegation(
-  bb: BbPluginApi,
-  store: TasksApiStore,
-): void {
+export function registerDelegation(bb: BbPluginApi, store: TasksApiStore): void {
   bb.rpc.register(delegationRpcContract, handlers(bb, store));
 }

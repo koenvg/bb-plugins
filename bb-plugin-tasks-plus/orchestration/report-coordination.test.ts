@@ -36,10 +36,7 @@ describe("Tasks-owned report readers and compact status", () => {
             kind: "evidence",
             reference: `artifact:${n}`,
           })),
-          baselineReferences: Array.from(
-            { length: 16 },
-            (_, n) => `commit:${n}`,
-          ),
+          baselineReferences: Array.from({ length: 16 }, (_, n) => `commit:${n}`),
         }),
       );
     const result = (await f.harness.behavior.callRpc("orchestrateStatus", {
@@ -66,8 +63,7 @@ describe("Tasks-owned report readers and compact status", () => {
     expect(task.reportDeliveries.value).toMatchObject({ total: 7, omitted: 2 });
     expect(
       task.reportedDecisions.value.items.every(
-        (question: any) =>
-          question.threadId === "thr_worker" && question.taskId === f.task.id,
+        (question: any) => question.threadId === "thr_worker" && question.taskId === f.task.id,
       ),
     ).toBe(true);
     const readers = createReportStore(f.bb.storage.database());
@@ -79,14 +75,10 @@ describe("Tasks-owned report readers and compact status", () => {
       total: 7,
       omitted: 5,
     });
-    expect(
-      readers.getForRun(reports[0]!.id, f.input.runId)?.question,
-    ).toHaveLength(2000);
+    expect(readers.getForRun(reports[0]!.id, f.input.runId)?.question).toHaveLength(2000);
     expect(() => readers.decisions(f.task.id, 101)).toThrow(/limit/);
     expect(() => readers.deliveries(f.task.id, -1)).toThrow(/limit/);
-    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(
-      STATUS_LIMITS.bytes,
-    );
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(STATUS_LIMITS.bytes);
   });
   it("keeps questions and result provenance readable after detach and does not silently resolve them", async () => {
     const f = await reportFixture();
@@ -98,9 +90,7 @@ describe("Tasks-owned report readers and compact status", () => {
     const status = (await f.harness.behavior.callRpc("orchestrateStatus", {
       epicId: f.epic.id,
     })) as any;
-    expect(
-      status.status.subtasks[0].reportedDecisions.value.items[0],
-    ).toMatchObject({
+    expect(status.status.subtasks[0].reportedDecisions.value.items[0]).toMatchObject({
       id: report.id,
       taskId: f.task.id,
       threadId: "thr_worker",
@@ -124,15 +114,16 @@ describe("Tasks-owned report readers and compact status", () => {
       const result = (await f.harness.behavior.callRpc("orchestrateStatus", {
         epicId: f.epic.id,
       })) as any;
-      const downstream = result.status.subtasks.find(
-        (task: any) => task.id === f.tasks[1]!.id,
-      );
+      const downstream = result.status.subtasks.find((task: any) => task.id === f.tasks[1]!.id);
       expect(downstream.nativeReadiness).toBe("ready");
       expect(downstream.handoff.state).toBe("unknown");
       expect(result.status.acceptance.state).toBe("unknown");
-      expect(await f.harness.behavior.callRpc("orchestrateDispatch", {
-        ...f.input, taskId: f.tasks[1]!.id,
-      })).toMatchObject({ outcome: "deferred", claim: null });
+      expect(
+        await f.harness.behavior.callRpc("orchestrateDispatch", {
+          ...f.input,
+          taskId: f.tasks[1]!.id,
+        }),
+      ).toMatchObject({ outcome: "deferred", claim: null });
       expect(f.harness.sdk.callsTo("threads.spawn")).toHaveLength(0);
     },
   );
@@ -154,17 +145,15 @@ describe("Tasks-owned report readers and compact status", () => {
     );
     initializeTasksSchema(db);
     expect(read()).toEqual(before);
-    expect(
-      db.prepare("SELECT version FROM schema_version ORDER BY version").all(),
-    ).toHaveLength(10);
+    expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
+      10,
+    );
     initializeTasksSchema(db);
-    expect(
-      db.prepare("SELECT version FROM schema_version ORDER BY version").all(),
-    ).toHaveLength(10);
+    expect(db.prepare("SELECT version FROM schema_version ORDER BY version").all()).toHaveLength(
+      10,
+    );
     const report = await f.report();
     await f.detach();
-    expect(createReportStore(db).get(report.id)?.commentId).toBe(
-      report.commentId,
-    );
+    expect(createReportStore(db).get(report.id)?.commentId).toBe(report.commentId);
   });
 });

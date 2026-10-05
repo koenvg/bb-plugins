@@ -19,11 +19,7 @@ describe("native reporting capability boundary", () => {
     );
     const native = { threadId: "thr_worker", projectId: "proj_fixture" };
     await expect(
-      f.harness.behavior.callAgentTool(
-        "tasks_report_context",
-        { taskId: f.task.id },
-        native,
-      ),
+      f.harness.behavior.callAgentTool("tasks_report_context", { taskId: f.task.id }, native),
     ).rejects.toThrow(/outside the verified/);
     await expect(
       f.harness.behavior.callAgentTool(
@@ -38,9 +34,7 @@ describe("native reporting capability boundary", () => {
       ),
     ).rejects.toThrow(/outside the verified/);
     expect(f.harness.sdk.callsTo("files.write")).toHaveLength(0);
-    expect(
-      createReportStore(f.bb.storage.database()).latest(f.task.id),
-    ).toBeNull();
+    expect(createReportStore(f.bb.storage.database()).latest(f.task.id)).toBeNull();
   });
   it("stores only a hash and immutable native origin; token never appears in tool/report/comment output", async () => {
     const f = await reportFixture();
@@ -67,17 +61,15 @@ describe("native reporting capability boundary", () => {
       contextToken: issued.token,
     });
     expect(JSON.stringify(report)).not.toContain(issued.token);
-    expect(JSON.stringify(f.store.tasks.listComments(f.task.id))).not.toContain(
-      issued.token,
-    );
+    expect(JSON.stringify(f.store.tasks.listComments(f.task.id))).not.toContain(issued.token);
     expect(JSON.stringify(f.harness.logEntries)).not.toContain(issued.token);
   });
   it("CLI and RPC cannot mint or report from a supplied thread ID", async () => {
     const f = await reportFixture();
-    const denied = await f.harness.behavior.runCli(
-      ["report-context", "--json"],
-      { threadId: "thr_worker", projectId: "proj_fixture" },
-    );
+    const denied = await f.harness.behavior.runCli(["report-context", "--json"], {
+      threadId: "thr_worker",
+      projectId: "proj_fixture",
+    });
     expect(denied.exitCode).toBe(1);
     const cli = await f.harness.behavior.runCli(
       [
@@ -113,9 +105,7 @@ describe("native reporting capability boundary", () => {
         { threadId: "thr_wrong", projectId: "proj_fixture" },
       ),
     ).rejects.toThrow();
-    expect(
-      createReportStore(f.bb.storage.database()).latest(f.task.id),
-    ).toBeNull();
+    expect(createReportStore(f.bb.storage.database()).latest(f.task.id)).toBeNull();
   });
   it("CLI/RPC use native-issued origin, not overridden environment identity", async () => {
     const f = await reportFixture();
@@ -149,11 +139,7 @@ describe("native reporting capability boundary", () => {
     });
     expect(cli.stdout).not.toContain(issued.token);
     expect(
-      await f.harness.behavior.runCli([
-        "report-show",
-        JSON.parse(cli.stdout).id,
-        "--json",
-      ]),
+      await f.harness.behavior.runCli(["report-show", JSON.parse(cli.stdout).id, "--json"]),
     ).toMatchObject({ exitCode: 0 });
   });
   it("rejects wrong-task token replay, arbitrary thread fields and new writes after detachment", async () => {
@@ -206,10 +192,7 @@ describe("native reporting capability boundary", () => {
       ...f.payload,
       contextToken: issued.token,
     });
-    f.bb.storage
-      .database()
-      .prepare("UPDATE orchestration_report_contexts SET expires_at=0")
-      .run();
+    f.bb.storage.database().prepare("UPDATE orchestration_report_contexts SET expires_at=0").run();
     expect(
       await f.harness.behavior.callRpc("reportWorker", {
         ...f.payload,
@@ -231,14 +214,9 @@ describe("native reporting capability boundary", () => {
     f.harness.sdk.stub("files.write", async () => {
       throw new Error("fixture failure");
     });
-    await expect(f.issue()).rejects.toThrow(
-      /private native report context file/,
-    );
+    await expect(f.issue()).rejects.toThrow(/private native report context file/);
     expect(
-      f.bb.storage
-        .database()
-        .prepare("SELECT * FROM orchestration_report_contexts")
-        .all(),
+      f.bb.storage.database().prepare("SELECT * FROM orchestration_report_contexts").all(),
     ).toHaveLength(0);
   });
   it("rejects native project/worker spoof, unsupported provider and version", async () => {
@@ -274,10 +252,7 @@ describe("native reporting capability boundary", () => {
     }));
     await expect(f.issue()).rejects.toThrow(/supported|transport/);
     expect(
-      f.bb.storage
-        .database()
-        .prepare("SELECT * FROM orchestration_report_contexts")
-        .all(),
+      f.bb.storage.database().prepare("SELECT * FROM orchestration_report_contexts").all(),
     ).toHaveLength(0);
   });
   it("never returns the token in native tool results", async () => {

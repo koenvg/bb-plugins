@@ -2,10 +2,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { RUN_LIMITS } from "./run-contract";
 import { fingerprint } from "./run-scope";
 import { refuse } from "./run-provenance";
-import {
-  resolutionDecisionSchema,
-  type ResolutionDecision,
-} from "./recovery-contract";
+import { resolutionDecisionSchema, type ResolutionDecision } from "./recovery-contract";
 
 export async function readRecoveryDecision(
   bb: BbPluginApi,
@@ -28,10 +25,7 @@ export async function readRecoveryDecision(
     Date.now() - event.createdAt > RUN_LIMITS.invocationAgeMs ||
     event.createdAt > Date.now() + 1000
   )
-    refuse(
-      "recovery_decision_stale",
-      "Use the latest fresh BB-recorded resolution decision.",
-    );
+    refuse("recovery_decision_stale", "Use the latest fresh BB-recorded resolution decision.");
   const data = event.data;
   // Approved temporary boundary only. BB user/null attribution is not human proof.
   if (
@@ -48,9 +42,7 @@ export async function readRecoveryDecision(
       "recovery_decision_required",
       "Resolution requires one explicit unmixed BB-recorded user/null decision. See BBP-51.",
     );
-  const match = /^\/tasks-orchestrate-resolve\s+(\{[\s\S]*\})$/.exec(
-    data.input[0].text,
-  );
+  const match = /^\/tasks-orchestrate-resolve\s+(\{[\s\S]*\})$/.exec(data.input[0].text);
   let recorded: ResolutionDecision | null = null;
   try {
     recorded = resolutionDecisionSchema.parse(JSON.parse(match?.[1] ?? ""));

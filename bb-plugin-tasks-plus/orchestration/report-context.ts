@@ -4,9 +4,9 @@ import { correlationSchema, type DispatchClaim } from "./dispatch-contract";
 import { createDispatchStore } from "./dispatch-store";
 import { createRunStore } from "./run-store";
 import { refuse } from "./run-provenance";
-import { fingerprint } from "./run-scope";
 import { isSideChatShapedThread } from "../shared/side-chat";
 
+import { originalWorkerMatches } from "./original-worker";
 type Thread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
 interface Observation {
   thread: Thread;
@@ -24,19 +24,10 @@ const recoverablePhases = new Set([
 export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
   const claims = createDispatchStore(bb.storage.database());
   const runs = createRunStore(bb.storage.database());
-  function recoverable(
-    taskId: string,
-    threadId: string,
-    observed: Observation,
-  ): DispatchClaim {
-    const correlation = correlationSchema.safeParse(
-      observed.metadata.orchestration,
-    );
+  function recoverable(taskId: string, threadId: string, observed: Observation): DispatchClaim {
+    const correlation = correlationSchema.safeParse(observed.metadata.orchestration);
     if (!correlation.success)
-      refuse(
-        "report_wrong_worker",
-        "No attached association or recoverable creation context.",
-      );
+      refuse("report_wrong_worker", "No attached association or recoverable creation context.");
     const claim = claims.get(correlation.data.attemptId);
     if (
       !claim ||
@@ -51,27 +42,18 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
       );
     }
     const run = runs.getRun(claim.runId);
-    const expected = run && {
-      version: 1,
-      attemptId: claim.id,
-      taskId,
-      role: claim.role,
-      runId: claim.runId,
-      coordinatorThreadId: claim.coordinatorThreadId,
-      bbProjectId: run.bbProjectId,
-    };
     const originalNativeChild =
-      observed.thread.originPluginId === bb.pluginId &&
-      observed.thread.parentThreadId === claim.coordinatorThreadId &&
-      observed.thread.createdAt >= Date.parse(claim.createdAt);
-    const uniqueOriginal =
-      observed.matches.length === 1 && observed.matches[0] === threadId;
-    if (
-      !expected ||
-      fingerprint(correlation.data) !== fingerprint(expected) ||
-      !originalNativeChild ||
-      !uniqueOriginal
-    ) {
+      !!run &&
+      originalWorkerMatches({
+        thread: observed.thread,
+        claim,
+        projectId: run.bbProjectId,
+        pluginId: bb.pluginId,
+        correlation: observed.metadata.orchestration,
+        associationId: null,
+      });
+    const uniqueOriginal = observed.matches.length === 1 && observed.matches[0] === threadId;
+    if (!originalNativeChild || !uniqueOriginal) {
       refuse(
         "report_context_conflict",
         "Native creation facts do not identify one original authorized worker. Metadata alone is not authority.",
@@ -101,10 +83,7 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
     if (threadClaims.length > 1)
       refuse("report_context_conflict", "Worker has ambiguous live claims.");
     let claim = threadClaims[0] ?? null;
-    if (
-      association &&
-      claims.claims(taskId).some((candidate) => candidate.id !== claim?.id)
-    ) {
+    if (association && claims.claims(taskId).some((candidate) => candidate.id !== claim?.id)) {
       refuse(
         "report_context_conflict",
         "An attached worker cannot bypass a different live task claim.",
@@ -116,25 +95,17 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
     if (
       owners.length &&
       !owners.some(
-        (owner) =>
-          owner.threadId === threadId &&
-          owner.associationId === association?.id,
+        (owner) => owner.threadId === threadId && owner.associationId === association?.id,
       )
     ) {
-      refuse(
-        "report_wrong_worker",
-        "This worker is not the designated attached task owner.",
-      );
+      refuse("report_wrong_worker", "This worker is not the designated attached task owner.");
     }
     if (!association) {
       const original = recoverable(taskId, threadId, observed);
       if (claim && claim.id !== original.id)
         refuse("report_context_conflict", "Worker claims disagree.");
       claim = original;
-    } else if (
-      claim &&
-      (claim.phase !== "attached" || claim.associationId !== association.id)
-    ) {
+    } else if (claim && (claim.phase !== "attached" || claim.associationId !== association.id)) {
       refuse("report_context_conflict", "Attached worker and claim disagree.");
     }
     const run = claim ? runs.getRun(claim.runId) : null;
@@ -147,9 +118,24 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
         !run.approvedTaskIds.includes(taskId) ||
         task.parentTaskId !== run.epicId)
     ) {
+      refuse("report_context_conflict", "Original claim/run/task context no longer matches.");
+    }
+    if (
+      association &&
+      claim &&
+      run &&
+      !originalWorkerMatches({
+        thread: native,
+        claim,
+        projectId: run.bbProjectId,
+        pluginId: bb.pluginId,
+        correlation: observed.metadata.orchestration,
+        associationId: association.id,
+      })
+    ) {
       refuse(
         "report_context_conflict",
-        "Original claim/run/task context no longer matches.",
+        "Native creation facts do not identify the original attached worker.",
       );
     }
     return {
@@ -162,18 +148,17 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
       role: claim?.role ?? null,
     };
   }
-  async function observe(
-    taskId: string,
-    threadId: string,
-  ): Promise<Observation> {
+  async function observe(taskId: string, threadId: string): Promise<Observation> {
     const signal = AbortSignal.timeout(2000);
     const thread = await bb.sdk.threads.get({ threadId, signal });
-    if (store.tasks.getTaskThreadByThreadId(taskId, threadId))
+    if (store.tasks.getTaskThreadByThreadId(taskId, threadId) && !claims.forThread(threadId).length)
       return { thread, metadata: {}, matches: [] };
     const metadata = await bb.sdk.threads.getPluginMetadata({
       threadId,
       signal,
     });
+    if (store.tasks.getTaskThreadByThreadId(taskId, threadId))
+      return { thread, metadata, matches: [] };
     const parsed = correlationSchema.safeParse(metadata.orchestration);
     const claim = parsed.success ? claims.get(parsed.data.attemptId) : null;
     if (
@@ -185,8 +170,7 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
     )
       return { thread, metadata, matches: [] };
     // A canonical returned child ID is already authoritative Tasks evidence.
-    if (claim.threadId === threadId)
-      return { thread, metadata, matches: [threadId] };
+    if (claim.threadId === threadId) return { thread, metadata, matches: [threadId] };
     const children = await bb.sdk.threads.list({
       projectId: thread.projectId!,
       parentThreadId: claim.coordinatorThreadId,
@@ -209,9 +193,7 @@ export function createReportContext(bb: BbPluginApi, store: TasksApiStore) {
             signal,
           });
           const candidate = correlationSchema.safeParse(data.orchestration);
-          return candidate.success && candidate.data.attemptId === claim.id
-            ? child.id
-            : null;
+          return candidate.success && candidate.data.attemptId === claim.id ? child.id : null;
         }),
       );
       matches.push(...identities.filter((id): id is string => id !== null));

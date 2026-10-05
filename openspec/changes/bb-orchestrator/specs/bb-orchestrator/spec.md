@@ -27,6 +27,9 @@ Scope pause SHALL update only the scope record. It MUST NOT stop a worker, cance
 - **WHEN** the operator pauses scope
 - **THEN** the record becomes paused and the worker/native queue remains unchanged
 
+### Requirement: Readable scope-record approval
+The Tasks-owned renderer SHALL show selected scope, coordinator, recorded execution selection, permissions and baseline intent. Full-access text SHALL state that no worker starts or receives input. Restricted operations still need separate approval. Technical details SHALL retain complete identities, fingerprints, scope text and editable parameters. Labels SHALL be escaped, display-only values and SHALL fall back to exact bound IDs on stale or unavailable metadata. Both server and browser SHALL use the same complete canonical tracker fields. Approval SHALL submit the exact bound proposal. Approve scope, Resume scope and Cancel SHALL remain keyboard-accessible outside technical details at narrow widths. Changed parameters SHALL clear approval readiness until checked again.
+
 ### Requirement: Coordination and acceptance stay separate
 The coordinator SHALL summarize records and operator decisions only. It MUST NOT inspect repositories/transcripts, implement, test, review, integrate or diagnose. Epic success SHALL require separate explicit integration evidence; done subtasks and idle workers MUST NOT imply acceptance.
 

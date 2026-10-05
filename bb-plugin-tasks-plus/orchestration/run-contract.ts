@@ -79,27 +79,18 @@ export const runResultSchema = z.union([
     .object({
       outcome: z.enum(["pending", "cancelled", "interrupted"]),
       invocationReference: reference,
-      error: z
-        .object({ code: reference, message: z.string() })
-        .strict()
-        .optional(),
+      error: z.object({ code: reference, message: z.string() }).strict().optional(),
     })
     .strict(),
 ]);
 export type RunResult = z.infer<typeof runResultSchema>;
-const controlInput = z
-  .object({ coordinatorThreadId: reference, requestId: reference })
-  .strict();
+const controlInput = z.object({ coordinatorThreadId: reference, requestId: reference }).strict();
 export const runRpcContract = defineRpcContract({
   orchestrateBegin: { input: controlInput, output: runResultSchema },
   orchestratePause: { input: controlInput, output: runResultSchema },
   orchestrateResume: { input: controlInput, output: runResultSchema },
   orchestratePreview: {
-    input: z
-      .object({ coordinatorThreadId: reference, config: runConfigSchema })
-      .strict(),
-    output: z
-      .object({ proposal: proposalSchema, summary: z.string() })
-      .strict(),
+    input: z.object({ coordinatorThreadId: reference, config: runConfigSchema }).strict(),
+    output: z.object({ proposal: proposalSchema, summary: z.string() }).strict(),
   },
 });

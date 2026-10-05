@@ -24,9 +24,7 @@ describe("migration 9 and durable task/role claims", () => {
     expect(createRunStore(db).getRun(f.input.runId)).toEqual(run);
     expect(f.store.tasks.getPreset(f.preset.id)).toEqual(f.preset);
     expect(
-      db
-        .prepare("SELECT role,primary_owner FROM task_threads WHERE id=?")
-        .get(association.id),
+      db.prepare("SELECT role,primary_owner FROM task_threads WHERE id=?").get(association.id),
     ).toEqual({ role: null, primary_owner: 0 });
     expect(createDispatchStore(db).owners(f.task.id)).toEqual([]);
   });
@@ -35,9 +33,7 @@ describe("migration 9 and durable task/role claims", () => {
     const a = createDispatchStore(f.bb.storage.database());
     const b = createDispatchStore(f.bb.storage.database());
     const first = a.reserve(f.input);
-    expect(() => b.reserve({ ...f.input, runId: "different-run" })).toThrow(
-      "UNIQUE",
-    );
+    expect(() => b.reserve({ ...f.input, runId: "different-run" })).toThrow("UNIQUE");
     expect(b.live(f.task.id, "implementation")?.id).toBe(first.id);
   });
   it("rolls back a reserved claim when its transaction fails", async () => {
@@ -56,13 +52,9 @@ describe("migration 9 and durable task/role claims", () => {
     historicalOwner(f);
     const claims = createDispatchStore(f.bb.storage.database());
     const owner = claims.owners(f.task.id)[0]!;
-    expect(() => f.store.transaction(() => claims.designate(owner))).toThrow(
-      "UNIQUE",
-    );
+    expect(() => f.store.transaction(() => claims.designate(owner))).toThrow("UNIQUE");
     f.store.tasks.deleteTaskThread(owner.associationId);
     expect(claims.owners(f.task.id)).toEqual([owner]);
-    expect(claims.live(f.task.id, "implementation")?.threadId).toBe(
-      owner.threadId,
-    );
+    expect(claims.live(f.task.id, "implementation")?.threadId).toBe(owner.threadId);
   });
 });

@@ -13,9 +13,7 @@ describe("explicit worker reports", () => {
       const f = await reportFixture();
       const report = await f.report({
         outcome,
-        ...(outcome === "needs_decision"
-          ? { question: "Which baseline?" }
-          : {}),
+        ...(outcome === "needs_decision" ? { question: "Which baseline?" } : {}),
       });
       expect(report).toMatchObject({
         outcome,
@@ -25,9 +23,7 @@ describe("explicit worker reports", () => {
         runId: f.input.runId,
         role: "implementation",
       });
-      expect(report.associationId).toBe(
-        f.store.tasks.listTaskThreads(f.task.id)[0]!.id,
-      );
+      expect(report.associationId).toBe(f.store.tasks.listTaskThreads(f.task.id)[0]!.id);
       expect(f.store.tasks.getTask(f.task.id)?.status).toBe("in_progress");
       expect(f.store.tasks.getTask(f.epic.id)?.status).toBe("backlog");
       const comment = f.store.tasks
@@ -54,16 +50,14 @@ describe("explicit worker reports", () => {
     expect((await f.report()).id).toBe(reports[0]!.id);
     expect(f.harness.sdk.callsTo("threads.send")).toHaveLength(0);
     expect(
-      f.store.tasks
-        .listComments(f.task.id)
-        .filter((row) => row.body.startsWith("Worker report")),
+      f.store.tasks.listComments(f.task.id).filter((row) => row.body.startsWith("Worker report")),
     ).toHaveLength(1);
     await expect(f.report({ summary: "Different result" })).rejects.toThrow(
       /different immutable payload/,
     );
-    await expect(
-      f.report({ taskId: f.tasks[0]!.id, outcome: "failed" }),
-    ).rejects.toThrow(/different immutable payload/);
+    await expect(f.report({ taskId: f.tasks[0]!.id, outcome: "failed" })).rejects.toThrow(
+      /different immutable payload/,
+    );
   });
   it("retains immutable provenance and identical retry after detach, but refuses new reports", async () => {
     const f = await reportFixture();
@@ -75,9 +69,7 @@ describe("explicit worker reports", () => {
         reportId: before.id,
       }),
     ).toEqual(before);
-    await expect(f.report({ key: "new-after-detach" })).rejects.toThrow(
-      /claim|context|worker/i,
-    );
+    await expect(f.report({ key: "new-after-detach" })).rejects.toThrow(/claim|context|worker/i);
     expect(f.harness.sdk.callsTo("threads.send")).toHaveLength(0);
   });
   it("accepts only the actual attached owner, never supplied thread IDs", async () => {
@@ -90,19 +82,15 @@ describe("explicit worker reports", () => {
         projectId: "proj_fixture",
       }),
     );
-    await expect(
-      f.report({}, { ...f.nativeContext, threadId: "thr_wrong" }),
-    ).rejects.toThrow(/worker|context/i);
-    await expect(f.report({ threadId: "thr_wrong" })).rejects.toThrow();
-    await expect(f.report({ taskId: f.tasks[1]!.id })).rejects.toThrow(
-      /claim|context|worker/i,
+    await expect(f.report({}, { ...f.nativeContext, threadId: "thr_wrong" })).rejects.toThrow(
+      /worker|context/i,
     );
-    await expect(
-      f.report({}, { ...f.nativeContext, projectId: "proj_other" }),
-    ).rejects.toThrow(/project|context/i);
-    expect(
-      createReportStore(f.bb.storage.database()).latest(f.task.id),
-    ).toBeNull();
+    await expect(f.report({ threadId: "thr_wrong" })).rejects.toThrow();
+    await expect(f.report({ taskId: f.tasks[1]!.id })).rejects.toThrow(/claim|context|worker/i);
+    await expect(f.report({}, { ...f.nativeContext, projectId: "proj_other" })).rejects.toThrow(
+      /project|context/i,
+    );
+    expect(createReportStore(f.bb.storage.database()).latest(f.task.id)).toBeNull();
   });
   it("rejects a wrong attached non-owner and plural claims", async () => {
     const f = await reportFixture(2);
@@ -121,9 +109,9 @@ describe("explicit worker reports", () => {
       title: "Other",
       liveStatus: "working",
     });
-    await expect(
-      f.report({}, { ...f.nativeContext, threadId: "thr_wrong" }),
-    ).rejects.toThrow(/owner|claim/);
+    await expect(f.report({}, { ...f.nativeContext, threadId: "thr_wrong" })).rejects.toThrow(
+      /owner|claim/,
+    );
     const claims = createDispatchStore(f.bb.storage.database());
     const second = claims.reserve({ ...f.input, taskId: f.tasks[1]!.id });
     claims.update(second.id, { threadId: "thr_worker" });
@@ -135,14 +123,28 @@ describe("explicit worker reports", () => {
     const claims = createDispatchStore(f.bb.storage.database());
     const claim = claims.reserve(f.input);
     claims.update(claim.id, { phase: "creating" });
-    f.workers.set("thr_worker", makeThreadResponse({
-      id: "thr_worker", providerId: "codex", projectId: "proj_fixture",
-      parentThreadId: "thr_coordinator", originPluginId: f.bb.pluginId, createdAt: Date.now(),
-    }));
-    f.metadata.set("thr_worker", { orchestration: {
-      version: 1, attemptId: claim.id, taskId: f.task.id, role: "implementation",
-      runId: f.input.runId, coordinatorThreadId: "thr_coordinator", bbProjectId: "proj_fixture",
-    } });
+    f.workers.set(
+      "thr_worker",
+      makeThreadResponse({
+        id: "thr_worker",
+        providerId: "codex",
+        projectId: "proj_fixture",
+        parentThreadId: "thr_coordinator",
+        originPluginId: f.bb.pluginId,
+        createdAt: Date.now(),
+      }),
+    );
+    f.metadata.set("thr_worker", {
+      orchestration: {
+        version: 1,
+        attemptId: claim.id,
+        taskId: f.task.id,
+        role: "implementation",
+        runId: f.input.runId,
+        coordinatorThreadId: "thr_coordinator",
+        bbProjectId: "proj_fixture",
+      },
+    });
     const report = await f.report({ outcome: "needs_decision", question: "Need baseline choice" });
     expect(report).toMatchObject({ associationId: null, claimId: claim.id, runId: f.input.runId });
     expect(claims.get(claim.id)?.threadId).toBeNull();
@@ -166,10 +168,8 @@ describe("explicit worker reports", () => {
       id: "thr_worker",
       providerId: "codex",
       projectId: "proj_fixture",
-      originPluginId:
-        fault === "wrong-native-origin" ? "other-plugin" : f.bb.pluginId,
-      parentThreadId:
-        fault === "wrong-parent" ? "thr_other" : "thr_coordinator",
+      originPluginId: fault === "wrong-native-origin" ? "other-plugin" : f.bb.pluginId,
+      parentThreadId: fault === "wrong-parent" ? "thr_other" : "thr_coordinator",
       createdAt: fault === "old-worker" ? 0 : Date.now(),
     });
     f.workers.set(worker.id, worker);
@@ -185,23 +185,16 @@ describe("explicit worker reports", () => {
       }),
     });
     if (fault === "duplicate-native") {
-      f.workers.set(
-        "thr_duplicate",
-        makeThreadResponse({ ...worker, id: "thr_duplicate" }),
-      );
+      f.workers.set("thr_duplicate", makeThreadResponse({ ...worker, id: "thr_duplicate" }));
       f.metadata.set("thr_duplicate", f.metadata.get(worker.id));
     }
     if (fault === "released-claim")
       f.bb.storage
         .database()
-        .prepare(
-          "UPDATE orchestration_dispatch_claims SET released_at=? WHERE id=?",
-        )
+        .prepare("UPDATE orchestration_dispatch_claims SET released_at=? WHERE id=?")
         .run(new Date().toISOString(), claim.id);
     await expect(f.report()).rejects.toThrow(/context|claim|worker/i);
-    expect(
-      createReportStore(f.bb.storage.database()).latest(f.task.id),
-    ).toBeNull();
+    expect(createReportStore(f.bb.storage.database()).latest(f.task.id)).toBeNull();
     expect(f.store.tasks.listTaskThreads(f.task.id)).toHaveLength(0);
     expect(f.harness.sdk.callsTo("threads.spawn")).toHaveLength(0);
   });

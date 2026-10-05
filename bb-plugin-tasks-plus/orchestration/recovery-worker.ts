@@ -10,15 +10,9 @@ export async function relinquishableWorker(
       threadId,
       signal: AbortSignal.timeout(1500),
     });
-    if (thread.id !== threadId || thread.projectId !== projectId)
-      return "unknown";
-    if (thread.status === "active" || thread.status === "stopping")
-      return "refused";
-    if (
-      thread.status === "error" ||
-      thread.archivedAt != null ||
-      thread.deletedAt != null
-    )
+    if (thread.id !== threadId || thread.projectId !== projectId) return "unknown";
+    if (thread.status === "active" || thread.status === "stopping") return "refused";
+    if (thread.status === "error" || thread.archivedAt != null || thread.deletedAt != null)
       return "confirmed";
     const events = await bb.sdk.threads.events.list({
       threadId,
@@ -29,9 +23,7 @@ export async function relinquishableWorker(
     });
     if (events.length >= 100) return "unknown";
     return events.some(
-      (event) =>
-        event.type === "system/thread/interrupted" &&
-        event.data.reason === "manual-stop",
+      (event) => event.type === "system/thread/interrupted" && event.data.reason === "manual-stop",
     )
       ? "confirmed"
       : "refused";

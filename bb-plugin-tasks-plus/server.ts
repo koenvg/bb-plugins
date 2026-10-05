@@ -48,20 +48,9 @@ export async function registerTasks(
   const dispatcher = createDispatcher(bb, store, runs);
   dispatcher.register();
   const orchestrationOptions = {
-    readCoordination: withReportCoordination(
-      dispatcher.readCoordination,
-      reporter.reports,
-    ),
+    readCoordination: withReportCoordination(dispatcher.readCoordination, reporter.reports),
   };
-  registerTasksCli(
-    bb,
-    store,
-    statusPayload(),
-    orchestrationOptions,
-    runs,
-    dispatcher,
-    reporter,
-  );
+  registerTasksCli(bb, store, statusPayload(), orchestrationOptions, runs, dispatcher, reporter);
   registerDelegation(bb, store);
   registerOrchestrationStatus(bb, store, orchestrationOptions);
   registerMentions(bb, store);

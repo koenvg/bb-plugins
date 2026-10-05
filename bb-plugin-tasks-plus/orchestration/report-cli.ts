@@ -1,8 +1,4 @@
-import {
-  cliCommand,
-  PluginCliError,
-  type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+import { cliCommand, PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Reporter } from "./report";
 import { reportInputSchema } from "./report-contract";
 import { resolveStatusEpicId } from "./status-store";
@@ -10,13 +6,10 @@ import { resolveStatusEpicId } from "./status-store";
 export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
   return {
     report: cliCommand({
-      summary:
-        "Record an explicit worker outcome using a native-issued context file",
+      summary: "Record an explicit worker outcome using a native-issued context file",
       description:
         "CLI thread IDs are caller-supplied and are not reporting authority. First use the native tasks_report_context tool. No automatic task status update or delivery retry.",
-      positionals: [
-        { name: "task", required: true, description: "Task key or ULID" },
-      ],
+      positionals: [{ name: "task", required: true, description: "Task key or ULID" }],
       options: {
         key: {
           type: "string",
@@ -25,13 +18,7 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
         },
         outcome: {
           type: "enum",
-          values: [
-            "completed",
-            "review_ready",
-            "blocked",
-            "failed",
-            "needs_decision",
-          ],
+          values: ["completed", "review_ready", "blocked", "failed", "needs_decision"],
           required: true,
           description: "Explicit outcome, never idle activity",
         },
@@ -42,8 +29,7 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
         },
         question: {
           type: "string",
-          description:
-            "Explicit question required for needs_decision, at most 2000 characters",
+          description: "Explicit question required for needs_decision, at most 2000 characters",
         },
         result: {
           type: "string",
@@ -54,8 +40,7 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
         baseline: {
           type: "string",
           repeatable: true,
-          description:
-            "Reported baseline reference, at most 16 of 1024 characters",
+          description: "Reported baseline reference, at most 16 of 1024 characters",
         },
         "context-file": {
           type: "string",
@@ -74,23 +59,16 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
         },
       },
       async run(input) {
-        const taskId = resolveStatusEpicId(
-          bb.storage.database(),
-          input.positionals.task,
-        );
+        const taskId = resolveStatusEpicId(bb.storage.database(), input.positionals.task);
         if (!taskId)
           throw new PluginCliError("Task not found", {
             code: "task_not_found",
           });
         const path = input.options["context-file"];
-        if (
-          path.length > 1024 ||
-          !/^\/.*\/\.tasks-report-context-[a-f0-9-]{36}$/.test(path)
-        )
-          throw new PluginCliError(
-            "Use the private file returned by the native context tool",
-            { code: "report_context_invalid" },
-          );
+        if (path.length > 1024 || !/^\/.*\/\.tasks-report-context-[a-f0-9-]{36}$/.test(path))
+          throw new PluginCliError("Use the private file returned by the native context tool", {
+            code: "report_context_invalid",
+          });
         const file = await bb.sdk.files.read({
           hostId: input.options.machine,
           path,
@@ -101,9 +79,7 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
           });
         let results: unknown[];
         try {
-          results = (input.options.result ?? []).map((result) =>
-            JSON.parse(result),
-          );
+          results = (input.options.result ?? []).map((result) => JSON.parse(result));
         } catch {
           throw new PluginCliError("Each --result must be typed JSON", {
             code: "report_input_invalid",
@@ -140,16 +116,11 @@ export function reportCommands(bb: BbPluginApi, reporter: Reporter) {
       },
     }),
     "report-show": cliCommand({
-      summary:
-        "Read one immutable worker report and its current delivery state",
-      positionals: [
-        { name: "report", required: true, description: "Stable report ID" },
-      ],
+      summary: "Read one immutable worker report and its current delivery state",
+      positionals: [{ name: "report", required: true, description: "Stable report ID" }],
       options: { json: { type: "boolean", description: "Emit bounded JSON" } },
       run(input) {
-        const report = reporter.reports.get(
-          input.positionals.report.replace(/^report:/, ""),
-        );
+        const report = reporter.reports.get(input.positionals.report.replace(/^report:/, ""));
         if (!report)
           throw new PluginCliError("Report not found", {
             code: "report_not_found",

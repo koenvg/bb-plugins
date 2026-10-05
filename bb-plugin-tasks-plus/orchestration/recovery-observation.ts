@@ -1,10 +1,11 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { TasksApiStore } from "../api";
-import { correlationSchema, type DispatchClaim } from "./dispatch-contract";
+import type { DispatchClaim } from "./dispatch-contract";
 import type { DispatchStore } from "./dispatch-store";
 import type { ApprovedRun } from "./run-contract";
 import { fingerprint } from "./run-scope";
 
+import { originalWorkerMatches } from "./original-worker";
 type Thread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
 export interface RecoveryObservation {
   complete: boolean;
@@ -48,9 +49,7 @@ export async function observeRecovery(
         return failed("BB listing coverage is incomplete.");
       for (const row of page) {
         if (!row?.id || rows.some((item) => item.id === row.id))
-          return failed(
-            "BB listings contain incomplete or duplicate identities.",
-          );
+          return failed("BB listings contain incomplete or duplicate identities.");
         rows.push(row);
       }
     }
@@ -70,14 +69,12 @@ export async function observeRecovery(
           "A listed or known worker could not be verified. Missing transport results do not prove absence.",
         );
       }
-      if (thread.id !== id)
-        return failed("BB returned a different worker identity.");
+      if (thread.id !== id) return failed("BB returned a different worker identity.");
       const metadata = await bb.sdk.threads.getPluginMetadata({
         threadId: id,
         signal: AbortSignal.timeout(1500),
       });
       const raw = metadata?.orchestration;
-      const parsed = correlationSchema.safeParse(raw);
       const related =
         id === claim.threadId ||
         id === knownThreadId ||
@@ -86,35 +83,18 @@ export async function observeRecovery(
           "attemptId" in raw &&
           raw.attemptId === claim.id);
       if (!related) continue;
-      // Adopted owners have no spawn correlation. Their exact durable association
-      // is authority for identity, never for changing a native parent.
-      const adopted =
-        !raw &&
-        claim.associationId !== null &&
-        id === claim.threadId &&
-        store.tasks.getTaskThreadByThreadId(claim.taskId, id)?.id ===
-          claim.associationId;
-      if (adopted) {
-        if (thread.projectId !== run.bbProjectId)
-          return failed("Adopted worker project mismatch.");
-      } else if (
-        !parsed.success ||
-        fingerprint(parsed.data) !==
-          fingerprint({
-            version: 1,
-            attemptId: claim.id,
-            taskId: claim.taskId,
-            role: claim.role,
-            runId: claim.runId,
-            coordinatorThreadId: claim.coordinatorThreadId,
-            bbProjectId: run.bbProjectId,
-          }) ||
-        thread.projectId !== run.bbProjectId ||
-        thread.parentThreadId !== claim.coordinatorThreadId ||
-        thread.originPluginId !== bb.pluginId
+      if (
+        !originalWorkerMatches({
+          thread,
+          claim,
+          projectId: run.bbProjectId,
+          pluginId: bb.pluginId,
+          correlation: raw,
+          associationId: store.tasks.getTaskThreadByThreadId(claim.taskId, id)?.id ?? null,
+        })
       )
         return failed(
-          "Original worker parent/project/plugin/task/role/run/attempt context could not be verified.",
+          "Original worker native creation time, parent/project/plugin/task/role/run/attempt context could not be verified.",
         );
       candidates.push(thread);
     }
@@ -136,6 +116,7 @@ export async function observeRecovery(
         associations: store.tasks.listTaskThreads(claim.taskId),
         candidates: candidates.map((thread) => ({
           id: thread.id,
+          createdAt: thread.createdAt,
           projectId: thread.projectId,
           parentThreadId: thread.parentThreadId,
           originPluginId: thread.originPluginId,

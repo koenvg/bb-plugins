@@ -16,10 +16,7 @@ export interface RunRequest {
 export function createRunStore(db: Database) {
   const getRun = (id: string): ApprovedRun | null => {
     const row = db
-      .prepare<
-        [string],
-        { payload: string }
-      >("SELECT payload FROM orchestration_runs WHERE id = ?")
+      .prepare<[string], { payload: string }>("SELECT payload FROM orchestration_runs WHERE id = ?")
       .get(id);
     return row ? runSchema.parse(JSON.parse(row.payload)) : null;
   };
@@ -40,11 +37,13 @@ export function createRunStore(db: Database) {
     getRun,
     save,
     isCoordinatorForRunEpic(runId: string, coordinatorThreadId: string): boolean {
-      return !!db.prepare<[string, string], { found: number }>(
-        `SELECT 1 AS found FROM orchestration_runs original
+      return !!db
+        .prepare<[string, string], { found: number }>(
+          `SELECT 1 AS found FROM orchestration_runs original
          JOIN orchestration_runs candidate ON candidate.epic_id=original.epic_id
          WHERE original.id=? AND candidate.coordinator_thread_id=? LIMIT 1`,
-      ).get(runId, coordinatorThreadId);
+        )
+        .get(runId, coordinatorThreadId);
     },
     newId: () => randomUUID(),
     transaction<T>(fn: () => T): T {
@@ -52,19 +51,17 @@ export function createRunStore(db: Database) {
     },
     latestForEpic(epicId: string): ApprovedRun | null {
       const row = db
-        .prepare<
-          [string],
-          { payload: string }
-        >("SELECT payload FROM orchestration_runs WHERE epic_id = ? ORDER BY rowid DESC LIMIT 1")
+        .prepare<[string], { payload: string }>(
+          "SELECT payload FROM orchestration_runs WHERE epic_id = ? ORDER BY rowid DESC LIMIT 1",
+        )
         .get(epicId);
       return row ? runSchema.parse(JSON.parse(row.payload)) : null;
     },
     getRequest(key: string): RunRequest | null {
       const row = db
-        .prepare<
-          [string],
-          { payload: string }
-        >("SELECT payload FROM orchestration_run_requests WHERE invocation_reference = ?")
+        .prepare<[string], { payload: string }>(
+          "SELECT payload FROM orchestration_run_requests WHERE invocation_reference = ?",
+        )
         .get(key);
       return row ? (JSON.parse(row.payload) as RunRequest) : null;
     },

@@ -82,10 +82,7 @@ function form(
     fingerprints: {
       epic: proposal.fingerprints.epic,
       ...Object.fromEntries(
-        ids.map((id) => [
-          id,
-          scopeHash(id, options.taskTitle ?? "Existing subtask"),
-        ]),
+        ids.map((id) => [id, scopeHash(id, options.taskTitle ?? "Existing subtask")]),
       ),
     },
     execution: {
@@ -145,14 +142,11 @@ function form(
               id: options.wrongLabelIdentity ? "different-task" : taskId,
               projectId: "tracker",
               parentTaskId: taskId === "epic" ? null : "epic",
-              key:
-                taskId === "epic" ? "FIX-1" : `FIX-${ids.indexOf(taskId) + 2}`,
+              key: taskId === "epic" ? "FIX-1" : `FIX-${ids.indexOf(taskId) + 2}`,
               title:
                 taskId === "epic"
                   ? "Disposable epic"
-                  : (options.liveTaskTitle ??
-                    options.taskTitle ??
-                    "Existing subtask"),
+                  : (options.liveTaskTitle ?? options.taskTitle ?? "Existing subtask"),
               description: "",
             },
           };
@@ -167,42 +161,46 @@ function form(
   return { slot, submit, cancel, proposal: shownProposal };
 }
 describe("native run approval form", () => {
+  it("keeps approval actions outside the bounded scrollable scope details", () => {
+    const { slot } = form(true);
+    const details = slot.getByRole("region", { name: "Scope details" });
+    fireEvent.click(slot.getByText("Technical details"));
+    expect(details.contains(slot.getByRole("textbox", { name: "Run parameters as JSON" }))).toBe(
+      true,
+    );
+    expect(details.contains(slot.getByRole("button", { name: "Approve scope" }))).toBe(false);
+    expect(details.contains(slot.getByRole("button", { name: "Cancel" }))).toBe(false);
+  });
   it("keeps a readable scope, warning and actions outside closed technical details", async () => {
     const { slot } = form(true);
     await slot.findByText("FIX-2 · Existing subtask");
     expect(slot.getByText("FIX-1 · Disposable epic")).toBeDefined();
     expect(slot.getByText("Fixture coordinator")).toBeDefined();
     expect(slot.getByText("Warning: full access")).toBeDefined();
+    expect(slot.getByText("Scope record")).toBeDefined();
+    expect(slot.getByText("Recorded selection")).toBeDefined();
+    expect(slot.getByText(/Recorded selection uses full-access permissions/)).toBeDefined();
+    expect(slot.queryByText(/Selected workers will use/)).toBeNull();
     expect(slot.getByText("commit:base")).toBeDefined();
     const details = slot.getByText("Technical details").closest("details")!;
     expect(details.open).toBe(false);
-    expect(
-      slot.getByRole("button", { name: "Approve run" }).closest("details"),
-    ).toBeNull();
-    expect(
-      slot.getByRole("button", { name: "Cancel" }).closest("details"),
-    ).toBeNull();
+    expect(slot.getByRole("button", { name: "Approve scope" }).closest("details")).toBeNull();
+    expect(slot.getByRole("button", { name: "Cancel" }).closest("details")).toBeNull();
     expect(slot.queryByRole("checkbox")).toBeNull();
     fireEvent.click(slot.getByText("Technical details"));
     expect(details.open).toBe(true);
-    expect(slot.getByText(/"fingerprints":/).textContent).toContain(
-      proposal.fingerprints.epic,
-    );
+    expect(slot.getByText(/"fingerprints":/).textContent).toContain(proposal.fingerprints.epic);
   });
   it("uses action-aware labels and retains the exact resume proposal", async () => {
     const { slot, submit } = form(true, { action: "resume" });
-    fireEvent.click(slot.getByRole("button", { name: "Approve resume" }));
-    await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith({ approved: true, proposal }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Resume scope" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith({ approved: true, proposal }));
   });
   it("does not claim full access for a different permission mode", () => {
     const { slot } = form(true, { permissionMode: "read-only" });
     expect(slot.queryByText("Warning: full access")).toBeNull();
     expect(slot.getByText("read-only")).toBeDefined();
-    expect(
-      slot.getByText(/does not approve publication, merge, production/),
-    ).toBeDefined();
+    expect(slot.getByText(/does not approve publication, merge, production/)).toBeDefined();
   });
   it("escapes display labels without changing proposal identities or hashes", async () => {
     const title = '<img src=x onerror="alert(1)">';
@@ -213,7 +211,7 @@ describe("native run approval form", () => {
     } = form(true, { taskTitle: title, coordinatorTitle: title });
     await slot.findByText(`FIX-2 · ${title}`);
     expect(slot.container.querySelector("img")).toBeNull();
-    fireEvent.click(slot.getByRole("button", { name: "Approve run" }));
+    fireEvent.click(slot.getByRole("button", { name: "Approve scope" }));
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith({
         approved: true,
@@ -225,25 +223,18 @@ describe("native run approval form", () => {
     const { slot, submit } = form(true, { unavailableLabels: true });
     expect(slot.getByText("task")).toBeDefined();
     expect(slot.getByText("thr_fixture")).toBeDefined();
-    fireEvent.click(slot.getByRole("button", { name: "Approve run" }));
-    await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith({ approved: true, proposal }),
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Approve scope" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith({ approved: true, proposal }));
   });
-  it.each([
-    { wrongLabelIdentity: true },
-    { liveTaskTitle: "Changed after approval preview" },
-  ])(
+  it.each([{ wrongLabelIdentity: true }, { liveTaskTitle: "Changed after approval preview" }])(
     "does not show mismatched or changed task labels as approved scope: %j",
     async (options) => {
       const { slot, submit } = form(true, options);
       await slot.findByText("Fixture coordinator");
       expect(slot.getByText("task")).toBeDefined();
       expect(slot.queryByText(/Changed after approval preview/)).toBeNull();
-      fireEvent.click(slot.getByRole("button", { name: "Approve run" }));
-      await waitFor(() =>
-        expect(submit).toHaveBeenCalledWith({ approved: true, proposal }),
-      );
+      fireEvent.click(slot.getByRole("button", { name: "Approve scope" }));
+      await waitFor(() => expect(submit).toHaveBeenCalledWith({ approved: true, proposal }));
     },
   );
   it("keeps all 100 selected tasks and bounds read-only display lookups", async () => {
@@ -251,28 +242,22 @@ describe("native run approval form", () => {
     await slot.findByText("FIX-101 · Existing subtask");
     expect(slot.getByText("100 selected tasks")).toBeDefined();
     expect(
-      slot
-        .getByRole("region", { name: "Selected scope" })
-        .querySelectorAll("li"),
+      slot.getByRole("region", { name: "Selected scope" }).querySelectorAll("li"),
     ).toHaveLength(100);
     const reads = slot.inspection.rpcCalls;
     expect(reads).toHaveLength(101);
     expect(reads.every((call) => call.method === "getTask")).toBe(true);
-    expect(
-      new Set(reads.map((call) => (call.input as { taskId: string }).taskId)),
-    ).toEqual(new Set([expected.epicId, ...expected.approvedTaskIds]));
+    expect(new Set(reads.map((call) => (call.input as { taskId: string }).taskId))).toEqual(
+      new Set([expected.epicId, ...expected.approvedTaskIds]),
+    );
     expect(slot.inspection.sdkCalls).toHaveLength(1);
   });
   it.each(["", "Long-label-".repeat(200)])(
     "handles an empty or long display title",
     async (title) => {
-      const {
-        slot,
-        submit,
-        proposal: expected,
-      } = form(true, { taskTitle: title });
+      const { slot, submit, proposal: expected } = form(true, { taskTitle: title });
       await slot.findByText(title ? `FIX-2 · ${title}` : "FIX-2");
-      fireEvent.click(slot.getByRole("button", { name: "Approve run" }));
+      fireEvent.click(slot.getByRole("button", { name: "Approve scope" }));
       await waitFor(() =>
         expect(submit).toHaveBeenCalledWith({
           approved: true,
@@ -288,10 +273,8 @@ describe("native run approval form", () => {
     expect(document.activeElement).toBe(summary);
     fireEvent.click(summary);
     slot.getByLabelText("Run parameters as JSON").focus();
-    expect(document.activeElement).toBe(
-      slot.getByLabelText("Run parameters as JSON"),
-    );
-    const approve = slot.getByRole("button", { name: "Approve run" });
+    expect(document.activeElement).toBe(slot.getByLabelText("Run parameters as JSON"));
+    const approve = slot.getByRole("button", { name: "Approve scope" });
     approve.focus();
     expect(document.activeElement).toBe(approve);
     expect(approve.className).toContain("focus-visible:ring");
@@ -300,34 +283,25 @@ describe("native run approval form", () => {
     const { slot, submit } = form(true, {
       submitError: "Scope changed; invoke again",
     });
-    fireEvent.click(slot.getByRole("button", { name: "Approve run" }));
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Scope changed",
-    );
+    fireEvent.click(slot.getByRole("button", { name: "Approve scope" }));
+    expect((await slot.findByRole("alert")).textContent).toContain("Scope changed");
     expect(
-      (slot.getByRole("button", { name: "Approve run" }) as HTMLButtonElement)
-        .disabled,
+      (slot.getByRole("button", { name: "Approve scope" }) as HTMLButtonElement).disabled,
     ).toBe(false);
     expect(submit).toHaveBeenCalledWith({ approved: true, proposal });
   });
   it("resolves missing parameters then submits exactly the displayed complete proposal", async () => {
     const { slot, submit } = form(false);
-    expect((slot.getByText("Approve run") as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect((slot.getByText("Approve scope") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(slot.getByLabelText("Run parameters as JSON"), {
       target: { value: JSON.stringify(config) },
     });
     fireEvent.click(slot.getByText("Check scope and selection"));
     await slot.findByText("Complete epic acceptance and subtask scope");
-    fireEvent.click(slot.getByText("Approve run"));
-    await waitFor(() =>
-      expect(submit).toHaveBeenCalledWith({ approved: true, proposal }),
-    );
+    fireEvent.click(slot.getByText("Approve scope"));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith({ approved: true, proposal }));
     expect(
-      slot.getByText(
-        /BB-recorded user classification does not prove human identity/,
-      ),
+      slot.getByText(/BB-recorded user classification does not prove human identity/),
     ).toBeDefined();
   });
   it("clears approval when fields change and displays validation errors", async () => {
@@ -335,9 +309,7 @@ describe("native run approval form", () => {
     fireEvent.change(slot.getByLabelText("Run parameters as JSON"), {
       target: { value: "{}" },
     });
-    expect((slot.getByText("Approve run") as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect((slot.getByText("Approve scope") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(slot.getByText("Check scope and selection"));
     await slot.findByRole("alert");
     expect(submit).not.toHaveBeenCalled();

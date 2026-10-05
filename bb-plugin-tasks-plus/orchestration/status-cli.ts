@@ -1,8 +1,4 @@
-import {
-  cliCommand,
-  PluginCliError,
-  type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+import { cliCommand, PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import type { TasksApiStore } from "../api";
 import { resolveStatusEpicId } from "./status-store";
 import { table } from "../cli/format";
@@ -27,8 +23,7 @@ export function orchestrationStatusCommands(
       },
     }),
     "orchestrate status": cliCommand({
-      summary:
-        "Read bounded epic Tasks, worker and decision state without starting work",
+      summary: "Read bounded epic Tasks, worker and decision state without starting work",
       description:
         "Read-only. At most 100 subtasks and 128 KiB JSON. Native dependency readiness does not authorize dispatch. Missing orchestration extensions remain unknown. No run, thread, ticket or message is created.",
       positionals: [
@@ -51,18 +46,16 @@ export function orchestrationStatusCommands(
           throw new PluginCliError(`Task not found: ${address}`, {
             code: "task_not_found",
           });
-        const result =
-          orchestrationStatusContract.orchestrateStatus.output.parse(
-            await readEpicStatus(bb, store, epicId, options.readCoordination),
-          );
+        const result = orchestrationStatusContract.orchestrateStatus.output.parse(
+          await readEpicStatus(bb, store, epicId, options.readCoordination),
+        );
         if (!result.ok)
           return {
             exitCode: 1,
             stdout: input.options.json ? JSON.stringify(result) : "",
             stderr: `${result.error.message}${result.error.counts ? ` Counts: ${JSON.stringify(result.error.counts)}` : ""}`,
           };
-        if (input.options.json)
-          return { exitCode: 0, stdout: JSON.stringify(result) };
+        if (input.options.json) return { exitCode: 0, stdout: JSON.stringify(result) };
         const status = result.status;
         return {
           exitCode: 0,

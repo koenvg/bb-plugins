@@ -1,15 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  REPORT_LIMITS,
-  reportOriginSchema,
-  type ReportOrigin,
-} from "./report-contract";
+import { REPORT_LIMITS, reportOriginSchema, type ReportOrigin } from "./report-contract";
 import { refuse } from "./run-provenance";
 
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
-const hash = (token: string) =>
-  createHash("sha256").update(token).digest("hex");
+const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 export function createReportCapabilities(db: Database) {
   return {
     issue(origin: ReportOrigin) {
@@ -38,10 +33,7 @@ export function createReportCapabilities(db: Database) {
     },
     read(token: string): { origin: ReportOrigin; expiresAt: number } {
       if (!/^[a-f0-9]{64}$/.test(token))
-        refuse(
-          "report_context_invalid",
-          "A native-tool-issued report context is required.",
-        );
+        refuse("report_context_invalid", "A native-tool-issued report context is required.");
       const row = db
         .prepare<[string], { origin: string; expiresAt: number }>(
           "SELECT origin_json AS origin, expires_at AS expiresAt FROM orchestration_report_contexts WHERE token_hash=?",
@@ -58,9 +50,7 @@ export function createReportCapabilities(db: Database) {
       };
     },
     revoke(token: string) {
-      db.prepare(
-        "DELETE FROM orchestration_report_contexts WHERE token_hash=?",
-      ).run(hash(token));
+      db.prepare("DELETE FROM orchestration_report_contexts WHERE token_hash=?").run(hash(token));
     },
   };
 }

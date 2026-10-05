@@ -53,17 +53,17 @@ Active or reserved creation cannot be released, even after restart or a long del
 
 Release records risk acceptance, not proof of failure. A delayed original can still appear and duplicate work can result. The handler retains the old claim, original run/coordinator, association IDs, prior diagnostic reason and a versioned resolution record linked to a readable system comment. Replacement clears only the old primary designation and creates a new local claim for the selected association. Old associations remain available as history. Identical decision retries return the recorded result; conflicting decisions refuse.
 
-A replacement retry returns the exact recorded replacement claim and worker, not the failed original. Missing, released or changed replacement ownership, association or native project returns `unresolved` without replay. Retained orchestration associations are history, not legacy adoption candidates. Ordinary adoption and replacement refuse any previous orchestration claim or native correlation. Manual attach/detach remains available.
+A replacement retry returns the exact recorded replacement claim and worker, not the failed original. Missing, released or changed replacement ownership, association or native project returns `unresolved` without replay. Retained orchestration associations remain history. Recovery replacement refuses any previous orchestration claim or native correlation. New dispatch/adoption remains deferred. Ordinary operator-led manual attach/detach remains available.
 
-Resolution has no spawn, send, resume or delete side effect. A released zero-match attempt can permit only a later separate dispatch under current active-run admission. That dispatch checks the original again and refuses if it appears or reconciliation is unavailable. Diagnostic text, malformed records, another run or mismatched resolution fields never grant a retry. A native spawn error alone remains ambiguous. Local refusal before the native request is retryable because no creation was invoked.
+Resolution has no spawn, seed, send, queue, resume, recheck, wakeup or delete side effect. Recorded release and replacement preserve bookkeeping only; they do not grant execution. All new dispatch and adoption requests remain deferred, including retries after release or replacement. Diagnostic text, native metadata and old resolution records never grant execution. Historical original identity remains available for explicit reconciliation.
 
 ## Disable or roll back safely
 
 1. Pause the run through its explicit run control.
 2. Inspect existing native queued and in-flight work. Remove or resolve queued orchestration requests through existing BB controls before disabling the plugin. Stop only workers the operator explicitly chooses.
 3. Back up Tasks data, including claims, associations and comments. Keep the fork's data; migration 9 remains unchanged by recovery.
-4. Disable or roll back the package. Neither action cancels already accepted BB work. Without the plugin, its admission checks and fixture gates do not apply.
-5. After enable or restart, read status and reconcile explicitly. Enable never grants resume or dispatch. An interrupted run needs separate explicit resume before execution.
+4. Disable or roll back the package. Neither action cancels already accepted BB work. No production orchestration admission or delivery callback is registered in this release. An external fixture gate is a separate control and must not be unloaded while work is queued.
+5. After enable or restart, read status and reconcile explicitly. Enable never grants worker execution. An interrupted scope record needs explicit scope resume; even resumed scope does not send input or start a worker.
 
 The installed disposable check demonstrated the unsafe order: disabling a gate while a seed remained queued let BB start provisioning that existing child. Corrected cleanup before disable/enable left the archived child, paused run and empty queue unchanged. See the [verification notes](../../../orchestration/recovery-verification.md).
 

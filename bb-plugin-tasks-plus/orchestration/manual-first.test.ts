@@ -7,7 +7,9 @@ describe("manual-first production entrypoints", () => {
     const result = await f.dispatch();
     expect(result).toMatchObject({ outcome: "deferred", claim: null, threadId: null });
     expectNoAgentInput(f.harness);
-    const status = await f.harness.behavior.callRpc("orchestrateStatus", { epicId: f.epic.id }) as any;
+    const status = (await f.harness.behavior.callRpc("orchestrateStatus", {
+      epicId: f.epic.id,
+    })) as any;
     expect(status.status.subtasks[0].dispatch).toEqual({ state: "absent" });
     expect(f.store.tasks.listTaskThreads(f.task.id)).toEqual([]);
     expect(f.store.tasks.getTask(f.task.id)?.status).toBe("backlog");
@@ -17,14 +19,22 @@ describe("manual-first production entrypoints", () => {
     const { default: plugin } = await import("../server");
     const f = await reportFixture(1, true, "pi", plugin);
     const report = await f.report();
-    expect(report.delivery).toMatchObject({ state: "suppressed", reference: null, attemptedAt: null });
-    expect(f.store.tasks.listComments(f.task.id).find(c => c.id === report.commentId)?.notifiedCount).toBe(0);
+    expect(report.delivery).toMatchObject({
+      state: "suppressed",
+      reference: null,
+      attemptedAt: null,
+    });
+    expect(
+      f.store.tasks.listComments(f.task.id).find((c) => c.id === report.commentId)?.notifiedCount,
+    ).toBe(0);
     expectNoAgentInput(f.harness);
     expect(await f.report()).toEqual(report);
   });
   it("keeps begin, pause and native-approved resume as records only", async () => {
     const f = await fixture();
-    const scope = (await f.harness.behavior.callRpc("orchestrateStatus", { epicId: f.epic.id }) as any).status.run.value;
+    const scope = (
+      (await f.harness.behavior.callRpc("orchestrateStatus", { epicId: f.epic.id })) as any
+    ).status.run.value;
     expect(scope.phase).toBe("active");
     await f.pause();
     const resumed = await f.approveRun("thr_coordinator", "resume");

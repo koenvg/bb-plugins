@@ -12,12 +12,7 @@ import {
   type RunResult,
 } from "./run-contract";
 import { readInvocation, refuse } from "./run-provenance";
-import {
-  assertCurrentScope,
-  configFromRun,
-  fingerprint,
-  previewRun,
-} from "./run-scope";
+import { assertCurrentScope, configFromRun, fingerprint, previewRun } from "./run-scope";
 import { createRunStore, type RunRequest } from "./run-store";
 
 export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
@@ -32,10 +27,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
   const requireRun = (id: string, coordinator: string) => {
     const run = runs.getRun(id);
     if (!run || run.coordinatorThreadId !== coordinator)
-      refuse(
-        "run_context_invalid",
-        "The run belongs to another coordinator or does not exist.",
-      );
+      refuse("run_context_invalid", "The run belongs to another coordinator or does not exist.");
     return run;
   };
   const existingResult = (request: RunRequest): RunResult => {
@@ -74,9 +66,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         config,
         initial,
       };
-      if (
-        Buffer.byteLength(JSON.stringify(payload), "utf8") > RUN_LIMITS.approvalBytes
-      )
+      if (Buffer.byteLength(JSON.stringify(payload), "utf8") > RUN_LIMITS.approvalBytes)
         refuse(
           "approval_size_limit",
           "The complete native form exceeds 48 KiB. Reduce selected scope; no partial approval is permitted.",
@@ -113,10 +103,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         limit: "100",
       });
       const decision = events.find((event) => {
-        if (
-          event.type !== "system/interaction/lifecycle" ||
-          event.threadId !== coordinator
-        )
+        if (event.type !== "system/interaction/lifecycle" || event.threadId !== coordinator)
           return false;
         const interaction = event.data.interaction;
         if (
@@ -145,10 +132,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         );
       const fresh = await readInvocation(bb, coordinator, source.requestId);
       if (fresh.key !== source.key)
-        refuse(
-          "stale_invocation",
-          "A newer invocation replaced the pending run decision.",
-        );
+        refuse("stale_invocation", "A newer invocation replaced the pending run decision.");
       if (fresh.bbProjectId !== source.bbProjectId)
         refuse(
           "project_mismatch",
@@ -160,10 +144,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
           approved.coordinatorThreadId !== coordinator ||
           approved.bbProjectId !== source.bbProjectId
         )
-          refuse(
-            "decision_mismatch",
-            "Approval belongs to a different coordinator/project.",
-          );
+          refuse("decision_mismatch", "Approval belongs to a different coordinator/project.");
         const current = previewRun(
           store.tasks,
           coordinator,
@@ -188,10 +169,8 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         if (
           prior &&
           (approved.epicId !== prior.epicId ||
-            fingerprint(approved.approvedTaskIds) !==
-              fingerprint(prior.approvedTaskIds) ||
-            fingerprint(approved.baselineReferences) !==
-              fingerprint(prior.baselineReferences) ||
+            fingerprint(approved.approvedTaskIds) !== fingerprint(prior.approvedTaskIds) ||
+            fingerprint(approved.baselineReferences) !== fingerprint(prior.baselineReferences) ||
             approved.execution.presetId !== prior.execution.presetId)
         )
           refuse(
@@ -217,8 +196,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
           ? { code: error.code, message: error.message }
           : {
               code: "decision_invalid",
-              message:
-                "The native decision could not be verified. Use a new explicit invocation.",
+              message: "The native decision could not be verified. Use a new explicit invocation.",
             };
       runs.finish({ ...request, phase: "cancelled", error: failure });
     } finally {
@@ -238,10 +216,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
       (key) => runs.getRequest(key) !== null,
     );
     if (source.invocation.action !== action)
-      refuse(
-        "decision_mismatch",
-        "The persisted invocation names a different run-control action.",
-      );
+      refuse("decision_mismatch", "The persisted invocation names a different run-control action.");
     const existing = runs.getRequest(source.key);
     if (existing) {
       if (existing.phase === "pending" && submitted.has(source.key)) {
@@ -250,29 +225,16 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
       return existingResult(runs.getRequest(source.key) ?? existing);
     }
     const invocation = source.invocation;
-    const prior =
-      invocation.action === "begin"
-        ? null
-        : requireRun(invocation.runId, coordinator);
+    const prior = invocation.action === "begin" ? null : requireRun(invocation.runId, coordinator);
     if (prior && prior.bbProjectId !== source.bbProjectId)
-      refuse(
-        "project_mismatch",
-        "The run and coordinator project no longer match.",
-      );
+      refuse("project_mismatch", "The run and coordinator project no longer match.");
     const config =
-      invocation.action === "begin"
-        ? (invocation.config ?? {})
-        : configFromRun(prior!);
+      invocation.action === "begin" ? (invocation.config ?? {}) : configFromRun(prior!);
     const complete = runConfigSchema.safeParse(config);
     const initial =
       action === "pause" || !complete.success
         ? null
-        : previewRun(
-            store.tasks,
-            coordinator,
-            complete.data,
-            source.bbProjectId,
-          );
+        : previewRun(store.tasks, coordinator, complete.data, source.bbProjectId);
     const request: RunRequest = {
       key: source.key,
       coordinator,
@@ -282,8 +244,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
       phase: "pending",
       runId: prior?.id ?? null,
     };
-    if (!runs.reserve(request))
-      return existingResult(runs.getRequest(source.key)!);
+    if (!runs.reserve(request)) return existingResult(runs.getRequest(source.key)!);
     if (action === "pause" && prior) {
       return runs.transaction(() => {
         const run = runs.save({
@@ -295,13 +256,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
         return { outcome: "run", run };
       });
     }
-    const completion = settleDecision(
-      request,
-      source,
-      config,
-      initial,
-      prior,
-    ).catch(() =>
+    const completion = settleDecision(request, source, config, initial, prior).catch(() =>
       bb.log.error(
         "Could not record the orchestration decision. The request remains non-authoritative.",
       ),
@@ -341,12 +296,7 @@ export function createRunController(bb: BbPluginApi, store: TasksApiStore) {
           const thread = await bb.sdk.threads.get({
             threadId: input.coordinatorThreadId,
           });
-          return previewRun(
-            store.tasks,
-            input.coordinatorThreadId,
-            input.config,
-            thread.projectId,
-          );
+          return previewRun(store.tasks, input.coordinatorThreadId, input.config, thread.projectId);
         },
       });
     },
