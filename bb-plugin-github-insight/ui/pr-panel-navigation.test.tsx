@@ -6,11 +6,13 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { InsightResult, rpcContract } from "../contract";
 import { cancelPrPanelRequest, requestPrPanel } from "../pr-panel-navigation";
+import { forgetInsights } from "./pr-availability";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
 afterEach(() => {
   cleanup();
+  forgetInsights();
   cancelPrPanelRequest();
 });
 
@@ -45,9 +47,19 @@ const readyInsight: InsightResult = {
       state: "open",
       url: "https://github.com/o/r/pull/42",
       headOid: "head-42",
+      headRefName: "feature",
+      headOwner: null,
+      isCrossRepository: false,
+      baseRefName: "main",
+      author: "koenvg",
+      additions: 1,
+      deletions: 0,
+      changedFiles: 1,
     },
     mergeAction: { kind: "none" },
     mergeQueue: null,
+    autoMergeAction: { kind: "none" },
+    canUpdateBranch: false,
     blockers: [],
     reviewers: [],
     checks: [],

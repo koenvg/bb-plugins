@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InsightResult } from "../contract";
 import type { MergeAction } from "../core/merge-action";
-import { canMerge, hasPr, rememberInsight } from "./pr-availability";
+import { canMerge, hasPr, insightSnapshot, rememberInsight } from "./pr-availability";
 
 function ok(mergeAction: MergeAction): InsightResult {
   return {
@@ -13,12 +13,22 @@ function ok(mergeAction: MergeAction): InsightResult {
         state: "open",
         url: "https://github.com/o/r/pull/1",
         headOid: "abc",
+        headRefName: "feature",
+        headOwner: null,
+        isCrossRepository: false,
+        baseRefName: "main",
+        author: "koenvg",
+        additions: 1,
+        deletions: 0,
+        changedFiles: 1,
       },
       mergeAction,
       blockers: [],
       reviewers: [],
       checks: [],
       mergeQueue: null,
+      autoMergeAction: { kind: "none" },
+      canUpdateBranch: false,
     },
     refreshedAt: 0,
     error: null,
@@ -68,5 +78,33 @@ describe("PR availability", () => {
     rememberInsight(`stale-${state}`, result);
     expect(hasPr(`stale-${state}`)).toBe(true);
     expect(canMerge(`stale-${state}`)).toBe(false);
+  });
+});
+
+describe("insight snapshot", () => {
+  it("has no snapshot before the first load", () => {
+    expect(insightSnapshot("thr_snapshot_unknown")).toBeNull();
+  });
+
+  it("keeps the last PR result through a failed load", () => {
+    const result = ok({ kind: "none" });
+    rememberInsight("thr_snapshot", result);
+    rememberInsight("thr_snapshot", { kind: "error", message: "gh not logged in" });
+
+    expect(insightSnapshot("thr_snapshot")).toEqual(result);
+  });
+
+  it("keeps the PR result without the error of a failed refresh", () => {
+    const failedRefresh = ok({ kind: "none" }) as Extract<InsightResult, { kind: "ok" }>;
+    rememberInsight("thr_snapshot_error", { ...failedRefresh, error: "gh not logged in" });
+
+    expect(insightSnapshot("thr_snapshot_error")?.error).toBeNull();
+  });
+
+  it("drops the snapshot when a later load has no PR", () => {
+    rememberInsight("thr_snapshot_gone", ok({ kind: "none" }));
+    rememberInsight("thr_snapshot_gone", { kind: "no_pr" });
+
+    expect(insightSnapshot("thr_snapshot_gone")).toBeNull();
   });
 });

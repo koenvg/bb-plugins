@@ -53,7 +53,7 @@ describe("review CLI", () => {
     });
   }
 
-  async function draftsOf(harness: Awaited<ReturnType<typeof setup>>) {
+  async function draftsOf(harness: Pick<Awaited<ReturnType<typeof setup>>, "behavior">) {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;

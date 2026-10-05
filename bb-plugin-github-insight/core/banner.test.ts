@@ -10,6 +10,14 @@ const pr: PrInsight["pr"] = {
   state: "open",
   url: "https://github.com/o/r/pull/1",
   headOid: "abc",
+  headRefName: "feature",
+  headOwner: null,
+  isCrossRepository: false,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 };
 
 function pending(name: string): Reviewer {
@@ -17,7 +25,16 @@ function pending(name: string): Reviewer {
 }
 
 function insight(blockers: Blocker[], reviewers: Reviewer[] = []): PrInsight {
-  return { pr, mergeAction: { kind: "none" }, blockers, reviewers, checks: [], mergeQueue: null };
+  return {
+    pr,
+    mergeAction: { kind: "none" },
+    autoMergeAction: { kind: "none" },
+    canUpdateBranch: false,
+    blockers,
+    reviewers,
+    checks: [],
+    mergeQueue: null,
+  };
 }
 
 const failed: Blocker = { code: "checks_failed", text: "2 checks failed" };

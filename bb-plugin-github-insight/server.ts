@@ -9,7 +9,8 @@ import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
-import { createMergeWrites } from "./merge/merge-writes";
+import { createLocalCommitsLookup } from "./merge/local-commits-lookup";
+import { createPrWrites } from "./merge/pr-writes";
 import { createPrLookup } from "./pr-lookup";
 import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
@@ -54,6 +55,7 @@ export default async function plugin(bb: BbPluginApi) {
     removeSummary: async (threadId) => {
       await bb.sdk.threads.updatePluginMetadata({ threadId, remove: [SUMMARY_METADATA_KEY] });
     },
+    kv: bb.storage.kv,
     warn: (message) => bb.log.warn(message),
   });
 
@@ -128,13 +130,31 @@ export default async function plugin(bb: BbPluginApi) {
     now: Date.now,
   });
 
-  const merges = createMergeWrites({
+  const prWrites = createPrWrites({
     cachedPr: (threadId) => service.cachedPr(threadId),
     mergePullRequest: async ({ hostId }, request) =>
       unwrap(await host.call("mergePullRequest", request, { hostId })),
     enqueuePullRequest: async ({ hostId }, request) =>
       unwrap(await host.call("enqueuePullRequest", request, { hostId })),
+    updatePullRequestBranch: async ({ hostId }, request) =>
+      unwrap(await host.call("updatePullRequestBranch", request, { hostId })),
+    enablePullRequestAutoMerge: async ({ hostId }, request) =>
+      unwrap(await host.call("enablePullRequestAutoMerge", request, { hostId })),
+    disablePullRequestAutoMerge: async ({ hostId }, request) =>
+      unwrap(await host.call("disablePullRequestAutoMerge", request, { hostId })),
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
+    warn: (message) => bb.log.warn(message),
+  });
+
+  const localCommits = createLocalCommitsLookup({
+    cachedPr: (threadId) => service.cachedPr(threadId),
+    environmentIdOf: async (threadId) => (await bb.sdk.threads.get({ threadId })).environmentId,
+    environment: async (environmentId) => {
+      const { hostId, path } = await bb.sdk.environments.get({ environmentId });
+      return { hostId, path: path ?? null };
+    },
+    countLocalCommitsAhead: (hostId, request) =>
+      host.call("countLocalCommitsAhead", request, { hostId }),
     warn: (message) => bb.log.warn(message),
   });
 
@@ -164,7 +184,8 @@ export default async function plugin(bb: BbPluginApi) {
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),
-    runMergeAction: (request) => merges.runMergeAction(request),
+    runPrAction: (request) => prWrites.runPrAction(request),
+    localCommitsAhead: ({ threadId }) => localCommits.localCommitsAhead(threadId),
   });
 
   bb.cli.register(

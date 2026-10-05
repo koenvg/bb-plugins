@@ -8,14 +8,18 @@ import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
 import { postIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
+import { forgetInsights } from "./ui/pr-availability";
 
 const app = await loadPluginApp(() => import("./app"));
 const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function check(name: string, status: Check["status"], failure: Check["failure"] = null): Check {
-  return { name, status, url: `https://github.com/o/r/runs/${name}`, failure };
+  return { name, status, url: `https://github.com/o/r/runs/${name}`, required: false, failure };
 }
 
 const pr = {
@@ -24,6 +28,14 @@ const pr = {
   state: "open",
   url: "https://github.com/collibra/frontend/pull/25337",
   headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
+  headRefName: "feature",
+  headOwner: null,
+  isCrossRepository: false,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 } as const;
 
 const emptyInsight: PrInsight = {
@@ -33,6 +45,8 @@ const emptyInsight: PrInsight = {
   reviewers: [],
   checks: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 
 const unusedReviewRpc = {
@@ -52,7 +66,8 @@ const unusedReviewRpc = {
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
   markReviewed: () => ({ kind: "error" as const, message: "unused" }),
   markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),
-  runMergeAction: () => ({ kind: "error" as const, message: "unused" }),
+  runPrAction: () => ({ kind: "error" as const, message: "unused" }),
+  localCommitsAhead: () => ({ kind: "unknown" as const }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");
@@ -87,6 +102,8 @@ const insight = ok({
     check("typecheck", "passed"),
   ],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 });
 
 function renderTab(
@@ -227,7 +244,7 @@ describe("PR tab", () => {
     const headings = slot
       .getAllByTestId("check-group-heading")
       .map((heading) => heading.textContent);
-    expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed", "1 skipped"]);
+    expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed, 1 skipped"]);
   });
 
   it("links each check to GitHub", async () => {
@@ -240,14 +257,12 @@ describe("PR tab", () => {
   it("collapses passed and skipped checks until the user expands them", async () => {
     const slot = renderTab(insight);
 
-    const passed = (await slot.findByText("2 passed")).closest("details")!;
-    const skipped = slot.getByText("1 skipped").closest("details")!;
-    expect(passed.open).toBe(false);
-    expect(skipped.open).toBe(false);
+    const collapsed = (await slot.findByText("2 passed, 1 skipped")).closest("details")!;
+    expect(collapsed.open).toBe(false);
 
-    fireEvent.click(within(passed).getByText("2 passed"));
-    expect(passed.open).toBe(true);
-    expect(within(passed).getByText("lint")).toBeTruthy();
+    fireEvent.click(within(collapsed).getByText("2 passed, 1 skipped"));
+    expect(collapsed.open).toBe(true);
+    expect(within(collapsed).getByText("lint")).toBeTruthy();
   });
 
   it("shows the reason and annotations of a failed check", async () => {
@@ -379,16 +394,16 @@ describe("PR tab", () => {
   ] as const)("shows the %s queue state as text instead of merge blockers", async (state, text) => {
     const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 3, state } }));
 
-    const queue = await slot.findByRole("region", { name: "Merge queue" });
-    expect(within(queue).getByRole("listitem").textContent).toBe(text);
+    const summary = await slot.findByRole("status", { name: "Merge status" });
+    expect(summary.textContent).toBe(text);
     expect(slot.queryByRole("region", { name: "Merge blockers" })).toBeNull();
   });
 
   it("shows a failed queue entry in the problem tone", async () => {
     const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 1, state: "failed" } }));
 
-    const queue = await slot.findByRole("region", { name: "Merge queue" });
-    expect(within(queue).getByRole("listitem").className).toContain("text-destructive");
+    const summary = await slot.findByRole("status", { name: "Merge status" });
+    expect(within(summary).getByText("Merge queue failed").className).toContain("text-destructive");
   });
 
   it("leaves out the merge queue of a PR that is not queued", async () => {
@@ -408,10 +423,10 @@ describe("PR tab", () => {
 const readyInsight = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
 
 function renderMergeTab({
-  runMergeAction = () => ({ kind: "ok" }),
+  runPrAction = () => ({ kind: "ok" }),
   result = () => readyInsight,
 }: {
-  runMergeAction?: () => ActionResult | Promise<ActionResult>;
+  runPrAction?: () => ActionResult | Promise<ActionResult>;
   result?: () => InsightResult;
 } = {}) {
   return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
@@ -422,7 +437,7 @@ function renderMergeTab({
         getInsight: result,
         refresh: result,
         ...unusedReviewRpc,
-        runMergeAction,
+        runPrAction,
       },
     },
   );
@@ -434,7 +449,7 @@ const rejectedMerge = {
 } as const;
 
 function mergeCalls(slot: ReturnType<typeof renderMergeTab>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 async function openMergeDialog(slot: ReturnType<typeof renderMergeTab>) {
@@ -508,7 +523,7 @@ describe("PR tab merge", () => {
   it("disables the button while the merge runs", async () => {
     let finish: (result: ActionResult) => void = () => {};
     const slot = renderMergeTab({
-      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+      runPrAction: () => new Promise((resolve) => (finish = resolve)),
     });
 
     const dialog = await openMergeDialog(slot);
@@ -522,7 +537,7 @@ describe("PR tab merge", () => {
   });
 
   it("shows the GitHub error and gives the button back when the merge fails", async () => {
-    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge });
+    const slot = renderMergeTab({ runPrAction: () => rejectedMerge });
 
     const dialog = await openMergeDialog(slot);
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
@@ -536,7 +551,7 @@ describe("PR tab merge", () => {
 
   it("drops the merge error once the tab shows a new head commit", async () => {
     let current = readyInsight;
-    const slot = renderMergeTab({ runMergeAction: () => rejectedMerge, result: () => current });
+    const slot = renderMergeTab({ runPrAction: () => rejectedMerge, result: () => current });
     const dialog = await openMergeDialog(slot);
     fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
     await slot.findByRole("alert");
@@ -583,7 +598,7 @@ describe("PR tab enqueue", () => {
     let finish: (result: ActionResult) => void = () => {};
     const slot = renderMergeTab({
       result: () => enqueueInsight,
-      runMergeAction: () => new Promise((resolve) => (finish = resolve)),
+      runPrAction: () => new Promise((resolve) => (finish = resolve)),
     });
 
     fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
@@ -599,7 +614,7 @@ describe("PR tab enqueue", () => {
     const message = "Pull request is not mergeable";
     const slot = renderMergeTab({
       result: () => enqueueInsight,
-      runMergeAction: () => ({ kind: "error", message }),
+      runPrAction: () => ({ kind: "error", message }),
     });
 
     fireEvent.click(await slot.findByRole("button", { name: "Enqueue" }));
@@ -650,14 +665,14 @@ const banner = app.composerCustomizations
 
 function renderBanner(
   result: InsightResult | (() => InsightResult),
-  runMergeAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
+  runPrAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
 ) {
   const getInsight = typeof result === "function" ? result : () => result;
   return renderSlot<object, typeof rpcContract>(
     banner,
     {},
     {
-      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runMergeAction },
+      rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runPrAction },
       composer: { scope: { kind: "thread", threadId: "thr_1" } },
       openThreadPanel: () => true,
     },
@@ -740,7 +755,7 @@ describe("Composer banner", () => {
     expect(slot.inspection.navigateCalls).toEqual([
       { method: "openThreadPanel", options: { actionId: "pr" } },
     ]);
-    expect(slot.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
+    expect(slot.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });
 
   it("shows Closed without obsolete blockers", async () => {
@@ -782,7 +797,7 @@ describe("Composer banner", () => {
 const readyBanner = ok({ ...emptyInsight, mergeAction: { kind: "merge", method: "SQUASH" } });
 
 function bannerMergeCalls(slot: ReturnType<typeof renderBanner>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 describe("Composer banner merge action", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMergeOperations } from "./merge-operations";
+import { createPrOperations } from "./pr-operations";
 import type { ActionResult } from "../contract";
 
 const request = { action: "merge" as const, expectedHeadOid: "head-a" };
@@ -13,7 +13,7 @@ function deferred() {
 
 describe("shared merge operations", () => {
   it("shares progress and guards concurrent callers before the RPC resolves", async () => {
-    const operations = createMergeOperations();
+    const operations = createPrOperations();
     const pending = deferred();
     const send = vi.fn(() => pending.promise);
     const first = vi.fn();
@@ -33,8 +33,22 @@ describe("shared merge operations", () => {
     offB();
   });
 
+  it("sends one write per thread across action kinds", async () => {
+    const operations = createPrOperations();
+    const pending = deferred();
+    const send = vi.fn(() => pending.promise);
+    const run = operations.run("a", { action: "update-merge", expectedHeadOid: "head-a" }, send);
+
+    await operations.run("a", request, send);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(operations.snapshot("a")).toMatchObject({ kind: "running", action: "update-merge" });
+    pending.resolve({ kind: "ok" });
+    await run;
+  });
+
   it("keeps active work after unsubscribe and isolates threads", async () => {
-    const operations = createMergeOperations();
+    const operations = createPrOperations();
     const pending = deferred();
     const send = vi.fn(() => pending.promise);
     const off = operations.subscribe("a", () => {});
@@ -52,6 +66,7 @@ describe("shared merge operations", () => {
     expect(operations.snapshot("a")).toEqual({
       kind: "error",
       message: "rejected",
+      action: "merge",
       headOid: "head-a",
     });
     offAgain();
@@ -59,7 +74,7 @@ describe("shared merge operations", () => {
   });
 
   it("releases the guard after an RPC rejects and supports dismissing errors", async () => {
-    const operations = createMergeOperations();
+    const operations = createPrOperations();
     const off = operations.subscribe("a", () => {});
     await operations.run("a", request, async () => {
       throw new Error("offline");
@@ -67,6 +82,7 @@ describe("shared merge operations", () => {
     expect(operations.snapshot("a")).toEqual({
       kind: "error",
       message: "offline",
+      action: "merge",
       headOid: "head-a",
     });
     operations.dismiss("a");

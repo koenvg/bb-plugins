@@ -7,11 +7,14 @@ import type {
 } from "@get-bb/plugin-sdk/app";
 import { useCommandIntent, type CommandTab } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
-import { rememberInsight } from "./pr-availability";
+import { rememberInsight, forgetInsights } from "./pr-availability";
 import type { InsightResult } from "../contract";
 import type { MergeAction } from "../core/merge-action";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function command(id: string) {
   const found = GITHUB_COMMANDS.find((entry) => entry.id === id);
@@ -65,12 +68,22 @@ describe("GitHub palette commands", () => {
           state: "open",
           url: "https://github.com/o/r/pull/1",
           headOid: "abc",
+          headRefName: "feature",
+          headOwner: null,
+          isCrossRepository: false,
+          baseRefName: "main",
+          author: "koenvg",
+          additions: 1,
+          deletions: 0,
+          changedFiles: 1,
         },
         mergeAction,
         blockers: [],
         reviewers: [],
         checks: [],
         mergeQueue: null,
+        autoMergeAction: { kind: "none" },
+        canUpdateBranch: false,
       },
       refreshedAt: 0,
       error: null,

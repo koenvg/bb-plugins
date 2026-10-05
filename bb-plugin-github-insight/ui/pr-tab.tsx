@@ -1,28 +1,31 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
-import type { Blocker } from "../core/blockers";
+import { countOf, type Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { CheckFailure } from "../core/failure";
 import type { PrInsight } from "../core/overview";
+import { relativeTime } from "../core/relative-time";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { blockerTone } from "./blocker-tone";
 import { useCommandIntent, type IntentOf } from "./command-intents";
+import { AutoMergeButton } from "./auto-merge-button";
+import { BranchUpdateButton, PullReminder } from "./branch-update-button";
 import { MergeActionButton } from "./merge-action-button";
 import { useInsight } from "./use-insight";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
-import { prStatusView, type StatusRow, type StatusDetail } from "./pr-status-view";
+import {
+  listedBlockers,
+  prStatusView,
+  prSummaryLine,
+  type StatusRow,
+  type SummaryLine,
+} from "./pr-status-view";
 
-const STATUS_ORDER: readonly CheckStatus[] = [
-  "failed",
-  "cancelled",
-  "running",
-  "passed",
-  "skipped",
-];
+const OPEN_STATUSES: readonly CheckStatus[] = ["failed", "cancelled", "running"];
 
-const COLLAPSED_STATUSES: ReadonlySet<CheckStatus> = new Set(["passed", "skipped"]);
+const COLLAPSED_STATUSES: readonly CheckStatus[] = ["passed", "skipped"];
 
 const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = {
   failed: { name: "CircleX", className: "text-destructive" },
@@ -66,7 +69,8 @@ export function PrTab({ threadId }: { threadId: string }) {
 
 function PrTabContent({ threadId }: { threadId: string }) {
   const insight = useInsight(threadId);
-  const { result, refreshing, refresh } = insight;
+  const { result, refreshing, revalidating, refresh } = insight;
+  const [branchUpdated, setBranchUpdated] = useState(false);
   usePrCommands(threadId, insight);
   if (result === null) return <Notice>Loading pull request…</Notice>;
   if (result.kind === "no_pr") {
@@ -78,12 +82,22 @@ function PrTabContent({ threadId }: { threadId: string }) {
     );
   }
   const status = prStatusView(result.insight);
+  const { autoMergeAction } = result.insight;
   return (
     <div className="flex flex-col gap-4">
       <PrHeader
         pr={result.insight.pr}
         lifecycle={status.lifecycle}
+        age={<DataAge refreshedAt={result.refreshedAt} updating={revalidating} />}
         action={<RefreshButton refreshing={refreshing} refresh={refresh} />}
+      />
+      <PrSummary
+        line={prSummaryLine(result.insight)}
+        action={
+          autoMergeAction.kind === "disable" && (
+            <AutoMergeButton threadId={threadId} pr={result.insight.pr} action={autoMergeAction} />
+          )
+        }
       />
       {result.error !== null && (
         <RefreshError
@@ -93,11 +107,21 @@ function PrTabContent({ threadId }: { threadId: string }) {
           busy={refreshing}
         />
       )}
-      <MergeQueueStatus row={status.detail} />
+      {branchUpdated && <PullReminder dismiss={() => setBranchUpdated(false)} />}
       {status.action !== null && (
         <MergeActionButton threadId={threadId} pr={result.insight.pr} action={status.action} />
       )}
-      <BlockerList blockers={status.blockers} />
+      {autoMergeAction.kind === "enable" && (
+        <AutoMergeButton threadId={threadId} pr={result.insight.pr} action={autoMergeAction} />
+      )}
+      {result.insight.canUpdateBranch && (
+        <BranchUpdateButton
+          threadId={threadId}
+          pr={result.insight.pr}
+          onUpdated={() => setBranchUpdated(true)}
+        />
+      )}
+      <BlockerList blockers={listedBlockers(status.blockers)} />
       <ReviewerList reviewers={result.insight.reviewers} />
       <CheckList checks={result.insight.checks} />
     </div>
@@ -107,10 +131,12 @@ function PrTabContent({ threadId }: { threadId: string }) {
 function PrHeader({
   pr,
   lifecycle,
+  age,
   action,
 }: {
   pr: PrInsight["pr"];
   lifecycle: StatusRow;
+  age: ReactNode;
   action: ReactNode;
 }) {
   const merged = pr.state === "merged";
@@ -131,6 +157,7 @@ function PrHeader({
           <span className="rounded-full border border-border px-2 py-0.5">{lifecycle.text}</span>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {age}
           <UrlLink href={pr.url} className="underline-offset-2 hover:underline">
             Open on GitHub
           </UrlLink>
@@ -138,7 +165,65 @@ function PrHeader({
         </div>
       </div>
       <h2 className="break-words text-sm font-semibold">{pr.title}</h2>
+      <PrMeta pr={pr} />
     </header>
+  );
+}
+
+function branchLabel(pr: PrInsight["pr"]): string {
+  const head = pr.headOwner === null ? pr.headRefName : `${pr.headOwner}:${pr.headRefName}`;
+  return `${head} → ${pr.baseRefName}`;
+}
+
+function PrMeta({ pr }: { pr: PrInsight["pr"] }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span className="inline-flex min-w-0 items-center gap-1">
+        <Icon name="GitBranch" className="size-3.5 shrink-0" />
+        <span className="truncate font-mono">{branchLabel(pr)}</span>
+      </span>
+      <span className="inline-flex gap-1 font-mono tabular-nums">
+        <span className="text-success">+{pr.additions}</span>
+        <span className="text-destructive">-{pr.deletions}</span>
+      </span>
+      <span className="tabular-nums">{countOf(pr.changedFiles, "file")}</span>
+      {pr.author !== null && <span>{pr.author}</span>}
+    </div>
+  );
+}
+
+function PrSummary({ line, action }: { line: SummaryLine | null; action: ReactNode }) {
+  if (line === null) return null;
+  return (
+    <div
+      role="status"
+      aria-label="Merge status"
+      className="flex items-center gap-2 text-sm font-medium"
+    >
+      <Icon name={line.icon} className={cn("size-4 shrink-0", line.iconClassName)} />
+      <span className={line.textClassName}>{line.text}</span>
+      {line.more > 0 && (
+        <span className="text-xs font-normal text-muted-foreground">+{line.more} more</span>
+      )}
+      {action}
+    </div>
+  );
+}
+
+function DataAge({ refreshedAt, updating }: { refreshedAt: number; updating: boolean }) {
+  const readAt = new Date(refreshedAt);
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums">
+      {updating && (
+        <span role="status" aria-label="Updating">
+          <Icon name="Spinner" className="size-3 text-muted-foreground" />
+        </span>
+      )}
+      Updated{" "}
+      <time dateTime={readAt.toISOString()} title={readAt.toLocaleString()}>
+        {relativeTime(readAt, new Date())}
+      </time>
+    </span>
   );
 }
 
@@ -147,23 +232,8 @@ const SECTION_HEADING_CLASS = "text-xs font-medium text-muted-foreground";
 const LABEL_CLASS =
   "shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground";
 
-function MergeQueueStatus({ row }: { row: StatusDetail | null }) {
-  if (row?.kind !== "queue") return null;
-  return (
-    <section aria-label="Merge queue" className="flex flex-col gap-1">
-      <h3 className={SECTION_HEADING_CLASS}>Merge queue</h3>
-      <ul className="flex flex-col">
-        <li className={cn("flex items-center gap-2 py-0.5 text-sm", row.textClassName)}>
-          <Icon name={row.icon} className={cn("size-4 shrink-0", row.iconClassName)} />
-          {row.text}
-        </li>
-      </ul>
-    </section>
-  );
-}
-
 function BlockerList({ blockers }: { blockers: readonly Blocker[] }) {
-  if (blockers.length === 0) return null;
+  if (blockers.length < 2) return null;
   return (
     <section aria-label="Merge blockers" className="flex flex-col gap-1">
       <h3 className={SECTION_HEADING_CLASS}>Merge blockers</h3>
@@ -206,44 +276,36 @@ function ReviewerList({ reviewers }: { reviewers: readonly Reviewer[] }) {
 
 function CheckList({ checks }: { checks: readonly Check[] }) {
   if (checks.length === 0) return <Notice>No checks on the head commit</Notice>;
+  const byStatus = (status: CheckStatus) => checks.filter((check) => check.status === status);
   return (
     <section aria-label="Checks" className="flex flex-col gap-3">
-      {STATUS_ORDER.map((status) => {
-        const group = checks.filter((check) => check.status === status);
+      {OPEN_STATUSES.map((status) => {
+        const group = byStatus(status);
         if (group.length === 0) return null;
-        const Group = COLLAPSED_STATUSES.has(status) ? CollapsedCheckGroup : OpenCheckGroup;
-        return <Group key={status} status={status} checks={group} />;
+        return (
+          <div key={status}>
+            <h3 className={SECTION_HEADING_CLASS}>
+              <span data-testid="check-group-heading" className="tabular-nums">
+                {group.length} {status}
+              </span>
+            </h3>
+            <CheckRows checks={group} />
+          </div>
+        );
       })}
+      <CollapsedChecks groups={COLLAPSED_STATUSES.map((status) => [status, byStatus(status)])} />
     </section>
   );
 }
 
-interface CheckGroupProps {
-  status: CheckStatus;
-  checks: readonly Check[];
-}
-
-function GroupHeading({ status, checks }: CheckGroupProps) {
-  return (
-    <span data-testid="check-group-heading" className="tabular-nums">
-      {checks.length} {status}
-    </span>
-  );
-}
-
-function OpenCheckGroup(props: CheckGroupProps) {
-  return (
-    <div>
-      <h3 className={SECTION_HEADING_CLASS}>
-        <GroupHeading {...props} />
-      </h3>
-      <CheckRows checks={props.checks} />
-    </div>
-  );
-}
-
-function CollapsedCheckGroup(props: CheckGroupProps) {
+function CollapsedChecks({
+  groups,
+}: {
+  groups: readonly (readonly [CheckStatus, readonly Check[]])[];
+}) {
   const [open, setOpen] = useState(false);
+  const shown = groups.filter(([, group]) => group.length > 0);
+  if (shown.length === 0) return null;
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary
@@ -253,9 +315,13 @@ function CollapsedCheckGroup(props: CheckGroupProps) {
         )}
       >
         <Icon name={open ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
-        <GroupHeading {...props} />
+        <span data-testid="check-group-heading" className="tabular-nums">
+          {shown.map(([status, group]) => `${group.length} ${status}`).join(", ")}
+        </span>
       </summary>
-      <CheckRows checks={props.checks} />
+      {shown.map(([status, group]) => (
+        <CheckRows key={status} checks={group} />
+      ))}
     </details>
   );
 }
@@ -283,6 +349,7 @@ function CheckRow({ check }: { check: Check }) {
             {check.name}
           </UrlLink>
         )}
+        {check.required && <span className={LABEL_CLASS}>required</span>}
       </div>
       {check.failure !== null && <CheckFailureDetail failure={check.failure} />}
     </li>

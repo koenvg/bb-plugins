@@ -230,6 +230,191 @@ describe("refresh", () => {
   });
 });
 
+describe("insight snapshot", () => {
+  const KEY = "insight:collibra/frontend#25337";
+
+  function withTitle(title: string) {
+    return {
+      ...pageOne,
+      data: {
+        repository: {
+          ...pageOne.data.repository,
+          pullRequest: { ...pageOne.data.repository.pullRequest, title },
+        },
+      },
+    };
+  }
+
+  async function storedReading(first: unknown = pageOne) {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(first),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    return harness.kv.get(KEY);
+  }
+
+  it("stores the last good reading of the PR", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
+
+    expect(await storedReading()).toMatchObject({
+      v: 1,
+      refreshedAt: Date.parse("2026-09-24T10:00:00Z"),
+      reading: {
+        insight: { pr: { number: 25337 } },
+        pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
+      },
+    });
+  });
+
+  it("does not store again when a refresh finds the same data", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    const stored = (await harness.kv.get(KEY)) as Record<string, unknown>;
+    await harness.kv.set(KEY, { ...stored, refreshedAt: 1 });
+
+    await harness.behavior.callRpc("refresh", { threadId: "thr_1" });
+
+    expect(await harness.kv.get(KEY)).toMatchObject({ refreshedAt: 1 });
+  });
+
+  it("does not store a failed first read", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => failed({ kind: "gh_logged_out" }),
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(await harness.kv.get(KEY)).toBeUndefined();
+  });
+
+  it("returns the stored reading after a restart without waiting for GitHub", async () => {
+    const stored = await storedReading(withTitle("Stored title"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: () => new Promise(() => {}),
+      kv: { [KEY]: stored },
+    });
+
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      insight: { pr: { title: "Stored title" } },
+      refreshedAt: (stored as { refreshedAt: number }).refreshedAt,
+      error: null,
+    });
+  });
+
+  it("refreshes a stored reading in the background and tells open tabs", async () => {
+    const stored = await storedReading(withTitle("Stored title"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored },
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    await settle();
+
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+    expect(harness.realtimeSignals).toHaveLength(1);
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    expect(result).toMatchObject({
+      kind: "ok",
+      insight: { pr: { title: pageOne.data.repository.pullRequest.title } },
+    });
+  });
+
+  it("tells open tabs and stores the new time when the background refresh finds the same data", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
+    const stored = await storedReading();
+    vi.setSystemTime(new Date("2026-09-24T13:00:00Z"));
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored },
+    });
+
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    await settle();
+
+    expect(harness.realtimeSignals).toHaveLength(1);
+    expect(await harness.kv.get(KEY)).toMatchObject({
+      refreshedAt: Date.parse("2026-09-24T13:00:00Z"),
+    });
+  });
+
+  it("calls GitHub when the stored value has an unknown version", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: { v: 0 } },
+    });
+
+    const result = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(result).toMatchObject({ kind: "ok", insight: { pr: { number: 25337 } } });
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("returns no PR instead of a stored reading when bb links no PR", async () => {
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      kv: { [KEY]: stored },
+    });
+
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toEqual({
+      kind: "no_pr",
+    });
+  });
+
+  it("deletes stored readings of PRs that no thread links on a poll", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+      kv: { [KEY]: stored, "insight:o/r#1": stored },
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    run.controller.abort();
+
+    expect(await harness.kv.list("insight:")).toEqual([KEY]);
+  });
+
+  it("keeps stored readings when bb cannot read the PR of a thread", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stored = await storedReading();
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: { outcome: "unavailable", message: "gh not found" } },
+      kv: { [KEY]: stored },
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    run.controller.abort();
+
+    expect(await harness.kv.list("insight:")).toEqual([KEY]);
+  });
+});
+
 describe("pr-poller", () => {
   beforeEach(() => {
     vi.useFakeTimers({
@@ -2212,7 +2397,7 @@ describe("archiveReview", () => {
   });
 });
 
-describe("runMergeAction", () => {
+describe("runPrAction", () => {
   const HEAD = pageOne.data.repository.pullRequest.headRefOid;
 
   const readyPage = {
@@ -2259,7 +2444,7 @@ describe("runMergeAction", () => {
     const harness = await setupWithPr();
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2279,10 +2464,34 @@ describe("runMergeAction", () => {
     expect(overviewRefreshes(harness)).toHaveLength(2);
   });
 
+  it("updates a branch that is behind through the thread's host and refreshes", async () => {
+    const harness = await setupWithPr(pages());
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const result = await harness.behavior.callRpc("runPrAction", {
+      threadId: "thr_1",
+      action: "update-rebase",
+      expectedHeadOid: HEAD,
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(writes("updatePullRequestBranch")(harness)).toEqual([
+      {
+        input: {
+          pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
+          expectedHeadOid: HEAD,
+          updateMethod: "REBASE",
+        },
+        hostId: "host-1",
+      },
+    ]);
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+  });
+
   it("does not merge before the tab has read the PR", async () => {
     const harness = await setupWithPr();
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2303,7 +2512,7 @@ describe("runMergeAction", () => {
     );
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2325,7 +2534,7 @@ describe("runMergeAction", () => {
     });
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "merge",
       expectedHeadOid: HEAD,
@@ -2345,7 +2554,7 @@ describe("runMergeAction", () => {
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
     const { id, headRefOid } = readyToEnqueuePage.data.repository.pullRequest;
 
-    const result = await harness.behavior.callRpc("runMergeAction", {
+    const result = await harness.behavior.callRpc("runPrAction", {
       threadId: "thr_1",
       action: "enqueue",
       expectedHeadOid: headRefOid,
@@ -2359,13 +2568,134 @@ describe("runMergeAction", () => {
     expect(overviewRefreshes(harness)).toHaveLength(2);
   });
 
-  it("offers no CLI command that merges or enqueues", async () => {
+  it("offers no CLI command that merges, enqueues, updates the branch, or changes auto-merge", async () => {
     const harness = await setupWithPr();
 
     const help = await harness.behavior.runCli(["--help"]);
 
-    expect(help.stdout).not.toMatch(/merge|enqueue/i);
+    expect(help.stdout).not.toMatch(/merge|enqueue|update|rebase/i);
     expect(merges(harness)).toEqual([]);
     expect(enqueues(harness)).toEqual([]);
+  });
+});
+
+describe("localCommitsAhead", () => {
+  function forkPage() {
+    return {
+      ...pageOne,
+      data: {
+        repository: {
+          ...pageOne.data.repository,
+          pullRequest: {
+            ...pageOne.data.repository.pullRequest,
+            isCrossRepository: true,
+            headRepositoryOwner: { login: "alice" },
+          },
+        },
+      },
+    };
+  }
+
+  function counting(count: unknown = { kind: "count", count: 2 }, first: unknown = pageOne) {
+    const overview = pages(first);
+    return (call: HostCall) => {
+      if (call.method !== "countLocalCommitsAhead") return overview(call);
+      if (count instanceof Error) throw count;
+      return count;
+    };
+  }
+
+  async function setupRead(
+    options: {
+      host?: (call: HostCall) => unknown;
+      path?: string | null;
+      environmentId?: string | null;
+    } = {},
+  ) {
+    const environmentId = options.environmentId === undefined ? "env_1" : options.environmentId;
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: options.host ?? counting(),
+      environments: { env_1: { path: options.path === undefined ? "/work/tree" : options.path } },
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    return harness;
+  }
+
+  function countCalls(harness: Awaited<ReturnType<typeof setup>>) {
+    return harness.experimental_hostRpcCalls
+      .filter((call) => call.method === "countLocalCommitsAhead")
+      .map(({ input, hostId }) => ({ input, hostId }));
+  }
+
+  it("counts the local commits in the thread's worktree on its host", async () => {
+    const harness = await setupRead();
+
+    const result = await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" });
+
+    expect(result).toEqual({ kind: "count", count: 2 });
+    expect(countCalls(harness)).toEqual([
+      { input: { path: "/work/tree", branch: "feat/ootb-domain-type-ids" }, hostId: "host-1" },
+    ]);
+  });
+
+  it("does not know for a thread without an environment", async () => {
+    const harness = await setupRead({ environmentId: null });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for a fork PR", async () => {
+    const harness = await setupRead({ host: counting(undefined, forkPage()) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for a fork PR whose fork was deleted", async () => {
+    const deletedFork = forkPage();
+    deletedFork.data.repository.pullRequest.headRepositoryOwner = null as never;
+    const harness = await setupRead({ host: counting(undefined, deletedFork) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for an environment without a path", async () => {
+    const harness = await setupRead({ path: null });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know when the host call fails", async () => {
+    const harness = await setupRead({ host: counting(new Error("host offline")) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+  });
+
+  it("does not know before the tab has read the PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: counting(),
+      environments: { env_1: { path: "/work/tree" } },
+    });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
   });
 });

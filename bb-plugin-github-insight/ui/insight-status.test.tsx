@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import { forgetInsights } from "./pr-availability";
 
 type ReadMethods = Pick<typeof rpcContract, "getInsight" | "refresh">;
 
@@ -18,12 +19,22 @@ const base: PrInsight = {
     state: "draft",
     url: "https://github.com/o/r/pull/1",
     headOid: "a",
+    headRefName: "feature",
+    headOwner: null,
+    isCrossRepository: false,
+    baseRefName: "main",
+    author: "koenvg",
+    additions: 1,
+    deletions: 0,
+    changedFiles: 1,
   },
   mergeAction: { kind: "none" },
   blockers: [],
   checks: [],
   reviewers: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 const refreshedAt = Date.parse("2026-10-05T09:00:00Z");
 const ok = (insight = base, error: string | null = null): InsightResult => ({
@@ -70,9 +81,64 @@ function fixture(initial: InsightResult = ok()) {
     },
   };
 }
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 describe("PR insight availability in both views", () => {
+  it("shows when the shown data was read", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: refreshedAt + 3 * 3_600_000 });
+    const panel = renderSlot(
+      tab,
+      { threadId: "a", params: null },
+      { rpc: { getInsight: async () => ok() } },
+    );
+
+    await within(panel.container).findByText("Thread A");
+
+    expect(panel.container.textContent).toContain("Updated 3 hours ago");
+    vi.useRealTimers();
+  });
+
+  it("shows that it is updating while a background load runs", async () => {
+    const first = renderSlot(
+      tab,
+      { threadId: "a", params: null },
+      { rpc: { getInsight: async () => ok() } },
+    );
+    await within(first.container).findByText("Thread A");
+    expect(within(first.container).queryByRole("status", { name: "Updating" })).toBeNull();
+    cleanup();
+
+    const again = renderSlot(
+      tab,
+      { threadId: "a", params: null },
+      { rpc: { getInsight: () => new Promise<InsightResult>(() => {}) } },
+    );
+
+    expect(await within(again.container).findByRole("status", { name: "Updating" })).toBeTruthy();
+  });
+
+  it("shows the last PR at once when the user returns to a thread", async () => {
+    const options = {
+      rpc: { getInsight: async () => ok() },
+      composer: { scope: { kind: "thread" as const, threadId: "a" } },
+    };
+    const first = renderSlot(tab, { threadId: "a", params: null }, options);
+    await within(first.container).findByText("Thread A");
+    cleanup();
+
+    const again = renderSlot(
+      tab,
+      { threadId: "a", params: null },
+      { ...options, rpc: { getInsight: () => new Promise<InsightResult>(() => {}) } },
+    );
+
+    expect(within(again.container).getByText("Thread A")).toBeTruthy();
+    expect(within(again.container).queryByText("Loading pull request…")).toBeNull();
+  });
+
   it("shows first-load progress and hides the banner only after confirmed no-PR", async () => {
     const pending = deferred<InsightResult>();
     const options = {

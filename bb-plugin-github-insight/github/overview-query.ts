@@ -8,6 +8,7 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPag
       mergeCommitAllowed
       squashMergeAllowed
       rebaseMergeAllowed
+      autoMergeAllowed
     }
     pullRequest(number: $number) {
       number
@@ -22,6 +23,15 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPag
         mergeable
         mergeStateStatus
         mergeQueueEntry { position state }
+        headRefName
+        baseRefName
+        isCrossRepository
+        headRepositoryOwner { login }
+        author { login }
+        additions
+        deletions
+        changedFiles
+        autoMergeRequest { mergeMethod }
         reviewDecision
         reviewRequests(first: 100) {
           nodes {
@@ -50,8 +60,8 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String, $firstPag
                 pageInfo { hasNextPage endCursor }
                 nodes {
                   __typename
-                  ... on CheckRun { id databaseId name status conclusion detailsUrl startedAt title summary }
-                  ... on StatusContext { context state description targetUrl createdAt }
+                  ... on CheckRun { id databaseId name status conclusion detailsUrl startedAt title summary isRequired(pullRequestNumber: $number) }
+                  ... on StatusContext { context state description targetUrl createdAt isRequired(pullRequestNumber: $number) }
                 }
               }
             }

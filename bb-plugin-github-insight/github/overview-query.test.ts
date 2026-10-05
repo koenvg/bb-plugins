@@ -41,4 +41,31 @@ describe("overviewPageArgs", () => {
       true,
     );
   });
+
+  it.each([
+    "autoMergeAllowed",
+    "headRefName",
+    "baseRefName",
+    "isCrossRepository",
+    "headRepositoryOwner { login }",
+    "author { login }",
+    "additions",
+    "deletions",
+    "changedFiles",
+    "autoMergeRequest { mergeMethod }",
+  ])("asks %s on the first page", (field) => {
+    const query = queryOf(overviewPageArgs({ ...pr, after: null }));
+    const firstPage = query.slice(
+      query.indexOf("@include(if: $firstPage)"),
+      query.indexOf("commits(last: 1)"),
+    );
+
+    expect(firstPage).toMatch(new RegExp(`^\\s*${field.replace(/[{}]/g, "\\$&")}$`, "m"));
+  });
+
+  it("asks if each check context is required for this PR", () => {
+    const query = queryOf(overviewPageArgs({ ...pr, after: "MTAw" }));
+
+    expect(query.match(/isRequired\(pullRequestNumber: \$number\)/g)).toHaveLength(2);
+  });
 });

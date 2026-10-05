@@ -15,8 +15,8 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Review tab and the CLI both use it.
 - `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads").
 - `review/review-writes.ts`: the review thread writes. `reply` posts a reply, and for "Post + resolve" then resolves the thread. When the resolve fails, the reply stays posted and the error shows. `setResolved` resolves or unresolves. Only the tab's RPCs call it. The CLI does not. After a successful resolve or unresolve, both refresh the PR insight and write `prSummary` before they return. Then the tab posts `{ threadId }` on the `github-insight.summary-written` BroadcastChannel (`ui/summary-written.ts`), and the pr-thread-list sidebar reads the summary again.
-- `merge/merge-writes.ts`: the merge and enqueue writes (see "Merge and enqueue").
-- `refresh/insight-service.ts`: keeps the last insight per PR in memory. The `pr-poller` service refreshes each open PR every 60 seconds, one refresh per PR, max 4 at once. When a thread goes idle, `server.ts` calls `refreshOnIdle`, which refreshes that thread's PR at once. When BB links no PR yet, it tries one more time after 10 seconds. A merged or closed PR gets one last refresh. After a rate limit, it waits until the reset time or 5 minutes. After a refresh that changes the data, it publishes `insight.updated` with the thread ids.
+- `merge/pr-writes.ts`: all PR writes behind `runPrAction`: merge, enqueue, branch update with merge or rebase, and auto-merge on or off (see "Merge and enqueue", "Update branch", and "Auto-merge"). `merge/local-commits-lookup.ts`: the `localCommitsAhead` check for the rebase.
+- `refresh/insight-service.ts`: keeps the last insight per PR in memory. The `pr-poller` service refreshes each open PR every 60 seconds, one refresh per PR, max 4 at once. When a thread goes idle, `server.ts` calls `refreshOnIdle`, which refreshes that thread's PR at once. When BB links no PR yet, it tries one more time after 10 seconds. A merged or closed PR gets one last refresh. After a rate limit, it waits until the reset time or 5 minutes. After a refresh that changes the data, it publishes `insight.updated` with the thread ids and writes the reading to the kv entry `insight:<owner>/<repo>#<number>` (`{ v: 1, refreshedAt, reading }`). On a memory miss, for example after a restart, `getInsight` returns that stored reading with its original time at once and refreshes it in the background. An entry of another version reads as no entry. Each poll deletes the entries of PRs that no thread links, but only when bb could read the PR of every thread.
 - `host.ts`: reads a `--body-file` (`readTextFile`), and runs `gh api graphql`, and `gh api --paginate --slurp` for the PR files, with the `gh` login of the host. It returns the raw JSON, or a failure: `gh_missing`, `gh_logged_out`, `rate_limited` (with the reset time from `gh api rate_limit`), or `failed`.
 - `core/`: pure parsing. One entry per check name (newest run), mapped to `failed`, `running`, `cancelled`, `passed`, or `skipped`. `buildReviewers` puts open requests (pending) before latest reviews. `buildBlockers` gives the blockers in fixed order, and `blocked` only when no other code applies.
 - `core/merge-queue.ts`: maps the PR's merge queue entry (read in the first overview page, no extra request) to a queue state. A queued PR has no blockers. Both the PR tab and composer banner use the same queue detail from `ui/pr-status-view.ts`.
@@ -29,7 +29,8 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
   | `UNMERGEABLE`         | `failed`          | Merge queue failed (problem tone) |
   | no entry              | none              | none                              |
 
-- `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
+- `ui/pr-tab.tsx`: the PR header (number, state, "Updated <age>", refresh button, title, then `head → base`, lines added and removed, changed files, and author), one summary line (`prSummaryLine` in `ui/pr-status-view.ts`: the queue state, "Auto-merge on", the first blocker with "+N more", or "Ready to merge"), the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers when there are 2 or more, the reviewers, and the checks. Failed, cancelled, and running checks show open. Passed and skipped share one collapsed line, for example "52 passed, 2 skipped". A required check has a "required" label. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
+- `ui/pr-availability.ts`: the last PR result per thread in the window. `useInsight` writes each accepted load there (a PR sets it, no PR deletes it, a failed load keeps it) and seeds a thread switch from it, so the PR tab and banner show the last PR at once with a spinner while the new load runs.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `ui/pr-status-view.ts` picks lifecycle, queue detail, and valid actions for both views; `core/banner.ts` selects compact blockers (see "Merge and enqueue"). The text opens the PR tab.
 - `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects, the linked thread, and the reviewed state to each PR, and keeps the result in plugin kv storage.
@@ -186,7 +187,7 @@ The PR tab shows one merge action below the PR header (`core/merge-action.ts`):
 | repository allows your default merge method   | merge button                         |
 | other                                         | none                                 |
 
-The composer banner of the thread shows the same action, with the same `MergeActionButton` and `useMergeAction` as the tab (`ui/pr-status-view.ts`):
+The composer banner of the thread shows the same action, with the same `MergeActionButton` and `usePrAction` as the tab (`ui/pr-status-view.ts`):
 
 | PR                                  | Banner                                                             |
 | ----------------------------------- | ------------------------------------------------------------------ |
@@ -203,7 +204,7 @@ The lifecycle stays readable at compact widths; long detail truncates first. Clo
 
 Before the first result, both views show "Loading pull request…". An initial read failure shows an error and Retry, not an invented PR state. A failed refresh keeps the last good state and details with the error, original update time, and Retry. This includes transport failures after a good read. Refresh progress does not erase known status. A confirmed no-PR result clears retained data and hides normal banner status; explicit palette feedback can still show.
 
-Both views use the same `useInsight` read and realtime path. They load independently, so one can briefly be at a different read stage. After both consume the same result, their lifecycle and queue status agree. There is no additional fetch source or polling timer. Retained data belongs to one thread and is cleared on navigation or no-PR results.
+Both views use the same `useInsight` read and realtime path. They load independently, so one can briefly be at a different read stage. After both consume the same result, their lifecycle and queue status agree. There is no additional fetch source or polling timer. Retained data belongs to one thread. It stays in the window across navigation, so a return to the thread shows it at once (see `ui/pr-availability.ts`), and a no-PR result clears it.
 
 The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and banner share one operation state per thread in this window. Both buttons show "Merging…" or "Enqueuing…" and stay disabled during a write, including when one view opens later. Requests from different entry points cannot start a second write while one is running.
 
@@ -215,7 +216,7 @@ merge button --> confirm dialog (#number, title, method) --Cancel--> no write
                         |                              |
                      Confirm                           |
                         v                              v
-runMergeAction({ threadId, action, expectedHeadOid }) --> server
+runPrAction({ threadId, action, expectedHeadOid }) --> server
    cached action or head commit differs? --> error "The PR changed. Refresh and try again."
    host: gh api graphql mergePullRequest(pullRequestId, mergeMethod, expectedHeadOid)
       or gh api graphql enqueuePullRequest(pullRequestId, expectedHeadOid)
@@ -228,8 +229,43 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
 - All values go to GitHub as GraphQL variables.
 - While a merge or enqueue runs, the banner shows progress instead of "Ready to merge" or "Ready to enqueue". An error shows in the tab and banner; a still-valid action is available again. The banner error can be dismissed and an error for an older head commit does not appear for a new head.
 - The merge or enqueue runs as the `gh` user of the thread's host, with the permissions of that user.
-- Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. No CLI command merges or enqueues.
+- Only a click in the tab or the banner, or the "GitHub: Merge PR" palette command, merges or enqueues. Only a click in the tab updates the branch or changes auto-merge. No CLI command writes any of these.
 - The overview query reads `isMergeQueueEnabled` and `mergeQueueEntry`. GitHub Enterprise Server versions without these fields are not supported: the PR tab shows an error.
+
+## Update branch
+
+The PR tab shows an "Update branch" split button when `canUpdateBranch` is true (`core/branch-update.ts`): the PR is open or draft, GitHub reports the branch `BEHIND`, it has no conflicts, and it is not in the merge queue.
+
+```
+"Update branch" -------------------------------> runPrAction(update-merge)
+chevron --> localCommitsAhead(threadId)
+              server: cached PR head branch + bb.sdk.environments.get (path, hostId)
+              host:   git rev-parse --abbrev-ref HEAD  (must be the head branch)
+                      git rev-list --count refs/remotes/origin/<branch>..HEAD
+            "Update with rebase…" (disabled with the reason, or)
+              --> confirm dialog --Cancel--> no write
+              --> runPrAction(update-rebase)
+server: gh api graphql updatePullRequestBranch(pullRequestId, expectedHeadOid, updateMethod)
+```
+
+- The main part merges the base into the branch at once, without a dialog. A merge never makes the agent lose work: its next push is rejected until it pulls.
+- A rebase rewrites the remote branch, so the agent's local branch no longer matches it. The tab checks the worktree first. "N unpushed commits. Push first." or "Cannot check local commits" disables the rebase. The check returns `unknown` for a fork PR, a thread without a worktree path, another checked-out branch, a missing `origin/<branch>` ref, or a failed git command. `sdk.environments.status` with `mergeBaseBranch` is not used, because bb rejects its own merge-base response.
+- After an update, the tab shows "Branch updated on GitHub. Pull before you push." until you dismiss it or switch threads.
+- Branch update shares the operation state of merge and enqueue (`ui/pr-operations.ts`): one write per thread at a time, "Updating…" while it runs, and the GitHub error below the button.
+
+## Auto-merge
+
+`core/auto-merge.ts` builds `autoMergeAction` from the first overview page (`autoMergeRequest`, `autoMergeAllowed`, and the merge settings):
+
+| PR                                                                                                                                          | Tab                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| open or draft, auto-merge on (also when set on github.com)                                                                                  | "Auto-merge on (method)" in the summary line, "Disable" |
+| open, not draft, repo allows auto-merge, no merge queue, default method allowed, and every blocker is "checks running" or "review required" | "Enable auto-merge (method)"                            |
+| other                                                                                                                                       | none                                                    |
+
+- Both buttons run at once, without a dialog: `runPrAction(enable-auto-merge)` sends `enablePullRequestAutoMerge(pullRequestId, mergeMethod, expectedHeadOid)` with your default merge method. `runPrAction(disable-auto-merge)` sends `disablePullRequestAutoMerge(pullRequestId)` and does not check the head commit.
+- A failed check, conflicts, an out-of-date branch, or changes requested hide "Enable auto-merge". GitHub has the final say: a rejected request shows the GitHub error.
+- Auto-merge shares the operation state of the other PR writes: "Enabling…" or "Disabling…" while it runs, one write per thread at a time.
 
 ## Command palette
 
@@ -279,4 +315,4 @@ bb plugin dev
 
 ## Test fixtures
 
-`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. `test/fixtures/pr-43-head.json` is the `github/pr-head-query.ts` response for the merged `koenvg/bb-plugins#43`. Re-record with the queries in `github/`. `test/fixtures/review-queue-tracked.json` is written by hand in the shape of a real `github/review-queue-query.ts` response with tracked PRs: an open PR, a merged PR, a missing repository and a missing PR (`null` with `NOT_FOUND` errors), and a PR that the search also returns.
+`test/fixtures/pr-25337-overview-page-*.json` are the two pages of the overview query for `collibra/frontend#25337`, recorded with `gh api graphql`. `test/fixtures/pr-25337-check-run-details.json` is the detail query for its newest failed and cancelled check runs. `test/fixtures/pr-1-files.json` is 3 files of `koenvangeert/bb-plugins#1` from `gh api --paginate --slurp repos/koenvangeert/bb-plugins/pulls/1/files`. `package-lock.json` has no patch. The merge fields of page 1 (`viewerDefaultMergeMethod`, the `*Allowed` flags, `id`, `headRefOid`, `isMergeQueueEnabled`) were recorded later, after the PR was closed. The branch, author, diff size, `autoMergeAllowed`, `autoMergeRequest`, and `isRequired` fields of the three `collibra/frontend` overview fixtures were added by hand after the query got them. `test/fixtures/pr-cli-14583-overview-required-checks.json` is the overview query for the public `cli/cli#14583`, trimmed to its 3 required checks and 2 optional checks. `test/fixtures/pr-43-head.json` is the `github/pr-head-query.ts` response for the merged `koenvg/bb-plugins#43`. Re-record with the queries in `github/`. `test/fixtures/review-queue-tracked.json` is written by hand in the shape of a real `github/review-queue-query.ts` response with tracked PRs: an open PR, a merged PR, a missing repository and a missing PR (`null` with `NOT_FOUND` errors), and a PR that the search also returns.

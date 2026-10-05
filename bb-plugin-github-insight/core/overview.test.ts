@@ -4,6 +4,7 @@ import pageTwo from "../test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "../test/fixtures/pr-25337-check-run-details.json";
 import readyToEnqueuePage from "../test/fixtures/pr-25693-overview-ready-to-enqueue.json";
 import inMergeQueuePage from "../test/fixtures/pr-25597-overview-in-merge-queue.json";
+import requiredChecksPage from "../test/fixtures/pr-cli-14583-overview-required-checks.json";
 import { MAX_CONTEXT_PAGES, collectInsight, type GitHubReader } from "./overview";
 
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
@@ -78,6 +79,14 @@ describe("collectInsight on PR 25337", () => {
       state: "open",
       url: "https://github.com/collibra/frontend/pull/25337",
       headOid: "2c850077d3529aa67c8178c80d09517377124ea9",
+      headRefName: "feat/ootb-domain-type-ids",
+      headOwner: null,
+      isCrossRepository: false,
+      baseRefName: "master",
+      author: "koenvg",
+      additions: 120,
+      deletions: 30,
+      changedFiles: 12,
     });
   });
 
@@ -151,6 +160,7 @@ describe("collectInsight on PR 25337", () => {
       name: "trigger-testing / a11y-test (1) / a11y-test",
       status: "failed",
       url: "https://github.com/collibra/frontend/actions/runs/35973768789/job/107549950702",
+      required: false,
       failure: {
         reason: "Process completed with exit code 1.",
         annotations: [
@@ -364,5 +374,88 @@ describe("collectInsight paging", () => {
         }),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("collectInsight on cli/cli PR 14583", () => {
+  function cliGitHub(page: unknown = requiredChecksPage): GitHubReader {
+    return recordedGitHub({ fetchOverviewPage: async () => page });
+  }
+
+  function withPullRequest(overrides: Record<string, unknown>) {
+    const { repository } = requiredChecksPage.data;
+    return {
+      data: {
+        repository: { ...repository, pullRequest: { ...repository.pullRequest, ...overrides } },
+      },
+    };
+  }
+
+  it("gives the branches, author, and diff size", async () => {
+    const { insight } = await collectInsight(cliGitHub());
+
+    expect(insight.pr).toMatchObject({
+      headRefName: "bagtoad/add-accessibility-md",
+      headOwner: null,
+      isCrossRepository: false,
+      baseRefName: "trunk",
+      author: "BagToad",
+      additions: 122,
+      deletions: 0,
+      changedFiles: 1,
+    });
+  });
+
+  it("names the fork owner of a fork PR", async () => {
+    const { insight } = await collectInsight(
+      cliGitHub(
+        withPullRequest({ isCrossRepository: true, headRepositoryOwner: { login: "alice" } }),
+      ),
+    );
+
+    expect(insight.pr.headOwner).toBe("alice");
+  });
+
+  it("gives no author for a deleted account", async () => {
+    const { insight } = await collectInsight(cliGitHub(withPullRequest({ author: null })));
+
+    expect(insight.pr.author).toBeNull();
+  });
+
+  it("marks the required checks", async () => {
+    const { insight } = await collectInsight(cliGitHub());
+    const required = Object.fromEntries(
+      insight.checks.map((check) => [check.name, check.required]),
+    );
+
+    expect(required).toEqual({
+      "build (ubuntu-latest)": true,
+      "build (windows-latest)": true,
+      "build (macos-latest)": true,
+      "label-external / label_issues": false,
+      "close-from-default-branch / close-from-default-branch": false,
+    });
+  });
+
+  it("offers to disable auto-merge that is on", async () => {
+    const { insight } = await collectInsight(
+      cliGitHub(withPullRequest({ autoMergeRequest: { mergeMethod: "SQUASH" } })),
+    );
+
+    expect(insight.autoMergeAction).toEqual({ kind: "disable", method: "SQUASH" });
+  });
+
+  it("offers no branch update for a clean PR", async () => {
+    const { insight } = await collectInsight(cliGitHub());
+
+    expect(insight.canUpdateBranch).toBe(false);
+  });
+
+  it("offers a branch update for a branch that is behind", async () => {
+    const { insight } = await collectInsight(
+      cliGitHub(withPullRequest({ mergeStateStatus: "BEHIND" })),
+    );
+
+    expect(insight.canUpdateBranch).toBe(true);
   });
 });

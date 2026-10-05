@@ -5,8 +5,9 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
+import { forgetInsights } from "./pr-availability";
 
-type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runMergeAction">;
+type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction">;
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
@@ -16,6 +17,14 @@ const pr = {
   state: "open" as const,
   url: "https://github.com/o/r/pull/7",
   headOid: "a",
+  headRefName: "feature",
+  headOwner: null,
+  isCrossRepository: false,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 };
 const emptyInsight: PrInsight = {
   pr,
@@ -24,6 +33,8 @@ const emptyInsight: PrInsight = {
   checks: [],
   reviewers: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 const blocked: PrInsight = {
   ...emptyInsight,
@@ -43,11 +54,14 @@ const ok = (insight: PrInsight): InsightResult => ({
 const rpc = (result: InsightResult) => ({
   getInsight: () => result,
   refresh: () => result,
-  runMergeAction: () => {
+  runPrAction: () => {
     throw new Error("Status presentation must not write to GitHub");
   },
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 function renderBanner(result: InsightResult) {
   return renderSlot<object, StatusMethods>(
@@ -85,7 +99,7 @@ describe("PR state parity", () => {
     expect(chat.inspection.navigateCalls).toEqual([
       { method: "openThreadPanel", options: { actionId: "pr" } },
     ]);
-    expect(chat.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
+    expect(chat.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });
 
   it("keeps Draft beside failed checks and conflicts without repeating Draft in the banner", async () => {

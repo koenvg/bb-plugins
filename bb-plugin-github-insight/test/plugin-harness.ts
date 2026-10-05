@@ -82,6 +82,7 @@ export async function setup(options: {
   spawn?: BbPluginApi["sdk"]["threads"]["spawn"];
   pluginMetadata?: Record<string, unknown>;
   kv?: Record<string, unknown>;
+  environments?: Record<string, Partial<Environment>>;
 }) {
   const threadResponse = (id: string) => {
     const thread = options.threads.find((candidate) => candidate.id === id)!;
@@ -112,7 +113,8 @@ export async function setup(options: {
       environments: {
         pullRequest: async ({ environmentId }) =>
           options.pullRequests?.[environmentId] ?? { outcome: "absent" as const },
-        get: async () => ({ hostId: "host-1" }) as Environment,
+        get: async ({ environmentId }) =>
+          ({ hostId: "host-1", ...options.environments?.[environmentId] }) as Environment,
       },
       projects: {
         list: async () => (options.projects ?? []) as ProjectListItem[],
@@ -131,5 +133,5 @@ export async function setup(options: {
   });
   for (const [key, value] of Object.entries(options.kv ?? {})) await bb.storage.kv.set(key, value);
   await plugin(bb);
-  return harness;
+  return Object.assign(harness, { kv: bb.storage.kv });
 }

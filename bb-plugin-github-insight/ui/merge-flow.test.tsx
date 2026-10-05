@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ActionResult, InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { GITHUB_COMMANDS } from "./commands";
+import { forgetInsights } from "./pr-availability";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
@@ -15,6 +16,14 @@ const pr = {
   state: "open" as const,
   url: "https://github.com/o/r/pull/7",
   headOid: "a",
+  headRefName: "feature",
+  headOwner: null,
+  isCrossRepository: false,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 };
 const ready: PrInsight = {
   pr,
@@ -23,6 +32,8 @@ const ready: PrInsight = {
   checks: [],
   reviewers: [],
   mergeQueue: null,
+  autoMergeAction: { kind: "none" },
+  canUpdateBranch: false,
 };
 const ok = (insight: PrInsight = ready, error: string | null = null): InsightResult => ({
   kind: "ok",
@@ -43,7 +54,7 @@ function fixture(initial: InsightResult = ok()) {
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
   const write = vi.fn(async (): Promise<ActionResult> => ({ kind: "ok" }));
   const options = {
-    rpc: { getInsight, refresh, runMergeAction: write },
+    rpc: { getInsight, refresh, runPrAction: write },
     composer: { scope: { kind: "thread" as const, threadId: "flow" } },
   };
   const mountBanner = () => {
@@ -82,6 +93,7 @@ afterEach(() => {
   for (const slot of mounted) expect(slot.inspection.navigateCalls).toEqual([]);
   mounted.length = 0;
   cleanup();
+  forgetInsights();
   openPanel.mockClear();
 });
 

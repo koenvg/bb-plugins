@@ -7,6 +7,7 @@ import { RefreshError } from "./feedback";
 import { useInsight } from "./use-insight";
 import { usePaletteMerge } from "./use-palette-merge";
 import { usePrPanelNavigation } from "./use-pr-panel-navigation";
+import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 
 const TEXT_BUTTON_CLASS =
   "flex min-h-8 min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
@@ -25,7 +26,7 @@ function ThreadBanner({ threadId }: { threadId: string }) {
   const { result, refreshing, refresh } = insight;
   const { state, operation } = palette;
   const running = operation.kind === "running";
-  const progress = running ? (operation.action === "enqueue" ? "Enqueuing…" : "Merging…") : null;
+  const progress = running ? PR_ACTION_BUSY_LABEL[operation.action] : null;
   const preparing = state.kind === "preparing";
   const message =
     state.kind === "message"

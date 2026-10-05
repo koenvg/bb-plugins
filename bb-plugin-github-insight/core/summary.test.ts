@@ -25,7 +25,7 @@ async function recordedInsight(): Promise<PrInsight> {
 }
 
 function check(name: string, status: Check["status"]): Check {
-  return { name, status, url: null, failure: null };
+  return { name, status, url: null, required: false, failure: null };
 }
 
 function reviewer(name: string, overrides: Partial<Reviewer> = {}): Reviewer {
@@ -40,12 +40,22 @@ function insight(overrides: Partial<PrInsight> = {}): PrInsight {
       state: "open",
       url: "https://github.com/o/r/pull/1",
       headOid: "abc",
+      headRefName: "feature",
+      headOwner: null,
+      isCrossRepository: false,
+      baseRefName: "main",
+      author: "koenvg",
+      additions: 1,
+      deletions: 0,
+      changedFiles: 1,
     },
     mergeAction: { kind: "none" },
     blockers: [],
     reviewers: [],
     checks: [],
     mergeQueue: null,
+    autoMergeAction: { kind: "none" },
+    canUpdateBranch: false,
     ...overrides,
   };
 }

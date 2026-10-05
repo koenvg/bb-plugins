@@ -5,11 +5,15 @@ import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing
 import type { ComponentProps } from "react";
 import type { ActionResult, rpcContract } from "../contract";
 import type { RunnableMergeAction } from "../core/merge-action";
+import { forgetInsights } from "./pr-availability";
 
 installTestPluginRuntime();
 const { MergeActionButton } = await import("./merge-action-button");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetInsights();
+});
 
 const pr = {
   number: 7,
@@ -17,6 +21,14 @@ const pr = {
   state: "open",
   url: "https://github.com/o/r/pull/7",
   headOid: "abc123",
+  headRefName: "feature",
+  headOwner: null,
+  isCrossRepository: false,
+  baseRefName: "main",
+  author: "koenvg",
+  additions: 1,
+  deletions: 0,
+  changedFiles: 1,
 } as const;
 
 type Props = ComponentProps<typeof MergeActionButton>;
@@ -24,17 +36,17 @@ type Props = ComponentProps<typeof MergeActionButton>;
 function renderButton(
   action: RunnableMergeAction,
   props: Partial<Props> = {},
-  runMergeAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
+  runPrAction: () => ActionResult | Promise<ActionResult> = () => ({ kind: "ok" }),
 ) {
   return renderSlot<Props, typeof rpcContract>(
     { component: MergeActionButton },
     { threadId: "thr_1", pr, action, ...props },
-    { rpc: { runMergeAction } as never },
+    { rpc: { runPrAction } as never },
   );
 }
 
 function mergeCalls(slot: ReturnType<typeof renderButton>) {
-  return slot.inspection.rpcCalls.filter((call) => call.method === "runMergeAction");
+  return slot.inspection.rpcCalls.filter((call) => call.method === "runPrAction");
 }
 
 describe("MergeActionButton", () => {
