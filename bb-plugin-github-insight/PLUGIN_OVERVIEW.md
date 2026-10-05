@@ -1,13 +1,15 @@
 See the checks of a thread's pull request, and the pull requests that wait for your review, without leaving bb.
 
 - A **PR** tab in the thread's right panel.
-- The PR number, title, state, and a link to GitHub.
-- Merge blockers, most important first: conflicts, failed checks, changes requested, branch out of date, review required, unresolved threads, running checks, draft, blocked.
+- The PR number, title, state, `head → base` branch, lines added and removed, changed files, author, and a link to GitHub.
+- One summary line at the top: the first merge blocker with "+N more", "Ready to merge", the merge queue state, or "Auto-merge on".
+- Merge blockers, most important first, when there are 2 or more: conflicts, failed checks, changes requested, branch out of date, review required, unresolved threads, running checks, draft, blocked.
 - Reviewers with their state, "(team)" for teams, and a "code owner" label. An open review request shows as pending, also after an earlier review.
-- Every check on the head commit, one entry per check name, grouped by status.
+- Every check on the head commit, one entry per check name, grouped by status. Passed and skipped checks share one collapsed line. Required checks have a "required" label.
 - Failed and cancelled checks show why: a reason and up to 5 failure annotations.
 - A banner above the composer shows Draft, Open, Closed, or the merged outcome, independently of blockers or available actions. Draft stays beside failed checks or conflicts. Queue state and position match the PR tab. Only an eligible Open PR has a merge or enqueue button. Clicking status opens the PR tab without a write.
-- Updates by itself every 60 seconds while the PR is open. A refresh button updates it at once.
+- Updates by itself every 60 seconds while the PR is open. A refresh button updates it at once. The tab always shows "Updated <age>".
+- Shows the last known PR at once when you return to a thread or restart bb, then updates it in the background.
 - Errors show as "gh not installed", "gh not logged in", or "rate limited", with a retry button. Both the PR tab and composer show initial loading, read failures, and Retry. A failed refresh keeps visibly stale last-good data with its time. Confirmed no-PR hides normal banner status.
 
 - A **Review** tab with the diff of each changed file at the PR head. Files without a patch show "Diff not available". Review threads show below their line, with all comments. Outdated threads show in an "Outdated" section at the top. Resolved threads show collapsed with "Show resolved". The top shows "N open" and "N outdated". A draft reply from the agent fills the thread's reply box as "Draft from agent". The user can edit it, post it, post and resolve it, or discard it.

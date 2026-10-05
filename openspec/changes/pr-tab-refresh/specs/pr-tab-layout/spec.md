@@ -8,17 +8,17 @@ Defines what the PR tab shows at the top and how it lists checks, so the user se
 
 ### Requirement: PR header
 
-The PR tab header SHALL show the PR number, the lifecycle state, the head branch and base branch as `head -> base`, the lines added and removed, the number of changed files, the author login, and the title. For a PR from a fork, the head branch SHALL include the fork owner as `owner:branch`.
+The PR tab header SHALL show the PR number, the lifecycle state, the head branch and base branch as `head → base`, the lines added and removed, the number of changed files, the author login, and the title. For a PR from a fork, the head branch SHALL include the fork owner as `owner:branch`.
 
 #### Scenario: Same-repo PR
 
 - **WHEN** PR #25707 is open from branch `kvg/fix-total` to `main`, adds 42 lines, removes 7 lines, changes 3 files, and is by `koenvg`
-- **THEN** the header shows "#25707", "Open", "kvg/fix-total -> main", "+42", "-7", "3 files", "koenvg", and the title
+- **THEN** the header shows "#25707", "Open", "kvg/fix-total → main", "+42", "-7", "3 files", "koenvg", and the title
 
 #### Scenario: Fork PR
 
 - **WHEN** the PR head branch `fix` is in the fork of `alice`
-- **THEN** the header shows "alice:fix -> main"
+- **THEN** the header shows "alice:fix → main"
 
 #### Scenario: One file
 
@@ -27,17 +27,19 @@ The PR tab header SHALL show the PR number, the lifecycle state, the head branch
 
 ### Requirement: Summary line
 
-Below the header, the PR tab SHALL show one summary line for an open or draft PR. It SHALL show the first merge blocker in the existing blocker order, and "+N more" when there are more. Without blockers, it SHALL show "Ready to merge" or "Ready to enqueue". For a PR in the merge queue, or with auto-merge on, it SHALL show that state instead. A merged or closed PR SHALL show no summary line.
+Below the header, the PR tab SHALL show one summary line for an open or draft PR. It SHALL show the first merge blocker in the existing blocker order, and "+N more" when there are more. Without blockers, it SHALL show "Ready to merge" or "Ready to enqueue". For a PR in the merge queue, or with auto-merge on, it SHALL show that state instead. A merged or closed PR SHALL show no summary line. The "Merge blockers" list SHALL show only when the PR has 2 or more blockers.
 
 #### Scenario: One blocker
 
 - **WHEN** the only blocker is "Review required"
 - **THEN** the summary line shows "Review required"
+- **AND** the tab shows no "Merge blockers" list
 
 #### Scenario: Several blockers
 
 - **WHEN** the blockers are "Merge conflicts", "1 check failed", and "Review required"
 - **THEN** the summary line shows "Merge conflicts" and "+2 more"
+- **AND** the "Merge blockers" list shows all three blockers
 
 #### Scenario: Ready PR
 

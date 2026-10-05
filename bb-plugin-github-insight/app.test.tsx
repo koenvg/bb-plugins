@@ -242,7 +242,7 @@ describe("PR tab", () => {
     const headings = slot
       .getAllByTestId("check-group-heading")
       .map((heading) => heading.textContent);
-    expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed", "1 skipped"]);
+    expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed, 1 skipped"]);
   });
 
   it("links each check to GitHub", async () => {
@@ -255,14 +255,12 @@ describe("PR tab", () => {
   it("collapses passed and skipped checks until the user expands them", async () => {
     const slot = renderTab(insight);
 
-    const passed = (await slot.findByText("2 passed")).closest("details")!;
-    const skipped = slot.getByText("1 skipped").closest("details")!;
-    expect(passed.open).toBe(false);
-    expect(skipped.open).toBe(false);
+    const collapsed = (await slot.findByText("2 passed, 1 skipped")).closest("details")!;
+    expect(collapsed.open).toBe(false);
 
-    fireEvent.click(within(passed).getByText("2 passed"));
-    expect(passed.open).toBe(true);
-    expect(within(passed).getByText("lint")).toBeTruthy();
+    fireEvent.click(within(collapsed).getByText("2 passed, 1 skipped"));
+    expect(collapsed.open).toBe(true);
+    expect(within(collapsed).getByText("lint")).toBeTruthy();
   });
 
   it("shows the reason and annotations of a failed check", async () => {
@@ -394,16 +392,16 @@ describe("PR tab", () => {
   ] as const)("shows the %s queue state as text instead of merge blockers", async (state, text) => {
     const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 3, state } }));
 
-    const queue = await slot.findByRole("region", { name: "Merge queue" });
-    expect(within(queue).getByRole("listitem").textContent).toBe(text);
+    const summary = await slot.findByRole("status", { name: "Merge status" });
+    expect(summary.textContent).toBe(text);
     expect(slot.queryByRole("region", { name: "Merge blockers" })).toBeNull();
   });
 
   it("shows a failed queue entry in the problem tone", async () => {
     const slot = renderTab(ok({ ...emptyInsight, mergeQueue: { position: 1, state: "failed" } }));
 
-    const queue = await slot.findByRole("region", { name: "Merge queue" });
-    expect(within(queue).getByRole("listitem").className).toContain("text-destructive");
+    const summary = await slot.findByRole("status", { name: "Merge status" });
+    expect(within(summary).getByText("Merge queue failed").className).toContain("text-destructive");
   });
 
   it("leaves out the merge queue of a PR that is not queued", async () => {

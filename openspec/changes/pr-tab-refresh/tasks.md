@@ -24,10 +24,10 @@
 
 ## 5. Layout
 
-- [ ] 5.1 Render the new header (number, state, `head -> base`, +/-, files, author, title) in `ui/pr-tab.tsx`; verify rendered tests for the "PR header" scenarios
-- [ ] 5.2 Render the summary line below the header; verify rendered tests for one blocker, several blockers, ready, and merged
-- [ ] 5.3 Add the "required" label and merge passed and skipped checks into one collapsed line; verify rendered tests for the "Required checks label" and "Passed and skipped checks in one line" scenarios
-- [ ] 5.4 Update `PLUGIN_OVERVIEW.md` and `README.md` for the snapshot, header, summary line, and check list; verify the text matches the specs
+- [x] 5.1 Render the new header (number, state, `head -> base`, +/-, files, author, title) in `ui/pr-tab.tsx`; verify rendered tests for the "PR header" scenarios
+- [x] 5.2 Render the summary line below the header; verify rendered tests for one blocker, several blockers, ready, and merged
+- [x] 5.3 Add the "required" label and merge passed and skipped checks into one collapsed line; verify rendered tests for the "Required checks label" and "Passed and skipped checks in one line" scenarios
+- [x] 5.4 Update `PLUGIN_OVERVIEW.md` and `README.md` for the snapshot, header, summary line, and check list; verify the text matches the specs
 
 ## 6. Shared write path
 
