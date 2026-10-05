@@ -55,4 +55,12 @@ describe("PR availability", () => {
 
     expect([hasPr("thr_failed"), canMerge("thr_failed")]).toEqual([true, true]);
   });
+  it.each(["draft", "closed", "merged"] as const)("rejects stale action data for %s", (state) => {
+    const result = ok({ kind: "merge", method: "SQUASH" });
+    if (result.kind !== "ok") throw new Error("Expected fixture insight");
+    result.insight.pr.state = state;
+    rememberInsight(`stale-${state}`, result);
+    expect(hasPr(`stale-${state}`)).toBe(true);
+    expect(canMerge(`stale-${state}`)).toBe(false);
+  });
 });

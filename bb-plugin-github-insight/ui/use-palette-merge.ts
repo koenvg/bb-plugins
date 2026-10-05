@@ -3,6 +3,7 @@ import type { InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import type { RunnableMergeAction } from "../core/merge-action";
 import { useCommandIntent } from "./command-intents";
+import { prStatusView } from "./pr-status-view";
 import { mergeOperations } from "./merge-operations";
 import { useMergeAction } from "./use-merge-action";
 import type { useInsight } from "./use-insight";
@@ -20,13 +21,14 @@ const IDLE: PaletteState = { kind: "idle" };
 
 function versionOf(result: InsightResult | null): string {
   if (result?.kind !== "ok") return JSON.stringify(result);
-  const { pr, mergeAction, blockers } = result.insight;
-  return JSON.stringify([pr.number, pr.url, pr.headOid, pr.state, mergeAction, blockers, result.error]);
+  const { pr, mergeAction, blockers, mergeQueue } = result.insight;
+  return JSON.stringify([pr.number, pr.url, pr.headOid, pr.state, mergeAction, blockers, mergeQueue, result.error]);
 }
 function unavailable(insight: PrInsight): string {
   if (insight.pr.state === "merged") return "Pull request merged";
   if (insight.pr.state === "closed") return "Pull request closed";
-  if (insight.mergeAction.kind === "queued") return "Queued";
+  const status = prStatusView(insight);
+  if (status.detail?.kind === "queue") return status.detail.text;
   return insight.blockers.map((blocker) => blocker.text).join(" · ") || "This pull request cannot merge.";
 }
 
@@ -69,8 +71,9 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     if (result.kind === "error") { showMessage(result.message, version); return; }
     if (result.kind === "no_pr") { showMessage("No pull request for this thread", version); return; }
     if (result.error !== null) { showMessage(result.error, version); return; }
-    const { pr, mergeAction } = result.insight;
-    if (mergeAction.kind !== "merge" && mergeAction.kind !== "enqueue") {
+    const { pr } = result.insight;
+    const { action: mergeAction } = prStatusView(result.insight);
+    if (mergeAction === null) {
       showMessage(unavailable(result.insight), version);
       return;
     }
@@ -91,7 +94,7 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
       setState(IDLE);
     } else if (result?.kind !== "ok" || result.insight.pr.number !== target.pr.number
       || result.insight.pr.url !== target.pr.url || result.insight.pr.headOid !== target.pr.headOid
-      || JSON.stringify(result.insight.mergeAction) !== JSON.stringify(target.action)) {
+      || JSON.stringify(prStatusView(result.insight).action) !== JSON.stringify(target.action)) {
       showMessage("The PR changed. Refresh and try again.");
     }
   }, [state, currentVersion, insight.result, operation.kind]);

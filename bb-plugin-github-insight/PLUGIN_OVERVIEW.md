@@ -6,9 +6,9 @@ See the checks of a thread's pull request, and the pull requests that wait for y
 - Reviewers with their state, "(team)" for teams, and a "code owner" label. An open review request shows as pending, also after an earlier review.
 - Every check on the head commit, one entry per check name, grouped by status.
 - Failed and cancelled checks show why: a reason and up to 5 failure annotations.
-- A banner above the composer with the merge blockers, or "Ready to merge" and a merge button. It replaces bb's own PR link and Merge button.
+- A banner above the composer shows Draft, Open, Closed, or the merged outcome, independently of blockers or available actions. Draft stays beside failed checks or conflicts. Queue state and position match the PR tab. Only an eligible Open PR has a merge or enqueue button. Clicking status opens the PR tab without a write.
 - Updates by itself every 60 seconds while the PR is open. A refresh button updates it at once.
-- Errors show as "gh not installed", "gh not logged in", or "rate limited", with a retry button. The last good data stays visible with its time.
+- Errors show as "gh not installed", "gh not logged in", or "rate limited", with a retry button. Both the PR tab and composer show initial loading, read failures, and Retry. A failed refresh keeps visibly stale last-good data with its time. Confirmed no-PR hides normal banner status.
 
 - A **Review** tab with the diff of each changed file at the PR head. Files without a patch show "Diff not available". Review threads show below their line, with all comments. Outdated threads show in an "Outdated" section at the top. Resolved threads show collapsed with "Show resolved". The top shows "N open" and "N outdated". A draft reply from the agent fills the thread's reply box as "Draft from agent". The user can edit it, post it, post and resolve it, or discard it.
 - `bb github-insight review list` and `review draft` let the thread's agent read the open review threads and save draft replies. Drafts are never posted to GitHub by the agent.

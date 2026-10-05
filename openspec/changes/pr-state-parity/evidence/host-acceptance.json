@@ -1,0 +1,65 @@
+{
+  "plugin": {
+    "id": "github-insight",
+    "status": "running",
+    "source": "path:/Users/koen/.bb/local-plugins/github-insight-pr-state-parity.ToPKlb",
+    "frontendGeneration": "cc69b1134dd5d746",
+    "servedJavascriptSha256": "3a558b3b9d7e64b484413ec68e0bf27d0196415c6fd8e1575232c07d488f665a",
+    "cssSha256": "4ab908a5ad660f2344cbfd81438eb5280b0cfe2930b29cd186fc6a6e6340a16d"
+  },
+  "browser": {
+    "type": "existing Arc",
+    "daemon": "pr-parity-arc-kh5e9-verify",
+    "ownedTarget": "4FCF1A221DCD77D31391C28DCDFFF631",
+    "targetClosed": true,
+    "overridesCleared": true
+  },
+  "thread": "thr_kh5e9n4kzi",
+  "checks": [
+    {
+      "check": "Host Changed files visibility and activation",
+      "width": 1615,
+      "theme": "light",
+      "result": "passed",
+      "activation": "DOM button click handler",
+      "observed": "Real file list opened; README row opened real Diff panel",
+      "capture": "host-changed-files-normal.jpg"
+    },
+    {
+      "check": "Host Changed files visibility and activation",
+      "width": 390,
+      "theme": "light",
+      "result": "passed",
+      "activation": "DOM button click handler",
+      "observed": "Visible enabled control fits viewport; real file list opened; README row opened mobile Thread details/Diff panel",
+      "capture": "host-changed-files-compact.jpg"
+    },
+    {
+      "check": "Host Mark ready offered control",
+      "result": "blocked",
+      "reason": "Inspected thread and candidate environments have no linked PR. No exact Mark ready button is offered. No live record/link was changed."
+    },
+    {
+      "check": "Live dark-theme file-control interaction",
+      "result": "skipped",
+      "observed": "Media emulation changed host background to #202020, but interactions and captures were not repeated"
+    },
+    {
+      "check": "Live keyboard/pointer activation",
+      "result": "not verified",
+      "reason": "Background Arc input attempts did not establish a UI outcome. Accepted functional checks used DOM button click handlers."
+    },
+    {
+      "check": "Native desktop acceptance",
+      "result": "skipped",
+      "reason": "Not requested; browser checks do not establish native behavior"
+    }
+  ],
+  "safety": {
+    "githubWriteActionsUsed": [],
+    "livePrRecordsChanged": false,
+    "priorPluginSourceEdited": false,
+    "installedBuildLeftActive": true,
+    "backup": "/tmp/pr-state-parity-install.4HDisW"
+  }
+}

@@ -48,7 +48,7 @@ it("opens from an already-mounted receiver without waiting for insight", async (
     { method: "openThreadPanel", options: { actionId: "pr" } },
   ]));
   await act(async () => resolve(readyInsight));
-  expect(slot.queryByRole("button")).toBeNull();
+  expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
   expect(slot.inspection.navigateCalls).toHaveLength(1);
 });
 

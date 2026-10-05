@@ -629,7 +629,7 @@ describe("PR tab enqueue", () => {
     });
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
-    await slot.findByText("Queued");
+    await slot.findByText("In merge queue (#1)");
     expect(slot.queryByRole("button", { name: "Enqueue" })).toBeNull();
   });
 
@@ -644,8 +644,8 @@ describe("PR tab enqueue", () => {
         }),
     });
 
-    await slot.findByText("Queued");
-    expect(slot.queryByRole("button", { name: /enqueue|merge/i })).toBeNull();
+    await slot.findByText("Merge queue checks running (#2)");
+    expect(slot.queryByRole("button", { name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i })).toBeNull();
   });
 });
 
@@ -721,11 +721,11 @@ describe("Composer banner", () => {
     ]);
   });
 
-  it("is hidden for an open PR without blockers that offers no action", async () => {
+  it("shows Open without readiness when no action is available", async () => {
     const slot = renderBanner(ok(emptyInsight));
 
     await settled(slot);
-    expect(slot.queryByRole("button")).toBeNull();
+    expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
   });
 
   it("is hidden when the thread has no PR", async () => {
@@ -748,24 +748,26 @@ describe("Composer banner", () => {
     expect(slot.inspection.rpcCalls.some(({ method }) => method === "runMergeAction")).toBe(false);
   });
 
-  it("is hidden for a closed PR", async () => {
+  it("shows Closed without obsolete blockers", async () => {
     const slot = renderBanner(ok({ ...blocked, pr: { ...pr, state: "closed" } }));
 
     await settled(slot);
-    expect(slot.queryByRole("button")).toBeNull();
+    expect(slot.getByRole("button", { name: "Closed" })).toBeTruthy();
   });
 
-  it("is hidden when the insight cannot be read", async () => {
+  it("shows the read error and Retry without a merge action", async () => {
     const slot = renderBanner({ kind: "error", message: "gh not logged in" });
 
     await settled(slot);
-    expect(slot.queryByRole("button")).toBeNull();
+    expect(slot.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(slot.getByRole("alert").textContent).toContain("gh not logged in");
+    expect(slot.queryByRole("button", { name: /merge|enqueue/i })).toBeNull();
   });
 
   it("keeps showing the last good data when the last refresh failed", async () => {
     const slot = renderBanner(ok(blocked, "rate limited"));
 
-    expect((await slot.findByRole("button")).textContent).toContain("2 checks failed");
+    expect((await slot.findByRole("button", { name: /Open/ })).textContent).toContain("2 checks failed");
   });
 
   it("updates when the server says this thread's insight changed", async () => {
@@ -776,7 +778,7 @@ describe("Composer banner", () => {
     current = ok(emptyInsight);
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
-    expect(slot.queryByRole("button")).toBeNull();
+    expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
   });
 });
 
@@ -790,14 +792,14 @@ describe("Composer banner merge action", () => {
   it("shows Ready to merge and the merge button for a ready PR", async () => {
     const slot = renderBanner(readyBanner);
 
-    expect(await slot.findByRole("button", { name: "Ready to merge" })).toBeTruthy();
+    expect(await slot.findByRole("button", { name: /Ready to merge/ })).toBeTruthy();
     expect(slot.getByRole("button", { name: "Squash and merge" })).toBeTruthy();
   });
 
   it("opens the PR tab and sends no write when the user clicks the text", async () => {
     const slot = renderBanner(readyBanner);
 
-    fireEvent.click(await slot.findByRole("button", { name: "Ready to merge" }));
+    fireEvent.click(await slot.findByRole("button", { name: /Ready to merge/ }));
 
     expect(slot.inspection.navigateCalls).toEqual([
       { method: "openThreadPanel", options: { actionId: "pr" } },
@@ -827,7 +829,7 @@ describe("Composer banner merge action", () => {
   it("sends one enqueue without a dialog for a ready PR on a merge queue branch", async () => {
     const slot = renderBanner(ok({ ...emptyInsight, mergeAction: { kind: "enqueue" } }));
 
-    expect(await slot.findByRole("button", { name: "Ready to enqueue" })).toBeTruthy();
+    expect(await slot.findByRole("button", { name: /Ready to enqueue/ })).toBeTruthy();
     fireEvent.click(slot.getByRole("button", { name: "Enqueue" }));
     await act(async () => {});
 
@@ -849,8 +851,8 @@ describe("Composer banner merge action", () => {
       }),
     );
 
-    expect(await slot.findByRole("button", { name: "Queued" })).toBeTruthy();
-    expect(slot.queryByRole("button", { name: /enqueue|merge/i })).toBeNull();
+    expect(await slot.findByRole("button", { name: "Open: Merge queue checks running (#2)" })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: /^(Enqueue|Squash and merge|Rebase and merge|Create merge commit)$/i })).toBeNull();
   });
 
   it("shows the blockers and no merge button for a PR with blockers", async () => {
@@ -863,13 +865,13 @@ describe("Composer banner merge action", () => {
   it("replaces the merge controls with the merged banner once the PR is merged", async () => {
     let current: InsightResult = readyBanner;
     const slot = renderBanner(() => current);
-    await slot.findByRole("button", { name: "Ready to merge" });
+    await slot.findByRole("button", { name: /Ready to merge/ });
 
     current = ok({ ...emptyInsight, pr: { ...pr, state: "merged" } });
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
 
     expect(await slot.findByRole("button", { name: "Pull request merged" })).toBeTruthy();
-    expect(slot.queryByRole("button", { name: "Ready to merge" })).toBeNull();
+    expect(slot.queryByRole("button", { name: /Ready to merge/ })).toBeNull();
     expect(slot.queryByRole("button", { name: "Squash and merge" })).toBeNull();
     expect(slot.getAllByRole("button")).toHaveLength(1);
   });
@@ -904,7 +906,7 @@ describe("palette command availability", () => {
     );
     expect(listed("thr_banner")).toEqual([]);
 
-    await slot.findByRole("button", { name: "Ready to merge" });
+    await slot.findByRole("button", { name: /Ready to merge/ });
 
     expect(listed("thr_banner")).toContain("merge-pr");
     expect(listed("thr_banner")).toHaveLength(6);
@@ -929,7 +931,7 @@ describe("palette command availability", () => {
 
     current = readyBanner;
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_later_pr"] });
-    await slot.findByRole("button", { name: "Ready to merge" });
+    await slot.findByRole("button", { name: /Ready to merge/ });
 
     expect(listed("thr_later_pr")).toHaveLength(6);
   });

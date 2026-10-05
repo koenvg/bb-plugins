@@ -19,17 +19,17 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `refresh/insight-service.ts`: keeps the last insight per PR in memory. The `pr-poller` service refreshes each open PR every 60 seconds, one refresh per PR, max 4 at once. When a thread goes idle, `server.ts` calls `refreshOnIdle`, which refreshes that thread's PR at once. When BB links no PR yet, it tries one more time after 10 seconds. A merged or closed PR gets one last refresh. After a rate limit, it waits until the reset time or 5 minutes. After a refresh that changes the data, it publishes `insight.updated` with the thread ids.
 - `host.ts`: reads a `--body-file` (`readTextFile`), and runs `gh api graphql`, and `gh api --paginate --slurp` for the PR files, with the `gh` login of the host. It returns the raw JSON, or a failure: `gh_missing`, `gh_logged_out`, `rate_limited` (with the reset time from `gh api rate_limit`), or `failed`.
 - `core/`: pure parsing. One entry per check name (newest run), mapped to `failed`, `running`, `cancelled`, `passed`, or `skipped`. `buildReviewers` puts open requests (pending) before latest reviews. `buildBlockers` gives the blockers in fixed order, and `blocked` only when no other code applies.
-- `core/merge-queue.ts`: maps the PR's merge queue entry (read in the first overview page, no extra request) to a queue state. A queued PR has no blockers, so the composer banner shows "Queued".
+- `core/merge-queue.ts`: maps the PR's merge queue entry (read in the first overview page, no extra request) to a queue state. A queued PR has no blockers. Both the PR tab and composer banner use the same queue detail from `ui/pr-status-view.ts`.
 
-  | GitHub entry state | Queue state | PR tab text |
+  | GitHub entry state | Queue state | PR tab and banner text |
   |---|---|---|
   | `QUEUED` | `queued` | In merge queue (#N) |
   | `AWAITING_CHECKS` | `awaiting_checks` | Merge queue checks running (#N) |
   | `MERGEABLE`, `LOCKED` | `merging` | Merging |
   | `UNMERGEABLE` | `failed` | Merge queue failed (problem tone) |
   | no entry | none | none |
-- `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`, or a "Queued" label), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
-- `ui/composer-banner.tsx`: the banner above the thread's composer. `bannerState` in `core/banner.ts` picks the row (see "Merge and enqueue"). The text opens the PR tab.
+- `ui/pr-tab.tsx`: the PR header with a refresh button, the merge queue state, the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers, the reviewers, and the checks, grouped by status. Passed and skipped are collapsed. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
+- `ui/composer-banner.tsx`: the banner above the thread's composer. `ui/pr-status-view.ts` picks lifecycle, queue detail, and valid actions for both views; `core/banner.ts` selects compact blockers (see "Merge and enqueue"). The text opens the PR tab.
 - `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects, the linked thread, and the reviewed state to each PR, and keeps the result in plugin kv storage.
 - `pr-panel-navigation.ts` and `ui/use-pr-panel-navigation.ts`: the sidebar badge records a one-shot PR-panel request in the current window before navigating. A receiver in this plugin opens its own `pr` action when the matching thread mounts, even if its blocker banner is hidden. The newest request wins; accepted requests are consumed, ordinary sidebar navigation cancels them, and abandoned requests expire after 30 seconds. Requests are not stored on the server, persisted across reloads, or broadcast to other clients.
@@ -179,22 +179,30 @@ The PR tab shows one merge action below the PR header (`core/merge-action.ts`):
 | PR | Action |
 |---|---|
 | merged, closed, or draft | none |
-| in the merge queue (also with running checks) | "Queued" label, no button |
+| in the merge queue (also with running checks) | queue detail and position, no button |
 | has merge blockers | none |
 | base branch has a merge queue | "Enqueue" button |
 | repository allows your default merge method | merge button |
 | other | none |
 
-The composer banner of the thread shows the same action, with the same `MergeActionButton` and `useMergeAction` as the tab (`core/banner.ts`):
+The composer banner of the thread shows the same action, with the same `MergeActionButton` and `useMergeAction` as the tab (`ui/pr-status-view.ts`):
 
 | PR | Banner |
 |---|---|
 | merged | Pull request merged, violet merge icon, no merge action |
-| closed | hidden |
-| in the merge queue | "Queued", no button |
-| has merge blockers | the top blockers, no button |
-| merge or enqueue action | "Ready to merge" or "Ready to enqueue" + the button |
-| other | hidden |
+| closed | Closed, no merge action |
+| draft | Draft beside compact blockers, no merge action |
+| open, in the merge queue | Open beside matching queue detail and position, no button |
+| open, has merge blockers | Open beside the top blockers, no button |
+| open, valid merge or enqueue action | Open beside "Ready to merge" or "Ready to enqueue", and the button |
+| open, no blockers or action | Open without readiness or a button |
+| no linked PR confirmed | hidden |
+
+The lifecycle stays readable at compact widths; long detail truncates first. Closed and Merged suppress old blocker, readiness, and queue messages. Draft never offers a merge or enqueue action, including through the palette.
+
+Before the first result, both views show "Loading pull request…". An initial read failure shows an error and Retry, not an invented PR state. A failed refresh keeps the last good state and details with the error, original update time, and Retry. This includes transport failures after a good read. Refresh progress does not erase known status. A confirmed no-PR result clears retained data and hides normal banner status; explicit palette feedback can still show.
+
+Both views use the same `useInsight` read and realtime path. They load independently, so one can briefly be at a different read stage. After both consume the same result, their lifecycle and queue status agree. There is no additional fetch source or polling timer. Retained data belongs to one thread and is cleared on navigation or no-PR results.
 
 The banner text opens the PR tab and writes nothing. The button sits next to the text, not inside it. The tab and banner share one operation state per thread in this window. Both buttons show "Merging…" or "Enqueuing…" and stay disabled during a write, including when one view opens later. Requests from different entry points cannot start a second write while one is running.
 
@@ -213,7 +221,7 @@ runMergeAction({ threadId, action, expectedHeadOid }) --> server
    ok --> refresh the PR insight (a failed refresh only logs a warning)
 ```
 
-- "Enqueue" runs at once, without a dialog. After the refresh, the tab and the banner show "Queued".
+- "Enqueue" runs at once, without a dialog. After the refresh, both views show the reported queue state and position. Failed queue entries use the problem tone, not a waiting tone.
 - The tab sends the head commit that it shows. The server compares it with its cached insight, and GitHub rejects the merge or enqueue when the branch has a newer commit. Then the tab or the banner shows the error.
 - The server takes the PR node id and the method from its cache, not from the tab.
 - All values go to GitHub as GraphQL variables.
