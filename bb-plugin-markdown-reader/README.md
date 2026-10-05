@@ -2,7 +2,7 @@
 
 A read-only file opener for live workspace, absolute-host, and thread-storage `.md` and `.markdown` files. It uses a centered prose column, generous spacing, bounded code highlighting, and quiet tables. BB keeps its own tabs and file-opening preferences.
 
-BBP-27 through BBP-31 implement this package. BBP-32 records assembled checks and a temporary, approved local installation followed by removal. The package is not published. Required native acceptance remains open; see [ACCEPTANCE.md](ACCEPTANCE.md).
+BBP-27 through BBP-31 implement this package. BBP-32 records assembled checks and a temporary, approved local installation followed by removal. The package is not published. Required native acceptance remains open.
 
 ## Use
 
@@ -132,4 +132,4 @@ The server must already return HTTP 200. The runner measures 390, 760, and 1440 
 
 For the user UI corrections, run `uv run --offline --with playwright python tests/browser-ui-check.py --url http://127.0.0.1:4173 --out /tmp/bbp-32-ui`. It adds the host list reset to the registered fixture and checks ordinary/nested lists, ordered starts, generated footnotes, mixed read-only tasks, exact Raw, accessible full-path identity, header groups, keyboard order, narrow-in-wide layout and 200% CSS zoom. Its eight captures are fixture evidence, not native-opening acceptance.
 
-All fixtures use the same Reader and MarkdownDocument modules. The older fixtures use fixed loaded sources; the presentation fixture uses the public registered-app harness. Default-token contrast measurements are controlled local checks, not installed/native-theme certification. No fixture proves live BB routing or extension preference selection. See [ACCEPTANCE.md](ACCEPTANCE.md) for evidence and limits.
+All fixtures use the same Reader and MarkdownDocument modules. The older fixtures use fixed loaded sources; the presentation fixture uses the public registered-app harness. Default-token contrast measurements are controlled local checks, not installed/native-theme certification. No fixture proves live BB routing or extension preference selection.

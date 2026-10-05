@@ -45,7 +45,7 @@ bb plugin source codex-inspired --json
 bb theme show --json
 ```
 
-Use the same plugin identity; do not uninstall first. Confirm the source path, enabled state, selected theme, and resolved CSS before deleting an old copy. Keep the old directory if any required check fails or is blocked. Stop if its contents or the BB registration changed during the move. The [repository verification record](https://github.com/koenvg/bb-plugins/blob/main/bb-plugin-codex-inspired/ACCEPTANCE.md) records this laptop's migration status after publication. Packed releases do not include that record.
+Use the same plugin identity; do not uninstall first. Confirm the source path, enabled state, selected theme, and resolved CSS before deleting an old copy. Keep the old directory if any required check fails or is blocked. Stop if its contents or the BB registration changed during the move.
 
 ## Selector contract
 

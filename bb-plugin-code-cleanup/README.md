@@ -32,8 +32,6 @@ This editor blocks overlapping writes within its own view. Cross-client refresh 
 
 ## Test the isolated Settings preview
 
-The test runner requires Node 20.x, 22.x, or 24 and later. Validation for the Vitest security update used Node 24.15.0. See [the dependency review](../docs/investigations/BBP-105.md) for exposure, version selection, and checks.
-
 Run `npm ci`, then `npm run preview:settings` from this package. Open `http://127.0.0.1:4888/`. Set `PORT` to use another port.
 
 The preview renders the actual app entry with a small public app runtime adapter. Requests use official fake-host RPC, the host Settings write driver, and temporary real SQLite, not production storage. Its default control renders the actual backend descriptor but is not BB's native host form. Alpha starts explicitly On with multiline custom text. Beta starts inherited Off with the factory prompt. Personal projects are excluded. Fixture links cover empty, load-failure, save-failure, and slow-request states. Restarting resets fixture values.
