@@ -36,7 +36,7 @@
 ## 7. Update branch
 
 - [x] 7.1 Add the `updatePullRequestBranch` mutation args and host handler; verify an args test for `MERGE` and `REBASE` with `expectedHeadOid`
-- [ ] 7.2 Add the `localCommitsAhead` RPC and its host git handler (D6) with `count` and `unknown` results; verify tests for a count, no environment, other branch, fork PR, no remote ref, and a failed git command
+- [x] 7.2 Add the `localCommitsAhead` RPC and its host git handler (D6) with `count` and `unknown` results; verify tests for a count, no environment, other branch, fork PR, no remote ref, and a failed git command
 - [ ] 7.3 Render the "Update branch" split button, the rebase confirm dialog, the disabled rebase item with its reason, "Updating…", errors, and the pull reminder; verify rendered tests for every scenario in the `pr-branch-update` spec
 - [ ] 7.4 Document "Update branch" in `PLUGIN_OVERVIEW.md` and `README.md`; verify the text matches the spec
 

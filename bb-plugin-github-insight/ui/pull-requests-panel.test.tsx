@@ -110,6 +110,7 @@ const unusedRpc = {
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
+  localCommitsAhead: () => ({ kind: "unknown" as const }),
 };
 
 type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;

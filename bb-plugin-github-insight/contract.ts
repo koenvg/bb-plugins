@@ -58,6 +58,17 @@ const readTextFileResultSchema = z.discriminatedUnion("ok", [
 ]);
 export type ReadTextFileResult = z.infer<typeof readTextFileResultSchema>;
 
+const localCommitsRequestSchema = z
+  .object({ path: z.string().min(1), branch: z.string().min(1) })
+  .strict();
+export type LocalCommitsRequest = z.infer<typeof localCommitsRequestSchema>;
+
+const localCommitsAheadSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("count"), count: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal("unknown") }),
+]);
+export type LocalCommitsAhead = z.infer<typeof localCommitsAheadSchema>;
+
 const replyToThreadRequestSchema = z
   .object({ threadId: z.string().min(1), body: z.string().min(1) })
   .strict();
@@ -131,6 +142,10 @@ export const hostContract = defineRpcContract({
   readTextFile: {
     input: readTextFileRequestSchema,
     output: readTextFileResultSchema,
+  },
+  countLocalCommitsAhead: {
+    input: localCommitsRequestSchema,
+    output: localCommitsAheadSchema,
   },
   replyToThread: {
     input: replyToThreadRequestSchema,
@@ -345,4 +360,5 @@ export const rpcContract = defineRpcContract({
   markReviewed: { input: markReviewedRequestSchema, output: actionResultSchema },
   markNeedsReview: { input: markNeedsReviewRequestSchema, output: actionResultSchema },
   runPrAction: { input: runPrActionRequestSchema, output: actionResultSchema },
+  localCommitsAhead: { input: threadRequestSchema, output: localCommitsAheadSchema },
 });

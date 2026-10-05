@@ -66,6 +66,7 @@ const unusedReviewRpc = {
   markReviewed: () => ({ kind: "error" as const, message: "unused" }),
   markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
+  localCommitsAhead: () => ({ kind: "unknown" as const }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");

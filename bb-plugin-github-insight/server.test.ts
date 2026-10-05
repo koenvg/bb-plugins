@@ -2558,3 +2558,113 @@ describe("runPrAction", () => {
     expect(enqueues(harness)).toEqual([]);
   });
 });
+
+describe("localCommitsAhead", () => {
+  function forkPage() {
+    return {
+      ...pageOne,
+      data: {
+        repository: {
+          ...pageOne.data.repository,
+          pullRequest: {
+            ...pageOne.data.repository.pullRequest,
+            isCrossRepository: true,
+            headRepositoryOwner: { login: "alice" },
+          },
+        },
+      },
+    };
+  }
+
+  function counting(count: unknown = { kind: "count", count: 2 }, first: unknown = pageOne) {
+    const overview = pages(first);
+    return (call: HostCall) => {
+      if (call.method !== "countLocalCommitsAhead") return overview(call);
+      if (count instanceof Error) throw count;
+      return count;
+    };
+  }
+
+  async function setupRead(
+    options: {
+      host?: (call: HostCall) => unknown;
+      path?: string | null;
+      environmentId?: string | null;
+    } = {},
+  ) {
+    const environmentId = options.environmentId === undefined ? "env_1" : options.environmentId;
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: options.host ?? counting(),
+      environments: { env_1: { path: options.path === undefined ? "/work/tree" : options.path } },
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    return harness;
+  }
+
+  function countCalls(harness: Awaited<ReturnType<typeof setup>>) {
+    return harness.experimental_hostRpcCalls
+      .filter((call) => call.method === "countLocalCommitsAhead")
+      .map(({ input, hostId }) => ({ input, hostId }));
+  }
+
+  it("counts the local commits in the thread's worktree on its host", async () => {
+    const harness = await setupRead();
+
+    const result = await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" });
+
+    expect(result).toEqual({ kind: "count", count: 2 });
+    expect(countCalls(harness)).toEqual([
+      { input: { path: "/work/tree", branch: "feat/ootb-domain-type-ids" }, hostId: "host-1" },
+    ]);
+  });
+
+  it("does not know for a thread without an environment", async () => {
+    const harness = await setupRead({ environmentId: null });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for a fork PR", async () => {
+    const harness = await setupRead({ host: counting(undefined, forkPage()) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know for an environment without a path", async () => {
+    const harness = await setupRead({ path: null });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+    expect(countCalls(harness)).toEqual([]);
+  });
+
+  it("does not know when the host call fails", async () => {
+    const harness = await setupRead({ host: counting(new Error("host offline")) });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+  });
+
+  it("does not know before the tab has read the PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: counting(),
+      environments: { env_1: { path: "/work/tree" } },
+    });
+
+    expect(await harness.behavior.callRpc("localCommitsAhead", { threadId: "thr_1" })).toEqual({
+      kind: "unknown",
+    });
+  });
+});
