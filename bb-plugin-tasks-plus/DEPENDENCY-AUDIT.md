@@ -52,43 +52,43 @@ this test-time use; the production absence claim does not apply to SDK tests.
 The baseline audit returned these exact Hono advisories. The updated audit
 returns no Hono finding.
 
-| Advisory | Severity | Affected range | Reported issue |
-| --- | --- | --- | --- |
-| [GHSA-gq3j-xvxp-8hrf](https://github.com/advisories/GHSA-gq3j-xvxp-8hrf) | low | `<4.11.10` | Hono added timing comparison hardening in basicAuth and bearerAuth |
-| [GHSA-5pq2-9x2x-5p6w](https://github.com/advisories/GHSA-5pq2-9x2x-5p6w) | moderate | `<4.12.4` | Hono Vulnerable to Cookie Attribute Injection via Unsanitized domain and path in setCookie() |
-| [GHSA-p6xx-57qc-3wxr](https://github.com/advisories/GHSA-p6xx-57qc-3wxr) | moderate | `<4.12.4` | Hono Vulnerable to SSE Control Field Injection via CR/LF in writeSSE() |
-| [GHSA-q5qw-h33p-qvwr](https://github.com/advisories/GHSA-q5qw-h33p-qvwr) | high | `<4.12.4` | Hono vulnerable to arbitrary file access via serveStatic vulnerability  |
-| [GHSA-r5rp-j6wh-rvv4](https://github.com/advisories/GHSA-r5rp-j6wh-rvv4) | moderate | `<4.12.12` | Hono: Non-breaking space prefix bypass in cookie name handling in getCookie() |
-| [GHSA-xf4j-xp2r-rqqx](https://github.com/advisories/GHSA-xf4j-xp2r-rqqx) | moderate | `>=4.0.0 <=4.12.11` | Hono: Path traversal in toSSG() allows writing files outside the output directory |
-| [GHSA-wmmm-f939-6g9c](https://github.com/advisories/GHSA-wmmm-f939-6g9c) | moderate | `<4.12.12` | Hono: Middleware bypass via repeated slashes in serveStatic |
-| [GHSA-xpcf-pg52-r92g](https://github.com/advisories/GHSA-xpcf-pg52-r92g) | moderate | `<4.12.12` | Hono has incorrect IP matching in ipRestriction() for IPv4-mapped IPv6 addresses |
-| [GHSA-qp7p-654g-cw7p](https://github.com/advisories/GHSA-qp7p-654g-cw7p) | moderate | `<4.12.18` | Hono has CSS Declaration Injection via Style Object Values in JSX SSR |
-| [GHSA-hm8q-7f3q-5f36](https://github.com/advisories/GHSA-hm8q-7f3q-5f36) | low | `<4.12.18` | Hono has improper validation of NumericDate claims (exp, nbf, iat) in JWT verify() |
-| [GHSA-p77w-8qqv-26rm](https://github.com/advisories/GHSA-p77w-8qqv-26rm) | moderate | `<4.12.18` | Hono's Cache Middleware ignores Vary: Authorization / Vary: Cookie leading to cross-user cache leakage |
-| [GHSA-9vqf-7f2p-gf9v](https://github.com/advisories/GHSA-9vqf-7f2p-gf9v) | moderate | `<4.12.16` | Hono: bodyLimit() can be bypassed for chunked / unknown-length requests |
-| [GHSA-69xw-7hcm-h432](https://github.com/advisories/GHSA-69xw-7hcm-h432) | moderate | `<4.12.16` | hono/jsx has Unvalidated JSX Tag Names that May Allow HTML Injection |
-| [GHSA-xrhx-7g5j-rcj5](https://github.com/advisories/GHSA-xrhx-7g5j-rcj5) | moderate | `<4.12.21` | Hono: IP Restriction bypasses static deny rules for non-canonical IPv6  |
-| [GHSA-3hrh-pfw6-9m5x](https://github.com/advisories/GHSA-3hrh-pfw6-9m5x) | moderate | `<4.12.21` | Hono: Cookie helper does not sanitize sameSite and priority, allowing Set-Cookie injection |
-| [GHSA-f577-qrjj-4474](https://github.com/advisories/GHSA-f577-qrjj-4474) | moderate | `<4.12.21` | Hono: JWT middleware accepts any Authorization scheme, not only Bearer |
-| [GHSA-2gcr-mfcq-wcc3](https://github.com/advisories/GHSA-2gcr-mfcq-wcc3) | moderate | `<4.12.21` | Hono: app.mount() strips mount prefix using undecoded path, causing incorrect routing for percent-encoded paths |
-| [GHSA-458j-xx4x-4375](https://github.com/advisories/GHSA-458j-xx4x-4375) | moderate | `<4.12.14` | hono Improperly Handles JSX Attribute Names Allows HTML Injection in hono/jsx SSR |
-| [GHSA-rv63-4mwf-qqc2](https://github.com/advisories/GHSA-rv63-4mwf-qqc2) | moderate | `<4.12.25` | hono: Body Limit Middleware can be bypassed on AWS Lambda by understating `Content-Length` |
-| [GHSA-wgpf-jwqj-8h8p](https://github.com/advisories/GHSA-wgpf-jwqj-8h8p) | moderate | `<4.12.25` | hono: Lambda@Edge adapter keeps only the last value of a repeated request header, dropping the rest |
-| [GHSA-88fw-hqm2-52qc](https://github.com/advisories/GHSA-88fw-hqm2-52qc) | high | `<4.12.25` | hono: CORS Middleware reflects any Origin with credentials when `origin` defaults to the wildcard |
-| [GHSA-wwfh-h76j-fc44](https://github.com/advisories/GHSA-wwfh-h76j-fc44) | moderate | `<4.12.25` | hono: Path traversal in `serve-static` on Windows via encoded backslash (`%5C`) |
-| [GHSA-j6c9-x7qj-28xf](https://github.com/advisories/GHSA-j6c9-x7qj-28xf) | moderate | `<4.12.25` | hono: AWS Lambda adapter merges multiple `Set-Cookie` headers into one value, dropping cookies on ALB single-header and Lattice |
-| [GHSA-xgm2-5f3f-mvvc](https://github.com/advisories/GHSA-xgm2-5f3f-mvvc) | moderate | `>=4.3.3 <4.12.27` | Hono: API Gateway v1 adapter can drop a distinct repeated request header value during de-duplication |
-| [GHSA-hvrm-45r6-mjfj](https://github.com/advisories/GHSA-hvrm-45r6-mjfj) | moderate | `>=4.11.8 <4.12.27` | hono/jsx does not isolate context per request, leading to cross-request data disclosure |
-| [GHSA-w62v-xxxg-mg59](https://github.com/advisories/GHSA-w62v-xxxg-mg59) | moderate | `>=4.0.0 <4.12.27` | Hono: Server-Side XSS via JSX Escaping Bypass in cx() Utility |
-| [GHSA-8j4g-w8fx-2239](https://github.com/advisories/GHSA-8j4g-w8fx-2239) | moderate | `<4.12.34` | Hono: ReDoS in CORS middleware via Access-Control-Request-Headers |
-| [GHSA-f23p-vx2j-j53r](https://github.com/advisories/GHSA-f23p-vx2j-j53r) | moderate | `>=3.8.0 <4.12.34` | Hono: `memo()` retains SSR output across requests, leading to cross-user data disclosure |
-| [GHSA-79qm-7rj5-m7r9](https://github.com/advisories/GHSA-79qm-7rj5-m7r9) | low | `>=4.7.0 <4.12.34` | Hono: Proxy Helper does not remove response headers listed in the `Connection` header |
-| [GHSA-gqvv-2mrq-wpjv](https://github.com/advisories/GHSA-gqvv-2mrq-wpjv) | moderate | `<4.13.5` | Hono: Incomplete fix for CVE-2026-39408: `toSSG()` still writes files outside the output directory |
-| [GHSA-g6gw-c38x-mqfc](https://github.com/advisories/GHSA-g6gw-c38x-mqfc) | moderate | `<4.13.5` | Hono: Unbounded dot-notation nesting in `parseBody()` can cause memory exhaustion |
-| [GHSA-crvj-82cr-hjcx](https://github.com/advisories/GHSA-crvj-82cr-hjcx) | moderate | `<4.13.5` | Hono: Query parser reads parameters after the URL fragment, causing cache-key and proxy interpretation differentials |
-| [GHSA-26pp-8wgv-hjvm](https://github.com/advisories/GHSA-26pp-8wgv-hjvm) | moderate | `<4.12.12` | Hono missing validation of cookie name on write path in setCookie() |
-| [GHSA-hxh3-vqpv-xpqv](https://github.com/advisories/GHSA-hxh3-vqpv-xpqv) | moderate | `<4.13.7` | hono/jsx renders plain strings unescaped in boundary components, leading to XSS |
-| [GHSA-v8w9-8mx6-g223](https://github.com/advisories/GHSA-v8w9-8mx6-g223) | moderate | `<4.12.7` | Hono vulnerable to Prototype Pollution possible through __proto__ key allowed in parseBody({ dot: true }) |
+| Advisory                                                                 | Severity | Affected range      | Reported issue                                                                                                                  |
+| ------------------------------------------------------------------------ | -------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [GHSA-gq3j-xvxp-8hrf](https://github.com/advisories/GHSA-gq3j-xvxp-8hrf) | low      | `<4.11.10`          | Hono added timing comparison hardening in basicAuth and bearerAuth                                                              |
+| [GHSA-5pq2-9x2x-5p6w](https://github.com/advisories/GHSA-5pq2-9x2x-5p6w) | moderate | `<4.12.4`           | Hono Vulnerable to Cookie Attribute Injection via Unsanitized domain and path in setCookie()                                    |
+| [GHSA-p6xx-57qc-3wxr](https://github.com/advisories/GHSA-p6xx-57qc-3wxr) | moderate | `<4.12.4`           | Hono Vulnerable to SSE Control Field Injection via CR/LF in writeSSE()                                                          |
+| [GHSA-q5qw-h33p-qvwr](https://github.com/advisories/GHSA-q5qw-h33p-qvwr) | high     | `<4.12.4`           | Hono vulnerable to arbitrary file access via serveStatic vulnerability                                                          |
+| [GHSA-r5rp-j6wh-rvv4](https://github.com/advisories/GHSA-r5rp-j6wh-rvv4) | moderate | `<4.12.12`          | Hono: Non-breaking space prefix bypass in cookie name handling in getCookie()                                                   |
+| [GHSA-xf4j-xp2r-rqqx](https://github.com/advisories/GHSA-xf4j-xp2r-rqqx) | moderate | `>=4.0.0 <=4.12.11` | Hono: Path traversal in toSSG() allows writing files outside the output directory                                               |
+| [GHSA-wmmm-f939-6g9c](https://github.com/advisories/GHSA-wmmm-f939-6g9c) | moderate | `<4.12.12`          | Hono: Middleware bypass via repeated slashes in serveStatic                                                                     |
+| [GHSA-xpcf-pg52-r92g](https://github.com/advisories/GHSA-xpcf-pg52-r92g) | moderate | `<4.12.12`          | Hono has incorrect IP matching in ipRestriction() for IPv4-mapped IPv6 addresses                                                |
+| [GHSA-qp7p-654g-cw7p](https://github.com/advisories/GHSA-qp7p-654g-cw7p) | moderate | `<4.12.18`          | Hono has CSS Declaration Injection via Style Object Values in JSX SSR                                                           |
+| [GHSA-hm8q-7f3q-5f36](https://github.com/advisories/GHSA-hm8q-7f3q-5f36) | low      | `<4.12.18`          | Hono has improper validation of NumericDate claims (exp, nbf, iat) in JWT verify()                                              |
+| [GHSA-p77w-8qqv-26rm](https://github.com/advisories/GHSA-p77w-8qqv-26rm) | moderate | `<4.12.18`          | Hono's Cache Middleware ignores Vary: Authorization / Vary: Cookie leading to cross-user cache leakage                          |
+| [GHSA-9vqf-7f2p-gf9v](https://github.com/advisories/GHSA-9vqf-7f2p-gf9v) | moderate | `<4.12.16`          | Hono: bodyLimit() can be bypassed for chunked / unknown-length requests                                                         |
+| [GHSA-69xw-7hcm-h432](https://github.com/advisories/GHSA-69xw-7hcm-h432) | moderate | `<4.12.16`          | hono/jsx has Unvalidated JSX Tag Names that May Allow HTML Injection                                                            |
+| [GHSA-xrhx-7g5j-rcj5](https://github.com/advisories/GHSA-xrhx-7g5j-rcj5) | moderate | `<4.12.21`          | Hono: IP Restriction bypasses static deny rules for non-canonical IPv6                                                          |
+| [GHSA-3hrh-pfw6-9m5x](https://github.com/advisories/GHSA-3hrh-pfw6-9m5x) | moderate | `<4.12.21`          | Hono: Cookie helper does not sanitize sameSite and priority, allowing Set-Cookie injection                                      |
+| [GHSA-f577-qrjj-4474](https://github.com/advisories/GHSA-f577-qrjj-4474) | moderate | `<4.12.21`          | Hono: JWT middleware accepts any Authorization scheme, not only Bearer                                                          |
+| [GHSA-2gcr-mfcq-wcc3](https://github.com/advisories/GHSA-2gcr-mfcq-wcc3) | moderate | `<4.12.21`          | Hono: app.mount() strips mount prefix using undecoded path, causing incorrect routing for percent-encoded paths                 |
+| [GHSA-458j-xx4x-4375](https://github.com/advisories/GHSA-458j-xx4x-4375) | moderate | `<4.12.14`          | hono Improperly Handles JSX Attribute Names Allows HTML Injection in hono/jsx SSR                                               |
+| [GHSA-rv63-4mwf-qqc2](https://github.com/advisories/GHSA-rv63-4mwf-qqc2) | moderate | `<4.12.25`          | hono: Body Limit Middleware can be bypassed on AWS Lambda by understating `Content-Length`                                      |
+| [GHSA-wgpf-jwqj-8h8p](https://github.com/advisories/GHSA-wgpf-jwqj-8h8p) | moderate | `<4.12.25`          | hono: Lambda@Edge adapter keeps only the last value of a repeated request header, dropping the rest                             |
+| [GHSA-88fw-hqm2-52qc](https://github.com/advisories/GHSA-88fw-hqm2-52qc) | high     | `<4.12.25`          | hono: CORS Middleware reflects any Origin with credentials when `origin` defaults to the wildcard                               |
+| [GHSA-wwfh-h76j-fc44](https://github.com/advisories/GHSA-wwfh-h76j-fc44) | moderate | `<4.12.25`          | hono: Path traversal in `serve-static` on Windows via encoded backslash (`%5C`)                                                 |
+| [GHSA-j6c9-x7qj-28xf](https://github.com/advisories/GHSA-j6c9-x7qj-28xf) | moderate | `<4.12.25`          | hono: AWS Lambda adapter merges multiple `Set-Cookie` headers into one value, dropping cookies on ALB single-header and Lattice |
+| [GHSA-xgm2-5f3f-mvvc](https://github.com/advisories/GHSA-xgm2-5f3f-mvvc) | moderate | `>=4.3.3 <4.12.27`  | Hono: API Gateway v1 adapter can drop a distinct repeated request header value during de-duplication                            |
+| [GHSA-hvrm-45r6-mjfj](https://github.com/advisories/GHSA-hvrm-45r6-mjfj) | moderate | `>=4.11.8 <4.12.27` | hono/jsx does not isolate context per request, leading to cross-request data disclosure                                         |
+| [GHSA-w62v-xxxg-mg59](https://github.com/advisories/GHSA-w62v-xxxg-mg59) | moderate | `>=4.0.0 <4.12.27`  | Hono: Server-Side XSS via JSX Escaping Bypass in cx() Utility                                                                   |
+| [GHSA-8j4g-w8fx-2239](https://github.com/advisories/GHSA-8j4g-w8fx-2239) | moderate | `<4.12.34`          | Hono: ReDoS in CORS middleware via Access-Control-Request-Headers                                                               |
+| [GHSA-f23p-vx2j-j53r](https://github.com/advisories/GHSA-f23p-vx2j-j53r) | moderate | `>=3.8.0 <4.12.34`  | Hono: `memo()` retains SSR output across requests, leading to cross-user data disclosure                                        |
+| [GHSA-79qm-7rj5-m7r9](https://github.com/advisories/GHSA-79qm-7rj5-m7r9) | low      | `>=4.7.0 <4.12.34`  | Hono: Proxy Helper does not remove response headers listed in the `Connection` header                                           |
+| [GHSA-gqvv-2mrq-wpjv](https://github.com/advisories/GHSA-gqvv-2mrq-wpjv) | moderate | `<4.13.5`           | Hono: Incomplete fix for CVE-2026-39408: `toSSG()` still writes files outside the output directory                              |
+| [GHSA-g6gw-c38x-mqfc](https://github.com/advisories/GHSA-g6gw-c38x-mqfc) | moderate | `<4.13.5`           | Hono: Unbounded dot-notation nesting in `parseBody()` can cause memory exhaustion                                               |
+| [GHSA-crvj-82cr-hjcx](https://github.com/advisories/GHSA-crvj-82cr-hjcx) | moderate | `<4.13.5`           | Hono: Query parser reads parameters after the URL fragment, causing cache-key and proxy interpretation differentials            |
+| [GHSA-26pp-8wgv-hjvm](https://github.com/advisories/GHSA-26pp-8wgv-hjvm) | moderate | `<4.12.12`          | Hono missing validation of cookie name on write path in setCookie()                                                             |
+| [GHSA-hxh3-vqpv-xpqv](https://github.com/advisories/GHSA-hxh3-vqpv-xpqv) | moderate | `<4.13.7`           | hono/jsx renders plain strings unescaped in boundary components, leading to XSS                                                 |
+| [GHSA-v8w9-8mx6-g223](https://github.com/advisories/GHSA-v8w9-8mx6-g223) | moderate | `<4.12.7`           | Hono vulnerable to Prototype Pollution possible through **proto** key allowed in parseBody({ dot: true })                       |
 
 ## source-map-js exposure
 
@@ -221,17 +221,17 @@ security defects. All resolve to GHSA-cp6q-959q-f8rh.
 Node 24.15.0 and npm 11.12.1 were used. BB plugin build used BB 0.45.0
 and SDK 0.6.15. Checks ran after a clean Tasks install.
 
-| Check | Result |
-| --- | --- |
-| Root `npm ci` | Passed, zero vulnerabilities |
-| Baseline Tasks `npm ci` | Passed, 35 findings, 33 moderate and 2 high |
-| Updated Tasks `npm ci` | Passed, 33 moderate and zero high |
-| `npm run lint` | Passed, four existing warnings |
-| `npm test` | Passed, 117 files and 1,223 tests |
-| `npm run typecheck` | Passed |
-| `npm run build` | Passed |
-| `npm audit --json` | Exit 1, 33 moderate, zero high |
-| `npm audit --omit=dev --json` | Exit 1, same 33 moderate findings |
+| Check                         | Result                                      |
+| ----------------------------- | ------------------------------------------- |
+| Root `npm ci`                 | Passed, zero vulnerabilities                |
+| Baseline Tasks `npm ci`       | Passed, 35 findings, 33 moderate and 2 high |
+| Updated Tasks `npm ci`        | Passed, 33 moderate and zero high           |
+| `npm run lint`                | Passed, four existing warnings              |
+| `npm test`                    | Passed, 117 files and 1,223 tests           |
+| `npm run typecheck`           | Passed                                      |
+| `npm run build`               | Passed                                      |
+| `npm audit --json`            | Exit 1, 33 moderate, zero high              |
+| `npm audit --omit=dev --json` | Exit 1, same 33 moderate findings           |
 
 One read-only completion reviewer requested two exposure-record corrections.
 The parent verified the locked Tiptap package and SDK test entry, then corrected
