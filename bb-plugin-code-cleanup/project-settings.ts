@@ -27,6 +27,15 @@ export function openProjectSettings(bb: BbPluginApi) {
   const setPrompt = db.prepare(`INSERT INTO project_settings (project_id, prompt)
     VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET prompt = excluded.prompt`);
 
+  // Acquire the write lock before reading, including when another connection writes.
+  const comparePrompt = db.transaction(
+    (projectId: string, prompt: string | null, expectedPrompt: string | null) => {
+      const current = (getRow.get(projectId) as Row | undefined)?.prompt ?? null;
+      if (current !== expectedPrompt) return false;
+      setPrompt.run(projectId, prompt);
+      return true;
+    },
+  );
   return {
     get(projectId: string, enableByDefault = false): ProjectSettings {
       const row = getRow.get(projectId) as Row | undefined;
@@ -46,6 +55,13 @@ export function openProjectSettings(bb: BbPluginApi) {
     },
     resetPrompt(projectId: string): void {
       setPrompt.run(projectId, null);
+    },
+    comparePrompt(
+      projectId: string,
+      prompt: string | null,
+      expectedPrompt: string | null,
+    ): boolean {
+      return comparePrompt.immediate(projectId, prompt, expectedPrompt);
     },
   };
 }

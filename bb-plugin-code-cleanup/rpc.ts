@@ -31,10 +31,15 @@ export const settingsContract = defineRpcContract({
         .max(4096)
         .refine((text) => text.trim() !== "", "Prompt must be nonblank")
         .nullable(),
+      expectedPrompt: z.string().nullable(),
     }),
-    output: projectState,
+    output: z.discriminatedUnion("status", [
+      z.strictObject({ status: z.literal("saved"), state: projectState }),
+      z.strictObject({ status: z.literal("conflict"), state: projectState }),
+    ]),
   },
 });
 export type SettingsContract = typeof settingsContract;
 export type ProjectState = z.infer<typeof projectState>;
 export type ProjectChoice = { id: string; name: string };
+export type PromptResult = z.infer<typeof settingsContract.setPrompt.output>;

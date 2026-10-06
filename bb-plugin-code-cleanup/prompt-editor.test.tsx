@@ -41,7 +41,10 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
           enabledOverride,
           enabled: enabledOverride ?? false,
         }),
-        setPrompt: ({ projectId, prompt }) => state(projectId, prompt),
+        setPrompt: ({ projectId, prompt }) => ({
+          status: "saved",
+          state: state(projectId, prompt),
+        }),
         ...overrides,
       },
     },
@@ -142,7 +145,7 @@ describe("Markdown prompt editor", () => {
     await screen.findByText("Saved prompt for Alpha.");
     expect(view.inspection.rpcCalls.at(-1)).toEqual({
       method: "setPrompt",
-      input: { projectId: "proj_a", prompt: draft },
+      input: { projectId: "proj_a", prompt: draft, expectedPrompt: source },
     });
     expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false");
   });
@@ -166,7 +169,8 @@ describe("Markdown prompt editor", () => {
     let calls = 0;
     await mount({
       setPrompt: () => {
-        if (++calls === 1) return pending.promise;
+        if (++calls === 1)
+          return pending.promise.then((state) => ({ status: "saved" as const, state }));
         throw new Error("offline");
       },
     });
@@ -194,7 +198,7 @@ describe("Markdown prompt editor", () => {
     const view = await mount({
       setPrompt: ({ projectId, prompt }) => {
         if (fail) throw new Error("reset failed");
-        return state(projectId, prompt);
+        return { status: "saved", state: state(projectId, prompt) };
       },
     });
     await select();
@@ -220,7 +224,7 @@ describe("Markdown prompt editor", () => {
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toContain("# Factory");
     expect(view.inspection.rpcCalls.at(-1)).toEqual({
       method: "setPrompt",
-      input: { projectId: "proj_a", prompt: null },
+      input: { projectId: "proj_a", prompt: null, expectedPrompt: source },
     });
     await edit("Another draft");
     await select("Beta");

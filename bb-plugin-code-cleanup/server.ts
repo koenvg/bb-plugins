@@ -1,7 +1,7 @@
 import { cliCommand, defineCli, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { openProjectSettings } from "./project-settings";
 import { defaultGuidance } from "./guidance";
-import { projectConfiguration } from "./configuration";
+import { projectConfiguration, notifySettings } from "./configuration";
 import { settingsContract } from "./rpc";
 
 const projectOption = {
@@ -21,13 +21,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   let enableByDefault = (await defaults.get()).enableByDefault;
   defaults.onChange((next) => {
     enableByDefault = next.enableByDefault;
-    try {
-      bb.realtime.publish("settings.changed", { kind: "default" });
-    } catch {
-      bb.log.warn(
-        "Default saved, but Settings notification failed. Refresh Settings to read the saved value.",
-      );
-    }
+    notifySettings(bb, { kind: "default" });
   });
   const settings = openProjectSettings(bb);
 
@@ -45,7 +39,8 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
     getProject: ({ projectId }) => configuration.getProject(projectId),
     setEnablement: ({ projectId, enabledOverride }) =>
       configuration.setEnablement(projectId, enabledOverride),
-    setPrompt: ({ projectId, prompt }) => configuration.setPrompt(projectId, prompt),
+    setPrompt: ({ projectId, prompt, expectedPrompt }) =>
+      configuration.setPrompt(projectId, prompt, { prompt: expectedPrompt }),
   });
 
   bb.cli.register(
