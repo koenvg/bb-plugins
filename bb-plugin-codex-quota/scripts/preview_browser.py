@@ -26,7 +26,8 @@ class Driver:
             if self.js(expression):
                 return
             time.sleep(0.1)
-        raise AssertionError("Timed out: " + expression)
+        tooltip = self.js("document.querySelector('.recharts-tooltip-wrapper')?.textContent")
+        raise AssertionError(f"Timed out: {expression}; tooltip: {tooltip}")
 
 
     def click(self, name, role="button"):
@@ -58,41 +59,96 @@ class Driver:
     def table(self):
         return self.js("[...document.querySelectorAll('table[aria-label=\"Daily recorded usage\"] tbody tr')].map(row => [...row.children].map(cell => cell.textContent))")
 
-    def accessible_facts(self, rows, metric):
-        nodes = [node for node in self.cdp("Accessibility.getFullAXTree")["nodes"] if not node.get("ignored")]
-        names = {node.get("name", {}).get("value", "") for node in nodes}
-        tables = [node for node in nodes if node.get("role", {}).get("value") == "table"
-                  and node.get("name", {}).get("value") == "Daily recorded usage"]
+    def accessible_facts(self, rows, metric, timezone="UTC"):
+        nodes = self.cdp("Accessibility.getFullAXTree")["nodes"]
+        by_id = {node["nodeId"]: node for node in nodes}
+
+        def descendants(node):
+            result = []
+            for child_id in node.get("childIds", []):
+                assert child_id in by_id, ("Incomplete accessibility tree", child_id)
+                child = by_id[child_id]
+                if not child.get("ignored"):
+                    result.append(child)
+                result.extend(descendants(child))
+            return result
+
+        def role(node):
+            return node.get("role", {}).get("value")
+
+        def name(node):
+            return node.get("name", {}).get("value", "")
+
+        tables = [node for node in nodes if not node.get("ignored")
+                  and role(node) == "table" and name(node) == "Daily recorded usage"]
         assert len(tables) == 1, "Daily facts are missing from the accessibility tree"
-        for row in rows:
-            assert all(value in names for value in row), ("Inaccessible daily facts", row)
+        table_nodes = descendants(tables[0])
+        captions = [node for node in table_nodes if role(node) == "caption"]
+        assert len(captions) == 1, "Daily table needs its own accessible caption"
+        caption = "".join(name(node) for node in descendants(captions[0]) if role(node) == "StaticText")
+        assert f"Daily recorded usage in {timezone}." in caption, caption
         if metric == "cost":
-            assert any("Captured estimate, not billed charges." in name for name in names)
-        return {"table": "Daily recorded usage", "dates": len(rows), "metric": metric}
+            assert "Captured estimate, not billed charges." in caption, caption
+        table_rows = [node for node in table_nodes if role(node) == "row"]
+        assert len(rows) == 30 and len(table_rows) == 31, "Need one header and 30 daily AX rows"
+        headers = [name(node) for node in descendants(table_rows[0]) if role(node) == "columnheader"]
+        expected_headers = ["Date", "USD estimate" if metric == "cost" else "Tokens", "Coverage", "Recorded exclusions"]
+        if metric == "cost":
+            expected_headers.append("Pricing")
+        assert headers == expected_headers, headers
+        for ax_row, expected in zip(table_rows[1:], rows):
+            cells = [node for node in descendants(ax_row) if role(node) in ["rowheader", "cell"]]
+            assert cells and role(cells[0]) == "rowheader", ("Missing accessible date", expected)
+            actual = [name(node) for node in cells]
+            assert actual == expected, ("Inaccessible or misplaced daily facts", expected, actual)
+        return {"table": "Daily recorded usage", "dates": len(rows), "metric": metric, "caption": caption}
 
     def tooltip(self, metric):
+        self.js("document.querySelector('.recharts-wrapper').dispatchEvent(new MouseEvent('mouseout', {bubbles:true,relatedTarget:document.body}))")
         self.js("document.querySelector('.recharts-surface[role=application]').focus()")
-        # Wait for each library update. Hidden tabs can throttle animation frames.
+        self.js("document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight',bubbles:true}))")
+        self.wait("!!document.querySelector('.recharts-tooltip-wrapper')?.textContent")
+        dates = [row[0] for row in self.table()]
+        # Start from the real active date; focus and hover can retain different indices.
         for _ in range(30):
             text = self.js("document.querySelector('.recharts-tooltip-wrapper')?.textContent || ''")
-            if '2026-09-15' in text:
+            current_date = self.js("document.querySelector('.recharts-tooltip-wrapper p')?.textContent")
+            assert current_date in dates, ("Tooltip has no report date", current_date)
+            index = dates.index(current_date)
+            if index == 14:
                 break
-            self.js("document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight',bubbles:true}))")
+            key = 'ArrowLeft' if index > 14 else 'ArrowRight'
+            self.js(f"document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {{key:{json.dumps(key)},bubbles:true}}))")
             self.wait(f"(document.querySelector('.recharts-tooltip-wrapper')?.textContent || '') !== {json.dumps(text)}")
         self.wait("document.querySelector('.recharts-tooltip-wrapper')?.textContent.includes('2026-09-15')")
-        text = self.js("document.querySelector('.recharts-tooltip-wrapper').textContent")
-        row = self.table()[14]
-        assert row[0] in text and row[1] in text and row[2] in text, (row, text)
-        if row[3] != "0 excluded tokens":
-            assert row[3] in text, (row, text)
-        if metric == "cost":
-            assert row[4] in text and "Captured estimate, not billed charges." in text, (row, text)
-        # Check the same tooltip with pointer input when a positive bar exists.
-        bar = self.js("(() => { const e = document.querySelector('.recharts-bar-rectangle path'); if (!e) return null; const r = e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+Math.min(r.height/2,10)}; })()")
+        keyboard = self.tooltip_facts(metric)
+        # A no-op hover must not reuse the successful keyboard tooltip.
+        bar = self.js("(() => { const e = [...document.querySelectorAll('.recharts-bar-rectangle path')].find(e => {const r=e.getBoundingClientRect(); return r.width>0 && r.height>0;}); if (!e) return null; const r = e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+Math.min(r.height/2,10)}; })()")
+        pointer = None
         if bar:
+            self.js("document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true}))")
+            self.wait(f"(document.querySelector('.recharts-tooltip-wrapper')?.textContent || '') !== {json.dumps(keyboard['tooltip'])}")
+            before_pointer_date = self.js("document.querySelector('.recharts-tooltip-wrapper p')?.textContent")
+            assert before_pointer_date in dates and before_pointer_date != dates[14]
             self.js(f"document.querySelector('.recharts-wrapper').dispatchEvent(new MouseEvent('mousemove', {{clientX:{bar['x']},clientY:{bar['y']},bubbles:true}}))")
+            # Request a rendered frame so an occluded browser can process its hover RAF.
+            self.cdp("Page.captureScreenshot", format="png", captureBeyondViewport=False)
             self.wait("document.querySelector('.recharts-tooltip-wrapper')?.textContent.includes('2026-09-15')")
-        return {"row": row, "tooltip": text, "pointer": bool(bar)}
+            pointer = self.tooltip_facts(metric)
+            pointer["fromDate"] = before_pointer_date
+        return {**keyboard, "pointer": pointer}
+
+    def tooltip_facts(self, metric):
+        row = self.table()[14]
+        lines = self.js("[...document.querySelectorAll('.recharts-tooltip-wrapper p')].map(e => e.textContent)")
+        expected = [row[0], f"{'USD estimate' if metric == 'cost' else 'Tokens'}: {row[1]}", row[2]]
+        if metric == "cost":
+            expected.extend([row[4], "Captured estimate, not billed charges."])
+        if row[3] != "0 excluded tokens":
+            expected.append(row[3])
+        assert lines == expected, ("Tooltip facts differ from the target date", expected, lines)
+        text = self.js("document.querySelector('.recharts-tooltip-wrapper').textContent")
+        return {"row": row, "tooltip": text, "lines": lines}
 
     def capture(self, name, width):
         self.js("window.scrollTo(0, 0)")
@@ -278,6 +334,10 @@ def check(helpers, config):
         driver.cdp("Emulation.setTimezoneOverride", timezoneId="")
         helpers["close_tab"](target)
         remaining = {tab["targetId"] for tab in helpers["list_tabs"]()}
+        close_deadline = time.monotonic() + 5
+        while target in remaining and time.monotonic() < close_deadline:
+            time.sleep(0.05)
+            remaining = {tab["targetId"] for tab in helpers["list_tabs"]()}
         record["closed"] = target not in remaining
         owner_path.write_text(json.dumps(record, indent=2))
         assert record["closed"]

@@ -59,7 +59,7 @@ npm run typecheck
 bb plugin types --check
 bb plugin build
 # Python with Pillow installed; Browser Use CLI on PATH. No Playwright launch.
-python3 scripts/test_preview_resources.py
+python3 -B -m unittest discover -s scripts -p 'test_preview_*.py'
 python3 scripts/check-calendar-preview.py --output-parent /path/to/existing/receipt-parent
 python3 scripts/check-money-preview.py --output-parent /path/to/existing/receipt-parent
 ```
@@ -72,9 +72,15 @@ The runner uses a fresh default-browser connection and task-created blank tab. I
 
 The calendar suite covers both metrics at desktop and 375 CSS pixels, exact tooltips and matching facts in the browser accessibility tree, unknown versus inactive dates, retained values with expired classes, large safe values, loading/unavailable/stale states, bounded Previous/Next navigation, retry/latest recovery, pending selection, late canceled-key responses and settings close/reopen behavior. The money suite adds missing prices and tiny positive captured estimates. Metric changes must not send RPCs. Date/retry navigation must send only calendar reads. Management runs only after settings is opened and its disclosure is expanded.
 
+The accessibility check follows the named table's own AX descendants. It matches all 30 dates and their cells in order, checks the column headers, and verifies timezone and the cost limit in that table's caption. Unrelated tooltip text cannot supply missing table facts. For positive bars, the hover check first moves the keyboard tooltip to another date, then requires pointer input to restore the target date and every exact tooltip line. Its pointer receipt is separate from the keyboard receipt. Missing or zero-height bars have no positive-bar pointer receipt.
+
+Recharts schedules hover through an animation frame. The driver requests a browser-rendered frame after the pointer event so an occluded window can process it. This does not replace the hover handler or change product code. The runner does not activate the tab. Cleanup waits up to five seconds for the recorded tab to disappear and fails if it remains.
+
 `config.json`, `checks.json`, `browser-owned.json`, build/browser logs and `result.json` are receipts. Each PNG comes from the browser screenshot API, decodes as PNG, has usable dimensions and non-solid pixels. The result records dimensions and SHA-256 hashes. A diagnostic failure is not a pass. Recharts can omit numeric tick labels when every daily value is missing or zero; the runner still requires date ticks and the value-axis label. Positive-value cases require numeric ticks.
 
 Browser checks use DOM-generated change, keyboard and pointer events through Browser Use. These prove browser rendering and React behavior, not native OS input, native dropdown operation, screen-reader speech or touch. Direct CDP input failed in the local hidden-tab run; those attempts are not passes. Separate public SDK React tests cover queued close/unmount cancellation at deterministic request boundaries. Browser close/reopen checks cannot prove that already dispatched host work was canceled.
+
+The browser late-response cases still use identical host values and fixed settle delays. They are weaker than the deterministic public SDK cancellation tests. They do not independently prove rejection of a different wrong-host payload. Keep that browser-evidence limit separate from the stronger SDK tests.
 
 These checks do not certify installed BB navigation, native desktop behavior, real capture, real account attribution, complete active collection or billed use. No live-data permission is part of this task. The held BBP-25 worker's older frontend must not replace the current parent build.
 
