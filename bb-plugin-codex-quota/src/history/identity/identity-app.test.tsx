@@ -2,14 +2,18 @@
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
+import type { rpcContract } from "../../plugin/server.js";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 const app = await loadPluginApp(() => import("../../plugin/app.js"));
 import { setHistoryManagementOpen } from "../history-test-support.js";
 afterEach(cleanup);
 it("uses public BB navigation and clears verified totals during a host switch", async () => {
-  let selected = { hostId: "host_a", generation: 1 };
+  let selected: { hostId: string | null; generation: number } = { hostId: "host_a", generation: 1 };
   let quotaReads = 0;
-  const options = {
+  const options: RenderSlotOptions<
+    Pick<typeof rpcContract, "selection" | "selectHost" | "read" | "historyReadiness">
+  > = {
     sdk: {
       hosts: {
         list: async () => [makeHostResponse({ id: "host_a" }), makeHostResponse({ id: "host_b" })],
@@ -17,7 +21,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
     },
     rpc: {
       selection: async () => selected,
-      selectHost: async ({ hostId }: { hostId: string }) => {
+      selectHost: async ({ hostId }) => {
         selected = { hostId, generation: 2 };
         return selected;
       },
@@ -25,7 +29,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
         quotaReads++;
         return { state: "unavailable", reason: "auth-required", snapshot: null };
       },
-      historyReadiness: async ({ hostId }: { hostId: string }) => ({
+      historyReadiness: async ({ hostId }) => ({
         state: "available",
         reason: "ok",
         storage: "compatible",

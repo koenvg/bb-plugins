@@ -7,6 +7,7 @@ import { createHostHistory } from "../history-host.js";
 import { createQuotaHostEntry } from "../../plugin/host.js";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../../plugin/server.js";
+import { hostContract } from "../../quota/contract.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
 import { execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
@@ -100,7 +101,7 @@ async function fixture() {
         },
       },
     ]
-      .map(JSON.stringify)
+      .map((row) => JSON.stringify(row))
       .join("\n") + "\n",
   );
   return {
@@ -264,7 +265,10 @@ it.each([
           if (method !== "historicalImport") throw Error("unexpected dispatch");
           dispatches.push((input as { command: { action: string } }).command.action);
           signal?.throwIfAborted();
-          return f.harness.experimental_call("historicalImport", input);
+          return f.harness.experimental_call(
+            "historicalImport",
+            hostContract.historicalImport.input.parse(input),
+          );
         },
       });
       await plugin(server.bb);
