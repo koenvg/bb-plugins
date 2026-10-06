@@ -41,6 +41,18 @@ const server = createServer(async (req, res) => {
     return;
   }
   const url = new URL(req.url ?? "/", "http://localhost");
+  if (url.pathname === "/fixture-events") {
+    const since = Number(url.searchParams.get("since") ?? 0);
+    if (req.method !== "GET" || !Number.isSafeInteger(since) || since < 0) {
+      res.statusCode = 400;
+      res.end("A nonnegative event cursor and GET are required");
+      return;
+    }
+    const events = host.harness.inspection.realtimeSignals;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ cursor: events.length, signals: events.slice(since) }));
+    return;
+  }
   if (url.pathname === "/fixture-default") {
     try {
       if (req.method === "POST") {
@@ -82,7 +94,8 @@ const server = createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) {
         body += chunk;
-        if (body.length > 8192) throw new Error("Request too large");
+        // Two 4096-character strings can each expand sixfold in JSON.
+        if (body.length > 64 * 1024) throw new Error("Request too large");
       }
       const scenario = url.searchParams.get("scenario");
       await new Promise((resolve) => setTimeout(resolve, scenario === "slow" ? 2000 : 200));

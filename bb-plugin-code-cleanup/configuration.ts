@@ -2,6 +2,21 @@ import { PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import type { ProjectSettingsStore } from "./project-settings";
 import { defaultGuidance } from "./guidance";
 
+import type { PromptResult } from "./rpc";
+
+/** Delivery is best effort. A persisted write must still report success. */
+export function notifySettings(
+  bb: BbPluginApi,
+  payload: { kind: "default" } | { kind: "project"; projectId: string },
+) {
+  try {
+    bb.realtime.publish("settings.changed", payload);
+  } catch {
+    bb.log.warn(
+      "Configuration saved, but Settings notification failed. Refresh Settings to read the saved value.",
+    );
+  }
+}
 /** Shared project validation and field-scoped operations for CLI and Settings. */
 export function projectConfiguration(
   bb: BbPluginApi,
@@ -41,18 +56,29 @@ export function projectConfiguration(
     async setEnablement(projectId: string, enabled: boolean | null) {
       await requireProject(projectId);
       settings.setEnabled(projectId, enabled);
+      notifySettings(bb, { kind: "project", projectId });
       return snapshot(projectId);
     },
-    async setPrompt(projectId: string, prompt: string | null) {
+    async setPrompt(
+      projectId: string,
+      prompt: string | null,
+      expected?: { prompt: string | null },
+    ): Promise<PromptResult> {
       await requireProject(projectId);
       if (prompt !== null && (prompt.trim() === "" || prompt.length > 4096)) {
         throw new PluginCliError("Prompt must be nonblank and at most 4096 characters", {
           code: "invalid_value",
         });
       }
-      if (prompt === null) settings.resetPrompt(projectId);
-      else settings.setPrompt(projectId, prompt);
-      return snapshot(projectId);
+      if (expected && !settings.comparePrompt(projectId, prompt, expected.prompt)) {
+        return { status: "conflict", state: snapshot(projectId) };
+      }
+      if (!expected) {
+        if (prompt === null) settings.resetPrompt(projectId);
+        else settings.setPrompt(projectId, prompt);
+      }
+      notifySettings(bb, { kind: "project", projectId });
+      return { status: "saved", state: snapshot(projectId) };
     },
   };
 }

@@ -89,6 +89,8 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
       expect(response.status).toBe(200);
       return (await response.json()).result;
     };
+    const events = await (await fetch(base + "/fixture-events")).json();
+    expect(events.signals).toHaveLength(2);
     const before = await rpc("getProject", { projectId: "fixture_beta" });
     expect(before.enabled).toBe(false);
     expect(
@@ -100,18 +102,36 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
       enabledOverride: true,
     });
     const exact = "# Fixture\n\n`$literal`\n";
-    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: exact })).toEqual({
-      ...before,
-      enabled: true,
-      enabledOverride: true,
-      prompt: exact,
-      effectivePrompt: exact,
+    expect(
+      await rpc("setPrompt", { projectId: "fixture_beta", prompt: exact, expectedPrompt: null }),
+    ).toEqual({
+      status: "saved",
+      state: {
+        ...before,
+        enabled: true,
+        enabledOverride: true,
+        prompt: exact,
+        effectivePrompt: exact,
+      },
     });
-    expect(await rpc("setPrompt", { projectId: "fixture_beta", prompt: null })).toEqual({
-      ...before,
-      enabled: true,
-      enabledOverride: true,
+    expect(
+      await rpc("setPrompt", { projectId: "fixture_beta", prompt: null, expectedPrompt: exact }),
+    ).toEqual({
+      status: "saved",
+      state: {
+        ...before,
+        enabled: true,
+        enabledOverride: true,
+      },
     });
+    const updates = await (await fetch(base + `/fixture-events?since=${events.cursor}`)).json();
+    expect(updates.signals.map((s: { payload: unknown }) => s.payload)).toEqual(
+      Array(3).fill({ kind: "project", projectId: "fixture_beta" }),
+    );
+    expect(
+      (await (await fetch(base + `/fixture-events?since=${updates.cursor}`)).json()).signals,
+    ).toEqual([]);
+    expect((await fetch(base + "/fixture-events?since=-1")).status).toBe(400);
     const defaults = await fetch(base + "/fixture-default");
     expect(defaults.status).toBe(200);
     expect(await defaults.json()).toMatchObject({
@@ -135,6 +155,24 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
     expect(
       await rpc("setEnablement", { projectId: "fixture_beta", enabledOverride: null }),
     ).toEqual({ ...before, enabled: true, enabledOverride: null, enableByDefault: true });
+    // Both saved and submitted prompts must fit, including JSON escape expansion.
+    let expectedPrompt: string | null = null;
+    for (const prompt of ["x".repeat(4096), "\u0001".repeat(4096), "\u0002".repeat(4096)]) {
+      expect(
+        await rpc("setPrompt", { projectId: "fixture_beta", prompt, expectedPrompt }),
+      ).toMatchObject({
+        status: "saved",
+        state: { prompt },
+      });
+      expectedPrompt = prompt;
+    }
+    const oversized = await fetch(base + "/fixture-rpc/setPrompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "x".repeat(65537),
+    });
+    expect(oversized.status).toBe(400);
+    expect(await oversized.json()).toMatchObject({ error: "Request too large" });
   } finally {
     if (child.exitCode === null) {
       const exited = once(child, "exit");

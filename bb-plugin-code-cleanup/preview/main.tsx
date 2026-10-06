@@ -20,6 +20,33 @@ const rpc = {
   },
 };
 const signals = new EventTarget();
+function FixtureNotifications() {
+  useEffect(() => {
+    let current = true;
+    let cursor = 0;
+    async function poll() {
+      try {
+        const response = await fetch(`/fixture-events?since=${cursor}`);
+        if (response.ok) {
+          const body = await response.json();
+          if (!current) return;
+          cursor = body.cursor;
+          for (const signal of body.signals)
+            signals.dispatchEvent(new CustomEvent(signal.channel, { detail: signal.payload }));
+        }
+      } catch {
+        // The fixture models missed notifications. Explicit Reload still uses real RPC.
+      }
+      if (current) timer = setTimeout(poll, 500);
+    }
+    let timer = setTimeout(poll, 0);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, []);
+  return null;
+}
 function FixtureDefault() {
   const [field, setField] = useState<{
     descriptor: { label: string; description?: string };
@@ -119,6 +146,7 @@ if (!section) throw new Error("The actual app did not register Settings");
 const Component = section.component;
 createRoot(document.getElementById("app")!).render(
   <>
+    <FixtureNotifications />
     <FixtureDefault />
     <h2>Project guidance</h2>
     <Component />

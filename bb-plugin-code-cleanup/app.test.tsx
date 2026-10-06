@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
-import type { ProjectState, SettingsContract } from "./rpc";
+import type { ProjectState, PromptResult, SettingsContract } from "./rpc";
 import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
@@ -46,9 +46,12 @@ async function mount(
         listProjects: () => choices,
         getProject: ({ projectId }) => state(projectId),
         setPrompt: ({ projectId, prompt }) => ({
-          ...state(projectId),
-          prompt,
-          effectivePrompt: prompt ?? "Factory guidance",
+          status: "saved",
+          state: {
+            ...state(projectId),
+            prompt,
+            effectivePrompt: prompt ?? "Factory guidance",
+          },
         }),
         setEnablement: ({ projectId, enabledOverride }) => ({
           ...state(projectId),
@@ -215,7 +218,7 @@ describe("project Settings", () => {
       listProjects: async () => (await call("listProjects", {})) as typeof choices,
       getProject: async (input) => (await call("getProject", input)) as ProjectState,
       setEnablement: async (input) => (await call("setEnablement", input)) as ProjectState,
-      setPrompt: async (input) => (await call("setPrompt", input)) as ProjectState,
+      setPrompt: async (input) => (await call("setPrompt", input)) as PromptResult,
     });
     expect(await screen.findByText("Select a project to inspect its guidance.")).toBeTruthy();
     expect(screen.queryByRole("switch")).toBeNull();

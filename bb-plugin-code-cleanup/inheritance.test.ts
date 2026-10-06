@@ -76,7 +76,7 @@ describe("enablement inheritance through the official host", () => {
       expect.objectContaining({
         level: "warn",
         message:
-          "Default saved, but Settings notification failed. Refresh Settings to read the saved value.",
+          "Configuration saved, but Settings notification failed. Refresh Settings to read the saved value.",
       }),
     );
   });
@@ -164,7 +164,7 @@ describe("enablement inheritance through the official host", () => {
     });
     for (const enableByDefault of [false, true]) {
       await host.harness.behavior.setSettings({ enableByDefault });
-      await rpc("setPrompt", { projectId: "new_prompt", prompt: exact });
+      await rpc("setPrompt", { projectId: "new_prompt", prompt: exact, expectedPrompt: null });
       expect(await rpc("getProject", { projectId: "new_prompt" })).toMatchObject({
         enabled: enableByDefault,
         enabledOverride: null,
@@ -177,7 +177,7 @@ describe("enablement inheritance through the official host", () => {
         prompt: null,
       });
     }
-    await rpc("setPrompt", { projectId: "absent", prompt: exact });
+    await rpc("setPrompt", { projectId: "absent", prompt: exact, expectedPrompt: null });
     await rpc("setEnablement", { projectId: "absent", enabledOverride: false });
     expect((await cli(["show", "--project", "absent"])).stdout).toContain(
       "disabled; prompt: custom; enablement: project override",
