@@ -58,14 +58,28 @@ bb plugin types . --check
 npm run build
 ```
 
-For the optional browser matrix, build first and serve this package locally with `python3 -m http.server 56429 --bind 127.0.0.1`. Open `http://127.0.0.1:56429/tests/preview.html` in a dedicated browser-use session connected to Arc's debugging endpoint:
+For the optional browser matrix, build first and serve this package locally with `python3 -m http.server 56429 --bind 127.0.0.1`. Load the installed Browser Use skill and follow [the dedicated Chrome browser contract](../.pi/skills/verify/references/browser-contract.md). Use a separately provisioned, approved Chrome endpoint and a fresh `BU_NAME`. Keep strict reuse enabled after the first read-only connection.
+
+Record the daemon's initial provisioning tab as task-created. Reuse it as the fixture target, or create and record an additional tab with `new_tab()` without a URL. Follow the contract's session-bound navigation example with `bb_url=http://127.0.0.1:56429/tests/preview.html`. Keep every created target, including the provisioning tab, in the cleanup ledger. A matching URL does not establish tab ownership. Export the selected task-created fixture target as `COMPOSE_CHAT_BROWSER_TARGET`. The runner requires that target, a non-default `BU_NAME`, and exactly one approved endpoint variable, `BU_CDP_URL` or `BU_CDP_WS`. It has no default-session or Arc fallback.
+
+With that scoped environment still set, run:
 
 ```sh
-browser-use --session compose-chat-preview --cdp-url http://127.0.0.1:9222 tab new http://127.0.0.1:56429/tests/preview.html
+export COMPOSE_CHAT_BROWSER_TARGET="$task_target"
 npm run test:browser
 ```
 
-This requires Python 3, the browser-use CLI, and an existing Arc debugging connection. Use `COMPOSE_CHAT_BROWSER_SESSION` for another owned session. The runner refuses an unrelated tab, activates only its owned fixture tab, checks 16 desktop/touch/state cases, and writes six synthetic screenshots with provenance plus JSON results to the repository's `.impeccable/review/` directory. Stop the local server after inspection.
+This requires Python 3 and Browser Use's stdin helpers, inspected with Browser Use 0.13.10 and Browser Harness 0.1.13. The runner forces `BH_REQUIRE_EXISTING_DAEMON=1` and disables tab-title markers. It selects only the recorded fixture target, binds every tab command to the public CDP session, rejects a missing target or unrelated/login page, and does not retry connection discovery. Session loss stops actions and resets without a fallback target. Obtain approval for bringing that fixture tab to the foreground before running it.
+
+The 16 desktop/touch/state cases and six synthetic screenshots remain fixture evidence, not installed native-BB evidence. The runner writes PNG provenance and JSON results to the repository's `.impeccable/review/` directory by default. It attempts all viewport, touch, media, URL, and cache resets even after a check fails, but stops those commands if the bound session is lost. Cleanup errors fail the run. Follow the browser contract to close the recorded task-created fixture tab and owned daemon on success or failure, and stop only the local server process this run created. The runner leaves tab/process cleanup to the caller.
+
+To check the runner contract without a browser or private user state:
+
+```sh
+python3 -B -m unittest discover -s tests -p 'test_browser_contract.py'
+```
+
+These fake-helper checks are not a browser matrix or visual acceptance pass.
 
 Set `COMPOSE_CHAT_BROWSER_EVIDENCE_DIR` to keep a revision's evidence separate. `COMPOSE_CHAT_BROWSER_SKIP_SCREENSHOTS=1` runs assertions only and marks every result as screenshot-skipped. This is not a screenshot-validation pass; the default run still rejects invalid PNGs.
 

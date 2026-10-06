@@ -10,7 +10,7 @@ Record:
 - Checkout commit plus relevant uncommitted changes, or the explicit comparison/acceptance scope.
 - BB instance and relevant project/environment/host identifiers, without credentials.
 - Original and observed installed sources, enabled state, activation result, and available artifact/generation identity.
-- Actual browser and owned session name, or why browser checks do not apply.
+- Actual browser process/profile identity, explicit endpoint without credentials, unique daemon name and ownership, strict health result, and recorded tab target IDs, including the daemon's provisioning tab. Record explicit session binding for page commands. Distinguish task-created tabs from user-selected tabs. Record signed-in Chrome approval or why browser checks are blocked/non-applicable.
 - Evidence location and commands with exit codes. Record any unavailable tool, missing test script, or optional diagnostic channel.
 
 ## Check table
@@ -46,7 +46,7 @@ Examples:
 
 | Resource | Original state | Temporary state written | Ownership / approval | Intended final state | Cleanup observation |
 | --- | --- | --- | --- | --- | --- |
-| Exact setting key, source, test-record ID, session, or process | Non-secret value or absent | Value set by this run | User approval or bounded verification scope | Original value or explicitly approved retained state | Restored, intentionally retained, failed, or blocked |
+| Exact setting key, source, test-record ID, daemon, tab target, or process | Non-secret value or absent | Value set by this run | User approval or bounded verification scope | Original value or explicitly approved retained state | Restored, intentionally retained, failed, or blocked |
 
 Record test-data setup and deletion scope together. Store identifiers rather than unrelated record content. Do not copy secret configuration into the ledger.
 

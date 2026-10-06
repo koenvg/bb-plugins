@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Verify changed BB plugins with local checks, exact-checkout installation, and installed behavior checks in a dedicated Chrome session. Use when asked to verify a BB plugin, test its installed behavior, or confirm a plugin change works end to end. Report evidence and coverage gaps without repairing the plugin.
+description: Verify changed BB plugins with local checks, exact-checkout installation, and installed behavior checks in a dedicated Chrome browser. Use when asked to verify a BB plugin, test its installed behavior, or confirm a plugin change works end to end. Report evidence and coverage gaps without repairing the plugin.
 ---
 
 # Verify BB plugin changes
@@ -58,7 +58,7 @@ Leave the verified plugin installed by default and disclose this before installa
 
 ## 4. Exercise installed behavior
 
-Read [live checks](references/live-checks.md) for every run. Follow only the branches affected by the change. For browser-visible behavior, also load `browser-use` and its multi-session reference before opening a dedicated local Chrome-family session.
+Read [live checks](references/live-checks.md) for every run. Follow only the branches affected by the change. For browser-visible behavior, also read [the browser contract](references/browser-contract.md) and the installed Browser Use references it names before connection. It defines Chrome approval, browser identity, named-daemon provisioning, strict reuse, owned targets, authentication blockers, and cleanup.
 
 Perform the intended interaction and compare the result with the checklist. Use installed CLI/RPC/host checks where appropriate. Page reachability, a build, or an installed status alone does not establish behavior. Keep automated fixtures separate from live evidence; missing accounts, hosts, linked PRs, permissions, or browser access leave the affected required checks blocked.
 
@@ -70,7 +70,7 @@ On success, failure, or a mid-run blocker, attempt the approved cleanup before c
 
 - Compare each current setting with the temporary value in the ledger. Restore its original value only if it still matches the value set by this run. Preserve concurrent user changes and report the conflict.
 - Remove only owned test data and temporary files covered by the cleanup approval. Retain safe evidence promised in the report.
-- Close only the named browser session and processes this run created. Never close every browser session. Complete any source restoration included in the approval, subject to the same concurrency check.
+- Follow the browser contract's scoped cleanup for recorded task-created targets, the owned named daemon, and approved processes. Preserve user-selected tabs and user-provided browsers. Complete any source restoration included in the approval, subject to the same concurrency check.
 - Confirm the final source, enabled state, temporary selections, and remaining test data. Pending cleanup prevents an overall pass.
 
 Complete the report using [the result rules](references/report.md). Lead with the overall result, then link evidence, name coverage gaps, and state what remains installed. Ask one specific question if approval or missing access blocks further work.
