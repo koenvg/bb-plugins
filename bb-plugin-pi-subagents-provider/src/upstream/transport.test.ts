@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { githubTransport } from "./transport.ts";
 import { checkUpstream } from "./checker.ts";
 
@@ -39,6 +39,85 @@ it("accepts GitHub's observed numeric comparison pagination hints", async () => 
     `https://api.github.com${path}`,
     { method: "GET", redirect: "error", credentials: "omit" },
   ]);
+});
+
+describe.each(["/repos/get-bb/bb", "/repositories/1166119443"])("%s pagination hints", (route) => {
+  describe.each(["compare/base...head", "commits/abc"])("%s", (endpoint) => {
+    it.each([1, 3])("rejects first=2 on current page %i", async (currentPage) => {
+      const link = `<https://api.github.com${route}/${endpoint}?per_page=100&page=2>; rel="first"`;
+      const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+      await expect(
+        transport(
+          `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow("Invalid upstream pagination");
+    });
+
+    it.each([
+      [1, 1],
+      [1, 2],
+      [3, 1],
+      [3, 3],
+      [3, 4],
+    ])("rejects a prev hint from page %i to page %i", async (currentPage, previousPage) => {
+      const link = `<https://api.github.com${route}/${endpoint}?per_page=100&page=${previousPage}>; rel="prev"`;
+      const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+      await expect(
+        transport(
+          `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow("Invalid upstream pagination");
+    });
+
+    it.each([
+      {
+        currentPage: 1,
+        hints: [
+          [1, "first"],
+          [1, "last"],
+        ],
+        next: false,
+      },
+      {
+        currentPage: 2,
+        hints: [
+          [1, "first"],
+          [1, "prev"],
+          [2, "last"],
+        ],
+        next: false,
+      },
+      {
+        currentPage: 3,
+        hints: [
+          [1, "first"],
+          [2, "prev"],
+          [4, "next"],
+          [5, "last"],
+        ],
+        next: true,
+      },
+    ])(
+      "accepts valid first/prev hints on current page $currentPage",
+      async ({ currentPage, hints, next }) => {
+        const link = hints
+          .map(
+            ([page, relation]) =>
+              `<https://api.github.com${route}/${endpoint}?per_page=100&page=${page}>; rel="${relation}"`,
+          )
+          .join(", ");
+        const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+        expect(
+          await transport(
+            `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
+            new AbortController().signal,
+          ),
+        ).toMatchObject({ status: 200, next });
+      },
+    );
+  });
 });
 
 it.each([
