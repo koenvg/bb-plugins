@@ -1,6 +1,6 @@
 # Code Cleanup
 
-Code Cleanup adds project guidance controls to BB Settings. Its factory prompt asks agents to record substantial adjacent cleanup as separate BB Tasks and continue their assigned work. The plugin does not inspect code or create tasks itself.
+Code Cleanup adds project guidance controls to BB Settings. Its factory prompt asks agents to record substantial adjacent cleanup as separate BB Tasks only for observed defects or concrete maintenance costs. Each finding must state current evidence and expected benefit. For maintenance work, it must name the current change that is difficult and how cleanup makes it easier. No cleanup findings is a valid result. Agents continue their assigned work. The plugin does not inspect code or create tasks itself.
 
 ## Use Settings
 
