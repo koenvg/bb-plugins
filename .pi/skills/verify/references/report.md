@@ -27,11 +27,17 @@ Keep automated checks, build/activation, live behavior, and cleanup distinguisha
 - **Failed** means an executed check contradicted its expected result. A failing build or activation is a failed check even if the old plugin remains healthy. Attribute environment problems separately from product defects.
 - **Blocked** means a prerequisite, permission, target identity, or access issue prevented a valid observation. It is not a pass or proof of a product defect.
 
-Overall result:
+### Approved diagnostic exception
 
-1. Failed if any required check fails, including attempted cleanup that fails.
+For the [sole approved provider SDK exception](pi-subagents-sdk-exception.md), the original checker row stays **failed**. Preserve its actual exit code and complete output. Name the operator approval and accepted diagnostic in that row's observed result/evidence. Add separate rows for the matching-version, standalone test/typecheck, production build/load, and public bridge checks required by the reference.
+
+Accept this diagnostic for the overall decision only after every condition and replacement check in the reference passes. It is not a checker pass. All other required failures, unavailable checks, installation identity checks, live acceptance, and cleanup keep their normal rules. Missing or failing replacement checks do not satisfy the exception.
+
+### Overall result
+
+1. Failed if any required check fails, including attempted cleanup that fails, except for the one diagnostic with the accepted exception above.
 2. Otherwise blocked if a required check cannot run or cleanup awaits permission/conflict resolution.
-3. Passed only if every required check passes and cleanup is confirmed complete.
+3. Passed only if every required check passes or is the one accepted diagnostic, and cleanup is confirmed complete. Using the exception also requires all its replacement checks to pass.
 
 Examples:
 
@@ -41,6 +47,7 @@ Examples:
 | The page renders but the changed action raises a runtime error | failed |
 | Tests/build pass; the linked PR required for a live badge is unavailable | blocked |
 | All behavior passes; a newer user setting prevents safe restoration | blocked |
+| Accepted provider SDK diagnostic remains failed; replacement checks pass; installed check lacks approval | blocked |
 
 ## State ledger
 

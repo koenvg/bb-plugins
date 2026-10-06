@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/get-bb/bb.git",
+  "branch": "main",
+  "revision": "fdd3de3b19b97e6cd1ef7300cbb54711431249d3",
+  "sourcePath": "plugins/provider-pi",
+  "importMethod": "Committed GitHub archive, not an upstream working tree",
+  "importedVersions": {
+    "provider": "0.1.0",
+    "pluginSdk": "0.5.24",
+    "piAi": "0.84.0",
+    "piCodingAgent": "0.84.0"
+  },
+  "license": {
+    "spdx": "MIT",
+    "sourcePath": "LICENSE",
+    "localPath": "LICENSE",
+    "copyright": "Copyright (c) 2026 Michael Yong"
+  },
+  "watchedContractPaths": [
+    "plugins/provider-pi",
+    "packages/plugin-sdk",
+    "packages/provider-bridge-protocol",
+    "packages/domain",
+    "packages/agent-runtime",
+    "packages/host-daemon-contract",
+    "apps/host-daemon/src/runtime-manager.ts",
+    "apps/host-daemon/src/runtime-manager.test.ts",
+    "packages/plugin-build",
+    "packages/plugin-registry/flavors/components/ui/question-form-host.tsx",
+    "packages/shared-ui/src/components/ui/button.tsx",
+    "apps/cli/src/commands/plugin.ts",
+    "docs/provider-bridge-protocol.md",
+    "docs/provider-plugin-api.md"
+  ],
+  "standaloneTestMatrix": {
+    "node": "24.15.0",
+    "bbBuildTool": "0.45.0",
+    "pluginSdk": "0.6.15",
+    "piFixturesAndTypes": "0.84.0",
+    "liveBbAcceptance": "not run",
+    "subagents": "not required or loaded; observation unavailable"
+  }
+}
