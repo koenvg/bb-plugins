@@ -6,9 +6,7 @@ import { TaskDirectiveCard, TaskEmbedPanel } from "./views/embed/index.js";
 import { TASKS_COMMANDS } from "./shell/commands.js";
 import { ThreadHeaderTask } from "./views/thread-header/index.js";
 
-import { RunApprovalForm } from "./orchestration/run-form.js";
 export default definePluginApp((app) => {
-  app.slots.pendingInteraction({ id: "orchestrator-run", component: RunApprovalForm });
   app.slots.navPanel({
     id: "tasks",
     title: "Tasks",

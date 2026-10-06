@@ -1,5 +1,12 @@
 # Implementation checklist
 
+## Superseded
+
+Superseded by [remove-bb-orchestrator](../remove-bb-orchestrator/tasks.md).
+This checklist is historical. Any unfinished acceptance or backlog work below
+is withdrawn, not completed. Do not resume this change or synchronize its
+positive capability deltas. This note does not change external tracker tasks.
+
 ## Approved release boundary
 
 The BBP-33 manual-first contract supersedes automatic coordination for this release. BBP-39/40/41 are deferred top-level backlog, not completed. Historical activation/dispatch tests are evidence, not acceptance of removed automation. BBP-51 remains the known native user-classification limit.

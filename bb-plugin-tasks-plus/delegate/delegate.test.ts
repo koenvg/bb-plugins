@@ -608,7 +608,7 @@ describe("task thread detach", () => {
 });
 
 describe("delegation seed prompt", () => {
-  it.each([false, true])("keeps links with attachmentPending=%s", async (attachmentPending) => {
+  it("keeps links in the ordinary attached-worker prompt", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     try {
       const { tasks } = createStore(bb);
@@ -622,15 +622,12 @@ describe("delegation seed prompt", () => {
         attachments: [],
         recentComments: [],
         presetInstructions: "",
-        attachmentPending,
       });
       const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
       expectTaskLinkRules(report);
-      expect(report).toContain(
-        attachmentPending
-          ? "Local attachment can still be pending"
-          : "Your thread is already attached",
-      );
+      expect(report).toContain("Your thread is already attached");
+      expect(prompt).not.toContain("tasks_report");
+      expect(prompt).not.toContain("Local attachment can still be pending");
     } finally {
       await harness.lifecycle.dispose();
     }
@@ -795,7 +792,7 @@ describe("delegation seed prompt", () => {
       Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.
       Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.
       See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.
-      Follow task TASK-1, its linked specifications, acceptance criteria and applicable project instructions. Report explicit outcomes with native tasks_report using taskId 01J00000000000000000000002: completed, review_ready, blocked, failed or needs_decision. Use a stable retry key, a bounded summary, an explicit question for needs_decision, typed result/evidence references and baseline references. Keep the returned report/comment IDs in your final output. Reports can be made during an active turn; idle activity is not task completion. Reporting does not change task status. Set status explicitly with bb tasks update TASK-1 --status in_review or --status done only when your ticket gates are met. For CLI/RPC reporting, issue a private file with native tasks_report_context; never print or attach its contents. CLI thread IDs are not report authority. If native reporting is unavailable, state the transport blocker and use an ordinary Tasks comment without claiming a durable report. Your thread is attached to the task.
+      Follow task TASK-1, its linked specifications, acceptance criteria and applicable project instructions. Idle activity is not task completion. Set status explicitly with bb tasks update TASK-1 --status in_review or --status done only when your ticket gates are met.
 
       ## Preset instructions
 
