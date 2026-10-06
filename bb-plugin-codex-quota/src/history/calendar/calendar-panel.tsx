@@ -8,7 +8,7 @@ import {
   type CalendarQuery,
   type CalendarReport,
 } from "./calendar-contract.js";
-import { latestStart, shiftDate, validTimezone } from "./calendar-time.js";
+import { latestStart, localDate, shiftDate, validTimezone } from "./calendar-time.js";
 import { dateTick } from "./calendar-chart-data.js";
 import { CalendarValues, reportButton, reportControl, type TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
@@ -209,6 +209,11 @@ export function CalendarReportPanel({
             Retry preparation
           </button>
         </div>
+      )}
+      {view && timezone && view.days.at(-1)?.date === localDate(now, timezone) && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Today is in progress. Values are recorded so far.
+        </p>
       )}
       {stale && (
         <button

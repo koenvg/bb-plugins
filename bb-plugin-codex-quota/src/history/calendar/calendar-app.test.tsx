@@ -91,7 +91,7 @@ it("navigates only the retained chart without mounting management controls", asy
   fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
   await waitFor(() =>
     expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-      "2026-08-02",
+      "2026-08-03",
     ),
   );
   expect(f.page.inspection.rpcCalls.slice(before).map((call) => call.method)).toEqual([
@@ -113,7 +113,7 @@ it("navigates only the retained chart without mounting management controls", asy
 it("hides an old range immediately and ignores a delayed response", async () => {
   let finish!: (value: unknown) => void, oldQuery!: CalendarQuery;
   const f = calendarPage(({ query }) =>
-    query.startDate === "2026-08-02"
+    query.startDate === "2026-08-03"
       ? new Promise((resolve) => {
           finish = resolve;
           oldQuery = query;
@@ -277,7 +277,7 @@ it("retries an unavailable chart without refreshing allowance or maintaining his
 });
 it("recovers the latest range after the retained older range is rejected by another host", async () => {
   const f = calendarPage(({ hostId, query }) =>
-    hostId === "host_b" && query.startDate === "2026-08-02"
+    hostId === "host_b" && query.startDate === "2026-08-03"
       ? { state: "unavailable", reason: "range-unavailable" }
       : calendarSnapshot(query),
   );
@@ -285,7 +285,7 @@ it("recovers the latest range after the retained older range is rejected by anot
   fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
   await waitFor(() =>
     expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-      "2026-08-02",
+      "2026-08-03",
     ),
   );
   fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
@@ -302,7 +302,7 @@ it("recovers the latest range after the retained older range is rejected by anot
   expect(f.page.inspection.rpcCalls.at(-1)?.input).toMatchObject({
     hostId: "host_b",
     generation: 2,
-    query: { startDate: "2026-09-01" },
+    query: { startDate: "2026-09-02" },
   });
   f.stop();
 });
@@ -327,5 +327,23 @@ it("finishes the fixture preparation before navigation and schedules no transpor
     target: { value: "cost" },
   });
   expect(f.page.inspection.rpcCalls).toHaveLength(before);
+  f.stop();
+});
+
+it("opens the latest thirty days through today and explains the incomplete day", async () => {
+  const f = calendarPage(({ query }) => calendarSnapshot(query));
+  await f.q.findByRole("table", { name: "Daily recorded usage" });
+  await f.prepared();
+  expect(
+    f.page.inspection.rpcCalls.find((call) => call.method === "calendarReport")?.input,
+  ).toMatchObject({ query: { startDate: "2026-09-02" } });
+  expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
+    "2026-10-01",
+  );
+  expect(f.q.getByText("Today is in progress. Values are recorded so far.")).toBeTruthy();
+  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
+  await waitFor(() =>
+    expect(f.q.queryByText("Today is in progress. Values are recorded so far.")).toBeNull(),
+  );
   f.stop();
 });

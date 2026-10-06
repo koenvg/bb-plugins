@@ -173,33 +173,38 @@ it.each([
     await f.harness.experimental_dispose();
   },
 );
-it("keeps whole-range navigation within retained bounds and excludes today", async () => {
+it("keeps whole-range navigation within retained bounds through today", async () => {
   const f = await calendarFixture();
   put(f.db, 1, "2026-10-01T00:00:00.000Z");
   f.db.close();
-  const latest = await f.read();
+  const latest = await f.read({
+    startDate: "2026-09-02",
+    timezone: "UTC",
+    group: "workspace",
+    scope: { kind: "host" },
+  });
   expect(latest.next).toBe(false);
   expect(latest.previous).toBe(true);
-  expect(latest.days[0].date).toBe("2026-09-01");
-  expect(latest.days.at(-1)?.date).toBe("2026-09-30");
-  expect(latest.summary.totalTokens).toBe(0);
+  expect(latest.days[0].date).toBe("2026-09-02");
+  expect(latest.days.at(-1)?.date).toBe("2026-10-01");
+  expect(latest.summary.totalTokens).toBe(10);
   const previous = await f.read({
-    startDate: "2026-08-02",
+    startDate: "2026-08-03",
     timezone: "UTC",
     group: "workspace",
     scope: { kind: "host" },
   });
   expect(previous.next).toBe(true);
   expect(previous.previous).toBe(true);
-  expect(previous.days.at(-1)?.date).toBe("2026-08-31");
+  expect(previous.days.at(-1)?.date).toBe("2026-09-01");
   const oldest = await f.read({
-    startDate: "2026-07-03",
+    startDate: "2026-07-04",
     timezone: "UTC",
     group: "workspace",
     scope: { kind: "host" },
   });
   expect(oldest.previous).toBe(false);
-  for (const startDate of ["2026-06-03", "2026-09-02"])
+  for (const startDate of ["2026-06-04", "2026-09-03"])
     expect(
       await f.harness.experimental_call("calendarReport", {
         startDate,
@@ -724,5 +729,64 @@ it("keeps comparison on the explicit read-only history report interface without 
   expect(
     await f.history.report(query, { dataDir: f.dataDir, signal: AbortSignal.abort() }),
   ).toEqual({ state: "unavailable", reason: "selection-changed" });
+  await f.harness.experimental_dispose();
+});
+
+it("includes today's recorded values but excludes future instants and future ranges", async () => {
+  const f = await calendarFixture();
+  put(f.db, 1, "2026-09-30T12:00:00.000Z", "/original", 10);
+  put(f.db, 2, "2026-10-01T10:00:00.000Z", "/original", 20);
+  put(f.db, 3, "2026-10-01T13:00:00.000Z", "/future", 30);
+  put(f.db, 4, "2026-10-01T12:00:00.000Z", "/at-observation", 40);
+  put(f.db, 5, "2026-10-01T13:00:00.000Z", "/future-excluded", 50);
+  put(f.db, 6, "2026-10-01T10:00:00.000Z", "/past-excluded", 7);
+  f.db
+    .prepare("UPDATE usage_compact SET accepted=0 WHERE workspace IN (?,?)")
+    .run("/future-excluded", "/past-excluded");
+  f.db.close();
+  const query = {
+    startDate: "2026-09-02",
+    timezone: "UTC",
+    group: "workspace" as const,
+    scope: { kind: "host" as const },
+  };
+  const view = await f.read(query);
+  expect(view.days).toHaveLength(30);
+  expect(view.days.at(-1)).toMatchObject({
+    date: "2026-10-01",
+    totalTokens: 20,
+    coverage: { state: "incomplete", zero: false },
+  });
+  expect(view.summary.totalTokens).toBe(30);
+  expect(view.summary.excludedTokens).toBe(7);
+  expect(view.days.at(-1)?.excludedTokens).toBe(7);
+  expect(view.ranking.map((row) => row.key)).toEqual(["/original"]);
+  expect(view.next).toBe(false);
+  expect(
+    await f.harness.experimental_call("calendarReport", { ...query, startDate: "2026-09-03" }),
+  ).toEqual({ state: "unavailable", reason: "range-unavailable" });
+  await f.harness.experimental_dispose();
+});
+
+it("does not certify today as a full-day zero even with inactivity evidence", async () => {
+  const f = await calendarFixture();
+  recordCoverage(f.db, {
+    id: "inactive-through-today",
+    workspace: "/original",
+    threadId: null,
+    start: "2026-09-02T00:00:00Z",
+    end: "2026-10-02T00:00:00Z",
+    kind: "observed-inactivity",
+  });
+  f.db.close();
+  const view = await f.read({
+    startDate: "2026-09-02",
+    timezone: "UTC",
+    group: "workspace",
+    scope: { kind: "workspace", workspace: "/original" },
+  });
+  expect(view.state).toBe("unknown");
+  expect(view.days.at(-1)?.coverage).toMatchObject({ state: "incomplete", zero: false });
+  expect(view.days.slice(0, -1).every((day) => day.coverage.zero)).toBe(true);
   await f.harness.experimental_dispose();
 });

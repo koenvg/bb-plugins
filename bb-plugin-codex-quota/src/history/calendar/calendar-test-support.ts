@@ -34,7 +34,7 @@ export function calendarSnapshot(
     compactFrom: "2026-06-22T00:00:00.000Z",
     capture: "observed",
     previous: true,
-    next: query.startDate < "2026-09-01",
+    next: query.startDate < "2026-09-02",
     summary: {
       totalTokens: 600,
       activeEntities: 60,

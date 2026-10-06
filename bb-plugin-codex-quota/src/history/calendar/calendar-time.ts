@@ -63,7 +63,7 @@ export function dayBoundary(date: string, timezone: string): string {
   return new Date(low).toISOString();
 }
 export function latestStart(now: number, timezone: string): string {
-  return shiftDate(localDate(now, timezone), -30);
+  return shiftDate(localDate(now, timezone), -29);
 }
 export function calendarDays(startDate: string, timezone: string, count = 30) {
   if (!Number.isInteger(count) || count < 1 || count > 34)

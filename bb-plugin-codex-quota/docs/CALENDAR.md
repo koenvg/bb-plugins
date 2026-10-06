@@ -2,7 +2,9 @@
 
 ## Use the chart
 
-Select an enrolled host on the Codex Quota page. The allowance summary comes first. The Recharts bar chart shows 30 local calendar dates ending yesterday in the viewer's IANA timezone. Previous 30 days and Next 30 days move the range. Next is disabled at the latest range. Previous stops at retained bounds.
+Select an enrolled host on the Codex Quota page. The allowance summary comes first. The Recharts bar chart shows 30 local calendar dates through today in the viewer's IANA timezone. Previous 30 days and Next 30 days move the range. Next is disabled at the latest range. Previous stops at retained bounds.
+
+Today's values include only recorded events before the report's observation time. Future instants are excluded. The page marks today as in progress, and today cannot prove a full-day zero. Historical date ranges keep their existing coverage rules.
 
 The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, ranking, grouping, entity-inspection or comparison controls on this page. The report uses workspace grouping and host scope.
 

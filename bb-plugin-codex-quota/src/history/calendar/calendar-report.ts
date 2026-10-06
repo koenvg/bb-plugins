@@ -66,9 +66,10 @@ function readRange(
   includeRanking: boolean,
 ): CalendarReport {
   const latest = latestStart(now, query.timezone);
+  const observedAt = new Date(now).toISOString();
   const boundaries = calendarDays(query.startDate, query.timezone),
     start = boundaries[0].start,
-    end = boundaries[29].end;
+    end = boundaries[29].end < observedAt ? boundaries[29].end : observedAt;
   if (!retention.compact_cutoff || start < retention.compact_cutoff || query.startDate > latest)
     return calendarUnavailable("range-unavailable");
   if (!retention.backfill_done) return calendarUnavailable("storage-unavailable");
@@ -105,9 +106,14 @@ function readRange(
   );
   const days: CalendarSnapshot["days"] = boundaries.map((day) => {
     const recorded = totals.days.find((row) => row.date === day.date);
-    const coverage = readCoverage(db, { start: day.start, end: day.end, ...scope });
+    const fullCoverage = readCoverage(db, { start: day.start, end: day.end, ...scope });
+    const coverage =
+      day.end > observedAt
+        ? { ...fullCoverage, state: "incomplete" as const, zero: false }
+        : fullCoverage;
+    const dayEnd = day.end < end ? day.end : end;
     const excludedTokens = checkedCount(
-      (excludedStatement.get(...excludedFilter.values, day.start, day.end) as { total: number })
+      (excludedStatement.get(...excludedFilter.values, day.start, dayEnd) as { total: number })
         .total,
     );
     return {
@@ -202,7 +208,7 @@ function readRange(
     state: inactive ? "observed-inactivity" : anyUsage ? "partial" : "unknown",
     reason: "ok",
     query,
-    observedAt: new Date(now).toISOString(),
+    observedAt,
     compactFrom: retention.compact_cutoff,
     capture: historyObserved(db) ? "observed" : "unconfirmed",
     previous:
