@@ -6,6 +6,7 @@ import { exportJWK, generateKeyPair, SignJWT, type JWTPayload } from "jose";
 import { vi } from "vitest";
 import { remoteAccess, type limits } from "../remote-access.js";
 import type { Config } from "../config.js";
+import { operationControl, operationMigration } from "../operations.js";
 
 // Node's built-in fetch does not preserve a supplied Host header. This test
 // bridge uses a real TCP connection and keeps the tunnel's public Host.
@@ -63,7 +64,10 @@ export function project(id: string, name = id) {
     sources: [],
   };
 }
-export async function fixture(overrides: Partial<typeof limits> = {}) {
+export async function fixture(
+  overrides: Partial<typeof limits> = {},
+  operationOptions: Pick<Parameters<typeof operationControl>[0], "now" | "limits"> = {},
+) {
   const pair = await generateKeyPair("RS256");
   const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
   let config: Config = {
@@ -103,19 +107,36 @@ export async function fixture(overrides: Partial<typeof limits> = {}) {
     if (url.origin !== "https://issuer.example.org") throw new Error("Unexpected issuer URL");
     return fetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
   };
-  const host = createFakePluginHost();
+  let host = createFakePluginHost();
   const list = vi.fn(async () => [project("proj_a", "Allowed"), project("proj_hidden", "Private")]);
   host.harness.sdk.stub("projects.list", list);
   const logs: unknown[] = [];
-  const access = remoteAccess({
-    connection: config,
-    policy: () => config,
-    projects: host.bb.sdk.projects,
-    threads: host.bb.sdk.threads,
-    fetch: fetchIssuer,
-    log: (event) => logs.push(event),
-    limits: overrides,
-  });
+  function createAccess() {
+    const db = host.bb.storage.database();
+    host.bb.storage.migrate(db, [operationMigration]);
+    const operations = operationControl({
+      db,
+      policy: () => config,
+      ...operationOptions,
+      source: {
+        defaults: (args) => host.bb.sdk.projects.defaultExecutionOptions(args),
+        spawn: (args) => host.bb.sdk.threads.spawn(args),
+        get: (args) => host.bb.sdk.threads.get(args),
+      },
+    });
+    const access = remoteAccess({
+      connection: config,
+      policy: () => config,
+      projects: host.bb.sdk.projects,
+      threads: host.bb.sdk.threads,
+      operations,
+      fetch: fetchIssuer,
+      log: (event) => logs.push(event),
+      limits: overrides,
+    });
+    return { operations, access };
+  }
+  let { operations, access } = createAccess();
   await access.start();
   const local = `http://127.0.0.1:${config.port}`;
   async function token(
@@ -170,8 +191,12 @@ export async function fixture(overrides: Partial<typeof limits> = {}) {
   }
   return {
     signingKey: pair.privateKey,
-    access,
-    host,
+    get access() {
+      return access;
+    },
+    get host() {
+      return host;
+    },
     list,
     logs,
     issuerCalls,
@@ -184,8 +209,16 @@ export async function fixture(overrides: Partial<typeof limits> = {}) {
     change: (next: Partial<Config>) => {
       config = { ...config, ...next };
     },
+    async restart(crash = false) {
+      await access.close();
+      if (!crash) operations.close();
+      host = await host.harness.lifecycle.reload(async () => {});
+      ({ operations, access } = createAccess());
+      await access.start();
+    },
     async close() {
       await access.close();
+      operations.close();
       await host.harness.lifecycle.dispose();
       issuer.closeAllConnections();
       await new Promise<void>((resolve) => issuer.close(() => resolve()));

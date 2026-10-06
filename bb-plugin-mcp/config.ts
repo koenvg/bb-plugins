@@ -43,7 +43,8 @@ export const settingsDefinition = {
     type: "boolean",
     label: "Enable remote control",
     default: false,
-    description: "Reserved. This version exposes no control tools, even when enabled.",
+    description:
+      "Allow thread starts with read/control OAuth scopes. Agents can change files and incur costs.",
   },
 } as const;
 

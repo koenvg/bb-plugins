@@ -25,7 +25,7 @@ describe("authenticated HTTP boundary", () => {
       expect(await response.json()).toEqual({
         resource: "https://mcp.example.org/mcp",
         authorization_servers: [f.policy().issuer],
-        scopes_supported: ["bb.read"],
+        scopes_supported: ["bb.read", "bb.control"],
         bearer_methods_supported: ["header"],
       });
     }
@@ -47,6 +47,8 @@ describe("authenticated HTTP boundary", () => {
           "bb_list_projects",
           "bb_list_threads",
           "bb_get_thread",
+          "bb_start_thread",
+          "bb_get_operation",
         ]);
         expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
         const result = await client.callTool(call);
@@ -96,7 +98,7 @@ describe("authenticated HTTP boundary", () => {
       });
       expect(f.list.mock.calls).toHaveLength(calls);
       f.change({ controlEnabled: true });
-      expect((await client.listTools()).tools).toHaveLength(3);
+      expect((await client.listTools()).tools).toHaveLength(5);
       const write = await client.callTool({
         name: "bb_start_thread",
         arguments: { projectId: "proj_a" },

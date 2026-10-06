@@ -45,7 +45,7 @@ describe("BB settings and listener lifecycle", () => {
       configuration: "invalid",
       listener: "stopped",
       publicReachability: "unverified",
-      controlTools: "unavailable",
+      controlTools: "disabled",
     });
     expect(host.harness.inspection.sdk.calls).toEqual([]);
     const descriptors = host.harness.inspection.registrations.settingsDescriptors;
@@ -96,7 +96,7 @@ describe("BB settings and listener lifecycle", () => {
       port: values.port,
       listener: "listening",
       reloadRequired: true,
-      controlTools: "unavailable",
+      controlTools: "enabled",
     });
     expect((await metadata(values.port)).status).toBe(200);
     await expect(metadata(nextPort, "another.example.com")).rejects.toThrow();

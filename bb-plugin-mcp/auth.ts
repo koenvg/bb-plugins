@@ -97,6 +97,11 @@ export function authenticator(fetcher: typeof fetch = fetch) {
     if (payload.sub !== config.owner) throw new Error();
     if (typeof payload.scope !== "string" || !payload.scope.split(" ").includes("bb.read"))
       throw new Error("INSUFFICIENT_SCOPE");
-    return { issuer: config.issuer, owner: payload.sub };
+    return {
+      issuer: config.issuer,
+      owner: payload.sub,
+      scopes: payload.scope.split(" "),
+      expiresAt: payload.exp,
+    };
   };
 }

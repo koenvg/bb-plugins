@@ -1,12 +1,24 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { readConfig, settingsDefinition } from "./config.js";
 import { remoteAccess } from "./remote-access.js";
+import { operationControl, operationMigration } from "./operations.js";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define(settingsDefinition);
   let saved = await settings.get();
   const initial = readConfig(saved);
   const connection = { publicOrigin: saved.publicOrigin, port: saved.port };
+  const db = bb.storage.database();
+  bb.storage.migrate(db, [operationMigration]);
+  const operations = operationControl({
+    db,
+    policy: () => readConfig(saved),
+    source: {
+      defaults: (args) => bb.sdk.projects.defaultExecutionOptions(args),
+      spawn: (args) => bb.sdk.threads.spawn(args),
+      get: (args) => bb.sdk.threads.get(args),
+    },
+  });
   const access = initial
     ? remoteAccess({
         connection,
@@ -18,6 +30,7 @@ export default async function plugin(bb: BbPluginApi) {
           output: (args) => bb.sdk.threads.output(args),
           interactions: { list: (args) => bb.sdk.threads.interactions.list(args) },
         },
+        operations,
         log: (event) => bb.log.warn(JSON.stringify(event)),
       })
     : null;
@@ -28,6 +41,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
   bb.onDispose(async () => {
     await access?.close();
+    operations.close();
   });
   bb.background.service("listener", {
     async start(signal) {
@@ -69,7 +83,7 @@ export default async function plugin(bb: BbPluginApi) {
         }),
         configuration: current ? "valid" : "invalid",
         remoteEnabled: current?.remoteEnabled ?? false,
-        controlTools: "unavailable",
+        controlTools: current?.controlEnabled ? "enabled" : "disabled",
         reloadRequired:
           !access ||
           connection.publicOrigin !== saved.publicOrigin ||

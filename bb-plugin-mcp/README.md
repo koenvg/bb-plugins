@@ -1,6 +1,6 @@
-# MCP project reads
+# MCP reads and thread starts
 
-A headless BB plugin for authenticated, allowlisted project listing. It uses BB's standard plugin settings. It exposes three read-only tools, `bb_list_projects`, `bb_list_threads`, and `bb_get_thread`. It has no control tools, admin routes, shell tools, file tools, or generic forwarding.
+A headless BB plugin for authenticated, allowlisted reads and safe ordinary thread starts. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, and `bb_get_operation`. It has no send, stop, remote approval, task-board, shell, file, admin, or generic forwarding tools.
 
 Requires BB 0.45 with SDK 0.6.15 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
@@ -8,7 +8,7 @@ Requires BB 0.45 with SDK 0.6.15 and Node 24.15 or later in Node 24. The officia
 
 Allowed project names, thread titles, and recent assistant output can be sent to ChatGPT. Assistant output can contain private information, including secrets or local paths quoted by an agent. The plugin excludes private SDK fields but does not redact free-text output. Only allow projects whose content you consent to share. Names and other project text are untrusted data, not instructions. An allowlist limits access to BB objects. It is not an agent filesystem sandbox.
 
-Remote access and control start disabled. This version never exposes control tools, even if the reserved control setting is enabled. Disabling the plugin or remote access releases only its listener. It does not stop BB threads or change the external tunnel.
+Remote access and control start disabled. Starting an agent can change code, take external actions, and incur provider costs under its existing permissions. Enable control only with that consent. Disabling the plugin or remote access releases only its listener. It does not stop BB threads or change the external tunnel.
 
 ## Settings and reloads
 
@@ -22,7 +22,7 @@ Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` c
 | `owner`          | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                              |
 | `projects`       | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                               |
 | `remoteEnabled`  | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                               |
-| `controlEnabled` | Reserved control switch, false by default. Has no effect on this read-only catalog.                                                                    |
+| `controlEnabled` | Local start permission, false by default. Writes also require `bb.read` and `bb.control` OAuth scopes.                                                 |
 
 Invalid settings fail closed. Settings remain in BB's normal settings store. The plugin does not keep a second configuration file.
 
@@ -48,6 +48,8 @@ Configure the issuer outside this plugin:
 4. Use RS256 access-token signing and short token lifetimes. Tokens need `iss`, `sub`, `aud`, and `exp`; `nbf`, when present, must already be valid. Copy the intended owner's stable subject into BB settings. Neither an ID token without `bb.read` nor a BB plugin token is sufficient.
 5. Request `bb.read` through authorization code with PKCE. ChatGPT sends the canonical MCP URL as the OAuth `resource`. Keep this client dedicated to that one resource and verify the issued and refreshed access tokens contain that audience. If the issuer/client rejects the resource parameter or cannot bind tokens to it, setup is incomplete. Do not remove audience checks to make it connect.
 6. Configure refresh tokens under the issuer's normal rotation/expiry policy. Confirm a refreshed access token retains the resource audience, owner and read scope. The MCP plugin neither issues nor stores refresh tokens.
+
+For separately approved control setup, add issuer scope `bb.control` alongside `bb.read`, verify both survive refresh, and then enable local control. Read-only tokens still cannot start threads. The catalog and protected-resource metadata advertise the scopes, not an authorization grant.
 
 The listener publishes public protected-resource discovery at both `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-protected-resource`. The resource is always the effective configured HTTPS MCP URL, not a forwarded header. An unauthenticated protected request returns 401 with `WWW-Authenticate` pointing to this metadata. Missing read scope returns 403. No BB or Cloudflare cookies are needed.
 
@@ -113,8 +115,31 @@ A timed-out read is not retried automatically. BB's project-list API has no canc
 
 Routine rejection logs contain only a generated request ID and fixed safe error code. They omit tokens, request bodies, project names and BB error text.
 
+## Thread starts and operation status
+
+`bb_start_thread` requires `projectId`, a nonblank text `prompt` of at most 32 KiB UTF-8, and an `operationKey`. It accepts an optional nonblank `title` of at most 200 characters. Keys contain 1 to 128 ASCII letters, digits, `_`, `.`, `:`, or `-`. Extra fields are refused. IDs and title are trimmed. Prompt text is preserved exactly. Normalized input differences, including prompt whitespace or title changes, conflict under the same key.
+
+The token needs both `bb.read` and `bb.control`. Local remote access and control must be enabled, and the project must be allowed. The plugin checks owner, token expiry, control and project access again immediately before dispatch. It reads `projects.defaultExecutionOptions` and passes only its provider, model, permission mode, reasoning and service tier to `threads.spawn`. The environment is always `project-default` and visibility is always `visible`. Missing defaults fail before dispatch. No fallback machine, execution override, task-board action, permission response or agent-completion wait exists.
+
+The start result has `operationId`, `state`, `threadId`, `code`, and `meaning`. Start waits up to three seconds for submission, with a total four-second tool-response budget including current thread access checks. Authentication and HTTP processing still have the existing five-second request deadline. A slow access check returns `OPERATION_UNAVAILABLE`; retain the original input/key and inspect BB. `bb_get_operation` takes only `operationId`, requires read scope, and never repeats an action. Status remains available when local control is disabled. Status reads and cached start replies recheck the submitting owner, project allowlist, and current thread membership when a thread ID is known. Missing and disallowed records use the same safe unavailable error.
+
+| State      | Meaning                                                                                                                                                                           |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pending`  | Submission outcome is still pending. Poll the operation, not agent completion.                                                                                                    |
+| `accepted` | BB returned a thread and the plugin saved that result. The agent has not necessarily started or completed work. Hooks, concurrency rules and approval requests still apply in BB. |
+| `failed`   | The plugin can confirm that it did not dispatch a start, such as a failed defaults read or pre-dispatch loss. The original key remains protected.                                 |
+| `unknown`  | Dispatch might have happened. Inspect BB before deciding to submit a new key. This state is never a safe-to-retry promise.                                                        |
+
+After a lost reply or transport error, repeat the original input and original key, or poll the known operation ID. A matching key observes the saved operation and does not start again. A changed input returns `OPERATION_CONFLICT`. A disconnect after dispatch does not cancel the BB action. A 30-second SDK deadline marks the outcome unknown; a later reply in the same plugin generation can establish acceptance. Because the public spawn contract does not promise that an error occurs before creation, any spawn error also stays unknown. Raw BB errors are not returned or logged.
+
+SQLite protects the unique issuer/owner/tool/key identity before dispatch with an immediate transaction and FULL synchronous writes. Records contain IDs, an SHA-256 normalized-input hash, timestamps, generation, state, and a fixed safe code. They contain no second prompt, title, transcript or token. Operation IDs are also written to the plugin's thread metadata for BB inspection, not authorization. Pending records from a previous generation become unknown on activation and are never resubmitted. The plugin does not keep a durable prompt queue or claim exactly-once BB execution.
+
+Completed `accepted` and `failed` records stay protected for at least 24 hours after their last outcome update. A new claim can remove completed records only after that window. After expiry the same key can create new work, so use unique keys for new actions. `pending` and `unknown` records are never evicted. The ledger holds at most 10,000 records; `LEDGER_FULL` refuses new starts without a BB mutation. At most eight outstanding submissions and eight operation membership reads run per generation. Slots remain occupied until their SDK calls settle, even after a deadline; `OPERATIONS_BUSY` refuses further new starts. Existing read-tool and HTTP limits remain unchanged.
+
+Local operation listing/resolution is reserved for BBP-84 and is not implemented here. Until then, unresolved records remain protected and capacity exhaustion can require waiting for that slice. Inspect BB directly for an unknown start, using its operation metadata when available. Never delete the ledger to retry an uncertain action.
+
 ## Local checks and release limits
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
-See [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
+See [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.

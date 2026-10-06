@@ -5,6 +5,7 @@ import { authenticator } from "./auth.js";
 import { type Config, type Connection } from "./config.js";
 import { hasAccess, projectServer, type ProjectSource } from "./control.js";
 import type { ThreadSource, ThreadTool } from "./thread-tools.js";
+import type { Operations, OperationTool } from "./operations.js";
 
 export const limits = {
   bodyBytes: 65536,
@@ -23,7 +24,12 @@ export function remoteAccess(options: {
   policy: () => Config | null;
   projects: ProjectSource;
   threads: ThreadSource;
-  log: (event: { request: string; code: string; tool?: "bb_list_projects" | ThreadTool }) => void;
+  operations?: Operations;
+  log: (event: {
+    request: string;
+    code: string;
+    tool?: "bb_list_projects" | ThreadTool | OperationTool;
+  }) => void;
   fetch?: typeof fetch;
   limits?: Partial<typeof limits>;
 }) {
@@ -157,7 +163,7 @@ export function remoteAccess(options: {
           JSON.stringify({
             resource,
             authorization_servers: [config.issuer],
-            scopes_supported: ["bb.read"],
+            scopes_supported: ["bb.read", "bb.control"],
             bearer_methods_supported: ["header"],
           }),
         );
@@ -195,9 +201,15 @@ export function remoteAccess(options: {
         (tool) =>
           options.log({
             request: id,
-            code: tool === "bb_list_projects" ? "PROJECTS_UNAVAILABLE" : "THREAD_UNAVAILABLE",
+            code:
+              tool === "bb_list_projects"
+                ? "PROJECTS_UNAVAILABLE"
+                : tool === "bb_start_thread" || tool === "bb_get_operation"
+                  ? "OPERATION_UNAVAILABLE"
+                  : "THREAD_UNAVAILABLE",
             tool,
           }),
+        options.operations,
       );
       transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
@@ -254,6 +266,7 @@ export function remoteAccess(options: {
     }),
     async start() {
       if (listener || closing) throw new Error("LISTENER_ALREADY_STARTED");
+      options.operations?.activate();
       state = "starting";
       listener = createServer({ maxHeaderSize: 16384 }, (req, res) => {
         void handle(req, res).catch(() => send(res, 500, "REQUEST_FAILED"));
