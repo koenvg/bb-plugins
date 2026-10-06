@@ -92,4 +92,35 @@ describe("shared merge operations", () => {
     expect(send).toHaveBeenCalledTimes(1);
     off();
   });
+
+  it("keeps a fast enqueue error until its first subscriber leaves", async () => {
+    const operations = createPrOperations();
+    const enqueue = { action: "enqueue" as const, expectedHeadOid: "head-a" };
+    await operations.run("a", enqueue, async () => ({ kind: "error", message: "rejected" }));
+
+    const off = operations.subscribe("a", () => {});
+    expect(operations.snapshot("a")).toEqual({
+      kind: "error",
+      message: "rejected",
+      action: "enqueue",
+      headOid: "head-a",
+    });
+    off();
+    expect(operations.snapshot("a")).toEqual({ kind: "idle" });
+  });
+
+  it("discards an error that arrives after the last subscriber leaves", async () => {
+    const operations = createPrOperations();
+    const pending = deferred();
+    const off = operations.subscribe("a", () => {});
+    const run = operations.run("a", request, () => pending.promise);
+    off();
+    expect(operations.snapshot("a")).toEqual({ kind: "running", ...request });
+
+    pending.resolve({ kind: "error", message: "rejected" });
+    await run;
+    const offAgain = operations.subscribe("a", () => {});
+    expect(operations.snapshot("a")).toEqual({ kind: "idle" });
+    offAgain();
+  });
 });

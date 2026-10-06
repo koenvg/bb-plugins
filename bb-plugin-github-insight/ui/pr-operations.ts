@@ -23,10 +23,16 @@ export function createPrOperations() {
   const listeners = new Map<string, Set<() => void>>();
   const snapshot = (threadId: string): PrOperationState => states.get(threadId) ?? IDLE;
   const prune = (threadId: string) => {
-    if (!listeners.has(threadId) && snapshot(threadId).kind !== "running") states.delete(threadId);
+    // No listener entry means React has not subscribed yet. Keep a fast error
+    // for that first subscription. An empty entry means the last viewer left.
+    if (listeners.get(threadId)?.size === 0 && snapshot(threadId).kind !== "running") {
+      states.delete(threadId);
+      listeners.delete(threadId);
+    }
   };
   function publish(threadId: string, state: PrOperationState) {
-    states.set(threadId, state);
+    if (state.kind === "idle") states.delete(threadId);
+    else states.set(threadId, state);
     listeners.get(threadId)?.forEach((notify) => notify());
     prune(threadId);
   }
@@ -36,7 +42,6 @@ export function createPrOperations() {
     listeners.set(threadId, entries);
     return () => {
       entries.delete(notify);
-      if (entries.size === 0) listeners.delete(threadId);
       prune(threadId);
     };
   }
