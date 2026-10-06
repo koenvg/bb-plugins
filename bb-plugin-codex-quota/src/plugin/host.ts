@@ -49,6 +49,14 @@ export function createQuotaHostEntry(deps: Dependencies) {
           await lease?.dispose();
         }
       },
+      reportPreparation: async ({ identities }, context) =>
+        history.prepare
+          ? history.prepare({
+              dataDir: context.experimental_paths.dataDir,
+              identities,
+              signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+            })
+          : { state: "unavailable" as const, reason: "unsupported" as const },
       historyReadiness: async (input, context) =>
         history.read({
           dataDir: context.experimental_paths.dataDir,

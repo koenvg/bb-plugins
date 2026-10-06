@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { historyReadinessSchema, collectorCommandSchema } from "../history/history-contract.js";
 import { activityViewSchema } from "../activity/activity-contract.js";
+import { hostPreparationSchema } from "../history/report-preparation-contract.js";
 import { identityBatchSchema } from "../history/identity/identity-contract.js";
 import { importCommandSchema, importViewSchema } from "../history/import/import-contract.js";
 import {
@@ -82,6 +83,10 @@ export const hostContract = defineRpcContract({
   historyReadiness: {
     input: z.union([z.null(), z.object({ identities: identityBatchSchema }).strict()]),
     output: historyReadinessSchema,
+  },
+  reportPreparation: {
+    input: z.object({ identities: identityBatchSchema }).strict(),
+    output: hostPreparationSchema,
   },
   calendarReport: { input: calendarQuerySchema, output: calendarReportSchema },
   collectorControl: { input: collectorCommandSchema, output: historyReadinessSchema },

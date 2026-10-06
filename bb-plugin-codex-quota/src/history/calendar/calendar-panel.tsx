@@ -12,12 +12,15 @@ import { latestStart, shiftDate, validTimezone } from "./calendar-time.js";
 import { dateTick } from "./calendar-chart-data.js";
 import { CalendarValues, reportButton, reportControl, type TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
+import { useReportPreparation } from "./report-preparation.js";
+import type { PreparationRequest } from "../report-preparation-contract.js";
 type Props = {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
   selectionRevision?: number;
   now: number;
   read(input: HistoryRequest & { query: CalendarQuery }): Promise<unknown>;
+  prepare?(input: PreparationRequest): Promise<unknown>;
 };
 function viewerTimezone(): string | null {
   try {
@@ -46,7 +49,15 @@ export function CalendarReportPanel({
   selectionRevision = 0,
   now,
   read,
+  prepare,
 }: Props) {
+  const preparation = useReportPreparation(
+    selection,
+    selectionPending,
+    selectionRevision,
+    now,
+    prepare,
+  );
   const [timezone] = useState(viewerTimezone),
     [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
   const [metric, setMetric] = useState<TokenMetric>("tokens"),
@@ -57,7 +68,7 @@ export function CalendarReportPanel({
       : null;
   const queryKey = query ? JSON.stringify(query) : "",
     key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`,
-    requestKey = `${key}:${attempt}`;
+    requestKey = `${key}:${attempt}:${preparation.revision}`;
   const latest = useRef(requestKey);
   latest.current = requestKey;
   const readRef = useRef(read);
@@ -186,6 +197,19 @@ export function CalendarReportPanel({
                     ? "Chart is out of date."
                     : ""}
       </p>
+      {preparation.state === "pending" && (
+        <p role="status" className="mt-2 text-xs text-muted-foreground">
+          Preparing history. The chart remains available.
+        </p>
+      )}
+      {preparation.state === "stopped" && (
+        <div className="mt-2 text-xs text-muted-foreground">
+          <p role="status">History preparation stopped. Recorded values remain available.</p>
+          <button type="button" className={reportButton} onClick={preparation.retry}>
+            Retry preparation
+          </button>
+        </div>
+      )}
       {stale && (
         <button
           type="button"
@@ -241,5 +265,8 @@ export function CalendarReportSection(props: Omit<Props, "read">) {
   const read = useRef((input: HistoryRequest & { query: CalendarQuery }) =>
     rpcRef.current.call("calendarReport", input),
   );
-  return <CalendarReportPanel {...props} read={read.current} />;
+  const prepare = useRef((input: PreparationRequest) =>
+    rpcRef.current.call("reportPreparation", input),
+  );
+  return <CalendarReportPanel {...props} read={read.current} prepare={prepare.current} />;
 }
