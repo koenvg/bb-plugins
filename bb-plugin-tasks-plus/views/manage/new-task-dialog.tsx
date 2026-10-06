@@ -15,7 +15,8 @@ import {
   useStagedAttachmentRetry,
   type StagedAttachment,
 } from "../../components/staged-attachments.js";
-import { useProjects, useTasksQuery, useTasksRpc } from "../../shell/data.js";
+import { useProjects, useTasksRpc } from "../../shell/data.js";
+import { useSessionLabelsForProjects } from "../../shell/task-data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
 import {
@@ -103,14 +104,7 @@ export function NewTaskDialog({
   const effectiveProjectId = selectedProjectId ?? projectId ?? projectList[0]?.id ?? null;
   const project = projectList.find((entry) => entry.id === effectiveProjectId) ?? null;
 
-  const labels = useTasksQuery(
-    async (rpc) =>
-      effectiveProjectId
-        ? (await rpc.call("listLabels", { projectId: effectiveProjectId })).labels
-        : [],
-    ["projects:changed"],
-    [effectiveProjectId],
-  );
+  const labels = useSessionLabelsForProjects(effectiveProjectId ? [effectiveProjectId] : []);
 
   const changeProject = (id: string) => {
     setSelectedProjectId(id);

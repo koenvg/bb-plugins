@@ -39,7 +39,7 @@ describe("browse delayed focus and save safety", () => {
     expect(document.activeElement).toBe(row(slot, 2));
   });
 
-  it("waits for a fresh A lookup on A-B-A, even if B never loaded", async () => {
+  it("focuses retained A on A-B-A without waiting for B's unfinished read", async () => {
     const loaded = deferred<unknown>();
     let pending = false;
     const slot = setup("all?task=TSK-1", {
@@ -53,9 +53,15 @@ describe("browse delayed focus and save safety", () => {
     row(slot, 1).focus();
     press("o");
     await acceptNavigation(slot);
-    expect(document.activeElement).toBe(row(slot, 1));
-    await act(async () => loaded.resolve({ task: tasks[0] }));
-    await waitFor(() => expect(document.activeElement).toBe(detail(slot)));
+    expect(document.activeElement).toBe(detail(slot));
+    expect(
+      slot.inspection.rpcCalls.filter(
+        (call) => call.method === "getTaskByKey" && rpcInput(call.input).taskKey === "TSK-1",
+      ),
+    ).toHaveLength(1);
+    await act(async () => loaded.resolve({ task: tasks[1] }));
+    expect(document.activeElement).toBe(detail(slot));
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
   });
 
   it.each(["outside", "editor", "overlay"])(

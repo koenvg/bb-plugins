@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button.js";
 // plugin-owned outlet, not editor state. The page keeps owning the portal's React
 // tree, so hiding or replacing a host tab cannot unmount an edit session.
 const outlets = new Set<HTMLElement>();
+const outletPanels = new Map<HTMLElement, ReturnType<typeof experimental_useAppPanel>>();
 let owner: HTMLElement | null = null;
 const contents = new Set<HTMLElement>();
 const listeners = new Set<() => void>();
@@ -35,20 +36,23 @@ const hasContent = () => contents.size > 0;
 
 function TicketTab() {
   const root = useRef<HTMLDivElement>(null);
+  const panel = experimental_useAppPanel();
   const populated = useSyncExternalStore(subscribe, hasContent);
   const active = useSyncExternalStore(subscribe, currentOutlet);
   useLayoutEffect(() => {
     const element = root.current!;
     outlets.add(element);
     // First outlet keeps the editor until the user explicitly moves it.
+    outletPanels.set(element, panel);
     if (!owner) owner = element;
     notify();
     return () => {
       outlets.delete(element);
       if (owner === element) owner = outlets.values().next().value ?? null;
+      outletPanels.delete(element);
       notify();
     };
-  }, []);
+  }, [panel]);
   return (
     <div ref={root} className="h-full min-h-0 min-w-0 overflow-hidden">
       {populated && active !== root.current && (
@@ -77,20 +81,36 @@ export const ticketTab = {
   component: TicketTab,
 } satisfies PluginFixedTabRegistration;
 
+function outletIsVisible(element: HTMLElement) {
+  if (!element.isConnected) return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    if (node.hidden || node.inert || node.getAttribute("aria-hidden") === "true") return false;
+    const style = getComputedStyle(node);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse"
+    )
+      return false;
+  }
+  return true;
+}
+
 export function useOpenTicketPanel() {
   const panel = experimental_useAppPanel();
   const latest = useRef(panel);
   useLayoutEffect(() => {
     latest.current = panel;
   }, [panel]);
-  return useCallback(
-    () =>
-      latest.current.openFixedTab({
-        surface: { kind: "current" },
-        tab: ticketTab,
-      }),
-    [],
-  );
+  return useCallback(() => {
+    // Controller identity proves that the mounted owner belongs to this surface.
+    // A visible outlet on another surface is not evidence that reveal can be skipped.
+    if (owner && outletPanels.get(owner) === latest.current && outletIsVisible(owner)) return true;
+    return latest.current.openFixedTab({
+      surface: { kind: "current" },
+      tab: ticketTab,
+    });
+  }, []);
 }
 
 export type TicketAttachment = {

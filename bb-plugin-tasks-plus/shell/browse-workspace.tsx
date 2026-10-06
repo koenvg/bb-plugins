@@ -159,7 +159,14 @@ export function BrowseWorkspace({
   useEffect(() => {
     if (noProjects && selectedKey) onMissing(selectedKey, () => latestNoProjects.current);
   }, [noProjects, selectedKey, onMissing, contextRevision]);
-  const readyKey = selectedKey === validatedKey ? selectedKey : null;
+  // A current settled order validates a destination in this accepted render.
+  // Initial/unsettled routes still wait; a previously validated editor stays
+  // mounted while authoritative removal crosses the pending-edit barrier.
+  const readyKey =
+    selectedKey === validatedKey ||
+    (selectedKey && order.settled && order.keys.includes(selectedKey))
+      ? selectedKey
+      : null;
   const detailHidden = !detailVisible;
 
   useLayoutEffect(() => {

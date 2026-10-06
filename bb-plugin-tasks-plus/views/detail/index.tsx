@@ -7,6 +7,13 @@ import { errorMessage } from "../../shared/errors.js";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import { listAllTasks, useMentionItems, useTasksQuery, useTasksRpc } from "../../shell/data.js";
+import {
+  useSessionLabels,
+  useSessionPresets,
+  useSessionProjects,
+  useTaskPreview,
+  useTaskPreviews,
+} from "../../shell/task-data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
 import { TaskActivity } from "../activity/task-activity.js";
@@ -196,6 +203,9 @@ function DetailSkeleton() {
 
 function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChanged: () => void }) {
   const rpc = useTasksRpc();
+  const previews = useTaskPreviews();
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
   const delegationRpc = useRpc<DelegationRpcContract>();
   const navigation = useTasksNavigation();
   const { toasts, push, dismiss } = useDetailToasts();
@@ -218,12 +228,16 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
         });
         if (result.ok) {
           confirmedTask.current = { task: result.task, querySnapshot };
+          previewsRef.current.invalidateReuse(result.task.key);
         }
         return result.ok ? { ok: true } : { ok: false, errorMessage: result.error.message };
       },
     }),
   );
   const editState = useSyncExternalStore(edits.subscribe, edits.getSnapshot);
+  useEffect(() => {
+    if (!editState.pending && confirmedTask.current) previews.invalidate(savedTask.key);
+  }, [editState.pending, previews, savedTask.key]);
   const confirmed = confirmedTask.current;
   // A save reply may arrive after a newer realtime query. Timestamp wins;
   // identity only breaks ties against the snapshot present when the write began.
@@ -236,10 +250,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   const task = { ...baseTask, ...editState.draft };
   useLayoutEffect(() => transition?.register(edits), [transition, edits]);
 
-  const projects = useTasksQuery(
-    async (query) => (await query.call("listProjects", {})).projects,
-    ["projects:changed"],
-  );
+  const projects = useSessionProjects();
   const project = projects.data?.find((entry) => entry.id === task.projectId);
 
   const parent = useTasksQuery(
@@ -253,11 +264,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     ["tasks:changed"],
     [task.id],
   );
-  const labels = useTasksQuery(
-    async (query) => (await query.call("listLabels", { projectId: task.projectId })).labels,
-    ["projects:changed"],
-    [task.projectId],
-  );
+  const labels = useSessionLabels(task.projectId);
   const attachments = useTasksQuery(
     async (query) => (await query.call("listAttachments", { taskId: task.id })).attachments,
     ["tasks:changed"],
@@ -268,10 +275,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     ["threads:changed"],
     [task.id],
   );
-  const presets = useTasksQuery(
-    async (query) => (await query.call("listPresets")).presets,
-    ["projects:changed"],
-  );
+  const presets = useSessionPresets();
   const pullRequests = useTasksQuery(
     async (query) => query.call("listTaskPullRequests", { taskId: task.id }),
     ["threads:changed"],
@@ -591,11 +595,7 @@ function SessionDetailView({ taskKey, onMissing, reconcileRevision, onReady }: D
   );
 }
 function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
-  const query = useTasksQuery(
-    async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
-    ["tasks:changed"],
-    [taskKey],
-  );
+  const query = useTaskPreview(taskKey);
 
   useEffect(() => {
     if (!query.isLoading && (query.data || query.error)) onReady?.(taskKey);
@@ -630,7 +630,12 @@ function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
         </Button>
       </div>
     ) : (
-      <DetailSkeleton />
+      <div data-detail-loading-key={taskKey}>
+        <p role="status" className="px-6 pt-6 text-sm text-muted-foreground">
+          Loading {taskKey}…
+        </p>
+        <DetailSkeleton />
+      </div>
     );
   }
   if (task === null) {
@@ -641,5 +646,28 @@ function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
       </div>
     );
   }
-  return <TaskDetail key={task.id} task={task} onTaskChanged={query.refresh} />;
+  return (
+    <>
+      {!query.current && (
+        <div
+          role={query.error ? "alert" : "status"}
+          className="flex items-center gap-2 px-6 pt-3 text-sm text-muted-foreground"
+        >
+          <span>
+            {query.error ? `Could not refresh ${taskKey}.` : `Refreshing ${taskKey}…`} Showing
+            previously loaded data.
+          </span>
+          {query.error && (
+            <>
+              <span>{query.error}</span>
+              <Button size="sm" variant="outline" onClick={query.refresh}>
+                Retry
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      <TaskDetail key={task.id} task={task} onTaskChanged={query.refresh} />
+    </>
+  );
 }

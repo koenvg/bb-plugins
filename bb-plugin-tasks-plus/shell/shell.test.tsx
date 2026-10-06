@@ -682,7 +682,11 @@ describe("tasks app shell", () => {
       const rpc = seededRpc({
         listProjects: () => (++calls === 1 ? older.promise : { projects: [newerProject] }),
       });
-      renderSlot(tasksRegistration, { subPath: PROJECT_ID }, { rpc });
+      const slot = renderSlot(tasksRegistration, { subPath: PROJECT_ID }, { rpc });
+      await waitFor(() => expect(calls).toBe(1));
+      // Shared inventory no longer issues a redundant second initial read.
+      // A real invalidation must start a new read before the older one settles.
+      await slot.behavior.emitRealtime("projects:changed", {});
       await waitFor(() =>
         expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([newerProject]),
       );
