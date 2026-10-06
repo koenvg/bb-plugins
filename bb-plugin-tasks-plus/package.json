@@ -37,7 +37,7 @@
     "format": "npm --prefix .. run format -- bb-plugin-tasks-plus",
     "format:check": "npm --prefix .. run format:check -- bb-plugin-tasks-plus",
     "build": "bb plugin build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node ./node_modules/typescript-7/bin/tsc --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
@@ -71,7 +71,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.4.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-7": "npm:typescript@^7.0.2",
+    "typescript-7": "npm:typescript@7.0.2",
     "vaul": "^1.1.2",
     "vitest": "^4.1.1"
   },
