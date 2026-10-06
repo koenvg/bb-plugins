@@ -105,11 +105,11 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
         },
       },
       threads: {
-        list: async (args: { archived: boolean; offset: number; limit: number }) =>
-          (args.archived
+        list: async ({ archived: isArchived = false, offset = 0, limit = 50 } = {}) =>
+          (isArchived
             ? archived.filter((t) => !omitted || !t.id.startsWith("thr_unknown"))
             : active
-          ).slice(args.offset, args.offset + args.limit),
+          ).slice(offset, offset + limit),
         events: {
           list: async (args: { threadId: string }) => {
             const ids =
@@ -381,8 +381,8 @@ it.each(["lookup-failed", "no-host", "wrong-environment", "no-environment"])(
           },
         },
         threads: {
-          list: async (args: { archived: boolean }) =>
-            args.archived
+          list: async (args) =>
+            args?.archived
               ? []
               : [
                   makeThreadResponse({

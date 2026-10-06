@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD. Created from voice-input-keyboard-controls. Update this Purpose section.
+Define Compose Chat's keyboard controls for native voice input. Users can configure the start shortcut, use Enter to transcribe without sending, and cancel with native controls while preserving draft contents and focus.
 
 ## Requirements
 

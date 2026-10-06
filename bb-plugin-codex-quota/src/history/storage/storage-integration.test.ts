@@ -797,7 +797,7 @@ test.each(["absent", "empty"])(
         layout,
       ).toBe("storage-unavailable");
       expect(opens, layout).toBe(0);
-      expect(await readFile(f.path), layout).toEqual(before);
+      expect((await readFile(f.path)).equals(before), layout).toBe(true);
       expect(await readdir(f.directory), layout).toEqual(files);
     }
   },
