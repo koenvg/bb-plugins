@@ -1,0 +1,1856 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLI compatibility > keeps exact help, command order, and parser errors for every command 1`] = `
+{
+  "attach": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attach — Attach an existing agent thread to a task
+
+Usage:
+  bb tasks attach <key-or-id> [--thread <thread-id>] [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --thread <thread-id>  Thread to attach; defaults to BB_THREAD_ID or the invoking thread
+  --json                Emit machine-readable JSON
+  --help, -h            Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attach <key-or-id> [--thread <thread-id>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attach <key-or-id> [--thread <thread-id>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attach <key-or-id> [--thread <thread-id>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "attachment": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attachment — Add, download, list, or remove task attachments
+
+Usage:
+  bb tasks attachment [<subcommand...>] [--json]
+
+Subcommands:
+  bb tasks attachment add     Attach a file to a task or comment
+  bb tasks attachment get     Download an attachment to a path
+  bb tasks attachment list    List a task's attachments
+  bb tasks attachment remove  Remove an attachment
+
+Arguments:
+  <subcommand...>  One of: add, get, list, remove
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment [<subcommand...>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attachment [<subcommand...>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment [<subcommand...>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "attachment add": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attachment add — Attach a file to a task or comment
+
+Usage:
+  bb tasks attachment add <key-or-comment-id> --file <path> [--name <value>] [--machine <id-or-name>] [--json]
+
+File paths are read from the invoking machine: the thread's machine inside an agent thread, otherwise the server's.
+
+Arguments:
+  <key-or-comment-id>  Task key such as ABC-12, a task ULID, or a comment ULID (required)
+
+Options:
+  --file <path>           Source file to upload, at most 25 MB (required)
+  --name <value>          Stored file name; defaults to the source basename
+  --machine <id-or-name>  Enrolled machine that owns the file paths; defaults to the invoking thread's machine, otherwise the server's
+  --json                  Emit machine-readable JSON
+  --help, -h              Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment add <key-or-comment-id> --file <path> [--name <value>] [--machine <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attachment add <key-or-comment-id> --file <path> [--name <value>] [--machine <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment add <key-or-comment-id> --file <path> [--name <value>] [--machine <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "attachment get": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attachment get — Download an attachment to a path
+
+Usage:
+  bb tasks attachment get <attachment-id> --out <path> [--machine <id-or-name>] [--json]
+
+The file is written on the invoking machine: the thread's machine inside an agent thread, otherwise the server's.
+
+Arguments:
+  <attachment-id>  Attachment ULID from bb tasks attachment list (required)
+
+Options:
+  --out <path>            Destination path; missing parent directories are created (required)
+  --machine <id-or-name>  Enrolled machine that owns the file paths; defaults to the invoking thread's machine, otherwise the server's
+  --json                  Emit machine-readable JSON
+  --help, -h              Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment get <attachment-id> --out <path> [--machine <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attachment get <attachment-id> --out <path> [--machine <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment get <attachment-id> --out <path> [--machine <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "attachment list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attachment list — List a task's attachments
+
+Usage:
+  bb tasks attachment list <key-or-id> [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment list <key-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attachment list <key-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment list <key-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "attachment remove": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks attachment remove — Remove an attachment
+
+Usage:
+  bb tasks attachment remove <attachment-id> [--remove-references] [--json]
+
+Arguments:
+  <attachment-id>  Attachment ULID from bb tasks attachment list (required)
+
+Options:
+  --remove-references  Also strip the attachment's links from the task description
+  --json               Emit machine-readable JSON
+  --help, -h           Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment remove <attachment-id> [--remove-references] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks attachment remove <attachment-id> [--remove-references] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks attachment remove <attachment-id> [--remove-references] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "comment": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks comment — Add a markdown comment to a task
+
+Usage:
+  bb tasks comment <key-or-id> [--body <markdown>] [--body-file <path>] [--author <name>] [--notify] [--machine <id-or-name>] [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --body <markdown>       Comment markdown; use --body-file for long text (exactly one of the two)
+  --body-file <path>      Read the comment from this UTF-8 file on the invoking machine
+  --author <name>         Display name for the comment; defaults to the invoking thread or cli
+  --notify                Deliver the comment to the thread that wrote the task's latest agent reply
+  --machine <id-or-name>  Enrolled machine that owns the file paths; defaults to the invoking thread's machine, otherwise the server's
+  --json                  Emit machine-readable JSON
+  --help, -h              Show this help and exit
+
+Rules:
+  Exactly one of:  --body, --body-file
+  --machine        requires --body-file
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks comment <key-or-id> [--body <markdown>] [--body-file <path>] [--author <name>] [--notify] [--machine <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks comment <key-or-id> [--body <markdown>] [--body-file <path>] [--author <name>] [--notify] [--machine <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks comment <key-or-id> [--body <markdown>] [--body-file <path>] [--author <name>] [--notify] [--machine <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "create": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks create — Create a task
+
+Usage:
+  bb tasks create [--project <prefix-or-id>] --title <value> [--description <markdown>] [--description-file <path>] [--priority <urgent|high|medium|low|none>] [--label <name>]... [--due <YYYY-MM-DD>] [--parent <key-or-id>] [--attach <path>]... [--machine <id-or-name>] [--json]
+
+Options:
+  --project <prefix-or-id>   Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list
+  --title <value>            Task title (required)
+  --description <markdown>   Markdown description; use --description-file for long text
+  --description-file <path>  Read the description from this UTF-8 file on the invoking machine
+  --priority <urgent|high|medium|low|none>  Task priority (default: none)
+  --label <name>             Existing label name; repeat the flag or pass a comma-separated list (repeatable)
+  --due <YYYY-MM-DD>         Due date as a calendar date, YYYY-MM-DD
+  --parent <key-or-id>       Parent task key or id; tasks support at most one level of sub-tasks
+  --attach <path>            File to attach, repeatable; read from the invoking machine, at most 25 MB each (repeatable)
+  --machine <id-or-name>     Enrolled machine that owns the file paths; defaults to the invoking thread's machine, otherwise the server's
+  --json                     Emit machine-readable JSON
+  --help, -h                 Show this help and exit
+
+Rules:
+  At most one of:  --description, --description-file
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks create [--project <prefix-or-id>] --title <value> [--description <markdown>] [--description-file <path>] [--priority <urgent|high|medium|low|none>] [--label <name>]... [--due <YYYY-MM-DD>] [--parent <key-or-id>] [--attach <path>]... [--machine <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks create [--project <prefix-or-id>] --title <value> [--description <markdown>] [--description-file <path>] [--priority <urgent|high|medium|low|none>] [--label <name>]... [--due <YYYY-MM-DD>] [--parent <key-or-id>] [--attach <path>]... [--machine <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks create [--project <prefix-or-id>] --title <value> [--description <markdown>] [--description-file <path>] [--priority <urgent|high|medium|low|none>] [--label <name>]... [--due <YYYY-MM-DD>] [--parent <key-or-id>] [--attach <path>]... [--machine <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "detach": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks detach — Detach an agent thread from a task
+
+Usage:
+  bb tasks detach <key-or-id> [--thread <thread-id>] [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --thread <thread-id>  Thread to detach; defaults to BB_THREAD_ID or the invoking thread
+  --json                Emit machine-readable JSON
+  --help, -h            Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks detach <key-or-id> [--thread <thread-id>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks detach <key-or-id> [--thread <thread-id>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks detach <key-or-id> [--thread <thread-id>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "dispatch": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks dispatch — Dispatch a task to a new agent thread
+
+Usage:
+  bb tasks dispatch <key-or-id> --preset <name-or-id> [--instructions <text>] [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --preset <name-or-id>  Dispatch preset name or id; run bb tasks preset list to see them (required)
+  --instructions <text>  Extra instructions for this dispatch only
+  --json                 Emit machine-readable JSON
+  --help, -h             Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks dispatch <key-or-id> --preset <name-or-id> [--instructions <text>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks dispatch <key-or-id> --preset <name-or-id> [--instructions <text>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks dispatch <key-or-id> --preset <name-or-id> [--instructions <text>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "folder": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks folder — Create, list, update, or delete project folders
+
+Usage:
+  bb tasks folder [<subcommand...>] [--json]
+
+Subcommands:
+  bb tasks folder create  Create a folder
+  bb tasks folder list    List folders
+  bb tasks folder update  Rename or move a folder
+  bb tasks folder delete  Delete a folder, keeping its contents
+
+Arguments:
+  <subcommand...>  One of: create, list, update, delete
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder [<subcommand...>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks folder [<subcommand...>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder [<subcommand...>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "folder create": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks folder create — Create a project folder
+
+Usage:
+  bb tasks folder create --name <value> [--parent <id-or-name>] [--json]
+
+Options:
+  --name <value>         Folder name (required)
+  --parent <id-or-name>  Parent folder id or name
+  --json                 Emit machine-readable JSON
+  --help, -h             Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder create --name <value> [--parent <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks folder create --name <value> [--parent <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder create --name <value> [--parent <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "folder delete": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks folder delete — Delete a folder and unfile its contents
+
+Usage:
+  bb tasks folder delete <id-or-name> [--json]
+
+Deleting a folder moves its projects and subfolders to the top level. No tasks are deleted.
+
+Arguments:
+  <id-or-name>  Folder id or its unique name (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder delete <id-or-name> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks folder delete <id-or-name> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder delete <id-or-name> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "folder list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks folder list — List project folders
+
+Usage:
+  bb tasks folder list [--json]
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder list [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks folder list [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder list [--json]
+",
+      "stdout": "",
+    },
+  },
+  "folder update": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks folder update — Rename or move a project folder
+
+Usage:
+  bb tasks folder update <id-or-name> [--name <value>] [--parent <id-or-name>] [--no-parent] [--json]
+
+Arguments:
+  <id-or-name>  Folder id or its unique name (required)
+
+Options:
+  --name <value>         New folder name
+  --parent <id-or-name>  New parent folder id or name
+  --no-parent            Move the folder to the top level
+  --json                 Emit machine-readable JSON
+  --help, -h             Show this help and exit
+
+Rules:
+  At most one of:  --parent, --no-parent
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder update <id-or-name> [--name <value>] [--parent <id-or-name>] [--no-parent] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks folder update <id-or-name> [--name <value>] [--parent <id-or-name>] [--no-parent] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks folder update <id-or-name> [--name <value>] [--parent <id-or-name>] [--no-parent] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "label": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks label — Create, list, or delete project labels
+
+Usage:
+  bb tasks label [<subcommand...>] [--json]
+
+Subcommands:
+  bb tasks label create  Create a label in a project
+  bb tasks label list    List a project's labels
+  bb tasks label delete  Delete a label
+
+Arguments:
+  <subcommand...>  One of: create, list, delete
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label [<subcommand...>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks label [<subcommand...>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label [<subcommand...>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "label create": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks label create — Create a project label
+
+Usage:
+  bb tasks label create [--project <prefix-or-id>] --name <value> [--color <value>] [--json]
+
+Options:
+  --project <prefix-or-id>  Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list (required)
+  --name <value>            Label name (required)
+  --color <value>           Label color name (default: gray)
+  --json                    Emit machine-readable JSON
+  --help, -h                Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label create [--project <prefix-or-id>] --name <value> [--color <value>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks label create [--project <prefix-or-id>] --name <value> [--color <value>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label create [--project <prefix-or-id>] --name <value> [--color <value>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "label delete": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks label delete — Delete a project label
+
+Usage:
+  bb tasks label delete <name-or-id> [--project <prefix-or-id>] [--json]
+
+Arguments:
+  <name-or-id>  Label name or its ULID (required)
+
+Options:
+  --project <prefix-or-id>  Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list (required)
+  --json                    Emit machine-readable JSON
+  --help, -h                Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label delete <name-or-id> [--project <prefix-or-id>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks label delete <name-or-id> [--project <prefix-or-id>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label delete <name-or-id> [--project <prefix-or-id>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "label list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks label list — List a project's labels
+
+Usage:
+  bb tasks label list [--project <prefix-or-id>] [--json]
+
+Options:
+  --project <prefix-or-id>  Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list (required)
+  --json                    Emit machine-readable JSON
+  --help, -h                Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label list [--project <prefix-or-id>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks label list [--project <prefix-or-id>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks label list [--project <prefix-or-id>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks list — List and filter tasks
+
+Usage:
+  bb tasks list [--project <prefix-or-id>] [--status <backlog|todo|in_progress|in_review|done|canceled>]... [--priority <urgent|high|medium|low|none>]... [--label <name>]... [--active] [--ready] [--blocked] [--search <query>] [--sort <manual|priority|due>] [--limit <1-500>] [--cursor <opaque>] [--json]
+
+Options:
+  --project <prefix-or-id>      Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list
+  --status <backlog|todo|in_progress|in_review|done|canceled>  Keep only these workflow statuses; repeat the flag or pass a comma-separated list (repeatable)
+  --priority <urgent|high|medium|low|none>  Keep only these priorities; repeat the flag or pass a comma-separated list (repeatable)
+  --label <name>                Keep only tasks carrying these label names; repeat or comma-separate (repeatable)
+  --active                      Keep only tasks with a live agent thread
+  --ready                       Keep only tasks with no open blocker
+  --blocked                     Keep only tasks with an open blocker
+  --search <query>              Match title and description text
+  --sort <manual|priority|due>  Row order (default: manual)
+  --limit <1-500>               Rows per page (default: 100)
+  --cursor <opaque>             Continue from a previous page's nextCursor with identical filters
+  --json                        Emit machine-readable JSON
+  --help, -h                    Show this help and exit
+
+Rules:
+  At most one of:  --ready, --blocked
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks list [--project <prefix-or-id>] [--status <backlog|todo|in_progress|in_review|done|canceled>]... [--priority <urgent|high|medium|low|none>]... [--label <name>]... [--active] [--ready] [--blocked] [--search <query>] [--sort <manual|priority|due>] [--limit <1-500>] [--cursor <opaque>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks list [--project <prefix-or-id>] [--status <backlog|todo|in_progress|in_review|done|canceled>]... [--priority <urgent|high|medium|low|none>]... [--label <name>]... [--active] [--ready] [--blocked] [--search <query>] [--sort <manual|priority|due>] [--limit <1-500>] [--cursor <opaque>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks list [--project <prefix-or-id>] [--status <backlog|todo|in_progress|in_review|done|canceled>]... [--priority <urgent|high|medium|low|none>]... [--label <name>]... [--active] [--ready] [--blocked] [--search <query>] [--sort <manual|priority|due>] [--limit <1-500>] [--cursor <opaque>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset — List, show, create, update, or delete dispatch presets
+
+Usage:
+  bb tasks preset [<subcommand...>] [--json]
+
+Subcommands:
+  bb tasks preset list    List dispatch presets
+  bb tasks preset show    Show one preset
+  bb tasks preset create  Create a preset
+  bb tasks preset update  Update a preset
+  bb tasks preset delete  Delete a preset
+
+Arguments:
+  <subcommand...>  One of: list, show, create, update, delete
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset [<subcommand...>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset [<subcommand...>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset [<subcommand...>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset create": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset create — Create a dispatch preset
+
+Usage:
+  bb tasks preset create --name <value> --provider <id> --model <id> --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra> --permission <accept-edits|auto|full> [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+
+Options:
+  --name <value>          Preset name shown in dispatch menus (required)
+  --provider <id>         Provider id such as codex or claude-code (required)
+  --model <id>            Model id as the provider spells it (required)
+  --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>  Reasoning level the provider supports (required)
+  --permission <accept-edits|auto|full>  Permission mode for the dispatched thread (required)
+  --service-tier <id>     Provider service tier id; none clears it
+  --environment <project-default|worktree>  Where the thread runs; --base-branch and --machine require worktree (default: project-default)
+  --base-branch <branch>  Branch new worktrees start from
+  --machine <id-or-name>  Enrolled machine that hosts the worktree
+  --instructions <text>   Extra instructions prepended to every dispatch
+  --json                  Emit machine-readable JSON
+  --help, -h              Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset create --name <value> --provider <id> --model <id> --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra> --permission <accept-edits|auto|full> [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset create --name <value> --provider <id> --model <id> --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra> --permission <accept-edits|auto|full> [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset create --name <value> --provider <id> --model <id> --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra> --permission <accept-edits|auto|full> [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset delete": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset delete — Delete a dispatch preset
+
+Usage:
+  bb tasks preset delete <name-or-id> [--json]
+
+Arguments:
+  <name-or-id>  Preset name (case-insensitive) or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset delete <name-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset delete <name-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset delete <name-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset list — List dispatch presets
+
+Usage:
+  bb tasks preset list [--json]
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset list [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset list [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset list [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset show": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset show — Show one dispatch preset
+
+Usage:
+  bb tasks preset show <name-or-id> [--json]
+
+Arguments:
+  <name-or-id>  Preset name (case-insensitive) or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset show <name-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset show <name-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset show <name-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "preset update": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks preset update — Update a dispatch preset
+
+Usage:
+  bb tasks preset update <name-or-id> [--name <value>] [--provider <id>] [--model <id>] [--reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>] [--permission <accept-edits|auto|full>] [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+
+Arguments:
+  <name-or-id>  Preset name (case-insensitive) or its ULID (required)
+
+Options:
+  --name <value>          New preset name
+  --provider <id>         Provider id such as codex or claude-code
+  --model <id>            Model id as the provider spells it
+  --reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>  Reasoning level the provider supports
+  --permission <accept-edits|auto|full>  Permission mode for the dispatched thread
+  --service-tier <id>     Provider service tier id; none clears it
+  --environment <project-default|worktree>  Where the thread runs; switching to project-default clears --base-branch and --machine
+  --base-branch <branch>  Branch new worktrees start from
+  --machine <id-or-name>  Enrolled machine that hosts the worktree
+  --instructions <text>   Extra instructions prepended to every dispatch
+  --json                  Emit machine-readable JSON
+  --help, -h              Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset update <name-or-id> [--name <value>] [--provider <id>] [--model <id>] [--reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>] [--permission <accept-edits|auto|full>] [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks preset update <name-or-id> [--name <value>] [--provider <id>] [--model <id>] [--reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>] [--permission <accept-edits|auto|full>] [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks preset update <name-or-id> [--name <value>] [--provider <id>] [--model <id>] [--reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>] [--permission <accept-edits|auto|full>] [--service-tier <id>] [--environment <project-default|worktree>] [--base-branch <branch>] [--machine <id-or-name>] [--instructions <text>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "project": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks project — Create, list, show, or update tracker projects
+
+Usage:
+  bb tasks project [<subcommand...>] [--json]
+
+Subcommands:
+  bb tasks project create  Create a tracker project
+  bb tasks project list    List tracker projects
+  bb tasks project show    Show one tracker project
+  bb tasks project update  Rename, recolor, refile, or relink a project
+
+Arguments:
+  <subcommand...>  One of: create, list, show, update
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project [<subcommand...>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks project [<subcommand...>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project [<subcommand...>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "project create": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks project create — Create a tracker project
+
+Usage:
+  bb tasks project create --name <value> [--prefix <PREFIX>] [--folder <id-or-name>] [--link-bb-project <proj_id>] [--color <value>] [--json]
+
+Options:
+  --name <value>               Human-readable project name (required)
+  --prefix <PREFIX>            Task key prefix: uppercase letters and digits, starts with a letter, at most 10 characters (derived from --name when omitted)
+  --folder <id-or-name>        Folder that holds the project
+  --link-bb-project <proj_id>  bb project id (proj_...) whose threads track this tracker project
+  --color <value>              Accent color name (default: blue)
+  --json                       Emit machine-readable JSON
+  --help, -h                   Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project create --name <value> [--prefix <PREFIX>] [--folder <id-or-name>] [--link-bb-project <proj_id>] [--color <value>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks project create --name <value> [--prefix <PREFIX>] [--folder <id-or-name>] [--link-bb-project <proj_id>] [--color <value>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project create --name <value> [--prefix <PREFIX>] [--folder <id-or-name>] [--link-bb-project <proj_id>] [--color <value>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "project list": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks project list — List tracker projects
+
+Usage:
+  bb tasks project list [--json]
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project list [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks project list [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project list [--json]
+",
+      "stdout": "",
+    },
+  },
+  "project show": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks project show — Show one tracker project
+
+Usage:
+  bb tasks project show <prefix-or-id> [--json]
+
+Arguments:
+  <prefix-or-id>  Tracker project prefix such as ABC, or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project show <prefix-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks project show <prefix-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project show <prefix-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "project update": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks project update — Rename, recolor, refile, or relink a tracker project
+
+Usage:
+  bb tasks project update <prefix-or-id> [--name <value>] [--color <value>] [--folder <id-or-name>] [--no-folder] [--link-bb-project <proj_id>] [--unlink-bb-project] [--rename-prefix <PREFIX>] [--json]
+
+Arguments:
+  <prefix-or-id>  Tracker project prefix such as ABC, or its ULID (required)
+
+Options:
+  --name <value>               New project name
+  --color <value>              New accent color name
+  --folder <id-or-name>        Folder that holds the project
+  --no-folder                  Move the project to the top level
+  --link-bb-project <proj_id>  bb project id (proj_...) to link
+  --unlink-bb-project          Remove the bb project link
+  --rename-prefix <PREFIX>     New task key prefix; existing task keys are rewritten
+  --json                       Emit machine-readable JSON
+  --help, -h                   Show this help and exit
+
+Rules:
+  At most one of:  --folder, --no-folder
+  At most one of:  --link-bb-project, --unlink-bb-project
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project update <prefix-or-id> [--name <value>] [--color <value>] [--folder <id-or-name>] [--no-folder] [--link-bb-project <proj_id>] [--unlink-bb-project] [--rename-prefix <PREFIX>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks project update <prefix-or-id> [--name <value>] [--color <value>] [--folder <id-or-name>] [--no-folder] [--link-bb-project <proj_id>] [--unlink-bb-project] [--rename-prefix <PREFIX>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks project update <prefix-or-id> [--name <value>] [--color <value>] [--folder <id-or-name>] [--no-folder] [--link-bb-project <proj_id>] [--unlink-bb-project] [--rename-prefix <PREFIX>] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "root": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks — Create and manage task-tracker projects, tasks, labels, and comments
+
+Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).
+
+Usage:
+  bb tasks <command> [options]
+
+Commands:
+  bb tasks status             Show the Tasks plugin name and version
+  bb tasks project create     Create a tracker project
+  bb tasks project list       List tracker projects
+  bb tasks project show       Show one tracker project
+  bb tasks project update     Rename, recolor, refile, or relink a tracker project
+  bb tasks folder create      Create a project folder
+  bb tasks folder list        List project folders
+  bb tasks folder update      Rename or move a project folder
+  bb tasks folder delete      Delete a folder and unfile its contents
+  bb tasks create             Create a task
+  bb tasks list               List and filter tasks
+  bb tasks show               Show full task details
+  bb tasks update             Update task fields and labels
+  bb tasks comment            Add a markdown comment to a task
+  bb tasks label create       Create a project label
+  bb tasks label list         List a project's labels
+  bb tasks label delete       Delete a project label
+  bb tasks attachment add     Attach a file to a task or comment
+  bb tasks attachment get     Download an attachment to a path
+  bb tasks attachment list    List a task's attachments
+  bb tasks attachment remove  Remove an attachment
+  bb tasks preset list        List dispatch presets
+  bb tasks preset show        Show one dispatch preset
+  bb tasks preset create      Create a dispatch preset
+  bb tasks preset update      Update a dispatch preset
+  bb tasks preset delete      Delete a dispatch preset
+  bb tasks dispatch           Dispatch a task to a new agent thread
+  bb tasks attach             Attach an existing agent thread to a task
+  bb tasks detach             Detach an agent thread from a task
+  bb tasks threads            List agent threads attached to a task
+  bb tasks seed-demo          Create sample folders, projects, labels, tasks, and comments
+
+Run \`bb tasks <command> --help\` for a command's arguments and options.
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "bb tasks — Create and manage task-tracker projects, tasks, labels, and comments
+
+Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).
+
+Usage:
+  bb tasks <command> [options]
+
+Commands:
+  bb tasks status             Show the Tasks plugin name and version
+  bb tasks project create     Create a tracker project
+  bb tasks project list       List tracker projects
+  bb tasks project show       Show one tracker project
+  bb tasks project update     Rename, recolor, refile, or relink a tracker project
+  bb tasks folder create      Create a project folder
+  bb tasks folder list        List project folders
+  bb tasks folder update      Rename or move a project folder
+  bb tasks folder delete      Delete a folder and unfile its contents
+  bb tasks create             Create a task
+  bb tasks list               List and filter tasks
+  bb tasks show               Show full task details
+  bb tasks update             Update task fields and labels
+  bb tasks comment            Add a markdown comment to a task
+  bb tasks label create       Create a project label
+  bb tasks label list         List a project's labels
+  bb tasks label delete       Delete a project label
+  bb tasks attachment add     Attach a file to a task or comment
+  bb tasks attachment get     Download an attachment to a path
+  bb tasks attachment list    List a task's attachments
+  bb tasks attachment remove  Remove an attachment
+  bb tasks preset list        List dispatch presets
+  bb tasks preset show        Show one dispatch preset
+  bb tasks preset create      Create a dispatch preset
+  bb tasks preset update      Update a dispatch preset
+  bb tasks preset delete      Delete a dispatch preset
+  bb tasks dispatch           Dispatch a task to a new agent thread
+  bb tasks attach             Attach an existing agent thread to a task
+  bb tasks detach             Detach an agent thread from a task
+  bb tasks threads            List agent threads attached to a task
+  bb tasks seed-demo          Create sample folders, projects, labels, tasks, and comments
+
+Run \`bb tasks <command> --help\` for a command's arguments and options.
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "missing_command",
+    "message": "missing command",
+    "hint": "Run \`bb tasks --help\` for the command list."
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "",
+      "stdout": "bb tasks — Create and manage task-tracker projects, tasks, labels, and comments
+
+Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).
+
+Usage:
+  bb tasks <command> [options]
+
+Commands:
+  bb tasks status             Show the Tasks plugin name and version
+  bb tasks project create     Create a tracker project
+  bb tasks project list       List tracker projects
+  bb tasks project show       Show one tracker project
+  bb tasks project update     Rename, recolor, refile, or relink a tracker project
+  bb tasks folder create      Create a project folder
+  bb tasks folder list        List project folders
+  bb tasks folder update      Rename or move a project folder
+  bb tasks folder delete      Delete a folder and unfile its contents
+  bb tasks create             Create a task
+  bb tasks list               List and filter tasks
+  bb tasks show               Show full task details
+  bb tasks update             Update task fields and labels
+  bb tasks comment            Add a markdown comment to a task
+  bb tasks label create       Create a project label
+  bb tasks label list         List a project's labels
+  bb tasks label delete       Delete a project label
+  bb tasks attachment add     Attach a file to a task or comment
+  bb tasks attachment get     Download an attachment to a path
+  bb tasks attachment list    List a task's attachments
+  bb tasks attachment remove  Remove an attachment
+  bb tasks preset list        List dispatch presets
+  bb tasks preset show        Show one dispatch preset
+  bb tasks preset create      Create a dispatch preset
+  bb tasks preset update      Update a dispatch preset
+  bb tasks preset delete      Delete a dispatch preset
+  bb tasks dispatch           Dispatch a task to a new agent thread
+  bb tasks attach             Attach an existing agent thread to a task
+  bb tasks detach             Detach an agent thread from a task
+  bb tasks threads            List agent threads attached to a task
+  bb tasks seed-demo          Create sample folders, projects, labels, tasks, and comments
+
+Run \`bb tasks <command> --help\` for a command's arguments and options.
+",
+    },
+  },
+  "seed-demo": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks seed-demo — Create sample folders, projects, labels, tasks, and comments
+
+Usage:
+  bb tasks seed-demo [--yes] [--json]
+
+Options:
+  --yes       Confirm writing sample data into this workspace
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks seed-demo [--yes] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks seed-demo [--yes] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks seed-demo [--yes] [--json]
+",
+      "stdout": "",
+    },
+  },
+  "show": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks show — Show full task details
+
+Usage:
+  bb tasks show <key-or-id> [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks show <key-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks show <key-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks show <key-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "status": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks status — Show the Tasks plugin name and version
+
+Usage:
+  bb tasks status [--json]
+
+Plugin health only. To filter tasks by workflow status run bb tasks list --status <status>; to change one run bb tasks update <key-or-id> --status <status>.
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks status [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks status [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks status [--json]
+",
+      "stdout": "",
+    },
+  },
+  "threads": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks threads — List agent threads attached to a task
+
+Usage:
+  bb tasks threads <key-or-id> [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --json      Emit machine-readable JSON
+  --help, -h  Show this help and exit
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks threads <key-or-id> [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks threads <key-or-id> [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks threads <key-or-id> [--json]
+",
+      "stdout": "",
+    },
+  },
+  "update": {
+    "help": {
+      "exitCode": 0,
+      "stderr": "",
+      "stdout": "bb tasks update — Update task fields and labels
+
+Usage:
+  bb tasks update <key-or-id> [--status <backlog|todo|in_progress|in_review|done|canceled>] [--priority <urgent|high|medium|low|none>] [--title <value>] [--description <markdown>] [--description-file <path>] [--due <YYYY-MM-DD>] [--no-due] [--parent <key-or-id>] [--no-parent] [--add-label <name>]... [--remove-label <name>]... [--blocked-by <key-or-id>]... [--unblocked-by <key-or-id>]... [--machine <id-or-name>] [--json]
+
+Arguments:
+  <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
+
+Options:
+  --status <backlog|todo|in_progress|in_review|done|canceled>  New workflow status; in_review when implementation needs review, done when the criteria are met
+  --priority <urgent|high|medium|low|none>  New priority
+  --title <value>             New title
+  --description <markdown>    Replacement markdown description; use --description-file for long text
+  --description-file <path>   Read the replacement description from this UTF-8 file on the invoking machine
+  --due <YYYY-MM-DD>          New due date as a calendar date, YYYY-MM-DD
+  --no-due                    Clear the due date
+  --parent <key-or-id>        New parent task key or id; tasks support at most one level of sub-tasks
+  --no-parent                 Promote the task to the top level
+  --add-label <name>          Existing label name to add; repeat or comma-separate (repeatable)
+  --remove-label <name>       Label name to remove; repeat or comma-separate (repeatable)
+  --blocked-by <key-or-id>    Task that must be done before this task; repeat or comma-separate (repeatable)
+  --unblocked-by <key-or-id>  Remove this task from the blockers; repeat or comma-separate (repeatable)
+  --machine <id-or-name>      Enrolled machine that owns the file paths; defaults to the invoking thread's machine, otherwise the server's
+  --json                      Emit machine-readable JSON
+  --help, -h                  Show this help and exit
+
+Rules:
+  At most one of:  --description, --description-file
+  At most one of:  --due, --no-due
+  At most one of:  --parent, --no-parent
+  --machine        requires --description-file
+",
+    },
+    "jsonError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks update <key-or-id> [--status <backlog|todo|in_progress|in_review|done|canceled>] [--priority <urgent|high|medium|low|none>] [--title <value>] [--description <markdown>] [--description-file <path>] [--due <YYYY-MM-DD>] [--no-due] [--parent <key-or-id>] [--no-parent] [--add-label <name>]... [--remove-label <name>]... [--blocked-by <key-or-id>]... [--unblocked-by <key-or-id>]... [--machine <id-or-name>] [--json]
+",
+      "stdout": "{
+  "ok": false,
+  "error": {
+    "code": "unknown_option",
+    "message": "unknown option '--unknown-option'",
+    "hint": "bb tasks update <key-or-id> [--status <backlog|todo|in_progress|in_review|done|canceled>] [--priority <urgent|high|medium|low|none>] [--title <value>] [--description <markdown>] [--description-file <path>] [--due <YYYY-MM-DD>] [--no-due] [--parent <key-or-id>] [--no-parent] [--add-label <name>]... [--remove-label <name>]... [--blocked-by <key-or-id>]... [--unblocked-by <key-or-id>]... [--machine <id-or-name>] [--json]"
+  }
+}
+",
+    },
+    "textError": {
+      "exitCode": 1,
+      "stderr": "unknown option '--unknown-option'
+
+Usage:
+  bb tasks update <key-or-id> [--status <backlog|todo|in_progress|in_review|done|canceled>] [--priority <urgent|high|medium|low|none>] [--title <value>] [--description <markdown>] [--description-file <path>] [--due <YYYY-MM-DD>] [--no-due] [--parent <key-or-id>] [--no-parent] [--add-label <name>]... [--remove-label <name>]... [--blocked-by <key-or-id>]... [--unblocked-by <key-or-id>]... [--machine <id-or-name>] [--json]
+",
+      "stdout": "",
+    },
+  },
+}
+`;
