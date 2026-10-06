@@ -41,11 +41,6 @@ export function ThreadSummary({
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const changeOpen = (next: boolean) => {
-    setOpen(next);
-    // The compact drawer strips Radix autofocus callbacks. Restore here too.
-    if (!next) queueMicrotask(() => trigger.current?.focus());
-  };
   if (!meta)
     return (
       <span className={CHIP} aria-busy="true">
@@ -77,7 +72,7 @@ export function ThreadSummary({
     .filter(Boolean)
     .join(", ");
   return (
-    <Popover open={open} onOpenChange={changeOpen}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           ref={trigger}
@@ -153,7 +148,7 @@ export function ThreadSummary({
                       return;
                     event.preventDefault();
                     navigate.toThread(thread.threadId);
-                    changeOpen(false);
+                    setOpen(false);
                   }}
                 >
                   {thread.title}
