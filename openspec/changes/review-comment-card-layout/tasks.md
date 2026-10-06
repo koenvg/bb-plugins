@@ -18,4 +18,4 @@
 
 ## 4. Integration check
 
-- [ ] 4.1 Build and load both plugins in bb. Open the Review tab on a PR with a review comment that has a wide code block on a new-side line. Verify by screenshot that the old code column keeps its normal width and the code block scrolls inside the card. In the Changes tab, add a pending comment with a long path and verify the diff columns stay the same width.
+- [x] 4.1 Build and load both plugins in bb. Open the Review tab on a PR with a review comment that has a wide code block on a new-side line. Verify by screenshot that the old code column keeps its normal width and the code block scrolls inside the card. In the Changes tab, add a pending comment with a long path and verify the diff columns stay the same width.
