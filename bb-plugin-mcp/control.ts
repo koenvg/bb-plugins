@@ -2,6 +2,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { allowedProjects, type Config } from "./config.js";
+import { registerThreadTools, type ThreadSource, type ThreadTool } from "./thread-tools.js";
 
 export type Identity = { issuer: string; owner: string };
 export type ProjectSource = Pick<BbPluginApi["sdk"]["projects"], "list">;
@@ -14,10 +15,11 @@ export function hasAccess(config: Config | null, identity: Identity): config is 
 
 export function projectServer(
   source: ProjectSource,
+  threads: ThreadSource,
   policy: () => Config | null,
   identity: Identity,
   signal: AbortSignal,
-  onFailure: () => void,
+  onFailure: (tool: "bb_list_projects" | ThreadTool) => void,
 ) {
   const server = new McpServer({ name: "bb-mcp", version: "0.1.0" });
   server.registerTool(
@@ -64,13 +66,24 @@ export function projectServer(
           structuredContent: data,
         };
       } catch {
-        onFailure();
+        onFailure("bb_list_projects");
         return {
           isError: true,
           content: [{ type: "text" as const, text: "PROJECTS_UNAVAILABLE" }],
         };
       }
     },
+  );
+  registerThreadTools(
+    server,
+    threads,
+    () => {
+      const current = policy();
+      if (signal.aborted || !hasAccess(current, identity)) throw new Error();
+      return current;
+    },
+    signal,
+    onFailure,
   );
   return server;
 }

@@ -4,6 +4,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { authenticator } from "./auth.js";
 import { type Config, type Connection } from "./config.js";
 import { hasAccess, projectServer, type ProjectSource } from "./control.js";
+import type { ThreadSource, ThreadTool } from "./thread-tools.js";
 
 export const limits = {
   bodyBytes: 65536,
@@ -21,7 +22,8 @@ export function remoteAccess(options: {
   connection: Connection;
   policy: () => Config | null;
   projects: ProjectSource;
-  log: (event: { request: string; code: string; tool?: "bb_list_projects" }) => void;
+  threads: ThreadSource;
+  log: (event: { request: string; code: string; tool?: "bb_list_projects" | ThreadTool }) => void;
   fetch?: typeof fetch;
   limits?: Partial<typeof limits>;
 }) {
@@ -33,16 +35,21 @@ export function remoteAccess(options: {
   let state: "stopped" | "starting" | "listening" | "error" = "stopped";
   let active = 0;
   let activeBB = 0;
-  const projects: ProjectSource = {
-    async list() {
-      if (activeBB >= bound.concurrent) throw new Error("BUSY");
-      activeBB++;
-      try {
-        return await options.projects.list();
-      } finally {
-        activeBB--;
-      }
-    },
+  async function read<T>(operation: () => Promise<T>): Promise<T> {
+    if (activeBB >= bound.concurrent) throw new Error("BUSY");
+    activeBB++;
+    try {
+      return await operation();
+    } finally {
+      activeBB--;
+    }
+  }
+  const projects: ProjectSource = { list: () => read(() => options.projects.list()) };
+  const threads: ThreadSource = {
+    list: (args) => read(() => options.threads.list(args)),
+    get: (args) => read(() => options.threads.get(args)),
+    output: (args) => read(() => options.threads.output(args)),
+    interactions: { list: (args) => read(() => options.threads.interactions.list(args)) },
   };
   let count = 0;
   let windowStart = Date.now();
@@ -179,8 +186,18 @@ export function remoteAccess(options: {
         parsed = await body(request);
       }
       if (controller.signal.aborted) return;
-      server = projectServer(projects, options.policy, identity, controller.signal, () =>
-        options.log({ request: id, code: "PROJECTS_UNAVAILABLE", tool: "bb_list_projects" }),
+      server = projectServer(
+        projects,
+        threads,
+        options.policy,
+        identity,
+        controller.signal,
+        (tool) =>
+          options.log({
+            request: id,
+            code: tool === "bb_list_projects" ? "PROJECTS_UNAVAILABLE" : "THREAD_UNAVAILABLE",
+            tool,
+          }),
       );
       transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,

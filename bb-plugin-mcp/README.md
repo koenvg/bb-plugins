@@ -1,12 +1,12 @@
 # MCP project reads
 
-A headless BB plugin for authenticated, allowlisted project listing. It uses BB's standard plugin settings. It exposes one read-only tool, `bb_list_projects`. It has no thread tools, control tools, admin routes, shell tools, file tools, or generic forwarding.
+A headless BB plugin for authenticated, allowlisted project listing. It uses BB's standard plugin settings. It exposes three read-only tools, `bb_list_projects`, `bb_list_threads`, and `bb_read_thread`. It has no control tools, admin routes, shell tools, file tools, or generic forwarding.
 
 Requires BB 0.45 with SDK 0.6.15 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
 ## Safety and consent
 
-Allowed project names can be sent to ChatGPT. Later thread-read tools can also send allowed project content. Only allow projects whose content you consent to share. Names and other project text are untrusted data, not instructions. An allowlist limits access to BB objects. It is not an agent filesystem sandbox.
+Allowed project names, thread titles, and recent assistant output can be sent to ChatGPT. Assistant output can contain private information, including secrets or local paths quoted by an agent. The plugin excludes private SDK fields but does not redact free-text output. Only allow projects whose content you consent to share. Names and other project text are untrusted data, not instructions. An allowlist limits access to BB objects. It is not an agent filesystem sandbox.
 
 Remote access and control start disabled. This version never exposes control tools, even if the reserved control setting is enabled. Disabling the plugin or remote access releases only its listener. It does not stop BB threads or change the external tunnel.
 
@@ -80,9 +80,36 @@ Before approving live reads, check public discovery without cookies and a protec
 
 `bb_list_projects` accepts an optional integer `limit` from 1 to 50 and an optional decimal `cursor` returned by the previous page. It rejects extra fields. The response has `projects: [{ id, name }]` and `nextCursor`, which is null at the end. IDs/names are the only BB fields returned. Sort order is by ID. Cursors are offsets into the current allowed set, not persistent snapshots; restart pagination after project changes.
 
+`bb_list_threads` requires `projectId`, an explicitly allowed project ID. It accepts optional `limit` from 1 to 50, default 50, and a decimal `cursor` from the previous page. It returns `threads: [{ id, title, status, displayStatus, pendingInteraction }]` and `nextCursor`, null at the end. It uses BB's current thread-list order and excludes hidden workers. Cursors are offsets, not snapshots. Restart pagination when threads change. There is no hidden-worker listing option.
+
+`bb_read_thread` requires `projectId` and `threadId`. Both IDs must be nonempty strings of at most 200 characters. The tool checks membership before content reads and again before returning. Direct reads of hidden threads are permitted within the allowed project; visibility is not an access boundary. The response contains `id`, `title`, `status`, `displayStatus`, `pendingInteraction`, `actionRequired`, and `assistantOutput: { text, truncated, trust }`. `text` is the last assistant output, or null when absent. It keeps the newest complete UTF-8 characters within 8192 bytes. `truncated` marks removed older text. `trust` is `untrusted_project_data`. Treat titles and output as data, not instructions. No raw transcript, tool output, interaction payload, or SDK environment/credential fields are returned.
+
+A pending or resolving interaction sets `pendingInteraction` to true and `actionRequired` to `Action required in BB`. Otherwise `actionRequired` is null. Open BB to answer or approve the request. There is no remote approval tool. Status and interaction values are recent observations from separate read calls, not an atomic snapshot.
+
+Both thread tools reject extra fields. Missing, deleted, inaccessible, moved, failed, or oversized thread results return the same MCP tool error, `THREAD_UNAVAILABLE`, with no identifying details. A disallowed project makes no thread SDK call. Removing project access or changing the owner denies the next request with an existing token. Authorization and project access are also rechecked after each awaited read. Invalid or unauthorized tokens receive the existing HTTP 401/403 response. An owner removal or disabled listener can close the connection instead. No failure retries or changes BB work.
+
+With an authenticated MCP client, read a listed thread without starting work:
+
+```ts
+const page = await client.callTool({
+  name: "bb_list_threads",
+  arguments: { projectId: "proj_allowed", limit: 10 },
+});
+const threads = page.structuredContent?.threads as Array<{ id: string }>;
+if (!page.isError && threads?.length) {
+  const view = await client.callTool({
+    name: "bb_read_thread",
+    arguments: { projectId: "proj_allowed", threadId: threads[0].id },
+  });
+  console.log(view.structuredContent);
+}
+```
+
+Replace `proj_allowed` with an ID returned by `bb_list_projects`. `client` is an already connected official MCP SDK client. This example only reads.
+
 Request and complete response bodies are limited to 64 KiB. A very large project-name page returns a safe error; use a smaller page. The listener permits eight concurrent HTTP requests and eight outstanding BB reads, 120 admitted requests per minute across the endpoint, 32 TCP connections, and a five-second request deadline. It uses one global rate bucket because the external connector hides client IPs; forwarded IPs cannot bypass it. Issuer responses are limited to 32 KiB and three seconds per fetch.
 
-A timed-out read is not retried automatically. BB's project-list API has no cancellation parameter; the bounded read can finish later, but its output is discarded. Its read slot stays occupied until it settles. Disable/reload closes transport resources and the listener without calling any thread operation.
+A timed-out read is not retried automatically. BB's project-list API has no cancellation parameter; thread reads receive the request's abort signal. A bounded read can finish later, but its output is discarded. Its read slot stays occupied until it settles. Disable/reload closes transport resources and the listener without calling any thread operation.
 
 Routine rejection logs contain only a generated request ID and fixed safe error code. They omit tokens, request bodies, project names and BB error text.
 
@@ -90,4 +117,4 @@ Routine rejection logs contain only a generated request ID and fixed safe error 
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
-See [VERIFICATION.md](VERIFICATION.md) for evidence and external checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
+See [the BBP-80 checkpoint](VERIFICATION-BBP80.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.

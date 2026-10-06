@@ -43,7 +43,11 @@ describe("authenticated HTTP boundary", () => {
       const client = await f.client();
       try {
         const tools = await client.listTools();
-        expect(tools.tools.map((tool) => tool.name)).toEqual(["bb_list_projects"]);
+        expect(tools.tools.map((tool) => tool.name)).toEqual([
+          "bb_list_projects",
+          "bb_list_threads",
+          "bb_read_thread",
+        ]);
         expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
         const result = await client.callTool(call);
         expect(result.structuredContent).toEqual({
@@ -92,7 +96,7 @@ describe("authenticated HTTP boundary", () => {
       });
       expect(f.list.mock.calls).toHaveLength(calls);
       f.change({ controlEnabled: true });
-      expect((await client.listTools()).tools).toHaveLength(1);
+      expect((await client.listTools()).tools).toHaveLength(3);
       const write = await client.callTool({
         name: "bb_start_thread",
         arguments: { projectId: "proj_a" },

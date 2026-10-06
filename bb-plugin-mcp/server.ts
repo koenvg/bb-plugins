@@ -12,6 +12,12 @@ export default async function plugin(bb: BbPluginApi) {
         connection,
         policy: () => readConfig(saved),
         projects: { list: () => bb.sdk.projects.list() },
+        threads: {
+          list: (args) => bb.sdk.threads.list(args),
+          get: (args) => bb.sdk.threads.get(args),
+          output: (args) => bb.sdk.threads.output(args),
+          interactions: { list: (args) => bb.sdk.threads.interactions.list(args) },
+        },
         log: (event) => bb.log.warn(JSON.stringify(event)),
       })
     : null;

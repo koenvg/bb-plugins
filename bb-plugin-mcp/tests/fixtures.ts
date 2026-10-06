@@ -111,6 +111,7 @@ export async function fixture(overrides: Partial<typeof limits> = {}) {
     connection: config,
     policy: () => config,
     projects: host.bb.sdk.projects,
+    threads: host.bb.sdk.threads,
     fetch: fetchIssuer,
     log: (event) => logs.push(event),
     limits: overrides,
