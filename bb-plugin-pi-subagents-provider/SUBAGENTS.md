@@ -26,4 +26,8 @@ Equal background presentation states are not repeatedly persisted. The process-l
 
 ## Evidence limit
 
-Model-free source tests and an owned browser preview exercise bounded state, final capture, missing artifacts/capability, correlation, timeout, foreground/parallel identity, nested ownership, keyboard selection, wrapping, and refresh. They do not prove installed BB persistence, Pi process replacement/reload, idle retention, real final delivery, or parent wake. BBP-70/71 dependencies and the recorded task gates remain in place. The SDK checker remains failed exit 1 under the separately approved provider-only exception; replacement checks are not a checker pass.
+Model-free source tests and an owned browser preview exercise bounded state, final capture, missing artifacts/capability, correlation, timeout, foreground/parallel identity, nested ownership, keyboard selection, wrapping, and refresh. They do not prove installed BB persistence, Pi process replacement/reload, idle retention, real final delivery, or parent wake. BBP-70/71 dependencies and the recorded task gates remain in place.
+
+The current source SDK gate passes on BB 0.45.0 / SDK 0.6.15 after BBP-156. See [source and installed compatibility](COMPATIBILITY.md#sdk-packaging-on-bb-0450). This source pass does not complete installed acceptance.
+
+The historical BB 0.44.0 / SDK 0.5.29 checker result remains failed, exit 1. Its [provider-only exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) stays limited to that exact diagnostic and version pair. Replacement checks are not a checker pass. The exception does not apply to the current source or the installed build's BB 0.45 incompatibility.
