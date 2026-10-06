@@ -13,11 +13,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Sidebar and card state come from the server-side view, so every window agrees.
 - No extra GitHub calls.
 - The dot appears within seconds of an agent stopping.
 
 **Non-Goals:**
+
 - A "new" mark on individual PR cards.
 - Desktop notifications or sounds.
 - Tracking new commits as "new".
@@ -45,21 +47,21 @@ Each build also removes seen keys that are no longer in `needsReview` (see "Clea
 
 One KV key per returned review thread (`review-returned:<threadId>`). Per-thread keys keep an add from one event and a prune in a parallel re-link from overwriting each other.
 
-| Trigger | Effect |
-|---|---|
-| `thread.idle` for a thread the plugin started | add id, `relink()` |
-| `thread.failed` for a thread the plugin started | add id, `relink()` |
-| `markThreadOpened({ threadId })` | remove id, `relink()` |
-| cleanup after the build | drop ids that `listReviewThreads` no longer returns unarchived |
+| Trigger                                         | Effect                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------- |
+| `thread.idle` for a thread the plugin started   | add id, `relink()`                                             |
+| `thread.failed` for a thread the plugin started | add id, `relink()`                                             |
+| `markThreadOpened({ threadId })`                | remove id, `relink()`                                          |
+| cleanup after the build                         | drop ids that `listReviewThreads` no longer returns unarchived |
 
 `LinkedThread` gets `returned: "finished" | "failed" | "needs_you" | null`, only for review threads:
 
-| Status | Stored key | `returned` |
-|---|---|---|
-| `needs_you` | any | `needs_you` |
-| `idle` | yes | `finished` |
-| `error` | yes | `failed` |
-| `running`, or no key | | `null` |
+| Status               | Stored key | `returned`  |
+| -------------------- | ---------- | ----------- |
+| `needs_you`          | any        | `needs_you` |
+| `idle`               | yes        | `finished`  |
+| `error`              | yes        | `failed`    |
+| `running`, or no key |            | `null`      |
 
 One variant per reason keeps consumers simple: the card label is a full `Record<ReturnedReason, Label>`, and the banner checks `finished` or `failed`. A thread whose agent runs again (retry, automation) is not returned while it runs. `ReviewQueueView` gets `hasReturned: boolean` across both sections.
 
@@ -99,11 +101,11 @@ Pull Requests   11  *       dot: a review agent came back
 Pull Requests       *       nothing to review, agent came back
 ```
 
-| Part | Style |
-|---|---|
-| Muted count | `text-muted-foreground tabular-nums`, same as Tasks |
-| Unseen pill | `bg-primary text-primary-foreground tabular-nums`, rounded, with sr-only ", new" |
-| Returned dot | small round `bg-primary` dot with `aria-label` "Review agent came back" |
+| Part         | Style                                                                            |
+| ------------ | -------------------------------------------------------------------------------- |
+| Muted count  | `text-muted-foreground tabular-nums`, same as Tasks                              |
+| Unseen pill  | `bg-primary text-primary-foreground tabular-nums`, rounded, with sr-only ", new" |
+| Returned dot | small round `bg-primary` dot with `aria-label` "Review agent came back"          |
 
 A filled pill and dot, not only a text color, because the default theme's `primary` is neutral graphite. Text color alone would not read as "new" there.
 
@@ -116,4 +118,3 @@ A filled pill and dot, not only a text color, because the default theme's `prima
 - [Two review threads on one PR] → The card links only the newest thread. A returned older thread shows no dot until the newer one is archived. Rare, accepted.
 - [`experimental_sidebarAccessory` is experimental] → Tasks Plus and Codex Quota already depend on it. If it goes away, only the badge disappears.
 - [Thread events fire for every thread] → The service ignores threads the plugin did not start before it writes KV or re-links.
-

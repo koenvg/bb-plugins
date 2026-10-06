@@ -3,18 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { NewThreadComposerProps, PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
-import type {
-  ActionResult,
-  LinkedQueuePr,
-  LoadedReviewQueue,
-  QueueSection,
-  ReviewQueueResult,
-  ReviewQueueView,
-  rpcContract,
-} from "../contract";
+import type { ActionResult, LoadedReviewQueue, ReviewQueueResult, rpcContract } from "../contract";
 import { buildReviewPrompt } from "../core/review-prompt";
 import {
-  LOADED_AT,
   ok,
   panelRpc,
   queuePr,

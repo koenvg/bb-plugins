@@ -36,7 +36,7 @@ export function section(prs: LinkedQueuePr[]): QueueSection {
   }));
 }
 
-export const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
+const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
 
 export function view(prs: LinkedQueuePr[], truncated = false): ReviewQueueView {
   return {
