@@ -58,6 +58,12 @@ describe("public SDK and quota-only boundary", () => {
           hostHarnessProbes.has(entry.file)
         )
           return false;
+        if (
+          entry.reason === "outside-allowlist" &&
+          entry.specifier === "@get-bb/plugin-sdk/testing/app" &&
+          entry.file === "scripts/calendar-preview.tsx"
+        )
+          return false; // Public SDK React fixture. Never shipped as the plugin app.
         return (
           entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier
         );
