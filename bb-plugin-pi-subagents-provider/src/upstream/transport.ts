@@ -86,6 +86,9 @@ function hasNextPage(link: string | null, current: URL): boolean {
     expected.searchParams.set("page", page);
     if (target.searchParams.toString() !== expected.searchParams.toString())
       throw new Error("Invalid upstream pagination");
+    if (match[2] === "first" && Number(page) !== 1) throw new Error("Invalid upstream pagination");
+    if (match[2] === "prev" && Number(page) !== Number(currentPage) - 1)
+      throw new Error("Invalid upstream pagination");
     if (match[2] === "last") lastPage = Number(page);
     if (match[2] === "next") {
       if (Number(page) !== Number(current.searchParams.get("page")) + 1)
