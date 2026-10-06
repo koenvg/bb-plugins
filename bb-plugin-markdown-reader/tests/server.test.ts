@@ -142,6 +142,7 @@ describe("public server RPC", () => {
         /^react-dom\/client$/,
         /^react-markdown$/,
         /^remark-gfm$/,
+        /^remark-frontmatter$/,
         /^github-slugger$/,
         /^unist-util-visit$/,
         /^hast$/,

@@ -1,5 +1,6 @@
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkFrontmatter from "remark-frontmatter";
 import GithubSlugger from "github-slugger";
 import { visit } from "unist-util-visit";
 import type { Element as HastElement, Root, RootContent } from "hast";
@@ -149,7 +150,7 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
   }
   const content = Markdown({
     children: text,
-    remarkPlugins: [remarkGfm],
+    remarkPlugins: [remarkGfm, remarkFrontmatter],
     rehypePlugins: [collectHeadings, boundedCode],
     components,
     skipHtml: true,

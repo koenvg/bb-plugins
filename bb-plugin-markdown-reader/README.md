@@ -9,6 +9,7 @@ BBP-27 through BBP-31 implement this package. BBP-32 records assembled checks an
 After an explicit installation, select Markdown Reader with BB's one-off **Open with** choice or under **File openers**. Keep BB selected there if you prefer its built-in preview. This plugin does not change those preferences.
 
 - Preview renders ordinary Markdown and GFM, including tables, read-only task lists, quotes, and fenced code. Native list markers remain visible under BB's reset, including ordered starts, nested lists and generated footnotes. Only task items suppress their marker; ordinary items in mixed task lists keep theirs.
+- Preview hides a leading YAML frontmatter block delimited by `---`. It does not interpret the metadata. Body headings retain their original source line numbers. Ordinary separators and Setext headings remain Markdown.
 - Raw shows the complete loaded text, including frontmatter, line endings, and code spaces. It is not an editor. Switching views does not read or write the file.
 - Refresh reads the current file again and updates both views. There is no automatic file watching. During refresh, the reader labels retained content as not verified current. If refresh fails, it reports the failure and marks the retained snapshot stale. Retry reads the source again and clears that label only after success.
 - Failed or unsupported reads offer Open in BB preview beside Retry. It renders BB's `Original` component, already bound to this file. It does not open the file again through plugin selection.

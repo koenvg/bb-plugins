@@ -32,6 +32,7 @@
     "github-slugger": "^2.0.0",
     "react-markdown": "^10.1.0",
     "refractor": "^5.0.0",
+    "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "unist-util-visit": "^5.1.0",
     "zod": "^4.3.6"
