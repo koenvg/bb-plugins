@@ -6,6 +6,7 @@ import {
   initializeCatalog,
   fingerprintCatalog,
   deliveryCatalog,
+  pruneCatalogSnapshots,
   emptyCatalogCursor,
   type CatalogCursor,
 } from "./identity-catalog.js";
@@ -20,6 +21,7 @@ type State = {
     | "archived"
     | "ownership"
     | "events"
+    | "evidence"
     | "uncertainty"
     | "fingerprint"
     | "complete";
@@ -32,9 +34,14 @@ type State = {
   catalog: CatalogCursor;
   uncertaintyThread?: string;
   uncertaintyProvider?: string;
+  evidenceId?: number;
+  evidenceAll?: boolean;
+  retained?: boolean;
 };
-const initial = (generation: number): State => ({
+const initial = (generation: number, evidenceAll = true): State => ({
   generation,
+  evidenceAll,
+  retained: !evidenceAll,
   phase: "environments",
   offset: 0,
   returnPhase: "active",
@@ -207,7 +214,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         | undefined;
       if (!next) {
         if (state.threadOffset < 0) {
-          state.phase = state.returnPhase === "active" ? "archived" : "uncertainty";
+          state.phase = state.returnPhase === "active" ? "archived" : "evidence";
           state.offset = 0;
         } else {
           state.phase = state.returnPhase;
@@ -304,6 +311,55 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         save(database, state);
       });
     }
+    if (state.phase === "evidence") {
+      // The completed catalog is also the canonical evidence store. On the
+      // first upgraded scan, recover unique evidence from all older snapshots
+      // before any cleanup. Later scans need only the previous catalog.
+      const rows = database
+        .prepare(`SELECT id,host_id,thread_id,provider_identity,title,state FROM discovery_rows
+          WHERE generation ${state.evidenceAll ? "<" : "="} ? AND host_id!='' AND id<?
+          ORDER BY id DESC LIMIT 50`)
+        .all(
+          state.evidenceAll ? state.generation : state.generation - 1,
+          state.evidenceId ?? Number.MAX_SAFE_INTEGER,
+        ) as {
+        id: number;
+        host_id: string;
+        thread_id: string;
+        provider_identity: string | null;
+        title: string | null;
+        state: string;
+      }[];
+      signal.throwIfAborted();
+      database.transaction(() => {
+        for (const row of rows) {
+          signal.throwIfAborted();
+          state.evidenceId = row.id;
+          const current = database
+            .prepare(
+              "SELECT title,state FROM discovery_threads WHERE generation=? AND thread_id=? AND host_id=?",
+            )
+            .get(state.generation, row.thread_id, row.host_id) as
+            | { title: string | null; state: string }
+            | undefined;
+          database
+            .prepare(
+              "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,?,?,?,?,?)",
+            )
+            .run(
+              state.generation,
+              row.host_id,
+              row.thread_id,
+              row.provider_identity,
+              current ? current.title : row.title,
+              current ? current.state : row.state,
+            );
+        }
+        if (rows.length < PAGE) state.phase = "uncertainty";
+        save(database, state);
+      });
+      return;
+    }
     if (state.phase === "uncertainty") {
       // Carry retained host-neutral evidence into the next catalog. Absence of
       // metadata is not proof of ownership, including for an offline host.
@@ -354,6 +410,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         if (fingerprintCatalog(database, state.generation, state.catalog, signal)) {
           state.phase = "complete";
           state.finishedAt = now();
+          state.retained = true;
         }
         save(database, state);
       });
@@ -363,17 +420,29 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     signal: AbortSignal,
     refresh: boolean,
   ): Promise<IdentityBatch> {
+    signal.throwIfAborted();
     const database = db();
     let state = JSON.parse(
       (database.prepare("SELECT value FROM discovery_state WHERE id=1").get() as { value: string })
         .value,
     ) as State;
+    if (state.evidenceAll === undefined) {
+      state.evidenceAll = true;
+      if (state.phase === "uncertainty" || state.phase === "fingerprint") {
+        state.phase = "evidence";
+        state.catalog = emptyCatalogCursor();
+        database.prepare("DELETE FROM discovery_catalogs WHERE generation=?").run(state.generation);
+      }
+      save(database, state);
+    }
     if (refresh && state.phase === "complete" && now() - state.finishedAt >= 60_000) {
-      state = initial(state.generation + 1);
+      state = initial(state.generation + 1, !state.retained);
       save(database, state);
     }
     // Metadata lookup failures are explicit per-entry uncertainty. Other failures
     // must reach the caller, not masquerade as a successful partial heartbeat.
+    if (state.retained && state.phase !== "complete")
+      pruneCatalogSnapshots(database, state.generation, signal);
     for (let calls = 0; calls < 4 && state.phase !== "complete"; calls++)
       await advance(database, state, signal);
     signal.throwIfAborted();
@@ -399,6 +468,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     }
     const catalog = deliveryCatalog(database, state.generation, hostId);
     const generation = catalog.generation;
+    if (state.retained) pruneCatalogSnapshots(database, state.generation, signal);
     let receipt = database
       .prepare(
         "SELECT offset,last_id,total FROM discovery_receipts WHERE generation=? AND host_id=?",

@@ -101,3 +101,34 @@ export function deliveryCatalog(db: HistoryDatabase, generation: number, hostId:
   ).run(hostId, generation, current.digest, current.total);
   return { generation, ...current };
 }
+
+// Only the active target owns a host receipt. A replacement target restarts
+// delivery, so an old acknowledgement must not advance the new receipt.
+export function pruneCatalogSnapshots(
+  db: HistoryDatabase,
+  generation: number,
+  signal: AbortSignal,
+) {
+  signal.throwIfAborted();
+  db.transaction(() => {
+    db.exec(`DELETE FROM discovery_receipts WHERE rowid IN (
+      SELECT r.rowid FROM discovery_receipts r WHERE NOT EXISTS
+      (SELECT 1 FROM discovery_targets t WHERE t.host_id=r.host_id AND t.generation=r.generation) LIMIT 200)`);
+    for (const table of [
+      "discovery_environments",
+      "discovery_threads",
+      "discovery_ownership",
+      "discovery_resolved",
+      "discovery_rows",
+      "discovery_catalogs",
+    ]) {
+      signal.throwIfAborted();
+      db.prepare(`DELETE FROM ${table} WHERE rowid IN (
+        SELECT rowid FROM ${table} WHERE generation < ?
+        AND generation NOT IN (SELECT generation FROM discovery_targets)
+        AND generation NOT IN (SELECT generation FROM discovery_receipts) LIMIT 200)`).run(
+        generation - 1,
+      );
+    }
+  });
+}

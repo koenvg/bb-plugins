@@ -74,6 +74,38 @@ The visible calendar page owns sequential continuation and bounded failure
 handling. Its dates and metric controls only read reports. See [CALENDAR.md](CALENDAR.md)
 for cancellation, retry and clock limits.
 
+## Server snapshot retention
+
+The completed catalog is the canonical store for identity evidence. Before
+fingerprinting, each scan copies retained host-owned identities from the previous
+catalog in 50-row steps. Missing metadata does not remove evidence. Current
+metadata replaces labels and state only for the same owning host. Uncertainty
+and positive ownership resolution keep their existing host-neutral carry rules.
+
+The first upgraded scan recovers unique host-owned evidence from all historical
+snapshots before cleanup starts. Its cursor survives restart. An unfinished old
+scan resumes the evidence step before fingerprinting. Already published catalogs
+and their receipts do not change during upgrade.
+
+Cleanup keeps the current generation, the previous generation needed for recovery,
+and every generation referenced by a delivery target or receipt. Each host has
+one active target and receipt. A changed catalog supersedes its old receipt and
+starts at offset zero. Late acknowledgement or reset calls for a superseded
+generation cannot advance or reset the replacement receipt. An unchanged catalog
+keeps its generation, including unfinished delivery and recovery replay.
+
+Each cleanup transaction retires at most 200 obsolete receipts and deletes at
+most 200 rows from each snapshot table. Cancellation rolls back that transaction.
+Large existing installations drain their obsolete snapshots over later reads.
+After cleanup catches up, at most the number of active host targets plus two
+generations remain. Size can still grow with distinct retained evidence or new
+hosts, but repeated unchanged scans and label changes do not retain every version.
+
+Cleanup only edits discovery tables in the plugin server database. It does not
+delete usage records, public BB thread metadata, or host-owned identity storage.
+SQLite can reuse freed pages. No database-wide vacuum or file removal runs, so
+an existing database need not shrink on disk immediately.
+
 ## Validation
 
 Run focused `identity-*.test.ts*` tests, full `npm test`, typecheck, SDK `--check`, then the complete bundle suite. `scripts/check-bundled-identity.mjs` copies the host artifact outside its dependency tree, forbids network and exercises real temporary persistent SQLite. Run it on both the current Node runtime and Node 22. Run strict OpenSpec and the final build after bundle checks.
