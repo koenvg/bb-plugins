@@ -46,7 +46,7 @@ describe("authenticated HTTP boundary", () => {
         expect(tools.tools.map((tool) => tool.name)).toEqual([
           "bb_list_projects",
           "bb_list_threads",
-          "bb_read_thread",
+          "bb_get_thread",
         ]);
         expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
         const result = await client.callTool(call);

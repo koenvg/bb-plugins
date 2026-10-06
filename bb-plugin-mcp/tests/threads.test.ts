@@ -28,7 +28,7 @@ function row(id: string, overrides: Partial<Row> = {}): Row {
     ...overrides,
   };
 }
-const read = { name: "bb_read_thread", arguments: { projectId: "proj_a", threadId: "thr_a" } };
+const read = { name: "bb_get_thread", arguments: { projectId: "proj_a", threadId: "thr_a" } };
 const list = { name: "bb_list_threads", arguments: { projectId: "proj_a" } };
 let current: Awaited<ReturnType<typeof fixture>>;
 afterEach(async () => {
@@ -77,7 +77,7 @@ describe("read-only thread protocol", () => {
       expect(catalog.tools.map((t) => t.name)).toEqual([
         "bb_list_projects",
         "bb_list_threads",
-        "bb_read_thread",
+        "bb_get_thread",
       ]);
       for (const tool of catalog.tools) {
         expect(tool.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
@@ -101,6 +101,9 @@ describe("read-only thread protocol", () => {
       ).toBe(true);
       expect(
         (await client.callTool({ name: "bb_approve_thread", arguments: read.arguments })).isError,
+      ).toBe(true);
+      expect(
+        (await client.callTool({ name: "bb_read_thread", arguments: read.arguments })).isError,
       ).toBe(true);
       expect(f.host.harness.inspection.sdk.calls).toEqual([]);
     } finally {
