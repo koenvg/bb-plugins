@@ -7,6 +7,32 @@ subtasks, Markdown comments, attachments, agent presets, and a full CLI.
 
 The package targets BB 0.45 and SDK 0.6.15. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. Orchestration activation and native-origin reporting remain restricted to their earlier verified Pi/BB 0.44 path pending [BBP-140](bbtask://BBP-140). See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
 
+## Development checks
+
+Use Node `>=24.15.0 <25` and npm with the committed lockfiles. Install repository
+lint/format tooling with `npm ci` at the root. Then run from this directory:
+
+```sh
+npm ci
+npm run typecheck -- --version
+npm run typecheck
+npm test
+npm run lint
+npm run format:check
+```
+
+Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
+The `typescript-7` dependency is pinned to `npm:typescript@7.0.2`. The script runs
+its published executable through Node at `./node_modules/typescript-7/bin/tsc`.
+It does not use `node_modules/.bin/tsc`, a global compiler, or a downloaded fallback.
+The package selects its native compiler for the host platform. Keep optional
+dependencies enabled during `npm ci` so that compiler is installed.
+
+The TypeScript 6 alias remains until its removal is approved. Its transitive
+`@typescript/old` dependency and TypeScript 7 both export `tsc`. The explicit path
+keeps that shared binary name from changing this check's compiler. Compiler
+selection does not change typecheck coverage or CI wiring.
+
 ## Manual-first orchestration
 
 The bundled `bb-orchestrator` skill reads compact status and manages approved scope records. Begin/resume require the retained exact invocation and native BB approval. Pause changes the scope record only. These controls do not start, stop, resume or send input to workers. Scope pause does not cancel native queue work.

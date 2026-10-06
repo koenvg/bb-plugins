@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
-import { fixture } from "./dispatch-test-fixture";
 import { expectNoAgentInput } from "./dispatch-test-fixture";
 import { createDispatchStore } from "./dispatch-store";
 import { readResolution } from "./recovery-contract";
 
-import { historicalAttempt, historicalUnknown } from "./recovery-test-fixture";
+import {
+  recoveryFixture as fixture,
+  historicalAttempt,
+  historicalUnknown,
+} from "./recovery-test-fixture";
 async function unknown() {
   const f = await fixture();
   const dispatched = historicalUnknown(f);
