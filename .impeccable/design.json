@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T08:45:38.833107+00:00",
+  "generatedAt": "2026-10-06T16:16:18.678Z",
   "title": "Design System: BB plugins",
   "extensions": {
     "colorMeta": {
@@ -302,14 +302,14 @@
         "role": "status",
         "displayName": "Merged Violet",
         "tonalRamp": [
-          "oklch(15% 0.2 293)",
-          "oklch(25% 0.2 293)",
-          "oklch(35% 0.2 293)",
-          "oklch(45% 0.2 293)",
-          "oklch(55% 0.2 293)",
-          "oklch(70% 0.2 293)",
-          "oklch(85% 0.2 293)",
-          "oklch(95% 0.2 293)"
+          "oklch(15% 0.2812 293.01)",
+          "oklch(25% 0.2812 293.01)",
+          "oklch(35% 0.2812 293.01)",
+          "oklch(45% 0.2812 293.01)",
+          "oklch(55% 0.2812 293.01)",
+          "oklch(70% 0.2812 293.01)",
+          "oklch(85% 0.2812 293.01)",
+          "oklch(95% 0.2812 293.01)"
         ]
       },
       "compose-surface": {
@@ -361,6 +361,22 @@
       "mono": {
         "displayName": "Mono",
         "purpose": "SHAs, paths, task keys in code context."
+      },
+      "reader-body": {
+        "displayName": "Reader body",
+        "purpose": "Markdown Reader prose. Reduces to 15px/1.8 at panel widths of 600px or less."
+      },
+      "reader-title": {
+        "displayName": "Reader title",
+        "purpose": "Markdown Reader document title. Steps to 34px at 1080px and 30px at 600px panel width."
+      },
+      "settings-body": {
+        "displayName": "Settings body",
+        "purpose": "Code Cleanup settings form only."
+      },
+      "quota-summary": {
+        "displayName": "Allowance summary",
+        "purpose": "Full-panel Codex allowance. Rises to 30px at the sm breakpoint."
       }
     },
     "shadows": [
@@ -393,6 +409,11 @@
         "name": "compose-joined-bottom",
         "value": "0 4px 16px -8px var(--shadow-color, color-mix(in oklab, var(--ink) 6%, transparent))",
         "purpose": "Bottom half of the joined new-thread writing frame."
+      },
+      {
+        "name": "codex-inspired-prompt",
+        "value": "0 1px 3px color-mix(in srgb, var(--ink) 7%, transparent)",
+        "purpose": "Optional Codex-inspired theme's native prompt form only."
       }
     ],
     "motion": [
@@ -413,13 +434,33 @@
       },
       {
         "name": "compose-control",
-        "value": "background-color 150ms ease-out, color 150ms ease-out",
+        "value": "background-color 150ms ease-out, color 150ms ease-out, scale 120ms cubic-bezier(0.16, 1, 0.3, 1)",
         "purpose": "Compose Chat actions. Fine-pointer hover only; no transitions under reduced motion."
       },
       {
         "name": "compose-border",
         "value": "border-color 150ms ease-out",
         "purpose": "Compose Chat frame; no transition under reduced motion."
+      },
+      {
+        "name": "compose-press",
+        "value": "scale: 0.96",
+        "purpose": "Standalone composer actions only; scale stays 1 under reduced motion."
+      },
+      {
+        "name": "compose-lattice",
+        "value": "648ms linear infinite",
+        "purpose": "Inline activity's current-color lattice. Inherits host pause state, pauses with the content script, and becomes static under reduced motion."
+      },
+      {
+        "name": "thread-lattice",
+        "value": "972ms cubic-bezier(0.77, 0, 0.175, 1) infinite",
+        "purpose": "Sidebar running glyph, with 108ms stagger. Static 0.7 opacity under reduced motion."
+      },
+      {
+        "name": "usage-chart",
+        "value": "none",
+        "purpose": "Daily usage bars render without animation."
       }
     ],
     "breakpoints": [
@@ -438,6 +479,22 @@
       {
         "name": "reduced-motion",
         "value": "(prefers-reduced-motion: reduce)"
+      },
+      {
+        "name": "reader-intermediate",
+        "value": "@container markdown-reader (max-width: 1080px)"
+      },
+      {
+        "name": "reader-compact",
+        "value": "@container markdown-reader (max-width: 600px)"
+      },
+      {
+        "name": "cleanup-compact",
+        "value": "(max-width: 480px)"
+      },
+      {
+        "name": "codex-inspired-touch",
+        "value": "(max-width: 767px) and (pointer: coarse)"
       }
     ]
   },
@@ -448,7 +505,7 @@
       "refersTo": "button-default",
       "description": "Vendored Tasks Plus default variant; host-derived corners and keyboard focus.",
       "html": "<button type=\"button\" class=\"ds-btn-default\">Delegate</button>",
-      "css": ".ds-btn-default{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:none;background:var(--foreground);color:var(--background);}.ds-btn-default:hover{background:color-mix(in oklab,var(--foreground) 90%,transparent);transition-duration:0ms;}.ds-btn-default:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-default:disabled{pointer-events:none;opacity:.5;}"
+      "css": ".ds-btn-default{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:var(--text-sm,14px);font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:none;background:var(--foreground);color:var(--background);}.ds-btn-default:hover{background:color-mix(in oklab,var(--foreground) 90%,transparent);transition-duration:0ms;}.ds-btn-default:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-default:disabled{pointer-events:none;opacity:.5;}"
     },
     {
       "name": "Ghost Button",
@@ -456,7 +513,7 @@
       "refersTo": "button-ghost-hover",
       "description": "Vendored Tasks Plus ghost variant; host-derived corners and keyboard focus.",
       "html": "<button type=\"button\" class=\"ds-btn-ghost\">Refresh</button>",
-      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:none;background:transparent;color:var(--foreground);}.ds-btn-ghost:hover{background:var(--state-hover);color:var(--foreground);transition-duration:0ms;}.ds-btn-ghost:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-ghost:disabled{pointer-events:none;opacity:.5;}.ds-btn-ghost:active,.ds-btn-ghost[aria-pressed=true],.ds-btn-ghost[data-state=open]{background:var(--state-active);}"
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:var(--text-sm,14px);font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:none;background:transparent;color:var(--foreground);}.ds-btn-ghost:hover{background:var(--state-hover);color:var(--foreground);transition-duration:0ms;}.ds-btn-ghost:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-ghost:disabled{pointer-events:none;opacity:.5;}.ds-btn-ghost[aria-pressed=true],.ds-btn-ghost[data-state=open]{background:var(--state-active);}"
     },
     {
       "name": "Outline Button",
@@ -464,7 +521,7 @@
       "refersTo": "button-outline",
       "description": "Vendored Tasks Plus outline variant; host-derived corners and keyboard focus.",
       "html": "<button type=\"button\" class=\"ds-btn-outline\">Cancel</button>",
-      "css": ".ds-btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:1px solid var(--input);background:transparent;color:var(--foreground);}.ds-btn-outline:hover{background:var(--state-hover);color:var(--foreground);transition-duration:0ms;}.ds-btn-outline:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-outline:disabled{pointer-events:none;opacity:.5;}"
+      "css": ".ds-btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:8px 16px;border-radius:calc(var(--radius,8px) - 2px);font:inherit;font-size:var(--text-sm,14px);font-weight:500;cursor:pointer;transition:background-color 150ms,color 150ms;border:1px solid var(--input);background:transparent;color:var(--foreground);}.ds-btn-outline:hover{background:var(--state-hover);color:var(--foreground);transition-duration:0ms;}.ds-btn-outline:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-btn-outline:disabled{pointer-events:none;opacity:.5;}"
     },
     {
       "name": "Input",
@@ -472,7 +529,7 @@
       "refersTo": "input",
       "description": "Vendored field; grows to 40px on compact coarse-pointer screens.",
       "html": "<input class=\"ds-input\" aria-label=\"Filter tasks\" placeholder=\"Filter tasks\" />",
-      "css": ".ds-input{height:36px;padding:4px 12px;border-radius:calc(var(--radius,8px) - 2px);border:1px solid var(--input);background:transparent;color:var(--foreground);font:inherit;font-size:13px;transition:color 150ms,background-color 150ms,border-color 150ms;}.ds-input::placeholder{color:var(--muted-foreground);}.ds-input:hover{transition-duration:0ms;}.ds-input:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-input:disabled{cursor:not-allowed;opacity:.5;}@media(width < 48rem) and (pointer:coarse){.ds-input{height:40px;font-size:var(--text-base,16px);}}"
+      "css": ".ds-input{height:36px;padding:4px 12px;border-radius:calc(var(--radius,8px) - 2px);border:1px solid var(--input);background:transparent;color:var(--foreground);font:inherit;font-size:var(--text-sm,14px);transition:color 150ms,background-color 150ms,border-color 150ms;}.ds-input::placeholder{color:var(--muted-foreground);}.ds-input:hover{transition-duration:0ms;}.ds-input:focus-visible{outline:none;box-shadow:0 0 0 1px var(--ring);}.ds-input:disabled{cursor:not-allowed;opacity:.5;}@media(width < 48rem) and (pointer:coarse){.ds-input{height:40px;font-size:var(--text-base,16px);}}"
     },
     {
       "name": "Neutral Pill",
@@ -483,28 +540,12 @@
       "css": ".ds-pill{display:inline-flex;align-items:center;border-radius:9999px;border:1px solid var(--border);padding:2px 8px;font:inherit;font-size:12px;color:var(--muted-foreground);}"
     },
     {
-      "name": "Urgent Count",
-      "kind": "chip",
-      "refersTo": "pill-urgent",
-      "description": "Tabular count of items requiring attention.",
-      "html": "<span class=\"ds-count\" aria-label=\"3 items need attention\">3</span>",
-      "css": ".ds-count{display:inline-flex;border-radius:9999px;background:color-mix(in oklab,var(--destructive) 10%,transparent);color:var(--destructive);padding:0 6px;font:inherit;font-size:11px;font-weight:500;line-height:16px;font-variant-numeric:tabular-nums;}"
-    },
-    {
       "name": "Board Card",
       "kind": "card",
       "refersTo": "card",
       "description": "Incumbent Tasks Plus card, including its rest shadow. This shadow is documented drift, not a new-panel default.",
       "html": "<div class=\"ds-card\" role=\"button\" tabindex=\"0\" aria-label=\"Open TASK-12: Fix login\"><div class=\"ds-card-key\">TASK-12</div><div class=\"ds-card-title\">Fix login</div></div>",
       "css": ".ds-card{border-radius:var(--radius,8px);border:1px solid var(--border);background:var(--card);color:var(--foreground);padding:8px 10px;box-shadow:var(--shadow-2xs);cursor:pointer;}.ds-card:hover{border-color:var(--input);}.ds-card:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ring);}.ds-card-key{font-size:10px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;}.ds-card-title{margin-top:4px;font-size:13px;font-weight:500;line-height:1.375;}"
-    },
-    {
-      "name": "Error Banner",
-      "kind": "custom",
-      "refersTo": "",
-      "description": "GitHub Insight inline error and compact retry action; useful data can remain visible.",
-      "html": "<div class=\"ds-error\" role=\"alert\"><span>GitHub sign-in required</span><button type=\"button\" class=\"ds-error-retry\">Retry</button></div>",
-      "css": ".ds-error{display:flex;align-items:center;gap:8px;border-radius:var(--radius,8px);border:1px solid color-mix(in oklab,var(--destructive) 40%,transparent);background:color-mix(in oklab,var(--destructive) 5%,transparent);padding:8px 12px;font-size:13px;color:var(--destructive);}.ds-error-retry{margin-left:auto;flex-shrink:0;height:24px;padding:0 8px;border-radius:calc(var(--radius,8px) - 2px);border:1px solid var(--border);background:transparent;color:var(--foreground);font:inherit;font-size:12px;cursor:pointer;transition:background-color 150ms;}.ds-error-retry:hover{background:var(--muted);}.ds-error-retry:focus-visible{outline:none;box-shadow:0 0 0 2px color-mix(in oklab,var(--ring) 50%,transparent);}.ds-error-retry:disabled{opacity:.6;}"
     },
     {
       "name": "Threads with PRs Row",
@@ -520,12 +561,28 @@
       "refersTo": "compose-frame",
       "description": "Expanded writing-frame treatment only. Native editor, split-send control, pickers, and footer behavior are not recreated by this preview.",
       "html": "<div class=\"ds-compose\"><textarea class=\"ds-compose-editor\" aria-label=\"Draft\" placeholder=\"Write a follow-up\"></textarea><div class=\"ds-compose-actions\"><button type=\"button\" class=\"ds-compose-send\">Send</button></div></div>",
-      "css": ".ds-compose{border:1px solid var(--border-hairline,var(--border));border-radius:calc(var(--radius,8px) + 6px);background:color-mix(in oklab,var(--ink) 2%,var(--canvas));box-shadow:0 4px 16px -6px var(--shadow-color,color-mix(in oklab,var(--ink) 6%,transparent));transition:border-color 150ms ease-out;}.ds-compose-editor{display:block;width:calc(100% - 24px);min-height:72px;margin:12px;border:0;background:transparent;color:var(--foreground);caret-color:var(--foreground);font:inherit;resize:vertical;outline:none;}.ds-compose-editor::placeholder{color:var(--muted-foreground);}.ds-compose-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;border-top:1px solid var(--border-hairline,var(--border));}.ds-compose-send{min-height:32px;min-width:32px;border:0;border-radius:var(--radius,8px);background:var(--foreground);color:var(--background);padding:0 12px;font:inherit;cursor:pointer;transition:background-color 150ms ease-out,color 150ms ease-out;}.ds-compose-send:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}.ds-compose-send:disabled{background:var(--secondary);color:var(--muted-foreground);}@media(hover:hover) and (pointer:fine){.ds-compose-send:hover:not(:disabled){background:color-mix(in oklab,var(--foreground) 90%,var(--background));}}@media(pointer:coarse){.ds-compose-send{min-height:44px;min-width:44px;}}@media(prefers-reduced-motion:reduce){.ds-compose,.ds-compose-send{transition:none;}}"
+      "css": ".ds-compose{border:1px solid var(--border-hairline,var(--border));border-radius:calc(var(--radius,8px) + 6px);background:color-mix(in oklab,var(--ink) 2%,var(--canvas));box-shadow:0 4px 16px -6px var(--shadow-color,color-mix(in oklab,var(--ink) 6%,transparent));transition:border-color 150ms ease-out;}.ds-compose-editor{display:block;width:calc(100% - 24px);min-height:72px;margin:12px;border:0;background:transparent;color:var(--foreground);caret-color:var(--foreground);font:inherit;resize:vertical;outline:none;}.ds-compose-editor::placeholder{color:var(--muted-foreground);}.ds-compose-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;border-top:1px solid var(--border-hairline,var(--border));}.ds-compose-send{min-height:32px;min-width:32px;border:0;border-radius:var(--radius,8px);background:var(--foreground);color:var(--background);padding:0 12px;font:inherit;cursor:pointer;transition:background-color 150ms ease-out,color 150ms ease-out,scale 120ms cubic-bezier(0.16,1,0.3,1);}.ds-compose-send:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}.ds-compose-send:disabled{background:var(--secondary);color:var(--muted-foreground);}@media(hover:hover) and (pointer:fine){.ds-compose-send:hover:not(:disabled){background:color-mix(in oklab,var(--foreground) 90%,var(--background));}}@media(pointer:coarse){.ds-compose-send{min-height:44px;min-width:44px;}}@media(prefers-reduced-motion:reduce){.ds-compose,.ds-compose-send{transition:none;}}.ds-compose-send:active:not(:disabled){scale:.96;}@media(prefers-reduced-motion:reduce){.ds-compose-send:active:not(:disabled){scale:1;}}"
+    },
+    {
+      "name": "Document outline",
+      "kind": "nav",
+      "refersTo": "reader-navigation",
+      "description": "Markdown Reader heading navigation. This preview shows the wide-panel aside; narrow panels use an inline disclosure.",
+      "html": "<aside class=\"ds-reader-outline\" aria-label=\"On this page\"><p>On this page</p><nav aria-label=\"Document sections\"><button type=\"button\">Overview</button><button type=\"button\" class=\"ds-reader-outline-child\">Current constraints</button></nav></aside>",
+      "css": ".ds-reader-outline{max-width:164px;min-width:0;font:inherit;font-size:12px;line-height:1.6;color:var(--muted-foreground);}.ds-reader-outline p{margin:0 0 15px;font-weight:550;}.ds-reader-outline button{display:block;width:100%;border:0;border-left:1px solid var(--border);background:transparent;color:inherit;font:inherit;text-align:start;padding:8px 4px 8px 12px;min-height:36px;overflow-wrap:anywhere;cursor:pointer;}.ds-reader-outline .ds-reader-outline-child{padding-inline-start:20px;}.ds-reader-outline button:hover{background:var(--state-hover);color:var(--foreground);}.ds-reader-outline button:focus-visible{outline:2px solid var(--ring);outline-offset:3px;}"
+    },
+    {
+      "name": "Reader document",
+      "kind": "custom",
+      "refersTo": "reader-document",
+      "description": "Markdown Reader prose, section heading, and code block. Sizes respond to the containing reader panel, not the desktop viewport.",
+      "html": "<div class=\"ds-reader\"><article class=\"ds-reader-prose\"><h1>Review notes</h1><p>Check the current state before you change a plugin. Keep useful content visible when an action fails.</p><h2>Current constraints</h2><pre><code>bb plugin list</code></pre></article></div>",
+      "css": ".ds-reader{container:ds-reader / inline-size;background:var(--background);color:var(--foreground);font-family:inherit;}.ds-reader-prose{max-width:720px;min-width:0;margin:0 auto;font-size:16px;line-height:1.75;overflow-wrap:anywhere;}.ds-reader-prose h1{font-size:39px;line-height:1.2;font-weight:680;letter-spacing:-.035em;margin:0 0 24px;}.ds-reader-prose h2{font-size:21px;line-height:1.4;font-weight:650;letter-spacing:-.015em;margin:46px 0 14px;}.ds-reader-prose p{margin:0 0 18px;}.ds-reader-prose pre{background:var(--surface-recessed);border:1px solid var(--border);border-radius:6px;padding:16px 18px 20px;margin:22px 0;overflow-x:auto;white-space:pre;overflow-wrap:normal;font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);font-size:13px;line-height:1.9;tab-size:2;}.ds-reader-prose pre code{padding:0;background:none;font-size:inherit;border-radius:0;}@container ds-reader (max-width:1080px){.ds-reader-prose h1{font-size:34px;}}@container ds-reader (max-width:600px){.ds-reader-prose{font-size:15px;line-height:1.8;}.ds-reader-prose h1{font-size:30px;}.ds-reader-prose h2{font-size:20px;}}"
     }
   ],
   "narrative": {
     "northStar": "The Quiet Instrument",
-    "overview": "Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps, not from color. Color appears only when it carries state: a check passed, a task is in progress, a PR is blocked. When nothing needs the user, the plugin is quiet.\n\nThe plugins do not own a palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The frontmatter retains the recorded BB v0.43.x light-theme snapshot, with Compose Chat's derived surfaces added from current CSS. It is a documentation baseline, not a fresh measurement of BB 0.44 or the active theme. Runtime code references the host token, not the recorded literal. Host themes may supply a chromatic primary; inherit it rather than forcing grayscale.\n\nEach plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.",
+    "overview": "Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps, not from color. Color appears only when it carries state: a check passed, a task is in progress, a PR is blocked. When nothing needs the user, the plugin is quiet.\n\nThe plugins do not own a palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The neutral and status colors in the frontmatter retain the recorded BB v0.43.x light-theme snapshot. They are a documentation baseline, not a fresh measurement of BB 0.45 or the active theme. Compose Chat's derived surfaces and the scoped reading roles come from current source. Runtime code references host tokens, not the recorded color literals. Host themes may supply a colored primary; inherit it rather than forcing grayscale.\n\nEach plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.",
     "keyCharacteristics": [
       "Grayscale in the baseline theme; plugin-added color carries state.",
       "Host tokens through Tailwind utilities or CSS custom properties.",
@@ -533,23 +590,59 @@
       "Small host sans-serif type, tabular counts, and larger quota-summary type in full panels.",
       "Host SDK icons or the vendored `Icon` component; quota uses a current-color battery SVG."
     ],
-    "rules": [],
+    "rules": [
+      {
+        "name": "The Theme Boundary Rule",
+        "body": "Keep the theme's palette and font overrides in `bb-plugin-codex-inspired/themes/codex-inspired.css`. Other plugins inherit the active theme and must not import or select this theme to obtain their styling.",
+        "section": "colors"
+      },
+      {
+        "name": "The Color Is State Rule",
+        "body": "Plugin-added hues report state. Decoration and hierarchy use weight and the neutral ramp. Host-supplied action colors remain authoritative, even when the active theme makes them chromatic.",
+        "section": "colors"
+      },
+      {
+        "name": "The Missing Token Rule",
+        "body": "Use a raw Tailwind hue only for a status without a host token, and supply a dark-theme pair. GitHub Insight now uses `attention` and `success` for running and passed checks; its earlier amber and emerald exceptions are gone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Count Rule",
+        "body": "Use `tabular-nums` for changing counts, durations, percentages, and reset countdowns. This is the target convention; some incumbent reset text still lacks the class.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight Not Size Rule",
+        "body": "In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve the quota dashboard's large number for its full-panel summary.",
+        "section": "typography"
+      },
+      {
+        "name": "The Roomy Control Rule",
+        "body": "New standalone controls favor the vendored default height of 36px, at least 12px horizontal padding, and 8px gaps between adjacent targets. Existing compact controls range from 24px to 32px. Preserve compound-control geometry and slot behavior rather than blindly enlarging every button. Tasks Plus's touch helpers generally raise compact controls to 36px and inputs to 40px; Compose Chat's standalone coarse-pointer targets have a 44px minimum.",
+        "section": "layout"
+      },
+      {
+        "name": "The Floating Layers Only Rule",
+        "body": "New ordinary panel surfaces stay flat at rest. Compose Chat's writing frame and Codex-inspired's native prompt form are scoped exceptions, not new card defaults. Existing Tasks Plus cards, embeds, attachments, and composers, and some GitHub Insight controls and review threads still have rest shadows. Do not copy these into new ordinary panels.",
+        "section": "elevation"
+      }
+    ],
     "dos": [
-      "Do use host tokens through Tailwind utilities or CSS custom properties, including host action colors. Check light, dark, and third-party themes when changing UI; this refresh does not establish a new theme-verification pass.",
-      "Do keep plugin-added color for state.",
-      "Do use `tabular-nums` on numbers that update.",
-      "Do use `state-hover` and `state-active` for new interaction feedback.",
-      "Do truncate narrow status labels and let reading text and errors wrap.",
-      "Do use the host registry or SDK primitives where available, and preserve native compound-control geometry.",
-      "Do keep Compose Chat's derived surfaces, radii, and soft shadow scoped to its writing frame and messages."
+      "**Do** use host tokens through Tailwind utilities or CSS custom properties, including host action colors. Check light, dark, and third-party themes when changing UI; this refresh does not establish a new theme-verification pass.",
+      "**Do** keep plugin-added color for state.",
+      "**Do** use `tabular-nums` on numbers that update.",
+      "**Do** use `state-hover` and `state-active` for new interaction feedback.",
+      "**Do** truncate narrow status labels and let reading text and errors wrap.",
+      "**Do** use the host registry or SDK primitives where available, and preserve native compound-control geometry.",
+      "**Do** keep Compose Chat's derived surfaces, radii, and soft shadow scoped to its writing frame and messages."
     ],
     "donts": [
-      "Don't hard-code the recorded palette or shadow snapshot into runtime UI. A status without a host token may use a documented light/dark pair.",
-      "Don't use a raw Tailwind hue when BB has a token for that state.",
-      "Don't put a rest shadow on a new ordinary panel surface; Compose Chat's writing frame is the documented exception.",
-      "Don't add a plugin brand color, logo mark, or custom font. Keep provider and project identities intact.",
-      "Don't copy the quota dashboard's large summary type into narrow slots.",
-      "Don't treat a recorded light-theme sample or a synthetic acceptance measurement as proof of contrast in every host theme."
+      "**Don't** hard-code the recorded palette or shadow snapshot into runtime UI. A status without a host token may use a documented light/dark pair.",
+      "**Don't** use a raw Tailwind hue when BB has a token for that state.",
+      "**Don't** put a rest shadow on a new ordinary panel surface. Compose Chat's writing frame and Codex-inspired's native prompt form are scoped exceptions.",
+      "**Don't** add a plugin brand color, logo mark, or custom font to feature UI. Keep provider, project, and file identities intact. Theme plugins may define a scoped palette and font treatment.",
+      "**Don't** copy the quota dashboard's large summary type into narrow slots.",
+      "**Don't** treat a recorded light-theme sample or a synthetic acceptance measurement as proof of contrast in every host theme."
     ]
   }
 }
