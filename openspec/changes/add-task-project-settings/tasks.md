@@ -8,7 +8,6 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 1. Rename Tasks projects in settings
 
-
 - [ ] 1.1 Add Manage > Projects with labelled selection, current name and read-only prefix, keeping Labels the default and Labels/Presets/Folders available; verify rendered tests distinguish duplicate names by prefix and identity and selection does not change Tasks browsing scope or BB workspace.
 - [ ] 1.2 Keep name drafts identity-bound with explicit Save/Cancel, blank-name blocking and selection reset; verify local edits and Cancel send no update, Cancel clears errors and restores latest loaded values, selection discards only its local draft, and name-only saves preserve any existing color.
 - [ ] 1.3 Save through updateProject with exactly project ID, trimmed name and unchanged saved color, applying returned values immediately and using a synchronous single-flight guard; verify repeated activation sends one request, pending editing/selection/Cancel is blocked and unchanged drafts cannot save.
@@ -20,7 +19,6 @@ The change owner updates these checkboxes manually after checking completion evi
 - [ ] 1.9 Record delivery checks and keyboard/compact-layout observations for selector, name, Save, Cancel, Retry and alerts; verify accessible controls and no horizontal page overflow.
 
 ## 2. Change Tasks project colors in settings
-
 
 - [ ] 2.1 Add the existing named color palette to the identity-bound editor; verify rendered tests show current color, local-only choices, preserved out-of-palette values until deliberate replacement, and both draft fields reset safely on Cancel or project selection.
 - [ ] 2.2 Save name and color together through the existing update operation; verify pending controls and single-flight protection, unchanged-draft blocking, failure-retained fields and retry, dirty refreshes, removal, inventory failure and delayed-event safeguards still hold for both fields.

@@ -8,7 +8,6 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 1. Read task Markdown attachments in a dialog
 
-
 - [ ] 1.1 Deliver the private packages/markdown-document package with compiled ESM/type/CSS exports, per-package scripts, lockfile, consumer-owned React peer and planned GFM/highlighting dependencies; verify clean npm ci, public-interface tests, typecheck and build without raw-HTML/MDX execution dependencies or another React runtime.
 - [ ] 1.2 Connect Tasks through a local build-time dependency and affected CI setup; verify a clean shared-package build followed by Tasks npm ci, typecheck and plugin build includes common code/CSS, and Node 24 clean-checkout CI runs the shared tests and fails when they fail without changing unrelated jobs.
 - [ ] 1.3 Render baseline Markdown/GFM and exact Raw through the common interface with scoped spacious document styling; verify public fixtures preserve frontmatter, BOM, line endings and code whitespace, reject active HTML/scripts/MDX, and leave unsafe or not-yet-supported destinations inactive without guessing a source.

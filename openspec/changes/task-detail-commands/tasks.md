@@ -8,7 +8,6 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 1. Change task properties through BB commands
 
-
 - [ ] 1.1 Add the typed ten-command definition table with the stable IDs and titles in design decision 1 and append its registrations to the existing commands; verify registration tests cover all ten IDs, no default bindings and preservation of the five existing command IDs and behavior.
 - [ ] 1.2 Supply task-scoped targeting and panel-local action registration with the current route, rendered panel root and loaded task readiness; verify rendered tests reject All, Active, Manage, focused list/board rows, embedded views, loading/error/missing tasks and hidden mounted task panels.
 - [ ] 1.3 Guard availability and execution against stale route/task identity, unavailable handlers and ambiguous visible sessions; verify rerender, reload and unmount tests show no old-task action, queued task intent or unintended navigation, and clean registration after mounting again.
@@ -20,13 +19,11 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 2. Set due dates through a task command
 
-
 - [ ] 2.1 Connect Set due date to a controlled due-date picker using the existing detail menu state; verify keyboard preset selection, custom date input, removal and Escape leave data unchanged until a choice is made.
 - [ ] 2.2 Apply the established shown-layout and palette-close focus behavior to due dates; verify only the visible picker opens in either layout and Escape returns to its visible trigger without stale activation, with existing mouse behavior intact.
 - [ ] 2.3 Document Set due date and its explicit choice/removal behavior in the README; verify the instructions match the rendered picker tests and keyboard-only checks.
 
 ## 3. Change the linked BB project through a task command
-
 
 - [ ] 3.1 Connect Change linked BB project to a controlled picker with a compact inline trigger and shared loaded tracker/BB-project options; verify the command is unavailable before the tracker project loads and opens only the visible picker in both layouts.
 - [ ] 3.2 Identify the tracker project and explain that its link affects all its tasks; verify selection initialization, dismissal without saving, save/unlink through updateProject, retained errors, and no task move, thread move or delegation call.
@@ -35,7 +32,6 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 4. Dispatch the open task through a preset picker
 
-
 - [ ] 4.1 Expose the shown DispatchControl's actual preset and busy readiness; verify listing and execution reject loading, missing presets and outstanding delegation, even when a hidden layout duplicate is idle, and repeated invocation queues no dispatch.
 - [ ] 4.2 Reuse the existing preset-menu opener without selecting the last preset; verify open/Escape makes no delegation call, explicit keyboard selection delegates once for the current task, and existing blocked-work confirmation and error handling remain intact.
 - [ ] 4.3 Apply shown-layout and palette-close focus handoff to dispatch; verify focus enters the visible menu, Escape returns to its trigger, and stale deferred activation is canceled on task change or unmount.
@@ -43,13 +39,11 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 5. Focus the open task's comment draft
 
-
 - [ ] 5.1 Connect Write a comment to the existing editor ref with readiness checks; verify execution focuses the end of the same unsent draft, preserves notification settings and makes no submission.
 - [ ] 5.2 Preserve editor focus after palette closure with scoped cancellable UI deferral only if needed; verify task change or unmount cancels stale focus, hidden/embedded views are excluded, and typing does not trigger bare-letter task shortcuts.
 - [ ] 5.3 Document that Write a comment focuses rather than posts; verify README wording matches rendered tests and keyboard checks with an existing draft.
 
 ## 6. Navigate between open tasks through BB commands
-
 
 - [ ] 6.1 Connect Previous task and Next task to existing TaskPager handlers without another sibling query; verify pager order/scope, absent or loading destinations, binding no-ops at boundaries, narrow-layout navigation and fresh targeting of the newly opened task.
 - [ ] 6.2 Connect Back to the shell's existing backFromTask handler in the loaded task session; verify the existing project list/board destination and All tasks direct-link fallback, with no task update or delegation call.

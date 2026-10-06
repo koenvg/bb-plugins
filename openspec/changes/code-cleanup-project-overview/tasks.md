@@ -8,7 +8,6 @@ The change owner updates these checkboxes manually after checking completion evi
 
 ## 1. Show project settings and change enablement in the table
 
-
 - [ ] 1.1 Cover read-only standard-project summaries through public RPC tests for explicit/inherited On/Off, custom/default prompt sources, disabled-custom combinations, name ordering and no writes; verify the cases pass through the registered endpoint.
 - [ ] 1.2 Add the strict listProjectSummaries contract, shared resolver and server registration; verify summaries omit prompt text, use one captured default, and leave listProjects, getProject, mutations and CLI behavior unchanged.
 - [ ] 1.3 Show the five-column overview below the default control while keeping existing prompt editing usable until delivery 2; verify accessible UI tests cover every standard project's saved values, alphabetical order, both source labels, disabled-custom rows and empty/loading/error/retry states without writes on view.
@@ -20,7 +19,6 @@ The change owner updates these checkboxes manually after checking completion evi
 - [ ] 1.9 Record delivery checks and an early working table preview followed by real-browser toggle, Use default and failure/retry checks; verify existing prompt editing and its concurrency tests remain usable in this intermediate delivery.
 
 ## 2. Edit cleanup prompts in a safe dialog
-
 
 - [ ] 2.1 Move PromptContent into a project-bound native modal opened by Edit prompt, with title, saved source, count, Edit/Preview, close control and Reset/Cancel/Save footer; verify tests cover read-only opening and disabled-project editing, and remove the superseded selector and inline editor rather than hide an alternate flow.
 - [ ] 2.2 Preserve exact-source validation and saved-prompt preconditions, closing only after confirmed Save; verify unchanged Save, whitespace/4,097-character rejection, exact multiline text, pending-write dismissal/duplicate blocking, retained failed drafts, concurrent replacement and confirmed table-source updates without enablement or unrelated-project changes.
