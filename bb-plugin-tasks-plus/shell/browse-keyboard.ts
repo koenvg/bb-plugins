@@ -2,21 +2,11 @@ import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
 import { focusedTaskKey } from "../views/keyboard-navigation.js";
 import type { VisibleTaskOrder } from "../views/list/index.js";
 import { useShortcuts } from "./shortcut-provider.js";
-import { hasOpenOverlay, isEditableTarget } from "./shortcuts.js";
+import { canRestoreBrowseFocus } from "./shortcuts.js";
+export { canRestoreBrowseFocus } from "./shortcuts.js";
 
 export type BrowseFocusTarget = "row" | "detail";
 type PaneRef = RefObject<HTMLElement | null>;
-
-/** Recheck ownership when asynchronous work finishes, not only on keydown.
- * Mandatory focus transfer out of a hidden pane is handled separately. */
-export function canRestoreBrowseFocus(list: HTMLElement, detail: HTMLElement): boolean {
-  const active = document.activeElement;
-  return (
-    !hasOpenOverlay() &&
-    !isEditableTarget(active) &&
-    (active === document.body || list.contains(active) || detail.contains(active))
-  );
-}
 
 /** Focus is an accepted navigation effect, not a second selected identity.
  * Arm only inside request(commit), never from its shared boolean promise. */

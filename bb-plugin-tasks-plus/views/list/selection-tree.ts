@@ -4,6 +4,7 @@ import type { ListTreeEntry, groupListTree } from "./lib.js";
 export interface RenderedListTree {
   groups: {
     status: ReturnType<typeof groupListTree>[number]["status"];
+    collapsed: boolean;
     entries: (ListTreeEntry & { expanded: boolean })[];
   }[];
   count: number | undefined;
@@ -13,9 +14,11 @@ export type SelectionUnavailable = (taskKey: string, stillUnavailable: () => boo
 
 export function visibleTreeTasks(tree: RenderedListTree) {
   return tree.groups.flatMap((group) =>
-    group.entries.flatMap((entry) =>
-      entry.expanded ? [entry.task, ...entry.children] : [entry.task],
-    ),
+    group.collapsed
+      ? []
+      : group.entries.flatMap((entry) =>
+          entry.expanded ? [entry.task, ...entry.children] : [entry.task],
+        ),
   );
 }
 

@@ -178,6 +178,17 @@ export function hasOpenOverlay(): boolean {
   );
 }
 
+/** Recheck ownership when asynchronous work finishes, not only on keydown.
+ * Mandatory focus transfer out of a hidden pane is handled separately. */
+export function canRestoreBrowseFocus(list: HTMLElement, detail?: HTMLElement): boolean {
+  const active = document.activeElement;
+  return (
+    !hasOpenOverlay() &&
+    !isEditableTarget(active) &&
+    (active === document.body || list.contains(active) || detail?.contains(active) === true)
+  );
+}
+
 function isOutside(target: EventTarget | null, root: HTMLElement): boolean {
   if (!(target instanceof Node)) return false;
   if (target === document.body || target === document.documentElement) return false;

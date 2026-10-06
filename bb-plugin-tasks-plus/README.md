@@ -464,6 +464,37 @@ Escape from non-editable detail saves pending edits and returns focus to the
 selected row without scrolling or clearing selection. BB's own controls manage
 its narrow-layout drawer and tab closure; there is no plugin Back-to-list layout.
 
+In All tasks, Active work, and project lists, activate a status header to hide or
+show its rows. The full-width button supports click, touch, Enter, and Space. Its
+chevron shows the section state. The header and count remain visible. Section
+counts and filter counts do not change.
+
+Sections start expanded. Each list saves its own choices on this device. All tasks,
+Active work, and each project restore separate choices when you return, including
+after the list unmounts. Filters, sorting, and Clear retain these choices. A section
+with no matching rows returns in its saved state with its current count. A filter
+that matches only a child does not open its collapsed section. Reopen the section
+to see the dimmed parent and matching child. Section toggles do not change saved
+subtask expansion.
+
+Saved section choices also restore after a panel reload or app restart when browser
+storage remains available. They are local to this browser profile and device, not
+synced. Existing preferences without section choices keep valid filters and sorting
+and start expanded. Invalid section fields use expanded defaults; unknown statuses
+are ignored and duplicate choices apply once. Unsupported future preference
+versions remain unchanged on disk, even if their scope format is unreadable.
+
+Storage read or write failures do not stop section toggles in the mounted list.
+These temporary choices are not guaranteed to survive navigation or reload. If
+browser storage is cleared, saved section choices, filters and sorting are lost;
+sections start expanded again. No server copy restores these preferences.
+
+Hidden rows are not part of task keyboard navigation. In every list scope, Tasks
+saves pending edits before a collapse hides the selected task. A failed save keeps
+the section open and the draft available for Retry save. Navigation return restores
+scroll against the saved section layout, even when only headers remain. Scroll
+stays within the available range; hidden panes do not replace its saved position.
+
 Long row titles and important metadata wrap in constrained list containers.
 Status, priority, and expansion controls have larger coarse-pointer targets.
 Board and thread-side detail layouts are unchanged.
