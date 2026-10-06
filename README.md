@@ -6,15 +6,15 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 
 | Plugin           | Directory                                                |
 | ---------------- | -------------------------------------------------------- |
-| Changes          | [`bb-plugin-changes`](bb-plugin-changes)                  |
-| Code Cleanup     | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)        |
-| Codex Inspired   | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)    |
-| Codex Quota      | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)           |
-| Compose Chat     | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)        |
-| Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)    |
-| GitHub Insight   | [`bb-plugin-github-insight`](bb-plugin-github-insight)    |
-| Tasks Plus       | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)            |
-| Markdown Reader  | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader)  |
+| Changes          | [`bb-plugin-changes`](bb-plugin-changes)                 |
+| Code Cleanup     | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)       |
+| Codex Inspired   | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)   |
+| Codex Quota      | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)         |
+| Compose Chat     | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)       |
+| Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)   |
+| GitHub Insight   | [`bb-plugin-github-insight`](bb-plugin-github-insight)   |
+| Tasks Plus       | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)           |
+| Markdown Reader  | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader) |
 
 Install one plugin at a time from Git with `--subdirectory`, for example:
 
