@@ -4,7 +4,7 @@
 
 ### Requirement: Pull request status per thread
 
-For a thread whose environment branch has a pull request, the replacement SHALL show a compact status and an accessible action to open that thread's PR tab on the thread row. The whole badge SHALL be one action, including its checks, review and conflict indicators, counts, and status text. The status SHALL come from the github-insight PR summary of the thread, not from BB's per-row PR lookup. It SHALL distinguish draft, open with no special attention, checks pending or failed, review requested or changes requested, conflicts or blocked merge, ready to merge, merged, and closed states. The status SHALL not be mistaken for the thread's execution status.
+For a thread whose environment branch has a pull request, the replacement SHALL show a compact status and an accessible action to open that thread's PR tab on the thread row. The whole badge SHALL be one action, including its checks, review and conflict indicators, counts, and status text. The status SHALL come from the github-insight PR summary of the thread, not from BB's per-row PR lookup. It SHALL distinguish draft, open with no special attention, checks pending or failed, review requested or changes requested, conflicts or blocked merge, ready to merge, queued in a merge queue, merging, merge queue failed, merged, and closed states. The status SHALL not be mistaken for the thread's execution status.
 
 #### Scenario: Branch has an open PR needing attention
 
@@ -15,6 +15,22 @@ For a thread whose environment branch has a pull request, the replacement SHALL 
 
 - **WHEN** the github-insight summary reports a draft, merged, or closed PR
 - **THEN** the row identifies the PR and communicates that state without implying it is ready to merge
+
+#### Scenario: PR in a merge queue
+
+- **WHEN** the github-insight summary reports `mergeQueue` with state `queued` or `awaiting_checks` at position 3
+- **THEN** the row shows "Queued #3" in the waiting tone and does not claim the PR is ready or blocked
+- **AND** for `awaiting_checks` the row also shows a running mark
+
+#### Scenario: PR merging from the queue
+
+- **WHEN** the github-insight summary reports `mergeQueue` with state `merging`
+- **THEN** the row shows "Merging" in the ready tone
+
+#### Scenario: Merge queue failed
+
+- **WHEN** the github-insight summary reports `mergeQueue` with state `failed`
+- **THEN** the row shows "Queue failed" in the problem tone
 
 #### Scenario: Several threads use one environment
 
