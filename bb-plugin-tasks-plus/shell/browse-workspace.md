@@ -13,8 +13,11 @@ another guarded navigation call. Nesting `request` inside an in-flight accepted
 callback can leave a destination queued. Remembered scope remains exclusively
 owned by `useBrowseRoute`, downstream of the shell's `useSafeTaskTarget`.
 
-Initial route selection waits for a settled visible list. `validatedKey` records
-that validation, not another focused or pending selection. Detail lookup stays in
+Initial route selection waits for a settled visible list. A matching key in a current
+settled order is ready in the accepted render, without an extra validation-effect
+gap. `validatedKey` records successful validation, not another focused or pending
+selection. Once validated, the originating editor stays mounted through an
+unsettled refresh until the save barrier accepts any confirmed removal. Detail lookup stays in
 the existing keyed `DetailView`. The list then reports ongoing removal through
 `onSelectionUnavailable(key, stillUnavailable)`. The workspace requests clearing
 through the existing session and rechecks that predicate inside the accepted
@@ -92,6 +95,14 @@ being undone. Route-driven selection still reveals Ticket; same-key refresh and
 resize do not. A declined host open shows the same retained editor in a temporary
 main-page recovery view, without first requiring its failing save to succeed.
 Native placement can be retried; returning to the list remains guarded.
+
+Selection skips `openFixedTab` only when the mounted outlet owner has the same
+surface controller as the caller and its ancestor chain is connected and visible.
+Hidden, inert, aria-hidden, CSS-hidden, closed, or differently owned outlets still
+need a host reveal. If controller identity cannot prove the match, call the host.
+Neither refresh responses nor save completion call reveal. Enter keeps waiting on
+a cold lookup; retained matching data can satisfy its existing non-editor focus
+intent immediately. Cold loading markup does not carry readiness markup.
 
 The first native outlet owns the editor. Additional outlets show a Show ticket
 here action rather than stealing it on mount. Explicit activation transfers the

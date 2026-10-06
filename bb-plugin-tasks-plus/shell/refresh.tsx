@@ -17,6 +17,15 @@ interface TasksRefreshState {
   endGenerationWork: () => void;
 }
 
+/** Session readers use this clock at response publication, not only after a render. */
+export const readTasksRefreshGeneration = () => sharedSnapshot.generation;
+export function subscribeTasksRefresh(listener: () => void) {
+  refreshListeners.add(listener);
+  return () => {
+    refreshListeners.delete(listener);
+  };
+}
+
 const TasksRefreshContext = createContext<TasksRefreshState | null>(null);
 
 interface SharedRefreshSnapshot {

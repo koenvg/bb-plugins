@@ -10,6 +10,7 @@ import {
 import { createSafeTaskTransition } from "./safe-transition.js";
 import { CommentDraftsProvider } from "../activity/comment-drafts.js";
 
+import { TaskDataProvider } from "../../shell/task-data.js";
 const TasksSessionContext = createContext<ReturnType<typeof createSafeTaskTransition> | null>(null);
 
 /** Mount once around the Tasks workspace, not once per selected ticket. */
@@ -18,7 +19,9 @@ export function TasksSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => () => transition.cancel(), [transition]);
   return (
     <TasksSessionContext.Provider value={transition}>
-      <CommentDraftsProvider>{children}</CommentDraftsProvider>
+      <TaskDataProvider>
+        <CommentDraftsProvider>{children}</CommentDraftsProvider>
+      </TaskDataProvider>
     </TasksSessionContext.Provider>
   );
 }

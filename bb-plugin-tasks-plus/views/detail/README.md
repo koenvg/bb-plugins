@@ -60,10 +60,14 @@ A delayed save response cannot displace a newer query snapshot. Reconciliation
 uses the task timestamp first and uses snapshot identity only to break equal-time
 ties against the query present when the write began.
 
-Detail lookup still uses `useTasksQuery`. Task-keyed query and task-id-keyed form
-lifetimes prevent previous requests, editor contents, menus, subtask forms, and
-other local state from appearing under a replacement identity. No second query
-cache or request system is introduced.
+Detail lookup uses the session-owned [task preview store](../../shell/task-previews.md).
+Task-keyed queries and task-id-keyed forms still prevent previous requests, editor
+contents, menus, and subtask forms from appearing under a replacement identity.
+A current retained task hydrates its new keyed form without another lookup.
+The cache never retains an editor or an unconfirmed edit. A successful write revokes
+reuse without notifying the active query during the save drain. A surviving form
+requests revalidation after its pending edits finish. This avoids a nested route
+barrier while the originating write is still committing.
 
 Embedded `DetailView.onMissing(key, stillMissing)` supplies a predicate that must
 be checked inside the accepted clear callback. It rejects a newer loading, error,

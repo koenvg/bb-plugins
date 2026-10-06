@@ -12,6 +12,7 @@ import {
   writeQuerySnapshot,
 } from "./query-snapshot.js";
 import { useTasksRefresh } from "./refresh.js";
+import { useSessionProjects, useSessionPresets } from "./task-data.js";
 
 export function useTasksRpc() {
   return useRpc<TasksRpcContract>();
@@ -179,26 +180,9 @@ export function useFolders() {
   );
 }
 
-const projectsSnapshot = {
-  name: "projects",
-  schema: tasksRpcContract.listProjects.output.shape.projects,
-};
+export const useProjects = useSessionProjects;
 
-export function useProjects() {
-  return useTasksQuery(
-    async (rpc) => (await rpc.call("listProjects", {})).projects,
-    ["projects:changed"],
-    [],
-    { snapshot: projectsSnapshot },
-  );
-}
-
-export function usePresets() {
-  return useTasksQuery(
-    async (rpc) => (await rpc.call("listPresets")).presets,
-    ["projects:changed"],
-  );
-}
+export const usePresets = useSessionPresets;
 
 const sidebarSummarySnapshot = {
   name: "sidebar-summary",

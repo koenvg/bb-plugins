@@ -45,15 +45,4 @@ export function useListTasks(
   return { matches, scope, needsScope };
 }
 
-export function useLabels(projectIds: readonly string[]) {
-  return useTasksQuery(
-    async (rpc) => {
-      const results = await Promise.all(
-        projectIds.map((projectId) => rpc.call("listLabels", { projectId })),
-      );
-      return results.flatMap((result) => result.labels);
-    },
-    ["projects:changed"],
-    [projectIds],
-  );
-}
+export { useSessionLabelsForProjects as useLabels } from "../../shell/task-data.js";
