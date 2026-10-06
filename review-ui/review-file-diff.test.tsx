@@ -2,20 +2,25 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { parsePatchFiles, type SelectedLineRange } from "@pierre/diffs";
+import { parsePatchFiles, type DiffLineAnnotation, type SelectedLineRange } from "@pierre/diffs";
 import { ReviewFileDiff } from "./review-file-diff";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
     options,
+    lineAnnotations,
+    renderAnnotation,
     renderHeaderPrefix,
     renderHeaderMetadata,
   }: {
     options: {
       diffStyle: string;
       collapsed?: boolean;
-      onGutterUtilityClick: (range: SelectedLineRange) => void;
+      enableGutterUtility?: boolean;
+      onGutterUtilityClick?: (range: SelectedLineRange) => void;
     };
+    lineAnnotations: DiffLineAnnotation<string>[];
+    renderAnnotation: (annotation: DiffLineAnnotation<string>) => ReactNode;
     renderHeaderPrefix?: () => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
   }) => (
@@ -23,16 +28,21 @@ vi.mock("@pierre/diffs/react", () => ({
       data-testid="diff"
       data-style={options.diffStyle}
       data-collapsed={String(options.collapsed ?? false)}
+      data-gutter-utility={String(options.enableGutterUtility ?? false)}
+      data-has-gutter-click={String(options.onGutterUtilityClick !== undefined)}
     >
       {renderHeaderPrefix?.()}
       {renderHeaderMetadata?.()}
+      {lineAnnotations.map((annotation) => (
+        <div key={annotation.lineNumber}>{renderAnnotation(annotation)}</div>
+      ))}
       <button
         type="button"
-        onClick={() => options.onGutterUtilityClick({ start: 4, end: 4, side: "deletions" })}
+        onClick={() => options.onGutterUtilityClick?.({ start: 4, end: 4, side: "deletions" })}
       >
         old
       </button>
-      <button type="button" onClick={() => options.onGutterUtilityClick({ start: 7, end: 7 })}>
+      <button type="button" onClick={() => options.onGutterUtilityClick?.({ start: 7, end: 7 })}>
         sideless
       </button>
     </div>
@@ -86,4 +96,51 @@ it("renders the header prefix and metadata and passes collapsed", () => {
   expect(view.getByText("prefix")).toBeTruthy();
   expect(view.getByText("metadata")).toBeTruthy();
   expect(view.getByTestId("diff").dataset.collapsed).toBe("true");
+});
+
+it("wraps each annotation in an element with inline-size containment", () => {
+  const view = render(
+    <ReviewFileDiff
+      fileDiff={fileDiff}
+      annotations={[{ side: "additions", lineNumber: 1, metadata: "card" }]}
+      renderAnnotation={(annotation) => <span>{annotation.metadata}</span>}
+      onAddComment={() => {}}
+      view="split"
+      theme={{ name: "github", mode: "light" }}
+    />,
+  );
+
+  const wrapper = view.getByText("card").parentElement!;
+  expect(wrapper.style.contain).toBe("inline-size");
+});
+
+it("turns on the gutter utility when there is an add-comment handler", () => {
+  const view = render(
+    <ReviewFileDiff
+      fileDiff={fileDiff}
+      annotations={[]}
+      renderAnnotation={() => null}
+      onAddComment={() => {}}
+      view="split"
+      theme={{ name: "github", mode: "light" }}
+    />,
+  );
+
+  expect(view.getByTestId("diff").dataset.gutterUtility).toBe("true");
+  expect(view.getByTestId("diff").dataset.hasGutterClick).toBe("true");
+});
+
+it("turns off the gutter utility when there is no add-comment handler", () => {
+  const view = render(
+    <ReviewFileDiff
+      fileDiff={fileDiff}
+      annotations={[]}
+      renderAnnotation={() => null}
+      view="split"
+      theme={{ name: "github", mode: "light" }}
+    />,
+  );
+
+  expect(view.getByTestId("diff").dataset.gutterUtility).toBe("false");
+  expect(view.getByTestId("diff").dataset.hasGutterClick).toBe("false");
 });

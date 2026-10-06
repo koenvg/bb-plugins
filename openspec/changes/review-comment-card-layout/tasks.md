@@ -2,9 +2,9 @@
 
 ## 1. Shared diff component
 
-- [ ] 1.1 In `review-ui/review-file-diff.tsx`, wrap each `renderAnnotation` result in a `div` with `style={{ contain: "inline-size" }}`. Add a test to `review-ui/review-file-diff.test.tsx` (extend the `FileDiff` mock to call `renderAnnotation`) that checks the annotation is inside an element with `contain: inline-size`.
-- [ ] 1.2 Make `onAddComment` optional. When it is absent, pass `enableGutterUtility: false` and no `onGutterUtilityClick`. Add a test that checks the gutter is off with no handler and on with a handler.
-- [ ] 1.3 Run `npm test` and `npm run typecheck` in `bb-plugin-changes`, and verify both pass with no Changes tab test edits.
+- [x] 1.1 In `review-ui/review-file-diff.tsx`, wrap each `renderAnnotation` result in a `div` with `style={{ contain: "inline-size" }}`. Add a test to `review-ui/review-file-diff.test.tsx` (extend the `FileDiff` mock to call `renderAnnotation`) that checks the annotation is inside an element with `contain: inline-size`.
+- [x] 1.2 Make `onAddComment` optional. When it is absent, pass `enableGutterUtility: false` and no `onGutterUtilityClick`. Add a test that checks the gutter is off with no handler and on with a handler.
+- [x] 1.3 Run `npm test` and `npm run typecheck` in `bb-plugin-changes`, and verify both pass with no Changes tab test edits.
 
 ## 2. github-insight wiring
 
