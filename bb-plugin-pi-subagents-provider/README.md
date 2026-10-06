@@ -16,9 +16,9 @@ npm run typecheck
 npm run build
 ```
 
-`npm test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. `npm run build` uses the pinned published `bb-app` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. The public provider-bridge SDK and Zod stay available with `npm ci --omit=dev`.
+`npm test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `npm run build` uses the pinned published `bb-app@0.45.0` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.15, which stays available with `npm ci --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0450).
 
-Also run the read-only `bb plugin types . --check` and retain its actual result and exact output. The [operator-approved provider-only exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) defines when replacement evidence permits the next verification step. It is not installation or paid-test approval. Keep the required runtime SDK; do not use the rewriting command.
+Also run the read-only `bb plugin types . --check` and retain its actual exit code and complete output. The normal current-host gate must pass before building. The historical BB 0.44.0 / SDK 0.5.29 exception does not apply. Do not use the rewriting command. Local checks do not authorize installation or paid tests.
 
 ## Install after approval
 

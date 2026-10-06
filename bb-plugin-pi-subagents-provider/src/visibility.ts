@@ -4,7 +4,7 @@ import {
   getRecordProperty,
   getStringProperty,
   isRecord,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import type {
   JsonRpcMessage,
   ProviderRawEventDescription,

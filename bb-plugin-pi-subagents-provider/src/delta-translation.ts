@@ -20,7 +20,7 @@ import {
   type ProviderRawEvent,
   type ThreadDelta,
   type ThreadEventTokenUsageBreakdown,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { toCanonicalPiModelId } from "./model-list.js";
 import { piVisibilityMetadata } from "./visibility.js";
 

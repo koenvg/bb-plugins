@@ -6,7 +6,7 @@ import {
   experimental_recordProviderChildIo,
   sanitizeInheritedChildProcessEnv,
   withoutBridgeRuntimeEnv,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 
 export const PI_BRIDGE_COMMAND_ENV = "BB_PI_BRIDGE_COMMAND";
 export const PI_BRIDGE_ARGS_ENV = "BB_PI_BRIDGE_ARGS";
