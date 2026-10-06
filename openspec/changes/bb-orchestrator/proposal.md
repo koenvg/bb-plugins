@@ -1,5 +1,12 @@
 # Proposal
 
+## Superseded
+
+Superseded by [remove-bb-orchestrator](../remove-bb-orchestrator/proposal.md).
+The operator requested complete removal. The material below records the
+previous release only. Do not implement or synchronize its positive capability
+deltas. Any unfinished work is withdrawn, not completed.
+
 ## Approved first release
 
 The operator approved the manual-first reduction in BBP-33. It supersedes the original automated coordination acceptance for this release.

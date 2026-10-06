@@ -8,6 +8,11 @@ const app = await loadPluginApp(() => import("./app"));
 
 afterEach(cleanup);
 
+it("does not register the removed Orchestrator approval renderer", () => {
+  expect(app.pendingInteractions.map(({ id }) => id)).not.toContain("orchestrator-run");
+  expect(app.navPanels.map(({ id }) => id)).toContain("tasks");
+  expect(app.threadPanelActions.map(({ id }) => id)).toContain("task");
+});
 it("registers inline Tasks navigation without a fixed Navigation pane", () => {
   expect(app.navPanels[0]?.fixedTabs?.map(({ id }) => id) ?? []).toEqual(["ticket"]);
   expect(app.navPanels[0]?.experimental_sidebarAccessory).toBeTypeOf("function");

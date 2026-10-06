@@ -29,7 +29,7 @@ Relevant BB commits include `c51f38c`, unified composer API, `7e13928`, provider
 
 ## Remaining limits
 
-- Tasks orchestration activation and native-origin report issuance still reject BB 0.45. Their exact Pi/BB 0.44 safety allowlist requires new operator-approved live evidence, not a blind version-range change. Follow-up [BBP-140](bbtask://BBP-140) records that work. Ordinary Tasks tracking, presets and worker delegation are separate.
+- At the time of this compatibility check, Tasks Orchestrator activation and native-origin reporting rejected BB 0.45. The later [Orchestrator removal](openspec/changes/remove-bb-orchestrator/proposal.md) withdraws those features instead of extending their allowlist. [BBP-140](bbtask://BBP-140) remains a historical follow-up record, not an active feature requirement. Ordinary Tasks tracking, presets and worker delegation remain separate.
 - The installed `pi-subagents-provider` rejects BB 0.45 through its manifest. Its source is outside this repository and was not changed.
 - Compose Chat's legacy browser-matrix CLI is already tracked in [BBP-137](bbtask://BBP-137). It was not changed. The checks above use the installed Browser Use Python helpers directly.
 - No plugin installation source, enabled state, theme, existing task content, provider setting or running thread was changed. BBP-140 is the only new task record. Several installed plugins use recovery or deployment directories rather than this repository. Deploy from the intended durable source after review; do not replace those copies without checking their separate changes.
