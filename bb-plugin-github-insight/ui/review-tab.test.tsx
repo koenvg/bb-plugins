@@ -25,14 +25,25 @@ import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
     fileDiff,
+    options,
     lineAnnotations = [],
     renderAnnotation,
+    renderHeaderMetadata,
   }: {
     fileDiff: FileDiffMetadata;
+    options?: { diffStyle?: string; enableGutterUtility?: boolean };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
+    renderHeaderMetadata?: () => ReactNode;
   }) => (
-    <div data-testid="file-diff" data-path={fileDiff.name} data-type={fileDiff.type}>
+    <div
+      data-testid="file-diff"
+      data-path={fileDiff.name}
+      data-type={fileDiff.type}
+      data-diff-style={options?.diffStyle}
+      data-gutter-utility={String(options?.enableGutterUtility ?? false)}
+    >
+      <div data-testid="file-diff-header">{renderHeaderMetadata?.()}</div>
       {lineAnnotations.map((annotation, index) => (
         <div
           key={index}
@@ -271,6 +282,27 @@ describe("Review tab threads", () => {
       },
     };
   }
+
+  it("shows each file diff split, with no add-comment gutter", async () => {
+    const slot = renderTab(threaded);
+
+    const diffs = await slot.findAllByTestId("file-diff");
+    for (const diff of diffs) {
+      expect(diff.dataset).toMatchObject({ diffStyle: "split", gutterUtility: "false" });
+    }
+  });
+
+  it("shows the thread count in the file header", async () => {
+    const slot = renderTab(threaded);
+
+    const diff = (await slot.findAllByTestId("file-diff")).find((candidate) =>
+      within(candidate)
+        .queryAllByTestId("line-annotation")
+        .some((annotation) => annotation.textContent?.includes(OPEN_THREAD)),
+    )!;
+    const threadCount = within(diff).getAllByTestId("line-annotation").length;
+    expect(within(diff).getByTestId("file-diff-header").textContent).toBe(String(threadCount));
+  });
 
   it("shows a thread below its line on the new side of its file", async () => {
     const slot = renderTab(threaded);

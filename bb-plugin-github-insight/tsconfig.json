@@ -8,7 +8,13 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "@pierre/diffs": ["./node_modules/@pierre/diffs"],
+      "@pierre/diffs/react": ["./node_modules/@pierre/diffs/dist/react/index.d.ts"],
+      "vitest": ["./node_modules/vitest"],
+      "@testing-library/react": ["./node_modules/@testing-library/react"]
     },
     "noEmit": true,
     "skipLibCheck": false,
@@ -26,6 +32,7 @@
     "ui",
     "components",
     "lib",
-    "test"
+    "test",
+    "../review-ui"
   ]
 }
