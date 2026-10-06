@@ -756,6 +756,57 @@ describe("PresetDialog environment section", () => {
   );
 });
 
+describe("Manage labels", () => {
+  it.each(["button", "Enter"])(
+    "keeps the name and color after a rejected create and resets them after retry via %s",
+    async (submitWith) => {
+      const createCalls: Array<Record<string, unknown>> = [];
+      const slot = renderSlot(
+        app.navPanels[0]!,
+        { subPath: "manage" },
+        {
+          rpc: {
+            listProjects: () => ({ projects: [project] }),
+            listFolders: () => ({ folders: [] }),
+            listPresets: () => ({ presets: [] }),
+            sidebarSummary: () => ({ projects: [] }),
+            listTasks: () => ({ tasks: [] }),
+            listLabels: () => ({ labels: [] }),
+            createLabel: async (raw: unknown) => {
+              const input = rpcInput(raw);
+              createCalls.push(input);
+              if (createCalls.length === 1) throw new Error("Label creation unavailable");
+              return { label: { id: "label-new", ...input } };
+            },
+          },
+        },
+      );
+      const name = await slot.findByPlaceholderText("Label name");
+      fireEvent.change(name, { target: { value: "  Release  " } });
+      fireEvent.click(slot.getByRole("radio", { name: "Green" }));
+      const submit = () => {
+        if (submitWith === "Enter") fireEvent.keyDown(name, { key: "Enter" });
+        else fireEvent.click(slot.getByRole("button", { name: "Add label" }));
+      };
+
+      submit();
+      expect((await slot.findByRole("alert")).textContent).toBe("Label creation unavailable");
+      expect(name).toHaveProperty("value", "  Release  ");
+      expect(slot.getByRole("radio", { name: "Green" }).getAttribute("aria-checked")).toBe("true");
+      expect(slot.getByRole("button", { name: "Add label" })).toHaveProperty("disabled", false);
+
+      submit();
+      await waitFor(() => expect(name).toHaveProperty("value", ""));
+      expect(slot.queryByRole("alert")).toBeNull();
+      expect(slot.getByRole("radio", { name: "Indigo" }).getAttribute("aria-checked")).toBe("true");
+      expect(createCalls).toEqual([
+        { projectId: PROJECT_ID, name: "Release", color: "mediumseagreen" },
+        { projectId: PROJECT_ID, name: "Release", color: "mediumseagreen" },
+      ]);
+    },
+  );
+});
+
 describe("Manage folders", () => {
   const parentFolder = {
     id: "01HZZZZZZZZZZZZZZZZZZZZZF1",
@@ -789,6 +840,45 @@ describe("Manage folders", () => {
       },
     );
   }
+
+  it.each(["button", "Enter"])(
+    "keeps the rename editor and draft after a rejected save and closes it after retry via %s",
+    async (submitWith) => {
+      const renameCalls: Array<Record<string, unknown>> = [];
+      const slot = renderFolders({
+        renameFolder: async (raw: unknown) => {
+          const input = rpcInput(raw);
+          renameCalls.push(input);
+          if (renameCalls.length === 1) throw new Error("Folder rename unavailable");
+          return { folder: { ...parentFolder, name: input.name } };
+        },
+      });
+      fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
+      fireEvent.click(await slot.findByRole("button", { name: "Rename folder bb" }));
+      const panel = within(slot.getByRole("tabpanel"));
+      fireEvent.change(panel.getByRole("textbox"), { target: { value: "  Planning  " } });
+      const submit = () => {
+        if (submitWith === "Enter") fireEvent.keyDown(panel.getByRole("textbox"), { key: "Enter" });
+        else fireEvent.click(panel.getByRole("button", { name: "Save" }));
+      };
+
+      submit();
+      expect((await panel.findByRole("alert")).textContent).toBe("Folder rename unavailable");
+      expect(panel.getByRole("textbox")).toHaveProperty("value", "  Planning  ");
+      expect(panel.getByRole("button", { name: "Save" })).toHaveProperty("disabled", false);
+      expect(panel.getByRole("button", { name: "Cancel" })).toBeDefined();
+
+      submit();
+      await waitFor(() => expect(panel.queryByRole("textbox")).toBeNull());
+      expect(panel.queryByRole("button", { name: "Save" })).toBeNull();
+      expect(panel.queryByRole("alert")).toBeNull();
+      expect(panel.getByRole("button", { name: "Rename folder bb" })).toBeDefined();
+      expect(renameCalls).toEqual([
+        { folderId: parentFolder.id, name: "Planning" },
+        { folderId: parentFolder.id, name: "Planning" },
+      ]);
+    },
+  );
 
   it("deletes a folder after naming what the delete unfiles", async () => {
     const deleteCalls: Array<Record<string, unknown>> = [];
