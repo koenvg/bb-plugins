@@ -9,9 +9,9 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Changes          | [`bb-plugin-changes`](bb-plugin-changes)                 |
 | Code Cleanup     | [`bb-plugin-code-cleanup`](bb-plugin-code-cleanup)       |
 | Codex Inspired   | [`bb-plugin-codex-inspired`](bb-plugin-codex-inspired)   |
+| Codex Quota      | [`bb-plugin-codex-quota`](bb-plugin-codex-quota)         |
 | Compose Chat     | [`bb-plugin-compose-chat`](bb-plugin-compose-chat)       |
 | Threads with PRs | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)   |
-| Task Board       | [`bb-task-board`](bb-task-board)                         |
 | GitHub Insight   | [`bb-plugin-github-insight`](bb-plugin-github-insight)   |
 | Tasks Plus       | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)           |
 | Markdown Reader  | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader) |
@@ -33,7 +33,9 @@ bb theme set plugin:codex-inspired:codex-inspired
 
 Installation alone does not change your active theme. See its [README](bb-plugin-codex-inspired/README.md) for local development, compatibility, and safe source-path migration.
 
-Tasks Plus replaces BB's bundled Tasks plugin and uses `bb tasks`; Task Board is a separate plugin with its own database and `bb task-board` command. Don't install both unless you intend to use both. Code Cleanup's default guidance refers to Task Board.
+Tasks Plus replaces BB's bundled Tasks plugin and keeps the `bb tasks` command. Enable only one of these two plugins at a time. Follow the [replacement and data import steps](bb-plugin-tasks-plus/README.md#replace-the-bundled-plugin-with-this-fork) before switching.
+
+Code Cleanup's [default guidance](bb-plugin-code-cleanup/guidance.ts) uses `bb tasks`. It requires one tracker whose `linkedBbProjectId` matches the current BB project. Use the tracker prefix or ID for task commands, never the BB project ID. If the CLI is unavailable or the tracker is missing or ambiguous, report the problem and ask for a linked tracker or the CLI. Do not file cleanup in another tracker. The guidance searches all open-task pages, reuses matches, and records follow-ups without starting cleanup work. Saved custom prompts replace this default.
 
 ## Formatting and linting
 
