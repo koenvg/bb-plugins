@@ -76,7 +76,7 @@ export function createIdentityHistoryCall(
       signal.throwIfAborted();
       if (!result.success) return preparationUnavailable("unsupported");
       if (result.data.state === "unavailable") return preparationUnavailable(result.data.reason);
-      const { attribution, progress } = result.data;
+      const { attribution, progress, ingestionPending } = result.data;
       if (batch.total !== null && attribution.discovery === "unknown") {
         if (batch.offset > 0) discovery.resetDelivery(batch);
         return preparationUnavailable("identity-unavailable");
@@ -87,7 +87,8 @@ export function createIdentityHistoryCall(
           batch.total === null ||
           batch.offset + batch.rows.length < batch.total ||
           attribution.discovery !== "complete" ||
-          attribution.backlog
+          attribution.backlog ||
+          ingestionPending
             ? "pending"
             : "settled",
         progress: discovery.progress(batch) + ":" + progress,

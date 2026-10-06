@@ -90,7 +90,8 @@ describe("BB Codex quota slots", () => {
     const ids = setTimer.mock.results
       .filter((_, index) => setTimer.mock.calls[index]?.[1] === 1000)
       .map(({ value }) => value);
-    expect(ids).toHaveLength(1);
+    // One shared account clock plus the three graph mounts, including the closed first page.
+    expect(ids).toHaveLength(4);
     returned.lifecycle.unmount();
     split.lifecycle.unmount();
     badge.lifecycle.unmount();

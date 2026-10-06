@@ -158,7 +158,7 @@ function singleton(db: HistoryDatabase, table: string) {
   );
 }
 /** Complete version-specific ownership layouts. Optional additive groups must be complete too. */
-export function supportedHistoryLayout(db: HistoryDatabase, version: number) {
+function coreHistoryLayout(db: HistoryDatabase, version: number) {
   if (!matches(db, base) || !singleton(db, "history_counters")) return false;
   if (version === 1 && present(db, retention)) return false;
   if (version >= 2) {
@@ -193,4 +193,25 @@ export function supportedHistoryLayout(db: HistoryDatabase, version: number) {
     return false;
   if ((version >= 4 || present(db, identity)) && !singleton(db, "identity_receipt")) return false;
   return true;
+}
+
+const uncertainty: Layout = { identity_uncertain: ["thread_id", "provider_identity"] };
+
+export function supportedHistoryLayout(db: HistoryDatabase, version: number) {
+  return (
+    coreHistoryLayout(db, version) &&
+    (!(version >= 4 || present(db, identity)) || matches(db, uncertainty))
+  );
+}
+
+// Legacy compatibility is reserved for the explicit offline upgrader, not normal reads.
+/** Only the known pre-uncertainty schema-4 layout is eligible for an explicit upgrade. */
+export function legacyIdentityUpgradeLayout(db: HistoryDatabase, version: number) {
+  return (
+    version === 4 &&
+    coreHistoryLayout(db, version) &&
+    !db
+      .prepare("SELECT name FROM sqlite_master WHERE name IN (?,?) LIMIT 1")
+      .get("identity_uncertain", "identity_uncertain_provider")
+  );
 }

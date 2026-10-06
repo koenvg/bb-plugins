@@ -115,7 +115,6 @@ function QuotaPage() {
         selection={state.selection}
         selectionPending={state.selectionPending}
         selectionRevision={state.selectionRevision}
-        now={state.now}
       />
     </QuotaDashboard>
   );

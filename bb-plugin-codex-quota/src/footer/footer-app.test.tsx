@@ -166,7 +166,8 @@ describe("Codex quota footer integration", () => {
     expect(page.getByText("72% remaining")).toBeTruthy();
     const clock = vi.spyOn(Date, "now").mockReturnValue(initial + 300_000);
     const ownedTimers = timers.mock.results.filter((_, i) => timers.mock.calls[i]?.[1] === 1000);
-    expect(ownedTimers).toHaveLength(1);
+    // The graph has its own age clock. Account reads and the footer still have one shared owner.
+    expect(ownedTimers).toHaveLength(2);
     const tick = timers.mock.calls.find(([, delay]) => delay === 1000)![0] as () => void;
     act(tick);
     expect(badge()).toBe("Stale");

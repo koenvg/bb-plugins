@@ -40,6 +40,7 @@ async function readHistoryHeader(
 export async function inspectHistoryStorage(
   factory: HistoryDatabaseFactory,
   path: string,
+  layout: (db: HistoryDatabase, version: number) => boolean = supportedHistoryLayout,
 ): Promise<"compatible" | "incompatible" | "unavailable"> {
   const header = await readHistoryHeader(path);
   if (header !== null && !supportedHistoryVersion(header.version)) return "incompatible";
@@ -62,9 +63,7 @@ export async function inspectHistoryStorage(
   try {
     const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
       .user_version;
-    return supportedHistoryVersion(version) && supportedHistoryLayout(db, version)
-      ? "compatible"
-      : "incompatible";
+    return supportedHistoryVersion(version) && layout(db, version) ? "compatible" : "incompatible";
   } finally {
     db.close();
   }

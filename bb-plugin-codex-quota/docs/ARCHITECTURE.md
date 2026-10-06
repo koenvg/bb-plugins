@@ -38,9 +38,11 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 
 ## History
 
-`src/history/history-host.ts` owns one database-operation queue and the import cancellation epochs. Its interface is `read`, `report`, `control`, `controlImport`, and `dispose`.
+`src/history/history-host.ts` owns one database-operation queue and the import cancellation epochs. Its interface is `read`, `report`, `prepare`, `control`, `controlImport`, and `dispose`.
 
 - `report` is explicitly read-only. It returns a calendar report directly, not a fake readiness result containing a calendar field.
+- `prepare` loads bounded existing collector logs, accepts identity evidence and reconciles identity. Ingestion and identity backlog both prevent settlement. It does not call mutable readiness or change collector controls, assets, imports, retention, or recovery.
+- `src/history/storage/retained-history.ts` checks existing storage and control before report or preparation work. It closes each connection only after its synchronous or asynchronous callback finishes.
 - `src/history/history-maintenance.ts` owns mutable readiness, collector control, reconciliation, retention, identity maintenance, and recovery.
 - Import keeps its existing explicit command protocol and storage implementation.
 - Canceling a request can release its caller without releasing the database queue. The next operation cannot enter storage until the previous operation actually settles.
@@ -55,6 +57,10 @@ The main seams are server RPC, host RPC, and the history module's interface. Tes
 `src/selection/selected-host.test.ts` runs the same public RPC guard matrix for quota, activity, readiness, collector controls, calendar reports, and import status. It checks malformed input and output, foreign hosts, enrollment loss, and offline hosts before dispatch and before publication. It also holds each request stage while switching, clearing or restoring selection, or disposing the server. Callers must settle before the held adapter returns, with the feed's own unavailable result.
 
 New and changed request/lifetime tests are included in the TypeScript check. Other historical gaps remain tracked in BBP-93. The shared selected-host guard and its cross-feed checks cover BBP-94. Footer work remains separate in BBP-61.
+
+## Explicit storage upgrade
+
+Retained graph preparation rejects older schema-4 indexes without `identity_uncertain` before it writes data. A separate offline command can upgrade only that known layout, with a private backup and explicit apply. It does not change collector settings or ingest logs. See [STORAGE_UPGRADE.md](STORAGE_UPGRADE.md) for the procedure and limits.
 
 ## Local deployment
 

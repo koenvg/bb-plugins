@@ -61,6 +61,7 @@ it("settles a large catalog over bounded RPC batches without management, account
             ? { ...identityView(usage), discovery: "partial" }
             : identityView(usage),
         progress: "host",
+        ingestionPending: false,
       };
     },
   });
@@ -210,3 +211,56 @@ it("stops an unexpected metadata failure without dispatching host or management 
     await harness.lifecycle.dispose();
   }
 });
+
+it.each([
+  [true, "pending"],
+  [false, "settled"],
+  [undefined, "unavailable"],
+  ["false", "unavailable"],
+] as const)(
+  "includes ingestion backlog in settlement and rejects incompatible status: %s",
+  async (ingestionPending, expected) => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "codex-quota",
+      sdk: {
+        hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
+        environments: { list: async () => [] },
+        threads: { list: async () => [], events: { list: async () => [] } },
+      },
+      experimental_callHostRpc: async () => ({
+        state: "available",
+        attribution: {
+          discovery: "complete",
+          backlog: false,
+          grades: [],
+          threads: [],
+          truncated: false,
+        },
+        progress: "same-host",
+        ...(ingestionPending === undefined ? {} : { ingestionPending }),
+      }),
+    });
+    try {
+      plugin(bb);
+      const selection = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
+        generation: number;
+      };
+      let result: import("./report-preparation-contract.js").Preparation | undefined;
+      for (let batch = 0; batch < 10; batch++) {
+        result = (await harness.behavior.callRpc("reportPreparation", {
+          hostId: "host_a",
+          generation: selection.generation,
+          refresh: batch === 0,
+        })) as import("./report-preparation-contract.js").Preparation;
+        if (result.state !== "pending") break;
+      }
+      expect(result?.state).toBe(expected);
+      if (expected === "unavailable") expect(result).toMatchObject({ reason: "unsupported" });
+      expect(harness.experimental_hostRpcCalls.every((c) => c.method === "reportPreparation")).toBe(
+        true,
+      );
+    } finally {
+      await harness.lifecycle.dispose();
+    }
+  },
+);

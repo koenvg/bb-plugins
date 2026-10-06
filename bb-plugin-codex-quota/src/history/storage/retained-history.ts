@@ -32,7 +32,7 @@ export async function withRetainedHistory<T>(
   context: { signal: AbortSignal; dataDir: string },
   deps: { storage?: () => Promise<HistoryDatabaseFactory | null> },
   readOnly: boolean,
-  work: (db: HistoryDatabase) => T,
+  work: (db: HistoryDatabase) => T | Promise<T>,
 ): Promise<T> {
   const { signal, dataDir } = context;
   signal.throwIfAborted();
@@ -62,14 +62,14 @@ export async function withRetainedHistory<T>(
       throw new RetainedHistoryError("storage-incompatible");
     await readHistoryControl(checked, directory);
     signal.throwIfAborted();
-    if (readOnly) return work(checked);
+    if (readOnly) return await work(checked);
   } finally {
     checked.close();
   }
   signal.throwIfAborted();
   const writable = factory(path);
   try {
-    return work(writable);
+    return await work(writable);
   } finally {
     writable.close();
   }

@@ -13,6 +13,7 @@ import { dateTick } from "./calendar-chart-data.js";
 import { CalendarValues, reportButton, reportControl, type TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
 import { useReportPreparation } from "./report-preparation.js";
+import { usePageClock } from "./page-clock.js";
 import type { PreparationRequest } from "../report-preparation-contract.js";
 type Props = {
   selection: { hostId: string | null; generation: number };
@@ -51,13 +52,7 @@ export function CalendarReportPanel({
   read,
   prepare,
 }: Props) {
-  const preparation = useReportPreparation(
-    selection,
-    selectionPending,
-    selectionRevision,
-    now,
-    prepare,
-  );
+  const preparation = useReportPreparation(selection, selectionPending, selectionRevision, prepare);
   const [timezone] = useState(viewerTimezone),
     [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
   const [metric, setMetric] = useState<TokenMetric>("tokens"),
@@ -263,7 +258,8 @@ export function CalendarReportPanel({
     </section>
   );
 }
-export function CalendarReportSection(props: Omit<Props, "read">) {
+export function CalendarReportSection(props: Omit<Props, "read" | "prepare" | "now">) {
+  const now = usePageClock();
   const rpc = useRpc<typeof rpcContract>();
   const rpcRef = useRef(rpc);
   rpcRef.current = rpc;
@@ -273,5 +269,5 @@ export function CalendarReportSection(props: Omit<Props, "read">) {
   const prepare = useRef((input: PreparationRequest) =>
     rpcRef.current.call("reportPreparation", input),
   );
-  return <CalendarReportPanel {...props} read={read.current} prepare={prepare.current} />;
+  return <CalendarReportPanel {...props} now={now} read={read.current} prepare={prepare.current} />;
 }

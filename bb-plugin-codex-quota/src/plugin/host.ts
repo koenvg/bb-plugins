@@ -10,6 +10,7 @@ import { importUnavailable } from "../history/import/import-contract.js";
 // Packaged checks exercise the real SQLite adapter and exact collector asset.
 export { openHistoryDatabase } from "../history/storage/history-storage.js";
 export { packagedCollectorAsset } from "../history/collection/collector-compatibility.js";
+export { upgradeRetainedIdentityStorage } from "../history/storage/identity-storage-upgrade.js";
 
 type Dependencies = AccountDependencies & { history?: HostHistory };
 

@@ -39,6 +39,7 @@ describe("public SDK and quota-only boundary", () => {
       ["scripts/check-prior-schema3.mjs", "pathToFileURL(path"], // Exact hash-verified pre-integration artifact.
       ["scripts/check-storage-integration.mjs", "pathToFileURL(artifact"], // Owned copy of the actual packaged host.
       ["scripts/check-bundled-calendar.mjs", "pathToFileURL(artifact"], // Owned copies, persistent reopen and import-only packaged report.
+      ["scripts/check-bundled-live-refresh.mjs", "pathToFileURL(artifact"], // Owned copied host artifact and temporary collector logs. No live source.
       ["scripts/check-bundled-money.mjs", "pathToFileURL(artifact"], // Owned copied host artifact, real SQLite and original import prices.
       [
         "src/history/import/import-source.test.ts",
