@@ -8,8 +8,9 @@ const probeState = vi.hoisted(() => ({
   executablePath: "",
 }));
 
-vi.mock("@get-bb/plugin-sdk/provider-bridge", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@get-bb/plugin-sdk/provider-bridge")>();
+vi.mock("@get-bb/plugin-sdk-runtime/provider-bridge", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@get-bb/plugin-sdk-runtime/provider-bridge")>();
   return {
     ...original,
     experimental_commandOutput: vi.fn(async () => probeState.bunBin),

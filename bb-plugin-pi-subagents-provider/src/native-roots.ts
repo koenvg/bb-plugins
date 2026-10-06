@@ -4,7 +4,7 @@ import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
 import {
   experimental_filterResolvedNativeRoots,
   type ExperimentalNativeRootsResolveAnswer,
-} from "@get-bb/plugin-sdk/host";
+} from "@get-bb/plugin-sdk-runtime/host";
 import { z } from "zod";
 
 export const PI_NATIVE_ROOTS_DECLARATION: Pick<

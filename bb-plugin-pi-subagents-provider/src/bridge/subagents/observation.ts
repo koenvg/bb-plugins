@@ -1,7 +1,7 @@
 import {
   type DeltaBackgroundTaskShape,
   type ThreadDelta,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { isDeepStrictEqual } from "node:util";
 import { parseStatusReceipt, SNAPSHOT_PREFIX, boundedJson, type RunNode } from "./protocol.js";
 import { reconcileRunTrees, type RetainedRun } from "./run-reconciliation.js";

@@ -7,8 +7,8 @@
   "description": "An independent Pi provider fork for BB subagent integration.",
   "engines": {
     "node": ">=24.15.0 <25",
-    "bb": ">=0.44.0 <0.45.0",
-    "bbPluginSdk": ">=0.5.29 <0.6.0"
+    "bb": ">=0.45.0 <0.46.0",
+    "bbPluginSdk": ">=0.6.15 <0.7.0"
   },
   "bb": {
     "name": "Pi with subagents",
@@ -31,19 +31,20 @@
     "build": "bb plugin build ."
   },
   "dependencies": {
-    "@get-bb/plugin-sdk": "0.5.29",
+    "@get-bb/plugin-sdk-runtime": "npm:@get-bb/plugin-sdk@0.6.15",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "0.84.0",
     "@earendil-works/pi-coding-agent": "0.84.0",
+    "@get-bb/plugin-sdk": "0.6.15",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "bb-app": "0.44.0",
+    "bb-app": "0.45.0",
     "better-sqlite3": "12.10.0",
     "cron-parser": "5.5.0",
     "hono": "4.11.9",

@@ -12,6 +12,7 @@ describe("standalone packaging", () => {
       allow: [
         /^@earendil-works\/pi-(ai|coding-agent)(?:\/providers\/all)?$/,
         /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
+        /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge)$/,
         /^typebox$/,
         /^@testing-library\/react$/,
         /^vitest(?:\/config)?$/,
@@ -34,7 +35,11 @@ describe("standalone packaging", () => {
   });
 
   it("keeps the provider SDK available when development packages are omitted", () => {
-    expect(manifest.dependencies["@get-bb/plugin-sdk"]).toBe("0.5.29");
+    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.6.15");
+    expect(manifest.dependencies["@get-bb/plugin-sdk"]).toBeUndefined();
+    expect(manifest.dependencies["@get-bb/plugin-sdk-runtime"]).toBe(
+      "npm:@get-bb/plugin-sdk@0.6.15",
+    );
     expect(manifest.bb.server).toBe("./server.ts");
     expect(manifest.bb.host).toBe("./src/host.ts");
     expect(manifest.bb.app).toBe("./app.tsx");

@@ -3,7 +3,7 @@ import {
   type DynamicTool,
   type InstructionMode,
   type ReasoningLevel,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 
 type PiReasoningLevel = "off" | "low" | "medium" | "high" | "xhigh" | "max";
 

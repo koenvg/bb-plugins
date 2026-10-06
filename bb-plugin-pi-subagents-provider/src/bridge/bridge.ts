@@ -38,7 +38,7 @@ import {
   type InitializeResult,
   type ThreadDelta,
   type ThreadEventContextWindowUsage,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { createPiDeltaTranslator } from "../delta-translation.js";
 import {

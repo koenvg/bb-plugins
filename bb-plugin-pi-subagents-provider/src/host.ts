@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import {
   experimental_defineHostEntry,
   experimental_nativeRootsHostContract,
-} from "@get-bb/plugin-sdk/host";
+} from "@get-bb/plugin-sdk-runtime/host";
 import { resolvePiNativeRoots } from "./native-roots.js";
 
 export { experimental_providerBridge } from "./bridge/bridge.js";
