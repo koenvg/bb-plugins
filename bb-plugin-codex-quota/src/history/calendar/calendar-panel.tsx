@@ -15,7 +15,6 @@ import { QuotaSelect } from "../../quota/quota-select.js";
 type Props = {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
-  preparationPending?: boolean;
   selectionRevision?: number;
   now: number;
   read(input: HistoryRequest & { query: CalendarQuery }): Promise<unknown>;
@@ -44,7 +43,6 @@ const reasons = {
 export function CalendarReportPanel({
   selection,
   selectionPending = false,
-  preparationPending = false,
   selectionRevision = 0,
   now,
   read,
@@ -58,7 +56,7 @@ export function CalendarReportPanel({
       ? { startDate: start, timezone, group: "workspace", scope: { kind: "host" } }
       : null;
   const queryKey = query ? JSON.stringify(query) : "",
-    key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${preparationPending}:${queryKey}`,
+    key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`,
     requestKey = `${key}:${attempt}`;
   const latest = useRef(requestKey);
   latest.current = requestKey;
@@ -71,7 +69,7 @@ export function CalendarReportPanel({
     attempt: number;
   } | null>(null);
   useEffect(() => {
-    if (selectionPending || preparationPending || !selection.hostId || !query) return;
+    if (selectionPending || !selection.hostId || !query) return;
     const controller = new AbortController(),
       frozen = {
         hostId: selection.hostId,
@@ -100,22 +98,17 @@ export function CalendarReportPanel({
       .catch(() => accept(calendarUnavailable("unsupported")));
     return () => controller.abort();
   }, [requestKey]);
-  const current =
-    !selectionPending && !preparationPending && observation?.key === key ? observation : null;
+  const current = !selectionPending && observation?.key === key ? observation : null;
   const view = current?.view.state !== "unavailable" ? current?.view : null;
   const loading =
-    !!selection.hostId &&
-    !selectionPending &&
-    !preparationPending &&
-    !!query &&
-    (!current || current.attempt !== attempt);
+    !!selection.hostId && !selectionPending && !!query && (!current || current.attempt !== attempt);
   const stale = !!view && (current!.stale || now - Date.parse(view.observedAt) > 5 * 60000);
   const navigate = (next: string) => setStart(next);
   return (
     <section
       className="mt-6 min-w-0 text-sm"
       aria-label="Calendar token report"
-      aria-busy={loading || selectionPending || preparationPending}
+      aria-busy={loading || selectionPending}
     >
       <h2 className="sr-only">Recorded usage</h2>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -183,17 +176,15 @@ export function CalendarReportPanel({
           ? "Viewer timezone is unavailable."
           : selectionPending
             ? "Changing host."
-            : preparationPending
-              ? "Loading chart."
-              : !selection.hostId
-                ? reasons["no-selection"]
-                : loading
-                  ? "Loading chart…"
-                  : current?.view.state === "unavailable"
-                    ? reasons[current.view.reason]
-                    : stale
-                      ? "Chart is out of date."
-                      : ""}
+            : !selection.hostId
+              ? reasons["no-selection"]
+              : loading
+                ? "Loading chart…"
+                : current?.view.state === "unavailable"
+                  ? reasons[current.view.reason]
+                  : stale
+                    ? "Chart is out of date."
+                    : ""}
       </p>
       {stale && (
         <button
@@ -209,7 +200,7 @@ export function CalendarReportPanel({
         <button
           type="button"
           className={`${reportButton} mt-2`}
-          disabled={loading || selectionPending || preparationPending}
+          disabled={loading || selectionPending}
           onClick={() => {
             if (
               current.view.state === "unavailable" &&

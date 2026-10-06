@@ -70,7 +70,7 @@ function calendarPage(
     },
   };
 }
-it("navigates only the retained chart and prepares the index once without mounting management controls", async () => {
+it("navigates only the retained chart without mounting management controls", async () => {
   const f = calendarPage(({ query }) => calendarSnapshot(query));
   await f.q.findByRole("group", { name: "Daily recorded values" });
   expect(f.q.getByRole("button", { name: "Next 30 days" })).toHaveProperty("disabled", true);
@@ -90,7 +90,7 @@ it("navigates only the retained chart and prepares the index once without mounti
   ]);
   expect(
     f.page.inspection.rpcCalls.filter((call) => call.method === "historyReadiness"),
-  ).toHaveLength(1);
+  ).toHaveLength(0);
   expect(
     f.page.inspection.rpcCalls.some((call) =>
       /activity|historicalImport|collectorControl/.test(call.method),
@@ -226,36 +226,28 @@ it("does not draw monetary zero when no captured prices exist", async () => {
   ).toBe("Unavailable");
   f.stop();
 });
-it("waits for the page-open index attempt and rejects a late earlier-host preparation", async () => {
-  const prepared: ((value: unknown) => void)[] = [];
+it("loads the retained index without waiting for management readiness on either host", async () => {
   const f = calendarPage(
     ({ query }) => calendarSnapshot(query),
     undefined,
-    () => new Promise((resolve) => prepared.push(resolve)),
+    () => new Promise(() => {}),
   );
-  await waitFor(() => expect(prepared).toHaveLength(1));
-  expect(
-    f.page.inspection.rpcCalls.filter((call) => call.method === "calendarReport"),
-  ).toHaveLength(0);
+  await f.q.findByRole("group", { name: "Daily recorded values" });
   fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
     target: { value: "host_b" },
   });
-  await waitFor(() => expect(prepared).toHaveLength(2));
-  await act(async () => {
-    prepared[0]({ state: "unavailable" });
-  });
-  expect(
-    f.page.inspection.rpcCalls.filter((call) => call.method === "calendarReport"),
-  ).toHaveLength(0);
-  await act(async () => {
-    prepared[1]({ state: "unavailable" });
-  });
   await f.q.findByRole("group", { name: "Daily recorded values" });
+  expect(f.page.inspection.rpcCalls.filter((call) => call.method === "historyReadiness")).toEqual(
+    [],
+  );
   expect(
     f.page.inspection.rpcCalls
       .filter((call) => call.method === "calendarReport")
       .map((call) => call.input),
-  ).toMatchObject([{ hostId: "host_b", generation: 2 }]);
+  ).toMatchObject([
+    { hostId: "host_a", generation: 1 },
+    { hostId: "host_b", generation: 2 },
+  ]);
   f.stop();
 });
 it("retries an unavailable chart without refreshing allowance or maintaining history", async () => {

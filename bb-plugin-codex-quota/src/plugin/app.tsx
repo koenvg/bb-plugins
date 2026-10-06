@@ -87,35 +87,6 @@ function useHostOptions() {
   return hosts;
 }
 
-/** Preserve the page-open index update. Date and metric navigation remain read-only. */
-function useReportPreparation(
-  selection: { hostId: string | null; generation: number },
-  pending: boolean,
-  revision: number,
-) {
-  const rpc = useRpc<typeof rpcContract>(),
-    rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
-  const key = JSON.stringify([selection.hostId, selection.generation, revision, pending]);
-  const [preparedKey, setPreparedKey] = useState<string | null>(null);
-  useEffect(() => {
-    if (!selection.hostId || pending) return;
-    const controller = new AbortController(),
-      input = { ...selection, hostId: selection.hostId };
-    void Promise.resolve()
-      .then(() =>
-        controller.signal.aborted ? null : rpcRef.current.call("historyReadiness", input),
-      )
-      .catch(() => null)
-      .then(() => {
-        if (!controller.signal.aborted) setPreparedKey(key);
-      });
-    return () => controller.abort();
-  }, [key]);
-  // Settled preparation is not proof of complete collection; the report validates its own facts.
-  return !selection.hostId || (!pending && preparedKey === key);
-}
-
 function QuotaPage() {
   const { state, api } = useQuota();
   const hosts = useHostOptions();
@@ -125,11 +96,6 @@ function QuotaPage() {
     hostId && !selected
       ? [...hosts, { id: hostId, name: "Selected host", status: "unknown" as const }]
       : hosts;
-  const prepared = useReportPreparation(
-    state.selection,
-    state.selectionPending,
-    state.selectionRevision,
-  );
   return (
     <QuotaDashboard
       view={state.view}
@@ -148,7 +114,6 @@ function QuotaPage() {
       <CalendarReportSection
         selection={state.selection}
         selectionPending={state.selectionPending}
-        preparationPending={!prepared}
         selectionRevision={state.selectionRevision}
         now={state.now}
       />
@@ -160,6 +125,8 @@ function UsageSettings() {
   const { state, api } = useQuota();
   const hosts = useHostOptions();
   const rpc = useRpc<typeof rpcContract>();
+  const [managementOpen, setManagementOpen] = useState(false);
+  const managementRef = useRef<HTMLDetailsElement>(null);
   return (
     <section className="min-w-0" aria-label="Usage collection settings">
       <QuotaSummary
@@ -187,11 +154,29 @@ function UsageSettings() {
         selectionRevision={state.selectionRevision}
         read={(input) => rpc.call("activity", input)}
       />
-      <HistoryReadinessSection
-        selection={state.selection}
-        selectionPending={state.selectionPending}
-        selectionRevision={state.selectionRevision}
-      />
+      <details
+        ref={managementRef}
+        className="mt-4 min-w-0 text-sm"
+        onToggle={(event) => setManagementOpen(event.currentTarget.open)}
+      >
+        <summary
+          className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring"
+          onClick={() => {
+            // Native toggle is deferred. Retire this mount as soon as the summary closes it.
+            if (managementRef.current?.open) setManagementOpen(false);
+          }}
+        >
+          Collection and history management
+        </summary>
+        {managementOpen && (
+          <HistoryReadinessSection
+            isActive={() => managementRef.current?.open === true}
+            selection={state.selection}
+            selectionPending={state.selectionPending}
+            selectionRevision={state.selectionRevision}
+          />
+        )}
+      </details>
     </section>
   );
 }
