@@ -11,9 +11,7 @@ interface ResolvePiSessionFilePathArgs extends ResolvePiBridgeSessionDirArgs {
   threadId: string;
 }
 
-export function resolvePiBridgeSessionDir(
-  args: ResolvePiBridgeSessionDirArgs,
-): string {
+export function resolvePiBridgeSessionDir(args: ResolvePiBridgeSessionDirArgs): string {
   const configuredSessionDir = args.env[PI_BRIDGE_SESSION_DIR_ENV]?.trim();
   if (configuredSessionDir) {
     return resolve(configuredSessionDir);
@@ -22,9 +20,7 @@ export function resolvePiBridgeSessionDir(
   return join(homedir(), ".bb", "pi-subagents-bridge-sessions");
 }
 
-export function resolvePiSessionFilePath(
-  args: ResolvePiSessionFilePathArgs,
-): string {
+export function resolvePiSessionFilePath(args: ResolvePiSessionFilePathArgs): string {
   return join(
     resolvePiBridgeSessionDir({ env: args.env }),
     `${sanitizeSessionKey(args.threadId)}.jsonl`,

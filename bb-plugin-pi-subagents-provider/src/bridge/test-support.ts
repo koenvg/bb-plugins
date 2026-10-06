@@ -14,9 +14,7 @@ import { experimental_closeAllForTests, handleLine } from "./bridge.js";
 import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
 import { PI_BRIDGE_SESSION_DIR_ENV } from "./session-paths.js";
 
-export const fakePiPath = fileURLToPath(
-  new URL("./fake-pi-rpc.mjs", import.meta.url),
-);
+export const fakePiPath = fileURLToPath(new URL("./fake-pi-rpc.mjs", import.meta.url));
 
 export const FULL_PERMISSION_OPTIONS = {
   permissionMode: "full",
@@ -51,10 +49,7 @@ export interface FakePiBridgeHarness {
     method: string,
     params: BridgeJsonRpcObject,
   ): Promise<BridgeJsonRpcOutputMessage>;
-  startThread(
-    threadId: string,
-    extra?: BridgeJsonRpcObject,
-  ): Promise<BridgeJsonRpcOutputMessage>;
+  startThread(threadId: string, extra?: BridgeJsonRpcObject): Promise<BridgeJsonRpcOutputMessage>;
   deltasOf(threadId: string): Record<string, unknown>[];
   waitFor(predicate: () => boolean, what: string): Promise<void>;
   waitForDelta(

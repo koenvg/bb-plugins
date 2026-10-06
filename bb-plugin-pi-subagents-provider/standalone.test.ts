@@ -8,21 +8,28 @@ const manifest = JSON.parse(readFileSync(new URL("./package.json", import.meta.u
 
 describe("standalone packaging", () => {
   it("uses only public packages and package-local imports", () => {
-    const result = experimental_scanPublicSdkOnly(root, { allow: [
-      /^@earendil-works\/pi-(ai|coding-agent)(?:\/providers\/all)?$/,
-      /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
-      /^typebox$/,
-      /^@testing-library\/react$/,
-      /^vitest(?:\/config)?$/,
-      /^react(?:\/jsx-runtime)?$/,
-    ] });
+    const result = experimental_scanPublicSdkOnly(root, {
+      allow: [
+        /^@earendil-works\/pi-(ai|coding-agent)(?:\/providers\/all)?$/,
+        /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
+        /^typebox$/,
+        /^@testing-library\/react$/,
+        /^vitest(?:\/config)?$/,
+        /^react(?:\/jsx-runtime)?$/,
+      ],
+    });
     // The inherited scripted child loads only the extension path supplied by the bridge.
     // Keep that one computed fixture import visible; no production imports are exempt.
-    expect(result.violations.filter((violation) => !(
-      violation.file === "src/bridge/fake-pi-rpc.mjs" &&
-      violation.reason === "dynamic-specifier" &&
-      violation.specifier === "pathToFileURL(loadPath"
-    ))).toEqual([]);
+    expect(
+      result.violations.filter(
+        (violation) =>
+          !(
+            violation.file === "src/bridge/fake-pi-rpc.mjs" &&
+            violation.reason === "dynamic-specifier" &&
+            violation.specifier === "pathToFileURL(loadPath"
+          ),
+      ),
+    ).toEqual([]);
     expect(result.privateDependencies).toEqual([]);
   });
 

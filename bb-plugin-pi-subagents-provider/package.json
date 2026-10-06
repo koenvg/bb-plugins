@@ -13,13 +13,17 @@
   "bb": {
     "name": "Pi with subagents",
     "description": "A separate Pi provider with a read-only Subagents viewer. Installed lifecycle acceptance remains required.",
-    "branding": { "icon": "./icons/pi.svg" },
+    "branding": {
+      "icon": "./icons/pi.svg"
+    },
     "server": "./server.ts",
     "host": "./src/host.ts",
     "app": "./app.tsx",
     "skills": []
   },
-  "keywords": ["bb-plugin"],
+  "keywords": [
+    "bb-plugin"
+  ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit --allowImportingTsExtensions",

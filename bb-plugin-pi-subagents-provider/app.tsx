@@ -22,15 +22,8 @@ function parseRequest(payload: unknown): PiExtensionUiPayloadData | null {
   return wrapped.success ? wrapped.data : null;
 }
 
-function ExtensionUiInteraction({
-  interaction,
-  submit,
-  cancel,
-}: PluginPendingInteractionProps) {
-  const request = useMemo(
-    () => parseRequest(interaction.payload),
-    [interaction.payload],
-  );
+function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingInteractionProps) {
+  const request = useMemo(() => parseRequest(interaction.payload), [interaction.payload]);
   const { shortcuts, registerChoiceHandler } = useQuestionFormHost();
   const [text, setText] = useState(request?.prefill ?? "");
   const [selected, setSelected] = useState<string | null>(null);
@@ -51,12 +44,7 @@ function ExtensionUiInteraction({
     return (
       <div className="space-y-3 text-xs text-muted-foreground">
         <p>This request could not be displayed.</p>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => void cancel()}
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => void cancel()}>
           Cancel
         </Button>
       </div>
@@ -87,13 +75,8 @@ function ExtensionUiInteraction({
   };
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 text-xs text-muted-foreground"
-    >
-      {request.message ? (
-        <p className="text-sm text-foreground">{request.message}</p>
-      ) : null}
+    <form onSubmit={onSubmit} className="flex flex-col gap-3 text-xs text-muted-foreground">
+      {request.message ? <p className="text-sm text-foreground">{request.message}</p> : null}
       {request.method === "select" ? (
         <fieldset className="flex flex-col gap-1.5" disabled={busy}>
           {(request.options ?? []).map((option, index) => {
@@ -155,12 +138,7 @@ function ExtensionUiInteraction({
           >
             No
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={() => finish(true)}
-          >
+          <Button type="button" size="sm" disabled={busy} onClick={() => finish(true)}>
             Yes
           </Button>
         </div>
@@ -179,9 +157,7 @@ function ExtensionUiInteraction({
           <Button
             type="submit"
             size="sm"
-            disabled={
-              busy || (request.method === "select" && selected === null)
-            }
+            disabled={busy || (request.method === "select" && selected === null)}
           >
             Submit
           </Button>
@@ -193,13 +169,18 @@ function ExtensionUiInteraction({
 function SubagentSupport() {
   return (
     <div className="space-y-2 text-sm text-muted-foreground">
-      <p>Open the Subagents tab in a Pi with subagents thread to read captured child progress and output.</p>
-      <p>Ordinary Pi work remains available when pi-subagents is absent or disabled. This fork does not load or enable that package.</p>
+      <p>
+        Open the Subagents tab in a Pi with subagents thread to read captured child progress and
+        output.
+      </p>
+      <p>
+        Ordinary Pi work remains available when pi-subagents is absent or disabled. This fork does
+        not load or enable that package.
+      </p>
       <p>Installed lifecycle and recovery acceptance remain required.</p>
     </div>
   );
 }
-
 
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({ id: "subagents", title: "Subagents", component: SubagentsPanel });

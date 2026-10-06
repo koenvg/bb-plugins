@@ -3,10 +3,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import {
-  getBuiltinModels,
-  getBuiltinProviders,
-} from "@earendil-works/pi-ai/providers/all";
+import { getBuiltinModels, getBuiltinProviders } from "@earendil-works/pi-ai/providers/all";
 import {
   experimental_createDeltaAssembler as createDeltaAssembler,
   type DeltaAssembler,
@@ -39,9 +36,7 @@ const TURN_ID_PATTERN = /^pi-test-t\d+$/;
 const ITEM_ID_PATTERN = /^pi-test-i\d+$/;
 
 function loadFixture(name: string): AgentSessionEvent {
-  return JSON.parse(
-    readFileSync(resolve(FIXTURES, name), "utf8"),
-  ) as AgentSessionEvent;
+  return JSON.parse(readFileSync(resolve(FIXTURES, name), "utf8")) as AgentSessionEvent;
 }
 
 interface PiTestContext {
@@ -60,8 +55,7 @@ function createHarness(options?: {
   resolveModelContextWindow?: PiModelContextWindowResolver;
 }): PiEquivalenceHarness {
   const translator = createPiDeltaTranslator({
-    resolveModelContextWindow:
-      options?.resolveModelContextWindow ?? builtinCatalogResolver,
+    resolveModelContextWindow: options?.resolveModelContextWindow ?? builtinCatalogResolver,
   });
   const assembler = createDeltaAssembler({
     providerId: "pi-subagents",
@@ -104,10 +98,7 @@ function createPiCustomMessage(args: {
   };
 }
 
-function createPiAgentErrorEvent(
-  errorMessage: string,
-  willRetry: boolean,
-): AgentSessionEvent {
+function createPiAgentErrorEvent(errorMessage: string, willRetry: boolean): AgentSessionEvent {
   return {
     type: "agent_end",
     messages: [
@@ -179,9 +170,7 @@ function createTextDeltaEvent(): AgentSessionEvent {
 
 function agentMessageDeltaId(events: ThreadEvent[]): string | undefined {
   const delta = events.find(
-    (
-      event,
-    ): event is Extract<ThreadEvent, { type: "item/agentMessage/delta" }> =>
+    (event): event is Extract<ThreadEvent, { type: "item/agentMessage/delta" }> =>
       event.type === "item/agentMessage/delta",
   );
   return delta?.itemId;
@@ -202,9 +191,7 @@ describe("pi delta translation equivalence", () => {
   it("agent_start opens exactly one bb turn", () => {
     const harness = createHarness();
     const events = harness.translate(loadFixture("agent-start.json"));
-    expect(events).toEqual([
-      expect.objectContaining({ type: "turn/started", threadId: "" }),
-    ]);
+    expect(events).toEqual([expect.objectContaining({ type: "turn/started", threadId: "" })]);
     expect(harness.openTurnId()).toMatch(TURN_ID_PATTERN);
     expect(harness.translate(loadFixture("agent-start.json"))).toEqual([]);
   });
@@ -288,9 +275,7 @@ describe("pi delta translation equivalence", () => {
         status: "completed",
       }),
     );
-    expect(events.some((event) => event.type === "provider/unhandled")).toBe(
-      false,
-    );
+    expect(events.some((event) => event.type === "provider/unhandled")).toBe(false);
   });
 
   it("records a displayed Pi custom message as the input of the turn it triggered", () => {
@@ -302,12 +287,8 @@ describe("pi delta translation equivalence", () => {
         '<process_event kind="success" process_id="proc_551c">Process completed successfully</process_event>',
     });
 
-    const startEvents = harness.translate(
-      sdkMessage({ type: "message_start", message }),
-    );
-    const endEvents = harness.translate(
-      sdkMessage({ type: "message_end", message }),
-    );
+    const startEvents = harness.translate(sdkMessage({ type: "message_start", message }));
+    const endEvents = harness.translate(sdkMessage({ type: "message_end", message }));
 
     expect(startEvents).toEqual([
       {
@@ -363,16 +344,12 @@ describe("pi delta translation equivalence", () => {
     const harness = createHarness();
 
     const idleMessage = createPiCustomMessage({ content: "idle context note" });
-    expect(
-      harness.translate(
-        sdkMessage({ type: "message_start", message: idleMessage }),
-      ),
-    ).toEqual([]);
-    expect(
-      harness.translate(
-        sdkMessage({ type: "message_end", message: idleMessage }),
-      ),
-    ).toEqual([]);
+    expect(harness.translate(sdkMessage({ type: "message_start", message: idleMessage }))).toEqual(
+      [],
+    );
+    expect(harness.translate(sdkMessage({ type: "message_end", message: idleMessage }))).toEqual(
+      [],
+    );
     expect(harness.openTurnId()).toBe("");
 
     harness.translate(sdkMessage(loadFixture("agent-start.json")));
@@ -381,15 +358,11 @@ describe("pi delta translation equivalence", () => {
       display: false,
     });
     expect(
-      harness.translate(
-        sdkMessage({ type: "message_start", message: hiddenMessage }),
-      ),
+      harness.translate(sdkMessage({ type: "message_start", message: hiddenMessage })),
     ).toEqual([]);
-    expect(
-      harness.translate(
-        sdkMessage({ type: "message_end", message: hiddenMessage }),
-      ),
-    ).toEqual([]);
+    expect(harness.translate(sdkMessage({ type: "message_end", message: hiddenMessage }))).toEqual(
+      [],
+    );
   });
 
   it("agent_end surfaces Pi assistant stop errors as failed turns", () => {
@@ -400,9 +373,7 @@ describe("pi delta translation equivalence", () => {
     harness.translate(loadFixture("agent-start.json"));
     const turnId = harness.openTurnId();
 
-    const events = harness.translate(
-      createPiAgentErrorEvent(quotaMessage, false),
-    );
+    const events = harness.translate(createPiAgentErrorEvent(quotaMessage, false));
 
     expect(events).toEqual([
       {
@@ -432,9 +403,7 @@ describe("pi delta translation equivalence", () => {
     const retryEvents = harness.translate(
       createPiAgentErrorEvent("temporary provider failure", true),
     );
-    const completedEvents = harness.translate(
-      loadFixture("agent-end-with-message.json"),
-    );
+    const completedEvents = harness.translate(loadFixture("agent-end-with-message.json"));
 
     expect(retryEvents).toEqual([
       expect.objectContaining({
@@ -443,9 +412,7 @@ describe("pi delta translation equivalence", () => {
         willRetry: true,
       }),
     ]);
-    expect(retryEvents.some((event) => event.type === "turn/completed")).toBe(
-      false,
-    );
+    expect(retryEvents.some((event) => event.type === "turn/completed")).toBe(false);
     expect(completedEvents).toContainEqual(
       expect.objectContaining({
         type: "turn/completed",
@@ -541,15 +508,10 @@ describe("pi delta translation equivalence", () => {
         detail,
       }),
     );
-    expect(events.some((event) => event.type === "thread/compacted")).toBe(
-      false,
-    );
+    expect(events.some((event) => event.type === "thread/compacted")).toBe(false);
   });
 
-  function translateManualCompaction(args: {
-    aborted: boolean;
-    errorMessage?: string;
-  }) {
+  function translateManualCompaction(args: { aborted: boolean; errorMessage?: string }) {
     const harness = createHarness();
     const started = harness.translate({
       type: "compaction_start",
@@ -571,10 +533,7 @@ describe("pi delta translation equivalence", () => {
       aborted: false,
     });
 
-    expect(started.map((event) => event.type)).toEqual([
-      "turn/started",
-      "item/started",
-    ]);
+    expect(started.map((event) => event.type)).toEqual(["turn/started", "item/started"]);
     expect(completed).toEqual([
       expect.objectContaining({
         type: "thread/compacted",
@@ -591,33 +550,28 @@ describe("pi delta translation equivalence", () => {
   it.each([
     "Compaction failed: Nothing to compact (session too small)",
     "Compaction failed: Already compacted",
-  ])(
-    "manual compaction refusal %j completes the turn as a no-op",
-    (errorMessage) => {
-      const { completed, turnId } = translateManualCompaction({
-        aborted: false,
-        errorMessage,
-      });
+  ])("manual compaction refusal %j completes the turn as a no-op", (errorMessage) => {
+    const { completed, turnId } = translateManualCompaction({
+      aborted: false,
+      errorMessage,
+    });
 
-      expect(completed).toEqual([
-        expect.objectContaining({
-          type: "provider/warning",
-          scope: turnScope(turnId),
-          category: "compaction-skipped",
-          summary: "Context compaction skipped",
-          details: errorMessage,
-        }),
-        expect.objectContaining({
-          type: "turn/completed",
-          scope: turnScope(turnId),
-          status: "completed",
-        }),
-      ]);
-      expect(completed.some((event) => event.type === "thread/compacted")).toBe(
-        false,
-      );
-    },
-  );
+    expect(completed).toEqual([
+      expect.objectContaining({
+        type: "provider/warning",
+        scope: turnScope(turnId),
+        category: "compaction-skipped",
+        summary: "Context compaction skipped",
+        details: errorMessage,
+      }),
+      expect.objectContaining({
+        type: "turn/completed",
+        scope: turnScope(turnId),
+        status: "completed",
+      }),
+    ]);
+    expect(completed.some((event) => event.type === "thread/compacted")).toBe(false);
+  });
 
   it.each([
     {
@@ -638,19 +592,16 @@ describe("pi delta translation equivalence", () => {
       args: { aborted: true },
       expected: { status: "interrupted" },
     },
-  ])(
-    "$label manual compaction does not report success",
-    ({ args, expected }) => {
-      const { completed, turnId } = translateManualCompaction(args);
-      expect(completed).toEqual([
-        expect.objectContaining({
-          type: "turn/completed",
-          scope: turnScope(turnId),
-          ...expected,
-        }),
-      ]);
-    },
-  );
+  ])("$label manual compaction does not report success", ({ args, expected }) => {
+    const { completed, turnId } = translateManualCompaction(args);
+    expect(completed).toEqual([
+      expect.objectContaining({
+        type: "turn/completed",
+        scope: turnScope(turnId),
+        ...expected,
+      }),
+    ]);
+  });
 
   it("compaction_end without a known turn is unhandled", () => {
     const harness = createHarness();
@@ -705,9 +656,7 @@ describe("pi delta translation equivalence", () => {
 
     const deltaEvents = harness.translate(createTextDeltaEvent());
     const deltaItemId = agentMessageDeltaId(deltaEvents);
-    const completedEvents = harness.translate(
-      loadFixture("agent-end-with-message.json"),
-    );
+    const completedEvents = harness.translate(loadFixture("agent-end-with-message.json"));
 
     expect(deltaItemId).toMatch(ITEM_ID_PATTERN);
     expect(deltaEvents.map((event) => event.type)).toEqual([
@@ -742,22 +691,16 @@ describe("pi delta translation equivalence", () => {
     const postDelta = harness.translate(createTextDeltaEvent());
     const postItemId = agentMessageDeltaId(postDelta);
 
-    const endEvents = harness.translate(
-      loadFixture("agent-end-with-message.json"),
-    );
+    const endEvents = harness.translate(loadFixture("agent-end-with-message.json"));
     const completed = endEvents.find(
-      (event) =>
-        event.type === "item/completed" && event.item.type === "agentMessage",
+      (event) => event.type === "item/completed" && event.item.type === "agentMessage",
     );
 
     expect(preItemId).toMatch(ITEM_ID_PATTERN);
     expect(postItemId).toMatch(ITEM_ID_PATTERN);
     expect(preItemId).not.toBe(postItemId);
     expect(completed).toBeDefined();
-    if (
-      completed?.type === "item/completed" &&
-      completed.item.type === "agentMessage"
-    ) {
+    if (completed?.type === "item/completed" && completed.item.type === "agentMessage") {
       expect(completed.item.id).toBe(postItemId);
     }
   });
@@ -775,9 +718,7 @@ describe("pi delta translation equivalence", () => {
       },
     } as AgentSessionEvent);
     const reasoningDelta = deltaEvents.find(
-      (
-        event,
-      ): event is Extract<ThreadEvent, { type: "item/reasoning/textDelta" }> =>
+      (event): event is Extract<ThreadEvent, { type: "item/reasoning/textDelta" }> =>
         event.type === "item/reasoning/textDelta",
     );
 
@@ -830,9 +771,7 @@ describe("pi delta translation equivalence", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
 
-    const events = harness.translate(
-      loadFixture("tool-execution-start-bash.json"),
-    );
+    const events = harness.translate(loadFixture("tool-execution-start-bash.json"));
 
     expect(events).toEqual([
       expect.objectContaining({
@@ -844,8 +783,7 @@ describe("pi delta translation equivalence", () => {
         }),
       }),
     ]);
-    const startedId =
-      events[0]?.type === "item/started" ? events[0].item.id : "";
+    const startedId = events[0]?.type === "item/started" ? events[0].item.id : "";
     expect(harness.assembler.getProviderItemId(THREAD_ID, startedId)).toBe(
       "tc_01a2b3c4d5e6f7g8h9i0j1k2",
     );
@@ -878,10 +816,10 @@ describe("pi delta translation equivalence", () => {
   it("keeps the call's own cwd over the session's", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
-    const events = harness.translate(
-      loadFixture("tool-execution-start-bash.json"),
-      { threadId: THREAD_ID, cwd: "/work/tree" },
-    );
+    const events = harness.translate(loadFixture("tool-execution-start-bash.json"), {
+      threadId: THREAD_ID,
+      cwd: "/work/tree",
+    });
     expect(events[0]).toMatchObject({
       type: "item/started",
       item: { type: "commandExecution", cwd: "/Users/developer/project" },
@@ -913,16 +851,11 @@ describe("pi delta translation equivalence", () => {
       }),
     );
     expect(
-      closed.some(
-        (event) =>
-          event.type === "item/started" || event.type === "item/completed",
-      ),
+      closed.some((event) => event.type === "item/started" || event.type === "item/completed"),
     ).toBe(true);
     expect(JSON.stringify(closed)).not.toContain('"cwd":""');
     expect(
-      closed.every(
-        (event) => !("item" in event) || event.item.type !== "commandExecution",
-      ),
+      closed.every((event) => !("item" in event) || event.item.type !== "commandExecution"),
     ).toBe(true);
   });
 
@@ -946,8 +879,7 @@ describe("pi delta translation equivalence", () => {
     });
 
     const started = events.find(
-      (event) =>
-        event.type === "item/started" && event.item.type === "commandExecution",
+      (event) => event.type === "item/started" && event.item.type === "commandExecution",
     );
     if (started?.type !== "item/started") {
       throw new Error("expected a commandExecution item/started");
@@ -1191,15 +1123,10 @@ describe("pi delta translation equivalence", () => {
   it("tool_execution_end emits item/completed under the started item's id", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
-    const started = harness.translate(
-      loadFixture("tool-execution-start-bash.json"),
-    );
-    const startedId =
-      started[0]?.type === "item/started" ? started[0].item.id : "";
+    const started = harness.translate(loadFixture("tool-execution-start-bash.json"));
+    const startedId = started[0]?.type === "item/started" ? started[0].item.id : "";
 
-    const events = harness.translate(
-      loadFixture("tool-execution-end-bash.json"),
-    );
+    const events = harness.translate(loadFixture("tool-execution-end-bash.json"));
 
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -1293,8 +1220,7 @@ describe("pi delta translation equivalence", () => {
       toolName: "bash",
       args: { command: "printf 'FIRST\\nSECOND\\n'", cwd: "/repo" },
     } as AgentSessionEvent);
-    const startedId =
-      started[0]?.type === "item/started" ? started[0].item.id : "";
+    const startedId = started[0]?.type === "item/started" ? started[0].item.id : "";
 
     const firstEvents = harness.translate(
       createPiBashUpdateEvent({
@@ -1582,36 +1508,28 @@ describe("pi delta translation equivalence", () => {
     [{ cacheWrite: 0 }, { cacheWriteInputTokens: 0 }],
     [{ cacheRead: 31 }, { cacheReadInputTokens: 31 }],
     [{ cacheWrite: 9 }, { cacheWriteInputTokens: 9 }],
-  ])(
-    "preserves independently omitted Pi cache counts %j",
-    (counts, expected) => {
-      const harness = createHarness();
-      harness.translate(loadFixture("agent-start.json"));
-      const events = harness.translate({
-        type: "agent_end",
-        messages: [
-          {
-            role: "assistant",
-            content: [],
-            usage: { input: 80, output: 20, ...counts },
-          },
-        ],
-      });
-      const event = events.find(
-        (event) => event.type === "thread/tokenUsage/updated",
-      );
-      expect(event).toBeDefined();
-      expect(event?.tokenUsage.last).toMatchObject(expected);
-      expect(
-        Object.keys(event?.tokenUsage.last ?? {})
-          .filter(
-            (key) =>
-              key === "cacheReadInputTokens" || key === "cacheWriteInputTokens",
-          )
-          .sort(),
-      ).toEqual(Object.keys(expected).sort());
-    },
-  );
+  ])("preserves independently omitted Pi cache counts %j", (counts, expected) => {
+    const harness = createHarness();
+    harness.translate(loadFixture("agent-start.json"));
+    const events = harness.translate({
+      type: "agent_end",
+      messages: [
+        {
+          role: "assistant",
+          content: [],
+          usage: { input: 80, output: 20, ...counts },
+        },
+      ],
+    });
+    const event = events.find((event) => event.type === "thread/tokenUsage/updated");
+    expect(event).toBeDefined();
+    expect(event?.tokenUsage.last).toMatchObject(expected);
+    expect(
+      Object.keys(event?.tokenUsage.last ?? {})
+        .filter((key) => key === "cacheReadInputTokens" || key === "cacheWriteInputTokens")
+        .sort(),
+    ).toEqual(Object.keys(expected).sort());
+  });
 
   it.each(["cacheRead", "cacheWrite"])(
     "invalid %s cannot discard Pi completion or valid usage",
@@ -1649,13 +1567,9 @@ describe("pi delta translation equivalence", () => {
           }),
         );
         expect(harness.openTurnId()).toBe("");
-        const event = events.find(
-          (event) => event.type === "thread/tokenUsage/updated",
-        );
+        const event = events.find((event) => event.type === "thread/tokenUsage/updated");
         const validCounts =
-          field === "cacheRead"
-            ? { cacheWriteInputTokens: 9 }
-            : { cacheReadInputTokens: 31 };
+          field === "cacheRead" ? { cacheWriteInputTokens: 9 } : { cacheReadInputTokens: 31 };
         expect(event?.tokenUsage.last).toEqual({
           totalTokens: field === "cacheRead" ? 109 : 131,
           inputTokens: 80,
@@ -1702,25 +1616,17 @@ describe("pi delta translation equivalence", () => {
     });
 
     harness.translate(loadFixture("agent-start.json"));
-    const firstTurnEvents = harness.translate(
-      loadFixture("agent-end-with-message.json"),
-    );
+    const firstTurnEvents = harness.translate(loadFixture("agent-end-with-message.json"));
 
     harness.translate(loadFixture("agent-start.json"));
-    const secondTurnEvents = harness.translate(
-      loadFixture("agent-end-with-message.json"),
-    );
+    const secondTurnEvents = harness.translate(loadFixture("agent-end-with-message.json"));
 
     const firstTokenUsage = firstTurnEvents.find(
-      (
-        event,
-      ): event is Extract<ThreadEvent, { type: "thread/tokenUsage/updated" }> =>
+      (event): event is Extract<ThreadEvent, { type: "thread/tokenUsage/updated" }> =>
         event.type === "thread/tokenUsage/updated",
     );
     const secondTokenUsage = secondTurnEvents.find(
-      (
-        event,
-      ): event is Extract<ThreadEvent, { type: "thread/tokenUsage/updated" }> =>
+      (event): event is Extract<ThreadEvent, { type: "thread/tokenUsage/updated" }> =>
         event.type === "thread/tokenUsage/updated",
     );
 
@@ -1741,9 +1647,7 @@ describe("pi delta translation equivalence", () => {
       cacheWriteInputTokens: 560,
       outputTokens: 312,
     });
-    expect(secondTokenUsage?.tokenUsage.last).toEqual(
-      firstTokenUsage?.tokenUsage.last,
-    );
+    expect(secondTokenUsage?.tokenUsage.last).toEqual(firstTokenUsage?.tokenUsage.last);
     expect(secondTokenUsage?.tokenUsage.modelContextWindow).toBe(123_456);
   });
 

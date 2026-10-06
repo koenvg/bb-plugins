@@ -18,9 +18,7 @@ export const PI_NATIVE_ROOTS_DECLARATION: Pick<
   experimental_resolvesNativeRoots: true,
 };
 
-const piSettingsSchema = z
-  .object({ skills: z.array(z.string()).optional() })
-  .passthrough();
+const piSettingsSchema = z.object({ skills: z.array(z.string()).optional() }).passthrough();
 
 const DEFAULT_AGENT_DIR_SEGMENTS = [".pi", "agent"] as const;
 
@@ -36,11 +34,7 @@ function resolvePiAgentDir(args: ResolvePiNativeRootsArgs): string {
     : path.join(args.homeDir, ...DEFAULT_AGENT_DIR_SEGMENTS);
 }
 
-function resolveStoredPath(
-  homeDir: string,
-  value: string,
-  baseDir: string,
-): string {
+function resolveStoredPath(homeDir: string, value: string, baseDir: string): string {
   if (value === "~") return homeDir;
   if (value.startsWith("~/")) return path.join(homeDir, value.slice(2));
   return path.isAbsolute(value) ? value : path.resolve(baseDir, value);
@@ -68,11 +62,7 @@ export async function resolvePiNativeRoots(
   }
   for (const raw of settings?.skills ?? []) {
     const value = raw.trim();
-    if (
-      value.length === 0 ||
-      value.startsWith("!") ||
-      !isPlainSkillSource(value)
-    ) {
+    if (value.length === 0 || value.startsWith("!") || !isPlainSkillSource(value)) {
       continue;
     }
     if (path.extname(value).toLowerCase() === ".md") {

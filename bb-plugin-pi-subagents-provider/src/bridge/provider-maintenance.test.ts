@@ -32,8 +32,6 @@ describe("describePiVersionProbeFailure", () => {
         Object.assign(new Error("Command failed"), { code: 2, killed: false }),
       ),
     ).toBe("exited with 2");
-    expect(describePiVersionProbeFailure(new Error("ENOENT: pi"))).toBe(
-      "ENOENT: pi",
-    );
+    expect(describePiVersionProbeFailure(new Error("ENOENT: pi"))).toBe("ENOENT: pi");
   });
 });

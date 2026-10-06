@@ -34,14 +34,10 @@ describe("pi model list", () => {
     });
 
     expect(
-      models[0]?.supportedReasoningEfforts.map(
-        ({ reasoningEffort }) => reasoningEffort,
-      ),
+      models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort),
     ).toEqual(["none", "low", "medium", "high"]);
     expect(
-      models[1]?.supportedReasoningEfforts.map(
-        ({ reasoningEffort }) => reasoningEffort,
-      ),
+      models[1]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort),
     ).toEqual(["low", "medium", "high"]);
     expect(models[2]).toMatchObject({
       supportedReasoningEfforts: [{ reasoningEffort: "none" }],
@@ -71,9 +67,7 @@ describe("pi model list", () => {
       ],
     });
 
-    expect(models.map((model) => model.id)).toEqual([
-      "anthropic/claude-opus-4-8",
-    ]);
+    expect(models.map((model) => model.id)).toEqual(["anthropic/claude-opus-4-8"]);
     expect(selectedOnlyModels.map((model) => model.id)).toEqual([
       "anthropic/claude-opus-4-6-20240620",
     ]);
@@ -120,9 +114,7 @@ describe("pi model list", () => {
       "openrouter/openai/gpt-5.1-codex",
       "fireworks/accounts/fireworks/models/deepseek-v4-flash",
     ]);
-    expect(models.find((model) => model.isDefault)?.id).toBe(
-      "openrouter/openai/gpt-5.1-codex",
-    );
+    expect(models.find((model) => model.isDefault)?.id).toBe("openrouter/openai/gpt-5.1-codex");
   });
 
   it("restricts and orders the picker using Pi's workspace model scope", () => {
@@ -180,9 +172,7 @@ describe("pi model list", () => {
       preferredDefaultId: "anthropic/claude-sonnet-5",
     });
 
-    expect(models.find((model) => model.isDefault)?.id).toBe(
-      "anthropic/claude-sonnet-5",
-    );
+    expect(models.find((model) => model.isDefault)?.id).toBe("anthropic/claude-sonnet-5");
   });
 
   it("keeps a dated model explicitly included by Pi's scope", () => {
@@ -209,9 +199,7 @@ describe("pi model list", () => {
       preferredDefaultId: "anthropic/claude-opus-4-8-20260115",
     });
 
-    expect(models.map((model) => model.id)).toEqual([
-      "anthropic/claude-opus-4-8-20260115",
-    ]);
+    expect(models.map((model) => model.id)).toEqual(["anthropic/claude-opus-4-8-20260115"]);
     expect(models[0]?.isDefault).toBe(true);
     expect(selectedOnlyModels).toHaveLength(0);
   });
@@ -237,20 +225,12 @@ describe("pi model list", () => {
       model,
     });
 
-    expect(
-      resolveContextWindow(
-        assistant("openrouter", "deepseek/deepseek-v4-flash"),
-      ),
-    ).toBe(1_048_575);
-    expect(
-      resolveContextWindow(assistant("deepseek", "deepseek-v4-flash")),
-    ).toBe(1_000_000);
-    expect(
-      resolveContextWindow(assistant(undefined, "deepseek-v4-flash")),
-    ).toBe(1_000_000);
+    expect(resolveContextWindow(assistant("openrouter", "deepseek/deepseek-v4-flash"))).toBe(
+      1_048_575,
+    );
+    expect(resolveContextWindow(assistant("deepseek", "deepseek-v4-flash"))).toBe(1_000_000);
+    expect(resolveContextWindow(assistant(undefined, "deepseek-v4-flash"))).toBe(1_000_000);
     expect(resolveContextWindow(assistant("openrouter", "unknown"))).toBeNull();
-    expect(
-      resolveContextWindow(assistant("openrouter", "deepseek-v4-flash")),
-    ).toBeNull();
+    expect(resolveContextWindow(assistant("openrouter", "deepseek-v4-flash"))).toBeNull();
   });
 });

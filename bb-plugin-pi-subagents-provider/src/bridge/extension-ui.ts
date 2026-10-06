@@ -21,10 +21,7 @@ const FIRE_AND_FORGET_METHODS = new Set([
 interface PendingExtensionUiRequest {
   scope: object;
   request: PiExtensionUiRequest;
-  respond: (
-    requestId: string | number,
-    fields: PiExtensionUiResponseFields,
-  ) => void;
+  respond: (requestId: string | number, fields: PiExtensionUiResponseFields) => void;
 }
 
 export interface ExtensionUiCoordinatorOptions {
@@ -36,10 +33,7 @@ export interface HandleExtensionUiRequestArgs {
   request: Record<string, unknown>;
   threadId: string;
   providerThreadId: string;
-  respond: (
-    requestId: string | number,
-    fields: PiExtensionUiResponseFields,
-  ) => void;
+  respond: (requestId: string | number, fields: PiExtensionUiResponseFields) => void;
 }
 
 export interface ExtensionUiCoordinator {
@@ -82,9 +76,7 @@ export function createExtensionUiCoordinator(
         method: request.method,
         ...(request.options ? { options: request.options } : {}),
         ...(request.message !== undefined ? { message: request.message } : {}),
-        ...(request.placeholder !== undefined
-          ? { placeholder: request.placeholder }
-          : {}),
+        ...(request.placeholder !== undefined ? { placeholder: request.placeholder } : {}),
         ...(request.prefill !== undefined ? { prefill: request.prefill } : {}),
       });
       nextRequestId += 1;

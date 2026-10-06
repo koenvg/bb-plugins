@@ -8,7 +8,8 @@ export interface RetainedRun {
 function mergeNode(previous: RunNode | undefined, next: RunNode): RunNode {
   if (!previous) return next;
   const children = new Map((previous.children ?? []).map((child) => [child.id, child]));
-  for (const child of next.children ?? []) children.set(child.id, mergeNode(children.get(child.id), child));
+  for (const child of next.children ?? [])
+    children.set(child.id, mergeNode(children.get(child.id), child));
   return { ...next, children: [...children.values()] };
 }
 
@@ -17,8 +18,14 @@ function live(node: RunNode): boolean {
 }
 
 /** Retain missing facts; coverage only changes when the owning root is received. */
-export function reconcileRunTrees(retained: ReadonlyMap<string, RetainedRun>, snapshot: AsyncSnapshot) {
-  const complete = snapshot.omitted.runs === 0 && snapshot.omitted.children === 0 && !snapshot.omitted.byteLimitExceeded;
+export function reconcileRunTrees(
+  retained: ReadonlyMap<string, RetainedRun>,
+  snapshot: AsyncSnapshot,
+) {
+  const complete =
+    snapshot.omitted.runs === 0 &&
+    snapshot.omitted.children === 0 &&
+    !snapshot.omitted.byteLimitExceeded;
   const roots = new Map(snapshot.runs.map((node) => [node.id, node]));
   const nestedOwners = new Set<string>();
   function collectNested(node: RunNode) {
@@ -32,10 +39,14 @@ export function reconcileRunTrees(retained: ReadonlyMap<string, RetainedRun>, sn
   let retainedNodes = 0;
   function updateDescendants(node: RunNode, depth = 0): RunNode {
     if (++retainedNodes > 256 || depth > 3) throw new Error("Retained child limit reached");
-    return { ...node, children: (node.children ?? []).map((child) => {
-      const canonical = child.kind === "subagent" || child.kind === "workflow" ? roots.get(child.id) : undefined;
-      return updateDescendants(mergeNode(child, canonical ?? child), depth + 1);
-    }) };
+    return {
+      ...node,
+      children: (node.children ?? []).map((child) => {
+        const canonical =
+          child.kind === "subagent" || child.kind === "workflow" ? roots.get(child.id) : undefined;
+        return updateDescendants(mergeNode(child, canonical ?? child), depth + 1);
+      }),
+    };
   }
   const candidates = new Map([...retained].map(([id, run]) => [id, run.node]));
   for (const node of snapshot.runs) {
@@ -45,8 +56,14 @@ export function reconcileRunTrees(retained: ReadonlyMap<string, RetainedRun>, sn
     const previous = retained.get(id);
     retainedNodes = 0;
     const merged = updateDescendants(mergeNode(previous?.node, node));
-    const covered = roots.has(id) ? complete : previous?.covered ?? false;
+    const covered = roots.has(id) ? complete : (previous?.covered ?? false);
     const hasLiveWork = live(merged);
-    return { id, node: merged, covered, live: hasLiveWork, active: hasLiveWork || !covered || !complete };
+    return {
+      id,
+      node: merged,
+      covered,
+      live: hasLiveWork,
+      active: hasLiveWork || !covered || !complete,
+    };
   });
 }

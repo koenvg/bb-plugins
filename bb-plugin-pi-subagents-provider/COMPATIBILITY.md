@@ -1,11 +1,11 @@
 # Compatibility and verification limits
 
-| Component | Declared/tested boundary |
-| --- | --- |
-| Node | 24.15.0 or newer within Node 24 |
-| BB | 0.44.x; build tooling tested at 0.44.0 |
-| Public SDK | 0.5.29; manifest accepts 0.5.29 through 0.5.x |
-| Pi | Inherited install gate requires 0.84.0 or newer; fixtures and type contracts use 0.84.0 |
+| Component    | Declared/tested boundary                                                                                                                 |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Node         | 24.15.0 or newer within Node 24                                                                                                          |
+| BB           | 0.44.x; build tooling tested at 0.44.0                                                                                                   |
+| Public SDK   | 0.5.29; manifest accepts 0.5.29 through 0.5.x                                                                                            |
+| Pi           | Inherited install gate requires 0.84.0 or newer; fixtures and type contracts use 0.84.0                                                  |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
 Credential-free tests drive the real bridge through a scripted Pi RPC child and use published SDK harnesses. They cover prompts, native tool translation, dynamic tools, model/reasoning choices, select/confirm/input/editor dialogs, native skill roots, checkpoint forks, compaction, process handling, RPC framing, and bridge conformance. They do not prove compatibility with every later Pi release or with a live authenticated model.

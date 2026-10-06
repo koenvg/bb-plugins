@@ -84,13 +84,9 @@ export function resolvePiLaunch(env: NodeJS.ProcessEnv): {
   return { command, args: parsed };
 }
 
-export function buildPiChildEnv(
-  overrides: Record<string, string>,
-): NodeJS.ProcessEnv {
+export function buildPiChildEnv(overrides: Record<string, string>): NodeJS.ProcessEnv {
   return {
-    ...withoutBridgeRuntimeEnv(
-      sanitizeInheritedChildProcessEnv({ env: process.env }),
-    ),
+    ...withoutBridgeRuntimeEnv(sanitizeInheritedChildProcessEnv({ env: process.env })),
     ...overrides,
   };
 }
@@ -109,8 +105,7 @@ export class PiRpcChild {
   private stdoutDraining = false;
 
   constructor(private readonly args: SpawnPiRpcChildArgs) {
-    let resolveSettledExit: (info: PiRpcChildExitInfo) => void = () =>
-      undefined;
+    let resolveSettledExit: (info: PiRpcChildExitInfo) => void = () => undefined;
     this.settledExit = new Promise((resolve) => {
       resolveSettledExit = resolve;
     });
@@ -135,9 +130,7 @@ export class PiRpcChild {
         input: stdout,
         onLine: (line) => this.queueStdoutLine(line),
         onOverflow: (bytes) => {
-          process.stderr.write(
-            `pi bridge: dropped a ${bytes}-byte stdout line\n`,
-          );
+          process.stderr.write(`pi bridge: dropped a ${bytes}-byte stdout line\n`);
         },
       });
     }
@@ -153,9 +146,7 @@ export class PiRpcChild {
         input: channelIn,
         onLine: (line) => this.handleChannelLine(line),
         onOverflow: (bytes) => {
-          process.stderr.write(
-            `pi bridge: dropped a ${bytes}-byte channel line\n`,
-          );
+          process.stderr.write(`pi bridge: dropped a ${bytes}-byte channel line\n`);
         },
       });
     }
@@ -211,9 +202,7 @@ export class PiRpcChild {
           ? null
           : setTimeout(() => {
               this.pending.delete(id);
-              reject(
-                new Error(`pi did not answer ${String(command.type)} in time`),
-              );
+              reject(new Error(`pi did not answer ${String(command.type)} in time`));
             }, timeoutMs);
       timer?.unref?.();
       this.pending.set(id, { resolve, reject, timer });
@@ -221,10 +210,7 @@ export class PiRpcChild {
     });
   }
 
-  async requestOk(
-    command: Record<string, unknown>,
-    timeoutMs?: number,
-  ): Promise<unknown> {
+  async requestOk(command: Record<string, unknown>, timeoutMs?: number): Promise<unknown> {
     const response = await this.request(command, timeoutMs);
     if (!response.success) {
       throw new Error(response.error ?? `pi rejected ${String(command.type)}`);
@@ -271,13 +257,8 @@ export class PiRpcChild {
     this.child.kill("SIGTERM");
   }
 
-  respondToExtensionUi(
-    id: string | number,
-    fields: Record<string, unknown>,
-  ): void {
-    this.writeStdin(
-      `${JSON.stringify({ type: "extension_ui_response", id, ...fields })}\n`,
-    );
+  respondToExtensionUi(id: string | number, fields: Record<string, unknown>): void {
+    this.writeStdin(`${JSON.stringify({ type: "extension_ui_response", id, ...fields })}\n`);
   }
 
   private endWriters(): void {
@@ -382,9 +363,7 @@ interface ChannelRecorder {
   toChild(message: unknown): void;
 }
 
-function createChannelRecorder(
-  threadId: string | null,
-): ChannelRecorder | null {
+function createChannelRecorder(threadId: string | null): ChannelRecorder | null {
   if (!experimental_isProviderBridgeRecording()) {
     return null;
   }
@@ -394,10 +373,7 @@ function createChannelRecorder(
       callback();
     },
   });
-  experimental_recordProviderChildIo(
-    { stdin: toChild, stdout: fromChild },
-    { threadId },
-  );
+  experimental_recordProviderChildIo({ stdin: toChild, stdout: fromChild }, { threadId });
   const wrap = (message: unknown): string =>
     `${JSON.stringify({ [PI_CHANNEL_RECORDING_KEY]: message })}\n`;
   return {

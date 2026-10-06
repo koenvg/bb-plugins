@@ -15,8 +15,7 @@ let harness: FakePiBridgeHarness;
 beforeEach(async () => {
   harness = await startFakePiBridge({
     prefix: "bb-pi-framing-",
-    sessionDir: (workspaceDir) =>
-      join(workspaceDir, `sessions${LINE_SEPARATOR}dir`),
+    sessionDir: (workspaceDir) => join(workspaceDir, `sessions${LINE_SEPARATOR}dir`),
     initialize: true,
   });
 });
@@ -65,11 +64,7 @@ it("carries U+2028/U+2029 through stdout events, RPC responses, and both channel
   expect(
     harness
       .deltasOf(threadId)
-      .some(
-        (d) =>
-          d.kind === "item.textDelta" &&
-          String(d.text).includes(`Response to: ${text}`),
-      ),
+      .some((d) => d.kind === "item.textDelta" && String(d.text).includes(`Response to: ${text}`)),
   ).toBe(true);
 
   const before = harness.deltasOf(threadId).length;
@@ -95,10 +90,7 @@ it("carries U+2028/U+2029 through stdout events, RPC responses, and both channel
       },
     }),
   );
-  const toolCall = await harness.waitForMessage(
-    (m) => m.method === "item/tool/call",
-    "tool call",
-  );
+  const toolCall = await harness.waitForMessage((m) => m.method === "item/tool/call", "tool call");
   expect((toolCall.params as { arguments: unknown }).arguments).toEqual({
     value: argValue,
   });
@@ -124,9 +116,7 @@ it("carries U+2028/U+2029 through stdout events, RPC responses, and both channel
     harness
       .deltasOf(threadId)
       .some(
-        (d) =>
-          d.kind === "item.textDelta" &&
-          String(d.text).includes(`Tool said: ${resultText}`),
+        (d) => d.kind === "item.textDelta" && String(d.text).includes(`Tool said: ${resultText}`),
       ),
   ).toBe(true);
 }, 30_000);

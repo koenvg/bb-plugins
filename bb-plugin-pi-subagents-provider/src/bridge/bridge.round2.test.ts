@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -39,19 +33,14 @@ function providerThreadIdFor(threadId: string): string {
         message.method === "thread/identity" &&
         (message.params as { threadId?: unknown }).threadId === threadId,
     );
-  const providerThreadId = (identity?.params as { providerThreadId?: unknown })
-    .providerThreadId;
+  const providerThreadId = (identity?.params as { providerThreadId?: unknown } | undefined)
+    ?.providerThreadId;
   expect(typeof providerThreadId).toBe("string");
-  if (typeof providerThreadId !== "string")
-    throw new Error("missing provider thread identity");
+  if (typeof providerThreadId !== "string") throw new Error("missing provider thread identity");
   return providerThreadId;
 }
 
-function turnStart(
-  threadId: string,
-  text: string,
-  clientRequestId: string,
-): void {
+function turnStart(threadId: string, text: string, clientRequestId: string): void {
   handleLine(
     JSON.stringify({
       jsonrpc: "2.0",
@@ -74,10 +63,7 @@ it("a child that dies mid-run does not take the bridge down: the next write is a
     providerThreadId: expect.stringMatching(/^pi_/u),
   });
   turnStart(threadId, "/die", "creq_ab23456789");
-  await harness.waitForDelta(
-    threadId,
-    (d) => d.kind === "turn.boundary" && d.status === "failed",
-  );
+  await harness.waitForDelta(threadId, (d) => d.kind === "turn.boundary" && d.status === "failed");
   const steer = await harness.request((nextId += 1), "turn/steer", {
     threadId,
     providerThreadId: providerThreadIdFor(threadId),
@@ -156,11 +142,7 @@ it("refuses a manual compaction while pi reports a run still streaming", async (
       },
     }),
   );
-  await harness.waitForDelta(
-    threadId,
-    (d) => d.kind === "turn.boundary",
-    before,
-  );
+  await harness.waitForDelta(threadId, (d) => d.kind === "turn.boundary", before);
   const boundary = harness
     .deltasOf(threadId)
     .slice(before)
@@ -168,9 +150,7 @@ it("refuses a manual compaction while pi reports a run still streaming", async (
   expect(boundary).toMatchObject({
     status: "failed",
     error: {
-      message: expect.stringContaining(
-        "Cannot compact context while Pi is processing a turn",
-      ),
+      message: expect.stringContaining("Cannot compact context while Pi is processing a turn"),
     },
   });
   expect(
@@ -203,11 +183,7 @@ it("a steer consumed by the run is reported accepted and named in the reply", as
   expect(
     harness
       .deltasOf(threadId)
-      .some(
-        (d) =>
-          d.kind === "input.accepted" &&
-          d.clientRequestId === "creq_cd23456789",
-      ),
+      .some((d) => d.kind === "input.accepted" && d.clientRequestId === "creq_cd23456789"),
   ).toBe(true);
   expect(
     harness
@@ -215,9 +191,7 @@ it("a steer consumed by the run is reported accepted and named in the reply", as
       .some(
         (d) =>
           d.kind === "item.textDelta" &&
-          String(d.text).includes(
-            `Steered: take the left path\n[Attached file: ${filePath}]`,
-          ),
+          String(d.text).includes(`Steered: take the left path\n[Attached file: ${filePath}]`),
       ),
   ).toBe(true);
   expect(harness.messages.some((m) => m.method === "error")).toBe(false);
@@ -244,8 +218,7 @@ it("a steer's ack precedes the event pi wrote in the same chunk as the prompt re
     (d) => queueUpdateSteering(d)?.includes("take the left path") === true,
   );
   const accepted = deltas.findIndex(
-    (d) =>
-      d.kind === "input.accepted" && d.clientRequestId === "creq_cd23456789",
+    (d) => d.kind === "input.accepted" && d.clientRequestId === "creq_cd23456789",
   );
   const consumed = deltas.findIndex(
     (d, index) => index > queued && queueUpdateSteering(d)?.length === 0,
@@ -261,8 +234,7 @@ function queueUpdateSteering(delta: Record<string, unknown>): unknown[] | null {
     | { params?: { message?: { type?: unknown; steering?: unknown } } }
     | undefined;
   const message = raw?.params?.message;
-  if (message?.type !== "queue_update" || !Array.isArray(message.steering))
-    return null;
+  if (message?.type !== "queue_update" || !Array.isArray(message.steering)) return null;
   return message.steering;
 }
 
@@ -289,10 +261,7 @@ it("a steer still queued when the run ends is reported dropped through the deliv
   );
   await harness.waitForDelta(threadId, (d) => d.kind === "turn.boundary");
   const deadline = Date.now() + 10_000;
-  while (
-    Date.now() < deadline &&
-    !harness.messages.some((m) => m.method === "error")
-  ) {
+  while (Date.now() < deadline && !harness.messages.some((m) => m.method === "error")) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   const error = harness.messages.find((m) => m.method === "error");
@@ -303,18 +272,12 @@ it("a steer still queued when the run ends is reported dropped through the deliv
   expect(
     harness
       .deltasOf(threadId)
-      .some(
-        (d) =>
-          d.kind === "item.textDelta" && String(d.text).includes("Steered:"),
-      ),
+      .some((d) => d.kind === "item.textDelta" && String(d.text).includes("Steered:")),
   ).toBe(false);
 }, 90_000);
 
 it("recovers from one transient model mismatch by respawning", async () => {
-  vi.stubEnv(
-    "FAKE_PI_SPAWN_COUNTER_FILE",
-    join(harness.workspaceDir, "spawns"),
-  );
+  vi.stubEnv("FAKE_PI_SPAWN_COUNTER_FILE", join(harness.workspaceDir, "spawns"));
   vi.stubEnv("FAKE_PI_MISMATCH_FIRST_SPAWN", "1");
   const threadId = "thr_r2_mismatch";
   const response = await harness.startThread(threadId, {
@@ -328,17 +291,13 @@ it("recovers from one transient model mismatch by respawning", async () => {
   const deadline = Date.now() + 10_000;
   while (
     Date.now() < deadline &&
-    !log.spawned
-      .slice(0, 1)
-      .every((pid) => harness.readProcessLog().exited.includes(pid))
+    !log.spawned.slice(0, 1).every((pid) => harness.readProcessLog().exited.includes(pid))
   ) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   expect(harness.readProcessLog().exited).toContain(log.spawned[0]);
   expect(harness.messages.some((m) => m.method === "error")).toBe(false);
-  expect(harness.messages.some((m) => m.method === "session/ended")).toBe(
-    false,
-  );
+  expect(harness.messages.some((m) => m.method === "session/ended")).toBe(false);
 }, 90_000);
 
 it("a child whose extension never reports ready is a construction error, not a hung tool call", async () => {
@@ -351,11 +310,7 @@ it("a child whose extension never reports ready is a construction error, not a h
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const log = harness.readProcessLog();
-    if (
-      log.spawned.length > 0 &&
-      log.spawned.every((pid) => log.exited.includes(pid))
-    )
-      break;
+    if (log.spawned.length > 0 && log.spawned.every((pid) => log.exited.includes(pid))) break;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   const log = harness.readProcessLog();
@@ -372,10 +327,7 @@ it("evicts an idle catalog child", async () => {
   const { spawned } = harness.readProcessLog();
   expect(spawned).toHaveLength(1);
   const deadline = Date.now() + 10_000;
-  while (
-    Date.now() < deadline &&
-    !harness.readProcessLog().exited.includes(spawned[0]!)
-  ) {
+  while (Date.now() < deadline && !harness.readProcessLog().exited.includes(spawned[0]!)) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   expect(harness.readProcessLog().exited).toContain(spawned[0]);
@@ -419,9 +371,7 @@ it("a resumed thread reports the session header's cwd, not the cwd bb asked for"
     expect(resumed.result).toMatchObject({ providerThreadId: threadId });
     turnStart(threadId, '/tool bash {"command":"pwd"}', "creq_rsm2345678");
     await harness.waitForDelta(threadId, (d) => d.kind === "item.close");
-    const opened = harness
-      .deltasOf(threadId)
-      .find((d) => d.kind === "item.open");
+    const opened = harness.deltasOf(threadId).find((d) => d.kind === "item.open");
     expect(opened?.item).toMatchObject({
       type: "command",
       command: "pwd",

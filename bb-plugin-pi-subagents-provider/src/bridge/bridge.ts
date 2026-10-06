@@ -1,12 +1,6 @@
 #!/usr/bin/env node
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -53,10 +47,7 @@ import {
   type PiSessionParams,
 } from "../session-params.js";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
-import {
-  createExtensionUiCoordinator,
-  type ExtensionUiCoordinator,
-} from "./extension-ui.js";
+import { createExtensionUiCoordinator, type ExtensionUiCoordinator } from "./extension-ui.js";
 import { type InteractionUiRequest } from "../extension-ui-contract.js";
 import {
   getPiInstallGate,
@@ -71,15 +62,8 @@ import {
   getPiCatalog,
   peekPiCatalog,
 } from "./catalog.js";
-import {
-  PiRpcSession,
-  type PiRpcSessionOptions,
-  type ToolCallForwarder,
-} from "./rpc-session.js";
-import {
-  resolvePiBridgeSessionDir,
-  resolvePiSessionFilePath,
-} from "./session-paths.js";
+import { PiRpcSession, type PiRpcSessionOptions, type ToolCallForwarder } from "./rpc-session.js";
+import { resolvePiBridgeSessionDir, resolvePiSessionFilePath } from "./session-paths.js";
 import { extractPiPromptInput } from "./turn-input.js";
 import { createSubagentObservation, type SubagentObservation } from "./subagents/observation.js";
 import { createViewStore } from "./subagents/view-store.js";
@@ -137,9 +121,7 @@ const piCommandSchema = z.discriminatedUnion("method", [
 
 type PiCommand = z.infer<typeof piCommandSchema>;
 
-const piCommandMethodValues = piCommandSchema.options.map(
-  (option) => option.shape.method.value,
-);
+const piCommandMethodValues = piCommandSchema.options.map((option) => option.shape.method.value);
 
 type DecodedPiBridgeRequest =
   | { kind: "request"; request: PiCommand & { id: string | number } }
@@ -167,9 +149,7 @@ function decodePiJsonRpcRequest(raw: unknown): DecodedPiBridgeRequest {
       request: { ...command.data, id: envelope.data.id },
     };
   }
-  if (
-    !(piCommandMethodValues as readonly string[]).includes(envelope.data.method)
-  ) {
+  if (!(piCommandMethodValues as readonly string[]).includes(envelope.data.method)) {
     return {
       kind: "unknown-method",
       id: envelope.data.id,
@@ -298,9 +278,7 @@ async function closeThreadSession(args: {
   resolvePendingToolCalls(threadSession, args.message);
   extensionUi.cancelPendingForScope(threadSession);
   const closePromise = Promise.resolve()
-    .then(() =>
-      threadSession.session.closeGracefully(THREAD_STOP_CLOSE_TIMEOUT_MS),
-    )
+    .then(() => threadSession.session.closeGracefully(THREAD_STOP_CLOSE_TIMEOUT_MS))
     .finally(() => {
       if (sessions.get(args.threadId) === threadSession) {
         sessions.delete(args.threadId);
@@ -313,16 +291,11 @@ async function closeThreadSession(args: {
 
 async function closeThreadSessionsGracefully(message: string): Promise<void> {
   await Promise.all(
-    Array.from(sessions.keys()).map((threadId) =>
-      closeThreadSession({ message, threadId }),
-    ),
+    Array.from(sessions.keys()).map((threadId) => closeThreadSession({ message, threadId })),
   );
 }
 
-function sendThreadDeltas(
-  threadId: string,
-  deltas: readonly ThreadDelta[],
-): void {
+function sendThreadDeltas(threadId: string, deltas: readonly ThreadDelta[]): void {
   if (deltas.length === 0) {
     return;
   }
@@ -333,26 +306,26 @@ function sendThreadDeltas(
   });
 }
 
-function emitForSession(
-  threadId: string,
-  method: string,
-  params: Record<string, unknown>,
-): void {
+function emitForSession(threadId: string, method: string, params: Record<string, unknown>): void {
   const deltas = piDeltaTranslator.translate(
     { jsonrpc: "2.0", method, params },
     { threadId, cwd: sessions.get(threadId)?.cwd },
   );
   sendThreadDeltas(threadId, deltas);
   const current = sessions.get(threadId);
-  if (current) for (const delta of deltas) {
-    if (delta.kind === "turn.open") {
-      current.nativeTurnObserved = true;
-      current.nativeTurnActive = true;
-    } else if (delta.kind === "turn.boundary" || delta.kind === "provider.error" && delta.settlesTurn === true) {
-      current.nativeTurnActive = false;
-      current.observation.hint();
+  if (current)
+    for (const delta of deltas) {
+      if (delta.kind === "turn.open") {
+        current.nativeTurnObserved = true;
+        current.nativeTurnActive = true;
+      } else if (
+        delta.kind === "turn.boundary" ||
+        (delta.kind === "provider.error" && delta.settlesTurn === true)
+      ) {
+        current.nativeTurnActive = false;
+        current.observation.hint();
+      }
     }
-  }
 }
 
 function sendThreadIdentity(threadId: string, providerThreadId: string): void {
@@ -363,11 +336,7 @@ function sendThreadIdentity(threadId: string, providerThreadId: string): void {
   });
 }
 
-function sendSessionScopedError(
-  threadId: string,
-  providerThreadId: string,
-  message: string,
-): void {
+function sendSessionScopedError(threadId: string, providerThreadId: string, message: string): void {
   send({
     jsonrpc: "2.0",
     method: BRIDGE_NOTIFICATION_METHODS.error,
@@ -375,11 +344,7 @@ function sendSessionScopedError(
   });
 }
 
-function emitSessionError(
-  threadSession: ThreadSession,
-  threadId: string,
-  message: string,
-): void {
+function emitSessionError(threadSession: ThreadSession, threadId: string, message: string): void {
   emitForSession(threadId, "error", { threadId, message });
   sendSessionScopedError(threadId, threadSession.providerThreadId, message);
 }
@@ -392,8 +357,7 @@ function toContextWindowUsagePayload(
   }
   return {
     usedTokens: contextUsage.tokens,
-    modelContextWindow:
-      contextUsage.contextWindow > 0 ? contextUsage.contextWindow : null,
+    modelContextWindow: contextUsage.contextWindow > 0 ? contextUsage.contextWindow : null,
     estimated: true,
   };
 }
@@ -403,9 +367,7 @@ function emitContextWindowUsage(threadId: string): void {
   if (!threadSession) {
     return;
   }
-  const contextWindowUsage = toContextWindowUsagePayload(
-    threadSession.session.getContextUsage(),
-  );
+  const contextWindowUsage = toContextWindowUsagePayload(threadSession.session.getContextUsage());
   if (!contextWindowUsage) {
     return;
   }
@@ -420,9 +382,7 @@ function nextSessionSerial(): number {
   return sessionSerialCounter;
 }
 
-function getCurrentThreadSession(
-  args: CurrentThreadSessionArgs,
-): ThreadSession | undefined {
+function getCurrentThreadSession(args: CurrentThreadSessionArgs): ThreadSession | undefined {
   const threadSession = sessions.get(args.threadId);
   if (
     !threadSession ||
@@ -434,9 +394,7 @@ function getCurrentThreadSession(
   return threadSession;
 }
 
-function createOnPiEvent(
-  args: CurrentThreadSessionArgs,
-): (event: Record<string, unknown>) => void {
+function createOnPiEvent(args: CurrentThreadSessionArgs): (event: Record<string, unknown>) => void {
   return (event) => {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession) return;
@@ -463,15 +421,12 @@ function createOnExtensionUiRequest(
       request,
       threadId: args.threadId,
       providerThreadId: threadSession.providerThreadId,
-      respond: (requestId, fields) =>
-        threadSession.session.respondToExtensionUi(requestId, fields),
+      respond: (requestId, fields) => threadSession.session.respondToExtensionUi(requestId, fields),
     });
   };
 }
 
-function createOnSessionDone(
-  args: CurrentThreadSessionArgs,
-): (error?: unknown) => void {
+function createOnSessionDone(args: CurrentThreadSessionArgs): (error?: unknown) => void {
   return (error?: unknown) => {
     if (error) {
       reportSessionError({ ...args, error });
@@ -488,9 +443,7 @@ function createOnSessionDone(
       sendSessionScopedError(
         args.threadId,
         threadSession.providerThreadId,
-        shutdownError instanceof Error
-          ? shutdownError.message
-          : String(shutdownError),
+        shutdownError instanceof Error ? shutdownError.message : String(shutdownError),
       );
     });
   };
@@ -518,9 +471,7 @@ function reportPromptSettled(args: {
   });
 }
 
-function reportSessionError(
-  args: CurrentThreadSessionArgs & { error: unknown },
-): void {
+function reportSessionError(args: CurrentThreadSessionArgs & { error: unknown }): void {
   const threadSession = getCurrentThreadSession(args);
   if (!threadSession) return;
   emitSessionError(
@@ -530,9 +481,7 @@ function reportSessionError(
   );
 }
 
-async function handleRequest(
-  request: PiCommand & { id: string | number },
-): Promise<void> {
+async function handleRequest(request: PiCommand & { id: string | number }): Promise<void> {
   switch (request.method) {
     case "initialize": {
       const result: InitializeResult = {
@@ -565,10 +514,7 @@ async function handleRequest(
       sendResult(request.id, await getPiProviderInstallationStatus());
       break;
     case "provider/installation/run":
-      sendResult(
-        request.id,
-        await getPiProviderInstallationRun(request.params.action),
-      );
+      sendResult(request.id, await getPiProviderInstallationRun(request.params.action));
       break;
     case "thread/start":
       await handleThreadConstruction(
@@ -579,9 +525,7 @@ async function handleRequest(
       );
       break;
     case "thread/resume": {
-      const missingCwd = resumedSessionMissingCwd(
-        request.params.providerThreadId,
-      );
+      const missingCwd = resumedSessionMissingCwd(request.params.providerThreadId);
       const requestedCwd = request.params.cwd;
       if (missingCwd !== null && !existsSync(requestedCwd ?? "")) {
         sendError(
@@ -627,9 +571,7 @@ type TurnSteerParams = z.infer<typeof turnSteerParamsSchema>;
 type ThreadStopParams = z.infer<typeof threadStopParamsSchema>;
 type ThreadRefParams = z.infer<typeof threadDiscardParamsSchema>;
 
-function toPiSessionParams(
-  params: z.infer<typeof threadStartParamsSchema>,
-): PiSessionParams {
+function toPiSessionParams(params: z.infer<typeof threadStartParamsSchema>): PiSessionParams {
   return buildPiSessionParams({
     threadId: params.threadId,
     cwd: params.cwd,
@@ -640,17 +582,12 @@ function toPiSessionParams(
   });
 }
 
-async function handleModelList(
-  id: string | number,
-  params: { cwd?: string },
-): Promise<void> {
+async function handleModelList(id: string | number, params: { cwd?: string }): Promise<void> {
   const gate = await getPiInstallGate();
   if (!gate.ok) {
     sendError(
       id,
-      gate.status === "not_installed"
-        ? BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE
-        : -32000,
+      gate.status === "not_installed" ? BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE : -32000,
       gate.status === "not_installed"
         ? "Could not find the pi CLI on this host. Install @earendil-works/pi-coding-agent and retry."
         : (gate.statusMessage ?? "Pi is not supported on this host."),
@@ -658,25 +595,15 @@ async function handleModelList(
     return;
   }
   try {
-    const catalog = await getPiCatalog(
-      params.cwd ?? process.cwd(),
-      requireExtensionPath(),
-    );
+    const catalog = await getPiCatalog(params.cwd ?? process.cwd(), requireExtensionPath());
     contextWindows.learn(await catalog.rawModels());
     sendResult(id, await catalog.listModels());
   } catch (error) {
-    sendError(
-      id,
-      -32000,
-      error instanceof Error ? error.message : String(error),
-    );
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
   }
 }
 
-async function handleProviderHealth(
-  id: string | number,
-  params: { cwd?: string },
-): Promise<void> {
+async function handleProviderHealth(id: string | number, params: { cwd?: string }): Promise<void> {
   const gate = await getPiInstallGate();
   if (!gate.ok) {
     sendResult(id, gate.result);
@@ -684,10 +611,7 @@ async function handleProviderHealth(
   }
   const installedVersion = gate.installedVersion;
   try {
-    const catalog = await getPiCatalog(
-      params.cwd ?? process.cwd(),
-      requireExtensionPath(),
-    );
+    const catalog = await getPiCatalog(params.cwd ?? process.cwd(), requireExtensionPath());
     await catalog.probe();
     const models = await catalog.rawModels();
     sendResult(
@@ -770,9 +694,7 @@ async function buildSessionOptions(args: {
     ...(args.params.additionalSkillPaths
       ? { additionalSkillPaths: [...args.params.additionalSkillPaths] }
       : {}),
-    ...(args.params.thinkingLevel
-      ? { thinkingLevel: args.params.thinkingLevel }
-      : {}),
+    ...(args.params.thinkingLevel ? { thinkingLevel: args.params.thinkingLevel } : {}),
     ...(args.params.dynamicTools && args.params.dynamicTools.length > 0
       ? { dynamicTools: args.params.dynamicTools }
       : {}),
@@ -814,7 +736,11 @@ async function constructPiThreadSession(
   );
   let view = subagentViews.get(threadId);
   if (!view) {
-    view = createViewStore((payload) => sendThreadDeltas(threadId, [{ kind: "extension.state", extensionKind: VIEW_EXTENSION_KIND, payload }]));
+    view = createViewStore((payload) =>
+      sendThreadDeltas(threadId, [
+        { kind: "extension.state", extensionKind: VIEW_EXTENSION_KIND, payload },
+      ]),
+    );
     if (subagentViews.size >= 64) subagentViews.delete(subagentViews.keys().next().value!);
     subagentViews.set(threadId, view);
   }
@@ -823,7 +749,10 @@ async function constructPiThreadSession(
     sessionSerial,
     observation: createSubagentObservation({
       sessionFile: sessionOptions.sessionFilePath,
-      canAttachNativeItem: () => sessions.get(threadId)?.sessionSerial === sessionSerial && sessions.get(threadId)?.nativeTurnObserved === true && sessions.get(threadId)?.nativeTurnActive === false,
+      canAttachNativeItem: () =>
+        sessions.get(threadId)?.sessionSerial === sessionSerial &&
+        sessions.get(threadId)?.nativeTurnObserved === true &&
+        sessions.get(threadId)?.nativeTurnActive === false,
       generation: sessionSerial,
       reconcile: () => session.readSubagentStatus(),
       view,
@@ -843,11 +772,7 @@ async function constructPiThreadSession(
   try {
     await session.start();
     const liveModel = session.getLiveModel();
-    if (
-      liveModel &&
-      typeof liveModel.id === "string" &&
-      typeof liveModel.provider === "string"
-    ) {
+    if (liveModel && typeof liveModel.id === "string" && typeof liveModel.provider === "string") {
       contextWindows.learn([
         {
           id: liveModel.id,
@@ -870,14 +795,9 @@ async function constructPiThreadSession(
 function retireReplacedPiChild(replaced: ThreadSession): void {
   replaced.observation.dispose("replacement");
   replaced.closing = true;
-  resolvePendingToolCalls(
-    replaced,
-    "Pi thread session replaced while tool call was pending",
-  );
+  resolvePendingToolCalls(replaced, "Pi thread session replaced while tool call was pending");
   extensionUi.cancelPendingForScope(replaced);
-  void replaced.session
-    .closeGracefully(THREAD_STOP_CLOSE_TIMEOUT_MS)
-    .catch(() => undefined);
+  void replaced.session.closeGracefully(THREAD_STOP_CLOSE_TIMEOUT_MS).catch(() => undefined);
 }
 
 async function rebuildThreadSession(
@@ -887,11 +807,7 @@ async function rebuildThreadSession(
 ): Promise<ThreadSession> {
   let replacement: ThreadSession;
   try {
-    replacement = await constructPiThreadSession(
-      threadId,
-      previous.providerThreadId,
-      params,
-    );
+    replacement = await constructPiThreadSession(threadId, previous.providerThreadId, params);
   } catch (error) {
     if (!sessions.has(threadId) && !previous.closing) {
       sessions.set(threadId, previous);
@@ -962,18 +878,13 @@ function persistedSessionCwd(providerThreadId: string): string | null {
   }
   try {
     const header = JSON.parse(firstLine) as { type?: unknown; cwd?: unknown };
-    return header.type === "session" && typeof header.cwd === "string"
-      ? header.cwd
-      : null;
+    return header.type === "session" && typeof header.cwd === "string" ? header.cwd : null;
   } catch {
     return null;
   }
 }
 
-async function handleThreadFork(
-  id: string | number,
-  params: ThreadForkParams,
-): Promise<void> {
+async function handleThreadFork(id: string | number, params: ThreadForkParams): Promise<void> {
   const sourceSessionFile = resolvePiSessionFilePath({
     env: process.env,
     threadId: params.sourceProviderThreadId,
@@ -1008,19 +919,10 @@ async function handleThreadFork(
     });
   } catch (error) {
     rmSync(targetSessionFile, { force: true });
-    sendError(
-      id,
-      -32000,
-      error instanceof Error ? error.message : String(error),
-    );
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
     return;
   }
-  await handleThreadConstruction(
-    id,
-    params.threadId,
-    params.threadId,
-    toPiSessionParams(params),
-  );
+  await handleThreadConstruction(id, params.threadId, params.threadId, toPiSessionParams(params));
 }
 
 function startPiPrompt(
@@ -1029,10 +931,7 @@ function startPiPrompt(
   text: string,
   images: ImageContent[],
 ): Promise<void> {
-  const dispatch = threadSession.session.prompt(
-    text,
-    images.length > 0 ? images : undefined,
-  );
+  const dispatch = threadSession.session.prompt(text, images.length > 0 ? images : undefined);
   void dispatch.settled.then((outcome) => {
     if (outcome === null) {
       return;
@@ -1046,10 +945,7 @@ function startPiPrompt(
   return dispatch.consumed;
 }
 
-function startPiCompaction(
-  threadSession: ThreadSession,
-  threadId: string,
-): void {
+function startPiCompaction(threadSession: ThreadSession, threadId: string): void {
   void threadSession.session.compact().then(
     () =>
       reportPromptSettled({
@@ -1092,11 +988,7 @@ async function reconcileTurnOptions(
   const thinkingLevelChanged =
     turnOptions.thinkingLevel !== undefined &&
     turnOptions.thinkingLevel !== construction.thinkingLevel;
-  if (
-    !environmentChanged &&
-    changedModelRequest === undefined &&
-    !thinkingLevelChanged
-  ) {
+  if (!environmentChanged && changedModelRequest === undefined && !thinkingLevelChanged) {
     return threadSession;
   }
   const nextModel =
@@ -1127,18 +1019,14 @@ async function reconcileTurnOptions(
     params: {
       threadId,
       providerThreadId: replacement.providerThreadId,
-      reason:
-        "Execution settings changed; the pi session was rebuilt to apply them.",
+      reason: "Execution settings changed; the pi session was rebuilt to apply them.",
       contextLost: false,
     },
   });
   return replacement;
 }
 
-async function handleTurnStart(
-  id: string | number,
-  params: TurnStartParams,
-): Promise<void> {
+async function handleTurnStart(id: string | number, params: TurnStartParams): Promise<void> {
   const liveSession = sessions.get(params.threadId);
   if (!liveSession || liveSession.closing) {
     sendError(id, -32000, "No active pi session");
@@ -1146,17 +1034,9 @@ async function handleTurnStart(
   }
   let threadSession: ThreadSession;
   try {
-    threadSession = await reconcileTurnOptions(
-      params.threadId,
-      liveSession,
-      params.options,
-    );
+    threadSession = await reconcileTurnOptions(params.threadId, liveSession, params.options);
   } catch (error) {
-    sendError(
-      id,
-      -32000,
-      error instanceof Error ? error.message : String(error),
-    );
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
     return;
   }
   if (isStandaloneBuiltinCompactCommand(params.input)) {
@@ -1176,18 +1056,11 @@ async function handleTurnStart(
     recordAcceptedTurnInput(params);
     sendResult(id, { threadId: params.threadId });
   } catch (error) {
-    sendError(
-      id,
-      -32000,
-      error instanceof Error ? error.message : String(error),
-    );
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
   }
 }
 
-async function handleTurnSteer(
-  id: string | number,
-  params: TurnSteerParams,
-): Promise<void> {
+async function handleTurnSteer(id: string | number, params: TurnSteerParams): Promise<void> {
   const threadSession = sessions.get(params.threadId);
   if (!threadSession || threadSession.closing) {
     sendError(id, -32000, "No active pi session");
@@ -1204,33 +1077,19 @@ async function handleTurnSteer(
     return;
   }
   try {
-    await threadSession.session.steer(
-      text,
-      images.length > 0 ? images : undefined,
-    );
+    await threadSession.session.steer(text, images.length > 0 ? images : undefined);
     sendThreadDeltas(params.threadId, [
       { kind: "input.accepted", clientRequestId: params.clientRequestId },
     ]);
     sendResult(id, { threadId: params.threadId });
   } catch (error) {
-    sendError(
-      id,
-      -32000,
-      error instanceof Error ? error.message : String(error),
-    );
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
   }
 }
 
-async function handleThreadStop(
-  id: string | number,
-  params: ThreadStopParams,
-): Promise<void> {
+async function handleThreadStop(id: string | number, params: ThreadStopParams): Promise<void> {
   const threadSession = sessions.get(params.threadId);
-  if (
-    params.intent === "interrupt" &&
-    threadSession !== undefined &&
-    !threadSession.closing
-  ) {
+  if (params.intent === "interrupt" && threadSession !== undefined && !threadSession.closing) {
     sendThreadDeltas(params.threadId, [{ kind: "session.ended" }]);
   }
   const providerCheckpointId =
@@ -1241,9 +1100,7 @@ async function handleThreadStop(
   sendResult(id, { ok: true, providerCheckpointId });
 }
 
-async function handleThreadDiscard(
-  params: ThreadRefParams,
-): Promise<{ ok: true }> {
+async function handleThreadDiscard(params: ThreadRefParams): Promise<{ ok: true }> {
   await closeThreadSession({
     message: "Pi staged thread discarded while tool call was pending",
     threadId: params.threadId,
@@ -1333,11 +1190,11 @@ export const experimental_providerBridge = experimental_defineProviderBridge({
     });
   },
   onSigterm: () => {
-    void closeThreadSessionsGracefully(
-      "Pi bridge terminated while tool call was pending",
-    ).finally(() => {
-      void closeAllPiCatalogs();
-      process.exit(0);
-    });
+    void closeThreadSessionsGracefully("Pi bridge terminated while tool call was pending").finally(
+      () => {
+        void closeAllPiCatalogs();
+        process.exit(0);
+      },
+    );
   },
 });

@@ -35,9 +35,7 @@ it("passes the canonical protocol suite against a scripted pi rpc child", async 
 
   console.info(`pi bridge conformance:\n${formatConformanceReport(report)}`);
 
-  const statusById = Object.fromEntries(
-    report.results.map((result) => [result.id, result.status]),
-  );
+  const statusById = Object.fromEntries(report.results.map((result) => [result.id, result.status]));
   expect(statusById).toMatchObject({
     "rpc/unknown-method": "pass",
     "rpc/invalid-params": "pass",
@@ -57,9 +55,5 @@ it("passes the canonical protocol suite against a scripted pi rpc child", async 
     "session/threads-independent": "pass",
     "stop/interrupt-settles-before-result": "pass",
   });
-  expect(
-    report.results
-      .filter((result) => result.status !== "pass")
-      .map((r) => r.id),
-  ).toEqual([]);
+  expect(report.results.filter((result) => result.status !== "pass").map((r) => r.id)).toEqual([]);
 }, 60_000);

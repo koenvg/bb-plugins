@@ -6,10 +6,7 @@ function childScript(script: string): { command: string; args: string[] } {
 }
 
 it("auto-cancels extension ui requests when no handler is installed", async () => {
-  vi.stubEnv(
-    "BB_PI_BRIDGE_COMMAND",
-    process.execPath,
-  );
+  vi.stubEnv("BB_PI_BRIDGE_COMMAND", process.execPath);
   vi.stubEnv(
     "BB_PI_BRIDGE_ARGS",
     JSON.stringify([

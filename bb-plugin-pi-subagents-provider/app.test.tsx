@@ -50,9 +50,7 @@ describe("pi extension ui interaction", () => {
     });
     expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(view.getByText("B"));
-    expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(
-      false,
-    );
+    expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("submits a boolean for a confirm dialog", async () => {
@@ -81,16 +79,11 @@ describe("pi extension ui interaction", () => {
 
   it("renders editor prefill and submits the edited text", async () => {
     const submit = vi.fn(async () => undefined);
-    const view = render(
-      { requestId: "ui-4", method: "editor", prefill: "line one" },
-      { submit },
-    );
+    const view = render({ requestId: "ui-4", method: "editor", prefill: "line one" }, { submit });
     const editor = view.container.querySelector("textarea")!;
     fireEvent.change(editor, { target: { value: "line one\nline two" } });
     fireEvent.click(view.getByText("Submit"));
-    await vi.waitFor(() =>
-      expect(submit).toHaveBeenCalledWith("line one\nline two"),
-    );
+    await vi.waitFor(() => expect(submit).toHaveBeenCalledWith("line one\nline two"));
   });
 
   it("renders the unwrapped payload the host passes to plugin components", async () => {
@@ -134,17 +127,17 @@ describe("pi extension ui interaction", () => {
 
   it("offers cancel for a rendered dialog", async () => {
     const cancel = vi.fn(async () => undefined);
-    const view = render(
-      { requestId: "ui-1", method: "select", options: ["A"] },
-      { cancel },
-    );
+    const view = render({ requestId: "ui-1", method: "select", options: ["A"] }, { cancel });
     fireEvent.click(view.getByText("Cancel"));
     await vi.waitFor(() => expect(cancel).toHaveBeenCalled());
   });
 });
 
 it("reports read-only subagent support and installed acceptance limits without controls", () => {
-  const view = renderSlot(app.settingsSections.find((slot) => slot.id === "subagent-support")!, {});
+  const view = renderSlot(
+    app.settingsSections.find((slot) => slot.id === "subagent-support")!,
+    {},
+  );
   expect(view.getByText(/Open the Subagents tab/)).toBeDefined();
   expect(view.getByText(/Ordinary Pi work remains available/)).toBeDefined();
   expect(view.queryByRole("button")).toBeNull();

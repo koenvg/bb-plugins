@@ -83,9 +83,7 @@ const piAssistantUsageSchema = z
 const piConversationMessageSchema = z
   .object({
     role: z.string(),
-    content: z
-      .union([z.string(), z.array(piMessageContentBlockSchema)])
-      .optional(),
+    content: z.union([z.string(), z.array(piMessageContentBlockSchema)]).optional(),
     stopReason: z.string().optional(),
     errorMessage: z.string().optional(),
     provider: z.string().optional(),
@@ -203,9 +201,7 @@ type PiAssistantErrorMessage = PiAssistantMessage & {
   stopReason: "error";
 };
 type PiConversationMessage = z.infer<typeof piConversationMessageSchema>;
-type PiToolExecutionUpdateEvent = z.infer<
-  typeof piToolExecutionUpdateEventSchema
->;
+type PiToolExecutionUpdateEvent = z.infer<typeof piToolExecutionUpdateEventSchema>;
 
 const PI_EMPTY_BASH_OUTPUT_PLACEHOLDERS = ["(no output)"] as const;
 const PI_COMMAND_TOOL_NAMES = new Set(["bash"]);
@@ -224,9 +220,7 @@ function classifyPiToolUse(
 ): DeltaItemShape {
   if (PI_COMMAND_TOOL_NAMES.has(toolName)) {
     const parsed = bashArgsSchema.safeParse(args);
-    const command = parsed.success
-      ? toOptionalString(parsed.data.command)
-      : undefined;
+    const command = parsed.success ? toOptionalString(parsed.data.command) : undefined;
     const cwd =
       (parsed.success ? toOptionalString(parsed.data.cwd) : undefined) ??
       toOptionalString(sessionCwd);
@@ -250,13 +244,8 @@ function classifyPiToolUse(
       changes: [
         {
           path: parsed.data.path,
-          kind:
-            toolName === "edit" || parsed.data.oldText !== undefined
-              ? "update"
-              : "add",
-          ...(parsed.data.oldText === undefined
-            ? {}
-            : { oldText: parsed.data.oldText }),
+          kind: toolName === "edit" || parsed.data.oldText !== undefined ? "update" : "add",
+          ...(parsed.data.oldText === undefined ? {} : { oldText: parsed.data.oldText }),
           ...(newText === undefined ? {} : { newText }),
         },
       ],
@@ -292,10 +281,7 @@ function buildPiModelContextWindowLookup(
     if (contextWindow === undefined) {
       continue;
     }
-    byCanonicalId.set(
-      toCanonicalPiModelId(model.provider, model.id),
-      contextWindow,
-    );
+    byCanonicalId.set(toCanonicalPiModelId(model.provider, model.id), contextWindow);
     byModelId.set(model.id, contextWindow);
   }
   return { byCanonicalId, byModelId };
@@ -305,8 +291,7 @@ export function createPiModelContextWindowResolverFrom(
   models: readonly PiContextWindowModel[],
 ): PiModelContextWindowResolver {
   const modelContextWindowLookup = buildPiModelContextWindowLookup(models);
-  return (lastAssistant) =>
-    resolvePiModelContextWindow(lastAssistant, modelContextWindowLookup);
+  return (lastAssistant) => resolvePiModelContextWindow(lastAssistant, modelContextWindowLookup);
 }
 
 function resolvePiModelContextWindow(
@@ -321,9 +306,7 @@ function resolvePiModelContextWindow(
   const providerId = toOptionalString(lastAssistant?.provider);
   if (providerId) {
     return (
-      modelContextWindowLookup.byCanonicalId.get(
-        toCanonicalPiModelId(providerId, modelId),
-      ) ?? null
+      modelContextWindowLookup.byCanonicalId.get(toCanonicalPiModelId(providerId, modelId)) ?? null
     );
   }
 
@@ -342,16 +325,11 @@ interface CreatePiDeltaTranslatorOptions {
 
 const MAX_STARTED_TOOL_SHAPES = 1024;
 
-export function createPiDeltaTranslator(
-  options: CreatePiDeltaTranslatorOptions,
-) {
+export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions) {
   const { resolveModelContextWindow } = options;
 
   const startedToolShapes = new Map<string, DeltaItemShape>();
-  const cumulativeTokensByThreadId = new Map<
-    string,
-    ThreadEventTokenUsageBreakdown
-  >();
+  const cumulativeTokensByThreadId = new Map<string, ThreadEventTokenUsageBreakdown>();
 
   function resetThread(threadId: string): void {
     cumulativeTokensByThreadId.delete(threadId);
@@ -376,11 +354,9 @@ export function createPiDeltaTranslator(
     }
   }
 
-  function clearThreadToolShapes(
-    context: PiDeltaTranslationContext | undefined,
-  ): void {
+  function clearThreadToolShapes(context: PiDeltaTranslationContext | undefined): void {
     const prefix = `${context?.threadId ?? ""} `;
-    for (const key of [...startedToolShapes.keys()]) {
+    for (const key of startedToolShapes.keys()) {
       if (key.startsWith(prefix)) {
         startedToolShapes.delete(key);
       }
@@ -397,8 +373,7 @@ export function createPiDeltaTranslator(
       ...(rawEvent.id !== undefined ? { id: rawEvent.id } : {}),
       method: rawEvent.method,
       params: {
-        serializationError:
-          "Provider raw event params were not JSON-serializable.",
+        serializationError: "Provider raw event params were not JSON-serializable.",
       },
     };
   }
@@ -451,22 +426,15 @@ export function createPiDeltaTranslator(
         raw: fallback.raw,
         rawType: fallback.rawType,
         vouchedTurn: true,
-        ...(context?.parentToolCallId
-          ? { parentRef: context.parentToolCallId }
-          : {}),
+        ...(context?.parentToolCallId ? { parentRef: context.parentToolCallId } : {}),
       },
     ];
   }
 
-  function translate(
-    event: unknown,
-    context?: PiDeltaTranslationContext,
-  ): ThreadDelta[] {
+  function translate(event: unknown, context?: PiDeltaTranslationContext): ThreadDelta[] {
     const sdkEnvelope = sdkMessageEnvelopeSchema.safeParse(event);
     if (sdkEnvelope.success) {
-      if (
-        piIgnoredEventSchema.safeParse(sdkEnvelope.data.params.message).success
-      ) {
+      if (piIgnoredEventSchema.safeParse(sdkEnvelope.data.params.message).success) {
         return [];
       }
       const parentToolCallId =
@@ -487,8 +455,7 @@ export function createPiDeltaTranslator(
           );
     }
 
-    const promptSettledEnvelope =
-      piPromptSettledEnvelopeSchema.safeParse(event);
+    const promptSettledEnvelope = piPromptSettledEnvelopeSchema.safeParse(event);
     if (promptSettledEnvelope.success) {
       clearThreadToolShapes(context);
       return [
@@ -503,8 +470,7 @@ export function createPiDeltaTranslator(
       ];
     }
 
-    const contextWindowUsageEnvelope =
-      threadContextWindowUsageEnvelopeSchema.safeParse(event);
+    const contextWindowUsageEnvelope = threadContextWindowUsageEnvelopeSchema.safeParse(event);
     if (contextWindowUsageEnvelope.success) {
       const { contextWindowUsage } = contextWindowUsageEnvelope.data.params;
       const used = contextWindowUsage.usedTokens;
@@ -512,10 +478,7 @@ export function createPiDeltaTranslator(
       return [
         {
           kind: "contextWindow",
-          used:
-            typeof used === "number" && Number.isFinite(used) && used >= 0
-              ? used
-              : null,
+          used: typeof used === "number" && Number.isFinite(used) && used >= 0 ? used : null,
           size: toPositiveNumber(size) ?? null,
           estimated: contextWindowUsage.estimated,
           attach: "currentOrLast",
@@ -565,10 +528,7 @@ export function createPiDeltaTranslator(
         if (!piEvent.success) {
           return [];
         }
-        if (
-          piEvent.data.type === "message_end" ||
-          !piEvent.data.message.display
-        ) {
+        if (piEvent.data.type === "message_end" || !piEvent.data.message.display) {
           return [];
         }
         const text = extractCustomMessageText(piEvent.data.message.content);
@@ -587,14 +547,10 @@ export function createPiDeltaTranslator(
           kind: "item.open",
           key: { channel: "compaction" },
           item: { type: "compaction" },
-          ...(parsed.data.reason === "manual"
-            ? {}
-            : { attach: "currentOrLast" }),
+          ...(parsed.data.reason === "manual" ? {} : { attach: "currentOrLast" }),
           noTurnFallback: noTurnFallbackFor(event, context),
         };
-        return parsed.data.reason === "manual"
-          ? [{ kind: "turn.open" }, open]
-          : [open];
+        return parsed.data.reason === "manual" ? [{ kind: "turn.open" }, open] : [open];
       }
 
       case "compaction_end": {
@@ -636,9 +592,7 @@ export function createPiDeltaTranslator(
                 : parsed.data.errorMessage
                   ? "failed"
                   : "completed",
-              ...(parsed.data.errorMessage
-                ? { error: { message: parsed.data.errorMessage } }
-                : {}),
+              ...(parsed.data.errorMessage ? { error: { message: parsed.data.errorMessage } } : {}),
             },
           ];
         }
@@ -651,9 +605,7 @@ export function createPiDeltaTranslator(
             message: parsed.data.aborted
               ? "Context compaction interrupted"
               : "Context compaction failed",
-            detail:
-              parsed.data.errorMessage ??
-              "Automatic context compaction was interrupted",
+            detail: parsed.data.errorMessage ?? "Automatic context compaction was interrupted",
           },
         ];
       }
@@ -795,15 +747,8 @@ export function createPiDeltaTranslator(
         if (!piEvent.success) {
           return unexpectedSdkEventDeltas(event, context);
         }
-        const shape = classifyPiToolUse(
-          piEvent.data.toolName,
-          piEvent.data.args,
-          context?.cwd,
-        );
-        rememberStartedToolShape(
-          toolShapeKey(context, piEvent.data.toolCallId),
-          shape,
-        );
+        const shape = classifyPiToolUse(piEvent.data.toolName, piEvent.data.args, context?.cwd);
+        rememberStartedToolShape(toolShapeKey(context, piEvent.data.toolCallId), shape);
         return [
           {
             kind: "item.open",
@@ -823,15 +768,12 @@ export function createPiDeltaTranslator(
           return unexpectedSdkEventDeltas(event, context);
         }
         const resultText = extractResultText(piEvent.data.result);
-        const aggregatedOutput = PI_COMMAND_TOOL_NAMES.has(
-          piEvent.data.toolName,
-        )
+        const aggregatedOutput = PI_COMMAND_TOOL_NAMES.has(piEvent.data.toolName)
           ? extractPiCommandExecutionOutput(piEvent.data.result)
           : undefined;
         const shapeKey = toolShapeKey(context, piEvent.data.toolCallId);
         const terminalShape =
-          startedToolShapes.get(shapeKey) ??
-          classifyPiToolResultFallback(piEvent.data.toolName);
+          startedToolShapes.get(shapeKey) ?? classifyPiToolResultFallback(piEvent.data.toolName);
         startedToolShapes.delete(shapeKey);
         return [
           {
@@ -856,9 +798,7 @@ export function createPiDeltaTranslator(
           return unexpectedSdkEventDeltas(event, context);
         }
         if (PI_COMMAND_TOOL_NAMES.has(piEvent.data.toolName)) {
-          const snapshot = extractPiCommandExecutionOutput(
-            piEvent.data.partialResult,
-          );
+          const snapshot = extractPiCommandExecutionOutput(piEvent.data.partialResult);
           if (snapshot === undefined) {
             return [];
           }
@@ -922,9 +862,7 @@ function extractAssistantText(message: PiAssistantMessage): string | undefined {
 }
 
 function extractCustomMessageText(
-  content: z.infer<
-    typeof piCustomMessageBoundaryEventSchema
-  >["message"]["content"],
+  content: z.infer<typeof piCustomMessageBoundaryEventSchema>["message"]["content"],
 ): string | undefined {
   const text = (
     typeof content === "string"
@@ -939,9 +877,7 @@ function extractCustomMessageText(
   return text.length > 0 ? text : undefined;
 }
 
-function isPiAssistantError(
-  message: PiAssistantMessage,
-): message is PiAssistantErrorMessage {
+function isPiAssistantError(message: PiAssistantMessage): message is PiAssistantErrorMessage {
   return (
     message.stopReason === "error" &&
     typeof message.errorMessage === "string" &&
@@ -961,29 +897,21 @@ function extractPiToolProgressText(event: PiToolExecutionUpdateEvent): string {
   return text.length > 0 ? text : `${event.toolName} progress update`;
 }
 
-function toAssistantUsageBreakdown(
-  lastAssistant: PiAssistantMessage | undefined,
-) {
+function toAssistantUsageBreakdown(lastAssistant: PiAssistantMessage | undefined) {
   const typedUsage = lastAssistant?.usage;
   if (!typedUsage) return undefined;
 
   const inputTokens = toNonNegativeNumber(typedUsage.input);
   const outputTokens = toNonNegativeNumber(typedUsage.output);
   const cachedInputTokens =
-    toNonNegativeNumber(typedUsage.cacheRead) +
-    toNonNegativeNumber(typedUsage.cacheWrite);
+    toNonNegativeNumber(typedUsage.cacheRead) + toNonNegativeNumber(typedUsage.cacheWrite);
   const totalTokens = toNonNegativeNumber(typedUsage.totalTokens);
 
   return {
-    totalTokens:
-      totalTokens > 0
-        ? totalTokens
-        : inputTokens + outputTokens + cachedInputTokens,
+    totalTokens: totalTokens > 0 ? totalTokens : inputTokens + outputTokens + cachedInputTokens,
     inputTokens,
     cachedInputTokens,
-    ...(typedUsage.cacheRead === undefined
-      ? {}
-      : { cacheReadInputTokens: typedUsage.cacheRead }),
+    ...(typedUsage.cacheRead === undefined ? {} : { cacheReadInputTokens: typedUsage.cacheRead }),
     ...(typedUsage.cacheWrite === undefined
       ? {}
       : { cacheWriteInputTokens: typedUsage.cacheWrite }),
