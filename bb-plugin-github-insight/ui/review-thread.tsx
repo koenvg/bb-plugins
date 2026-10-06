@@ -128,7 +128,7 @@ function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: 
         </UrlLink>
         {trailing !== null && <div className="ml-auto shrink-0">{trailing}</div>}
       </div>
-      <div className="pl-7 leading-relaxed">
+      <div className="pl-7 leading-relaxed [&_pre]:overflow-x-auto">
         <Markdown content={comment.body} />
       </div>
     </div>
