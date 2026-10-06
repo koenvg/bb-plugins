@@ -11,17 +11,19 @@ BBP-19 adds identity attribution only. All checks use isolated synthetic metadat
 - `src/history/identity/identity-resolution.ts` resolves unique candidates. It never treats a provider identity as a Pi session ID. A captured claim alone or a shared workspace cannot create a candidate.
 - `src/history/identity/identity-view.tsx` shows grades and verified totals. The app calls public `useBbNavigate().toThread`. No manually constructed route is used. Long values wrap at 375px.
 
-## BBP-23 storage integration
+## Schema-4 storage integration
 
-The existing history schema stays version 1. New `identity_*` tables and triggers are additive. `identity_usage.event_id` is a stable usage key, not a replay winner decision. Its `occurred_at`, `session_id`, `workspace`, provider file key, claim and captured total are immutable identity inputs. `thread_id` and `grade` are separate derived binding fields. The database belongs to one recorded host. `identity_receipt.host_id` rejects evidence for another host.
+`initializeHistory` owns the unified schema-4 migration for retention, writer observation, identity and import. It publishes `user_version=4` last in the transaction. See [STORAGE-INTEGRATION.md](STORAGE-INTEGRATION.md) for supported layouts, migration and recovery. Schema 1 with additive identity tables was the historical BBP-19 stage, not the current schema.
 
-Keep these interfaces when integrating the sibling retention projection:
+`identity_usage.event_id` is a stable usage key, not a replay winner decision. Its `occurred_at`, `session_id`, `workspace`, provider file key, claim and captured total are immutable identity inputs. `thread_id` and `grade` are separate derived binding fields. The database belongs to one recorded host. `identity_receipt.host_id` rejects evidence for another host.
 
-1. Publish each accepted compact usage identity to `identity_usage`, including its original UTC instant, recorded workspace, Pi session ID, optional provider key and untrusted claim. Preserve token classes and captured price in the BBP-23 compact record. Do not reconstruct either from current metadata.
-2. The current insert/update triggers mirror `usage_events` into identity rows and mark acceptance changes pending. If BBP-23 makes a compact table authoritative or drops detailed rows, use the same scalar publication and acceptance-change interface in its ingestion transaction. Deleting a detail row must not delete a durable binding or replay owner. Expiring a compact contribution must remove its grade/thread projection in the same transaction. BBP-19 does not implement expiration or pruning.
+Keep these interfaces when maintaining the integrated storage:
+
+1. Publish each retained compact usage identity to `identity_usage`, including its original UTC instant, recorded workspace, Pi session ID, optional provider key and untrusted claim. Keep original token classes in retained detail and captured cost or missing-price state in the compact record. Do not reconstruct expired classes or prices from current metadata.
+2. Insert/update triggers mirror scalar identity and acceptance changes from `usage_events` and `usage_compact` in the ingestion transaction. Identity backfill reads retained compact rows and waits for compact ownership backfill to finish. Detail expiry must not delete a durable binding or replay owner. Compact expiry removes numeric identity rows and their grade/thread totals in the same transaction, while relationship and entry evidence remain.
 3. Keep `usage_entry_owners` as the sole first-confirmed replay owner. Identity attribution consumes its accepted/excluded result. It cannot choose a new owner or resurrect an excluded event.
-4. Retained compact records can carry optional verified thread identity by stable usage key. The evidence/revision/grade tables remain separate, so later conflicting evidence can remove exact attribution without changing recorded usage values.
-5. Server/host evidence delivery is incremental and idempotent. Recovery that replaces a host database must also reset that host's server delivery receipt. BBP-19 does not replace or recover databases. There is no public per-table API.
+4. Retained compact records carry optional verified thread identity by stable usage key. The evidence/revision/grade tables remain separate, so later conflicting evidence can remove exact attribution without changing recorded usage values.
+5. Server/host evidence delivery is incremental and idempotent. If recovery loses the host identity receipt, reset only that host/generation's server delivery cursor and resend the unchanged catalog from offset zero. There is no public per-table API.
 
 ## BBP-22 import interface
 
