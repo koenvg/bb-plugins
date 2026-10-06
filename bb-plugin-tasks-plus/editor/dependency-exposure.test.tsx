@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, waitFor } from "@testing-library/react";
-import { Editor } from "@tiptap/core";
+import { Editor, mergeAttributes } from "@tiptap/core";
+import { DOMSerializer, Schema } from "@tiptap/pm/model";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEditorExtensions } from "./extensions";
 import { TasksEditor } from "./tasks-editor";
@@ -14,6 +15,38 @@ function expectNoInjectedAttributes(surface: Element): void {
 }
 
 describe("Tiptap advisory input boundaries", () => {
+  it("keeps JSON-origin prototype attributes out of DOM serialization", () => {
+    const malicious = JSON.parse(
+      '{"__proto__":{"data-inherited-canary":"injected","src":"x-invalid://canary","onerror":"alert(1)"}}',
+    );
+    // Cover both copying into an empty result and merging between ordinary attributes.
+    for (const attributes of [
+      mergeAttributes(malicious),
+      mergeAttributes({ alt: "kept" }, malicious, { title: "kept" }),
+    ]) {
+      expect(Object.getPrototypeOf(attributes)).toBe(Object.prototype);
+      expect(attributes["data-inherited-canary"]).toBeUndefined();
+      expect(attributes.src).toBeUndefined();
+      expect(attributes.onerror).toBeUndefined();
+
+      const schema = new Schema({
+        nodes: {
+          doc: { content: "image" },
+          image: { toDOM: () => ["img", attributes] },
+          text: {},
+        },
+      });
+      const fragment = DOMSerializer.fromSchema(schema).serializeFragment(
+        schema.node("doc", null, [schema.node("image")]).content,
+      );
+      const image = fragment.firstChild as HTMLImageElement;
+      expect(image.getAttribute("data-inherited-canary")).toBeNull();
+      expect(image.getAttribute("src")).toBeNull();
+      expect(image.getAttribute("onerror")).toBeNull();
+      expect(image.getAttribute("alt")).toBe(attributes.alt ?? null);
+    }
+  });
+
   const html =
     '<img src="https://example.com/image.png" alt="kept" onerror="alert(1)" __proto__="injected" data-inherited-canary="injected">';
 
