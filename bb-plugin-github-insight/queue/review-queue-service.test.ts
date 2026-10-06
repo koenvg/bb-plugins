@@ -679,7 +679,7 @@ describe("startReview", () => {
   } as NewThreadRequest;
 
   it("spawns the review thread and publishes it linked without a GitHub call", async () => {
-    const reviewThreads: QueueReviewThread[] = [];
+    const reviewThreads: QueueThread[] = [];
     const spawned: unknown[] = [];
     const { service, hostIds, published } = serviceWith({
       listReviewThreads: async () => reviewThreads,
@@ -725,7 +725,7 @@ describe("startReview", () => {
 
   it("updates the last good view and keeps the error after a failed load", async () => {
     let fail = false;
-    const reviewThreads: QueueReviewThread[] = [];
+    const reviewThreads: QueueThread[] = [];
     const { service, published } = serviceWith({
       fetchReviewQueue: async () => {
         if (fail) throw new Error("rate limited");
