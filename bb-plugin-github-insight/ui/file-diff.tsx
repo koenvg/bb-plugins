@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
-import { FileDiff } from "@pierre/diffs/react";
 import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
 import { gitPatch, type ReviewFile } from "../core/pr-files";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import type { ReviewThread } from "../core/review-threads";
 import type { PlacedThread } from "../core/thread-placement";
 import { Icon } from "@/components/ui/icon";
+import { ReviewFileDiff } from "../../review-ui/review-file-diff";
 import { CommentDraftCard } from "./comment-drafts";
 import { ReviewThreadCard } from "./review-thread";
 
@@ -66,16 +66,12 @@ function LazyFileDiff({
   return (
     <section ref={ref} className="min-h-10 border-b border-border">
       {visible && (
-        <FileDiff
+        <ReviewFileDiff
           fileDiff={fileDiff}
-          options={{
-            theme: theme.name,
-            themeType: theme.mode,
-            overflow: "wrap",
-            stickyHeader: true,
-          }}
-          lineAnnotations={lineAnnotations}
-          renderHeaderMetadata={() => <ThreadCount count={threads.length} />}
+          annotations={lineAnnotations}
+          view="split"
+          theme={theme}
+          headerMetadata={<ThreadCount count={threads.length} />}
           renderAnnotation={({ metadata }) =>
             metadata.kind === "thread" ? (
               <ReviewThreadCard key={metadata.thread.id} thread={metadata.thread} />
