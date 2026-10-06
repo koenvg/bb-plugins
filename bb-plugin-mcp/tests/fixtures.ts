@@ -11,8 +11,10 @@ import {
   operationMigration,
   operationSubmissionMigration,
   operationStopMigration,
+  operationResolutionMigration,
 } from "../operations.js";
 
+import { localOperationCommand, localOperationCommands } from "../local-operations.js";
 // Node's built-in fetch does not preserve a supplied Host header. This test
 // bridge uses a real TCP connection and keeps the tunnel's public Host.
 export const loopbackFetch: typeof fetch = async (input, init) => {
@@ -124,6 +126,7 @@ export async function fixture(
       operationMigration,
       operationSubmissionMigration,
       operationStopMigration,
+      operationResolutionMigration,
     ]);
     const operations = operationControl({
       db,
@@ -138,6 +141,12 @@ export async function fixture(
         queue: (args) => host.bb.sdk.threads.queuedMessages.list(args),
         interactions: (args) => host.bb.sdk.threads.interactions.list(args),
       },
+    });
+    host.bb.cli.register({
+      name: "mcp",
+      summary: "Synthetic local operation fixture",
+      commands: localOperationCommands,
+      run: (argv) => localOperationCommand(operations, argv),
     });
     const access = remoteAccess({
       connection: config,

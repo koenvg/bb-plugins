@@ -123,12 +123,12 @@ The token needs both `bb.read` and `bb.control`. Local remote access and control
 
 The start result has `operationId`, `state`, `threadId`, `code`, and `meaning`. Start waits up to three seconds for submission, with a total four-second tool-response budget including current thread access checks. Authentication and HTTP processing still have the existing five-second request deadline. A slow access check returns `OPERATION_UNAVAILABLE`; retain the original input/key and inspect BB. `bb_get_operation` takes only `operationId`, requires read scope, and never repeats an action. Status remains available when local control is disabled. Status reads and cached start replies recheck the submitting owner, project allowlist, and current thread membership when a thread ID is known. Missing and disallowed records use the same safe unavailable error.
 
-| State      | Meaning                                                                                                                                                                           |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pending`  | Submission outcome is still pending. Poll the operation, not agent completion.                                                                                                    |
-| `accepted` | BB returned a thread and the plugin saved that result. The agent has not necessarily started or completed work. Hooks, concurrency rules and approval requests still apply in BB. |
-| `failed`   | The plugin can confirm that it did not dispatch a start, such as a failed defaults read or pre-dispatch loss. The original key remains protected.                                 |
-| `unknown`  | Dispatch might have happened. Inspect BB before deciding to submit a new key. This state is never a safe-to-retry promise.                                                        |
+| State      | Meaning                                                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pending`  | Submission outcome is still pending. Poll the operation, not agent completion.                                                                                   |
+| `accepted` | BB returned acceptance, or the owner recorded verified acceptance locally. The agent has not necessarily started or completed work. BB controls still apply.     |
+| `failed`   | An automatic result confirms no dispatch, or the owner locally verified non-acceptance. The code and meaning distinguish these cases. The key remains protected. |
+| `unknown`  | Dispatch might have happened. Inspect BB before deciding to submit a new key. This state is never a safe-to-retry promise.                                       |
 
 After a lost reply or transport error, repeat the original input and original key, or poll the known operation ID. A matching key observes the saved operation and does not start again. A changed input returns `OPERATION_CONFLICT`. A disconnect after dispatch does not cancel the BB action. A 30-second SDK deadline marks the outcome unknown; a later reply in the same plugin generation can establish acceptance. Because the public spawn contract does not promise that an error occurs before creation, any spawn error also stays unknown. Raw BB errors are not returned or logged.
 
@@ -136,7 +136,7 @@ SQLite protects the unique issuer/owner/tool/key identity before dispatch with a
 
 Completed `accepted` and `failed` records stay protected for at least 24 hours after their last outcome update. A new claim can remove completed records only after that window. After expiry the same key can create new work, so use unique keys for new actions. `pending` and `unknown` records are never evicted. The ledger holds at most 10,000 records; `LEDGER_FULL` refuses new mutations without a BB mutation. At most eight outstanding submissions and eight operation membership reads run per generation. Slots remain occupied until their SDK calls settle, even after a deadline; `OPERATIONS_BUSY` refuses further new mutations. Existing read-tool and HTTP limits remain unchanged.
 
-Local operation listing/resolution is reserved for BBP-84 and is not implemented here. Until then, unresolved records remain protected and capacity exhaustion can require waiting for that slice. Inspect BB directly for an unknown start, using its operation metadata when available. Never delete the ledger to retry an uncertain action.
+Use the [local diagnostics and resolution workflow](#local-diagnostics-and-resolution) to inspect an uncertain action. Never delete the ledger to retry it.
 
 ## Follow-up instructions
 
@@ -169,7 +169,7 @@ Send results keep the existing `operationId`, `state`, `threadId`, `code`, and `
 | `state: "accepted", delivery: "queued"` | BB retained the input in its queue. It might be waiting or deferred, not running or complete.                                                                                                                                                                                                                    |
 | `waitingOn`                             | The saved queue wait kind, such as `thread-busy`, `plugin`, `interaction`, `host-offline`, `provisioning`, `time`, `stopping` or `turn-starting`. Null means BB returned no wait kind. Private queue text, rule reasons and host names are omitted. This is the submission observation, not a live queue status. |
 | `pending`                               | The send reply has not arrived. Poll the operation ID. Delivery is null.                                                                                                                                                                                                                                         |
-| `failed`                                | No send was dispatched. The original key remains protected. Delivery is null.                                                                                                                                                                                                                                    |
+| `failed`                                | Automatic failure means no send was dispatched. Manual resolution means owner-verified non-acceptance. The key remains protected. Delivery is null.                                                                                                                                                              |
 | `unknown`                               | Submission might have occurred. Delivery is null. Inspect BB before deciding on a new key.                                                                                                                                                                                                                       |
 
 After a lost reply, use the same normalized thread ID, exact message and original key. A matching key observes the saved result without sending again. A changed message, including whitespace, or changed target conflicts. Start and send have separate tool/key identities. A new intended instruction needs a new unique key. Completed send keys stay protected for at least 24 hours; unresolved keys never expire or replay.
@@ -202,10 +202,52 @@ These reads are separate observations, not an atomic or live snapshot. A slow, f
 
 Stopping preserves the thread and its history. It is not queue deletion. Remaining queued input can still need action in BB. This tool cannot delete queue rows or threads, answer permissions, or override execution settings. Closing an MCP connection, closing its listener, disabling remote access or disabling the plugin does not itself stop BB agent work.
 
-Stop shares the absolute response budget, SDK deadline, durable owner/tool/key identity, retention, capacity and restart rules of start/send. Identical retries observe one stop operation; changed targets conflict. Start, send and stop have separate tool/key identities. Disconnects and restarts never replay stops. Keep unresolved keys and inspect BB before deciding on a new key. Local resolution remains BBP-84 work.
+Stop shares the absolute response budget, SDK deadline, durable owner/tool/key identity, retention, capacity and restart rules of start/send. Identical retries observe one stop operation; changed targets conflict. Start, send and stop have separate tool/key identities. Disconnects and restarts never replay stops. Keep unresolved keys and inspect BB before deciding on a new key. Local resolution records owner observations only.
+
+## Local diagnostics and resolution
+
+These commands use BB's local plugin CLI. They work with remote access and control disabled. They do not call BB, probe the tunnel, submit work, or answer permissions. No MCP tool can resolve a record. Local CLI access is trusted BB access, not a remote OAuth grant.
+
+```sh
+bb mcp operations --limit 20 --json
+bb mcp operations --cursor <nextCursor> --limit 20 --json
+bb mcp operations --operation <operationId> --json
+```
+
+A page contains at most 50 summaries, default 50, and stays below 64 KiB. Long identities can reduce the page size. `nextCursor` is the last returned operation ID, or null at the end. Pages use operation-ID order, not time order or a stable snapshot. Restart pagination after records change. Each summary has the operation ID, original issuer/owner/tool/key identity, project and known thread, state, fixed safe code, creation/update timestamps in epoch milliseconds, `resolvedAt`, and `active`. It omits normalized-input hashes, prompts, messages, titles, output, tokens and raw BB errors. A missing operation returns `OPERATION_NOT_FOUND` locally.
+
+Before resolution:
+
+1. Inspect the summary and record its original identity, target and timestamps. An `active: true` operation can still receive a BB reply, even when its state is unknown. Wait for that reply. A plugin restart marks previous pending records unknown; it never repeats them.
+2. Check BB directly. For a start, compare the project's thread history and the plugin's operation-ID metadata when available. For a send, check that exact thread's submitted messages and queue. For a stop, check the target and evidence that BB accepted the stop request. An idle thread alone does not prove which stop request BB accepted. Match the project, thread and time. An absent result alone does not prove rejection.
+3. Choose `accepted` only when you verified BB acceptance. For a send, also verify `sent` versus `queued`. Choose `failed` only when you verified that BB did not accept the action. Agent errors after acceptance are not submission failures. Acceptance is not completed agent work; stop acceptance is not confirmed stop completion or queue deletion. Keep the record unknown when the evidence is insufficient.
+4. With owner approval for this specific record, save the observation. `--verified` explicitly confirms that the owner checked BB. It is not a check performed by the command.
+
+```sh
+# Verified start acceptance. Use the actual IDs from the inspection.
+bb mcp resolve-operation <operationId> --outcome accepted --project <projectId> --thread <threadId> --verified --json
+# Verified send acceptance. Delivery is required for an accepted send only.
+bb mcp resolve-operation <operationId> --outcome accepted --project <projectId> --thread <threadId> --delivery queued --verified --json
+# Verified stop acceptance. No delivery or stop-completion override is accepted.
+bb mcp resolve-operation <operationId> --outcome accepted --project <projectId> --thread <threadId> --verified --json
+# Verified failed start with no known thread.
+bb mcp resolve-operation <operationId> --outcome failed --project <projectId> --verified --json
+```
+
+All resolutions require the original project. If a thread is already recorded, both accepted and failed resolutions require that same thread. An accepted start requires the verified created thread. A failed start with no known thread cannot add one. Extra flags, invalid outcomes, missing verification, inconsistent targets or delivery, active operations and final records are rejected without changing the record. Resolution uses one immediate SQLite transaction and retains the original identity and input hash. It stores only the selected outcome, target, delivery and resolution time. It saves no notes or content copy. Send wait details and stop observations remain null because resolution did not read BB.
+
+Successful resolution returns the same local summary format. Remote status and identical retries use the existing result fields, with `OWNER_VERIFIED_ACCEPTED` or `OWNER_VERIFIED_FAILED` and a meaning that identifies the local owner observation. Manual failure means verified non-acceptance, not a claim that no SDK call occurred. Automatic pre-dispatch failures keep their existing meaning. The submitting issuer/owner, live project access and known thread membership checks still apply. Removed access cannot read a resolved cached result. Control disable still permits authorized read-only status.
+
+### Retention and cleanup
+
+Unresolved pending and unknown records never expire. Resolution starts a new minimum 24-hour completed-key retention window from its outcome timestamp. During that window, the original key observes the saved result and changed input conflicts. Resolution never makes that key executable. After expiry, a subsequent new claim can remove a completed record, and reusing its key could submit new work. Preserve the original key after transport errors; do not use expiry or a fresh key to test an unknown outcome.
+
+A new unique key is appropriate only for a separately intended action after checking BB and deciding that it will not duplicate existing work. If acceptance is unknown, retain the record and investigate. There is no replay or ledger-reset command. At capacity, new mutations fail safely rather than discard unresolved protection.
+
+For cleanup, preserve the plugin database while unresolved records exist. Completed records can expire through normal claims after their retention window. Disabling or reloading the plugin preserves records and does not stop threads. Disabling remote access, restoring approved temporary settings or revoking an OAuth grant does not remove records. These local commands never change the external Cloudflare tunnel, connector service, DNS or credentials. Infrastructure cleanup remains a separate operator action.
 
 ## Local checks and release limits
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
-See [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
+See [the BBP-84 local resolution checkpoint](VERIFICATION-BBP84.md), [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.

@@ -35,6 +35,7 @@ type RecordRow = {
   created: number;
   updated: number;
   generation: string;
+  resolved: number | null;
 };
 export const operationMigration = `CREATE TABLE operations (
   id TEXT PRIMARY KEY, issuer TEXT NOT NULL, owner TEXT NOT NULL, tool TEXT NOT NULL,
@@ -47,6 +48,7 @@ ALTER TABLE operations ADD COLUMN waiting_on TEXT;`;
 export const operationStopMigration = `ALTER TABLE operations ADD COLUMN stop_status TEXT;
 ALTER TABLE operations ADD COLUMN queue_count INTEGER;
 ALTER TABLE operations ADD COLUMN pending_interaction INTEGER;`;
+export const operationResolutionMigration = `ALTER TABLE operations ADD COLUMN resolved INTEGER;`;
 export const operationLimits = { responseWaitMs: 4000, sdkDeadlineMs: 30000, capacity: 10000 };
 const retentionMs = 24 * 60 * 60 * 1000;
 const id = z.string().trim().min(1).max(200);
@@ -141,6 +143,7 @@ export function operationControl(options: {
         stop_status: null,
         queue_count: null,
         pending_interaction: null,
+        resolved: null,
         updated: now(),
         generation,
       };
@@ -173,7 +176,7 @@ export function operationControl(options: {
   ) {
     if (closed) return;
     db.prepare(
-      "UPDATE operations SET state = ?, code = ?, thread = COALESCE(?, thread), delivery = ?, waiting_on = ?, updated = ? WHERE id = ? AND generation = ? AND state IN ('pending', 'unknown')",
+      "UPDATE operations SET state = ?, code = ?, thread = COALESCE(?, thread), delivery = ?, waiting_on = ?, updated = ? WHERE id = ? AND generation = ? AND state IN ('pending', 'unknown') AND resolved IS NULL",
     ).run(state, code, thread, delivery, waitingOn, now(), operationId, generation);
   }
   async function lookupThread(
@@ -246,21 +249,25 @@ export function operationControl(options: {
           }
         : {}),
       meaning:
-        row.state === "accepted"
-          ? row.tool === "bb_stop_thread"
-            ? "BB acknowledged the stop request. Stopping is not confirmed complete. Queue and approval observations are not an atomic snapshot; inspect BB."
-            : row.delivery === "queued"
-              ? "BB queued the instruction. Agent work is not complete; BB controls its dispatch."
-              : "BB accepted the submission. Agent work is not complete."
-          : row.state === "failed"
-            ? row.tool === "bb_start_thread"
-              ? "No start was dispatched."
-              : row.tool === "bb_stop_thread"
-                ? "No stop was dispatched."
-                : "No message was dispatched."
-            : row.state === "unknown"
-              ? "Outcome unknown. Inspect BB before submitting a new key. Do not repeat the action."
-              : "Submission outcome pending. Poll this operation; do not submit a new key.",
+        row.resolved !== null
+          ? row.state === "accepted"
+            ? "Owner verified BB acceptance locally. This is not completed work or confirmed stop completion."
+            : "Owner verified that BB did not accept this action. The original key remains protected."
+          : row.state === "accepted"
+            ? row.tool === "bb_stop_thread"
+              ? "BB acknowledged the stop request. Stopping is not confirmed complete. Queue and approval observations are not an atomic snapshot; inspect BB."
+              : row.delivery === "queued"
+                ? "BB queued the instruction. Agent work is not complete; BB controls its dispatch."
+                : "BB accepted the submission. Agent work is not complete."
+            : row.state === "failed"
+              ? row.tool === "bb_start_thread"
+                ? "No start was dispatched."
+                : row.tool === "bb_stop_thread"
+                  ? "No stop was dispatched."
+                  : "No message was dispatched."
+              : row.state === "unknown"
+                ? "Outcome unknown. Inspect BB before submitting a new key. Do not repeat the action."
+                : "Submission outcome pending. Poll this operation; do not submit a new key.",
     };
   }
   async function captureStop(identity: Identity, row: RecordRow, sdkDeadline: number) {
@@ -464,6 +471,49 @@ export function operationControl(options: {
       AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, responseDeadline - Date.now()))]),
     );
   }
+  const resolve = db.transaction((input: unknown) => {
+    const verified = z
+      .strictObject({
+        operationId: id,
+        projectId: id,
+        threadId: id.optional(),
+        outcome: z.enum(["accepted", "failed"]),
+        verified: z.literal(true),
+        delivery: z.enum(["sent", "queued"]).optional(),
+      })
+      .parse(input);
+    if (closed) throw new Error("OPERATIONS_CLOSED");
+    const row = read(verified.operationId);
+    if (!row) throw new Error("OPERATION_NOT_FOUND");
+    if (running.has(row.id) || row.state === "pending") throw new Error("OPERATION_ACTIVE");
+    if (row.state !== "unknown" || row.resolved !== null)
+      throw new Error("OPERATION_ALREADY_FINAL");
+    const accepted = verified.outcome === "accepted";
+    const send = row.tool === "bb_send_message";
+    if (
+      !["bb_start_thread", "bb_send_message", "bb_stop_thread"].includes(row.tool) ||
+      verified.projectId !== row.project ||
+      (row.thread !== null && verified.threadId !== row.thread) ||
+      (accepted && !verified.threadId) ||
+      (!accepted && row.thread === null && verified.threadId !== undefined) ||
+      (send && accepted ? verified.delivery === undefined : verified.delivery !== undefined)
+    )
+      throw new Error("INCONSISTENT_RESOLUTION");
+    const stamp = now();
+    db.prepare(`UPDATE operations SET state = ?, code = ?, thread = COALESCE(?, thread),
+      delivery = ?, waiting_on = NULL, stop_status = NULL, queue_count = NULL,
+      pending_interaction = NULL, updated = ?, resolved = ?
+      WHERE id = ? AND state = 'unknown' AND resolved IS NULL`).run(
+      verified.outcome,
+      accepted ? "OWNER_VERIFIED_ACCEPTED" : "OWNER_VERIFIED_FAILED",
+      verified.threadId ?? null,
+      verified.delivery ?? null,
+      stamp,
+      stamp,
+      row.id,
+    );
+    return row.id;
+  });
   function result(data: Awaited<ReturnType<typeof observe>>) {
     return {
       content: [{ type: "text" as const, text: JSON.stringify(data) }],
@@ -471,6 +521,56 @@ export function operationControl(options: {
     };
   }
   return {
+    resolve(input: unknown) {
+      const operationId = resolve.immediate(input);
+      return this.list({ operationId });
+    },
+    list(input: unknown = {}) {
+      const query = z
+        .strictObject({
+          operationId: id.optional(),
+          limit: z.number().int().min(1).max(50).default(50),
+          cursor: id.optional(),
+        })
+        .parse(input);
+      if (closed) throw new Error("OPERATIONS_CLOSED");
+      if (query.operationId && query.cursor) throw new Error("INVALID_QUERY");
+      const rows = query.operationId
+        ? [read(query.operationId)].filter((row): row is RecordRow => !!row)
+        : (db
+            .prepare("SELECT * FROM operations WHERE id > ? ORDER BY id LIMIT ?")
+            .all(query.cursor ?? "", query.limit + 1) as RecordRow[]);
+      if (query.operationId && !rows.length) throw new Error("OPERATION_NOT_FOUND");
+      const summaries = rows.map((row) => ({
+        operationId: row.id,
+        issuer: row.issuer,
+        owner: row.owner,
+        tool: row.tool,
+        operationKey: row.key,
+        projectId: row.project,
+        threadId: row.thread,
+        state: row.state,
+        code: row.code,
+        createdAt: row.created,
+        updatedAt: row.updated,
+        resolvedAt: row.resolved,
+        active: running.has(row.id),
+      }));
+      // Keep local output below 64 KiB even with long owner/issuer identities.
+      const page: typeof summaries = [];
+      let bytes = 0;
+      for (const summary of summaries.slice(0, query.limit)) {
+        const size = Buffer.byteLength(JSON.stringify(summary, null, 2));
+        if (bytes + size > 60000) break;
+        page.push(summary);
+        bytes += size;
+      }
+      if (summaries.length && !page.length) throw new Error("SUMMARY_TOO_LARGE");
+      return {
+        operations: page,
+        nextCursor: summaries.length > page.length ? page.at(-1)!.operationId : null,
+      };
+    },
     activate() {
       if (closed) throw new Error("OPERATIONS_CLOSED");
       if (active) return;

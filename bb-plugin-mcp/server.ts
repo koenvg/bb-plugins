@@ -6,7 +6,10 @@ import {
   operationMigration,
   operationSubmissionMigration,
   operationStopMigration,
+  operationResolutionMigration,
 } from "./operations.js";
+
+import { localOperationCommand, localOperationCommands } from "./local-operations.js";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define(settingsDefinition);
@@ -18,6 +21,7 @@ export default async function plugin(bb: BbPluginApi) {
     operationMigration,
     operationSubmissionMigration,
     operationStopMigration,
+    operationResolutionMigration,
   ]);
   const operations = operationControl({
     db,
@@ -32,6 +36,7 @@ export default async function plugin(bb: BbPluginApi) {
       interactions: (args) => bb.sdk.threads.interactions.list(args),
     },
   });
+  operations.activate();
   const access = initial
     ? remoteAccess({
         connection,
@@ -77,8 +82,13 @@ export default async function plugin(bb: BbPluginApi) {
   bb.cli.register({
     name: "mcp",
     summary: "Show local MCP readiness. Public reachability needs an external check.",
-    commands: [{ name: "status", summary: "Show listener state", usage: "bb mcp status [--json]" }],
+    commands: [
+      { name: "status", summary: "Show listener state", usage: "bb mcp status [--json]" },
+      ...localOperationCommands,
+    ],
     async run(argv) {
+      if (argv[0] === "operations" || argv[0] === "resolve-operation")
+        return localOperationCommand(operations, argv);
       if (
         argv[0] !== "status" ||
         argv.length > 2 ||
