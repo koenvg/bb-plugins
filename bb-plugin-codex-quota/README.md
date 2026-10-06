@@ -145,7 +145,7 @@ See [docs/IDENTITY.md](docs/IDENTITY.md) for the internal integration interface 
 
 ## Development checks
 
-See [BBP-141 dependency validation](docs/BBP-141-validation.md) for exposure, the Pi 1.0.1 compatibility checks, remaining audit findings, and the existing typecheck blocker. This update has not been deployed to an installed plugin.
+See [BBP-141 dependency validation](docs/BBP-141-validation.md) for exposure, the Pi 1.0.1 compatibility checks, remaining audit findings, and current verification results. This update has not been deployed to an installed plugin.
 
 Packaged history checks use real temporary `node:sqlite` storage and a copy of the self-contained host artifact outside its dependency tree. They invoke the actual host control/reconciliation handlers and Pi 1.0.1's public extension loader on the same Node executable in a temporary agent/workspace configuration. They test disabled/missing control, actual serialized compact writes, original price/time, bounded entry confirmation, pause/repair and database reload. Unrelated synthetic settings/extensions remain unchanged. Run `node scripts/check-bundled-history.mjs` on Node 22 or later after building. Also run `npx --yes --package=node@22 node scripts/check-bundled-history.mjs` for Node 22 compatibility. Neither check proves real billed capture or real prices.
 

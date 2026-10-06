@@ -4,7 +4,7 @@
 
 Quota now pins `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai` to `1.0.1`. A clean install resolves `minimatch@10.2.6` to `brace-expansion@5.0.12`. The three requested brace-expansion advisories no longer appear in installation or audit results.
 
-Completion is blocked by two existing typecheck errors in [BBP-153](bbtask://BBP-153). The required fresh-context review has not run because this task prohibits worker dispatch. The task must not be marked done yet.
+All required local checks pass, including typecheck. The single fresh-context reviewer approved the complete change with no blocking findings. No PR merge or installed deployment is authorized.
 
 Source task: [BBP-141](bbtask://BBP-141). Source thread: [implementation evidence](bbthread://thr_a7wq5rvkey).
 
@@ -40,6 +40,12 @@ Before changing the repository pins, an isolated Quota copy with both public Pi 
 
 The final lockfile was generated with `npm install --package-lock-only --ignore-scripts`, not `npm audit fix`. Removing the old shrinkwrapped tree accounts for the large lockfile diff. Runtime source, SDK pin, and other direct dependency ranges are unchanged. Both old and new Pi packages require Node `>=22.19.0`.
 
+## Main integration
+
+On 2026-10-06, the user approved updating this branch from main and starting one read-only reviewer. Main `f7ec3661c53dfdbde24820301903ef2efae2006b` was merged in commit `66908e718a1c19051b0b3da129834f22d5552dec`. The task-only diff against that main commit remains the two Pi pins, lockfile, README, and this report. Upstream fixture changes were not authored again in this task.
+
+The merged checkout passed clean installation, all 645 tests with two workers, typecheck, SDK check, build, all bundle checks, Node 22 packaged history, actual dependency resolution, and production audit. The root lint and formatting gate also passed, with existing lint warnings. Full audit still reports only the development source-map-js finding.
+
 ## Final verification
 
 | Check                                            | Result                                                             |
@@ -54,16 +60,24 @@ The final lockfile was generated with `npm install --package-lock-only --ignore-
 | Initial final-checkout `npm test`                | One calendar test exceeded the existing 5-second timeout           |
 | Focused calendar-host suite                      | Passed; 23 tests                                                   |
 | Final `npm test -- --maxWorkers=2`               | Passed; 59 files, 645 tests, unchanged test timeouts               |
-| `npm run typecheck`                              | Failed; the same two baseline TS2322 errors                        |
+| `npm run typecheck`                              | Passed after the main update                                       |
 | `bb plugin types --check`                        | Passed; pinned and host SDK `0.6.15`                               |
 | `npm run build`                                  | Passed                                                             |
 | `npm run test:bundle`                            | Passed; every packaged check, including fresh and refreshed OAuth  |
 | Node 22 packaged history check                   | Passed on Node `22.23.3`                                           |
-| Fresh-context completion review                  | Not run; dispatch restriction                                      |
+| Fresh-context completion review                  | Passed; approved with no blocking findings                         |
 
-The final typecheck log is byte-identical to the baseline log. Both errors are in `src/history/identity/identity-discovery.test.ts`, at lines 108 and 384. The fixtures require an argument where the public SDK allows omitted `ThreadListArgs`. [BBP-153](bbtask://BBP-153) already tracks this issue; no fixture changes are included here.
+Before the main update, the typecheck log was byte-identical to the baseline log. Both TS2322 errors were in `src/history/identity/identity-discovery.test.ts`, at lines 108 and 384. The fixtures required an argument where the public SDK allows omitted `ThreadListArgs`. Main commit `42db277` already fixes both callbacks. The approved merge includes that fix; typecheck now passes. [BBP-153](bbtask://BBP-153) was still in backlog when checked, but its reported code issue no longer blocks this branch.
 
 The rebuilt host source map now names the root `node_modules/brace-expansion/src/index.ts`, whose installed package is `5.0.12`, instead of the old Pi-nested copy.
+
+## Completion review
+
+One fresh-context read-only reviewer approved integration HEAD `66908e718a1c19051b0b3da129834f22d5552dec` plus both working-tree documentation edits. The review covered the complete diff from the original baseline and the task-only diff from merged main. It found no blocking defects or structural regressions. No second review was started.
+
+The reviewer independently checked actual Pi-to-minimatch resolution, ordinary glob behavior, the shared pi-ai auth module instance, published tarballs, and source integration for collector event/persistence identity. It reviewed the saved test and build logs rather than rerunning installation, tests, or builds. The full review artifact is attached to [BBP-141](bbtask://BBP-141).
+
+Two nonblocking coverage improvements are recorded separately: [BBP-159](bbtask://BBP-159) adds an installed-dependency CI guard, and [BBP-160](bbtask://BBP-160) adds a real synthetic Pi event/persistence cycle for collector confirmation. Neither is a completion or merge condition for this patch. No workers or notifications were started for these follow-ups.
 
 ## Remaining findings and installed limits
 
