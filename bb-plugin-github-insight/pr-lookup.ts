@@ -20,6 +20,7 @@ export function createPrLookup(sdk: Pick<BbPluginApi["sdk"], "threads" | "enviro
     ]);
     if (linked.outcome === "absent") return { kind: "no_pr" };
     if (linked.outcome === "unavailable") {
+      if (linked.message.includes("no git remotes found")) return { kind: "no_pr" };
       return { kind: "error", message: linked.message };
     }
     const { url, state } = linked.pullRequest;

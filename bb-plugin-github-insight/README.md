@@ -10,7 +10,7 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
       +------ insight.updated ----------+  (pr-poller, every 60s)
 ```
 
-- `pr-lookup.ts`: finds the thread's PR through `bb.sdk.environments.pullRequest`. Both tabs use it. No PR means no GitHub call.
+- `pr-lookup.ts`: finds the thread's PR through `bb.sdk.environments.pullRequest`. Both tabs use it. No PR means no GitHub call. A lookup that reports `no git remotes found` also means no PR: the composer PR banner is hidden, and the PR tab shows "No pull request for this thread". Other lookup and refresh errors remain visible with Retry.
 - `server.ts`: asks the thread's host for the PR data.
 - `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Review tab and the CLI both use it.
 - `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads").
