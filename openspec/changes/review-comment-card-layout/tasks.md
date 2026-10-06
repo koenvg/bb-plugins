@@ -8,13 +8,13 @@
 
 ## 2. github-insight wiring
 
-- [ ] 2.1 Add the `../review-ui` wiring from `review-ui/README.md` to `bb-plugin-github-insight`: `"../review-ui"` in tsconfig `include`, `paths` for `react`, `react/*`, `@pierre/diffs`, `@pierre/diffs/react`, `vitest`, `@testing-library/react`, plus `resolve.dedupe`, `server.fs.allow: [".."]` and `test.include` in `vitest.config.ts`. Verify `npm run typecheck` and `npm test` pass in `bb-plugin-github-insight`.
+- [x] 2.1 Add the `../review-ui` wiring from `review-ui/README.md` to `bb-plugin-github-insight`: `"../review-ui"` in tsconfig `include`, `paths` for `react`, `react/*`, `@pierre/diffs`, `@pierre/diffs/react`, `vitest`, `@testing-library/react`, plus `resolve.dedupe`, `server.fs.allow: [".."]` and `test.include` in `vitest.config.ts`. Verify `npm run typecheck` and `npm test` pass in `bb-plugin-github-insight`.
 
 ## 3. Review tab uses the shared diff
 
-- [ ] 3.1 In `bb-plugin-github-insight/ui/file-diff.tsx`, replace the direct `FileDiff` call in `LazyFileDiff` with `ReviewFileDiff`, using `view="split"`, no `onAddComment`, and `headerMetadata={<ThreadCount count={threads.length} />}`. Update the `@pierre/diffs/react` mock in `ui/review-tab.test.tsx` if needed, and verify that threads and drafts still render on their lines, the diff is split, and there is no gutter utility.
+- [x] 3.1 In `bb-plugin-github-insight/ui/file-diff.tsx`, replace the direct `FileDiff` call in `LazyFileDiff` with `ReviewFileDiff`, using `view="split"`, no `onAddComment`, and `headerMetadata={<ThreadCount count={threads.length} />}`. Update the `@pierre/diffs/react` mock in `ui/review-tab.test.tsx` if needed, and verify that threads and drafts still render on their lines, the diff is split, and there is no gutter utility.
 - [ ] 3.2 In `bb-plugin-github-insight/ui/review-thread.tsx`, add `[&_pre]:overflow-x-auto` to the element around `<Markdown>` in `CommentView`. Add a test that checks the class is on that element.
-- [ ] 3.3 Run `npm test`, `npm run typecheck` and `npm run lint` in `bb-plugin-github-insight`, and verify all pass.
+- [x] 3.3 Run `npm test`, `npm run typecheck` and `npm run lint` in `bb-plugin-github-insight`, and verify all pass.
 
 ## 4. Integration check
 
