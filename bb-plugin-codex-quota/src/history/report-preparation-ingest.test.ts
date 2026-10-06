@@ -15,7 +15,7 @@ import { maintainHistory } from "./storage/history-retention.js";
 import { usageRecordSchema } from "./collection/usage-record.js";
 import type { CalendarQuery } from "./calendar/calendar-contract.js";
 const heldRead = vi.hoisted(() => ({
-  gate: null as null | { entered: () => void; wait: Promise<void> },
+  gate: null as null | { entered: () => void; wait: Promise<void>; name?: string },
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const fs = await importOriginal<typeof import("node:fs/promises")>();
@@ -24,7 +24,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     open: async (...args: Parameters<typeof fs.open>) => {
       const file = await fs.open(...args);
       const gate = heldRead.gate;
-      if (gate && String(args[0]).endsWith("events-v1-2026-10-01.jsonl")) {
+      if (gate && String(args[0]).endsWith(gate.name ?? "events-v1-2026-10-01.jsonl")) {
         heldRead.gate = null;
         const read = file.read.bind(file);
         vi.spyOn(file, "read").mockImplementationOnce(async (...input) => {
@@ -86,7 +86,7 @@ it("rejects a legacy identity layout before accepting metadata or ingesting reco
   f.history.dispose();
 });
 
-async function fixture(collector = true) {
+async function fixture(collector = true, ingestRows?: number) {
   const dataDir = await mkdtemp(join(tmpdir(), "graph-ingest-"));
   roots.push(dataDir);
   const directory = join(dataDir, "history");
@@ -110,7 +110,7 @@ async function fixture(collector = true) {
   const forbidden = vi.fn(async () => {
     throw Error("No management, collector assets, or account requests allowed");
   });
-  const history = createHostHistory({ now: () => now, bodyRead, collector: forbidden });
+  const history = createHostHistory({ now: () => now, ingestRows, bodyRead, collector: forbidden });
   const harness = experimental_createHostEntryHarness(
     createQuotaHostEntry({ history, auth: forbidden, read: forbidden }),
     { experimental_paths: { dataDir, tempDir: join(dataDir, "temp") } },
@@ -144,6 +144,210 @@ async function fixture(collector = true) {
     },
   };
 }
+
+it("walks an old owned-log gap through bounded public preparation without pruning", async () => {
+  const f = await fixture();
+  try {
+    const db = (await openHistoryDatabase(f.path))!;
+    db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
+      "2026-06-01T00:00:00.000Z",
+    );
+    // A pruning receipt must not hide undiscovered source ranges.
+    db.prepare("INSERT INTO collector_log_retention VALUES (1,?)").run("2026-08-01");
+    const retention = db.prepare("SELECT * FROM history_retention").get();
+    db.close();
+    const control = await readFile(f.controlPath);
+    const logs = new Map<string, string>();
+    for (let n = 0; n < 48; n++) {
+      const date = new Date(Date.parse("2026-06-30T00:00:00Z") + n * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      const usage = { ...record(n + 1), occurredAt: `${date}T10:00:00.000Z` };
+      logs.set(`events-v1-${date}.jsonl`, JSON.stringify(usage) + "\n");
+      logs.set(
+        `confirmations-v1-${date}.jsonl`,
+        JSON.stringify({
+          version: 1,
+          eventId: usage.eventId,
+          sessionId: usage.sessionId,
+          entryId: `entry-${n + 1}`,
+        }) + "\n",
+      );
+    }
+    for (const [name, body] of logs) await writeFile(join(f.directory, name), body);
+    await f.append(100);
+    const progress = new Set<string>();
+    let settled = false;
+    for (let round = 0; round < 8; round++) {
+      const result = await f.prepare();
+      if (result.state !== "available") throw Error(result.reason);
+      progress.add(result.progress);
+      if (round === 0) {
+        // No old sources in this slice does not mean the omitted range was scanned.
+        expect(result.ingestionPending).toBe(true);
+        expect((await f.read()).summary.totalTokens).toBe(3);
+      }
+      if (!result.ingestionPending && !result.attribution.backlog) {
+        expect(round).toBe(5);
+        settled = true;
+        break;
+      }
+    }
+    expect(settled).toBe(true);
+    expect(progress.size).toBe(6);
+    for (const startDate of ["2026-07-01", "2026-08-01"]) {
+      const view = await f.harness.experimental_call("calendarReport", { ...query, startDate });
+      if (view.state === "unavailable") throw Error(view.reason);
+      expect(view.summary.totalTokens).toBe(startDate === "2026-07-01" ? 90 : 48);
+    }
+    const after = (await openHistoryDatabase(f.path))!;
+    expect(
+      after.prepare("SELECT count(*) AS n FROM usage_compact WHERE confirmed=1").get(),
+    ).toEqual({ n: 49 });
+    expect(after.prepare("SELECT * FROM collector_log_retention").get()).toEqual({
+      id: 1,
+      date: "2026-08-01",
+    });
+    expect(after.prepare("SELECT * FROM history_retention").get()).toEqual(retention);
+    after.close();
+    const reads = f.bodyRead.mock.calls.length;
+    expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
+    expect(f.bodyRead).toHaveBeenCalledTimes(reads);
+    for (const [name, body] of logs)
+      expect(await readFile(join(f.directory, name), "utf8")).toBe(body);
+    expect(await readFile(f.controlPath)).toEqual(control);
+    expect(f.forbidden).not.toHaveBeenCalled();
+  } finally {
+    await f.harness.experimental_dispose();
+  }
+});
+
+it("keeps a partly loaded old slice until its confirmations are drained", async () => {
+  const f = await fixture(true, 2);
+  try {
+    const db = (await openHistoryDatabase(f.path))!;
+    db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
+      "2026-07-01T00:00:00.000Z",
+    );
+    db.close();
+    for (const [date, ids] of [
+      ["2026-07-01", [1, 2, 3]],
+      ["2026-07-16", [4]],
+    ] as const) {
+      await writeFile(
+        join(f.directory, `events-v1-${date}.jsonl`),
+        ids
+          .map(
+            (n) =>
+              JSON.stringify({
+                ...record(n),
+                occurredAt: `${date}T10:00:00.000Z`,
+              }) + "\n",
+          )
+          .join(""),
+      );
+      await writeFile(
+        join(f.directory, `confirmations-v1-${date}.jsonl`),
+        ids
+          .map(
+            (n) =>
+              JSON.stringify({
+                version: 1,
+                eventId: record(n).eventId,
+                sessionId: record(n).sessionId,
+                entryId: `entry-${n}`,
+              }) + "\n",
+          )
+          .join(""),
+      );
+    }
+    const progress = new Set<string>();
+    for (let n = 0; n < 3; n++) {
+      const result = await f.prepare();
+      if (result.state !== "available") throw Error(result.reason);
+      expect(result.ingestionPending).toBe(true);
+      progress.add(result.progress);
+    }
+    expect(progress.size).toBe(3);
+    const partial = await f.harness.experimental_call("calendarReport", {
+      ...query,
+      startDate: "2026-07-01",
+    });
+    if (partial.state === "unavailable") throw Error(partial.reason);
+    expect(partial.summary.totalTokens).toBe(9);
+    for (let n = 0; n < 3; n++) await f.prepare();
+    expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
+    const final = await f.harness.experimental_call("calendarReport", {
+      ...query,
+      startDate: "2026-07-01",
+    });
+    if (final.state === "unavailable") throw Error(final.reason);
+    expect(final.summary.totalTokens).toBe(12);
+    const reads = f.bodyRead.mock.calls.length;
+    await f.prepare();
+    expect(f.bodyRead).toHaveBeenCalledTimes(reads);
+    const after = (await openHistoryDatabase(f.path))!;
+    expect(after.prepare("SELECT * FROM collector_log_retention").get()).toBeUndefined();
+    after.close();
+  } finally {
+    await f.harness.experimental_dispose();
+  }
+});
+
+it("does not advance old discovery past a canceled source read", async () => {
+  const f = await fixture();
+  let release!: () => void;
+  try {
+    const db = (await openHistoryDatabase(f.path))!;
+    db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
+      "2026-07-01T00:00:00.000Z",
+    );
+    db.close();
+    const name = "events-v1-2026-07-01.jsonl";
+    await writeFile(
+      join(f.directory, name),
+      JSON.stringify({ ...record(1), occurredAt: "2026-07-01T10:00:00.000Z" }) + "\n",
+    );
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    heldRead.gate = { entered, wait, name };
+    const controller = new AbortController();
+    const preparing = f.history.prepare!({
+      dataDir: join(f.directory, ".."),
+      signal: controller.signal,
+      identities,
+    });
+    await started;
+    controller.abort();
+    expect(await preparing).toEqual({ state: "unavailable", reason: "selection-changed" });
+    release();
+    // This read waits for actual cancellation completion and storage close.
+    await f.read();
+    const after = (await openHistoryDatabase(f.path))!;
+    expect(after.prepare("SELECT * FROM collector_sources").all()).toEqual([]);
+    expect(after.prepare("SELECT * FROM collector_log_retention").get()).toBeUndefined();
+    after.close();
+    const first = await f.prepare();
+    expect(first).toMatchObject({ state: "available", ingestionPending: true });
+    for (let n = 0; n < 4; n++) await f.prepare();
+    expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
+    const view = await f.harness.experimental_call("calendarReport", {
+      ...query,
+      startDate: "2026-07-01",
+    });
+    if (view.state === "unavailable") throw Error(view.reason);
+    expect(view.summary.totalTokens).toBe(3);
+  } finally {
+    release?.();
+    heldRead.gate = null;
+    await f.harness.experimental_dispose();
+  }
+});
 
 it("loads events appended after a graph read through preparation, without management", async () => {
   const f = await fixture();
