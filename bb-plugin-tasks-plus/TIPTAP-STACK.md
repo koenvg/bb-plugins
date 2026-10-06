@@ -61,17 +61,17 @@ mentions, tables, images, paste, replacement, checklists, and keyboard actions.
 
 Node 24.15.0 and npm 11.12.1 were used in this checkout.
 
-| Check | Result |
-| --- | --- |
-| Root and Tasks clean `npm ci` | Passed |
-| `npm ls @tiptap/core @tiptap/pm tiptap-markdown` | Passed, no invalid peers |
-| Focused editor tests | Passed, 2 files and 45 tests |
-| Tasks lint | Passed, four existing warnings outside this change |
-| All Tasks tests | Passed, 95 files and 1,012 tests |
-| Tasks typecheck | Passed |
-| Tasks plugin build | Passed |
-| Changed source and manifest formatting | Passed |
-| Full and omit-dev npm audits | Exit 1, 33 moderate entries each |
+| Check                                            | Result                                             |
+| ------------------------------------------------ | -------------------------------------------------- |
+| Root and Tasks clean `npm ci`                    | Passed                                             |
+| `npm ls @tiptap/core @tiptap/pm tiptap-markdown` | Passed, no invalid peers                           |
+| Focused editor tests                             | Passed, 2 files and 45 tests                       |
+| Tasks lint                                       | Passed, four existing warnings outside this change |
+| All Tasks tests                                  | Passed, 95 files and 1,012 tests                   |
+| Tasks typecheck                                  | Passed                                             |
+| Tasks plugin build                               | Passed                                             |
+| Changed source and manifest formatting           | Passed                                             |
+| Full and omit-dev npm audits                     | Exit 1, 33 moderate entries each                   |
 
 All remaining audit entries resolve to this one Tiptap advisory. Neither audit
 reports high or critical findings. The counts remain visible despite the
