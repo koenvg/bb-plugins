@@ -65,9 +65,7 @@ export function buildPiTurnOptions(options: PiSessionOptions): PiTurnOptions {
   };
 }
 
-export function buildPiSessionParams(
-  args: BuildPiSessionParamsArgs,
-): PiSessionParams {
+export function buildPiSessionParams(args: BuildPiSessionParamsArgs): PiSessionParams {
   const instructions = args.options.instructions?.trim();
   const thinkingLevel = toPiThinkingLevel(args.options.reasoningLevel);
   return {

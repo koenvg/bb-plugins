@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { handleLine } from "./bridge.js";
@@ -32,11 +32,7 @@ async function startThread(threadId: string): Promise<string> {
   return providerThreadId;
 }
 
-function turnStart(
-  threadId: string,
-  providerThreadId: string,
-  text: string,
-): void {
+function turnStart(threadId: string, providerThreadId: string, text: string): void {
   handleLine(
     JSON.stringify({
       jsonrpc: "2.0",
@@ -73,9 +69,7 @@ interface InteractionRequest {
   };
 }
 
-async function waitForInteractionRequest(
-  threadId: string,
-): Promise<InteractionRequest> {
+async function waitForInteractionRequest(threadId: string): Promise<InteractionRequest> {
   return (await harness.waitForMessage(
     (message) =>
       message.method === "interaction/request" &&
@@ -84,10 +78,7 @@ async function waitForInteractionRequest(
   )) as unknown as InteractionRequest;
 }
 
-function resolveInteraction(
-  interactionId: string | number,
-  result: unknown,
-): void {
+function resolveInteraction(interactionId: string | number, result: unknown): void {
   handleLine(JSON.stringify({ jsonrpc: "2.0", id: interactionId, result }));
 }
 
@@ -113,10 +104,7 @@ it("forwards a select dialog to the runtime and returns the chosen option to pi"
   expect(interaction.params.payload.kind).toBe("pi-subagents-provider/extension-ui");
   expect(interaction.params.payload.title).toBe("Allow access?");
   expect(interaction.params.payload.data.method).toBe("select");
-  expect(interaction.params.payload.data.options).toEqual([
-    "Allow once",
-    "Deny",
-  ]);
+  expect(interaction.params.payload.data.options).toEqual(["Allow once", "Deny"]);
   resolveInteraction(interaction.id, {
     kind: "request_answer",
     value: "Allow once",
@@ -159,11 +147,7 @@ it.each([42, "not-an-option"])(
 it("answers an interaction error as cancelled", async () => {
   const threadId = "thr_ui_error";
   const providerThreadId = await startThread(threadId);
-  turnStart(
-    threadId,
-    providerThreadId,
-    '/ui {"method":"input","title":"Enter a value"}',
-  );
+  turnStart(threadId, providerThreadId, '/ui {"method":"input","title":"Enter a value"}');
   const interaction = await waitForInteractionRequest(threadId);
   handleLine(
     JSON.stringify({
@@ -204,11 +188,7 @@ it("cancels a pending dialog when the thread is stopped mid-prompt", async () =>
 it("answers an invalid dialog request cancelled instead of forwarding it", async () => {
   const threadId = "thr_ui_invalid";
   const providerThreadId = await startThread(threadId);
-  turnStart(
-    threadId,
-    providerThreadId,
-    '/ui {"method":"select","title":"Pick"}',
-  );
+  turnStart(threadId, providerThreadId, '/ui {"method":"select","title":"Pick"}');
   await harness.waitForTurnBoundary(threadId);
   expect(
     harness.messages.some(
@@ -222,11 +202,7 @@ it("answers an invalid dialog request cancelled instead of forwarding it", async
 it("drops fire-and-forget extension ui requests without a runtime round trip", async () => {
   const threadId = "thr_ui_notify";
   const providerThreadId = await startThread(threadId);
-  turnStart(
-    threadId,
-    providerThreadId,
-    '/ui {"method":"notify","title":"Ignored"}',
-  );
+  turnStart(threadId, providerThreadId, '/ui {"method":"notify","title":"Ignored"}');
   await harness.waitForTurnBoundary(threadId);
   expect(
     harness.messages.some(

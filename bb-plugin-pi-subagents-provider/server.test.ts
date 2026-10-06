@@ -8,8 +8,7 @@ function registeredDeclaration() {
   const declaration = host.harness.registrations.providerRegistrations.find(
     (entry) => entry.id === "pi-subagents",
   );
-  if (declaration === undefined)
-    throw new Error("expected pi to be registered");
+  if (declaration === undefined) throw new Error("expected pi to be registered");
   return declaration;
 }
 
@@ -31,22 +30,15 @@ describe("the independent provider", () => {
   });
 });
 
-function rootPaths(
-  side: readonly (string | { readonly path: string })[] | undefined,
-): string[] {
-  return (side ?? []).map((root) =>
-    typeof root === "string" ? root : root.path,
-  );
+function rootPaths(side: readonly (string | { readonly path: string })[] | undefined): string[] {
+  return (side ?? []).map((root) => (typeof root === "string" ? root : root.path));
 }
 
 describe("the pi plugin's skill roots", () => {
   it("declares pi's documented directories and resolves the rest per host", () => {
     const declaration = registeredDeclaration();
     const roots = declaration.experimental_nativeSkillRoots;
-    expect(rootPaths(roots?.user)).toEqual([
-      ".pi/agent/skills",
-      ".agents/skills",
-    ]);
+    expect(rootPaths(roots?.user)).toEqual([".pi/agent/skills", ".agents/skills"]);
     expect(rootPaths(roots?.project)).toEqual([".pi/skills", ".agents/skills"]);
     expect(declaration.experimental_resolvesNativeRoots).toBe(true);
   });

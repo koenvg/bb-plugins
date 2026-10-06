@@ -1,10 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  turnStartParamsSchema,
-  type PromptInput,
-} from "@get-bb/plugin-sdk/provider-bridge";
+import { turnStartParamsSchema, type PromptInput } from "@get-bb/plugin-sdk/provider-bridge";
 import { expect, it } from "vitest";
 import { extractPiPromptInput } from "./turn-input.js";
 
@@ -44,12 +41,9 @@ it("preserves local file paths with and without text", () => {
     mimeType: "text/markdown",
   };
 
-  expect(
-    extractText([
-      { type: "text", text: "Read this file.", mentions: [] },
-      file,
-    ]),
-  ).toBe(`Read this file.\n${marker}`);
+  expect(extractText([{ type: "text", text: "Read this file.", mentions: [] }, file])).toBe(
+    `Read this file.\n${marker}`,
+  );
   expect(extractText([file])).toBe(marker);
 });
 
@@ -151,9 +145,7 @@ it("distinguishes an image-only prompt from empty input", () => {
     const imagePath = join(workspaceDir, "screenshot.png");
     writeFileSync(imagePath, Buffer.from("fake png data"));
 
-    expect(
-      extractPiPromptInput([{ type: "localImage", path: imagePath }]),
-    ).toEqual({
+    expect(extractPiPromptInput([{ type: "localImage", path: imagePath }])).toEqual({
       text: "",
       images: [
         {
@@ -164,9 +156,7 @@ it("distinguishes an image-only prompt from empty input", () => {
       ],
     });
     expect(extractPiPromptInput([])).toBeNull();
-    expect(
-      extractPiPromptInput([{ type: "text", text: "", mentions: [] }]),
-    ).toBeNull();
+    expect(extractPiPromptInput([{ type: "text", text: "", mentions: [] }])).toBeNull();
   } finally {
     rmSync(workspaceDir, { recursive: true, force: true });
   }
@@ -201,9 +191,9 @@ it.each([
     mention: selectedSkillMention("other", 0),
   },
 ])("keeps an invalid skill mention unchanged", ({ mention }) => {
-  expect(
-    extractText([{ type: "text", text: "/inspect src", mentions: [mention] }]),
-  ).toBe("/inspect src");
+  expect(extractText([{ type: "text", text: "/inspect src", mentions: [mention] }])).toBe(
+    "/inspect src",
+  );
 });
 
 it("keeps selected provider commands and unselected slash text unchanged", () => {
@@ -216,9 +206,7 @@ it("keeps selected provider commands and unselected slash text unchanged", () =>
       },
     ]),
   ).toBe("/inspect src");
-  expect(
-    extractText([{ type: "text", text: "/inspect src", mentions: [] }]),
-  ).toBe("/inspect src");
+  expect(extractText([{ type: "text", text: "/inspect src", mentions: [] }])).toBe("/inspect src");
 });
 
 it("rejects invalid skill mentions at the protocol boundary", () => {

@@ -96,15 +96,10 @@ it(
 
     const sent = commandsSent();
     expect(sent.length).toBeGreaterThan(0);
-    expect(
-      sent.filter((c) => c === "set_model" || c === "set_thinking_level"),
-    ).toEqual([]);
+    expect(sent.filter((c) => c === "set_model" || c === "set_thinking_level")).toEqual([]);
     const contextWindows = harness.messages
       .filter((m) => m.method === "thread/delta")
-      .flatMap(
-        (m) =>
-          (m.params as { deltas: { kind: string; size?: number }[] }).deltas,
-      )
+      .flatMap((m) => (m.params as { deltas: { kind: string; size?: number }[] }).deltas)
       .filter((d) => d.kind === "contextWindow")
       .map((d) => d.size);
     expect(contextWindows[0]).toBe(32_000);

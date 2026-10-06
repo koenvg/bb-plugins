@@ -77,17 +77,12 @@ it("branches the source session at the checkpoint and leaves the source untouche
 
   const forkFile = join(sessionDir, "thr_ckpt_fork.jsonl");
   expect(existsSync(forkFile)).toBe(true);
-  const forked = SessionManager.open(
-    forkFile,
-    sessionDir,
-    harness.workspaceDir,
-  );
+  const forked = SessionManager.open(forkFile, sessionDir, harness.workspaceDir);
   const texts = forked
     .getBranch()
     .filter((entry) => entry.type === "message")
     .map((entry) => {
-      const message = (entry as { message: { role: string; content: unknown } })
-        .message;
+      const message = (entry as { message: { role: string; content: unknown } }).message;
       return `${message.role}:${typeof message.content === "string" ? message.content : (message.content as { text: string }[]).map((c) => c.text).join("")}`;
     });
   expect(texts).toEqual(["user:first question", "assistant:first answer"]);

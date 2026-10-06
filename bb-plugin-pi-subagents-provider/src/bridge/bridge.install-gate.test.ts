@@ -3,11 +3,7 @@ import { join } from "node:path";
 import { BRIDGE_JSON_RPC_ERRORS } from "@get-bb/plugin-sdk/provider-bridge";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
-import {
-  type FakePiBridgeHarness,
-  fakePiPath,
-  startFakePiBridge,
-} from "./test-support.js";
+import { type FakePiBridgeHarness, fakePiPath, startFakePiBridge } from "./test-support.js";
 
 let harness: FakePiBridgeHarness;
 let requestId = 0;
@@ -60,9 +56,7 @@ it("refuses a pi older than the supported minimum before spawning it", async () 
   });
   expect(models.error).toMatchObject({
     code: BRIDGE_JSON_RPC_ERRORS.BRIDGE_ERROR,
-    message: expect.stringContaining(
-      "0.83.2 is older than the supported minimum 0.84.0",
-    ),
+    message: expect.stringContaining("0.83.2 is older than the supported minimum 0.84.0"),
   });
 });
 
@@ -126,10 +120,7 @@ it("memoizes the install gate per launch path across health polls", async () => 
     .split("\n")
     .filter((line) => line.startsWith("version:"));
   expect(versionSpawns).toHaveLength(1);
-  vi.stubEnv(
-    PI_BRIDGE_ARGS_ENV,
-    JSON.stringify([fakePiPath, "--other-launch"]),
-  );
+  vi.stubEnv(PI_BRIDGE_ARGS_ENV, JSON.stringify([fakePiPath, "--other-launch"]));
   await harness.request(nextRequestId(), "provider/health", {
     providerId: "pi-subagents",
     cwd: harness.workspaceDir,

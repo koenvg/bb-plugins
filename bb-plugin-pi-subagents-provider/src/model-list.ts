@@ -44,12 +44,10 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
   const canonicalId = toCanonicalPiModelId(model.provider, model.id);
   const supportedReasoningEfforts = getPiReasoningEfforts(model);
   const defaultReasoningEffort =
-    supportedReasoningEfforts.find(
-      ({ reasoningEffort }) => reasoningEffort === "medium",
-    )?.reasoningEffort ??
-    supportedReasoningEfforts.find(
-      ({ reasoningEffort }) => reasoningEffort !== "none",
-    )?.reasoningEffort ??
+    supportedReasoningEfforts.find(({ reasoningEffort }) => reasoningEffort === "medium")
+      ?.reasoningEffort ??
+    supportedReasoningEfforts.find(({ reasoningEffort }) => reasoningEffort !== "none")
+      ?.reasoningEffort ??
     supportedReasoningEfforts[0]?.reasoningEffort ??
     "none";
   return {
@@ -69,9 +67,7 @@ export function buildPiAvailableModels(
 ): BuildPiAvailableModelsResult {
   const scopedModelIds = args.scopedModelIds;
   const scopedIds =
-    scopedModelIds && scopedModelIds.length > 0
-      ? new Set(scopedModelIds)
-      : undefined;
+    scopedModelIds && scopedModelIds.length > 0 ? new Set(scopedModelIds) : undefined;
   const sourceModels = scopedIds
     ? [...scopedIds].flatMap((id) => {
         const match = args.models.find(
@@ -93,22 +89,16 @@ export function buildPiAvailableModels(
   }
 
   const defaultId =
-    (args.preferredDefaultId &&
-    models.some((model) => model.id === args.preferredDefaultId)
+    (args.preferredDefaultId && models.some((model) => model.id === args.preferredDefaultId)
       ? args.preferredDefaultId
       : undefined) ?? resolveDefaultPiModelId(models);
   return {
-    models: models.map((model) =>
-      model.id === defaultId ? { ...model, isDefault: true } : model,
-    ),
+    models: models.map((model) => (model.id === defaultId ? { ...model, isDefault: true } : model)),
     selectedOnlyModels,
   };
 }
 
-export function toCanonicalPiModelId(
-  provider: string,
-  modelId: string,
-): string {
+export function toCanonicalPiModelId(provider: string, modelId: string): string {
   return `${provider}/${modelId}`;
 }
 

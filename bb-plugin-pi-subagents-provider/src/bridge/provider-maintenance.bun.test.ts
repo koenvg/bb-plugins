@@ -9,8 +9,7 @@ const probeState = vi.hoisted(() => ({
 }));
 
 vi.mock("@get-bb/plugin-sdk/provider-bridge", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@get-bb/plugin-sdk/provider-bridge")>();
+  const original = await importOriginal<typeof import("@get-bb/plugin-sdk/provider-bridge")>();
   return {
     ...original,
     experimental_commandOutput: vi.fn(async () => probeState.bunBin),
@@ -19,9 +18,7 @@ vi.mock("@get-bb/plugin-sdk/provider-bridge", async (importOriginal) => {
       npmBin: path.join(path.sep, "npm", "bin"),
       npmGlobalPackageVersion: null,
     })),
-    experimental_resolveExecutablePath: vi.fn(
-      async () => probeState.executablePath,
-    ),
+    experimental_resolveExecutablePath: vi.fn(async () => probeState.executablePath),
   };
 });
 
@@ -57,23 +54,14 @@ describe("Pi provider maintenance with a Bun-managed executable", () => {
     ]);
     await Promise.all([
       writeFile(bunPi, "#!/bin/sh\nprintf '0.84.0\\n'\n", { mode: 0o755 }),
-      writeFile(
-        probeState.executablePath,
-        `#!/bin/sh\nexec "${bunPi}" "$@"\n`,
-        { mode: 0o755 },
-      ),
+      writeFile(probeState.executablePath, `#!/bin/sh\nexec "${bunPi}" "$@"\n`, { mode: 0o755 }),
     ]);
-    await Promise.all([
-      chmod(bunPi, 0o755),
-      chmod(probeState.executablePath, 0o755),
-    ]);
+    await Promise.all([chmod(bunPi, 0o755), chmod(probeState.executablePath, 0o755)]);
 
     const status = await getPiProviderInstallationStatus();
     const run = await getPiProviderInstallationRun("update");
 
-    expect(status.installAction?.command).toBe(
-      "bun add -g @earendil-works/pi-coding-agent@latest",
-    );
+    expect(status.installAction?.command).toBe("bun add -g @earendil-works/pi-coding-agent@latest");
     expect(run).toMatchObject({
       available: true,
       command: {

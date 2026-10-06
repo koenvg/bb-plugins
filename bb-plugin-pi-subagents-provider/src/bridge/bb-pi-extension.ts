@@ -1,6 +1,8 @@
 import { SUBAGENT_STATUS_SOURCE } from "./subagents/extension-source.js";
 
-export const BB_PI_EXTENSION_SOURCE = SUBAGENT_STATUS_SOURCE + String.raw`
+export const BB_PI_EXTENSION_SOURCE =
+  SUBAGENT_STATUS_SOURCE +
+  String.raw`
 import { readFileSync, renameSync, writeSync } from "node:fs";
 import { Socket } from "node:net";
 import { StringDecoder } from "node:string_decoder";

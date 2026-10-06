@@ -27,17 +27,13 @@ export const PI_NPM_PACKAGE = "@earendil-works/pi-coding-agent";
 const VERSION_PROBE_TIMEOUT_MS = 15_000;
 const INSTALL_GATE_TTL_MS = 30_000;
 
-type PiVersionProbe =
-  | { version: string; failure: null }
-  | { version: null; failure: string };
+type PiVersionProbe = { version: string; failure: null } | { version: null; failure: string };
 
 function bunCommand(): string {
   return process.platform === "win32" ? "bun.exe" : "bun";
 }
 
-function bunGlobalInstallCommand(
-  npmPackage: string,
-): ProviderInstallationCommand {
+function bunGlobalInstallCommand(npmPackage: string): ProviderInstallationCommand {
   const command = bunCommand();
   const args = ["add", "-g", `${npmPackage}@latest`];
   return { command, args, displayCommand: formatCommand(command, args) };
@@ -54,10 +50,7 @@ function firstOutputLine(output: string | null): string | null {
 
 function pathIsInside(child: string, parent: string): boolean {
   const relativePath = path.relative(path.resolve(parent), path.resolve(child));
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
-  );
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function expandHomePath(value: string): string {
@@ -89,36 +82,25 @@ async function shellExecTarget(executablePath: string): Promise<string | null> {
 
 async function isBunManagedPi(executablePath: string | null): Promise<boolean> {
   if (executablePath === null) return false;
-  const bunBin = firstOutputLine(
-    await commandOutput(bunCommand(), ["pm", "bin", "-g"]),
-  );
+  const bunBin = firstOutputLine(await commandOutput(bunCommand(), ["pm", "bin", "-g"]));
   if (bunBin === null) return false;
   if (pathIsInside(executablePath, bunBin)) return true;
-  const bunPi = path.join(
-    bunBin,
-    process.platform === "win32" ? "pi.exe" : "pi",
-  );
+  const bunPi = path.join(bunBin, process.platform === "win32" ? "pi.exe" : "pi");
   const [resolvedExecutable, resolvedBunPi] = await Promise.all([
     realpath(executablePath).catch(() => null),
     realpath(bunPi).catch(() => null),
   ]);
   if (
     resolvedExecutable !== null &&
-    (pathIsInside(resolvedExecutable, bunBin) ||
-      resolvedExecutable === resolvedBunPi)
+    (pathIsInside(resolvedExecutable, bunBin) || resolvedExecutable === resolvedBunPi)
   ) {
     return true;
   }
   const delegatedTarget = await shellExecTarget(executablePath);
   if (delegatedTarget === null) return false;
   if (path.resolve(delegatedTarget) === path.resolve(bunPi)) return true;
-  const resolvedDelegatedTarget = await realpath(delegatedTarget).catch(
-    () => null,
-  );
-  return (
-    resolvedDelegatedTarget !== null &&
-    resolvedDelegatedTarget === resolvedBunPi
-  );
+  const resolvedDelegatedTarget = await realpath(delegatedTarget).catch(() => null);
+  return resolvedDelegatedTarget !== null && resolvedDelegatedTarget === resolvedBunPi;
 }
 
 async function piGlobalInstallCommand(
@@ -134,13 +116,9 @@ export async function probePiVersion(): Promise<PiVersionProbe> {
   const display = formatCommand(launch.command, [...launch.args, "--version"]);
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync(
-      launch.command,
-      [...launch.args, "--version"],
-      {
-        timeout: VERSION_PROBE_TIMEOUT_MS,
-      },
-    ));
+    ({ stdout } = await execFileAsync(launch.command, [...launch.args, "--version"], {
+      timeout: VERSION_PROBE_TIMEOUT_MS,
+    }));
   } catch (error) {
     return {
       version: null,
@@ -172,13 +150,12 @@ export function describePiVersionProbeFailure(error: unknown): string {
 
 export async function getPiProviderInstallationStatus(): Promise<ProviderInstallationStatus> {
   const launch = resolvePiLaunch(process.env);
-  const [resolvedExecutable, probe, latestVersion, npmGlobal] =
-    await Promise.all([
-      resolveExecutablePath(launch.command),
-      probePiVersion(),
-      npmLatestVersion(PI_NPM_PACKAGE),
-      probeNpmGlobalPackage(PI_NPM_PACKAGE),
-    ]);
+  const [resolvedExecutable, probe, latestVersion, npmGlobal] = await Promise.all([
+    resolveExecutablePath(launch.command),
+    probePiVersion(),
+    npmLatestVersion(PI_NPM_PACKAGE),
+    probeNpmGlobalPackage(PI_NPM_PACKAGE),
+  ]);
   const currentVersion = probe.version;
   const installed = resolvedExecutable !== null || currentVersion !== null;
   const needsUpdate =
@@ -190,19 +167,14 @@ export async function getPiProviderInstallationStatus(): Promise<ProviderInstall
     installed &&
     currentVersion !== null &&
     compareVersions(currentVersion, PI_MINIMUM_SUPPORTED_VERSION) < 0;
-  const actionKind = !installed
-    ? "install"
-    : needsUpdate || versionUnsupported
-      ? "update"
-      : null;
+  const actionKind = !installed ? "install" : needsUpdate || versionUnsupported ? "update" : null;
   const installAction: ProviderInstallationStatus["installAction"] =
     actionKind === null
       ? null
       : {
           kind: actionKind,
           label: actionKind === "install" ? "Install" : "Update",
-          command: (await piGlobalInstallCommand(resolvedExecutable))
-            .displayCommand,
+          command: (await piGlobalInstallCommand(resolvedExecutable)).displayCommand,
         };
 
   return {
@@ -243,12 +215,7 @@ export async function getPiProviderInstallationRun(
 }
 
 export function piHealthResult(
-  status:
-    | "ready"
-    | "not_installed"
-    | "unauthenticated"
-    | "unsupported_version"
-    | "unknown",
+  status: "ready" | "not_installed" | "unauthenticated" | "unsupported_version" | "unknown",
   args: {
     installedVersion?: string | null;
     statusMessage?: string | null;
@@ -317,10 +284,7 @@ async function probePiInstallGate(): Promise<PiInstallGate> {
   return { ok: true, installedVersion };
 }
 
-const installGateMemo = new Map<
-  string,
-  { expiresAt: number; gate: Promise<PiInstallGate> }
->();
+const installGateMemo = new Map<string, { expiresAt: number; gate: Promise<PiInstallGate> }>();
 
 export function getPiInstallGate(): Promise<PiInstallGate> {
   const launch = resolvePiLaunch(process.env);

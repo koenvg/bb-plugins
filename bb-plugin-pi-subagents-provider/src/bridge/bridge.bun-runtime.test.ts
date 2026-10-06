@@ -26,8 +26,7 @@ afterEach(async () => {
 function bunBinary(): string | null {
   const probe = spawnSync("bun", ["--version"], { encoding: "utf8" });
   if (probe.status !== 0 || !probe.stdout?.trim()) {
-    if (process.env.CI)
-      throw new Error("Bun is required for the Pi runtime regression in CI");
+    if (process.env.CI) throw new Error("Bun is required for the Pi runtime regression in CI");
     return null;
   }
   return "bun";
@@ -103,8 +102,7 @@ it.skipIf(bunBinary() === null)(
           .deltasOf(threadId)
           .some(
             (d) =>
-              d.kind === "item.textDelta" &&
-              String(d.text).includes("Tool said: bun-result-text"),
+              d.kind === "item.textDelta" && String(d.text).includes("Tool said: bun-result-text"),
           ),
       "the tool result to reach pi under Bun",
     );

@@ -41,9 +41,7 @@ afterEach(async () => {
   await harness.teardown();
 }, 30_000);
 
-function sessionReplacements(
-  threadId: string,
-): z.infer<typeof sessionReplacedParamsSchema>[] {
+function sessionReplacements(threadId: string): z.infer<typeof sessionReplacedParamsSchema>[] {
   return harness.messages
     .filter((message) => message.method === "session/replaced")
     .map((message) => sessionReplacedParamsSchema.parse(message.params))
@@ -66,8 +64,8 @@ function providerThreadIdFor(threadId: string): string {
         message.method === "thread/identity" &&
         (message.params as { threadId?: unknown }).threadId === threadId,
     );
-  const providerThreadId = (identity?.params as { providerThreadId?: unknown })
-    .providerThreadId;
+  const providerThreadId = (identity?.params as { providerThreadId?: unknown } | undefined)
+    ?.providerThreadId;
   expect(typeof providerThreadId).toBe("string");
   if (typeof providerThreadId !== "string") throw new Error("missing provider thread identity");
   return providerThreadId;
@@ -99,19 +97,12 @@ it(
     });
     await harness.startThread(threadId, { options: options("first") });
 
-    expect(
-      (await turnStart(1, threadId, "first", options("first"))).error,
-    ).toBeUndefined();
+    expect((await turnStart(1, threadId, "first", options("first"))).error).toBeUndefined();
     const seen = await harness.waitForTurnBoundary(threadId, 0);
-    expect(
-      (await turnStart(2, threadId, "second", options("second"))).error,
-    ).toBeUndefined();
+    expect((await turnStart(2, threadId, "second", options("second"))).error).toBeUndefined();
     await harness.waitForTurnBoundary(threadId, seen);
 
-    expect(readFileSync(envLog, "utf8").trim().split("\n")).toEqual([
-      "first",
-      "second",
-    ]);
+    expect(readFileSync(envLog, "utf8").trim().split("\n")).toEqual(["first", "second"]);
     expect(sessionReplacements(threadId)).toHaveLength(1);
   },
   TURN_OPTIONS_TEST_TIMEOUT_MS,
@@ -130,9 +121,7 @@ it(
     expect(contextWindowSizes(threadId)).toEqual([32_000]);
     expect(sessionReplacements(threadId)).toEqual([]);
 
-    expect(
-      (await turnStart(2, threadId, "second", FULL_MODEL)).error,
-    ).toBeUndefined();
+    expect((await turnStart(2, threadId, "second", FULL_MODEL)).error).toBeUndefined();
     seen = await harness.waitForTurnBoundary(threadId, seen);
 
     expect(contextWindowSizes(threadId).at(-1)).toBe(200_000);
@@ -145,14 +134,10 @@ it(
       },
     ]);
     expect(
-      harness
-        .deltasOf(threadId)
-        .filter((delta) => delta.kind === "session.reset"),
+      harness.deltasOf(threadId).filter((delta) => delta.kind === "session.reset"),
     ).toHaveLength(2);
 
-    expect(
-      (await turnStart(3, threadId, "third", FULL_MODEL)).error,
-    ).toBeUndefined();
+    expect((await turnStart(3, threadId, "third", FULL_MODEL)).error).toBeUndefined();
     await harness.waitForTurnBoundary(threadId, seen);
     expect(sessionReplacements(threadId)).toHaveLength(1);
   },

@@ -41,9 +41,7 @@ export interface DynamicToolDefinition {
 export type ToolCallForwarder = (
   toolName: string,
   args: Record<string, unknown>,
-) => Promise<
-  Parameters<typeof buildBridgeToolCallContent>[0] & { isError?: boolean }
->;
+) => Promise<Parameters<typeof buildBridgeToolCallContent>[0] & { isError?: boolean }>;
 
 export type PiRpcEvent = Record<string, unknown> & { type: string };
 type PiSessionEventHandler = (event: PiRpcEvent) => void;
@@ -93,9 +91,7 @@ const AGENT_END_LEAF_TIMEOUT_MS = 5_000;
 type PiSessionConstructionOutcome = { ok: true } | { ok: false; error: Error };
 
 function waitForPiTransientAuthRetry(): Promise<void> {
-  return new Promise((resolve) =>
-    setTimeout(resolve, PI_TRANSIENT_AUTH_RETRY_DELAY_MS),
-  );
+  return new Promise((resolve) => setTimeout(resolve, PI_TRANSIENT_AUTH_RETRY_DELAY_MS));
 }
 
 export async function runPiTransientAuthConstruction(args: {
@@ -180,10 +176,7 @@ export class PiRpcSession {
     return this.inspections.inspect(target, requestId);
   }
 
-  respondToExtensionUi(
-    id: string | number,
-    fields: Record<string, unknown>,
-  ): void {
+  respondToExtensionUi(id: string | number, fields: Record<string, unknown>): void {
     this.child?.respondToExtensionUi(id, fields);
   }
 
@@ -214,11 +207,7 @@ export class PiRpcSession {
       `pi-tools-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
     );
     mkdirSync(dirname(toolsFilePath), { recursive: true });
-    writeFileSync(
-      toolsFilePath,
-      JSON.stringify(this.options.dynamicTools ?? []),
-      "utf8",
-    );
+    writeFileSync(toolsFilePath, JSON.stringify(this.options.dynamicTools ?? []), "utf8");
     const promptFiles = this.writePromptFiles();
     const scratchFiles = [toolsFilePath, ...promptFiles.paths];
 
@@ -240,10 +229,7 @@ export class PiRpcSession {
       args.push("--skill", skillPath);
     }
     if (this.options.model) {
-      args.push(
-        "--model",
-        `${this.options.model.provider}/${this.options.model.id}`,
-      );
+      args.push("--model", `${this.options.model.provider}/${this.options.model.id}`);
     }
     if (this.options.thinkingLevel) {
       args.push("--thinking", this.options.thinkingLevel);
@@ -254,7 +240,7 @@ export class PiRpcSession {
     const child = new PiRpcChild({
       cwd: this.options.cwd,
       env: buildPiChildEnv({
-        ...(this.options.shellEnvOverrides ?? {}),
+        ...this.options.shellEnvOverrides,
         PI_BB_TOOLS_FILE: toolsFilePath,
       }),
       args,
@@ -269,9 +255,12 @@ export class PiRpcSession {
         if (child === this.child) this.handleExit(info);
       },
       recordThreadId: this.options.recordThreadId,
-      onExtensionUiRequest: onExtensionUiRequest ? (request) => {
-        if (child === this.child && !this.inspections.widget(request)) onExtensionUiRequest(request);
-      } : undefined,
+      onExtensionUiRequest: onExtensionUiRequest
+        ? (request) => {
+            if (child === this.child && !this.inspections.widget(request))
+              onExtensionUiRequest(request);
+          }
+        : undefined,
     });
     this.child = child;
 
@@ -284,11 +273,7 @@ export class PiRpcSession {
       };
     }
     const wanted = this.options.model;
-    if (
-      wanted &&
-      (state.model?.provider !== wanted.provider ||
-        state.model?.id !== wanted.id)
-    ) {
+    if (wanted && (state.model?.provider !== wanted.provider || state.model?.id !== wanted.id)) {
       return {
         ok: false,
         error: new Error(
@@ -305,9 +290,7 @@ export class PiRpcSession {
 
   private awaitReady(timeoutMs: number, child: PiRpcChild): Promise<void> {
     if (child.exited) {
-      return Promise.reject(
-        new Error("pi exited before its extension reported ready"),
-      );
+      return Promise.reject(new Error("pi exited before its extension reported ready"));
     }
     const ready = this.ready;
     return new Promise<void>((resolve, reject) => {
@@ -329,10 +312,7 @@ export class PiRpcSession {
   }
 
   async getState(timeoutMs?: number): Promise<PiRpcSessionState> {
-    const data = await this.requireChild().requestOk(
-      { type: "get_state" },
-      timeoutMs,
-    );
+    const data = await this.requireChild().requestOk({ type: "get_state" }, timeoutMs);
     const state = (data ?? {}) as PiRpcSessionState;
     this.liveModel = state.model;
     return state;
@@ -374,9 +354,7 @@ export class PiRpcSession {
         this.dropRunSettlement();
         const queued = tracked.pending.queuedText !== null;
         this.rejectPendingInputConsumption(tracked.pending, asError(error));
-        this.rejectPendingInputConsumptions(
-          "Pi prompt failed before input was consumed",
-        );
+        this.rejectPendingInputConsumptions("Pi prompt failed before input was consumed");
         this.onDone(error);
         return queued ? null : { error };
       },
@@ -435,9 +413,7 @@ export class PiRpcSession {
   async closeGracefully(timeoutMs: number): Promise<string | undefined> {
     this.inspections.dispose();
     const child = this.child;
-    this.rejectPendingInputConsumptions(
-      "Pi session closed before input was consumed",
-    );
+    this.rejectPendingInputConsumptions("Pi session closed before input was consumed");
     this.closed = true;
     if (!child || child.exited) {
       return this.lastKnownLeafId ?? undefined;
@@ -446,9 +422,7 @@ export class PiRpcSession {
     await child
       .request({ type: "abort" }, Math.max(1, Math.floor(timeoutMs / 2)))
       .catch(() => undefined);
-    await this.refreshLeafId(Math.max(1, deadline - Date.now())).catch(
-      () => undefined,
-    );
+    await this.refreshLeafId(Math.max(1, deadline - Date.now())).catch(() => undefined);
     child.closeGracefully();
     this.isProcessing = false;
     this.isCompacting = false;
@@ -481,8 +455,7 @@ export class PiRpcSession {
         recordThreadId: args.recordThreadId,
         noSession: true,
       },
-      () =>
-        Promise.resolve({ content: "fork helper has no tools", isError: true }),
+      () => Promise.resolve({ content: "fork helper has no tools", isError: true }),
       () => undefined,
       () => undefined,
     );
@@ -494,9 +467,7 @@ export class PiRpcSession {
         targetFile: args.targetFile,
         cwd: args.cwd,
         sessionDir: args.sessionDir,
-        ...(args.checkpointId === undefined
-          ? {}
-          : { checkpointId: args.checkpointId }),
+        ...(args.checkpointId === undefined ? {} : { checkpointId: args.checkpointId }),
       });
     } finally {
       session.kill();
@@ -568,9 +539,7 @@ export class PiRpcSession {
         }
         this.onEvent({
           ...event,
-          ...(this.lastKnownLeafId === null
-            ? {}
-            : { providerCheckpointId: this.lastKnownLeafId }),
+          ...(this.lastKnownLeafId === null ? {} : { providerCheckpointId: this.lastKnownLeafId }),
         });
         this.settleRun(event);
       });
@@ -625,9 +594,7 @@ export class PiRpcSession {
     this.pendingRunSettlements.pop();
   }
 
-  private async refreshLeafId(
-    timeoutMs = CHANNEL_REQUEST_TIMEOUT_MS,
-  ): Promise<void> {
+  private async refreshLeafId(timeoutMs = CHANNEL_REQUEST_TIMEOUT_MS): Promise<void> {
     const child = this.child;
     if (!child || child.exited) {
       return;
@@ -757,9 +724,7 @@ export class PiRpcSession {
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.channelReplies.delete(id);
-        reject(
-          new Error(`pi extension did not answer ${String(request.method)}`),
-        );
+        reject(new Error(`pi extension did not answer ${String(request.method)}`));
       }, timeoutMs);
       timer.unref?.();
       this.channelReplies.set(id, {
@@ -815,9 +780,7 @@ export class PiRpcSession {
     }
   }
 
-  private trackPendingInputConsumption(
-    queue: PiInputQueue,
-  ): TrackedInputConsumption {
+  private trackPendingInputConsumption(queue: PiInputQueue): TrackedInputConsumption {
     let resolvePromise: () => void = () => undefined;
     let rejectPromise: (error: Error) => void = () => undefined;
     const promise = new Promise<void>((resolve, reject) => {
@@ -843,10 +806,7 @@ export class PiRpcSession {
     this.observeQueue("followUp", toStringArray(event.followUp));
   }
 
-  private observeQueue(
-    queue: PiInputQueue,
-    queuedTexts: readonly string[],
-  ): void {
+  private observeQueue(queue: PiInputQueue, queuedTexts: readonly string[]): void {
     const lastObserved = this.lastObservedQueues[queue];
     const added = listMultisetDifference(queuedTexts, lastObserved);
     const removed = listMultisetDifference(lastObserved, queuedTexts);
@@ -895,9 +855,7 @@ export class PiRpcSession {
 
   private scheduleTerminalSteerSettlement(): void {
     if (
-      !this.pendingInputConsumptions.some(
-        (entry) => entry.queue === "steering",
-      ) ||
+      !this.pendingInputConsumptions.some((entry) => entry.queue === "steering") ||
       this.terminalSteerSettlement !== null
     ) {
       return;
@@ -921,10 +879,7 @@ export class PiRpcSession {
         if (this.autoRetryInProgress || streaming) {
           return;
         }
-        this.rejectPendingInputConsumptions(
-          "Pi turn ended before steer was consumed",
-          "steering",
-        );
+        this.rejectPendingInputConsumptions("Pi turn ended before steer was consumed", "steering");
       });
     this.terminalSteerSettlement = settlement;
   }
@@ -933,9 +888,7 @@ export class PiRpcSession {
     this.terminalSteerSettlement = null;
   }
 
-  private resolvePendingInputConsumption(
-    pending: PendingInputConsumption,
-  ): void {
+  private resolvePendingInputConsumption(pending: PendingInputConsumption): void {
     const index = this.pendingInputConsumptions.indexOf(pending);
     if (index === -1) {
       return;
@@ -944,10 +897,7 @@ export class PiRpcSession {
     pending.resolve();
   }
 
-  private rejectPendingInputConsumption(
-    pending: PendingInputConsumption,
-    error: Error,
-  ): void {
+  private rejectPendingInputConsumption(pending: PendingInputConsumption, error: Error): void {
     const index = this.pendingInputConsumptions.indexOf(pending);
     if (index === -1) {
       return;
@@ -956,10 +906,7 @@ export class PiRpcSession {
     pending.reject(error);
   }
 
-  private rejectPendingInputConsumptions(
-    message: string,
-    queue?: PiInputQueue,
-  ): void {
+  private rejectPendingInputConsumptions(message: string, queue?: PiInputQueue): void {
     this.clearTerminalSteerSettlement();
     for (const pending of this.pendingInputConsumptions.splice(0)) {
       if (queue !== undefined && pending.queue !== queue) {
@@ -996,10 +943,7 @@ function toStringArray(value: unknown): string[] {
     : [];
 }
 
-function listMultisetDifference(
-  source: readonly string[],
-  subtract: readonly string[],
-): string[] {
+function listMultisetDifference(source: readonly string[], subtract: readonly string[]): string[] {
   const remaining = [...subtract];
   const difference: string[] = [];
   for (const entry of source) {

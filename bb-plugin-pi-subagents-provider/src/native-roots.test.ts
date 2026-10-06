@@ -71,12 +71,12 @@ it("resolves plain skill entries against home, the agent dir, or as given, and d
 it("adds the moved agent dir's skills directory when PI_CODING_AGENT_DIR points elsewhere", async () => {
   const agentDir = join(homeDir, "custom-agent");
   writeSettings(agentDir, { skills: [] });
-  await expect(
-    resolvedSkillPaths({ PI_CODING_AGENT_DIR: agentDir }),
-  ).resolves.toEqual([join(agentDir, "skills")]);
-  await expect(
-    resolvedSkillPaths({ PI_CODING_AGENT_DIR: "~/custom-agent" }),
-  ).resolves.toEqual([join(agentDir, "skills")]);
+  await expect(resolvedSkillPaths({ PI_CODING_AGENT_DIR: agentDir })).resolves.toEqual([
+    join(agentDir, "skills"),
+  ]);
+  await expect(resolvedSkillPaths({ PI_CODING_AGENT_DIR: "~/custom-agent" })).resolves.toEqual([
+    join(agentDir, "skills"),
+  ]);
 });
 
 it("never answers a root the contract would refuse", async () => {

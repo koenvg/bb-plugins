@@ -5,11 +5,7 @@ import {
   type PiModelContextWindowResolver,
 } from "../delta-translation.js";
 import { buildPiAvailableModels, type PiCatalogModel } from "../model-list.js";
-import {
-  PiRpcChild,
-  PiRpcChildExitedError,
-  buildPiChildEnv,
-} from "./rpc-child.js";
+import { PiRpcChild, PiRpcChildExitedError, buildPiChildEnv } from "./rpc-child.js";
 
 const EXTENDED_THINKING_LEVELS = [
   "off",
@@ -61,9 +57,7 @@ function toCatalogModel(model: PiRpcModel): PiCatalogModel | undefined {
   return {
     id: model.id,
     input: Array.isArray(model.input)
-      ? model.input.filter(
-          (entry): entry is string => typeof entry === "string",
-        )
+      ? model.input.filter((entry): entry is string => typeof entry === "string")
       : [],
     name: typeof model.name === "string" ? model.name : model.id,
     provider: model.provider,
@@ -92,29 +86,20 @@ async function spawnCatalog(
   interface CatalogChildGeneration {
     child: PiRpcChild;
     ready: Promise<Record<string, unknown>>;
-    getModelScope():
-      | { scopedModelIds: string[]; defaultModelId?: string }
-      | undefined;
+    getModelScope(): { scopedModelIds: string[]; defaultModelId?: string } | undefined;
   }
 
   let generation: CatalogChildGeneration | null = null;
   const spawnGeneration = (): CatalogChildGeneration => {
-    let modelScope:
-      | { scopedModelIds: string[]; defaultModelId?: string }
-      | undefined;
+    let modelScope: { scopedModelIds: string[]; defaultModelId?: string } | undefined;
     let settleModelScopeRequest: (() => void) | undefined;
     const acceptModelScope = (value: Record<string, unknown>): void => {
       const scopedModelIds = Array.isArray(value.scopedModelIds)
-        ? value.scopedModelIds.filter(
-            (id): id is string => typeof id === "string",
-          )
+        ? value.scopedModelIds.filter((id): id is string => typeof id === "string")
         : [];
       modelScope = {
         scopedModelIds,
-        defaultModelId:
-          typeof value.defaultModelId === "string"
-            ? value.defaultModelId
-            : undefined,
+        defaultModelId: typeof value.defaultModelId === "string" ? value.defaultModelId : undefined,
       };
     };
     const child = new PiRpcChild({
@@ -156,9 +141,7 @@ async function spawnCatalog(
           method: "model-scope",
         });
       });
-      return typeof data === "object" && data !== null
-        ? (data as Record<string, unknown>)
-        : {};
+      return typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
     })();
     return { child, ready, getModelScope: () => modelScope };
   };
@@ -168,17 +151,14 @@ async function spawnCatalog(
     }
     return generation;
   };
-  const fetchRawFrom = async (
-    active: CatalogChildGeneration,
-  ): Promise<PiRpcModel[]> => {
+  const fetchRawFrom = async (active: CatalogChildGeneration): Promise<PiRpcModel[]> => {
     await active.ready;
     const data = (await active.child.requestOk({
       type: "get_available_models",
     })) as { models?: unknown[] } | undefined;
     touch();
     return (data?.models ?? []).filter(
-      (entry): entry is PiRpcModel =>
-        typeof entry === "object" && entry !== null,
+      (entry): entry is PiRpcModel => typeof entry === "object" && entry !== null,
     );
   };
   const fetchGeneration = async (): Promise<{
@@ -196,10 +176,8 @@ async function spawnCatalog(
       return { active, raw: await fetchRawFrom(active) };
     }
   };
-  const fetchRaw = async (): Promise<PiRpcModel[]> =>
-    (await fetchGeneration()).raw;
-  const probe = async (): Promise<Record<string, unknown>> =>
-    activeGeneration().ready;
+  const fetchRaw = async (): Promise<PiRpcModel[]> => (await fetchGeneration()).raw;
+  const probe = async (): Promise<Record<string, unknown>> => activeGeneration().ready;
   await probe();
   return {
     async listModels() {
@@ -235,9 +213,7 @@ async function spawnCatalog(
 
 function catalogIdleMs(): number {
   const configured = Number(process.env.BB_PI_CATALOG_IDLE_MS);
-  return Number.isFinite(configured) && configured > 0
-    ? configured
-    : 5 * 60_000;
+  return Number.isFinite(configured) && configured > 0 ? configured : 5 * 60_000;
 }
 const catalogIdleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -260,21 +236,18 @@ export function peekPiCatalog(cwd: string): Promise<PiCatalog> | null {
   return catalogsByCwd.get(resolve(cwd)) ?? null;
 }
 
-export function getPiCatalog(
-  cwd: string,
-  extensionPath: string,
-): Promise<PiCatalog> {
+export function getPiCatalog(cwd: string, extensionPath: string): Promise<PiCatalog> {
   const key = resolve(cwd);
   const existing = catalogsByCwd.get(key);
   if (existing) {
     return existing;
   }
-  const created = spawnCatalog(key, extensionPath, () =>
-    touchCatalog(key),
-  ).catch((error: unknown) => {
-    catalogsByCwd.delete(key);
-    throw error;
-  });
+  const created = spawnCatalog(key, extensionPath, () => touchCatalog(key)).catch(
+    (error: unknown) => {
+      catalogsByCwd.delete(key);
+      throw error;
+    },
+  );
   catalogsByCwd.set(key, created);
   return created;
 }
@@ -287,9 +260,7 @@ export async function closeAllPiCatalogs(): Promise<void> {
   const catalogs = [...catalogsByCwd.values()];
   catalogsByCwd.clear();
   await Promise.all(
-    catalogs.map((catalog) =>
-      catalog.then((entry) => entry.close()).catch(() => undefined),
-    ),
+    catalogs.map((catalog) => catalog.then((entry) => entry.close()).catch(() => undefined)),
   );
 }
 

@@ -36,18 +36,14 @@ describe("pi catalog child generations", () => {
 
     const catalog = await getPiCatalog(workspace, extensionPath);
     const first = await catalog.listModels();
-    expect(first.models.map((model) => model.id)).toEqual([
-      "fake-provider/fake-model",
-    ]);
+    expect(first.models.map((model) => model.id)).toEqual(["fake-provider/fake-model"]);
 
     await vi.waitFor(() => {
       expect(readFileSync(processLogPath, "utf8")).toContain("exit:");
     });
 
     const second = await catalog.listModels();
-    expect(second.models.map((model) => model.id)).toEqual([
-      "fake-provider/fake-mini",
-    ]);
+    expect(second.models.map((model) => model.id)).toEqual(["fake-provider/fake-mini"]);
     expect(second.models[0]?.isDefault).toBe(true);
     expect(readFileSync(spawnCounterPath, "utf8")).toBe("2");
   }, 60_000);

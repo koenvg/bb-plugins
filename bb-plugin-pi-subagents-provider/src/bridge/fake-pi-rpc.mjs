@@ -21,16 +21,11 @@ const args = process.argv.slice(2);
 if (args.includes("--version")) {
   if (process.env.FAKE_PI_PROCESS_LOG) {
     try {
-      appendFileSync(
-        process.env.FAKE_PI_PROCESS_LOG,
-        `version:${process.pid}:${process.ppid}\n`,
-      );
+      appendFileSync(process.env.FAKE_PI_PROCESS_LOG, `version:${process.pid}:${process.ppid}\n`);
     } catch {}
   }
   if (process.env.FAKE_PI_VERSION === "crash") {
-    process.stderr.write(
-      "Error: pi 0.84.0 failed to start\n    at main (pi.js:1:1)\n",
-    );
+    process.stderr.write("Error: pi 0.84.0 failed to start\n    at main (pi.js:1:1)\n");
     process.exit(1);
   }
   process.stdout.write(`${process.env.FAKE_PI_VERSION ?? "0.84.0"}\n`);
@@ -40,18 +35,13 @@ function flag(name) {
   const index = args.indexOf(name);
   return index === -1 ? undefined : args[index + 1];
 }
-const sessionFile = args.includes("--no-session")
-  ? undefined
-  : flag("--session");
+const sessionFile = args.includes("--no-session") ? undefined : flag("--session");
 const extensionPath = flag("--extension");
 const processLogPath = process.env.FAKE_PI_PROCESS_LOG;
 const commandLogPath = process.env.FAKE_PI_COMMAND_LOG;
 const promptDumpPath = process.env.FAKE_PI_PROMPT_DUMP;
 if (process.env.FAKE_PI_ENV_LOG) {
-  appendFileSync(
-    process.env.FAKE_PI_ENV_LOG,
-    `${process.env.FAKE_PI_ENV_MARKER ?? ""}\n`,
-  );
+  appendFileSync(process.env.FAKE_PI_ENV_LOG, `${process.env.FAKE_PI_ENV_MARKER ?? ""}\n`);
 }
 if (sessionFile !== undefined) {
   mkdirSync(dirname(sessionFile), { recursive: true });
@@ -114,24 +104,16 @@ const requestedModel = flag("--model");
 let spawnIndex = 1;
 if (process.env.FAKE_PI_SPAWN_COUNTER_FILE) {
   try {
-    spawnIndex =
-      Number(readFileSync(process.env.FAKE_PI_SPAWN_COUNTER_FILE, "utf8")) + 1;
+    spawnIndex = Number(readFileSync(process.env.FAKE_PI_SPAWN_COUNTER_FILE, "utf8")) + 1;
   } catch {
     spawnIndex = 1;
   }
-  writeFileSync(
-    process.env.FAKE_PI_SPAWN_COUNTER_FILE,
-    String(spawnIndex),
-    "utf8",
-  );
+  writeFileSync(process.env.FAKE_PI_SPAWN_COUNTER_FILE, String(spawnIndex), "utf8");
 }
-const ignoreRequestedModel =
-  process.env.FAKE_PI_MISMATCH_FIRST_SPAWN === "1" && spawnIndex === 1;
+const ignoreRequestedModel = process.env.FAKE_PI_MISMATCH_FIRST_SPAWN === "1" && spawnIndex === 1;
 if (requestedModel !== undefined && !ignoreRequestedModel) {
   const [provider, id] = requestedModel.split("/");
-  model =
-    MODELS.find((entry) => entry.provider === provider && entry.id === id) ??
-    MODELS[0];
+  model = MODELS.find((entry) => entry.provider === provider && entry.id === id) ?? MODELS[0];
 }
 let thinkingLevel = flag("--thinking") ?? "medium";
 let isStreaming = false;
@@ -188,22 +170,25 @@ const extensionTools = new Map();
 const extensionHandlers = new Map();
 let activeTools = ["read", "bash", "edit", "write"];
 const scopedModel =
-  process.env.FAKE_PI_SCOPE_BY_SPAWN === "1"
-    ? MODELS[spawnIndex === 1 ? 0 : 1]
-    : undefined;
+  process.env.FAKE_PI_SCOPE_BY_SPAWN === "1" ? MODELS[spawnIndex === 1 ? 0 : 1] : undefined;
 const extensionContext = {
   cwd: process.cwd(),
   sessionManager: {
     getLeafId: () => leafId,
-    getSessionId: () => sessionFile ? JSON.parse(readFileSync(sessionFile, "utf8").split("\n")[0]).id : undefined,
+    getSessionId: () =>
+      sessionFile ? JSON.parse(readFileSync(sessionFile, "utf8").split("\n")[0]).id : undefined,
     getSessionFile: () => sessionFile,
   },
   model: scopedModel,
   scopedModels: scopedModel ? [{ model: scopedModel }] : [],
 };
-const fakeSubagents = process.env.FAKE_PI_SUBAGENT_PROTOCOL === "1"
-  ? fakePackageRpc(() => ({ sessionId: extensionContext.sessionManager.getSessionId(), sessionFile }), event)
-  : undefined;
+const fakeSubagents =
+  process.env.FAKE_PI_SUBAGENT_PROTOCOL === "1"
+    ? fakePackageRpc(
+        () => ({ sessionId: extensionContext.sessionManager.getSessionId(), sessionFile }),
+        event,
+      )
+    : undefined;
 
 async function emitExtensionEvent(type, payload = {}) {
   for (const handler of extensionHandlers.get(type) ?? []) {
@@ -213,10 +198,7 @@ async function emitExtensionEvent(type, payload = {}) {
 
 async function loadExtension(path) {
   const aliases = new Map([
-    [
-      "@earendil-works/pi-coding-agent",
-      import.meta.resolve("@earendil-works/pi-coding-agent"),
-    ],
+    ["@earendil-works/pi-coding-agent", import.meta.resolve("@earendil-works/pi-coding-agent")],
     ["typebox", import.meta.resolve("typebox")],
   ]);
   let hooksRegistered = false;
@@ -227,9 +209,7 @@ async function loadExtension(path) {
         registerHooks({
           resolve(specifier, context, nextResolve) {
             const url = aliases.get(specifier);
-            return url
-              ? { url, shortCircuit: true }
-              : nextResolve(specifier, context);
+            return url ? { url, shortCircuit: true } : nextResolve(specifier, context);
           },
         });
         hooksRegistered = true;
@@ -253,7 +233,10 @@ async function loadExtension(path) {
   const module = await import(pathToFileURL(loadPath).href);
   module.default({
     events: fakeSubagents?.events,
-    getCommands: () => fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1" ? [{ name: "subagents-inspect-rpc", source: "extension" }] : [],
+    getCommands: () =>
+      fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1"
+        ? [{ name: "subagents-inspect-rpc", source: "extension" }]
+        : [],
     registerTool(tool) {
       extensionTools.set(tool.name, tool);
       if (process.env.FAKE_PI_TOOLS_DUMP) {
@@ -327,15 +310,12 @@ async function runPrompt(text) {
     });
     holdAbort = null;
     if (released === "steer") {
-      const steerText =
-        process.env.FAKE_PI_DROP_STEER_AT_END === "1" ? null : steering.shift();
+      const steerText = process.env.FAKE_PI_DROP_STEER_AT_END === "1" ? null : steering.shift();
       if (steerText !== null && steerText !== undefined) {
         queueUpdate();
       }
       const reply =
-        steerText === null || steerText === undefined
-          ? "Held run ended"
-          : `Steered: ${steerText}`;
+        steerText === null || steerText === undefined ? "Held run ended" : `Steered: ${steerText}`;
       const steered = {
         role: "assistant",
         content: [{ type: "text", text: reply }],
@@ -464,7 +444,9 @@ async function runPrompt(text) {
     ? ""
     : toolMatch
       ? `Tool said: ${toolResultText}`
-      : process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1" ? "AB" : `Response to: ${text}`;
+      : process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1"
+        ? "AB"
+        : `Response to: ${text}`;
   const assistant = {
     role: "assistant",
     content: [{ type: "text", text: reply }],
@@ -487,8 +469,12 @@ async function runPrompt(text) {
       message: assistant,
     });
     if (process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1") {
-      await new Promise(resolve => setTimeout(resolve, 600));
-      event({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "B", contentIndex: 0 }, message: assistant });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      event({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta: "B", contentIndex: 0 },
+        message: assistant,
+      });
     }
   }
   event({ type: "message_end", message: assistant });
@@ -533,24 +519,16 @@ async function handle(command) {
       return;
     case "get_available_models":
       respond(id, "get_available_models", { models: MODELS });
-      if (
-        process.env.FAKE_PI_EXIT_AFTER_FIRST_AVAILABLE === "1" &&
-        spawnIndex === 1
-      ) {
+      if (process.env.FAKE_PI_EXIT_AFTER_FIRST_AVAILABLE === "1" && spawnIndex === 1) {
         setTimeout(exit, 25);
       }
       return;
     case "set_model": {
       const found = MODELS.find(
-        (entry) =>
-          entry.provider === command.provider && entry.id === command.modelId,
+        (entry) => entry.provider === command.provider && entry.id === command.modelId,
       );
       if (!found) {
-        respondError(
-          id,
-          "set_model",
-          `Model not found: ${command.provider}/${command.modelId}`,
-        );
+        respondError(id, "set_model", `Model not found: ${command.provider}/${command.modelId}`);
         return;
       }
       model = found;
@@ -587,7 +565,8 @@ async function handle(command) {
       return;
     case "prompt": {
       if (String(command.message).startsWith("/subagents-inspect-rpc ")) {
-        if (fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1") fakeSubagents.inspect(command.message);
+        if (fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1")
+          fakeSubagents.inspect(command.message);
         // The injected input guard handles missing capability without a model turn.
         respond(id, "prompt", { disposition: "handled" });
         return;
@@ -641,8 +620,7 @@ async function handle(command) {
       event({ type: "compaction_start", reason: "manual" });
       await sleep(5);
       if (turnCounter === 0) {
-        const errorMessage =
-          "Compaction failed: Nothing to compact (session too small)";
+        const errorMessage = "Compaction failed: Nothing to compact (session too small)";
         event({
           type: "compaction_end",
           reason: "manual",

@@ -1,8 +1,5 @@
 import { readFileSync } from "node:fs";
-import {
-  mimeTypeFromExtension,
-  type PromptInput,
-} from "@get-bb/plugin-sdk/provider-bridge";
+import { mimeTypeFromExtension, type PromptInput } from "@get-bb/plugin-sdk/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
 
 interface ExtractedPiPromptInput {
@@ -17,9 +14,7 @@ interface SelectedPiSkill {
   start: number;
 }
 
-export function extractPiPromptInput(
-  input: PromptInput[],
-): ExtractedPiPromptInput | null {
+export function extractPiPromptInput(input: PromptInput[]): ExtractedPiPromptInput | null {
   const chunks: string[] = [];
   const images: ImageContent[] = [];
   const skills: SelectedPiSkill[] = [];
@@ -34,8 +29,7 @@ export function extractPiPromptInput(
           (resource.trigger === "/" || resource.trigger === "$") &&
           mention.start < mention.end &&
           mention.end <= item.text.length &&
-          item.text.slice(mention.start, mention.end) ===
-            `${resource.trigger}${resource.name}`
+          item.text.slice(mention.start, mention.end) === `${resource.trigger}${resource.name}`
         ) {
           skills.push({
             chunkIndex,
@@ -62,8 +56,7 @@ export function extractPiPromptInput(
   if (skills.length === 1 && skill) {
     const chunk = chunks[skill.chunkIndex];
     if (chunk !== undefined) {
-      chunks[skill.chunkIndex] =
-        `${chunk.slice(0, skill.start)}${chunk.slice(skill.end)}`;
+      chunks[skill.chunkIndex] = `${chunk.slice(0, skill.start)}${chunk.slice(skill.end)}`;
       const argumentsText = chunks.join("\n");
       const separator = argumentsText.startsWith(" ") ? "" : " ";
       return {

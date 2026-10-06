@@ -22,12 +22,7 @@ type PiAssistantEventType =
   | "toolcall_start"
   | "unknown";
 
-type PiMessageBoundaryRole =
-  | "assistant"
-  | "custom"
-  | "toolResult"
-  | "user"
-  | "unknown";
+type PiMessageBoundaryRole = "assistant" | "custom" | "toolResult" | "user" | "unknown";
 
 type PiSdkEventType =
   | "agent_end"
@@ -71,11 +66,7 @@ interface PiSimpleSdkRawEvent {
   kind: "sdk/simple";
   sdkType: Exclude<
     PiSdkEventType,
-    | "message_end"
-    | "message_start"
-    | "message_update"
-    | "tool_execution_start"
-    | "unknown"
+    "message_end" | "message_start" | "message_update" | "tool_execution_start" | "unknown"
   >;
 }
 
@@ -134,9 +125,7 @@ function toPiSdkEventType(type: string | undefined): PiSdkEventType {
   }
 }
 
-function toPiMessageBoundaryRole(
-  role: string | undefined,
-): PiMessageBoundaryRole {
+function toPiMessageBoundaryRole(role: string | undefined): PiMessageBoundaryRole {
   switch (role) {
     case "assistant":
     case "custom":
@@ -148,9 +137,7 @@ function toPiMessageBoundaryRole(
   }
 }
 
-function toPiAssistantEventType(
-  type: string | undefined,
-): PiAssistantEventType {
+function toPiAssistantEventType(type: string | undefined): PiAssistantEventType {
   switch (type) {
     case "text_delta":
     case "text_end":
@@ -222,23 +209,16 @@ function parsePiRawEvent(event: JsonRpcMessage): PiRawEvent {
       return {
         kind: "sdk/message-boundary",
         sdkType,
-        role: toPiMessageBoundaryRole(
-          payload ? getStringProperty(payload, "role") : undefined,
-        ),
+        role: toPiMessageBoundaryRole(payload ? getStringProperty(payload, "role") : undefined),
       };
     }
 
     case "message_update": {
-      const assistantMessageEvent = getRecordProperty(
-        message,
-        "assistantMessageEvent",
-      );
+      const assistantMessageEvent = getRecordProperty(message, "assistantMessageEvent");
       return {
         kind: "sdk/message_update",
         assistantEventType: toPiAssistantEventType(
-          assistantMessageEvent
-            ? getStringProperty(assistantMessageEvent, "type")
-            : undefined,
+          assistantMessageEvent ? getStringProperty(assistantMessageEvent, "type") : undefined,
         ),
         content: assistantMessageEvent
           ? getStringProperty(assistantMessageEvent, "content")
@@ -276,9 +256,7 @@ function parsePiRawEvent(event: JsonRpcMessage): PiRawEvent {
   }
 }
 
-function describeParsedPiRawEvent(
-  event: PiRawEvent,
-): ProviderRawEventDescription {
+function describeParsedPiRawEvent(event: PiRawEvent): ProviderRawEventDescription {
   switch (event.kind) {
     case "thread/identity":
       return { kind: "thread/identity", coverage: "normalized" };
@@ -317,11 +295,10 @@ function describeParsedPiRawEvent(
       }
 
     case "sdk/message-boundary": {
-      const kind =
-        `sdk/${event.sdkType}:${event.role === "unknown" ? "" : event.role}`.replace(
-          /:$/u,
-          "",
-        );
+      const kind = `sdk/${event.sdkType}:${event.role === "unknown" ? "" : event.role}`.replace(
+        /:$/u,
+        "",
+      );
       return event.role === "unknown"
         ? { kind: `sdk/${event.sdkType}`, coverage: "unknown" }
         : { kind, coverage: "noise" };
@@ -342,16 +319,12 @@ function describeParsedPiRawEvent(
         case "thinking_delta":
           return {
             kind: "sdk/message_update:thinking_delta",
-            coverage:
-              event.delta && event.delta.length > 0 ? "normalized" : "noise",
+            coverage: event.delta && event.delta.length > 0 ? "normalized" : "noise",
           };
         case "thinking_end":
           return {
             kind: "sdk/message_update:thinking_end",
-            coverage:
-              event.content && event.content.length > 0
-                ? "normalized"
-                : "noise",
+            coverage: event.content && event.content.length > 0 ? "normalized" : "noise",
           };
         case "text_end":
         case "text_start":
