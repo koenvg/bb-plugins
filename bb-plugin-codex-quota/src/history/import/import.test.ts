@@ -6,6 +6,7 @@ import { openHistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory, projectCompactRecord } from "../storage/history-projection.js";
 import { initializeIdentityStorage, acceptIdentityBatch } from "../identity/identity-storage.js";
 import { executeImport } from "./import-engine.js";
+import type { ImportConfiguration } from "./import-contract.js";
 const owned: string[] = [];
 afterEach(async () => {
   await Promise.all(owned.splice(0).map((p) => rm(p, { recursive: true, force: true })));
@@ -74,7 +75,7 @@ async function fixture() {
   };
   const run = (command: any, options = {}) =>
     executeImport(db, "host-a", command, [workspace], { ...opts, ...options });
-  const config = {
+  const config: ImportConfiguration = {
     bbRoot: sources,
     ordinaryRoots: [],
     workspaces: [workspace],
@@ -82,7 +83,7 @@ async function fixture() {
   const path = join(sources, "provider-a.jsonl");
   await writeFile(
     path,
-    [header("pi-a", workspace), message()].map(JSON.stringify).join("\n") + "\n",
+    [header("pi-a", workspace), message()].map((row) => JSON.stringify(row)).join("\n") + "\n",
   );
   return {
     root,
@@ -107,7 +108,7 @@ it("does not admit unresolved live overlap after detail expiry and reopen", asyn
     };
     await writeFile(
       f.path,
-      [header("pi-a", f.workspace), old].map(JSON.stringify).join("\n") + "\n",
+      [header("pi-a", f.workspace), old].map((row) => JSON.stringify(row)).join("\n") + "\n",
     );
     projectCompactRecord(f.db, {
       version: 1,
@@ -176,7 +177,7 @@ it("feeds real frozen import omissions, empty results and cancellation into scop
             header("pi-a", f.workspace),
             { ...message(), message: { ...message().message, usage: { input: -1 } } },
           ]
-            .map(JSON.stringify)
+            .map((row) => JSON.stringify(row))
             .join("\n") + "\n",
         );
       await f.run({ action: "configure", configuration: f.config });
@@ -394,7 +395,7 @@ it("bounds oversized UTF-8 records, preserves original values and accepts distin
         message("first"),
         message("second", "first"),
       ]
-        .map(JSON.stringify)
+        .map((row) => JSON.stringify(row))
         .join("\n") + "\n",
     );
     await start(f);
@@ -505,7 +506,7 @@ it("imports proven fork ancestry once and accepts the new child branch", async (
     await writeFile(
       join(ordinary, "fork.jsonl"),
       [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
-        .map(JSON.stringify)
+        .map((row) => JSON.stringify(row))
         .join("\n") + "\n",
     );
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });
@@ -537,12 +538,13 @@ it("does not count unsupported ancestry or copied IDs without parent proof", asy
     await mkdir(ordinary);
     await writeFile(
       join(ordinary, "uncertain.jsonl"),
-      [header("pi-copy", f.workspace), message()].map(JSON.stringify).join("\n") + "\n",
+      [header("pi-copy", f.workspace), message()].map((row) => JSON.stringify(row)).join("\n") +
+        "\n",
     );
     await writeFile(
       join(ordinary, "foreign-parent.jsonl"),
       [header("pi-fork", f.workspace, join(f.root, "outside.jsonl")), message()]
-        .map(JSON.stringify)
+        .map((row) => JSON.stringify(row))
         .join("\n") + "\n",
     );
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });
@@ -583,7 +585,7 @@ it("yields to cancellation without committing an interrupted message slice", asy
     await writeFile(
       f.path,
       [header("pi-a", f.workspace), ...Array.from({ length: 100 }, (_, i) => message("e" + i))]
-        .map(JSON.stringify)
+        .map((row) => JSON.stringify(row))
         .join("\n") + "\n",
     );
     await start(f);
@@ -772,7 +774,10 @@ it("clamps the retained month boundary and keeps missing prices explicit", async
   try {
     const m = message();
     m.message.usage.cost.total = 0;
-    await writeFile(f.path, [header("pi-a", f.workspace), m].map(JSON.stringify).join("\n") + "\n");
+    await writeFile(
+      f.path,
+      [header("pi-a", f.workspace), m].map((row) => JSON.stringify(row)).join("\n") + "\n",
+    );
     await f.run({ action: "configure", configuration: f.config });
     const v = await f.run(
       { action: "start" },
@@ -825,7 +830,7 @@ it.each([false, true])(
       await writeFile(
         fork,
         [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
-          .map(JSON.stringify)
+          .map((row) => JSON.stringify(row))
           .join("\n") + "\n",
       );
       if (chained)
@@ -837,7 +842,7 @@ it.each([false, true])(
             message("novel", "entry-a"),
             message("grandchild", "novel"),
           ]
-            .map(JSON.stringify)
+            .map((row) => JSON.stringify(row))
             .join("\n") + "\n",
         );
       await start(f, { ...f.config, ordinaryRoots: [ordinary] });
@@ -899,7 +904,7 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
     await writeFile(
       join(ordinary, "fork.jsonl"),
       [header("pi-fork", f.workspace, f.path), message(), message("novel", "entry-a")]
-        .map(JSON.stringify)
+        .map((row) => JSON.stringify(row))
         .join("\n") + "\n",
     );
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });

@@ -40,20 +40,20 @@ it("pages environments, active/archived Pi threads and every retained identity w
     pluginId: "identity-test",
     sdk: {
       environments: {
-        list: async (args: Record<string, unknown>) => {
-          calls.push({ method: "environments", args });
+        list: async (args = {}) => {
+          calls.push({ method: "environments", args: { ...args } });
           return environments.slice(Number(args.offset), Number(args.offset) + Number(args.limit));
         },
       },
       threads: {
-        list: async (args: Record<string, unknown>) => {
-          calls.push({ method: "threads", args });
+        list: async (args = {}) => {
+          calls.push({ method: "threads", args: { ...args } });
           const rows = args.archived ? archived : active;
           return rows.slice(Number(args.offset), Number(args.offset) + Number(args.limit));
         },
         events: {
-          list: async (args: Record<string, unknown>) => {
-            calls.push({ method: "events", args });
+          list: async (args) => {
+            calls.push({ method: "events", args: { ...args } });
             const count = args.threadId === "thr_0" ? 51 : 1;
             return Array.from({ length: count }, (_, n) => ({
               id: `e${n}`,
@@ -124,7 +124,7 @@ it("does not complete failed/invalid identity pages and checks cancellation afte
     sdk: {
       environments: { list: async () => [{ id: "env_a", hostId: "host_a" }] },
       threads: {
-        list: async (args: { archived: boolean }) =>
+        list: async (args = {}) =>
           args.archived
             ? []
             : [makeThreadResponse({ id: "thr_a", providerId: "pi", environmentId: "env_a" })],
@@ -187,7 +187,7 @@ it("refreshes B despite an unfinished A delivery and resumes unchanged A after c
         },
       },
       threads: {
-        list: async (args: { archived: boolean }) => {
+        list: async (args = {}) => {
           calls++;
           return args.archived
             ? []
@@ -206,7 +206,7 @@ it("refreshes B despite an unfinished A delivery and resumes unchanged A after c
               ];
         },
         events: {
-          list: async (args: { threadId: string; afterSeq: string; limit: string }) => {
+          list: async (args) => {
             calls++;
             const rows = Array.from({ length: args.threadId === "thr_a" ? 101 : 1 }, (_, n) => ({
               id: `e${n}`,

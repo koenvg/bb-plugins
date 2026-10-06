@@ -28,7 +28,7 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
         },
       },
       threads: {
-        list: async (args: { archived: boolean }) => {
+        list: async (args = {}) => {
           sdkCalls++;
           return args.archived
             ? []
