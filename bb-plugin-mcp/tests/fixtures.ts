@@ -6,7 +6,11 @@ import { exportJWK, generateKeyPair, SignJWT, type JWTPayload } from "jose";
 import { vi } from "vitest";
 import { remoteAccess, type limits } from "../remote-access.js";
 import type { Config } from "../config.js";
-import { operationControl, operationMigration } from "../operations.js";
+import {
+  operationControl,
+  operationMigration,
+  operationSubmissionMigration,
+} from "../operations.js";
 
 // Node's built-in fetch does not preserve a supplied Host header. This test
 // bridge uses a real TCP connection and keeps the tunnel's public Host.
@@ -67,6 +71,7 @@ export function project(id: string, name = id) {
 export async function fixture(
   overrides: Partial<typeof limits> = {},
   operationOptions: Pick<Parameters<typeof operationControl>[0], "now" | "limits"> = {},
+  seedStorage?: (host: ReturnType<typeof createFakePluginHost>) => void,
 ) {
   const pair = await generateKeyPair("RS256");
   const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
@@ -108,12 +113,13 @@ export async function fixture(
     return fetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
   };
   let host = createFakePluginHost();
+  seedStorage?.(host);
   const list = vi.fn(async () => [project("proj_a", "Allowed"), project("proj_hidden", "Private")]);
   host.harness.sdk.stub("projects.list", list);
   const logs: unknown[] = [];
   function createAccess() {
     const db = host.bb.storage.database();
-    host.bb.storage.migrate(db, [operationMigration]);
+    host.bb.storage.migrate(db, [operationMigration, operationSubmissionMigration]);
     const operations = operationControl({
       db,
       policy: () => config,
@@ -122,6 +128,7 @@ export async function fixture(
         defaults: (args) => host.bb.sdk.projects.defaultExecutionOptions(args),
         spawn: (args) => host.bb.sdk.threads.spawn(args),
         get: (args) => host.bb.sdk.threads.get(args),
+        send: (args) => host.bb.sdk.threads.send(args),
       },
     });
     const access = remoteAccess({

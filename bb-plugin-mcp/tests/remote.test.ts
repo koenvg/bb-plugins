@@ -48,6 +48,7 @@ describe("authenticated HTTP boundary", () => {
           "bb_list_threads",
           "bb_get_thread",
           "bb_start_thread",
+          "bb_send_message",
           "bb_get_operation",
         ]);
         expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
@@ -98,7 +99,7 @@ describe("authenticated HTTP boundary", () => {
       });
       expect(f.list.mock.calls).toHaveLength(calls);
       f.change({ controlEnabled: true });
-      expect((await client.listTools()).tools).toHaveLength(5);
+      expect((await client.listTools()).tools).toHaveLength(6);
       const write = await client.callTool({
         name: "bb_start_thread",
         arguments: { projectId: "proj_a" },

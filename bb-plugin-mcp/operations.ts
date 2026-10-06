@@ -9,6 +9,7 @@ export type StartSource = {
   defaults: BbPluginApi["sdk"]["projects"]["defaultExecutionOptions"];
   spawn: BbPluginApi["sdk"]["threads"]["spawn"];
   get: BbPluginApi["sdk"]["threads"]["get"];
+  send: BbPluginApi["sdk"]["threads"]["send"];
 };
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
 type State = "pending" | "accepted" | "failed" | "unknown";
@@ -23,6 +24,8 @@ type RecordRow = {
   thread: string | null;
   state: State;
   code: string | null;
+  delivery: "sent" | "queued" | null;
+  waiting_on: string | null;
   created: number;
   updated: number;
   generation: string;
@@ -33,6 +36,8 @@ export const operationMigration = `CREATE TABLE operations (
   state TEXT NOT NULL, code TEXT, created INTEGER NOT NULL, updated INTEGER NOT NULL,
   generation TEXT NOT NULL, UNIQUE(issuer, owner, tool, key)
 )`;
+export const operationSubmissionMigration = `ALTER TABLE operations ADD COLUMN delivery TEXT;
+ALTER TABLE operations ADD COLUMN waiting_on TEXT;`;
 export const operationLimits = { responseWaitMs: 4000, sdkDeadlineMs: 30000, capacity: 10000 };
 const retentionMs = 24 * 60 * 60 * 1000;
 const id = z.string().trim().min(1).max(200);
@@ -47,6 +52,12 @@ const startSchema = z.strictObject({
   operationKey: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
 });
 type StartInput = z.infer<typeof startSchema>;
+const sendSchema = z.strictObject({
+  threadId: id,
+  message: text,
+  operationKey: startSchema.shape.operationKey,
+});
+type SendInput = z.infer<typeof sendSchema>;
 
 // One generation owns dispatches. Request transports only observe them.
 export function operationControl(options: {
@@ -66,56 +77,68 @@ export function operationControl(options: {
   const running = new Map<string, { done: Promise<void>; timer: ReturnType<typeof setTimeout> }>();
   const read = (operationId: string) =>
     db.prepare("SELECT * FROM operations WHERE id = ?").get(operationId) as RecordRow | undefined;
-  const claim = db.transaction((identity: Identity, input: StartInput) => {
-    const hash = createHash("sha256")
-      .update(JSON.stringify([input.projectId, input.prompt, input.title ?? null]))
-      .digest("hex");
-    // Expiry permits key reuse only for completed records, never pending/unknown.
-    db.prepare("DELETE FROM operations WHERE state IN ('accepted', 'failed') AND updated < ?").run(
-      now() - retentionMs,
-    );
-    const existing = db
-      .prepare("SELECT * FROM operations WHERE issuer = ? AND owner = ? AND tool = ? AND key = ?")
-      .get(identity.issuer, identity.owner, "bb_start_thread", input.operationKey) as
-      | RecordRow
-      | undefined;
-    if (existing) {
-      if (existing.hash !== hash) throw new Error("OPERATION_CONFLICT");
-      return { row: existing, fresh: false };
-    }
-    if (running.size >= 8) throw new Error("OPERATIONS_BUSY");
-    if (
-      (db.prepare("SELECT count(*) AS count FROM operations").get() as { count: number }).count >=
-      limits.capacity
-    )
-      throw new Error("LEDGER_FULL");
-    const row: RecordRow = {
-      id: randomUUID(),
-      issuer: identity.issuer,
-      owner: identity.owner,
-      tool: "bb_start_thread",
-      key: input.operationKey,
-      hash,
-      project: input.projectId,
-      thread: null,
-      state: "pending",
-      code: null,
-      created: now(),
-      updated: now(),
-      generation,
-    };
-    db.prepare(
-      "INSERT INTO operations VALUES (@id, @issuer, @owner, @tool, @key, @hash, @project, @thread, @state, @code, @created, @updated, @generation)",
-    ).run(row);
-    return { row, fresh: true };
-  });
-  function requireAccess(identity: Identity, project: string, write = false) {
+  const claim = db.transaction(
+    (identity: Identity, input: StartInput | SendInput, project: string) => {
+      const isStart = "prompt" in input;
+      const tool = isStart ? "bb_start_thread" : "bb_send_message";
+      const hash = createHash("sha256")
+        .update(
+          JSON.stringify(
+            isStart
+              ? [input.projectId, input.prompt, input.title ?? null]
+              : [input.threadId, input.message],
+          ),
+        )
+        .digest("hex");
+      // Expiry permits key reuse only for completed records, never pending/unknown.
+      db.prepare(
+        "DELETE FROM operations WHERE state IN ('accepted', 'failed') AND updated < ?",
+      ).run(now() - retentionMs);
+      const existing = db
+        .prepare("SELECT * FROM operations WHERE issuer = ? AND owner = ? AND tool = ? AND key = ?")
+        .get(identity.issuer, identity.owner, tool, input.operationKey) as RecordRow | undefined;
+      if (existing) {
+        if (existing.hash !== hash) throw new Error("OPERATION_CONFLICT");
+        return { row: existing, fresh: false };
+      }
+      if (running.size >= 8) throw new Error("OPERATIONS_BUSY");
+      if (
+        (db.prepare("SELECT count(*) AS count FROM operations").get() as { count: number }).count >=
+        limits.capacity
+      )
+        throw new Error("LEDGER_FULL");
+      const row: RecordRow = {
+        id: randomUUID(),
+        issuer: identity.issuer,
+        owner: identity.owner,
+        tool,
+        key: input.operationKey,
+        hash,
+        project,
+        thread: isStart ? null : input.threadId,
+        state: "pending",
+        code: null,
+        created: now(),
+        delivery: null,
+        waiting_on: null,
+        updated: now(),
+        generation,
+      };
+      db.prepare(
+        "INSERT INTO operations (id, issuer, owner, tool, key, hash, project, thread, state, code, created, updated, generation, delivery, waiting_on) VALUES (@id, @issuer, @owner, @tool, @key, @hash, @project, @thread, @state, @code, @created, @updated, @generation, @delivery, @waiting_on)",
+      ).run(row);
+      return { row, fresh: true };
+    },
+  );
+  function requireAccess(identity: Identity, project?: string, write = false) {
     const config = policy();
     if (
       !active ||
       closed ||
       !hasAccess(config, identity) ||
-      !allowedProjects(config).has(project) ||
+      !identity.scopes?.includes("bb.read") ||
+      !allowedProjects(config).size ||
+      (project !== undefined && !allowedProjects(config).has(project)) ||
       (write && (!config.controlEnabled || !identity.scopes?.includes("bb.control")))
     )
       throw new Error("OPERATION_UNAVAILABLE");
@@ -125,11 +148,49 @@ export function operationControl(options: {
     state: State,
     code: string | null,
     thread: string | null = null,
+    delivery: RecordRow["delivery"] = null,
+    waitingOn: string | null = null,
   ) {
     if (closed) return;
     db.prepare(
-      "UPDATE operations SET state = ?, code = ?, thread = COALESCE(?, thread), updated = ? WHERE id = ? AND generation = ? AND state IN ('pending', 'unknown')",
-    ).run(state, code, thread, now(), operationId, generation);
+      "UPDATE operations SET state = ?, code = ?, thread = COALESCE(?, thread), delivery = ?, waiting_on = ?, updated = ? WHERE id = ? AND generation = ? AND state IN ('pending', 'unknown')",
+    ).run(state, code, thread, delivery, waitingOn, now(), operationId, generation);
+  }
+  async function lookupThread(
+    identity: Identity,
+    threadId: string,
+    project: string | undefined,
+    write: boolean,
+    signal: AbortSignal,
+  ) {
+    requireAccess(identity, project, write);
+    if (activeReads >= 8 || signal.aborted) throw new Error("OPERATION_UNAVAILABLE");
+    activeReads++;
+    const lookup = Promise.resolve()
+      .then(() => source.get({ threadId, signal }))
+      .finally(() => {
+        activeReads--;
+      });
+    let abort: () => void = () => {};
+    const cancelled = new Promise<never>((_, reject) => {
+      abort = () => reject(new Error("OPERATION_UNAVAILABLE"));
+      signal.addEventListener("abort", abort, { once: true });
+    });
+    try {
+      const thread = await Promise.race([lookup, cancelled]);
+      requireAccess(identity, project ?? thread.projectId ?? undefined, write);
+      if (
+        signal.aborted ||
+        thread.id !== threadId ||
+        !thread.projectId ||
+        (project !== undefined && thread.projectId !== project) ||
+        thread.deletedAt !== null
+      )
+        throw new Error("OPERATION_UNAVAILABLE");
+      return thread;
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
   }
   async function observe(
     identity: Identity,
@@ -141,50 +202,42 @@ export function operationControl(options: {
     if (!row || row.issuer !== identity.issuer || row.owner !== identity.owner)
       throw new Error("OPERATION_UNAVAILABLE");
     requireAccess(identity, row.project, write);
-    if (row.thread) {
-      if (activeReads >= 8 || signal.aborted) throw new Error("OPERATION_UNAVAILABLE");
-      activeReads++;
-      const lookup = Promise.resolve()
-        .then(() => source.get({ threadId: row.thread!, signal }))
-        .finally(() => {
-          activeReads--;
-        });
-      let abort: () => void = () => {};
-      const cancelled = new Promise<never>((_, reject) => {
-        abort = () => reject(new Error("OPERATION_UNAVAILABLE"));
-        signal.addEventListener("abort", abort, { once: true });
-      });
-      let thread: Awaited<ReturnType<StartSource["get"]>>;
-      try {
-        thread = await Promise.race([lookup, cancelled]);
-      } finally {
-        signal.removeEventListener("abort", abort);
-      }
-      requireAccess(identity, row.project, write);
-      if (thread.id !== row.thread || thread.projectId !== row.project || thread.deletedAt !== null)
-        throw new Error("OPERATION_UNAVAILABLE");
-    }
+    if (row.thread) await lookupThread(identity, row.thread, row.project, write, signal);
     if (signal.aborted) throw new Error("OPERATION_UNAVAILABLE");
     return {
       operationId: row.id,
       state: row.state,
       threadId: row.thread,
       code: row.code,
+      ...(row.tool === "bb_send_message"
+        ? { delivery: row.delivery, waitingOn: row.waiting_on }
+        : {}),
       meaning:
         row.state === "accepted"
-          ? "BB accepted the submission. Agent work is not complete."
+          ? row.delivery === "queued"
+            ? "BB queued the instruction. Agent work is not complete; BB controls its dispatch."
+            : "BB accepted the submission. Agent work is not complete."
           : row.state === "failed"
-            ? "No start was dispatched."
+            ? row.tool === "bb_start_thread"
+              ? "No start was dispatched."
+              : "No message was dispatched."
             : row.state === "unknown"
               ? "Outcome unknown. Inspect BB before submitting a new key. Do not repeat the action."
               : "Submission outcome pending. Poll this operation; do not submit a new key.",
     };
   }
-  async function start(identity: Identity, input: StartInput, signal: AbortSignal) {
-    const started = Date.now();
+  async function submit(
+    identity: Identity,
+    input: StartInput | SendInput,
+    project: string,
+    signal: AbortSignal,
+    started = Date.now(),
+  ) {
+    const isStart = "prompt" in input;
+    const responseDeadline = started + limits.responseWaitMs;
     if (signal.aborted) throw new Error("OPERATION_UNAVAILABLE");
-    requireAccess(identity, input.projectId, true);
-    const { row, fresh } = claim.immediate(identity, input);
+    requireAccess(identity, project, true);
+    const { row, fresh } = claim.immediate(identity, input, project);
     if (fresh) {
       let dispatched = false;
       let deadline = false;
@@ -214,46 +267,78 @@ export function operationControl(options: {
       signal.addEventListener("abort", disconnected, { once: true });
       const done = Promise.resolve().then(async () => {
         try {
-          // A failed defaults read cannot create a thread. Never choose a fallback.
-          const defaults = await source.defaults({
-            projectId: input.projectId,
-            signal: AbortSignal.timeout(limits.sdkDeadlineMs),
-          });
-          if (!defaults) throw new Error("DEFAULTS_UNAVAILABLE");
+          // Read only server-owned defaults for start; send retains thread execution settings.
+          const defaults = isStart
+            ? await source.defaults({
+                projectId: project,
+                signal: AbortSignal.timeout(limits.sdkDeadlineMs),
+              })
+            : null;
+          if (isStart && !defaults) throw new Error("DEFAULTS_UNAVAILABLE");
+          if (!isStart)
+            await lookupThread(
+              identity,
+              input.threadId,
+              project,
+              true,
+              AbortSignal.any([signal, AbortSignal.timeout(limits.sdkDeadlineMs)]),
+            );
           if (deadline || signal.aborted) throw new Error("PRE_DISPATCH_ABORTED");
-          requireAccess(identity, input.projectId, true);
+          requireAccess(identity, project, true);
           const current = read(row.id);
           if (current?.generation !== generation || current.state !== "pending")
             throw new Error("STALE_DISPATCH");
           dispatched = true;
-          const thread = await source.spawn({
-            providerId: defaults.providerId,
-            model: defaults.model,
-            permissionMode: defaults.permissionMode,
-            reasoningLevel: defaults.reasoningLevel,
-            serviceTier: defaults.serviceTier,
-            projectId: input.projectId,
-            prompt: input.prompt,
-            ...(input.title === undefined ? {} : { title: input.title }),
-            environment: { type: "project-default" },
-            visibility: "visible",
-            pluginMetadata: { operationId: row.id },
-          });
-          if (
-            !thread ||
-            typeof thread.id !== "string" ||
-            !thread.id.length ||
-            thread.id.length > 200
-          )
-            throw new Error();
-          finish(row.id, "accepted", null, thread.id);
+          if (isStart) {
+            const thread = await source.spawn({
+              providerId: defaults!.providerId,
+              model: defaults!.model,
+              permissionMode: defaults!.permissionMode,
+              reasoningLevel: defaults!.reasoningLevel,
+              serviceTier: defaults!.serviceTier,
+              projectId: project,
+              prompt: input.prompt,
+              ...(input.title === undefined ? {} : { title: input.title }),
+              environment: { type: "project-default" },
+              visibility: "visible",
+              pluginMetadata: { operationId: row.id },
+            });
+            if (
+              !thread ||
+              typeof thread.id !== "string" ||
+              !thread.id.length ||
+              thread.id.length > 200
+            )
+              throw new Error();
+            finish(row.id, "accepted", null, thread.id);
+          } else {
+            const sent = await source.send({
+              threadId: input.threadId,
+              mode: "auto",
+              input: [{ type: "text", text: input.message, mentions: [] }],
+            });
+            if (!sent || sent.ok !== true || !["sent", "queued"].includes(sent.delivery))
+              throw new Error();
+            const waitingOn =
+              sent.delivery === "queued" ? (sent.queuedMessage?.waitingOn?.kind ?? null) : null;
+            if (
+              sent.delivery === "queued" &&
+              (!sent.queuedMessage || sent.queuedMessage.threadId !== input.threadId)
+            )
+              throw new Error();
+            finish(row.id, "accepted", null, input.threadId, sent.delivery, waitingOn);
+          }
         } catch {
-          // No public transactional spawn-error guarantee: even a BB error may follow creation.
+          // No public transactional submission-error guarantee: even a BB error may follow submission.
           try {
             finish(
               row.id,
               dispatched ? "unknown" : "failed",
-              dispatched ? "BB_OUTCOME_UNKNOWN" : "START_NOT_DISPATCHED",
+              dispatched
+                ? "BB_OUTCOME_UNKNOWN"
+                : isStart
+                  ? "START_NOT_DISPATCHED"
+                  : "MESSAGE_NOT_DISPATCHED",
             );
           } catch {
             /* Never lose the claim or retry. */
@@ -273,7 +358,7 @@ export function operationControl(options: {
         await Promise.race([
           pending.done,
           new Promise<void>((resolve) => {
-            timer = setTimeout(resolve, Math.max(1, limits.responseWaitMs - 1000));
+            timer = setTimeout(resolve, Math.max(1, responseDeadline - Date.now() - 1000));
           }),
         ]);
       } finally {
@@ -285,10 +370,7 @@ export function operationControl(options: {
       identity,
       row.id,
       true,
-      AbortSignal.any([
-        signal,
-        AbortSignal.timeout(Math.max(1, limits.responseWaitMs - (Date.now() - started))),
-      ]),
+      AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, responseDeadline - Date.now()))]),
     );
   }
   function result(data: Awaited<ReturnType<typeof observe>>) {
@@ -338,9 +420,44 @@ export function operationControl(options: {
         },
         async (input) => {
           try {
-            return result(await start(identity, input, signal));
+            return result(await submit(identity, input, input.projectId, signal));
           } catch (error) {
             onFailure("bb_start_thread");
+            const code =
+              error instanceof Error &&
+              ["OPERATION_CONFLICT", "LEDGER_FULL", "OPERATIONS_BUSY"].includes(error.message)
+                ? error.message
+                : "OPERATION_UNAVAILABLE";
+            return { isError: true, content: [{ type: "text" as const, text: code }] };
+          }
+        },
+      );
+      server.registerTool(
+        "bb_send_message",
+        {
+          description:
+            "Send follow-up instructions to an allowed BB thread with normal idle/active auto behavior. Requires bb.read, bb.control and local control. Agents can change code, take external actions and incur provider costs under existing permissions. Accepted or queued is not completed work. Keep the same key after a lost reply; unknown requires BB inspection. Pending approvals remain in BB.",
+          inputSchema: sendSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: true,
+          },
+        },
+        async (input) => {
+          try {
+            const started = Date.now();
+            const thread = await lookupThread(
+              identity,
+              input.threadId,
+              undefined,
+              true,
+              AbortSignal.any([signal, AbortSignal.timeout(limits.responseWaitMs)]),
+            );
+            return result(await submit(identity, input, thread.projectId!, signal, started));
+          } catch (error) {
+            onFailure("bb_send_message");
             const code =
               error instanceof Error &&
               ["OPERATION_CONFLICT", "LEDGER_FULL", "OPERATIONS_BUSY"].includes(error.message)
@@ -386,5 +503,5 @@ export function operationControl(options: {
     },
   };
 }
-export type OperationTool = "bb_start_thread" | "bb_get_operation";
+export type OperationTool = "bb_start_thread" | "bb_send_message" | "bb_get_operation";
 export type Operations = ReturnType<typeof operationControl>;

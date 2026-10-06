@@ -79,9 +79,12 @@ describe("read-only thread protocol", () => {
         "bb_list_threads",
         "bb_get_thread",
         "bb_start_thread",
+        "bb_send_message",
         "bb_get_operation",
       ]);
-      for (const tool of catalog.tools.filter((t) => t.name !== "bb_start_thread")) {
+      for (const tool of catalog.tools.filter(
+        (t) => !["bb_start_thread", "bb_send_message"].includes(t.name),
+      )) {
         expect(tool.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
       }
       for (const tool of [read, list]) {

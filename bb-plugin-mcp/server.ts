@@ -1,7 +1,11 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { readConfig, settingsDefinition } from "./config.js";
 import { remoteAccess } from "./remote-access.js";
-import { operationControl, operationMigration } from "./operations.js";
+import {
+  operationControl,
+  operationMigration,
+  operationSubmissionMigration,
+} from "./operations.js";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define(settingsDefinition);
@@ -9,7 +13,7 @@ export default async function plugin(bb: BbPluginApi) {
   const initial = readConfig(saved);
   const connection = { publicOrigin: saved.publicOrigin, port: saved.port };
   const db = bb.storage.database();
-  bb.storage.migrate(db, [operationMigration]);
+  bb.storage.migrate(db, [operationMigration, operationSubmissionMigration]);
   const operations = operationControl({
     db,
     policy: () => readConfig(saved),
@@ -17,6 +21,7 @@ export default async function plugin(bb: BbPluginApi) {
       defaults: (args) => bb.sdk.projects.defaultExecutionOptions(args),
       spawn: (args) => bb.sdk.threads.spawn(args),
       get: (args) => bb.sdk.threads.get(args),
+      send: (args) => bb.sdk.threads.send(args),
     },
   });
   const access = initial
