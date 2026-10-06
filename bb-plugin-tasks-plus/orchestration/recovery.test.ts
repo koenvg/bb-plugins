@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixture } from "./dispatch-test-fixture";
+import { recoveryFixture as fixture } from "./recovery-test-fixture";
 import { expectNoAgentInput } from "./dispatch-test-fixture";
 import { createDispatchStore } from "./dispatch-store";
 import { createDispatcher } from "./dispatch";

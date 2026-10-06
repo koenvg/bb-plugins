@@ -1,9 +1,5 @@
 import { afterEach, expect, vi } from "vitest";
-import {
-  createFakePluginHost,
-  makeThreadResponse,
-  makeMessageDispatchHookContext,
-} from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 import { createStore } from "../api";
 import { dispatchRpcContract } from "./dispatch-contract";
@@ -51,33 +47,29 @@ export const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
-export async function fixture(taskCount = 1, initialize: typeof plugin = plugin) {
+// Read-only observations for recovery fixtures. No worker creation or agent input.
+export type NativeHistoryReads = {
+  list?: (args: any) => Promise<any[]>;
+  interruptions?: () => Promise<any[]>;
+};
+
+export async function fixture(
+  taskCount = 1,
+  initialize: typeof plugin = plugin,
+  history: NativeHistoryReads = {},
+) {
   let requests: any[] = [];
   let decisions: any[] = [];
-  let interruptions: any[] = [];
-  let readInterruptions: () => Promise<any[]> = async () => interruptions;
   let coordinatorProject = "proj_fixture";
   const workers = new Map<string, ReturnType<typeof makeThreadResponse>>();
   const metadata = new Map<string, any>();
-  let list: (args: any) => Promise<any[]> = async (args) =>
+  const list: (args: any) => Promise<any[]> = async (args) =>
     [...workers.values()].filter(
       (thread) =>
         thread.projectId === args.projectId &&
         thread.originPluginId === args.originPluginId &&
         (args.archived ? thread.archivedAt != null : thread.archivedAt == null),
     );
-  let create: (args: any) => Promise<any> = async (args) => {
-    const thread = makeThreadResponse({
-      id: "thr_worker",
-      projectId: args.projectId,
-      parentThreadId: args.parentThreadId,
-      originPluginId: "tasks-fixture",
-      status: "pending",
-    });
-    workers.set(thread.id, thread);
-    metadata.set(thread.id, args.pluginMetadata);
-    return thread;
-  };
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks-fixture",
     sdk: {
@@ -105,15 +97,14 @@ export async function fixture(taskCount = 1, initialize: typeof plugin = plugin)
           if (!thread) throw new Error("missing");
           return thread;
         },
-        list: (args) => list(args),
-        spawn: (args) => create(args),
+        list: (args) => history.list?.(args) ?? list(args),
         getPluginMetadata: async ({ threadId }) => metadata.get(threadId) ?? {},
         events: {
           list: async ({ types }) =>
             types?.[0] === "system/interaction/lifecycle"
               ? decisions
               : types?.[0] === "system/thread/interrupted"
-                ? readInterruptions()
+                ? (history.interruptions?.() ?? [])
                 : requests,
         },
       },
@@ -230,23 +221,6 @@ export async function fixture(taskCount = 1, initialize: typeof plugin = plugin)
     harness.behavior
       .callRpc("orchestrateDispatch", input)
       .then((value) => dispatchRpcContract.orchestrateDispatch.output.parse(value));
-  const hook = async (threadId = "thr_worker") =>
-    harness.registrations.hooks["message.dispatch"]!(
-      makeMessageDispatchHookContext({
-        thread: workers.get(threadId)!,
-        parentThreadId: "thr_coordinator",
-        origin: "plugin",
-        originPluginId: bb.pluginId,
-        senderThreadId: "thr_coordinator",
-        requestedExecution: {
-          providerId: "pi",
-          model: "fixture",
-          reasoningLevel: "high",
-          permissionMode: "auto",
-          serviceTier: null,
-        },
-      }),
-    );
   return {
     bb,
     harness,
@@ -259,18 +233,8 @@ export async function fixture(taskCount = 1, initialize: typeof plugin = plugin)
     dispatch,
     workers,
     metadata,
-    hook,
-    setListing: (fn: typeof list) => {
-      list = fn;
-    },
     setRequests: (rows: any[]) => {
       requests = rows;
-    },
-    setCreate: (fn: typeof create) => {
-      create = fn;
-    },
-    setReadInterruptions: (fn: typeof readInterruptions) => {
-      readInterruptions = fn;
     },
     approveRun: async (
       coordinatorThreadId = "thr_coordinator",
@@ -329,9 +293,6 @@ export async function fixture(taskCount = 1, initialize: typeof plugin = plugin)
       const result = JSON.parse((await harness.behavior.runCli(args, context)).stdout!);
       expect(result.outcome).toBe("run");
       return result.run;
-    },
-    setInterruptions: (events: any[]) => {
-      interruptions = events;
     },
     setCoordinatorProject: (id: string) => {
       coordinatorProject = id;

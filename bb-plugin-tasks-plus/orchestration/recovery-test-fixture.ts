@@ -1,8 +1,23 @@
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
-import { fixture, historicalOwner } from "./dispatch-test-fixture";
+import { fixture, historicalOwner, type NativeHistoryReads } from "./dispatch-test-fixture";
 import { createDispatchStore } from "./dispatch-store";
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
+
+// Recovery tests can vary native history reads without simulating worker creation.
+export async function recoveryFixture() {
+  const history: NativeHistoryReads = {};
+  const f = await fixture(1, undefined, history);
+  return {
+    ...f,
+    setListing: (read: NonNullable<NativeHistoryReads["list"]>) => {
+      history.list = read;
+    },
+    setReadInterruptions: (read: NonNullable<NativeHistoryReads["interruptions"]>) => {
+      history.interruptions = read;
+    },
+  };
+}
 
 // Import old creation history into isolated storage. Never invoke worker APIs.
 export function historicalAttempt(f: Fixture) {
