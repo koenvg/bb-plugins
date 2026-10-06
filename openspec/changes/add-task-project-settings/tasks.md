@@ -1,21 +1,28 @@
 # Tasks
 
-## 1. Project settings entry and draft editing
+Acceptance conditions remain in [the project-settings spec](specs/tasks-project-settings/spec.md); technical decisions remain in [design.md](design.md). The approved deliveries are name editing first, then color editing and the complete combined editor. Preserve project identity, prefix, task keys, folder, BB link and the linked BB workspace. Do not add an API, migration, dependency or unrelated Manage refactor.
 
-- [ ] 1.1 Add failing slot tests for opening Projects from Manage, labelled controls, current values, duplicate project names distinguished by prefix, and retained Labels/Presets/Folders tabs. Verify the new tests fail because the Projects tab is missing before implementation.
-- [ ] 1.2 Add `views/manage/projects-section.tsx` and the Projects tab in `manage-panel.tsx`, keeping the Labels default and showing project prefixes as read-only context. Verify the entry tests pass and selecting a settings project does not navigate the Tasks route or BB workspace.
-- [ ] 1.3 Add tests and implement identity-bound name/color drafts, Cancel, project selection reset, blank-name blocking, and preservation of colors outside the palette. Verify local changes and Cancel send no update and a new selection cannot inherit another project's draft.
-- [ ] 1.4 Update the Manage description and `PLUGIN_OVERVIEW.md` with the Tasks Manage > Projects path, explicit Save/Cancel behavior, and unchanged prefixes. Verify the documented path matches the rendered controls and states that project selection discards unsaved local edits.
+Each delivery includes its tests and documentation. Before acceptance, the owner checks completion evidence and applicable project validation and clean-context review requirements for code changes. Each delivery runs relevant rendered and integration tests, package tests, typecheck, lint and build, and records keyboard/compact-layout results. Show an early working UI preview before final acceptance checks. Report unrelated or unavailable checks explicitly without expanding scope. Installed-code replacement and live-data validation require separate approval; this checklist does not authorize worker dispatch.
 
-## 2. Saving and inventory recovery
+The change owner updates these checkboxes manually after checking completion evidence. Complete delivery 1 before delivery 2. Unrelated Manage error-handling cleanup is not a prerequisite.
 
-- [ ] 2.1 Add deferred-RPC tests and implement Save through `updateProject` with exactly project ID, trimmed name, and color, immediate saved values from the response, and a synchronous single-flight guard. Verify repeated activation sends one request, pending controls are unavailable, and unchanged drafts cannot save.
-- [ ] 2.2 Add failure and retry tests and implement local save errors that preserve the draft. Verify a rejected save shows an alert, keeps entered values, and succeeds on retry without changing prefix, folder, or BB-link fields.
-- [ ] 2.3 Add tests and implement separate loading, successful empty, inventory failure, and Retry states. Verify failed refreshes with stale rows block new saves, successful removal removes the old editor, and ordinary refreshes preserve dirty drafts while Cancel uses the latest loaded values.
-- [ ] 2.4 Add realtime tests for an inventory event before a save response and a failed refresh after a successful save. Verify the response remains the saved baseline, pending drafts are not erased, and an inventory failure is not reported as a failed save.
+## 1. Rename Tasks projects in settings
 
-## 3. Integration and verification
+- [ ] 1.1 Add Manage > Projects with labelled selection, current name and read-only prefix, keeping Labels the default and Labels/Presets/Folders available; verify rendered tests distinguish duplicate names by prefix and identity and selection does not change Tasks browsing scope or BB workspace.
+- [ ] 1.2 Keep name drafts identity-bound with explicit Save/Cancel, blank-name blocking and selection reset; verify local edits and Cancel send no update, Cancel clears errors and restores latest loaded values, selection discards only its local draft, and name-only saves preserve any existing color.
+- [ ] 1.3 Save through updateProject with exactly project ID, trimmed name and unchanged saved color, applying returned values immediately and using a synchronous single-flight guard; verify repeated activation sends one request, pending editing/selection/Cancel is blocked and unchanged drafts cannot save.
+- [ ] 1.4 Keep failed-save errors local and retain the name draft for retry; verify an alert, successful manual retry and unchanged prefix, folder, BB link and linked workspace.
+- [ ] 1.5 Provide separate loading, successful empty, inventory failure and Retry states; verify stale rows cannot save, successful removal removes the old keyed editor without transferring its draft, ordinary refreshes preserve dirty drafts and Cancel uses latest loaded values.
+- [ ] 1.6 Preserve the saved-response baseline when projects:changed arrives before Save or refresh fails afterward; verify deferred-RPC tests retain pending drafts and do not report an inventory failure as a failed save.
+- [ ] 1.7 Refresh existing project consumers after a successful rename through projects:changed; verify integration tests prove persistence and visible updates without reload or task-route change and unchanged project identity, prefix, task keys, saved color, folder and BB link.
+- [ ] 1.8 Document Manage > Projects, name editing, explicit Save/Cancel, selection discard and unchanged prefixes in the Manage description and PLUGIN_OVERVIEW.md; verify documented paths and behavior match rendered tests.
+- [ ] 1.9 Record delivery checks and keyboard/compact-layout observations for selector, name, Save, Cancel, Retry and alerts; verify accessible controls and no horizontal page overflow.
 
-- [ ] 3.1 Add or extend an integration test using existing fixtures to save name/color and refresh project consumers through `projects:changed`. Verify displayed values update without a task-route switch and persisted project ID, prefix, task keys, folder assignment, and linked BB project remain unchanged.
-- [ ] 3.2 Check keyboard operation, accessible names and error alerts, and compact-panel layout. Verify the selector, name, named color choices, Save, Cancel, and Retry are usable and the extra tab/form do not cause horizontal page overflow; record the observed result.
-- [ ] 3.3 From `bb-plugin-tasks-plus`, run focused project-settings and Manage tests, then `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`. Verify all checks pass or report specific unrelated failures without expanding this change.
+## 2. Change Tasks project colors in settings
+
+- [ ] 2.1 Add the existing named color palette to the identity-bound editor; verify rendered tests show current color, local-only choices, preserved out-of-palette values until deliberate replacement, and both draft fields reset safely on Cancel or project selection.
+- [ ] 2.2 Save name and color together through the existing update operation; verify pending controls and single-flight protection, unchanged-draft blocking, failure-retained fields and retry, dirty refreshes, removal, inventory failure and delayed-event safeguards still hold for both fields.
+- [ ] 2.3 Refresh project consumers after combined saves through projects:changed; verify integration tests prove displayed/persisted name and color updates without reload or route change, preserve identity/prefix/task keys/folder/BB link, and never rename or recolor the linked BB workspace.
+- [ ] 2.4 Document combined editing, custom-color preservation and Save/Cancel in operating documentation; verify examples match the implemented editor and retain the name delivery's selection-discard and prefix guidance.
+- [ ] 2.5 Check the assembled editor by keyboard and at compact width; record accessible names, alerts, named color choices, palette wrapping, reachable Save/Cancel/Retry and no horizontal page overflow.
+- [ ] 2.6 Run focused project-settings and Manage tests, full npm test, npm run typecheck, npm run lint and npm run build in bb-plugin-tasks-plus, and complete the required clean-context code review; record results, resolve blockers and report unrelated failures or unavailable live checks without expanding scope.
