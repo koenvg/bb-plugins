@@ -13,11 +13,13 @@ The related `code-cleanup-settings-controls` plan describes the previous layout.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make saved project choices visible together while keeping prompt text out of the summary payload.
 - Keep row changes and dialog editing small, separate interfaces over the existing configuration module.
 - Preserve safe drafts, correct project targeting, and confirmed persistence through the layout change.
 
 **Non-Goals:**
+
 - New storage, factory guidance, global controls, or an independent configuration cache on the server.
 - Bulk operations, filters, search, pagination, prompt comparison, or a second Settings route.
 - Importing another plugin's UI internals or introducing a shared overlay framework.
