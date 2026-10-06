@@ -32,12 +32,14 @@ import { ColorSwatchPicker, DEFAULT_COLOR } from "./shared.js";
 
 function useActionError() {
   const [error, setError] = useState<string | null>(null);
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>): Promise<boolean> => {
     setError(null);
     try {
       await action();
+      return true;
     } catch (actionError) {
       setError(errorMessage(actionError));
+      return false;
     }
   };
   return { error, setError, run };
@@ -53,14 +55,14 @@ function LabelEditorRow({
   initialName: string;
   initialColor: string;
   submitLabel: string;
-  onSubmit: (name: string, color: string) => Promise<void>;
+  onSubmit: (name: string, color: string) => Promise<boolean>;
   onCancel?: () => void;
 }) {
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
   const submit = () => {
-    void onSubmit(name.trim(), color).then(() => {
-      if (!onCancel) {
+    void onSubmit(name.trim(), color).then((succeeded) => {
+      if (succeeded && !onCancel) {
         setName("");
         setColor(DEFAULT_COLOR);
       }
@@ -395,15 +397,17 @@ function FolderRow({
 }: {
   folder: Folder;
   rootFolders: Folder[];
-  onRename: (name: string) => Promise<void>;
-  onMove: (parentFolderId: string | null) => Promise<void>;
+  onRename: (name: string) => Promise<boolean>;
+  onMove: (parentFolderId: string | null) => Promise<boolean>;
   onDelete: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(folder.name);
   const parentOptions = rootFolders.filter((entry) => entry.id !== folder.id);
   const rename = () => {
-    void onRename(draftName.trim()).then(() => setRenaming(false));
+    void onRename(draftName.trim()).then((succeeded) => {
+      if (succeeded) setRenaming(false);
+    });
   };
 
   return (
