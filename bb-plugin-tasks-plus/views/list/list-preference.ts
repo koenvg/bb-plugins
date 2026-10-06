@@ -15,11 +15,13 @@ type ListPreferenceScope = "all" | "active" | `project:${string}`;
 export interface ListPreference {
   filters: ListFilterState;
   sort: TaskSort;
+  collapsedStatuses: TaskStatus[];
 }
 
 export const DEFAULT_LIST_PREFERENCE: ListPreference = {
   filters: EMPTY_FILTERS,
   sort: "manual",
+  collapsedStatuses: [],
 };
 
 interface StoredDocumentV1 {
@@ -83,6 +85,7 @@ export function sanitizeListPreference(raw: unknown): ListPreference {
     return {
       filters: { ...EMPTY_FILTERS },
       sort: DEFAULT_LIST_PREFERENCE.sort,
+      collapsedStatuses: [],
     };
   }
   const record = raw as Record<string, unknown>;
@@ -101,6 +104,7 @@ export function sanitizeListPreference(raw: unknown): ListPreference {
       ...sanitizeDependency(filtersRaw.dependency),
     },
     sort: sanitizeSort(record.sort),
+    collapsedStatuses: uniqueValidValues<TaskStatus>(record.collapsedStatuses, STATUS_SET),
   };
 }
 
@@ -118,16 +122,17 @@ function readStorage(): ParsedStorage | null {
       return null;
     }
     const record = parsed as Record<string, unknown>;
+    const version =
+      typeof record.version === "number" && Number.isFinite(record.version) ? record.version : null;
+    const isFutureVersion = version !== null && version > LIST_PREFERENCE_VERSION;
     if (
       record.scopes === null ||
       typeof record.scopes !== "object" ||
       Array.isArray(record.scopes)
     ) {
-      return null;
+      // A future format can change scope encoding. Keep it read-only even when unreadable.
+      return isFutureVersion ? { scopes: {}, isFutureVersion } : null;
     }
-    const version =
-      typeof record.version === "number" && Number.isFinite(record.version) ? record.version : null;
-    const isFutureVersion = version !== null && version > LIST_PREFERENCE_VERSION;
     if (version !== null && version < LIST_PREFERENCE_VERSION) {
       return null;
     }
@@ -146,12 +151,16 @@ export function loadListPreference(scope: ListPreferenceScope): ListPreference {
     return {
       filters: { ...EMPTY_FILTERS },
       sort: DEFAULT_LIST_PREFERENCE.sort,
+      collapsedStatuses: [],
     };
   }
   return sanitizeListPreference(document.scopes[scope]);
 }
 
-export function storeListPreference(scope: ListPreferenceScope, preference: ListPreference): void {
+export function storeListPreference(
+  scope: ListPreferenceScope,
+  preference: ListPreference | Omit<ListPreference, "collapsedStatuses">,
+): void {
   const sanitized = sanitizeListPreference(preference);
   try {
     const existing = readStorage();

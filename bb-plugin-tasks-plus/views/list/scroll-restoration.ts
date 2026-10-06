@@ -74,7 +74,7 @@ interface ListScrollState {
   visible?: boolean;
   contentReady: boolean;
   loading: boolean;
-  revision: number;
+  revision: number | string;
 }
 
 export function useListScrollRestoration(

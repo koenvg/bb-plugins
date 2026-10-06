@@ -60,6 +60,11 @@ export function BrowseWorkspace({
   }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLElement>(null);
+  const canRestoreSectionFocus = useCallback(() => {
+    const list = listRef.current;
+    const detail = detailRef.current;
+    return Boolean(list && detail && canRestoreBrowseFocus(list, detail));
+  }, []);
   const detailScroll = useRef({ key: selectedKey, top: 0 });
   const focus = useBrowseFocus(selectedKey, listRef, detailRef);
   const latestOrder = useRef(order);
@@ -230,11 +235,12 @@ export function BrowseWorkspace({
             <ListView
               projectId={route.kind === "project" ? route.projectId : null}
               activeOnly={route.kind === "active"}
-              visible={true}
+              visible={!recovering}
               selectedTaskKey={readyKey}
               onRequestSelection={requestSelection}
               onVisibleOrderChange={setOrder}
               onRequestContextChange={requestContextChange}
+              canRestoreSectionFocus={canRestoreSectionFocus}
               onSelectionUnavailable={onMissing}
               reconcileRevision={contextRevision}
               scopeUnavailable={noProjects}

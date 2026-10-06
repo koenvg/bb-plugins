@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Label, Task } from "../../shared/contract.js";
+import type { Label, Task, TaskStatus } from "../../shared/contract.js";
 import { useProjects } from "../../shell/data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { NewTaskDialog } from "../manage/new-task-dialog.js";
@@ -42,6 +42,7 @@ import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
 import { useSelectionTree, visibleTreeTasks, type SelectionUnavailable } from "./selection-tree.js";
+import { canRestoreBrowseFocus } from "../../shell/shortcuts.js";
 
 /** Keys come from the rendered tree, including dimmed parents and expanded children.
  * Unsettled reports must never be used as proof that a selection was removed. */
@@ -60,6 +61,8 @@ interface ListViewProps {
   onRequestSelection?: (taskKey: string) => void;
   onVisibleOrderChange?: (order: VisibleTaskOrder) => void;
   onRequestContextChange?: (commit: () => void) => void;
+  /** Workspace ownership includes the native Ticket portal outside this list's DOM. */
+  canRestoreSectionFocus?: () => boolean;
   onSelectionUnavailable?: SelectionUnavailable;
   reconcileRevision?: number;
   scopeUnavailable?: boolean;
@@ -94,6 +97,7 @@ export function ListView({
   onRequestSelection,
   onVisibleOrderChange,
   onRequestContextChange = commitContextChange,
+  canRestoreSectionFocus,
   onSelectionUnavailable,
   reconcileRevision = 0,
   scopeUnavailable = false,
@@ -121,7 +125,7 @@ export function ListView({
   const setFilters = (next: ListFilterState) => {
     onRequestContextChange(() => {
       setPreference((current) => {
-        const updated: ListPreference = { filters: next, sort: current.sort };
+        const updated: ListPreference = { ...current, filters: next };
         storeListPreference(preferenceScope, updated);
         return updated;
       });
@@ -131,8 +135,24 @@ export function ListView({
     onRequestContextChange(() => {
       setPreference((current) => {
         const updated: ListPreference = {
-          filters: current.filters,
+          ...current,
           sort: next,
+        };
+        storeListPreference(preferenceScope, updated);
+        return updated;
+      });
+    });
+  };
+  const sectionFocus = useRef<{ scope: string; status: TaskStatus } | null>(null);
+  const toggleSection = (status: TaskStatus, collapsed: boolean) => {
+    onRequestContextChange(() => {
+      if (collapsed) sectionFocus.current = { scope: preferenceScope, status };
+      setPreference((current) => {
+        const updated: ListPreference = {
+          ...current,
+          collapsedStatuses: collapsed
+            ? [...new Set([...current.collapsedStatuses, status])]
+            : current.collapsedStatuses.filter((value) => value !== status),
         };
         storeListPreference(preferenceScope, updated);
         return updated;
@@ -288,6 +308,7 @@ export function ListView({
     () => ({
       groups: groups.map((group) => ({
         ...group,
+        collapsed: preference.collapsedStatuses.includes(group.status),
         entries: group.entries.map((entry) => ({
           ...entry,
           expanded: expanded.isExpanded(entry),
@@ -295,7 +316,7 @@ export function ListView({
       })),
       count: displayTasks?.length,
     }),
-    [groups, expanded.isExpanded, displayTasks?.length],
+    [groups, expanded.isExpanded, displayTasks?.length, preference.collapsedStatuses],
   );
   const rendered = useSelectionTree(
     candidate,
@@ -307,15 +328,47 @@ export function ListView({
   const visibleTasks = useMemo(() => visibleTreeTasks(rendered.tree), [rendered.tree]);
   const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
   const visibleOrderSettled = orderSettled && !rendered.retained;
+  useEffect(() => {
+    const pending = sectionFocus.current;
+    if (!pending) return;
+    if (pending.scope !== preferenceScope || !visible) {
+      sectionFocus.current = null;
+      return;
+    }
+    const list = scrollRef.current;
+    // An accepted collapse does not retain ownership of another pane or overlay.
+    if (!list || !(canRestoreSectionFocus?.() ?? canRestoreBrowseFocus(list))) {
+      sectionFocus.current = null;
+      return;
+    }
+    // A retained tree keeps the section expanded until hidden selection clears.
+    if (rendered.retained) return;
+    const group = rendered.tree.groups.find((value) => value.status === pending.status);
+    if (!group?.collapsed) return;
+    sectionFocus.current = null;
+    list
+      .querySelector<HTMLButtonElement>(`[data-status-group-header="${pending.status}"]`)
+      ?.focus({ preventScroll: true });
+  }, [
+    rendered.tree,
+    rendered.retained,
+    preferenceScope,
+    visible,
+    selectedTaskKey,
+    canRestoreSectionFocus,
+  ]);
   const meta = useTaskListMeta(
     tree === undefined ? undefined : visibleTasks,
     JSON.stringify([preferenceScope, filters]),
   );
   useListScrollRestoration(scrollRef, scopeKey, {
     visible,
-    contentReady: visibleTasks.length > 0,
-    loading: tasksQuery.isLoading || scopeChanged || rendered.retained,
-    revision: visibleTasks.length,
+    contentReady: visibleOrderSettled && rendered.tree.groups.length > 0,
+    loading: !visibleOrderSettled,
+    revision:
+      JSON.stringify(
+        rendered.tree.groups.map((group) => [group.status, group.collapsed, group.entries.length]),
+      ) + visibleKeys,
   });
   useEffect(() => {
     onVisibleOrderChange?.({
@@ -400,29 +453,44 @@ export function ListView({
   } else {
     body = rendered.tree.groups.map((group) => (
       <section key={group.status}>
-        <div
+        <button
+          type="button"
+          aria-label={STATUS_LABELS[group.status]}
+          aria-expanded={!group.collapsed}
           data-status-group-header={group.status}
-          className="sticky top-0 z-20 isolate flex items-center gap-2 border-b border-border-hairline bg-background px-3.5 pb-1.5 pt-2.5 text-sm font-semibold"
+          onClick={(event) => {
+            event.currentTarget.focus({ preventScroll: true });
+            toggleSection(group.status, !group.collapsed);
+          }}
+          className="sticky top-0 z-20 isolate flex min-h-9 w-full items-center gap-2 border-b border-border-hairline bg-muted px-3.5 py-2 text-left text-sm font-semibold before:pointer-events-none before:absolute before:inset-0 before:-z-10 hover:before:bg-state-hover active:before:bg-state-active focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring pointer-coarse:min-h-11"
         >
+          <Icon
+            name={group.collapsed ? "ChevronRight" : "ChevronDown"}
+            className="size-3.5 shrink-0 text-muted-foreground"
+          />
           <StatusIcon status={group.status} />
           {STATUS_LABELS[group.status]}
-          <span className="text-xs font-normal tabular-nums text-subtle-foreground">
+          <span className="inline-flex min-w-5 items-center justify-center rounded-sm border border-border-hairline bg-background px-1.5 text-xs font-medium tabular-nums text-muted-foreground">
             {group.entries.length}
           </span>
-        </div>
-        {group.entries.map((entry) => {
-          const isExpanded = entry.expanded;
-          return (
-            <Fragment key={entry.task.id}>
-              {renderRow(entry.task, {
-                dimmed: entry.dimmed,
-                expanded: isExpanded,
-                entry: entry,
-              })}
-              {isExpanded ? entry.children.map((child) => renderRow(child, { depth: 1 })) : null}
-            </Fragment>
-          );
-        })}
+        </button>
+        {group.collapsed
+          ? null
+          : group.entries.map((entry) => {
+              const isExpanded = entry.expanded;
+              return (
+                <Fragment key={entry.task.id}>
+                  {renderRow(entry.task, {
+                    dimmed: entry.dimmed,
+                    expanded: isExpanded,
+                    entry: entry,
+                  })}
+                  {isExpanded
+                    ? entry.children.map((child) => renderRow(child, { depth: 1 }))
+                    : null}
+                </Fragment>
+              );
+            })}
       </section>
     ));
   }
