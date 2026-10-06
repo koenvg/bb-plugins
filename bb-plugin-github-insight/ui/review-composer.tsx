@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   experimental_NewThreadComposer as NewThreadComposer,
   useRpc,
@@ -13,10 +13,37 @@ import { Notice } from "./feedback";
 import { usePullRequestsNavigation, type PullRequestsRoute } from "./pull-requests-routes";
 import type { ReviewQueueState } from "./use-review-queue";
 
-const REVIEW_ENVIRONMENT: NonNullable<NewThreadComposerProps["defaultEnvironment"]> = {
-  type: "host",
-  workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
-};
+type ReviewEnvironment = NewThreadComposerProps["defaultEnvironment"];
+
+// bb drops a host seed that has no hostId and falls back to the project checkout.
+function reviewEnvironment(hostId: string | null): ReviewEnvironment {
+  if (hostId === null) return undefined;
+  return {
+    type: "host",
+    hostId,
+    workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
+  };
+}
+
+function useReviewEnvironment(): { settled: boolean; environment: ReviewEnvironment } {
+  const rpc = useRpc<typeof rpcContract>();
+  const [state, setState] = useState<{ settled: boolean; environment: ReviewEnvironment }>({
+    settled: false,
+    environment: undefined,
+  });
+  useEffect(() => {
+    let current = true;
+    rpc.call("getPrimaryHost", {}).then(
+      ({ hostId }) =>
+        current && setState({ settled: true, environment: reviewEnvironment(hostId) }),
+      () => current && setState({ settled: true, environment: undefined }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [rpc]);
+  return state;
+}
 
 type ReviewRoute = Extract<PullRequestsRoute, { kind: "review" }>;
 
@@ -76,6 +103,7 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
   const rpc = useRpc<typeof rpcContract>();
   const navigation = usePullRequestsNavigation();
   const [error, setError] = useState<string | null>(null);
+  const { settled, environment } = useReviewEnvironment();
 
   async function submit(request: NewThreadRequest) {
     setError(null);
@@ -92,6 +120,8 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
     }
   }
 
+  if (!settled) return <Notice>Loading pull request…</Notice>;
+
   return (
     <>
       {error !== null && (
@@ -106,7 +136,7 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
       <NewThreadComposer
         className="min-h-0 flex-1"
         defaultProjectId={projectId}
-        defaultEnvironment={REVIEW_ENVIRONMENT}
+        defaultEnvironment={environment}
         initialPrompt={buildReviewPrompt(pr)}
         draftKey={`github-insight:review:${pr.repo}#${pr.number}`}
         onSubmit={submit}

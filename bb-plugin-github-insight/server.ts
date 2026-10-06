@@ -181,6 +181,7 @@ export default async function plugin(bb: BbPluginApi) {
     startReview: async ({ pr, request }) => ({
       threadId: await reviewQueue.startReview(pr, request),
     }),
+    getPrimaryHost: async () => ({ hostId: (await bb.sdk.system.config()).primaryHostId }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),

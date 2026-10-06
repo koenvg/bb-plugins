@@ -469,12 +469,33 @@ describe("Review composer", () => {
     expect(composer.dataset.defaultProjectId).toBe("prj_api");
     expect(JSON.parse(composer.dataset.defaultEnvironment!)).toEqual({
       type: "host",
+      hostId: "host-1",
       workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
     });
     expect(composer.dataset.draftKey).toBe("github-insight:review:acme/api#15");
     expect(
       (within(composer).getByTestId("bb-new-thread-composer-input") as HTMLTextAreaElement).value,
     ).toBe(buildReviewPrompt(pr));
+  });
+
+  it("seeds no environment without a primary host", async () => {
+    const slot = renderPanel("review/acme/api/15", () => ok(view([queuePr()])), {
+      getPrimaryHost: () => ({ hostId: null }),
+    });
+
+    const composer = await slot.findByTestId("bb-new-thread-composer");
+    expect(composer.dataset.defaultEnvironment).toBeFalsy();
+  });
+
+  it("seeds no environment when the host lookup fails", async () => {
+    const slot = renderPanel("review/acme/api/15", () => ok(view([queuePr()])), {
+      getPrimaryHost: () => {
+        throw new Error("no config");
+      },
+    });
+
+    const composer = await slot.findByTestId("bb-new-thread-composer");
+    expect(composer.dataset.defaultEnvironment).toBeFalsy();
   });
 
   it("goes back to the lists without starting a thread", async () => {
@@ -559,7 +580,7 @@ describe("Review composer", () => {
     const Panel = panel.component;
     slot.lifecycle.rerender(<Panel subPath="review/acme/api/16" />);
 
-    const composer = slot.getByTestId("bb-new-thread-composer");
+    const composer = await slot.findByTestId("bb-new-thread-composer");
     expect(composer.dataset.draftKey).toBe("github-insight:review:acme/api#16");
     expect(
       (within(composer).getByTestId("bb-new-thread-composer-input") as HTMLTextAreaElement).value,

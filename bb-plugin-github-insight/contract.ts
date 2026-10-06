@@ -327,6 +327,8 @@ export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
 export const startReviewResultSchema = z.object({ threadId: z.string() });
 export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
 
+const primaryHostSchema = z.object({ hostId: z.string().nullable() });
+
 export const prActionSchema = z.enum([
   "merge",
   "enqueue",
@@ -362,6 +364,7 @@ export const rpcContract = defineRpcContract({
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },
   startReview: { input: startReviewRequestSchema, output: startReviewResultSchema },
+  getPrimaryHost: { input: z.object({}).strict(), output: primaryHostSchema },
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
   markReviewed: { input: markReviewedRequestSchema, output: actionResultSchema },
   markNeedsReview: { input: markNeedsReviewRequestSchema, output: actionResultSchema },
