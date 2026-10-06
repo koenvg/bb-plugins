@@ -171,6 +171,48 @@ try {
   console.log(
     "Packaged review regression: 1000-row bounded progress survives repeated catalog generations; unchanged and title-only refreshes do not invalidate verified totals.",
   );
+  // Host-neutral uncertainty must cross the bundled schema without creating an edge.
+  view = await reopened.default.handlers.historyReadiness(
+    {
+      identities: batch(17, [
+        ...stable,
+        {
+          threadId: "thr_unknown",
+          providerIdentity: "provider-c",
+          title: null,
+          state: "archived",
+          ownershipUnknown: true,
+        },
+      ]),
+    },
+    context,
+  );
+  for (let n = 0; view.collection.attribution.backlog && n < 10; n++)
+    view = await reopened.default.handlers.historyReadiness(
+      {
+        identities: batch(17, [
+          ...stable,
+          {
+            threadId: "thr_unknown",
+            providerIdentity: "provider-c",
+            title: null,
+            state: "archived",
+            ownershipUnknown: true,
+          },
+        ]),
+      },
+      context,
+    );
+  assert.equal(view.collection.attribution.backlog, false);
+  assert.ok(
+    !view.collection.attribution.threads.some(
+      (r) => r.threadId === "thr_c" || r.threadId === "thr_unknown",
+    ),
+  );
+  assert.equal(
+    view.collection.attribution.grades.find((r) => r.grade === "workspace-only").totalTokens,
+    3003,
+  );
   assert.equal(
     (await reopened.default.handlers.historyReadiness(null, context)).collection.attribution
       .discovery,

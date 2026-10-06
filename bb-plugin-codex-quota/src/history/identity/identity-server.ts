@@ -28,6 +28,7 @@ export function createIdentityHistoryCall(
       batch = await discovery.next(hostId, AbortSignal.any([signal, AbortSignal.timeout(8_000)]));
     } catch {
       signal.throwIfAborted();
+      bb.log.warn("Identity discovery unavailable");
     }
     signal.throwIfAborted(); // Required immediately before host dispatch.
     const result = await call(hostId, signal, batch ? { identities: batch } : null);

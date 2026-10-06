@@ -29,7 +29,7 @@ export function fingerprintCatalog(
   signal: AbortSignal,
 ): boolean {
   const rows = db
-    .prepare(`SELECT host_id,thread_id,provider_identity,title,state FROM discovery_rows WHERE generation=?
+    .prepare(`SELECT host_id,thread_id,provider_identity,title,state,EXISTS(SELECT 1 FROM discovery_resolved d WHERE d.generation=r.generation AND d.thread_id=r.thread_id) AS ownership_resolved FROM discovery_rows r WHERE generation=?
     AND (host_id,thread_id,coalesce(provider_identity,''))>(?,?,?) ORDER BY host_id,thread_id,coalesce(provider_identity,'') LIMIT 50`)
     .all(generation, cursor.host, cursor.thread, cursor.provider) as {
     host_id: string;
@@ -37,9 +37,10 @@ export function fingerprintCatalog(
     provider_identity: string | null;
     title: string | null;
     state: string;
+    ownership_resolved: number;
   }[];
   const finish = () => {
-    if (cursor.host)
+    if (cursor.total)
       db.prepare("INSERT OR REPLACE INTO discovery_catalogs VALUES (?,?,?,?)").run(
         generation,
         cursor.host,
@@ -57,8 +58,15 @@ export function fingerprintCatalog(
     cursor.host = row.host_id;
     cursor.thread = row.thread_id;
     cursor.provider = row.provider_identity ?? "";
+    const { ownership_resolved, ...metadata } = row;
     cursor.digest = createHash("sha256")
-      .update(cursor.digest + JSON.stringify(row))
+      .update(
+        cursor.digest +
+          JSON.stringify({
+            ...metadata,
+            ...(ownership_resolved ? { ownershipUnknown: false } : {}),
+          }),
+      )
       .digest("hex");
     cursor.total++;
   }
@@ -69,11 +77,20 @@ export function fingerprintCatalog(
   return false;
 }
 export function deliveryCatalog(db: HistoryDatabase, generation: number, hostId: string) {
-  const current = (db
+  const currentHost = (db
     .prepare("SELECT digest,total FROM discovery_catalogs WHERE generation=? AND host_id=?")
     .get(generation, hostId) as { digest: string; total: number } | undefined) ?? {
     digest: "",
     total: 0,
+  };
+  const unknown = db
+    .prepare("SELECT digest,total FROM discovery_catalogs WHERE generation=? AND host_id=''")
+    .get(generation) as { digest: string; total: number } | undefined;
+  const current = {
+    digest: createHash("sha256")
+      .update(JSON.stringify([currentHost.digest, unknown?.digest ?? ""]))
+      .digest("hex"),
+    total: currentHost.total + (unknown?.total ?? 0),
   };
   const target = db
     .prepare("SELECT generation,digest,total FROM discovery_targets WHERE host_id=?")
