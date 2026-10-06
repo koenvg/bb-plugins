@@ -24,6 +24,7 @@ export type {
   ReviewQueueResult,
   ReviewQueueView,
   ReviewThreadStatus,
+  ReturnedReason,
 } from "./core/review-queue-view";
 
 const prRequestFields = {
@@ -299,15 +300,20 @@ export const submitReviewResultSchema = z.discriminatedUnion("kind", [
 ]);
 export type SubmitReviewResult = z.infer<typeof submitReviewResultSchema>;
 
-const markNeedsReviewRequestSchema = z
+const prRefRequestSchema = z
   .object({ repo: z.string().min(1), number: z.number().int().positive() })
   .strict();
+
+const markNeedsReviewRequestSchema = prRefRequestSchema;
 export type MarkNeedsReviewRequest = z.infer<typeof markNeedsReviewRequestSchema>;
 
-const markReviewedRequestSchema = markNeedsReviewRequestSchema
+const markReviewedRequestSchema = prRefRequestSchema
   .extend({ headOid: z.string().min(1) })
   .strict();
 export type MarkReviewedRequest = z.infer<typeof markReviewedRequestSchema>;
+
+const markQueueSeenRequestSchema = z.object({ prs: z.array(prRefRequestSchema) }).strict();
+export type MarkQueueSeenRequest = z.infer<typeof markQueueSeenRequestSchema>;
 
 const newThreadRequestSchema = z.custom<NewThreadRequest>(
   (value) => typeof value === "object" && value !== null,
@@ -359,6 +365,8 @@ export const rpcContract = defineRpcContract({
   archiveReview: { input: threadRequestSchema, output: actionResultSchema },
   markReviewed: { input: markReviewedRequestSchema, output: actionResultSchema },
   markNeedsReview: { input: markNeedsReviewRequestSchema, output: actionResultSchema },
+  markQueueSeen: { input: markQueueSeenRequestSchema, output: actionResultSchema },
+  markThreadOpened: { input: threadRequestSchema, output: actionResultSchema },
   runPrAction: { input: runPrActionRequestSchema, output: actionResultSchema },
   localCommitsAhead: { input: threadRequestSchema, output: localCommitsAheadSchema },
 });

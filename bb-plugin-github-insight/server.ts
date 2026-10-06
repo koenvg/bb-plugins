@@ -184,6 +184,8 @@ export default async function plugin(bb: BbPluginApi) {
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),
+    markQueueSeen: (request) => reviewQueue.markQueueSeen(request),
+    markThreadOpened: (request) => reviewQueue.markThreadOpened(request),
     runPrAction: (request) => prWrites.runPrAction(request),
     localCommitsAhead: ({ threadId }) => localCommits.localCommitsAhead(threadId),
   });
@@ -204,5 +206,9 @@ export default async function plugin(bb: BbPluginApi) {
   bb.onDispose(() => unloaded.abort());
   bb.events.on("thread.idle", ({ thread }) => {
     void service.refreshOnIdle(thread.id, unloaded.signal);
+    void reviewQueue.threadStopped(thread.id);
+  });
+  bb.events.on("thread.failed", ({ thread }) => {
+    void reviewQueue.threadStopped(thread.id);
   });
 }

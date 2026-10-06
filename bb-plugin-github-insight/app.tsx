@@ -2,6 +2,7 @@ import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { ComposerBanner } from "./ui/composer-banner";
 import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
+import { PrSidebarBadge } from "./ui/pr-sidebar-badge";
 import { PrTab } from "./ui/pr-tab";
 import { PullRequestsPanel } from "./ui/pull-requests-panel";
 import { PANEL_PATH } from "./ui/pull-requests-routes";
@@ -14,6 +15,7 @@ export default definePluginApp((app) => {
     icon: "GitPullRequest",
     path: PANEL_PATH,
     component: PullRequestsPanel,
+    experimental_sidebarAccessory: PrSidebarBadge,
   });
   app.slots.threadPanelAction({
     id: "pr",

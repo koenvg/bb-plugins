@@ -2236,8 +2236,14 @@ describe("review queue", () => {
     if (result.kind !== "ok") throw new Error(result.message);
     const api = result.needsReview.find((group) => group.repo === "acme/api")!;
     expect(api.prs.map(({ number, thread }) => ({ number, thread }))).toEqual([
-      { number: 15, thread: { id: "thr_hidden", status: "idle", isReviewThread: false } },
-      { number: 12, thread: { id: "thr_review", status: "idle", isReviewThread: true } },
+      {
+        number: 15,
+        thread: { id: "thr_hidden", status: "idle", isReviewThread: false, returned: null },
+      },
+      {
+        number: 12,
+        thread: { id: "thr_review", status: "idle", isReviewThread: true, returned: null },
+      },
     ]);
     expect(harness.experimental_hostRpcCalls[0]!.input).toEqual({
       tracked: [{ owner: "acme", repo: "api", number: 12 }],
@@ -2259,6 +2265,22 @@ describe("review queue", () => {
 
     expect(result).toEqual({ kind: "error", message: "No host available", lastGood: null });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("publishes a seen queue after the panel marks the PRs it shows", async () => {
+    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const loaded = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
+    if (loaded.kind !== "ok") throw new Error(loaded.message);
+    expect(loaded.hasUnseen).toBe(true);
+    const prs = loaded.needsReview.flatMap((group) =>
+      group.prs.map(({ repo, number }) => ({ repo, number })),
+    );
+
+    expect(await harness.behavior.callRpc("markQueueSeen", { prs })).toEqual({ kind: "ok" });
+
+    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    expect(update).toMatchObject({ kind: "ok", hasUnseen: false });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(1);
   });
 });
 
@@ -2332,6 +2354,69 @@ describe("startReview", () => {
     if (update.kind !== "ok") throw new Error(update.message);
     const row = update.needsReview.flatMap((group) => group.prs).find((pr) => pr.number === 15)!;
     expect(row.thread?.id).toBe("thr_review");
+  });
+
+  it.each(["thread.idle", "thread.failed"] as const)(
+    "publishes the review thread as returned on %s without a GitHub call",
+    async (event) => {
+      const harness = await setup({
+        threads: [],
+        host: () => ok(reviewQueue),
+        pluginMetadata: { thr_review: { "review-pr": { v: 1, ...pr } } },
+      });
+      harness.sdk.stub("threads.list", async () => [
+        makeThreadResponse({
+          id: "thr_review",
+          originPluginId: "github-insight",
+          visibility: "hidden",
+          status: event === "thread.idle" ? "idle" : "error",
+        }),
+      ]);
+      await harness.behavior.callRpc("refreshReviewQueue", {});
+
+      const thread = makeThreadResponse({ id: "thr_review" });
+      if (event === "thread.idle") {
+        await harness.behavior.emitThreadEvent(event, { thread, lastAssistantText: null });
+      } else {
+        await harness.behavior.emitThreadEvent(event, { thread, error: "boom" });
+      }
+      await settle();
+
+      expect(
+        harness.experimental_hostRpcCalls.filter((call) => call.method === "fetchReviewQueue"),
+      ).toHaveLength(1);
+      const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+      expect(update).toMatchObject({ kind: "ok", hasReturned: true });
+    },
+  );
+
+  it("publishes the thread as not returned after the user opens it", async () => {
+    const harness = await setup({
+      threads: [],
+      host: () => ok(reviewQueue),
+      pluginMetadata: { thr_review: { "review-pr": { v: 1, ...pr } } },
+    });
+    harness.sdk.stub("threads.list", async () => [
+      makeThreadResponse({
+        id: "thr_review",
+        originPluginId: "github-insight",
+        visibility: "hidden",
+        status: "idle",
+      }),
+    ]);
+    await harness.behavior.callRpc("refreshReviewQueue", {});
+    await harness.behavior.emitThreadEvent("thread.idle", {
+      thread: makeThreadResponse({ id: "thr_review" }),
+      lastAssistantText: null,
+    });
+    await settle();
+
+    expect(await harness.behavior.callRpc("markThreadOpened", { threadId: "thr_review" })).toEqual({
+      kind: "ok",
+    });
+
+    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    expect(update).toMatchObject({ kind: "ok", hasReturned: false });
   });
 
   it("rejects a project checkout environment without spawning", async () => {

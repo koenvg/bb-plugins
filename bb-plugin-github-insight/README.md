@@ -50,21 +50,33 @@ review-queue service --fetchReviewQueue--> primary host (gh api graphql)
 app --startReview--> server --> bb.sdk.threads.spawn (hidden, review-pr metadata)
 app --archiveReview--> server --> bb.sdk.threads.archive
 app --markReviewed / markNeedsReview--> server --> kv "reviewed:<owner/repo#n>"
+app --markQueueSeen--> server --> kv "review-seen"
+thread.idle / thread.failed --> server --> kv "review-returned:<threadId>"
+composer banner --markThreadOpened--> server --> deletes "review-returned:<threadId>"
 ```
 
 - One `gh api graphql` call per load (`github/review-queue-query.ts`). It has one search, `is:pr is:open review-requested:@me` (first 50 results, also requests to your teams), and one `repository { pullRequest }` lookup per tracked PR. Tracked PRs are the PRs with a reviewed mark and the PRs of unarchived review threads.
 - GitHub returns `null` and a `NOT_FOUND` error for a tracked PR or repository that does not exist, and `gh` then exits non-zero. The host keeps the response when every error is `NOT_FOUND` (`github/not-found-partial.ts`). Other errors fail the load.
 - The list holds each open PR once: requested PRs, marked PRs, and PRs with a review thread. A merged, closed, or missing tracked PR leaves the list, and its mark is deleted. When GitHub reports more than 50 requests, "Needs review" shows "Showing first 50".
-- Each section groups its PRs by repo. Repo groups with a PR whose thread needs you come first, then the other groups by name. In a group, PRs whose thread needs you come first, then by last update, newest first.
+- Each section groups its PRs by repo. Repo groups with a PR whose thread needs you or came back come first, then the other groups by name. In a group, those PRs come first, then by last update, newest first.
 - The `review-queue` background service loads at start and then every 5 minutes, also while the panel is closed. Only one load runs at a time. A Refresh during a load waits for it and then starts one more.
 - After each load, the service writes the result to the kv entry `review-queue` (`{ v: 2, result }`) and publishes it on `review-queue.updated`. A failed load keeps the last good lists in the entry. The entry stays after a bb restart. An entry of another version reads as no entry.
 - `getReviewQueue` returns the stored result at once and never waits for GitHub. Before the first load, it returns `loading`, and the panel shows "Loading pull requests…" until the first result is published.
 - The panel reads the stored result when it opens and shows each published result. It has no timer of its own. Refresh calls `refreshReviewQueue`, which loads at once. The old lists stay visible until the new result arrives.
-- `startReview`, `archiveReview`, `markReviewed`, and `markNeedsReview` build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
+- `startReview`, `archiveReview`, `markReviewed`, `markNeedsReview`, `markQueueSeen`, `markThreadOpened`, and a review thread's `thread.idle` or `thread.failed` build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
 - A failed load shows the reason and "Retry". The last good lists stay visible with their load time. With no primary host, the panel shows "No host available".
 - A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
 - The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions.
 - A card shows the thread status (Running, Needs you, Idle, or Error) and "Open thread" when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. A review thread also has "Archive thread". Else a PR in a repo with a bb project shows "Review in thread". Every card has "Mark reviewed" or "Mark as needs review", and "Open on GitHub".
+
+### Sidebar badge
+
+- The Pull Requests sidebar row shows the "Needs review" count (`ui/pr-sidebar-badge.tsx`), or `50+` when the list is truncated. It is hidden before the first load and at 0. It follows `review-queue.updated`, so it changes while the panel is closed. A failed load keeps the last good count.
+- The count is a filled pill when "Needs review" holds a PR that is not in the kv entry `review-seen` (`{ v: 1, keys }`, keys `owner/repo#n` lowercase). New commits do not make a PR unseen.
+- When the panel shows the list with an unseen PR, it calls `markQueueSeen` with the PRs it renders. The server replaces `review-seen` with them. Each build of the lists also removes PRs that left "Needs review" from the set, so a later request counts as new.
+- A dot shows when a review thread came back: its agent stopped (`thread.idle` or `thread.failed`), is still stopped, and the user has not opened it since, or it needs the user. The dot also shows without a count.
+- A stopped review thread writes the kv entry `review-returned:<threadId>` (`queue/returned-threads.ts`). Other threads are ignored. The composer banner of every opened thread calls `markThreadOpened`. The server deletes the entry, or does nothing when there is none. When the agent stops while the thread is open, the banner sees it in the next `review-queue.updated` and calls again. A thread that needs the user stays returned until answered. Entries of archived or deleted threads are deleted after the next build. A failed metadata read keeps the entry.
+- A card with a returned thread shows "Agent finished", "Needs you", or "Failed" as a pill.
 
 ### Reviewed state
 
@@ -95,6 +107,8 @@ app --markReviewed / markNeedsReview--> server --> kv "reviewed:<owner/repo#n>"
 8. Select "Archive thread" on the card. bb archives the thread, and the card shows "Review in thread" again.
 9. Run `gh auth logout` on the primary host and select Refresh. The panel shows "gh not logged in", "Retry", and the last lists with their load time. Log in again and select "Retry".
 10. Restart bb and open **Pull Requests** at once. The panel shows the lists from before the restart.
+11. With the panel closed, wait for a new review request. The sidebar count becomes a pill. Open the panel. The pill goes back to a plain count.
+12. Start a review thread and leave the panel. When the agent finishes, a dot shows next to the count within seconds. Open **Pull Requests**. The card shows "Agent finished". Select "Open thread". The dot goes away.
 
 ## PR summary
 

@@ -1,6 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
-import type { LinkedQueuePr, QueueSection, ReviewThreadStatus, rpcContract } from "../contract";
+import type {
+  LinkedQueuePr,
+  QueueSection,
+  ReturnedReason,
+  ReviewThreadStatus,
+  rpcContract,
+} from "../contract";
 import { relativeTime } from "../core/relative-time";
 import type { CiState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -31,10 +37,13 @@ const REVIEW_DECISION_LABEL: Record<
   REVIEW_REQUIRED: { text: "Review required", className: "text-subtle-foreground" },
 };
 
-const STATUS_LABEL: Record<
-  ReviewThreadStatus,
-  { text: string; dotClass: string; pillClass?: string }
-> = {
+interface StatusLabel {
+  text: string;
+  dotClass: string;
+  pillClass?: string;
+}
+
+const STATUS_LABEL: Record<ReviewThreadStatus, StatusLabel> = {
   running: { text: "Running", dotClass: "animate-pulse bg-success motion-reduce:animate-none" },
   needs_you: {
     text: "Needs you",
@@ -47,6 +56,16 @@ const STATUS_LABEL: Record<
     dotClass: "bg-destructive",
     pillClass: "border-destructive/40 bg-destructive/5 text-destructive",
   },
+};
+
+const RETURNED_LABEL: Record<ReturnedReason, StatusLabel> = {
+  finished: {
+    text: "Agent finished",
+    dotClass: "bg-primary",
+    pillClass: "border-primary/40 bg-primary/10 text-foreground",
+  },
+  needs_you: STATUS_LABEL.needs_you,
+  failed: { ...STATUS_LABEL.error, text: "Failed" },
 };
 
 const ICON_ACTION_CLASS =
@@ -70,6 +89,14 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
   useEffect(() => {
     setArchived(new Set());
   }, [view]);
+
+  useEffect(() => {
+    if (!view?.hasUnseen) return;
+    const prs = view.needsReview.flatMap((group) =>
+      group.prs.map(({ repo, number }) => ({ repo, number })),
+    );
+    rpc.call("markQueueSeen", { prs }).catch(() => {});
+  }, [rpc, view]);
 
   function setBusyKey(key: string, on: boolean) {
     setBusy((keys) => {
@@ -328,7 +355,13 @@ function QueueRow({
 }) {
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
-  const status = pr.thread === null ? null : STATUS_LABEL[pr.thread.status];
+  const thread = pr.thread;
+  const status =
+    thread === null
+      ? null
+      : thread.returned !== null
+        ? RETURNED_LABEL[thread.returned]
+        : STATUS_LABEL[thread.status];
   return (
     <li
       aria-label={`${pr.repo}#${pr.number}`}

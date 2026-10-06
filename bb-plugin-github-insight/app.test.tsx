@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
-import type { ActionResult, InsightResult, rpcContract } from "./contract";
+import type { ActionResult, InsightResult, ReturnedReason, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
 import { postIntent } from "./ui/command-intents";
@@ -38,6 +38,24 @@ const pr = {
   changedFiles: 1,
 } as const;
 
+const queuePrRow = {
+  repo: "acme/api",
+  number: 15,
+  title: "Add rate limits",
+  author: "alice",
+  createdAt: "2026-10-01T10:00:00Z",
+  updatedAt: "2026-10-01T10:00:00Z",
+  draft: false,
+  ci: "passed",
+  reviewDecision: "REVIEW_REQUIRED",
+  headRefName: "rate-limits",
+  headOid: "head-15",
+  url: "https://github.com/acme/api/pull/15",
+  requested: true,
+  projectIds: [],
+  review: "needs_review",
+} as const;
+
 const emptyInsight: PrInsight = {
   pr,
   mergeAction: { kind: "none" },
@@ -66,6 +84,8 @@ const unusedReviewRpc = {
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
   markReviewed: () => ({ kind: "error" as const, message: "unused" }),
   markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),
+  markQueueSeen: () => ({ kind: "error" as const, message: "unused" }),
+  markThreadOpened: () => ({ kind: "error" as const, message: "unused" }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
   localCommitsAhead: () => ({ kind: "unknown" as const }),
 };
@@ -690,9 +710,13 @@ const blocked: PrInsight = {
 };
 const blockedInsight = ok(blocked);
 
+function insightCalls(slot: ReturnType<typeof renderBanner>) {
+  return slot.inspection.rpcCalls.filter((call) => call.method === "getInsight");
+}
+
 async function settled(slot: ReturnType<typeof renderBanner>) {
   await act(async () => {});
-  expect(slot.inspection.rpcCalls).toHaveLength(1);
+  expect(insightCalls(slot)).toHaveLength(1);
 }
 
 describe("Composer banner", () => {
@@ -700,6 +724,54 @@ describe("Composer banner", () => {
     expect(
       app.composerCustomizations.find((customization) => customization.id === "pr-insight"),
     ).toMatchObject({ scopes: ["thread"] });
+  });
+
+  function openedCalls(slot: ReturnType<typeof renderBanner>) {
+    return slot.inspection.rpcCalls
+      .filter((call) => call.method === "markThreadOpened")
+      .map((call) => call.input);
+  }
+
+  function queueWithThread(status: "idle" | "needs_you", returned: ReturnedReason | null) {
+    const pr = { ...queuePrRow, thread: { id: "thr_1", status, isReviewThread: true, returned } };
+    return {
+      kind: "ok",
+      needsReview: [{ repo: "acme/api", prs: [pr] }],
+      reviewed: [],
+      truncated: false,
+      loadedAt: 1,
+      hasUnseen: false,
+      hasReturned: returned !== null,
+    };
+  }
+
+  it("reports its thread as opened", async () => {
+    const slot = renderBanner(blockedInsight);
+
+    await vi.waitFor(() => expect(openedCalls(slot)).toEqual([{ threadId: "thr_1" }]));
+  });
+
+  it("reports again when the open thread's agent comes back", async () => {
+    const slot = renderBanner(blockedInsight);
+    await vi.waitFor(() => expect(openedCalls(slot)).toHaveLength(1));
+
+    await slot.behavior.emitRealtime("review-queue.updated", queueWithThread("idle", null));
+    expect(openedCalls(slot)).toHaveLength(1);
+
+    await slot.behavior.emitRealtime("review-queue.updated", queueWithThread("idle", "finished"));
+    await vi.waitFor(() => expect(openedCalls(slot)).toHaveLength(2));
+  });
+
+  it("does not report a returned thread that waits for the user", async () => {
+    const slot = renderBanner(blockedInsight);
+    await vi.waitFor(() => expect(openedCalls(slot)).toHaveLength(1));
+
+    await slot.behavior.emitRealtime(
+      "review-queue.updated",
+      queueWithThread("needs_you", "needs_you"),
+    );
+
+    expect(openedCalls(slot)).toHaveLength(1);
   });
 
   it("shows failed checks, pending review, and an out of date branch", async () => {
@@ -726,7 +798,7 @@ describe("Composer banner", () => {
     const slot = renderBanner(blockedInsight);
 
     await slot.findByRole("button");
-    expect(slot.inspection.rpcCalls).toEqual([
+    expect(insightCalls(slot)).toEqual([
       expect.objectContaining({ method: "getInsight", input: { threadId: "thr_1" } }),
     ]);
   });

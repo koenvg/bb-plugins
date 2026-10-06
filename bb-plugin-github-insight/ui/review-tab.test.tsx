@@ -169,6 +169,8 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         archiveReview: () => ({ kind: "error", message: "unused" }),
         markReviewed: () => ({ kind: "error", message: "unused" }),
         markNeedsReview: () => ({ kind: "error", message: "unused" }),
+        markQueueSeen: () => ({ kind: "error", message: "unused" }),
+        markThreadOpened: () => ({ kind: "error", message: "unused" }),
         runPrAction: () => ({ kind: "error", message: "unused" }),
         localCommitsAhead: () => ({ kind: "unknown" }),
       },

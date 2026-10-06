@@ -1,6 +1,11 @@
 import type { NewThreadRequest, PluginKvStorage } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import type { ActionResult, MarkNeedsReviewRequest, MarkReviewedRequest } from "../contract";
+import type {
+  ActionResult,
+  MarkNeedsReviewRequest,
+  MarkQueueSeenRequest,
+  MarkReviewedRequest,
+} from "../contract";
 import type { PullRequestRef } from "../core/pr-ref";
 import { readReviewPr, type ReviewPr } from "../core/review-pr";
 import { parseGithubRepo, type FetchedQueue } from "../core/review-queue";
@@ -11,6 +16,7 @@ import {
   type LoadedReviewQueue,
   type QueueRow,
   type QueueSection,
+  type ReturnedReason,
   type ReviewQueueResult,
   type ReviewQueueView,
   type ReviewThreadStatus,
@@ -18,7 +24,9 @@ import {
 import { reviewState } from "../core/review-state";
 import type { PrResolution } from "../pr-lookup";
 import { isSharedEnvironment } from "./review-environment";
+import { createReturnedThreads } from "./returned-threads";
 import { createReviewedMarks } from "./reviewed-marks";
+import { createSeenPrs } from "./seen-prs";
 
 export const NO_HOST_MESSAGE = "No host available";
 export const NOT_A_REVIEW_THREAD_MESSAGE = "This thread is not a review thread";
@@ -63,6 +71,11 @@ export interface ReviewQueueServiceDeps {
 interface StartedReview {
   thread: QueueThread;
   pr: ReviewPr;
+}
+
+interface LinkedView {
+  view: ReviewQueueView;
+  stale: { returnedThreadIds: string[]; seenKeys: string[] };
 }
 
 function prKey(repo: string, number: number): string {
@@ -118,8 +131,16 @@ function mergeRows({ requests, tracked }: FetchedQueue): QueueRow[] {
   return rows;
 }
 
+function returnedReason(status: ReviewThreadStatus, stopped: boolean): ReturnedReason | null {
+  if (status === "needs_you") return "needs_you";
+  if (!stopped) return null;
+  if (status === "idle") return "finished";
+  if (status === "error") return "failed";
+  return null;
+}
+
 function needsYou(pr: LinkedQueuePr): boolean {
-  return pr.thread?.status === "needs_you";
+  return pr.thread?.status === "needs_you" || pr.thread?.returned != null;
 }
 
 function byAttentionThenUpdate(a: LinkedQueuePr, b: LinkedQueuePr): number {
@@ -155,6 +176,8 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   const marks = createReviewedMarks(deps.kv, deps.now);
+  const seenPrs = createSeenPrs(deps.kv);
+  const returnedThreads = createReturnedThreads(deps.kv);
   let running: Promise<LoadedReviewQueue> | null = null;
   let queued: Promise<LoadedReviewQueue> | null = null;
 
@@ -185,10 +208,17 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return pr === null ? null : { thread, pr };
   }
 
-  async function startedReviews(): Promise<StartedReview[]> {
-    const threads = (await deps.listReviewThreads()).filter((thread) => thread.archivedAt === null);
+  async function liveReviewThreads(): Promise<QueueThread[]> {
+    return (await deps.listReviewThreads()).filter((thread) => thread.archivedAt === null);
+  }
+
+  async function startedReviews(threads: QueueThread[]): Promise<StartedReview[]> {
     const reviews = await Promise.all(threads.map(readStartedReview));
     return reviews.filter((review) => review !== null);
+  }
+
+  async function isStartedReview(threadId: string): Promise<boolean> {
+    return readReviewPr(await deps.readPluginMetadata(threadId)) !== null;
   }
 
   async function threadsByPr(reviews: StartedReview[]): Promise<Map<string, QueueThread>> {
@@ -225,25 +255,33 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     rows: QueueRow[],
     truncated: boolean,
     loadedAt: number,
-  ): Promise<ReviewQueueView> {
-    const loadingReviews = startedReviews();
-    const [projectIds, reviews, threads, marked] = await Promise.all([
+  ): Promise<LinkedView> {
+    const loadingLive = liveReviewThreads();
+    const loadingReviews = loadingLive.then(startedReviews);
+    const [projectIds, live, reviews, threads, marked, seen, returned] = await Promise.all([
       projectIdsByRepo(),
+      loadingLive,
       loadingReviews,
       loadingReviews.then(threadsByPr),
       marks.list(),
+      seenPrs.list(),
+      returnedThreads.list(),
     ]);
     const reviewedHeads = new Map(marked.map((mark) => [refKey(mark.ref), mark.headOid]));
     const reviewThreadIds = new Set(reviews.map(({ thread }) => thread.id));
+    const liveIds = new Set(live.map(({ id }) => id));
     const prsWithReviewThread = new Set(reviews.map(({ pr }) => prKey(pr.repo, pr.number)));
-    const linkThread = (thread: QueueThread | undefined): LinkedThread | null =>
-      thread === undefined
-        ? null
-        : {
-            id: thread.id,
-            status: threadStatus(thread),
-            isReviewThread: reviewThreadIds.has(thread.id),
-          };
+    const linkThread = (thread: QueueThread | undefined): LinkedThread | null => {
+      if (thread === undefined) return null;
+      const status = threadStatus(thread);
+      const isReviewThread = reviewThreadIds.has(thread.id);
+      return {
+        id: thread.id,
+        status,
+        isReviewThread,
+        returned: isReviewThread ? returnedReason(status, returned.has(thread.id)) : null,
+      };
+    };
     const linked = rows.flatMap((row): LinkedQueuePr[] => {
       const key = prKey(row.repo, row.number);
       const reviewedHead = reviewedHeads.get(key) ?? null;
@@ -257,16 +295,29 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
         },
       ];
     });
+    const needsReview = linked.filter((pr) => pr.review !== "reviewed");
+    const needsReviewKeys = new Set(needsReview.map((pr) => prKey(pr.repo, pr.number)));
     return {
-      needsReview: sectionOf(linked.filter((pr) => pr.review !== "reviewed")),
-      reviewed: sectionOf(linked.filter((pr) => pr.review === "reviewed")),
-      truncated,
-      loadedAt,
+      view: {
+        needsReview: sectionOf(needsReview),
+        reviewed: sectionOf(linked.filter((pr) => pr.review === "reviewed")),
+        truncated,
+        loadedAt,
+        hasUnseen: [...needsReviewKeys].some((key) => !seen.has(key)),
+        hasReturned: linked.some((pr) => pr.thread?.returned != null),
+      },
+      stale: {
+        returnedThreadIds: [...returned].filter((id) => !liveIds.has(id)),
+        seenKeys: [...seen].filter((key) => !needsReviewKeys.has(key)),
+      },
     };
   }
 
   async function trackedRefs(): Promise<PullRequestRef[]> {
-    const [marked, reviews] = await Promise.all([marks.list(), startedReviews()]);
+    const [marked, reviews] = await Promise.all([
+      marks.list(),
+      liveReviewThreads().then(startedReviews),
+    ]);
     const refs = [
       ...marked.map((mark) => mark.ref),
       ...reviews.map(({ pr }) => refOf(pr.repo, pr.number)),
@@ -278,24 +329,47 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return [...byKey.values()];
   }
 
-  async function deleteGoneMarks(gone: PullRequestRef[]): Promise<void> {
+  async function deleteEach<T>(
+    items: T[],
+    remove: (item: T) => Promise<void>,
+    describe: (item: T) => string,
+  ): Promise<void> {
     await Promise.all(
-      gone.map((ref) =>
-        marks
-          .delete(ref)
-          .catch((error) =>
-            deps.warn(`Could not delete the reviewed mark of ${refKey(ref)}: ${errorText(error)}`),
-          ),
+      items.map((item) =>
+        remove(item).catch((error) =>
+          deps.warn(`Could not delete ${describe(item)}: ${errorText(error)}`),
+        ),
       ),
     );
+  }
+
+  async function forgetStale({ returnedThreadIds, seenKeys }: LinkedView["stale"]): Promise<void> {
+    await Promise.all([
+      deleteEach(returnedThreadIds, returnedThreads.delete, (id) => `returned thread ${id}`),
+      seenKeys.length === 0
+        ? undefined
+        : seenPrs
+            .remove(seenKeys)
+            .catch((error) => deps.warn(`Could not prune seen PRs: ${errorText(error)}`)),
+    ]);
+  }
+
+  async function linkAndForget(
+    rows: QueueRow[],
+    truncated: boolean,
+    loadedAt: number,
+  ): Promise<ReviewQueueView> {
+    const { view, stale } = await linkView(rows, truncated, loadedAt);
+    await forgetStale(stale);
+    return view;
   }
 
   async function load(): Promise<ReviewQueueView> {
     const hostId = await deps.primaryHostId();
     if (hostId === null) throw new Error(NO_HOST_MESSAGE);
     const fetched = await deps.fetchReviewQueue(hostId, await trackedRefs());
-    await deleteGoneMarks(fetched.gone);
-    return linkView(mergeRows(fetched), fetched.requests.truncated, deps.now());
+    await deleteEach(fetched.gone, marks.delete, (ref) => `the reviewed mark of ${refKey(ref)}`);
+    return linkAndForget(mergeRows(fetched), fetched.requests.truncated, deps.now());
   }
 
   async function runLoad(): Promise<LoadedReviewQueue> {
@@ -343,7 +417,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
       const stored = await readStored();
       const view = stored && viewOf(stored);
       if (stored === null || view === null) return;
-      const next = await linkView(rowsOf(view), view.truncated, view.loadedAt);
+      const next = await linkAndForget(rowsOf(view), view.truncated, view.loadedAt);
       // A load that finished meanwhile has newer GitHub data; keep it over this re-link.
       const current = await readStored();
       if (current === null || viewOf(current)?.loadedAt !== view.loadedAt) return;
@@ -362,7 +436,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
 
   async function archiveReview(threadId: string): Promise<ActionResult> {
     try {
-      if (readReviewPr(await deps.readPluginMetadata(threadId)) === null) {
+      if (!(await isStartedReview(threadId))) {
         return { kind: "error", message: NOT_A_REVIEW_THREAD_MESSAGE };
       }
       await deps.archiveThread(threadId);
@@ -408,6 +482,38 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return { kind: "ok" };
   }
 
+  async function markQueueSeen({ prs }: MarkQueueSeenRequest): Promise<ActionResult> {
+    try {
+      await seenPrs.replace(prs.map((pr) => prKey(pr.repo, pr.number)));
+    } catch (error) {
+      return { kind: "error", message: errorText(error) };
+    }
+    await relink();
+    return { kind: "ok" };
+  }
+
+  async function threadStopped(threadId: string): Promise<void> {
+    try {
+      if (!(await isStartedReview(threadId))) return;
+      await returnedThreads.add(threadId);
+    } catch (error) {
+      deps.warn(`Could not record stopped review thread ${threadId}: ${errorText(error)}`);
+      return;
+    }
+    await relink();
+  }
+
+  async function markThreadOpened({ threadId }: { threadId: string }): Promise<ActionResult> {
+    try {
+      if (!(await returnedThreads.has(threadId))) return { kind: "ok" };
+      await returnedThreads.delete(threadId);
+    } catch (error) {
+      return { kind: "error", message: errorText(error) };
+    }
+    await relink();
+    return { kind: "ok" };
+  }
+
   async function run(signal: AbortSignal): Promise<void> {
     const aborted = new Promise<void>((resolve) =>
       signal.addEventListener("abort", () => resolve(), { once: true }),
@@ -426,6 +532,9 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     archiveReview,
     markReviewed,
     markNeedsReview,
+    markQueueSeen,
+    threadStopped,
+    markThreadOpened,
     run,
   };
 }
