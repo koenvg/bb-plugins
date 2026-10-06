@@ -95,6 +95,47 @@ describe("getInsight", () => {
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
   });
 
+  it.each([false, true])(
+    "reports no PR for missing Git remotes with a previous reading: %s",
+    async (hasPreviousReading) => {
+      const pullRequests: Record<string, PullRequestResult> = { env_1: linkedPr(25337) };
+      const harness = await setup({
+        threads: [{ id: "thr_1", environmentId: "env_1" }],
+        pullRequests,
+        host: pages(),
+      });
+      if (hasPreviousReading) {
+        expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toMatchObject({
+          kind: "ok",
+        });
+      }
+      const previousHostCalls = harness.experimental_hostRpcCalls.length;
+      pullRequests.env_1 = {
+        outcome: "unavailable",
+        message: "gh pr view failed: no git remotes found",
+      };
+
+      expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toEqual({
+        kind: "no_pr",
+      });
+      expect(harness.experimental_hostRpcCalls).toHaveLength(previousHostCalls);
+
+      const run = harness.behavior.runService("pr-poller");
+      try {
+        await settle();
+        expect(metadataUpdates(harness).at(-1)).toEqual({
+          threadId: "thr_1",
+          pluginId: "github-insight",
+          remove: ["prSummary"],
+        });
+        expect(harness.experimental_hostRpcCalls).toHaveLength(previousHostCalls);
+      } finally {
+        run.controller.abort();
+        await run.done;
+      }
+    },
+  );
+
   it("reads every contexts page and the failure details through the thread's host", async () => {
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1" }],
