@@ -13,6 +13,16 @@ import type {
   rpcContract,
 } from "../contract";
 import { buildReviewPrompt } from "../core/review-prompt";
+import {
+  LOADED_AT,
+  ok,
+  panelRpc,
+  queuePr,
+  reviewThread,
+  view,
+  type PanelRpc,
+  type QueueHandler,
+} from "../test/review-queue-fixtures";
 import { isBuiltinIconName } from "../components/ui/icon";
 import manifest from "../package.json";
 
@@ -50,99 +60,11 @@ afterEach(() => {
   submitOutcomes.length = 0;
 });
 
-function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
-  return {
-    repo: "acme/api",
-    number: 15,
-    title: "Add rate limits",
-    author: "alice",
-    createdAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    draft: false,
-    ci: "passed",
-    reviewDecision: "REVIEW_REQUIRED",
-    headRefName: "rate-limits",
-    headOid: "head-15",
-    url: "https://github.com/acme/api/pull/15",
-    requested: true,
-    projectIds: ["prj_api", "prj_api_old"],
-    review: "needs_review",
-    thread: null,
-    ...overrides,
-  };
-}
-
-function section(prs: LinkedQueuePr[]): QueueSection {
-  return [...new Set(prs.map((pr) => pr.repo))].map((repo) => ({
-    repo,
-    prs: prs.filter((pr) => pr.repo === repo),
-  }));
-}
-
-const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
-
-function view(prs: LinkedQueuePr[], truncated = false): ReviewQueueView {
-  return {
-    needsReview: section(prs.filter((pr) => pr.review !== "reviewed")),
-    reviewed: section(prs.filter((pr) => pr.review === "reviewed")),
-    truncated,
-    loadedAt: LOADED_AT,
-  };
-}
-
-const reviewThread = { id: "thr_review", status: "running", isReviewThread: true } as const;
-
-function ok(queueView: ReviewQueueView): LoadedReviewQueue {
-  return { kind: "ok", ...queueView };
-}
-
-const unusedRpc = {
-  getInsight: () => ({ kind: "no_pr" as const }),
-  refresh: () => ({ kind: "no_pr" as const }),
-  getReview: () => ({ kind: "no_pr" as const }),
-  sendToAgent: () => ({ kind: "error" as const, message: "unused" }),
-  reply: () => ({ kind: "post_failed" as const, message: "unused" }),
-  setResolved: () => ({ kind: "error" as const, message: "unused" }),
-  saveDraft: () => ({ kind: "error" as const, message: "unused" }),
-  discardDraft: () => ({ kind: "error" as const, message: "unused" }),
-  saveCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
-  deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
-  saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
-  submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
-  runPrAction: () => ({ kind: "error" as const, message: "unused" }),
-  localCommitsAhead: () => ({ kind: "unknown" as const }),
-};
-
-type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;
-
-interface PanelRpc {
-  refreshReviewQueue: () => LoadedReviewQueue | Promise<LoadedReviewQueue>;
-  startReview: () => { threadId: string } | Promise<{ threadId: string }>;
-  archiveReview: () => ActionResult | Promise<ActionResult>;
-  markReviewed: () => ActionResult | Promise<ActionResult>;
-  markNeedsReview: () => ActionResult | Promise<ActionResult>;
-}
-
 function renderPanel(subPath: string, getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = {}) {
   return renderSlot<PluginNavPanelProps, typeof rpcContract>(
     panel,
     { subPath },
-    {
-      rpc: {
-        ...unusedRpc,
-        getReviewQueue,
-        refreshReviewQueue: async () => {
-          const result = await getReviewQueue();
-          if (result.kind === "loading") throw new Error("unexpected loading");
-          return result;
-        },
-        startReview: () => ({ threadId: "thr_new" }),
-        archiveReview: () => ({ kind: "ok" }),
-        markReviewed: () => ({ kind: "ok" }),
-        markNeedsReview: () => ({ kind: "ok" }),
-        ...rpc,
-      },
-    },
+    { rpc: panelRpc(getReviewQueue, rpc) },
   );
 }
 
@@ -396,7 +318,13 @@ describe("Pull Requests card actions", () => {
 
   it("offers Open thread on a review request with a linked thread", async () => {
     const slot = renderPanel("", () =>
-      ok(view([queuePr({ thread: { id: "thr_linked", status: "idle", isReviewThread: false } })])),
+      ok(
+        view([
+          queuePr({
+            thread: { id: "thr_linked", status: "idle", isReviewThread: false, returned: null },
+          }),
+        ]),
+      ),
     );
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
@@ -809,7 +737,7 @@ describe("Thread on the PR row", () => {
           queuePr({ thread: reviewThread }),
           queuePr({
             number: 12,
-            thread: { id: "thr_branch", status: "idle", isReviewThread: false },
+            thread: { id: "thr_branch", status: "idle", isReviewThread: false, returned: null },
           }),
         ]),
       ),
@@ -852,5 +780,76 @@ describe("Thread on the PR row", () => {
       within(await slot.findByRole("alert")).getByText("This thread is not a review thread"),
     ).toBeTruthy();
     expect(within(card).getByRole("button", { name: "Open thread" })).toBeTruthy();
+  });
+});
+
+describe("returned review threads on cards", () => {
+  it.each([
+    ["idle", "finished", "Agent finished"],
+    ["needs_you", "needs_you", "Needs you"],
+    ["error", "failed", "Failed"],
+  ] as const)("shows a %s thread that came back as %s", async (status, returned, text) => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ thread: { ...reviewThread, status, returned } })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByTestId("review-status").textContent).toBe(text);
+  });
+
+  it("shows an opened idle thread with the plain status", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ thread: { ...reviewThread, status: "idle" } })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByTestId("review-status").textContent).toBe("Idle");
+  });
+});
+
+describe("marking PRs seen", () => {
+  function seenCalls(slot: ReturnType<typeof renderPanel>) {
+    return slot.inspection.rpcCalls
+      .filter((call) => call.method === "markQueueSeen")
+      .map((call) => call.input);
+  }
+
+  it("marks the shown needs-review PRs seen when the panel opens with unseen PRs", async () => {
+    const slot = renderPanel("", () =>
+      ok({
+        ...view([queuePr(), queuePr({ number: 12, review: "reviewed" })]),
+        hasUnseen: true,
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(seenCalls(slot)).toEqual([{ prs: [{ repo: "acme/api", number: 15 }] }]),
+    );
+  });
+
+  it("marks a PR seen that arrives while the panel is open", async () => {
+    const slot = renderPanel("", () => ok({ ...view([queuePr()]), hasUnseen: true }));
+    await vi.waitFor(() => expect(seenCalls(slot)).toHaveLength(1));
+
+    await slot.behavior.emitRealtime(
+      "review-queue.updated",
+      ok({ ...view([queuePr(), queuePr({ number: 16 })]), hasUnseen: true }),
+    );
+
+    await vi.waitFor(() =>
+      expect(seenCalls(slot).at(-1)).toEqual({
+        prs: [
+          { repo: "acme/api", number: 15 },
+          { repo: "acme/api", number: 16 },
+        ],
+      }),
+    );
+  });
+
+  it("writes nothing when every PR was seen", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    await findCard(slot, "Needs review", "acme/api#15");
+    expect(seenCalls(slot)).toEqual([]);
   });
 });

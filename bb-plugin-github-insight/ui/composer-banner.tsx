@@ -7,6 +7,7 @@ import { RefreshError } from "./feedback";
 import { useInsight } from "./use-insight";
 import { usePaletteMerge } from "./use-palette-merge";
 import { usePrPanelNavigation } from "./use-pr-panel-navigation";
+import { useReportThreadOpened } from "./use-report-thread-opened";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 
 const TEXT_BUTTON_CLASS =
@@ -20,6 +21,7 @@ export function ComposerBanner() {
 
 function ThreadBanner({ threadId }: { threadId: string }) {
   usePrPanelNavigation(threadId);
+  useReportThreadOpened(threadId);
   const insight = useInsight(threadId);
   const palette = usePaletteMerge(threadId, insight);
   const navigate = useBbNavigate();

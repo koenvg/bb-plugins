@@ -387,7 +387,12 @@ describe("review queue service", () => {
 
       const pr = firstReviewRequest(await service.refreshReviewQueue());
 
-      expect(pr.thread).toEqual({ id: "thr_review", status: shown, isReviewThread: true });
+      expect(pr.thread).toEqual({
+        id: "thr_review",
+        status: shown,
+        isReviewThread: true,
+        returned: shown === "needs_you" ? "needs_you" : null,
+      });
     },
   );
 
@@ -399,7 +404,12 @@ describe("review queue service", () => {
 
     const pr = firstReviewRequest(await service.refreshReviewQueue());
 
-    expect(pr.thread).toEqual({ id: "thr_branch", status: "idle", isReviewThread: false });
+    expect(pr.thread).toEqual({
+      id: "thr_branch",
+      status: "idle",
+      isReviewThread: false,
+      returned: null,
+    });
   });
 
   it("links no thread from archived threads and threads without valid metadata", async () => {
@@ -1028,5 +1038,235 @@ describe("markNeedsReview", () => {
       kind: "error",
       message: "disk full",
     });
+  });
+});
+
+describe("unseen PRs", () => {
+  function seen(...keys: string[]) {
+    return ["review-seen", { v: 1, keys }] as const;
+  }
+
+  it("reads a stored view from before unseen tracking as all seen", async () => {
+    const { service, kv } = serviceWith();
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
+      v: 2,
+      result: { kind: "ok", needsReview: [], reviewed: [], truncated: false, loadedAt: 1 },
+    });
+
+    expect(await service.getReviewQueue()).toMatchObject({ hasUnseen: false });
+  });
+
+  it("is unseen when a needs-review PR was never seen", async () => {
+    const { service } = serviceWith();
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(true);
+  });
+
+  it("is seen when the seen set holds every needs-review PR, whatever their head", async () => {
+    const { service, kv } = serviceWith({
+      fetchReviewQueue: async () => queueOf([queuePr("Acme/API", 15, { headOid: "new-head" })]),
+    });
+    kv.entries.set(...seen("acme/api#15"));
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(false);
+  });
+
+  it("ignores reviewed PRs", async () => {
+    const { service, kv } = serviceWith();
+    kv.entries.set(...mark("acme/api", 15, "head-15"));
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(false);
+  });
+
+  it("publishes a seen view after the panel marks what it shows", async () => {
+    const { service, published } = serviceWith();
+    await service.refreshReviewQueue();
+
+    expect(await service.markQueueSeen({ prs: [{ repo: "Acme/API", number: 15 }] })).toEqual({
+      kind: "ok",
+    });
+
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(viewOf(published[1]!).hasUnseen).toBe(false);
+  });
+
+  it("forgets a seen PR that leaves Needs review, so a new request for it is unseen", async () => {
+    let prs = [queuePr("acme/api", 16)];
+    const { service, kv } = serviceWith({ fetchReviewQueue: async () => queueOf(prs) });
+    kv.entries.set(...seen("acme/api#15", "acme/api#16"));
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(false);
+    expect(kv.entries.get("review-seen")).toEqual({ v: 1, keys: ["acme/api#16"] });
+
+    prs = [queuePr("acme/api", 15), queuePr("acme/api", 16)];
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(true);
+  });
+
+  it("replaces the seen set, so a PR that left and returns is unseen again", async () => {
+    let prs = [queuePr("acme/api", 15)];
+    const { service, kv } = serviceWith({ fetchReviewQueue: async () => queueOf(prs) });
+    kv.entries.set(...seen("acme/api#15", "acme/api#16"));
+    await service.refreshReviewQueue();
+
+    await service.markQueueSeen({ prs: [{ repo: "acme/api", number: 15 }] });
+    prs = [queuePr("acme/api", 15), queuePr("acme/api", 16)];
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(true);
+  });
+});
+
+describe("returned review threads", () => {
+  function reviewOn15(overrides: Partial<QueueThread> = {}) {
+    return {
+      listReviewThreads: async () => [reviewThread("thr_review", { status: "idle", ...overrides })],
+      readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/api", 15) }),
+    };
+  }
+
+  function returnedOf(result: LoadedReviewQueue) {
+    return { row: firstReviewRequest(result).thread?.returned, view: viewOf(result).hasReturned };
+  }
+
+  it("reads a stored thread from before returned tracking as not returned", async () => {
+    const { service, kv } = serviceWith(reviewOn15());
+    const loaded = await service.refreshReviewQueue();
+    const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
+    delete stored.hasReturned;
+    const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
+    delete prs[0]!.thread.returned;
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: stored });
+
+    expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
+      row: null,
+      view: false,
+    });
+  });
+
+  it.each([
+    ["idle", "finished"],
+    ["error", "failed"],
+  ] as const)(
+    "returns a review thread whose agent stopped as %s, as %s",
+    async (status, reason) => {
+      const { service, published } = serviceWith(reviewOn15({ status }));
+      await service.refreshReviewQueue();
+
+      await service.threadStopped("thr_review");
+
+      await vi.waitFor(() => expect(published).toHaveLength(2));
+      expect(returnedOf(published[1]!)).toEqual({ row: reason, view: true });
+    },
+  );
+
+  it("ignores a stopped thread the plugin did not start", async () => {
+    const { service, published, kv } = serviceWith({
+      listThreads: async () => [thread("thr_branch", "env_1", 1, null, { status: "idle" })],
+      resolveEnvironmentPr: async () => linkedTo("acme", "api", 15),
+    });
+    await service.refreshReviewQueue();
+    const keys = [...kv.entries.keys()];
+
+    await service.threadStopped("thr_branch");
+
+    expect([...kv.entries.keys()]).toEqual(keys);
+    expect(published).toHaveLength(1);
+    expect(returnedOf(published[0]!)).toEqual({ row: null, view: false });
+  });
+
+  it("clears a returned thread when the user opens it, and returns it after a follow-up", async () => {
+    const { service, published } = serviceWith(reviewOn15());
+    await service.refreshReviewQueue();
+    await service.threadStopped("thr_review");
+
+    expect(await service.markThreadOpened({ threadId: "thr_review" })).toEqual({ kind: "ok" });
+    await vi.waitFor(() => expect(published).toHaveLength(3));
+    expect(returnedOf(published[2]!)).toEqual({ row: null, view: false });
+
+    await service.threadStopped("thr_review");
+    await vi.waitFor(() => expect(published).toHaveLength(4));
+    expect(returnedOf(published[3]!)).toEqual({ row: "finished", view: true });
+  });
+
+  it("does nothing when an opened thread was not returned", async () => {
+    const { service, published, kv } = serviceWith(reviewOn15());
+    await service.refreshReviewQueue();
+    const keys = [...kv.entries.keys()];
+
+    expect(await service.markThreadOpened({ threadId: "thr_other" })).toEqual({ kind: "ok" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(published).toHaveLength(1);
+    expect([...kv.entries.keys()]).toEqual(keys);
+  });
+
+  it("keeps a review thread with a pending question returned after it is opened", async () => {
+    const { service, published, kv } = serviceWith(reviewOn15({ hasPendingInteraction: true }));
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+    await service.refreshReviewQueue();
+
+    await service.markThreadOpened({ threadId: "thr_review" });
+
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(returnedOf(published[1]!)).toEqual({ row: "needs_you", view: true });
+  });
+
+  it("counts a returned thread on a reviewed PR", async () => {
+    const { service, kv } = serviceWith(reviewOn15());
+    kv.entries.set(...mark("acme/api", 15, "head-15"));
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+
+    const view = viewOf(await service.refreshReviewQueue());
+
+    expect(view.needsReview).toEqual([]);
+    expect(view.hasReturned).toBe(true);
+  });
+
+  it("does not count a stopped thread whose agent runs again", async () => {
+    const { service, kv } = serviceWith(reviewOn15({ status: "active" }));
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+
+    expect(returnedOf(await service.refreshReviewQueue())).toEqual({ row: null, view: false });
+    expect(kv.entries.has("review-returned:thr_review")).toBe(true);
+  });
+
+  it("keeps returned state when a thread's metadata cannot be read", async () => {
+    const { service, kv } = serviceWith({
+      listReviewThreads: async () => [reviewThread("thr_review", { status: "idle" })],
+      readPluginMetadata: async () => {
+        throw new Error("timeout");
+      },
+    });
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+
+    await service.refreshReviewQueue();
+
+    expect(kv.entries.has("review-returned:thr_review")).toBe(true);
+  });
+
+  it("forgets returned state of threads that are archived", async () => {
+    const { service, kv } = serviceWith(reviewOn15({ archivedAt: 5 }));
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+
+    await service.refreshReviewQueue();
+
+    expect(kv.entries.has("review-returned:thr_review")).toBe(false);
+  });
+
+  it("puts a returned review thread first, like one that needs the user", async () => {
+    const { service, kv } = serviceWith({
+      fetchReviewQueue: async () =>
+        queueOf([
+          queuePr("acme/api", 15, { updatedAt: "2026-10-02T09:55:00Z" }),
+          queuePr("acme/web", 3, { updatedAt: "2026-09-30T09:00:00Z" }),
+        ]),
+      listReviewThreads: async () => [reviewThread("thr_review", { status: "idle" })],
+      readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/web", 3) }),
+    });
+    kv.entries.set("review-returned:thr_review", { v: 1 });
+
+    expect(sections(await service.refreshReviewQueue()).needsReview).toEqual([
+      ["acme/web", [3]],
+      ["acme/api", [15]],
+    ]);
   });
 });

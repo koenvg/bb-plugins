@@ -5,10 +5,14 @@ import { reviewStateSchema } from "./review-state";
 export const reviewThreadStatusSchema = z.enum(["running", "needs_you", "idle", "error"]);
 export type ReviewThreadStatus = z.infer<typeof reviewThreadStatusSchema>;
 
+export const returnedReasonSchema = z.enum(["finished", "failed", "needs_you"]);
+export type ReturnedReason = z.infer<typeof returnedReasonSchema>;
+
 const linkedThreadSchema = z.object({
   id: z.string(),
   status: reviewThreadStatusSchema,
   isReviewThread: z.boolean(),
+  returned: returnedReasonSchema.nullable().default(null),
 });
 export type LinkedThread = z.infer<typeof linkedThreadSchema>;
 
@@ -32,6 +36,8 @@ export const reviewQueueViewSchema = z.object({
   reviewed: queueSectionSchema,
   truncated: z.boolean(),
   loadedAt: z.number(),
+  hasUnseen: z.boolean().default(false),
+  hasReturned: z.boolean().default(false),
 });
 export type ReviewQueueView = z.infer<typeof reviewQueueViewSchema>;
 
