@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import type { HistoryDatabase } from "./history-storage.js";
 import { parseCompact } from "../collection/usage-record.js";
 import { projectCompactRecord } from "./history-projection.js";
-import { collectorLogNames } from "../collection/history-logs.js";
+import { collectorLogNames, completeCollectorDiscovery } from "../collection/history-logs.js";
 import { recordReconciliation, recordSourceUncertainty } from "../collection/history-coverage.js";
 export type IngestOptions = {
   signal: AbortSignal;
@@ -35,8 +35,8 @@ export async function reconcileCollector(
 ): Promise<boolean> {
   let bytesLeft =
     Math.max(128 * 1024, Math.min(options.bytes ?? 8 * 1024 * 1024, 8 * 1024 * 1024)) - 256;
-  let rowsLeft = Math.min(options.rows ?? 500, 500),
-    backlog = false;
+  let rowsLeft = Math.min(options.rows ?? 500, 500);
+  const pending = new Set<string>();
   options.signal.throwIfAborted();
   if (!options.legacyOnly) recordReconciliation(db, true);
   const sources = options.legacyOnly
@@ -71,11 +71,11 @@ export async function reconcileCollector(
         saved.stamp === stamp &&
         (saved.offset === stat.size || saved.stalled === 1)
       ) {
-        backlog ||= saved.offset < stat.size || saved.dropping === 1;
+        if (saved.offset < stat.size || saved.dropping === 1) pending.add(name);
         continue;
       }
       if (bytesLeft <= 0 || rowsLeft <= 0) {
-        backlog ||= stat.size > 0;
+        if (stat.size > 0) pending.add(name);
         continue;
       }
       let offset = saved?.offset ?? 0,
@@ -102,7 +102,7 @@ export async function reconcileCollector(
       }
       const bytes = Buffer.alloc(Math.max(0, Math.min(bytesLeft, stat.size - offset)));
       if (!bytes.length) {
-        backlog ||= offset < stat.size;
+        if (offset < stat.size) pending.add(name);
         continue;
       }
       options.bodyRead?.();
@@ -150,7 +150,7 @@ export async function reconcileCollector(
         (after.size === stat.size &&
           (after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs))
       ) {
-        backlog = true;
+        pending.add(name);
         continue;
       }
       // Progress and all accepted projections commit together. No partial source bodies persist.
@@ -183,11 +183,15 @@ export async function reconcileCollector(
           stalled,
         );
       });
-      backlog ||= next < stat.size || dropping === 1;
+      if (next < stat.size || dropping === 1) pending.add(name);
     } finally {
       await file.close();
     }
   }
+  options.signal.throwIfAborted();
+  const discoveryPending =
+    !options.legacyOnly && completeCollectorDiscovery(db, options.now ?? Date.now(), pending);
+  const backlog = pending.size > 0 || discoveryPending;
   if (!options.legacyOnly) recordReconciliation(db, backlog);
   return backlog;
 }

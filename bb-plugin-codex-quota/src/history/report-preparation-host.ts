@@ -11,7 +11,7 @@ import {
 import { join } from "node:path";
 import { reconcileCollector } from "./storage/history-ingest.js";
 import { retentionState } from "./storage/history-retention.js";
-import { collectorLogNames } from "./collection/history-logs.js";
+import { collectorLogNames, collectorDiscoveryProgress } from "./collection/history-logs.js";
 
 export async function prepareHostReport(
   context: HistoryReadContext,
@@ -39,7 +39,7 @@ export async function prepareHostReport(
             : undefined,
         }));
       context.signal.throwIfAborted();
-      // A fixed source inventory bounds progress reads. Only scalar cursors enter the digest.
+      // A bounded source slice and the durable discovery cursor enter the digest, never bodies.
       const sourceProgress = collector
         ? collectorLogNames(db, now).map((name) =>
             db
@@ -63,7 +63,16 @@ export async function prepareHostReport(
         )
         .get();
       const progress = createHash("sha256")
-        .update(JSON.stringify([receipt, pending, expired, ingestionPending, sourceProgress]))
+        .update(
+          JSON.stringify([
+            receipt,
+            pending,
+            expired,
+            ingestionPending,
+            collector ? collectorDiscoveryProgress(db) : null,
+            sourceProgress,
+          ]),
+        )
         .digest("hex");
       const attribution = identityView(db);
       return {

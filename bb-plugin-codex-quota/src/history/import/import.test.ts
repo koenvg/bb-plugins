@@ -159,9 +159,10 @@ it("does not admit unresolved live overlap after detail expiry and reopen", asyn
   }
 });
 
-it("feeds real frozen import omissions, empty results and cancellation into scoped coverage", async () => {
-  const { readCoverage, recordCoverage } = await import("../collection/history-coverage.js");
-  for (const kind of ["missing", "invalid", "empty", "canceled"]) {
+it.each(["missing", "invalid", "empty", "canceled"])(
+  "feeds real frozen import %s evidence into scoped coverage",
+  async (kind) => {
+    const { readCoverage, recordCoverage } = await import("../collection/history-coverage.js");
     const f = await fixture();
     try {
       if (kind === "missing") {
@@ -224,8 +225,8 @@ it("feeds real frozen import omissions, empty results and cancellation into scop
     } finally {
       f.db.close();
     }
-  }
-});
+  },
+);
 it("status and configuration never consume transcript bytes; missing roots are explicit", async () => {
   const f = await fixture();
   try {

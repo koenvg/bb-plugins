@@ -42,6 +42,7 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 
 - `report` is explicitly read-only. It returns a calendar report directly, not a fake readiness result containing a calendar field.
 - `prepare` loads bounded existing collector logs, accepts identity evidence and reconciles identity. Ingestion and identity backlog both prevent settlement. It does not call mutable readiness or change collector controls, assets, imports, retention, or recovery.
+- Collector discovery keeps its next unchecked UTC date in the reserved `@collector-discovery-v1` row of `collector_sources`. The `stamp` field holds the date; all numeric fields are zero, so this metadata row does not count as source backlog or invalid records. It is never opened as a file. This adds durable progress without a schema migration. Per-file offsets commit with projections before discovery can advance. Cancellation or failure leaves the current date slice replayable. `collector_log_retention` remains the independent management-only pruning cursor.
 - `src/history/storage/retained-history.ts` checks existing storage and control before report or preparation work. It closes each connection only after its synchronous or asynchronous callback finishes.
 - `src/history/history-maintenance.ts` owns mutable readiness, collector control, reconciliation, retention, identity maintenance, and recovery.
 - Import keeps its existing explicit command protocol and storage implementation.

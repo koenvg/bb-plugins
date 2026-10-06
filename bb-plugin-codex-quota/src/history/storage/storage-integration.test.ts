@@ -44,7 +44,9 @@ const record = (n = 1, provenance: "observed" | "imported" = "observed") => ({
   capturedCost: 0.25,
 });
 function seedCollectorV1(db: HistoryDatabase) {
-  db.exec(`CREATE TABLE collector_meta (id INTEGER PRIMARY KEY,first_observed TEXT NOT NULL);
+  // Seed the same persisted v1 state with one commit, not one disk sync per statement.
+  db.transaction(() => {
+    db.exec(`CREATE TABLE collector_meta (id INTEGER PRIMARY KEY,first_observed TEXT NOT NULL);
     CREATE TABLE collector_pauses (id INTEGER PRIMARY KEY,started TEXT NOT NULL,ended TEXT);
     CREATE TABLE history_counters (id INTEGER PRIMARY KEY,observed_events INTEGER NOT NULL,unconfirmed_events INTEGER NOT NULL,invalid_records INTEGER NOT NULL,conflicting_entries INTEGER NOT NULL,pause_count INTEGER NOT NULL);
     CREATE TABLE usage_events (event_id TEXT PRIMARY KEY,session_id TEXT NOT NULL,workspace TEXT NOT NULL,total INTEGER NOT NULL,payload TEXT NOT NULL,accepted INTEGER NOT NULL,confirmed INTEGER NOT NULL);
@@ -54,35 +56,36 @@ function seedCollectorV1(db: HistoryDatabase) {
     CREATE TABLE workspace_totals (workspace TEXT PRIMARY KEY,total_tokens INTEGER NOT NULL,events INTEGER NOT NULL);
     CREATE TABLE collector_sources (name TEXT PRIMARY KEY,identity TEXT NOT NULL,size INTEGER NOT NULL,stamp TEXT NOT NULL,offset INTEGER NOT NULL,dropping INTEGER NOT NULL,edge TEXT NOT NULL,invalid INTEGER NOT NULL,stalled INTEGER NOT NULL);
     PRAGMA user_version=1;`);
-  db.prepare("INSERT INTO collector_meta VALUES (1,?)").run("2026-09-01T00:00:00.000Z");
-  db.prepare("INSERT INTO history_counters VALUES (1,1,0,0,0,0)").run();
-  const r = record();
-  db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,1)").run(
-    r.eventId,
-    r.sessionId,
-    r.workspace,
-    r.totalTokens,
-    JSON.stringify(r),
-  );
-  db.prepare("INSERT INTO usage_confirmations VALUES (?,?,?)").run(
-    r.eventId,
-    r.sessionId,
-    "entry-one",
-  );
-  const {
-    eventId: _id,
-    claimedThreadId: _claim,
-    providerSessionKey: _key,
-    provenance: _provenance,
-    ...evidence
-  } = r;
-  db.prepare("INSERT INTO usage_entry_owners VALUES (?,?,?,?,0)").run(
-    r.sessionId,
-    "entry-one",
-    r.eventId,
-    JSON.stringify(evidence),
-  );
-  db.prepare("INSERT INTO workspace_totals VALUES (?,5,1)").run(r.workspace);
+    db.prepare("INSERT INTO collector_meta VALUES (1,?)").run("2026-09-01T00:00:00.000Z");
+    db.prepare("INSERT INTO history_counters VALUES (1,1,0,0,0,0)").run();
+    const r = record();
+    db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,1)").run(
+      r.eventId,
+      r.sessionId,
+      r.workspace,
+      r.totalTokens,
+      JSON.stringify(r),
+    );
+    db.prepare("INSERT INTO usage_confirmations VALUES (?,?,?)").run(
+      r.eventId,
+      r.sessionId,
+      "entry-one",
+    );
+    const {
+      eventId: _id,
+      claimedThreadId: _claim,
+      providerSessionKey: _key,
+      provenance: _provenance,
+      ...evidence
+    } = r;
+    db.prepare("INSERT INTO usage_entry_owners VALUES (?,?,?,?,0)").run(
+      r.sessionId,
+      "entry-one",
+      r.eventId,
+      JSON.stringify(evidence),
+    );
+    db.prepare("INSERT INTO workspace_totals VALUES (?,5,1)").run(r.workspace);
+  });
 }
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp16-storage-"));
@@ -517,14 +520,15 @@ test.each([2, 3])(
 it("does not start transcript work while a version-1 ownership backfill is incomplete", async () => {
   const f = await fixture();
   seedCollectorV1(f.db);
-  for (let n = 2; n <= 502; n++) {
-    const r = record(n);
-    f.db
-      .prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,0)")
-      .run(r.eventId, r.sessionId, r.workspace, r.totalTokens, JSON.stringify(r));
-  }
-  f.db.prepare("UPDATE history_counters SET observed_events=502,unconfirmed_events=501").run();
-  f.db.prepare("UPDATE workspace_totals SET total_tokens=2510,events=502").run();
+  f.db.transaction(() => {
+    const insert = f.db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,0)");
+    for (let n = 2; n <= 502; n++) {
+      const r = record(n);
+      insert.run(r.eventId, r.sessionId, r.workspace, r.totalTokens, JSON.stringify(r));
+    }
+    f.db.prepare("UPDATE history_counters SET observed_events=502,unconfirmed_events=501").run();
+    f.db.prepare("UPDATE workspace_totals SET total_tokens=2510,events=502").run();
+  });
   f.db.close();
   const source = join(f.root, "source"),
     workspace = join(f.root, "workspace");
