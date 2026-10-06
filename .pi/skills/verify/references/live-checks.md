@@ -4,26 +4,15 @@ Select branches from the changed behavior and manifest contributions. A missing 
 
 ## Browser-visible behavior
 
-1. Run `browser-use doctor` and inspect the installed CLI help. Confirm the intended BB URL from the current instance, not a guessed port or another environment. If the server or browser cannot be reached, report that prerequisite.
-2. Choose a unique session name, such as `verify-<plugin-id>-<run-id>`, and pass `--session` on every session command. Use a clean local managed Chromium session or an explicitly selected dedicated Chrome CDP session. Report which browser actually ran. Session isolation does not isolate BB data.
-3. If a clean session needs authentication, ask the user to sign in to that session or provide an approved test setup. Keep browser checks blocked meanwhile. Do not attach to Arc, copy a personal profile's cookies, launch a cloud browser, or open a public tunnel as an automatic fallback.
-4. Navigate through the intended BB interface. Wait for the affected element to become visible, obtain fresh state, and use those indices for interaction. Re-read state after navigation or a rerender; do not guess stale indices.
-5. Perform the action and inspect its result. If persistence is part of the change, reload or reopen the page and check the persisted value. Exercise meaningful empty/error states only when safe test inputs exist.
-6. Capture a screenshot to an explicit local PNG path after the relevant result. Check the frame for secrets and unrelated private content before retaining or sharing it. Prefer a safely framed view; otherwise withhold the screenshot and explain the evidence gap.
-7. Inspect available browser diagnostics and the selected plugin's runtime logs around the interaction. Distinguish new errors from pre-existing logs. If console/network collection is unsupported, state that limitation rather than claiming no errors occurred. A visible page with a failing changed interaction is a failed check.
-8. Close only this run's named session during cleanup, including after a browser command fails. Retry only within the same owned scope. Preserve enough failure evidence before replacing a broken session.
+1. Read [the dedicated Chrome browser contract](browser-contract.md). Resolve approval, process/profile identity, the explicit CDP endpoint, a unique `BU_NAME`, and strict daemon reuse before connection. Confirm the intended BB URL from the current instance, not a guessed port or another environment.
+2. Create and record an owned tab before navigation. Select its recorded target before every script. At connection or authentication blockers, stop the dependent checks and follow the contract's blocked branch. Keep the same owned scope for cleanup.
+3. Navigate through the intended BB interface. Wait for the affected element to become visible. Use fresh accessibility nodes and visible coordinates, then reinspect after navigation or a rerender.
+4. Perform the action and inspect its expected result. If persistence is part of the change, reload or reopen the owned page and check the persisted value. Exercise meaningful empty/error states only when safe test inputs exist.
+5. Capture a screenshot to an explicit local PNG path after the relevant result. Check the frame for secrets and unrelated private content before retaining or sharing it. Prefer a safely framed view; otherwise withhold the screenshot and explain the evidence gap.
+6. Inspect available browser diagnostics and the selected plugin's runtime logs around the interaction. Distinguish new errors from pre-existing logs. If console/network collection is unsupported, state that limitation rather than claiming no errors occurred. A visible page with a failing changed interaction is a failed check.
+7. Attempt the contract's scoped cleanup even after a browser command fails. Confirm owned target closure and report remaining resources. A missing strict connection blocks cleanup; it is not permission to discover another browser.
 
-Use current help to confirm command shapes. These examples show session and evidence scoping, not a fixed acceptance test:
-
-```sh
-browser-use --session "$session" open "$bb_url"
-browser-use --session "$session" wait selector "$selector"
-browser-use --session "$session" state > "$evidence_dir/state.txt"
-# Read the saved state, then use its current index for the intended action.
-browser-use --session "$session" click "$index"
-browser-use --session "$session" screenshot "$evidence_dir/result.png"
-browser-use --session "$session" close
-```
+Browser Use scripts use the supported helpers shown in the contract and the installed CDP reference. Use explicit target IDs, not legacy session commands or saved state indices.
 
 Process large snapshots/logs from files and return only relevant observations. JavaScript inspection may read DOM properties or runtime identifiers. Do not replace network responses, inject passing values, or bypass the interaction being verified. Synthetic fixture tests belong in a separate automated-check row.
 

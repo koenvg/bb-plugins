@@ -1,4 +1,4 @@
-"""Run via browser-use python exec() in an owned Arc preview session.
+"""Run with Browser Use stdin helpers in a recorded, task-created fixture tab.
 Requires the package build and a local HTTP server on 56429. Only synthetic
 fixture controls are exercised. No BB plugin is installed or configured.
 """
@@ -7,17 +7,38 @@ import json
 import hashlib
 import struct
 from pathlib import Path
+import os
+import time
+from urllib.parse import urlsplit
 
 base = "http://127.0.0.1:56429/tests/preview.html"
+target = os.environ["COMPOSE_CHAT_BROWSER_TARGET"]
+if target not in {tab["targetId"] for tab in list_tabs()}:
+    raise RuntimeError("Recorded fixture target is missing; stop and report the blocker")
+# Browser-level attachment avoids switch_tab's implicit old-page title update.
+session_id = cdp("Target.attachToTarget", targetId=target, flatten=True)["sessionId"]
+if not session_id:
+    raise RuntimeError("Browser did not attach to the recorded fixture target")
+session_available = True
+
+def send(domain, method, params):
+    global session_available
+    if not session_available:
+        raise RuntimeError("Recorded fixture session is lost; actions and resets stopped")
+    try:
+        return cdp(f"{domain}.{method}", session_id=session_id, **params)
+    except RuntimeError as error:
+        if "Session with given id not found" in str(error):
+            session_available = False
+        raise
+
+current = urlsplit(send("Runtime", "evaluate", {"expression": "location.href", "returnByValue": True})["result"]["value"])
+expected = urlsplit(base)
+if (current.scheme, current.netloc, current.path) != (expected.scheme, expected.netloc, expected.path):
+    raise RuntimeError("Recorded target is not the local fixture; do not navigate an unrelated or login page")
 evidence = Path(globals().get("evidence_dir") or Path(__file__).resolve().parents[2] / ".impeccable" / "review")
 evidence.mkdir(parents=True, exist_ok=True)
-cdp = browser._run(browser._session.get_or_create_cdp_session())
 
-current = browser._run(cdp.cdp_client.send.Runtime.evaluate(params={"expression": "location.href", "returnByValue": True}, session_id=cdp.session_id))
-if not current["result"]["value"].startswith(base):
-    raise RuntimeError("Open the local fixture in a dedicated Arc session before running checks")
-def send(domain, method, params):
-    return browser._run(getattr(getattr(cdp.cdp_client.send, domain), method)(params=params, session_id=cdp.session_id))
 
 cases = [
     ("hero-dark", 1504, 1046, "dark", "expanded", False, False, False, "hero-repro.png"),
@@ -46,15 +67,19 @@ results = []
 try:
     # Always exercise the latest build, not cached assets from a prior run.
     send("Network", "setCacheDisabled", {"cacheDisabled": True})
-    # Match the client's backing scale. Arc's forced 1x surface was empty at
-    # 1615px; view captures clipped the viewport to the narrower Arc window.
+    # Match the client's backing scale so screenshot dimensions remain exact.
     native_scale = send("Runtime", "evaluate", {"expression": "window.devicePixelRatio", "returnByValue": True})["result"]["value"]
     send("Page", "bringToFront", {})
     for name, width, height, theme, layout, touch, reduced, disabled, screenshot in cases:
         send("Emulation", "setDeviceMetricsOverride", {"width": width, "height": height, "deviceScaleFactor": native_scale, "mobile": touch})
         send("Emulation", "setTouchEmulationEnabled", {"enabled": touch, "maxTouchPoints": 1})
         send("Emulation", "setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce" if reduced else "no-preference"}]})
-        browser.goto(base + f"?theme={theme}&layout={layout}" + ("&disabled=1" if disabled else "") + ("&long=1" if name == "long-draft" else "") + (f"&split={name.removeprefix('split-send-')}" if name.startswith('split-send-') else ""))
+        send("Page", "navigate", {"url": base + f"?theme={theme}&layout={layout}" + ("&disabled=1" if disabled else "") + ("&long=1" if name == "long-draft" else "") + (f"&split={name.removeprefix('split-send-')}" if name.startswith('split-send-') else "")})
+        deadline = time.monotonic() + 15
+        while send("Runtime", "evaluate", {"expression": "document.readyState", "returnByValue": True})["result"]["value"] != "complete":
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"{name}: fixture load timed out")
+            time.sleep(0.3)
         send("Page", "bringToFront", {})
         result = send("Runtime", "evaluate", {"expression": "(async()=>{const deadline=performance.now()+5000;while(!window.fixture?.ready){if(performance.now()>deadline)throw new Error('fixture did not become ready');await new Promise(r=>setTimeout(r,50));}return await window.fixture.check();})()", "awaitPromise": True, "returnByValue": True})
         if "exceptionDetails" in result:
@@ -92,11 +117,20 @@ try:
             sources = {path: hashlib.sha256((package / path).read_bytes()).hexdigest() for path in ("dist/app.js", "dist/app.css", "tests/preview.html", "tests/browser-checks.js", "tests/browser-matrix.py", "tests/browser-checks.sh", "tests/fixture-shine.svg")}
             (evidence / (screenshot + ".provenance.json")).write_text(json.dumps({"synthetic": True, "case": name, "viewport": [width, height], "capture": value["capture"], "sources": sources}, indent=2))
 finally:
-    send("Emulation", "clearDeviceMetricsOverride", {})
-    send("Emulation", "setTouchEmulationEnabled", {"enabled": False})
-    send("Emulation", "setEmulatedMedia", {"features": []})
-    browser.goto(base)
-    send("Network", "setCacheDisabled", {"cacheDisabled": False})
+    cleanup_errors = []
+    for label, reset in (
+        ("viewport", lambda: send("Emulation", "clearDeviceMetricsOverride", {})),
+        ("touch", lambda: send("Emulation", "setTouchEmulationEnabled", {"enabled": False})),
+        ("media", lambda: send("Emulation", "setEmulatedMedia", {"features": []})),
+        ("fixture URL", lambda: send("Page", "navigate", {"url": base})),
+        ("cache", lambda: send("Network", "setCacheDisabled", {"cacheDisabled": False})),
+    ):
+        try:
+            reset()
+        except Exception as error:
+            cleanup_errors.append(f"{label}: {error}")
+    if cleanup_errors:
+        raise RuntimeError("Fixture cleanup failed: " + "; ".join(cleanup_errors))
 (evidence / ("split-send-checks.json" if requested else "browser-checks.json")).write_text(json.dumps(results, indent=2))
 print(f"Total: {len(results)} cases, {sum(r['checks'] for r in results)} checks")
 print("COMPOSE_CHAT_BROWSER_MATRIX_PASSED")

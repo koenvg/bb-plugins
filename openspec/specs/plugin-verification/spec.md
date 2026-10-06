@@ -55,7 +55,7 @@ The skill SHALL use the current BB instance by default and record the target plu
 
 ### Requirement: Exercise browser behavior in a dedicated Chrome session
 
-For browser-visible changes, the skill SHALL use a dedicated local Chrome-family session instead of Arc. It SHALL navigate to the affected BB UI and perform actions that demonstrate the expected behavior, including refresh or persistence checks when relevant. Opening a page or observing an installed-plugin status alone SHALL NOT satisfy a behavioral check. A separate browser session SHALL NOT be treated as a separate BB server or database.
+For browser-visible changes, the skill SHALL use an explicitly approved dedicated local Chrome-family browser instead of Arc. For signed-in checks, it SHALL record approval to use Chrome separately from the global signed-in Arc preference. Without that approval, the checks SHALL remain blocked. It SHALL record the approved browser process/profile and explicit CDP endpoint, use a fresh named daemon, and require strict reuse after provisioning. A daemon name SHALL NOT establish profile isolation or tab ownership. The skill SHALL select recorded task-owned or user-selected targets before actions, bind tab-scoped CDP commands to that target's explicit public session ID, and stop those commands on session loss. It SHALL NOT fall back to browser discovery or a default tab after a connection failure. It SHALL navigate to the affected BB UI and perform actions that demonstrate the expected behavior, including refresh or persistence checks when relevant. Opening a page or observing an installed-plugin status alone SHALL NOT satisfy a behavioral check. A separate browser profile SHALL NOT be treated as a separate BB server or database.
 
 #### Scenario: Changed setting persists
 
@@ -66,6 +66,31 @@ For browser-visible changes, the skill SHALL use a dedicated local Chrome-family
 
 - **WHEN** the dedicated session cannot reach the required authenticated BB page
 - **THEN** browser checks are reported as blocked and the skill asks for the needed access without switching to Arc or copying credentials from a personal profile
+
+#### Scenario: Signed-in Chrome approval is missing
+
+- **WHEN** browser checks need authentication and approval to use dedicated Chrome is not recorded
+- **THEN** the skill asks for that browser-policy approval and keeps required browser checks blocked without attaching to Arc
+
+#### Scenario: The recorded browser connection is unavailable
+
+- **WHEN** the named daemon fails its strict health check after provisioning
+- **THEN** the skill reports the dependent checks and connection-based cleanup as blocked without discovery, automatic replacement, or a shared-daemon restart
+
+#### Scenario: A matching URL belongs to an unowned tab
+
+- **WHEN** a tab has the intended URL but no task-created ownership or explicit user selection
+- **THEN** the skill leaves that tab untouched and records a newly created target before navigation
+
+#### Scenario: A recorded tab loses its CDP session
+
+- **WHEN** a tab-scoped command fails because the bound CDP session is lost
+- **THEN** the skill stops actions and page-scoped resets without redirecting to the daemon's startup tab
+
+#### Scenario: Provisioning creates a startup tab
+
+- **WHEN** a fresh named local CDP daemon creates its initial blank tab
+- **THEN** the skill records that target as task-created before later actions and includes it in scoped cleanup, even if another task tab is used
 
 ### Requirement: Cover each affected runtime behavior
 
@@ -111,7 +136,7 @@ Every required check SHALL receive a passed, failed, or blocked result with its 
 
 ### Requirement: Restore temporary state and disclose the final setup
 
-The skill SHALL track temporary settings, owned test data, installation changes, browser sessions, and processes created during verification. On success or failure it SHALL attempt the approved cleanup, avoid overwriting concurrent user changes, and report anything it could not restore. It SHALL close only its own browser session and resources. It SHALL state the plugin source and enabled state left behind; uninstalling a plugin SHALL NOT be used as an automatic cleanup shortcut. Pending cleanup SHALL prevent an overall passed result.
+The skill SHALL track temporary settings, owned test data, installation changes, browser sessions, and processes created during verification. On success or failure it SHALL attempt the approved cleanup, avoid overwriting concurrent user changes, and report anything it could not restore. It SHALL confirm closure only for recorded task-created tab targets and approved owned processes. User-selected tabs and user-provided browsers SHALL remain open. A lost connection or changed resource ownership SHALL leave cleanup pending instead of authorizing broad closure. It SHALL state the plugin source and enabled state left behind; uninstalling a plugin SHALL NOT be used as an automatic cleanup shortcut. Pending cleanup SHALL prevent an overall passed result.
 
 #### Scenario: Temporary sidebar selection is restored
 
@@ -127,3 +152,8 @@ The skill SHALL track temporary settings, owned test data, installation changes,
 
 - **WHEN** a required interaction fails after the skill created a browser session and approved test data
 - **THEN** the skill still attempts its scoped cleanup and reports the failure, cleanup outcome, and remaining installation
+
+#### Scenario: User selected an existing tab
+
+- **WHEN** a verification check uses an existing tab that the user selected
+- **THEN** cleanup leaves that tab open and closes only separately recorded task-created targets
