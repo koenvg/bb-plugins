@@ -56,10 +56,21 @@ describe("default Code Cleanup guidance", () => {
     expect(text).toMatch(/report.*error.*never claim success/i);
   });
 
+  it("requires current evidence and benefit, and permits no cleanup findings", () => {
+    const text = defaultGuidance("proj_example");
+    expect(text).toContain("observed defects or concrete maintenance costs");
+    expect(text).toContain("current evidence and expected benefit");
+    expect(text).toContain("name the current change that is difficult");
+    expect(text).toContain("how cleanup makes it easier");
+    expect(text).toContain("No cleanup findings is a valid result.");
+    expect(text).toContain("Prefer removing unnecessary code");
+    expect(text).toContain("A possible edge case alone does not justify a task.");
+  });
+
   it("is concise and below the instruction limit for real project IDs", () => {
     for (const id of ["proj_example", "proj_gjz4e6jtmg", `proj_${"x".repeat(64)}`]) {
       expect(defaultGuidance(id).length).toBeLessThanOrEqual(4096);
-      expect(defaultGuidance(id).length).toBeLessThan(1450);
+      expect(defaultGuidance(id).length).toBeLessThan(2000);
     }
   });
 });

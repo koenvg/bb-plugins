@@ -1,7 +1,7 @@
 /** The only default cleanup policy contributed to BB agent sessions. */
 export function defaultGuidance(projectId: string): string {
   return `Code Cleanup for BB project ${projectId}:
-Record substantial, actionable cleanup in files you edit or adjacent code you read as BB Tasks. Ignore minor style nits and formatting. Continue assigned work.
+Record substantial, actionable cleanup in files you edit or adjacent code you read as BB Tasks only for observed defects or concrete maintenance costs. State current evidence and expected benefit. For maintenance work, name the current change that is difficult and how cleanup makes it easier. No cleanup findings is a valid result. Prefer removing unnecessary code over adding abstractions. A possible edge case alone does not justify a task. Ignore minor style nits and formatting. Continue assigned work.
 
 Use \`bb tasks\` help:
 1. In \`project list\`, find the single tracker whose linkedBbProjectId equals this project ID. Use its prefix or ID, never a proj_ ID. If CLI unavailable or tracker missing or ambiguous, report candidate and limit; ask for a linked tracker or CLI. Never file elsewhere or create a tracker.
