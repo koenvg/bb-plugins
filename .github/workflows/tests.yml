@@ -49,6 +49,7 @@ jobs:
           - bb-plugin-compose-chat
           - bb-plugin-github-insight
           - bb-plugin-markdown-reader
+          - bb-plugin-mcp
           - bb-plugin-pr-thread-list
           - bb-plugin-pi-subagents-provider
           - bb-plugin-tasks-plus
@@ -63,7 +64,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Vitest/jsdom still requires Node; installs and other scripts use Bun.
+      # Vitest/jsdom requires Node. MCP retains its reviewed npm lock/native install.
       - name: Set up Node.js for Vitest
         id: setup_node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -86,7 +87,12 @@ jobs:
 
       - name: Install dependencies
         id: install_dependencies
-        run: bun install --frozen-lockfile
+        run: |
+          if [ "${{ matrix.plugin }}" = "bb-plugin-mcp" ]; then
+            npm ci
+          else
+            bun install --frozen-lockfile
+          fi
 
       - name: Check Quota installed glob dependencies
         if: matrix.plugin == 'bb-plugin-codex-quota'
@@ -132,6 +138,18 @@ jobs:
             exit 1
           fi
           bun run typecheck
+
+      - name: Build MCP package
+        if: >-
+          ${{
+            !cancelled() &&
+            matrix.plugin == 'bb-plugin-mcp' &&
+            steps.checkout.outcome == 'success' &&
+            steps.setup_bun.outcome == 'success' &&
+            steps.setup_node.outcome == 'success' &&
+            steps.install_dependencies.outcome == 'success'
+          }}
+        run: npm run build
 
   browser:
     name: Browser test ${{ matrix.plugin }}

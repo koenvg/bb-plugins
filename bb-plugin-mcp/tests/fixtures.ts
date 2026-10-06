@@ -1,0 +1,193 @@
+import { createServer, request as httpRequest } from "node:http";
+import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { exportJWK, generateKeyPair, SignJWT, type JWTPayload } from "jose";
+import { vi } from "vitest";
+import { remoteAccess, type limits } from "../remote-access.js";
+import type { Config } from "../config.js";
+
+// Node's built-in fetch does not preserve a supplied Host header. This test
+// bridge uses a real TCP connection and keeps the tunnel's public Host.
+export const loopbackFetch: typeof fetch = async (input, init) => {
+  const request = new Request(input, init);
+  const body = request.body ? Buffer.from(await request.arrayBuffer()) : undefined;
+  return new Promise<Response>((resolve, reject) => {
+    const outgoing = httpRequest(
+      request.url,
+      {
+        method: request.method,
+        headers: Object.fromEntries(request.headers),
+        signal: request.signal,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          const headers = new Headers();
+          for (const [key, value] of Object.entries(response.headers)) {
+            if (typeof value === "string") headers.set(key, value);
+            else if (value) headers.set(key, value.join(", "));
+          }
+          const status = response.statusCode ?? 500;
+          resolve(
+            new Response(status === 202 || status === 204 ? null : Buffer.concat(chunks), {
+              status,
+              headers,
+            }),
+          );
+        });
+        response.on("error", reject);
+      },
+    );
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
+};
+export async function freePort() {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  return address.port;
+}
+export function project(id: string, name = id) {
+  return {
+    id,
+    name,
+    createdAt: 1,
+    updatedAt: 1,
+    kind: "standard" as const,
+    gitRemoteUrl: null,
+    sources: [],
+  };
+}
+export async function fixture(overrides: Partial<typeof limits> = {}) {
+  const pair = await generateKeyPair("RS256");
+  const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
+  let config: Config = {
+    publicOrigin: "https://mcp.example.org",
+    port: await freePort(),
+    issuer: "https://issuer.example.org/realm",
+    owner: "owner-1",
+    projects: "proj_a",
+    remoteEnabled: true,
+    controlEnabled: false,
+  };
+  const issuerCalls: string[] = [];
+  const issuer = createServer((req, res) => {
+    issuerCalls.push(req.url ?? "");
+    res.setHeader("content-type", "application/json");
+    if (req.url === "/realm/.well-known/openid-configuration")
+      res.end(
+        JSON.stringify({
+          issuer: config.issuer,
+          jwks_uri: "https://issuer.example.org/keys",
+          authorization_endpoint: "https://issuer.example.org/authorize",
+          token_endpoint: "https://issuer.example.org/token",
+          code_challenge_methods_supported: ["S256"],
+        }),
+      );
+    else if (req.url === "/keys") res.end(JSON.stringify({ keys: [jwk] }));
+    else {
+      res.statusCode = 404;
+      res.end("{}");
+    }
+  });
+  await new Promise<void>((resolve) => issuer.listen(0, "127.0.0.1", resolve));
+  const address = issuer.address();
+  if (!address || typeof address === "string") throw new Error();
+  const fetchIssuer: typeof fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.origin !== "https://issuer.example.org") throw new Error("Unexpected issuer URL");
+    return fetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
+  };
+  const host = createFakePluginHost();
+  const list = vi.fn(async () => [project("proj_a", "Allowed"), project("proj_hidden", "Private")]);
+  host.harness.sdk.stub("projects.list", list);
+  const logs: unknown[] = [];
+  const access = remoteAccess({
+    connection: config,
+    policy: () => config,
+    projects: host.bb.sdk.projects,
+    fetch: fetchIssuer,
+    log: (event) => logs.push(event),
+    limits: overrides,
+  });
+  await access.start();
+  const local = `http://127.0.0.1:${config.port}`;
+  async function token(
+    claims: JWTPayload = {},
+    key = pair.privateKey,
+    header: Record<string, unknown> = {},
+  ) {
+    return new SignJWT({ scope: "bb.read", ...claims })
+      .setProtectedHeader({ alg: "RS256", kid: "fixture", ...header })
+      .setIssuer(typeof claims.iss === "string" ? claims.iss : config.issuer)
+      .setSubject(typeof claims.sub === "string" ? claims.sub : config.owner)
+      .setAudience(claims.aud ?? config.publicOrigin + "/mcp")
+      .setExpirationTime(claims.exp ?? Math.floor(Date.now() / 1000) + 300)
+      .sign(key);
+  }
+  async function request(path = "/mcp", init: RequestInit = {}) {
+    return loopbackFetch(local + path, {
+      ...init,
+      headers: { host: "mcp.example.org", ...Object.fromEntries(new Headers(init.headers)) },
+    });
+  }
+  async function rpc(
+    method: string,
+    params: unknown = {},
+    credential?: string,
+    headers: Record<string, string> = {},
+  ) {
+    return request("/mcp", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: "Bearer " + (credential ?? (await token())),
+        ...headers,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+  }
+  async function client() {
+    const instance = new Client({ name: "boundary-test", version: "1" });
+    const credential = await token();
+    const transport = new StreamableHTTPClientTransport(new URL(local + "/mcp"), {
+      requestInit: { headers: { authorization: "Bearer " + credential } },
+      fetch: async (input, init) => {
+        const headers = new Headers(init?.headers);
+        headers.set("host", "mcp.example.org");
+        return loopbackFetch(input, { ...init, headers });
+      },
+    });
+    await instance.connect(transport);
+    return instance;
+  }
+  return {
+    signingKey: pair.privateKey,
+    access,
+    host,
+    list,
+    logs,
+    issuerCalls,
+    token,
+    rpc,
+    request,
+    client,
+    local,
+    policy: () => config,
+    change: (next: Partial<Config>) => {
+      config = { ...config, ...next };
+    },
+    async close() {
+      await access.close();
+      await host.harness.lifecycle.dispose();
+      issuer.closeAllConnections();
+      await new Promise<void>((resolve) => issuer.close(() => resolve()));
+    },
+  };
+}

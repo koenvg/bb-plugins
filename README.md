@@ -1,6 +1,8 @@
 # BB plugins
 
-Current packages target BB 0.45 and SDK 0.6.15. See [compatibility fixes and remaining limits](BB-0.45-COMPATIBILITY.md).
+Most packages target BB 0.45 and SDK 0.6.15. See [compatibility fixes and remaining limits](BB-0.45-COMPATIBILITY.md).
+
+MCP targets BB 0.46 and SDK 0.6.37. See its [compatibility checkpoint](bb-plugin-mcp/VERIFICATION-BBP85-BB046.md).
 
 Pi with subagents targets BB 0.45.0 and SDK 0.6.15 in source. Installed lifecycle acceptance remains incomplete. See its [compatibility limits](bb-plugin-pi-subagents-provider/COMPATIBILITY.md).
 
@@ -17,6 +19,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | GitHub Insight    | [`bb-plugin-github-insight`](bb-plugin-github-insight)               |
 | Tasks Plus        | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)                       |
 | Markdown Reader   | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader)             |
+| MCP               | [`bb-plugin-mcp`](bb-plugin-mcp)                                     |
 | Pi with subagents | [`bb-plugin-pi-subagents-provider`](bb-plugin-pi-subagents-provider) |
 | Browser Annotate  | [`bb-plugin-browser-annotate`](bb-plugin-browser-annotate)           |
 
