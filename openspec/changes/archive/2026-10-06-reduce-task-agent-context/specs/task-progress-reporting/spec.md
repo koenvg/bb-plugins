@@ -1,10 +1,6 @@
-# task-progress-reporting Specification
+# Task progress reporting spec delta
 
-## Purpose
-
-Help users understand current work from task comments, while keeping detailed evidence in subtasks, attached threads, and artifacts.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Consistent guidance at both agent entry points
 
@@ -22,39 +18,7 @@ The bundled Tasks skill and initial delegated-worker guidance SHALL communicate 
 - **THEN** it receives the same outcome conditions and status gates without needing to start another worker
 - **AND** detailed posting examples are referenced only for an actual reporting need
 
-### Requirement: Keep evidence separate without hiding limits
-
-The guidance SHALL place detailed investigation, logs, file lists, full commit hashes, internal identifiers, and handoff evidence in the attached thread or an artifact. It SHALL keep relevant check outcomes and material risks visible in the task comment, and provide a useful reference when detail is omitted. References SHALL use existing supported task, thread, PR, or attachment destinations where available. The guidance SHALL distinguish reported evidence from independently verified results and SHALL NOT imply that unrun or blocked checks passed.
-
-#### Scenario: Completion report has extensive evidence
-
-- **WHEN** a worker has detailed test output and an integration handoff
-- **THEN** the prescribed task comment summarizes the outcome and remaining limits, points to the detail, and preserves the full evidence outside the comment
-
-#### Scenario: Work requires a user decision
-
-- **WHEN** progress is blocked on a user choice
-- **THEN** the prescribed comment states what is blocked, the exact choice needed, and its effect in plain language
-- **AND** technical background is available through a reference rather than replacing the question
-
-### Requirement: Preserve existing task behavior and history
-
-The change SHALL remain agent instruction guidance, not server-side comment validation or automatic summarization. Existing comment content, Markdown support, task statuses, dependency behavior, notification targeting, and task/thread lifecycle independence SHALL remain unchanged. It SHALL NOT rewrite historical comments, change stored presets, edit task descriptions, or inject instructions into running threads. Receiving reporting guidance SHALL NOT authorize dispatch, notification, or acceptance actions that otherwise require approval.
-
-#### Scenario: A user posts a long comment
-
-- **WHEN** a user submits a comment outside the recommended agent format
-- **THEN** the existing comment path accepts and renders it as before without a new length restriction or automatic rewrite
-
-#### Scenario: The plugin guidance is updated
-
-- **WHEN** a new worker receives the updated instructions
-- **THEN** the new reporting rules are available to that worker while existing comments and previously delivered prompts remain unchanged
-
-#### Scenario: A parent needs notification
-
-- **WHEN** an agent considers notifying someone about an update
-- **THEN** the reporting guidance preserves the existing meaning of notification commands and does not treat notification of the latest responding agent as guaranteed delivery to a parent coordinator
+## ADDED Requirements
 
 ### Requirement: Comments only for useful outcomes
 
@@ -102,3 +66,23 @@ Reporting guidance SHALL ask for a short plain-language result, relevant checks,
 
 - **WHEN** a user or agent submits a longer or differently formatted valid Markdown comment
 - **THEN** the existing comment path accepts and renders it without new server-side format or length validation
+
+## REMOVED Requirements
+
+### Requirement: Short readable milestone comments
+
+**Reason**: Intermediate milestone reporting, word targets and fixed bullet formats add unnecessary agent instructions and comments.
+
+**Migration**: Use Comments only for useful outcomes and Short readable outcome comments. Preserve historical comments and the existing Markdown comment path.
+
+### Requirement: Report at the task's level
+
+**Reason**: Default epic/subtask summary duties load coordination instructions into ordinary task work. Detailed evidence and honest completion limits remain covered by the unchanged evidence requirements and the new outcome policy.
+
+**Migration**: Remove automatic epic-summary instructions. Answer an explicitly requested parent summary using current state; do not infer parent acceptance from child counts or reported outcomes.
+
+### Requirement: Refresh summaries at meaningful events
+
+**Reason**: Automatic summary refresh duties are outside the quiet task workflow. Child changes and intermediate milestones must not create default reporting work.
+
+**Migration**: Remove the event-driven parent-refresh instruction. Read current state only for the requested work or summary. Preserve existing notification targeting and do not add polling, wakeups or new coordination behavior.

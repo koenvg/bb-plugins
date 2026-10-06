@@ -1,8 +1,14 @@
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createStore } from "../api";
 import { registerMentions } from ".";
+import {
+  createAgentContextFixture,
+  measureContext,
+  mentionWrapper,
+  wordCount,
+} from "../agent-context-test-support";
 
 function setup() {
   const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
@@ -105,71 +111,48 @@ describe("@task mention provider", () => {
     }
   });
 
-  it("resolves complete task context including attachments and the CLI action contract", async () => {
-    const { harness, provider, store } = setup();
+  it("resolves neutral context without fetching history or assigning task work", async () => {
+    const fixture = createAgentContextFixture();
+    const { harness, provider, store, task } = fixture;
+    const reads = [
+      vi.spyOn(store.tasks, "getProject"),
+      vi.spyOn(store.tasks, "listLabelsForTask"),
+      vi.spyOn(store.tasks, "listSubtasks"),
+      vi.spyOn(store.tasks, "listComments"),
+      vi.spyOn(store.tasks, "listTaskThreads"),
+    ];
     try {
-      const project = store.tasks.createProject({
-        name: "Mentions",
-        prefix: "MEN",
-        color: "blue",
-      });
-      const task = store.tasks.createTask({
-        projectId: project.id,
-        title: "Resolve rich context",
-        description: "The full task description belongs in agent context.",
-        status: "in_review",
-        priority: "urgent",
-        dueDate: "2026-07-20",
-      });
-      store.tasks.createTask({
-        projectId: project.id,
-        parentTaskId: task.id,
-        title: "Verify mention output",
-        status: "done",
-      });
-      const label = store.tasks.createLabel({
-        projectId: project.id,
-        name: "Agent UX",
-        color: "violet",
-      });
-      store.tasks.addTaskLabel(task.id, label.id);
-      store.tasks.createAttachment({
-        taskId: task.id,
-        fileName: "acceptance.md",
-        mime: "text/markdown",
-        sizeBytes: 42,
-        blobPath: "blobs/acceptance.md",
-        isImage: false,
-      });
-      store.tasks.createComment({
-        taskId: task.id,
-        kind: "user",
-        authorName: "Sawyer",
-        body: "Keep the context focused.",
-      });
-      store.tasks.upsertTaskThread({
-        taskId: task.id,
-        threadId: "thr_worker",
-        presetName: "Attached",
-        title: "Mention worker",
-        liveStatus: "working",
-      });
-
       const { context } = await provider.resolve(task.id);
-      expect(context).toContain("# MEN-1 · Resolve rich context");
-      expect(context).toContain("The full task description belongs in agent context.");
-      expect(context).toContain("MEN-2 · Verify mention output — Done");
-      expect(context).toMatch(/- 01[0-9A-HJKMNP-TV-Z]{24} · acceptance\.md/);
-      expect(context).toContain("Fetch with: bb tasks attachment get ");
-      expect(context).toContain("Sawyer · User");
-      expect(context).toContain("thr_worker · Mention worker · Working");
-      expect(context).toContain("You can act on this task with the bb tasks CLI.");
-      expect(context).toContain(
-        "first run: bb tasks attach MEN-1 (attaches THIS thread so the task shows you as working)",
-      );
-      expect(context).toContain("bb tasks comment MEN-1 --body ...");
-      expect(context).toContain("bb tasks update MEN-1 --status ...");
+      const wrapper = mentionWrapper(context, fixture);
+      measureContext("mention", context, wrapper);
+      expect(context).toContain(`# ${task.key} · ${task.title}`);
+      expect(context).toContain(task.description);
+      expect
+        .soft(context.includes(`bb tasks show ${task.key} --json`), "current detail pointer")
+        .toBe(true);
+      expect.soft(wordCount(wrapper), "authored wrapper budget").toBeLessThanOrEqual(60);
+      for (const excluded of [
+        "Task details",
+        "Sub-tasks",
+        "Attachments",
+        "Last 5 comments",
+        "Attached threads",
+        "Action contract",
+        "Subtask sentinel",
+        "Label sentinel",
+        "task-sentinel.md",
+        "old-comment-sentinel.md",
+        "Comment sentinel",
+        "thr_prior_sentinel",
+        "bb tasks attach",
+        "bb tasks comment",
+        "bb tasks update",
+      ]) {
+        expect.soft(context.includes(excluded), `no ${excluded} context`).toBe(false);
+      }
+      for (const read of reads) expect.soft(read).not.toHaveBeenCalled();
     } finally {
+      reads.forEach((read) => read.mockRestore());
       await harness.dispose();
     }
   });

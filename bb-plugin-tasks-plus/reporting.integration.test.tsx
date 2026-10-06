@@ -16,7 +16,7 @@ const longComment = "Additional user detail. ".repeat(100) + "Final detail is vi
 
 describe("task comment reporting path", () => {
   it.each([
-    { name: "formatted agent milestone", body: summary, agent: true },
+    { name: "formatted review outcome", body: summary, agent: true },
     { name: "long user comment", body: longComment, agent: false },
   ])("preserves and renders a $name through the CLI", async ({ body, agent }) => {
     const { bb, harness } = createFakePluginHost({
