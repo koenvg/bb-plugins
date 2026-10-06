@@ -331,6 +331,16 @@ describe("Review tab threads", () => {
     ]);
   });
 
+  it("scrolls wide code blocks in a comment body inside the card", async () => {
+    const slot = renderTab(threaded);
+
+    await slot.findAllByTestId("line-annotation");
+    const thread = within(annotationWith(slot, OPEN_THREAD)!);
+    for (const body of thread.getAllByTestId("bb-markdown")) {
+      expect(body.parentElement!.classList).toContain("[&_pre]:overflow-x-auto");
+    }
+  });
+
   it("shows an outdated thread at the top with its path, original line, and snippet", async () => {
     const slot = renderTab(threaded);
 
