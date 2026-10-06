@@ -6,9 +6,11 @@ import {
 } from "../src/history/calendar/calendar-test-support.js";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
 import { importUnavailable } from "../src/history/import/import-contract.js";
+import { latestStart, shiftDate } from "../src/history/calendar/calendar-time.js";
 
 const state = new URLSearchParams(location.search).get("state") ?? "partial";
 const now = Date.parse("2026-10-01T12:00:00Z");
+const latestRange = latestStart(now, "UTC");
 const RealDate = Date;
 // Freeze the app clock, but leave browser timers and rendering real.
 globalThis.Date = class extends RealDate {
@@ -52,8 +54,8 @@ function snapshot(query: CalendarQuery) {
   if (state === "expired") view.days[14].classes = { state: "unavailable" };
   if (state === "huge")
     view.days[14].totalTokens = view.summary.totalTokens = Number.MAX_SAFE_INTEGER;
-  view.previous = query.startDate > "2026-07-03";
-  view.next = query.startDate < "2026-09-01";
+  view.previous = query.startDate > shiftDate(latestRange, -60);
+  view.next = query.startDate < latestRange;
   return view;
 }
 const missing = {
@@ -133,10 +135,14 @@ const options = {
       if (state === "unavailable") return { state: "unavailable", reason: "storage-incompatible" };
       if (state === "retry" && reportCalls === 1)
         return { state: "unavailable", reason: "host-offline" };
-      if (state === "latest" && hostId === "host_b" && query.startDate !== "2026-09-01")
+      if (state === "latest" && hostId === "host_b" && query.startDate !== latestRange)
         return { state: "unavailable", reason: "range-unavailable" };
       if (state === "stale" && reportCalls > 1) throw Error("Synthetic failed refresh");
-      if (state === "cancel" && hostId === "host_a" && query.startDate === "2026-08-02")
+      if (
+        state === "cancel" &&
+        hostId === "host_a" &&
+        query.startDate === shiftDate(latestRange, -30)
+      )
         await new Promise<void>((resolve) => pending.push(resolve));
       return snapshot(query);
     },

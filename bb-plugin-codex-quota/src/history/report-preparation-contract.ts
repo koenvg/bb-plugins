@@ -34,6 +34,7 @@ export const hostPreparationSchema = z.discriminatedUnion("state", [
       state: z.literal("available"),
       attribution: attributionViewSchema,
       progress: z.string().max(128),
+      ingestionPending: z.boolean(),
     })
     .strict(),
   z.object({ state: z.literal("unavailable"), reason }).strict(),

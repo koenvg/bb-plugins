@@ -120,7 +120,7 @@ class Driver:
             key = 'ArrowLeft' if index > 14 else 'ArrowRight'
             self.js(f"document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {{key:{json.dumps(key)},bubbles:true}}))")
             self.wait(f"(document.querySelector('.recharts-tooltip-wrapper')?.textContent || '') !== {json.dumps(text)}")
-        self.wait("document.querySelector('.recharts-tooltip-wrapper')?.textContent.includes('2026-09-15')")
+        self.wait(f"document.querySelector('.recharts-tooltip-wrapper p')?.textContent === {json.dumps(dates[14])}")
         keyboard = self.tooltip_facts(metric)
         # A no-op hover must not reuse the successful keyboard tooltip.
         bar = self.js("(() => { const e = [...document.querySelectorAll('.recharts-bar-rectangle path')].find(e => {const r=e.getBoundingClientRect(); return r.width>0 && r.height>0;}); if (!e) return null; const r = e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+Math.min(r.height/2,10)}; })()")
@@ -133,7 +133,7 @@ class Driver:
             self.js(f"document.querySelector('.recharts-wrapper').dispatchEvent(new MouseEvent('mousemove', {{clientX:{bar['x']},clientY:{bar['y']},bubbles:true}}))")
             # Request a rendered frame so an occluded browser can process its hover RAF.
             self.cdp("Page.captureScreenshot", format="png", captureBeyondViewport=False)
-            self.wait("document.querySelector('.recharts-tooltip-wrapper')?.textContent.includes('2026-09-15')")
+            self.wait(f"document.querySelector('.recharts-tooltip-wrapper p')?.textContent === {json.dumps(dates[14])}")
             pointer = self.tooltip_facts(metric)
             pointer["fromDate"] = before_pointer_date
         return {**keyboard, "pointer": pointer}
@@ -235,11 +235,11 @@ class Driver:
     def interactions(self, state):
         if state == "partial" and self.config["suite"] == "calendar":
             start = len(self.calls())
-            for date in ["2026-08-02", "2026-07-03"]:
+            for date in ["2026-08-03", "2026-07-04"]:
                 self.click("Previous 30 days")
                 self.wait(f"document.querySelector('table')?.textContent.includes('{date}')")
             assert self.js("document.querySelector('button[aria-label=\"Previous 30 days\"]').disabled")
-            for date in ["2026-08-02", "2026-09-01"]:
+            for date in ["2026-08-03", "2026-09-02"]:
                 self.click("Next 30 days")
                 self.wait(f"document.querySelector('table')?.textContent.includes('{date}')")
             assert [c["method"] for c in self.calls()[start:]] == ["calendarReport"] * 4
@@ -267,7 +267,7 @@ class Driver:
                 start = len(self.calls())
                 self.click("Latest 30 days")
                 self.chart()
-                assert self.table()[0][0] == "2026-09-01"
+                assert self.table()[0][0] == "2026-09-02"
                 assert [c["method"] for c in self.calls()[start:]] == ["calendarReport"]
             else:
                 self.chart()
