@@ -65,10 +65,6 @@ export function PrSummary({
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const changeOpen = (next: boolean) => {
-    setOpen(next);
-    if (!next) queueMicrotask(() => trigger.current?.focus());
-  };
   if (!meta)
     return (
       <span className={CHIP} aria-busy="true">
@@ -137,7 +133,7 @@ export function PrSummary({
             return;
           event.preventDefault();
           navigate.toThread(threadId);
-          changeOpen(false);
+          setOpen(false);
         }}
       >
         {thread?.title ?? threadId} · {threadId}
@@ -147,7 +143,7 @@ export function PrSummary({
   return (
     <>
       {single ? <GitHubLink pr={single} compact /> : null}
-      <Popover open={open} onOpenChange={changeOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             ref={trigger}

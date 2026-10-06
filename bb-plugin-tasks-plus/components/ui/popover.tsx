@@ -113,6 +113,7 @@ const PopoverContent = React.forwardRef<
       mobileClassName,
       onMobileContentAnimationEnd,
       onOpenAutoFocus,
+      onCloseAutoFocus,
       autoFocusRef,
       ...props
     },
@@ -143,6 +144,7 @@ const PopoverContent = React.forwardRef<
           closeOnBackdropClick={dismissOnOutsideInteraction}
           contentClassName={mobileClassName}
           onContentAnimationEnd={onMobileContentAnimationEnd}
+          onCloseAutoFocus={onCloseAutoFocus}
         >
           <div
             ref={ref}
@@ -175,6 +177,7 @@ const PopoverContent = React.forwardRef<
             className,
           )}
           {...props}
+          onCloseAutoFocus={onCloseAutoFocus}
           onInteractOutside={(event) => {
             if (!dismissOnOutsideInteraction) event.preventDefault();
             onInteractOutside?.(event);

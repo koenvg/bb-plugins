@@ -252,6 +252,7 @@ interface ResponsiveDrawerShellProps {
   onOpenChange: (open: boolean) => void;
   closeOnBackdropClick?: boolean;
   onAfterCloseAutoFocus?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   srLabel?: string;
   labelledBy?: string;
   describedBy?: string;
@@ -307,6 +308,7 @@ export function ResponsiveDrawerShell({
   open,
   onOpenChange,
   onAfterCloseAutoFocus,
+  onCloseAutoFocus,
   closeOnBackdropClick = true,
   srLabel,
   labelledBy,
@@ -316,8 +318,11 @@ export function ResponsiveDrawerShell({
   children,
 }: ResponsiveDrawerShellProps) {
   const { isContentRealized } = useResponsiveDrawerRealization({ open });
+  const [wasOpen, setWasOpen] = React.useState(open);
+  React.useLayoutEffect(() => setWasOpen(open), [open]);
 
-  if (!open && !isContentRealized) {
+  // Commit one closed shell so even placeholder dismissal runs close autofocus.
+  if (!open && !isContentRealized && !wasOpen) {
     return null;
   }
 
@@ -326,6 +331,7 @@ export function ResponsiveDrawerShell({
       open={open}
       onOpenChange={onOpenChange}
       onAfterCloseAutoFocus={onAfterCloseAutoFocus}
+      onCloseAutoFocus={onCloseAutoFocus}
       closeOnBackdropClick={closeOnBackdropClick}
       srLabel={srLabel}
       labelledBy={labelledBy}
@@ -347,6 +353,7 @@ interface PersistentResponsiveDrawerShellProps {
   onOpenChange: (open: boolean) => void;
   closeOnBackdropClick?: boolean;
   onAfterCloseAutoFocus?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   srLabel?: string;
   labelledBy?: string;
   describedBy?: string;
@@ -476,6 +483,7 @@ function registerOpenDrawer(
 
 interface UsePersistentOverlayFocusArgs {
   onAfterCloseAutoFocus?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   onBeforeCloseAutoFocus?: () => void;
   open: boolean;
   panelRef: React.RefObject<HTMLElement | null>;
@@ -484,6 +492,7 @@ interface UsePersistentOverlayFocusArgs {
 
 export function usePersistentOverlayFocus({
   onAfterCloseAutoFocus,
+  onCloseAutoFocus,
   onBeforeCloseAutoFocus,
   open,
   panelRef,
@@ -515,7 +524,10 @@ export function usePersistentOverlayFocus({
     if (previousOpenRef.current && !open) {
       onBeforeCloseAutoFocus?.();
       const returnFocus = returnFocusRef.current;
+      const event = new Event("closeAutoFocus", { cancelable: true });
+      onCloseAutoFocus?.(event);
       if (
+        !event.defaultPrevented &&
         returnFocus?.isConnected &&
         returnFocus.closest('[aria-hidden="true"], [inert]') === null
       ) {
@@ -543,7 +555,7 @@ export function usePersistentOverlayFocus({
     }
     previousOpenRef.current = open;
     return cancelDeferredFocus;
-  }, [onAfterCloseAutoFocus, onBeforeCloseAutoFocus, open]);
+  }, [onAfterCloseAutoFocus, onBeforeCloseAutoFocus, onCloseAutoFocus, open]);
 }
 
 type PersistentDrawerDrag = {
@@ -559,6 +571,7 @@ export function PersistentResponsiveDrawerShell({
   open,
   onOpenChange,
   onAfterCloseAutoFocus,
+  onCloseAutoFocus,
   closeOnBackdropClick = true,
   srLabel,
   labelledBy,
@@ -592,6 +605,7 @@ export function PersistentResponsiveDrawerShell({
 
   usePersistentOverlayFocus({
     onAfterCloseAutoFocus,
+    onCloseAutoFocus,
     onBeforeCloseAutoFocus: prepareCloseAutoFocus,
     open,
     panelRef,

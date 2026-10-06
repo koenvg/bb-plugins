@@ -144,7 +144,6 @@ it.each([false, true])(
     compact = isCompact;
     const { slot, onOpen } = row(meta([pr("open"), pr("draft", "other")]));
     const trigger = slot.getByRole("button", { name: /PRs for ABC-1:/ });
-    trigger.focus();
     const keys: string[] = [];
     const listener = (e: KeyboardEvent) => keys.push(e.key);
     window.addEventListener("keydown", listener);

@@ -151,39 +151,41 @@ describe("thread summary states and compact interactions", () => {
     expect(slot.getByText("thr_5")).toBeTruthy();
   });
 
-  it("supports compact pointer drill-down, Escape and focus return without task navigation", async () => {
-    compact = true;
-    const slot = renderSlot(
-      { component: ThreadSummary },
-      {
-        taskKey: "ABC-1",
-        meta: {
-          ...meta(["failed", "working"]),
-          threads: meta(["failed", "working"]).threads.map((thread) => ({
-            ...thread,
-            archive: "archived" as const,
-          })),
+  it.each([false, true])(
+    "supports pointer drill-down, Escape and focus return without task navigation, compact=%s",
+    async (isCompact) => {
+      compact = isCompact;
+      const slot = renderSlot(
+        { component: ThreadSummary },
+        {
+          taskKey: "ABC-1",
+          meta: {
+            ...meta(["failed", "working"]),
+            threads: meta(["failed", "working"]).threads.map((thread) => ({
+              ...thread,
+              archive: "archived" as const,
+            })),
+          },
         },
-      },
-    );
-    const control = slot.getByRole("button", { name: /Threads for ABC-1/ });
-    control.focus();
-    fireEvent.click(control);
-    const drawer = await slot.findByRole("dialog", {
-      name: "Threads for ABC-1",
-    });
-    const link = await slot.findByRole("link", {
-      name: "Open thread Worker 1, thr_1",
-    });
-    link.focus();
-    expect(document.activeElement).toBe(link);
-    fireEvent.keyDown(drawer, { key: "Escape" });
-    await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(control));
-    fireEvent.click(control);
-    fireEvent.click(await slot.findByRole("link", { name: "Open thread Worker 0, thr_0" }));
-    expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_0" }]);
-  });
+      );
+      const control = slot.getByRole("button", { name: /Threads for ABC-1/ });
+      fireEvent.click(control);
+      const drawer = await slot.findByRole("dialog", {
+        name: "Threads for ABC-1",
+      });
+      const link = await slot.findByRole("link", {
+        name: "Open thread Worker 1, thr_1",
+      });
+      link.focus();
+      expect(document.activeElement).toBe(link);
+      fireEvent.keyDown(drawer, { key: "Escape" });
+      await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(control));
+      fireEvent.click(control);
+      fireEvent.click(await slot.findByRole("link", { name: "Open thread Worker 0, thr_0" }));
+      expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_0" }]);
+    },
+  );
 
   it("leaves Enter and Space activation to the summary instead of the row-open shortcut", () => {
     const slot = renderSlot(
