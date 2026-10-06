@@ -4,6 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 const app = await loadPluginApp(() => import("../../plugin/app.js"));
+import { setHistoryManagementOpen } from "../history-test-support.js";
 afterEach(cleanup);
 it("uses public BB navigation and clears verified totals during a host switch", async () => {
   let selected = { hostId: "host_a", generation: 1 };
@@ -69,6 +70,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
   );
   const panel = renderSlot(app.settingsSections[0]!, {}, options);
   const q = within(panel.container);
+  await setHistoryManagementOpen(panel.container);
   fireEvent.click(await q.findByRole("button", { name: "Open thread thr_verified" }));
   expect(panel.inspection.navigateCalls).toEqual([
     { method: "toThread", threadId: "thr_verified" },

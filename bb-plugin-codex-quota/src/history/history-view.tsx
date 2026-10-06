@@ -22,6 +22,7 @@ type Props = {
   selection: Selection;
   selectionPending?: boolean;
   selectionRevision?: number;
+  isActive?(): boolean;
   read(input: HistoryRequest): Promise<unknown>;
   control?(input: CollectorRequest): Promise<unknown>;
 };
@@ -61,6 +62,7 @@ export function HistoryReadinessPanel({
   onOpenThread,
   selectionPending = false,
   selectionRevision = 0,
+  isActive,
 }: Props) {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
   const [attempt, setAttempt] = useState(0);
@@ -73,6 +75,8 @@ export function HistoryReadinessPanel({
   readRef.current = read;
   const controlRef = useRef(control);
   controlRef.current = control;
+  const activeRef = useRef(isActive);
+  activeRef.current = isActive;
   const [controlling, setControlling] = useState<string | null>(null);
   const [acknowledgment, setAcknowledgment] = useState<string | null>(null);
   const scope = `${key}:${attempt}`;
@@ -81,7 +85,7 @@ export function HistoryReadinessPanel({
   useEffect(() => {
     if (selectionPending || !selection.hostId) return;
     let active = true;
-    const valid = () => active && latestScope.current === scope;
+    const valid = () => active && latestScope.current === scope && (activeRef.current?.() ?? true);
     const input = { hostId: selection.hostId, generation: selection.generation };
     void Promise.resolve()
       .then(() => (valid() ? readRef.current(input) : null))
@@ -104,7 +108,8 @@ export function HistoryReadinessPanel({
   const activate = (action: CollectorAction, confirmation?: LegacyConfirmation) => {
     if (selectionPending || !selection.hostId || controlling === key || !controlRef.current) return;
     const capturedScope = latestScope.current;
-    const valid = () => mounted.current && latestScope.current === capturedScope;
+    const valid = () =>
+      mounted.current && latestScope.current === capturedScope && (activeRef.current?.() ?? true);
     const input = {
       hostId: selection.hostId,
       generation: selection.generation,
@@ -149,7 +154,7 @@ export function HistoryReadinessPanel({
     loading || controlling === key || current?.collection?.enabled !== false;
   return (
     <section
-      className="mt-8 min-w-0 border-t border-border pt-4 text-sm"
+      className="mt-4 min-w-0 border-t border-border pt-4 text-sm"
       aria-label="History readiness"
       aria-busy={loading}
     >
@@ -387,6 +392,7 @@ export function HistoryReadinessPanel({
       </details>
       {importCall && (
         <ImportPanel
+          isActive={isActive}
           selection={selection}
           selectionPending={selectionPending}
           selectionRevision={selectionRevision}
@@ -404,6 +410,7 @@ export function HistoryReadinessSection({
   selection,
   selectionPending,
   selectionRevision,
+  isActive,
 }: Omit<Props, "read" | "control">) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
@@ -418,6 +425,7 @@ export function HistoryReadinessSection({
   );
   return (
     <HistoryReadinessPanel
+      isActive={isActive}
       importCall={importCall.current}
       onOpenThread={(threadId) => navigate.toThread(threadId)}
       selection={selection}

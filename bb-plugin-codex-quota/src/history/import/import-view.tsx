@@ -10,6 +10,7 @@ type Props = {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
   selectionRevision?: number;
+  isActive?(): boolean;
   call(input: HistoryRequest & { command: ImportCommand }): Promise<unknown>;
 };
 const reasonText: Record<ImportView["reason"], string> = {
@@ -35,6 +36,7 @@ export function ImportPanel({
   selection,
   selectionPending = false,
   selectionRevision = 0,
+  isActive,
   call,
 }: Props) {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
@@ -42,6 +44,8 @@ export function ImportPanel({
   currentKey.current = key;
   const callRef = useRef(call);
   callRef.current = call;
+  const activeRef = useRef(isActive);
+  activeRef.current = isActive;
   const sequence = useRef(0),
     mounted = useRef(true);
   const [observation, setObservation] = useState<{
@@ -74,7 +78,11 @@ export function ImportPanel({
         generation: selection.generation,
         command,
       };
-    const valid = () => mounted.current && currentKey.current === scope && sequence.current === seq;
+    const valid = () =>
+      mounted.current &&
+      currentKey.current === scope &&
+      sequence.current === seq &&
+      (activeRef.current?.() ?? true);
     setBusy({ key, seq });
     void Promise.resolve()
       .then(() => (valid() ? callRef.current(input) : null))

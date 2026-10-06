@@ -40,6 +40,8 @@ Loading hides earlier results from a different key. Partial, unknown, observed i
 
 A report observation older than five minutes is labeled stale using the existing app clock. It has no separate polling timer. Refresh report reads the selected host's retained index only. It does not refresh quota or account activity, discover/read transcripts, start/resume imports, or change collector controls or roots. Check readiness in Collection and history management continues the existing bounded ingestion and maintenance separately. A successful index read is not proof of complete collection.
 
+Opening the calendar page also reads only the retained index. It does not start a readiness or import-status request. Open Collection and history management in Usage collection settings for bounded maintenance. That disclosure mounts its panels only while open and refreshes status on each reopen. Closing it suppresses queued UI requests and late UI results, but cannot undo host work already dispatched.
+
 Quota, its footer, countdown, host selection, refresh and the official usage link remain independent of report failures. Account details and collection/import management stay in separate collapsed disclosures. At 375px the controls and workspace labels wrap without page overflow.
 
 ## Storage and interfaces

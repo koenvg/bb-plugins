@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { normalizeActivity } from "../activity/activity.js";
 
+import { setHistoryManagementOpen } from "../history/history-test-support.js";
 const app = await loadPluginApp(() => import("../plugin/app.js"));
 afterEach(() => {
   cleanup();
@@ -145,6 +146,7 @@ function fixture() {
     quota,
     activityView,
     openActivity,
+    openManagement: () => setHistoryManagementOpen(page.container),
     advance: () => {
       now += 30_001;
     },
@@ -167,6 +169,7 @@ describe("integrated selection transitions in the public quota slot", () => {
     async ({ switchBack, late }) => {
       const f = fixture();
       const q = f.queries;
+      await f.openManagement();
       await q.findByText("History not configured on this host.");
       await q.findByText("42% remaining");
       expect(f.activityInputs).toHaveLength(0);
@@ -253,6 +256,7 @@ describe("integrated selection transitions in the public quota slot", () => {
   it("does not read activity opened during a pending selection", async () => {
     const f = fixture();
     const q = f.queries;
+    await f.openManagement();
     await q.findByText("History not configured on this host.");
     await q.findByRole("option", { name: "Host B" });
     fireEvent.change(q.getByRole("combobox", { name: "Codex host" }), {
@@ -282,6 +286,7 @@ describe("integrated selection transitions in the public quota slot", () => {
   it("does not dispatch a queued activity read after a same-turn host switch starts", async () => {
     const f = fixture();
     const q = f.queries;
+    await f.openManagement();
     await q.findByText("History not configured on this host.");
     await q.findByRole("option", { name: "Host B" });
     act(() => {

@@ -88,6 +88,8 @@ See [docs/CALENDAR.md](docs/CALENDAR.md) for states, retention, keyboard use, re
 
 ## Selected-host collection and workspace totals
 
+Open **Collection and history management** in Usage collection settings to load readiness and saved import status for the selected host. While this disclosure is closed, host changes do not start either request. Closing it removes the panels and hides late results. Reopening loads fresh status. This does not stop an installed collector or undo host work that already started.
+
 Select an enrolled host. History readiness checks SQLite support and this plugin's asset without installing it or using account credentials. **Check readiness** also reconciles compact plugin-owned logs after installation. It never discovers or reads transcript bodies, starts an import, or refreshes quota/activity.
 
 Open **Collection and privacy** for these explicit selected-host actions:

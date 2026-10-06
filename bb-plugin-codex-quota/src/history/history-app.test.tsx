@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { setHistoryManagementOpen } from "./history-test-support.js";
 const app = await loadPluginApp(() => import("../plugin/app.js"));
 afterEach(cleanup);
 
@@ -63,6 +64,7 @@ describe("readiness in the existing quota panel", () => {
     );
     const page = renderSlot(app.settingsSections[0]!, {}, options);
     const queries = within(page.container);
+    await setHistoryManagementOpen(page.container);
     await queries.findByText("History not configured on this host.");
     await queries.findByText("42% remaining");
     expect(quotaReads).toBe(1);
@@ -153,6 +155,7 @@ describe("readiness in the existing quota panel", () => {
       );
       const page = renderSlot(app.settingsSections[0]!, {}, options);
       const queries = within(page.container);
+      await setHistoryManagementOpen(page.container);
       await queries.findByText("History not configured on this host.");
       await queries.findByRole("option", { name: "Host B" });
       fireEvent.click(queries.getByRole("button", { name: "Check readiness" }));
