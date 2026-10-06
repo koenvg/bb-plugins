@@ -10,6 +10,9 @@ export type StartSource = {
   spawn: BbPluginApi["sdk"]["threads"]["spawn"];
   get: BbPluginApi["sdk"]["threads"]["get"];
   send: BbPluginApi["sdk"]["threads"]["send"];
+  stop: BbPluginApi["sdk"]["threads"]["stop"];
+  queue: BbPluginApi["sdk"]["threads"]["queuedMessages"]["list"];
+  interactions: BbPluginApi["sdk"]["threads"]["interactions"]["list"];
 };
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
 type State = "pending" | "accepted" | "failed" | "unknown";
@@ -26,6 +29,9 @@ type RecordRow = {
   code: string | null;
   delivery: "sent" | "queued" | null;
   waiting_on: string | null;
+  stop_status: string | null;
+  queue_count: number | null;
+  pending_interaction: number | null;
   created: number;
   updated: number;
   generation: string;
@@ -38,6 +44,9 @@ export const operationMigration = `CREATE TABLE operations (
 )`;
 export const operationSubmissionMigration = `ALTER TABLE operations ADD COLUMN delivery TEXT;
 ALTER TABLE operations ADD COLUMN waiting_on TEXT;`;
+export const operationStopMigration = `ALTER TABLE operations ADD COLUMN stop_status TEXT;
+ALTER TABLE operations ADD COLUMN queue_count INTEGER;
+ALTER TABLE operations ADD COLUMN pending_interaction INTEGER;`;
 export const operationLimits = { responseWaitMs: 4000, sdkDeadlineMs: 30000, capacity: 10000 };
 const retentionMs = 24 * 60 * 60 * 1000;
 const id = z.string().trim().min(1).max(200);
@@ -58,6 +67,8 @@ const sendSchema = z.strictObject({
   operationKey: startSchema.shape.operationKey,
 });
 type SendInput = z.infer<typeof sendSchema>;
+const stopSchema = z.strictObject({ threadId: id, operationKey: startSchema.shape.operationKey });
+type StopInput = z.infer<typeof stopSchema>;
 
 // One generation owns dispatches. Request transports only observe them.
 export function operationControl(options: {
@@ -78,15 +89,21 @@ export function operationControl(options: {
   const read = (operationId: string) =>
     db.prepare("SELECT * FROM operations WHERE id = ?").get(operationId) as RecordRow | undefined;
   const claim = db.transaction(
-    (identity: Identity, input: StartInput | SendInput, project: string) => {
+    (identity: Identity, input: StartInput | SendInput | StopInput, project: string) => {
       const isStart = "prompt" in input;
-      const tool = isStart ? "bb_start_thread" : "bb_send_message";
+      const tool = isStart
+        ? "bb_start_thread"
+        : "message" in input
+          ? "bb_send_message"
+          : "bb_stop_thread";
       const hash = createHash("sha256")
         .update(
           JSON.stringify(
             isStart
               ? [input.projectId, input.prompt, input.title ?? null]
-              : [input.threadId, input.message],
+              : "message" in input
+                ? [input.threadId, input.message]
+                : [input.threadId],
           ),
         )
         .digest("hex");
@@ -121,6 +138,9 @@ export function operationControl(options: {
         created: now(),
         delivery: null,
         waiting_on: null,
+        stop_status: null,
+        queue_count: null,
+        pending_interaction: null,
         updated: now(),
         generation,
       };
@@ -212,23 +232,86 @@ export function operationControl(options: {
       ...(row.tool === "bb_send_message"
         ? { delivery: row.delivery, waitingOn: row.waiting_on }
         : {}),
+      ...(row.tool === "bb_stop_thread"
+        ? {
+            stopRequested: row.state === "accepted" ? true : null,
+            observation:
+              row.stop_status === null
+                ? null
+                : {
+                    status: row.stop_status,
+                    queuedMessageCount: row.queue_count,
+                    pendingInteraction: row.pending_interaction === 1,
+                  },
+          }
+        : {}),
       meaning:
         row.state === "accepted"
-          ? row.delivery === "queued"
-            ? "BB queued the instruction. Agent work is not complete; BB controls its dispatch."
-            : "BB accepted the submission. Agent work is not complete."
+          ? row.tool === "bb_stop_thread"
+            ? "BB acknowledged the stop request. Stopping is not confirmed complete. Queue and approval observations are not an atomic snapshot; inspect BB."
+            : row.delivery === "queued"
+              ? "BB queued the instruction. Agent work is not complete; BB controls its dispatch."
+              : "BB accepted the submission. Agent work is not complete."
           : row.state === "failed"
             ? row.tool === "bb_start_thread"
               ? "No start was dispatched."
-              : "No message was dispatched."
+              : row.tool === "bb_stop_thread"
+                ? "No stop was dispatched."
+                : "No message was dispatched."
             : row.state === "unknown"
               ? "Outcome unknown. Inspect BB before submitting a new key. Do not repeat the action."
               : "Submission outcome pending. Poll this operation; do not submit a new key.",
     };
   }
+  async function captureStop(identity: Identity, row: RecordRow, sdkDeadline: number) {
+    const signal = AbortSignal.timeout(Math.max(1, sdkDeadline - Date.now()));
+    let abort: () => void = () => {};
+    const cancelled = new Promise<never>((_, reject) => {
+      abort = () => reject(new Error("OBSERVATION_UNAVAILABLE"));
+      signal.addEventListener("abort", abort, { once: true });
+    });
+    try {
+      requireAccess(identity, row.project, true);
+      if (activeReads > 6) return;
+      activeReads += 2;
+      const [queue, interactions] = await Promise.race([
+        Promise.all([
+          Promise.resolve()
+            .then(() => source.queue({ threadId: row.thread!, signal }))
+            .finally(() => {
+              activeReads--;
+            }),
+          Promise.resolve()
+            .then(() => source.interactions({ threadId: row.thread!, signal }))
+            .finally(() => {
+              activeReads--;
+            }),
+        ]),
+        cancelled,
+      ]);
+      const thread = await lookupThread(identity, row.thread!, row.project, true, signal);
+      // Save selected observations only. Stop acknowledgement survives failed reads.
+      if (signal.aborted || closed) return;
+      db.prepare(
+        "UPDATE operations SET stop_status = ?, queue_count = ?, pending_interaction = ? WHERE id = ? AND generation = ? AND state = 'accepted'",
+      ).run(
+        thread.status,
+        queue.length,
+        interactions.some((item) => item.status === "pending" || item.status === "resolving")
+          ? 1
+          : 0,
+        row.id,
+        generation,
+      );
+    } catch {
+      // An unavailable observation is not evidence of an empty queue or completed stop.
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
+  }
   async function submit(
     identity: Identity,
-    input: StartInput | SendInput,
+    input: StartInput | SendInput | StopInput,
     project: string,
     signal: AbortSignal,
     started = Date.now(),
@@ -240,6 +323,7 @@ export function operationControl(options: {
     const { row, fresh } = claim.immediate(identity, input, project);
     if (fresh) {
       let dispatched = false;
+      const sdkDeadline = Date.now() + limits.sdkDeadlineMs;
       let deadline = false;
       const timer = setTimeout(() => {
         deadline = true;
@@ -267,7 +351,7 @@ export function operationControl(options: {
       signal.addEventListener("abort", disconnected, { once: true });
       const done = Promise.resolve().then(async () => {
         try {
-          // Read only server-owned defaults for start; send retains thread execution settings.
+          // Read only server-owned defaults for start; send/stop retain thread execution settings.
           const defaults = isStart
             ? await source.defaults({
                 projectId: project,
@@ -311,7 +395,7 @@ export function operationControl(options: {
             )
               throw new Error();
             finish(row.id, "accepted", null, thread.id);
-          } else {
+          } else if ("message" in input) {
             const sent = await source.send({
               threadId: input.threadId,
               mode: "auto",
@@ -327,6 +411,11 @@ export function operationControl(options: {
             )
               throw new Error();
             finish(row.id, "accepted", null, input.threadId, sent.delivery, waitingOn);
+          } else {
+            const stopped = await source.stop({ threadId: input.threadId });
+            if (!stopped || stopped.ok !== true) throw new Error();
+            finish(row.id, "accepted", null, input.threadId);
+            await captureStop(identity, row, sdkDeadline);
           }
         } catch {
           // No public transactional submission-error guarantee: even a BB error may follow submission.
@@ -338,7 +427,9 @@ export function operationControl(options: {
                 ? "BB_OUTCOME_UNKNOWN"
                 : isStart
                   ? "START_NOT_DISPATCHED"
-                  : "MESSAGE_NOT_DISPATCHED",
+                  : "message" in input
+                    ? "MESSAGE_NOT_DISPATCHED"
+                    : "STOP_NOT_DISPATCHED",
             );
           } catch {
             /* Never lose the claim or retry. */
@@ -468,6 +559,41 @@ export function operationControl(options: {
         },
       );
       server.registerTool(
+        "bb_stop_thread",
+        {
+          description:
+            "Request an ordinary stop of an allowed BB thread, preserving its history. Requires bb.read, bb.control and local control. This write does not delete queued input or approve pending permissions. Acknowledgement is not confirmed stop completion. Keep the same key after a lost reply; unknown requires BB inspection.",
+          inputSchema: stopSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: true,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+        },
+        async (input) => {
+          try {
+            const started = Date.now();
+            const thread = await lookupThread(
+              identity,
+              input.threadId,
+              undefined,
+              true,
+              AbortSignal.any([signal, AbortSignal.timeout(limits.responseWaitMs)]),
+            );
+            return result(await submit(identity, input, thread.projectId!, signal, started));
+          } catch (error) {
+            onFailure("bb_stop_thread");
+            const code =
+              error instanceof Error &&
+              ["OPERATION_CONFLICT", "LEDGER_FULL", "OPERATIONS_BUSY"].includes(error.message)
+                ? error.message
+                : "OPERATION_UNAVAILABLE";
+            return { isError: true, content: [{ type: "text" as const, text: code }] };
+          }
+        },
+      );
+      server.registerTool(
         "bb_get_operation",
         {
           description:
@@ -503,5 +629,9 @@ export function operationControl(options: {
     },
   };
 }
-export type OperationTool = "bb_start_thread" | "bb_send_message" | "bb_get_operation";
+export type OperationTool =
+  | "bb_start_thread"
+  | "bb_send_message"
+  | "bb_stop_thread"
+  | "bb_get_operation";
 export type Operations = ReturnType<typeof operationControl>;

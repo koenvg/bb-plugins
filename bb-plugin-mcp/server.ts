@@ -5,6 +5,7 @@ import {
   operationControl,
   operationMigration,
   operationSubmissionMigration,
+  operationStopMigration,
 } from "./operations.js";
 
 export default async function plugin(bb: BbPluginApi) {
@@ -13,7 +14,11 @@ export default async function plugin(bb: BbPluginApi) {
   const initial = readConfig(saved);
   const connection = { publicOrigin: saved.publicOrigin, port: saved.port };
   const db = bb.storage.database();
-  bb.storage.migrate(db, [operationMigration, operationSubmissionMigration]);
+  bb.storage.migrate(db, [
+    operationMigration,
+    operationSubmissionMigration,
+    operationStopMigration,
+  ]);
   const operations = operationControl({
     db,
     policy: () => readConfig(saved),
@@ -22,6 +27,9 @@ export default async function plugin(bb: BbPluginApi) {
       spawn: (args) => bb.sdk.threads.spawn(args),
       get: (args) => bb.sdk.threads.get(args),
       send: (args) => bb.sdk.threads.send(args),
+      stop: (args) => bb.sdk.threads.stop(args),
+      queue: (args) => bb.sdk.threads.queuedMessages.list(args),
+      interactions: (args) => bb.sdk.threads.interactions.list(args),
     },
   });
   const access = initial

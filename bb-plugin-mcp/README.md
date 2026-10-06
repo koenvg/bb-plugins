@@ -1,6 +1,6 @@
-# MCP reads, thread starts and follow-up instructions
+# MCP reads and thread control
 
-A headless BB plugin for authenticated, allowlisted reads, safe ordinary thread starts and follow-up instructions. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, and `bb_get_operation`. It has no stop, remote approval, task-board, shell, file, admin, or generic forwarding tools.
+A headless BB plugin for authenticated, allowlisted reads, ordinary thread starts, follow-up instructions and stop requests. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, `bb_stop_thread`, and `bb_get_operation`. It has no deletion, remote approval, task-board, shell, file, admin, or generic forwarding tools.
 
 Requires BB 0.45 with SDK 0.6.15 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
@@ -22,7 +22,7 @@ Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` c
 | `owner`          | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                              |
 | `projects`       | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                               |
 | `remoteEnabled`  | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                               |
-| `controlEnabled` | Local start/send permission, false by default. Writes also require `bb.read` and `bb.control` OAuth scopes.                                            |
+| `controlEnabled` | Local start/send/stop permission, false by default. Writes also require `bb.read` and `bb.control` OAuth scopes.                                       |
 
 Invalid settings fail closed. Settings remain in BB's normal settings store. The plugin does not keep a second configuration file.
 
@@ -49,7 +49,7 @@ Configure the issuer outside this plugin:
 5. Request `bb.read` through authorization code with PKCE. ChatGPT sends the canonical MCP URL as the OAuth `resource`. Keep this client dedicated to that one resource and verify the issued and refreshed access tokens contain that audience. If the issuer/client rejects the resource parameter or cannot bind tokens to it, setup is incomplete. Do not remove audience checks to make it connect.
 6. Configure refresh tokens under the issuer's normal rotation/expiry policy. Confirm a refreshed access token retains the resource audience, owner and read scope. The MCP plugin neither issues nor stores refresh tokens.
 
-For separately approved control setup, add issuer scope `bb.control` alongside `bb.read`, verify both survive refresh, and then enable local control. Read-only tokens still cannot start or message threads. The catalog and protected-resource metadata advertise the scopes, not an authorization grant.
+For separately approved control setup, add issuer scope `bb.control` alongside `bb.read`, verify both survive refresh, and then enable local control. Read-only tokens still cannot start, message or stop threads. The catalog and protected-resource metadata advertise the scopes, not an authorization grant.
 
 The listener publishes public protected-resource discovery at both `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-protected-resource`. The resource is always the effective configured HTTPS MCP URL, not a forwarded header. An unauthenticated protected request returns 401 with `WWW-Authenticate` pointing to this metadata. Missing read scope returns 403. No BB or Cloudflare cookies are needed.
 
@@ -176,8 +176,36 @@ After a lost reply, use the same normalized thread ID, exact message and origina
 
 Send uses the same response budget, SDK deadline, durable claim, capacity and generation rules as start. Disconnect after dispatch does not stop work. Any SDK send error stays unknown because the public SDK does not guarantee that errors occur before submission. A later result in the same generation can establish acceptance. Reload preserves outcomes and never resends. The ledger adds only delivery and wait-kind fields, not another message copy. Never delete the ledger to retry uncertain input.
 
+## Stop requests
+
+`bb_stop_thread` accepts only `threadId` and `operationKey`. The ID is trimmed and bounded to 200 characters. Keys use the start/send format and retention rules. Extra fields are refused. Both OAuth scopes, local control, the configured owner and current project membership are required. Access is checked before the durable claim, immediately before stop and before returning saved results. Missing and disallowed threads use the same safe unavailable result.
+
+With separately approved control, request a stop through an authenticated MCP client:
+
+```ts
+const stop = await client.callTool({
+  name: "bb_stop_thread",
+  arguments: { threadId: "thr_allowed", operationKey: "stop-2026-10-06-1" },
+});
+// Keep this key after a lost reply. Poll bb_get_operation with operationId.
+```
+
+The plugin calls only ordinary `threads.stop({ threadId })`. The public SDK returns `{ ok: true }`, not a completion result. `state: "accepted"` and `stopRequested: true` mean BB acknowledged the request. They do not prove that the thread is idle, that its queue is empty or that a permission request was answered. Pending, failed and unknown outcomes have `stopRequested: null`. A confirmed pre-dispatch failure means no stop was dispatched. An SDK error after invocation remains unknown.
+
+Stop replies keep `operationId`, `state`, `threadId`, `code` and `meaning`. They also include `observation`, either null or a saved object with:
+
+- `status`: BB's observed thread status. An active or stopping value does not mean stop completion.
+- `queuedMessageCount`: the number of rows returned by the queue read. Queue text and private wait details are omitted.
+- `pendingInteraction`: true for a pending or resolving interaction. Handle approvals in BB.
+
+These reads are separate observations, not an atomic or live snapshot. A slow, failed or unauthorized observation read leaves `observation: null` without discarding the stop acknowledgement. Null is not evidence of an empty queue or no pending permission. Use `bb_get_thread` or inspect BB for current state. The ledger adds only these selected observation fields, not queue text, approval payloads or history.
+
+Stopping preserves the thread and its history. It is not queue deletion. Remaining queued input can still need action in BB. This tool cannot delete queue rows or threads, answer permissions, or override execution settings. Closing an MCP connection, closing its listener, disabling remote access or disabling the plugin does not itself stop BB agent work.
+
+Stop shares the absolute response budget, SDK deadline, durable owner/tool/key identity, retention, capacity and restart rules of start/send. Identical retries observe one stop operation; changed targets conflict. Start, send and stop have separate tool/key identities. Disconnects and restarts never replay stops. Keep unresolved keys and inspect BB before deciding on a new key. Local resolution remains BBP-84 work.
+
 ## Local checks and release limits
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
-See [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
+See [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.

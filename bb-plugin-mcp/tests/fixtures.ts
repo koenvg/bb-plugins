@@ -10,6 +10,7 @@ import {
   operationControl,
   operationMigration,
   operationSubmissionMigration,
+  operationStopMigration,
 } from "../operations.js";
 
 // Node's built-in fetch does not preserve a supplied Host header. This test
@@ -119,7 +120,11 @@ export async function fixture(
   const logs: unknown[] = [];
   function createAccess() {
     const db = host.bb.storage.database();
-    host.bb.storage.migrate(db, [operationMigration, operationSubmissionMigration]);
+    host.bb.storage.migrate(db, [
+      operationMigration,
+      operationSubmissionMigration,
+      operationStopMigration,
+    ]);
     const operations = operationControl({
       db,
       policy: () => config,
@@ -129,6 +134,9 @@ export async function fixture(
         spawn: (args) => host.bb.sdk.threads.spawn(args),
         get: (args) => host.bb.sdk.threads.get(args),
         send: (args) => host.bb.sdk.threads.send(args),
+        stop: (args) => host.bb.sdk.threads.stop(args),
+        queue: (args) => host.bb.sdk.threads.queuedMessages.list(args),
+        interactions: (args) => host.bb.sdk.threads.interactions.list(args),
       },
     });
     const access = remoteAccess({

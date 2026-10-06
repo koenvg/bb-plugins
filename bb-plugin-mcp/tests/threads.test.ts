@@ -69,7 +69,7 @@ function unavailable(body: any) {
 }
 
 describe("read-only thread protocol", () => {
-  it("discovers only three read-only tools and rejects unsupported thread arguments without SDK reads", async () => {
+  it("discovers the planned tool set with accurate annotations and rejects unsupported thread arguments without SDK reads", async () => {
     const f = await setup();
     const client = await f.client();
     try {
@@ -80,10 +80,11 @@ describe("read-only thread protocol", () => {
         "bb_get_thread",
         "bb_start_thread",
         "bb_send_message",
+        "bb_stop_thread",
         "bb_get_operation",
       ]);
       for (const tool of catalog.tools.filter(
-        (t) => !["bb_start_thread", "bb_send_message"].includes(t.name),
+        (t) => !["bb_start_thread", "bb_send_message", "bb_stop_thread"].includes(t.name),
       )) {
         expect(tool.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
       }

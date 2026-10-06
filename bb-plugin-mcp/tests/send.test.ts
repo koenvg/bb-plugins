@@ -185,7 +185,7 @@ it("advertises a strict text-only write with costs and leaves pending approvals 
     expect(tool.inputSchema.additionalProperties).toBe(false);
     expect(tool.description).toMatch(/code.*external actions.*provider costs/);
     expect(tool.description).toMatch(/Pending approvals remain in BB/);
-    expect(tools.map((t) => t.name)).not.toContain("bb_stop_thread");
+    expect(tools.map((t) => t.name)).toContain("bb_stop_thread");
   } finally {
     await client.close();
   }

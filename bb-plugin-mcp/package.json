@@ -9,7 +9,7 @@
   },
   "bb": {
     "name": "MCP",
-    "description": "Authenticated reads and duplicate-protected thread starts and follow-up instructions over Streamable HTTP.",
+    "description": "Authenticated reads and duplicate-protected thread starts, follow-up instructions and stops over Streamable HTTP.",
     "branding": {
       "icon": "Plug"
     },

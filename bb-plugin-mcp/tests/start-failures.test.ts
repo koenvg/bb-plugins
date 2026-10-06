@@ -79,6 +79,7 @@ describe("authenticated start safety", () => {
         "bb_get_thread",
         "bb_start_thread",
         "bb_send_message",
+        "bb_stop_thread",
         "bb_get_operation",
       ]);
       expect(tools[3].annotations).toMatchObject({
@@ -88,7 +89,9 @@ describe("authenticated start safety", () => {
         idempotentHint: true,
       });
       expect(tools[3].description).toMatch(/external actions.*provider costs/);
-      expect(tools[5].annotations?.readOnlyHint).toBe(true);
+      expect(
+        tools.find((tool) => tool.name === "bb_get_operation")!.annotations?.readOnlyHint,
+      ).toBe(true);
     } finally {
       await client.close();
     }
