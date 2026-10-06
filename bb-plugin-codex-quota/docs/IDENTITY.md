@@ -57,6 +57,23 @@ Catalog fingerprints include uncertainty, so unchanged reads retain their receip
 metadata or storage errors reach the caller and produce a fixed warning without
 raw SDK payloads.
 
+## Visible page continuation
+
+`reportPreparation` shares the discovery catalog with explicit readiness reads,
+but uses a separate host operation. It validates existing schema-4 storage and
+collector control before identity-only writes. It does not migrate, recover,
+ingest collector files, maintain retention, inspect account state or change
+collector assets. Import-only retained indexes do not need a collector asset.
+
+Hashed progress includes indexed first-pending thread and ownership markers,
+catalog cursors, delivery offsets and host reconciliation markers. A scan can
+therefore keep making progress even when its phase and page offset do not change.
+No thread IDs or identity values cross the browser preparation response.
+
+The visible calendar page owns sequential continuation and bounded failure
+handling. Its dates and metric controls only read reports. See [CALENDAR.md](CALENDAR.md)
+for cancellation, retry and clock limits.
+
 ## Validation
 
 Run focused `identity-*.test.ts*` tests, full `npm test`, typecheck, SDK `--check`, then the complete bundle suite. `scripts/check-bundled-identity.mjs` copies the host artifact outside its dependency tree, forbids network and exercises real temporary persistent SQLite. Run it on both the current Node runtime and Node 22. Run strict OpenSpec and the final build after bundle checks.

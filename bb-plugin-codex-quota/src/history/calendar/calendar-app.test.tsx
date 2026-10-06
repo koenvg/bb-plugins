@@ -22,8 +22,9 @@ function calendarPage(
     hostId: string | null;
   }) => Promise<{ hostId: string | null; generation: number }>,
   prepare?: () => Promise<unknown>,
+  fakeTimers = false,
 ) {
-  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.useFakeTimers(fakeTimers ? {} : { toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
   const options = {
     sdk: {
@@ -51,6 +52,12 @@ function calendarPage(
               collector: "missing",
               writer: "unconfirmed",
             }),
+      // Chart tests use a terminal preparation result, not a missing-handler retry path.
+      reportPreparation: async () => ({
+        state: "unavailable",
+        reason: "identity-unavailable",
+        progress: "",
+      }),
       calendarReport: (input: unknown) =>
         read(input as { hostId: string; generation: number; query: CalendarQuery }),
     },
@@ -64,6 +71,7 @@ function calendarPage(
   return {
     page,
     q: within(page.container),
+    prepared: () => within(page.container).findByRole("button", { name: "Retry preparation" }),
     stop: () => {
       page.lifecycle.unmount();
       owner.lifecycle.unmount();
@@ -74,6 +82,7 @@ it("navigates only the retained chart without mounting management controls", asy
   const f = calendarPage(({ query }) => calendarSnapshot(query));
   await f.q.findByRole("group", { name: "Daily recorded values" });
   expect(f.q.getByRole("button", { name: "Next 30 days" })).toHaveProperty("disabled", true);
+  await f.prepared();
   const before = f.page.inspection.rpcCalls.length;
   fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
     target: { value: "cost" },
@@ -256,6 +265,7 @@ it("retries an unavailable chart without refreshing allowance or maintaining his
     ++calls === 1 ? { state: "unavailable", reason: "host-offline" } : calendarSnapshot(query),
   );
   await f.q.findByText("Selected host is offline.");
+  await f.prepared();
   const before = f.page.inspection.rpcCalls.length;
   fireEvent.click(f.q.getByRole("button", { name: "Retry chart" }));
   await f.q.findByRole("group", { name: "Daily recorded values" });
@@ -282,6 +292,7 @@ it("recovers the latest range after the retained older range is rejected by anot
     target: { value: "host_b" },
   });
   await f.q.findByText(/outside the retained bounds/);
+  await f.prepared();
   const before = f.page.inspection.rpcCalls.length;
   fireEvent.click(f.q.getByRole("button", { name: "Latest 30 days" }));
   await f.q.findByRole("group", { name: "Daily recorded values" });
@@ -293,5 +304,28 @@ it("recovers the latest range after the retained older range is rejected by anot
     generation: 2,
     query: { startDate: "2026-09-01" },
   });
+  f.stop();
+});
+
+it("finishes the fixture preparation before navigation and schedules no transport retries", async () => {
+  const f = calendarPage(({ query }) => calendarSnapshot(query), undefined, undefined, true);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(
+    f.q.getByText("History preparation stopped. Recorded values remain available."),
+  ).toBeTruthy();
+  expect(
+    f.page.inspection.rpcCalls.filter((call) => call.method === "reportPreparation"),
+  ).toHaveLength(1);
+  const before = f.page.inspection.rpcCalls.length;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2_000);
+  });
+  expect(f.page.inspection.rpcCalls).toHaveLength(before);
+  fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
+    target: { value: "cost" },
+  });
+  expect(f.page.inspection.rpcCalls).toHaveLength(before);
   f.stop();
 });

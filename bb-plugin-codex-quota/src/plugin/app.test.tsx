@@ -78,7 +78,10 @@ describe("BB Codex quota slots", () => {
       for (const [tick] of setTimer.mock.calls.filter(([, delay]) => delay === 1000))
         (tick as () => void)();
     });
-    expect(returned.getByRole("status").textContent).toMatch(/^Stale · updated /);
+    expect(
+      within(returned.getByRole("region", { name: "Codex allowance summary" })).getByRole("status")
+        .textContent,
+    ).toMatch(/^Stale · updated /);
     expect(badge.container.textContent).toBe("Stale");
     expect(reads).toBe(1);
     expect(returned.getByRole("link", { name: /Open Codex Usage/i }).getAttribute("href")).toBe(

@@ -18,6 +18,11 @@ import {
   calendarReportSchema,
   calendarUnavailable,
 } from "../history/calendar/calendar-contract.js";
+import {
+  preparationRequestSchema,
+  preparationSchema,
+  preparationUnavailable,
+} from "../history/report-preparation-contract.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z
@@ -45,6 +50,7 @@ export const rpcContract = defineRpcContract({
     output: quotaViewSchema,
   },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  reportPreparation: { input: preparationRequestSchema, output: preparationSchema },
   calendarReport: {
     input: historyRequestSchema.extend({ query: calendarQuerySchema }),
     output: calendarReportSchema,
@@ -78,8 +84,10 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
   bb.onDispose(() => session.dispose());
-  const historyCall = createIdentityHistoryCall(bb, (hostId, signal, input) =>
-    hostClient.call("historyReadiness", input, { hostId, signal }),
+  const historyCall = createIdentityHistoryCall(
+    bb,
+    (hostId, signal, input) => hostClient.call("historyReadiness", input, { hostId, signal }),
+    (hostId, signal, input) => hostClient.call("reportPreparation", input, { hostId, signal }),
   );
   const readHistory = (input: import("../history/history-contract.js").HistoryRequest) =>
     session.request(input, {
@@ -114,6 +122,13 @@ export default function plugin(bb: BbPluginApi) {
             { refresh: input.refresh === true },
             { hostId: input.hostId, signal },
           ),
+      }),
+    reportPreparation: (input) =>
+      session.request(input, {
+        schema: preparationSchema,
+        unavailable: preparationUnavailable,
+        timeoutMs: 12_000,
+        call: (signal) => historyCall.prepare(input.hostId, signal, input.refresh),
       }),
     historyReadiness: readHistory,
     collectorControl: (input) =>

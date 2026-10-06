@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { identityRowSchema, type IdentityBatch } from "./identity-contract.js";
@@ -47,6 +48,7 @@ const PAGE = 50;
 export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabase, now = Date.now) {
   let queue = Promise.resolve<unknown>(null);
   const deliveryIds = new WeakMap<IdentityBatch, number>();
+  const progress = new WeakMap<IdentityBatch, string>();
   function db() {
     const value = database();
     value.exec(`CREATE TABLE IF NOT EXISTS discovery_state (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);
@@ -356,13 +358,17 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         save(database, state);
       });
   }
-  async function next(hostId: string, signal: AbortSignal): Promise<IdentityBatch> {
+  async function next(
+    hostId: string,
+    signal: AbortSignal,
+    refresh: boolean,
+  ): Promise<IdentityBatch> {
     const database = db();
     let state = JSON.parse(
       (database.prepare("SELECT value FROM discovery_state WHERE id=1").get() as { value: string })
         .value,
     ) as State;
-    if (state.phase === "complete" && now() - state.finishedAt >= 60_000) {
+    if (refresh && state.phase === "complete" && now() - state.finishedAt >= 60_000) {
       state = initial(state.generation + 1);
       save(database, state);
     }
@@ -371,8 +377,26 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     for (let calls = 0; calls < 4 && state.phase !== "complete"; calls++)
       await advance(database, state, signal);
     signal.throwIfAborted();
-    if (state.phase !== "complete")
-      return { hostId, generation: state.generation, offset: 0, total: null, rows: [] };
+    if (state.phase !== "complete") {
+      const batch = { hostId, generation: state.generation, offset: 0, total: null, rows: [] };
+      const pendingThread = database
+        .prepare(
+          "SELECT thread_id FROM discovery_threads WHERE generation=? AND scanned=0 ORDER BY thread_id LIMIT 1",
+        )
+        .get(state.generation);
+      const pendingOwner = database
+        .prepare(
+          "SELECT environment_id FROM discovery_ownership WHERE generation=? AND reason='pending' ORDER BY environment_id LIMIT 1",
+        )
+        .get(state.generation);
+      progress.set(
+        batch,
+        createHash("sha256")
+          .update(JSON.stringify([state, pendingThread, pendingOwner]))
+          .digest("hex"),
+      );
+      return batch;
+    }
     const catalog = deliveryCatalog(database, state.generation, hostId);
     const generation = catalog.generation;
     let receipt = database
@@ -406,13 +430,22 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       })),
     };
     deliveryIds.set(batch, rows.at(-1)?.id ?? receipt.last_id);
+    progress.set(
+      batch,
+      createHash("sha256")
+        .update(JSON.stringify([state, batch.generation, batch.offset, batch.total]))
+        .digest("hex"),
+    );
     return batch;
   }
   return {
-    next(hostId: string, signal: AbortSignal) {
-      const result = queue.then(() => next(hostId, signal));
+    next(hostId: string, signal: AbortSignal, refresh = true) {
+      const result = queue.then(() => next(hostId, signal, refresh));
       queue = result.catch(() => null);
       return result;
+    },
+    progress(batch: IdentityBatch) {
+      return progress.get(batch) ?? "";
     },
     delivered(batch: IdentityBatch) {
       const lastId = deliveryIds.get(batch);

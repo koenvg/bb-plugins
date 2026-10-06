@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, configure, render } from "@testing-library/react";
+import { act, cleanup, configure, render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
@@ -129,7 +129,10 @@ describe("app-wide quota ownership", () => {
     expect(
       battery.container.querySelector("[data-battery-fill]")?.getAttribute("data-battery-fill"),
     ).toBe("42");
-    expect(page.getByRole("status").textContent).toMatch(/^Updating/);
+    expect(
+      within(page.getByRole("region", { name: "Codex allowance summary" })).getByRole("status")
+        .textContent,
+    ).toMatch(/^Updating/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(240_000);
     });
@@ -139,7 +142,10 @@ describe("app-wide quota ownership", () => {
       `observed ${observation}`,
     );
     expect(battery.container.querySelector("[data-battery-fill]")).toBeNull();
-    expect(page.getByRole("status").textContent).toMatch(/^Stale · updating/);
+    expect(
+      within(page.getByRole("region", { name: "Codex allowance summary" })).getByRole("status")
+        .textContent,
+    ).toMatch(/^Stale · updating/);
     await act(async () => {
       finish();
     });
