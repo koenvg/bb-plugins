@@ -2,12 +2,18 @@ import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/tes
 import { describe, expect, it } from "vitest";
 import { createStore, registerTasksApi } from "../api";
 import { tasksRpcContract } from "../shared/contract";
-import type { Comment, Project, Task } from "../db";
+import type { Project, Task } from "../db";
 import { displayWidth } from "../shared/text-measure";
 import { delegationRpcContract } from "./contract";
 import { buildSeedPrompt, registerDelegation } from ".";
 import { expectReportingRules, expectTaskLinkRules } from "../reporting-test-support";
 
+import {
+  createAgentContextFixture,
+  measureContext,
+  reportPolicy,
+  wordCount,
+} from "../agent-context-test-support";
 function createTestPreset(
   store: ReturnType<typeof createStore>,
   overrides: Partial<{
@@ -33,6 +39,71 @@ function createTestPreset(
 }
 
 describe("task delegation", () => {
+  it("keeps assigned requirements and old comment attachments without automatic history", async () => {
+    const fixture = createAgentContextFixture();
+    const {
+      harness,
+      store,
+      task,
+      preset,
+      project,
+      subtask,
+      blocker,
+      comments,
+      taskAttachment,
+      commentAttachment,
+      presetInstructions,
+      extraInstructions,
+    } = fixture;
+    try {
+      await harness.callRpc("delegate", {
+        taskId: task.id,
+        presetId: preset.id,
+        extraInstructions,
+      });
+      const args = harness.sdk.callsTo("threads.spawn")[0]?.[0] as { prompt: string };
+      const policy = reportPolicy(args.prompt);
+      const authoredPolicy = policy.replaceAll(task.key, "").replaceAll(task.id, "");
+      measureContext("delegation", args.prompt, authoredPolicy);
+      expect(args.prompt).toContain(task.description);
+      expect(args.prompt).toContain(project.name);
+      expect(args.prompt).toContain(project.linkedBbProjectId);
+      expect(args.prompt).toContain(`${blocker.key} · ${blocker.title} (${blocker.status})`);
+      expect(args.prompt).toContain(`${subtask.key} · ${subtask.title} (${subtask.status})`);
+      expect(args.prompt).toContain(presetInstructions);
+      expect(args.prompt).toContain(extraInstructions);
+      for (const attachment of [taskAttachment, commentAttachment]) {
+        expect(args.prompt).toContain(`${attachment.fileName} · ${attachment.id}`);
+        expect(args.prompt).toContain(`bb tasks attachment get ${attachment.id}`);
+      }
+      expect(store.tasks.getTask(task.id)?.status).toBe("in_progress");
+      expect(
+        store.tasks
+          .listTaskThreads(task.id)
+          .map((link) => link.threadId)
+          .sort(),
+      ).toEqual(["thr_context", "thr_prior_sentinel"]);
+      expect(store.tasks.listComments(task.id)).toEqual(expect.arrayContaining(comments));
+      expect(policy).not.toBe("");
+      expect.soft(wordCount(authoredPolicy), "authored policy budget").toBeLessThanOrEqual(120);
+      expect.soft(args.prompt.includes("## Recent comments"), "no history section").toBe(false);
+      for (const comment of comments) {
+        expect.soft(args.prompt.includes(comment.body), "no injected comment body").toBe(false);
+      }
+      for (const excluded of [
+        "meaningful milestones",
+        "40-80 words",
+        "parent refreshes",
+        "tasks_report",
+        "report/comment IDs",
+      ]) {
+        expect.soft(policy.includes(excluded), `no ${excluded} instruction`).toBe(false);
+      }
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it.each(["dispatch", "attach"])("keeps a %s link after a public update to Done", async (mode) => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
@@ -154,7 +225,7 @@ describe("task delegation", () => {
         ],
       ]);
       expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
-        prompt: expect.stringContaining("40-80 words"),
+        prompt: expect.stringContaining("Comment only for review readiness"),
       });
       expect(store.tasks.listTaskThreads(task.id)).toEqual([
         expect.objectContaining({
@@ -620,7 +691,6 @@ describe("delegation seed prompt", () => {
         subtasks: [],
         blockers: [],
         attachments: [],
-        recentComments: [],
         presetInstructions: "",
       });
       const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
@@ -648,14 +718,13 @@ describe("delegation seed prompt", () => {
         subtasks,
         blockers: [],
         attachments: [],
-        recentComments: [],
         presetInstructions: "Keep the preset.",
         extraInstructions: "Keep the request.",
       });
       const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
       expectReportingRules(report);
-      expect(report).toContain(`bb tasks comment ${task.key} --body`);
-      expect(report).toContain("Tasks skill");
+      expect(report).toContain(`bb tasks show ${task.key} --json`);
+      expect(report).toContain("Tasks references/reporting.md");
       expect(report).toContain("already attached");
       expect(prompt).toContain("## Preset instructions\n\nKeep the preset.");
       expect(prompt).toContain("## Additional instructions\n\nKeep the request.");
@@ -664,7 +733,7 @@ describe("delegation seed prompt", () => {
     }
   });
 
-  it("captures task context and the complete report-back contract", () => {
+  it("captures task context and the short report-back contract", () => {
     const project: Project = {
       id: "01J00000000000000000000001",
       name: "Tasks plugin",
@@ -699,30 +768,6 @@ describe("delegation seed prompt", () => {
       status: "in_progress",
       parentTaskId: task.id,
     };
-    const comments: Comment[] = [
-      {
-        id: "01J00000000000000000000004",
-        taskId: task.id,
-        kind: "user",
-        authorName: "Sawyer",
-        presetName: null,
-        threadId: null,
-        body: "Preserve the existing domain path.",
-        notifiedCount: 0,
-        createdAt: "2026-07-15T17:02:00.000Z",
-      },
-      {
-        id: "01J00000000000000000000005",
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Worker",
-        presetName: "Sonnet · high",
-        threadId: "thr_prior",
-        body: "The schema study is complete.",
-        notifiedCount: 0,
-        createdAt: "2026-07-15T17:03:00.000Z",
-      },
-    ];
 
     expect(
       buildSeedPrompt({
@@ -739,7 +784,6 @@ describe("delegation seed prompt", () => {
             fileName: "delegation-notes.md",
           },
         ],
-        recentComments: comments,
         presetInstructions: "Prefer focused changes.",
         extraInstructions: "Run the backend gates.",
       }),
@@ -771,28 +815,12 @@ describe("delegation seed prompt", () => {
       - delegation-notes.md · 01J00000000000000000000006
         Fetch with: bb tasks attachment get 01J00000000000000000000006 --out <path>
 
-      ## Recent comments
-
-      ### Sawyer · user · 2026-07-15T17:02:00.000Z
-
-      Preserve the existing domain path.
-
-      ### Worker · agent · 2026-07-15T17:03:00.000Z
-
-      The schema study is complete.
-
       ## Report-back contract
 
-      You are working on task TASK-1. Your thread is already attached. Use bb tasks comment TASK-1 --body ... for updates and attach result artifacts. Use bb tasks update TASK-1 --status in_review when required review remains; use done only when completion criteria are met.
-      Keep task-to-thread links when work completes, enters review, is handed off, is replaced, fails, or moves to other work. Detach only when the user explicitly requests removal of that task-to-thread link. Detaching does not stop the thread or change the task status. Retained links grant no new ownership or reporting authority.
-      At meaningful milestones, write one short result or current-state sentence, a blank line, and up to three flat Markdown bullets. Use plain language, real newlines, and one idea per bullet. Aim for 40-80 words; shorter updates are valid. Combine related changes and omit unchanged updates or command-by-command pings.
-      Keep material limits visible even if the update must be longer. State the outcome, next step, and any blocker or exact decision needed and its effect. Briefly state relevant checks, including unrun or blocked checks; distinguish worker-reported results from checks you verified.
-      Keep logs, file lists, full commit hashes, internal IDs, and detailed handoff evidence in the attached thread or an artifact. Link to the detail with supported task/thread, PR, or attachment links. Preserve exact commits and baselines in handoffs.
-      An epic reports overall progress, current work, and the next dependency or decision; summarize a child result's effect rather than copying its report. A subtask reports its own result, checks, and remaining work.
-      Only the agent already responsible for a parent refreshes its summary when handling a child completion, blocker change, or decision. Read current task state before posting. Treat unavailable or conflicting state as unknown. Count only done children as done. Child done counts do not prove epic acceptance; name remaining integration or acceptance work.
-      Use only already authorized handoff routes. These rules add no polling, wakeups, coordinator, or permission to dispatch, restructure tasks, or approve work. --notify still targets the latest responding agent, not necessarily the parent. Leave historical comments, descriptions, presets, and previously delivered prompts unchanged.
-      See the Tasks skill Reporting section for examples and safe multiline posting. This guidance uses the existing CLI and requires no orchestration run; it is not a server-enforced comment limit.
-      Follow task TASK-1, its linked specifications, acceptance criteria and applicable project instructions. Idle activity is not task completion. Set status explicitly with bb tasks update TASK-1 --status in_review or --status done only when your ticket gates are met.
+      Work on TASK-1 within scope, acceptance criteria and project instructions. Your thread is already attached.
+      Read current requirements/blockers: bb tasks show TASK-1 --json. Report read failures, not assumed state. Fetch relevant attachments. Wait for explicit approval if blockers are not done/canceled.
+      Comment only for review readiness, completion, failure, blockers or user decisions. State result, relevant checks including unrun/blocked checks, material limits and evidence link; distinguish reported/verified checks. See Tasks references/reporting.md for posting.
+      Use in_review while review remains; done only after all gates. Keep task-to-thread links through all work changes. Detach only on explicit user request. Detaching does not stop the thread or change status. Links grant no ownership or reporting authority.
 
       ## Preset instructions
 

@@ -364,10 +364,13 @@ uses repeatedly before dispatching work.
 
 Delegation creates a worker thread in the linked bb project, attaches that
 thread to the task, and advances a `backlog` or `todo` task to `in_progress`.
-The worker receives the task description, subtasks, attachments, recent
-comments, preset instructions, and a report-back contract. Its installed Tasks
-skill tells it to inspect the task, leave substantive milestone comments,
-attach artifacts, and move completed work to `in_review`.
+The worker receives the full task description, blockers, subtasks, task/comment
+attachment references, preset instructions and explicit extra instructions.
+Its short report-back policy calls for comments only at review readiness,
+completion, failure, blockers or user decisions. Workers read current requirements
+and blockers before work, and read comments only when relevant. Recent comment
+bodies are not added to the starting prompt. Use `in_review` while required review
+remains and `done` only when all completion gates are met.
 
 If work begins outside the Delegate action, the agent can associate its current
 thread with `bb tasks attach KEY`. Keep task-to-thread links when work completes,
@@ -389,16 +392,18 @@ ownership or reporting authority and do not dispatch work.
 ## Task mentions
 
 Type `@` in the bb composer and select **Tasks** to search by task key or title.
-Sending the mention gives the agent the task's description, status, priority,
-labels, subtasks, attachments, recent comments, attached threads, and CLI
-action contract as context. Tasks linked to the current bb project rank first.
+Sending the mention gives the agent the task key, title, full description and a
+pointer to read current details when needed. It does not assign work or direct
+attachment, comments, delegation or status changes. Tasks linked to the current
+bb project still rank first.
 
 Inside a task description or comment, `@` also inserts a task pill. These
 references are stored in Markdown as `[PROD-1](bbtask://PROD-1)`, so they remain
 portable in task content.
 
-Mentioning a task key such as `PROD-1` in an agent request also activates the
-Tasks skill, which directs the worker to read and update the tracked task.
+The Tasks skill separates read-only questions from assigned task work. A task
+reference alone does not authorize changes. Detailed operation references load
+only when the requested operation needs them.
 
 ## Project navigation
 

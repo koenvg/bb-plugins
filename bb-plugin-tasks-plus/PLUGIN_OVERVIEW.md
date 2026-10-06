@@ -10,12 +10,12 @@ Turn a plan into tracked tasks, hand each task to an agent, and see the worker's
 
 ## How it works
 
-Link a tracker project to a bb project. Delegation then creates a worker thread there, attaches it to the task, and moves the task to `in_progress`. The worker receives the description, subtasks, attachments, recent comments, and a report-back contract.
+Link a tracker project to a bb project. Delegation creates and attaches a worker thread, moving `backlog` or `todo` tasks to `in_progress`. The worker receives full requirements, blockers, subtasks, attachment references and explicit instructions. Recent comment bodies stay out of the starting prompt.
 
-Type `@` in the composer and choose **Tasks** to send a task as context. Agents see a `::task{key="PROD-1"}` card when they reference a task.
+Type `@` in the composer and choose **Tasks** to send a task key, title, full description and a pointer to current details as context. A mention does not assign work. Task pills and `::task{key="PROD-1"}` cards keep their existing navigation.
 
 ## For agents
 
-The `bb tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `comment`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The bundled `tasks` skill tells workers to read the task, comment at milestones, attach artifacts, and move finished work to `in_review`.
+The `bb tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `comment`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The small `tasks` skill separates read-only questions from assigned work and loads operation details only when needed. Comments cover review readiness, completion, failure, blockers or user decisions. Required review keeps work `in_review`; `done` requires all completion gates.
 
 Presets are user-defined. Create at least one before you delegate.
