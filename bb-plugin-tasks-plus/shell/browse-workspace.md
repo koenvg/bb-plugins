@@ -9,8 +9,10 @@ It keys the workspace by scope, never by selected ticket. The existing shell's
 The accepted browse route's optional `taskKey` is the committed identity.
 `requestSelection` puts URL replacement inside `session.request(commit)`. It
 reveals Ticket on the request, not after a delayed save. It uses the host navigator inside that callback, not
-another guarded navigation call. Nesting `request` inside an in-flight accepted
-callback can leave a destination queued. Remembered scope remains exclusively
+another guarded navigation call. `request` throws before changing the destination
+on synchronous reentry or during commit, including the interval before an active
+save flight settles. Requests during saves still replace the latest destination.
+Remembered scope remains exclusively
 owned by `useBrowseRoute`, downstream of the shell's `useSafeTaskTarget`.
 
 Initial route selection waits for a settled visible list. A matching key in a current
