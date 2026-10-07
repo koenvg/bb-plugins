@@ -12,6 +12,7 @@ import type { CiState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { messageOf } from "./error-message";
+import { IconTooltip } from "./icon-tooltip";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
 import { usePullRequestsNavigation } from "./pull-requests-routes";
 import { ACTION_CLASS, COUNT_CLASS, LABEL_CLASS } from "./queue-styles";
@@ -367,14 +368,17 @@ function QueueRow({
       aria-label={`${pr.repo}#${pr.number}`}
       className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 transition-colors duration-150 hover:bg-state-hover hover:duration-0 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]"
     >
-      <span
-        data-testid="queue-ci"
-        title={ci.text}
-        className="mt-0.5 flex size-4 items-center justify-center"
-      >
-        <Icon name={ci.icon} className={cn("size-4", ci.className)} />
-        <span className="sr-only">{ci.text}</span>
-      </span>
+      <IconTooltip label={ci.text}>
+        <span
+          data-testid="queue-ci"
+          role="img"
+          aria-label={ci.text}
+          tabIndex={0}
+          className="mt-0.5 flex size-4 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Icon name={ci.icon} className={cn("size-4", ci.className)} />
+        </span>
+      </IconTooltip>
       <div className="flex min-w-0 flex-col gap-1">
         <h4
           className={cn(
@@ -476,38 +480,37 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
         )
       )}
       {thread?.isReviewThread && (
+        <IconTooltip label="Archive thread">
+          <button
+            type="button"
+            aria-label="Archive thread"
+            className={ICON_ACTION_CLASS}
+            onClick={() => actions.archive(pr, thread.id)}
+            disabled={busy}
+          >
+            <Icon name="Archive" className="size-4" />
+          </button>
+        </IconTooltip>
+      )}
+      <IconTooltip label={markLabel}>
         <button
           type="button"
-          aria-label="Archive thread"
-          title="Archive thread"
-          className={ICON_ACTION_CLASS}
-          onClick={() => actions.archive(pr, thread.id)}
+          aria-label={markLabel}
+          className={cn(ICON_ACTION_CLASS, !reviewed && "hover:text-success")}
+          onClick={() => actions.mark(pr, !reviewed)}
           disabled={busy}
         >
-          <Icon name="Archive" className="size-4" />
+          <Icon
+            name={busy ? "Loading" : reviewed ? "RotateCcw" : "Check"}
+            className={cn("size-4", busy && "animate-spin motion-reduce:animate-none")}
+          />
         </button>
-      )}
-      <button
-        type="button"
-        aria-label={markLabel}
-        title={markLabel}
-        className={cn(ICON_ACTION_CLASS, !reviewed && "hover:text-success")}
-        onClick={() => actions.mark(pr, !reviewed)}
-        disabled={busy}
-      >
-        <Icon
-          name={busy ? "Loading" : reviewed ? "RotateCcw" : "Check"}
-          className={cn("size-4", busy && "animate-spin motion-reduce:animate-none")}
-        />
-      </button>
-      <UrlLink
-        href={pr.url}
-        aria-label="Open on GitHub"
-        title="Open on GitHub"
-        className={ICON_ACTION_CLASS}
-      >
-        <Icon name="Github" className="size-4" />
-      </UrlLink>
+      </IconTooltip>
+      <IconTooltip label="Open on GitHub">
+        <UrlLink href={pr.url} aria-label="Open on GitHub" className={ICON_ACTION_CLASS}>
+          <Icon name="Github" className="size-4" />
+        </UrlLink>
+      </IconTooltip>
     </div>
   );
 }
