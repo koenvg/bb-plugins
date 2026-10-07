@@ -83,7 +83,7 @@ Each merge or enqueue request SHALL send the head commit that the tab showed. Wh
 
 ### Requirement: Action progress and result
 
-While a merge or enqueue runs for a thread in a window, every visible merge action button for that thread SHALL show the same busy state and SHALL be disabled. The busy label SHALL be "Merging…" for a merge and "Enqueuing…" for enqueue. An action button mounted during that operation SHALL immediately show the same busy state. Requests from the tab, composer banner, and palette during the same running operation SHALL cause at most one GitHub write. On success, the plugin SHALL refresh PR insight so the tab and banner show the new state. On failure, the tab and banner SHALL show the operation error and make a still-valid action available again. Operation state SHALL NOT appear in another thread. An error for an earlier head commit SHALL NOT appear as the error for a newly loaded head commit.
+While a merge or enqueue runs for a thread in a window, every visible merge action button for that thread SHALL show the same busy state and SHALL be disabled. The busy label SHALL be "Merging…" for a merge and "Enqueuing…" for enqueue. An action button mounted during that operation SHALL immediately show the same busy state. Requests from the tab, composer banner, and palette during the same running operation SHALL cause at most one GitHub write. On success, the plugin SHALL refresh PR insight so the tab and banner show the new state. Queue feedback SHALL report the current queue state and position rather than treating every queue entry as waiting. On failure, the tab and banner SHALL show the operation error and make a still-valid action available again. Operation state SHALL NOT appear in another thread. An error for an earlier head commit SHALL NOT appear as the error for a newly loaded head commit.
 
 #### Scenario: Merge succeeds
 
@@ -93,7 +93,7 @@ While a merge or enqueue runs for a thread in a window, every visible merge acti
 #### Scenario: Enqueue succeeds
 
 - **WHEN** GitHub adds the PR to the merge queue
-- **THEN** the tab and banner refresh and show "Queued"
+- **THEN** the tab and banner refresh and show the reported queue state and position, with no merge action
 
 #### Scenario: GitHub rejects the action
 
@@ -132,11 +132,11 @@ While a merge or enqueue runs for a thread in a window, every visible merge acti
 
 ### Requirement: Merge action in the composer banner
 
-The composer banner of a thread SHALL show the same merge action as the PR tab, with the same merge method, confirm step, head commit guard, shared progress, and result. A ready PR SHALL show "Ready to merge" or "Ready to enqueue" and the button when idle. While an operation runs, the banner SHALL show "Merging…" or "Enqueuing…" instead of a ready message, including when the action started from the tab or palette. A queued PR SHALL show "Queued" and no button. A merged PR SHALL show "Pull request merged" with a violet merge icon and no merge action. A closed PR SHALL show no normal PR banner. Other PRs with blockers SHALL show the blocker banner as before. Palette preparation SHALL show a loading message in the banner. Palette errors or unavailable-action messages SHALL remain visible in the banner even if its normal PR state would hide it, until dismissed, replaced by a later attempt, or superseded by current PR data. Clicking the normal PR banner text SHALL open the PR tab. No operation or error SHALL automatically open the panel.
+The composer banner of a thread SHALL show the same merge action as the PR tab, with the same merge method, confirm step, head commit guard, shared progress, and result. The PR lifecycle SHALL stay visible separately from readiness and blocker messages. A ready open PR SHALL show "Ready to merge" or "Ready to enqueue" and the button when idle. While an operation runs, the banner SHALL show "Merging…" or "Enqueuing…" instead of a ready message, including when the action started from the tab or palette. An open PR with a queue entry SHALL show the same queue detail as the PR tab and no merge button. A merged PR SHALL show "Pull request merged" with a violet merge icon and no merge action. A closed PR SHALL show Closed with no merge action. A draft PR SHALL show Draft with no merge action, even when its blockers are empty or another blocker has higher priority. An open PR without blockers or an available action SHALL show Open without claiming readiness. Other PRs with blockers SHALL retain the compact blocker summary alongside their lifecycle. Palette preparation SHALL show a loading message in the banner. Palette errors or unavailable-action messages SHALL remain visible in the banner even if its normal PR state would hide it, until dismissed, replaced by a later attempt, or superseded by current PR data. Clicking the normal PR banner text SHALL open the PR tab. No operation or error SHALL automatically open the panel.
 
 #### Scenario: Ready PR in the chat view
 
-- **WHEN** the thread's PR has no blockers and its repository has no merge queue
+- **WHEN** the thread's PR is open, has no blockers, and offers squash merge without a merge queue
 - **THEN** the composer banner shows "Ready to merge" and a "Squash and merge" button for a squash default
 
 #### Scenario: Merge from the banner
@@ -146,8 +146,8 @@ The composer banner of a thread SHALL show the same merge action as the PR tab, 
 
 #### Scenario: Queued PR in the chat view
 
-- **WHEN** the thread's PR is in the merge queue
-- **THEN** the composer banner shows "Queued" and no button
+- **WHEN** the thread's open PR has queue state queued at position 3
+- **THEN** the composer banner shows Open and "In merge queue (#3)" with no merge button
 
 #### Scenario: PR with blockers in the chat view
 
@@ -179,6 +179,33 @@ The composer banner of a thread SHALL show the same merge action as the PR tab, 
 
 - **WHEN** a palette merge attempt finds no PR or a closed PR
 - **THEN** the banner shows the reason without a merge button or an automatic panel opening
+
+#### Scenario: Draft without blockers
+
+- **WHEN** the loaded PR is Draft and has no blockers
+- **THEN** the banner shows Draft and no merge action
+
+#### Scenario: Draft with failed checks
+
+- **WHEN** the loaded PR is Draft with failed checks and merge conflicts
+- **THEN** the banner shows Draft alongside the compact blocker text and no merge action
+
+#### Scenario: Open without a permitted action
+
+- **WHEN** the loaded PR is Open without blockers but offers no merge action
+- **THEN** the banner shows Open, no ready message, and no merge action
+
+#### Scenario: Closed PR in the chat view
+
+- **WHEN** the loaded PR is Closed
+- **THEN** the banner shows Closed with no merge action
+- **AND** clicking its status opens the PR tab without a GitHub write
+
+#### Scenario: Queue checks and failure in the chat view
+
+- **WHEN** the open PR has queue state awaiting_checks, merging, or failed
+- **THEN** the banner shows the same queue detail as the PR tab, with position where applicable
+- **AND** it offers no merge action and does not describe a failed entry only as Queued
 
 ### Requirement: Writes only from the user
 
