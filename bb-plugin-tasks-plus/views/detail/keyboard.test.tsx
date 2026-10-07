@@ -231,7 +231,7 @@ describe("task detail comment key", () => {
     const slot = render("TSK-1");
     await ready(slot, "1 / 3");
     const activity = await slot.findByRole("region", { name: "Activity" });
-    await waitFor(() => expect(activity.querySelector('[contenteditable="true"]')).not.toBeNull());
+    expect(activity.querySelector('[contenteditable="true"]')).toBeNull();
     fireEvent.keyDown(window, { key: "m" });
     await waitFor(() => expect(activity.contains(document.activeElement)).toBe(true));
     fireEvent.keyDown(document.activeElement!, { key: "c" });

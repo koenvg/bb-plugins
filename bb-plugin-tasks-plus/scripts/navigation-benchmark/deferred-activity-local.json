@@ -1,0 +1,55 @@
+{
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5"
+  },
+  "fixture": {
+    "owner": "bbp60-activity-read",
+    "comments": 50,
+    "files": 10
+  },
+  "method": "In-memory SDK host and SQLite. API timing includes contract parsing and mocked live thread/provider reads. Initial preview is jsdom mount to heading and one description editor, with zero activity editors. Feed activation is explicit activation to all 50 comment editors, composer and ten links. Includes test overhead, not real scrolling, browser paint, transport or native-host navigation. No host activation or speed claim.",
+  "activityRead": {
+    "samples": 30,
+    "medianMs": 0.31379199999992125,
+    "p95Ms": 0.41008400000009715,
+    "worstMs": 0.5652919999999995
+  },
+  "legacyLoader": {
+    "samples": 30,
+    "medianMs": 0.8287910000001375,
+    "p95Ms": 1.4210410000000593,
+    "worstMs": 4.716750000000047
+  },
+  "initialPreview": {
+    "samples": 5,
+    "medianMs": 9.917583999999806,
+    "p95Ms": 120.29579199999989,
+    "worstMs": 120.29579199999989
+  },
+  "activatedFeed": {
+    "samples": 5,
+    "medianMs": 252.04133300000012,
+    "p95Ms": 378.99875,
+    "worstMs": 378.99875
+  },
+  "editorCounts": {
+    "initialDescription": 1,
+    "initialActivity": 0,
+    "activatedActivity": 51
+  },
+  "frontendReads": [1, 1, 1, 1, 1],
+  "requests": {
+    "currentActivity": 1,
+    "currentPerCommentAttachments": 0,
+    "legacyComments": 1,
+    "legacyPerCommentAttachments": 50
+  },
+  "attachmentQueries": {
+    "current": 1,
+    "legacy": 50
+  },
+  "responseBytes": 22447
+}

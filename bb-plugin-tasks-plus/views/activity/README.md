@@ -45,7 +45,33 @@ attachment RPC per comment. Comment/task invalidation, manual refresh and reconn
 use the existing query mechanism; retries each issue one new activity read.
 The keyed feed lifetime prevents previous task results, files or lightboxes from
 appearing under a replacement task. Composer drafts stay in the existing task-owned
-session provider. Editor deferral is separate work in BBP-67.
+session provider. Editor activation is separate from activity loading.
+
+## Editor activation
+
+The keyed activity section keeps its heading and a 160 px minimum-height placeholder
+at the same document position. The placeholder explains scroll activation and has a
+native `Show activity` button. No comment editor or composer mounts until the section
+intersects the viewport or the user activates it. The browser observer respects
+clipping by the native scroll pane. It does not use an advance-loading margin.
+
+Scrolling into the section mounts the full existing feed and composer. They stay
+mounted for that task even when the user scrolls away. Tab can reach the activation
+button. Enter or Space activates it. Activation moves focus to the section before
+removing a focused button, including when scrolling makes a keyboard-focused button
+visible. If IntersectionObserver is unavailable, the button and comment action still
+work. No new Markdown renderer or retained editor cache is used.
+
+The existing `m` comment action calls `TaskActivityHandle.focusComposer()`. It requests
+activation first, then focuses and scrolls the ready composer into view. It does not
+wait for the activity read. A pending focus request belongs to the keyed task and
+ends when that task unmounts. Existing shortcut guards still control whether `m`
+can run. Activation never submits, uploads or notifies.
+
+Native tab parking does not reset an activated feed or its editor instances.
+Observation pauses while the pane visibility context is false and resumes on reopen.
+Task selection still destroys the old keyed feed and its editors. A return creates
+new editors from the existing task-owned comment draft and staged-file record.
 
 ## Verification and measurement
 
@@ -54,7 +80,10 @@ legacy parity and failure propagation. `views/activity/activity-read.test.tsx`
 checks real query/RPC calls with small editor substitutes. Native Ticket tests
 prove heading and description remain available during an activity read and failure.
 
-The separate heavy fixture test uses the real store, RPC and 51 Tiptap editors.
-See [the measurement report](../../scripts/navigation-benchmark/activity-read-report.md)
-for rerun steps, counts, local timings and limits. These tests do not establish
-installed-host presentation time or the warm-navigation budget.
+The heavy fixture uses the real store, RPC and Tiptap editors. The deferred view
+creates one description editor and zero activity editors initially. Activation
+creates 50 comment editors and the composer, with all ten file links.
+See [the activity read report](../../scripts/navigation-benchmark/activity-read-report.md)
+and [the editor activation report](../../scripts/navigation-benchmark/deferred-activity-report.md)
+for separate initial-preview and activated-feed measurements and their limits.
+These tests do not establish installed-host presentation time or the warm-navigation budget.

@@ -104,6 +104,7 @@ function setup(read: (taskId: string) => unknown) {
       },
     },
   );
+  fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
   return { slot, activity, comments, attachments, createComment };
 }
 function deferred<T>() {
@@ -241,6 +242,7 @@ describe("activity caller", () => {
       id === task.id ? pending.promise : { entries: entries(1, "B") },
     );
     slot.lifecycle.rerender(<Root taskId="B" />);
+    fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
     await waitFor(() => expect(slot.getByText("B review 0")).toBeTruthy());
     await act(async () => pending.resolve({ entries: entries(1) }));
     expect(slot.queryByText(entries(1)[0]!.comment.body)).toBeNull();

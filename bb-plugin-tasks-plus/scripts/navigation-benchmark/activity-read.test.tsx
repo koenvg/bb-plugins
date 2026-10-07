@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { cpus, platform, arch } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { cleanup, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { expect, it, vi } from "vitest";
@@ -11,8 +11,10 @@ import { createStore, registerTasksApi } from "../../api/index.js";
 import { tasksRpcContract, type TaskActivityEntry } from "../../shared/contract.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import { TaskActivity } from "../../views/activity/task-activity.js";
+import { TasksEditor } from "../../editor/tasks-editor.js";
 
 interface ActivityFixture {
+  tasks: { description: string }[];
   activity: {
     comments: {
       authorKind: string;
@@ -129,6 +131,7 @@ it("measures the owned 50-comment fixture with real storage, activity RPC and ed
     expect(result.entries).toHaveLength(50);
     expect(result.entries.flatMap((entry) => entry.attachments)).toHaveLength(10);
 
+    const initialPreviewTimes: number[] = [];
     const frontendTimes: number[] = [];
     const frontendReads: number[] = [];
     for (let i = 0; i < 5; i += 1) {
@@ -136,6 +139,8 @@ it("measures the owned 50-comment fixture with real storage, activity RPC and ed
       let legacyReads = 0;
       const Root = () => (
         <TasksRefreshProvider>
+          <h1>Heavy activity</h1>
+          <TasksEditor value={fixture.tasks[0]!.description} onChange={() => {}} />
           <TaskActivity taskId={task.id} />
         </TasksRefreshProvider>
       );
@@ -162,13 +167,23 @@ it("measures the owned 50-comment fixture with real storage, activity RPC and ed
           },
         },
       );
-      await waitFor(() => expect(slot.container.querySelectorAll(".tiptap")).toHaveLength(51), {
+      await waitFor(() => expect(slot.container.querySelectorAll(".tiptap")).toHaveLength(1), {
+        interval: 1,
+      });
+      initialPreviewTimes.push(performance.now() - start);
+      expect(
+        slot.getByRole("heading", { name: fixture.tasks[0]!.description.split("\n")[0]!.slice(3) }),
+      ).toBeTruthy();
+      expect(slot.queryByRole("heading", { name: "Review 50" })).toBeNull();
+      const activationStart = performance.now();
+      fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
+      await waitFor(() => expect(slot.container.querySelectorAll(".tiptap")).toHaveLength(52), {
         interval: 1,
       });
       expect(slot.getByRole("heading", { name: "Review 50" })).toBeTruthy();
       expect(slot.queryAllByRole("link", { name: /review-\d+\.txt/ })).toHaveLength(10);
       expect(slot.queryByRole("alert")).toBeNull();
-      frontendTimes.push(performance.now() - start);
+      frontendTimes.push(performance.now() - activationStart);
       frontendReads.push(reads);
       expect(reads).toBe(1);
       expect(legacyReads).toBe(0);
@@ -183,10 +198,12 @@ it("measures the owned 50-comment fixture with real storage, activity RPC and ed
       },
       fixture: { owner: "bbp60-activity-read", comments: 50, files: 10 },
       method:
-        "In-memory SDK host and SQLite. API timing includes contract parsing and mocked live thread/provider reads. Current UI timing is jsdom mount to all 51 real Tiptap editors plus 10 file links; includes test query overhead, not browser paint or transport. No host activation or navigation speed claim.",
+        "In-memory SDK host and SQLite. API timing includes contract parsing and mocked live thread/provider reads. Initial preview is jsdom mount to heading and one description editor, with zero activity editors. Feed activation is explicit activation to all 50 comment editors, composer and ten links. Includes test overhead, not real scrolling, browser paint, transport or native-host navigation. No host activation or speed claim.",
       activityRead: distribution(currentTimes),
       legacyLoader: distribution(legacyTimes),
-      frontendMount: distribution(frontendTimes),
+      initialPreview: distribution(initialPreviewTimes),
+      activatedFeed: distribution(frontendTimes),
+      editorCounts: { initialDescription: 1, initialActivity: 0, activatedActivity: 51 },
       frontendReads,
       requests: {
         currentActivity: 1,
@@ -197,8 +214,8 @@ it("measures the owned 50-comment fixture with real storage, activity RPC and ed
       attachmentQueries: { current: currentAttachmentQueries, legacy: legacyAttachmentQueries },
       responseBytes: Buffer.byteLength(JSON.stringify(result)),
     };
-    if (process.env.BBP66_ACTIVITY_REPORT)
-      await writeFile(process.env.BBP66_ACTIVITY_REPORT, JSON.stringify(report, null, 2) + "\n");
+    const reportPath = process.env.BBP67_ACTIVITY_REPORT ?? process.env.BBP66_ACTIVITY_REPORT;
+    if (reportPath) await writeFile(reportPath, JSON.stringify(report, null, 2) + "\n");
     // Keep the output type in the public contract rather than a benchmark-specific shape.
     const entries: TaskActivityEntry[] = result.entries;
     expect(entries.map((entry) => entry.comment.body)).toEqual(

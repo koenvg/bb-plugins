@@ -151,6 +151,8 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
+    fireEvent.click(within(ticket.container).getByRole("button", { name: "Show activity" }));
+    await waitFor(() => expect(ticket.container.querySelectorAll(".tiptap")).toHaveLength(2));
     const comment = ticket.container.querySelectorAll<HTMLElement>(
       '.tiptap[contenteditable="true"]',
     )[1]!;

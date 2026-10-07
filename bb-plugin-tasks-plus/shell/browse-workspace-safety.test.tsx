@@ -6,6 +6,7 @@ import { browsePreference } from "./browse-preference.js";
 import {
   Panel,
   acceptNavigation,
+  activateActivity,
   deferred,
   edit,
   project,
@@ -26,6 +27,9 @@ describe("browse save and task ownership", () => {
     await waitFor(() =>
       expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1"),
     );
+    expect(slot.getByText("Activity will open when you scroll here.")).toBeTruthy();
+    expect(slot.container.querySelectorAll(".tiptap")).toHaveLength(1);
+    await activateActivity(slot);
     expect(slot.getByText("Loading activity…")).toBeTruthy();
     expect(slot.queryByText("No activity yet.")).toBeNull();
     await act(async () => activity.resolve(Promise.reject(new Error("Metadata unavailable"))));
@@ -118,6 +122,7 @@ describe("browse save and task ownership", () => {
     expect(slot.queryByText("a.txt")).toBeNull();
     expect(slot.container.textContent).not.toContain("Unsent A");
     await select(slot, 1);
+    await activateActivity(slot);
     expect(slot.getByText("a.txt")).toBeTruthy();
     expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]?.textContent).toBe(
       "Unsent A",

@@ -128,7 +128,7 @@ describe("editable browse workspace", () => {
     expect(
       slot.container.querySelector("[data-browse-layout]")?.getAttribute("data-browse-layout"),
     ).toBe("native");
-    expect(slot.getAllByRole("button", { name: "Attach file" })).toHaveLength(2);
+    expect(slot.getAllByRole("button", { name: "Attach file" })).toHaveLength(1);
     expect(document.activeElement?.getAttribute("contenteditable")).not.toBe("true");
     if (process.env.BBP12_CAPTURE) {
       writeFileSync(`/tmp/bbp12-artifacts/panel-${width}.html`, slot.container.innerHTML);
