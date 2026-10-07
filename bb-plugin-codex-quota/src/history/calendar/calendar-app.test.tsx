@@ -330,7 +330,7 @@ it("finishes the fixture preparation before navigation and schedules no transpor
   f.stop();
 });
 
-it("opens the latest thirty days through today and explains the incomplete day", async () => {
+it("opens the latest thirty days through today without extra progress text", async () => {
   const f = calendarPage(({ query }) => calendarSnapshot(query));
   await f.q.findByRole("table", { name: "Daily recorded usage" });
   await f.prepared();
@@ -340,7 +340,7 @@ it("opens the latest thirty days through today and explains the incomplete day",
   expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
     "2026-10-01",
   );
-  expect(f.q.getByText("Today is in progress. Values are recorded so far.")).toBeTruthy();
+  expect(f.q.queryByText("Today is in progress. Values are recorded so far.")).toBeNull();
   fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
   await waitFor(() =>
     expect(f.q.queryByText("Today is in progress. Values are recorded so far.")).toBeNull(),

@@ -34,12 +34,18 @@ function snapshot(query: CalendarQuery) {
   if (state === "unknown" || state === "inactive")
     return calendarEmptySnapshot(query, state === "unknown" ? "unknown" : "observed-inactivity");
   const view = calendarSnapshot(query, state === "stale" ? now - 600000 : now);
+  if (query.includeUncertain && state === "partial") {
+    view.days[14].uncertain = { totalTokens: 300, records: 3 };
+    view.summary.uncertain = { totalTokens: 300, records: 3 };
+  }
   const amount =
     state === "tiny"
       ? Number.MIN_VALUE
       : state === "huge"
         ? Number.MAX_SAFE_INTEGER
-        : 0.39813160000000003;
+        : state === "partial"
+          ? 287.24
+          : 0.39813160000000003;
   if (state !== "no-prices") {
     view.days[14].money = {
       state: "partial",

@@ -39,7 +39,13 @@ export function recordedValue(day: CalendarDay, metric: TokenMetric): number | n
 }
 export function chartData(days: CalendarDay[], metric: TokenMetric) {
   const values = days.map((day) => recordedValue(day, metric));
-  const maximum = Math.max(0, ...values.map((value) => value ?? 0));
+  const maximum = Math.max(
+    0,
+    ...values.map(
+      (value, index) =>
+        (value ?? 0) + (metric === "tokens" ? (days[index].uncertain?.totalTokens ?? 0) : 0),
+    ),
+  );
   // Scale only the drawing coordinates. Facts and tooltip values stay unchanged.
   // A unit domain also avoids unsafe tick arithmetic for subnormal captured prices.
   return {
@@ -48,7 +54,16 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
       date: day.date,
       day,
       value: values[index],
-      height: values[index] === null ? null : maximum ? values[index]! / maximum : 0,
+      height:
+        values[index] === null
+          ? metric === "tokens" && (day.uncertain?.totalTokens ?? 0) > 0
+            ? 0
+            : null
+          : maximum
+            ? values[index]! / maximum
+            : 0,
+      uncertainHeight:
+        metric === "tokens" && maximum ? (day.uncertain?.totalTokens ?? 0) / maximum : 0,
     })),
   };
 }
@@ -56,12 +71,33 @@ export const dateTick = (date: string) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(
     new Date(`${date}T12:00:00Z`),
   );
+
+export const weekdayTick = (date: string) =>
+  new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(
+    new Date(`${date}T12:00:00Z`),
+  );
+export const dateLabel = (date: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
 export function axisValue(value: number, metric: TokenMetric) {
-  return metric === "cost" || metric === "cost-per-entity"
-    ? compactEstimate(value)
-    : new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
-        value,
-      );
+  if (metric === "cost" || metric === "cost-per-entity") {
+    return value >= 1000
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          notation: "compact",
+          maximumFractionDigits: 1,
+        }).format(value)
+      : compactEstimate(value);
+  }
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
+    value,
+  );
 }
 export const metricName = (metric: TokenMetric) =>
   metric === "cost" || metric === "cost-per-entity"

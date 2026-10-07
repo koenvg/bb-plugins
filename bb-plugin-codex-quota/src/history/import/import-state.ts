@@ -1,3 +1,4 @@
+import { initializeUncertainHistory } from "./import-uncertain.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { RootProof } from "./import-source.js";
 import type { ImportConfiguration, ImportDiagnostic, ImportView } from "./import-contract.js";
@@ -5,6 +6,7 @@ export type Frozen = {
   roots: RootProof[];
   workspaces: { recorded: string; resolved: string; identity: string }[];
   catalog: number;
+  includeUncertain?: boolean;
 };
 export type Generation = {
   id: string;
@@ -54,6 +56,7 @@ export function initializeImport(db: HistoryDatabase) {
  CREATE TABLE IF NOT EXISTS import_entries (generation TEXT NOT NULL,path TEXT NOT NULL,entry TEXT NOT NULL,parent_entry TEXT,event_id TEXT,PRIMARY KEY(generation,path,entry));
  CREATE INDEX IF NOT EXISTS import_entry_lookup ON import_entries(entry,generation,path);
  `);
+  initializeUncertainHistory(db);
 }
 export const unfinished = (db: HistoryDatabase, host: string) =>
   db.prepare("SELECT * FROM import_generations WHERE host=? AND state='stopped'").get(host) as
@@ -100,6 +103,16 @@ export function importStatus(
           records: g.records,
           replayed: g.replayed,
           omissions: g.omissions,
+          ...((JSON.parse(g.frozen) as Frozen).includeUncertain
+            ? {
+                includeUncertain: true,
+                uncertainRecords: (
+                  db
+                    .prepare("SELECT count(*) AS n FROM usage_uncertain WHERE generation=?")
+                    .get(g.id) as { n: number }
+                ).n,
+              }
+            : {}),
           coverage: "partial",
           diagnostics: JSON.parse(g.diagnostics),
         }

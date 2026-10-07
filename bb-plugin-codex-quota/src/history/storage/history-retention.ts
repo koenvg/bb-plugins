@@ -1,3 +1,4 @@
+import { pruneUncertainHistory } from "../import/import-uncertain.js";
 import { createHash } from "node:crypto";
 import type { HistoryDatabase } from "./history-storage.js";
 import { usageEvidence, usageDigest } from "../collection/usage-evidence.js";
@@ -178,6 +179,11 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
       db.prepare("DELETE FROM usage_events WHERE event_id=?").run(row.event_id);
       db.prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?").run(row.event_id);
     }
+    const uncertainPending = pruneUncertainHistory(
+      db,
+      state.compact_cutoff,
+      limit - expired.length - details.length,
+    );
     const pending =
       !!db
         .prepare("SELECT event_id FROM usage_compact WHERE occurred_at<? LIMIT 1")
@@ -187,7 +193,11 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
           "SELECT event_id FROM usage_compact WHERE detail_available=1 AND occurred_at<? LIMIT 1",
         )
         .get(state.detail_cutoff);
-    return { pending, detail: state.detail_cutoff, compact: state.compact_cutoff };
+    return {
+      pending: pending || uncertainPending,
+      detail: state.detail_cutoff,
+      compact: state.compact_cutoff,
+    };
   });
 }
 export type CalendarQuery = {

@@ -74,6 +74,12 @@ export function calendarSnapshot(
     identity: "complete",
     identityPending: false,
   };
+  if (query.includeUncertain) {
+    value.summary.uncertain = { totalTokens: 0, records: 0 };
+    value.days.forEach((day) => {
+      day.uncertain = { totalTokens: 0, records: 0 };
+    });
+  }
   if (query.comparison) {
     const priorQuery = { ...query, startDate: shiftDate(query.startDate, -30) },
       range = calendarSnapshot({ ...priorQuery, comparison: false }, now);
@@ -117,7 +123,13 @@ export function calendarEmptySnapshot(
     zero: state === "observed-inactivity",
   };
   value.state = state;
-  value.summary = { totalTokens: 0, activeEntities: 0, excludedTokens: 0, money };
+  value.summary = {
+    ...(query.includeUncertain ? { uncertain: { totalTokens: 0, records: 0 } } : {}),
+    totalTokens: 0,
+    activeEntities: 0,
+    excludedTokens: 0,
+    money,
+  };
   value.ranking = [];
   value.truncated = false;
   value.days = value.days.map((day) => ({

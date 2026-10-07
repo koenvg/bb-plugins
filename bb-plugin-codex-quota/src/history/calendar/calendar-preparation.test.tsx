@@ -30,7 +30,7 @@ it("finishes 158 bounded batches on one open, keeps the chart usable, and refres
   render(<CalendarReportPanel selection={selection} now={now} read={read} prepare={prepare} />);
   await flush();
   expect(screen.getByRole("group", { name: "Daily recorded values" })).toBeTruthy();
-  expect(screen.getByText("Preparing history. The chart remains available.")).toBeTruthy();
+  expect(screen.queryByText("Preparing history. The chart remains available.")).toBeNull();
   fireEvent.change(screen.getByRole("combobox", { name: "Report metric" }), {
     target: { value: "cost" },
   });

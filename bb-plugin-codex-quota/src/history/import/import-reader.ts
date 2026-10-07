@@ -1,3 +1,8 @@
+import {
+  keepUncertainUsage,
+  uncertainCandidate,
+  type UncertainReason,
+} from "./import-uncertain.js";
 import { realpath } from "node:fs/promises";
 import { basename, join, normalize } from "node:path";
 import { setImmediate as yieldWork } from "node:timers/promises";
@@ -54,15 +59,16 @@ export async function header(
       return;
     }
     const h = parsed.data;
-    let workspace: string;
+    let workspace = h.cwd;
+    let uncertainty: UncertainReason | null = null;
     try {
       workspace = await realpath(h.cwd);
     } catch {
-      omit(db, g, c, "workspace-unverified");
-      return;
+      uncertainty = "workspace-unverified";
     }
-    if (!f.workspaces.some((w) => w.resolved === workspace)) {
-      omit(db, g, c, "workspace-unverified");
+    if (!f.workspaces.some((w) => w.resolved === workspace)) uncertainty = "workspace-unverified";
+    if (uncertainty && !f.includeUncertain) {
+      omit(db, g, c, uncertainty);
       return;
     }
     await revalidateFile(source.file, f.roots[c.root], c.name, source.stamp);
@@ -77,22 +83,36 @@ export async function header(
             claimed === join(r.resolved, basename(claimed)),
         );
       if (!allowed) {
-        omit(db, g, c, "unresolved-ancestry");
-        return;
-      }
-      parent = join(allowed.resolved, basename(claimed));
+        if (!f.includeUncertain) {
+          omit(db, g, c, "unresolved-ancestry");
+          return;
+        }
+        uncertainty ??= "unresolved-ancestry";
+      } else parent = join(allowed.resolved, basename(claimed));
     }
     if (
       parent &&
       !db.prepare("SELECT 1 FROM import_candidates WHERE generation=? AND path=?").get(g.id, parent)
     ) {
-      omit(db, g, c, "unresolved-ancestry");
-      return;
+      if (!f.includeUncertain) {
+        omit(db, g, c, "unresolved-ancestry");
+        return;
+      }
+      uncertainty ??= "unresolved-ancestry";
+    }
+    if (uncertainty) {
+      parent = null;
+      db.prepare("INSERT OR REPLACE INTO import_uncertain_candidates VALUES (?,?,?)").run(
+        g.id,
+        c.path,
+        uncertainty,
+      );
+      diagnostic(db, g, uncertainty);
     }
     db.prepare(
       "UPDATE import_candidates SET state='ready',offset=?,stamp=?,session=?,workspace=?,parent=? WHERE generation=? AND path=?",
     ).run(end + 1, JSON.stringify(source.stamp), h.id, h.cwd, parent, g.id, c.path);
-    if (c.provider) {
+    if (c.provider && !uncertainty) {
       await verifyWorkspaceAlias(db, h.cwd, workspace, realpath);
       await revalidateFile(source.file, f.roots[c.root], c.name, source.stamp);
       o.signal.throwIfAborted();
@@ -111,7 +131,7 @@ export async function header(
   }
 }
 type Entry = { parent_entry: string | null; event_id: string | null };
-function projectEntry(db: HistoryDatabase, g: Generation, c: Candidate, value: unknown) {
+function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidate, value: unknown) {
   const parsed = entryIdentity(value);
   if (!parsed.success) {
     diagnostic(db, g, "invalid-record");
@@ -119,8 +139,17 @@ function projectEntry(db: HistoryDatabase, g: Generation, c: Candidate, value: u
   }
   const e = parsed.data,
     usage = importedUsage(value, c.session!, c.workspace!, c.provider ? c.name : null);
+  const uncertainty = f.includeUncertain ? uncertainCandidate(db, g.id, c.path) : undefined;
+  if (uncertainty) {
+    if (usage.kind === "usage") keepUncertainUsage(db, g, e.id, usage.record, uncertainty);
+    else if (usage.kind === "invalid") diagnostic(db, g, "invalid-record");
+    return;
+  }
   const exclude = (code: "unresolved-ancestry" | "unresolved-overlap") => {
-    if (usage.kind === "usage") excludeCompactIdentity(db, usage.record.eventId);
+    if (usage.kind === "usage") {
+      if (f.includeUncertain) keepUncertainUsage(db, g, e.id, usage.record, code);
+      else excludeCompactIdentity(db, usage.record.eventId);
+    }
     diagnostic(db, g, code);
   };
   let copy: Entry | undefined;
@@ -269,7 +298,7 @@ export async function slice(
       for (const op of operations) {
         o.signal.throwIfAborted();
         if (op.code) diagnostic(db, g, op.code);
-        else projectEntry(db, g, c, op.value);
+        else projectEntry(db, g, f, c, op.value);
       }
       c.offset += at;
       db.prepare(

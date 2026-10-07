@@ -59,7 +59,18 @@ async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
         .prepare("SELECT * FROM import_candidates WHERE generation=? AND state='ready' LIMIT 1")
         .get(g.id) as Candidate | undefined;
       if (waiting) {
-        omit(db, g, waiting, "unresolved-ancestry");
+        if (f.includeUncertain) {
+          diagnostic(db, g, "unresolved-ancestry");
+          db.prepare("INSERT OR REPLACE INTO import_uncertain_candidates VALUES (?,?,?)").run(
+            g.id,
+            waiting.path,
+            "unresolved-ancestry",
+          );
+          db.prepare("UPDATE import_candidates SET parent=NULL WHERE generation=? AND path=?").run(
+            g.id,
+            waiting.path,
+          );
+        } else omit(db, g, waiting, "unresolved-ancestry");
         budget.rows--;
         continue;
       }
@@ -128,6 +139,7 @@ export async function executeImport(
     } catch {
       return importStatus(db, host, "invalid-configuration");
     }
+    f.includeUncertain = command.includeUncertain === true;
     o.signal.throwIfAborted();
     const end = new Date((o.now ?? Date.now)()),
       start = new Date(end);
