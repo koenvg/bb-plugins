@@ -91,6 +91,10 @@ jobs:
         id: install_dependencies
         run: npm ci
 
+      - name: Check Quota installed glob dependencies
+        if: matrix.plugin == 'bb-plugin-codex-quota'
+        run: npm run check:installed-globs
+
       - name: Lint Tasks Plus
         if: matrix.plugin == 'bb-plugin-tasks-plus'
         run: npm run lint
