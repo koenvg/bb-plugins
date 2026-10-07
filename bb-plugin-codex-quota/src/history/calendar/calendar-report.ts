@@ -1,3 +1,4 @@
+import { uncertainTotals } from "../import/import-uncertain.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { readCalendarTotals, effectiveRetentionState } from "../storage/history-retention.js";
 import { readCoverage } from "../collection/history-coverage.js";
@@ -116,12 +117,23 @@ function readRange(
       (excludedStatement.get(...excludedFilter.values, day.start, dayEnd) as { total: number })
         .total,
     );
+    const uncertain = query.includeUncertain
+      ? uncertainTotals(
+          db,
+          day.start,
+          dayEnd,
+          query.scope.kind === "workspace" ? query.scope.workspace : undefined,
+        )
+      : undefined;
     return {
       date: day.date,
       totalTokens: recorded?.totalTokens ?? 0,
       activeEntities: recorded?.activeEntities ?? 0,
       excludedTokens,
-      coverage,
+      coverage: uncertain?.records
+        ? { ...coverage, state: "incomplete" as const, zero: false, uncertain: true }
+        : coverage,
+      ...(uncertain ? { uncertain } : {}),
       money: calendarMoney(
         recorded ?? { capturedCost: 0, pricedEvents: 0, events: 0, pricedEntities: 0 },
       ),
@@ -203,7 +215,7 @@ function readRange(
     };
   });
   const inactive = days.every((day) => day.coverage.zero),
-    anyUsage = days.some((day) => day.activeEntities > 0);
+    anyUsage = days.some((day) => day.activeEntities > 0 || (day.uncertain?.records ?? 0) > 0);
   const value: CalendarSnapshot = {
     state: inactive ? "observed-inactivity" : anyUsage ? "partial" : "unknown",
     reason: "ok",
@@ -215,6 +227,16 @@ function readRange(
       dayBoundary(shiftDate(query.startDate, -30), query.timezone) >= retention.compact_cutoff,
     next: shiftDate(query.startDate, 30) <= latest,
     summary: {
+      ...(query.includeUncertain
+        ? {
+            uncertain: uncertainTotals(
+              db,
+              start,
+              end,
+              query.scope.kind === "workspace" ? query.scope.workspace : undefined,
+            ),
+          }
+        : {}),
       totalTokens: summary.totalTokens,
       activeEntities: summary.activeEntities,
       money: calendarMoney(summary),

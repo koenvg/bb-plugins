@@ -20,6 +20,8 @@ Historical import requires explicit source roots and workspace paths for each se
 
 Import saves progress for a frozen source scope and UTC range. Coverage stays partial even when the import completes or finds no records. Imported records do not confirm live writer activation. Cancel stops further work, but committed records remain. Changing hosts does not undo a committed operation. See [Historical import](docs/IMPORT.md) for source, omission and replay limits.
 
+The chart includes uncertain token estimates by default. New manual imports retain readable omissions separately. A dashed chart segment, tooltips and the accessible table keep estimates distinct from recorded usage. There are no uncertainty toggles or combined-total banners. Duplicate checks are approximate. Recorded totals, thread attribution, costs, quota and account activity stay separate. Missing or unreadable token counts are not invented.
+
 ## Recorded usage calendar
 
 The quota page shows a read-only chart of retained collected and imported usage for the selected host. The latest range covers 30 dates ending yesterday in the viewer's timezone. Previous 30 days and Next 30 days move within retained bounds. Choose Tokens or Estimated cost. The current chart combines workspace usage; it has no thread-grouping or period-comparison controls. Exact-thread totals are in history management.

@@ -20,6 +20,12 @@ it("renders the real library's axes and keyboard-accessible chart", () => {
   expect(page.container.querySelector(".recharts-xAxis")).toBeTruthy();
   expect(page.container.querySelector(".recharts-yAxis")).toBeTruthy();
   expect(
+    page.container.querySelectorAll(".recharts-xAxis-tick-labels tspan").length,
+  ).toBeGreaterThan(0);
+  expect(page.container.querySelector(".recharts-xAxis-tick-labels tspan")?.textContent).toMatch(
+    /Mon|Tue|Wed|Thu|Fri|Sat|Sun/,
+  );
+  expect(
     screen.getByRole("table", { name: "Daily recorded usage" }).querySelectorAll("tbody tr"),
   ).toHaveLength(30);
   expect(screen.queryByRole("region", { name: "Daily detail" })).toBeNull();
@@ -68,13 +74,43 @@ it("retains precise captured prices and partial coverage in the tooltip", () => 
     reason: "missing-prices",
   };
   render(<UsageTooltip day={day} metric="cost" />);
-  expect(screen.getByText("USD estimate: $0.39813160000000003", { exact: true })).toBeTruthy();
+  expect(screen.getByText("$0.39813160000000003", { exact: true })).toBeTruthy();
   expect(screen.getAllByText(/partial/i).length).toBeTruthy();
   expect(screen.getByText("Captured estimate, not billed charges.")).toBeTruthy();
 });
+it("shows weekdays and exact values without zero-estimate clutter", () => {
+  const day = calendarSnapshot(query).days[14];
+  day.uncertain = { totalTokens: 0, records: 0 };
+  render(<UsageTooltip day={day} metric="tokens" />);
+  const tip = screen.getByRole("tooltip");
+  expect(tip.querySelector("time")?.dateTime).toBe("2026-09-15");
+  expect(within(tip).getByText("Tue, Sep 15, 2026")).toBeTruthy();
+  expect(within(tip).getByText("Recorded tokens")).toBeTruthy();
+  expect(within(tip).getByText("600")).toBeTruthy();
+  expect(within(tip).getByText("Excluded tokens")).toBeTruthy();
+  expect(within(tip).getByText("2")).toBeTruthy();
+  expect(within(tip).queryByText("Uncertain estimate")).toBeNull();
+  expect(within(tip).queryByText("Duplicate checks are approximate.")).toBeNull();
+});
+it.each(["tokens", "cost"] as const)(
+  "keeps positive estimates distinct and token-only for %s",
+  (metric) => {
+    const day = calendarSnapshot(query).days[14];
+    day.uncertain = { totalTokens: 350, records: 1 };
+    render(<UsageTooltip day={day} metric={metric} />);
+    const tip = screen.getByRole("tooltip");
+    expect(!!within(tip).queryByText("350 tokens")).toBe(metric === "tokens");
+    expect(!!within(tip).queryByText("Duplicate checks are approximate.")).toBe(
+      metric === "tokens",
+    );
+  },
+);
 it.each([
   [0.39813160000000003, "$0.40"],
   [1.384036, "$1.38"],
+  [287.24, "$287.24"],
+  [1234567.89, "$1.2M"],
+  [Number.MAX_SAFE_INTEGER, "$9007.2T"],
   [0.0000001, "$1.00e-7"],
   [Number.MIN_VALUE, "$4.94e-324"],
 ] as const)("formats axis estimates without rounding %s to zero", (value, expected) => {
@@ -93,9 +129,10 @@ it.each([
   expect(data.rows[14].height).toBe(1);
   render(<CalendarValues view={view} metric="cost" />);
   expect(screen.getByRole("application")).toBeTruthy();
-  expect(screen.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-    `$${value}`,
-  );
+  const captured = screen
+    .getByRole("table", { name: "Daily recorded usage" })
+    .querySelectorAll("tbody tr")[14].textContent;
+  expect(captured?.replaceAll(",", "")).toContain(`$${value}`);
 });
 it("keeps billing limits and daily attribution exclusions in the screen-reader table", () => {
   const view = calendarSnapshot(query),

@@ -40,7 +40,7 @@ class Driver:
         self.cdp("DOM.scrollIntoViewIfNeeded", backendNodeId=node)
         quad = self.cdp("DOM.getBoxModel", backendNodeId=node)["model"]["content"]
         x, y = sum(quad[0::2]) / 4, sum(quad[1::2]) / 4
-        self.js(f"document.elementFromPoint({x}, {y}).closest('button, summary, a').click()")
+        self.js(f"document.elementFromPoint({x}, {y}).closest('button, summary, a, input[type=checkbox]').click()")
 
     def select(self, label, value, wait=True):
         # Deterministic DOM change. Native dropdown/OS interaction is a separate limit.
@@ -93,6 +93,8 @@ class Driver:
         assert len(rows) == 30 and len(table_rows) == 31, "Need one header and 30 daily AX rows"
         headers = [name(node) for node in descendants(table_rows[0]) if role(node) == "columnheader"]
         expected_headers = ["Date", "USD estimate" if metric == "cost" else "Tokens", "Coverage", "Recorded exclusions"]
+        if metric == "tokens":
+            expected_headers.insert(2, "Uncertain token estimate")
         if metric == "cost":
             expected_headers.append("Pricing")
         assert headers == expected_headers, headers
@@ -112,7 +114,7 @@ class Driver:
         # Start from the real active date; focus and hover can retain different indices.
         for _ in range(30):
             text = self.js("document.querySelector('.recharts-tooltip-wrapper')?.textContent || ''")
-            current_date = self.js("document.querySelector('.recharts-tooltip-wrapper p')?.textContent")
+            current_date = self.js("document.querySelector('.recharts-tooltip-wrapper time')?.getAttribute('datetime')")
             assert current_date in dates, ("Tooltip has no report date", current_date)
             index = dates.index(current_date)
             if index == 14:
@@ -120,7 +122,7 @@ class Driver:
             key = 'ArrowLeft' if index > 14 else 'ArrowRight'
             self.js(f"document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {{key:{json.dumps(key)},bubbles:true}}))")
             self.wait(f"(document.querySelector('.recharts-tooltip-wrapper')?.textContent || '') !== {json.dumps(text)}")
-        self.wait(f"document.querySelector('.recharts-tooltip-wrapper p')?.textContent === {json.dumps(dates[14])}")
+        self.wait(f"document.querySelector('.recharts-tooltip-wrapper time')?.getAttribute('datetime') === {json.dumps(dates[14])}")
         keyboard = self.tooltip_facts(metric)
         # A no-op hover must not reuse the successful keyboard tooltip.
         bar = self.js("(() => { const e = [...document.querySelectorAll('.recharts-bar-rectangle path')].find(e => {const r=e.getBoundingClientRect(); return r.width>0 && r.height>0;}); if (!e) return null; const r = e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+Math.min(r.height/2,10)}; })()")
@@ -128,25 +130,33 @@ class Driver:
         if bar:
             self.js("document.querySelector('.recharts-surface[role=application]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true}))")
             self.wait(f"(document.querySelector('.recharts-tooltip-wrapper')?.textContent || '') !== {json.dumps(keyboard['tooltip'])}")
-            before_pointer_date = self.js("document.querySelector('.recharts-tooltip-wrapper p')?.textContent")
+            before_pointer_date = self.js("document.querySelector('.recharts-tooltip-wrapper time')?.getAttribute('datetime')")
             assert before_pointer_date in dates and before_pointer_date != dates[14]
             self.js(f"document.querySelector('.recharts-wrapper').dispatchEvent(new MouseEvent('mousemove', {{clientX:{bar['x']},clientY:{bar['y']},bubbles:true}}))")
             # Request a rendered frame so an occluded browser can process its hover RAF.
             self.cdp("Page.captureScreenshot", format="png", captureBeyondViewport=False)
-            self.wait(f"document.querySelector('.recharts-tooltip-wrapper p')?.textContent === {json.dumps(dates[14])}")
+            self.wait(f"document.querySelector('.recharts-tooltip-wrapper time')?.getAttribute('datetime') === {json.dumps(dates[14])}")
             pointer = self.tooltip_facts(metric)
             pointer["fromDate"] = before_pointer_date
         return {**keyboard, "pointer": pointer}
 
     def tooltip_facts(self, metric):
         row = self.table()[14]
-        lines = self.js("[...document.querySelectorAll('.recharts-tooltip-wrapper p')].map(e => e.textContent)")
-        expected = [row[0], f"{'USD estimate' if metric == 'cost' else 'Tokens'}: {row[1]}", row[2]]
+        definitions = self.js("[...document.querySelectorAll('.recharts-tooltip-wrapper dl > div')].map(e => [e.querySelector('dt').textContent,e.querySelector('dd').textContent])")
+        expected_definitions = [["USD estimate" if metric == "cost" else "Recorded tokens", row[1]]]
+        if metric == "tokens" and row[2] != "0":
+            expected_definitions.append(["Uncertain estimate", f"{row[2]} tokens"])
+        exclusions = row[4 if metric == "tokens" else 3].removesuffix(" excluded tokens")
+        if exclusions != "0":
+            expected_definitions.append(["Excluded tokens", exclusions])
+        assert definitions == expected_definitions, (expected_definitions, definitions)
+        lines = self.js("[...document.querySelectorAll('.recharts-tooltip-wrapper [role=tooltip] > div p')].map(e => e.textContent)")
+        expected = [row[3 if metric == "tokens" else 2]]
         if metric == "cost":
             expected.extend([row[4], "Captured estimate, not billed charges."])
-        if row[3] != "0 excluded tokens":
-            expected.append(row[3])
-        assert lines == expected, ("Tooltip facts differ from the target date", expected, lines)
+        if metric == "tokens" and row[2] != "0":
+            expected.append("Duplicate checks are approximate.")
+        assert lines == expected, (expected, lines)
         text = self.js("document.querySelector('.recharts-tooltip-wrapper').textContent")
         return {"row": row, "tooltip": text, "lines": lines}
 
@@ -164,8 +174,17 @@ class Driver:
           const s = document.querySelector('.recharts-surface');
           const y = [...document.querySelectorAll('.recharts-yAxis-tick-labels text')].map(e => e.textContent);
           const x = [...document.querySelectorAll('.recharts-xAxis-tick-labels text')].map(e => e.textContent);
+          const label = document.querySelector('.recharts-label')?.getBoundingClientRect();
+          const ticks = [...document.querySelectorAll('.recharts-yAxis-tick-labels text')].map(e => e.getBoundingClientRect());
+          const bounds = s?.getBoundingClientRect();
+          const tip = document.querySelector('.recharts-tooltip-wrapper [role=tooltip]')?.getBoundingClientRect();
+          const tooltipContained = tip && bounds ? tip.left >= bounds.left && tip.right <= bounds.right && tip.top >= 0 && tip.bottom <= innerHeight : false;
+          const axisSpacing = label && ticks.length && bounds ? {
+            gap: Math.min(...ticks.map(r => r.left)) - label.right,
+            contained: label.left >= bounds.left && ticks.every(r => r.left >= bounds.left)
+          } : null;
           return {width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth,
-            chartWidth: s?.getBoundingClientRect().width, x, y,
+            axisSpacing, tooltipContained, chartWidth: s?.getBoundingClientRect().width, x, y,
             body: document.body.innerText};
         })()""")
 
@@ -196,26 +215,37 @@ class Driver:
                 assert len(rows) == 30
                 expected_values = {
                     "tokens": {"unknown": "Unavailable", "inactive": "0", "huge": "9,007,199,254,740,991"},
-                    "cost": {"unknown": "Unavailable", "inactive": "Unavailable", "no-prices": "Unavailable",
+                    "cost": {"partial": "$287.24", "unknown": "Unavailable", "inactive": "Unavailable", "no-prices": "Unavailable",
                              "huge": "$9,007,199,254,740,991", "tiny": "$5e-324"},
                 }
                 expected = expected_values[metric].get(state, "$0.39813160000000003" if metric == "cost" else "600")
                 assert rows[14][1] == expected, (state, metric, rows[14])
-                assert ("Observed inactivity" if state == "inactive" else "Unknown, uncovered gap" if state == "unknown" else "Partial, recorded usage") in rows[14][2], rows[14]
+                assert ("Observed inactivity" if state == "inactive" else "Unknown, uncovered gap" if state == "unknown" else "Partial, recorded usage") in rows[14][3 if metric == "tokens" else 2], rows[14]
                 if state not in ["inactive", "unknown"]:
                     assert rows[0][1] == "Unavailable", rows[0]
-                    assert rows[14][3] == "2 excluded tokens"
+                    assert rows[14][4 if metric == "tokens" else 3] == "2 excluded tokens"
                 tooltip = self.tooltip(metric)
                 tooltip["accessibility"] = self.accessible_facts(rows, metric)
                 facts.append(tooltip)
                 layout = self.layout()
                 assert len(layout["x"]) >= 2, layout
+                assert layout["axisSpacing"] and layout["axisSpacing"]["gap"] >= 8, layout
+                assert all(label.startswith(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")) for label in layout["x"]), layout
+                assert layout["axisSpacing"]["contained"], layout
+                assert layout["tooltipContained"], layout
                 if expected not in ["Unavailable", "0"]:
                     assert len(layout["y"]) >= 2, layout
                 assert self.js("!!document.querySelector('.recharts-yAxis')")
                 axis_name = "USD estimate" if metric == "cost" else "Tokens"
                 assert axis_name in self.js("[...document.querySelectorAll('.recharts-label')].map(e=>e.textContent).join(' ')")
                 assert self.js("document.querySelector('button[aria-label=\"Next 30 days\"]').disabled")
+            assert not self.js("!!document.querySelector('input[type=checkbox]')")
+            assert not self.js("!!document.querySelector('[aria-label=\"Estimated token summary\"]')")
+            assert not self.js("document.body.innerText.includes('Preparing history. The chart remains available.')")
+            if state == "partial" and metric == "tokens":
+                assert [call for call in self.calls() if call["method"] == "calendarReport"][-1]["input"]["query"]["includeUncertain"] is True
+                assert self.table()[14][2] == "300"
+                assert self.js("!!document.querySelector('.recharts-bar-rectangle path[stroke-dasharray]')")
             layout = self.layout()
             assert not layout["overflow"], layout
             self.capture(f"{self.config['suite']}-{width}-{state}-{metric}", width)

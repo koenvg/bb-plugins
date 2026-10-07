@@ -8,7 +8,7 @@ import {
   type CalendarQuery,
   type CalendarReport,
 } from "./calendar-contract.js";
-import { latestStart, localDate, shiftDate, validTimezone } from "./calendar-time.js";
+import { latestStart, shiftDate, validTimezone } from "./calendar-time.js";
 import { dateTick } from "./calendar-chart-data.js";
 import { CalendarValues, reportButton, reportControl, type TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
@@ -59,7 +59,13 @@ export function CalendarReportPanel({
     [attempt, setAttempt] = useState(0);
   const query: CalendarQuery | null =
     timezone && start
-      ? { startDate: start, timezone, group: "workspace", scope: { kind: "host" } }
+      ? {
+          startDate: start,
+          timezone,
+          group: "workspace",
+          scope: { kind: "host" },
+          includeUncertain: true,
+        }
       : null;
   const queryKey = query ? JSON.stringify(query) : "",
     key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`,
@@ -192,11 +198,6 @@ export function CalendarReportPanel({
                     ? "Chart is out of date."
                     : ""}
       </p>
-      {preparation.state === "pending" && (
-        <p role="status" className="mt-2 text-xs text-muted-foreground">
-          Preparing history. The chart remains available.
-        </p>
-      )}
       {preparation.state === "stopped" && (
         <div className="mt-2 text-xs text-muted-foreground">
           <p role="status">History preparation stopped. Recorded values remain available.</p>
@@ -204,11 +205,6 @@ export function CalendarReportPanel({
             Retry preparation
           </button>
         </div>
-      )}
-      {view && timezone && view.days.at(-1)?.date === localDate(now, timezone) && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Today is in progress. Values are recorded so far.
-        </p>
       )}
       {stale && (
         <button
@@ -240,18 +236,11 @@ export function CalendarReportPanel({
       )}
       {view && (
         <>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {view.state === "observed-inactivity"
-              ? "Observed inactivity"
-              : view.state === "unknown"
-                ? "No recorded history"
-                : "Partial history"}
-            {metric === "cost"
-              ? view.summary.money.state === "unavailable"
-                ? " · Prices unavailable"
-                : " · Captured estimates"
-              : ""}
-          </p>
+          {view.state !== "partial" && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {view.state === "observed-inactivity" ? "Observed inactivity" : "No recorded history"}
+            </p>
+          )}
           <CalendarValues view={view} metric={metric} />
         </>
       )}

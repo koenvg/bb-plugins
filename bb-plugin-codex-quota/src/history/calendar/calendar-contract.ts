@@ -24,9 +24,11 @@ export const calendarQuerySchema = z
       z.object({ kind: z.literal("thread"), threadId: thread }).strict(),
     ]),
     comparison: z.boolean().optional(),
+    includeUncertain: z.boolean().optional(),
   })
   .strict()
-  .refine((q) => q.scope.kind === "host" || q.scope.kind === q.group);
+  .refine((q) => q.scope.kind === "host" || q.scope.kind === q.group)
+  .refine((q) => !q.includeUncertain || (q.group === "workspace" && !q.comparison));
 export type CalendarQuery = z.infer<typeof calendarQuerySchema>;
 export const calendarCoverageSchema = z
   .object({
@@ -109,6 +111,7 @@ export const calendarDaySchema = z
     totalTokens: count,
     activeEntities: count,
     excludedTokens: count,
+    uncertain: z.object({ totalTokens: count, records: count }).strict().optional(),
     coverage: calendarCoverageSchema,
     money: calendarMoneySchema,
     classes,
@@ -125,6 +128,7 @@ export const calendarDaySchema = z
   );
 export const calendarSummarySchema = z
   .object({
+    uncertain: z.object({ totalTokens: count, records: count }).strict().optional(),
     totalTokens: count,
     activeEntities: count,
     excludedTokens: count,
@@ -244,6 +248,15 @@ export const calendarReportSchema = z
         value.ranking.some((row) => row.money.pricedEntities > 1)
       )
         ctx.addIssue({ code: "custom", message: "Calendar entity denominator mismatch" });
+      if (
+        totals.some(
+          (total) =>
+            !!total.uncertain !== !!value.query.includeUncertain ||
+            (total.uncertain &&
+              !Number.isSafeInteger(total.totalTokens + total.uncertain.totalTokens)),
+        )
+      )
+        ctx.addIssue({ code: "custom", message: "Calendar uncertain totals mismatch" });
       const comparison = value.comparison;
       if (!!value.query.comparison !== !!comparison)
         ctx.addIssue({ code: "custom", message: "Calendar comparison presence mismatch" });

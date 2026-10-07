@@ -21,7 +21,8 @@ export const importCommandSchema = z.discriminatedUnion("action", [
       configuration: importConfigurationSchema,
     })
     .strict(),
-  ...(["status", "start", "resume", "cancel"] as const).map((action) =>
+  z.object({ action: z.literal("start"), includeUncertain: z.boolean().optional() }).strict(),
+  ...(["status", "resume", "cancel"] as const).map((action) =>
     z.object({ action: z.literal(action) }).strict(),
   ),
 ]);
@@ -73,6 +74,8 @@ export const importViewSchema = z
         records: count,
         replayed: count,
         omissions: count,
+        includeUncertain: z.boolean().optional(),
+        uncertainRecords: count.optional(),
         coverage: z.literal("partial"),
         diagnostics: z.array(importDiagnosticSchema).max(20),
       })

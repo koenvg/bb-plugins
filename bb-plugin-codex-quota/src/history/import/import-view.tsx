@@ -193,7 +193,7 @@ export function ImportPanel({
         <button
           className={button}
           disabled={!selection.hostId || pending || unfinished || !view?.configuration}
-          onClick={() => activate({ action: "start" })}
+          onClick={() => activate({ action: "start", includeUncertain: true })}
         >
           Start import
         </button>
@@ -235,6 +235,12 @@ export function ImportPanel({
             records processed. {view.generation.replayed} confirmed inherited entries excluded.{" "}
             {view.generation.omissions} omissions.
           </p>
+          {view.generation.includeUncertain && (
+            <p>
+              {view.generation.uncertainRecords ?? 0} new uncertain token records retained for
+              estimates. Duplicate checks are approximate.
+            </p>
+          )}
           <p>
             Partial coverage, including when no records are found. No actual usage is inferred as
             zero.

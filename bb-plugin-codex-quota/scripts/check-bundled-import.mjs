@@ -233,6 +233,44 @@ try {
       Buffer.from("PRIVATE_PACKAGED"),
     ),
   );
+  // Opt-in estimates recover readable omissions without changing accepted records or prices.
+  const outside = join(root, "outside-bb-workspace");
+  mkdirSync(outside);
+  for (const id of ["outside-a", "outside-b"]) {
+    writeFileSync(
+      join(ordinary, id + ".jsonl"),
+      [{ ...header(id), cwd: outside }, message("uncertain-shared-entry")]
+        .map(JSON.stringify)
+        .join("\n") + "\n",
+    );
+  }
+  v = await call(reload, { action: "start", includeUncertain: true });
+  for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+    v = await call(reload, { action: "resume" });
+  assert.equal(v.generation.state, "completed");
+  assert.equal(v.generation.includeUncertain, true);
+  assert.ok(v.generation.uncertainRecords >= 2);
+  const calendarQuery = {
+    startDate: new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10),
+    timezone: "UTC",
+    group: "workspace",
+    scope: { kind: "host" },
+  };
+  const recordedReport = await reload.default.handlers.calendarReport(calendarQuery, context);
+  const estimateReport = await reload.default.handlers.calendarReport(
+    { ...calendarQuery, includeUncertain: true },
+    context,
+  );
+  assert.notEqual(estimateReport.state, "unavailable");
+  assert.equal(recordedReport.summary.totalTokens, 10);
+  assert.equal(recordedReport.summary.uncertain, undefined);
+  assert.equal(estimateReport.summary.totalTokens, 10);
+  assert.deepEqual(estimateReport.summary.uncertain, { totalTokens: 5, records: 1 });
+  assert.deepEqual(estimateReport.summary.money, recordedReport.summary.money);
+  assert.equal(leases, 0);
+  console.log(
+    "Packaged uncertain history: explicit import opt-in, separate indexed tokens, fork deduplication and unchanged recorded totals/prices passed.",
+  );
   await call(reload, { action: "start" });
   await call(reload, { action: "cancel" });
   assert.equal((await call(reload, { action: "status" })).generation.state, "canceled");

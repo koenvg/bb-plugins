@@ -12,6 +12,18 @@ The browser RPC accepts only selected host/generation and a strict command. Conf
 
 Use specific ordinary Pi session directories associated with the selected workspaces. Ordinary source discovery is flat and nonrecursive. Do not configure a home directory or a general filesystem root. No folder name encoding, basename or prefix proves a workspace. A transcript's validated header cwd must resolve to a frozen known workspace on its owning host. Root aliases are resolved on that host; redirected aliases, replaced directories and symlink transcript files fail confinement checks.
 
+## Uncertain token history
+
+The Historical import UI retains readable omitted Codex token counts by default when you select Start import. There is no uncertainty toggle. Start freezes the recovery mode; Resume cannot change it. Existing completed imports need a new import to recover earlier omissions. Import status and chart opening do not scan transcripts. The public start command keeps its optional includeUncertain field for existing callers; the UI always sends true.
+
+In this mode, sessions inside the explicitly configured source roots can contribute estimates even if their header workspace is outside the verified BB workspace scope, unavailable, or their ancestry/overlap cannot be proved. Source confinement, file identity, strict headers, valid token counts, byte/row limits, cancellation and the frozen UTC range still apply. No parent claim is followed outside those roots. Unreadable, malformed, oversized or changed-source records remain unknown. The importer does not invent token counts.
+
+Only scalar token metadata is retained in a separate optional index. Uncertain records never establish workspace aliases, thread ownership, captured prices or account ownership. The status counts newly retained uncertain records before best-effort duplicate checks. Repeat imports do not duplicate those scalar records. Public API starts that omit includeUncertain keep their earlier strict behavior and do not write this index.
+
+The chart includes retained uncertain tokens by default and reads the index only. Recorded totals, rankings, thread reports, costs, quota and account activity stay separate. Token bars use a dashed segment for uncertain estimates. Tooltips and the accessible table separate recorded and uncertain counts. The chart has no uncertainty toggle, instruction block or combined-total banner. Exact-thread reports and comparisons do not accept this mode.
+
+Duplicate checks suppress records already accepted by the canonical index, plausible live matches with the same session/time/token total, and shared entry IDs with matching scalar usage across forks. These checks can undercount or overcount and never certify exact history. Uncertain scalar records use the same compact retention cutoff and bounded maintenance budget as recorded history.
+
 ## Start, status, resume and cancel
 
 Start import freezes the configured resolved roots, directory identities, owning-host verified workspace scopes, completed public provider-identity catalog and a retained UTC window. The window starts three calendar months plus nine support/margin days before Start and ends at Start's original UTC instant. Later account settings and prices cannot change it.
