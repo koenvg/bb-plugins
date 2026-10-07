@@ -66,6 +66,7 @@ describe("session task previews", () => {
     const fetch = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(fresh.promise);
     const previews = createTaskPreviews(fetch);
     const old = previews.load("TSK-1");
+    await Promise.resolve(); // Issue the first transport before invalidating it.
     previews.invalidate();
     const next = previews.load("TSK-1");
     fresh.resolve(task(1, "Current"));
