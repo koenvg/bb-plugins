@@ -116,6 +116,8 @@ function CalendarDateTick({
 export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metric: TokenMetric }) {
   const [chartWidth, setChartWidth] = useState(320);
   const { rows, maximum } = chartData(view.days, metric);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const selectedDay = view.days.find((day) => day.date === selectedDate);
   const ticks =
     maximum < (metric === "cost" || metric === "cost-per-entity" ? 0.01 : 4)
       ? [0, 1]
@@ -217,6 +219,34 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
             </span>
           </p>
         )}
+      <details className="mt-3 text-sm text-foreground">
+        <summary className="min-h-9 cursor-pointer rounded-md px-2 py-2 focus-visible:outline-2 focus-visible:outline-ring">
+          Inspect a date
+        </summary>
+        <div
+          role="group"
+          aria-label="Choose a recorded date"
+          className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-10"
+        >
+          {view.days.map((day) => (
+            <button
+              key={day.date}
+              type="button"
+              aria-label={`Inspect ${day.date}`}
+              aria-pressed={selectedDay?.date === day.date}
+              className="min-h-9 min-w-0 rounded-md border border-border px-1 py-2 text-xs tabular-nums hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent"
+              onClick={() => setSelectedDate(day.date)}
+            >
+              {dateTick(day.date)}
+            </button>
+          ))}
+        </div>
+        {selectedDay && (
+          <section className="mt-3" aria-label="Selected date" aria-live="polite">
+            <UsageTooltip day={selectedDay} metric={metric} />
+          </section>
+        )}
+      </details>
       <div className="sr-only">
         <table aria-label="Daily recorded usage">
           <caption>
