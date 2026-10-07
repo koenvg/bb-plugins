@@ -65,6 +65,13 @@ describe("public SDK and quota-only boundary", () => {
           entry.file === "scripts/calendar-preview.tsx"
         )
           return false; // Public SDK React fixture. Never shipped as the plugin app.
+        // CI-only guard imports exact file URLs resolved through the installed Pi graph.
+        if (
+          entry.reason === "dynamic-specifier" &&
+          entry.file === "scripts/check-installed-globs.mjs" &&
+          (entry.specifier === "brace" || entry.specifier === "minimatch")
+        )
+          return false;
         return (
           entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier
         );
