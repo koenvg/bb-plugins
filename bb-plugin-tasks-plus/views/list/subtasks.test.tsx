@@ -176,7 +176,7 @@ function render(tasks: Task[], subPath = PROJECT_ID, rich = false) {
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
         updateTask: (raw) => {
           const input = rpcInput(raw);

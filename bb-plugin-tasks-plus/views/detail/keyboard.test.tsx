@@ -111,7 +111,7 @@ function render(
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listBbProjects: () => ({ bbProjects: [] }),
         delegate: () => {
           calls.push("delegate");

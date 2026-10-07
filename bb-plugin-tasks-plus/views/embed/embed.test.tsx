@@ -59,7 +59,7 @@ function taskDetailRpc(getTaskByKey: () => { task: typeof task }) {
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
     listPresets: () => ({ presets: [] }),
-    listComments: () => ({ comments: [] }),
+    getTaskActivity: () => ({ entries: [] }),
     searchThreads: () => ({ threads: [] }),
   };
 }

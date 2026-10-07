@@ -44,7 +44,7 @@ function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
         listTaskThreads: () => ({ taskThreads: [] }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listTaskPullRequests: () => ({
           pullRequests: [],
           unavailableThreadIds: [],

@@ -203,7 +203,7 @@ describe("remembered Tasks entry", () => {
       listProjects: () => new Promise(() => {}),
       getTaskByKey: () => ({ task }),
       listAttachments: () => ({ attachments: [] }),
-      listComments: () => ({ comments: [] }),
+      getTaskActivity: () => ({ entries: [] }),
       listTaskThreads: () => ({ taskThreads: [] }),
       listTaskDependencies: () => ({ blockers: [], blocking: [] }),
     });

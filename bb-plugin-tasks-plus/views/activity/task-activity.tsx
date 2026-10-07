@@ -22,35 +22,25 @@ import {
   type StagedAttachment,
 } from "../../components/staged-attachments.js";
 import { attachmentDownloadUrl } from "../../shared/attachments.js";
-import type { Attachment, Comment, DisplayComment } from "../../shared/contract.js";
+import type {
+  Attachment,
+  Comment,
+  DisplayComment,
+  TaskActivityEntry,
+} from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { formatFileSize, formatRelativeTime, splitSystemBody, useNowTick } from "./time.js";
 import { CommentAuthor } from "./comment-author.js";
 import { CommentProviderAvatar } from "./provider-logo.js";
 
 import { useCommentDraft } from "./comment-drafts.js";
-interface FeedEntry {
-  comment: DisplayComment;
-  attachments: Attachment[];
-}
+type FeedEntry = TaskActivityEntry;
 
 function useActivityFeed(taskId: string) {
   return useTasksQuery<FeedEntry[]>(
     async (rpc) => {
-      const { comments } = await rpc.call("listComments", { taskId });
-      const attachments = await Promise.all(
-        comments.map((comment) =>
-          comment.kind === "system"
-            ? Promise.resolve<Attachment[]>([])
-            : rpc
-                .call("listAttachments", { commentId: comment.id })
-                .then((result) => result.attachments),
-        ),
-      );
-      return comments.map((comment, index) => ({
-        comment,
-        attachments: attachments[index] ?? [],
-      }));
+      const { entries } = await rpc.call("getTaskActivity", { taskId });
+      return entries;
     },
     ["comments:changed", "tasks:changed"],
     [taskId],
@@ -445,6 +435,12 @@ interface TaskActivityProps {
 }
 
 export function TaskActivity({ taskId, onCommentEditorReady }: TaskActivityProps) {
+  return (
+    <TaskActivityFeed key={taskId} taskId={taskId} onCommentEditorReady={onCommentEditorReady} />
+  );
+}
+
+function TaskActivityFeed({ taskId, onCommentEditorReady }: TaskActivityProps) {
   const feed = useActivityFeed(taskId);
   const nowMs = useNowTick();
   const entries = useMemo(() => feed.data ?? [], [feed.data]);
@@ -464,7 +460,26 @@ export function TaskActivity({ taskId, onCommentEditorReady }: TaskActivityProps
             "before:absolute before:bottom-1.5 before:left-[11px] before:top-1.5 before:w-px before:bg-border-hairline",
         )}
       >
-        {feed.error ? <div className="text-xs text-destructive">{feed.error}</div> : null}
+        {feed.isLoading ? (
+          <div role="status" className="text-xs text-muted-foreground">
+            Loading activity…
+          </div>
+        ) : null}
+        {feed.error ? (
+          <div role="alert" className="mb-2 text-xs text-destructive">
+            <div>Could not load activity: {feed.error}</div>
+            {feed.data ? <div>Showing previously loaded activity.</div> : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={feed.refresh}
+              disabled={feed.isLoading}
+            >
+              Retry activity
+            </Button>
+          </div>
+        ) : null}
         {entries.length === 0 && !feed.isLoading && !feed.error ? (
           <div className="text-xs text-muted-foreground">No activity yet.</div>
         ) : null}

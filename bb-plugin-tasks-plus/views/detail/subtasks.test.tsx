@@ -85,7 +85,7 @@ function renderParent(subtasks: () => Task[]) {
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
       },
     },
   );
