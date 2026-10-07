@@ -54,6 +54,10 @@ Host changes, hiding and unmounting cancel queued continuation and ignore late r
 
 Quota, its footer, countdown, host selection, refresh and the official usage link remain independent of chart failure. At 375 CSS pixels the primary controls wrap. The browser fixture checks document overflow and settled chart width, not native touch or installed BB settings navigation.
 
+The 30-day chart has a collapsed Inspect a date control below it. Open it to select any date with a native button. The picker uses five columns on narrow screens and ten on wider screens, with a minimum button height of 36px. Selected facts use the same values, coverage labels, exclusions and captured-price limits as the chart tooltip. Unknown history stays unavailable; recorded inactivity stays zero. Date selection is local and makes no report request.
+
+For touch-target measurements and native-input regression checks, build the existing calendar preview with the generated plugin CSS and serve it on localhost. Run `browser-use < scripts/check-date-picker-preview.py`. Set `BBP119_PREVIEW_URL` for the loopback URL and `BBP119_EVIDENCE_DIR` for screenshots and JSON measurements. The script uses and closes only a new owned tab. Browser device emulation is not a physical-device check or installed acceptance. If background touch input is blocked, `BBP119_SKIP_TOUCH=1` runs the remaining checks and explicitly reports that touch is not verified.
+
 ## Storage and interfaces
 
 Schema 4 and immutable compact facts are unchanged. Internal `readCalendarTotals` uses indexed storage-side aggregation over accepted records in the bounded UTC interval. Real IANA boundaries assign local dates, including 23-hour and 25-hour dates. Logical cutoffs use the later of the current retention policy and saved monotonic cutoff. Dormant reads cannot expose expired ranges or classes while physical cleanup waits. No individual event array or accepted-record cap crosses the report boundary. The DTO has exactly 30 dates and at most 50 ranked entities; the primary chart does not render the ranking.
