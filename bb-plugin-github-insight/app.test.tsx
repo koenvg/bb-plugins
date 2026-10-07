@@ -74,6 +74,7 @@ const unusedReviewRpc = {
   setResolved: () => ({ kind: "error" as const, message: "unused" }),
   saveDraft: () => ({ kind: "error" as const, message: "unused" }),
   discardDraft: () => ({ kind: "error" as const, message: "unused" }),
+  createCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),

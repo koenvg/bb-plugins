@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
 import { gitPatch, type ReviewFile } from "../core/pr-files";
+import type { DiffSide } from "../core/diff-lines";
+import type { DiffSide as PierreSide } from "../../review-ui/diff-lines";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import type { ReviewThread } from "../core/review-threads";
 import type { PlacedThread } from "../core/thread-placement";
@@ -15,15 +17,39 @@ interface ThreadsProps {
   commentDrafts: readonly ListedCommentDraft[];
 }
 
+type AddComment = (path: string, side: DiffSide, line: number) => void;
+
+function toPierreSide(side: DiffSide): PierreSide {
+  return side === "RIGHT" ? "additions" : "deletions";
+}
+
+function fromPierreSide(side: PierreSide): DiffSide {
+  return side === "additions" ? "RIGHT" : "LEFT";
+}
+
 type Annotation =
   | { kind: "thread"; thread: ReviewThread }
   | { kind: "comment-draft"; draft: ListedCommentDraft };
 
-export function PrFileDiff({ file, threads, commentDrafts }: ThreadsProps & { file: ReviewFile }) {
+export function PrFileDiff({
+  file,
+  threads,
+  commentDrafts,
+  onAddComment,
+}: ThreadsProps & { file: ReviewFile; onAddComment?: AddComment }) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
   if (fileDiff === null)
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
-  return <LazyFileDiff fileDiff={fileDiff} threads={threads} commentDrafts={commentDrafts} />;
+  return (
+    <LazyFileDiff
+      fileDiff={fileDiff}
+      threads={threads}
+      commentDrafts={commentDrafts}
+      onAddComment={
+        onAddComment && ((side, line) => onAddComment(file.path, fromPierreSide(side), line))
+      }
+    />
+  );
 }
 
 function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { path: string }) {
@@ -45,7 +71,11 @@ function LazyFileDiff({
   fileDiff,
   threads,
   commentDrafts,
-}: ThreadsProps & { fileDiff: FileDiffMetadata }) {
+  onAddComment,
+}: ThreadsProps & {
+  fileDiff: FileDiffMetadata;
+  onAddComment?: (side: PierreSide, line: number) => void;
+}) {
   const { visible, ref } = useVisibleOnce<HTMLElement>();
   const theme = useCodeTheme();
   const lineAnnotations = useMemo(
@@ -56,7 +86,7 @@ function LazyFileDiff({
         metadata: { kind: "thread" as const, thread },
       })),
       ...commentDrafts.map((draft) => ({
-        side: draft.side === "RIGHT" ? ("additions" as const) : ("deletions" as const),
+        side: toPierreSide(draft.side),
         lineNumber: draft.line,
         metadata: { kind: "comment-draft" as const, draft },
       })),
@@ -69,6 +99,7 @@ function LazyFileDiff({
         <ReviewFileDiff
           fileDiff={fileDiff}
           annotations={lineAnnotations}
+          onAddComment={onAddComment}
           view="split"
           theme={theme}
           headerMetadata={<ThreadCount count={threads.length} />}

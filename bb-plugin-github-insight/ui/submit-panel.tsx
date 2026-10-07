@@ -2,7 +2,7 @@ import { useCallback, useId, useState, type ReactNode } from "react";
 import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SubmitReviewResult } from "../contract";
 import type { PrHead } from "../core/pr-head";
-import type { SummaryDraft } from "../core/review-drafts";
+import { hasText, type ListedCommentDraft, type SummaryDraft } from "../core/review-drafts";
 import { submitRules, type ReviewEvent } from "../core/review-submit";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ interface SubmitPanelProps {
   threadId: string;
   open: boolean;
   head: PrHead;
-  commentCount: number;
+  commentDrafts: readonly ListedCommentDraft[];
   summaryDraft: SummaryDraft | null;
   onWritten: () => void;
 }
@@ -50,14 +50,15 @@ export function SubmitPanel({
   threadId,
   open,
   head,
-  commentCount,
+  commentDrafts,
   summaryDraft,
   onWritten,
 }: SubmitPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const headingId = useId();
   const reasonId = useId();
-  const commentDrafts = useCommentDrafts();
+  const drafts = useCommentDrafts();
+  const commentCount = commentDrafts.filter((draft) => hasText(drafts.stateOf(draft).text)).length;
   const summary = useSummaryText(threadId, summaryDraft);
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
   const [busy, setBusy] = useState(false);
@@ -75,7 +76,7 @@ export function SubmitPanel({
     setBusy(true);
     setOutcome(null);
     await summary.flush();
-    await commentDrafts.flushAll();
+    await drafts.flushAll();
     const result = await rpc
       .call("submitReview", { threadId, event: selected.event, body: summary.text })
       .catch((error: unknown) => ({

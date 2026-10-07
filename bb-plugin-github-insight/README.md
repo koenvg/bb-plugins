@@ -36,8 +36,8 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects, the linked thread, and the reviewed state to each PR, and keeps the result in plugin kv storage.
 - `pr-panel-navigation.ts` and `ui/use-pr-panel-navigation.ts`: the sidebar badge records a one-shot PR-panel request in the current window before navigating. A receiver in this plugin opens its own `pr` action when the matching thread mounts, even if its blocker banner is hidden. The newest request wins; accepted requests are consumed, ordinary sidebar navigation cancels them, and abandoned requests expire after 30 seconds. Requests are not stored on the server, persisted across reloads, or broadcast to other clients.
 - `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
-- Comment drafts in the Review tab (see "Review drafts"): a draft at the PR head shows below its line, on its side, marked "Draft from agent", with the line or range. Drafts at another commit show in "Drafts on an older commit" at the top, with "PR has new commits since these drafts (<draft commit> -> <head>)", the path, side, line, and body. The user can edit or delete each draft. Edits are saved 500 ms after the last key press and when the tab closes (`ui/draft-saves.ts`, shared with reply drafts). "Delete" writes nothing to GitHub.
-- "Submit review" in the tab header opens the submit panel (`ui/submit-panel.tsx`). It opens at once when the PR has drafts. It shows the summary draft as an editable body, the number of comment drafts, and the verdicts from `submitRules` (`core/review-submit.ts`): Comment, Approve, and Request changes, or only Comment on your own PR. A disabled submit shows the reason, for example "Add a summary to request changes" or "Pull request is merged". Submit saves the open edits first, then calls `submitReview`. After success the tab shows "Review submitted" and no drafts, and the PR is marked reviewed (see "Reviewed state"). A failed submit shows the GitHub error, with "Open the PR" when you have a pending review on GitHub, and keeps all drafts and the body.
+- Comment drafts in the Review tab (see "Review drafts"): a draft at the PR head shows below its line, on its side, marked "Pending comment", with the line or range. The "+" in the diff gutter saves an empty comment draft on that line and side (RPC `createCommentDraft`) and focuses its box. The "+" does not show on a merged or closed PR, or when drafts are on an older commit. Drafts at another commit show in "Drafts on an older commit" at the top, with "PR has new commits since these drafts (<draft commit> -> <head>)", "Submit or delete these drafts to add new comments.", the path, side, line, and body. The user can edit or delete each draft. Edits are saved 500 ms after the last key press and when the tab closes (`ui/draft-saves.ts`, shared with reply drafts). "Delete" writes nothing to GitHub.
+- "Submit review" in the tab header opens the submit panel (`ui/submit-panel.tsx`). It opens at once when the PR has drafts. It shows the summary draft as an editable body, the number of comment drafts with text, and the verdicts from `submitRules` (`core/review-submit.ts`): Comment, Approve, and Request changes, or only Comment on your own PR. A disabled submit shows the reason, for example "Add a summary to request changes" or "Pull request is merged". Submit saves the open edits first, then calls `submitReview`. After success the tab shows "Review submitted" and no drafts, and the PR is marked reviewed (see "Reviewed state"). A failed submit shows the GitHub error, with "Open the PR" when you have a pending review on GitHub, and keeps all drafts and the body.
 
 ## Pull Requests panel
 
@@ -147,7 +147,7 @@ bb github-insight review draft <thread-id> --body-file <path>
 
 ### Review drafts
 
-The agent saves its own review of the PR as drafts. The user submits them from the Review tab as one GitHub review.
+The agent saves its own review of the PR as drafts. The user can add comment drafts from the diff gutter in the Review tab. The user submits them from the Review tab as one GitHub review.
 
 ```bash
 bb github-insight review comment <path> --line <n> --body <text>
@@ -158,7 +158,8 @@ bb github-insight review summary --body-file <path>
 
 - `review comment` saves a comment draft on a line, or on a range with `--start-line`. `--side` is `RIGHT` (new file, the default) or `LEFT` (old file). It prints the new draft id.
 - It fails, and saves nothing, when the path is not a file of the PR, when a line of the range is not in the file's diff on that side (the message names the diff ranges), when the start line is after the line, or when the body is empty.
-- Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` fails and names both commits: submit or delete the old drafts first.
+- Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` and `createCommentDraft` fail and name both commits: submit or delete the old drafts first.
+- `createCommentDraft({ threadId, path, side, line })` is the Review tab's way to start a comment draft. It runs the same file, diff, and commit checks as `review comment`, saves an empty body with `source: "user"`, and publishes `review.updated`.
 - `review summary` saves the review body. A new summary replaces the old one.
 - `review list` prints the comment drafts (id, path, line or range, side, body) and the summary draft after the threads. With `--json`, they are `comments` and `summary` (text or `null`) next to `threads`.
 - Both commands publish `review.updated`, so an open Review tab shows the new draft at once. They never write to GitHub.
@@ -176,10 +177,11 @@ Submit (RPC `submitReview({ threadId, event, body })`, only from the Review tab)
 ```
 submitReview --> server: load the review again (files, threads, head, drafts from kv)
    submitRules: verdict allowed? (own PR: Comment only; merged or closed: all disabled)
-   body needed? (Request changes, or Comment with 0 comment drafts)
+   body needed? (Request changes, or Comment with 0 comment drafts with text)
    host: gh api graphql --input -  addPullRequestReview(pullRequestId, commitOID, event, body, threads)
+      threads = comment drafts with text; empty drafts are not sent
       commitOID = commit of the comment drafts, or the PR head when there are none
-   ok    --> delete the comment drafts and the summary, publish review.updated, refresh the PR insight,
+   ok    --> delete all comment drafts (empty ones too) and the summary, publish review.updated, refresh the PR insight,
              mark the PR reviewed at commitOID (not on your own PR)
    error --> keep all drafts; a pending review on GitHub gives a message with the PR link
 ```

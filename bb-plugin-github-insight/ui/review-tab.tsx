@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
-import { splitByCommit } from "../core/comment-draft-view";
+import { splitByCommit } from "../core/draft-commits";
 import type { ReviewFile } from "../core/pr-files";
 import type { PrHead } from "../core/pr-head";
 import type { ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
@@ -14,7 +14,7 @@ import {
 } from "../core/thread-placement";
 import { cn } from "@/lib/utils";
 import { useCommandIntent } from "./command-intents";
-import { CommentDraftsProvider } from "./comment-drafts";
+import { CommentDraftsProvider, useNewComments } from "./comment-drafts";
 import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedback";
 import { PrFileDiff } from "./file-diff";
 import { OlderCommentDrafts } from "./older-comment-drafts";
@@ -163,6 +163,8 @@ function ReviewContent({
     () => groupByPath(draftsByCommit.atHead, (draft) => draft.path),
     [draftsByCommit.atHead],
   );
+  const { create, createError } = useNewComments();
+  const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2 text-xs">
@@ -191,17 +193,13 @@ function ReviewContent({
         threadId={threadId}
         open={submitOpen}
         head={head}
-        commentCount={commentDrafts.length}
+        commentDrafts={commentDrafts}
         summaryDraft={summaryDraft}
         onWritten={reload}
       />
+      {createError !== null && <ErrorBanner>{createError}</ErrorBanner>}
       {agent.outcome?.result.kind === "error" && (
-        <div
-          role="alert"
-          className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {agent.outcome.result.message}
-        </div>
+        <ErrorBanner>{agent.outcome.result.message}</ErrorBanner>
       )}
       <ThreadSelectionContext.Provider value={selection}>
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -213,10 +211,22 @@ function ReviewContent({
               file={file}
               threads={placedByPath.get(file.path) ?? NO_THREADS}
               commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
+              onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
             />
           ))}
         </div>
       </ThreadSelectionContext.Provider>
+    </div>
+  );
+}
+
+function ErrorBanner({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+    >
+      {children}
     </div>
   );
 }

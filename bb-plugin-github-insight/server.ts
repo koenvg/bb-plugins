@@ -97,6 +97,7 @@ export default async function plugin(bb: BbPluginApi) {
     markReviewed: ({ owner, repo, number }, headOid) =>
       reviewQueue.markReviewed({ repo: `${owner}/${repo}`, number, headOid }),
     now: Date.now,
+    newDraftId: newCommentDraftId,
     warn: (message) => bb.log.warn(message),
   });
 
@@ -172,6 +173,7 @@ export default async function plugin(bb: BbPluginApi) {
     setResolved: (request) => writes.setResolved(request),
     saveDraft: (request) => writes.saveDraft(request),
     discardDraft: (request) => writes.discardDraft(request),
+    createCommentDraft: (request) => writes.createCommentDraft(request),
     saveCommentDraft: (request) => writes.saveCommentDraft(request),
     deleteCommentDraft: (request) => writes.deleteCommentDraft(request),
     saveSummaryDraft: (request) => writes.saveSummaryDraft(request),

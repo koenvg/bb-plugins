@@ -1,0 +1,115 @@
+# Spec Delta
+
+## ADDED Requirements
+
+### Requirement: Start a comment draft from the diff
+
+The Review tab SHALL show a "+" in the gutter of each diff line that GitHub can comment on. A click SHALL save an empty comment draft on that line and side, at the PR head, and show its card below the line with the focus in the text box. It SHALL NOT write to GitHub. The "+" SHALL NOT show when comment drafts are on an older commit, or when the PR is merged or closed.
+
+#### Scenario: Add a comment on a new line
+
+- **WHEN** the user clicks "+" on new line 42 of `src/a.ts`
+- **THEN** an empty comment draft shows below new line 42 with the focus in its text box, and `review list` shows that draft
+
+#### Scenario: Add a comment on a deleted line
+
+- **WHEN** the user clicks "+" on old line 7 of `src/a.ts`
+- **THEN** the comment draft is on the LEFT side at line 7
+
+#### Scenario: Comment stays after a restart
+
+- **WHEN** the user clicks "+", types "Rename this", and bb restarts
+- **THEN** the Review tab shows the draft with "Rename this" on its line
+
+#### Scenario: Second comment on the same line
+
+- **WHEN** a line has a comment draft and the user clicks "+" on that line
+- **THEN** the line has 2 comment drafts
+
+#### Scenario: Drafts on an older commit
+
+- **WHEN** the comment drafts are at commit `abc123` and the PR head is `def456`
+- **THEN** the diff shows no "+"
+
+#### Scenario: Merged PR
+
+- **WHEN** the PR is merged
+- **THEN** the diff shows no "+"
+
+## MODIFIED Requirements
+
+### Requirement: Comment drafts in the Review tab
+
+The Review tab SHALL show each comment draft below its line in the file diff, on its side, marked "Pending comment". The user SHALL be able to edit the body and delete the draft. Edits SHALL be kept after the tab closes. The tab SHALL update without a refresh when the agent saves a draft.
+
+#### Scenario: Draft on its line
+
+- **WHEN** the PR has a comment draft on new line 42 of `src/a.ts`
+- **THEN** the diff of `src/a.ts` shows the draft below new line 42, marked "Pending comment"
+
+#### Scenario: Agent saves while the tab is open
+
+- **WHEN** the tab is open and the agent saves a comment draft
+- **THEN** the draft shows in the tab without a manual refresh
+
+#### Scenario: Delete a draft
+
+- **WHEN** the user deletes a comment draft
+- **THEN** the draft goes away from the tab and from `review list`, and nothing is written to GitHub
+
+### Requirement: Drafts on an older commit
+
+When the comment drafts are at another commit than the PR head, the Review tab SHALL show a warning that names both commits and tells the user to submit or delete those drafts to add new comments. It SHALL show those drafts in a list with path, side, line, and body, not on the lines of the current diff.
+
+#### Scenario: Author pushed after the review
+
+- **WHEN** the drafts are at commit `abc123` and the PR head is `def456`
+- **THEN** the tab shows "PR has new commits since these drafts (abc123 -> def456)" and "Submit or delete these drafts to add new comments.", and lists the drafts above the files
+
+### Requirement: Submit panel
+
+The Review tab SHALL have a "Submit review" panel with the summary draft as an editable body, the number of comment drafts that are not empty, and the verdicts Comment, Approve, and Request changes. When the viewer is the PR author, only Comment SHALL show. Request changes, and Comment with no comment drafts that are not empty, SHALL need a body that is not empty.
+
+#### Scenario: Review of another person's PR
+
+- **WHEN** the user opens the panel on a PR that another person wrote
+- **THEN** the panel shows Comment, Approve, and Request changes
+
+#### Scenario: Own PR
+
+- **WHEN** the user opens the panel on their own PR
+- **THEN** the panel shows only Comment
+
+#### Scenario: Request changes without a body
+
+- **WHEN** the body is empty and the user selects Request changes
+- **THEN** the submit action is disabled with the text "Add a summary to request changes"
+
+#### Scenario: Empty comment drafts do not count
+
+- **WHEN** the PR has 2 comment drafts, one of them empty, and the body is empty
+- **THEN** the panel shows "1 comment" and Comment is enabled
+
+#### Scenario: Only empty comment drafts
+
+- **WHEN** the PR has 1 comment draft, it is empty, and the body is empty
+- **THEN** the panel shows "0 comments" and Comment is disabled with the text "Add a summary or a comment"
+
+### Requirement: Submit one review
+
+Submit SHALL send one GitHub review with the body, the verdict, and all comment drafts that are not empty, on the commit of the drafts, or on the PR head when there are no comment drafts. It SHALL send nothing else. After a successful submit, it SHALL delete all comment drafts, empty ones too, and the summary draft, and refresh the PR tab and the Review tab.
+
+#### Scenario: Approve with 3 comments
+
+- **WHEN** the PR has 3 comment drafts and the user submits Approve with a body
+- **THEN** GitHub has one new approving review with that body and 3 line comments, and the tab shows no drafts
+
+#### Scenario: Approve with no drafts
+
+- **WHEN** the PR has no drafts and the user submits Approve with an empty body
+- **THEN** GitHub has one new approving review at the PR head
+
+#### Scenario: Empty draft is not sent
+
+- **WHEN** the PR has 2 comment drafts, one of them empty, and the user submits Comment
+- **THEN** GitHub has one new review with 1 line comment, and the tab shows no drafts

@@ -30,6 +30,9 @@ export function OlderCommentDrafts({
         <Icon name="AlertTriangle" className="mt-px size-3.5 shrink-0 text-warning" />
         {newCommitsText(first.commitOid, headOid)}
       </p>
+      <p className="text-xs text-muted-foreground">
+        Submit or delete these drafts to add new comments.
+      </p>
       <div className="-mx-2 flex flex-col">
         {drafts.map((draft) => (
           <CommentDraftCard key={draft.id} draft={draft} showLocation />

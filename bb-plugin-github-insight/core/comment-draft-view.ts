@@ -1,15 +1,5 @@
 import type { ListedCommentDraft } from "./review-drafts";
 
-export function splitByCommit(
-  drafts: readonly ListedCommentDraft[],
-  headOid: string,
-): { atHead: ListedCommentDraft[]; older: ListedCommentDraft[] } {
-  return {
-    atHead: drafts.filter((draft) => draft.commitOid === headOid),
-    older: drafts.filter((draft) => draft.commitOid !== headOid),
-  };
-}
-
 export function draftLineText({
   line,
   startLine,
