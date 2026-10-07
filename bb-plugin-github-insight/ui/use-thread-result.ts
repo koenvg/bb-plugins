@@ -13,6 +13,7 @@ export interface ThreadResultState<R> {
   revalidating: boolean;
   reload: () => void;
   refresh: () => Promise<R | ErrorResult | null>;
+  patch: (change: (result: R | ErrorResult) => R | ErrorResult) => void;
 }
 
 export function useThreadResult<R>(
@@ -81,6 +82,14 @@ export function useThreadResult<R>(
     }
   }, [load, threadId]);
 
+  const patch = useCallback(
+    (change: (result: R | ErrorResult) => R | ErrorResult) =>
+      setLoaded((current) =>
+        current?.threadId === threadId ? { threadId, result: change(current.result) } : current,
+      ),
+    [threadId],
+  );
+
   const result = loaded?.threadId === threadId ? loaded.result : (snapshot?.(threadId) ?? null);
   return {
     result,
@@ -88,5 +97,6 @@ export function useThreadResult<R>(
     revalidating: loadingThreadId === threadId && result !== null,
     reload,
     refresh,
+    patch,
   };
 }

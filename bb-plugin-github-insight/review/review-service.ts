@@ -1,30 +1,43 @@
-import type { SendToAgentResult } from "../contract";
+import type { ReviewDrafts, SendToAgentResult } from "../contract";
 import { buildAgentPrompt } from "../core/agent-prompt";
 import type { Draft, Drafts } from "../core/drafts";
 import { parsePrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
-import type { PullRequestRef } from "../core/pr-ref";
+import { prKey, type PullRequestRef } from "../core/pr-ref";
 import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
-import { collectReviewThreads } from "../core/review-threads";
+import { collectReviewThreads, type CollectedReviewThreads } from "../core/review-threads";
 import type { ReviewUpdated } from "../core/review-updated";
 import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import type { PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
 
-export interface PrReview {
+export interface PrReview extends ReviewDrafts {
   head: PrHead;
   files: ReviewFile[];
   threads: ThreadPlacement;
-  drafts: Drafts;
-  commentDrafts: ListedCommentDraft[];
-  summaryDraft: SummaryDraft | null;
 }
 
-export type ReviewLoad =
+export interface ReviewBasis {
+  head: PrHead;
+  files: ReviewFile[];
+  commentDrafts: ListedCommentDraft[];
+}
+
+type PrLoad<T> =
   | { kind: "no_pr" }
   | { kind: "error"; message: string }
-  | { kind: "ok"; target: PrTarget; allThreadsRead: boolean; review: PrReview };
+  | ({ kind: "ok"; target: PrTarget } & T);
+
+export type ReviewLoad = PrLoad<{ allThreadsRead: boolean; review: PrReview }>;
+export type DraftsLoad = PrLoad<{ drafts: ReviewDrafts }>;
+export type BasisLoad = PrLoad<{ basis: ReviewBasis }>;
+
+interface LoadedPr {
+  head: PrHead;
+  files: ReviewFile[];
+  collected: CollectedReviewThreads;
+}
 
 interface ReviewServiceDeps {
   resolvePr(threadId: string): Promise<PrResolution>;
@@ -32,47 +45,81 @@ interface ReviewServiceDeps {
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
   drafts: DraftStore;
-  publish(update: ReviewUpdated): void;
+  publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
 }
 
 export type ReviewService = ReturnType<typeof createReviewService>;
 
 export function createReviewService(deps: ReviewServiceDeps) {
-  async function load(threadId: string): Promise<ReviewLoad> {
+  const loadedPrs = new Map<string, LoadedPr>();
+
+  async function withPr<T>(
+    threadId: string,
+    read: (target: PrTarget) => Promise<T>,
+  ): Promise<PrLoad<T>> {
     const resolution = await deps.resolvePr(threadId);
     if (resolution.kind !== "pr") return resolution;
-    const { target } = resolution;
     try {
-      const [files, collected, head] = await Promise.all([
-        deps.fetchPrFiles(target).then(parsePrFiles),
-        collectReviewThreads((after) => deps.fetchReviewThreadsPage(target, after)),
-        deps.fetchPrHead(target).then(parsePrHead),
-      ]);
-      const [drafts, commentDrafts, summaryDraft] = await Promise.all([
-        deps.drafts.liveDrafts(target.ref, collected),
-        deps.drafts.comments(target.ref),
-        deps.drafts.summary(target.ref),
-      ]);
-      return {
-        kind: "ok",
-        target,
-        allThreadsRead: collected.complete,
-        review: {
-          head,
-          files,
-          threads: placeThreads(files, collected.threads),
-          drafts,
-          commentDrafts,
-          summaryDraft,
-        },
-      };
+      return { kind: "ok", target: resolution.target, ...(await read(resolution.target)) };
     } catch (error) {
       if (error instanceof GhFailureError) {
         return { kind: "error", message: ghFailureText(error.failure) };
       }
       throw error;
     }
+  }
+
+  async function fetchPr(target: PrTarget): Promise<LoadedPr> {
+    const [files, collected, head] = await Promise.all([
+      deps.fetchPrFiles(target).then(parsePrFiles),
+      collectReviewThreads((after) => deps.fetchReviewThreadsPage(target, after)),
+      deps.fetchPrHead(target).then(parsePrHead),
+    ]);
+    const loaded = { head, files, collected };
+    loadedPrs.set(prKey(target.ref), loaded);
+    return loaded;
+  }
+
+  async function loadedPr(target: PrTarget): Promise<LoadedPr> {
+    return loadedPrs.get(prKey(target.ref)) ?? fetchPr(target);
+  }
+
+  async function readDrafts(pr: PullRequestRef, replyDrafts: Promise<Drafts>) {
+    const [drafts, commentDrafts, summaryDraft] = await Promise.all([
+      replyDrafts,
+      deps.drafts.comments(pr),
+      deps.drafts.summary(pr),
+    ]);
+    return { drafts, commentDrafts, summaryDraft };
+  }
+
+  function load(threadId: string): Promise<ReviewLoad> {
+    return withPr(threadId, async (target) => {
+      const { head, files, collected } = await fetchPr(target);
+      const drafts = await readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected));
+      const threads = placeThreads(files, collected.threads);
+      return { allThreadsRead: collected.complete, review: { head, files, threads, ...drafts } };
+    });
+  }
+
+  function loadDrafts(threadId: string): Promise<DraftsLoad> {
+    return withPr(threadId, async (target) => {
+      const { collected } = await loadedPr(target);
+      return {
+        drafts: await readDrafts(target.ref, deps.drafts.knownDrafts(target.ref, collected)),
+      };
+    });
+  }
+
+  function loadBasis(threadId: string): Promise<BasisLoad> {
+    return withPr(threadId, async (target) => {
+      const [{ head, files }, commentDrafts] = await Promise.all([
+        loadedPr(target),
+        deps.drafts.comments(target.ref),
+      ]);
+      return { basis: { head, files, commentDrafts } };
+    });
   }
 
   async function saveDraft(
@@ -82,7 +129,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     draft: Draft,
   ) {
     await deps.drafts.save(pr, reviewThreadId, draft);
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
   }
 
   async function saveCommentDraft(
@@ -92,12 +139,12 @@ export function createReviewService(deps: ReviewServiceDeps) {
     draft: CommentDraft,
   ) {
     await deps.drafts.saveComment(pr, draftId, draft);
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
   }
 
   async function saveSummaryDraft(threadId: string, pr: PullRequestRef, draft: SummaryDraft) {
     await deps.drafts.saveSummary(pr, draft);
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
   }
 
   async function sendToAgent(
@@ -119,5 +166,13 @@ export function createReviewService(deps: ReviewServiceDeps) {
     return { kind: "sent", delivery, threadCount: threads.length };
   }
 
-  return { load, saveDraft, saveCommentDraft, saveSummaryDraft, sendToAgent };
+  return {
+    load,
+    loadDrafts,
+    loadBasis,
+    saveDraft,
+    saveCommentDraft,
+    saveSummaryDraft,
+    sendToAgent,
+  };
 }

@@ -8,6 +8,7 @@ import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@p
 import type {
   ActionResult,
   CreateCommentDraftResult,
+  DraftsResult,
   ReplyResult,
   ReviewResult,
   rpcContract,
@@ -123,6 +124,7 @@ const threaded = {
 } satisfies ReviewResult;
 
 interface RpcHandlers {
+  getDrafts?: () => DraftsResult | Promise<DraftsResult>;
   sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
   reply?: () => ReplyResult | Promise<ReplyResult>;
   setResolved?: () => ActionResult | Promise<ActionResult>;
@@ -165,12 +167,19 @@ function renderTabSending(
 function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
   let call = 0;
   const getReview = () => results[Math.min(call++, results.length - 1)]!;
+  const getDrafts = (): DraftsResult => {
+    const latest = results[Math.min(call, results.length - 1)]!;
+    if (latest.kind !== "ok") return latest;
+    const { drafts, commentDrafts, summaryDraft } = latest;
+    return { kind: "ok", drafts, commentDrafts, summaryDraft };
+  };
   return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
     reviewTab,
     { threadId: "thr_1", params: null },
     {
       rpc: {
         getReview,
+        getDrafts: handlers.getDrafts ?? getDrafts,
         sendToAgent:
           handlers.sendToAgent ?? (() => ({ kind: "sent", delivery: "sent", threadCount: 1 })),
         getInsight: () => ({ kind: "no_pr" }),
@@ -497,22 +506,40 @@ describe("Review tab drafts", () => {
     expect(box.value).toBe("**bold**\nnext");
   });
 
-  it("shows a draft saved while the tab is open", async () => {
+  it("shows a draft saved while the tab is open, loading only the drafts", async () => {
     const slot = renderTab(threaded, withDraft(PLACED));
     await slot.findByText("3 open");
 
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
     expect((await findDraft(slot)).box.value).toBe("Renamed in abc123");
+    expect(methods(slot)).toEqual(["getReview", "getDrafts"]);
   });
 
-  it("ignores a review update of another thread", async () => {
-    const slot = renderTab(threaded, withDraft(PLACED));
+  it.each(["review.updated", "review.drafts-updated"])(
+    "ignores a %s event of another thread",
+    async (channel) => {
+      const slot = renderTab(threaded, withDraft(PLACED));
+      await slot.findByText("3 open");
+
+      await slot.behavior.emitRealtime(channel, { threadId: "thr_2" });
+
+      expect(methods(slot)).toEqual(["getReview"]);
+    },
+  );
+
+  it("loads the whole review when the drafts cannot be loaded", async () => {
+    const slot = renderTabWith(
+      { getDrafts: () => ({ kind: "error", message: "No pull request for this thread" }) },
+      threaded,
+      withDraft(PLACED),
+    );
     await slot.findByText("3 open");
 
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_2" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
-    expect(methods(slot)).toEqual(["getReview"]);
+    expect((await findDraft(slot)).box.value).toBe("Renamed in abc123");
+    expect(methods(slot)).toEqual(["getReview", "getDrafts", "getReview"]);
   });
 
   it("has 'Discard' only on a thread with a draft", async () => {
@@ -555,18 +582,20 @@ describe("Review tab drafts", () => {
     ]);
   });
 
-  it("discards the draft without a GitHub write, and loads the thread again", async () => {
+  it("discards the draft without a GitHub write, and loads only the drafts again", async () => {
     const slot = renderTab(withDraft(PLACED), threaded);
     const { box } = await findDraft(slot);
     const card = within(box.closest("article")!);
 
     fireEvent.click(card.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft"]));
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
     await waitFor(() =>
       expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull(),
     );
     expect((card.getByRole("textbox", { name: "Reply" }) as HTMLTextAreaElement).value).toBe("");
-    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getReview"]));
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getDrafts"]));
     expect(callsTo(slot, "discardDraft")).toEqual([{ threadId: "thr_1", reviewThreadId: PLACED }]);
   });
 
@@ -576,8 +605,10 @@ describe("Review tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft"]));
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
-    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getReview"]));
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft", "getDrafts"]));
     await quietly();
     stopListening();
     expect(signals).toEqual([]);
@@ -682,11 +713,9 @@ describe("Review tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.change(box, { target: { value: "Renamed in def456" } });
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
-    await waitFor(() =>
-      expect(methods(slot).filter((method) => method === "getReview")).toHaveLength(2),
-    );
+    await waitFor(() => expect(methods(slot)).toContain("getDrafts"));
     expect((await findDraft(slot)).box.value).toBe("Renamed in def456");
   });
 });
@@ -1224,13 +1253,14 @@ describe("Review tab comment drafts", () => {
     expect(within(card).getByText("Lines 2-4")).toBeTruthy();
   });
 
-  it("shows a comment draft saved while the tab is open", async () => {
+  it("shows a comment draft saved while the tab is open, loading only the drafts", async () => {
     const slot = renderTab(recorded, withCommentDrafts(commentDraft("c1")));
     await slot.findByText("3 files changed");
 
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
     expect((await findCommentDraft(slot)).box.value).toBe("Name the slot id");
+    expect(methods(slot)).toEqual(["getReview", "getDrafts"]);
   });
 
   it("saves the last edit of a comment draft once the typing stops", async () => {
@@ -1265,23 +1295,38 @@ describe("Review tab comment drafts", () => {
     const { box } = await findCommentDraft(slot);
 
     fireEvent.change(box, { target: { value: "Name the panel id" } });
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
-    await waitFor(() =>
-      expect(methods(slot).filter((method) => method === "getReview")).toHaveLength(2),
-    );
+    await waitFor(() => expect(methods(slot)).toContain("getDrafts"));
     expect((await findCommentDraft(slot)).box.value).toBe("Name the panel id");
   });
 
-  it("deletes a comment draft without a GitHub write, and loads again", async () => {
+  it("deletes a comment draft without a GitHub write, and loads only the drafts again", async () => {
     const slot = renderTab(withCommentDrafts(commentDraft("c1")), recorded);
     const { card } = await findCommentDraft(slot);
 
     fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(methods(slot)).toEqual(["getReview", "deleteCommentDraft"]));
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
-    await waitFor(() => expect(slot.queryByRole("region", { name: "Pending comment" })).toBeNull());
-    expect(methods(slot)).toEqual(["getReview", "deleteCommentDraft", "getReview"]);
+    await waitFor(() =>
+      expect(methods(slot)).toEqual(["getReview", "deleteCommentDraft", "getDrafts"]),
+    );
+    await quietly();
+    expect(slot.queryByRole("region", { name: "Pending comment" })).toBeNull();
     expect(callsTo(slot, "deleteCommentDraft")).toEqual([{ threadId: "thr_1", draftId: "c1" }]);
+  });
+
+  it("removes the comment draft before the delete returns", async () => {
+    const slot = renderTabWith(
+      { deleteCommentDraft: () => new Promise<ActionResult>(() => {}) },
+      withCommentDrafts(commentDraft("c1")),
+    );
+    const { card } = await findCommentDraft(slot);
+
+    fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
+
+    expect(slot.queryByRole("region", { name: "Pending comment" })).toBeNull();
   });
 
   it("keeps the comment draft and shows the error when the delete fails", async () => {
@@ -1293,9 +1338,7 @@ describe("Review tab comment drafts", () => {
 
     fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
 
-    expect((await within(card).findByRole("alert")).textContent).toBe(
-      "No pull request for this thread",
-    );
+    expect((await slot.findByRole("alert")).textContent).toBe("No pull request for this thread");
     expect((await findCommentDraft(slot)).box.value).toBe("Name the slot id");
   });
 
@@ -1320,10 +1363,12 @@ describe("Review tab new comments", () => {
     fireEvent.click(within(diff!).getByRole("button", { name: `+ ${side} 4` }));
   }
 
-  it("creates a comment draft on the new side and focuses its box after the reload", async () => {
+  it("creates a comment draft on the new side and focuses its box after the drafts reload", async () => {
     const slot = renderTab(recorded, withCommentDrafts(created));
 
     await clickAdd(slot, "additions");
+    await waitFor(() => expect(callsTo(slot, "createCommentDraft")).toHaveLength(1));
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
     const { box } = await findCommentDraft(slot);
     await waitFor(() => expect(document.activeElement).toBe(box));
@@ -1341,7 +1386,7 @@ describe("Review tab new comments", () => {
     );
 
     await clickAdd(slot, "additions");
-    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
     const { box } = await findCommentDraft(slot);
     await act(async () => finishCreate({ kind: "created", draftId: "new1" }));
 

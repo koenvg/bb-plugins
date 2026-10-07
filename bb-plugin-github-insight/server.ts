@@ -1,9 +1,19 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { hostContract, rpcContract, type GhResult, type ReviewResult } from "./contract";
+import {
+  hostContract,
+  rpcContract,
+  type DraftsResult,
+  type GhResult,
+  type ReviewResult,
+} from "./contract";
 import { INSIGHT_UPDATED_CHANNEL, type InsightUpdated } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
-import { REVIEW_UPDATED_CHANNEL, type ReviewUpdated } from "./core/review-updated";
+import {
+  REVIEW_DRAFTS_UPDATED_CHANNEL,
+  REVIEW_UPDATED_CHANNEL,
+  type ReviewUpdated,
+} from "./core/review-updated";
 import { newCommentDraftId } from "./core/review-drafts";
 import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
@@ -62,6 +72,8 @@ export default async function plugin(bb: BbPluginApi) {
   const drafts = createDraftStore(bb.storage.kv);
   const publishReviewUpdate = (update: ReviewUpdated) =>
     bb.realtime.publish(REVIEW_UPDATED_CHANNEL, update);
+  const publishDraftsUpdate = (update: ReviewUpdated) =>
+    bb.realtime.publish(REVIEW_DRAFTS_UPDATED_CHANNEL, update);
 
   const review = createReviewService({
     resolvePr,
@@ -71,7 +83,7 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
     drafts,
-    publish: publishReviewUpdate,
+    publishDrafts: publishDraftsUpdate,
     sendMessage: async (threadId, text) => {
       const result = await bb.sdk.threads.send({
         threadId,
@@ -89,10 +101,12 @@ export default async function plugin(bb: BbPluginApi) {
     setThreadResolved: async ({ hostId }, threadId, resolved) =>
       unwrap(await host.call("setThreadResolved", { threadId, resolved }, { hostId })),
     loadReview: (threadId) => review.load(threadId),
+    loadBasis: (threadId) => review.loadBasis(threadId),
     submitReview: async ({ hostId }, request) =>
       unwrap(await host.call("submitReview", request, { hostId })),
     drafts,
     publish: publishReviewUpdate,
+    publishDrafts: publishDraftsUpdate,
     refreshAfterWrite: (threadId) => service.refreshAfterWrite(threadId),
     markReviewed: ({ owner, repo, number }, headOid) =>
       reviewQueue.markReviewed({ repo: `${owner}/${repo}`, number, headOid }),
@@ -164,10 +178,16 @@ export default async function plugin(bb: BbPluginApi) {
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
   }
 
+  async function getDrafts(threadId: string): Promise<DraftsResult> {
+    const load = await review.loadDrafts(threadId);
+    return load.kind === "ok" ? { kind: "ok", ...load.drafts } : load;
+  }
+
   bb.rpc.register(rpcContract, {
     getInsight: ({ threadId }) => service.getInsight(threadId),
     refresh: ({ threadId }) => service.refresh(threadId),
     getReview: ({ threadId }) => getReview(threadId),
+    getDrafts: ({ threadId }) => getDrafts(threadId),
     sendToAgent: ({ threadId, reviewThreadIds }) => review.sendToAgent(threadId, reviewThreadIds),
     reply: (request) => writes.reply(request),
     setResolved: (request) => writes.setResolved(request),

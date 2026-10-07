@@ -165,7 +165,6 @@ export function ThreadActionsProvider({
           .call("discardDraft", { threadId, reviewThreadId })
           .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
         if (result.kind === "error") return { error: result.message };
-        onWritten();
         return {
           typedText: null,
           dismissedDraftAt: draft?.updatedAt ?? null,
@@ -174,7 +173,7 @@ export function ThreadActionsProvider({
         };
       });
     },
-    [rpc, threadId, draftOf, runExclusive, draftSaves, onWritten],
+    [rpc, threadId, draftOf, runExclusive, draftSaves],
   );
 
   const setReplyText = useCallback(

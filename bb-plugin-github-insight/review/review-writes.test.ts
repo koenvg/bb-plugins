@@ -41,6 +41,8 @@ function writesWith(overrides: Partial<Deps> = {}) {
     submitReview: async () => ({ data: {} }),
     drafts: { delete: async () => {} } as unknown as DraftStore,
     publish: () => {},
+    publishDrafts: () => {},
+    loadBasis: async () => ({ kind: "no_pr" as const }),
     refreshAfterWrite: async (threadId) => {
       refreshed.push(threadId);
     },

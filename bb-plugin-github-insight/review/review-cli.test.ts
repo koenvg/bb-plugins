@@ -158,7 +158,7 @@ describe("review CLI", () => {
 
     expect(saved).toMatchObject({ exitCode: 0, stdout: `Saved draft for ${OPEN}\n` });
     expect(harness.realtimeSignals).toEqual([
-      { channel: "review.updated", payload: { threadId: "thr_1" } },
+      { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
     ]);
     expect(await draftsOf(harness)).toEqual({
       [OPEN]: {
@@ -416,7 +416,7 @@ describe("review CLI", () => {
         source: "agent",
       });
       expect(harness.realtimeSignals).toEqual([
-        { channel: "review.updated", payload: { threadId: "thr_1" } },
+        { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
       ]);
     });
 
@@ -568,7 +568,7 @@ describe("review CLI", () => {
         source: "agent",
       });
       expect(harness.realtimeSignals).toEqual([
-        { channel: "review.updated", payload: { threadId: "thr_1" } },
+        { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
       ]);
     });
 
