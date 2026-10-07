@@ -66,10 +66,7 @@ function TaskPicker({
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <Command>
-          <CommandInput
-            placeholder="Find a task…"
-            disabled={catalog.isLoading || catalog.error !== null}
-          />
+          <CommandInput placeholder="Find a task…" />
           <CommandList aria-busy={catalog.isLoading}>
             {catalog.isLoading ? (
               <p role="status" className="p-4 text-sm text-muted-foreground">

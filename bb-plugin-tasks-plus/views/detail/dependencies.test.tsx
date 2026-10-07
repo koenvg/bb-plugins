@@ -192,6 +192,24 @@ describe("task detail dependency sections", () => {
     expect(catalogReads(slot)).toHaveLength(0);
   });
 
+  it.each([
+    ["Blocked by", "Add blocker"],
+    ["Blocks", "Add blocked task"],
+  ])("keeps keyboard search focus while %s choices load", async (name, label) => {
+    const page = deferred<{ tasks: Task[]; nextCursor: null }>();
+    const slot = renderDetail([], { catalog: () => page.promise });
+    fireEvent.click((await section(slot, name)).getByRole("button", { name: label }));
+    await slot.findByRole("status");
+    const input = slot.getByRole("combobox");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: "ABC-4" } });
+    await act(async () => page.resolve({ tasks: [baseTask(3), baseTask(4)], nextCursor: null }));
+    await slot.findByRole("option", { name: /ABC-4/ });
+    expect(slot.queryByRole("option", { name: /ABC-3/ })).toBeNull();
+    expect(document.activeElement).toBe(input);
+    expect(catalogReads(slot)).toHaveLength(1);
+  });
+
   it("shares a pending paged load and reuses candidates across both pickers", async () => {
     const page = deferred<{ tasks: Task[]; nextCursor: string | null }>();
     const slot = renderDetail([], {
