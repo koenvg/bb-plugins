@@ -1,6 +1,8 @@
 import type {
   ActionResult,
   AddPullRequestReviewRequest,
+  CreateCommentDraftRequest,
+  CreateCommentDraftResult,
   DeleteCommentDraftRequest,
   DiscardDraftRequest,
   ReplyRequest,
@@ -12,9 +14,11 @@ import type {
   SubmitReviewRequest,
   SubmitReviewResult,
 } from "../contract";
+import { checkOneCommit, draftsCommit } from "../core/draft-commits";
+import { checkAnchor } from "../core/diff-lines";
 import { pullRequestUrl, type PullRequestRef } from "../core/pr-ref";
-import type { ListedCommentDraft } from "../core/review-drafts";
-import { submitRules, type ReviewEvent } from "../core/review-submit";
+import { hasText } from "../core/review-drafts";
+import { closedReason, submitRules, type ReviewEvent } from "../core/review-submit";
 import type { ReviewUpdated } from "../core/review-updated";
 import { write, type Written } from "../github/gh-write";
 import { submitReviewError } from "../github/review-mutations";
@@ -34,22 +38,12 @@ interface ReviewWritesDeps {
   refreshAfterWrite(threadId: string): Promise<void>;
   markReviewed(ref: PullRequestRef, commitOid: string): Promise<ActionResult>;
   now(): number;
+  newDraftId(): string;
   warn(message: string): void;
 }
 
 const NO_PR_MESSAGE = "No pull request for this thread";
 const OWN_PR_MESSAGE = "On your own pull request you can only comment";
-
-function draftsCommit(drafts: readonly ListedCommentDraft[], headOid: string): Written<string> {
-  const commits = [...new Set(drafts.map(({ commitOid }) => commitOid))];
-  if (commits.length > 1) {
-    return {
-      ok: false,
-      message: `Comment drafts are on more than one commit (${commits.join(", ")}). Delete the older ones.`,
-    };
-  }
-  return { ok: true, value: commits[0] ?? headOid };
-}
 
 function reviewInput(
   { head, commentDrafts }: PrReview,
@@ -57,21 +51,15 @@ function reviewInput(
   body: string,
 ): Written<AddPullRequestReviewRequest> {
   const { viewerIsAuthor, state } = head;
+  const comments = commentDrafts.filter((draft) => hasText(draft.body));
   const rule = submitRules({
     viewerIsAuthor,
     state,
     body,
-    commentCount: commentDrafts.length,
+    commentCount: comments.length,
   }).find((candidate) => candidate.event === event);
   if (rule === undefined) return { ok: false, message: OWN_PR_MESSAGE };
   if (rule.disabledReason !== null) return { ok: false, message: rule.disabledReason };
-  const empty = commentDrafts.find((draft) => draft.body.trim() === "");
-  if (empty !== undefined) {
-    return {
-      ok: false,
-      message: `Comment draft on ${empty.path}:${empty.line} is empty. Add text or delete it.`,
-    };
-  }
   const commit = draftsCommit(commentDrafts, head.oid);
   if (!commit.ok) return commit;
   return {
@@ -81,7 +69,7 @@ function reviewInput(
       commitOid: commit.value,
       event,
       body,
-      threads: commentDrafts.map(({ path, side, line, startLine, body }) => ({
+      threads: comments.map(({ path, side, line, startLine, body }) => ({
         path,
         side,
         line,
@@ -171,6 +159,36 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     return { kind: "ok" };
   }
 
+  async function createCommentDraft({
+    threadId,
+    path,
+    side,
+    line,
+  }: CreateCommentDraftRequest): Promise<CreateCommentDraftResult> {
+    const loaded = await deps.loadReview(threadId);
+    if (loaded.kind !== "ok") {
+      return { kind: "error", message: loaded.kind === "error" ? loaded.message : NO_PR_MESSAGE };
+    }
+    const { review, target } = loaded;
+    const closed = closedReason(review.head.state);
+    if (closed !== null) return { kind: "error", message: closed };
+    const anchor = { path, side, line, startLine: null };
+    const placed = checkAnchor(review.files, anchor);
+    if (!placed.ok) return { kind: "error", message: placed.reason };
+    const oneCommit = checkOneCommit(review.commentDrafts, review.head.oid);
+    if (!oneCommit.ok) return { kind: "error", message: oneCommit.message };
+    const draftId = deps.newDraftId();
+    await deps.drafts.saveComment(target.ref, draftId, {
+      ...anchor,
+      body: "",
+      commitOid: review.head.oid,
+      updatedAt: deps.now(),
+      source: "user",
+    });
+    deps.publish({ threadId });
+    return { kind: "created", draftId };
+  }
+
   async function saveCommentDraft({
     threadId,
     draftId,
@@ -252,6 +270,7 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     setResolved,
     saveDraft,
     discardDraft,
+    createCommentDraft,
     saveCommentDraft,
     deleteCommentDraft,
     saveSummaryDraft,

@@ -1,5 +1,6 @@
 import { cliCommand, defineCli, PluginCliError, type PluginCliContext } from "@get-bb/plugin-sdk";
 import type { ReadTextFileRequest, ReadTextFileResult } from "../contract";
+import { checkOneCommit } from "../core/draft-commits";
 import { checkAnchor } from "../core/diff-lines";
 import type { PrHead } from "../core/pr-head";
 import type { ListedCommentDraft } from "../core/review-drafts";
@@ -183,11 +184,9 @@ export function createReviewCli(deps: ReviewCliDeps) {
 }
 
 function assertOneCommit(drafts: readonly ListedCommentDraft[], head: PrHead) {
-  const older = drafts.filter((draft) => draft.commitOid !== head.oid);
-  if (older.length === 0) return;
-  const commits = [...new Set(older.map((draft) => draft.commitOid))].join(", ");
-  const subject = older.length === 1 ? "1 comment draft is" : `${older.length} comment drafts are`;
-  throw new PluginCliError(`${subject} at commit ${commits}, but the PR head is ${head.oid}`, {
+  const check = checkOneCommit(drafts, head.oid);
+  if (check.ok) return;
+  throw new PluginCliError(check.message, {
     hint: "Submit or delete those drafts first, in the Review tab.",
   });
 }

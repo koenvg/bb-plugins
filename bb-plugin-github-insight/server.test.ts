@@ -1830,6 +1830,140 @@ describe("comment and summary drafts from the tab", () => {
   });
 });
 
+describe("createCommentDraft", () => {
+  function setupWithPr(kv: Record<string, unknown> = {}, host = recordedReviewHost) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host,
+      kv,
+    });
+  }
+
+  async function commentDraftsOf(harness: Awaited<ReturnType<typeof setup>>) {
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
+    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    return result.commentDrafts;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1_700_000_000_000);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("saves an empty comment draft at the head as the user's, and tells the open tab", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "LEFT",
+      line: 147,
+    });
+
+    const [draft] = await commentDraftsOf(harness);
+    expect(result).toEqual({ kind: "created", draftId: draft!.id });
+    expect(draft).toEqual({
+      id: expect.stringMatching(/^[a-z0-9]{8}$/),
+      path: DRAFT_FILE,
+      side: "LEFT",
+      line: 147,
+      startLine: null,
+      body: "",
+      commitOid: "def456",
+      updatedAt: 1_700_000_000_000,
+      source: "user",
+    });
+    expect(harness.realtimeSignals).toEqual([
+      { channel: "review.updated", payload: { threadId: "thr_1" } },
+    ]);
+  });
+
+  it("names the diff ranges for a line outside the diff and saves nothing", async () => {
+    const harness = await setupWithPr();
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 300,
+    });
+
+    expect(result).toEqual({
+      kind: "error",
+      message: `Line 300 is not in the diff of ${DRAFT_FILE} on the RIGHT side. Diff ranges: 1-5, 146-154`,
+    });
+    expect(await commentDraftsOf(harness)).toEqual([]);
+    expect(harness.realtimeSignals).toHaveLength(0);
+  });
+
+  it("refuses a new comment while comment drafts are on an older commit", async () => {
+    const harness = await setupWithPr({
+      "comment:collibra/frontend#25259:d1": commentDraftRow("abc123", 10),
+    });
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+    });
+
+    expect(result).toEqual({
+      kind: "error",
+      message: "1 comment draft is at commit abc123, but the PR head is def456",
+    });
+    expect((await commentDraftsOf(harness)).map(({ id }) => id)).toEqual(["d1"]);
+  });
+
+  it("adds a second comment draft on a line that has one", async () => {
+    const harness = await setupWithPr();
+    const onLine3 = { threadId: "thr_1", path: DRAFT_FILE, side: "RIGHT", line: 3 } as const;
+
+    await harness.behavior.callRpc("createCommentDraft", onLine3);
+    await harness.behavior.callRpc("createCommentDraft", onLine3);
+
+    expect((await commentDraftsOf(harness)).map(({ line }) => line)).toEqual([3, 3]);
+  });
+
+  it("refuses a new comment on a merged pull request", async () => {
+    const harness = await setupWithPr({}, (call) =>
+      call.method === "fetchPrHead"
+        ? ok(prHeadResponse({ state: "MERGED" }))
+        : recordedReviewHost(call),
+    );
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+    });
+
+    expect(result).toEqual({ kind: "error", message: "Pull request is merged" });
+    expect(await commentDraftsOf(harness)).toEqual([]);
+  });
+
+  it("refuses a thread without a pull request", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: "env_1" }] });
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+    });
+
+    expect(result).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});
+
 describe("submitReview", () => {
   const READS = new Set([
     "fetchPrFiles",
@@ -2071,7 +2205,28 @@ describe("submitReview", () => {
     expect(writes(harness)).toEqual([]);
   });
 
-  it("rejects a comment draft with an empty body", async () => {
+  it("sends only the comment drafts with text and deletes the empty ones too", async () => {
+    const harness = await setupWithPr(submitHost(), {
+      "comment:collibra/frontend#25259:d1": { ...commentDraftRow("abc123", 10), body: "  " },
+      "comment:collibra/frontend#25259:d2": commentDraftRow("abc123", 20),
+    });
+
+    const result = await harness.behavior.callRpc("submitReview", {
+      threadId: "thr_1",
+      event: "COMMENT",
+      body: "",
+    });
+
+    expect(result).toEqual({ kind: "submitted" });
+    expect(writes(harness).map(({ input }) => input)).toEqual([
+      expect.objectContaining({
+        threads: [{ path: DRAFT_FILE, side: "RIGHT", line: 20, startLine: null, body: "Line 20" }],
+      }),
+    ]);
+    expect((await reviewOf(harness)).commentDrafts).toEqual([]);
+  });
+
+  it("rejects Comment without a body when every comment draft is empty", async () => {
     const harness = await setupWithPr(submitHost(), {
       "comment:collibra/frontend#25259:d1": { ...commentDraftRow("abc123", 10), body: "  " },
     });
@@ -2082,11 +2237,7 @@ describe("submitReview", () => {
       body: "",
     });
 
-    expect(result).toEqual({
-      kind: "error",
-      message: `Comment draft on ${DRAFT_FILE}:10 is empty. Add text or delete it.`,
-      url: null,
-    });
+    expect(result).toEqual({ kind: "error", message: "Add a summary or a comment", url: null });
     expect(writes(harness)).toEqual([]);
   });
 

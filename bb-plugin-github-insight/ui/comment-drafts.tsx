@@ -2,14 +2,17 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import { draftLineText } from "../core/comment-draft-view";
+import type { DiffSide } from "../core/diff-lines";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -38,7 +41,15 @@ interface CommentDrafts {
   flushAll(): Promise<void>;
 }
 
+interface NewComments {
+  create(path: string, side: DiffSide, line: number): Promise<void>;
+  createError: string | null;
+  focusDraftId: string | null;
+  clearFocus(): void;
+}
+
 const CommentDraftsContext = createContext<CommentDrafts | null>(null);
+const NewCommentsContext = createContext<NewComments | null>(null);
 
 export function CommentDraftsProvider({
   threadId,
@@ -102,18 +113,53 @@ export function CommentDraftsProvider({
     [rpc, threadId, update, draftSaves, onWritten],
   );
 
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [focusDraftId, setFocusDraftId] = useState<string | null>(null);
+
+  const create = useCallback(
+    async (path: string, side: DiffSide, line: number) => {
+      setCreateError(null);
+      const result = await rpc
+        .call("createCommentDraft", { threadId, path, side, line })
+        .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
+      if (result.kind === "error") {
+        setCreateError(result.message);
+        return;
+      }
+      setFocusDraftId(result.draftId);
+      onWritten();
+    },
+    [rpc, threadId, onWritten],
+  );
+
+  const clearFocus = useCallback(() => setFocusDraftId(null), []);
+
   const value = useMemo<CommentDrafts>(
     () => ({ stateOf, setText, remove, flushAll: draftSaves.flushAll }),
     [stateOf, setText, remove, draftSaves],
   );
+  const newComments = useMemo<NewComments>(
+    () => ({ create, createError, focusDraftId, clearFocus }),
+    [create, createError, focusDraftId, clearFocus],
+  );
 
-  return <CommentDraftsContext.Provider value={value}>{children}</CommentDraftsContext.Provider>;
+  return (
+    <NewCommentsContext.Provider value={newComments}>
+      <CommentDraftsContext.Provider value={value}>{children}</CommentDraftsContext.Provider>
+    </NewCommentsContext.Provider>
+  );
 }
 
 export function useCommentDrafts(): CommentDrafts {
   const drafts = useContext(CommentDraftsContext);
   if (drafts === null) throw new Error("useCommentDrafts needs a CommentDraftsProvider");
   return drafts;
+}
+
+export function useNewComments(): NewComments {
+  const newComments = useContext(NewCommentsContext);
+  if (newComments === null) throw new Error("useNewComments needs a CommentDraftsProvider");
+  return newComments;
 }
 
 export function CommentDraftCard({
@@ -126,6 +172,13 @@ export function CommentDraftCard({
   const drafts = useCommentDrafts();
   const headingId = useId();
   const { text, busy, error } = drafts.stateOf(draft);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const { focusDraftId, clearFocus } = useNewComments();
+  useEffect(() => {
+    if (focusDraftId !== draft.id) return;
+    box.current?.focus();
+    clearFocus();
+  }, [focusDraftId, clearFocus, draft.id]);
   return (
     <section
       aria-labelledby={headingId}
@@ -133,8 +186,8 @@ export function CommentDraftCard({
     >
       <div className="flex min-w-0 items-center gap-2 text-xs">
         <h3 id={headingId} className="flex shrink-0 items-center gap-1.5 font-medium text-primary">
-          <Icon name="Bot" className="size-3.5" />
-          Draft from agent
+          <Icon name="MessageSquare" className="size-3.5" />
+          Pending comment
         </h3>
         {showLocation && (
           <span className="min-w-0 truncate font-mono" title={draft.path}>
@@ -145,6 +198,7 @@ export function CommentDraftCard({
         {showLocation && <Pill>{draft.side === "RIGHT" ? "New side" : "Old side"}</Pill>}
       </div>
       <textarea
+        ref={box}
         aria-label="Comment"
         rows={2}
         className={cn(TEXTAREA, "border-primary/30")}

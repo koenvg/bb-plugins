@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ListedCommentDraft } from "./review-drafts";
-import { draftLineText, newCommitsText, splitByCommit } from "./comment-draft-view";
+import { draftLineText, newCommitsText } from "./comment-draft-view";
+import { splitByCommit } from "./draft-commits";
 
 function draft(id: string, overrides: Partial<ListedCommentDraft> = {}): ListedCommentDraft {
   return {

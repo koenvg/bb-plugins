@@ -4,9 +4,10 @@ import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
-import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import type {
   ActionResult,
+  CreateCommentDraftResult,
   ReplyResult,
   ReviewResult,
   rpcContract,
@@ -31,7 +32,11 @@ vi.mock("@pierre/diffs/react", () => ({
     renderHeaderMetadata,
   }: {
     fileDiff: FileDiffMetadata;
-    options?: { diffStyle?: string; enableGutterUtility?: boolean };
+    options?: {
+      diffStyle?: string;
+      enableGutterUtility?: boolean;
+      onGutterUtilityClick?: (range: SelectedLineRange) => void;
+    };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
@@ -44,6 +49,16 @@ vi.mock("@pierre/diffs/react", () => ({
       data-gutter-utility={String(options?.enableGutterUtility ?? false)}
     >
       <div data-testid="file-diff-header">{renderHeaderMetadata?.()}</div>
+      {options?.onGutterUtilityClick &&
+        (["additions", "deletions"] as const).map((side) => (
+          <button
+            key={side}
+            type="button"
+            onClick={() => options.onGutterUtilityClick?.({ start: 4, end: 4, side })}
+          >
+            + {side} 4
+          </button>
+        ))}
       {lineAnnotations.map((annotation, index) => (
         <div
           key={index}
@@ -107,6 +122,7 @@ interface RpcHandlers {
   setResolved?: () => ActionResult | Promise<ActionResult>;
   saveDraft?: () => ActionResult | Promise<ActionResult>;
   discardDraft?: () => ActionResult | Promise<ActionResult>;
+  createCommentDraft?: () => CreateCommentDraftResult | Promise<CreateCommentDraftResult>;
   saveCommentDraft?: () => ActionResult | Promise<ActionResult>;
   deleteCommentDraft?: () => ActionResult | Promise<ActionResult>;
   saveSummaryDraft?: () => ActionResult | Promise<ActionResult>;
@@ -159,6 +175,8 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         setResolved: handlers.setResolved ?? (() => ({ kind: "ok" })),
         saveDraft: handlers.saveDraft ?? (() => ({ kind: "ok" })),
         discardDraft: handlers.discardDraft ?? (() => ({ kind: "ok" })),
+        createCommentDraft:
+          handlers.createCommentDraft ?? (() => ({ kind: "created", draftId: "new1" })),
         saveCommentDraft: handlers.saveCommentDraft ?? (() => ({ kind: "ok" })),
         deleteCommentDraft: handlers.deleteCommentDraft ?? (() => ({ kind: "ok" })),
         saveSummaryDraft: handlers.saveSummaryDraft ?? (() => ({ kind: "ok" })),
@@ -286,12 +304,12 @@ describe("Review tab threads", () => {
     };
   }
 
-  it("shows each file diff split, with no add-comment gutter", async () => {
+  it("shows each file diff split, with the add-comment gutter", async () => {
     const slot = renderTab(threaded);
 
     const diffs = await slot.findAllByTestId("file-diff");
     for (const diff of diffs) {
-      expect(diff.dataset).toMatchObject({ diffStyle: "split", gutterUtility: "false" });
+      expect(diff.dataset).toMatchObject({ diffStyle: "split", gutterUtility: "true" });
     }
   });
 
@@ -1166,7 +1184,7 @@ function withCommentDrafts(...commentDrafts: ListedCommentDraft[]): ReviewResult
 }
 
 async function findCommentDraft(slot: ReturnType<typeof renderTab>) {
-  const card = await slot.findByRole("region", { name: "Draft from agent" });
+  const card = await slot.findByRole("region", { name: "Pending comment" });
   return {
     card,
     box: within(card).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement,
@@ -1174,7 +1192,7 @@ async function findCommentDraft(slot: ReturnType<typeof renderTab>) {
 }
 
 describe("Review tab comment drafts", () => {
-  it("shows a comment draft below its line on the new side, as 'Draft from agent'", async () => {
+  it("shows a comment draft below its line on the new side, as 'Pending comment'", async () => {
     const slot = renderTab(withCommentDrafts(commentDraft("c1")));
 
     const { card, box } = await findCommentDraft(slot);
@@ -1255,9 +1273,7 @@ describe("Review tab comment drafts", () => {
 
     fireEvent.click(within(card).getByRole("button", { name: "Delete" }));
 
-    await waitFor(() =>
-      expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull(),
-    );
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Pending comment" })).toBeNull());
     expect(methods(slot)).toEqual(["getReview", "deleteCommentDraft", "getReview"]);
     expect(callsTo(slot, "deleteCommentDraft")).toEqual([{ threadId: "thr_1", draftId: "c1" }]);
   });
@@ -1290,6 +1306,80 @@ describe("Review tab comment drafts", () => {
   });
 });
 
+describe("Review tab new comments", () => {
+  const created = commentDraft("new1", { body: "", source: "user" });
+
+  async function clickAdd(slot: ReturnType<typeof renderTab>, side: "additions" | "deletions") {
+    const [diff] = await slot.findAllByTestId("file-diff");
+    fireEvent.click(within(diff!).getByRole("button", { name: `+ ${side} 4` }));
+  }
+
+  it("creates a comment draft on the new side and focuses its box after the reload", async () => {
+    const slot = renderTab(recorded, withCommentDrafts(created));
+
+    await clickAdd(slot, "additions");
+
+    const { box } = await findCommentDraft(slot);
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    expect(callsTo(slot, "createCommentDraft")).toEqual([
+      { threadId: "thr_1", path: APP_TSX, side: "RIGHT", line: 4 },
+    ]);
+  });
+
+  it("focuses the new box when the reload shows the draft before the create returns", async () => {
+    let finishCreate: (result: CreateCommentDraftResult) => void = () => {};
+    const slot = renderTabWith(
+      { createCommentDraft: () => new Promise((resolve) => (finishCreate = resolve)) },
+      recorded,
+      withCommentDrafts(created),
+    );
+
+    await clickAdd(slot, "additions");
+    await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    const { box } = await findCommentDraft(slot);
+    await act(async () => finishCreate({ kind: "created", draftId: "new1" }));
+
+    await waitFor(() => expect(document.activeElement).toBe(box));
+  });
+
+  it("creates a comment draft on the old side for a deleted line", async () => {
+    const slot = renderTab(recorded);
+
+    await clickAdd(slot, "deletions");
+
+    await waitFor(() =>
+      expect(callsTo(slot, "createCommentDraft")).toEqual([
+        { threadId: "thr_1", path: APP_TSX, side: "LEFT", line: 4 },
+      ]),
+    );
+  });
+
+  it("shows the error when the comment cannot be created", async () => {
+    const slot = renderTabWith(
+      { createCommentDraft: () => ({ kind: "error", message: "Line 4 is not in the diff" }) },
+      recorded,
+    );
+
+    await clickAdd(slot, "additions");
+
+    expect((await slot.findByRole("alert")).textContent).toBe("Line 4 is not in the diff");
+  });
+
+  it("has no add-comment gutter on a merged pull request", async () => {
+    const slot = renderTab({ ...recorded, head: { ...recorded.head, state: "MERGED" } });
+
+    const diffs = await slot.findAllByTestId("file-diff");
+    expect(diffs.map((diff) => diff.dataset.gutterUtility)).not.toContain("true");
+  });
+
+  it("has no add-comment gutter while comment drafts are on an older commit", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1", { commitOid: "abc123" })));
+
+    const diffs = await slot.findAllByTestId("file-diff");
+    expect(diffs.map((diff) => diff.dataset.gutterUtility)).not.toContain("true");
+  });
+});
+
 describe("Review tab drafts on an older commit", () => {
   const older = commentDraft("c1", { commitOid: "abc123", side: "LEFT", startLine: 2 });
 
@@ -1300,7 +1390,10 @@ describe("Review tab drafts on an older commit", () => {
     expect(
       within(section).getByText("PR has new commits since these drafts (abc123 -> def456)"),
     ).toBeTruthy();
-    const card = within(section).getByRole("region", { name: "Draft from agent" });
+    expect(
+      within(section).getByText("Submit or delete these drafts to add new comments."),
+    ).toBeTruthy();
+    const card = within(section).getByRole("region", { name: "Pending comment" });
     expect(within(card).getByText(APP_TSX)).toBeTruthy();
     expect(within(card).getByText("Old side")).toBeTruthy();
     expect(within(card).getByText("Lines 2-4")).toBeTruthy();
@@ -1376,6 +1469,29 @@ describe("Review tab submit panel", () => {
     expect(panel.getByText("2 comments")).toBeTruthy();
   });
 
+  it("counts only the comment drafts with text", async () => {
+    const slot = renderTab(
+      withCommentDrafts(commentDraft("c1", { body: " " }), commentDraft("c2")),
+    );
+
+    const panel = await openPanel(slot);
+
+    expect(panel.getByText("1 comment")).toBeTruthy();
+    expect(submitButton(panel).disabled).toBe(false);
+  });
+
+  it("counts an empty comment draft once the user types in it", async () => {
+    const slot = renderTab(withCommentDrafts(commentDraft("c1", { body: "" })));
+    const panel = await openPanel(slot);
+    expect(panel.getByText("0 comments")).toBeTruthy();
+    expect(submitButton(panel).disabled).toBe(true);
+
+    fireEvent.change((await findCommentDraft(slot)).box, { target: { value: "Rename this" } });
+
+    expect(panel.getByText("1 comment")).toBeTruthy();
+    expect(submitButton(panel).disabled).toBe(false);
+  });
+
   it("shows Comment, Approve, and Request changes on another person's PR", async () => {
     const slot = renderTab(recorded);
 
@@ -1440,7 +1556,7 @@ describe("Review tab submit panel", () => {
     const slot = renderTab(withDraftsAndSummary, recorded);
     const panel = await openPanel(slot);
     const box = within(
-      (await slot.findAllByRole("region", { name: "Draft from agent" }))[0]!,
+      (await slot.findAllByRole("region", { name: "Pending comment" }))[0]!,
     ).getByRole("textbox", { name: "Comment" });
 
     fireEvent.change(box, { target: { value: "Edited comment" } });
@@ -1449,9 +1565,7 @@ describe("Review tab submit panel", () => {
     fireEvent.click(submitButton(panel));
 
     expect(await panel.findByText("Review submitted")).toBeTruthy();
-    await waitFor(() =>
-      expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull(),
-    );
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Pending comment" })).toBeNull());
     expect(summaryBox(panel).value).toBe("");
     expect(methods(slot)).toEqual([
       "getReview",
@@ -1487,7 +1601,7 @@ describe("Review tab submit panel", () => {
     expect(within(alert).getByRole("link", { name: "Open the PR" }).getAttribute("href")).toBe(
       "https://github.com/koenvangeert/bb-plugins/pull/1",
     );
-    expect(slot.getAllByRole("region", { name: "Draft from agent" })).toHaveLength(2);
+    expect(slot.getAllByRole("region", { name: "Pending comment" })).toHaveLength(2);
     expect(summaryBox(panel).value).toBe("Looks good overall");
     expect(methods(slot)).toEqual(["getReview", "submitReview"]);
   });
@@ -1525,7 +1639,7 @@ describe("Review tab submit panel", () => {
     const slot = renderTab(merged);
     const panel = await openPanel(slot);
 
-    expect(await slot.findByRole("region", { name: "Draft from agent" })).toBeTruthy();
+    expect(await slot.findByRole("region", { name: "Pending comment" })).toBeTruthy();
     expect(submitButton(panel).disabled).toBe(true);
     expect(panel.getByText("Pull request is merged")).toBeTruthy();
   });

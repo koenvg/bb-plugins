@@ -44,3 +44,7 @@ export function readSummaryDraft(entry: unknown): SummaryDraft | null {
 export function newCommentDraftId(): string {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
+
+export function hasText(body: string): boolean {
+  return body.trim() !== "";
+}

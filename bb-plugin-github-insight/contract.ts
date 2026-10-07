@@ -274,6 +274,22 @@ const discardDraftRequestSchema = z
   .strict();
 export type DiscardDraftRequest = z.infer<typeof discardDraftRequestSchema>;
 
+const createCommentDraftRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    path: z.string().min(1),
+    side: z.enum(["LEFT", "RIGHT"]),
+    line: z.number().int().positive(),
+  })
+  .strict();
+export type CreateCommentDraftRequest = z.infer<typeof createCommentDraftRequestSchema>;
+
+export const createCommentDraftResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("created"), draftId: z.string() }),
+  z.object({ kind: z.literal("error"), message: z.string() }),
+]);
+export type CreateCommentDraftResult = z.infer<typeof createCommentDraftResultSchema>;
+
 const saveCommentDraftRequestSchema = z
   .object({ threadId: z.string().min(1), draftId: z.string().min(1), body: z.string() })
   .strict();
@@ -357,6 +373,10 @@ export const rpcContract = defineRpcContract({
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },
   saveDraft: { input: saveDraftRequestSchema, output: actionResultSchema },
   discardDraft: { input: discardDraftRequestSchema, output: actionResultSchema },
+  createCommentDraft: {
+    input: createCommentDraftRequestSchema,
+    output: createCommentDraftResultSchema,
+  },
   saveCommentDraft: { input: saveCommentDraftRequestSchema, output: actionResultSchema },
   deleteCommentDraft: { input: deleteCommentDraftRequestSchema, output: actionResultSchema },
   saveSummaryDraft: { input: saveSummaryDraftRequestSchema, output: actionResultSchema },
