@@ -1,3 +1,4 @@
+import { isReviewed } from "../core/review-queue-view";
 import type {
   ActionResult,
   LinkedQueuePr,
@@ -21,9 +22,11 @@ export function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
     headRefName: "rate-limits",
     headOid: "head-15",
     url: "https://github.com/acme/api/pull/15",
+    activity: null,
     requested: true,
     projectIds: ["prj_api", "prj_api_old"],
     review: "needs_review",
+    newActivity: [],
     thread: null,
     ...overrides,
   };
@@ -40,8 +43,8 @@ const LOADED_AT = Date.parse("2026-10-02T09:30:00Z");
 
 export function view(prs: LinkedQueuePr[], truncated = false): ReviewQueueView {
   return {
-    needsReview: section(prs.filter((pr) => pr.review !== "reviewed")),
-    reviewed: section(prs.filter((pr) => pr.review === "reviewed")),
+    needsReview: section(prs.filter((pr) => !isReviewed(pr))),
+    reviewed: section(prs.filter(isReviewed)),
     truncated,
     loadedAt: LOADED_AT,
     hasUnseen: false,

@@ -55,7 +55,7 @@ thread.idle / thread.failed --> server --> kv "review-returned:<threadId>"
 composer banner --markThreadOpened--> server --> deletes "review-returned:<threadId>"
 ```
 
-- One `gh api graphql` call per load (`github/review-queue-query.ts`). It has one search, `is:pr is:open review-requested:@me` (first 50 results, also requests to your teams), and one `repository { pullRequest }` lookup per tracked PR. Tracked PRs are the PRs with a reviewed mark and the PRs of unarchived review threads.
+- One `gh api graphql` call per load (`github/review-queue-query.ts`). It has one search, `is:pr is:open review-requested:@me` (first 50 results, also requests to your teams), and one `repository { pullRequest }` lookup per tracked PR, with recent comments, reviews, and review requests (see "Reviewed state"). Tracked PRs are the PRs with a reviewed mark and the PRs of unarchived review threads.
 - GitHub returns `null` and a `NOT_FOUND` error for a tracked PR or repository that does not exist, and `gh` then exits non-zero. The host keeps the response when every error is `NOT_FOUND` (`github/not-found-partial.ts`). Other errors fail the load.
 - The list holds each open PR once: requested PRs, marked PRs, and PRs with a review thread. A merged, closed, or missing tracked PR leaves the list, and its mark is deleted. When GitHub reports more than 50 requests, "Needs review" shows "Showing first 50".
 - Each section groups its PRs by repo. Repo groups with a PR whose thread needs you or came back come first, then the other groups by name. In a group, those PRs come first, then by last update, newest first.
@@ -84,7 +84,11 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - `core/review-state.ts` compares the mark with the current head: no mark is "Needs review", the same commit is "Reviewed", another commit is "Needs review" with "Updated since review". A push or force push changes the head, so the PR comes back by itself.
 - "Reviewed" is collapsed when the panel opens. "Mark as needs review" deletes the mark. A PR with no request and no review thread then leaves the list.
 - A successful submit in the Review tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
-- A request again at the same commit keeps the PR in "Reviewed". Reviews submitted on github.com do not set a mark.
+- A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps the newest time of each kind:
+  - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
+  - "Review requested again": a review request to your login. Requests to a team do not count.
+- "Mark reviewed" writes a new `markedAt`, so it clears both labels. PRs with no mark get no activity labels, also when they have a review thread.
+- Reviews submitted on github.com do not set a mark.
 - "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
 
 ### Hidden review threads

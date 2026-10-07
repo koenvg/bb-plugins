@@ -641,6 +641,54 @@ describe("Reviewed section", () => {
     const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).queryByText("Updated since review")).toBeNull();
   });
+
+  it.each([
+    ["new_comments", "New comments"],
+    ["requested_again", "Review requested again"],
+  ] as const)("labels a marked PR with %s activity as %s", async (activity, label) => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ review: "reviewed", newActivity: [activity] })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByText(label)).toBeTruthy();
+  });
+
+  it("shows a push, comments, and a new request together", async () => {
+    const slot = renderPanel("", () =>
+      ok(
+        view([
+          queuePr({
+            review: "updated_since_review",
+            newActivity: ["new_comments", "requested_again"],
+          }),
+        ]),
+      ),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByText("Updated since review")).toBeTruthy();
+    expect(within(card).getByText("New comments")).toBeTruthy();
+    expect(within(card).getByText("Review requested again")).toBeTruthy();
+  });
+
+  it("offers Mark reviewed on a marked PR that came back with new activity", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ review: "reviewed", newActivity: ["new_comments"] })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).getByRole("button", { name: "Mark reviewed" })).toBeTruthy();
+    expect(within(card).queryByRole("button", { name: "Mark as needs review" })).toBeNull();
+  });
+
+  it("shows no activity label on a PR without new activity", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).queryByText("New comments")).toBeNull();
+    expect(within(card).queryByText("Review requested again")).toBeNull();
+  });
 });
 
 describe("Mark actions", () => {

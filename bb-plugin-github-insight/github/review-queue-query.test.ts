@@ -15,6 +15,16 @@ describe("reviewQueueArgs", () => {
     ).toMatchSnapshot();
   });
 
+  it("asks for comment and request activity on tracked PRs only", () => {
+    const query = reviewQueueArgs([{ owner: "acme", repo: "api", number: 15 }]).find((arg) =>
+      arg.startsWith("query="),
+    )!;
+
+    expect(query).toContain("viewer { login }");
+    expect(query).toContain("nodes { ...QueuePr }");
+    expect(query).toContain("pullRequest(number: $n0) { ...QueuePr ...QueueActivity }");
+  });
+
   it("passes the tracked repository names as variables, not inside the query", () => {
     const args = reviewQueueArgs([{ owner: 'acme"', repo: "api", number: 15 }]);
     const query = args.find((arg) => arg.startsWith("query="))!;

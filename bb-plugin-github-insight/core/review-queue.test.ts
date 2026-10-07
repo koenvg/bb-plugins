@@ -55,6 +55,7 @@ describe("parseReviewQueue", () => {
       headRefName: "alice/retries",
       headOid: "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
       url: "https://github.com/acme/api/pull/12",
+      activity: null,
     });
   });
 
@@ -100,7 +101,9 @@ describe("parseReviewQueue", () => {
   });
 
   function withIssueCount(issueCount: number) {
-    return { data: { reviewRequests: { ...fixture.data.reviewRequests, issueCount } } };
+    return {
+      data: { ...fixture.data, reviewRequests: { ...fixture.data.reviewRequests, issueCount } },
+    };
   }
 
   it("flags the list as truncated when GitHub reports more than 50", () => {
@@ -110,6 +113,12 @@ describe("parseReviewQueue", () => {
 
   it("flags 50 results as complete", () => {
     expect(parseReviewQueue(withIssueCount(50), []).requests.truncated).toBe(false);
+  });
+
+  it("rejects a response without the viewer", () => {
+    const { viewer: _, ...data } = fixture.data;
+
+    expect(() => parseReviewQueue({ data }, [])).toThrow();
   });
 
   it("rejects a response without the review requests search", () => {
@@ -144,5 +153,108 @@ describe("parseReviewQueue with tracked PRs", () => {
 
   it("reports a tracked PR that the response leaves out as gone", () => {
     expect(parseReviewQueue(fixture, [refs[0]!]).gone).toEqual([refs[0]]);
+  });
+});
+
+describe("parseReviewQueue activity on tracked PRs", () => {
+  const ref = { owner: "acme", repo: "api", number: 15 };
+  const trackedNode = trackedFixture.data.t0.pullRequest;
+  const person = (login: string) => ({ __typename: "User", login });
+  const bot = { __typename: "Bot", login: "github-actions" };
+
+  function activityOf(nodes: { comments?: unknown[]; reviews?: unknown[]; requests?: unknown[] }) {
+    const response = {
+      data: {
+        viewer: { login: "me" },
+        reviewRequests: { issueCount: 0, nodes: [] },
+        t0: {
+          pullRequest: {
+            ...trackedNode,
+            comments: { nodes: nodes.comments ?? [] },
+            reviews: { nodes: nodes.reviews ?? [] },
+            timelineItems: { nodes: nodes.requests ?? [] },
+          },
+        },
+      },
+    };
+    return parseReviewQueue(response, [ref]).tracked[0]!.activity;
+  }
+
+  function review(author: unknown, body: string, comments: number, submittedAt: string | null) {
+    return { submittedAt, body, comments: { totalCount: comments }, author };
+  }
+
+  it("has no activity on review request rows", () => {
+    expect(byNumber(parseReviewQueue(fixture, []).requests, 12).activity).toBeNull();
+  });
+
+  it("reports nothing when nobody posted", () => {
+    expect(activityOf({})).toEqual({ lastCommentAt: null, lastRequestedAt: null });
+  });
+
+  it("takes the newest PR comment from a person", () => {
+    const comments = [
+      { createdAt: "2026-10-07T08:00:00Z", author: person("alice") },
+      { createdAt: "2026-10-07T09:00:00Z", author: person("bob") },
+    ];
+
+    expect(activityOf({ comments })?.lastCommentAt).toBe("2026-10-07T09:00:00Z");
+  });
+
+  it.each([
+    ["a bot", { createdAt: "2026-10-07T09:00:00Z", author: bot }],
+    ["the viewer", { createdAt: "2026-10-07T09:00:00Z", author: person("me") }],
+    ["a deleted user", { createdAt: "2026-10-07T09:00:00Z", author: null }],
+  ])("ignores a PR comment from %s", (_, comment) => {
+    expect(activityOf({ comments: [comment] })?.lastCommentAt).toBeNull();
+  });
+
+  it("counts a reply review with no body and one comment", () => {
+    const reviews = [review(person("alice"), "", 1, "2026-10-07T08:38:57Z")];
+
+    expect(activityOf({ reviews })?.lastCommentAt).toBe("2026-10-07T08:38:57Z");
+  });
+
+  it("counts a review with a body and no comments", () => {
+    const reviews = [
+      review(person("alice"), "Fixed, please look again", 0, "2026-10-07T08:38:57Z"),
+    ];
+
+    expect(activityOf({ reviews })?.lastCommentAt).toBe("2026-10-07T08:38:57Z");
+  });
+
+  it.each([
+    ["an approval with no text", review(person("alice"), "", 0, "2026-10-07T08:44:48Z")],
+    ["a bot review", review(bot, "Looks fine", 1, "2026-10-07T08:44:48Z")],
+    ["a viewer review", review(person("me"), "Nit", 1, "2026-10-07T08:44:48Z")],
+    ["a pending review", review(person("alice"), "Draft", 1, null)],
+  ])("ignores %s", (_, item) => {
+    expect(activityOf({ reviews: [item] })?.lastCommentAt).toBeNull();
+  });
+
+  it("takes the newest of PR comments and reviews", () => {
+    expect(
+      activityOf({
+        comments: [{ createdAt: "2026-10-07T08:00:00Z", author: person("alice") }],
+        reviews: [review(person("alice"), "", 1, "2026-10-07T09:00:00Z")],
+      })?.lastCommentAt,
+    ).toBe("2026-10-07T09:00:00Z");
+  });
+
+  it("takes the newest review request for the viewer", () => {
+    const requests = [
+      { createdAt: "2026-10-06T10:35:12Z", requestedReviewer: person("me") },
+      { createdAt: "2026-10-07T08:50:27Z", requestedReviewer: person("me") },
+    ];
+
+    expect(activityOf({ requests })?.lastRequestedAt).toBe("2026-10-07T08:50:27Z");
+  });
+
+  it.each([
+    ["a team", { createdAt: "2026-10-07T08:50:27Z", requestedReviewer: { __typename: "Team" } }],
+    ["another user", { createdAt: "2026-10-07T08:50:27Z", requestedReviewer: person("alice") }],
+    ["a deleted reviewer", { createdAt: "2026-10-07T08:50:27Z", requestedReviewer: null }],
+  ])("ignores a review request for %s", (_, request) => {
+    expect(activityOf({ requests: [request] })?.lastRequestedAt).toBeNull();
   });
 });

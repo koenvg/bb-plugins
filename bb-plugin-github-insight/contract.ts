@@ -20,6 +20,7 @@ export type {
   LinkedQueuePr,
   LinkedThread,
   LoadedReviewQueue,
+  NewActivity,
   QueueSection,
   ReviewQueueResult,
   ReviewQueueView,

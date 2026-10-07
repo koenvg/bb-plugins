@@ -8,12 +8,14 @@ import type {
 } from "../contract";
 import type { PullRequestRef } from "../core/pr-ref";
 import { readReviewPr, type ReviewPr } from "../core/review-pr";
-import { parseGithubRepo, type FetchedQueue } from "../core/review-queue";
+import { parseGithubRepo, type FetchedQueue, type PrActivity } from "../core/review-queue";
 import {
+  isReviewed,
   loadedReviewQueueSchema,
   type LinkedQueuePr,
   type LinkedThread,
   type LoadedReviewQueue,
+  type NewActivity,
   type QueueRow,
   type QueueSection,
   type ReturnedReason,
@@ -113,13 +115,18 @@ function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
 
 function rowsOf(view: ReviewQueueView): QueueRow[] {
   return [...view.needsReview, ...view.reviewed].flatMap((group) =>
-    group.prs.map(({ projectIds: _, review: __, thread: ___, ...row }) => row),
+    group.prs.map(({ projectIds: _, review: __, newActivity: ___, thread: ____, ...row }) => row),
   );
 }
 
 function mergeRows({ requests, tracked }: FetchedQueue): QueueRow[] {
+  const trackedByKey = new Map(tracked.map((pr) => [prKey(pr.repo, pr.number), pr]));
   const rows = requests.groups.flatMap((group) =>
-    group.prs.map((pr) => ({ ...pr, requested: true })),
+    group.prs.map((pr) => ({
+      ...pr,
+      activity: trackedByKey.get(prKey(pr.repo, pr.number))?.activity ?? null,
+      requested: true,
+    })),
   );
   const keys = new Set(rows.map((row) => prKey(row.repo, row.number)));
   for (const pr of tracked) {
@@ -129,6 +136,15 @@ function mergeRows({ requests, tracked }: FetchedQueue): QueueRow[] {
     rows.push({ ...pr, requested: false });
   }
   return rows;
+}
+
+function newActivitySince(activity: PrActivity | null, markedAt: number): NewActivity[] {
+  if (activity === null) return [];
+  const isAfterMark = (at: string | null) => at !== null && Date.parse(at) > markedAt;
+  return [
+    ...(isAfterMark(activity.lastCommentAt) ? (["new_comments"] as const) : []),
+    ...(isAfterMark(activity.lastRequestedAt) ? (["requested_again"] as const) : []),
+  ];
 }
 
 function returnedReason(status: ReviewThreadStatus, stopped: boolean): ReturnedReason | null {
@@ -267,7 +283,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
       seenPrs.list(),
       returnedThreads.list(),
     ]);
-    const reviewedHeads = new Map(marked.map((mark) => [refKey(mark.ref), mark.headOid]));
+    const marksByPr = new Map(marked.map((mark) => [refKey(mark.ref), mark]));
     const reviewThreadIds = new Set(reviews.map(({ thread }) => thread.id));
     const liveIds = new Set(live.map(({ id }) => id));
     const prsWithReviewThread = new Set(reviews.map(({ pr }) => prKey(pr.repo, pr.number)));
@@ -284,23 +300,24 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     };
     const linked = rows.flatMap((row): LinkedQueuePr[] => {
       const key = prKey(row.repo, row.number);
-      const reviewedHead = reviewedHeads.get(key) ?? null;
-      if (!row.requested && reviewedHead === null && !prsWithReviewThread.has(key)) return [];
+      const mark = marksByPr.get(key);
+      if (!row.requested && mark === undefined && !prsWithReviewThread.has(key)) return [];
       return [
         {
           ...row,
           projectIds: projectIds.get(row.repo.toLowerCase()) ?? [],
-          review: reviewState(reviewedHead, row.headOid),
+          review: reviewState(mark?.headOid ?? null, row.headOid),
+          newActivity: mark === undefined ? [] : newActivitySince(row.activity, mark.markedAt),
           thread: linkThread(threads.get(key)),
         },
       ];
     });
-    const needsReview = linked.filter((pr) => pr.review !== "reviewed");
+    const needsReview = linked.filter((pr) => !isReviewed(pr));
     const needsReviewKeys = new Set(needsReview.map((pr) => prKey(pr.repo, pr.number)));
     return {
       view: {
         needsReview: sectionOf(needsReview),
-        reviewed: sectionOf(linked.filter((pr) => pr.review === "reviewed")),
+        reviewed: sectionOf(linked.filter(isReviewed)),
         truncated,
         loadedAt,
         hasUnseen: [...needsReviewKeys].some((key) => !seen.has(key)),
