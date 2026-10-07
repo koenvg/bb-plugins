@@ -3,7 +3,10 @@ import type { PrFilesRequest } from "../contract";
 const PR_HEAD_QUERY = `
 query ($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) { id headRefOid state viewerDidAuthor }
+    pullRequest(number: $number) {
+      id headRefOid state viewerDidAuthor
+      viewerLatestReview { state submittedAt commit { oid } }
+    }
   }
 }
 `;

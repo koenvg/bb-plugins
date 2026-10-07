@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SubmitReviewResult } from "../contract";
 import type { PrHead } from "../core/pr-head";
@@ -31,7 +31,13 @@ export function SubmitReviewToggle({ open, toggle }: { open: boolean; toggle: ()
       )}
       onClick={toggle}
     >
-      <Icon name={open ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
+      <Icon
+        name="ChevronRight"
+        className={cn(
+          "size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
+          open && "rotate-90",
+        )}
+      />
       Submit review
     </button>
   );
@@ -63,6 +69,12 @@ export function SubmitPanel({
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<SubmitReviewResult | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (submittedAt === null) return;
+    const timer = setTimeout(() => setSubmittedAt(null), SUBMITTED_LABEL_MS);
+    return () => clearTimeout(timer);
+  }, [submittedAt]);
 
   const rules = submitRules({
     viewerIsAuthor: head.viewerIsAuthor,
@@ -88,98 +100,143 @@ export function SubmitPanel({
       summary.clear();
       onWritten();
       announceSummaryWritten(threadId);
+      setSubmittedAt(Date.now());
     }
     setOutcome(result);
     setBusy(false);
   }
 
   return (
-    <section
-      aria-labelledby={headingId}
-      hidden={!open}
-      className="flex shrink-0 flex-col gap-2 border-b border-border bg-muted/30 px-3 py-2.5 text-sm"
+    <div
+      aria-hidden={!open}
+      inert={!open}
+      className={cn(
+        "grid shrink-0 transition-[grid-template-rows,opacity] motion-reduce:transition-none",
+        open
+          ? "grid-rows-[1fr] opacity-100 duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          : "grid-rows-[0fr] opacity-0 duration-150 ease-in",
+      )}
     >
-      <div className="flex items-center gap-2 text-xs">
-        <h2 id={headingId} className="font-medium">
-          Submit review
-        </h2>
-        {summary.fromAgent && (
-          <span className="flex items-center gap-1 text-primary">
-            <Icon name="Bot" className="size-3.5" />
-            Summary from agent
-          </span>
-        )}
-        <span className="ml-auto text-muted-foreground tabular-nums">
-          {commentsText(commentCount)}
-        </span>
-      </div>
-      <textarea
-        aria-label="Summary"
-        placeholder="Leave a summary…"
-        rows={2}
-        className={cn(TEXTAREA, "border-border")}
-        value={summary.text}
-        disabled={busy}
-        onChange={(change) => summary.setText(change.target.value)}
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="radiogroup" aria-label="Verdict" className="flex flex-wrap items-center gap-1.5">
-          {rules.map((rule) => (
-            <VerdictOption
-              key={rule.event}
-              event={rule.event}
-              checked={rule.event === selected.event}
-              disabled={busy}
-              select={() => setEvent(rule.event)}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          className={cn(PRIMARY_BUTTON, "ml-auto")}
-          aria-describedby={selected.disabledReason === null ? undefined : reasonId}
-          disabled={busy || selected.disabledReason !== null}
-          onClick={() => void submit()}
-        >
-          {busy ? "Submitting…" : "Submit"}
-        </button>
-      </div>
-      {selected.disabledReason !== null && (
-        <p id={reasonId} className="text-xs text-muted-foreground">
-          {selected.disabledReason}
-        </p>
-      )}
-      {summary.saveError !== null && <ErrorText>{summary.saveError}</ErrorText>}
-      {outcome?.kind === "error" && (
-        <ErrorText>
-          {outcome.message}
-          {outcome.url !== null && (
-            <>
-              {" "}
-              <UrlLink
-                href={outcome.url}
-                className="font-medium underline-offset-2 hover:underline"
-              >
-                Open the PR
-              </UrlLink>
-            </>
+      <section aria-labelledby={headingId} className="min-h-0 overflow-hidden">
+        <div className="flex flex-col gap-2 border-b border-border bg-muted/30 px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-2 text-xs">
+            <h2 id={headingId} className="font-medium">
+              Submit review
+            </h2>
+            {summary.fromAgent && (
+              <span className="flex items-center gap-1 text-primary">
+                <Icon name="Bot" className="size-3.5" />
+                Summary from agent
+              </span>
+            )}
+            <span className="ml-auto text-muted-foreground tabular-nums">
+              {commentsText(commentCount)}
+            </span>
+          </div>
+          <textarea
+            aria-label="Summary"
+            placeholder="Leave a summary…"
+            rows={2}
+            className={cn(TEXTAREA, "border-border")}
+            value={summary.text}
+            disabled={busy}
+            onChange={(change) => summary.setText(change.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              role="radiogroup"
+              aria-label="Verdict"
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              {rules.map((rule) => (
+                <VerdictOption
+                  key={rule.event}
+                  event={rule.event}
+                  checked={rule.event === selected.event}
+                  disabled={busy}
+                  select={() => setEvent(rule.event)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              className={cn(PRIMARY_BUTTON, "ml-auto")}
+              aria-describedby={selected.disabledReason === null ? undefined : reasonId}
+              disabled={busy || selected.disabledReason !== null}
+              onClick={() => void submit()}
+            >
+              <SubmitLabel busy={busy} submittedAt={submittedAt} />
+            </button>
+          </div>
+          {selected.disabledReason !== null && (
+            <p id={reasonId} className="text-xs text-muted-foreground">
+              {selected.disabledReason}
+            </p>
           )}
-        </ErrorText>
-      )}
-      {outcome?.kind === "submitted" && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon name="CircleCheck" className="size-3.5 text-success" />
-          Review submitted
-        </p>
-      )}
-      {outcome?.kind === "submitted" && outcome.markError !== undefined && (
-        <ErrorText>
-          Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull
-          Requests panel.
-        </ErrorText>
-      )}
-    </section>
+          {summary.saveError !== null && <ErrorText>{summary.saveError}</ErrorText>}
+          {outcome?.kind === "error" && (
+            <ErrorText>
+              {outcome.message}
+              {outcome.url !== null && (
+                <>
+                  {" "}
+                  <UrlLink
+                    href={outcome.url}
+                    className="font-medium underline-offset-2 hover:underline"
+                  >
+                    Open the PR
+                  </UrlLink>
+                </>
+              )}
+            </ErrorText>
+          )}
+          {outcome?.kind === "submitted" && (
+            <p
+              role="status"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground duration-300 ease-out animate-in fade-in slide-in-from-top-1 motion-reduce:slide-in-from-top-0"
+            >
+              <Icon name="CircleCheck" className="size-3.5 text-success" />
+              Review submitted
+            </p>
+          )}
+          {outcome?.kind === "submitted" && outcome.markError !== undefined && (
+            <ErrorText>
+              Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull
+              Requests panel.
+            </ErrorText>
+          )}
+        </div>
+      </section>
+    </div>
   );
+}
+
+const SUBMITTED_LABEL_MS = 1800;
+
+function SubmitLabel({ busy, submittedAt }: { busy: boolean; submittedAt: number | null }) {
+  if (busy) {
+    return (
+      <>
+        <Icon name="Loading" className="size-3.5 animate-spin motion-reduce:animate-none" />
+        Submitting…
+      </>
+    );
+  }
+  if (submittedAt !== null) {
+    return (
+      <span
+        key={submittedAt}
+        className="inline-flex items-center gap-1 duration-200 animate-in fade-in"
+      >
+        <Icon
+          name="Check"
+          className="size-3.5 duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] animate-in zoom-in-50 spin-in-[-90deg] motion-reduce:animate-none"
+        />
+        Submitted
+      </span>
+    );
+  }
+  return <>Submit</>;
 }
 
 function VerdictOption({

@@ -13,7 +13,13 @@ const loaded: ReviewLoad = {
   target,
   allThreadsRead: true,
   review: {
-    head: { prNodeId: "PR_1", oid: "def456", state: "OPEN", viewerIsAuthor: false },
+    head: {
+      prNodeId: "PR_1",
+      oid: "def456",
+      state: "OPEN",
+      viewerIsAuthor: false,
+      viewerReview: null,
+    },
     files: [],
     threads: { placed: [], outdated: [] },
     drafts: {},

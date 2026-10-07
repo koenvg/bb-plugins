@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`prHeadArgs > asks for the PR node id, head commit, state, and author flag 1`] = `
+exports[`prHeadArgs > asks for the PR node id, head commit, state, author flag, and viewer review 1`] = `
 [
   "api",
   "graphql",
@@ -8,7 +8,10 @@ exports[`prHeadArgs > asks for the PR node id, head commit, state, and author fl
   "query=
 query ($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) { id headRefOid state viewerDidAuthor }
+    pullRequest(number: $number) {
+      id headRefOid state viewerDidAuthor
+      viewerLatestReview { state submittedAt commit { oid } }
+    }
   }
 }
 ",

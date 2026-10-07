@@ -23,6 +23,7 @@ import { SubmitPanel, SubmitReviewToggle } from "./submit-panel";
 import { ThreadActionsProvider } from "./thread-actions";
 import { ThreadSelectionContext, useThreadSelectionState } from "./thread-selection";
 import { useThreadResult } from "./use-thread-result";
+import { ViewerReviewBadge } from "./viewer-review-badge";
 
 function useReview(threadId: string) {
   const rpc = useRpc<typeof rpcContract>();
@@ -171,6 +172,7 @@ function ReviewContent({
         <span className="mr-1 text-muted-foreground">{filesChangedText(files)}</span>
         <CountPill emphasis={counts.open > 0}>{counts.open} open</CountPill>
         <CountPill emphasis={false}>{counts.outdated} outdated</CountPill>
+        <ViewerReviewBadge review={head.viewerReview} headOid={head.oid} />
         <div className="ml-auto flex items-center gap-2">
           {agent.outcome?.result.kind === "sent" && (
             <span role="status" className="text-muted-foreground">
