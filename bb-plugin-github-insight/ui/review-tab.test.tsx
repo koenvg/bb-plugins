@@ -166,6 +166,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         startReview: () => ({ threadId: "unused" }),
+        getPrimaryHost: () => ({ hostId: null }),
         archiveReview: () => ({ kind: "error", message: "unused" }),
         markReviewed: () => ({ kind: "error", message: "unused" }),
         markNeedsReview: () => ({ kind: "error", message: "unused" }),

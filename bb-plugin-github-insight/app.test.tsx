@@ -81,6 +81,7 @@ const unusedReviewRpc = {
   getReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   refreshReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   startReview: () => ({ threadId: "unused" }),
+  getPrimaryHost: () => ({ hostId: null }),
   archiveReview: () => ({ kind: "error" as const, message: "unused" }),
   markReviewed: () => ({ kind: "error" as const, message: "unused" }),
   markNeedsReview: () => ({ kind: "error" as const, message: "unused" }),

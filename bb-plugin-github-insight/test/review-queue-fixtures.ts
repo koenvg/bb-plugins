@@ -82,6 +82,7 @@ export type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;
 export interface PanelRpc {
   refreshReviewQueue: () => LoadedReviewQueue | Promise<LoadedReviewQueue>;
   startReview: () => { threadId: string } | Promise<{ threadId: string }>;
+  getPrimaryHost: () => { hostId: string | null } | Promise<{ hostId: string | null }>;
   archiveReview: () => ActionResult | Promise<ActionResult>;
   markReviewed: () => ActionResult | Promise<ActionResult>;
   markNeedsReview: () => ActionResult | Promise<ActionResult>;
@@ -99,6 +100,7 @@ export function panelRpc(getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = 
       return result;
     },
     startReview: () => ({ threadId: "thr_new" }),
+    getPrimaryHost: () => ({ hostId: "host-1" }),
     archiveReview: () => ({ kind: "ok" as const }),
     markReviewed: () => ({ kind: "ok" as const }),
     markNeedsReview: () => ({ kind: "ok" as const }),

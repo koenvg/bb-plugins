@@ -162,6 +162,18 @@ A PR card with a matching project and no linked thread SHALL have a "Review in t
 - **AND** the thread is hidden from the sidebar thread list
 - **AND** the panel opens that thread
 
+#### Scenario: Composer opens on a new worktree
+
+- **WHEN** the user selects "Review in thread" on `acme/api#15` and bb has a primary host
+- **THEN** the composer's environment picker shows a new worktree on that host before the user changes anything
+- **AND** the branch picker shows the project's default base branch
+
+#### Scenario: No primary host
+
+- **WHEN** the user selects "Review in thread" and bb has no primary host
+- **THEN** the composer opens with the host's own environment default
+- **AND** submitting a shared environment still shows "Review threads need a new worktree"
+
 #### Scenario: Leave the composer
 
 - **WHEN** the user opens the composer from a card and goes back without submitting

@@ -2487,6 +2487,20 @@ describe("startReview", () => {
   });
 });
 
+describe("getPrimaryHost", () => {
+  it("returns the primary host ID", async () => {
+    const harness = await setup({ threads: [], primaryHostId: "host-7" });
+
+    expect(await harness.behavior.callRpc("getPrimaryHost", {})).toEqual({ hostId: "host-7" });
+  });
+
+  it("returns null without a primary host", async () => {
+    const harness = await setup({ threads: [], primaryHostId: null });
+
+    expect(await harness.behavior.callRpc("getPrimaryHost", {})).toEqual({ hostId: null });
+  });
+});
+
 describe("archiveReview", () => {
   const reviewPr = {
     v: 1,
