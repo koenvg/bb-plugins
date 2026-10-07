@@ -184,6 +184,10 @@ const attachmentSchema = z
   })
   .strict();
 
+const taskActivityEntrySchema = z
+  .object({ comment: displayCommentSchema, attachments: z.array(attachmentSchema) })
+  .strict();
+
 const taskThreadSchema = z
   .object({
     id: idSchema,
@@ -701,6 +705,10 @@ export const tasksRpcContract = defineRpcContract({
     input: z.object({ taskId: idSchema }).strict(),
     output: z.object({ comments: z.array(displayCommentSchema) }).strict(),
   },
+  getTaskActivity: {
+    input: z.object({ taskId: idSchema }).strict(),
+    output: z.object({ entries: z.array(taskActivityEntrySchema) }).strict(),
+  },
   listAttachments: {
     input: z.union([
       z.object({ taskId: idSchema }).strict(),
@@ -860,6 +868,7 @@ export type Comment = z.infer<typeof commentSchema>;
 export type CommentProvider = z.infer<typeof commentProviderSchema>;
 export type DisplayComment = z.infer<typeof displayCommentSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
+export type TaskActivityEntry = z.infer<typeof taskActivityEntrySchema>;
 export type TaskThread = z.infer<typeof taskThreadSchema>;
 export type TaskPullRequest = z.infer<typeof taskPullRequestSchema>;
 export type TaskWorkThread = z.infer<typeof taskWorkThreadSchema>;

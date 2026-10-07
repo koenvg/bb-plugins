@@ -118,8 +118,8 @@ describe("host-controlled Ticket presentation", () => {
   it("keeps the same title, description, comment, files and notification choice when the host unmounts the tab", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
     const slot = setup("all?task=TSK-1", {
-      listComments: () => ({
-        comments: [
+      getTaskActivity: () => ({
+        entries: [
           {
             id: "reply",
             taskId: tasks[0]!.id,
@@ -133,7 +133,7 @@ describe("host-controlled Ticket presentation", () => {
             createdAt: project.createdAt,
             provider: null,
           },
-        ],
+        ].map((comment) => ({ comment, attachments: [] })),
       }),
       updateTask: (raw) => ({
         ok: true,

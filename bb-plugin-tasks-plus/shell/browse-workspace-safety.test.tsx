@@ -19,6 +19,21 @@ import {
 useWorkspaceTestLifecycle();
 
 describe("browse save and task ownership", () => {
+  it("presents the native Ticket heading and description before activity settles", async () => {
+    const activity = deferred<unknown>();
+    const slot = setup("all?task=TSK-1", { getTaskActivity: () => activity.promise });
+    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 1");
+    await waitFor(() =>
+      expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1"),
+    );
+    expect(slot.getByText("Loading activity…")).toBeTruthy();
+    expect(slot.queryByText("No activity yet.")).toBeNull();
+    await act(async () => activity.resolve(Promise.reject(new Error("Metadata unavailable"))));
+    expect((await slot.findByRole("alert")).textContent).toContain("Metadata unavailable");
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1");
+    expect(slot.getByRole("button", { name: "Retry activity" })).toBeTruthy();
+  });
+
   it("keeps identity, drafts and URL on failure, then retries only the latest click", async () => {
     const first = deferred<unknown>();
     const writes: Record<string, unknown>[] = [];
@@ -75,8 +90,8 @@ describe("browse save and task ownership", () => {
   it("keeps unsent text, files and notification preference with A through A-B-A clicks", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
     const slot = setup("all?task=TSK-1", {
-      listComments: () => ({
-        comments: [
+      getTaskActivity: () => ({
+        entries: [
           {
             id: "reply",
             taskId: tasks[0]!.id,
@@ -90,7 +105,7 @@ describe("browse save and task ownership", () => {
             createdAt: project.createdAt,
             provider: null,
           },
-        ],
+        ].map((comment) => ({ comment, attachments: [] })),
       }),
     });
     await slot.findByRole("textbox", { name: "Task title" });

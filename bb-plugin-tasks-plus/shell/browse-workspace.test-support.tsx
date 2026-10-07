@@ -92,7 +92,7 @@ export function setup(
         }),
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listTaskThreads: () => ({ taskThreads: [] }),
         listTaskDependencies: () => ({ blockers: [], blocking: [] }),
         listTaskPullRequests: () => ({
