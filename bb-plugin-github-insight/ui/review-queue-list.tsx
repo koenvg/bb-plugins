@@ -2,12 +2,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import type {
   LinkedQueuePr,
+  NewActivity,
   QueueSection,
   ReturnedReason,
   ReviewThreadStatus,
   rpcContract,
 } from "../contract";
 import { relativeTime } from "../core/relative-time";
+import { isReviewed } from "../core/review-queue-view";
 import type { CiState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,20 @@ const REVIEW_DECISION_LABEL: Record<
   CHANGES_REQUESTED: { text: "Changes requested", className: "font-medium text-destructive" },
   REVIEW_REQUIRED: { text: "Review required", className: "text-subtle-foreground" },
 };
+
+const ATTENTION_LABEL: Record<
+  NewActivity | "updated_since_review",
+  { text: string; icon: IconName }
+> = {
+  updated_since_review: { text: "Updated since review", icon: "ArrowUp" },
+  new_comments: { text: "New comments", icon: "MessageSquare" },
+  requested_again: { text: "Review requested again", icon: "UserRoundPlus" },
+};
+
+function attentionLabels(pr: LinkedQueuePr): { text: string; icon: IconName }[] {
+  const reasons = pr.review === "updated_since_review" ? ["updated_since_review" as const] : [];
+  return [...reasons, ...pr.newActivity].map((reason) => ATTENTION_LABEL[reason]);
+}
 
 interface StatusLabel {
   text: string;
@@ -356,6 +372,7 @@ function QueueRow({
 }) {
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
+  const attention = attentionLabels(pr);
   const thread = pr.thread;
   const status =
     thread === null
@@ -419,21 +436,20 @@ function QueueRow({
               </span>
             </>
           )}
-          {(pr.draft || pr.review === "updated_since_review" || status !== null) && (
-            <span className="w-1" />
-          )}
+          {(pr.draft || attention.length > 0 || status !== null) && <span className="w-1" />}
           {pr.draft && <span className={LABEL_CLASS}>Draft</span>}
-          {pr.review === "updated_since_review" && (
+          {attention.map(({ icon, text }) => (
             <span
+              key={text}
               className={cn(
                 LABEL_CLASS,
                 "flex items-center gap-1 border-attention/50 bg-attention/10 text-foreground",
               )}
             >
-              <Icon name="ArrowUp" className="size-3 text-attention" />
-              Updated since review
+              <Icon name={icon} className="size-3 text-attention" />
+              {text}
             </span>
-          )}
+          ))}
           {status !== null && (
             <span
               data-testid="review-status"
@@ -454,7 +470,7 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
   const navigation = usePullRequestsNavigation();
   const thread = pr.thread;
   const busy = actions.busy(pr);
-  const reviewed = pr.review === "reviewed";
+  const reviewed = isReviewed(pr);
   const markLabel = reviewed ? "Mark as needs review" : "Mark reviewed";
   return (
     <div className="col-start-2 -ml-2 flex flex-wrap items-center gap-0.5 @lg:col-start-3 @lg:row-start-1 @lg:-mr-1.5 @lg:ml-0 @lg:self-center">

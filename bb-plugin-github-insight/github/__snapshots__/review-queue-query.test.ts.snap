@@ -7,12 +7,13 @@ exports[`reviewQueueArgs > asks for each tracked PR by repository and number in 
   "-f",
   "query=
 query($o0: String!, $r0: String!, $n0: Int!, $o1: String!, $r1: String!, $n1: Int!) {
+  viewer { login }
   reviewRequests: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
     issueCount
     nodes { ...QueuePr }
   }
-  t0: repository(owner: $o0, name: $r0) { pullRequest(number: $n0) { ...QueuePr } }
-  t1: repository(owner: $o1, name: $r1) { pullRequest(number: $n1) { ...QueuePr } }
+  t0: repository(owner: $o0, name: $r0) { pullRequest(number: $n0) { ...QueuePr ...QueueActivity } }
+  t1: repository(owner: $o1, name: $r1) { pullRequest(number: $n1) { ...QueuePr ...QueueActivity } }
 }
 
 fragment QueuePr on PullRequest {
@@ -29,6 +30,14 @@ fragment QueuePr on PullRequest {
   headRefOid
   reviewDecision
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+}
+
+fragment QueueActivity on PullRequest {
+  comments(last: 20) { nodes { createdAt author { __typename login } } }
+  reviews(last: 20) { nodes { submittedAt body comments { totalCount } author { __typename login } } }
+  timelineItems(last: 10, itemTypes: [REVIEW_REQUESTED_EVENT]) {
+    nodes { ... on ReviewRequestedEvent { createdAt requestedReviewer { __typename ... on User { login } } } }
+  }
 }
 ",
   "-f",
@@ -53,6 +62,7 @@ exports[`reviewQueueArgs > asks for the review requests in one GraphQL search wh
   "-f",
   "query=
 query {
+  viewer { login }
   reviewRequests: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
     issueCount
     nodes { ...QueuePr }

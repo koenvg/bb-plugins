@@ -27,6 +27,7 @@ function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {})
     headRefName: `feature-${number}`,
     headOid: `head-${number}`,
     url: `https://github.com/${repo}/pull/${number}`,
+    activity: null,
     ...overrides,
   };
 }
@@ -109,11 +110,11 @@ function fakeKv(entries = new Map<string, unknown>()) {
   };
 }
 
-function mark(repo: string, number: number, headOid: string) {
+function mark(repo: string, number: number, headOid: string, markedAt = 1) {
   const [owner, name] = repo.split("/");
   return [
     `reviewed:${repo}#${number}`,
-    { v: 1, owner, repo: name, number, headOid, markedAt: 1 },
+    { v: 1, owner, repo: name, number, headOid, markedAt },
   ] as const;
 }
 
@@ -557,6 +558,122 @@ describe("reviewed state", () => {
 
     expect(firstReviewRequest(result).review).toBe("updated_since_review");
     expect(sections(result).needsReview).toEqual([["acme/api", [15]]]);
+  });
+});
+
+describe("new activity after the mark", () => {
+  const MARKED_AT = Date.parse("2026-10-07T08:30:00Z");
+  const BEFORE = "2026-10-07T08:00:00Z";
+  const AFTER = "2026-10-07T08:38:57Z";
+
+  function tracked15(activity: QueuePr["activity"], overrides: Partial<QueuePr> = {}) {
+    return queuePr("acme/api", 15, { activity, ...overrides });
+  }
+
+  function activityOf(lastCommentAt: string | null, lastRequestedAt: string | null = null) {
+    return { lastCommentAt, lastRequestedAt };
+  }
+
+  function serviceWithTracked(requested: QueuePr[], tracked: QueuePr[]) {
+    return serviceWith({ fetchReviewQueue: async () => queueOf(requested, tracked) });
+  }
+
+  it("puts a marked PR back in Needs review with new comments after a reply", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(activityOf(AFTER))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+
+    const result = await service.refreshReviewQueue();
+
+    expect(firstReviewRequest(result)).toMatchObject({
+      review: "reviewed",
+      newActivity: ["new_comments"],
+    });
+    expect(sections(result)).toEqual({ needsReview: [["acme/api", [15]]], reviewed: [] });
+  });
+
+  it("keeps a marked PR in Reviewed when the comment came before the mark", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(activityOf(BEFORE, BEFORE))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+
+    const result = await service.refreshReviewQueue();
+
+    expect(firstReviewRequest(result).newActivity).toEqual([]);
+    expect(sections(result)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+  });
+
+  it("puts a requested and marked PR back in Needs review after a new review request", async () => {
+    const { service, kv } = serviceWithTracked(
+      [queuePr("acme/api", 15)],
+      [tracked15(activityOf(null, AFTER))],
+    );
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+
+    const result = await service.refreshReviewQueue();
+
+    expect(firstReviewRequest(result)).toMatchObject({
+      requested: true,
+      newActivity: ["requested_again"],
+    });
+    expect(sections(result).reviewed).toEqual([]);
+  });
+
+  it("shows a push and a reply together", async () => {
+    const { service, kv } = serviceWithTracked(
+      [],
+      [tracked15(activityOf(AFTER, AFTER), { headOid: "def456" })],
+    );
+    kv.entries.set(...mark("acme/api", 15, "abc123", MARKED_AT));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue())).toMatchObject({
+      review: "updated_since_review",
+      newActivity: ["new_comments", "requested_again"],
+    });
+  });
+
+  it("shows no new activity on a PR with a review thread and no mark", async () => {
+    const { service } = serviceWith({
+      fetchReviewQueue: async () => queueOf([], [tracked15(activityOf(AFTER))]),
+      listReviewThreads: async () => [reviewThread("thr_review")],
+      readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/api", 15) }),
+    });
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([]);
+  });
+
+  it("shows the accent when a marked PR comes back with new activity", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(activityOf(AFTER))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+
+    expect(viewOf(await service.refreshReviewQueue()).hasUnseen).toBe(true);
+  });
+
+  it("moves the PR to Reviewed when the user marks it reviewed again", async () => {
+    const { service, kv, published } = serviceWith({
+      fetchReviewQueue: async () => queueOf([], [tracked15(activityOf(AFTER, AFTER))]),
+      now: () => Date.parse("2026-10-07T09:00:00Z"),
+    });
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    await service.refreshReviewQueue();
+
+    await service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" });
+
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(firstReviewRequest(published[1]!).newActivity).toEqual([]);
+    expect(sections(published[1]!)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+  });
+
+  it("reads a stored PR from before activity tracking as without activity", async () => {
+    const { service, kv } = serviceWith();
+    const loaded = await service.refreshReviewQueue();
+    const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
+    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
+    delete prs[0]!.newActivity;
+    delete prs[0]!.activity;
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: stored });
+
+    expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
+      { activity: null, newActivity: [] },
+    );
   });
 });
 

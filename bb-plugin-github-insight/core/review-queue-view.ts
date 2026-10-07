@@ -16,15 +16,23 @@ const linkedThreadSchema = z.object({
 });
 export type LinkedThread = z.infer<typeof linkedThreadSchema>;
 
+export const newActivitySchema = z.enum(["new_comments", "requested_again"]);
+export type NewActivity = z.infer<typeof newActivitySchema>;
+
 export const queueRowSchema = queuePrSchema.extend({ requested: z.boolean() });
 export type QueueRow = z.infer<typeof queueRowSchema>;
 
 const linkedQueuePrSchema = queueRowSchema.extend({
   projectIds: z.array(z.string()),
   review: reviewStateSchema,
+  newActivity: z.array(newActivitySchema).default([]),
   thread: linkedThreadSchema.nullable(),
 });
 export type LinkedQueuePr = z.infer<typeof linkedQueuePrSchema>;
+
+export function isReviewed(pr: LinkedQueuePr): boolean {
+  return pr.review === "reviewed" && pr.newActivity.length === 0;
+}
 
 const queueSectionSchema = z.array(
   z.object({ repo: z.string(), prs: z.array(linkedQueuePrSchema) }),
