@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
 import {
   acceptNavigation,
+  activateActivity,
   Panel,
   deferred,
   edit,
@@ -133,6 +134,7 @@ describe("retained preview safety", () => {
     await edit(slot, "Comment B", 1);
     await select(slot, 1);
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
+    await activateActivity(slot);
     expect(slot.container.textContent).toContain("Comment A");
     expect(slot.container.textContent).not.toContain("Comment B");
     expect(slot.getByText("draft-a.txt")).toBeTruthy();

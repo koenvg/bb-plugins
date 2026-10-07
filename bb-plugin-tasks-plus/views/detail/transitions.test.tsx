@@ -44,7 +44,7 @@ function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
         listTaskThreads: () => ({ taskThreads: [] }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listTaskPullRequests: () => ({
           pullRequests: [],
           unavailableThreadIds: [],
@@ -153,6 +153,7 @@ describe("safe standalone detail navigation", () => {
   it("retains unsent comment text and files through actual shell A-B-A navigation", async () => {
     const slot = setup();
     await slot.findByRole("textbox", { name: "Task title" });
+    fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
     await act(async () => {
       const comment = slot.container.querySelectorAll<HTMLElement>(".tiptap")[1]!;
       comment.innerHTML = "<p>Unsent A</p>";
@@ -171,6 +172,7 @@ describe("safe standalone detail navigation", () => {
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1"),
     );
+    fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
     expect(slot.getByText("a.txt")).toBeTruthy();
     expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toContain("Unsent A");
     expect(

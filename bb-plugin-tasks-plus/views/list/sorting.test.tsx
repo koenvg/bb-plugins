@@ -83,7 +83,7 @@ function renderList() {
         listLabels: () => ({ labels: [] }),
         listTasks: () => ({ tasks }),
         listTaskThreads: () => ({ taskThreads: [] }),
-        listComments: () => ({ comments: [] }),
+        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
       },
     },

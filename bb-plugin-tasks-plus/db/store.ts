@@ -7,6 +7,7 @@ import {
   TASKS_PAGE_MAX_LIMIT,
   type TaskSort,
 } from "../shared/pagination.js";
+import type { Attachment as AttachmentMetadata } from "../shared/contract.js";
 import {
   ISO_DATE_PATTERN,
   PROJECT_PREFIX_PATTERN,
@@ -425,7 +426,7 @@ function commentFromRow(row: CommentRow): Comment {
   };
 }
 
-function attachmentFromRow(row: AttachmentRow): Attachment {
+function attachmentMetadataFromRow(row: Omit<AttachmentRow, "blob_path">): AttachmentMetadata {
   return {
     id: row.id,
     taskId: row.task_id,
@@ -433,10 +434,13 @@ function attachmentFromRow(row: AttachmentRow): Attachment {
     fileName: row.file_name,
     mime: row.mime,
     sizeBytes: row.size_bytes,
-    blobPath: row.blob_path,
     isImage: row.is_image === 1,
     createdAt: row.created_at,
   };
+}
+
+function attachmentFromRow(row: AttachmentRow): Attachment {
+  return { ...attachmentMetadataFromRow(row), blobPath: row.blob_path };
 }
 
 function taskThreadFromRow(row: TaskThreadRow): TaskThread {
@@ -1624,6 +1628,22 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
       .map(attachmentFromRow);
   }
 
+  function listActivityAttachments(taskId: string): AttachmentMetadata[] {
+    return db
+      .prepare<[string], Omit<AttachmentRow, "blob_path">>(
+        `
+        SELECT a.id, a.task_id, a.comment_id, a.file_name, a.mime,
+               a.size_bytes, a.is_image, a.created_at
+        FROM attachments a
+        JOIN comments c ON c.id = a.comment_id
+        WHERE c.task_id = ? AND c.kind <> 'system'
+        ORDER BY a.created_at, a.id
+      `,
+      )
+      .all(taskId)
+      .map(attachmentMetadataFromRow);
+  }
+
   function listAttachmentsForComment(commentId: string): Attachment[] {
     return db
       .prepare<[string], AttachmentRow>(
@@ -1939,6 +1959,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     getAttachment,
     listAttachmentsForTask,
     listAttachmentsForComment,
+    listActivityAttachments,
     updateAttachment,
     deleteAttachment,
     upsertTaskThread,

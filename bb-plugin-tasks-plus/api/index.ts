@@ -26,6 +26,7 @@ import {
   type TasksDomainError,
   type CommentsChangedEvent,
   type CommentProvider,
+  type DisplayComment,
 } from "../shared/contract";
 
 import { createWorkStatusReader } from "./work-status.js";
@@ -413,6 +414,34 @@ async function resolveProviderBadges(
     }
   }
   return badges;
+}
+
+async function displayComments(
+  bb: BbPluginApi,
+  comments: readonly StoredComment[],
+): Promise<DisplayComment[]> {
+  const threadInfo = await resolveAgentThreadInfo(bb, comments);
+  const providerBadges = await resolveProviderBadges(bb, threadInfo);
+  return comments.map((comment) => {
+    const info =
+      comment.kind === "agent" && comment.threadId !== null
+        ? threadInfo.get(comment.threadId)
+        : undefined;
+    return {
+      ...comment,
+      threadTitle: info?.title ?? null,
+      provider:
+        info === undefined
+          ? null
+          : (providerBadges.get(info.providerId) ?? {
+              id: info.providerId,
+              name: info.providerId,
+              logoUrl: null,
+              icon: null,
+              strings: { iconTint: null },
+            }),
+    };
+  });
 }
 
 interface CreateCommentInput {
@@ -886,30 +915,27 @@ export function registerHandlers(
       return { comment };
     },
     async listComments(input) {
-      const comments = store.tasks.listComments(input.taskId);
-      const threadInfo = await resolveAgentThreadInfo(bb, comments);
-      const providerBadges = await resolveProviderBadges(bb, threadInfo);
+      return { comments: await displayComments(bb, store.tasks.listComments(input.taskId)) };
+    },
+    async getTaskActivity(input) {
+      // Read a consistent task snapshot before resolving live display information.
+      // Store failures reject the entire read, never a partial attachment-free feed.
+      const { comments, attachments } = store.transaction(() => ({
+        comments: store.tasks.listComments(input.taskId),
+        attachments: store.tasks.listActivityAttachments(input.taskId),
+      }));
+      const byCommentId = new Map<string, AttachmentMetadata[]>();
+      for (const attachment of attachments) {
+        if (attachment.commentId === null) continue;
+        const group = byCommentId.get(attachment.commentId) ?? [];
+        group.push(attachment);
+        byCommentId.set(attachment.commentId, group);
+      }
       return {
-        comments: comments.map((comment) => {
-          const info =
-            comment.kind === "agent" && comment.threadId !== null
-              ? threadInfo.get(comment.threadId)
-              : undefined;
-          return {
-            ...comment,
-            threadTitle: info?.title ?? null,
-            provider:
-              info === undefined
-                ? null
-                : (providerBadges.get(info.providerId) ?? {
-                    id: info.providerId,
-                    name: info.providerId,
-                    logoUrl: null,
-                    icon: null,
-                    strings: { iconTint: null },
-                  }),
-          };
-        }),
+        entries: (await displayComments(bb, comments)).map((comment) => ({
+          comment,
+          attachments: byCommentId.get(comment.id) ?? [],
+        })),
       };
     },
     listAttachments(input) {

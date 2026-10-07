@@ -79,6 +79,25 @@ a task or retryable error. Matching `data-detail-key` markup prevents stale read
 from focusing a reloaded key early. The workspace owns non-editable pane focus;
 standalone and embedded thread views do not opt in to this callback.
 
+## Dependency choices
+
+Existing blocker and blocked-task links come from the selected task. They do not
+need the dependency catalog. Opening Add blocker or Add blocked task starts one
+shared catalog load across all tracker projects, including every page. Both
+pickers reuse that result for the mounted, task-id-keyed detail session.
+
+The picker shows Loading tasks while reading, No tasks after a successful read
+with no eligible choices, or an error with Retry. Failed page reads do not expose
+partial choices. Closing and reopening a picker does not retry a failed read;
+Retry starts again at page one. Task invalidation, manual refresh, and reconnect
+revalidate a requested catalog. They do not read an unopened catalog. Closing a
+picker keeps its demand and results within the same detail session. Changing the
+task ends that session, closes its pickers, and prevents old reads from updating
+the replacement detail. The replacement loads choices only when requested.
+
+Self and linked tasks on either side remain excluded. Link direction, removal,
+cycle errors, and blocked-work confirmation are unchanged.
+
 ## Comment ownership
 
 `CommentDraftsProvider` is part of `TasksSessionProvider`. `useCommentDraft(taskId)`

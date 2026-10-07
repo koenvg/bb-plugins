@@ -18,6 +18,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type Side = "blockedBy" | "blocks";
 
+type CandidateCatalog = {
+  isLoading: boolean;
+  error: string | null;
+  request: () => void;
+  retry: () => void;
+};
+
 const SIDE_TITLES: Record<Side, string> = {
   blockedBy: "Blocked by",
   blocks: "Blocks",
@@ -31,15 +38,23 @@ const ADD_LABELS: Record<Side, string> = {
 function TaskPicker({
   side,
   candidates,
+  catalog,
   onPick,
 }: {
   side: Side;
   candidates: readonly Task[];
+  catalog: CandidateCatalog;
   onPick: (task: Task) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) catalog.request();
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -52,24 +67,43 @@ function TaskPicker({
       <PopoverContent className="w-72 p-0" align="start">
         <Command>
           <CommandInput placeholder="Find a task…" />
-          <CommandList>
-            <CommandEmpty>No tasks.</CommandEmpty>
-            <CommandGroup>
-              {candidates.map((candidate) => (
-                <CommandItem
-                  key={candidate.id}
-                  value={`${candidate.key} ${candidate.title}`}
-                  onSelect={() => {
-                    setOpen(false);
-                    onPick(candidate);
-                  }}
-                >
-                  <StatusIcon status={candidate.status} className="size-3" />
-                  <span className="shrink-0 text-xs text-muted-foreground">{candidate.key}</span>
-                  <span className="min-w-0 truncate">{candidate.title}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+          <CommandList aria-busy={catalog.isLoading}>
+            {catalog.isLoading ? (
+              <p role="status" className="p-4 text-sm text-muted-foreground">
+                Loading tasks…
+              </p>
+            ) : catalog.error !== null ? (
+              <div className="space-y-2 p-4 text-sm">
+                <p role="alert" className="text-destructive">
+                  Could not load tasks: {catalog.error}
+                </p>
+                <button type="button" className="underline" onClick={catalog.retry}>
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No tasks.</CommandEmpty>
+                <CommandGroup>
+                  {candidates.map((candidate) => (
+                    <CommandItem
+                      key={candidate.id}
+                      value={`${candidate.key} ${candidate.title}`}
+                      onSelect={() => {
+                        setOpen(false);
+                        onPick(candidate);
+                      }}
+                    >
+                      <StatusIcon status={candidate.status} className="size-3" />
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {candidate.key}
+                      </span>
+                      <span className="min-w-0 truncate">{candidate.title}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -81,12 +115,14 @@ function DependencyList({
   side,
   refs,
   candidates,
+  catalog,
   onAdd,
   onRemove,
 }: {
   side: Side;
   refs: readonly TaskDependencyRef[];
   candidates: readonly Task[];
+  catalog: CandidateCatalog;
   onAdd: (task: Task) => void;
   onRemove: (ref: TaskDependencyRef) => void;
 }) {
@@ -119,7 +155,7 @@ function DependencyList({
           </button>
         </div>
       ))}
-      <TaskPicker side={side} candidates={candidates} onPick={onAdd} />
+      <TaskPicker side={side} candidates={candidates} catalog={catalog} onPick={onAdd} />
     </section>
   );
 }
@@ -134,7 +170,19 @@ export function DependencySections({
   onError: (message: string) => void;
 }) {
   const rpc = useTasksRpc();
-  const allTasks = useTasksQuery(async (query) => listAllTasks(query, {}), ["tasks:changed"]);
+  // TaskDetail is task-id keyed. Demand and candidates end with that detail session.
+  const [requested, setRequested] = useState(false);
+  const allTasks = useTasksQuery(
+    async (query) => (requested ? listAllTasks(query, {}) : []),
+    ["tasks:changed"],
+    [requested],
+  );
+  const catalog: CandidateCatalog = {
+    isLoading: allTasks.isLoading,
+    error: allTasks.error,
+    request: () => setRequested(true),
+    retry: allTasks.refresh,
+  };
   const blockedBy = task.blockedBy ?? [];
   const blocks = task.blocks ?? [];
   const linked = new Set([
@@ -175,6 +223,7 @@ export function DependencySections({
         side="blockedBy"
         refs={blockedBy}
         candidates={candidates}
+        catalog={catalog}
         onAdd={(picked) => void link(picked.id, task.id)}
         onRemove={(ref) => void unlink(ref.id, task.id)}
       />
@@ -182,6 +231,7 @@ export function DependencySections({
         side="blocks"
         refs={blocks}
         candidates={candidates}
+        catalog={catalog}
         onAdd={(picked) => void link(task.id, picked.id)}
         onRemove={(ref) => void unlink(task.id, ref.id)}
       />

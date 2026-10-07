@@ -1,4 +1,12 @@
-import { useMemo, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import type { Editor } from "@tiptap/core";
 import { HugeiconsIcon } from "@hugeicons/react";
 import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
@@ -22,35 +30,26 @@ import {
   type StagedAttachment,
 } from "../../components/staged-attachments.js";
 import { attachmentDownloadUrl } from "../../shared/attachments.js";
-import type { Attachment, Comment, DisplayComment } from "../../shared/contract.js";
+import type {
+  Attachment,
+  Comment,
+  DisplayComment,
+  TaskActivityEntry,
+} from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { formatFileSize, formatRelativeTime, splitSystemBody, useNowTick } from "./time.js";
 import { CommentAuthor } from "./comment-author.js";
 import { CommentProviderAvatar } from "./provider-logo.js";
 
 import { useCommentDraft } from "./comment-drafts.js";
-interface FeedEntry {
-  comment: DisplayComment;
-  attachments: Attachment[];
-}
+import { PaneVisibilityContext } from "../../lib/pane-visibility.js";
+type FeedEntry = TaskActivityEntry;
 
 function useActivityFeed(taskId: string) {
   return useTasksQuery<FeedEntry[]>(
     async (rpc) => {
-      const { comments } = await rpc.call("listComments", { taskId });
-      const attachments = await Promise.all(
-        comments.map((comment) =>
-          comment.kind === "system"
-            ? Promise.resolve<Attachment[]>([])
-            : rpc
-                .call("listAttachments", { commentId: comment.id })
-                .then((result) => result.attachments),
-        ),
-      );
-      return comments.map((comment, index) => ({
-        comment,
-        attachments: attachments[index] ?? [],
-      }));
+      const { entries } = await rpc.call("getTaskActivity", { taskId });
+      return entries;
     },
     ["comments:changed", "tasks:changed"],
     [taskId],
@@ -439,13 +438,81 @@ export function AgentNotificationControl({
   );
 }
 
+function focusComposer(editor: Editor) {
+  editor.commands.focus("end");
+  editor.view.dom.scrollIntoView({ block: "nearest" });
+}
+
+export interface TaskActivityHandle {
+  focusComposer(): void;
+}
+
 interface TaskActivityProps {
   taskId: string;
+  ref?: Ref<TaskActivityHandle>;
   onCommentEditorReady?: (editor: Editor) => void;
 }
 
-export function TaskActivity({ taskId, onCommentEditorReady }: TaskActivityProps) {
+export function TaskActivity({ taskId, ref, onCommentEditorReady }: TaskActivityProps) {
+  return (
+    <TaskActivityFeed
+      key={taskId}
+      taskId={taskId}
+      ref={ref}
+      onCommentEditorReady={onCommentEditorReady}
+    />
+  );
+}
+
+function TaskActivityFeed({ taskId, ref, onCommentEditorReady }: TaskActivityProps) {
+  // Reading activity does not require mounting its editors.
   const feed = useActivityFeed(taskId);
+  const visible = useContext(PaneVisibilityContext);
+  const section = useRef<HTMLElement>(null);
+  const composer = useRef<Editor | null>(null);
+  const pendingFocus = useRef(false);
+  const [active, setActive] = useState(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusComposer() {
+        if (composer.current) {
+          focusComposer(composer.current);
+        } else {
+          pendingFocus.current = true;
+          setActive(true);
+        }
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    if (active || !visible || typeof IntersectionObserver === "undefined") return;
+    let mounted = true;
+    const observer = new IntersectionObserver((entries) => {
+      if (!mounted || !entries.some((entry) => entry.isIntersecting)) return;
+      if (section.current?.contains(document.activeElement)) {
+        section.current.focus({ preventScroll: true });
+      }
+      setActive(true);
+    });
+    observer.observe(section.current!);
+    return () => {
+      mounted = false;
+      observer.disconnect();
+    };
+  }, [active, visible]);
+
+  const editorReady = (editor: Editor) => {
+    composer.current = editor;
+    onCommentEditorReady?.(editor);
+    if (pendingFocus.current) {
+      pendingFocus.current = false;
+      focusComposer(editor);
+    }
+  };
   const nowMs = useNowTick();
   const entries = useMemo(() => feed.data ?? [], [feed.data]);
   const notificationTarget = useMemo(
@@ -454,33 +521,73 @@ export function TaskActivity({ taskId, onCommentEditorReady }: TaskActivityProps
   );
 
   return (
-    <section aria-label="Activity">
+    <section ref={section} tabIndex={-1} aria-label="Activity">
       <div className="mt-6 border-t border-border-hairline" />
       <h2 className="pb-3 pt-4 text-sm font-semibold">Activity</h2>
-      <div
-        className={cn(
-          "relative",
-          entries.length > 0 &&
-            "before:absolute before:bottom-1.5 before:left-[11px] before:top-1.5 before:w-px before:bg-border-hairline",
-        )}
-      >
-        {feed.error ? <div className="text-xs text-destructive">{feed.error}</div> : null}
-        {entries.length === 0 && !feed.isLoading && !feed.error ? (
-          <div className="text-xs text-muted-foreground">No activity yet.</div>
-        ) : null}
-        {entries.map((entry) =>
-          entry.comment.kind === "system" ? (
-            <SystemEvent key={entry.comment.id} comment={entry.comment} nowMs={nowMs} />
-          ) : (
-            <CommentCard key={entry.comment.id} entry={entry} nowMs={nowMs} />
-          ),
-        )}
-      </div>
-      <CommentComposer
-        taskId={taskId}
-        notificationTarget={notificationTarget}
-        onEditorReady={onCommentEditorReady}
-      />
+      {!active ? (
+        <div className="min-h-40 space-y-3">
+          <p role="status" className="text-xs text-muted-foreground">
+            Activity will open when you scroll here.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              section.current?.focus({ preventScroll: true });
+              setActive(true);
+            }}
+          >
+            Show activity
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div
+            className={cn(
+              "relative",
+              entries.length > 0 &&
+                "before:absolute before:bottom-1.5 before:left-[11px] before:top-1.5 before:w-px before:bg-border-hairline",
+            )}
+          >
+            {feed.isLoading ? (
+              <div role="status" className="text-xs text-muted-foreground">
+                Loading activity…
+              </div>
+            ) : null}
+            {feed.error ? (
+              <div role="alert" className="mb-2 text-xs text-destructive">
+                <div>Could not load activity: {feed.error}</div>
+                {feed.data ? <div>Showing previously loaded activity.</div> : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={feed.refresh}
+                  disabled={feed.isLoading}
+                >
+                  Retry activity
+                </Button>
+              </div>
+            ) : null}
+            {entries.length === 0 && !feed.isLoading && !feed.error ? (
+              <div className="text-xs text-muted-foreground">No activity yet.</div>
+            ) : null}
+            {entries.map((entry) =>
+              entry.comment.kind === "system" ? (
+                <SystemEvent key={entry.comment.id} comment={entry.comment} nowMs={nowMs} />
+              ) : (
+                <CommentCard key={entry.comment.id} entry={entry} nowMs={nowMs} />
+              ),
+            )}
+          </div>
+          <CommentComposer
+            taskId={taskId}
+            notificationTarget={notificationTarget}
+            onEditorReady={editorReady}
+          />
+        </>
+      )}
     </section>
   );
 }
