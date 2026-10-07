@@ -187,7 +187,7 @@ describe("Pull Requests lists", () => {
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByText("Draft")).toBeTruthy();
-    expect(within(card).getByTestId("queue-ci").textContent).toBe("CI failed");
+    expect(within(card).getByTestId("queue-ci").getAttribute("aria-label")).toBe("CI failed");
   });
 
   it.each([
@@ -199,7 +199,7 @@ describe("Pull Requests lists", () => {
     const slot = renderPanel("", () => ok(view([queuePr({ ci })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).getByTestId("queue-ci").textContent).toBe(text);
+    expect(within(card).getByTestId("queue-ci").getAttribute("aria-label")).toBe(text);
   });
 
   it.each([
@@ -863,5 +863,69 @@ describe("marking PRs seen", () => {
 
     await findCard(slot, "Needs review", "acme/api#15");
     expect(seenCalls(slot)).toEqual([]);
+  });
+});
+
+describe("Row control tooltips", () => {
+  function hover(element: HTMLElement) {
+    fireEvent.pointerMove(element, { pointerType: "mouse" });
+  }
+
+  function focusWithKeyboard(element: HTMLElement) {
+    fireEvent.keyDown(document, { key: "Tab" });
+    act(() => element.focus());
+  }
+
+  it("shows Mark reviewed on hover over the check icon", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    hover(within(card).getByRole("button", { name: "Mark reviewed" }));
+
+    expect((await slot.findByRole("tooltip")).textContent).toBe("Mark reviewed");
+  });
+
+  it("shows Mark as needs review on hover over the undo icon", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ review: "reviewed" })])));
+
+    const reviewed = await slot.findByRole("region", { name: "Reviewed" });
+    fireEvent.click(within(reviewed).getByRole("button", { name: /Reviewed/ }));
+    const card = within(reviewed).getByRole("listitem", { name: "acme/api#15" });
+    hover(within(card).getByRole("button", { name: "Mark as needs review" }));
+
+    expect((await slot.findByRole("tooltip")).textContent).toBe("Mark as needs review");
+  });
+
+  it("shows Open on GitHub on keyboard focus", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    focusWithKeyboard(within(card).getByRole("link", { name: "Open on GitHub" }));
+
+    expect((await slot.findByRole("tooltip")).textContent).toBe("Open on GitHub");
+  });
+
+  it("shows the CI state on hover over the CI icon", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ ci: "failed" })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    hover(within(card).getByRole("img", { name: "CI failed" }));
+
+    expect((await slot.findByRole("tooltip")).textContent).toBe("CI failed");
+  });
+
+  it.each([
+    ["Open thread", queuePr({ thread: reviewThread })],
+    ["Review in thread", queuePr()],
+  ])("shows no tooltip on %s", async (name, pr) => {
+    const slot = renderPanel("", () => ok(view([pr])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const button = within(card).getByRole("button", { name });
+    hover(button);
+    focusWithKeyboard(button);
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(slot.queryByRole("tooltip")).toBeNull();
   });
 });
