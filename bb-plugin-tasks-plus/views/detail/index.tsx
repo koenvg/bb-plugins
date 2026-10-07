@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { Editor } from "@tiptap/core";
 import { HugeiconsIcon } from "@hugeicons/react";
 import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
 import type { Task } from "../../shared/contract.js";
@@ -16,7 +15,7 @@ import {
 } from "../../shell/task-data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
-import { TaskActivity } from "../activity/task-activity.js";
+import { TaskActivity, type TaskActivityHandle } from "../activity/task-activity.js";
 import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
 import { createTaskEditSession } from "./edit-session.js";
 import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
@@ -298,7 +297,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
   const detailRef = useRef<HTMLDivElement>(null);
-  const commentEditorRef = useRef<Editor | null>(null);
+  const activityRef = useRef<TaskActivityHandle>(null);
   const [openMenu, setOpenMenu] = useState<{
     menu: DetailMenu;
     layout: PropertiesLayout;
@@ -316,9 +315,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     "detail.labels": openFromShortcut("labels"),
     "detail.dispatch": presets.data?.length ? openFromShortcut("dispatch") : null,
     "detail.comment": () => {
-      const editor = commentEditorRef.current;
-      if (editor === null) return false;
-      editor.commands.focus("end");
+      if (!activityRef.current) return false;
+      activityRef.current.focusComposer();
     },
   });
 
@@ -549,12 +547,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
           ) : null}
 
           <div className="mt-1">
-            <TaskActivity
-              taskId={task.id}
-              onCommentEditorReady={(editor) => {
-                commentEditorRef.current = editor;
-              }}
-            />
+            <TaskActivity taskId={task.id} ref={activityRef} />
           </div>
         </div>
 

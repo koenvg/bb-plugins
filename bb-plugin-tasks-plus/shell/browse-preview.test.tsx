@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
 import {
   acceptNavigation,
+  activateActivity,
   deferred,
   edit,
   row,
@@ -41,6 +42,7 @@ describe("retained browse detail", () => {
     expect(slot.container.querySelector('[data-detail-key="TSK-1"]')?.textContent).toContain(
       "Description 1",
     );
+    await activateActivity(slot);
     expect(slot.container.textContent).toContain("Draft A");
     expect(slot.container.textContent).not.toContain("Draft B");
     observer.disconnect();

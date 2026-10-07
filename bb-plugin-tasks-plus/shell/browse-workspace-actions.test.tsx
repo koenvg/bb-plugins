@@ -5,6 +5,7 @@ import { rpcInput } from "../test-fixtures.js";
 import { browsePreference } from "./browse-preference.js";
 import {
   acceptNavigation,
+  activateActivity,
   deferred,
   edit,
   project,
@@ -194,6 +195,7 @@ describe("embedded detail actions and links", () => {
       ).toBe(true),
     );
     expect(detail.getByRole("button", { name: "Add blocked task" })).toBeTruthy();
+    await activateActivity(slot);
     expect(detail.getAllByRole("button", { name: "Attach file" })).toHaveLength(2);
     fireEvent.click(detail.getByRole("button", { name: "Open thread" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
@@ -239,6 +241,7 @@ describe("embedded detail actions and links", () => {
     expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe("Keep B");
     expect(slot.queryByText("a.txt")).toBeNull();
     await select(slot, 1);
+    await activateActivity(slot);
     expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe("");
     expect(slot.getByRole("button", { name: "Retry upload of a.txt" })).toBeTruthy();
     expect(slot.inspection.rpcCalls.filter((c) => c.method === "createComment")).toMatchObject([

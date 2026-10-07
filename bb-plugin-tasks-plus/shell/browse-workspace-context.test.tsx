@@ -5,6 +5,7 @@ import { rpcInput } from "../test-fixtures.js";
 import { loadExpandedTasks, storeExpandedTasks } from "../views/list/expanded-tasks.js";
 import {
   acceptNavigation,
+  activateActivity,
   deferred,
   edit,
   project,
@@ -181,6 +182,7 @@ describe("removal combined with context transitions", () => {
     removed = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await select(slot, 1);
+    await activateActivity(slot);
     expect(slot.getByText("origin.txt")).toBeTruthy();
     expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe(
       "Unsent origin comment",

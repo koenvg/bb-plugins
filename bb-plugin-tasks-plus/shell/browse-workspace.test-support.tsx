@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../test-fixtures.js";
@@ -128,7 +128,15 @@ export function deferred<T>() {
   });
   return { promise, resolve };
 }
+export async function activateActivity(slot: ReturnType<typeof setup>) {
+  const button = slot.queryByRole("button", { name: "Show activity" });
+  if (button) fireEvent.click(button);
+  await waitFor(() =>
+    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')).toHaveLength(2),
+  );
+}
 export async function edit(slot: ReturnType<typeof setup>, text: string, index = 0) {
+  if (index === 1) await activateActivity(slot);
   await act(async () => {
     const editor = slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[
       index
