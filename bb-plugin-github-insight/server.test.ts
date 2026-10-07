@@ -1252,6 +1252,7 @@ describe("getReview", () => {
       oid: "def456",
       state: "OPEN",
       viewerIsAuthor: false,
+      viewerReview: null,
     });
     expect(result.commentDrafts.map(({ id, commitOid }) => [id, commitOid])).toEqual([
       ["d_head", "def456"],

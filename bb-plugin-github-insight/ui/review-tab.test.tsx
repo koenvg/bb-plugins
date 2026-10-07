@@ -95,7 +95,13 @@ afterEach(cleanup);
 
 const noThreads: ThreadPlacement = { placed: [], outdated: [] };
 const noReviewDrafts = {
-  head: { prNodeId: "PR_1", oid: "def456", state: "OPEN", viewerIsAuthor: false },
+  head: {
+    prNodeId: "PR_1",
+    oid: "def456",
+    state: "OPEN",
+    viewerIsAuthor: false,
+    viewerReview: null,
+  },
   commentDrafts: [],
   summaryDraft: null,
 } satisfies Partial<ReviewResult>;
@@ -1696,5 +1702,50 @@ describe("Review tab palette commands", () => {
     await act(quietly);
 
     expect(submitRegion(second)).toBeNull();
+  });
+});
+
+describe("Review tab viewer review", () => {
+  function reviewedAt(commitOid: string, state: "APPROVED" | "CHANGES_REQUESTED" = "APPROVED") {
+    return {
+      ...recorded,
+      head: {
+        ...recorded.head,
+        viewerReview: { state, submittedAt: new Date().toISOString(), commitOid },
+      },
+    } satisfies ReviewResult;
+  }
+
+  it("shows the viewer's last verdict on the current head", async () => {
+    const slot = renderTab(reviewedAt("def456"));
+
+    expect(await slot.findByText("You approved")).toBeTruthy();
+    expect(slot.queryByText("new commits since")).toBeNull();
+  });
+
+  it("flags commits pushed after the viewer's last review", async () => {
+    const slot = renderTab(reviewedAt("abc123", "CHANGES_REQUESTED"));
+
+    expect(await slot.findByText("You requested changes")).toBeTruthy();
+    expect(slot.getByText("new commits since")).toBeTruthy();
+  });
+
+  it("shows no verdict before the viewer reviews", async () => {
+    const slot = renderTab(recorded);
+
+    await slot.findByText("3 files changed");
+    expect(slot.queryByText(/^You /)).toBeNull();
+  });
+
+  it("shows the new verdict after a submit", async () => {
+    const slot = renderTab(recorded, reviewedAt("def456"));
+    fireEvent.click(await slot.findByRole("button", { name: "Submit review" }));
+    const panel = within(slot.getByRole("region", { name: "Submit review" }));
+
+    fireEvent.click(panel.getByRole("radio", { name: "Approve" }));
+    fireEvent.click(panel.getByRole("button", { name: "Submit" }));
+
+    expect(await slot.findByText("You approved")).toBeTruthy();
+    expect(panel.getByRole("button", { name: "Submitted" })).toBeTruthy();
   });
 });
