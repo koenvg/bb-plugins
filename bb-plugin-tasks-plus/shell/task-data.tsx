@@ -213,6 +213,30 @@ export function useTaskPreviews() {
   if (!data) throw new Error("Task previews require a Tasks session");
   return data.previews;
 }
+/** Speculation follows accepted selection and the list's rendered order only. */
+export function useAdjacentTaskPreviews(
+  selectedKey: string | null,
+  { keys, settled }: { keys: readonly string[]; settled: boolean },
+) {
+  const previews = useTaskPreviews();
+  const key = selectedKey ?? "";
+  const subscribe = useCallback(
+    (listener: () => void) => previews.subscribe(key, listener),
+    [previews, key],
+  );
+  const read = useCallback(() => previews.read(key), [previews, key]);
+  const selected = useSyncExternalStore(subscribe, read);
+  useEffect(() => {
+    const index = selectedKey === null ? -1 : keys.indexOf(selectedKey);
+    const adjacent =
+      settled && index >= 0 && selected.current && selected.data
+        ? [keys[index - 1], keys[index + 1]].filter((key): key is string => key !== undefined)
+        : [];
+    previews.warm(adjacent);
+    return () => previews.warm([]);
+  }, [previews, selectedKey, keys, settled, selected]);
+}
+
 export function useTaskPreview(rawKey: string) {
   const previews = useTaskPreviews();
   const key = normalizeTaskKey(rawKey);

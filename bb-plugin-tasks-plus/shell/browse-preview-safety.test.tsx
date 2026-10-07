@@ -22,15 +22,18 @@ describe("retained preview safety", () => {
   it("keeps local title and description edits over a newer background response", async () => {
     let refreshed = false;
     const slot = setup("all?task=TSK-1", {
-      getTaskByKey: () => ({
-        task: refreshed
-          ? {
-              ...tasks[0]!,
-              title: "Remote title",
-              description: "Remote description",
-              updatedAt: "2026-12-01T00:00:00Z",
-            }
-          : tasks[0],
+      getTaskByKey: (raw) => ({
+        task:
+          rpcInput(raw).taskKey !== "TSK-1"
+            ? tasks.find((task) => task.key === rpcInput(raw).taskKey)
+            : refreshed
+              ? {
+                  ...tasks[0]!,
+                  title: "Remote title",
+                  description: "Remote description",
+                  updatedAt: "2026-12-01T00:00:00Z",
+                }
+              : tasks[0],
       }),
       updateTask: () => ({ ok: false, error: { message: "Keep draft" } }),
     });
@@ -41,7 +44,11 @@ describe("retained preview safety", () => {
     refreshed = true;
     await slot.behavior.emitRealtime("tasks:changed", { taskId: tasks[0]!.id });
     await waitFor(() =>
-      expect(slot.inspection.rpcCalls.filter((c) => c.method === "getTaskByKey")).toHaveLength(2),
+      expect(
+        slot.inspection.rpcCalls.filter(
+          (c) => c.method === "getTaskByKey" && rpcInput(c.input).taskKey === "TSK-1",
+        ),
+      ).toHaveLength(2),
     );
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(title.textContent).toBe("Local title");

@@ -3,6 +3,7 @@ import { errorMessage } from "../shared/errors.js";
 
 export const TASK_PREVIEW_ENTRIES = 32;
 export const TASK_PREVIEW_BYTES = 2 * 1024 * 1024;
+export const TASK_PREVIEW_SPECULATION = 2;
 export const normalizeTaskKey = (key: string) => key.trim().toUpperCase();
 
 export interface TaskPreviewSnapshot {
@@ -36,6 +37,9 @@ export function createTaskPreviews(
   const active = new Map<string, TaskPreviewSnapshot>();
   const listeners = new Map<string, Set<() => void>>();
   const requests = new Map<string, Request>();
+  // Issued transports keep their slots even if invalidation revokes publication.
+  const speculative = new Set<Request>();
+  let queued: string[] = [];
   let epoch = readEpoch();
   let bytes = 0;
   let disposed = false;
@@ -76,6 +80,7 @@ export function createTaskPreviews(
     notify(key);
   }
   function invalidateKeys(keys: Iterable<string>, emit = true) {
+    queued = [];
     for (const key of keys) {
       requests.delete(key); // Revoke publication rights, not transport cancellation.
       const previous = active.get(key) ?? retained.get(key)?.snapshot ?? empty;
@@ -111,7 +116,7 @@ export function createTaskPreviews(
     });
     invalidateKeys(keys);
   }
-  function load(rawKey: string): Promise<void> {
+  function load(rawKey: string, speculate = false): Promise<void> {
     if (disposed) return Promise.resolve();
     synchronize();
     const key = normalizeTaskKey(rawKey);
@@ -128,13 +133,14 @@ export function createTaskPreviews(
     if (existing) return existing.promise;
     const request: Request = { epoch, promise: Promise.resolve() };
     requests.set(key, request);
+    if (speculate) speculative.add(request);
     // Do not reserialize retained descriptions on request start.
     const loading = { ...snapshot, error: null, isLoading: true, current: false };
     if (listeners.has(key)) active.set(key, loading);
     const canPublish = () =>
       !disposed && requests.get(key) === request && readEpoch() === request.epoch;
     request.promise = Promise.resolve()
-      .then(() => fetchTask(key))
+      .then(() => (canPublish() ? fetchTask(key) : null))
       .then((data) => {
         if (!canPublish()) return;
         // A transport result with the wrong key is not usable matching data.
@@ -153,18 +159,41 @@ export function createTaskPreviews(
       })
       .finally(() => {
         if (requests.get(key) === request) requests.delete(key);
+        speculative.delete(request);
+        pump();
       });
     notify(key);
     return request.promise;
   }
+  function pump() {
+    if (disposed) return;
+    synchronize();
+    while (queued.length && speculative.size < TASK_PREVIEW_SPECULATION) {
+      const key = queued.shift()!;
+      // Already-issued foreground reads are shared without consuming a new slot.
+      if (!requests.has(key) && !read(key).current) void load(key, true);
+    }
+  }
+  function warm(keys: readonly string[]) {
+    if (disposed) return;
+    synchronize();
+    queued = [...new Set(keys.map(normalizeTaskKey).filter(Boolean))].slice(
+      0,
+      TASK_PREVIEW_SPECULATION,
+    );
+    pump();
+  }
   return {
     read,
-    load,
+    load: (key: string) => load(key),
+    warm,
     invalidate,
     invalidateTask,
     /** Revoke reuse during a write without triggering a second route barrier
      * before the originating edit session has finished its save drain. */
     invalidateReuse(rawKey: string) {
+      if (disposed) return;
+      queued = [];
       const key = normalizeTaskKey(rawKey);
       drop(key);
       requests.delete(key);
@@ -187,9 +216,11 @@ export function createTaskPreviews(
     retention: () => ({ entries: retained.size, bytes }),
     dispose() {
       disposed = true;
+      queued = [];
       retained.clear();
       active.clear();
       requests.clear();
+      speculative.clear();
       listeners.clear();
       bytes = 0;
     },

@@ -21,13 +21,44 @@ It does not wait for a repeated lookup or retain A's old editor tree.
   does not match. Reads never select a task, open a tab or change focus.
 - Store task data only. Editors, draft patches, staged files, comments,
   attachments and current thread/PR lifecycle responses do not enter this cache.
-  There is no adjacent preloading in BBP-63. BBP-64 owns its queue and limits.
+  Only the basic task lookup participates in adjacent preloading.
 
 `read(key)` returns a stable snapshot. `subscribe(key, listener)` holds only the
 active query snapshot and releases it when the last listener leaves. `load(key)`
 shares a matching issued request or resolves from current retained data. It is
 not a complete-tracker fetch. `retention()` reports only the retained-data budget,
 not the active form, inventories, DOM or total browser memory.
+
+## Adjacent speculation
+
+`BrowseWorkspace` warms only the previous and next keys in the current successfully
+settled visible order. That order includes the list's filters, sort, expanded
+children, dimmed parents and collapsed status sections. No accepted selection, a
+loading/failed order, an unavailable scope, or a selected preview without a current
+positive response supplies no work. The selected task loads before warming starts.
+
+`warm(keys)` replaces queued work with at most two normalized distinct keys. There
+are at most two issued speculative transports, including old requests that lost
+publication rights after invalidation. Selected `load(key)` bypasses that queue and
+shares an already-issued same-key request. A different selected key starts even
+when both speculative slots are occupied. There is no full-tracker walk or retry
+loop. Failed or absent speculation waits for a later order/selection or an explicit
+selected read, not an automatic background retry.
+
+Scope changes cannot reuse the prior scope's order report. Accepted filter, sort
+and collapse changes clear queued work; the next list report supplies new neighbors.
+Unmount clears the queue. Invalidation clears queued work and revokes affected
+request identities; old issued calls still occupy slots until they finish. Their
+completion can start only the latest queued neighbors, never the old queue.
+Without invalidation an old matching response may remain in bounded retention, but
+it cannot select a task. Disposal clears work and rejects late publication and
+rescheduling, even when the transport cannot cancel a call. A request disposed or
+invalidated before its start microtask does not issue a transport.
+
+Speculation calls only `getTaskByKey`. It does not mount neighbor detail views or
+load their comments, attachments, project catalogs, dependencies, thread status or
+PR status. It cannot save, submit, notify, navigate, open host tabs or change focus.
+The existing save barrier still controls navigation to an already-warmed task.
 
 ## Invalidation and failure
 

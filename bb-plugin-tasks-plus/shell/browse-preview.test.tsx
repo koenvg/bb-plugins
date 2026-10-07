@@ -118,7 +118,8 @@ describe("retained browse detail", () => {
     await slot.behavior.setRealtimeConnectionState("reconnecting");
     await slot.behavior.setRealtimeConnectionState("connected");
     await waitFor(() => expect(lookups(slot, "TSK-1")).toHaveLength(3));
+    // Each generation also reloads adjacent B before its next selection.
     await select(slot, 2);
-    expect(lookups(slot, "TSK-2")).toHaveLength(2);
+    expect(lookups(slot, "TSK-2")).toHaveLength(3);
   });
 });

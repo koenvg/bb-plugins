@@ -71,6 +71,10 @@ not tag task or label results themselves. A failed refresh keeps matching data;
 a failed request for changed inputs drops mismatched data. Errors from previous
 inputs do not describe the current request. None of these failures proves removal.
 The list retains filters, sort, expansion, counts, row actions, and scroll storage.
+Adjacent preview loading consumes only this reported order after the selected
+preview succeeds. Loading/failed reports replace the queue with no work; scope
+reports must belong to the current route scope. See [task-previews.md](task-previews.md)
+for the two-call limit, selected-read priority and disposal rules.
 
 ## Composition and follow-ups
 

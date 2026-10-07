@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/icon";
 import { ListView, type VisibleTaskOrder } from "../views/list/index.js";
 import { DetailView } from "../views/detail/index.js";
 import { useTasksSession } from "../views/detail/task-session.js";
+import { useAdjacentTaskPreviews, useTaskPreviews } from "./task-data.js";
 import { ShortcutOwner } from "./shortcut-provider.js";
 import { TicketPanelContent, useOpenTicketPanel, type TicketAttachment } from "./ticket-panel.js";
 import {
@@ -35,10 +36,20 @@ export function BrowseWorkspace({
   const navigate = useBbNavigate();
   const navigation = useTasksNavigation();
   const session = useTasksSession()!;
-  const [order, setOrder] = useState<VisibleTaskOrder>({
+  const [order, setOrder] = useState<VisibleTaskOrder & { scope: string }>({
     keys: [],
     settled: false,
+    scope: "",
   });
+  const previews = useTaskPreviews();
+  const scope = route.kind === "project" ? route.projectId : route.kind;
+  const reportOrder = useCallback(
+    (next: VisibleTaskOrder) => {
+      previews.warm([]);
+      setOrder({ ...next, scope });
+    },
+    [previews, scope],
+  );
   const selectedKey = route.taskKey ?? null;
   // Validation gates first lookup; the list reconciles subsequent removals while
   // retaining the originating rendered tree until safe clearing is accepted.
@@ -96,13 +107,14 @@ export function BrowseWorkspace({
     (commit: () => void) => {
       focus.cancel();
       void session.request(() => {
+        previews.warm([]);
         commit();
         // Re-evaluate durable absence after an accepted non-selection context
         // change, even when it replaced a previously failed removal request.
         setContextRevision((revision) => revision + 1);
       });
     },
-    [session, focus.cancel],
+    [session, focus.cancel, previews],
   );
   const requestSelection = useCallback(
     (taskKey: string | null, target?: BrowseFocusTarget) => {
@@ -172,6 +184,10 @@ export function BrowseWorkspace({
     (selectedKey && order.settled && order.keys.includes(selectedKey))
       ? selectedKey
       : null;
+  useAdjacentTaskPreviews(readyKey, {
+    keys: order.keys,
+    settled: order.settled && order.scope === scope && !noProjects,
+  });
   const detailHidden = !detailVisible;
 
   useLayoutEffect(() => {
@@ -245,7 +261,7 @@ export function BrowseWorkspace({
               visible={!recovering}
               selectedTaskKey={readyKey}
               onRequestSelection={requestSelection}
-              onVisibleOrderChange={setOrder}
+              onVisibleOrderChange={reportOrder}
               onRequestContextChange={requestContextChange}
               canRestoreSectionFocus={canRestoreSectionFocus}
               onSelectionUnavailable={onMissing}
