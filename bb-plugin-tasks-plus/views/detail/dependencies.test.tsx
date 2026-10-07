@@ -97,7 +97,7 @@ function renderDetail(
         listTasks: (raw) => {
           const input = rpcInput(raw);
           if (input.parentTaskId) return { tasks: [], nextCursor: null };
-          if (input.activeOnly === undefined && options.catalog) return options.catalog(input);
+          if (isCatalogRead(input) && options.catalog) return options.catalog(input);
           return { tasks: base.map(withLinks), nextCursor: null };
         },
         listLabels: () => ({ labels: [] }),
@@ -145,11 +145,15 @@ function renderDetail(
 async function section(slot: ReturnType<typeof renderDetail>, name: string) {
   return within(await slot.findByRole("region", { name }));
 }
+async function findPickerStatus(slot: ReturnType<typeof renderDetail>) {
+  return within(await slot.findByRole("listbox")).findByRole("status");
+}
+function isCatalogRead(input: object) {
+  return Object.keys(input).every((key) => key === "limit" || key === "cursor");
+}
 function catalogReads(slot: ReturnType<typeof renderDetail>) {
   return slot.rpcCalls.filter(
-    ({ method, input }) =>
-      method === "listTasks" &&
-      Object.keys(input as object).every((key) => key === "limit" || key === "cursor"),
+    ({ method, input }) => method === "listTasks" && isCatalogRead(input as object),
   );
 }
 
@@ -199,7 +203,7 @@ describe("task detail dependency sections", () => {
     const page = deferred<{ tasks: Task[]; nextCursor: null }>();
     const slot = renderDetail([], { catalog: () => page.promise });
     fireEvent.click((await section(slot, name)).getByRole("button", { name: label }));
-    await slot.findByRole("status");
+    await findPickerStatus(slot);
     const input = slot.getByRole("combobox");
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.change(input, { target: { value: "ABC-4" } });
@@ -218,7 +222,7 @@ describe("task detail dependency sections", () => {
     });
     const blockedBy = await section(slot, "Blocked by");
     fireEvent.click(blockedBy.getByRole("button", { name: "Add blocker" }));
-    expect((await slot.findByRole("status")).textContent).toContain("Loading tasks");
+    expect((await findPickerStatus(slot)).textContent).toContain("Loading tasks");
     expect(slot.queryByText("No tasks.")).toBeNull();
     await closePicker(slot);
     fireEvent.click(
@@ -241,7 +245,7 @@ describe("task detail dependency sections", () => {
     );
     await slot.findByText("No tasks.");
     expect(slot.queryByRole("alert")).toBeNull();
-    expect(slot.queryByRole("status")).toBeNull();
+    expect(within(slot.getByRole("listbox")).queryByRole("status")).toBeNull();
     expect(slot.queryByRole("option")).toBeNull();
   });
 
@@ -311,7 +315,7 @@ describe("task detail dependency sections", () => {
     fireEvent.click(
       (await section(slot, "Blocked by")).getByRole("button", { name: "Add blocker" }),
     );
-    await slot.findByRole("status");
+    await findPickerStatus(slot);
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("option", { name: /ABC-4/ });
     await act(async () => old.resolve({ tasks: [baseTask(3)], nextCursor: null }));
@@ -339,7 +343,7 @@ describe("task detail dependency sections", () => {
       fireEvent.click(
         (await section(slot, "Blocked by")).getByRole("button", { name: "Add blocker" }),
       );
-      await slot.findByRole("status");
+      await findPickerStatus(slot);
       await selectTask(slot, 4);
       expect(slot.queryByRole("combobox")).toBeNull();
       expect(catalogReads(slot)).toHaveLength(1);
@@ -352,7 +356,9 @@ describe("task detail dependency sections", () => {
       });
       expect(slot.queryByRole("option")).toBeNull();
       expect(slot.queryByRole("alert")).toBeNull();
-      expect(slot.getByRole("status").textContent).toContain("Loading tasks");
+      expect(within(slot.getByRole("listbox")).getByRole("status").textContent).toContain(
+        "Loading tasks",
+      );
       await act(async () => current.resolve({ tasks: [baseTask(5)], nextCursor: null }));
       await slot.findByRole("option", { name: /ABC-5/ });
       expect(catalogReads(slot)).toHaveLength(2);
