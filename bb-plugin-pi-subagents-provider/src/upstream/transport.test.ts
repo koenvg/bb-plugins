@@ -190,6 +190,7 @@ it("keeps comparison requests pinned after alias hints and reports exhausted bou
   expect(result).toEqual({
     status: "inconclusive",
     reason: "Comparison bound exhausted",
+    stage: "commit-files",
     baseline,
     head,
   });

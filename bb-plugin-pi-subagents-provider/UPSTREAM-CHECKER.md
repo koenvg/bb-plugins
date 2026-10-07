@@ -28,6 +28,12 @@ The committed record supplies the GitHub repository, tracked branch, incorporate
 - A complete no-relevant-change result exits 0 with empty stdout and stderr. BB records this as a silent skipped tick. No agent starts.
 - Missing or invalid provenance, unavailable data, rewritten history, network errors, refused access, rate limits, malformed pages, missing paths, and exhausted bounds produce an `inconclusive` JSON record on stderr and exit 1. This never means "up to date". Error output excludes remote error bodies, credentials, and transport exceptions.
 
+Comparison failures include a fixed `stage`: `baseline`, `branch`, `comparison`, `commit-files`, or `tree-coverage`. The last stage includes first-parent metadata and complete-tree verification. CLI prerequisite failures occur before comparison and have no stage.
+
+Fixed transport reasons distinguish `Upstream response bound exhausted`, `Missing upstream body`, `Invalid upstream UTF-8`, `Invalid upstream JSON`, rejected or incomplete upstream pagination, and `Upstream network failure`. Response bounds cover both per-response and cumulative bytes. Existing timeout, access, and comparison-bound reasons remain. No raw exception, stack, URL, header, body, credential, filesystem path, or remote message is included.
+
+These reasons and stages diagnose future checks at the point where they fail. They do not identify the precise cause of the three retained failed runs, whose generic reports lack that information. No request, retry, schedule change, or baseline update is needed to add this reporting.
+
 ## Bounds and watched-path limits
 
 Requests are credential-free HTTPS GETs to `api.github.com`. Redirects are refused. Pagination links must stay on the requested endpoint and advance by one page. There are no retries, upstream checkouts, archives, private checkout requirements, or downloaded source execution.

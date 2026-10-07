@@ -16,6 +16,7 @@ export interface Baseline {
   sourcePath: string;
   watchedContractPaths: string[];
 }
+type ComparisonStage = "baseline" | "branch" | "comparison" | "commit-files" | "tree-coverage";
 export type CheckResult =
   | {
       status: "no-relevant-change" | "review-required";
@@ -23,7 +24,13 @@ export type CheckResult =
       head: string;
       changes: { commit: string; paths: string[] }[];
     }
-  | { status: "inconclusive"; reason: string; baseline?: string; head?: string };
+  | {
+      status: "inconclusive";
+      reason: string;
+      stage?: ComparisonStage;
+      baseline?: string;
+      head?: string;
+    };
 export const limits = {
   requests: 256,
   pages: 20,
@@ -94,6 +101,7 @@ export async function checkUpstream(
 ): Promise<CheckResult> {
   let baseline: string | undefined;
   let head: string | undefined;
+  let stage: ComparisonStage = "baseline";
   try {
     const b = parseBaseline(input);
     baseline = b.revision;
@@ -133,15 +141,17 @@ export async function checkUpstream(
       } catch (error) {
         // Never include transport errors, URLs, headers, or remote messages in output.
         if (error instanceof Error && safeReasons.has(error.message)) throw error;
-        throw new Error("Upstream network or data failure");
+        throw new Error("Upstream network failure");
       } finally {
         clearTimeout(timer);
         controller.abort();
       }
     }
+    stage = "branch";
     const branch = await get(`${prefix}/branches/${encodeURIComponent(b.branch)}`);
     if (branch.next) throw new Error("Invalid branch pagination");
     head = sha(object(branch.data.commit).sha);
+    stage = "comparison";
     const commits: string[] = [];
     let total: number | undefined;
     for (let page = 1; ; page++) {
@@ -192,6 +202,7 @@ export async function checkUpstream(
     const verifyFiles = treeCoverage(prefix, get);
     const changes: { commit: string; paths: string[] }[] = [];
     for (const commit of commits) {
+      stage = "commit-files";
       const files = new Set<string>();
       const changedFiles = new Set<string>();
       let metadata: Record<string, any> = {};
@@ -231,6 +242,7 @@ export async function checkUpstream(
           throw new Error("Incomplete or bounded commit file coverage");
         if (!response.next) break;
       }
+      stage = "tree-coverage";
       await verifyFiles(metadata, changedFiles);
       if (paths.size) changes.push({ commit, paths: [...paths].sort() });
     }
@@ -248,6 +260,7 @@ export async function checkUpstream(
     return {
       status: "inconclusive",
       reason,
+      stage,
       ...(baseline ? { baseline } : {}),
       ...(head ? { head } : {}),
     };
@@ -260,7 +273,15 @@ const safeReasons = new Set([
   "Upstream request timed out",
   "Upstream access refused or rate limited",
   "Upstream unavailable",
-  "Upstream network or data failure",
+  "Upstream network failure",
+  "Upstream response bound exhausted",
+  "Missing upstream body",
+  "Invalid upstream UTF-8",
+  "Invalid upstream JSON",
+  "Invalid upstream pagination",
+  "Incomplete upstream pagination",
+  "Invalid upstream request",
+  "Invalid upstream data",
   "Incomplete pagination data",
   "Invalid branch pagination",
   "Comparison page bound exhausted",
