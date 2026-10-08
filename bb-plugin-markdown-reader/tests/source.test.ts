@@ -13,6 +13,7 @@ const target = {
 };
 function setup() {
   const adapter: SourceAdapter = {
+    resolveHostRoot: vi.fn(async ({ rootPath }) => rootPath),
     environment: vi.fn(async () => ({
       id: "env",
       projectId: "project",

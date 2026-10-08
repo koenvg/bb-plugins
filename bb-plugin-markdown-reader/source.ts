@@ -59,6 +59,7 @@ export interface SourceAdapter {
   ): Promise<{ id: string; sources: { hostId: string; path: string; isDefault: boolean }[] }>;
   thread(id: string): Promise<{ id: string; projectId: string; environmentId: string | null }>;
   storageLocation(threadId: string): Promise<{ hostId: string; storageRootPath: string }>;
+  resolveHostRoot(target: { hostId: string; rootPath: string }): Promise<string>;
   read(target: { hostId: string; path: string; rootPath: string }): Promise<{
     content: string;
     contentEncoding: "base64" | "utf8";
@@ -199,10 +200,15 @@ async function documentLocation(
   const paths = hostPaths(root);
   if (!hostId || !paths.isAbsolute(root))
     throw new Error("The source has no explicit host or absolute root.");
-  const rootPath = paths.normalize(root);
+  const rootPath =
+    target.source.kind === "host"
+      ? await adapter.resolveHostRoot({ hostId, rootPath: paths.normalize(root) })
+      : paths.normalize(root);
+  if (!paths.isAbsolute(rootPath)) throw new Error("The resolved source root must be absolute.");
+  // Resolve the directory only. The SDK still checks the file and any file symlink.
   const documentPath =
     target.source.kind === "host"
-      ? paths.normalize(target.path)
+      ? paths.join(rootPath, paths.basename(target.path))
       : paths.resolve(rootPath, ...target.path.split("/"));
   const relative = paths.relative(rootPath, documentPath);
   if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative))
