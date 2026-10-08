@@ -2,7 +2,7 @@
 
 A selectable BB theme with a neutral light and dark palette, native system sans for app and chat text, and Inter for the sidebar. Messages and the composer use 16px text. Thread titles use 14px regular text, unread emphasis uses weight 500, and group headings use 14px at weight 500. Code metadata stays monospaced.
 
-Version `0.1.0` requires BB `>=0.45` and Plugin SDK `>=0.6.15 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Compose Chat is not required.
+Version `0.1.1` requires BB `>=0.45` and Plugin SDK `>=0.6.15 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Compose Chat is not required.
 
 ## Install from Git
 
@@ -49,7 +49,7 @@ Use the same plugin identity; do not uninstall first. Confirm the source path, e
 
 ## Selector contract
 
-`themes/codex-inspired.css` preserves the approved stylesheet, SHA256 `98dbfecfba24c5ea129106c4ac3c295c4137f2744451af81e1caf3f87fbc0b61`. Intentional future appearance changes require approval, an updated checksum, and a new version.
+`themes/codex-inspired.css` contains the approved stylesheet, SHA256 `2a83e20d9bda86f846665cd6d35cecca29bcccfce6de7deeb5c65dbf7da89b6b`. Intentional future appearance changes require approval, an updated checksum, and a new version.
 
 The selectors depend on current BB and Threads with PRs markup, not a stable SDK styling API:
 
@@ -59,6 +59,7 @@ The selectors depend on current BB and Threads with PRs markup, not a stable SDK
 - `[data-message-column]` and `[data-markdown-preview]` set 16px reading text without enlarging navigation or tool logs.
 - `form[data-promptbox] [contenteditable="true"]` targets the composer editor. The form retains the approved radius and shadow.
 - The narrow coarse-pointer rule retains BB's larger touch typography without changing sidebar width or drawer layout.
+- `:is(button, [role="button"]):focus-visible` adds a 3px host-ring outline with a 3px gap. It overrides the host's thin focus utility without changing fills, hover styles, or input focus. Native disabled and `aria-disabled="true"` buttons are excluded.
 
 Check actual regular and unread thread titles, group headings, code metadata, messages, and the composer in light, dark, and narrow layouts after BB or thread-list upgrades. A fixture alone cannot verify BB's cascade. The CSS has no `!important` declarations or external font references.
 
