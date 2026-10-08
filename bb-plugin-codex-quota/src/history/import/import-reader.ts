@@ -177,12 +177,31 @@ function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidat
     }
   }
   if (
-    !c.parent &&
+    !copy &&
     db
       .prepare(
-        "SELECT 1 FROM import_entries e JOIN import_candidates c ON c.generation=e.generation AND c.path=e.path WHERE e.entry=? AND c.session<>? LIMIT 1",
+        // A recorded copy is related only through the verified per-generation entry chain.
+        // Session or entry equality alone must not turn an unrelated source into ancestry.
+        `WITH RECURSIVE related(generation,path,entry,parent_entry,event_id) AS (
+          SELECT e.generation,e.path,e.entry,e.parent_entry,e.event_id
+          FROM import_entries e JOIN import_candidates c
+            ON c.generation=e.generation AND c.path=e.path
+          WHERE e.entry=? AND c.session=? AND c.workspace=? AND e.parent_entry IS ?
+          UNION
+          SELECT e.generation,e.path,e.entry,e.parent_entry,e.event_id
+          FROM related p JOIN import_candidates c
+            ON c.generation=p.generation AND c.parent=p.path
+          JOIN import_entries e ON e.generation=c.generation AND e.path=c.path
+            AND e.entry=p.entry AND e.parent_entry IS p.parent_entry AND e.event_id IS p.event_id
+          WHERE c.workspace=?
+        )
+        SELECT 1 FROM import_entries e JOIN import_candidates c
+          ON c.generation=e.generation AND c.path=e.path
+        WHERE e.entry=? AND c.session<>? AND NOT EXISTS (
+          SELECT 1 FROM related r WHERE r.generation=e.generation AND r.path=e.path AND r.entry=e.entry
+        ) LIMIT 1`,
       )
-      .get(e.id, c.session)
+      .get(e.id, c.session, c.workspace, e.parentId, c.workspace, e.id, c.session)
   ) {
     exclude("unresolved-ancestry");
     return;
