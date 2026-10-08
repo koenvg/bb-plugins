@@ -99,7 +99,7 @@ export function createSubagentObservation(options: ObservationOptions) {
       type: "backgroundTask",
       familyId: "pi-subagents",
       taskType: "local_subagent",
-      skipTranscript: true,
+      skipTranscript: false,
       description: `${node.label} [${node.id}]`,
       summary: `${node.state}; ${elapsed}; ${activity}; result not captured`,
       ...(active
