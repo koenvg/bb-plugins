@@ -5,12 +5,12 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 const root = new URL("./", import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
-const approvedHash = "98dbfecfba24c5ea129106c4ac3c295c4137f2744451af81e1caf3f87fbc0b61";
+const approvedHash = "2a83e20d9bda86f846665cd6d35cecca29bcccfce6de7deeb5c65dbf7da89b6b";
 
 describe("Codex Inspired package", () => {
   it("keeps the installed plugin and theme identities and compatibility floors", () => {
     expect(manifest.name).toBe("bb-plugin-codex-inspired");
-    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.version).toBe("0.1.1");
     expect(manifest.engines).toEqual({ bb: ">=0.45", bbPluginSdk: ">=0.6.15 <0.7" });
     expect(manifest.bb.themes).toEqual([
       {
@@ -26,6 +26,17 @@ describe("Codex Inspired package", () => {
   it("resolves the approved stylesheet from the manifest's package-relative path", () => {
     const css = readFileSync(new URL(manifest.bb.themes[0].css, root));
     expect(createHash("sha256").update(css).digest("hex")).toBe(approvedHash);
+  });
+
+  it("gives enabled buttons a separated keyboard-only focus outline", () => {
+    const css = readFileSync(new URL(manifest.bb.themes[0].css, root), "utf8");
+    expect(css).toContain(
+      ':is(button, [role="button"]):focus-visible:not(:disabled):not([aria-disabled="true"]) {',
+    );
+    expect(css).toContain("outline: 3px solid var(--ring);");
+    expect(css).toContain("outline-offset: 3px;");
+    expect(css).not.toMatch(/:focus(?!-visible)/);
+    expect(css).not.toContain("!important");
   });
 
   it("has no app, host, settings, or runtime dependencies", () => {
