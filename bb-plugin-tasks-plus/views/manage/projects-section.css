@@ -1,0 +1,272 @@
+.project-settings-section {
+  min-width: 0;
+  container-type: inline-size;
+  container-name: project-settings;
+  color: var(--foreground);
+}
+.project-settings-section .project-table-heading {
+  margin-bottom: 24px;
+}
+.project-settings-section .project-table-heading h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.project-settings-section .project-table-heading p,
+.project-settings-section .project-table-footer {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.project-settings-section .project-table-heading p {
+  max-width: 65ch;
+}
+.project-settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.project-settings-table th {
+  padding: 0 8px 12px;
+  color: var(--muted-foreground);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+.project-settings-table th:first-child {
+  width: 80px;
+  padding-left: 0;
+}
+.project-settings-table th:nth-child(3) {
+  width: 118px;
+}
+.project-settings-table th:last-child {
+  width: 160px;
+}
+.project-settings-table td {
+  padding: 16px 8px;
+  border-bottom: 1px solid var(--border-hairline, var(--border));
+  vertical-align: top;
+}
+.project-settings-table td:first-child {
+  padding-left: 0;
+}
+.project-settings-table td:last-child {
+  padding-right: 0;
+}
+.project-settings-section .project-prefix-cell span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font:
+    12px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.project-settings-section .project-name-input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--input);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--foreground);
+  background: transparent;
+  caret-color: var(--foreground);
+}
+.project-settings-section .project-name-input:focus-visible,
+.project-settings-section .project-row-actions button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.project-settings-section .project-name-input::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.project-settings-section .project-name-input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+.project-settings-section .project-colour-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.project-colour-popover [role="radiogroup"] {
+  gap: 8px;
+}
+.project-colour-popover [role="radio"] {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  outline: none;
+  box-shadow: none;
+}
+.project-colour-popover [role="radio"][aria-checked="true"] {
+  box-shadow:
+    0 0 0 2px var(--popover),
+    0 0 0 4px var(--foreground);
+}
+.project-colour-popover [role="radio"]:focus-visible {
+  outline: 2px dashed var(--ring);
+  outline-offset: 6px;
+}
+.project-settings-section .project-colour-dot {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  border-radius: 4px;
+}
+.project-settings-section .project-colour-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-settings-section .project-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.project-settings-section .project-row-actions button {
+  height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--input);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.project-settings-section .project-row-actions button:hover:not(:disabled) {
+  background: var(--accent);
+}
+.project-settings-section .project-row-actions button[data-save] {
+  width: 76px;
+  flex-shrink: 0;
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: var(--background);
+}
+.project-settings-section .project-row-actions button[data-save]:hover:not(:disabled) {
+  background: var(--foreground);
+  opacity: 0.85;
+}
+.project-settings-section .project-row-actions button:last-child {
+  width: 64px;
+  flex-shrink: 0;
+}
+.project-settings-section button:disabled,
+.project-settings-section .project-name-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.project-settings-section .project-table-footer {
+  padding-top: 16px;
+  font-size: 12px;
+}
+.project-settings-section .project-table-footer p {
+  margin: 0;
+}
+.project-settings-section .project-inventory-status {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.project-settings-section .project-inventory-status > p {
+  margin: 0;
+  min-height: 20px;
+  line-height: 20px;
+}
+.project-settings-section .project-inventory-error {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.project-settings-section .project-inventory-error p,
+.project-settings-section .project-table-error {
+  margin: 8px 0 0;
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.project-settings-section .project-table-error[aria-hidden="true"] {
+  visibility: hidden;
+}
+@container project-settings (max-width: 560px) {
+  .project-settings-section .project-table-heading {
+    margin-bottom: 16px;
+  }
+  .project-settings-table,
+  .project-settings-table tbody {
+    display: block;
+  }
+  .project-settings-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .project-settings-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+  }
+  .project-settings-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .project-settings-table .project-prefix-cell,
+  .project-settings-table .project-name-cell {
+    grid-column: 1 / -1;
+  }
+  .project-settings-section .project-prefix-cell span {
+    min-height: auto;
+  }
+  .project-settings-section .project-prefix-cell::before {
+    content: "Prefix ";
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  .project-settings-section .project-name-input,
+  .project-settings-section .project-row-actions button {
+    height: 40px;
+  }
+  .project-settings-section .project-colour-trigger {
+    height: 40px;
+  }
+  .project-settings-table .project-actions-cell {
+    align-self: center;
+  }
+  .project-settings-section .project-table-footer {
+    border-top: 1px solid var(--border);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-settings-section * {
+    transition: none;
+    animation: none;
+  }
+}

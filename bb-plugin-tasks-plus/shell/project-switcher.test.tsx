@@ -27,6 +27,8 @@ const readyInventory = (): Inventory => ({
   isLoading: false,
   error: null,
   refresh: vi.fn(),
+  revision: 1,
+  readRevision: () => 1,
 });
 function setupPicker(inventory = readyInventory(), compact = false) {
   const onSelect = vi.fn();

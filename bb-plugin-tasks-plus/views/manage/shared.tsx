@@ -2,7 +2,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "../../shared/errors.js";
 
-const COLOR_PALETTE = [
+export const COLOR_PALETTE = [
   { value: "slateblue", label: "Indigo" },
   { value: "steelblue", label: "Blue" },
   { value: "lightseagreen", label: "Teal" },

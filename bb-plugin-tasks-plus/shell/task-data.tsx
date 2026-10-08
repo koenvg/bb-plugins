@@ -164,7 +164,12 @@ function useInventory<T>(
   return { data: state.data, error: state.error, isLoading: state.isLoading, refresh };
 }
 export function useSessionProjects() {
-  return useInventory(useSessionData().projects);
+  const resource = useSessionData().projects;
+  return {
+    ...useInventory(resource),
+    revision: resource.readRevision(),
+    readRevision: resource.readRevision,
+  };
 }
 export function useSessionLabelsForProjects(projectIds: readonly string[]) {
   const data = useSessionData();
