@@ -18,6 +18,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Tasks Plus        | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)                       |
 | Markdown Reader   | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader)             |
 | Pi with subagents | [`bb-plugin-pi-subagents-provider`](bb-plugin-pi-subagents-provider) |
+| Browser Annotate  | [`bb-plugin-browser-annotate`](bb-plugin-browser-annotate)           |
 
 Install one plugin at a time from Git with `--subdirectory`, for example:
 

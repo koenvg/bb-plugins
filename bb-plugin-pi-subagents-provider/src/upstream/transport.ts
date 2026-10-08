@@ -46,7 +46,18 @@ export function githubTransport(fetcher: typeof fetch = fetch, bounds = byteLimi
         chunks.push(value);
       }
       const bytes = Buffer.concat(chunks);
-      const data: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+      let body: string;
+      try {
+        body = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        throw new Error("Invalid upstream UTF-8");
+      }
+      let data: unknown;
+      try {
+        data = JSON.parse(body);
+      } catch {
+        throw new Error("Invalid upstream JSON");
+      }
       return { status: 200, data, next: hasNextPage(response.headers.get("link"), url) };
     } finally {
       await reader.cancel();
@@ -72,7 +83,12 @@ function hasNextPage(link: string | null, current: URL): boolean {
     const match = /^\s*<([^>]+)>;\s*rel="(next|prev|first|last)"\s*$/.exec(part);
     if (!match || relations.has(match[2])) throw new Error("Invalid upstream pagination");
     relations.add(match[2]);
-    const target = new URL(match[1]);
+    let target: URL;
+    try {
+      target = new URL(match[1]);
+    } catch {
+      throw new Error("Invalid upstream pagination");
+    }
     // Numeric repository routes are hints only. Requests stay on the caller's owner/repository route.
     const alias = /^\/repositories\/[1-9]\d*(\/.*)$/.exec(target.pathname);
     const suffix = current.pathname.replace(/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+(?=\/)/, "");

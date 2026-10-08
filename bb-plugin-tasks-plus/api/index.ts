@@ -347,10 +347,7 @@ function attachmentMetadata(attachment: StoredAttachment): AttachmentMetadata {
 }
 
 function attachmentsForTasks(store: TasksStore, taskIds: readonly string[]): StoredAttachment[] {
-  return taskIds.flatMap((taskId) => [
-    ...store.listAttachmentsForTask(taskId),
-    ...store.listComments(taskId).flatMap((comment) => store.listAttachmentsForComment(comment.id)),
-  ]);
+  return taskIds.flatMap((taskId) => store.listTaskAttachments(taskId, { includeBlobPath: true }));
 }
 
 interface AgentThreadInfo {

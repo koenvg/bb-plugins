@@ -41,7 +41,6 @@ import {
   readTextOption,
   attachmentFileName,
 } from "./client-files";
-import { listTaskAttachments } from "./attachments";
 import { bytes, detail, table } from "./format";
 
 const ACTIVE_THREAD_STATUSES = new Set(["starting", "working"]);
@@ -433,7 +432,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
               }),
             ),
           ).comments;
-          const attachments = await listTaskAttachments(domain, task.id, comments);
+          const attachments = store.tasks.listTaskAttachments(task.id);
           const taskThreads = tasksRpcContract.listTaskThreads.output.parse(
             await domain.listTaskThreads(
               tasksRpcContract.listTaskThreads.input.parse({

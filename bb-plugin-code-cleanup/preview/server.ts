@@ -1,8 +1,19 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
+
+async function readBody(req: IncomingMessage, maxBytes: number): Promise<string> {
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > maxBytes) throw new Error("Request too large");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks, bytes).toString("utf8");
+}
 
 // This host owns temporary SQLite storage. It has no connection to the live BB host.
 const host = createFakePluginHost({
@@ -56,11 +67,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/fixture-default") {
     try {
       if (req.method === "POST") {
-        let body = "";
-        for await (const chunk of req) {
-          body += chunk;
-          if (body.length > 1024) throw new Error("Request too large");
-        }
+        const body = await readBody(req, 1024);
         await host.harness.behavior.setSettings(JSON.parse(body));
       } else if (req.method !== "GET") throw new Error("GET or POST required");
       const state = (await host.harness.behavior.callRpc("getProject", {
@@ -91,12 +98,8 @@ const server = createServer(async (req, res) => {
       const method = url.pathname.slice("/fixture-rpc/".length);
       if (!["listProjects", "getProject", "setEnablement", "setPrompt"].includes(method))
         throw new Error("Unknown fixture operation");
-      let body = "";
-      for await (const chunk of req) {
-        body += chunk;
-        // Two 4096-character strings can each expand sixfold in JSON.
-        if (body.length > 64 * 1024) throw new Error("Request too large");
-      }
+      // Two 4096-character strings can each expand sixfold in JSON.
+      const body = await readBody(req, 64 * 1024);
       const scenario = url.searchParams.get("scenario");
       await new Promise((resolve) => setTimeout(resolve, scenario === "slow" ? 2000 : 200));
       if (scenario === "load-failure" && method === "getProject")

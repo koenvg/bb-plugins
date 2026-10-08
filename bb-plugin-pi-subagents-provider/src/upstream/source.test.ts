@@ -25,6 +25,8 @@ function repo() {
       env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
     });
   git("init", "-q");
+  // Byte snapshots must not race Git's detached automatic maintenance.
+  git("config", "maintenance.auto", "false");
   git("config", "user.email", "fixture@example.test");
   git("config", "user.name", "Fixture");
   const pkg = join(root, "bb-plugin-pi-subagents-provider");

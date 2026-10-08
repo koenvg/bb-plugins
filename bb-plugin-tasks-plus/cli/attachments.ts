@@ -6,7 +6,7 @@ import {
   readAttachmentContent,
   saveAttachmentFromBytes,
 } from "../attachments";
-import { tasksRpcContract, ULID_PATTERN, type Attachment } from "../shared/contract";
+import { tasksRpcContract, ULID_PATTERN } from "../shared/contract";
 import { attachmentDownloadUrl } from "../shared/attachments";
 import {
   CliError,
@@ -25,30 +25,6 @@ import {
   attachmentFileName,
 } from "./client-files";
 import { bytes, table } from "./format";
-
-async function listTaskAttachments(
-  domain: TasksDomain,
-  taskId: string,
-  comments: readonly { id: string }[],
-): Promise<Attachment[]> {
-  const attachments = [
-    ...tasksRpcContract.listAttachments.output.parse(
-      await domain.listAttachments(tasksRpcContract.listAttachments.input.parse({ taskId })),
-    ).attachments,
-  ];
-  for (const comment of comments) {
-    attachments.push(
-      ...tasksRpcContract.listAttachments.output.parse(
-        await domain.listAttachments(
-          tasksRpcContract.listAttachments.input.parse({
-            commentId: comment.id,
-          }),
-        ),
-      ).attachments,
-    );
-  }
-  return attachments;
-}
 
 export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain: TasksDomain) {
   return {
@@ -161,14 +137,7 @@ export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain
       run(input) {
         return guard(async () => {
           const task = await resolveTask(domain, input.positionals["key-or-id"]);
-          const comments = tasksRpcContract.listComments.output.parse(
-            await domain.listComments(
-              tasksRpcContract.listComments.input.parse({
-                taskId: task.id,
-              }),
-            ),
-          ).comments;
-          const attachments = await listTaskAttachments(domain, task.id, comments);
+          const attachments = store.tasks.listTaskAttachments(task.id);
           return input.options.json
             ? JSON.stringify({ task, attachments })
             : table(
@@ -228,5 +197,3 @@ export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain
     }),
   };
 }
-
-export { listTaskAttachments };

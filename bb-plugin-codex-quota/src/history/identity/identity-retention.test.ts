@@ -143,7 +143,8 @@ it.each([101, 501])(
     expect((await complete("host_a")).offset).toBe(identities + 1);
     await host.harness.lifecycle.dispose();
   },
-  30_000,
+  // Forty real SQLite generations can exceed the default five-second budget on CI.
+  20_000,
 );
 
 it("retains canonical evidence and ownership resolution for hosts that miss many generations", async () => {

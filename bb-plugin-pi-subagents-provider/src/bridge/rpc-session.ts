@@ -1,14 +1,14 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { experimental_buildBridgeToolCallContent as buildBridgeToolCallContent } from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import {
   NO_REQUEST_TIMEOUT,
   PiRpcChild,
   PiRpcChildExitedError,
-  buildPiChildEnv,
   type PiRpcChildExitInfo,
 } from "./rpc-child.js";
+import { PiSessionChannel } from "./session-channel.js";
+import { PiSessionInputs } from "./session-inputs.js";
+import { spawnPiSessionChild } from "./session-launch.js";
 import { createInspectionChannel } from "./subagents/inspection-channel.js";
 import { type CaptureTarget } from "./subagents/capture.js";
 
@@ -47,20 +47,6 @@ export type PiRpcEvent = Record<string, unknown> & { type: string };
 type PiSessionEventHandler = (event: PiRpcEvent) => void;
 type PiSessionDoneHandler = (error?: unknown) => void;
 
-type PiInputQueue = "followUp" | "steering";
-
-interface PendingInputConsumption {
-  queue: PiInputQueue;
-  queuedText: string | null;
-  reject: (error: Error) => void;
-  resolve: () => void;
-}
-
-interface TrackedInputConsumption {
-  pending: PendingInputConsumption;
-  promise: Promise<void>;
-}
-
 export interface PiPromptRunOutcome {
   error?: unknown;
 }
@@ -74,11 +60,6 @@ interface PendingRunSettlement {
   resolve: (outcome: PiPromptRunOutcome) => void;
 }
 
-interface ChannelReply {
-  resolve: (result: unknown) => void;
-  reject: (error: Error) => void;
-}
-
 const PI_TRANSIENT_AUTH_RETRY_DELAY_MS = 250;
 const PI_TRANSIENT_AUTH_MAX_RETRIES = 8;
 function readinessTimeoutMs(): number {
@@ -86,7 +67,6 @@ function readinessTimeoutMs(): number {
   return Number.isFinite(configured) && configured > 0 ? configured : 60_000;
 }
 const CHANNEL_REQUEST_TIMEOUT_MS = 30_000;
-const AGENT_END_LEAF_TIMEOUT_MS = 5_000;
 
 type PiSessionConstructionOutcome = { ok: true } | { ok: false; error: Error };
 
@@ -128,24 +108,19 @@ export class PiRpcSession {
   private manualCompactionCompletionCount = 0;
   private lastCompactionEndDelivery: Promise<void> = Promise.resolve();
   private deliveryChain: Promise<void> = Promise.resolve();
-  private readonly pendingInputConsumptions: PendingInputConsumption[] = [];
-  private lastObservedQueues: Record<PiInputQueue, string[]> = {
-    followUp: [],
-    steering: [],
-  };
-  private autoRetryInProgress = false;
-  private terminalSteerSettlement: Promise<void> | null = null;
+  private readonly inputs = new PiSessionInputs(() => {
+    const child = this.child;
+    if (!child || child.exited) return null;
+    return child
+      .request({ type: "get_state" })
+      .then(
+        (response) =>
+          (response.data as Partial<PiRpcSessionState> | undefined)?.isStreaming === true,
+      );
+  });
   private readonly pendingRunSettlements: PendingRunSettlement[] = [];
-  private readonly channelReplies = new Map<string, ChannelReply>();
-  private nextChannelRequestId = 0;
+  private channel!: PiSessionChannel;
   private lastKnownLeafId: string | null = null;
-  private readonly agentEndLeafReports: (string | null)[] = [];
-  private agentEndLeafWaiter: ((leafId: string | null) => void) | null = null;
-  private ready: {
-    promise: Promise<void>;
-    resolve: () => void;
-    reject: (error: Error) => void;
-  } = createDeferred();
   private lastContextUsage: {
     tokens: number | null;
     contextWindow: number;
@@ -193,6 +168,7 @@ export class PiRpcSession {
       attempt: () => this.spawnAndVerify(),
       discardFailedAttempt: () => {
         const failed = this.child;
+        this.channel.dispose(new Error("Pi construction attempt discarded"));
         this.child = undefined;
         failed?.kill();
       },
@@ -202,48 +178,9 @@ export class PiRpcSession {
   }
 
   private async spawnAndVerify(): Promise<PiSessionConstructionOutcome> {
-    const toolsFilePath = join(
-      this.options.scratchDir,
-      `pi-tools-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
-    );
-    mkdirSync(dirname(toolsFilePath), { recursive: true });
-    writeFileSync(toolsFilePath, JSON.stringify(this.options.dynamicTools ?? []), "utf8");
-    const promptFiles = this.writePromptFiles();
-    const scratchFiles = [toolsFilePath, ...promptFiles.paths];
-
-    const args: string[] = ["--mode", "rpc"];
-    if (this.options.noSession) {
-      args.push("--no-session");
-    } else {
-      mkdirSync(dirname(this.options.sessionFilePath), { recursive: true });
-      args.push("--session", this.options.sessionFilePath);
-    }
-    args.push(
-      "--session-dir",
-      this.options.sessionDir,
-      "--extension",
-      this.options.extensionPath,
-      ...promptFiles.args,
-    );
-    for (const skillPath of this.options.additionalSkillPaths ?? []) {
-      args.push("--skill", skillPath);
-    }
-    if (this.options.model) {
-      args.push("--model", `${this.options.model.provider}/${this.options.model.id}`);
-    }
-    if (this.options.thinkingLevel) {
-      args.push("--thinking", this.options.thinkingLevel);
-    }
-
-    this.ready = createDeferred();
     const onExtensionUiRequest = this.options.onExtensionUiRequest;
-    const child = new PiRpcChild({
-      cwd: this.options.cwd,
-      env: buildPiChildEnv({
-        ...this.options.shellEnvOverrides,
-        PI_BB_TOOLS_FILE: toolsFilePath,
-      }),
-      args,
+    const channel = new PiSessionChannel((message) => child.sendChannel(message));
+    const child = spawnPiSessionChild(this.options, {
       onEvent: (event) => {
         if (child === this.child) this.handleEvent(event);
       },
@@ -251,10 +188,8 @@ export class PiRpcSession {
         if (child === this.child) this.handleChannelMessage(message);
       },
       onExit: (info) => {
-        for (const file of scratchFiles) rmSync(file, { force: true });
         if (child === this.child) this.handleExit(info);
       },
-      recordThreadId: this.options.recordThreadId,
       onExtensionUiRequest: onExtensionUiRequest
         ? (request) => {
             if (child === this.child && !this.inspections.widget(request))
@@ -263,9 +198,11 @@ export class PiRpcSession {
         : undefined,
     });
     this.child = child;
+    this.channel = channel;
 
     const state = await this.getState(CHANNEL_REQUEST_TIMEOUT_MS);
-    await this.awaitReady(readinessTimeoutMs(), child);
+    if (child.exited) throw new Error("pi exited before its extension reported ready");
+    await channel.awaitReady(readinessTimeoutMs());
     if (state.model?.provider === "unknown") {
       return {
         ok: false,
@@ -288,29 +225,6 @@ export class PiRpcSession {
     return { ok: true };
   }
 
-  private awaitReady(timeoutMs: number, child: PiRpcChild): Promise<void> {
-    if (child.exited) {
-      return Promise.reject(new Error("pi exited before its extension reported ready"));
-    }
-    const ready = this.ready;
-    return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error("pi extension did not report ready in time"));
-      }, timeoutMs);
-      timer.unref?.();
-      ready.promise.then(
-        () => {
-          clearTimeout(timer);
-          resolve();
-        },
-        (error: Error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      );
-    });
-  }
-
   async getState(timeoutMs?: number): Promise<PiRpcSessionState> {
     const data = await this.requireChild().requestOk({ type: "get_state" }, timeoutMs);
     const state = (data ?? {}) as PiRpcSessionState;
@@ -326,7 +240,7 @@ export class PiRpcSession {
       return { consumed, settled: Promise.resolve(null) };
     }
     this.isProcessing = true;
-    const tracked = this.trackPendingInputConsumption("followUp");
+    const tracked = this.inputs.track("followUp");
     const settlement = new Promise<PiPromptRunOutcome>((resolve) => {
       this.pendingRunSettlements.push({ resolve });
     });
@@ -341,30 +255,30 @@ export class PiRpcSession {
       NO_REQUEST_TIMEOUT,
     ).then(
       async (): Promise<PiPromptRunOutcome | null> => {
-        if (tracked.pending.queuedText !== null) {
+        if (tracked.wasQueued) {
           this.dropRunSettlement();
           return null;
         }
-        this.resolvePendingInputConsumption(tracked.pending);
+        tracked.acknowledge();
         const outcome = await settlement;
         return outcome;
       },
       (error: unknown): PiPromptRunOutcome | null => {
         this.isProcessing = false;
         this.dropRunSettlement();
-        const queued = tracked.pending.queuedText !== null;
-        this.rejectPendingInputConsumption(tracked.pending, asError(error));
-        this.rejectPendingInputConsumptions("Pi prompt failed before input was consumed");
+        const queued = tracked.wasQueued;
+        tracked.acknowledge(asError(error));
+        this.inputs.rejectPending("Pi prompt failed before input was consumed");
         this.onDone(error);
         return queued ? null : { error };
       },
     );
-    return { consumed: tracked.promise, settled };
+    return { consumed: tracked.consumed, settled };
   }
 
   async steer(text: string, images?: ImageContent[]): Promise<void> {
     const child = this.requireChild();
-    const tracked = this.trackPendingInputConsumption("steering");
+    const tracked = this.inputs.track("steering");
     try {
       await this.dispatchWithTransientAuthRetry(child, {
         type: "prompt",
@@ -373,15 +287,15 @@ export class PiRpcSession {
         streamingBehavior: "steer",
       });
     } catch (error) {
-      this.rejectPendingInputConsumption(tracked.pending, asError(error));
+      tracked.acknowledge(asError(error));
       this.onDone(error);
       throw error;
     }
-    if (tracked.pending.queuedText === null) {
-      this.resolvePendingInputConsumption(tracked.pending);
+    if (!tracked.wasQueued) {
+      tracked.acknowledge();
       return;
     }
-    void tracked.promise.catch((error) => {
+    void tracked.consumed.catch((error) => {
       this.onDone(error);
     });
   }
@@ -413,7 +327,7 @@ export class PiRpcSession {
   async closeGracefully(timeoutMs: number): Promise<string | undefined> {
     this.inspections.dispose();
     const child = this.child;
-    this.rejectPendingInputConsumptions("Pi session closed before input was consumed");
+    this.inputs.rejectPending("Pi session closed before input was consumed");
     this.closed = true;
     if (!child || child.exited) {
       return this.lastKnownLeafId ?? undefined;
@@ -481,25 +395,6 @@ export class PiRpcSession {
     return this.child;
   }
 
-  private writePromptFiles(): { args: string[]; paths: string[] } {
-    const args: string[] = [];
-    const paths: string[] = [];
-    const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    if (this.options.systemPrompt !== undefined) {
-      const file = join(this.options.scratchDir, `pi-system-${stamp}.md`);
-      writeFileSync(file, this.options.systemPrompt, "utf8");
-      args.push("--system-prompt", file);
-      paths.push(file);
-    }
-    if (this.options.appendSystemPrompt !== undefined) {
-      const file = join(this.options.scratchDir, `pi-append-${stamp}.md`);
-      writeFileSync(file, this.options.appendSystemPrompt, "utf8");
-      args.push("--append-system-prompt", file);
-      paths.push(file);
-    }
-    return { args, paths };
-  }
-
   private async dispatchWithTransientAuthRetry(
     child: PiRpcChild,
     command: Record<string, unknown>,
@@ -529,11 +424,11 @@ export class PiRpcSession {
     }
     const event = raw as PiRpcEvent;
     this.trackProcessingState(event);
-    this.observeInputConsumption(event);
-    this.observeTerminalSteerSettlement(event);
+    this.inputs.observe(event);
+    const channel = this.channel;
     if (event.type === "agent_end") {
       this.deliverInOrder(async () => {
-        const leafId = await this.takeAgentEndLeaf();
+        const leafId = await channel.takeAgentEndLeaf();
         if (leafId !== null) {
           this.lastKnownLeafId = leafId;
         }
@@ -607,27 +502,6 @@ export class PiRpcSession {
     }
   }
 
-  private takeAgentEndLeaf(): Promise<string | null> {
-    const queued = this.agentEndLeafReports.shift();
-    if (queued !== undefined) {
-      return Promise.resolve(queued);
-    }
-    return new Promise<string | null>((resolve) => {
-      const timer = setTimeout(() => {
-        if (this.agentEndLeafWaiter === settle) {
-          this.agentEndLeafWaiter = null;
-        }
-        resolve(null);
-      }, AGENT_END_LEAF_TIMEOUT_MS);
-      timer.unref?.();
-      const settle = (leafId: string | null) => {
-        clearTimeout(timer);
-        resolve(leafId);
-      };
-      this.agentEndLeafWaiter = settle;
-    });
-  }
-
   private async refreshContextUsage(): Promise<void> {
     const child = this.child;
     if (!child || child.exited) {
@@ -653,21 +527,6 @@ export class PiRpcSession {
       return;
     }
     const child = this.child;
-    if (message.kind === "ready") {
-      this.ready.resolve();
-      return;
-    }
-    if (message.kind === "agent-end-leaf") {
-      const leafId = typeof message.leafId === "string" ? message.leafId : null;
-      const waiter = this.agentEndLeafWaiter;
-      if (waiter) {
-        this.agentEndLeafWaiter = null;
-        waiter(leafId);
-      } else {
-        this.agentEndLeafReports.push(leafId);
-      }
-      return;
-    }
     if (message.kind === "tool-call" && child) {
       const id = String(message.id);
       const toolName = String(message.toolName);
@@ -700,61 +559,22 @@ export class PiRpcSession {
       );
       return;
     }
-    if (message.kind === "reply") {
-      const reply = this.channelReplies.get(String(message.id));
-      if (!reply) {
-        return;
-      }
-      this.channelReplies.delete(String(message.id));
-      if (typeof message.error === "string") {
-        reply.reject(new Error(message.error));
-      } else {
-        reply.resolve(message.result);
-      }
-    }
+    this.channel.handle(message);
   }
 
   private channelRequest(
     request: Record<string, unknown>,
     timeoutMs = CHANNEL_REQUEST_TIMEOUT_MS,
   ): Promise<unknown> {
-    const child = this.requireChild();
-    this.nextChannelRequestId += 1;
-    const id = `cr-${this.nextChannelRequestId}`;
-    return new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.channelReplies.delete(id);
-        reject(new Error(`pi extension did not answer ${String(request.method)}`));
-      }, timeoutMs);
-      timer.unref?.();
-      this.channelReplies.set(id, {
-        resolve: (result) => {
-          clearTimeout(timer);
-          resolve(result);
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      });
-      child.sendChannel({ kind: "request", id, ...request });
-    });
+    this.requireChild();
+    return this.channel.request(request, timeoutMs);
   }
 
   private handleExit(info: PiRpcChildExitInfo): void {
     this.inspections.dispose();
     this.options.onProcessExit?.();
-    this.ready.reject(new PiRpcChildExitedError(info));
-    for (const [, reply] of this.channelReplies) {
-      reply.reject(new PiRpcChildExitedError(info));
-    }
-    this.channelReplies.clear();
-    const leafWaiter = this.agentEndLeafWaiter;
-    if (leafWaiter) {
-      this.agentEndLeafWaiter = null;
-      leafWaiter(null);
-    }
-    this.rejectPendingInputConsumptions("Pi exited before input was consumed");
+    this.channel.dispose(new PiRpcChildExitedError(info));
+    this.inputs.rejectPending("Pi exited before input was consumed");
     for (const pending of this.pendingRunSettlements.splice(0)) {
       pending.resolve({ error: new PiRpcChildExitedError(info) });
     }
@@ -779,180 +599,8 @@ export class PiRpcSession {
       this.isProcessing = false;
     }
   }
-
-  private trackPendingInputConsumption(queue: PiInputQueue): TrackedInputConsumption {
-    let resolvePromise: () => void = () => undefined;
-    let rejectPromise: (error: Error) => void = () => undefined;
-    const promise = new Promise<void>((resolve, reject) => {
-      resolvePromise = resolve;
-      rejectPromise = reject;
-    });
-    const pending: PendingInputConsumption = {
-      queue,
-      queuedText: null,
-      reject: rejectPromise,
-      resolve: resolvePromise,
-    };
-    this.pendingInputConsumptions.push(pending);
-    void promise.catch(() => undefined);
-    return { pending, promise };
-  }
-
-  private observeInputConsumption(event: PiRpcEvent): void {
-    if (event.type !== "queue_update") {
-      return;
-    }
-    this.observeQueue("steering", toStringArray(event.steering));
-    this.observeQueue("followUp", toStringArray(event.followUp));
-  }
-
-  private observeQueue(queue: PiInputQueue, queuedTexts: readonly string[]): void {
-    const lastObserved = this.lastObservedQueues[queue];
-    const added = listMultisetDifference(queuedTexts, lastObserved);
-    const removed = listMultisetDifference(lastObserved, queuedTexts);
-    this.lastObservedQueues[queue] = [...queuedTexts];
-    for (const queuedText of added) {
-      const pending = this.pendingInputConsumptions.find(
-        (entry) => entry.queue === queue && entry.queuedText === null,
-      );
-      if (!pending) {
-        break;
-      }
-      pending.queuedText = queuedText;
-    }
-    for (const queuedText of removed) {
-      const pending = this.pendingInputConsumptions.find(
-        (entry) => entry.queue === queue && entry.queuedText === queuedText,
-      );
-      if (pending) {
-        this.resolvePendingInputConsumption(pending);
-      }
-    }
-  }
-
-  private observeTerminalSteerSettlement(event: PiRpcEvent): void {
-    if (event.type === "agent_end") {
-      if (event.willRetry !== true) {
-        this.scheduleTerminalSteerSettlement();
-      }
-      return;
-    }
-    if (event.type === "auto_retry_start") {
-      this.autoRetryInProgress = true;
-      this.clearTerminalSteerSettlement();
-      return;
-    }
-    if (event.type === "auto_retry_end") {
-      this.autoRetryInProgress = false;
-      if (event.success !== true) {
-        this.rejectPendingInputConsumptions(
-          "Pi auto retry ended before steer was consumed",
-          "steering",
-        );
-      }
-    }
-  }
-
-  private scheduleTerminalSteerSettlement(): void {
-    if (
-      !this.pendingInputConsumptions.some((entry) => entry.queue === "steering") ||
-      this.terminalSteerSettlement !== null
-    ) {
-      return;
-    }
-    const child = this.child;
-    if (!child || child.exited) {
-      return;
-    }
-    const settlement = child
-      .request({ type: "get_state" })
-      .then((response) => {
-        const state = (response.data ?? {}) as Partial<PiRpcSessionState>;
-        return state.isStreaming === true;
-      })
-      .catch(() => false)
-      .then((streaming) => {
-        if (this.terminalSteerSettlement !== settlement) {
-          return;
-        }
-        this.terminalSteerSettlement = null;
-        if (this.autoRetryInProgress || streaming) {
-          return;
-        }
-        this.rejectPendingInputConsumptions("Pi turn ended before steer was consumed", "steering");
-      });
-    this.terminalSteerSettlement = settlement;
-  }
-
-  private clearTerminalSteerSettlement(): void {
-    this.terminalSteerSettlement = null;
-  }
-
-  private resolvePendingInputConsumption(pending: PendingInputConsumption): void {
-    const index = this.pendingInputConsumptions.indexOf(pending);
-    if (index === -1) {
-      return;
-    }
-    this.pendingInputConsumptions.splice(index, 1);
-    pending.resolve();
-  }
-
-  private rejectPendingInputConsumption(pending: PendingInputConsumption, error: Error): void {
-    const index = this.pendingInputConsumptions.indexOf(pending);
-    if (index === -1) {
-      return;
-    }
-    this.pendingInputConsumptions.splice(index, 1);
-    pending.reject(error);
-  }
-
-  private rejectPendingInputConsumptions(message: string, queue?: PiInputQueue): void {
-    this.clearTerminalSteerSettlement();
-    for (const pending of this.pendingInputConsumptions.splice(0)) {
-      if (queue !== undefined && pending.queue !== queue) {
-        this.pendingInputConsumptions.push(pending);
-        continue;
-      }
-      pending.reject(new Error(message));
-    }
-  }
-}
-
-function createDeferred(): {
-  promise: Promise<void>;
-  resolve: () => void;
-  reject: (error: Error) => void;
-} {
-  let resolve: () => void = () => undefined;
-  let reject: (error: Error) => void = () => undefined;
-  const promise = new Promise<void>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  void promise.catch(() => undefined);
-  return { promise, resolve, reject };
 }
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
-}
-
-function toStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
-function listMultisetDifference(source: readonly string[], subtract: readonly string[]): string[] {
-  const remaining = [...subtract];
-  const difference: string[] = [];
-  for (const entry of source) {
-    const index = remaining.indexOf(entry);
-    if (index === -1) {
-      difference.push(entry);
-      continue;
-    }
-    remaining.splice(index, 1);
-  }
-  return difference;
 }
