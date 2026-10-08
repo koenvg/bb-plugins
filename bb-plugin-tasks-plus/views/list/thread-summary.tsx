@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { TaskWorkStatus, ThreadExecution } from "../../shared/contract.js";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { COARSE_POINTER_TEXT_SM_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { cn } from "@/lib/utils";
+import "./list.css";
 
 const EXECUTION_ORDER: readonly ThreadExecution[] = [
   "failed",
@@ -18,7 +19,7 @@ const LABELS: Record<ThreadExecution, string> = {
   failed: "Failed",
   unavailable: "Unavailable",
   starting: "Starting",
-  working: "Working",
+  working: "Running",
   idle: "Idle",
   removed: "Removed",
 };
@@ -29,6 +30,87 @@ export function threadBuckets(threads: TaskWorkStatus["threads"]) {
     const count = threads.filter((thread) => thread.execution === execution).length;
     return count ? [{ execution, count, text: `${count} ${LABELS[execution]}` }] : [];
   });
+}
+/** Only current observations may claim activity. Removed threads are not idle agents. */
+export function threadActivity(meta: TaskWorkStatus | undefined): "running" | "idle" | undefined {
+  if (meta?.availability !== "available") return undefined;
+  const existing = meta.threads.filter((thread) => thread.execution !== "removed");
+  if (existing.some((thread) => thread.execution === "working")) return "running";
+  return existing.length > 0 && existing.every((thread) => thread.execution === "idle")
+    ? "idle"
+    : undefined;
+}
+
+export function ThreadActivitySummary({
+  statuses,
+}: {
+  statuses: readonly (TaskWorkStatus | undefined)[] | undefined;
+}) {
+  if (!statuses?.length) return null;
+  const loading = statuses.some((status) => status === undefined);
+  const inventoryUnavailable = statuses.some((status) => status?.availability === "unavailable");
+  const observations = new Map<
+    string,
+    { thread: TaskWorkStatus["threads"][number]; available: boolean; observedAt: number }
+  >();
+  for (const status of statuses) {
+    if (!status) continue;
+    const available = status.availability === "available";
+    const observedAt = Date.parse(status.observedAt);
+    for (const thread of status.threads) {
+      const current =
+        available || thread.execution === "removed"
+          ? thread
+          : { ...thread, execution: "unavailable" as const };
+      const previous = observations.get(thread.threadId);
+      // Available beats retained unavailable data, then newer time wins.
+      // At equal times, preserve removal, then use state priority, never row order.
+      const preference = previous
+        ? Number(available) - Number(previous.available) ||
+          observedAt - previous.observedAt ||
+          Number(current.execution === "removed") -
+            Number(previous.thread.execution === "removed") ||
+          EXECUTION_ORDER.indexOf(previous.thread.execution) -
+            EXECUTION_ORDER.indexOf(current.execution)
+        : 1;
+      if (preference > 0)
+        observations.set(thread.threadId, { thread: current, available, observedAt });
+    }
+  }
+  const buckets = threadBuckets([...observations.values()].map((value) => value.thread)).filter(
+    (bucket) => bucket.execution !== "removed",
+  );
+  if (!loading && !buckets.length && !inventoryUnavailable) return null;
+  return (
+    <span className="task-list-activity" aria-label="Agent activity for listed tasks">
+      {loading ? (
+        <span>Agent activity loading</span>
+      ) : (
+        buckets.map((bucket, index) => (
+          <span key={bucket.execution}>
+            {index > 0 ? <span aria-hidden> · </span> : null}
+            <span
+              className={
+                bucket.execution === "working"
+                  ? "task-list-activity-running"
+                  : bucket.execution === "failed"
+                    ? "text-destructive"
+                    : undefined
+              }
+            >
+              {bucket.text.toLowerCase()}
+            </span>
+          </span>
+        ))
+      )}
+      {inventoryUnavailable ? (
+        <span>
+          {loading || buckets.length > 0 ? <span aria-hidden> · </span> : null}
+          {buckets.length > 0 ? "Agent inventory incomplete" : "Agent inventory unavailable"}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 export function ThreadSummary({
@@ -41,6 +123,30 @@ export function ThreadSummary({
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const activity = threadActivity(meta);
+  useEffect(() => {
+    const button = trigger.current;
+    if (activity !== "running" || !button) return;
+    let inView = true;
+    const sync = () => {
+      button.dataset.motionPaused = String(document.hidden || !inView);
+    };
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? undefined
+        : new IntersectionObserver(([entry]) => {
+            inView = entry?.isIntersecting ?? false;
+            sync();
+          });
+    observer?.observe(button);
+    document.addEventListener("visibilitychange", sync);
+    sync();
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", sync);
+      delete button.dataset.motionPaused;
+    };
+  }, [activity]);
   if (!meta)
     return (
       <span className={CHIP} aria-busy="true">
@@ -78,8 +184,10 @@ export function ThreadSummary({
           ref={trigger}
           type="button"
           aria-label={`Threads for ${taskKey}: ${description}`}
+          data-agent-state={activity}
           className={cn(
             CHIP,
+            "task-agent",
             "relative z-10 flex max-w-full flex-wrap items-center gap-x-1 tabular-nums hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           )}
           onClick={(event) => event.stopPropagation()}
@@ -88,7 +196,17 @@ export function ThreadSummary({
             if (event.key === "Enter" || event.key === " ") event.stopPropagation();
           }}
         >
-          <Icon name="MessagesSquare" className="size-3 shrink-0" />
+          {activity === "running" ? (
+            <span className="task-agent-bars" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
+          ) : activity === "idle" ? (
+            <span className="task-agent-idle-dot" aria-hidden />
+          ) : (
+            <Icon name="MessagesSquare" className="size-3 shrink-0" />
+          )}
           {visible.map((bucket, index) => (
             <span key={bucket.execution} className="whitespace-nowrap">
               {index > 0 ? <span aria-hidden> · </span> : null}

@@ -9,7 +9,7 @@ import type { EditFn } from "./property-menus.js";
 import { PriorityEditor, StatusEditor, TaskContextMenu } from "./property-menus.js";
 import { LabelsPicker } from "../labels-picker.js";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { ThreadSummary } from "./thread-summary.js";
+import { ThreadSummary, threadActivity } from "./thread-summary.js";
 import { PrSummary } from "./pr-summary.js";
 import {
   COARSE_POINTER_TEXT_BASE_CLASS,
@@ -72,10 +72,12 @@ export const TaskRow = memo(function TaskRow({
         data-task-key={task.key}
         data-selected={selected || undefined}
         data-dimmed={dimmed || undefined}
+        data-agent-state={threadActivity(meta)}
+        data-depth={depth}
         aria-busy={pending || undefined}
         className={cn(
-          "relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
-          "@4xl:flex @4xl:min-h-[34px] @4xl:flex-wrap @4xl:py-0 pointer-coarse:min-h-11",
+          "task-list-row relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-b border-border-hairline px-3.5 py-1.5 text-left transition-opacity hover:bg-state-hover",
+          "pointer-coarse:min-h-11",
           onToggleExpanded !== undefined && "pointer-coarse:pl-12",
           depth === 1 && "pl-9 pointer-coarse:pl-14",
           dimmed && "opacity-50",
@@ -105,7 +107,10 @@ export const TaskRow = memo(function TaskRow({
           >
             <Icon
               name="ChevronRight"
-              className={cn("size-3 transition-transform", expanded && "rotate-90")}
+              className={cn(
+                "task-list-expand-icon size-3 transition-transform motion-reduce:transition-none",
+                expanded && "rotate-90",
+              )}
             />
           </button>
         ) : null}
@@ -169,72 +174,80 @@ const RowContents = memo(function RowContents({
         onEdit={onEdit}
         {...menuProps("status")}
         onCloseAutoFocus={focusRowOnClose}
-        className="col-start-1 row-start-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        className="task-list-status col-start-1 row-start-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       />
-      <Popover {...menuProps("labels")}>
-        <PopoverAnchor asChild>
-          <span
-            className={cn(
-              "col-start-2 row-start-1 min-w-0 break-words font-medium @4xl:flex-1 @4xl:min-w-64 @4xl:truncate",
-              COARSE_POINTER_TEXT_BASE_CLASS,
-            )}
-          >
-            {task.title}
-          </span>
-        </PopoverAnchor>
-        <PopoverContent
-          className="w-56 p-0"
-          align="start"
-          mobileTitle="Edit labels"
-          onCloseAutoFocus={focusRowOnClose}
+      <div className="task-list-identity col-start-2 row-start-1 flex min-w-0 items-baseline gap-2">
+        <span
+          className={cn(
+            "task-list-key inline-flex shrink-0 items-center gap-2 tabular-nums text-muted-foreground",
+            COARSE_POINTER_TEXT_SM_CLASS,
+          )}
         >
-          <LabelsPicker
-            task={task}
-            labels={projectLabels}
-            onChange={(labelIds) => onEdit(task, { labelIds })}
-          />
-        </PopoverContent>
-      </Popover>
-      <div className="col-span-2 grid grid-cols-subgrid items-center @4xl:contents">
+          {showProject && project !== undefined ? (
+            <span
+              aria-hidden
+              title={project.name}
+              className="size-2.5 shrink-0 rounded-sm"
+              style={{ backgroundColor: project.color }}
+            />
+          ) : null}
+          <span className="task-list-key-text" title={task.key}>
+            {task.key}
+          </span>
+        </span>
+        <Popover {...menuProps("labels")}>
+          <PopoverAnchor asChild>
+            <span
+              className={cn(
+                "task-list-title min-w-0 flex-1 break-words font-medium",
+                COARSE_POINTER_TEXT_BASE_CLASS,
+              )}
+            >
+              {task.title}
+            </span>
+          </PopoverAnchor>
+          <PopoverContent
+            className="w-56 p-0"
+            align="start"
+            mobileTitle="Edit labels"
+            onCloseAutoFocus={focusRowOnClose}
+          >
+            <LabelsPicker
+              task={task}
+              labels={projectLabels}
+              onChange={(labelIds) => onEdit(task, { labelIds })}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="task-list-meta col-span-2 grid grid-cols-subgrid items-center">
         <PriorityEditor
           task={task}
           onEdit={onEdit}
           {...menuProps("priority")}
           onCloseAutoFocus={focusRowOnClose}
-          className="col-start-1 self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          className="task-list-priority col-start-1 self-start pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         />
-        <span className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 @4xl:contents">
-          <span
-            className={cn(
-              "shrink-0 tabular-nums text-muted-foreground @4xl:w-14 @4xl:truncate",
-              COARSE_POINTER_TEXT_SM_CLASS,
-            )}
-          >
-            {task.key}
-          </span>
-          <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden @4xl:shrink-0">
+        <span className="task-list-meta-line col-start-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="task-list-subtasks flex items-center">
             {subProgress !== undefined && subProgress.total > 0 ? (
               <span title="Subtasks done" className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
                 <Icon name="GitBranch" className="size-3 shrink-0" />
                 {subProgress.done}/{subProgress.total}
               </span>
             ) : null}
-            <DependencyBadges task={task} className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)} />
+          </span>
+          <span className="task-list-agents flex min-w-0 max-w-full flex-wrap items-center">
             <ThreadSummary taskKey={task.key} meta={meta} />
+          </span>
+          <span className="task-list-details flex min-w-0 max-w-full flex-wrap items-center gap-1.5 empty:hidden">
+            <DependencyBadges task={task} className={cn("py-px", COARSE_POINTER_TEXT_SM_CLASS)} />
             <PrSummary taskKey={task.key} meta={meta} />
             {task.dueDate !== null ? (
               <span className={`${RAIL_CHIP_CLASS} shrink-0 tabular-nums`}>
                 <Icon name="Clock" className="size-3 shrink-0" />
                 {formatDueDate(task.dueDate, new Date(`${referenceDate}T00:00:00`))}
               </span>
-            ) : null}
-            {showProject && project !== undefined ? (
-              <span
-                aria-hidden
-                title={project.name}
-                className="size-2.5 shrink-0 rounded-sm"
-                style={{ backgroundColor: project.color }}
-              />
             ) : null}
           </span>
         </span>

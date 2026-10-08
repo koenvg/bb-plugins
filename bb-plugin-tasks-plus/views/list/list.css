@@ -1,0 +1,273 @@
+@property --tasks-agent-orbit {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.task-list-row {
+  grid-template-columns: 22px minmax(0, 1fr);
+  transition:
+    background-color 130ms ease-out,
+    opacity 130ms ease-out;
+}
+
+.task-list-row[data-agent-state="running"]:not([data-selected]) {
+  background: color-mix(in oklab, var(--attention) 5%, var(--background));
+}
+
+.task-list-row[data-agent-state="running"]:not([data-selected]):hover {
+  background: color-mix(in oklab, var(--attention) 9%, var(--background));
+}
+
+.task-list-group-header {
+  background: color-mix(in oklab, var(--foreground) 4%, var(--background));
+}
+
+.task-list-meta {
+  grid-template-columns: subgrid;
+}
+
+.task-list-columns {
+  display: none;
+}
+
+.task-agent {
+  min-height: 26px;
+  padding: 2px 9px;
+  isolation: isolate;
+}
+
+.task-agent[data-agent-state="idle"] {
+  background: linear-gradient(180deg, var(--background), var(--muted));
+}
+
+.task-agent[data-agent-state="running"] {
+  --tasks-agent-text: color-mix(in oklab, var(--attention) 55%, var(--foreground));
+  --tasks-agent-edge: color-mix(in oklab, var(--attention) 50%, var(--border));
+  --tasks-agent-metal: color-mix(in oklab, var(--attention) 70%, var(--foreground));
+  --tasks-agent-light: color-mix(in oklab, var(--attention) 25%, var(--background));
+  border-color: transparent;
+  color: var(--tasks-agent-text);
+  background: color-mix(in oklab, var(--attention) 9%, var(--background));
+}
+
+.task-agent[data-agent-state="running"]::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--tasks-agent-orbit),
+    var(--tasks-agent-edge) 0deg,
+    var(--tasks-agent-metal) 55deg,
+    var(--tasks-agent-light) 117deg,
+    var(--tasks-agent-metal) 138deg,
+    var(--tasks-agent-edge) 185deg,
+    var(--tasks-agent-light) 285deg,
+    var(--tasks-agent-metal) 305deg,
+    var(--tasks-agent-edge) 350deg
+  );
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: tasks-agent-orbit 3.8s linear infinite;
+}
+
+.task-agent[data-agent-state="running"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  box-shadow: 0 2px 7px color-mix(in oklab, var(--attention) 17%, transparent);
+}
+
+.task-agent-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 10px;
+  flex: none;
+}
+
+.task-agent-bars > span {
+  width: 2px;
+  height: 8px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: tasks-agent-activity 1.3s ease-in-out infinite;
+}
+
+.task-agent-bars > span:nth-child(2) {
+  height: 10px;
+  animation-delay: -0.35s;
+}
+
+.task-agent-bars > span:nth-child(3) {
+  height: 6px;
+  animation-delay: -0.7s;
+}
+
+.task-agent-idle-dot {
+  width: 6px;
+  height: 6px;
+  border: 1.4px solid currentColor;
+  border-radius: 50%;
+  flex: none;
+}
+
+.task-agent[data-motion-paused="true"]::before,
+.task-agent[data-motion-paused="true"] .task-agent-bars > span {
+  animation-play-state: paused;
+}
+
+.task-list-activity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-list-activity-running {
+  color: color-mix(in oklab, var(--attention) 55%, var(--foreground));
+}
+
+@keyframes tasks-agent-orbit {
+  to {
+    --tasks-agent-orbit: 360deg;
+  }
+}
+
+@keyframes tasks-agent-activity {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.task-list-key {
+  min-width: 0;
+  max-width: 40%;
+}
+
+.task-list-key-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .task-list-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+}
+
+/* Narrow panels keep the existing two-line row and all editable metadata.
+   Wide fine-pointer panels share fixed columns, including empty agent and subtask cells. */
+@media (pointer: fine) {
+  @container (min-width: 64rem) {
+    .task-list-row,
+    .task-list-columns {
+      display: grid;
+      grid-template-columns: 22px minmax(180px, 1fr) 22px 64px 170px 240px;
+      gap: 8px;
+      padding-inline: 14px;
+    }
+
+    .task-list-row {
+      min-height: 40px;
+      padding-block: 6px;
+    }
+
+    .task-list-row[data-depth="1"] .task-list-identity {
+      padding-inline-start: 24px;
+      /* The status mark follows the child indentation without shifting metadata columns. */
+    }
+
+    .task-list-status {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .task-list-row[data-depth="1"] .task-list-status {
+      transform: translateX(24px);
+    }
+
+    .task-list-columns {
+      align-items: center;
+      min-height: 32px;
+      padding-block: 6px;
+      border-bottom: 1px solid var(--border-hairline);
+      color: var(--muted-foreground);
+      font-size: 11px;
+    }
+
+    .task-list-identity {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .task-list-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .task-list-meta,
+    .task-list-meta-line {
+      display: contents;
+    }
+
+    .task-list-priority {
+      grid-column: 3;
+      align-self: center;
+      grid-row: 1;
+    }
+
+    .task-list-subtasks {
+      grid-column: 4;
+      grid-row: 1;
+    }
+
+    .task-list-agents {
+      grid-column: 5;
+      grid-row: 1;
+      min-width: 0;
+    }
+
+    .task-list-details {
+      grid-column: 6;
+      grid-row: 1;
+      min-width: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-agent[data-agent-state="running"]::before,
+  .task-agent-bars > span {
+    animation: none;
+  }
+
+  .task-agent[data-agent-state="running"]::before {
+    --tasks-agent-orbit: 115deg;
+  }
+
+  .task-list-row,
+  .task-list-expand-icon {
+    transition: none;
+  }
+}

@@ -6,6 +6,25 @@ including dimmed parents, expanded children and retained rows during failed save
 The order effect reports changed keys or settled state, and replays to a new
 report callback. Selection alone does not report the same order again.
 
+## Agent activity and row layout
+
+Agent execution is separate from task status and thread archive state. The UI calls
+persisted `working` execution **Running**. Idle agents stay quiet; failure,
+unavailable metadata and removed threads do not become idle.
+
+The activity summary uses the same visible tasks returned by `useListControls` as
+its metadata subscription, including retained rows. Collapse and filter changes
+therefore update counts and observations together.
+
+The Task column groups project color (when shown), key and name in that order.
+Compact/coarse layouts keep that identity group and a secondary metadata line.
+Wide fine-pointer panels at 64rem align the remaining metadata columns. Long keys
+stay bounded without hiding the marker or covering names and controls.
+
+The running badge has a theme-colored moving edge and activity bars. Animations
+pause offscreen or while the document is hidden. Reduced motion keeps static state
+labels and the edge; no animation is required to identify a running agent.
+
 ## Assembly owners
 
 `useListData` owns scoped preferences, query readiness, optimistic writes, lookup

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   panelSize,
@@ -75,7 +75,11 @@ describe("host-controlled Ticket presentation", () => {
     Object.defineProperty(scroll, "clientHeight", { value: 500 });
     scroll.scrollTop = 215;
     fireEvent.scroll(scroll);
-    const filters = scroll.previousElementSibling!.textContent;
+    const filterState = () => [
+      within(list).getByRole("button", { name: /^Status/ }).textContent,
+      within(list).getByRole("button", { name: /^Sort/ }).textContent,
+    ];
+    const filters = filterState();
     await select(slot, 3);
     await hostTab(slot, path, false);
     await resize(320);
@@ -89,7 +93,7 @@ describe("host-controlled Ticket presentation", () => {
         .getByRole("button", { name: "Collapse subtasks of TSK-1" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
-    expect(scroll.previousElementSibling!.textContent).toBe(filters);
+    expect(filterState()).toEqual(filters);
     expect(
       [...list.querySelectorAll("[data-task-key]")].map((el) => el.getAttribute("data-task-key")),
     ).toEqual(["TSK-1", "TSK-3", "TSK-2"]);

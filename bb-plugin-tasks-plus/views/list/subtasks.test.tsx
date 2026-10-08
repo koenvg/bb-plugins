@@ -375,13 +375,13 @@ describe("subtasks with a filter", () => {
     expect(slot.getByText("1 task")).toBeTruthy();
     expect(
       await within(row).findByRole("button", {
-        name: /Threads for ABC-1: 1 Failed, 1 Working/,
+        name: /Threads for ABC-1: 1 Failed, 1 Running/,
       }),
     ).toBeTruthy();
     const childRow = slot.container.querySelector('[data-task-key="ABC-3"]')!;
     expect(
       await within(childRow as HTMLElement).findByRole("button", {
-        name: /Threads for ABC-3: 1 Failed, 1 Working/,
+        name: /Threads for ABC-3: 1 Failed, 1 Running/,
       }),
     ).toBeTruthy();
     expect(within(row).getByRole("button", { name: /Threads for ABC-1/ }).textContent).toContain(
@@ -455,7 +455,7 @@ describe("thread summary list parity", () => {
     async (subPath) => {
       const slot = render([parent, doneChild, urgentChild, plain], subPath);
       await slot.findByRole("button", {
-        name: /Threads for ABC-1: 1 Failed, 1 Working/,
+        name: /Threads for ABC-1: 1 Failed, 1 Running/,
       });
       const before = slot.inspection.rpcCalls
         .filter((c) => c.method === "listTaskWorkStatus")
@@ -473,7 +473,7 @@ describe("thread summary list parity", () => {
       }
       fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of ABC-1" }));
       await slot.findByRole("button", {
-        name: /Threads for ABC-3: 1 Failed, 1 Working/,
+        name: /Threads for ABC-3: 1 Failed, 1 Running/,
       });
       const parentRow = await rowFor(slot, "ABC-1");
       const childRow = await rowFor(slot, "ABC-3");
