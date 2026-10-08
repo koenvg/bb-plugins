@@ -509,10 +509,29 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return { kind: "ok" };
   }
 
+  async function isLinked(threadId: string): Promise<boolean> {
+    const stored = await readStored();
+    const view = stored && viewOf(stored);
+    if (!view) return false;
+    return [...view.needsReview, ...view.reviewed].some((group) =>
+      group.prs.some((pr) => pr.thread?.id === threadId),
+    );
+  }
+
+  async function threadActive(threadId: string): Promise<void> {
+    try {
+      if (!(await isLinked(threadId))) return;
+    } catch (error) {
+      deps.warn(`Could not read the review queue for thread ${threadId}: ${errorText(error)}`);
+      return;
+    }
+    await relink();
+  }
+
   async function threadStopped(threadId: string): Promise<void> {
     try {
-      if (!(await isStartedReview(threadId))) return;
-      await returnedThreads.add(threadId);
+      if (await isStartedReview(threadId)) await returnedThreads.add(threadId);
+      else if (!(await isLinked(threadId))) return;
     } catch (error) {
       deps.warn(`Could not record stopped review thread ${threadId}: ${errorText(error)}`);
       return;
@@ -550,6 +569,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     markReviewed,
     markNeedsReview,
     markQueueSeen,
+    threadActive,
     threadStopped,
     markThreadOpened,
     run,

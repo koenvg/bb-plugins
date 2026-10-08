@@ -19,6 +19,7 @@ import { Notice, RefreshButton, RefreshError } from "./feedback";
 import { usePullRequestsNavigation } from "./pull-requests-routes";
 import { ACTION_CLASS, COUNT_CLASS, LABEL_CLASS } from "./queue-styles";
 import type { ReviewQueueState } from "./use-review-queue";
+import "./thread-status.css";
 
 const CI_MARK: Record<CiState, { text: string; icon: IconName; className: string }> = {
   passed: { text: "CI passed", icon: "CircleCheck", className: "text-success" },
@@ -67,7 +68,7 @@ const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: st
   running: {
     label: "Running",
     dotClass: "animate-pulse bg-success motion-reduce:animate-none",
-    toneClass: "border-success/40 bg-success/10 text-foreground hover:bg-success/20",
+    toneClass: "review-agent-running bg-success/10 text-foreground hover:bg-success/20",
   },
   needs_you: {
     label: "Needs you",
