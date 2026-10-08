@@ -150,6 +150,8 @@ describe("palette commands", () => {
       "open-pr-tab",
       "open-review-tab",
       "submit-review",
+      "next-comment",
+      "previous-comment",
       "refresh-pr",
       "open-pr-on-github",
     ]);
@@ -1003,7 +1005,7 @@ describe("palette command availability", () => {
     await slot.findByRole("button", { name: /Ready to merge/ });
 
     expect(listed("thr_banner")).toContain("merge-pr");
-    expect(listed("thr_banner")).toHaveLength(6);
+    expect(listed("thr_banner")).toHaveLength(8);
   });
 
   function renderBannerFor(
@@ -1030,7 +1032,7 @@ describe("palette command availability", () => {
     await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_later_pr"] });
     await slot.findByRole("button", { name: /Ready to merge/ });
 
-    expect(listed("thr_later_pr")).toHaveLength(6);
+    expect(listed("thr_later_pr")).toHaveLength(8);
   });
 
   it("ignores a stale load that ends after a newer one", async () => {
@@ -1048,7 +1050,7 @@ describe("palette command availability", () => {
     await settle();
 
     expect(listed("thr_stale")).not.toContain("merge-pr");
-    expect(listed("thr_stale")).toHaveLength(5);
+    expect(listed("thr_stale")).toHaveLength(7);
   });
 });
 

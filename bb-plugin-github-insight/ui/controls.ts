@@ -17,3 +17,5 @@ export const QUIET_BUTTON = cn(
 
 export const TEXTAREA =
   "max-h-64 min-h-14 w-full resize-none rounded-md border bg-background px-2.5 py-1.5 text-sm leading-relaxed transition-[border-color,box-shadow] [field-sizing:content] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-60";
+
+export const JUMPED_RING = "data-[jumped]:ring-2 data-[jumped]:ring-ring/70";

@@ -35,6 +35,14 @@ export function placeThreads(files: ReviewFile[], threads: ReviewThread[]): Thre
   return placement;
 }
 
+export function visibleThreads(threads: ThreadPlacement, showResolved: boolean): ThreadPlacement {
+  if (showResolved) return threads;
+  return {
+    placed: threads.placed.filter(({ thread }) => !thread.resolved),
+    outdated: threads.outdated.filter((thread) => !thread.resolved),
+  };
+}
+
 export function openThreadCounts(placement: ThreadPlacement): { open: number; outdated: number } {
   const outdated = placement.outdated.filter((thread) => !thread.resolved).length;
   const placed = placement.placed.filter(({ thread }) => !thread.resolved).length;

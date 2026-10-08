@@ -4,7 +4,8 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "../core/relative-time";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
-import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA } from "./controls";
+import { JUMPED_RING, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA } from "./controls";
+import { useJumpHighlight } from "./jump-highlight";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
@@ -13,11 +14,15 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
   const [expanded, setExpanded] = useState(false);
   const selected = !thread.resolved && selection.isSelected(thread.id);
   const open = !thread.resolved || expanded;
+  const jumped = useJumpHighlight("thread", thread.id);
   return (
     <article
+      data-review-thread-id={thread.id}
+      data-jumped={jumped || undefined}
       className={cn(
-        "mx-2 my-2 flex flex-col overflow-hidden rounded-lg border bg-background font-sans text-sm shadow-[0_1px_2px_rgb(0_0_0/0.04),0_2px_8px_-2px_rgb(0_0_0/0.06)] transition-[border-color,box-shadow] duration-200",
+        "mx-2 my-2 flex flex-col overflow-hidden rounded-lg border bg-background font-sans text-sm shadow-[0_1px_2px_rgb(0_0_0/0.04),0_2px_8px_-2px_rgb(0_0_0/0.06)] transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none",
         selected ? "border-primary/50 ring-1 ring-primary/25" : "border-border",
+        JUMPED_RING,
       )}
     >
       {thread.resolved && (

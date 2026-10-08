@@ -50,6 +50,8 @@ export const GITHUB_COMMANDS: readonly PluginCommandRegistration[] = [
   openTabCommand("open-pr-tab", "GitHub: Open PR tab", "pr"),
   openTabCommand("open-review-tab", "GitHub: Open Review tab", "review"),
   intentCommand("submit-review", "GitHub: Submit review", "review", "submit"),
+  intentCommand("next-comment", "GitHub: Next comment", "review", "next-comment"),
+  intentCommand("previous-comment", "GitHub: Previous comment", "review", "previous-comment"),
   intentCommand("refresh-pr", "GitHub: Refresh PR", "pr", "refresh"),
   intentCommand("open-pr-on-github", "GitHub: Open PR on GitHub", "pr", "open-on-github"),
 ];

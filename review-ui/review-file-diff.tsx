@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+import { DIFFS_TAG_NAME, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import type { DiffSide } from "./diff-lines";
 
@@ -57,4 +57,11 @@ export function ReviewFileDiff<T>({
       renderHeaderMetadata={headerMetadata === undefined ? undefined : () => headerMetadata}
     />
   );
+}
+
+export function stickyHeaderHeight(element: Element): number {
+  const header = element
+    .closest(DIFFS_TAG_NAME)
+    ?.shadowRoot?.querySelector("[data-diffs-header][data-sticky]");
+  return header?.getBoundingClientRect().height ?? 0;
 }

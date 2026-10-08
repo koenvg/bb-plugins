@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 export interface IntentsByTab {
   pr: "refresh" | "open-on-github";
   merge: "merge";
-  review: "submit";
+  review: "submit" | "next-comment" | "previous-comment";
 }
 
 export type CommandTab = keyof IntentsByTab;

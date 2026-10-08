@@ -16,8 +16,9 @@ import type { DiffSide } from "../core/diff-lines";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { QUIET_BUTTON, TEXTAREA } from "./controls";
+import { JUMPED_RING, QUIET_BUTTON, TEXTAREA } from "./controls";
 import { useDraftSaves } from "./draft-saves";
+import { useJumpHighlight } from "./jump-highlight";
 import { messageOf } from "./error-message";
 
 interface LocalState {
@@ -181,10 +182,16 @@ export function CommentDraftCard({
     box.current?.focus();
     clearFocus();
   }, [focusDraftId, clearFocus, draft.id]);
+  const jumped = useJumpHighlight("draft", draft.id);
   return (
     <section
       aria-labelledby={headingId}
-      className="mx-2 my-2 flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2.5 font-sans text-sm"
+      data-comment-draft-id={draft.id}
+      data-jumped={jumped || undefined}
+      className={cn(
+        "mx-2 my-2 flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2.5 font-sans text-sm transition-shadow duration-200 motion-reduce:transition-none",
+        JUMPED_RING,
+      )}
     >
       <div className="flex min-w-0 items-center gap-2 text-xs">
         <h3 id={headingId} className="flex shrink-0 items-center gap-1.5 font-medium text-primary">

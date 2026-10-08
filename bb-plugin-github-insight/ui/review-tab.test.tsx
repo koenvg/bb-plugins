@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
@@ -15,14 +15,16 @@ import type {
   SendToAgentResult,
   SubmitReviewResult,
 } from "../contract";
-import { parsePrFiles } from "../core/pr-files";
+import { parsePrFiles, type ReviewFile } from "../core/pr-files";
 import type { ListedCommentDraft } from "../core/review-drafts";
-import { parseReviewThreads } from "../core/review-threads";
+import { parseReviewThreads, type ReviewThread } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import { postIntent } from "./command-intents";
 import prFiles from "../test/fixtures/pr-1-files.json";
 import threadedPrFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
+
+const DiffsContainer = "diffs-container" as unknown as "div";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -42,7 +44,12 @@ vi.mock("@pierre/diffs/react", () => ({
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
   }) => (
-    <div
+    <DiffsContainer
+      ref={(element: HTMLElement | null) => {
+        const root = element?.shadowRoot;
+        if (!root || root.querySelector("[data-diffs-header]")) return;
+        root.innerHTML = "<div data-diffs-header data-sticky></div>";
+      }}
       data-testid="file-diff"
       data-path={fileDiff.name}
       data-type={fileDiff.type}
@@ -70,7 +77,7 @@ vi.mock("@pierre/diffs/react", () => ({
           {renderAnnotation?.(annotation)}
         </div>
       ))}
-    </div>
+    </DiffsContainer>
   ),
 }));
 
@@ -85,8 +92,21 @@ class VisibleAtOnce {
   disconnect() {}
 }
 
+const resizeCallbacks = new Set<ResizeObserverCallback>();
+
+class RecordedResizeObserver {
+  constructor(private readonly callback: ResizeObserverCallback) {}
+  observe() {
+    resizeCallbacks.add(this.callback);
+  }
+  disconnect() {
+    resizeCallbacks.delete(this.callback);
+  }
+}
+
 beforeAll(() => {
   vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
+  vi.stubGlobal("ResizeObserver", RecordedResizeObserver);
 });
 
 const app = await loadPluginApp(() => import("../app"));
@@ -1792,5 +1812,388 @@ describe("Review tab viewer review", () => {
 
     expect(await slot.findByText("You approved")).toBeTruthy();
     expect(panel.getByRole("button", { name: "Submitted" })).toBeTruthy();
+  });
+});
+
+describe("Review tab comment navigation", () => {
+  const AREA_TOP = 100;
+  const MOUNTED_HEIGHT = 1000;
+  const UNMOUNTED_HEIGHT = 40;
+  const LINE_HEIGHT = 100;
+  const FILE_HEADER_HEIGHT = 40;
+  const cardTop = (offset: number) => offset - FILE_HEADER_HEIGHT - 8;
+  const PATCH = ["@@ -1,4 +1,4 @@", " a", "-b", "+c", " d", " e"].join("\n");
+  const files: ReviewFile[] = ["a.ts", "b.ts", "c.ts"].map((path) => ({
+    path,
+    previousPath: null,
+    status: "modified",
+    patch: PATCH,
+  }));
+
+  function reviewThread(id: string, path: string, line: number, resolved = false): ReviewThread {
+    return {
+      id,
+      resolved,
+      outdated: false,
+      path,
+      line,
+      originalLine: line,
+      side: "RIGHT",
+      comments: [
+        {
+          id: `${id}-c`,
+          author: "alice",
+          avatarUrl: null,
+          body: `Comment ${id}`,
+          createdAt: "2026-01-01T00:00:00Z",
+          url: "https://github.com/o/r/pull/1",
+          diffHunk: "",
+        },
+      ],
+      hasMoreComments: false,
+    };
+  }
+
+  function review(threads: ReviewThread[], drafts: ListedCommentDraft[] = []): ReviewResult {
+    return {
+      kind: "ok",
+      files,
+      threads: placeThreads(files, threads),
+      drafts: {},
+      ...noReviewDrafts,
+      commentDrafts: drafts,
+    };
+  }
+
+  const standard = review(
+    [reviewThread("t1", "a.ts", 2), reviewThread("t2", "c.ts", 1)],
+    [commentDraft("d1", { path: "a.ts", line: 3, body: "" })],
+  );
+
+  function rect(top: number, height: number): DOMRect {
+    return {
+      top,
+      bottom: top + height,
+      height,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: top,
+      toJSON() {},
+    };
+  }
+
+  function sectionOffset(area: HTMLElement, section: HTMLElement): number {
+    let offset = 0;
+    for (const other of Array.from(area.querySelectorAll<HTMLElement>("section[data-path]"))) {
+      if (other === section) return offset;
+      offset += other.querySelector("[data-testid=file-diff]") ? MOUNTED_HEIGHT : UNMOUNTED_HEIGHT;
+    }
+    return offset;
+  }
+
+  function contentOffset(area: HTMLElement, element: HTMLElement): number {
+    if (element.matches("section[data-path]")) return sectionOffset(area, element);
+    const section = element.closest<HTMLElement>("section[data-path]");
+    const line = element.closest<HTMLElement>("[data-line]");
+    if (section === null || line === null) return 0;
+    return sectionOffset(area, section) + Number(line.dataset.line) * LINE_HEIGHT;
+  }
+
+  const pendingReveals = new Map<Element, IntersectionObserverCallback>();
+
+  class RevealOnRequest {
+    constructor(private readonly callback: IntersectionObserverCallback) {}
+    observe(target: Element) {
+      pendingReveals.set(target, this.callback);
+    }
+    disconnect() {}
+  }
+
+  function reveal(area: HTMLElement, path: string) {
+    const section = area.querySelector(`section[data-path="${path}"]`)!;
+    act(() => {
+      pendingReveals.get(section)?.(
+        [{ isIntersecting: true, target: section } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+  }
+
+  function resize() {
+    act(() => {
+      for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
+    });
+  }
+
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.matches("[data-diff-scroll-area]")) return rect(AREA_TOP, 600);
+      if (this.matches("[data-diffs-header]")) return rect(0, FILE_HEADER_HEIGHT);
+      const area = this.closest<HTMLElement>("[data-diff-scroll-area]");
+      if (area === null) return rect(0, 0);
+      return rect(AREA_TOP + contentOffset(area, this) - area.scrollTop, LINE_HEIGHT);
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
+    pendingReveals.clear();
+  });
+
+  async function renderNavigation(result: ReviewResult) {
+    const slot = renderTab(result);
+    await slot.findByText(/files? changed/);
+    const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+    return Object.assign(slot, {
+      area,
+      stepper: () => within(slot.getByRole("group", { name: "Comment navigation" })),
+      next: () => fireEvent.click(slot.getByRole("button", { name: "Next comment" })),
+      previous: () => fireEvent.click(slot.getByRole("button", { name: "Previous comment" })),
+      scrollTo(top: number) {
+        area.scrollTop = top;
+        fireEvent.scroll(area);
+      },
+    });
+  }
+
+  it("marks each file section and comment card for the jump", async () => {
+    const slot = await renderNavigation(standard);
+    await slot.findAllByTestId("file-diff");
+
+    expect(slot.area.querySelector('section[data-path="a.ts"]')).not.toBeNull();
+    expect(slot.area.querySelector('[data-review-thread-id="t1"]')?.textContent).toContain(
+      "Comment t1",
+    );
+    expect(slot.area.querySelector('[data-comment-draft-id="d1"]')?.textContent).toContain(
+      "Pending comment",
+    );
+  });
+
+  it("counts comment drafts and open threads together", async () => {
+    const slot = await renderNavigation(standard);
+
+    expect(slot.stepper().getByText("1 / 3")).toBeTruthy();
+  });
+
+  it("has no stepper when there are no comments", async () => {
+    const slot = await renderNavigation(review([]));
+
+    expect(slot.queryByRole("group", { name: "Comment navigation" })).toBeNull();
+    expect(slot.queryByRole("button", { name: "Next comment" })).toBeNull();
+  });
+
+  it("counts resolved threads only when 'Show resolved' is on", async () => {
+    const slot = await renderNavigation(
+      review([reviewThread("t1", "a.ts", 2), reviewThread("done", "b.ts", 1, true)]),
+    );
+    expect(slot.stepper().getByText("1 / 1")).toBeTruthy();
+
+    fireEvent.click(slot.getByRole("checkbox", { name: "Show resolved" }));
+
+    expect(slot.stepper().getByText("1 / 2")).toBeTruthy();
+  });
+
+  it("shows the first comment at or below the top as the user scrolls", async () => {
+    const slot = await renderNavigation(standard);
+
+    slot.scrollTo(250);
+
+    await waitFor(() => expect(slot.stepper().getByText("2 / 3")).toBeTruthy());
+  });
+
+  it("uses the file position for a comment whose diff has not loaded", async () => {
+    vi.stubGlobal("IntersectionObserver", RevealOnRequest);
+    const slot = await renderNavigation(
+      review([
+        reviewThread("t1", "a.ts", 2),
+        reviewThread("tb", "b.ts", 4),
+        reviewThread("t2", "c.ts", 1),
+      ]),
+    );
+
+    slot.scrollTo(UNMOUNTED_HEIGHT);
+
+    await waitFor(() => expect(slot.stepper().getByText("2 / 3")).toBeTruthy());
+  });
+
+  it("jumps to the next comment when the current one is at the top", async () => {
+    const slot = await renderNavigation(standard);
+    slot.scrollTo(cardTop(200));
+
+    slot.next();
+
+    expect(slot.area.scrollTop).toBe(cardTop(300));
+    expect(slot.stepper().getByText("2 / 3")).toBeTruthy();
+  });
+
+  it("jumps to the current comment when it is below the top after a manual scroll", async () => {
+    const slot = await renderNavigation(standard);
+    slot.scrollTo(250);
+
+    slot.next();
+
+    expect(slot.area.scrollTop).toBe(cardTop(300));
+  });
+
+  it("goes back to the comment above the top", async () => {
+    const slot = await renderNavigation(standard);
+    slot.scrollTo(250);
+
+    slot.previous();
+
+    expect(slot.area.scrollTop).toBe(cardTop(200));
+    expect(slot.stepper().getByText("1 / 3")).toBeTruthy();
+  });
+
+  it("wraps from the first comment to the last, and back", async () => {
+    const slot = await renderNavigation(standard);
+    slot.scrollTo(cardTop(200));
+
+    slot.previous();
+    expect(slot.area.scrollTop).toBe(cardTop(2100));
+    expect(slot.stepper().getByText("3 / 3")).toBeTruthy();
+
+    slot.next();
+    expect(slot.area.scrollTop).toBe(cardTop(200));
+  });
+
+  it("goes to the first comment on next, and the last on previous, when scrolled past all", async () => {
+    const slot = await renderNavigation(standard);
+    slot.scrollTo(2500);
+    await waitFor(() => expect(slot.stepper().getByText("3 / 3")).toBeTruthy());
+
+    slot.next();
+    expect(slot.area.scrollTop).toBe(cardTop(200));
+
+    slot.scrollTo(2500);
+    fireEvent.wheel(slot.area);
+    slot.previous();
+    expect(slot.area.scrollTop).toBe(cardTop(2100));
+  });
+
+  const farThreads = () =>
+    review([
+      reviewThread("t1", "a.ts", 2),
+      reviewThread("tb", "b.ts", 4),
+      reviewThread("t2", "c.ts", 1),
+    ]);
+
+  it("jumps to the first comment of a file at the top whose diff has not loaded", async () => {
+    vi.stubGlobal("IntersectionObserver", RevealOnRequest);
+    const slot = await renderNavigation(farThreads());
+
+    slot.next();
+
+    expect(slot.area.scrollTop).toBe(0);
+    expect(slot.stepper().getByText("1 / 3")).toBeTruthy();
+  });
+
+  it("lands on a card whose diff loads after the jump, and highlights it for a short time", async () => {
+    vi.stubGlobal("IntersectionObserver", RevealOnRequest);
+    const slot = await renderNavigation(farThreads());
+    slot.scrollTo(UNMOUNTED_HEIGHT);
+
+    slot.next();
+    expect(slot.area.scrollTop).toBe(UNMOUNTED_HEIGHT);
+
+    vi.useFakeTimers();
+    reveal(slot.area, "b.ts");
+    resize();
+    const card = slot.area.querySelector<HTMLElement>('[data-review-thread-id="tb"]')!;
+    expect(slot.area.scrollTop).toBe(cardTop(UNMOUNTED_HEIGHT + 4 * LINE_HEIGHT));
+    expect(card.hasAttribute("data-jumped")).toBe(true);
+
+    act(() => vi.advanceTimersByTime(1500));
+    expect(card.hasAttribute("data-jumped")).toBe(false);
+  });
+
+  it("stops holding the jumped comment when the user turns the wheel", async () => {
+    vi.stubGlobal("IntersectionObserver", RevealOnRequest);
+    const slot = await renderNavigation(farThreads());
+    slot.scrollTo(UNMOUNTED_HEIGHT);
+    slot.next();
+
+    fireEvent.wheel(slot.area);
+    reveal(slot.area, "b.ts");
+    resize();
+
+    expect(slot.area.scrollTop).toBe(UNMOUNTED_HEIGHT);
+  });
+
+  it("jumps from a palette request posted before the review loaded, without the submit panel", async () => {
+    postIntent("thr_1", "review", "next-comment");
+    const slot = await renderNavigation(farThreads());
+    resize();
+
+    await waitFor(() => expect(slot.area.scrollTop).toBe(cardTop(2 * LINE_HEIGHT)));
+    expect(slot.queryByRole("region", { name: "Submit review" })).toBeNull();
+  });
+
+  it("jumps on a palette request while the tab is open", async () => {
+    const slot = await renderNavigation(standard);
+    await slot.findAllByTestId("file-diff");
+
+    act(() => postIntent("thr_1", "review", "previous-comment"));
+
+    expect(slot.area.scrollTop).toBe(cardTop(2100));
+  });
+
+  it("drops a palette request that comes after a failed load", async () => {
+    const slot = renderTab({ kind: "error", message: "gh failed" }, standard);
+    await slot.findByText("gh failed");
+
+    act(() => postIntent("thr_1", "review", "next-comment"));
+    fireEvent.click(slot.getByRole("button", { name: /Retry/ }));
+    await slot.findByRole("group", { name: "Comment navigation" });
+    await act(quietly);
+    resize();
+
+    const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+    expect(area.scrollTop).toBe(0);
+  });
+
+  it("steps from the jumped comment after the list changes during the jump", async () => {
+    const slot = await renderNavigation(
+      review([
+        reviewThread("done", "a.ts", 1, true),
+        reviewThread("t1", "a.ts", 2),
+        reviewThread("t2", "c.ts", 1),
+      ]),
+    );
+    slot.next();
+    expect(slot.stepper().getByText("1 / 2")).toBeTruthy();
+
+    fireEvent.click(slot.getByRole("checkbox", { name: "Show resolved" }));
+    expect(slot.stepper().getByText("2 / 3")).toBeTruthy();
+
+    slot.next();
+    expect(slot.area.scrollTop).toBe(cardTop(2100));
+  });
+
+  it("does not scroll on a palette request when there are no comments", async () => {
+    postIntent("thr_1", "review", "next-comment");
+    const slot = await renderNavigation(review([]));
+    await act(quietly);
+
+    expect(slot.area.scrollTop).toBe(0);
+  });
+
+  it("keeps the typed text of a draft across a jump", async () => {
+    const slot = await renderNavigation(standard);
+    const box = within(
+      slot.area.querySelector<HTMLElement>('[data-comment-draft-id="d1"]')!,
+    ).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "Half typed" } });
+
+    slot.next();
+    slot.next();
+
+    expect(box.value).toBe("Half typed");
   });
 });
