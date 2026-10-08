@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BBP-98 project settings preview</title>
+    <link rel="stylesheet" href="/dist/app.css" />
+    <link rel="stylesheet" href="/project-settings-preview/preview.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: #18181b;
+        --foreground: #f4f4f5;
+        --muted: #27272a;
+        --muted-foreground: #a1a1aa;
+        --border: #3f3f46;
+        --border-hairline: #303034;
+        --input: #3f3f46;
+        --ring: #60a5fa;
+        --primary: #f4f4f5;
+        --primary-foreground: #18181b;
+        --secondary: #27272a;
+        --secondary-foreground: #f4f4f5;
+        --accent: #303034;
+        --accent-foreground: #f4f4f5;
+        --popover: #202023;
+        --popover-foreground: #f4f4f5;
+        --destructive: #f87171;
+        --radius: 0.5rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        background: var(--background);
+        color: var(--foreground);
+      }
+      .preview-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .preview-header h1 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+      .preview-header p {
+        margin: 0 0 12px;
+        color: var(--muted-foreground);
+      }
+      .fixture-controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .fixture-controls button {
+        padding: 6px 10px;
+        background: var(--muted);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      #panel {
+        width: 100%;
+        max-width: 640px;
+        margin: 16px auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      #evidence {
+        margin: 16px;
+        font-size: 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      [data-bb-plugin-root] {
+        min-width: 0;
+      }
+      .fixture-table-frame {
+        padding: 20px;
+      }
+      @media (max-width: 560px) {
+        .fixture-table-frame {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="preview-header">
+      <h1>BBP-98 production-table preview. Fixture data only.</h1>
+      <p>
+        Real Manage UI and data hooks. Saves change browser memory only. No live BB server or
+        project data is used. Open Projects to edit.
+      </p>
+      <div class="fixture-controls">
+        <button id="fail-save">Fail next save</button>
+        <button id="fail-inventory">Fail next inventory refresh</button>
+        <button id="refresh">Refresh inventory</button>
+        <button id="remove">Remove first fixture project</button>
+        <button id="empty">Empty fixture inventory</button>
+        <button id="reset">Reset preview</button>
+      </div>
+    </header>
+    <main id="panel" data-bb-plugin="tasks-plus">
+      <p id="preview-loading" role="status" style="padding: 16px">Loading preview…</p>
+    </main>
+    <pre id="evidence" aria-label="Fixture evidence"></pre>
+    <script>
+      function showPreviewLoadError() {
+        const status = document.getElementById("preview-loading");
+        if (!status) return;
+        status.setAttribute("role", "alert");
+        status.textContent =
+          "The preview could not start. Reload this page. If it still fails, report this message.";
+      }
+      window.addEventListener("error", showPreviewLoadError);
+      window.addEventListener("unhandledrejection", showPreviewLoadError);
+    </script>
+    <script
+      type="module"
+      src="/project-settings-preview/preview.js"
+      onerror="showPreviewLoadError()"
+    ></script>
+  </body>
+</html>

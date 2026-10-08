@@ -26,11 +26,15 @@ describe("current session inventories", () => {
     const fetch = vi.fn().mockReturnValueOnce(old.promise).mockResolvedValueOnce(["New"]);
     const resource = createTaskInventory<string[]>(fetch, () => 0);
     const first = resource.load();
+    const firstRevision = resource.readRevision();
     await Promise.resolve();
     resource.invalidate();
     await resource.load();
+    const currentRevision = resource.readRevision();
+    expect(currentRevision).toBeGreaterThan(firstRevision);
     old.resolve(["Old"]);
     await first;
+    expect(resource.readRevision()).toBe(currentRevision);
     expect(resource.read()).toMatchObject({ data: ["New"], current: true });
   });
   it("checks the refresh generation before publication, and allows failed reads to retry", async () => {

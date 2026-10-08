@@ -77,6 +77,8 @@ export function createTaskInventory<T>(
     read,
     load,
     invalidate,
+    // Identify reads at their owner, including ones started before React renders.
+    readRevision: () => revision,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {

@@ -4,72 +4,85 @@
 
 See `proposal.md` for motivation and `specs/tasks-project-settings/spec.md` for the behavior contract.
 
-`ManagePanel` currently contains Labels, Presets, and Folders tabs and defaults to Labels. The Tasks navigation menu opens this page through the existing settings icon. `useProjects` supplies the tracker inventory and subscribes to `projects:changed`. The `updateProject` RPC already accepts a project ID, name, and color, preserves omitted fields, and publishes that event. The database update retains identity and existing task keys. `ColorSwatchPicker` already provides named, keyboard-accessible choices used by project creation and labels.
+`ManagePanel` contains Labels, Presets, and Folders tabs and defaults to Labels. The Tasks settings icon opens this page. `useProjects` supplies the tracker inventory and subscribes to `projects:changed`. The `updateProject` RPC accepts a project ID, name, and color, preserves omitted fields, and publishes that event. Database updates retain identity and existing task keys. `ColorSwatchPicker` already supplies named, keyboard-accessible choices for project creation and labels.
 
-The Manage page also contains unrelated editors. Keep this addition in a focused component rather than expand those editors or redesign the page.
+User feedback approved replacing the selector planned at revision `20db7c8da2c9b00a6c2f9545f934fb1e38dbc886` with the fixture-previewed table and stable loading/save treatment. The table replaces the selector, not supplements it. Delivery 1 edits names with saved colors read-only. Interactive color controls belong to delivery 2.
 
-## Goals / Non-Goals
+Keep this addition focused. Do not expand or refactor unrelated Manage editors.
+
+## Goals / non-goals
 
 **Goals:**
 
-- Keep project selection, draft ownership, and save state inside a small project-settings component.
-- Reuse the current data hooks, RPC contract, event refresh, UI controls, and slot-test harness.
-- Separate the last saved values from the local draft so events cannot erase an edit or transfer it to a different project.
+- Keep identity-bound row drafts and the single-flight table save state in a focused project-settings component.
+- Reuse current data hooks, RPC contract, event refresh, UI controls, and slot-test harness.
+- Separate saved values from local drafts so events cannot erase edits or transfer them between identities.
+- Preserve the approved compact table layout and stable loading/save treatment.
 
-**Non-Goals:**
+**Non-goals:**
 
 - No host-level settings page, navigation redesign, new route, or new command.
 - No prefix editing, automatic prefix derivation on rename, folder management, BB-link editing, deletion, or BB workspace mutation.
-- No new API, schema, dependencies, generalized form framework, or unrelated Manage refactor.
+- No new API, schema, dependency, generalized form framework, or unrelated Manage refactor.
+- No interactive production color editing in delivery 1.
 
 ## Decisions
 
-### 1. Add Projects to the existing Manage page
+### 1. Add a project table to Manage
 
-Create `views/manage/projects-section.tsx` and render it from a new Projects tab in `manage-panel.tsx`. Update the page description to include projects. Keep the current Labels default to avoid changing the existing entry behavior.
+Render `views/manage/projects-section.tsx` from the Projects tab in `manage-panel.tsx`. Update the Manage description. Keep Labels the default and the other tabs available.
 
-Use a labelled project selector showing name and prefix, followed by a compact form with name, read-only prefix context, the existing color picker, Save, and Cancel. Default selection is the first available project when there is no selection. Selection here does not call task navigation. Project changes discard only this local unsaved draft and start a new draft for the selected identity. Make that behavior clear with short form text. This is a proposed default, not an existing behavior.
+Keep the Projects table mounted but hidden when another Manage tab is active. Switching tabs must not discard its pending guard or response; other tabs remain usable. This is local component lifetime, not a new navigation lock or global draft policy.
 
-Alternative: restore editing inside the project-switcher menu. That would mix browsing with settings and would not put the controls where requested. A separate settings route adds navigation work without a benefit for two fields.
+Show one row per project, keyed by ID, with prefix, inline name input, saved color, and explicit row Save/Cancel. Equal names remain distinct through prefix and identity. Editing a row does not call task navigation or change the BB workspace. Drafts in different rows are independent; there is no selection/discard action and no hidden save.
 
-### 2. Keep each draft tied to a project identity
+Use the approved compact stacked-row layout at narrow Tasks panel widths, even inside a wide desktop window. Use the section's inline-size container, not viewport width, to select the stacked arrangement. Keep the table headers mounted during initial loading without guessing its eventual project count. Once inventory is available, retain real rows throughout refresh. Reserve a status line below the table and fixed Save/Cancel widths, so loading and pending labels do not shift displayed controls. Do not add spinners, animated skeletons, or a fixed fixture row count to production.
 
-Key the editor by project ID. Track saved name/color values separately from draft name/color values. On an inventory refresh, update the saved values but update the draft only when it is clean. Cancel restores the latest loaded saved values and clears the save error. A successful save uses the returned project as the saved baseline and draft values.
+Alternative: editing in the project-switcher menu mixes browsing and settings. A separate settings route adds navigation work without a benefit for two fields. The previously proposed selector was rejected in user feedback.
 
-Preserve a saved color that is not in the palette. Never substitute `DEFAULT_COLOR` on an existing project. The palette can have no selected swatch for a custom color until the user chooses a replacement.
+### 2. Bind each draft to its row identity
 
-On successful removal of the selected project, remove its keyed editor. A fallback selection can then create a fresh editor; it must not inherit the removed draft. Do not treat a failed refresh as removal. Keep selection and draft stable while inventory data is unavailable and disable new saves until inventory is ready.
+Track saved name/color separately from local drafts. On a successful inventory refresh, update saved values and update only clean drafts. Cancel restores that row's latest loaded saved values and clears its local save error. Cancel must not change another row. A successful save establishes the returned project as the row's baseline and draft.
 
-Alternative: copy every inventory update into form state. That is shorter but can erase unsaved work when another project changes. Looking up projects by name would also target the wrong project when names are equal.
+Preserve saved colors exactly, including values outside the palette. Never substitute `DEFAULT_COLOR` for an existing project. Delivery 1 shows saved color read-only and always sends it unchanged. Delivery 2 adds the existing palette; a custom color need not have a selected swatch until the user deliberately replaces it.
 
-### 3. Save through the existing RPC with explicit failure handling
+Only a successful inventory can remove a row. Remove the keyed editor and its draft without transferring either to another identity. A failed refresh is not removal. Keep cached rows and local drafts mounted while inventory is loading or failed, and disable new saves until it is ready.
 
-Submit only `{ projectId, name: draftName.trim(), color: draftColor }`. Do not send prefix, folder, or linked BB project fields. Validate the trimmed name and check that the normalized draft differs from the saved values.
+Alternative: copying every inventory update into drafts can erase unsaved work. Looking up projects by name can update the wrong project when names match.
 
-Keep save errors local and catch them at the editor's save boundary. Clear the error only on a new attempt, Cancel, project selection, or successful save. Do not close or reset the editor after a failed request. Use a synchronous in-flight guard as well as pending state so two activations cannot send two requests before React renders.
+### 3. Use explicit saves and one table-wide guard
 
-Disable the project selector and editable controls during a save. Use a disabled fieldset for the name and color picker so the shared palette does not need a new state API. Keep Cancel unavailable during the request. Show a pending Save label. This pending lock is local to project settings and does not introduce a new global navigation or unsaved-change policy.
+Delivery 1 submits exactly `{ projectId, name: draftName.trim(), color: savedColor }`. Delivery 2 submits the deliberately chosen draft color instead. Do not send prefix, folder, or linked BB project fields. Validate the trimmed name and compare normalized draft values with the saved baseline.
 
-Use the existing `projects:changed` subscription to refresh other project consumers. Apply the RPC response to the local saved state immediately; do not make editor success depend on a later inventory fetch. If the subsequent inventory fetch fails, show its error and Retry separately from the save result.
+Use one synchronous in-flight table guard as well as pending rendering, so repeated or cross-row activations cannot start a second request before React renders. Lock editable controls, Save and Cancel in all rows during a request. Check the guard at editing/Cancel boundaries too. This lock is local to project settings, not global navigation.
 
-Alternative: add optimistic global writes or a new update API. Both add rollback or contract work when the existing update path already persists these fields and publishes the required event.
+Keep save errors local to the row. Clear them on a new attempt, that row's Cancel, or successful save. A failed request retains the draft, shows an alert, and permits manual retry. Inventory errors use a separate alert and Retry action. Do not reset a draft or report success after failure.
 
-### 4. Treat inventory readiness as a separate state
+Apply the RPC response immediately. Reads that overlap the save must not overwrite its returned baseline, whether their event arrives before the save response or their result arrives afterward. Consume those overlapping snapshots without replaying them when the lock clears. Later independent successful reads update the row's baseline normally. If the save fails, a successfully refreshed project still provides the latest Cancel baseline without erasing the entered draft. Inventory failures never replace saved values or become save failures.
 
-Use `useProjects` loading, error, data, and refresh values. Distinguish initial loading from successful empty data. Show a visible alert and Retry on error, including an error after cached rows were displayed. Gate Save on a current successful inventory and a selected project that still exists. Retain dirty drafts across ordinary refreshes.
+Identify overlapping reads by the canonical inventory resource's revision at Save completion. Ignore that revision and earlier ones for this row's saved baseline, not the next settled render. A later read must still apply if it supersedes an overlapping request before that older request settles.
 
-Use accessible labels for the selector and input, named radio choices for colors, and alerts for failures. Let selectors, tab controls, and form rows fit or wrap in narrow panels without adding a fixed-width form.
+Use the existing `projects:changed` subscription to refresh consumers. Editor success must not depend on a later inventory fetch.
 
-Alternative: use `projects.data ?? []` alone. That makes a failed request look like an empty inventory and permits stale editors to save.
+Alternative: optimistic global writes or a new API add rollback or contract work when the existing update already persists fields and publishes the required event.
 
-## Risks / Trade-offs
+### 4. Keep inventory readiness separate
 
-- Another actor can edit the same project while a draft is dirty. Preserve the local draft, update the cancel baseline on refresh, and let explicit Save write its name/color. Version-based conflict detection is outside this change because the current API has no revision precondition.
-- Selecting a different project discards this unsaved draft. Explain this next to the selector and test that no hidden save occurs. Do not add a new global draft system for this small editor.
-- The event can arrive before the save response. Test with deferred save and inventory calls so a refresh cannot reset pending values or issue another save.
-- The new tab can crowd a narrow panel. Verify wrapping or horizontal scrolling of the tab list without page-level overflow and check the form in a compact layout.
-- Existing callers can store colors outside the palette. Preserve those values when changing only the name.
+Use `useProjects` data, loading, error, and refresh values. Distinguish cold loading from successful empty data. Show an inventory alert and Retry on error even if cached rows remain. Gate new saves on a current successful inventory and a row identity that still exists. Retain dirty drafts during ordinary refreshes.
 
-## Migration Plan
+Label table, row name inputs and row actions by prefix. Use alerts for save/inventory failures. In delivery 2 use named radio choices for colors. Keep tabs and row controls usable at compact width without page overflow.
 
-No data migration is required. Build and install the updated Tasks plugin through the existing process. Rollback removes the new UI; names and colors saved through it remain valid for the old API and database.
+Alternative: `projects.data ?? []` alone makes a failed request look empty and permits stale rows to save.
+
+## Risks / trade-offs
+
+- Another actor can edit a project while a row is dirty. Preserve its draft, update the Cancel baseline on ordinary successful refresh, and let explicit Save write its name/color. Version-based conflict detection is outside scope because the API has no revision precondition.
+- Multiple rows can hold local drafts. Save/Cancel affect only their identity; one pending save locks relevant actions across the table, without adding a global draft system.
+- Events and save responses can arrive in either order. Deferred save and inventory tests must prove pending draft retention and response precedence without duplicate requests.
+- The first inventory's row count is unknown. Reveal actual rows on success rather than inventing fixture rows; keep already displayed rows and actions stable during subsequent loading and saving.
+- The new tab can crowd a narrow panel. Verify tab wrapping and compact rows without page-level overflow.
+- Existing callers can store custom colors. Preserve those values on name-only saves.
+
+## Migration plan
+
+No data migration is needed. Build through the existing plugin process. Installation or reload requires separate approval. Rollback removes the UI; names and colors saved through it remain valid for the old API and database.

@@ -30,6 +30,8 @@ import {
 } from "./preset-dialog.js";
 import { ColorSwatchPicker, DEFAULT_COLOR } from "./shared.js";
 
+import { ProjectsSection } from "./projects-section.js";
+
 function useActionError() {
   const [error, setError] = useState<string | null>(null);
   const run = async (action: () => Promise<unknown>): Promise<boolean> => {
@@ -596,17 +598,22 @@ function FoldersSection() {
 }
 
 export function ManagePanel() {
+  const [tab, setTab] = useState("labels");
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4">
       <header className="space-y-1">
         <h2 className="text-base font-semibold">Manage</h2>
-        <p className="text-sm text-muted-foreground">Labels, agent presets, and folders.</p>
+        <p className="text-sm text-muted-foreground">
+          Edit project names and colours in the Projects table. Manage labels, agent presets, and
+          folders here too.
+        </p>
       </header>
-      <Tabs defaultValue="labels">
-        <TabsList>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="h-auto max-w-full flex-wrap">
           <TabsTrigger value="labels">Labels</TabsTrigger>
           <TabsTrigger value="presets">Presets</TabsTrigger>
           <TabsTrigger value="folders">Folders</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
         </TabsList>
         <TabsContent value="labels" className="pt-3">
           <LabelsSection />
@@ -616,6 +623,9 @@ export function ManagePanel() {
         </TabsContent>
         <TabsContent value="folders" className="pt-3">
           <FoldersSection />
+        </TabsContent>
+        <TabsContent value="projects" className="pt-3" forceMount hidden={tab !== "projects"}>
+          <ProjectsSection />
         </TabsContent>
       </Tabs>
     </div>
