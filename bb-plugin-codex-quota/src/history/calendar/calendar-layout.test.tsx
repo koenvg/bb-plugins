@@ -62,7 +62,7 @@ it("keeps missing data null rather than drawing invented usage", () => {
   expect(first.textContent).toContain("Unavailable");
   expect(first.textContent).toContain("Unknown, uncovered gap");
 });
-it("retains precise captured prices and partial coverage in the tooltip", () => {
+it("keeps precise captured prices without the lower tooltip details", () => {
   const view = calendarSnapshot(query),
     day = view.days[14];
   day.money = {
@@ -75,8 +75,10 @@ it("retains precise captured prices and partial coverage in the tooltip", () => 
   };
   render(<UsageTooltip day={day} metric="cost" />);
   expect(screen.getByText("$0.39813160000000003", { exact: true })).toBeTruthy();
-  expect(screen.getAllByText(/partial/i).length).toBeTruthy();
-  expect(screen.getByText("Captured estimate, not billed charges.")).toBeTruthy();
+  const tip = screen.getByRole("tooltip");
+  expect(within(tip).getByText("Tue, Sep 15, 2026")).toBeTruthy();
+  expect(tip.textContent).not.toMatch(/partial|accepted records priced|priced active entities/i);
+  expect(within(tip).queryByText("Captured estimate, not billed charges.")).toBeNull();
 });
 it("shows weekdays and exact values without zero-estimate clutter", () => {
   const day = calendarSnapshot(query).days[14];
@@ -100,9 +102,8 @@ it.each(["tokens", "cost"] as const)(
     render(<UsageTooltip day={day} metric={metric} />);
     const tip = screen.getByRole("tooltip");
     expect(!!within(tip).queryByText("350 tokens")).toBe(metric === "tokens");
-    expect(!!within(tip).queryByText("Duplicate checks are approximate.")).toBe(
-      metric === "tokens",
-    );
+    expect(within(tip).queryByText("Duplicate checks are approximate.")).toBeNull();
+    expect(tip.textContent).not.toContain("Partial, recorded usage");
   },
 );
 it.each([
