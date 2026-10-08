@@ -66,6 +66,7 @@ describe("public server RPC", () => {
     async (kind) => {
       const { bb, harness } = createFakePluginHost({
         pluginId: "markdown-reader",
+        experimental_callHostRpc: async ({ input }) => input,
         sdk: {
           threads: {
             get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }),
@@ -153,6 +154,7 @@ describe("public server RPC", () => {
         /^refractor\/(core|markup|css|javascript|typescript|json|bash|python)$/,
         // Public frontend test runtime, used only by the browser fixture entry.
         /^@get-bb\/plugin-sdk\/testing\/app$/,
+        /^@get-bb\/plugin-sdk\/testing\/host$/,
         /^@testing-library\/(react|user-event)$/,
         /^vitest\/config$/,
       ],

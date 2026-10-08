@@ -44,6 +44,7 @@ async function mount(
 ) {
   const { bb, harness } = createFakePluginHost({
     pluginId: "markdown-reader",
+    experimental_callHostRpc: async ({ input }) => input,
     sdk: {
       threads: {
         get: async () => ({ id: "thread", projectId: "project", environmentId: "env" }),

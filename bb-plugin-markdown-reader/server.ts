@@ -6,6 +6,7 @@ import {
   destinationsInputSchema,
   destinationsResultSchema,
 } from "./source";
+import { hostContract } from "./host-contract";
 
 export const rpcContract = defineRpcContract({
   read_document: { input: targetSchema, output: readResultSchema },
@@ -13,11 +14,14 @@ export const rpcContract = defineRpcContract({
 });
 
 export default function plugin(bb: BbPluginApi) {
+  const host = bb.hosts.experimental_client({ contract: hostContract });
   const reader = createSourceReader({
     environment: (environmentId) => bb.sdk.environments.get({ environmentId }),
     project: (projectId) => bb.sdk.projects.get({ projectId }),
     thread: (threadId) => bb.sdk.threads.get({ threadId }),
     storageLocation: (threadId) => bb.sdk.threads.storageLocation({ threadId }),
+    resolveHostRoot: async ({ hostId, rootPath }) =>
+      (await host.call("resolve_root", { rootPath }, { hostId })).rootPath,
     read: (target) => bb.sdk.files.read(target),
     createPreview: (target) => bb.sdk.files.createPreview(target),
   });
