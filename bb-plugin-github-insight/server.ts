@@ -28,6 +28,7 @@ import { createDraftStore } from "./review/draft-store";
 import { createReviewCli } from "./review/review-cli";
 import { createReviewService } from "./review/review-service";
 import { createReviewWrites } from "./review/review-writes";
+import { createViewedMarksStore } from "./review/viewed-marks-store";
 
 export type { rpcContract } from "./contract";
 
@@ -84,6 +85,7 @@ export default async function plugin(bb: BbPluginApi) {
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
     drafts,
     publishDrafts: publishDraftsUpdate,
+    viewed: createViewedMarksStore(bb.storage.kv),
     sendMessage: async (threadId, text) => {
       const result = await bb.sdk.threads.send({
         threadId,
@@ -197,6 +199,7 @@ export default async function plugin(bb: BbPluginApi) {
     saveCommentDraft: (request) => writes.saveCommentDraft(request),
     deleteCommentDraft: (request) => writes.deleteCommentDraft(request),
     saveSummaryDraft: (request) => writes.saveSummaryDraft(request),
+    updateViewed: (request) => review.updateViewed(request),
     submitReview: (request) => writes.submitReview(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),

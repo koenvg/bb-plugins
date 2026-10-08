@@ -197,6 +197,20 @@ submitReview --> server: load the review again (files, threads, head, drafts fro
 - The variables go to `gh` as JSON on stdin, so a large review does not hit the argument length limit.
 - One submit is one GitHub write. The CLI never submits.
 
+### Viewed files
+
+Each file in the Review tab that has a patch shows a collapse button and a "Viewed" checkbox in its header. It works like the Changes tab.
+
+- Checking "Viewed" marks the file and collapses it. Unchecking expands it. The collapse button only expands or collapses: the toggle stays while bb runs, and resets on a reload or when the mark changes.
+- The top shows "N/M viewed". M counts the files with a patch.
+- A mark is the hash of the file's patch (`review-ui/patch-identity.ts`, on the output of `gitPatch`). When a push changes the patch or the file leaves the PR, the tab removes the mark (`core/viewed-marks.ts`).
+- Marks belong to the PR, so every thread on the PR shows the same marks. They never go to GitHub.
+- `getReview` returns `viewedMarks`. RPC `updateViewed({ threadId, set, remove })` saves changes. It does not publish `review.updated`, so a click costs no `gh` call. A failed save reverts the checkbox and shows "Could not save viewed state: <error>".
+
+| Key                            | Value                                       |
+| ------------------------------ | ------------------------------------------- |
+| `viewed:v1:<owner>/<repo>#<n>` | `{ v: 1, marks: { <path>: <patch hash> } }` |
+
 ## Merge and enqueue
 
 The PR tab shows one merge action below the PR header (`core/merge-action.ts`):

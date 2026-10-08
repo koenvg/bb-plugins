@@ -1,6 +1,6 @@
 # review-ui
 
-Review UI parts that more than one plugin in this repo uses: the diff with a gutter **+** and inline cards, the inline comment form, the pending comment card, the hunk line helper, and `pinToTop`, which keeps an element at the top of a scroll area while content above it loads.
+Review UI parts that more than one plugin in this repo uses: the diff with a gutter **+** and inline cards, the inline comment form, the pending comment card, the "Viewed" checkbox and collapse button, the diff stat, the hunk line helper, the patch hash that viewed marks compare, and `pinToTop`, which keeps an element at the top of a scroll area while content above it loads.
 
 Rules:
 

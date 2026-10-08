@@ -1,4 +1,9 @@
-import type { ReviewDrafts, SendToAgentResult } from "../contract";
+import type {
+  ActionResult,
+  ReviewDrafts,
+  SendToAgentResult,
+  UpdateViewedRequest,
+} from "../contract";
 import { buildAgentPrompt } from "../core/agent-prompt";
 import type { Draft, Drafts } from "../core/drafts";
 import { parsePrFiles, type ReviewFile } from "../core/pr-files";
@@ -8,14 +13,17 @@ import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/rev
 import { collectReviewThreads, type CollectedReviewThreads } from "../core/review-threads";
 import type { ReviewUpdated } from "../core/review-updated";
 import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-placement";
+import type { ViewedMarks } from "../core/viewed-marks";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import type { PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
+import type { ViewedMarksStore } from "./viewed-marks-store";
 
 export interface PrReview extends ReviewDrafts {
   head: PrHead;
   files: ReviewFile[];
   threads: ThreadPlacement;
+  viewedMarks: ViewedMarks;
 }
 
 export interface ReviewBasis {
@@ -45,6 +53,7 @@ interface ReviewServiceDeps {
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
   drafts: DraftStore;
+  viewed: ViewedMarksStore;
   publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
 }
@@ -97,9 +106,15 @@ export function createReviewService(deps: ReviewServiceDeps) {
   function load(threadId: string): Promise<ReviewLoad> {
     return withPr(threadId, async (target) => {
       const { head, files, collected } = await fetchPr(target);
-      const drafts = await readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected));
+      const [drafts, viewedMarks] = await Promise.all([
+        readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected)),
+        deps.viewed.get(target.ref),
+      ]);
       const threads = placeThreads(files, collected.threads);
-      return { allThreadsRead: collected.complete, review: { head, files, threads, ...drafts } };
+      return {
+        allThreadsRead: collected.complete,
+        review: { head, files, threads, viewedMarks, ...drafts },
+      };
     });
   }
 
@@ -147,6 +162,18 @@ export function createReviewService(deps: ReviewServiceDeps) {
     deps.publishDrafts({ threadId });
   }
 
+  async function updateViewed({
+    threadId,
+    set,
+    remove,
+  }: UpdateViewedRequest): Promise<ActionResult> {
+    const resolution = await deps.resolvePr(threadId);
+    if (resolution.kind === "error") return resolution;
+    if (resolution.kind === "no_pr")
+      return { kind: "error", message: "No pull request for this thread" };
+    return deps.viewed.update(resolution.target.ref, set, remove);
+  }
+
   async function sendToAgent(
     threadId: string,
     reviewThreadIds: readonly string[],
@@ -174,5 +201,6 @@ export function createReviewService(deps: ReviewServiceDeps) {
     saveCommentDraft,
     saveSummaryDraft,
     sendToAgent,
+    updateViewed,
   };
 }

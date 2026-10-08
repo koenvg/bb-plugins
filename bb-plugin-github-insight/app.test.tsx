@@ -79,6 +79,7 @@ const unusedReviewRpc = {
   saveCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
+  updateViewed: () => ({ kind: "error" as const, message: "unused" }),
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   getReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   refreshReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
