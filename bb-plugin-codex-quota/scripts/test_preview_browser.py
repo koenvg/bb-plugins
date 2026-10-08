@@ -18,8 +18,10 @@ def accessible_table(metric="cost"):
              "1 of 60 accepted records priced; 1 priced active entities; pricing partial"]
             for index in range(30)]
     if metric == "tokens":
-        rows = [[row[0], "600", *row[2:4]] for row in rows]
+        rows = [[row[0], "600", "350", *row[2:4]] for row in rows]
     headers = ["Date", "USD estimate" if metric == "cost" else "Tokens", "Coverage", "Recorded exclusions"]
+    if metric == "tokens":
+        headers.insert(2, "Uncertain token estimate")
     if metric == "cost":
         headers.append("Pricing")
     caption = "Daily recorded usage in UTC. Partial history."
@@ -93,6 +95,7 @@ class TooltipDriver(Driver):
     """Model browser state while using the real Driver tooltip assertion flow."""
     def __init__(self, metric="cost", hover=True, broken_facts=False):
         super().__init__({"cdp": lambda *_args, **_kwargs: {}}, {"out": "/unused"})
+        self.metric = metric
         self.rows, _ = accessible_table(metric)
         self.rows[13][0] = "2026-09-14"
         self.rows[14][0] = "2026-09-15"
@@ -103,20 +106,24 @@ class TooltipDriver(Driver):
         self.events = []
 
     @staticmethod
-    def text_for(row, metric):
-        return "".join(TooltipDriver.lines_for(row, metric))
+    def definitions_for(row, metric):
+        definitions = [["USD estimate" if metric == "cost" else "Recorded tokens", row[1]]]
+        if metric == "tokens" and row[2] != "0":
+            definitions.append(["Uncertain estimate", f"{row[2]} tokens"])
+        exclusions = row[4 if metric == "tokens" else 3].removesuffix(" excluded tokens")
+        if exclusions != "0":
+            definitions.append(["Excluded tokens", exclusions])
+        return definitions
 
     @staticmethod
-    def lines_for(row, metric):
-        lines = [row[0], f"{'USD estimate' if metric == 'cost' else 'Tokens'}: {row[1]}", row[2]]
-        if metric == "cost":
-            lines.extend([row[4], "Captured estimate, not billed charges."])
-        if row[3] != "0 excluded tokens":
-            lines.append(row[3])
-        return lines
+    def text_for(row, metric):
+        return row[0] + "".join(label + value for label, value in TooltipDriver.definitions_for(row, metric))
 
     def table(self):
         return self.rows
+
+    def current_row(self):
+        return self.rows[14] if self.text.startswith(self.rows[14][0]) else self.rows[13]
 
     def js(self, expression):
         if ".recharts-bar-rectangle path" in expression:
@@ -124,48 +131,55 @@ class TooltipDriver(Driver):
         if "dispatchEvent" in expression:
             if "KeyboardEvent" in expression:
                 self.events.append("keyboard")
-                self.text = self.text_for(self.rows[13], "cost") if "ArrowLeft" in expression else self.expected
+                self.text = self.text_for(self.rows[13], self.metric) if "ArrowLeft" in expression else self.expected
             elif "MouseEvent" in expression and "mousemove" in expression:
                 self.events.append("pointer")
                 if self.hover:
                     self.text = "2026-09-15 Unavailable" if self.broken_facts else self.expected
-        if "querySelectorAll('.recharts-tooltip-wrapper p')" in expression:
-            if self.text == self.expected:
-                return self.lines_for(self.rows[14], "cost")
-            return ["2026-09-15", "USD estimate: Unavailable"]
-        if "querySelector('.recharts-tooltip-wrapper p')" in expression:
-            return self.rows[14][0] if self.text == self.expected else self.rows[13][0]
+            return None
+        if ".focus()" in expression:
+            return None
+        if "getAttribute('datetime')" in expression:
+            return self.current_row()[0]
+        if "querySelectorAll('.recharts-tooltip-wrapper dl > div')" in expression:
+            definitions = self.definitions_for(self.current_row(), self.metric)
+            if self.text == "2026-09-15 Unavailable":
+                definitions[0][1] = "Unavailable"
+            return definitions
+        if "querySelectorAll('.recharts-tooltip-wrapper [role=tooltip] > div p')" in expression:
+            return []
         if "textContent" in expression:
             return self.text
-        return None
+        raise AssertionError(f"Unexpected browser expression: {expression}")
 
     def wait(self, expression):
-        if "includes('2026-09-15')" in expression:
-            assert "2026-09-15" in self.text, "Pointer did not restore the target date"
-        elif "includes('2026-09-14')" in expression:
-            assert "2026-09-14" in self.text, "Tooltip did not leave the keyboard target"
-        elif '!==' in expression:
-            previous = json.loads(expression.split('!==', 1)[1].strip())
+        if "getAttribute('datetime') ===" in expression:
+            expected_date = json.loads(expression.split("===", 1)[1].strip())
+            assert self.current_row()[0] == expected_date, "Pointer did not restore the target date"
+        elif "!==" in expression:
+            previous = json.loads(expression.split("!==", 1)[1].strip())
             assert self.text != previous, "Tooltip did not change"
         else:
             assert self.text, "Tooltip is missing"
 
-
 class PointerTests(unittest.TestCase):
     def test_noop_hover_fails_instead_of_reusing_keyboard_tooltip(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(AssertionError, "Pointer did not restore the target date"):
             TooltipDriver(hover=False).tooltip("cost")
 
     def test_hover_requires_exact_facts_not_only_date(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(AssertionError, "Unavailable"):
             TooltipDriver(broken_facts=True).tooltip("cost")
 
     def test_hover_has_independent_receipt_after_state_change(self):
-        driver = TooltipDriver()
-        facts = driver.tooltip("cost")
-        self.assertEqual(driver.events, ["keyboard", "keyboard", "pointer"])
-        self.assertEqual(facts["pointer"]["row"], driver.rows[14])
-        self.assertEqual(facts["pointer"]["tooltip"], driver.expected)
+        for metric in ["tokens", "cost"]:
+            with self.subTest(metric=metric):
+                driver = TooltipDriver(metric=metric)
+                facts = driver.tooltip(metric)
+                self.assertEqual(driver.events, ["keyboard", "keyboard", "pointer"])
+                self.assertEqual(facts["pointer"]["row"], driver.rows[14])
+                self.assertEqual(facts["pointer"]["tooltip"], driver.expected)
+                self.assertEqual(facts["lines"], [])
 
 
 if __name__ == "__main__":

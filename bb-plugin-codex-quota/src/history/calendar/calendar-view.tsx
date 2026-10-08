@@ -145,7 +145,7 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
           <YAxis
             domain={[0, 1]}
             ticks={ticks}
-            width={80}
+            width={84}
             tickFormatter={(value) => axisValue(value * maximum, metric)}
             tickLine={false}
             axisLine={false}
