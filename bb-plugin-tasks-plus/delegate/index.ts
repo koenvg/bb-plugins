@@ -1,14 +1,6 @@
 import type { BbPluginApi, PluginRpcHandlers } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import type {
-  Attachment,
-  Comment,
-  Preset,
-  Project,
-  Task,
-  TasksStore,
-  TaskThreadLiveStatus,
-} from "../db";
+import type { Attachment, Preset, Project, Task, TasksStore, TaskThreadLiveStatus } from "../db";
 import { publishCommentsChanged, publishTasksChanged, type TasksApiStore } from "../api";
 import {
   presetPermissionModeSchema,
@@ -136,23 +128,6 @@ function requireLinkedBbProject(project: Project): string {
     "project_not_linked",
     `Task project "${project.name}" is not linked to a bb project`,
   );
-}
-
-function collectAttachments(
-  store: TasksStore,
-  taskId: string,
-  comments: readonly Comment[],
-): Attachment[] {
-  const attachments = new Map<string, Attachment>();
-  for (const attachment of store.listAttachmentsForTask(taskId)) {
-    attachments.set(attachment.id, attachment);
-  }
-  for (const comment of comments) {
-    for (const attachment of store.listAttachmentsForComment(comment.id)) {
-      attachments.set(attachment.id, attachment);
-    }
-  }
-  return [...attachments.values()];
 }
 
 type SpawnEnvironment = Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0]["environment"];
@@ -381,13 +356,12 @@ export async function prepareTaskWorker(
     serviceTier: preset.serviceTier,
     permissionMode: preset.permissionMode,
   });
-  const comments = store.listComments(task.id);
   const prompt = buildSeedPrompt({
     task,
     project,
     subtasks: store.listSubtasks(task.id),
     blockers: store.listBlockers(task.id),
-    attachments: collectAttachments(store, task.id, comments),
+    attachments: store.listTaskAttachments(task.id),
     presetInstructions: preset.instructions,
     extraInstructions,
   });

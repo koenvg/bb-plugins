@@ -1628,6 +1628,34 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
       .map(attachmentFromRow);
   }
 
+  // Complete task scope, including system-comment files. Keep the legacy owner-walk order.
+  function listTaskAttachments(taskId: string): AttachmentMetadata[];
+  function listTaskAttachments(taskId: string, options: { includeBlobPath: true }): Attachment[];
+  function listTaskAttachments(
+    taskId: string,
+    options?: { includeBlobPath: true },
+  ): AttachmentMetadata[] | Attachment[] {
+    const sql = `
+      SELECT a.id, a.task_id, a.comment_id, a.file_name, a.mime,
+             a.size_bytes, a.is_image, a.created_at${options?.includeBlobPath ? ", a.blob_path" : ""}
+      FROM attachments a
+      LEFT JOIN comments c ON c.id = a.comment_id
+      WHERE a.task_id = ? OR a.comment_id IN (SELECT id FROM comments WHERE task_id = ?)
+      ORDER BY CASE WHEN a.task_id IS NOT NULL THEN 0 ELSE 1 END,
+               c.created_at, c.rowid, a.created_at, a.id
+    `;
+    if (options?.includeBlobPath) {
+      return db
+        .prepare<[string, string], AttachmentRow>(sql)
+        .all(taskId, taskId)
+        .map(attachmentFromRow);
+    }
+    return db
+      .prepare<[string, string], Omit<AttachmentRow, "blob_path">>(sql)
+      .all(taskId, taskId)
+      .map(attachmentMetadataFromRow);
+  }
+
   function listActivityAttachments(taskId: string): AttachmentMetadata[] {
     return db
       .prepare<[string], Omit<AttachmentRow, "blob_path">>(
@@ -1959,6 +1987,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     getAttachment,
     listAttachmentsForTask,
     listAttachmentsForComment,
+    listTaskAttachments,
     listActivityAttachments,
     updateAttachment,
     deleteAttachment,
