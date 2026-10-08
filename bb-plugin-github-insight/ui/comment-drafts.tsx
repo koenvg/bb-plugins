@@ -53,11 +53,13 @@ const NewCommentsContext = createContext<NewComments | null>(null);
 
 export function CommentDraftsProvider({
   threadId,
-  onWritten,
+  onDeleteStarted,
+  onDeleteFailed,
   children,
 }: {
   threadId: string;
-  onWritten: () => void;
+  onDeleteStarted: (draftId: string) => void;
+  onDeleteFailed: () => void;
   children: ReactNode;
 }) {
   const rpc = useRpc<typeof rpcContract>();
@@ -98,6 +100,7 @@ export function CommentDraftsProvider({
 
   const remove = useCallback(
     async (draftId: string) => {
+      onDeleteStarted(draftId);
       update(draftId, { busy: true, error: null });
       await draftSaves.flush(draftId);
       const result = await rpc
@@ -105,12 +108,12 @@ export function CommentDraftsProvider({
         .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
       if (result.kind === "error") {
         update(draftId, { busy: false, error: result.message });
+        onDeleteFailed();
         return;
       }
       update(draftId, { busy: false });
-      onWritten();
     },
-    [rpc, threadId, update, draftSaves, onWritten],
+    [rpc, threadId, update, draftSaves, onDeleteStarted, onDeleteFailed],
   );
 
   const [createError, setCreateError] = useState<string | null>(null);
@@ -127,9 +130,8 @@ export function CommentDraftsProvider({
         return;
       }
       setFocusDraftId(result.draftId);
-      onWritten();
     },
-    [rpc, threadId, onWritten],
+    [rpc, threadId],
   );
 
   const clearFocus = useCallback(() => setFocusDraftId(null), []);

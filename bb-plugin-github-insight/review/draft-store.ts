@@ -1,6 +1,6 @@
 import type { PluginKvStorage } from "@get-bb/plugin-sdk";
 import { draftSchema, type Draft, type Drafts } from "../core/drafts";
-import type { PullRequestRef } from "../core/pr-ref";
+import { prKey, type PullRequestRef } from "../core/pr-ref";
 import {
   commentDraftEntry,
   readCommentDraft,
@@ -13,10 +13,6 @@ import {
 import type { CollectedReviewThreads } from "../core/review-threads";
 
 export type DraftStore = ReturnType<typeof createDraftStore>;
-
-function prKey({ owner, repo, number }: PullRequestRef): string {
-  return `${owner}/${repo}#${number}`;
-}
 
 function prefixOf(pr: PullRequestRef): string {
   return `draft:${prKey(pr)}:`;
@@ -34,6 +30,33 @@ function byPosition(a: ListedCommentDraft, b: ListedCommentDraft): number {
   return a.path.localeCompare(b.path) || a.line - b.line || a.id.localeCompare(b.id);
 }
 
+async function draftRows(kv: PluginKvStorage, pr: PullRequestRef) {
+  const prefix = prefixOf(pr);
+  return Promise.all(
+    (await kv.list(prefix)).map(async (key) => ({
+      key,
+      reviewThreadId: key.slice(prefix.length),
+      draft: draftSchema.safeParse(await kv.get(key)),
+    })),
+  );
+}
+
+function splitDrafts(
+  rows: Awaited<ReturnType<typeof draftRows>>,
+  { threads, complete }: CollectedReviewThreads,
+) {
+  const resolvedById = new Map(threads.map((thread) => [thread.id, thread.resolved]));
+  const drafts: Drafts = {};
+  const staleKeys: string[] = [];
+  for (const { key, reviewThreadId, draft } of rows) {
+    const resolved = resolvedById.get(reviewThreadId);
+    if (!draft.success || resolved === true || (resolved === undefined && complete))
+      staleKeys.push(key);
+    else if (resolved === false) drafts[reviewThreadId] = draft.data;
+  }
+  return { drafts, staleKeys };
+}
+
 export function createDraftStore(kv: PluginKvStorage) {
   return {
     save: (pr: PullRequestRef, reviewThreadId: string, draft: Draft) =>
@@ -42,30 +65,14 @@ export function createDraftStore(kv: PluginKvStorage) {
     delete: (pr: PullRequestRef, reviewThreadId: string) =>
       kv.delete(prefixOf(pr) + reviewThreadId),
 
-    async liveDrafts(
-      pr: PullRequestRef,
-      { threads, complete }: CollectedReviewThreads,
-    ): Promise<Drafts> {
-      const prefix = prefixOf(pr);
-      const resolvedById = new Map(threads.map((thread) => [thread.id, thread.resolved]));
-      const rows = await Promise.all(
-        (await kv.list(prefix)).map(async (key) => ({
-          key,
-          reviewThreadId: key.slice(prefix.length),
-          draft: draftSchema.safeParse(await kv.get(key)),
-        })),
-      );
-      const drafts: Drafts = {};
-      const staleKeys: string[] = [];
-      for (const { key, reviewThreadId, draft } of rows) {
-        const resolved = resolvedById.get(reviewThreadId);
-        if (!draft.success || resolved === true || (resolved === undefined && complete))
-          staleKeys.push(key);
-        else if (resolved === false) drafts[reviewThreadId] = draft.data;
-      }
+    async liveDrafts(pr: PullRequestRef, collected: CollectedReviewThreads): Promise<Drafts> {
+      const { drafts, staleKeys } = splitDrafts(await draftRows(kv, pr), collected);
       await Promise.all(staleKeys.map((key) => kv.delete(key)));
       return drafts;
     },
+
+    knownDrafts: async (pr: PullRequestRef, collected: CollectedReviewThreads) =>
+      splitDrafts(await draftRows(kv, pr), collected).drafts,
 
     saveComment: (pr: PullRequestRef, draftId: string, draft: CommentDraft) =>
       kv.set(commentPrefixOf(pr) + draftId, commentDraftEntry(draft)),

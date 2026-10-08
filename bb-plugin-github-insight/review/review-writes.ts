@@ -25,16 +25,18 @@ import { submitReviewError } from "../github/review-mutations";
 import { isPendingReply } from "../github/review-thread-mutations";
 import type { PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
-import type { PrReview, ReviewLoad } from "./review-service";
+import type { BasisLoad, PrReview, ReviewLoad } from "./review-service";
 
 interface ReviewWritesDeps {
   resolvePr(threadId: string): Promise<PrResolution>;
   replyToThread(target: PrTarget, reviewThreadId: string, body: string): Promise<unknown>;
   setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
   loadReview(threadId: string): Promise<ReviewLoad>;
+  loadBasis(threadId: string): Promise<BasisLoad>;
   submitReview(target: PrTarget, request: AddPullRequestReviewRequest): Promise<unknown>;
   drafts: DraftStore;
   publish(update: ReviewUpdated): void;
+  publishDrafts(update: ReviewUpdated): void;
   refreshAfterWrite(threadId: string): Promise<void>;
   markReviewed(ref: PullRequestRef, commitOid: string): Promise<ActionResult>;
   now(): number;
@@ -155,7 +157,7 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     await deps.drafts.delete(target.value.ref, reviewThreadId);
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
     return { kind: "ok" };
   }
 
@@ -165,27 +167,27 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     side,
     line,
   }: CreateCommentDraftRequest): Promise<CreateCommentDraftResult> {
-    const loaded = await deps.loadReview(threadId);
+    const loaded = await deps.loadBasis(threadId);
     if (loaded.kind !== "ok") {
       return { kind: "error", message: loaded.kind === "error" ? loaded.message : NO_PR_MESSAGE };
     }
-    const { review, target } = loaded;
-    const closed = closedReason(review.head.state);
+    const { basis, target } = loaded;
+    const closed = closedReason(basis.head.state);
     if (closed !== null) return { kind: "error", message: closed };
     const anchor = { path, side, line, startLine: null };
-    const placed = checkAnchor(review.files, anchor);
+    const placed = checkAnchor(basis.files, anchor);
     if (!placed.ok) return { kind: "error", message: placed.reason };
-    const oneCommit = checkOneCommit(review.commentDrafts, review.head.oid);
+    const oneCommit = checkOneCommit(basis.commentDrafts, basis.head.oid);
     if (!oneCommit.ok) return { kind: "error", message: oneCommit.message };
     const draftId = deps.newDraftId();
     await deps.drafts.saveComment(target.ref, draftId, {
       ...anchor,
       body: "",
-      commitOid: review.head.oid,
+      commitOid: basis.head.oid,
       updatedAt: deps.now(),
       source: "user",
     });
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
     return { kind: "created", draftId };
   }
 
@@ -214,7 +216,7 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
     await deps.drafts.deleteComment(target.value.ref, draftId);
-    deps.publish({ threadId });
+    deps.publishDrafts({ threadId });
     return { kind: "ok" };
   }
 

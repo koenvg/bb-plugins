@@ -1573,6 +1573,63 @@ describe("reply and resolve", () => {
   });
 });
 
+describe("getDrafts", () => {
+  const OPEN_THREAD = "PRRT_kwDOHI7l-86jxula";
+  const RESOLVED_THREAD = "PRRT_kwDOHI7l-86jvKxS";
+  const replyDraft = { body: "Reply", updatedAt: 1, source: "agent" };
+  const KV = {
+    "comment:collibra/frontend#25259:d1": commentDraftRow("def456", 10),
+    "summary:collibra/frontend#25259": { v: 1, body: "Summary", updatedAt: 1, source: "agent" },
+    [`draft:collibra/frontend#25259:${OPEN_THREAD}`]: replyDraft,
+    [`draft:collibra/frontend#25259:${RESOLVED_THREAD}`]: replyDraft,
+  };
+
+  function setupWithPr() {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host: recordedReviewHost,
+      kv: KV,
+    });
+  }
+
+  it("returns the drafts of open threads from the last load, without a GitHub call", async () => {
+    const harness = await setupWithPr();
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    const reads = harness.experimental_hostRpcCalls.length;
+
+    const result = await harness.behavior.callRpc("getDrafts", { threadId: "thr_1" });
+
+    expect(result).toEqual({
+      kind: "ok",
+      drafts: { [OPEN_THREAD]: replyDraft },
+      commentDrafts: [{ ...commentDraftRow("def456", 10), v: undefined, id: "d1" }],
+      summaryDraft: { body: "Summary", updatedAt: 1, source: "agent" },
+    });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(reads);
+  });
+
+  it("loads the PR from GitHub once when no load has run yet", async () => {
+    const harness = await setupWithPr();
+
+    await harness.behavior.callRpc("getDrafts", { threadId: "thr_1" });
+    await harness.behavior.callRpc("getDrafts", { threadId: "thr_1" });
+
+    const heads = harness.experimental_hostRpcCalls.filter(
+      ({ method }) => method === "fetchPrHead",
+    );
+    expect(heads).toHaveLength(1);
+  });
+
+  it("reports no PR for a thread without one", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: null }] });
+
+    expect(await harness.behavior.callRpc("getDrafts", { threadId: "thr_1" })).toEqual({
+      kind: "no_pr",
+    });
+  });
+});
+
 describe("drafts from the tab", () => {
   const REVIEW_THREAD = "PRRT_kwDOHI7l-86jxula";
 
@@ -1676,7 +1733,7 @@ describe("drafts from the tab", () => {
     expect(result).toEqual({ kind: "ok" });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
     expect(harness.realtimeSignals).toEqual([
-      { channel: "review.updated", payload: { threadId: "thr_1" } },
+      { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
     ]);
     expect(await draftsOf(harness)).toEqual({});
   });
@@ -1775,7 +1832,7 @@ describe("comment and summary drafts from the tab", () => {
     expect(result).toEqual({ kind: "ok" });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
     expect(harness.realtimeSignals).toEqual([
-      { channel: "review.updated", payload: { threadId: "thr_1" } },
+      { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
     ]);
     expect((await reviewOf(harness)).commentDrafts.map(({ id }) => id)).toEqual(["d2"]);
   });
@@ -1882,7 +1939,7 @@ describe("createCommentDraft", () => {
       source: "user",
     });
     expect(harness.realtimeSignals).toEqual([
-      { channel: "review.updated", payload: { threadId: "thr_1" } },
+      { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
     ]);
   });
 
@@ -1949,6 +2006,54 @@ describe("createCommentDraft", () => {
 
     expect(result).toEqual({ kind: "error", message: "Pull request is merged" });
     expect(await commentDraftsOf(harness)).toEqual([]);
+  });
+
+  it("checks against the last loaded PR without a GitHub call", async () => {
+    const harness = await setupWithPr();
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    const reads = harness.experimental_hostRpcCalls.length;
+
+    const result = await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+    });
+
+    expect(result).toMatchObject({ kind: "created" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(reads);
+  });
+
+  it("loads the PR from GitHub once when no load has run yet", async () => {
+    const harness = await setupWithPr();
+    const onLine3 = { threadId: "thr_1", path: DRAFT_FILE, side: "RIGHT", line: 3 } as const;
+
+    await harness.behavior.callRpc("createCommentDraft", onLine3);
+    await harness.behavior.callRpc("createCommentDraft", onLine3);
+
+    const heads = harness.experimental_hostRpcCalls.filter(
+      ({ method }) => method === "fetchPrHead",
+    );
+    expect(heads).toHaveLength(1);
+  });
+
+  it("uses the head of the newest load", async () => {
+    let oid = "def456";
+    const harness = await setupWithPr({}, (call) =>
+      call.method === "fetchPrHead" ? ok(prHeadResponse({ oid })) : recordedReviewHost(call),
+    );
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    oid = "fff999";
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+
+    await harness.behavior.callRpc("createCommentDraft", {
+      threadId: "thr_1",
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+    });
+
+    expect((await commentDraftsOf(harness)).map(({ commitOid }) => commitOid)).toEqual(["fff999"]);
   });
 
   it("refuses a thread without a pull request", async () => {

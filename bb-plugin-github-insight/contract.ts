@@ -199,20 +199,31 @@ export const insightResultSchema = z.discriminatedUnion("kind", [
 ]);
 export type InsightResult = z.infer<typeof insightResultSchema>;
 
+const reviewDraftsSchema = z.object({
+  drafts: draftsSchema,
+  commentDrafts: z.array(listedCommentDraftSchema),
+  summaryDraft: summaryDraftSchema.nullable(),
+});
+export type ReviewDrafts = z.infer<typeof reviewDraftsSchema>;
+
 export const reviewResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("no_pr") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
-  z.object({
+  reviewDraftsSchema.extend({
     kind: z.literal("ok"),
     head: prHeadSchema,
     files: z.array(reviewFileSchema),
     threads: threadPlacementSchema,
-    drafts: draftsSchema,
-    commentDrafts: z.array(listedCommentDraftSchema),
-    summaryDraft: summaryDraftSchema.nullable(),
   }),
 ]);
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
+
+export const draftsResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("no_pr") }),
+  z.object({ kind: z.literal("error"), message: z.string() }),
+  reviewDraftsSchema.extend({ kind: z.literal("ok") }),
+]);
+export type DraftsResult = z.infer<typeof draftsResultSchema>;
 
 const threadRequestSchema = z.object({ threadId: z.string().min(1) }).strict();
 
@@ -369,6 +380,7 @@ export const rpcContract = defineRpcContract({
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
   getReview: { input: threadRequestSchema, output: reviewResultSchema },
+  getDrafts: { input: threadRequestSchema, output: draftsResultSchema },
   sendToAgent: { input: sendToAgentRequestSchema, output: sendToAgentResultSchema },
   reply: { input: replyRequestSchema, output: replyResultSchema },
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },

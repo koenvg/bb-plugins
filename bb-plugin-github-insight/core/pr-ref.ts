@@ -20,6 +20,10 @@ export function parsePullRequestUrl(url: string): PullRequestRef | null {
   return { owner: owner!, repo: repo!, number: Number(number) };
 }
 
+export function prKey({ owner, repo, number }: PullRequestRef): string {
+  return `${owner}/${repo}#${number}`;
+}
+
 export function pullRequestUrl({ owner, repo, number }: PullRequestRef): string {
   return `https://github.com/${owner}/${repo}/pull/${number}`;
 }

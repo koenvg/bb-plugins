@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
 import { splitByCommit } from "../core/draft-commits";
 import type { ReviewFile } from "../core/pr-files";
 import type { PrHead } from "../core/pr-head";
 import type { ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
-import { isReviewUpdateFor, REVIEW_UPDATED_CHANNEL } from "../core/review-updated";
+import {
+  isReviewUpdateFor,
+  REVIEW_DRAFTS_UPDATED_CHANNEL,
+  REVIEW_UPDATED_CHANNEL,
+} from "../core/review-updated";
 import {
   openThreadCounts,
   openThreads,
@@ -29,12 +33,41 @@ function useReview(threadId: string) {
   const rpc = useRpc<typeof rpcContract>();
   const fetchReview = useCallback((id: string) => rpc.call("getReview", { threadId: id }), [rpc]);
   const state = useThreadResult(threadId, fetchReview);
+  const { reload, patch } = state;
+  const latestDraftsRequest = useRef(0);
+
+  const reloadDrafts = useCallback(() => {
+    const request = ++latestDraftsRequest.current;
+    void rpc.call("getDrafts", { threadId }).then(
+      (drafts) => {
+        if (request !== latestDraftsRequest.current) return;
+        if (drafts.kind !== "ok") reload();
+        else patch((result) => (result.kind === "ok" ? { ...result, ...drafts } : result));
+      },
+      () => {
+        if (request === latestDraftsRequest.current) reload();
+      },
+    );
+  }, [rpc, threadId, reload, patch]);
+
+  const removeCommentDraft = useCallback(
+    (draftId: string) =>
+      patch((result) =>
+        result.kind === "ok"
+          ? { ...result, commentDrafts: result.commentDrafts.filter(({ id }) => id !== draftId) }
+          : result,
+      ),
+    [patch],
+  );
 
   useRealtime(REVIEW_UPDATED_CHANNEL, (payload) => {
-    if (isReviewUpdateFor(payload, threadId)) state.reload();
+    if (isReviewUpdateFor(payload, threadId)) reload();
+  });
+  useRealtime(REVIEW_DRAFTS_UPDATED_CHANNEL, (payload) => {
+    if (isReviewUpdateFor(payload, threadId)) reloadDrafts();
   });
 
-  return state;
+  return { ...state, reloadDrafts, removeCommentDraft };
 }
 
 interface SubmitRequest {
@@ -61,7 +94,8 @@ export function ReviewTab({ threadId }: { threadId: string }) {
 }
 
 function ReviewTabContent({ threadId }: { threadId: string }) {
-  const { result, refreshing, refresh, reload } = useReview(threadId);
+  const { result, refreshing, refresh, reload, reloadDrafts, removeCommentDraft } =
+    useReview(threadId);
   const submitRequest = useSubmitCommand(threadId, result);
   if (result === null)
     return (
@@ -95,7 +129,12 @@ function ReviewTabContent({ threadId }: { threadId: string }) {
       drafts={result.drafts}
       onWritten={reload}
     >
-      <CommentDraftsProvider key={threadId} threadId={threadId} onWritten={reload}>
+      <CommentDraftsProvider
+        key={threadId}
+        threadId={threadId}
+        onDeleteStarted={removeCommentDraft}
+        onDeleteFailed={reloadDrafts}
+      >
         <ReviewContent
           threadId={threadId}
           files={result.files}

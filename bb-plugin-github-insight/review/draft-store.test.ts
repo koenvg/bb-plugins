@@ -113,6 +113,22 @@ describe("draft store", () => {
     expect(await store.liveDrafts(pr, allThreads(thread("PRRT_a")))).toEqual({});
   });
 
+  it("reads the drafts of open threads without deleting the others", async () => {
+    const { kv, data } = fakeKv();
+    const store = createDraftStore(kv);
+    await store.save(pr, "PRRT_open", draft);
+    await store.save(pr, "PRRT_resolved", draft);
+    await store.save(pr, "PRRT_gone", draft);
+
+    const drafts = await store.knownDrafts(
+      pr,
+      allThreads(thread("PRRT_open"), thread("PRRT_resolved", true)),
+    );
+
+    expect(drafts).toEqual({ PRRT_open: draft });
+    expect(data.size).toBe(3);
+  });
+
   it("deletes a row that is not a draft", async () => {
     const { kv, data } = fakeKv({ "draft:collibra/frontend#25259:PRRT_a": { body: 3 } });
 
