@@ -16,4 +16,6 @@
 ## 3. Verify the combined behavior
 
 - [x] 3.1 Run the plugin's full tests and typecheck, the installed CLI's read-only SDK compatibility check, and the plugin build; verify all required checks pass and no unexpected dependency, RPC, or persisted-schema changes were introduced.
-- [ ] 3.2 Verify the exact checkout's installed palette behavior for eligible, blocked, snoozed, and no-thread contexts, focused split panes, a closed sidebar, and user-assigned shortcut invocation; verify commands are absent rather than disabled when inapplicable and successful snooze/wake actions agree with the sidebar and a second client. Follow installation and test-state approval rules, and record unavailable prerequisites as blockers rather than passes.
+- [x] 3.2 Verify the exact checkout's installed palette behavior for eligible, blocked, snoozed, and no-thread contexts, focused split panes, a closed sidebar, and user-assigned shortcut invocation; verify commands are absent rather than disabled when inapplicable and successful snooze/wake actions agree with the sidebar and a second client. Follow installation and test-state approval rules, and record unavailable prerequisites as blockers rather than passes.
+
+Archive decision: the user requested closure of item 3.2 and archive of this change. The checkbox records that closure, not a new verification pass. Installed-host palette, shortcut, split-pane, and second-client checks were not run for this archive.

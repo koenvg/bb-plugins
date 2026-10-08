@@ -6,8 +6,11 @@
 ## 2. Sub-task row badges
 
 - [x] 2.1 Render `DependencyBadges` in each `SubTasksSection` row in `plugins/tasks/views/detail/index.tsx`, after the title, with the list row sizing. Verify the tests from 1.1 and 1.2 pass.
-- [ ] 2.2 Check that a long title still truncates and the badge does not wrap at narrow widths. Verify in the running app with `/run` or a screenshot.
+- [x] 2.2 Check that a long title still truncates and the badge does not wrap at narrow widths. Verify in the running app with `/run` or a screenshot.
 
 ## 3. Verify
 
 - [x] 3.1 Run `npm run typecheck`, `npm run lint`, and `npm test` in `plugins/tasks`. Verify all pass.
+
+
+Archive decision: the user requested closure of item 2.2 and archive of this change. The checkbox records that closure, not a new verification pass. The running-app narrow-width check was not run for this archive.
