@@ -84,22 +84,15 @@ export async function tooltip(page: Page, metric: Metric, dailyRows: string[][])
   }
   await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
   const keyboard = await tooltipFacts(page, metric, dailyRows[14]);
-  const bar = await page.locator(".recharts-bar-rectangle path").evaluateAll((elements) => {
-    const element = elements.find((e) => {
-      const r = e.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    });
-    if (!element) return null;
-    const r = element.getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 10) };
-  });
+  const bar = page.locator(".recharts-bar-rectangle path").filter({ visible: true }).first();
   let pointer = null;
-  if (bar) {
+  if (await bar.count()) {
     await page.keyboard.press("ArrowLeft");
     await expect(date).not.toHaveAttribute("datetime", dailyRows[14][0]);
     const fromDate = await date.getAttribute("datetime");
     expect(dailyRows.map((row) => row[0])).toContain(fromDate);
-    await page.mouse.move(bar.x, bar.y);
+    // Status banners can move the chart during keyboard input. Resolve its current position.
+    await bar.hover();
     await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
     pointer = await tooltipFacts(page, metric, dailyRows[14], fromDate);
   }

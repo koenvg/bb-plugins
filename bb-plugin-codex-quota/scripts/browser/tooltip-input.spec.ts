@@ -4,6 +4,7 @@ import { chart, rows, tooltip } from "./calendar-driver.js";
 declare global {
   interface Window {
     tooltipFrameCounts: number[];
+    tooltipLayoutShift?: { before: number; after: number; trusted: boolean };
   }
 }
 test("metric switch waits for keyboard frames before proving hover", async ({ page }, info) => {
@@ -55,3 +56,55 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
   expect(facts.pointer!.fromDate).toBe(dailyRows[13][0]);
   await jsonEvidence(info, "deferred-frame-tooltip.json", facts);
 });
+
+for (const metric of ["tokens", "cost"] as const) {
+  test(`${metric} hover follows the bar after a keyboard-time layout shift`, async ({
+    page,
+  }, info) => {
+    await page.goto("/calendar.html?state=stale");
+    await chart(page);
+    await expect(
+      page.getByText("History preparation stopped. Recorded values remain available.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.getByRole("combobox", { name: "Report metric" }).selectOption(metric);
+    await chart(page);
+    const dailyRows = await rows(page);
+
+    // Reproduce the CI banner's 60px shift after the old driver caches bar coordinates.
+    await page.evaluate((targetDate) => {
+      const shift = (event: KeyboardEvent) => {
+        if (
+          event.key !== "ArrowLeft" ||
+          document.querySelector(".recharts-tooltip-wrapper time")?.getAttribute("datetime") !==
+            targetDate
+        )
+          return;
+        const container = document.querySelector<HTMLElement>(".recharts-responsive-container")!;
+        const before = container.getBoundingClientRect().top;
+        container.parentElement!.style.paddingTop = "60px";
+        window.tooltipLayoutShift = {
+          before,
+          after: container.getBoundingClientRect().top,
+          trusted: event.isTrusted,
+        };
+        document.removeEventListener("keydown", shift, true);
+      };
+      document.addEventListener("keydown", shift, true);
+    }, dailyRows[14][0]);
+
+    const facts = await tooltip(page, metric, dailyRows);
+    const shift = await page.evaluate(() => window.tooltipLayoutShift);
+    expect(shift).toBeDefined();
+    expect(shift!.after - shift!.before).toBe(60);
+    expect(shift!.trusted).toBe(true);
+    expect(facts.pointer).not.toBeNull();
+    expect(facts.pointer!.fromDate).toBe(dailyRows[13][0]);
+    await expect(page.locator(".recharts-tooltip-wrapper time")).toHaveAttribute(
+      "datetime",
+      dailyRows[14][0],
+    );
+    await jsonEvidence(info, "layout-shift-tooltip.json", { metric, shift, facts });
+  });
+}
