@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import { messageOf, targetOf } from "../core/changes";
-import { canMark, patchIdentity, viewedSummary } from "../core/viewed-files";
+import { patchIdentity } from "../../review-ui/patch-identity";
+import { canMark, viewedSummary } from "../core/viewed-files";
 import { EMPTY_ENTRY, viewedFiles, viewedKey } from "../core/viewed-store";
 import type { LoadedChanges, Patches } from "./use-patches";
 

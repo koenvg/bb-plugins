@@ -10,5 +10,11 @@
     "noEmit": true,
     "skipLibCheck": false
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "scripts/**/*.tsx"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.tsx",
+    "playwright.config.ts"
+  ]
 }

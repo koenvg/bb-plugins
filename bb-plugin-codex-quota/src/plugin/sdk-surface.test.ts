@@ -52,6 +52,21 @@ describe("public SDK and quota-only boundary", () => {
     ]);
     expect(
       scan.violations.filter((entry) => {
+        // Preview tooling is never shipped as a plugin entry. Keep exceptions file-scoped.
+        if (entry.reason === "outside-allowlist") {
+          if (
+            entry.specifier === "@playwright/test" &&
+            (entry.file === "playwright.config.ts" || entry.file.startsWith("scripts/browser/"))
+          )
+            return false;
+          if (
+            entry.file === "scripts/preview-server.mjs" &&
+            ["esbuild", "@tailwindcss/node", "@tailwindcss/oxide"].includes(entry.specifier)
+          )
+            return false;
+          if (entry.file === "vitest.config.ts" && entry.specifier === "vitest/config")
+            return false;
+        }
         // Only these synthetic probes may use the public test harness outside *.test.ts.
         if (
           entry.reason === "outside-allowlist" &&

@@ -77,6 +77,7 @@ export const unusedRpc = {
   saveCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
+  updateViewed: () => ({ kind: "error" as const, message: "unused" }),
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
   localCommitsAhead: () => ({ kind: "unknown" as const }),

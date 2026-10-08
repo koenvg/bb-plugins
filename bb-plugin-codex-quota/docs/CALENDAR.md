@@ -52,11 +52,11 @@ Stopped preparation stays stopped on focus or visibility return. Select Retry pr
 
 Host changes, hiding and unmounting cancel queued continuation and ignore late results. Frontend RPC cannot retract work already dispatched. Invalid or unavailable evidence stops automatically. Three consecutive transport failures, three unchanged progress responses after the first response, or 2,048 requests stop the round and show Retry preparation. Unknown ownership remains uncertain after a settled scan; it is not a reason to keep requesting forever. Preparation only loads existing plugin-owned logs into compatible configured storage. It does not change collector controls or assets, scan transcripts, create or migrate storage, perform recovery or ownership backfill, prune logs, change retention, or start imports. Those operations remain in Collection and history management. Dates, metrics and Refresh chart never start preparation.
 
-Quota, its footer, countdown, host selection, refresh and the official usage link remain independent of chart failure. At 375 CSS pixels the primary controls wrap. The browser fixture checks document overflow and settled chart width, not native touch or installed BB settings navigation.
+Quota, its footer, countdown, host selection, refresh and the official usage link remain independent of chart failure. At 375 CSS pixels the primary controls wrap. The browser fixture checks document overflow, settled chart width and trusted Chromium mouse, keyboard and emulated touch input. It does not prove physical-device input or installed BB settings navigation.
 
 The 30-day chart has a collapsed Inspect a date control below it. Open it to select any date with a native button. The picker uses five columns on narrow screens and ten on wider screens, with a minimum button height of 36px. Selected facts use the same date and exact values as the chart tooltip, including nonzero exclusions and separate uncertain token estimates. Coverage and pricing details remain in the accessible table. Unknown history stays unavailable; recorded inactivity stays zero. Date selection is local and makes no report request.
 
-For touch-target measurements and native-input regression checks, build the existing calendar preview with the generated plugin CSS and serve it on localhost. Run `browser-use < scripts/check-date-picker-preview.py`. Set `BBP119_PREVIEW_URL` for the loopback URL and `BBP119_EVIDENCE_DIR` for screenshots and JSON measurements. The script uses and closes only a new owned tab. Browser device emulation is not a physical-device check or installed acceptance. If background touch input is blocked, `BBP119_SKIP_TOUCH=1` runs the remaining checks and explicitly reports that touch is not verified.
+For date-picker target measurements and trusted-input regression checks, run `npm run test:browser -- date-picker.spec.ts` after the setup below. All twelve width/state cases run without a touch-skip option. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
 
 ## Storage and interfaces
 
@@ -70,35 +70,34 @@ Preparation opens that existing index for bounded writes only after the same saf
 
 ## Maintained synthetic verification
 
-Run from this package with dependencies installed. Build this checkout only. Do not install it over the parent build.
+Run from this package. Browser checks do not need the BB CLI or an installed plugin.
 
 ```sh
-npm test -- src/history/calendar src/history/history-management.test.tsx
+npm ci
+npx playwright install chromium
+npm run test:browser
 npm test
 npm run typecheck
-bb plugin types --check
-bb plugin build
-# Python with Pillow installed; Browser Use CLI on PATH. No Playwright launch.
-python3 -B -m unittest discover -s scripts -p 'test_preview_*.py'
-python3 scripts/check-calendar-preview.py --output-parent /path/to/existing/receipt-parent
-python3 scripts/check-money-preview.py --output-parent /path/to/existing/receipt-parent
+# Diagnostic subset only. Do not report a subset as full acceptance.
+npm run test:browser -- calendar.spec.ts --grep 'calendar.*partial'
+npm run test:browser -- calendar.spec.ts --grep '^money'
 ```
 
-Both runners build the synthetic frontend with Bun, using this checkout's `dist/app.css`. `--css` selects another current built CSS file. They create a fresh `bbp131-*` directory under `--output-parent`, never reuse an old receipt root, and start an owned server on `127.0.0.1`. `--port 0` is the default and selects a free port. An occupied fixed port fails; it does not replace another server. `--browser-use` selects the approved CLI executable. `--states partial,unknown` runs a diagnostic subset; omit it for the full suite.
+The Node preview builds the existing TSX fixtures and scoped Tailwind CSS from this checkout into a fresh temporary directory. Playwright starts its owned loopback server on port 38716, refuses an occupied port, and launches fresh Chromium contexts. It does not reuse a user browser, daemon, server or signed-in profile. It removes only its fresh preview directory on normal shutdown. See [browser verification](BROWSER-TESTING.md) for all old-to-new coverage mappings.
 
 The fixture loads the real plugin app through public SDK `loadPluginApp` and `renderSlot` interfaces. RPCs, hosts and time are synthetic. It includes the real navigation panel, refresh owner and settings section. The synthetic route buttons are fixture controls, not BB product controls. All served resources are local, with a restrictive content security policy. The official link is inspected and focused, never followed.
 
-The runner uses a fresh default-browser connection and task-created blank tab. It records the target before navigation. Cleanup checks recorded ownership, clears emulation and closes only that tab. It restores the previous agent attachment if the target still exists. It shuts down only its own server and removes only its token-marked preview directory. Receipts remain. It does not stop the browser or other connections, select Arc, change login state or use real source roots.
+Playwright owns its browser and contexts and closes them after each test run. No existing tab or login state is used. The preview serves an explicit file allowlist, never the checkout or source roots. Browser routing and server CSP block external traffic. The official link remains local evidence of its target and focusability, not an external navigation test.
 
 The calendar suite covers both metrics at desktop and 375 CSS pixels, exact tooltips and matching facts in the browser accessibility tree, unknown versus inactive dates, retained values with expired classes, large safe values, loading/unavailable/stale states, bounded Previous/Next navigation, retry/latest recovery, pending selection, late canceled-key responses and settings close/reopen behavior. The money suite adds missing prices and tiny positive captured estimates. Metric changes must not send RPCs. Date/retry navigation must send only calendar reads. Management runs only after settings is opened and its disclosure is expanded.
 
 The accessibility check follows the named table's own AX descendants. It matches all 30 dates and their cells in order, checks the column headers, and verifies timezone and the cost limit in that table's caption. Unrelated tooltip text cannot supply missing table facts. For positive bars, the hover check first moves the keyboard tooltip to another date, then requires pointer input to restore the target date and every exact tooltip line. Its pointer receipt is separate from the keyboard receipt. Missing or zero-height bars have no positive-bar pointer receipt.
 
-Recharts schedules hover through an animation frame. The driver requests a browser-rendered frame after the pointer event so an occluded window can process it. This does not replace the hover handler or change product code. The runner does not activate the tab. Cleanup waits up to five seconds for the recorded tab to disappear and fails if it remains.
+Recharts schedules hover through an animation frame. Playwright moves the real browser mouse and waits for the exact target date, then checks every definition value. It does not dispatch a DOM mouse event or replace the hover handler. Vitest proof regressions reject a no-op hover, incorrect values and an unchanged keyboard date.
 
-`config.json`, `checks.json`, `browser-owned.json`, build/browser logs and `result.json` are receipts. Each PNG comes from the browser screenshot API, decodes as PNG, has usable dimensions and non-solid pixels. The result records dimensions and SHA-256 hashes. A diagnostic failure is not a pass. Recharts can omit numeric tick labels when every daily value is missing or zero; the runner still requires date ticks and the value-axis label. Positive-value cases require numeric ticks.
+`test-results/` holds named PNGs, decoded image dimensions and SHA-256 JSON, per-case `checks.json` and `result.json`, and date-picker `measurements.json`. `playwright-report/` includes these attachments. Failures retain traces and screenshots. PNG checks decode pixels and reject invalid or solid captures. Recharts can omit numeric tick labels when every daily value is missing or zero; tests still require date ticks and the value-axis label. Positive-value cases require numeric ticks.
 
-Browser checks use DOM-generated change, keyboard and pointer events through Browser Use. These prove browser rendering and React behavior, not native OS input, native dropdown operation, screen-reader speech or touch. Direct CDP input failed in the local hidden-tab run; those attempts are not passes. Separate public SDK React tests cover queued close/unmount cancellation at deterministic request boundaries. Browser close/reopen checks cannot prove that already dispatched host work was canceled.
+Keyboard, mouse and date-picker touch checks use Playwright browser input. Date-picker receipts require `isTrusted` and mouse/touch pointer types. Select controls use `selectOption`; native OS dropdown interaction is not proved. AX facts do not prove screen-reader speech. Separate public SDK React tests cover queued close/unmount cancellation at deterministic request boundaries. Browser close/reopen checks cannot prove that already dispatched host work was canceled.
 
 The browser late-response cases still use identical host values and fixed settle delays. They are weaker than the deterministic public SDK cancellation tests. They do not independently prove rejection of a different wrong-host payload. Keep that browser-evidence limit separate from the stronger SDK tests.
 

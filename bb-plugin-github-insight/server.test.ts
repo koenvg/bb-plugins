@@ -1305,6 +1305,92 @@ describe("getReview", () => {
   });
 });
 
+describe("viewed marks", () => {
+  const KEY = "viewed:v1:collibra/frontend#25259";
+
+  function twoThreadsOnOnePr(kv: Record<string, unknown> = {}) {
+    return setup({
+      threads: [
+        { id: "thr_1", environmentId: "env_1" },
+        { id: "thr_2", environmentId: "env_2" },
+      ],
+      pullRequests: { env_1: linkedPr(25259), env_2: linkedPr(25259) },
+      host: recordedReviewHost,
+      kv,
+    });
+  }
+
+  it("returns the stored marks of the PR with the review, and not the marks of another PR", async () => {
+    const harness = await twoThreadsOnOnePr({
+      [KEY]: { v: 1, marks: { "a.ts": "1:aa" } },
+      "viewed:v1:collibra/frontend#1": { v: 1, marks: { "b.ts": "1:bb" } },
+    });
+
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
+
+    expect(result).toMatchObject({ kind: "ok", viewedMarks: { "a.ts": "1:aa" } });
+  });
+
+  it("saves marks under the PR, so another thread on the same PR reads them", async () => {
+    const harness = await twoThreadsOnOnePr();
+
+    const saved = await harness.behavior.callRpc("updateViewed", {
+      threadId: "thr_1",
+      set: { "a.ts": "1:aa" },
+      remove: [],
+    });
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_2",
+    })) as ReviewResult;
+
+    expect(saved).toEqual({ kind: "ok" });
+    expect(await harness.kv.get(KEY)).toEqual({ v: 1, marks: { "a.ts": "1:aa" } });
+    expect(result).toMatchObject({ kind: "ok", viewedMarks: { "a.ts": "1:aa" } });
+  });
+
+  it("removes marks", async () => {
+    const harness = await twoThreadsOnOnePr({
+      [KEY]: { v: 1, marks: { "a.ts": "1:aa", "b.ts": "1:bb" } },
+    });
+
+    await harness.behavior.callRpc("updateViewed", {
+      threadId: "thr_1",
+      set: {},
+      remove: ["a.ts"],
+    });
+
+    expect(await harness.kv.get(KEY)).toEqual({ v: 1, marks: { "b.ts": "1:bb" } });
+  });
+
+  it("reports an error and makes no GitHub call when bb links no PR", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: "env_1" }] });
+
+    const result = await harness.behavior.callRpc("updateViewed", {
+      threadId: "thr_1",
+      set: { "a.ts": "1:aa" },
+      remove: [],
+    });
+
+    expect(result).toEqual({ kind: "error", message: "No pull request for this thread" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("does not publish a review update", async () => {
+    const harness = await twoThreadsOnOnePr();
+
+    await harness.behavior.callRpc("updateViewed", {
+      threadId: "thr_1",
+      set: { "a.ts": "1:aa" },
+      remove: [],
+    });
+
+    expect(harness.realtimeSignals).toHaveLength(0);
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+});
+
 describe("reply and resolve", () => {
   const REVIEW_THREAD = "PRRT_kwDOHI7l-86jxula";
   const BODY = 'Fixed in "abc123"\nThanks';

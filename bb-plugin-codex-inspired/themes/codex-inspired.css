@@ -70,6 +70,12 @@
   --pr-merged: #ba9ae4;
 }
 
+/* Separate keyboard focus from the button edge, including filled actions. */
+:is(button, [role="button"]):focus-visible:not(:disabled):not([aria-disabled="true"]) {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
 /* Sidebar typography only; code metadata keeps its monospace font. */
 [data-sidebar="sidebar"] {
   --font-sans: "Inter Variable", Inter, sans-serif;

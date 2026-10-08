@@ -1275,7 +1275,7 @@ describe("returned review threads", () => {
     },
   );
 
-  it("ignores a stopped thread the plugin did not start", async () => {
+  it("does not return a stopped thread the plugin did not start", async () => {
     const { service, published, kv } = serviceWith({
       listThreads: async () => [thread("thr_branch", "env_1", 1, null, { status: "idle" })],
       resolveEnvironmentPr: async () => linkedTo("acme", "api", 15),
@@ -1286,8 +1286,7 @@ describe("returned review threads", () => {
     await service.threadStopped("thr_branch");
 
     expect([...kv.entries.keys()]).toEqual(keys);
-    expect(published).toHaveLength(1);
-    expect(returnedOf(published[0]!)).toEqual({ row: null, view: false });
+    expect(returnedOf(published.at(-1)!)).toEqual({ row: null, view: false });
   });
 
   it("clears a returned thread when the user opens it, and returns it after a follow-up", async () => {
@@ -1385,5 +1384,71 @@ describe("returned review threads", () => {
       ["acme/web", [3]],
       ["acme/api", [15]],
     ]);
+  });
+});
+
+describe("linked thread status", () => {
+  function branchThreadOn15(status: () => QueueThread["status"]) {
+    return {
+      listThreads: async () => [thread("thr_branch", "env_1", 1, null, { status: status() })],
+      resolveEnvironmentPr: async () => linkedTo("acme", "api", 15),
+    };
+  }
+
+  function statusOf(result: LoadedReviewQueue) {
+    return firstReviewRequest(result).thread?.status;
+  }
+
+  it("shows a linked thread as running when the user sends it a new message", async () => {
+    let status: QueueThread["status"] = "idle";
+    const { service, published } = serviceWith(branchThreadOn15(() => status));
+    await service.refreshReviewQueue();
+    status = "active";
+
+    await service.threadActive("thr_branch");
+
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(statusOf(published[1]!)).toBe("running");
+  });
+
+  it("shows a review thread as running again after a follow-up message", async () => {
+    let status: QueueThread["status"] = "idle";
+    const { service, published } = serviceWith({
+      listReviewThreads: async () => [reviewThread("thr_review", { status })],
+      readPluginMetadata: metadataOf({ thr_review: reviewPrEntry("acme/api", 15) }),
+    });
+    await service.refreshReviewQueue();
+    await service.threadStopped("thr_review");
+    status = "active";
+
+    await service.threadActive("thr_review");
+
+    await vi.waitFor(() => expect(published).toHaveLength(3));
+    expect(firstReviewRequest(published[2]!).thread).toMatchObject({
+      status: "running",
+      returned: null,
+    });
+  });
+
+  it("shows a linked thread the plugin did not start as idle when its agent stops", async () => {
+    let status: QueueThread["status"] = "active";
+    const { service, published } = serviceWith(branchThreadOn15(() => status));
+    await service.refreshReviewQueue();
+    status = "idle";
+
+    await service.threadStopped("thr_branch");
+
+    await vi.waitFor(() => expect(published).toHaveLength(2));
+    expect(statusOf(published[1]!)).toBe("idle");
+  });
+
+  it("ignores a thread that no PR in the queue links to", async () => {
+    const { service, published } = serviceWith(branchThreadOn15(() => "idle"));
+    await service.refreshReviewQueue();
+
+    await service.threadActive("thr_other");
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(published).toHaveLength(1);
   });
 });

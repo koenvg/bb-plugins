@@ -55,14 +55,86 @@ describe("rendered reader", () => {
     expect(
       within(slot.getByRole("group", { name: "Document view" }))
         .getAllByRole("button")
-        .map((b) => b.textContent),
+        .map((b) => b.getAttribute("aria-label")),
     ).toEqual(["Preview", "Raw"]);
+    for (const button of within(slot.getByRole("group", { name: "Document view" })).getAllByRole(
+      "button",
+    )) {
+      expect(button.textContent).toBe("");
+    }
     expect(
       within(slot.getByRole("group", { name: "Reader actions" }))
         .getAllByRole("button")
-        .map((b) => b.textContent),
+        .map((b) => b.getAttribute("aria-label")),
     ).toEqual(["Outline", "Refresh"]);
   });
+  it("keeps toolbar icons decorative and hints available to hover and keyboard users", async () => {
+    const { slot } = await mount();
+    await slot.findByRole("heading", { name: "Document" });
+    const controls = slot.getByRole("group", { name: "Document controls" });
+    expect(
+      Array.from(controls.querySelectorAll("[data-icon]")).map((icon) => [
+        icon.getAttribute("data-icon"),
+        icon.getAttribute("aria-hidden"),
+      ]),
+    ).toEqual([
+      ["Eye", "true"],
+      ["Code", "true"],
+      ["ListView", "true"],
+      ["RotateCcw", "true"],
+    ]);
+    const user = userEvent.setup();
+    const outline = slot.getByRole("button", { name: "Outline" });
+    const refresh = slot.getByRole("button", { name: "Refresh" });
+    await user.tab();
+    expect(slot.getByRole("tooltip").textContent).toBe("Preview");
+    await user.tab();
+    expect(slot.getByRole("tooltip").textContent).toBe("Raw");
+    await user.tab();
+    expect(document.activeElement).toBe(outline);
+    expect(slot.getByRole("tooltip").textContent).toBe("Outline");
+    expect(outline.getAttribute("aria-describedby")).toBe(slot.getByRole("tooltip").id);
+    await user.keyboard("{Escape}");
+    expect(slot.queryByRole("tooltip")).toBeNull();
+    expect(outline.hasAttribute("aria-describedby")).toBe(false);
+    expect(document.activeElement).toBe(outline);
+    await user.keyboard(" ");
+    expect(outline.getAttribute("aria-pressed")).toBe("false");
+    await user.tab();
+    expect(document.activeElement).toBe(refresh);
+    expect(slot.getByRole("tooltip").textContent).toBe("Refresh");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
+    await user.tab();
+    expect(slot.queryByRole("tooltip")).toBeNull();
+    await user.hover(outline);
+    expect(slot.getByRole("tooltip").textContent).toBe("Outline");
+    await user.unhover(outline);
+    expect(slot.queryByRole("tooltip")).toBeNull();
+  });
+  it.each(["Outline", "Refresh"])(
+    "dismisses a hover-open %s hint with focus elsewhere",
+    async (name) => {
+      const { slot } = await mount();
+      await slot.findByRole("heading", { name: "Document" });
+      const user = userEvent.setup();
+      const preview = slot.getByRole("button", { name: "Preview" });
+      const action = slot.getByRole("button", { name });
+      await user.tab();
+      expect(document.activeElement).toBe(preview);
+      await user.keyboard("{Escape}");
+      await user.hover(action);
+      expect(slot.getByRole("tooltip").textContent).toBe(name);
+      await user.keyboard("{Escape}");
+      expect(slot.queryByRole("tooltip")).toBeNull();
+      expect(action.hasAttribute("aria-describedby")).toBe(false);
+      expect(document.activeElement).toBe(preview);
+      expect(slot.inspection.rpcCalls).toHaveLength(1);
+      await user.unhover(action);
+      await user.hover(action);
+      expect(slot.getByRole("tooltip").textContent).toBe(name);
+    },
+  );
   it.each([
     ["reports/workspace.md", "workspace.md", "reports/"],
     ["/notes/a-very-long-document-name.md", "a-very-long-document-name.md", "/notes/"],

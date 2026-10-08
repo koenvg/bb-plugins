@@ -82,6 +82,24 @@ Typechecking uses each plugin's existing local compiler and configuration. A pas
 
 For Tasks Plus, run `npm ci` followed by `npm run lint` in `bb-plugin-tasks-plus`. Oxlint remains a locked development dependency; its lint command uses the shared repository config, with no global lint binary required.
 
+## Browser tests
+
+Vitest remains the main test runner. Compose Chat, Markdown Reader, and Codex Quota also have TypeScript Playwright suites for their local browser fixtures. These replace the Python browser scripts, not the Vitest or Node tests.
+
+From the repository root, install each package and Chromium once:
+
+```sh
+for plugin in bb-plugin-compose-chat bb-plugin-markdown-reader bb-plugin-codex-quota; do
+  npm ci --prefix "$plugin" || exit
+  (cd "$plugin" && npx --no-install playwright install chromium) || exit
+done
+npm run test:browser
+```
+
+On Linux, use `playwright install --with-deps chromium` to install browser system dependencies too. To run one suite, use `npm --prefix bb-plugin-markdown-reader run test:browser`, for example. The root command runs packages in sequence and stops on the first failure.
+
+Each suite builds or serves current local fixture code and launches its own Chromium. It does not use a signed-in browser, installed BB, real hosts, or billing data. Screenshots are evidence captures, not pixel-baseline comparisons. Reports go to each package's ignored `playwright-report/` and `test-results/` directories; failures retain screenshots and traces. See each package's browser-testing instructions for its coverage and limits.
+
 ## GitHub Actions
 
 The [Tests workflow](.github/workflows/tests.yml) runs all remaining plugins on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Node 24.15 or newer within Node 24, an npm download cache keyed by its lockfile, and the same `npm ci`, `npm test`, and `npm run typecheck` commands shown above. CI installs the SQLite CLI for Tasks Plus and runs its `npm run lint` command with the local Oxlint dependency. GitHub Insight gets the sibling PR thread-list's locked dependencies before validation.
@@ -90,6 +108,6 @@ Each plugin has one combined result. After required setup succeeds, both validat
 
 A failed plugin check does not cancel the other plugin checks. New commits cancel superseded runs for the same pull request or branch. Approved fork pull requests run without repository secrets or write permissions; GitHub may require maintainer approval before they start.
 
-This workflow runs tests and typechecks for all plugins and lint for Tasks Plus. A separate job installs the root tools and runs `npm run check` for lint and formatting across the repository. The workflow does not run builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
+This workflow runs tests and typechecks for all plugins and lint for Tasks Plus. A separate job installs the root tools and runs `npm run check` for lint and formatting across the repository. A separate browser matrix installs Chromium with its system dependencies and runs the three Playwright suites. It saves reports, screenshots, and failure traces for seven days. These jobs build local fixture assets, but the workflow does not run plugin release builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
 
 When adding a plugin, give it `npm test` and `npm run typecheck` scripts and add its directory to the workflow's `matrix.plugin` list. Include any required setup in both validation-step conditions so failed setup cannot start either check.

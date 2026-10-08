@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useId, useRef, useCallback } from "react";
 import type { ComponentType } from "react";
 import { Button } from "./components/ui/button";
+import { IconAction } from "./components/ui/icon-action";
 import { MarkdownDocument, createDocumentModel } from "./document";
 import type { ReaderTarget, ReadResult, TextSnapshot } from "./source";
 import { Outline, useWidePanel } from "./outline";
@@ -93,30 +94,29 @@ export function Reader({
         </div>
         <div className="mr-controls" role="group" aria-label="Document controls">
           <div className="mr-view-controls" role="group" aria-label="Document view">
-            <Button
-              variant="ghost"
+            <IconAction
+              icon="Eye"
+              label="Preview"
               aria-pressed={view === "preview"}
               onClick={() => setView("preview")}
-            >
-              Preview
-            </Button>
-            <Button variant="ghost" aria-pressed={view === "raw"} onClick={() => setView("raw")}>
-              Raw
-            </Button>
+            />
+            <IconAction
+              icon="Code"
+              label="Raw"
+              aria-pressed={view === "raw"}
+              onClick={() => setView("raw")}
+            />
           </div>
           <div className="mr-reader-actions" role="group" aria-label="Reader actions">
             {view === "preview" && !!model?.headings.length && (
-              <Button
-                variant="ghost"
+              <IconAction
+                icon="ListView"
+                label="Outline"
                 aria-pressed={showOutline}
                 onClick={() => setShowOutline((show) => !show)}
-              >
-                Outline
-              </Button>
+              />
             )}
-            <Button variant="ghost" onClick={() => setRefresh((n) => n + 1)}>
-              Refresh
-            </Button>
+            <IconAction icon="RotateCcw" label="Refresh" onClick={() => setRefresh((n) => n + 1)} />
           </div>
         </div>
       </header>

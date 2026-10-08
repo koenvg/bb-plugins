@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "./changes";
-import { patchIdentity, viewedSummary } from "./viewed-files";
+import { patchIdentity } from "../../review-ui/patch-identity";
+import { viewedSummary } from "./viewed-files";
 
 const PATCH = "@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
 const SAME_COUNTS_EDIT = "@@ -1,3 +1,3 @@\n keep\n-old\n+newer\n keep\n";
@@ -17,16 +18,6 @@ function file(path: string, overrides: Partial<ChangedFile> = {}): ChangedFile {
     ...overrides,
   };
 }
-
-describe("patchIdentity", () => {
-  it("is the same for the same patch", () => {
-    expect(patchIdentity(PATCH)).toBe(patchIdentity(`${PATCH}`));
-  });
-
-  it("changes for an edit with the same line counts", () => {
-    expect(patchIdentity(SAME_COUNTS_EDIT)).not.toBe(patchIdentity(PATCH));
-  });
-});
 
 describe("viewedSummary", () => {
   const patches: Record<string, string> = { "src/a.ts": PATCH, "src/b.ts": PATCH };

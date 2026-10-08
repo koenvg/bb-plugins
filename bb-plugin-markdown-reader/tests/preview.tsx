@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import type { LineRequest } from "../source-lines";
 import { createRoot } from "react-dom/client";
 import { Reader } from "../reader";
@@ -73,6 +74,8 @@ function FixtureReader({ index = 0 }: { index?: number }) {
     />
   );
 }
+// The reader's host icons need the public SDK runtime even in this direct-render fixture.
+installTestPluginRuntime();
 createRoot(document.getElementById("root")!).render(
   <div className="fixture-layout">
     <aside className="fixture-outside" aria-label="Host style sentinel">

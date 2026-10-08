@@ -157,6 +157,7 @@ describe("public server RPC", () => {
         /^@get-bb\/plugin-sdk\/testing\/host$/,
         /^@testing-library\/(react|user-event)$/,
         /^vitest\/config$/,
+        /^@playwright\/test$/,
       ],
     });
     expect(result.violations).toEqual([]);

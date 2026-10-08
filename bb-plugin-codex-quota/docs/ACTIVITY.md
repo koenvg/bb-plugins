@@ -25,20 +25,16 @@ Use synthetic credentials, stubbed network, temporary files, and isolated previe
 
 ## Synthetic preview
 
-The early desktop and 375px preview uses the real React components and generated scoped CSS. It shows the maximum safe token count, missing streaks, and derived overflow. Inspection confirmed readable stacked/wrapped controls, retained quota/link access, and no page-wide overflow. Browser-use's default executable lookup failed despite an available Playwright Chromium, so the preview used Playwright's default isolated Chromium with no user profile.
+The desktop and 375px preview uses the existing React components and generated scoped Tailwind CSS. It shows the maximum safe token count, missing streaks, and derived overflow. The maintained Playwright suite checks stacked/wrapped controls, quota/link access, keyboard table scrolling, stopped reads and page overflow in fresh Chromium contexts.
 
 To repeat without installing or reloading the plugin:
 
 ```sh
-# From this package, after tests/typecheck/SDK checks and bb plugin build.
-bun build scripts/activity-preview.tsx --target browser --outdir /tmp/bbp24-preview
-cp dist/app.css /tmp/bbp24-preview/app.css
-cp scripts/activity-preview.html /tmp/bbp24-preview/index.html
-python3 -m http.server 38724 --bind 127.0.0.1 --directory /tmp/bbp24-preview
-# In another shell with Playwright Chromium available:
-uv run --with playwright python scripts/check-activity-preview.py
+npm ci
+npx playwright install chromium
+npm run test:browser -- activity.spec.ts
 ```
 
-Stop the temporary HTTP server after the check. Screenshots and layout evidence go to `/tmp/bbp24-evidence`, or `ACTIVITY_EVIDENCE_DIR`. The fixture denies external browser requests. It is not an installed BB slot, real sign-in, or live endpoint check.
+Playwright owns the server and browser lifetime. Screenshots, decoded PNG hashes and layout JSON go to `test-results/`, with attachments in `playwright-report/`. See [browser verification](BROWSER-TESTING.md). The fixture blocks external browser requests. It is not an installed BB slot, real sign-in, or live endpoint check.
 
 The OpenForge Codex Usage package declares MIT. Endpoint/field mapping and UTC weekly grouping are adapted from its `codexUsageAdapter.ts` and `normalization.ts`. Preserve the license in `LICENSE.activity`; do not import or modify that checkout.

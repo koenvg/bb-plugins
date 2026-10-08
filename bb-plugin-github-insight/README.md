@@ -54,6 +54,7 @@ app --archiveReview--> server --> bb.sdk.threads.archive
 app --markReviewed / markNeedsReview--> server --> kv "reviewed:<owner/repo#n>"
 app --markQueueSeen--> server --> kv "review-seen"
 thread.idle / thread.failed --> server --> kv "review-returned:<threadId>"
+thread.active --> server --> re-link (linked threads only)
 composer banner --markThreadOpened--> server --> deletes "review-returned:<threadId>"
 ```
 
@@ -65,11 +66,12 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - After each load, the service writes the result to the kv entry `review-queue` (`{ v: 2, result }`) and publishes it on `review-queue.updated`. A failed load keeps the last good lists in the entry. The entry stays after a bb restart. An entry of another version reads as no entry.
 - `getReviewQueue` returns the stored result at once and never waits for GitHub. Before the first load, it returns `loading`, and the panel shows "Loading pull requests…" until the first result is published.
 - The panel reads the stored result when it opens and shows each published result. It has no timer of its own. Refresh calls `refreshReviewQueue`, which loads at once. The old lists stay visible until the new result arrives.
-- `startReview`, `archiveReview`, `markReviewed`, `markNeedsReview`, `markQueueSeen`, `markThreadOpened`, and a review thread's `thread.idle` or `thread.failed` build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
+- `startReview`, `archiveReview`, `markReviewed`, `markNeedsReview`, `markQueueSeen`, `markThreadOpened`, a review thread's `thread.idle` or `thread.failed`, and `thread.active`, `thread.idle`, or `thread.failed` of a thread linked in the stored list build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
 - A failed load shows the reason and "Retry". The last good lists stay visible with their load time. With no primary host, the panel shows "No host available".
 - A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
-- The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions.
-- A card shows the thread status (Running, Needs you, Idle, or Error) and "Open thread" when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. A review thread also has "Archive thread". Else a PR in a repo with a bb project shows "Review in thread". Every card has "Mark reviewed" or "Mark as needs review", and "Open on GitHub".
+- The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions. The review decision shows only Approved or Changes requested.
+- A card shows a status button (Running, Needs you, Ready, Failed, or Waiting) that opens the thread when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. Else a PR in a repo with a bb project shows "Start review". Every card has "Archive thread", but it works only for a review thread; otherwise it is disabled and its tooltip says "Only review threads can be archived". Every card has "Mark reviewed" or "Mark as needs review", and "Open on GitHub". In a wide panel, the status buttons line up on the right, next to the 3 icon buttons, which keep the same place on every card.
+- The "Needs review" header shows a chip with a count for each thread status other than Waiting that has at least one PR. A click on a chip shows only the PRs with that status. A second click shows all PRs again. When the last PR with the chosen status changes, the chip stays with 0 and the list says "No pull requests match this filter" and offers "Show all". The header count stays the total.
 
 ### Sidebar badge
 
@@ -78,12 +80,12 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - When the panel shows the list with an unseen PR, it calls `markQueueSeen` with the PRs it renders. The server replaces `review-seen` with them. Each build of the lists also removes PRs that left "Needs review" from the set, so a later request counts as new.
 - A dot shows when a review thread came back: its agent stopped (`thread.idle` or `thread.failed`), is still stopped, and the user has not opened it since, or it needs the user. The dot also shows without a count.
 - A stopped review thread writes the kv entry `review-returned:<threadId>` (`queue/returned-threads.ts`). Other threads are ignored. The composer banner of every opened thread calls `markThreadOpened`. The server deletes the entry, or does nothing when there is none. When the agent stops while the thread is open, the banner sees it in the next `review-queue.updated` and calls again. A thread that needs the user stays returned until answered. Entries of archived or deleted threads are deleted after the next build. A failed metadata read keeps the entry.
-- A card with a returned thread shows "Agent finished", "Needs you", or "Failed" as a pill.
+- A card with a returned thread shows "Ready", "Needs you", or "Failed" as a pill.
 
 ### Reviewed state
 
 - "Mark reviewed" writes the kv entry `reviewed:<owner/repo#n>` (lowercase): `{ v: 1, owner, repo, number, headOid, markedAt }` (`queue/reviewed-marks.ts`). `headOid` is the head commit that the card shows.
-- `core/review-state.ts` compares the mark with the current head: no mark is "Needs review", the same commit is "Reviewed", another commit is "Needs review" with "Updated since review". A push or force push changes the head, so the PR comes back by itself.
+- `core/review-state.ts` compares the mark with the current head: no mark is "Needs review", the same commit is "Reviewed", another commit is "Needs review" with "New commits". A push or force push changes the head, so the PR comes back by itself.
 - "Reviewed" is collapsed when the panel opens. "Mark as needs review" deletes the mark. A PR with no request and no review thread then leaves the list.
 - A successful submit in the Review tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
 - A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps the newest time of each kind:
@@ -91,7 +93,7 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
   - "Review requested again": a review request to your login. Requests to a team do not count.
 - "Mark reviewed" writes a new `markedAt`, so it clears both labels. PRs with no mark get no activity labels, also when they have a review thread.
 - Reviews submitted on github.com do not set a mark.
-- "Review in thread" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
+- "Start review" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
 
 ### Hidden review threads
 
@@ -106,15 +108,15 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 1. Run `gh auth status` on the primary host. It must show a logged-in user.
 2. Install the plugin (see "Develop") and open **Pull Requests** in the bb sidebar.
 3. "Needs review" shows the same PRs as `https://github.com/pulls/review-requested`, with its count. Its header row shows Refresh and "Updated <time> ago".
-4. On a review request in a repo that has a bb project, select "Review in thread". The composer shows that project, a new worktree, and the review prompt. Submit it.
+4. On a review request in a repo that has a bb project, select "Start review". The composer shows that project, a new worktree, and the review prompt. Submit it.
 5. bb opens the new thread. It is not in the sidebar thread list. The agent runs `gh pr checkout <n>`. Then the PR and Review tabs show that PR.
-6. Go back to **Pull Requests**. The card shows the thread status and "Open thread".
+6. Go back to **Pull Requests**. The card shows the thread status button.
 7. Select "Mark reviewed" on the card. The PR moves to "Reviewed". Select "Mark as needs review" to move it back.
-8. Select "Archive thread" on the card. bb archives the thread, and the card shows "Review in thread" again.
+8. Select "Archive thread" on the card. bb archives the thread, and the card shows "Start review" again.
 9. Run `gh auth logout` on the primary host and select Refresh. The panel shows "gh not logged in", "Retry", and the last lists with their load time. Log in again and select "Retry".
 10. Restart bb and open **Pull Requests** at once. The panel shows the lists from before the restart.
 11. With the panel closed, wait for a new review request. The sidebar count becomes a pill. Open the panel. The pill goes back to a plain count.
-12. Start a review thread and leave the panel. When the agent finishes, a dot shows next to the count within seconds. Open **Pull Requests**. The card shows "Agent finished". Select "Open thread". The dot goes away.
+12. Start a review thread and leave the panel. When the agent finishes, a dot shows next to the count within seconds. Open **Pull Requests**. The card shows "Ready". Select the status button. The dot goes away.
 
 ## PR summary
 
@@ -196,6 +198,20 @@ submitReview --> server: load the review again (files, threads, head, drafts fro
 - The server builds the review from kv. It does not use the tab's copy of the drafts.
 - The variables go to `gh` as JSON on stdin, so a large review does not hit the argument length limit.
 - One submit is one GitHub write. The CLI never submits.
+
+### Viewed files
+
+Each file in the Review tab that has a patch shows a collapse button and a "Viewed" checkbox in its header. It works like the Changes tab.
+
+- Checking "Viewed" marks the file and collapses it. Unchecking expands it. The collapse button only expands or collapses: the toggle stays while bb runs, and resets on a reload or when the mark changes.
+- The top shows "N/M viewed". M counts the files with a patch.
+- A mark is the hash of the file's patch (`review-ui/patch-identity.ts`, on the output of `gitPatch`). When a push changes the patch or the file leaves the PR, the tab removes the mark (`core/viewed-marks.ts`).
+- Marks belong to the PR, so every thread on the PR shows the same marks. They never go to GitHub.
+- `getReview` returns `viewedMarks`. RPC `updateViewed({ threadId, set, remove })` saves changes. It does not publish `review.updated`, so a click costs no `gh` call. A failed save reverts the checkbox and shows "Could not save viewed state: <error>".
+
+| Key                            | Value                                       |
+| ------------------------------ | ------------------------------------------- |
+| `viewed:v1:<owner>/<repo>#<n>` | `{ v: 1, marks: { <path>: <patch hash> } }` |
 
 ## Merge and enqueue
 

@@ -11,6 +11,7 @@ import {
   REVIEW_DRAFTS_UPDATED_CHANNEL,
   REVIEW_UPDATED_CHANNEL,
 } from "../core/review-updated";
+import type { ViewedMarks } from "../core/viewed-marks";
 import {
   openThreadCounts,
   openThreads,
@@ -36,6 +37,7 @@ import {
   type CommentNavigation,
   type StepDirection,
 } from "./use-comment-navigation";
+import { usePrViewed } from "./use-pr-viewed";
 import { useThreadResult } from "./use-thread-result";
 import { ViewerReviewBadge } from "./viewer-review-badge";
 
@@ -181,6 +183,7 @@ function ReviewTabContent({ threadId }: { threadId: string }) {
           head={result.head}
           commentDrafts={result.commentDrafts}
           summaryDraft={result.summaryDraft}
+          viewedMarks={result.viewedMarks}
           reload={reload}
           refreshing={refreshing}
           refresh={refresh}
@@ -198,6 +201,7 @@ interface ReviewContentProps {
   head: PrHead;
   commentDrafts: readonly ListedCommentDraft[];
   summaryDraft: SummaryDraft | null;
+  viewedMarks: ViewedMarks;
   reload: () => void;
   refreshing: boolean;
   refresh: () => void;
@@ -211,6 +215,7 @@ function ReviewContent({
   head,
   commentDrafts,
   summaryDraft,
+  viewedMarks,
   reload,
   refreshing,
   refresh,
@@ -265,11 +270,17 @@ function ReviewContent({
     commentStep.onHandled();
   }, [commentStep, step]);
   const { create, createError } = useNewComments();
+  const viewed = usePrViewed(threadId, files, viewedMarks);
   const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border px-3 py-2 text-xs">
         <span className="mr-1 text-muted-foreground">{filesChangedText(files)}</span>
+        {viewed.counts.markable > 0 && (
+          <span className="mr-1 text-muted-foreground tabular-nums">
+            {viewed.counts.viewed}/{viewed.counts.markable} viewed
+          </span>
+        )}
         <CountPill emphasis={counts.open > 0}>{counts.open} open</CountPill>
         <CountPill emphasis={false}>{counts.outdated} outdated</CountPill>
         <ViewerReviewBadge review={head.viewerReview} headOid={head.oid} />
@@ -301,6 +312,7 @@ function ReviewContent({
         onWritten={reload}
       />
       {createError !== null && <ErrorBanner>{createError}</ErrorBanner>}
+      {viewed.error !== null && <ErrorBanner>{viewed.error}</ErrorBanner>}
       {agent.outcome?.result.kind === "error" && (
         <ErrorBanner>{agent.outcome.result.message}</ErrorBanner>
       )}
@@ -317,6 +329,7 @@ function ReviewContent({
                   threads={placedByPath.get(file.path) ?? NO_THREADS}
                   commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
                   onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
+                  viewed={viewed.of(file)}
                 />
               ))}
             </div>
