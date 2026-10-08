@@ -15,9 +15,14 @@ function loaded(snapshot: ProjectState): View {
   return { snapshot, draft: snapshot.effectivePrompt, changed: false, conflict: false };
 }
 /** Keep the prompt baseline until the user saves or explicitly reloads it. */
-function reconcile(view: View | null, next: ProjectState): View {
+function reconcile(view: View | null, next: ProjectState, holdBaseline = false): View {
   if (!view) return loaded(next);
-  if (!view.changed && !view.conflict && view.draft === view.snapshot.effectivePrompt)
+  if (
+    !holdBaseline &&
+    !view.changed &&
+    !view.conflict &&
+    view.draft === view.snapshot.effectivePrompt
+  )
     return loaded(next);
   const old = view.snapshot;
   return {
@@ -39,7 +44,11 @@ function reconcile(view: View | null, next: ProjectState): View {
 }
 
 /** Project reads, draft reconciliation, and local write serialization share one request generation. */
-export function useProjectSettings(projectId: string) {
+export function useProjectSettings(
+  projectId: string,
+  sharedWriteLock?: { current: boolean },
+  holdBaseline = false,
+) {
   const rpc = useRpc<SettingsContract>();
   const [view, setView] = useState<View | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -50,9 +59,12 @@ export function useProjectSettings(projectId: string) {
   const [saved, setSaved] = useState<string | null>(null);
   const selection = useRef(projectId);
   selection.current = projectId;
+  const baselineHeld = useRef(holdBaseline);
+  baselineHeld.current = holdBaseline;
   const generation = useRef(0);
   const alive = useRef(false);
-  const writeLock = useRef(false);
+  const localWriteLock = useRef(false);
+  const writeLock = sharedWriteLock ?? localWriteLock;
   const readKey = useRef("");
   const activeRead = useRef(false);
   const connection = useRealtimeConnectionState();
@@ -118,7 +130,7 @@ export function useProjectSettings(projectId: string) {
           setWriteError(null);
           setSaved(null);
         }
-        setView((old) => (discard ? loaded(result) : reconcile(old, result)));
+        setView((old) => (discard ? loaded(result) : reconcile(old, result, baselineHeld.current)));
       })
       .catch((error) => {
         if (valid()) {
@@ -216,6 +228,7 @@ export function useProjectSettings(projectId: string) {
             ? `Saved. ${projectName} follows the default.`
             : `Saved. Code Cleanup is ${response.state.enabled ? "On" : "Off"} for ${projectName}.`,
       );
+      return response.state;
     } catch (error) {
       if (valid()) setWriteError(message(error));
     } finally {

@@ -10,10 +10,21 @@ const projectState = z.strictObject({
   prompt: z.string().nullable(),
   effectivePrompt: z.string(),
 });
+const projectSummary = z.strictObject({
+  id: z.string().min(1),
+  name: z.string(),
+  enabled: z.boolean(),
+  enabledOverride: z.boolean().nullable(),
+  promptSource: z.enum(["custom", "default"]),
+});
 export const settingsContract = defineRpcContract({
   listProjects: {
     input: z.strictObject({}),
     output: z.array(z.strictObject({ id: z.string().min(1), name: z.string() })),
+  },
+  listProjectSummaries: {
+    input: z.strictObject({}),
+    output: z.array(projectSummary),
   },
   getProject: { input: projectInput, output: projectState },
   setEnablement: {
@@ -41,5 +52,6 @@ export const settingsContract = defineRpcContract({
 });
 export type SettingsContract = typeof settingsContract;
 export type ProjectState = z.infer<typeof projectState>;
+export type ProjectSummary = z.infer<typeof projectSummary>;
 export type ProjectChoice = { id: string; name: string };
 export type PromptResult = z.infer<typeof settingsContract.setPrompt.output>;
