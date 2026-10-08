@@ -4,6 +4,7 @@ import { draftsSchema } from "./core/drafts";
 import { mergeMethodSchema } from "./core/merge-action";
 import { prInsightSchema } from "./core/overview";
 import { reviewFileSchema } from "./core/pr-files";
+import { viewedMarksSchema } from "./core/viewed-marks";
 import { prHeadSchema } from "./core/pr-head";
 import {
   commentDraftSchema,
@@ -214,6 +215,7 @@ export const reviewResultSchema = z.discriminatedUnion("kind", [
     head: prHeadSchema,
     files: z.array(reviewFileSchema),
     threads: threadPlacementSchema,
+    viewedMarks: viewedMarksSchema,
   }),
 ]);
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
@@ -280,6 +282,15 @@ const saveDraftRequestSchema = z
   .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1), body: z.string() })
   .strict();
 export type SaveDraftRequest = z.infer<typeof saveDraftRequestSchema>;
+
+const updateViewedRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    set: viewedMarksSchema,
+    remove: z.array(z.string().min(1)),
+  })
+  .strict();
+export type UpdateViewedRequest = z.infer<typeof updateViewedRequestSchema>;
 
 const discardDraftRequestSchema = z
   .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1) })
@@ -393,6 +404,7 @@ export const rpcContract = defineRpcContract({
   saveCommentDraft: { input: saveCommentDraftRequestSchema, output: actionResultSchema },
   deleteCommentDraft: { input: deleteCommentDraftRequestSchema, output: actionResultSchema },
   saveSummaryDraft: { input: saveSummaryDraftRequestSchema, output: actionResultSchema },
+  updateViewed: { input: updateViewedRequestSchema, output: actionResultSchema },
   submitReview: { input: submitReviewRequestSchema, output: submitReviewResultSchema },
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },

@@ -12,7 +12,8 @@ import type {
   PatchesResult,
   SendFeedbackResult,
 } from "../core/changes";
-import { patchIdentity, type GetViewedResult, type UpdateViewedResult } from "../core/viewed-files";
+import { patchIdentity } from "../../review-ui/patch-identity";
+import type { GetViewedResult, UpdateViewedResult } from "../core/viewed-files";
 import { OUTLINE_WIDTH_KEY } from "./use-outline-width";
 
 vi.mock("@pierre/diffs/react", () => ({

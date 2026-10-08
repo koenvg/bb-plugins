@@ -15,6 +15,7 @@ See the checks of a thread's pull request, and the pull requests that wait for y
 - Errors show as "gh not installed", "gh not logged in", or "rate limited", with a retry button. Both the PR tab and composer show initial loading, read failures, and Retry. A failed refresh keeps visibly stale last-good data with its time. Confirmed no-PR hides normal banner status.
 
 - A **Review** tab with the diff of each changed file at the PR head. Files without a patch show "Diff not available". Review threads show below their line, with all comments. Outdated threads show in an "Outdated" section at the top. Resolved threads show collapsed with "Show resolved". The top shows "N open" and "N outdated". A draft reply from the agent fills the thread's reply box as "Draft from agent". The user can edit it, post it, post and resolve it, or discard it.
+- In the Review tab, "Viewed" in a file header marks the file and collapses it. The top shows "N/M viewed". Marks are kept per PR in bb (RPC `updateViewed`, kv key `viewed:v1:<owner>/<repo>#<n>`), never on GitHub. A push that changes the file's patch drops its mark.
 - In the Review tab, the "+" in the diff gutter adds a pending comment on a line. Pending comments from the user and the agent stay after a restart and go to GitHub as one review on "Submit review". Empty pending comments are not sent.
 - `bb github-insight review list` and `review draft` let the thread's agent read the open review threads and save draft replies. Drafts are never posted to GitHub by the agent.
 

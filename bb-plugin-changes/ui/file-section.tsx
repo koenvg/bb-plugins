@@ -7,6 +7,7 @@ import { DiffStat } from "../../review-ui/diff-stat";
 import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
 import { ReviewFileDiff, type DiffView } from "../../review-ui/review-file-diff";
+import { CollapseButton, ViewedCheckbox } from "../../review-ui/viewed-controls";
 import type { ChangedFile } from "../core/changes";
 import { canMark } from "../core/viewed-files";
 import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
@@ -113,6 +114,7 @@ function FileDiffWithComments({
           path={file.path}
           collapsed={viewed.collapsed}
           onToggle={viewed.toggleCollapsed}
+          icons={CHEVRONS}
         />
       }
       headerMetadata={
@@ -152,52 +154,10 @@ function FileDiffWithComments({
   );
 }
 
-function CollapseButton({
-  path,
-  collapsed,
-  onToggle,
-}: {
-  path: string;
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={`${collapsed ? "Expand" : "Collapse"} ${path}`}
-      aria-expanded={!collapsed}
-      className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      onClick={onToggle}
-    >
-      <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="size-3.5" />
-    </button>
-  );
-}
-
-function ViewedCheckbox({
-  path,
-  checked,
-  disabled,
-  onToggle,
-}: {
-  path: string;
-  checked: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground has-[:disabled]:cursor-default has-[:disabled]:opacity-50">
-      <input
-        type="checkbox"
-        aria-label={`Viewed ${path}`}
-        checked={checked}
-        disabled={disabled}
-        onChange={onToggle}
-      />
-      Viewed
-    </label>
-  );
-}
+const CHEVRONS = {
+  collapsed: <Icon name="ChevronRight" className="size-3.5" />,
+  expanded: <Icon name="ChevronDown" className="size-3.5" />,
+};
 
 function FileNotice({ file, children }: { file: ChangedFile; children: ReactNode }) {
   return (

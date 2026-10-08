@@ -19,6 +19,7 @@ import { parsePrFiles, type ReviewFile } from "../core/pr-files";
 import type { ListedCommentDraft } from "../core/review-drafts";
 import { parseReviewThreads, type ReviewThread } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
+import { fileIdentity } from "../core/viewed-marks";
 import { postIntent } from "./command-intents";
 import prFiles from "../test/fixtures/pr-1-files.json";
 import threadedPrFiles from "../test/fixtures/pr-25259-files.json";
@@ -32,16 +33,19 @@ vi.mock("@pierre/diffs/react", () => ({
     options,
     lineAnnotations = [],
     renderAnnotation,
+    renderHeaderPrefix,
     renderHeaderMetadata,
   }: {
     fileDiff: FileDiffMetadata;
     options?: {
+      collapsed?: boolean;
       diffStyle?: string;
       enableGutterUtility?: boolean;
       onGutterUtilityClick?: (range: SelectedLineRange) => void;
     };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
+    renderHeaderPrefix?: () => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
   }) => (
     <DiffsContainer
@@ -55,7 +59,9 @@ vi.mock("@pierre/diffs/react", () => ({
       data-type={fileDiff.type}
       data-diff-style={options?.diffStyle}
       data-gutter-utility={String(options?.enableGutterUtility ?? false)}
+      data-collapsed={String(options?.collapsed ?? false)}
     >
+      <div data-testid="file-diff-prefix">{renderHeaderPrefix?.()}</div>
       <div data-testid="file-diff-header">{renderHeaderMetadata?.()}</div>
       {options?.onGutterUtilityClick &&
         (["additions", "deletions"] as const).map((side) => (
@@ -125,6 +131,7 @@ const noReviewDrafts = {
   },
   commentDrafts: [],
   summaryDraft: null,
+  viewedMarks: {},
 } satisfies Partial<ReviewResult>;
 const recorded = {
   kind: "ok",
@@ -154,6 +161,7 @@ interface RpcHandlers {
   saveCommentDraft?: () => ActionResult | Promise<ActionResult>;
   deleteCommentDraft?: () => ActionResult | Promise<ActionResult>;
   saveSummaryDraft?: () => ActionResult | Promise<ActionResult>;
+  updateViewed?: () => ActionResult | Promise<ActionResult>;
   submitReview?: () => SubmitReviewResult | Promise<SubmitReviewResult>;
 }
 
@@ -185,6 +193,10 @@ function renderTabSending(
 }
 
 function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
+  return renderTabFor("thr_1", handlers, ...results);
+}
+
+function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: ReviewResult[]) {
   let call = 0;
   const getReview = () => results[Math.min(call++, results.length - 1)]!;
   const getDrafts = (): DraftsResult => {
@@ -195,7 +207,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
   };
   return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
     reviewTab,
-    { threadId: "thr_1", params: null },
+    { threadId, params: null },
     {
       rpc: {
         getReview,
@@ -215,6 +227,7 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
         saveCommentDraft: handlers.saveCommentDraft ?? (() => ({ kind: "ok" })),
         deleteCommentDraft: handlers.deleteCommentDraft ?? (() => ({ kind: "ok" })),
         saveSummaryDraft: handlers.saveSummaryDraft ?? (() => ({ kind: "ok" })),
+        updateViewed: handlers.updateViewed ?? (() => ({ kind: "ok" })),
         submitReview: handlers.submitReview ?? (() => ({ kind: "submitted" })),
         getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
@@ -313,6 +326,185 @@ describe("Review tab", () => {
   });
 });
 
+describe("Review tab viewed files", () => {
+  const APP = "plugins/github-insight/app.tsx";
+  const PR_REF = "plugins/github-insight/core/pr-ref.ts";
+  const LOCK = "plugins/github-insight/package-lock.json";
+  let threadCount = 0;
+
+  function fileAt(files: readonly ReviewFile[], path: string): ReviewFile {
+    return files.find((file) => file.path === path)!;
+  }
+
+  function markedIn(files: readonly ReviewFile[], ...paths: string[]) {
+    return Object.fromEntries(paths.map((path) => [path, fileIdentity(fileAt(files, path))!]));
+  }
+
+  function withFiles(files: ReviewFile[], viewedMarks: Record<string, string> = {}): ReviewResult {
+    return { ...recorded, files, viewedMarks };
+  }
+
+  function editPatch(files: readonly ReviewFile[], path: string): ReviewFile[] {
+    return files.map((file) =>
+      file.path === path ? { ...file, patch: file.patch!.replace("\n+", "\n+edited ") } : file,
+    );
+  }
+
+  function renderViewed(handlers: RpcHandlers, ...results: ReviewResult[]) {
+    const threadId = `thr_viewed_${++threadCount}`;
+    return Object.assign(renderTabFor(threadId, handlers, ...results), { threadId });
+  }
+
+  function diffOf(slot: ReturnType<typeof renderTab>, path: string) {
+    return slot
+      .getAllByTestId("file-diff")
+      .find((diff) => diff.getAttribute("data-path") === path)!;
+  }
+
+  function checkbox(slot: ReturnType<typeof renderTab>, path: string) {
+    return slot.getByRole("checkbox", { name: `Viewed ${path}` }) as HTMLInputElement;
+  }
+
+  it("marks a file as viewed, saves the mark, and collapses the file", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files));
+
+    fireEvent.click(await slot.findByRole("checkbox", { name: `Viewed ${APP}` }));
+
+    expect(checkbox(slot, APP).checked).toBe(true);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("true");
+    expect(diffOf(slot, PR_REF).dataset.collapsed).toBe("false");
+    await waitFor(() =>
+      expect(callsTo(slot, "updateViewed")).toEqual([
+        { threadId: slot.threadId, set: markedIn(recorded.files, APP), remove: [] },
+      ]),
+    );
+  });
+
+  it("unmarks a viewed file that the user expanded and shows its diff", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
+    fireEvent.click(await slot.findByRole("button", { name: `Expand ${APP}` }));
+
+    fireEvent.click(checkbox(slot, APP));
+
+    expect(checkbox(slot, APP).checked).toBe(false);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+    await waitFor(() =>
+      expect(callsTo(slot, "updateViewed")).toEqual([
+        { threadId: slot.threadId, set: {}, remove: [APP] },
+      ]),
+    );
+  });
+
+  it("expands a viewed file without changing the mark or the counter", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
+
+    fireEvent.click(await slot.findByRole("button", { name: `Expand ${APP}` }));
+
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+    expect(checkbox(slot, APP).checked).toBe(true);
+    expect(slot.getByText("1/2 viewed")).toBeTruthy();
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("collapses a file that is not viewed and keeps it unmarked", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files));
+
+    fireEvent.click(await slot.findByRole("button", { name: `Collapse ${PR_REF}` }));
+
+    expect(diffOf(slot, PR_REF).dataset.collapsed).toBe("true");
+    expect(checkbox(slot, PR_REF).checked).toBe(false);
+  });
+
+  it("keeps the thread count in the header of a viewed file", async () => {
+    const files = threaded.files;
+    const path = files[0]!.path;
+    const slot = renderViewed({}, { ...threaded, viewedMarks: markedIn(files, path) });
+
+    await slot.findAllByTestId("file-diff");
+
+    expect(diffOf(slot, path).dataset.collapsed).toBe("true");
+    expect(within(diffOf(slot, path)).getByTestId("file-diff-header").textContent).toBe("1Viewed");
+  });
+
+  it("shows no viewed checkbox for a file without a patch", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files));
+
+    await slot.findAllByTestId("file-diff");
+
+    expect(slot.queryByRole("checkbox", { name: `Viewed ${LOCK}` })).toBeNull();
+    expect(slot.queryByRole("button", { name: `Collapse ${LOCK}` })).toBeNull();
+  });
+
+  it("counts the viewed files among the files that can be marked", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
+
+    expect(await slot.findByText("1/2 viewed")).toBeTruthy();
+    fireEvent.click(checkbox(slot, PR_REF));
+    expect(slot.getByText("2/2 viewed")).toBeTruthy();
+  });
+
+  it("hides the counter when no file can be marked", async () => {
+    const slot = renderViewed({}, withFiles([fileAt(recorded.files, LOCK)]));
+
+    await slot.findByText("1 file changed");
+
+    expect(slot.queryByText(/viewed$/)).toBeNull();
+  });
+
+  it("drops the mark and expands the file when a push changes it", async () => {
+    const marks = markedIn(recorded.files, APP);
+    const slot = renderViewed(
+      {},
+      withFiles(recorded.files, marks),
+      withFiles(editPatch(recorded.files, APP), marks),
+    );
+    await slot.findByText("1/2 viewed");
+
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+
+    expect(await slot.findByText("0/2 viewed")).toBeTruthy();
+    expect(checkbox(slot, APP).checked).toBe(false);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+    await waitFor(() =>
+      expect(callsTo(slot, "updateViewed")).toEqual([
+        { threadId: slot.threadId, set: {}, remove: [APP] },
+      ]),
+    );
+  });
+
+  it("keeps the mark when a push changes only another file", async () => {
+    const marks = markedIn(recorded.files, APP);
+    const slot = renderViewed(
+      {},
+      withFiles(recorded.files, marks),
+      withFiles(editPatch(recorded.files, PR_REF), marks),
+    );
+    await slot.findByText("1/2 viewed");
+
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(callsTo(slot, "getReview")).toHaveLength(2));
+
+    expect(slot.getByText("1/2 viewed")).toBeTruthy();
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("true");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("reverts the mark and shows the error when the save fails", async () => {
+    const slot = renderViewed(
+      { updateViewed: () => ({ kind: "error", message: "disk full" }) },
+      withFiles(recorded.files),
+    );
+
+    fireEvent.click(await slot.findByRole("checkbox", { name: `Viewed ${APP}` }));
+
+    expect((await slot.findByRole("alert")).textContent).toBe(
+      "Could not save viewed state: disk full",
+    );
+    expect(checkbox(slot, APP).checked).toBe(false);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+  });
+});
+
 describe("Review tab threads", () => {
   const OPEN_THREAD = "There's no wait for the new row to mount";
   const REPLY = "Agreed, removed.";
@@ -357,7 +549,7 @@ describe("Review tab threads", () => {
         .some((annotation) => annotation.textContent?.includes(OPEN_THREAD)),
     )!;
     const threadCount = within(diff).getAllByTestId("line-annotation").length;
-    expect(within(diff).getByTestId("file-diff-header").textContent).toBe(String(threadCount));
+    expect(within(diff).getByTestId("file-diff-header").textContent).toBe(`${threadCount}Viewed`);
   });
 
   it("shows a thread below its line on the new side of its file", async () => {

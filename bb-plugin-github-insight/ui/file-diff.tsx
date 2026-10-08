@@ -9,8 +9,10 @@ import type { ReviewThread } from "../core/review-threads";
 import type { PlacedThread } from "../core/thread-placement";
 import { Icon } from "@/components/ui/icon";
 import { ReviewFileDiff } from "../../review-ui/review-file-diff";
+import { CollapseButton, ViewedCheckbox } from "../../review-ui/viewed-controls";
 import { CommentDraftCard } from "./comment-drafts";
 import { ReviewThreadCard } from "./review-thread";
+import type { FileViewedState } from "./use-pr-viewed";
 
 interface ThreadsProps {
   threads: readonly PlacedThread[];
@@ -36,7 +38,8 @@ export function PrFileDiff({
   threads,
   commentDrafts,
   onAddComment,
-}: ThreadsProps & { file: ReviewFile; onAddComment?: AddComment }) {
+  viewed,
+}: ThreadsProps & { file: ReviewFile; onAddComment?: AddComment; viewed?: FileViewedState }) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
   if (fileDiff === null)
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
@@ -46,6 +49,7 @@ export function PrFileDiff({
       fileDiff={fileDiff}
       threads={threads}
       commentDrafts={commentDrafts}
+      viewed={viewed}
       onAddComment={
         onAddComment && ((side, line) => onAddComment(file.path, fromPierreSide(side), line))
       }
@@ -77,10 +81,12 @@ function LazyFileDiff({
   threads,
   commentDrafts,
   onAddComment,
+  viewed,
 }: ThreadsProps & {
   path: string;
   fileDiff: FileDiffMetadata;
   onAddComment?: (side: PierreSide, line: number) => void;
+  viewed?: FileViewedState;
 }) {
   const { visible, ref } = useVisibleOnce<HTMLElement>();
   const theme = useCodeTheme();
@@ -108,7 +114,29 @@ function LazyFileDiff({
           onAddComment={onAddComment}
           view="split"
           theme={theme}
-          headerMetadata={<ThreadCount count={threads.length} />}
+          collapsed={viewed?.collapsed}
+          headerPrefix={
+            viewed && (
+              <CollapseButton
+                path={path}
+                collapsed={viewed.collapsed}
+                onToggle={viewed.toggleCollapsed}
+                icons={CHEVRONS}
+              />
+            )
+          }
+          headerMetadata={
+            <>
+              <ThreadCount count={threads.length} />
+              {viewed && (
+                <ViewedCheckbox
+                  path={path}
+                  checked={viewed.viewed}
+                  onToggle={viewed.toggleViewed}
+                />
+              )}
+            </>
+          }
           renderAnnotation={({ metadata }) =>
             metadata.kind === "thread" ? (
               <ReviewThreadCard key={metadata.thread.id} thread={metadata.thread} />
@@ -121,6 +149,11 @@ function LazyFileDiff({
     </section>
   );
 }
+
+const CHEVRONS = {
+  collapsed: <Icon name="ChevronRight" className="size-3.5" />,
+  expanded: <Icon name="ChevronDown" className="size-3.5" />,
+};
 
 function ThreadCount({ count }: { count: number }) {
   if (count === 0) return null;

@@ -25,6 +25,7 @@ const loaded: ReviewLoad = {
     drafts: {},
     commentDrafts: [],
     summaryDraft: null,
+    viewedMarks: {},
   },
 };
 
