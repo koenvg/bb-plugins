@@ -5,7 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ActionResult, InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { GITHUB_COMMANDS } from "./commands";
-import { forgetInsights } from "./pr-availability";
+import { forgetInsights, rememberInsight } from "./pr-availability";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
@@ -50,7 +50,7 @@ function deferred<T>() {
 }
 function fixture(initial: InsightResult = ok()) {
   let current = initial;
-  const getInsight = vi.fn(() => current);
+  const getInsight = vi.fn(async (): Promise<InsightResult> => current);
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
   const write = vi.fn(async (): Promise<ActionResult> => ({ kind: "ok" }));
   const options = {
@@ -70,6 +70,7 @@ function fixture(initial: InsightResult = ok()) {
   return {
     mountBanner,
     mountTab,
+    getInsight,
     refresh,
     write,
     set: (value: InsightResult) => {
@@ -95,6 +96,49 @@ afterEach(() => {
   cleanup();
   forgetInsights();
   openPanel.mockClear();
+});
+
+describe("palette command delivered during banner mount", () => {
+  it.each(["merge", "enqueue"] as const)(
+    "waits for the mount load instead of using cached %s data",
+    async (action) => {
+      const cached = ok({
+        ...ready,
+        mergeAction: action === "merge" ? ready.mergeAction : { kind: "enqueue" },
+      });
+      rememberInsight("flow", cached);
+      const f = fixture(cached);
+      const load = deferred<InsightResult>();
+      f.getInsight.mockImplementationOnce(() => load.promise);
+      await merge();
+      f.mountBanner();
+
+      expect(f.getInsight).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(f.write).not.toHaveBeenCalled();
+      expect(f.refresh).not.toHaveBeenCalled();
+
+      const fresh = ok({
+        ...ready,
+        pr: { ...pr, headOid: "b" },
+        mergeAction: action === "merge" ? { kind: "merge", method: "REBASE" } : { kind: "enqueue" },
+      });
+      f.set(fresh);
+      await act(async () => load.resolve(fresh));
+      if (action === "merge") {
+        const dialog = screen.getByRole("alertdialog");
+        expect(within(dialog).getByText("Method: Rebase and merge")).toBeTruthy();
+        expect(f.write).not.toHaveBeenCalled();
+        fireEvent.click(within(dialog).getByRole("button", { name: "Rebase and merge" }));
+      } else expect(screen.queryByRole("alertdialog")).toBeNull();
+      await act(async () => {});
+      expect(f.write).toHaveBeenCalledExactlyOnceWith({
+        threadId: "flow",
+        action,
+        expectedHeadOid: "b",
+      });
+    },
+  );
 });
 
 describe("shared tab and banner merge progress", () => {
@@ -135,6 +179,29 @@ describe("shared tab and banner merge progress", () => {
     },
   );
 
+  it("opens confirmation from loaded data without a refresh", async () => {
+    const f = fixture();
+    f.mountBanner();
+    await screen.findByText("Ready to merge");
+    f.refresh.mockImplementation(() => deferred<InsightResult>().promise);
+
+    await merge();
+    await merge();
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Method: Squash and merge")).toBeTruthy();
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    expect(screen.queryByText("Loading pull request…")).toBeNull();
+    expect(f.refresh).not.toHaveBeenCalled();
+    expect(f.write).not.toHaveBeenCalled();
+    await confirm();
+    expect(f.write).toHaveBeenCalledExactlyOnceWith({
+      threadId: "flow",
+      action: "merge",
+      expectedHeadOid: "a",
+    });
+  });
+
   it("shows an active write in a tab mounted later and refreshes both views", async () => {
     const f = fixture();
     const pending = deferred<ActionResult>();
@@ -173,15 +240,12 @@ describe("palette merge without side-panel navigation", () => {
       "1 check failed",
     ],
     ["missing", { kind: "no_pr" } as InsightResult, "No pull request for this thread"],
-  ])("uses %s data published before the fresh response returns", async (_, fresh, message) => {
+  ])("uses %s data from the latest completed load", async (_, fresh, message) => {
     const f = fixture();
     const chat = f.mountBanner();
     await screen.findByText("Ready to merge");
-    f.refresh.mockImplementation(async () => {
-      f.set(fresh);
-      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
-      return fresh;
-    });
+    f.set(fresh);
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     await merge();
     expect(screen.queryByRole("alertdialog")).toBeNull();
     if (message) {
@@ -197,7 +261,7 @@ describe("palette merge without side-panel navigation", () => {
     }
   });
 
-  it("handles changed data published before the fresh response returns", async () => {
+  it("uses the method and head from the latest completed load", async () => {
     const f = fixture();
     const chat = f.mountBanner();
     await screen.findByText("Ready to merge");
@@ -206,11 +270,8 @@ describe("palette merge without side-panel navigation", () => {
       pr: { ...pr, headOid: "b" },
       mergeAction: { kind: "merge", method: "REBASE" },
     });
-    f.refresh.mockImplementation(async () => {
-      f.set(fresh);
-      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
-      return fresh;
-    });
+    f.set(fresh);
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     await merge();
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Method: Rebase and merge")).toBeTruthy();
@@ -227,12 +288,8 @@ describe("palette merge without side-panel navigation", () => {
     const f = fixture();
     const chat = f.mountBanner();
     await screen.findByText("Ready to merge");
-    f.refresh.mockImplementation(async () => {
-      const failed = ok(ready, "rate limited");
-      f.set(failed);
-      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
-      return failed;
-    });
+    f.set(ok(ready, "rate limited"));
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     await merge();
     expect(
       screen
@@ -272,7 +329,7 @@ describe("palette merge without side-panel navigation", () => {
         expect(within(slot.container).getByText(newText)).toBeTruthy();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(f.refresh).toHaveBeenCalledTimes(1);
+      expect(f.refresh).not.toHaveBeenCalled();
       expect(f.write).not.toHaveBeenCalled();
     },
   );
@@ -335,14 +392,14 @@ describe("palette merge without side-panel navigation", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("loads current data, confirms once, cancels, and preserves the selected panel", async () => {
+  it("uses loaded data, confirms once, cancels, and preserves the selected panel", async () => {
     const f = fixture();
     f.mountBanner();
     f.mountTab();
     await screen.findByText("#7");
     await merge();
     await merge();
-    expect(f.refresh).toHaveBeenCalledTimes(1);
+    expect(f.refresh).not.toHaveBeenCalled();
     expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
     expect(screen.getByText("Merge pull request #7?")).toBeTruthy();
     expect(f.write).not.toHaveBeenCalled();
@@ -351,12 +408,13 @@ describe("palette merge without side-panel navigation", () => {
     expect(openPanel).not.toHaveBeenCalled();
   });
 
-  it("waits for preparation and uses the new method and head", async () => {
+  it("waits for an active load and uses the new method and head", async () => {
     const f = fixture();
     const load = deferred<InsightResult>();
-    f.refresh.mockImplementation(() => load.promise);
-    f.mountBanner();
+    const chat = f.mountBanner();
     await screen.findByText("Ready to merge");
+    f.getInsight.mockImplementation(() => load.promise);
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     await merge();
     await merge();
     expect(screen.getByText("Loading pull request…")).toBeTruthy();
@@ -379,9 +437,75 @@ describe("palette merge without side-panel navigation", () => {
       action: "merge",
       expectedHeadOid: "b",
     });
-    expect(f.refresh).toHaveBeenCalledTimes(1);
+    expect(f.refresh).not.toHaveBeenCalled();
+    expect(f.getInsight).toHaveBeenCalledTimes(2);
     expect(openPanel).not.toHaveBeenCalled();
   });
+
+  it("waits for missing PR data without starting another load", async () => {
+    const f = fixture();
+    const load = deferred<InsightResult>();
+    f.getInsight.mockImplementationOnce(() => load.promise);
+    f.mountBanner();
+    await merge();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(f.refresh).not.toHaveBeenCalled();
+    expect(f.getInsight).toHaveBeenCalledTimes(1);
+    await act(async () => load.resolve(ok()));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(f.write).not.toHaveBeenCalled();
+  });
+
+  it("waits for an explicit refresh without starting another refresh", async () => {
+    const f = fixture(ok(ready, "offline"));
+    const load = deferred<InsightResult>();
+    f.mountBanner();
+    await screen.findByRole("button", { name: "Retry" });
+    f.refresh.mockImplementationOnce(() => load.promise);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await merge();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(f.refresh).toHaveBeenCalledTimes(1);
+    await act(async () => load.resolve(ok()));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(f.write).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "blocked",
+      ok({
+        ...ready,
+        mergeAction: { kind: "none" },
+        blockers: [{ code: "checks_failed", text: "1 check failed" }],
+      }),
+      "1 check failed",
+    ],
+    ["failed", { kind: "error", message: "offline" } as InsightResult, "offline"],
+    ["missing", { kind: "no_pr" } as InsightResult, "No pull request for this thread"],
+  ] as const)(
+    "does not use an earlier action when an active load is %s",
+    async (_, result, message) => {
+      const f = fixture();
+      const chat = f.mountBanner();
+      await screen.findByText("Ready to merge");
+      const load = deferred<InsightResult>();
+      f.getInsight.mockImplementationOnce(() => load.promise);
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
+      await merge();
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      await act(async () => load.resolve(result));
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(
+        screen
+          .getAllByRole("alert")
+          .map((a) => a.textContent)
+          .join(" "),
+      ).toContain(message);
+      expect(f.refresh).not.toHaveBeenCalled();
+      expect(f.write).not.toHaveBeenCalled();
+    },
+  );
 
   it("dismissing an operation error does not dismiss a later read failure", async () => {
     const f = fixture();
@@ -431,7 +555,8 @@ describe("palette merge without side-panel navigation", () => {
       const f = fixture();
       const chat = f.mountBanner();
       await screen.findByText("Ready to merge");
-      f.refresh.mockResolvedValue(result);
+      f.set(result);
+      await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
       await merge();
       expect(
         within(chat.container)
@@ -471,9 +596,10 @@ describe("palette merge without side-panel navigation", () => {
   it("discards preparation on thread switch and never replays it", async () => {
     const f = fixture();
     const pending = deferred<InsightResult>();
-    f.refresh.mockImplementation(() => pending.promise);
     const chat = f.mountBanner();
     await screen.findByText("Ready to merge");
+    f.getInsight.mockImplementationOnce(() => pending.promise);
+    await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
     await merge();
     await chat.behavior.setComposerScope({ kind: "thread", threadId: "other" });
     await act(async () => pending.resolve(ok()));

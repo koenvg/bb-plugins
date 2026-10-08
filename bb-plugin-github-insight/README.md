@@ -295,17 +295,17 @@ server: gh api graphql updatePullRequestBranch(pullRequestId, expectedHeadOid, u
 - `isAvailable` must be sync, so `useInsight` writes each load into `ui/pr-availability.ts` (in memory). A PR sets the entry, no PR deletes it, and a failed load keeps it.
 - The composer banner loads the insight of each thread you open. Until that first load ends, no command shows.
 
-| Command                   | Opens      | Then                                                                               |
-| ------------------------- | ---------- | ---------------------------------------------------------------------------------- |
-| GitHub: Merge PR          | no panel   | loads current PR data; confirm dialog for merge, enqueue at once; feedback in chat |
-| GitHub: Open PR tab       | PR tab     | nothing                                                                            |
-| GitHub: Open Review tab   | Review tab | nothing                                                                            |
-| GitHub: Submit review     | Review tab | opens the submit panel; the user submits                                           |
-| GitHub: Refresh PR        | PR tab     | the refresh button's action                                                        |
-| GitHub: Open PR on GitHub | PR tab     | opens the PR URL                                                                   |
+| Command                   | Opens      | Then                                                                             |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------- |
+| GitHub: Merge PR          | no panel   | uses loaded PR data; confirm dialog for merge, enqueue at once; feedback in chat |
+| GitHub: Open PR tab       | PR tab     | nothing                                                                          |
+| GitHub: Open Review tab   | Review tab | nothing                                                                          |
+| GitHub: Submit review     | Review tab | opens the submit panel; the user submits                                         |
+| GitHub: Refresh PR        | PR tab     | the refresh button's action                                                      |
+| GitHub: Open PR on GitHub | PR tab     | opens the PR URL                                                                 |
 
 ```
-merge command --> chat merge intent --> fresh PR load --> confirm or enqueue
+merge command --> chat merge intent --> loaded PR data --> confirm or enqueue
                                         | error/unavailable
                                         v
                                    chat banner feedback
@@ -313,8 +313,8 @@ other commands --> ctx.openPanel({ actionId }) --> tab intent --> tab UI
 ```
 
 - Merge never opens, closes, switches, or focuses a side-panel tab, including on error. The explicit Open PR tab command and normal banner text still open the PR tab.
-- Palette preparation shows loading in chat. Errors and unavailable reasons remain visible with a dismiss control, including when the normal PR banner is hidden. New attempts replace that feedback; relevant PR updates clear obsolete messages.
-- Merge uses the new load's action and captures its PR and head commit for confirmation. If that target changes, the confirmation closes without a write. A failed refresh never falls back to an earlier action.
+- Merge opens confirmation immediately from loaded PR data, like the button. If data is missing or a load or refresh is in progress, preparation shows loading in chat and waits for that result without starting another request. Errors and unavailable reasons remain visible with a dismiss control, including when the normal PR banner is hidden. New attempts replace that feedback; relevant PR updates clear obsolete messages.
+- Merge captures the selected PR, action, and head commit for confirmation. If that target changes, the confirmation closes without a write. A failed load never falls back to an earlier action.
 - Repeated merge commands during preparation, confirmation, or a write do not start another action. Leaving the thread cancels unsent palette work; a sent write keeps its original thread.
 - An intent waits at most 10 seconds for its recipient to mount. Consumed intents do not replay on remount or after a BB restart.
 - No command sends review threads to the agent. That needs a selection of threads.

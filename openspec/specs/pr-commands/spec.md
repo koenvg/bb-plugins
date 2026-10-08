@@ -108,7 +108,7 @@ The palette SHALL list "GitHub: Merge PR" only when the last PR load of the thre
 
 ### Requirement: Merge command when no merge is possible
 
-When a new PR load after the command shows no runnable merge action, "GitHub: Merge PR" SHALL NOT write to GitHub or open a confirm dialog. The composer banner SHALL show the reason without opening the PR tab, including when the normal PR banner would be hidden. A failed load SHALL show the error in the banner and SHALL NOT use an earlier action.
+When the PR data used by the command shows no runnable merge action, "GitHub: Merge PR" SHALL NOT write to GitHub or open a confirm dialog. The composer banner SHALL show the reason without opening the PR tab, including when the normal PR banner would be hidden. A failed load SHALL show the error in the banner and SHALL NOT use an earlier action.
 
 #### Scenario: PR with a blocker
 
@@ -127,22 +127,27 @@ When a new PR load after the command shows no runnable merge action, "GitHub: Me
 
 #### Scenario: PR load fails
 
-- **WHEN** the new load for "GitHub: Merge PR" fails
+- **WHEN** the PR load that "GitHub: Merge PR" is waiting for fails
 - **THEN** the banner shows the load error, no earlier merge action is used, and the side panel stays unchanged
 
-### Requirement: Use the merge action of the load after the command
+### Requirement: Use loaded PR data without an extra refresh
 
-"GitHub: Merge PR" SHALL load the thread's current PR insight after the command and act only on the action from that load. It SHALL wait for that load before opening confirmation or enqueuing. An earlier merge action SHALL NOT be used. The confirmation and write SHALL remain bound to the PR and head commit from the command's load; a later load SHALL NOT silently change the confirmed target.
+"GitHub: Merge PR" SHALL use the thread's loaded PR insight without starting another load or refresh. When PR data is ready and no load or refresh is in progress, it SHALL open confirmation or enqueue immediately. When data is missing or a load or refresh is in progress, it SHALL wait for that load and use its result, not an earlier action. The confirmation and write SHALL remain bound to the selected PR and head commit; a later load SHALL NOT silently change the confirmed target.
 
 #### Scenario: Tab not open yet
 
 - **WHEN** the PR tab is closed and the user runs "GitHub: Merge PR" on a ready PR
-- **THEN** the plugin loads the PR and then shows the confirm dialog without opening the tab
+- **THEN** the plugin immediately shows the confirm dialog using the loaded PR data, without another load or opening the tab
 
 #### Scenario: Merge method changed
 
-- **WHEN** the last load offered a merge commit but the load after the command offers squash
-- **THEN** the confirmation names squash and uses the head commit from the new load
+- **WHEN** the last load offered a merge commit, a new load is in progress, and that load offers squash
+- **THEN** the command waits for the load and the confirmation names squash and uses the head commit from that load
+
+#### Scenario: Initial PR load in progress
+
+- **WHEN** the command reaches the banner before its first PR load ends
+- **THEN** the command waits for that load, starts no extra load or refresh, and uses its result
 
 ### Requirement: Submit review from the palette
 
