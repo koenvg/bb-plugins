@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { it, expect } from "vitest";
 import { request } from "node:http";
 
-it("rejects unapproved Hosts before serving source or changing fixture settings", async () => {
+it("guards isolated fixture requests and preserves split UTF-8 prompt text", async () => {
   // Split the Node flag because SDK 0.5.9's text scanner mistakes it for a JS import.
   const child = spawn(process.execPath, ["--im" + "port", "tsx", "preview/server.ts"], {
     cwd: fileURLToPath(new URL(".", import.meta.url)),
@@ -89,6 +89,32 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
       expect(response.status).toBe(200);
       return (await response.json()).result;
     };
+    const splitRpc = async (method: string, input: unknown, character: string) => {
+      const body = Buffer.from(JSON.stringify(input));
+      const characterStart = body.indexOf(Buffer.from(character));
+      expect(characterStart).toBeGreaterThanOrEqual(0);
+      const splitAt = characterStart + 1;
+      const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const req = request(
+          base + "/fixture-rpc/" + method,
+          { method: "POST", headers: { "Content-Type": "application/json" } },
+          (res) => {
+            let text = "";
+            res.setEncoding("utf8");
+            res.on("data", (chunk) => (text += chunk));
+            res.once("error", reject);
+            res.once("end", () => resolve({ status: res.statusCode!, body: text }));
+          },
+        );
+        req.once("error", reject);
+        req.write(body.subarray(0, splitAt), () => {
+          // Let the server consume the leading byte before writing the rest of the character.
+          setTimeout(() => req.end(body.subarray(splitAt)), 50);
+        });
+      });
+      expect(response.status).toBe(200);
+      return JSON.parse(response.body).result;
+    };
     const events = await (await fetch(base + "/fixture-events")).json();
     expect(events.signals).toHaveLength(2);
     const before = await rpc("getProject", { projectId: "fixture_beta" });
@@ -155,6 +181,27 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
     expect(
       await rpc("setEnablement", { projectId: "fixture_beta", enabledOverride: null }),
     ).toEqual({ ...before, enabled: true, enabledOverride: null, enableByDefault: true });
+    const unicodePrompt = "  # Split 💡 é 漢 text\n\n`$literal`\n";
+    for (const character of ["💡", "é", "漢"]) {
+      expect(
+        await splitRpc(
+          "setPrompt",
+          { projectId: "fixture_beta", prompt: unicodePrompt, expectedPrompt: null },
+          character,
+        ),
+      ).toMatchObject({ status: "saved", state: { prompt: unicodePrompt } });
+      expect(await rpc("getProject", { projectId: "fixture_beta" })).toMatchObject({
+        prompt: unicodePrompt,
+        effectivePrompt: unicodePrompt,
+      });
+      expect(
+        await splitRpc(
+          "setPrompt",
+          { projectId: "fixture_beta", prompt: null, expectedPrompt: unicodePrompt },
+          character,
+        ),
+      ).toMatchObject({ status: "saved", state: { prompt: null } });
+    }
     // Both saved and submitted prompts must fit, including JSON escape expansion.
     let expectedPrompt: string | null = null;
     for (const prompt of ["x".repeat(4096), "\u0001".repeat(4096), "\u0002".repeat(4096)]) {
@@ -166,13 +213,24 @@ it("rejects unapproved Hosts before serving source or changing fixture settings"
       });
       expectedPrompt = prompt;
     }
-    const oversized = await fetch(base + "/fixture-rpc/setPrompt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "x".repeat(65537),
+    for (const [path, body] of [
+      ["/fixture-rpc/setPrompt", "x".repeat(65537)],
+      ["/fixture-rpc/setPrompt", "💡".repeat(16385)],
+      ["/fixture-default", "x".repeat(1025)],
+      ["/fixture-default", "é".repeat(513)],
+    ]) {
+      const oversized = await fetch(base + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      expect(oversized.status).toBe(400);
+      expect(await oversized.json()).toMatchObject({ error: "Request too large" });
+    }
+    expect(await rpc("getProject", { projectId: "fixture_beta" })).toMatchObject({
+      prompt: expectedPrompt,
     });
-    expect(oversized.status).toBe(400);
-    expect(await oversized.json()).toMatchObject({ error: "Request too large" });
+    expect(await (await fetch(base + "/fixture-default")).json()).toMatchObject({ value: true });
   } finally {
     if (child.exitCode === null) {
       const exited = once(child, "exit");
