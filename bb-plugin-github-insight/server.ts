@@ -230,6 +230,9 @@ export default async function plugin(bb: BbPluginApi) {
 
   const unloaded = new AbortController();
   bb.onDispose(() => unloaded.abort());
+  bb.events.on("thread.active", ({ thread }) => {
+    void reviewQueue.threadActive(thread.id);
+  });
   bb.events.on("thread.idle", ({ thread }) => {
     void service.refreshOnIdle(thread.id, unloaded.signal);
     void reviewQueue.threadStopped(thread.id);

@@ -54,6 +54,7 @@ app --archiveReview--> server --> bb.sdk.threads.archive
 app --markReviewed / markNeedsReview--> server --> kv "reviewed:<owner/repo#n>"
 app --markQueueSeen--> server --> kv "review-seen"
 thread.idle / thread.failed --> server --> kv "review-returned:<threadId>"
+thread.active --> server --> re-link (linked threads only)
 composer banner --markThreadOpened--> server --> deletes "review-returned:<threadId>"
 ```
 
@@ -65,7 +66,7 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - After each load, the service writes the result to the kv entry `review-queue` (`{ v: 2, result }`) and publishes it on `review-queue.updated`. A failed load keeps the last good lists in the entry. The entry stays after a bb restart. An entry of another version reads as no entry.
 - `getReviewQueue` returns the stored result at once and never waits for GitHub. Before the first load, it returns `loading`, and the panel shows "Loading pull requests…" until the first result is published.
 - The panel reads the stored result when it opens and shows each published result. It has no timer of its own. Refresh calls `refreshReviewQueue`, which loads at once. The old lists stay visible until the new result arrives.
-- `startReview`, `archiveReview`, `markReviewed`, `markNeedsReview`, `markQueueSeen`, `markThreadOpened`, and a review thread's `thread.idle` or `thread.failed` build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
+- `startReview`, `archiveReview`, `markReviewed`, `markNeedsReview`, `markQueueSeen`, `markThreadOpened`, a review thread's `thread.idle` or `thread.failed`, and `thread.active`, `thread.idle`, or `thread.failed` of a thread linked in the stored list build the thread links and the reviewed state again from the stored GitHub data, with no `gh` call, then store and publish the result. A mark on a PR that is not in the stored data starts a load.
 - A failed load shows the reason and "Retry". The last good lists stay visible with their load time. With no primary host, the panel shows "No host available".
 - A PR matches a bb project when the project's git remote points to the PR repo (HTTPS or SSH, any case, with or without `.git`). Personal projects do not match. The first project is the most recently updated one.
 - The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Draft, and the actions. The review decision shows only Approved or Changes requested.
