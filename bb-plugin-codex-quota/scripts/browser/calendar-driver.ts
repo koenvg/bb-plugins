@@ -54,11 +54,24 @@ async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?
     ...(fromDate === undefined ? {} : { fromDate }),
   };
 }
+async function renderedInputFrames(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
 export async function tooltip(page: Page, metric: Metric, dailyRows: string[][]) {
-  await page.mouse.move(0, 0);
   const surface = page.locator('.recharts-surface[role="application"]');
+  // Clear pointer selection in the chart margin, then drain its queued frame before keyboard input.
+  await surface.hover({ position: { x: 1, y: 1 } });
+  await renderedInputFrames(page);
+  await page.mouse.move(0, 0);
   await surface.focus();
   await page.keyboard.press("ArrowRight");
+  // A retained tooltip can already match the target date before this input is rendered.
+  await renderedInputFrames(page);
   const date = page.locator(".recharts-tooltip-wrapper time");
   await expect(date).toHaveAttribute("datetime", /2026-/);
   for (let step = 0; step < 30; step++) {
