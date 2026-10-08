@@ -116,7 +116,7 @@ it("guards isolated fixture requests and preserves split UTF-8 prompt text", asy
       return JSON.parse(response.body).result;
     };
     const events = await (await fetch(base + "/fixture-events")).json();
-    expect(events.signals).toHaveLength(2);
+    expect(events.signals).toHaveLength(5);
     const before = await rpc("getProject", { projectId: "fixture_beta" });
     expect(before.enabled).toBe(false);
     expect(

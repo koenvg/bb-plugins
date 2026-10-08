@@ -36,6 +36,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   const configuration = projectConfiguration(bb, settings, () => enableByDefault);
   bb.rpc.register(settingsContract, {
     listProjects: () => configuration.listProjects(),
+    listProjectSummaries: () => configuration.listProjectSummaries(),
     getProject: ({ projectId }) => configuration.getProject(projectId),
     setEnablement: ({ projectId, enabledOverride }) =>
       configuration.setEnablement(projectId, enabledOverride),

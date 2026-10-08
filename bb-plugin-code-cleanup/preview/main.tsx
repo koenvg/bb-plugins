@@ -1,6 +1,6 @@
 import { FixtureMarkdown } from "./markdown";
 import { FixtureIcon } from "./icons";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PluginAppDefinition, PluginSettingsSectionRegistration } from "@get-bb/plugin-sdk";
 const rpc = {
@@ -59,7 +59,7 @@ function FixtureDefault() {
     setError(null);
     try {
       const response = await fetch(
-        "/fixture-default",
+        `/fixture-default?scenario=${encodeURIComponent(new URLSearchParams(location.search).get("scenario") ?? "normal")}`,
         value === undefined
           ? {}
           : {
@@ -114,6 +114,7 @@ function FixtureDefault() {
 // Implement only the public app hooks used by the actual app entry.
 Object.assign(globalThis, {
   __bbPluginRuntime: {
+    react: React,
     pluginSdkApp: {
       definePluginApp: (setup: PluginAppDefinition["setup"]): PluginAppDefinition => ({
         __bbPluginApp: true,

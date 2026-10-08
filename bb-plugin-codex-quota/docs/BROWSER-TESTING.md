@@ -26,7 +26,7 @@ The CSS compiler uses the BB Tailwind 4.3 theme/utility layer pattern without pr
 
 Every matrix keeps both 1280px desktop and 375px narrow checks. State filters are diagnostic only.
 
-`tooltip-input.spec.ts` adds a metric-switch regression with deferred browser frames. The driver clears pointer selection in the chart margin and waits for rendered input frames before reading keyboard results. The regression keeps real input handlers, checks that queued pointer work finishes before keyboard input, and still requires hover to restore the target date with exact facts.
+`tooltip-input.spec.ts` adds a metric-switch regression with deferred browser frames and token/cost regressions that move the chart down 60px during keyboard input. The pointer driver uses locator hover to resolve the bar's current position after layout changes. The driver clears pointer selection in the chart margin and waits for rendered input frames before reading keyboard results. The regression keeps real input handlers, checks that queued pointer work finishes before keyboard input, and still requires hover to restore the target date with exact facts.
 
 | Removed runner                 | Maintained suite and retained checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ npm test -- scripts/browser/proof.test.ts
 npx playwright show-report
 ```
 
-The full run has 116 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, date-picker `measurements.json` and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
+The full run has 118 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, date-picker `measurements.json` and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
 
 ## Evidence limits
 

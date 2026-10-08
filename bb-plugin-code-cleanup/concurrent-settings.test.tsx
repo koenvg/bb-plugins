@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,10 +18,10 @@ const choices = [
   { id: "proj_a", name: "Alpha" },
   { id: "proj_b", name: "Beta" },
 ];
-const state = (projectId: string, prompt = "Loaded\n"): ProjectState => ({
+const state = (projectId: string, prompt: string | null = "Loaded\n"): ProjectState => ({
   projectId,
   prompt,
-  effectivePrompt: prompt,
+  effectivePrompt: prompt ?? "Factory",
   enabled: false,
   enabledOverride: null,
   enableByDefault: false,
@@ -42,6 +43,14 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
     {
       rpc: {
         listProjects: () => choices,
+        listProjectSummaries: () =>
+          choices.map(({ id, name }) => ({
+            id,
+            name,
+            enabled: false,
+            enabledOverride: null,
+            promptSource: "custom",
+          })),
         getProject: ({ projectId }) => state(projectId),
         setEnablement: ({ projectId, enabledOverride }) => ({
           ...state(projectId),
@@ -50,7 +59,7 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
         }),
         setPrompt: ({ projectId, prompt }) => ({
           status: "saved",
-          state: state(projectId, prompt ?? "Factory"),
+          state: state(projectId, prompt),
         }),
         ...overrides,
       },
@@ -59,10 +68,8 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
 }
 async function select(view: Awaited<ReturnType<typeof mount>>, name = "Alpha") {
   const ui = within(view.container);
-  await userEvent.selectOptions(
-    await ui.findByRole("combobox"),
-    await ui.findByRole("option", { name }),
-  );
+  if (ui.queryByRole("dialog")) await userEvent.click(ui.getByRole("button", { name: "Cancel" }));
+  await userEvent.click(await ui.findByRole("button", { name: `Edit prompt for ${name}` }));
   await ui.findByRole("textbox");
   return ui;
 }
@@ -87,6 +94,8 @@ async function setupHost() {
   const call = host.harness.behavior.callRpc;
   const handlers: PluginRpcTestHandlers<SettingsContract> = {
     listProjects: async (input) => (await call("listProjects", input)) as typeof choices,
+    listProjectSummaries: async (input) =>
+      (await call("listProjectSummaries", input)) as import("./rpc").ProjectSummary[],
     getProject: async (input) => (await call("getProject", input)) as ProjectState,
     setEnablement: async (input) => (await call("setEnablement", input)) as ProjectState,
     setPrompt: async (input) => (await call("setPrompt", input)) as PromptResult,
@@ -101,17 +110,23 @@ describe("Settings invalidation and conflict recovery", () => {
     const b = await mount(handlers);
     const uiA = await select(a);
     const uiB = await select(b);
-    const draftA = await edit(uiA, "Client A\n");
+    await edit(uiA, "Client A\n");
     const draftB = await edit(uiB, "Client B\n");
-    await userEvent.click(uiA.getByRole("button", { name: "Save prompt" }));
-    await uiA.findByText("Saved prompt for Alpha.");
+    await userEvent.click(uiA.getByRole("button", { name: "Save" }));
+    expect(uiA.queryByRole("dialog")).toBeNull();
+    await select(a);
     const signal = host.harness.inspection.realtimeSignals.at(-1)!;
     await b.behavior.emitRealtime(signal.channel, signal.payload);
     await uiB.findByText(/Saved settings changed/);
     expect(draftB.value).toBe("Client B\n");
-    await userEvent.click(uiB.getByRole("switch"));
-    await uiB.findByText("On · Project override");
-    await userEvent.click(uiB.getByRole("button", { name: "Save prompt" }));
+    await host.harness.behavior.runCli(["enable", "--project", "proj_a"]);
+    await b.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
+    expect(
+      uiB
+        .getByRole("switch", { name: "Enable Code Cleanup for Alpha" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    await userEvent.click(uiB.getByRole("button", { name: "Save" }));
     await uiB.findByText(/Prompt conflict/);
     expect(b.inspection.rpcCalls.filter((c) => c.method === "setPrompt").at(-1)?.input).toEqual({
       projectId: "proj_a",
@@ -119,9 +134,7 @@ describe("Settings invalidation and conflict recovery", () => {
       expectedPrompt: null,
     });
     expect(draftB.value).toBe("Client B\n");
-    expect((uiB.getByRole("button", { name: "Save prompt" }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect((uiB.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
     await userEvent.click(uiB.getByRole("button", { name: "Reload saved settings" }));
     const cancel = await uiB.findByRole("button", { name: "Cancel" });
     expect(document.activeElement).toBe(cancel);
@@ -139,7 +152,7 @@ describe("Settings invalidation and conflict recovery", () => {
     const cliSignal = host.harness.inspection.realtimeSignals.at(-1)!;
     await a.behavior.emitRealtime(cliSignal.channel, cliSignal.payload);
     await b.behavior.emitRealtime(cliSignal.channel, cliSignal.payload);
-    expect(draftA.value).toBe("CLI\n");
+    expect((uiA.getByRole("textbox") as HTMLTextAreaElement).value).toBe("CLI\n");
     expect(draftB.value).toBe("CLI\n");
   });
 
@@ -186,14 +199,22 @@ describe("Settings invalidation and conflict recovery", () => {
       "Missed",
     ]);
     await view.behavior.setRealtimeConnectionState("connected");
-    await ui.findByText("On · Default");
+    expect(
+      ui
+        .getByRole("switch", { name: "Enable Code Cleanup for Alpha" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
     expect(editor.value).toBe("Missed");
     await edit(ui, "Offline draft");
     await view.behavior.setRealtimeConnectionState("reconnecting");
     await host.harness.behavior.runCli(["disable", "--project", "proj_a"]);
     await host.harness.behavior.runCli(["prompt", "reset", "--project", "proj_a"]);
     await view.behavior.setRealtimeConnectionState("connected");
-    await ui.findByText("Off · Project override");
+    expect(
+      ui
+        .getByRole("switch", { name: "Enable Code Cleanup for Alpha" })
+        .getAttribute("aria-checked"),
+    ).toBe("false");
     await ui.findByText(/Saved settings changed/);
     expect(editor.value).toBe("Offline draft");
   });
@@ -229,7 +250,7 @@ describe("Settings invalidation and conflict recovery", () => {
     await act(async () => late.resolve(state("proj_a", "New saved text")));
     await ui.findByText(/Saved settings changed/);
     expect((ui.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Typed during refresh");
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     expect(view.inspection.rpcCalls.find((c) => c.method === "setPrompt")?.input).toEqual({
       projectId: "proj_a",
       prompt: "Typed during refresh",
@@ -249,18 +270,18 @@ describe("Settings invalidation and conflict recovery", () => {
     const ui = await select(view);
     const editor = await edit(ui, "Saved draft");
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     expect(editor.disabled).toBe(true);
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
     await act(async () => oldRead.resolve(state("proj_a", "Old read")));
     expect(editor.value).toBe("Saved draft");
     await act(async () =>
       saved.resolve({ status: "saved", state: state("proj_a", "Saved draft") }),
     );
-    await ui.findByText("Saved prompt for Alpha.");
-    await act(async () => {});
-    expect(editor.value).toBe("Newest");
+    expect(ui.queryByRole("dialog")).toBeNull();
+    await select(view);
+    expect((ui.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Newest");
     expect(view.inspection.rpcCalls.filter((c) => c.method === "setPrompt")).toHaveLength(1);
   });
 
@@ -308,7 +329,7 @@ describe("Settings invalidation and conflict recovery", () => {
     const old = await mount({ setPrompt: () => save.promise });
     const oldUi = await select(old);
     await edit(oldUi, "Old client draft");
-    await userEvent.click(oldUi.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(oldUi.getByRole("button", { name: "Save" }));
     old.unmount();
     const fresh = await mount();
     await select(fresh, "Beta");
@@ -367,13 +388,13 @@ describe("Settings invalidation and conflict recovery", () => {
     });
     const ui = await select(view);
     const editor = await edit(ui, "Retry draft");
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
     await act(async () => late.reject(new Error("lost response")));
     await ui.findByText(/Could not save: lost response/);
     await ui.findByText(/Saved settings changed/);
     expect(editor.value).toBe("Retry draft");
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     await ui.findByText(/Prompt conflict/);
     expect(
       view.inspection.rpcCalls.filter((c) => c.method === "setPrompt").map((c) => c.input),
@@ -388,10 +409,7 @@ describe("Settings invalidation and conflict recovery", () => {
       getProject: ({ projectId }) => state(mismatch ? "proj_b" : projectId),
       setPrompt: () => ({ status: "saved", state: state("proj_b", "Wrong project") }),
     });
-    await userEvent.selectOptions(
-      await screen.findByRole("combobox"),
-      await screen.findByRole("option", { name: "Alpha" }),
-    );
+    await userEvent.click(await screen.findByRole("button", { name: "Edit prompt for Alpha" }));
     await screen.findByText(/Project response did not match the selection/);
     expect(screen.queryByRole("textbox")).toBeNull();
     mismatch = false;
@@ -399,7 +417,7 @@ describe("Settings invalidation and conflict recovery", () => {
     const ui = within(view.container);
     await ui.findByRole("textbox");
     const editor = await edit(ui, "Correct project draft");
-    await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+    await userEvent.click(ui.getByRole("button", { name: "Save" }));
     await ui.findByText(/Project response did not match the save target/);
     expect(editor.value).toBe("Correct project draft");
     expect(ui.queryByText("Saved prompt for Alpha.")).toBeNull();
@@ -419,9 +437,9 @@ describe("Settings invalidation and conflict recovery", () => {
       "Missed notification",
     ]);
     await userEvent.click(ui.getByRole("button", { name: "Reload saved settings" }));
-    await ui.findByText("On · Project override");
     expect((ui.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Missed notification");
-    expect(ui.queryByRole("dialog")).toBeNull();
+    expect((ui.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Missed notification");
+    expect(ui.queryByRole("button", { name: "Discard and reload" })).toBeNull();
     expect(view.inspection.rpcCalls.filter((c) => c.method.startsWith("set"))).toEqual([]);
   });
 
@@ -436,14 +454,18 @@ describe("Settings invalidation and conflict recovery", () => {
         },
         setPrompt: ({ projectId, prompt }) => {
           if (outcome === "failed") throw new Error("Save offline");
-          return { status: "saved", state: state(projectId, prompt!) };
+          return { status: "saved", state: state(projectId, prompt) };
         },
       });
       const ui = await select(view);
       const editor = await edit(ui, "Written draft");
-      await userEvent.click(ui.getByRole("button", { name: "Save prompt" }));
+      if (outcome === "failed") await userEvent.click(ui.getByRole("button", { name: "Save" }));
+      else {
+        await userEvent.click(ui.getByRole("button", { name: "Reset to plugin default" }));
+        await userEvent.click(ui.getByRole("button", { name: "Confirm reset" }));
+      }
       const feedback =
-        outcome === "failed" ? /Could not save: Save offline/ : /Saved prompt for Alpha/;
+        outcome === "failed" ? /Could not save: Save offline/ : /Reset prompt for Alpha/;
       await ui.findByText(feedback);
       async function reload() {
         await userEvent.click(ui.getByRole("button", { name: "Reload saved settings" }));
@@ -453,7 +475,7 @@ describe("Settings invalidation and conflict recovery", () => {
       failRead = true;
       await reload();
       await ui.findByText(/Could not refresh project settings: Reload offline/);
-      expect(editor.value).toBe("Written draft");
+      expect(editor.value).toBe(outcome === "failed" ? "Written draft" : "Factory");
       expect(ui.getByText(feedback)).toBeTruthy();
       failRead = false;
       await reload();

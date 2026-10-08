@@ -37,8 +37,7 @@ export function projectConfiguration(
       });
     }
   }
-  function snapshot(projectId: string) {
-    const enableByDefault = getDefault();
+  function snapshot(projectId: string, enableByDefault = getDefault()) {
     const state = settings.get(projectId, enableByDefault);
     return {
       projectId,
@@ -49,6 +48,22 @@ export function projectConfiguration(
   }
   return {
     listProjects,
+    async listProjectSummaries() {
+      const projects = await listProjects();
+      const enableByDefault = getDefault();
+      return projects
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+        .map(({ id, name }) => {
+          const state = snapshot(id, enableByDefault);
+          return {
+            id,
+            name,
+            enabled: state.enabled,
+            enabledOverride: state.enabledOverride,
+            promptSource: state.prompt === null ? ("default" as const) : ("custom" as const),
+          };
+        });
+    },
     async getProject(projectId: string) {
       await requireProject(projectId);
       return snapshot(projectId);
