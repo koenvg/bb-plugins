@@ -10,5 +10,14 @@
     "noEmit": true,
     "skipLibCheck": false
   },
-  "include": ["server.ts", "app.tsx", "styles-lifecycle.ts", "voice-keyboard.ts", "*.test.ts"]
+  "include": [
+    "server.ts",
+    "app.tsx",
+    "styles-lifecycle.ts",
+    "voice-keyboard.ts",
+    "*.test.ts",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "tests/**/*.ts"
+  ]
 }

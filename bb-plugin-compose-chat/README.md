@@ -58,40 +58,53 @@ bb plugin types . --check
 npm run build
 ```
 
-For the optional browser matrix, build first and serve this package locally with `python3 -m http.server 56429 --bind 127.0.0.1`. Load the installed Browser Use skill and follow [the dedicated Chrome browser contract](../.pi/skills/verify/references/browser-contract.md). Use a separately provisioned, approved Chrome endpoint and a fresh `BU_NAME`. Keep strict reuse enabled after the first read-only connection.
+### Browser matrix
 
-Record the daemon's initial provisioning tab as task-created. Reuse it as the fixture target, or create and record an additional tab with `new_tab()` without a URL. Follow the contract's session-bound navigation example with `bb_url=http://127.0.0.1:56429/tests/preview.html`. Keep every created target, including the provisioning tab, in the cleanup ledger. A matching URL does not establish tab ownership. Export the selected task-created fixture target as `COMPOSE_CHAT_BROWSER_TARGET`. The runner requires that target, a non-default `BU_NAME`, and exactly one approved endpoint variable, `BU_CDP_URL` or `BU_CDP_WS`. It has no default-session or Arc fallback.
-
-With that scoped environment still set, run:
+Use Node 24.15 or newer in the Node 24 release line. From this package:
 
 ```sh
-export COMPOSE_CHAT_BROWSER_TARGET="$task_target"
+npm ci
+npx playwright install chromium
 npm run test:browser
 ```
 
-This requires Python 3 and Browser Use's stdin helpers, inspected with Browser Use 0.13.10 and Browser Harness 0.1.13. The runner forces `BH_REQUIRE_EXISTING_DAEMON=1` and disables tab-title markers. It selects only the recorded fixture target, binds every tab command to the public CDP session, rejects a missing target or unrelated/login page, and does not retry connection discovery. Session loss stops actions and resets without a fallback target. Obtain approval for bringing that fixture tab to the foreground before running it.
+The pinned Playwright Test 1.64.0 runner starts its own Chromium browser and a local fixture server on `127.0.0.1:56429`. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
 
-The 16 desktop/touch/state cases and six synthetic screenshots remain fixture evidence, not installed native-BB evidence. The runner writes PNG provenance and JSON results to the repository's `.impeccable/review/` directory by default. It attempts all viewport, touch, media, URL, and cache resets even after a check fails, but stops those commands if the bound session is lost. Cleanup errors fail the run. Follow the browser contract to close the recorded task-created fixture tab and owned daemon on success or failure, and stop only the local server process this run created. The runner leaves tab/process cleanup to the caller.
+The server builds the unchanged `app.tsx` entry and its CSS with esbuild on every run. It serves these assets in memory at the fixture's existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite an existing BB build in `dist/`. Only fixture assets are served, with caching disabled. An occupied port fails instead of reusing another server. Playwright owns browser, context and server cleanup on success or failure. Assertions, navigation errors, build errors and timeouts fail the command; retries are disabled.
 
-To check the runner contract without a browser or private user state:
+`npm test` still runs Vitest. Its only discovery change excludes `tests/browser/**`, where Playwright's `*.spec.ts` files live. `browser-evidence.test.ts` retains the complete-PNG and backing-pixel safeguards. The Python daemon/session contract tests were removed because the runner no longer connects to user browsers.
 
-```sh
-python3 -B -m unittest discover -s tests -p 'test_browser_contract.py'
-```
+Coverage from `tests/browser-matrix.py` maps one-to-one to the same case names in `tests/browser/matrix.spec.ts`:
 
-These fake-helper checks are not a browser matrix or visual acceptance pass.
+| Original cases                                             | Preserved coverage                                                         |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `hero-dark`, `desktop-dark`, `desktop-light`, `user-width` | Desktop geometry, dark/light themes, four viewport PNGs                    |
+| `mobile-dark`, `mobile-light`                              | Touch hit areas, hidden native footer, two viewport PNGs                   |
+| `custom-tokens`                                            | Custom theme colors and radius                                             |
+| `compact-dark`, `compact-touch`                            | Independently framed compact composer and hidden native footer             |
+| `new-thread`, `new-thread-touch`                           | Joined native footer and outward shadow                                    |
+| `disabled-action`                                          | Disabled submit semantics                                                  |
+| `reduced-motion`                                           | Static lattice and disabled transitions                                    |
+| `long-draft`                                               | Long native draft and no horizontal overflow                               |
+| `split-send-empty`, `split-send-draft`                     | Native split-send dimensions, joined corners and zero-width hidden options |
 
-Set `COMPOSE_CHAT_BROWSER_EVIDENCE_DIR` to keep a revision's evidence separate. `COMPOSE_CHAT_BROWSER_SKIP_SCREENSHOTS=1` runs assertions only and marks every result as screenshot-skipped. This is not a screenshot-validation pass; the default run still rejects invalid PNGs.
+All 16 cases run the unchanged `tests/browser-checks.js` assertions through the existing `tests/preview.html` fixture. These include contrast, lattice and glyph alignment, native Thinking expansion, animation states, draft/node identity, native submit behavior, style abort/re-enable and unrelated-editor isolation. Every case also uses a real Tab key event to check native order, `:focus-visible` and the focus outline width.
 
-Relative evidence paths resolve from the CLI's working directory. Captures use the client's native pixel ratio, so a 1615 × 990 CSS viewport can produce a 3230 × 1980 PNG on a 2x display. The runner records and validates both sizes. Inspect the six images for clipping; a valid PNG alone does not prove visual acceptance.
+Results are in `test-results/results.json` and the HTML report in `playwright-report/`. Each case attaches its named checks as JSON. The six original PNG filenames and their `.provenance.json` files are in per-case `test-results/` folders and attached to the report. Provenance records the viewport, validated PNG dimensions, pixel ratio, SHA-256 and hashes of the served build and fixture sources. The pixel ratio is fixed at 1 for repeatable dimensions. Failure screenshots and traces are retained. These directories are ignored by Git and replaced on the next run; copy them before rerunning if needed. Inspect the six images for clipping; PNG validation alone is not visual acceptance.
 
 To rerun only the split-send regression cases:
 
 ```sh
-COMPOSE_CHAT_BROWSER_CASES=split-send-empty,split-send-draft npm run test:browser
+npm run test:browser -- --grep split-send
 ```
 
-Standalone actions get larger touch targets. Native split-send controls keep BB's joined corners and original widths, including the zero-width hidden options segment. The browser runner bypasses cached build assets in its owned fixture tab.
+To put per-case files in a separate directory, use `--output`. The JSON and HTML reports still use their configured paths:
+
+```sh
+npm run test:browser -- --output /tmp/compose-chat-evidence
+```
+
+The 16 cases and six screenshots are synthetic fixture evidence, not an installed native-BB acceptance check. Standalone actions get larger touch targets. Native split-send controls keep BB's joined corners and original widths, including the zero-width hidden options segment.
 
 Unit tests exercise the SDK's actual content-script registration and cleanup, draft/control preservation, scoped CSS, theme-token use, keyboard focus, disabled actions, touch rules, and reduced motion.
 
