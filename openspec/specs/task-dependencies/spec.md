@@ -213,7 +213,6 @@ The bundled `tasks` skill SHALL tell agents to run `bb tasks show` and check blo
 - **WHEN** an agent reads the `tasks` skill
 - **THEN** it finds the instruction to check blockers and the `--blocked-by`, `--unblocked-by`, `--ready`, and `--blocked` flags
 
-
 ### Requirement: Badges on sub-task rows
 
 In the detail view of a parent task, each sub-task row SHALL show the same dependency badges as a list row: "Blocked by N" when the sub-task is blocked, and "Blocks N" when it blocks N tasks that are not `done` or `canceled`. A sub-task with neither SHALL show no dependency badge. The badges SHALL NOT change the state of the parent.

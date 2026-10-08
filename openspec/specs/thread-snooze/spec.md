@@ -288,7 +288,6 @@ A change in PR status SHALL NOT end a snooze group, whether it affects the selec
 - **WHEN** only a grouped child's PR changes to requested changes
 - **THEN** the parent and all group members remain snoozed
 
-
 ### Requirement: Snooze commands target the focused thread
 
 The plugin SHALL register "Threads: Snooze until tomorrow", "Threads: Snooze until next week", and "Threads: Wake now" in BB's command palette. Each command SHALL act on the thread identified by BB's current command context, not a previously focused thread or a sidebar row. The commands SHALL NOT require the sidebar drawer to be open or the target row to be visible. They SHALL have no default keyboard shortcuts and SHALL remain available for user-assigned bindings through BB's Keyboard settings.

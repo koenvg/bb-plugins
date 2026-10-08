@@ -502,7 +502,6 @@ Each icon-only control on a PR row SHALL show a tooltip with its label when the 
 - **WHEN** the user points at "Open thread" or "Review in thread"
 - **THEN** no tooltip shows
 
-
 ### Requirement: New activity after the mark
 
 A marked PR SHALL have new activity when, after the mark time, a person other than the user posts a PR comment, a review comment or reply, or a review with text, or when GitHub requests the user's review again. Activity from bots and from the user SHALL NOT count. A review with no text and no comments SHALL NOT count. The card SHALL show "New comments" for comments and "Review requested again" for a new request. "Mark reviewed" SHALL set a new mark time, which clears both labels.

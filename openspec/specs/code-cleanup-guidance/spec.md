@@ -99,7 +99,6 @@ When the BB plugin is globally disabled or uninstalled, it SHALL stop contributi
 - **WHEN** the plugin is reloaded and a new session starts in an enabled project
 - **THEN** that session receives exactly one Code Cleanup contribution
 
-
 ### Requirement: Follow-up dependency direction
 
 When a new cleanup ticket must wait for the current change to merge, the default guidance SHALL tell the agent to save the new ticket as blocked by the current ticket. It SHALL explicitly state that this cleanup does not block completion of the current ticket. It SHALL NOT require this dependency for independent cleanup.
