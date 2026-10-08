@@ -33,18 +33,18 @@ const CI_MARK: Record<CiState, { text: string; icon: IconName; className: string
 
 const REVIEW_DECISION_LABEL: Record<
   NonNullable<QueuePr["reviewDecision"]>,
-  { text: string; className: string }
+  { text: string; className: string } | null
 > = {
   APPROVED: { text: "Approved", className: "font-medium text-success" },
   CHANGES_REQUESTED: { text: "Changes requested", className: "font-medium text-destructive" },
-  REVIEW_REQUIRED: { text: "Review required", className: "text-subtle-foreground" },
+  REVIEW_REQUIRED: null,
 };
 
 const ATTENTION_LABEL: Record<
   NewActivity | "updated_since_review",
   { text: string; icon: IconName }
 > = {
-  updated_since_review: { text: "Updated since review", icon: "ArrowUp" },
+  updated_since_review: { text: "New commits", icon: "ArrowUp" },
   new_comments: { text: "New comments", icon: "MessageSquare" },
   requested_again: { text: "Review requested again", icon: "UserRoundPlus" },
 };
@@ -54,39 +54,67 @@ function attentionLabels(pr: LinkedQueuePr): { text: string; icon: IconName }[] 
   return [...reasons, ...pr.newActivity].map((reason) => ATTENTION_LABEL[reason]);
 }
 
-interface StatusLabel {
-  text: string;
-  dotClass: string;
-  pillClass?: string;
+const NEUTRAL_PILL_TONE =
+  "border-input text-muted-foreground hover:bg-state-hover hover:text-foreground";
+
+const ACTIVE_AGENT_STATES = ["running", "needs_you", "finished", "failed"] as const;
+
+type ActiveAgentState = (typeof ACTIVE_AGENT_STATES)[number];
+
+type AgentState = ActiveAgentState | "idle";
+
+const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: string }> = {
+  running: {
+    label: "Running",
+    dotClass: "animate-pulse bg-success motion-reduce:animate-none",
+    toneClass: "border-success/40 bg-success/10 text-foreground hover:bg-success/20",
+  },
+  needs_you: {
+    label: "Needs you",
+    dotClass: "bg-attention",
+    toneClass: "border-attention/50 bg-attention/15 text-foreground hover:bg-attention/25",
+  },
+  finished: {
+    label: "Ready",
+    dotClass: "bg-primary",
+    toneClass: "border-primary/15 bg-primary/5 text-foreground hover:bg-primary/10",
+  },
+  failed: {
+    label: "Failed",
+    dotClass: "bg-destructive",
+    toneClass: "border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/10",
+  },
+  idle: {
+    label: "Waiting",
+    dotClass: "bg-muted-foreground/60",
+    toneClass: NEUTRAL_PILL_TONE,
+  },
+};
+
+const THREAD_STATUS_STATE: Record<ReviewThreadStatus, AgentState> = {
+  running: "running",
+  needs_you: "needs_you",
+  idle: "idle",
+  error: "failed",
+};
+
+const RETURNED_STATE: Record<ReturnedReason, AgentState> = {
+  finished: "finished",
+  needs_you: "needs_you",
+  failed: "failed",
+};
+
+function agentStateOf(thread: NonNullable<LinkedQueuePr["thread"]>): AgentState {
+  return thread.returned !== null
+    ? RETURNED_STATE[thread.returned]
+    : THREAD_STATUS_STATE[thread.status];
 }
 
-const STATUS_LABEL: Record<ReviewThreadStatus, StatusLabel> = {
-  running: { text: "Running", dotClass: "animate-pulse bg-success motion-reduce:animate-none" },
-  needs_you: {
-    text: "Needs you",
-    dotClass: "bg-attention",
-    pillClass: "border-attention/50 bg-attention/15 text-foreground",
-  },
-  idle: { text: "Idle", dotClass: "bg-muted-foreground" },
-  error: {
-    text: "Error",
-    dotClass: "bg-destructive",
-    pillClass: "border-destructive/40 bg-destructive/5 text-destructive",
-  },
-};
-
-const RETURNED_LABEL: Record<ReturnedReason, StatusLabel> = {
-  finished: {
-    text: "Agent finished",
-    dotClass: "bg-primary",
-    pillClass: "border-primary/40 bg-primary/10 text-foreground",
-  },
-  needs_you: STATUS_LABEL.needs_you,
-  failed: { ...STATUS_LABEL.error, text: "Failed" },
-};
+const STATUS_PILL_CLASS =
+  "group inline-flex h-9 shrink-0 pointer-coarse:h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 const ICON_ACTION_CLASS =
-  "inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md disabled:cursor-default text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
+  "inline-flex size-9 shrink-0 pointer-coarse:size-11 cursor-pointer items-center justify-center rounded-md disabled:cursor-default text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground";
 
 function keyOf(pr: LinkedQueuePr): string {
   return `${pr.repo.toLowerCase()}#${pr.number}`;
@@ -96,12 +124,23 @@ function countOf(section: QueueSection): number {
   return section.reduce((sum, group) => sum + group.prs.length, 0);
 }
 
+function hasAgentState(pr: LinkedQueuePr, state: AgentState): boolean {
+  return pr.thread !== null && agentStateOf(pr.thread) === state;
+}
+
+function onlyAgentState(section: QueueSection, state: AgentState): QueueSection {
+  return section
+    .map((group) => ({ repo: group.repo, prs: group.prs.filter((pr) => hasAgentState(pr, state)) }))
+    .filter((group) => group.prs.length > 0);
+}
+
 export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
   const { view, error, refreshing, refresh } = queue;
   const rpc = useRpc<typeof rpcContract>();
   const [archived, setArchived] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
+  const [agentFilter, setAgentFilter] = useState<ActiveAgentState | null>(null);
 
   useEffect(() => {
     setArchived(new Set());
@@ -162,6 +201,8 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
     }));
   const needsReview = withoutArchivedThreads(view?.needsReview ?? []);
   const reviewed = withoutArchivedThreads(view?.reviewed ?? []);
+  const needsReviewCount = countOf(needsReview);
+  if (needsReviewCount === 0 && agentFilter !== null) setAgentFilter(null);
   const actions: CardHandlers = {
     busy: (pr) => busy.has(keyOf(pr)),
     mark: (pr, value) => void mark(pr, value),
@@ -169,7 +210,7 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       {error !== null && (
         <RefreshError
           message={error}
@@ -185,9 +226,19 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
         <>
           <QueueSectionView
             label="Needs review"
-            section={needsReview}
-            empty={<CaughtUp />}
+            section={agentFilter === null ? needsReview : onlyAgentState(needsReview, agentFilter)}
+            count={needsReviewCount}
+            empty={
+              needsReviewCount === 0 ? (
+                <CaughtUp />
+              ) : (
+                <FilteredEmpty showAll={() => setAgentFilter(null)} />
+              )
+            }
             actions={actions}
+            headerStart={
+              <AgentFilter section={needsReview} active={agentFilter} onChange={setAgentFilter} />
+            }
             headerEnd={
               <>
                 <span className="text-xs tabular-nums text-subtle-foreground">
@@ -211,6 +262,7 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
           <QueueSectionView
             label="Reviewed"
             section={reviewed}
+            count={countOf(reviewed)}
             empty={<Notice>No reviewed pull requests</Notice>}
             actions={actions}
             collapsible
@@ -250,6 +302,64 @@ function ActionError({ message }: { message: string }) {
   );
 }
 
+function FilteredEmpty({ showAll }: { showAll(): void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+      No pull requests match this filter
+      <button
+        type="button"
+        className={cn(ACTION_CLASS, "-my-1.5 ml-auto h-8 text-foreground")}
+        onClick={showAll}
+      >
+        Show all
+      </button>
+    </div>
+  );
+}
+
+function AgentFilter({
+  section,
+  active,
+  onChange,
+}: {
+  section: QueueSection;
+  active: ActiveAgentState | null;
+  onChange(state: ActiveAgentState | null): void;
+}) {
+  const shown = ACTIVE_AGENT_STATES.map((state) => ({
+    state,
+    count: countOf(onlyAgentState(section, state)),
+  })).filter(({ state, count }) => count > 0 || state === active);
+  if (shown.length === 0) return null;
+  return (
+    <div role="group" aria-label="Filter by agent status" className="flex flex-wrap gap-1.5">
+      {shown.map(({ state, count }) => {
+        const pressed = state === active;
+        return (
+          <button
+            key={state}
+            type="button"
+            aria-pressed={pressed}
+            onClick={() => onChange(pressed ? null : state)}
+            className={cn(
+              "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 pointer-coarse:h-11 text-xs font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              pressed
+                ? AGENT[state].toneClass
+                : "border-border text-muted-foreground hover:bg-state-hover hover:text-foreground",
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn("size-1.5 rounded-full", AGENT[state].dotClass)}
+            />
+            {AGENT[state].label} <span className="tabular-nums">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface CardHandlers {
   busy(pr: LinkedQueuePr): boolean;
   mark(pr: LinkedQueuePr, reviewed: boolean): void;
@@ -259,8 +369,10 @@ interface CardHandlers {
 interface QueueSectionViewProps {
   label: string;
   section: QueueSection;
+  count: number;
   empty: ReactNode;
   actions: CardHandlers;
+  headerStart?: ReactNode;
   headerEnd?: ReactNode;
   footer?: ReactNode;
   collapsible?: boolean;
@@ -269,14 +381,15 @@ interface QueueSectionViewProps {
 function QueueSectionView({
   label,
   section,
+  count,
   empty,
   actions,
+  headerStart,
   headerEnd,
   footer,
   collapsible = false,
 }: QueueSectionViewProps) {
   const [expanded, setExpanded] = useState(!collapsible);
-  const count = countOf(section);
   const title = (
     <>
       {label}
@@ -287,7 +400,7 @@ function QueueSectionView({
   );
   return (
     <section aria-label={label} className="@container flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           {collapsible ? (
             <button
@@ -309,12 +422,13 @@ function QueueSectionView({
             title
           )}
         </h2>
+        {headerStart}
         {headerEnd !== undefined && (
           <div className="ml-auto flex shrink-0 items-center gap-2">{headerEnd}</div>
         )}
       </div>
       {expanded &&
-        (count === 0
+        (section.length === 0
           ? empty
           : section.map((group) => (
               <div key={group.repo} className="flex min-w-0 flex-col gap-1.5">
@@ -373,17 +487,10 @@ function QueueRow({
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
   const attention = attentionLabels(pr);
-  const thread = pr.thread;
-  const status =
-    thread === null
-      ? null
-      : thread.returned !== null
-        ? RETURNED_LABEL[thread.returned]
-        : STATUS_LABEL[thread.status];
   return (
     <li
       aria-label={`${pr.repo}#${pr.number}`}
-      className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 transition-colors duration-150 hover:bg-state-hover hover:duration-0 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]"
+      className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]"
     >
       <IconTooltip label={ci.text}>
         <span
@@ -436,7 +543,7 @@ function QueueRow({
               </span>
             </>
           )}
-          {(pr.draft || attention.length > 0 || status !== null) && <span className="w-1" />}
+          {(pr.draft || attention.length > 0) && <span className="w-1" />}
           {pr.draft && <span className={LABEL_CLASS}>Draft</span>}
           {attention.map(({ icon, text }) => (
             <span
@@ -450,15 +557,6 @@ function QueueRow({
               {text}
             </span>
           ))}
-          {status !== null && (
-            <span
-              data-testid="review-status"
-              className={cn(LABEL_CLASS, "flex items-center gap-1.5", status.pillClass)}
-            >
-              <span aria-hidden="true" className={cn("size-1.5 rounded-full", status.dotClass)} />
-              {status.text}
-            </span>
-          )}
         </div>
       </div>
       <RowActions pr={pr} actions={actions} />
@@ -472,42 +570,43 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
   const busy = actions.busy(pr);
   const reviewed = isReviewed(pr);
   const markLabel = reviewed ? "Mark as needs review" : "Mark reviewed";
+  const archiveThreadId = thread?.isReviewThread ? thread.id : null;
   return (
     <div className="col-start-2 -ml-2 flex flex-wrap items-center gap-0.5 @lg:col-start-3 @lg:row-start-1 @lg:-mr-1.5 @lg:ml-0 @lg:self-center">
-      {thread !== null ? (
+      <div className="ml-2 mr-1 flex shrink-0 empty:hidden @lg:ml-0 @lg:min-w-36 @lg:justify-end @lg:empty:block">
+        {thread !== null ? (
+          <ThreadStatusButton
+            state={agentStateOf(thread)}
+            onClick={() => navigation.toThread(thread.id)}
+          />
+        ) : (
+          pr.projectIds.length > 0 && (
+            <PillButton
+              toneClass={NEUTRAL_PILL_TONE}
+              leading={<Icon name="MessageSquarePlus" className="size-3.5 shrink-0" />}
+              onClick={() => navigation.go({ kind: "review", repo: pr.repo, number: pr.number })}
+            >
+              Start review
+            </PillButton>
+          )
+        )}
+      </div>
+      <IconTooltip
+        label={archiveThreadId !== null ? "Archive thread" : "Only review threads can be archived"}
+      >
         <button
           type="button"
-          className={cn(ACTION_CLASS, "mr-1 border border-input")}
-          onClick={() => navigation.toThread(thread.id)}
+          aria-label="Archive thread"
+          aria-disabled={archiveThreadId !== null ? undefined : true}
+          className={ICON_ACTION_CLASS}
+          onClick={() => {
+            if (archiveThreadId !== null) actions.archive(pr, archiveThreadId);
+          }}
+          disabled={archiveThreadId !== null && busy}
         >
-          <Icon name="MessageSquare" className="size-4" />
-          Open thread
+          <Icon name="Archive" className="size-4" />
         </button>
-      ) : (
-        pr.projectIds.length > 0 && (
-          <button
-            type="button"
-            className={cn(ACTION_CLASS, "mr-1 border border-input")}
-            onClick={() => navigation.go({ kind: "review", repo: pr.repo, number: pr.number })}
-          >
-            <Icon name="MessageSquarePlus" className="size-4" />
-            Review in thread
-          </button>
-        )
-      )}
-      {thread?.isReviewThread && (
-        <IconTooltip label="Archive thread">
-          <button
-            type="button"
-            aria-label="Archive thread"
-            className={ICON_ACTION_CLASS}
-            onClick={() => actions.archive(pr, thread.id)}
-            disabled={busy}
-          >
-            <Icon name="Archive" className="size-4" />
-          </button>
-        </IconTooltip>
-      )}
+      </IconTooltip>
       <IconTooltip label={markLabel}>
         <button
           type="button"
@@ -528,5 +627,44 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
         </UrlLink>
       </IconTooltip>
     </div>
+  );
+}
+
+function ThreadStatusButton({ state, onClick }: { state: AgentState; onClick(): void }) {
+  const agent = AGENT[state];
+  return (
+    <PillButton
+      toneClass={agent.toneClass}
+      leading={
+        <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", agent.dotClass)} />
+      }
+      onClick={onClick}
+    >
+      <span className="sr-only">Open thread:</span>{" "}
+      <span data-testid="review-status">{agent.label}</span>
+    </PillButton>
+  );
+}
+
+function PillButton({
+  toneClass,
+  leading,
+  onClick,
+  children,
+}: {
+  toneClass: string;
+  leading: ReactNode;
+  onClick(): void;
+  children: ReactNode;
+}) {
+  return (
+    <button type="button" className={cn(STATUS_PILL_CLASS, toneClass)} onClick={onClick}>
+      {leading}
+      {children}
+      <Icon
+        name="ChevronRight"
+        className="-mr-1.5 size-3.5 shrink-0 opacity-50 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+      />
+    </button>
   );
 }

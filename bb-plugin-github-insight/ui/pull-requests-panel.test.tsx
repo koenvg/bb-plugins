@@ -168,7 +168,9 @@ describe("Pull Requests lists", () => {
   });
 
   it("leads each row with the CI mark and keeps author, age, review decision, and Draft in one meta row", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr({ draft: true })])));
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ draft: true, reviewDecision: "APPROVED" })])),
+    );
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(card.firstElementChild?.getAttribute("data-testid")).toBe("queue-ci");
@@ -178,7 +180,7 @@ describe("Pull Requests lists", () => {
     expect(within(meta).getByTestId("queue-review-decision")).toBeTruthy();
     expect(within(meta).getByText("Draft")).toBeTruthy();
     expect(within(meta).queryByRole("button")).toBeNull();
-    expect(within(card).getByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Start review" })).toBeTruthy();
     expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
   });
 
@@ -205,7 +207,6 @@ describe("Pull Requests lists", () => {
   it.each([
     ["APPROVED", "Approved"],
     ["CHANGES_REQUESTED", "Changes requested"],
-    ["REVIEW_REQUIRED", "Review required"],
   ] as const)("shows review decision %s", async (reviewDecision, text) => {
     const slot = renderPanel("", () => ok(view([queuePr({ reviewDecision })])));
 
@@ -213,12 +214,16 @@ describe("Pull Requests lists", () => {
     expect(within(card).getByTestId("queue-review-decision").textContent).toBe(text);
   });
 
-  it("shows no review decision when GitHub has none", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr({ reviewDecision: null })])));
+  it.each([null, "REVIEW_REQUIRED"] as const)(
+    "shows no review decision when GitHub reports %s",
+    async (reviewDecision) => {
+      const slot = renderPanel("", () => ok(view([queuePr({ reviewDecision })])));
 
-    const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).queryByTestId("queue-review-decision")).toBeNull();
-  });
+      const card = await findCard(slot, "Needs review", "acme/api#15");
+      expect(within(card).queryByTestId("queue-review-decision")).toBeNull();
+      expect(within(card).queryByText("Review required")).toBeNull();
+    },
+  );
 
   it("links every card to the PR on GitHub", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
@@ -262,13 +267,13 @@ describe("Pull Requests lists", () => {
 });
 
 describe("Pull Requests card actions", () => {
-  it("offers Review in thread on a review request with a project", async () => {
+  it("offers Start review on a review request with a project", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    fireEvent.click(within(card).getByRole("button", { name: "Review in thread" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Start review" }));
 
-    expect(within(card).queryByRole("button", { name: "Open thread" })).toBeNull();
+    expect(within(card).queryByRole("button", { name: /^Open thread/ })).toBeNull();
     expect(slot.inspection.navigateCalls).toEqual([
       {
         method: "toPluginPanel",
@@ -278,7 +283,7 @@ describe("Pull Requests card actions", () => {
     ]);
   });
 
-  it("shows the no project hint once on the group header and no Review in thread on its cards", async () => {
+  it("shows the no project hint once on the group header and no Start review on its cards", async () => {
     const slot = renderPanel("", () =>
       ok(view([queuePr({ projectIds: [] }), queuePr({ number: 12, projectIds: [] })])),
     );
@@ -288,7 +293,7 @@ describe("Pull Requests card actions", () => {
     for (const name of ["acme/api#15", "acme/api#12"]) {
       const card = within(reviews).getByRole("listitem", { name });
       expect(within(card).queryByText("No bb project for this repository")).toBeNull();
-      expect(within(card).queryByRole("button", { name: "Review in thread" })).toBeNull();
+      expect(within(card).queryByRole("button", { name: "Start review" })).toBeNull();
       expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
     }
   });
@@ -302,7 +307,7 @@ describe("Pull Requests card actions", () => {
     expect(within(reviews).getAllByText("No bb project for this repository")).toHaveLength(1);
     expect(
       within(await findCard(slot, "Needs review", "acme/api#15")).getByRole("button", {
-        name: "Review in thread",
+        name: "Start review",
       }),
     ).toBeTruthy();
   });
@@ -319,8 +324,8 @@ describe("Pull Requests card actions", () => {
     );
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).queryByRole("button", { name: "Review in thread" })).toBeNull();
-    fireEvent.click(within(card).getByRole("button", { name: "Open thread" }));
+    expect(within(card).queryByRole("button", { name: "Start review" })).toBeNull();
+    fireEvent.click(within(card).getByRole("button", { name: /^Open thread/ }));
 
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_linked" }]);
   });
@@ -632,14 +637,14 @@ describe("Reviewed section", () => {
     const slot = renderPanel("", () => ok(view([queuePr({ review: "updated_since_review" })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).getByText("Updated since review")).toBeTruthy();
+    expect(within(card).getByText("New commits")).toBeTruthy();
   });
 
   it("shows no updated label on a PR that was never reviewed", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).queryByText("Updated since review")).toBeNull();
+    expect(within(card).queryByText("New commits")).toBeNull();
   });
 
   it.each([
@@ -667,7 +672,7 @@ describe("Reviewed section", () => {
     );
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).getByText("Updated since review")).toBeTruthy();
+    expect(within(card).getByText("New commits")).toBeTruthy();
     expect(within(card).getByText("New comments")).toBeTruthy();
     expect(within(card).getByText("Review requested again")).toBeTruthy();
   });
@@ -770,8 +775,8 @@ describe("Thread on the PR row", () => {
   it.each([
     ["running", "Running"],
     ["needs_you", "Needs you"],
-    ["idle", "Idle"],
-    ["error", "Error"],
+    ["idle", "Waiting"],
+    ["error", "Failed"],
   ] as const)("shows thread status %s", async (status, text) => {
     const slot = renderPanel("", () =>
       ok(view([queuePr({ thread: { ...reviewThread, status } })])),
@@ -781,47 +786,69 @@ describe("Thread on the PR row", () => {
     expect(within(card).getByTestId("review-status").textContent).toBe(text);
   });
 
+  it("names the thread button by its action and its status", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const button = within(card).getByRole("button", { name: "Open thread: Running" });
+    expect(within(button).getByTestId("review-status")).toBeTruthy();
+    expect(within(within(card).getByTestId("queue-meta")).queryByText("Running")).toBeNull();
+  });
+
   it("opens the thread from the row", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    fireEvent.click(within(card).getByRole("button", { name: "Open thread" }));
+    fireEvent.click(within(card).getByRole("button", { name: /^Open thread/ }));
 
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_review" }]);
   });
 
-  it("offers Archive thread only for a review thread", async () => {
-    const slot = renderPanel("", () =>
-      ok(
-        view([
-          queuePr({ thread: reviewThread }),
-          queuePr({
-            number: 12,
-            thread: { id: "thr_branch", status: "idle", isReviewThread: false, returned: null },
-          }),
-        ]),
-      ),
-    );
+  it.each([
+    [
+      "a branch thread",
+      { id: "thr_branch", status: "idle", isReviewThread: false, returned: null },
+    ],
+    ["no thread", null],
+  ] as const)("keeps Archive thread in place but disabled for %s", async (_, thread) => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread })])));
 
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const archive = within(card).getByRole("button", { name: "Archive thread" });
+    expect(archive.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(archive);
+    expect(rpcMethods(slot)).toEqual(["getReviewQueue"]);
+  });
+
+  it("explains why Archive thread is disabled", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.pointerMove(within(card).getByRole("button", { name: "Archive thread" }), {
+      pointerType: "mouse",
+    });
+
+    expect((await slot.findByRole("tooltip")).textContent).toBe(
+      "Only review threads can be archived",
+    );
+  });
+
+  it("enables Archive thread for a review thread", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(
-      within(await findCard(slot, "Needs review", "acme/api#15")).getByRole("button", {
-        name: "Archive thread",
-      }),
-    ).toBeTruthy();
-    expect(
-      within(await findCard(slot, "Needs review", "acme/api#12")).queryByRole("button", {
-        name: "Archive thread",
-      }),
+      within(card).getByRole("button", { name: "Archive thread" }).getAttribute("aria-disabled"),
     ).toBeNull();
   });
 
-  it("archives the review thread and offers Review in thread again without a refresh", async () => {
+  it("archives the review thread and offers Start review again without a refresh", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ thread: reviewThread })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
     fireEvent.click(within(card).getByRole("button", { name: "Archive thread" }));
 
-    expect(await within(card).findByRole("button", { name: "Review in thread" })).toBeTruthy();
+    expect(await within(card).findByRole("button", { name: "Start review" })).toBeTruthy();
     expect(within(card).queryByTestId("review-status")).toBeNull();
     const archive = slot.inspection.rpcCalls.find((call) => call.method === "archiveReview");
     expect(archive?.input).toEqual({ threadId: "thr_review" });
@@ -839,13 +866,13 @@ describe("Thread on the PR row", () => {
     expect(
       within(await slot.findByRole("alert")).getByText("This thread is not a review thread"),
     ).toBeTruthy();
-    expect(within(card).getByRole("button", { name: "Open thread" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: /^Open thread/ })).toBeTruthy();
   });
 });
 
 describe("returned review threads on cards", () => {
   it.each([
-    ["idle", "finished", "Agent finished"],
+    ["idle", "finished", "Ready"],
     ["needs_you", "needs_you", "Needs you"],
     ["error", "failed", "Failed"],
   ] as const)("shows a %s thread that came back as %s", async (status, returned, text) => {
@@ -863,7 +890,130 @@ describe("returned review threads on cards", () => {
     );
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).getByTestId("review-status").textContent).toBe("Idle");
+    expect(within(card).getByTestId("review-status").textContent).toBe("Waiting");
+  });
+});
+
+describe("agent status filter", () => {
+  const running = { ...reviewThread, status: "running" } as const;
+  const needsYou = { ...reviewThread, status: "needs_you" } as const;
+  const idle = { ...reviewThread, status: "idle" } as const;
+
+  function agentQueue() {
+    return ok(
+      view([
+        queuePr({ number: 1, thread: running }),
+        queuePr({ number: 2, thread: running }),
+        queuePr({ repo: "acme/web", number: 3, thread: needsYou }),
+        queuePr({ number: 4, thread: idle }),
+        queuePr({ repo: "acme/web", number: 5 }),
+      ]),
+    );
+  }
+
+  function visibleCards(reviews: HTMLElement) {
+    return within(reviews)
+      .getAllByRole("listitem")
+      .map((card) => card.getAttribute("aria-label"));
+  }
+
+  it("counts active agent states in the Needs review header and skips idle threads", async () => {
+    const slot = renderPanel("", agentQueue);
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    const filter = within(reviews).getByRole("group", { name: "Filter by agent status" });
+    expect(
+      within(filter)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Running 2", "Needs you 1"]);
+  });
+
+  it("counts returned and errored threads under the same labels their rows show", async () => {
+    const slot = renderPanel("", () =>
+      ok(
+        view([
+          queuePr({ number: 1, thread: { ...reviewThread, status: "idle", returned: "finished" } }),
+          queuePr({ number: 2, thread: { ...reviewThread, status: "error" } }),
+          queuePr({ number: 3, thread: { ...reviewThread, status: "idle", returned: "failed" } }),
+        ]),
+      ),
+    );
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    fireEvent.click(within(reviews).getByRole("button", { name: "Failed 2" }));
+    expect(
+      within(reviews)
+        .getAllByTestId("review-status")
+        .map((status) => status.textContent),
+    ).toEqual(["Failed", "Failed"]);
+    expect(within(reviews).getByRole("button", { name: "Ready 1" })).toBeTruthy();
+  });
+
+  it("hides the filter and shows Nothing to review when the list empties under a filter", async () => {
+    const slot = renderPanel("", agentQueue);
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    fireEvent.click(within(reviews).getByRole("button", { name: "Running 2" }));
+    await slot.behavior.emitRealtime("review-queue.updated", ok(view([])));
+
+    await within(reviews).findByText("Nothing to review");
+    expect(within(reviews).queryByRole("group", { name: "Filter by agent status" })).toBeNull();
+  });
+
+  it("shows no filter when no agent is active", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ thread: idle }), queuePr({ number: 2 })])),
+    );
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    expect(within(reviews).queryByRole("group", { name: "Filter by agent status" })).toBeNull();
+  });
+
+  it("shows only the rows in the chosen state and keeps the total count", async () => {
+    const slot = renderPanel("", agentQueue);
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    const runningFilter = within(reviews).getByRole("button", { name: "Running 2" });
+    fireEvent.click(runningFilter);
+
+    expect(runningFilter.getAttribute("aria-pressed")).toBe("true");
+    expect(visibleCards(reviews)).toEqual(["acme/api#1", "acme/api#2"]);
+    expect(
+      within(reviews)
+        .getAllByTestId("queue-group")
+        .map((group) => group.textContent),
+    ).toEqual(["acme/api"]);
+    expect(within(reviews).getByTestId("queue-count").textContent).toBe("5");
+  });
+
+  it("shows every row again when the chosen state is pressed a second time", async () => {
+    const slot = renderPanel("", agentQueue);
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    const needsYouFilter = within(reviews).getByRole("button", { name: "Needs you 1" });
+    fireEvent.click(needsYouFilter);
+    expect(visibleCards(reviews)).toEqual(["acme/web#3"]);
+
+    fireEvent.click(needsYouFilter);
+    expect(needsYouFilter.getAttribute("aria-pressed")).toBe("false");
+    expect(visibleCards(reviews)).toHaveLength(5);
+  });
+
+  it("keeps the chosen filter and offers to clear it when its last agent stops", async () => {
+    const slot = renderPanel("", agentQueue);
+
+    const reviews = await slot.findByRole("region", { name: "Needs review" });
+    fireEvent.click(within(reviews).getByRole("button", { name: "Needs you 1" }));
+    await slot.behavior.emitRealtime(
+      "review-queue.updated",
+      ok(view([queuePr({ number: 1, thread: running }), queuePr({ number: 3, thread: idle })])),
+    );
+
+    await within(reviews).findByText("No pull requests match this filter");
+    expect(within(reviews).getByRole("button", { name: "Needs you 0" })).toBeTruthy();
+    fireEvent.click(within(reviews).getByRole("button", { name: "Show all" }));
+    expect(visibleCards(reviews)).toEqual(["acme/api#1", "acme/api#3"]);
   });
 });
 
@@ -963,8 +1113,8 @@ describe("Row control tooltips", () => {
   });
 
   it.each([
-    ["Open thread", queuePr({ thread: reviewThread })],
-    ["Review in thread", queuePr()],
+    [/^Open thread/, queuePr({ thread: reviewThread })],
+    ["Start review", queuePr()],
   ])("shows no tooltip on %s", async (name, pr) => {
     const slot = renderPanel("", () => ok(view([pr])));
 
