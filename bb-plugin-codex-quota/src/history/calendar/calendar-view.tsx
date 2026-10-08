@@ -47,7 +47,7 @@ export function UsageTooltip({
   metric: TokenMetric;
   maxWidth?: number;
 }) {
-  const facts = usageFacts(day, metric);
+  const value = displayValue(day, metric);
   const hasUncertain = metric === "tokens" && (day.uncertain?.totalTokens ?? 0) > 0;
   const row = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1";
   return (
@@ -64,7 +64,7 @@ export function UsageTooltip({
           <dt className="text-muted-foreground">
             {metric === "tokens" ? "Recorded tokens" : metricName(metric)}
           </dt>
-          <dd className="text-sm font-semibold tabular-nums">{facts.value}</dd>
+          <dd className="text-sm font-semibold tabular-nums">{value}</dd>
         </div>
         {hasUncertain && (
           <div className={row}>
@@ -79,16 +79,6 @@ export function UsageTooltip({
           </div>
         )}
       </dl>
-      <div className="mt-3 border-t border-border pt-2 text-muted-foreground">
-        <p>{facts.coverage}</p>
-        {facts.pricing && (
-          <>
-            <p className="mt-1">{facts.pricing}</p>
-            <p className="mt-1">{billingLimit}</p>
-          </>
-        )}
-        {hasUncertain && <p className="mt-1">Duplicate checks are approximate.</p>}
-      </div>
     </div>
   );
 }
@@ -155,7 +145,7 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
           <YAxis
             domain={[0, 1]}
             ticks={ticks}
-            width={80}
+            width={84}
             tickFormatter={(value) => axisValue(value * maximum, metric)}
             tickLine={false}
             axisLine={false}

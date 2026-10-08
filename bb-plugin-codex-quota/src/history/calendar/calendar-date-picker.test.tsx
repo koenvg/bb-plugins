@@ -34,7 +34,7 @@ it("offers all 30 dates as native buttons beside the unchanged overview", () => 
   const detail = screen.getByRole("region", { name: "Selected date" });
   expect(detail.querySelector("time")?.getAttribute("datetime")).toBe("2026-09-15");
   expect(within(detail).getByText("Recorded tokens").nextElementSibling?.textContent).toBe("600");
-  expect(detail.textContent).toContain("Partial, recorded usage");
+  expect(detail.textContent).not.toContain("Partial, recorded usage");
   expect(within(detail).getByText("Excluded tokens").nextElementSibling?.textContent).toBe("2");
 });
 
@@ -47,11 +47,14 @@ it("keeps unknown days distinct from recorded inactivity", () => {
   expect(within(detail).getByText("Recorded tokens").nextElementSibling?.textContent).toBe(
     "Unavailable",
   );
-  expect(detail.textContent).toContain("Unknown, uncovered gap");
+  expect(detail.textContent).not.toContain("Unknown, uncovered gap");
+  const table = screen.getByRole("table", { name: "Daily recorded usage" });
+  expect(table.querySelectorAll("tbody tr")[0].textContent).toContain("Unknown, uncovered gap");
   fireEvent.click(screen.getByRole("button", { name: "Inspect 2026-09-02" }));
   detail = screen.getByRole("region", { name: "Selected date" });
   expect(within(detail).getByText("Recorded tokens").nextElementSibling?.textContent).toBe("0");
-  expect(detail.textContent).toContain("Observed inactivity");
+  expect(detail.textContent).not.toContain("Observed inactivity");
+  expect(table.querySelectorAll("tbody tr")[1].textContent).toContain("Observed inactivity");
 });
 
 it("updates selected facts with the metric and discards dates outside a new range", () => {
@@ -71,8 +74,13 @@ it("updates selected facts with the metric and discards dates outside a new rang
   expect(within(detail).getByText("USD estimate").nextElementSibling?.textContent).toBe(
     "$0.39813160000000003",
   );
-  expect(detail.textContent).toContain("1 of 60 accepted records priced");
-  expect(detail.textContent).toContain("Captured estimate, not billed charges.");
+  expect(detail.textContent).not.toContain("1 of 60 accepted records priced");
+  expect(detail.textContent).not.toContain("Captured estimate, not billed charges.");
+  const table = screen.getByRole("table", { name: "Daily recorded usage" });
+  expect(table.textContent).toContain("1 of 60 accepted records priced");
+  expect(table.querySelector("caption")?.textContent).toContain(
+    "Captured estimate, not billed charges.",
+  );
   page.rerender(
     <CalendarValues view={calendarSnapshot({ ...query, startDate: "2026-08-02" })} metric="cost" />,
   );
@@ -90,7 +98,7 @@ it("preserves main's uncertain estimate without adding it to recorded facts", ()
   expect(within(detail).getByText("Uncertain estimate").nextElementSibling?.textContent).toBe(
     "350 tokens",
   );
-  expect(within(detail).getByText("Duplicate checks are approximate.")).toBeTruthy();
+  expect(within(detail).queryByText("Duplicate checks are approximate.")).toBeNull();
   expect(screen.getByRole("columnheader", { name: "Uncertain token estimate" })).toBeTruthy();
 });
 
