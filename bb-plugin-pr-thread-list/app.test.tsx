@@ -4,6 +4,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
+import { experimental_useSidebarThreads, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import type {
   PluginSidebarThreadRowStatus,
   PluginSidebarThreadShortcut,
@@ -17,12 +18,32 @@ import {
   requestPrPanel,
 } from "../bb-plugin-github-insight/pr-panel-navigation";
 
+// The SDK harness ignores query options. Supply host-shaped snapshots for lifecycle regressions.
+const lifecycleViews = vi.hoisted(() => ({
+  snapshots: undefined as Record<string, PluginSidebarThread[]> | undefined,
+}));
+vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
+  const sdk = await importOriginal<typeof import("@get-bb/plugin-sdk/app")>();
+  return {
+    ...sdk,
+    experimental_useSidebarThreads(
+      options: Parameters<typeof sdk.experimental_useSidebarThreads>[0],
+    ) {
+      const state = sdk.experimental_useSidebarThreads(options);
+      const key = (options?.experimental_lifecycles ?? ["active"]).join(",");
+      const threads = lifecycleViews.snapshots?.[key];
+      return threads ? { ...state, threads } : state;
+    },
+  };
+});
+
 const app = await loadPluginApp(() => import("./app"));
 let mounted: ReturnType<typeof renderSlot> | undefined;
 const receivers: (() => void)[] = [];
 afterEach(() => {
   mounted?.lifecycle.unmount();
   mounted = undefined;
+  lifecycleViews.snapshots = undefined;
   localStorage.clear();
   receivers.splice(0).forEach((dispose) => dispose());
   cancelPrPanelRequest();
@@ -80,37 +101,314 @@ function mount(
 ) {
   const List = app.threadLists[0]!.component;
   const Owner = app.appOverlays[0]!.component;
-  const slot = {
-    component: (props: PluginThreadListProps) => (
-      <>
-        <Owner />
-        <List {...props} />
-      </>
-    ),
+  let observed: PluginSidebarThreadsState;
+  let currentProps: PluginThreadListProps = {
+    activeThreadId: null,
+    activeProjectId: null,
+    isCompactViewport: false,
+    onNavigate: () => {},
+    searchQuery: "",
+    ...props,
   };
-  mounted = renderSlot(
-    slot,
-    {
-      activeThreadId: null,
-      activeProjectId: null,
-      isCompactViewport: false,
-      onNavigate: () => {},
-      searchQuery: "",
-      ...props,
+  const slot = {
+    component: (props: PluginThreadListProps) => {
+      observed = experimental_useSidebarThreads();
+      return (
+        <>
+          <Owner />
+          <List {...props} />
+        </>
+      );
     },
-    {
-      sidebarThreads: {
-        threads,
-        projects: [project],
-        sections: [],
-        experimental_archived: archivedReady,
-        ...state,
-      },
-      ...extras,
+  };
+  mounted = renderSlot(slot, currentProps, {
+    sidebarThreads: {
+      threads,
+      projects: [project],
+      sections: [],
+      experimental_archived: archivedReady,
+      ...state,
+    },
+    ...extras,
+  });
+  const result = mounted;
+  return Object.assign(result, {
+    update(changes: { threads?: PluginSidebarThread[]; activeThreadId?: string | null }) {
+      if (changes.threads) observed.threads = changes.threads;
+      if ("activeThreadId" in changes)
+        currentProps = { ...currentProps, activeThreadId: changes.activeThreadId! };
+      result.lifecycle.rerender(<slot.component {...currentProps} />);
+    },
+  });
+}
+
+const heldTabs = [
+  ["attention", "Needs attention", "In flight"],
+  ["inflight", "In flight", "Needs attention"],
+] as const;
+
+function family(tab: "attention" | "inflight", changed = false): PluginSidebarThread[] {
+  return [
+    thread({
+      id: "parent",
+      displayTitle: "Parent",
+      status: tab === "inflight" && changed ? "idle" : "active",
+    }),
+    thread({
+      id: "child",
+      displayTitle: "Child",
+      parentThreadId: "parent",
+      isUnread: tab === "attention" && !changed,
+    }),
+    thread({ id: "grandchild", displayTitle: "Grandchild", parentThreadId: "child" }),
+    thread({ id: "sibling", displayTitle: "Sibling", parentThreadId: "parent" }),
+    thread({ id: "outside", displayTitle: "Outside" }),
+  ];
+}
+
+function expectFamily(slot: ReturnType<typeof mount>, shown: boolean) {
+  for (const name of ["Parent", "Child", "Grandchild", "Sibling"])
+    expect(Boolean(slot.queryByRole("link", { name }))).toBe(shown);
+}
+
+// Host data and selection updates use the same mounted SDK slot, including combined updates.
+describe.each(heldTabs)("selected tree in %s", (tab, heldTab, naturalTab) => {
+  it.each(["parent", "child"])(
+    "captures %s selection with separate and combined signal updates",
+    (selected) => {
+      for (const combined of [false, true]) {
+        const slot = mount(family(tab));
+        showTab(slot, heldTab);
+        if (!combined) slot.update({ activeThreadId: selected });
+        slot.update({ threads: family(tab, true), activeThreadId: selected });
+        expectFamily(slot, true);
+        expect(
+          slot
+            .getByRole("link", { name: selected === "parent" ? "Parent" : "Child" })
+            .getAttribute("aria-current"),
+        ).toBe("page");
+        const child = slot.getByRole("link", { name: "Child" }).closest(".group\\/row")!;
+        expect(child.querySelector(".bg-primary")).toBeNull();
+        expect(Boolean(slot.container.querySelector("[data-running-glyph]"))).toBe(
+          tab === "attention",
+        );
+        slot.lifecycle.unmount();
+        mounted = undefined;
+      }
     },
   );
-  return mounted;
-}
+
+  it("keeps navigation, nesting, and collapse current, then releases on leaving and does not restore an old hold", () => {
+    const slot = mount(family(tab));
+    showTab(slot, heldTab);
+    slot.update({ activeThreadId: "child", threads: family(tab, true) });
+    for (const activeThreadId of ["parent", "sibling", "grandchild"]) {
+      slot.update({ activeThreadId });
+      expectFamily(slot, true);
+    }
+    expect(
+      slot.getByRole("link", { name: "Grandchild" }).closest<HTMLElement>(".group\\/row")!.style
+        .paddingLeft,
+    ).toBe("48px");
+    fireEvent.click(slot.getByRole("button", { name: "Collapse Child" }));
+    expect(slot.queryByRole("link", { name: "Grandchild" })).toBeNull();
+    fireEvent.click(slot.getByRole("button", { name: "Expand Child" }));
+    expectFamily(slot, true);
+    showTab(slot, naturalTab);
+    expectFamily(slot, false);
+    showTab(slot, "All");
+    expectFamily(slot, true);
+    showTab(slot, heldTab);
+    expectFamily(slot, true);
+    slot.update({ activeThreadId: "outside" });
+    expectFamily(slot, false);
+    showTab(slot, naturalTab);
+    expectFamily(slot, true);
+    slot.update({ activeThreadId: "child" });
+    expectFamily(slot, true);
+    showTab(slot, heldTab);
+    expectFamily(slot, false);
+  });
+
+  it("releases when selection clears and uses current placement on remount", () => {
+    const slot = mount(family(tab));
+    showTab(slot, heldTab);
+    slot.update({ activeThreadId: "child", threads: family(tab, true) });
+    slot.update({ activeThreadId: null });
+    expectFamily(slot, false);
+    slot.lifecycle.unmount();
+    mounted = undefined;
+    const fresh = mount(family(tab, true), {}, {}, { activeThreadId: "child" });
+    showTab(fresh, heldTab);
+    expectFamily(fresh, false);
+    showTab(fresh, naturalTab);
+    expectFamily(fresh, true);
+  });
+
+  it.each(["Archived", "Both"])(
+    "keeps the hold through All's %s lifecycle snapshot",
+    (lifecycle) => {
+      const withAncestor = (threads: PluginSidebarThread[]) =>
+        threads.map((row) =>
+          row.id === "parent" ? { ...row, parentThreadId: "old-parent" } : row,
+        );
+      const oldParent = thread({
+        id: "old-parent",
+        displayTitle: "Archived ancestor",
+        isArchived: true,
+      });
+      lifecycleViews.snapshots = { active: withAncestor(family(tab)) };
+      const slot = mount();
+      showTab(slot, heldTab);
+      slot.update({ activeThreadId: "child" });
+      lifecycleViews.snapshots = {
+        active: withAncestor(family(tab, true)),
+        archived: [oldParent],
+        "active,archived": [oldParent, ...withAncestor(family(tab, true))],
+      };
+      slot.update({ activeThreadId: "child" });
+      expectFamily(slot, true);
+      showLifecycle(slot, lifecycle);
+      expect(slot.getByRole("link", { name: "Archived ancestor" })).toBeTruthy();
+      expectFamily(slot, lifecycle === "Both");
+      showTab(slot, heldTab);
+      expectFamily(slot, true);
+      showTab(slot, naturalTab);
+      expectFamily(slot, false);
+      slot.update({ activeThreadId: "outside" });
+      expectFamily(slot, true);
+    },
+  );
+
+  it("discards an active hold on remount even when the selection stays", () => {
+    const slot = mount(family(tab));
+    showTab(slot, heldTab);
+    slot.update({ activeThreadId: "child", threads: family(tab, true) });
+    expectFamily(slot, true);
+    slot.lifecycle.unmount();
+    mounted = undefined;
+    const fresh = mount(family(tab, true), {}, {}, { activeThreadId: "child" });
+    expectFamily(fresh, false);
+    showTab(fresh, naturalTab);
+    expectFamily(fresh, true);
+  });
+
+  it.each(["archived", "hidden", "removed"] as const)(
+    "releases when the selected member becomes %s",
+    (excluded) => {
+      const slot = mount(family(tab));
+      showTab(slot, heldTab);
+      slot.update({ activeThreadId: "child", threads: family(tab, true) });
+      const threads = family(tab, true).flatMap((row) =>
+        row.id !== "child"
+          ? [row]
+          : excluded === "removed"
+            ? []
+            : [{ ...row, isArchived: excluded === "archived", isHidden: excluded === "hidden" }],
+      );
+      slot.update({ threads });
+      expect(slot.queryByRole("link", { name: "Parent" })).toBeNull();
+      showTab(slot, naturalTab);
+      expect(slot.getByRole("link", { name: "Parent" })).toBeTruthy();
+      if (excluded === "archived") {
+        const context = slot.getByRole("link", { name: "Child" }).closest(".group\\/row")!;
+        expect(context.classList.contains("opacity-60")).toBe(true);
+      } else expect(slot.queryByRole("link", { name: "Child" })).toBeNull();
+    },
+  );
+
+  it("releases after successfully snoozing the selected child without holding its awake siblings", async () => {
+    let snoozes: Record<string, number> = {};
+    const slot = mount(
+      family(tab),
+      {},
+      {
+        rpc: {
+          listSnoozes: () => snoozeSnapshot(snoozes),
+          snooze: (input) => {
+            const { wakeAt } = input as { wakeAt: number };
+            snoozes = { child: wakeAt, grandchild: wakeAt };
+            return {};
+          },
+        },
+      },
+    );
+    showTab(slot, heldTab);
+    slot.update({ activeThreadId: "child", threads: family(tab, true) });
+    await slot.findByRole("button", { name: "Actions for Child" });
+    fireEvent.click(slot.getByRole("button", { name: "Actions for Child" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Tomorrow" }));
+    await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Parent" })).toBeNull());
+    showTab(slot, naturalTab);
+    expect(slot.getByRole("link", { name: "Parent" })).toBeTruthy();
+    expect(slot.queryByRole("link", { name: "Child" })).toBeNull();
+    showTab(slot, "All");
+    expect(slot.getByRole("button", { name: "Collapse Snoozed" })).toBeTruthy();
+    expect(slot.getByRole("link", { name: "Child" })).toBeTruthy();
+  });
+});
+
+describe("new attention in a selected In flight tree", () => {
+  it.each([
+    ["unread output", { isUnread: true }, "unread"],
+    ["approval", { hasPendingInteraction: true }, "Needs you"],
+    ["input", { indicator: "waiting-for-input" }, "Needs you"],
+    ["error", { indicator: "unread-error" }, "Failed"],
+    ["failed queue", { queuedWork: "failed" }, "Not sent"],
+  ] satisfies [string, Partial<PluginSidebarThread>, string][])(
+    "shows current %s indicators without changing tabs",
+    (_, signal, label) => {
+      const slot = mount(family("inflight"));
+      showTab(slot, "In flight");
+      slot.update({ activeThreadId: "parent" });
+      const threads = family("inflight").map((row) =>
+        row.id === "grandchild" ? { ...row, ...signal } : row,
+      );
+      slot.update({ threads });
+      expectFamily(slot, true);
+      const row = slot.getByRole("link", { name: "Grandchild" }).closest(".group\\/row")!;
+      if (label === "unread") expect(row.querySelector(".bg-primary")).toBeTruthy();
+      else expect(row.textContent).toContain(label);
+      showTab(slot, "Needs attention");
+      expectFamily(slot, false);
+      showTab(slot, "All");
+      expectFamily(slot, true);
+      if (label !== "unread")
+        expect(slot.getByRole("button", { name: "Collapse Needs you" })).toBeTruthy();
+      slot.update({ activeThreadId: "outside" });
+      showTab(slot, "Needs attention");
+      expectFamily(slot, true);
+    },
+  );
+
+  it("shows changed PR badges while held and releases to current PR placement", async () => {
+    let summary = prSummary({
+      blockers: ["checks_running"],
+      checks: { failed: 0, running: 1, cancelled: 0, passed: 0, skipped: 0, failedNames: [] },
+    });
+    const slot = mount(
+      family("inflight"),
+      {},
+      {
+        rpc: {
+          listSummaries: () => ({ insightAvailable: true, summaries: { parent: summary } }),
+        },
+      },
+    );
+    showTab(slot, "In flight");
+    await slot.findByRole("button", { name: /Open PR tab, PR #42: 1 check running/ });
+    slot.update({ activeThreadId: "child" });
+    summary = prSummary({ blockers: ["conflicts"] });
+    await slot.behavior.emitRealtime("summaries.changed", {});
+    await slot.findByRole("button", { name: /Open PR tab, PR #42: merge conflicts/ });
+    slot.update({ threads: family("inflight", true) });
+    expectFamily(slot, true);
+    slot.update({ activeThreadId: "outside" });
+    expectFamily(slot, false);
+    showTab(slot, "Needs attention");
+    expectFamily(slot, true);
+  });
+});
 
 describe("thread list slot", () => {
   it("keeps a parent aligned with its siblings and indents its child under the parent title", () => {

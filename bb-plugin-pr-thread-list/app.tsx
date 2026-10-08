@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import {
   definePluginApp,
   experimental_Icon as Icon,
@@ -49,6 +57,8 @@ import { useNow } from "./use-now";
 import {
   buildForest,
   visibleItems,
+  naturalTreePlacements,
+  type TreePlacement,
   type Lifecycle,
   type ListItem,
   type ListOptions,
@@ -538,6 +548,10 @@ function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient 
     sections,
     experimental_archived: archived,
   } = experimental_useSidebarThreads({ experimental_lifecycles: lifecycles });
+  // Display lifecycle filters must not change selection eligibility or tree identity.
+  const { threads: activeThreads } = experimental_useSidebarThreads({
+    experimental_lifecycles: ACTIVE_ONLY,
+  });
   const actions = experimental_useSidebarThreadActions();
   const sdk = useSdk();
   const now = useNow();
@@ -571,9 +585,33 @@ function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient 
       );
   }, [threads]);
   const snoozes = useSnoozeControls(props.snoozeClient);
+  const placements = useMemo(
+    () => naturalTreePlacements(activeThreads, pullRequests, snoozes.snoozed),
+    [activeThreads, pullRequests, snoozes.snoozed],
+  );
+  const committed = useRef<{
+    placements: ReadonlyMap<string, TreePlacement>;
+    heldTree: TreePlacement | undefined;
+  }>({ placements: new Map(), heldTree: undefined });
+  const selected = props.activeThreadId ? placements.get(props.activeThreadId) : undefined;
+  const previous = committed.current;
+  const priorPlacement = props.activeThreadId
+    ? previous.placements.get(props.activeThreadId)
+    : undefined;
+  const heldTree = selected
+    ? previous.heldTree?.rootId === selected.rootId
+      ? previous.heldTree
+      : priorPlacement?.rootId === selected.rootId
+        ? priorPlacement
+        : selected
+    : undefined;
+  // Derive before rendering; only committed renders may supply transition history.
+  useLayoutEffect(() => {
+    committed.current = { placements, heldTree };
+  }, [placements, heldTree]);
   const items = useMemo(
-    () => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed),
-    [threads, projects, sections, prefs, pullRequests, snoozes.snoozed],
+    () => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed, heldTree),
+    [threads, projects, sections, prefs, pullRequests, snoozes.snoozed, heldTree],
   );
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);

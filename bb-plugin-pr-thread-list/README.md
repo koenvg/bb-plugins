@@ -37,6 +37,10 @@ A thread tree moves as one unit. The first matching tree-wide rule decides its t
 
 Only non-hidden, non-archived, non-snoozed members contribute signals. Dimmed context rows do not. Each child stays under its parent, and PR problem badges remain visible in **In flight**. When the last working member stops, the tree rechecks its idle-thread and PR rules without a reload.
 
+Selecting a tree keeps it in its existing **Needs attention** or **In flight** tab until selection leaves the tree or is cleared. Moving between its parent, children, siblings, and grandchildren keeps that tab. Reading output, finishing work, and new attention or PR signals do not move the selected tree. Read markers, work indicators, and PR badges still show current data, so a held **In flight** tree can need attention.
+
+When selection leaves, the tree immediately follows the current rules above. Archive, hide, removal, and snooze take priority over the hold. Switching tabs keeps the hold while the sidebar stays mounted; **All** still uses its normal grouping. The hold is not saved. Remounting the sidebar or reloading uses current natural placement.
+
 **All** shows every thread, with the **Needs you** group on top and the **Snoozed** group at the bottom.
 
 The tab of a thread does not depend on whether its row is on screen. The `summary-watch` service on the plugin server reads the github-insight summary of every active thread every 5 seconds. When a summary changes, it sends a `summaries.changed` realtime signal, and the list loads the summaries again. github-insight refreshes a PR when its thread goes idle, so a PR that an agent opens or pushes to shows within seconds. Changes on GitHub only, such as a finished check, come from github-insight's 60 second poll. When you resolve or unresolve a review thread in github-insight's Review tab, the list asks at once. As a fallback, the list also asks once a minute and when the connection comes back.
