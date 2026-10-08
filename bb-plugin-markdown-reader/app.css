@@ -65,8 +65,51 @@
   display: flex;
   gap: 4px;
 }
+.markdown-reader .mr-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  pointer-events: none;
+}
+.markdown-reader .mr-icon-action {
+  position: relative;
+  display: inline-flex;
+}
+.markdown-reader .mr-controls .mr-icon-action button {
+  width: 36px;
+  padding: 0;
+}
+.markdown-reader .mr-action-tooltip {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.markdown-reader .mr-view-controls .mr-action-tooltip {
+  right: auto;
+  left: 0;
+}
+.markdown-reader .mr-action-tooltip::before {
+  content: "";
+  position: absolute;
+  inset: -5px 0 100%;
+}
+.markdown-reader .mr-controls button {
+  border: 0;
+}
 .markdown-reader .mr-controls button,
 .markdown-reader .mr-state button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 36px;
   padding: 0 12px;
   background: transparent;
@@ -81,8 +124,8 @@
   color: var(--foreground);
 }
 .markdown-reader .mr-reader-actions button[aria-pressed="true"] {
+  background: var(--state-active);
   color: var(--foreground);
-  font-weight: 550;
 }
 .markdown-reader button:hover {
   background: var(--state-hover);
@@ -394,6 +437,7 @@
     gap: 8px 20px;
   }
   .markdown-reader .mr-reader-actions {
+    margin-left: auto;
     flex-wrap: wrap;
   }
   .markdown-reader .mr-content {
@@ -418,5 +462,8 @@
   .markdown-reader .mr-controls button,
   .markdown-reader .mr-state button {
     min-height: 44px;
+  }
+  .markdown-reader .mr-controls .mr-icon-action button {
+    width: 44px;
   }
 }

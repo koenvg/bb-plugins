@@ -24,7 +24,7 @@ BB's `experimental_lineRange` uses inclusive, one-based `startLineNumber` and `e
 
 Reversed integer bounds are put in order and clamped to existing lines. Invalid, fractional, non-finite, or unsafe integer bounds do not highlight lines. Empty text has nothing to highlight. Removing the request clears its highlight, not the manual view choice. Raw wraps long lines but keeps one target per source line, including the empty line after a final newline. CRLF, frontmatter, Unicode, and code spaces stay unchanged. Navigation never writes the file.
 
-The header shows the actual filename above quiet directory context. Its complete path remains available by title and accessible name. Preview/Raw form one compact group; Outline and Refresh are secondary actions. Desktop readers use one header row; readers at or below 600 px use two rows, with further control wrapping if needed. Keyboard users can reach the buttons with Tab and activate them with Enter or Space. Code and tables have their own scroll regions. Appearance follows the active host tokens, not a reader theme switch.
+The header shows the actual filename above quiet directory context. Its complete path remains available by title and accessible name. Preview/Raw form one compact group of named host icon buttons. All toolbar buttons have hover/focus hints that Escape dismisses. Outline keeps a visible pressed state. Desktop readers use one header row; readers at or below 600 px use two rows, with further control wrapping if needed. Keyboard users can reach the buttons with Tab and activate them with Enter or Space. Code and tables have their own scroll regions. Appearance follows the active host tokens, not a reader theme switch.
 
 ## Supported sources and limits
 
