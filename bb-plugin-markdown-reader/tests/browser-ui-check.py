@@ -35,20 +35,21 @@ MEASURE = """root => {
     filenameSize:root.querySelector('.mr-filename')?getComputedStyle(root.querySelector('.mr-filename')).fontSize:null,
     directorySize:root.querySelector('.mr-path')?getComputedStyle(root.querySelector('.mr-path')).fontSize:null,
     view:rect(view),actions:actions?rect(actions):null,
-    outlineBackground:root.querySelector('button[aria-pressed="true"]')&&[...toolbar.querySelectorAll('button')].find(b=>b.textContent==='Outline')?getComputedStyle([...toolbar.querySelectorAll('button')].find(b=>b.textContent==='Outline')).backgroundColor:null,
-    buttons:[...toolbar.querySelectorAll('button')].map(b=>({name:b.textContent,...rect(b)})), lists,
+    outlineBackground:root.querySelector('button[aria-pressed="true"]')&&[...toolbar.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Outline')?getComputedStyle([...toolbar.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Outline')).backgroundColor:null,
+    buttons:[...toolbar.querySelectorAll('button')].map(b=>({name:b.getAttribute('aria-label')||b.textContent,...rect(b)})), lists,
     outsideType:getComputedStyle(document.querySelector('#outside-list')).listStyleType};
 }"""
 cases = [(760,'light',760,1,'reproduction')] if args.reproduce else [
     (w,t,w,1,f'{w}-{t}') for w in (390,760,1440) for t in ('light','dark')]
 if not args.reproduce:
-    cases += [(390,'light',1440,1,'narrow-in-wide'),(760,'light',760,2,'zoom-200')]
+    cases += [(390,'light',1440,1,'narrow-in-wide'),(760,'light',760,2,'zoom-200'),
+              (320,'custom',320,1,'320-custom-coarse')]
 results=[]
 with sync_playwright() as p:
     browser=p.chromium.launch()
     try:
         for width,theme,viewport,zoom,name in cases:
-            page=browser.new_page(viewport={'width':viewport,'height':1000})
+            page=browser.new_page(viewport={'width':viewport,'height':1000},has_touch=name.endswith('coarse'))
             errors=[]
             page.on('pageerror',lambda e: errors.append(str(e)))
             path='reports/'+'directory-segment/'*8+'actual-document-name.md'
@@ -84,7 +85,7 @@ with sync_playwright() as p:
             assert measured['filename']=='actual-document-name.md',measured
             assert float(measured['filenameSize'][:-2])>float(measured['directorySize'][:-2]),measured
             assert [b['name'] for b in measured['buttons']]==['Preview','Raw','Outline','Refresh'],measured
-            assert measured['outlineBackground']=='rgba(0, 0, 0, 0)',measured
+            assert measured['outlineBackground']!='rgba(0, 0, 0, 0)',measured
             if measured['width']<=600:
                 assert measured['identity']['bottom']<=measured['view']['y'],measured
             else:
@@ -94,14 +95,69 @@ with sync_playwright() as p:
                 assert b['height']>=36*zoom and b['x']>=measured['toolbar']['x'] and b['right']<=measured['toolbar']['right']+1,measured
             preview=reader.get_by_role('button',name='Preview',exact=True)
             preview.focus()
+            tooltip=reader.get_by_role('tooltip')
+            assert tooltip.text_content()=='Preview'
+            tip_box=tooltip.bounding_box()
+            assert tip_box['x']>=0 and tip_box['x']+tip_box['width']<=viewport
             page.keyboard.press('Tab')
             assert reader.get_by_role('button',name='Raw',exact=True).evaluate("e=>e===document.activeElement&&e.matches(':focus-visible')")
+            assert tooltip.text_content()=='Raw'
             page.keyboard.press('Space')
             assert reader.get_by_label('Raw Markdown').text_content()==page.evaluate('presentationFixture.text')
             assert len([c for c in page.evaluate('presentationFixture.inspection.rpcCalls') if c['method']=='read_document'])==1
             page.keyboard.press('Tab')
             assert reader.get_by_role('button',name='Refresh',exact=True).evaluate('e=>e===document.activeElement')
             preview.click()
+            page.mouse.move(0,999)
+            icons=reader.locator('.mr-toolbar [data-icon]')
+            assert icons.count()==4
+            for icon in icons.all():
+                assert icon.get_attribute('aria-hidden')=='true'
+                assert icon.evaluate('e=>!!getComputedStyle(e,"::before").maskImage&&getComputedStyle(e,"::before").maskImage!=="none"')
+            outline=reader.get_by_role('button',name='Outline',exact=True)
+            refresh=reader.get_by_role('button',name='Refresh',exact=True)
+            for action in (preview,reader.get_by_role('button',name='Raw',exact=True),outline,refresh):
+                box=action.bounding_box()
+                target=44 if name.endswith('coarse') else 36
+                assert box['width']==box['height']==target*zoom,box
+                assert action.text_content()==''
+            preview.focus()
+            page.keyboard.press('Tab')
+            page.keyboard.press('Tab')
+            assert outline.evaluate("e=>e===document.activeElement&&e.matches(':focus-visible')")
+            tooltip=reader.get_by_role('tooltip')
+            assert tooltip.text_content()=='Outline'
+            assert outline.get_attribute('aria-describedby')==tooltip.get_attribute('id')
+            page.keyboard.press('Escape')
+            assert tooltip.count()==0
+            page.keyboard.press('Space')
+            assert outline.get_attribute('aria-pressed')=='false'
+            page.keyboard.press('Space')
+            assert outline.get_attribute('aria-pressed')=='true'
+            page.keyboard.press('Tab')
+            assert tooltip.text_content()=='Refresh'
+            page.keyboard.press('Enter')
+            assert len([c for c in page.evaluate('presentationFixture.inspection.rpcCalls') if c['method']=='read_document'])==2
+            preview.focus()
+            page.keyboard.press('Escape')
+            assert tooltip.count()==0
+            outline.hover()
+            assert tooltip.text_content()=='Outline'
+            tip_box=tooltip.bounding_box()
+            assert tip_box['x']>=0 and tip_box['x']+tip_box['width']<=viewport
+            tooltip.hover()
+            assert tooltip.is_visible()
+            page.mouse.move(0,999)
+            assert tooltip.count()==0
+            for action in (outline,refresh):
+                action.hover()
+                assert tooltip.is_visible()
+                assert preview.evaluate('e=>e===document.activeElement')
+                page.keyboard.press('Escape')
+                assert tooltip.count()==0
+                assert action.get_attribute('aria-describedby') is None
+                assert preview.evaluate('e=>e===document.activeElement')
+                page.mouse.move(0,999)
             file=out/(name+'.png')
             page.screenshot(path=str(file))
             results[-1].update({'capture':file.name,'sha256':hashlib.sha256(file.read_bytes()).hexdigest(),'rawExact':True,'focusOrder':True,'pageErrors':errors})
