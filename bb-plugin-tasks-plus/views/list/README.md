@@ -6,6 +6,22 @@ including dimmed parents, expanded children and retained rows during failed save
 The order effect reports changed keys or settled state, and replays to a new
 report callback. Selection alone does not report the same order again.
 
+## Assembly owners
+
+`useListData` owns scoped preferences, query readiness, optimistic writes, lookup
+maps, filtering, sorting and expansion. It supplies a candidate tree, not accepted
+selection. Its settled flag still waits for route/scope queries, label inventory
+and pending writes.
+
+`ListView` applies `useSelectionTree` before rendering. Selection stays in the
+caller, and retention stays in `selection-tree.ts`. `useListControls` uses only
+that rendered tree for keyboard controls, section focus, live metadata, scroll
+restoration and visible-order reports. Retained trees never report settled order.
+
+Neither hook memoizes its whole result. Rows receive the original task, map values,
+pending state and action callbacks as explicit inputs. Do not depend on the hook
+result object's identity or replace these inputs with callbacks that read refs.
+
 ## Row inputs
 
 Rows use ordinary shallow React memoization, without a custom comparator.
