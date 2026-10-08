@@ -88,6 +88,17 @@ try {
       .map(JSON.stringify)
       .join("\n") + "\n",
   );
+  writeFileSync(
+    join(ordinary, "chained.jsonl"),
+    [
+      header("pi-chained", join(ordinary, "fork.jsonl")),
+      message("entry-a"),
+      message("child-entry", "entry-a"),
+      message("chained-entry", "child-entry"),
+    ]
+      .map(JSON.stringify)
+      .join("\n") + "\n",
+  );
   const configuration = {
     bbRoot: source,
     ordinaryRoots: [ordinary],
@@ -184,7 +195,7 @@ try {
   assert.equal(leases, 0);
   const generation = v.generation.id,
     start = v.generation.startAt;
-  const reload = await import(pathToFileURL(artifact).href + "?reload=1");
+  let reload = await import(pathToFileURL(artifact).href + "?reload=1");
   v = await call(reload, { action: "status" });
   assert.equal(v.generation.id, generation);
   assert.equal(v.generation.bytes, 0);
@@ -199,14 +210,14 @@ try {
   assert.equal(v.generation.state, "completed");
   assert.equal(v.generation.startAt, start);
   assert.equal(v.generation.omissions, 0);
-  assert.equal(v.generation.replayed, 1);
+  assert.equal(v.generation.replayed, 3);
   let db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
-  assert.equal(db.prepare("SELECT total_tokens FROM workspace_totals").get().total_tokens, 10);
+  assert.equal(db.prepare("SELECT total_tokens FROM workspace_totals").get().total_tokens, 15);
   const records = db
     .prepare("SELECT payload FROM usage_events")
     .all()
     .map((r) => JSON.parse(r.payload));
-  assert.equal(records.length, liveOverlap ? 3 : 2);
+  assert.equal(records.length, liveOverlap ? 4 : 3);
   if (liveOverlap) {
     assert.equal(
       db.prepare("SELECT payload FROM usage_events WHERE event_id=?").get(live.eventId).payload,
@@ -227,11 +238,64 @@ try {
   }
   assert.ok(!JSON.stringify(records).includes("PRIVATE_"));
   assert.equal(db.prepare("SELECT count(*) AS n FROM collector_meta").get().n, 0);
+  const snapshot = (db) => ({
+    totals: db.prepare("SELECT * FROM workspace_totals ORDER BY workspace").all(),
+    compact: db.prepare("SELECT * FROM usage_compact ORDER BY event_id").all(),
+    events: db.prepare("SELECT * FROM usage_events ORDER BY event_id").all(),
+    owners: db.prepare("SELECT * FROM usage_entry_owners ORDER BY session_id,entry_id").all(),
+    confirmations: db.prepare("SELECT * FROM usage_confirmations ORDER BY event_id").all(),
+  });
+  const original = snapshot(db);
+  const inherited = db
+    .prepare("SELECT path,entry,parent_entry,event_id FROM import_entries ORDER BY path,entry")
+    .all();
+  assert.deepEqual(
+    db
+      .prepare("SELECT session_id,entry_id,conflicted FROM usage_entry_owners ORDER BY session_id")
+      .all()
+      .map((r) => ({ ...r })),
+    [
+      { session_id: "pi-chained", entry_id: "chained-entry", conflicted: 0 },
+      { session_id: "pi-child", entry_id: "child-entry", conflicted: 0 },
+      { session_id: "pi-original", entry_id: "entry-a", conflicted: 0 },
+    ],
+  );
   db.close();
   assert.ok(
     !readFileSync(join(dataDir, "history/usage-v1.sqlite")).includes(
       Buffer.from("PRIVATE_PACKAGED"),
     ),
+  );
+  // New modules and database opens replay unchanged inputs in normal mode, without estimates.
+  for (let pass = 2; pass <= 3; pass++) {
+    reload = await import(pathToFileURL(artifact).href + "?reload=" + pass);
+    v = await call(reload, { action: "start" });
+    assert.notEqual(v.generation.id, generation);
+    for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+      v = await call(reload, { action: "resume" });
+    assert.equal(v.generation.state, "completed");
+    assert.equal(v.generation.omissions, 0);
+    assert.equal(v.generation.replayed, 3);
+    assert.deepEqual(v.generation.diagnostics, []);
+    db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
+    try {
+      assert.deepEqual(snapshot(db), original);
+      assert.deepEqual(
+        db
+          .prepare(
+            "SELECT path,entry,parent_entry,event_id FROM import_entries WHERE generation=? ORDER BY path,entry",
+          )
+          .all(v.generation.id),
+        inherited,
+      );
+      assert.equal(db.prepare("SELECT count(*) AS n FROM usage_uncertain").get().n, 0);
+    } finally {
+      db.close();
+    }
+    assert.equal(leases, 0);
+  }
+  console.log(
+    "Packaged repeated normal import: reopened parent, child and chained fork preserve accepted totals, immutable first owners, captured prices and inherited deduplication.",
   );
   // Opt-in estimates recover readable omissions without changing accepted records or prices.
   const outside = join(root, "outside-bb-workspace");
@@ -262,11 +326,39 @@ try {
     context,
   );
   assert.notEqual(estimateReport.state, "unavailable");
-  assert.equal(recordedReport.summary.totalTokens, 10);
+  assert.equal(recordedReport.summary.totalTokens, 15);
   assert.equal(recordedReport.summary.uncertain, undefined);
-  assert.equal(estimateReport.summary.totalTokens, 10);
+  assert.equal(estimateReport.summary.totalTokens, 15);
   assert.deepEqual(estimateReport.summary.uncertain, { totalTokens: 5, records: 1 });
   assert.deepEqual(estimateReport.summary.money, recordedReport.summary.money);
+  db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
+  try {
+    assert.deepEqual(snapshot(db), original);
+  } finally {
+    db.close();
+  }
+  // An unrelated session cannot claim an inherited ID, even after confirmed repeats.
+  writeFileSync(
+    join(ordinary, "unrelated.jsonl"),
+    [header("pi-unrelated"), message("entry-a")].map(JSON.stringify).join("\n") + "\n",
+  );
+  v = await call(reload, { action: "start" });
+  for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+    v = await call(reload, { action: "resume" });
+  assert.equal(v.generation.state, "completed");
+  assert.ok(v.generation.diagnostics.includes("unresolved-ancestry"));
+  db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
+  try {
+    assert.deepEqual(snapshot(db), original);
+    assert.equal(
+      db
+        .prepare("SELECT count(*) AS n FROM usage_entry_owners WHERE session_id='pi-unrelated'")
+        .get().n,
+      0,
+    );
+  } finally {
+    db.close();
+  }
   assert.equal(leases, 0);
   console.log(
     "Packaged uncertain history: explicit import opt-in, separate indexed tokens, fork deduplication and unchanged recorded totals/prices passed.",
