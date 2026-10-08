@@ -54,16 +54,7 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
   );
   const [state, setState] = useState<PaletteState>(IDLE);
   const busy = useRef(false);
-  const generation = useRef(0);
   const currentVersion = versionOf(insight.result);
-
-  useEffect(
-    () => () => {
-      generation.current++;
-      busy.current = false;
-    },
-    [],
-  );
 
   function showMessage(message: string, version = currentVersion) {
     busy.current = false;
@@ -74,21 +65,17 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     setState(IDLE);
     void run({ action: target.action.kind, expectedHeadOid: target.pr.headOid });
   }
-  async function prepare() {
+  function prepare() {
     if (busy.current || prOperations.snapshot(threadId).kind === "running") return;
     busy.current = true;
-    const attempt = ++generation.current;
     dismissOperation();
+    // Mount effects can deliver an intent before the initial load state renders.
     setState({ kind: "preparing" });
-    const result = await insight.refresh();
-    if (attempt !== generation.current) return;
+  }
+  function prepareResult(result: InsightResult) {
     if (prOperations.snapshot(threadId).kind === "running") {
       busy.current = false;
       setState(IDLE);
-      return;
-    }
-    if (result === null) {
-      showMessage("The PR changed. Refresh and try again.");
       return;
     }
     const version = versionOf(result);
@@ -114,11 +101,15 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     if (mergeAction.kind === "enqueue") send(target);
     else setState({ kind: "confirm", target });
   }
-  useCommandIntent(threadId, "merge", () => {
-    void prepare();
-  });
+  useCommandIntent(threadId, "merge", prepare);
 
   useEffect(() => {
+    if (state.kind === "preparing") {
+      if (insight.result !== null && !insight.refreshing && !insight.revalidating) {
+        prepareResult(insight.result);
+      }
+      return;
+    }
     if (state.kind === "message" && state.version !== currentVersion) setState(IDLE);
     if (state.kind === "message" && operation.kind === "running") setState(IDLE);
     if (state.kind !== "confirm") return;
@@ -136,7 +127,14 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     ) {
       showMessage("The PR changed. Refresh and try again.");
     }
-  }, [state, currentVersion, insight.result, operation.kind]);
+  }, [
+    state,
+    currentVersion,
+    insight.result,
+    insight.refreshing,
+    insight.revalidating,
+    operation.kind,
+  ]);
 
   function dismiss() {
     busy.current = false;
