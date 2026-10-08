@@ -153,33 +153,64 @@ function renderList(rich = false) {
 }
 
 describe("responsive list structure", () => {
-  it("groups a task key and subtask progress in one secondary line", () => {
-    const slot = renderSlot(
-      { component: TaskRow },
-      {
-        task: busyTask,
-        meta: {
-          availability: "available",
-          observedAt: new Date().toISOString(),
-          threads: [],
-          pullRequests: { availability: "available", items: [], unavailableThreadIds: [] },
+  it.each([
+    { showProject: false, taskKey: "TSK-1" },
+    { showProject: true, taskKey: "TSK-1" },
+    { showProject: true, taskKey: "WWWWWWWWWW-105" },
+  ])(
+    "groups the project marker, key $taskKey and name in one Task cell, showProject=$showProject",
+    ({ showProject, taskKey }) => {
+      const slot = renderSlot(
+        { component: TaskRow },
+        {
+          task: { ...busyTask, key: taskKey },
+          meta: {
+            availability: "available",
+            observedAt: new Date().toISOString(),
+            threads: [],
+            pullRequests: { availability: "available", items: [], unavailableThreadIds: [] },
+          },
+          project: {
+            id: busyTask.projectId,
+            name: "BB plugins",
+            prefix: taskKey.split("-")[0]!,
+            nextTaskNumber: 2,
+            color: "blue",
+            folderId: null,
+            linkedBbProjectId: null,
+            createdAt: "2026-07-15T00:00:00.000Z",
+          },
+          showProject,
+          projectLabels: [],
+          onEdit: () => {},
+          onOpen: () => {},
+          pending: false,
+          subProgress: { done: 1, total: 2 },
+          openMenu: null,
+          onOpenMenuChange: () => {},
         },
-        project: undefined,
-        showProject: false,
-        projectLabels: [],
-        onEdit: () => {},
-        onOpen: () => {},
-        pending: false,
-        subProgress: { done: 1, total: 2 },
-        openMenu: null,
-        onOpenMenuChange: () => {},
-      },
-    );
-    const key = slot.getByText("TSK-1");
-    const progress = slot.getByTitle("Subtasks done");
-    expect(key.parentElement!.contains(progress)).toBe(true);
-    expect(key.parentElement!.contains(slot.getByText(busyTask.title))).toBe(false);
-  });
+      );
+      const keyText = slot.getByText(taskKey);
+      const key = keyText.parentElement!;
+      expect(keyText.getAttribute("title")).toBe(taskKey);
+      const progress = slot.getByTitle("Subtasks done");
+      expect(key.parentElement!.contains(progress)).toBe(false);
+      expect(key.parentElement!.contains(slot.getByText(busyTask.title))).toBe(true);
+      expect(key.parentElement!.classList.contains("task-list-identity")).toBe(true);
+      expect(
+        key.compareDocumentPosition(slot.getByText(busyTask.title)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      const marker = slot.queryByTitle("BB plugins");
+      if (showProject) {
+        expect(marker).toBeTruthy();
+        expect(key.firstElementChild).toBe(marker);
+        expect((marker as HTMLElement).style.backgroundColor).toBe("blue");
+      } else {
+        expect(marker).toBeNull();
+      }
+    },
+  );
   it("pins the task count outside the filter-chip scroller so it cannot wrap or scroll away", async () => {
     const slot = renderList();
     const count = await slot.findByText("1 task");
@@ -214,9 +245,9 @@ describe("responsive list structure", () => {
     expect(summary.className).toContain("z-10");
     expect(summary.parentElement!.className).toContain("flex-wrap");
     const row = slot.container.querySelector('[data-task-key="TSK-1"]')!;
-    expect(row.className).toContain("@4xl:min-h-[34px]");
+    expect(row.className).toContain("task-list-row");
     expect(row.className).not.toContain("@md:h-[34px]");
-    expect(slot.getByText(busyTask.title).className).toContain("@4xl:min-w-64");
+    expect(slot.getByText(busyTask.title).className).toContain("task-list-title");
     expect(summary.textContent).toContain("1 Failed");
     expect(summary.textContent).toContain("1 archived");
     const prs = within(row as HTMLElement).getByRole("button", {
@@ -241,7 +272,7 @@ describe("responsive list structure", () => {
     expect(control.textContent).toContain("Details incomplete");
     expect(control.className).toContain("z-10");
     expect(control.className).toContain("flex-wrap");
-    expect(slot.getByText(busyTask.title).className).toContain("@4xl:min-w-64");
+    expect(slot.getByText(busyTask.title).className).toContain("task-list-title");
     expect(slot.getByRole("button", { name: /Threads for TSK-1/ }).textContent).toContain(
       "1 archived",
     );

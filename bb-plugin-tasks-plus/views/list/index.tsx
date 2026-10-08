@@ -14,6 +14,8 @@ import { BoundTaskRow } from "./row.js";
 import { useSelectionTree, type SelectionUnavailable } from "./selection-tree.js";
 import { useListData } from "./use-list-data.js";
 import { useListControls } from "./use-list-controls.js";
+import { ThreadActivitySummary } from "./thread-summary.js";
+import "./list.css";
 
 /** Keys come from the rendered tree, including dimmed parents and expanded children.
  * Unsettled reports must never be used as proof that a selection was removed. */
@@ -103,7 +105,7 @@ export function ListView({
     onSelectionUnavailable,
     reconcileRevision,
   );
-  const { scrollRef, openTask, openRowMenu, setOpenRowMenu, meta } = useListControls({
+  const { scrollRef, openTask, openRowMenu, setOpenRowMenu, meta, visibleTasks } = useListControls({
     data,
     rendered,
     selectedTaskKey,
@@ -240,11 +242,26 @@ export function ListView({
         labelOptions={labelOptions}
         taskCount={rendered.tree.count}
       />
+      {visibleTasks.length > 0 ? (
+        <div className="task-list-activity">
+          <span>Agents</span>
+          <ThreadActivitySummary statuses={visibleTasks.map((task) => meta.data?.get(task.id))} />
+        </div>
+      ) : null}
       <div
         ref={scrollRef}
         data-list-scroll
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain @container"
       >
+        {rendered.tree.groups.length > 0 ? (
+          <div className="task-list-columns" aria-hidden>
+            <span className="col-span-2">Task</span>
+            <span />
+            <span>Subtasks</span>
+            <span>Agents</span>
+            <span>Dependencies &amp; PR</span>
+          </div>
+        ) : null}
         {body}
       </div>
       <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} projectId={projectId} />

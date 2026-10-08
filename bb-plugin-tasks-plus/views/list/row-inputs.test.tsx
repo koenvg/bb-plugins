@@ -91,7 +91,10 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
       listTaskWorkStatus: () => ({ byTaskId: { t1: status(), t2: status() } }),
     },
   });
-  await slot.findByRole("button", { name: /Threads for TSK-1: 1 Working/ });
+  await slot.findByRole("button", { name: /Threads for TSK-1: 1 Running/ });
+  expect(
+    slot.container.querySelector('[data-task-key="TSK-1"]')!.getAttribute("data-agent-state"),
+  ).toBe("running");
   slot.lifecycle.rerender(<List {...props} selectedTaskKey="TSK-2" />);
   execution = "failed";
   prState = "merged";
@@ -99,6 +102,9 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
   await slot.behavior.emitRealtime("tasks:changed", {});
   await slot.findByRole("button", { name: "Open TSK-1: Edited" });
   await slot.findByRole("button", { name: /Threads for TSK-1: 1 Failed/ });
+  expect(
+    slot.container.querySelector('[data-task-key="TSK-1"]')!.getAttribute("data-agent-state"),
+  ).toBeNull();
   expect(slot.getByRole("button", { name: /PR details for TSK-1:.*Merged/ })).toBeTruthy();
   labels = [{ ...labels[0]!, name: "Regression" }];
   await slot.behavior.emitRealtime("projects:changed", {});

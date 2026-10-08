@@ -150,10 +150,10 @@ describe("live thread summary", () => {
       },
     });
     const control = await slot.findByRole("button", {
-      name: "Threads for TSK-1: 1 Failed, 2 Working, 1 Idle",
+      name: "Threads for TSK-1: 1 Failed, 2 Running, 1 Idle",
     });
     expect(control.textContent).toContain("1 Failed");
-    expect(control.textContent).toContain("2 Working");
+    expect(control.textContent).toContain("2 Running");
     expect(control.textContent).toContain("+1 more");
     expect(slot.queryByRole("button", { name: /Threads for TSK-2/ })).toBeNull();
     expect(slot.queryByText("Active")).toBeNull();
@@ -174,9 +174,9 @@ describe("live thread summary", () => {
       },
     });
     const control = await slot.findByRole("button", {
-      name: "Threads for TSK-1: 2 Working, 1 Idle",
+      name: "Threads for TSK-1: 2 Running, 1 Idle",
     });
-    expect(control.textContent).toContain("2 Working");
+    expect(control.textContent).toContain("2 Running");
     expect(control.textContent).toContain("1 Idle");
     expect(
       await slot.findByRole("button", {

@@ -115,5 +115,5 @@ export function useListControls({
     });
   }, [visibleKeys, visibleOrderSettled, onVisibleOrderChange]);
 
-  return { scrollRef, openTask, openRowMenu, setOpenRowMenu, meta };
+  return { scrollRef, openTask, openRowMenu, setOpenRowMenu, meta, visibleTasks };
 }
