@@ -1,48 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Label, Task, TaskStatus } from "../../shared/contract.js";
-import { useProjects } from "../../shell/data.js";
-import { useTasksNavigation } from "../../shell/routes.js";
+import { Fragment, useState } from "react";
+import type { Label, Task } from "../../shared/contract.js";
 import { NewTaskDialog } from "../manage/new-task-dialog.js";
-import { DetailToasts, useDetailToasts } from "../detail/toast.js";
+import { DetailToasts } from "../detail/toast.js";
 import { EmptyState } from "../../components/empty-state.js";
 import { Button } from "@/components/ui/button";
 import { DelayedLoading } from "@/components/ui/delayed-loading";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLabels, useListTasks, useTaskListMeta } from "./data.js";
-import {
-  EMPTY_FILTERS,
-  hasActiveFilters,
-  ListFilterBar,
-  type ListFilterState,
-} from "./filter-bar.js";
-import {
-  listPreferenceScope,
-  loadListPreference,
-  storeListPreference,
-  type ListPreference,
-} from "./list-preference.js";
-import type { TaskSort } from "../../shared/pagination.js";
+import { EMPTY_FILTERS, ListFilterBar } from "./filter-bar.js";
 import { StatusIcon } from "./icons.js";
-import { listScrollScopeKey, useListScrollRestoration } from "./scroll-restoration.js";
-import {
-  buildListTree,
-  localIsoDate,
-  groupListTree,
-  labelFilterOptions,
-  selectedLabelIds,
-  STATUS_LABELS,
-} from "./lib.js";
-import { editedTasks, matchesFilters } from "./optimistic.js";
-import { useListTaskEdits } from "./use-task-edits.js";
-import { useExpandedTasks } from "./expanded-tasks.js";
-import { BoundTaskRow, type RowMenu } from "./row.js";
-import type { EditFn } from "./property-menus.js";
-import { useBlockedWorkConfirm } from "../dependencies.js";
-import { useShortcuts } from "../../shell/shortcut-provider.js";
-import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
-import { useSelectionTree, visibleTreeTasks, type SelectionUnavailable } from "./selection-tree.js";
-import { canRestoreBrowseFocus } from "../../shell/shortcuts.js";
+import { localIsoDate, STATUS_LABELS } from "./lib.js";
+import { BoundTaskRow } from "./row.js";
+import { useSelectionTree, type SelectionUnavailable } from "./selection-tree.js";
+import { useListData } from "./use-list-data.js";
+import { useListControls } from "./use-list-controls.js";
 
 /** Keys come from the rendered tree, including dimmed parents and expanded children.
  * Unsettled reports must never be used as proof that a selection was removed. */
@@ -102,222 +73,29 @@ export function ListView({
   reconcileRevision = 0,
   scopeUnavailable = false,
 }: ListViewProps) {
-  const navigation = useTasksNavigation();
-  const referenceDate = localIsoDate(0);
-  const openTask = useCallback(
-    (taskKey: string) => {
-      if (onRequestSelection) onRequestSelection(taskKey);
-      else navigation.go({ kind: "task", taskKey });
-    },
-    [onRequestSelection, navigation],
-  );
-  const projects = useProjects();
-  const { toasts, push, dismiss } = useDetailToasts();
-  const preferenceScope = listPreferenceScope(projectId, activeOnly);
-  const [preference, setPreference] = useState<ListPreference>(() =>
-    loadListPreference(preferenceScope),
-  );
-  useEffect(() => {
-    setPreference(loadListPreference(preferenceScope));
-  }, [preferenceScope]);
-  const filters = preference.filters;
-  const sort = preference.sort;
-  const setFilters = (next: ListFilterState) => {
-    onRequestContextChange(() => {
-      setPreference((current) => {
-        const updated: ListPreference = { ...current, filters: next };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
-    });
-  };
-  const setSort = (next: TaskSort) => {
-    onRequestContextChange(() => {
-      setPreference((current) => {
-        const updated: ListPreference = {
-          ...current,
-          sort: next,
-        };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
-    });
-  };
-  const sectionFocus = useRef<{ scope: string; status: TaskStatus } | null>(null);
-  const toggleSection = (status: TaskStatus, collapsed: boolean) => {
-    onRequestContextChange(() => {
-      if (collapsed) sectionFocus.current = { scope: preferenceScope, status };
-      setPreference((current) => {
-        const updated: ListPreference = {
-          ...current,
-          collapsedStatuses: collapsed
-            ? [...new Set([...current.collapsedStatuses, status])]
-            : current.collapsedStatuses.filter((value) => value !== status),
-        };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
-    });
-  };
-  const [newTaskOpen, setNewTaskOpen] = useState(false);
-
-  const labelProjectIds = useMemo(
-    () => (projectId !== null ? [projectId] : (projects.data ?? []).map((project) => project.id)),
-    [projectId, projects.data],
-  );
-  const labels = useLabels(labelProjectIds);
-  const labelOptions = useMemo(() => labelFilterOptions(labels.data ?? []), [labels.data]);
-  const labelIds = useMemo((): readonly string[] | null => {
-    if (filters.labelNames.length === 0) return null;
-    if (labels.data === undefined) return null;
-    return selectedLabelIds(labelOptions, filters.labelNames);
-  }, [filters.labelNames, labelOptions, labels.data]);
-
+  const data = useListData({ projectId, activeOnly, scopeUnavailable, onRequestContextChange });
   const {
-    matches: tasksQuery,
-    scope: scopeQuery,
-    needsScope,
-  } = useListTasks(projectId, activeOnly, {
-    statuses: filters.statuses,
-    priorities: filters.priorities,
-    labelIds,
-    dependency: filters.dependency,
-  });
-  const scopeTasks = needsScope ? (scopeQuery.data ?? undefined) : tasksQuery.data;
-  const serverTasks = useMemo(
-    () => mergeTasks(tasksQuery.data, scopeTasks),
-    [tasksQuery.data, scopeTasks],
-  );
-  const edits = useListTaskEdits(serverTasks, push);
-  const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
-  const edit = useCallback<EditFn>(
-    (task, patch) => {
-      if (patch.status !== "in_progress" || task.status === "in_progress") {
-        onRequestContextChange(() => edits.edit(task, patch));
-        return;
-      }
-      void confirmBlockedWork(task).then((confirmed) => {
-        if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
-      });
-    },
-    [onRequestContextChange, edits.edit, confirmBlockedWork],
-  );
-
-  const labelsByProject = useMemo(() => {
-    const map = new Map<string, Label[]>();
-    for (const label of labels.data ?? []) {
-      const bucket = map.get(label.projectId);
-      if (bucket) bucket.push(label);
-      else map.set(label.projectId, [label]);
-    }
-    return map;
-  }, [labels.data]);
-  const projectsById = useMemo(
-    () => new Map((projects.data ?? []).map((project) => [project.id, project])),
-    [projects.data],
-  );
-
-  const displayTasks = useMemo(() => {
-    if (tasksQuery.data === undefined) return undefined;
-    return editedTasks(tasksQuery.data, edits.entries).filter((task) =>
-      matchesFilters(task, filters.statuses, filters.priorities, labelIds ?? []),
-    );
-  }, [tasksQuery.data, edits.entries, filters.statuses, filters.priorities, labelIds]);
-  const displayScope = useMemo(
-    () => (scopeTasks === undefined ? undefined : editedTasks(scopeTasks, edits.entries)),
-    [scopeTasks, edits.entries],
-  );
-
-  const showProject = projectId === null;
-  const filtered = hasActiveFilters(filters);
-  const treeFiltered = filtered || activeOnly;
-
-  const tree = useMemo(
-    () =>
-      displayTasks === undefined || displayScope === undefined
-        ? undefined
-        : buildListTree(displayTasks, displayScope, treeFiltered),
-    [displayTasks, displayScope, treeFiltered],
-  );
-  const groups = useMemo(() => groupListTree(tree ?? [], sort), [tree, sort]);
-  const knownParentIds = useMemo(() => new Set((tree ?? []).map((entry) => entry.task.id)), [tree]);
-  const expanded = useExpandedTasks(
-    preferenceScope,
-    treeFiltered ? JSON.stringify(filters) : null,
-    knownParentIds,
-  );
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scopeKey = listScrollScopeKey({ projectId, activeOnly, filters, sort });
-  const [settledScope, setSettledScope] = useState(scopeKey);
-  const scopeChanged = settledScope !== scopeKey;
-  useEffect(() => {
-    if (!tasksQuery.isLoading) setSettledScope(scopeKey);
-  }, [scopeKey, tasksQuery.isLoading, tasksQuery.data]);
-  const routeScope = `${projectId ?? "-"}/${activeOnly}`;
-  const [settledRouteScope, setSettledRouteScope] = useState(routeScope);
-  const routeScopeChanged = settledRouteScope !== routeScope;
-  const previousRouteScope = useRef(routeScope);
-  useEffect(() => {
-    const routeScopeJustChanged = previousRouteScope.current !== routeScope;
-    previousRouteScope.current = routeScope;
-    if (!routeScopeJustChanged && !tasksQuery.isLoading) {
-      setSettledRouteScope(routeScope);
-    }
-  }, [routeScope, tasksQuery.isLoading, tasksQuery.data]);
-
-  const [openRowMenu, setOpenRowMenu] = useState<{
-    taskKey: string;
-    menu: RowMenu;
-  } | null>(null);
-  const forFocusedRow = (act: (taskKey: string) => void) =>
-    forFocusedTask(() => scrollRef.current, act);
-  const openRowMenuFromShortcut = (menu: RowMenu) =>
-    forFocusedRow((taskKey) => {
-      if (onRequestSelection && taskKey !== selectedTaskKey) return;
-      setOpenRowMenu({ taskKey, menu });
-    });
-  useShortcuts({
-    "list.next": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, 1),
-    "list.previous": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, -1),
-    "list.open": onRequestSelection ? null : forFocusedRow((taskKey) => openTask(taskKey)),
-    "list.status": openRowMenuFromShortcut("status"),
-    "list.priority": openRowMenuFromShortcut("priority"),
-    "list.labels": openRowMenuFromShortcut("labels"),
-  });
-
-  const loadError = tasksQuery.error ?? (needsScope ? scopeQuery.error : null);
-  // All/Active label names cannot prove absence until the project inventory
-  // and the label and task results for that inventory have all succeeded.
-  const orderSettled =
-    !scopeUnavailable &&
-    tree !== undefined &&
-    !routeScopeChanged &&
-    !scopeChanged &&
-    !tasksQuery.isLoading &&
-    (!needsScope || !scopeQuery.isLoading) &&
-    loadError === null &&
-    (filters.labelNames.length === 0 ||
-      ((projectId !== null ||
-        (!projects.isLoading && projects.error === null && projects.data !== undefined)) &&
-        !labels.isLoading &&
-        labels.error === null &&
-        labels.data !== undefined)) &&
-    edits.pending.size === 0;
-  const candidate = useMemo(
-    () => ({
-      groups: groups.map((group) => ({
-        ...group,
-        collapsed: preference.collapsedStatuses.includes(group.status),
-        entries: group.entries.map((entry) => ({
-          ...entry,
-          expanded: expanded.isExpanded(entry),
-        })),
-      })),
-      count: displayTasks?.length,
-    }),
-    [groups, expanded.isExpanded, displayTasks?.length, preference.collapsedStatuses],
-  );
+    filters,
+    setFilters,
+    sort,
+    setSort,
+    toggleSection,
+    labelOptions,
+    candidate,
+    orderSettled,
+    loading,
+    loadError,
+    filtered,
+    showProject,
+    projectsById,
+    labelsByProject,
+    edit,
+    pending,
+    toggleExpanded,
+    toasts,
+    dismiss,
+    blockedWorkDialog,
+  } = data;
   const rendered = useSelectionTree(
     candidate,
     selectedTaskKey,
@@ -325,57 +103,17 @@ export function ListView({
     onSelectionUnavailable,
     reconcileRevision,
   );
-  const visibleTasks = useMemo(() => visibleTreeTasks(rendered.tree), [rendered.tree]);
-  const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
-  const visibleOrderSettled = orderSettled && !rendered.retained;
-  useEffect(() => {
-    const pending = sectionFocus.current;
-    if (!pending) return;
-    if (pending.scope !== preferenceScope || !visible) {
-      sectionFocus.current = null;
-      return;
-    }
-    const list = scrollRef.current;
-    // An accepted collapse does not retain ownership of another pane or overlay.
-    if (!list || !(canRestoreSectionFocus?.() ?? canRestoreBrowseFocus(list))) {
-      sectionFocus.current = null;
-      return;
-    }
-    // A retained tree keeps the section expanded until hidden selection clears.
-    if (rendered.retained) return;
-    const group = rendered.tree.groups.find((value) => value.status === pending.status);
-    if (!group?.collapsed) return;
-    sectionFocus.current = null;
-    list
-      .querySelector<HTMLButtonElement>(`[data-status-group-header="${pending.status}"]`)
-      ?.focus({ preventScroll: true });
-  }, [
-    rendered.tree,
-    rendered.retained,
-    preferenceScope,
-    visible,
+  const { scrollRef, openTask, openRowMenu, setOpenRowMenu, meta } = useListControls({
+    data,
+    rendered,
     selectedTaskKey,
-    canRestoreSectionFocus,
-  ]);
-  const meta = useTaskListMeta(
-    tree === undefined ? undefined : visibleTasks,
-    JSON.stringify([preferenceScope, filters]),
-  );
-  useListScrollRestoration(scrollRef, scopeKey, {
     visible,
-    contentReady: visibleOrderSettled && rendered.tree.groups.length > 0,
-    loading: !visibleOrderSettled,
-    revision:
-      JSON.stringify(
-        rendered.tree.groups.map((group) => [group.status, group.collapsed, group.entries.length]),
-      ) + visibleKeys,
+    onRequestSelection,
+    onVisibleOrderChange,
+    canRestoreSectionFocus,
   });
-  useEffect(() => {
-    onVisibleOrderChange?.({
-      keys: JSON.parse(visibleKeys) as string[],
-      settled: visibleOrderSettled,
-    });
-  }, [visibleKeys, visibleOrderSettled, onVisibleOrderChange]);
+  const referenceDate = localIsoDate(0);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   const renderRow = (
     task: Task,
     extra: Pick<
@@ -394,22 +132,19 @@ export function ListView({
       referenceDate={referenceDate}
       onOpenTask={openTask}
       selected={selectedTaskKey === task.key}
-      pending={edits.pending.has(task.id)}
+      pending={pending.has(task.id)}
       openMenu={openRowMenu?.taskKey === task.key ? openRowMenu.menu : null}
       setOpenRowMenu={setOpenRowMenu}
-      toggleExpanded={expanded.toggle}
+      toggleExpanded={toggleExpanded}
       onRequestContextChange={onRequestContextChange}
       {...extra}
     />
   );
 
   let body: React.ReactNode;
-  if (
-    !rendered.retained &&
-    (routeScopeChanged || tasksQuery.data === undefined || tree === undefined)
-  ) {
+  if (!rendered.retained && loading) {
     body =
-      !routeScopeChanged && loadError !== null ? (
+      loadError !== null ? (
         <EmptyState icon="AlertCircle" title="Couldn't load tasks" description={loadError} />
       ) : (
         <LoadingRows />
@@ -517,15 +252,4 @@ export function ListView({
       {blockedWorkDialog}
     </div>
   );
-}
-
-function mergeTasks(
-  matches: readonly Task[] | undefined,
-  scope: readonly Task[] | undefined,
-): readonly Task[] | undefined {
-  if (matches === undefined || scope === undefined) return matches;
-  if (matches === scope) return matches;
-  const byId = new Map(scope.map((task) => [task.id, task]));
-  for (const task of matches) byId.set(task.id, task);
-  return [...byId.values()];
 }
