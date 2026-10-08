@@ -10,7 +10,7 @@
     "format:check": "npm --prefix .. run format:check -- bb-plugin-compose-chat",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "test:browser": "bash tests/browser-checks.sh",
+    "test:browser": "playwright test",
     "build": "bb plugin build ."
   },
   "engines": {
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.15",
+    "@playwright/test": "1.64.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
     "@types/better-sqlite3": "^7.6.12",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.0.0",
     "better-sqlite3": "^12.0.0",
     "cron-parser": "^5.5.0",
+    "esbuild": "0.28.2",
     "hono": "^4.11.9",
     "jsdom": "^28.1.0",
     "postcss": "^8.5.6",

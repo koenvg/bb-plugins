@@ -5,6 +5,8 @@ Branch: `bb/bbp-20-30-day-calendar-token-reports-thr_kt33mse6a5`.
 Fixed pre-implementation baseline: `ceb1ab8087f486a03a5193729232d0ad310436de`.
 Parent: `bbthread://thr_2k7buag9sh`; only the parent owns epic integration and installed acceptance.
 
+The commands below record historical evidence. The Python browser runner has been removed. Use [browser verification](BROWSER-TESTING.md) for current Playwright commands and the coverage mapping.
+
 ## Pre-review checks
 
 All exits below are 0. Logs are owned synthetic worker evidence, not parent-independent acceptance.

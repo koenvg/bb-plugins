@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:browser": "npm --prefix bb-plugin-compose-chat run test:browser && npm --prefix bb-plugin-markdown-reader run test:browser && npm --prefix bb-plugin-codex-quota run test:browser",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write",
