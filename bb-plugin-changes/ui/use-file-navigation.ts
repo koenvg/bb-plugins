@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-
-const PIN_SETTLE_MS = 1000;
-const POINTER_SCROLL_EVENTS = ["wheel", "touchstart", "pointerdown"] as const;
+import { pinToTop } from "../../review-ui/pin-to-top";
 
 export interface FileNavigation {
   current: string | null;
@@ -49,32 +47,15 @@ export function useFileNavigation(
       const area = scrollArea.current;
       const section = area?.querySelector<HTMLElement>(`section[data-path="${CSS.escape(path)}"]`);
       if (area == null || section == null) return;
-      const align = () => {
-        if (!section.isConnected) return stop();
-        area.scrollTop += section.getBoundingClientRect().top - area.getBoundingClientRect().top;
-      };
-      align();
       setCurrent(path);
-
-      let timer = setTimeout(stop, PIN_SETTLE_MS);
-      const observer = new ResizeObserver(() => {
-        align();
-        clearTimeout(timer);
-        timer = setTimeout(stop, PIN_SETTLE_MS);
-      });
-      if (content.current !== null) observer.observe(content.current);
-      for (const event of POINTER_SCROLL_EVENTS)
-        area.addEventListener(event, stop, { passive: true });
-      document.addEventListener("keydown", stop);
-
-      function stop() {
-        clearTimeout(timer);
-        observer.disconnect();
-        for (const event of POINTER_SCROLL_EVENTS) area!.removeEventListener(event, stop);
-        document.removeEventListener("keydown", stop);
-        stopPin.current = null;
-      }
-      stopPin.current = stop;
+      stopPin.current = pinToTop(
+        area,
+        content.current,
+        () => ({ element: section, inset: 0 }),
+        () => {
+          stopPin.current = null;
+        },
+      );
     },
     [scrollArea, content],
   );

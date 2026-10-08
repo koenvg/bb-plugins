@@ -42,12 +42,14 @@ function listen(threadId: string, tab: CommandTab) {
 }
 
 describe("GitHub palette commands", () => {
-  it("registers the six commands without default keys", () => {
+  it("registers the eight commands without default keys", () => {
     expect(GITHUB_COMMANDS.map(({ title }) => title)).toEqual([
       "GitHub: Merge PR",
       "GitHub: Open PR tab",
       "GitHub: Open Review tab",
       "GitHub: Submit review",
+      "GitHub: Next comment",
+      "GitHub: Previous comment",
       "GitHub: Refresh PR",
       "GitHub: Open PR on GitHub",
     ]);
@@ -100,6 +102,8 @@ describe("GitHub palette commands", () => {
     "open-pr-tab",
     "open-review-tab",
     "submit-review",
+    "next-comment",
+    "previous-comment",
     "refresh-pr",
     "open-pr-on-github",
   ];
@@ -124,7 +128,7 @@ describe("GitHub palette commands", () => {
     expect(listed("thr_blocked")).toEqual(ALL_BUT_MERGE);
   });
 
-  it("lists all six commands for a PR that can merge", () => {
+  it("lists all eight commands for a PR that can merge", () => {
     rememberInsight("thr_ready", ok({ kind: "enqueue" }));
 
     expect(listed("thr_ready")).toEqual(["merge-pr", ...ALL_BUT_MERGE]);
@@ -144,6 +148,8 @@ describe("GitHub palette commands", () => {
     ["open-pr-tab", "pr", null],
     ["open-review-tab", "review", null],
     ["submit-review", "review", "submit"],
+    ["next-comment", "review", "next-comment"],
+    ["previous-comment", "review", "previous-comment"],
     ["refresh-pr", "pr", "refresh"],
     ["open-pr-on-github", "pr", "open-on-github"],
   ] as const)("%s opens the %s tab once, without params, with intent %s", (id, tab, intent) => {

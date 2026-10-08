@@ -42,6 +42,7 @@ export function PrFileDiff({
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
   return (
     <LazyFileDiff
+      path={file.path}
       fileDiff={fileDiff}
       threads={threads}
       commentDrafts={commentDrafts}
@@ -54,7 +55,10 @@ export function PrFileDiff({
 
 function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { path: string }) {
   return (
-    <section className="flex flex-col gap-1 border-b border-border px-3 py-2 text-sm">
+    <section
+      data-path={path}
+      className="flex flex-col gap-1 border-b border-border px-3 py-2 text-sm"
+    >
       <span className="font-mono text-xs">{path}</span>
       <span className="text-xs text-muted-foreground">Diff not available</span>
       {threads.map(({ thread }) => (
@@ -68,11 +72,13 @@ function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { 
 }
 
 function LazyFileDiff({
+  path,
   fileDiff,
   threads,
   commentDrafts,
   onAddComment,
 }: ThreadsProps & {
+  path: string;
   fileDiff: FileDiffMetadata;
   onAddComment?: (side: PierreSide, line: number) => void;
 }) {
@@ -94,7 +100,7 @@ function LazyFileDiff({
     [threads, commentDrafts],
   );
   return (
-    <section ref={ref} className="min-h-10 border-b border-border">
+    <section ref={ref} data-path={path} className="min-h-10 border-b border-border">
       {visible && (
         <ReviewFileDiff
           fileDiff={fileDiff}

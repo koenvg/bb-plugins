@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
+import { commentStops } from "../core/comment-stops";
 import { splitByCommit } from "../core/draft-commits";
 import type { ReviewFile } from "../core/pr-files";
 import type { PrHead } from "../core/pr-head";
@@ -13,19 +14,28 @@ import {
 import {
   openThreadCounts,
   openThreads,
+  visibleThreads,
   type PlacedThread,
   type ThreadPlacement,
 } from "../core/thread-placement";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { useCommandIntent } from "./command-intents";
 import { CommentDraftsProvider, useNewComments } from "./comment-drafts";
 import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedback";
 import { PrFileDiff } from "./file-diff";
+import { IconTooltip } from "./icon-tooltip";
+import { JumpMarkContext } from "./jump-highlight";
 import { OlderCommentDrafts } from "./older-comment-drafts";
 import { OutdatedThreads } from "./outdated-threads";
 import { SubmitPanel, SubmitReviewToggle } from "./submit-panel";
 import { ThreadActionsProvider } from "./thread-actions";
 import { ThreadSelectionContext, useThreadSelectionState } from "./thread-selection";
+import {
+  useCommentNavigation,
+  type CommentNavigation,
+  type StepDirection,
+} from "./use-comment-navigation";
 import { useThreadResult } from "./use-thread-result";
 import { ViewerReviewBadge } from "./viewer-review-badge";
 
@@ -74,19 +84,48 @@ interface SubmitRequest {
   onHandled: () => void;
 }
 
-function useSubmitCommand(threadId: string, result: ReturnType<typeof useReview>["result"]) {
-  const [requested, setRequested] = useState(false);
-  useCommandIntent(threadId, "review", () => setRequested(true));
+interface CommentStepRequest {
+  direction: StepDirection;
+  onHandled: () => void;
+}
+
+interface ReviewCommandRequests {
+  submit: SubmitRequest | undefined;
+  commentStep: CommentStepRequest | undefined;
+}
+
+const STEP_OF_INTENT = { "next-comment": 1, "previous-comment": -1 } as const;
+
+function useReviewCommands(
+  threadId: string,
+  result: ReturnType<typeof useReview>["result"],
+): ReviewCommandRequests {
+  const [submitRequested, setSubmitRequested] = useState(false);
+  const [stepRequested, setStepRequested] = useState<StepDirection | null>(null);
+  useCommandIntent(threadId, "review", (intent) => {
+    if (intent === "submit") setSubmitRequested(true);
+    else setStepRequested(STEP_OF_INTENT[intent]);
+  });
 
   const loadedWithoutReview = result !== null && result.kind !== "ok";
   useEffect(() => {
-    if (requested && loadedWithoutReview) setRequested(false);
-  }, [requested, loadedWithoutReview]);
+    if (!loadedWithoutReview) return;
+    setSubmitRequested(false);
+    setStepRequested(null);
+  }, [loadedWithoutReview, submitRequested, stepRequested]);
 
-  return useMemo<SubmitRequest | undefined>(
-    () => (requested ? { onHandled: () => setRequested(false) } : undefined),
-    [requested],
+  const submit = useMemo<SubmitRequest | undefined>(
+    () => (submitRequested ? { onHandled: () => setSubmitRequested(false) } : undefined),
+    [submitRequested],
   );
+  const commentStep = useMemo<CommentStepRequest | undefined>(
+    () =>
+      stepRequested === null
+        ? undefined
+        : { direction: stepRequested, onHandled: () => setStepRequested(null) },
+    [stepRequested],
+  );
+  return { submit, commentStep };
 }
 
 export function ReviewTab({ threadId }: { threadId: string }) {
@@ -96,7 +135,7 @@ export function ReviewTab({ threadId }: { threadId: string }) {
 function ReviewTabContent({ threadId }: { threadId: string }) {
   const { result, refreshing, refresh, reload, reloadDrafts, removeCommentDraft } =
     useReview(threadId);
-  const submitRequest = useSubmitCommand(threadId, result);
+  const requests = useReviewCommands(threadId, result);
   if (result === null)
     return (
       <Padded>
@@ -145,7 +184,7 @@ function ReviewTabContent({ threadId }: { threadId: string }) {
           reload={reload}
           refreshing={refreshing}
           refresh={refresh}
-          submitRequest={submitRequest}
+          requests={requests}
         />
       </CommentDraftsProvider>
     </ThreadActionsProvider>
@@ -162,7 +201,7 @@ interface ReviewContentProps {
   reload: () => void;
   refreshing: boolean;
   refresh: () => void;
-  submitRequest: SubmitRequest | undefined;
+  requests: ReviewCommandRequests;
 }
 
 function ReviewContent({
@@ -175,12 +214,13 @@ function ReviewContent({
   reload,
   refreshing,
   refresh,
-  submitRequest,
+  requests,
 }: ReviewContentProps) {
   const [showResolved, setShowResolved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(
     () => commentDrafts.length > 0 || summaryDraft !== null,
   );
+  const submitRequest = requests.submit;
   useEffect(() => {
     if (!submitRequest) return;
     setSubmitOpen(true);
@@ -203,6 +243,27 @@ function ReviewContent({
     () => groupByPath(draftsByCommit.atHead, (draft) => draft.path),
     [draftsByCommit.atHead],
   );
+  const stops = useMemo(
+    () =>
+      commentStops({
+        files,
+        threads,
+        olderDrafts: draftsByCommit.older,
+        drafts: draftsByCommit.atHead,
+        showResolved,
+      }),
+    [files, threads, draftsByCommit, showResolved],
+  );
+  const scrollArea = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const navigation = useCommentNavigation(scrollArea, content, stops);
+  const commentStep = requests.commentStep;
+  const step = navigation.step;
+  useEffect(() => {
+    if (!commentStep) return;
+    step(commentStep.direction);
+    commentStep.onHandled();
+  }, [commentStep, step]);
   const { create, createError } = useNewComments();
   const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;
   return (
@@ -212,6 +273,7 @@ function ReviewContent({
         <CountPill emphasis={counts.open > 0}>{counts.open} open</CountPill>
         <CountPill emphasis={false}>{counts.outdated} outdated</CountPill>
         <ViewerReviewBadge review={head.viewerReview} headOid={head.oid} />
+        <CommentStepper navigation={navigation} />
         <div className="ml-auto flex items-center gap-2">
           {agent.outcome?.result.kind === "sent" && (
             <span role="status" className="text-muted-foreground">
@@ -243,19 +305,23 @@ function ReviewContent({
         <ErrorBanner>{agent.outcome.result.message}</ErrorBanner>
       )}
       <ThreadSelectionContext.Provider value={selection}>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <OlderCommentDrafts drafts={draftsByCommit.older} headOid={head.oid} />
-          <OutdatedThreads threads={visible.outdated} />
-          {files.map((file) => (
-            <PrFileDiff
-              key={file.path}
-              file={file}
-              threads={placedByPath.get(file.path) ?? NO_THREADS}
-              commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
-              onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
-            />
-          ))}
-        </div>
+        <JumpMarkContext.Provider value={navigation.jumpMark}>
+          <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
+            <div ref={content}>
+              <OlderCommentDrafts drafts={draftsByCommit.older} headOid={head.oid} />
+              <OutdatedThreads threads={visible.outdated} />
+              {files.map((file) => (
+                <PrFileDiff
+                  key={file.path}
+                  file={file}
+                  threads={placedByPath.get(file.path) ?? NO_THREADS}
+                  commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
+                  onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        </JumpMarkContext.Provider>
       </ThreadSelectionContext.Provider>
     </div>
   );
@@ -306,14 +372,6 @@ function sentText(result: Extract<SendToAgentResult, { kind: "sent" }>, requeste
 const NO_THREADS: readonly PlacedThread[] = [];
 const NO_COMMENT_DRAFTS: readonly ListedCommentDraft[] = [];
 
-function visibleThreads(threads: ThreadPlacement, showResolved: boolean): ThreadPlacement {
-  if (showResolved) return threads;
-  return {
-    placed: threads.placed.filter(({ thread }) => !thread.resolved),
-    outdated: threads.outdated.filter((thread) => !thread.resolved),
-  };
-}
-
 function groupByPath<T>(entries: readonly T[], pathOf: (entry: T) => string): Map<string, T[]> {
   const byPath = new Map<string, T[]>();
   for (const entry of entries) {
@@ -340,6 +398,42 @@ function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactN
     >
       {children}
     </span>
+  );
+}
+
+function CommentStepper({ navigation }: { navigation: CommentNavigation }) {
+  if (navigation.position === null) return null;
+  return (
+    <div role="group" aria-label="Comment navigation" className="flex items-center gap-0.5">
+      <StepButton label="Previous comment" icon="ChevronUp" onClick={() => navigation.step(-1)} />
+      <span className="min-w-12 text-center text-muted-foreground tabular-nums">
+        {navigation.position + 1} / {navigation.total}
+      </span>
+      <StepButton label="Next comment" icon="ChevronDown" onClick={() => navigation.step(1)} />
+    </div>
+  );
+}
+
+function StepButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: "ChevronUp" | "ChevronDown";
+  onClick: () => void;
+}) {
+  return (
+    <IconTooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        onClick={onClick}
+      >
+        <Icon name={icon} className="size-3.5" />
+      </button>
+    </IconTooltip>
   );
 }
 

@@ -6,6 +6,7 @@ import Archive03Icon from "@hugeicons/core-free-icons/Archive03Icon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
 import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
 import ArrowRight01Icon from "@hugeicons/core-free-icons/ArrowRight01Icon";
+import ArrowUp01Icon from "@hugeicons/core-free-icons/ArrowUp01Icon";
 import BotIcon from "@hugeicons/core-free-icons/BotIcon";
 import BubbleChatAddIcon from "@hugeicons/core-free-icons/BubbleChatAddIcon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
@@ -157,6 +158,7 @@ const CORE_ICON_MAP = {
   ChevronDown: ArrowDown01Icon,
   ChevronLeft: ArrowLeft01Icon,
   ChevronRight: ArrowRight01Icon,
+  ChevronUp: ArrowUp01Icon,
   Circle: CircleIcon,
   CircleCheck: CheckmarkCircle02Icon,
   CircleQuestion: HelpCircleIcon,
