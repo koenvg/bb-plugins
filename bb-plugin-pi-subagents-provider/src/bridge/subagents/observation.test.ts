@@ -264,6 +264,7 @@ describe("native single-run observation", () => {
       taskType: "local_subagent",
       status: "pending",
       taskStatus: "running",
+      skipTranscript: false,
     });
     expect(h.items()[0]!.description).toContain("reviewer");
     expect(h.items()[0]!.summary).toContain("2s");
@@ -276,8 +277,46 @@ describe("native single-run observation", () => {
     await h.observation.refresh();
     await h.observation.refresh();
     expect(h.items().filter((item) => item.status !== "pending")).toHaveLength(1);
-    expect(h.items().at(-1)).toMatchObject({ id, status: "completed", taskStatus: "completed" });
+    expect(h.items().at(-1)).toMatchObject({
+      id,
+      status: "completed",
+      taskStatus: "completed",
+      skipTranscript: false,
+    });
     expect(h.events.filter((e) => e.type === "turn/started")).toHaveLength(1);
+  });
+
+  it("keeps a second background run countable after the first settles", async () => {
+    const h = harness();
+    const latestItems = () => [...new Map(h.items().map((item) => [item.id, item])).values()];
+    h.set(receipt([root(), { ...root(), id: "run-2" }]));
+    await h.observation.refresh();
+    await h.observation.refresh();
+    expect(latestItems()).toMatchObject([
+      { status: "pending", taskStatus: "running", skipTranscript: false },
+      { status: "pending", taskStatus: "running", skipTranscript: false },
+    ]);
+    const ids = latestItems().map((item) => item.id);
+    expect(new Set(ids).size).toBe(2);
+
+    h.set(receipt([root("complete"), { ...root(), id: "run-2" }]));
+    await h.observation.refresh();
+    await h.observation.refresh();
+    expect(latestItems()).toMatchObject([
+      { id: ids[0], status: "completed", taskStatus: "completed", skipTranscript: false },
+      { id: ids[1], status: "pending", taskStatus: "running", skipTranscript: false },
+    ]);
+
+    h.set(receipt([root("complete"), { ...root("failed"), id: "run-2" }]));
+    await h.observation.refresh();
+    await h.observation.refresh();
+    expect(latestItems()).toMatchObject([
+      { id: ids[0], status: "completed", taskStatus: "completed", skipTranscript: false },
+      { id: ids[1], status: "failed", taskStatus: "failed", skipTranscript: false },
+    ]);
+    expect(h.items().filter((item) => item.status !== "pending")).toHaveLength(2);
+    expect(h.assembler.getOpenTurnId("thread-1")).toBeUndefined();
+    expect(h.events.filter((event) => event.type === "turn/started")).toHaveLength(1);
   });
 
   it("does not settle missing rows, incomplete snapshots, or failed reads", async () => {

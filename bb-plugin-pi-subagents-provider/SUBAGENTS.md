@@ -2,6 +2,12 @@
 
 BBP-72–75 add source-level detail, capture, parallel/nested structure, and history recovery. Installed acceptance remains the parent's gate. Nothing here certifies child survival, delivery, parent wake, installed UI, or installed reload recovery.
 
+## Native background activity
+
+Async subagent runs also appear as normal BB background task rows alongside the detailed Subagents panel. These rows remain eligible for BB's background-agent activity count after the main agent finishes its turn. The bridge does not hold the parent turn open or create an extra turn merely to show child work.
+
+A represented run stays pending while it or its descendants are live. Authoritative completion, failure, or interruption settles its native item. This payload behavior is covered by source tests; installed activity, idle retention, and completion delivery still require live acceptance.
+
 ## View and capture
 
 Open **Subagents** from the thread panel actions. Select a child with the pointer or Arrow Up/Down, Home, and End. The tree stays above wrapped detail on narrow screens. It shows available task, recent transcript, final output, state, timing/activity, ownership, capture time, and omission markers. Missing information stays explicit. The view has no spawn, stop, retry, steer, resume, or other execution control.

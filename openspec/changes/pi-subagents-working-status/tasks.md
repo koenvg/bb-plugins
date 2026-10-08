@@ -1,0 +1,14 @@
+# Tasks
+
+Use `specs/pi-subagents-lifecycle/spec.md` for acceptance conditions and `design.md` for technical decisions. Each delivery includes its required tests and documentation. Follow the project code-change workflow during apply; planning does not authorize installation or live agent work.
+
+## 1. Make async subagent tasks countable
+
+- [x] 1.1 Add regression assertions in `bb-plugin-pi-subagents-provider/src/bridge/subagents/observation.test.ts` and `src/bridge/bridge.subagents.test.ts` for `skipTranscript: false` on native background items, including pending and terminal updates through the bridge; run the focused tests against the unchanged implementation and record the expected failures before changing runtime code.
+- [x] 1.2 Set `skipTranscript: false` at the existing background item construction point in `src/bridge/subagents/observation.ts`; verify the focused tests pass and existing stable-ID, closed-parent-turn, parallel, descendant, failure, and disposal coverage remains green without changing reconciliation or parent turn handling. Update `SUBAGENTS.md` to explain that normal BB background task rows remain visible alongside the detailed panel, and verify the wording does not claim unproved installed retention.
+
+## 2. Verify the native BB integration
+
+- [x] 2.1 Run the package test suite and typecheck, then the read-only `bb plugin types . --check` gate from the package directory, and build only after that gate passes; retain command output and exit codes. Validate this OpenSpec change and confirm the diff is limited to the planned package files and planning artifacts, with no dependency, BB core, bundled-provider, or user-setting changes.
+- [x] 2.2 Following the repository verification skill and separate installation/live-work approval, verify the installed fork source and versions and use bounded owned async work to observe BB's actual background-agent count becoming positive after the parent turn closes and returning to baseline after settlement. Verify the UI shows background work while the child is live, native task rows do not require a fabricated parent turn, and normal child completion still reaches the owning parent. Use the two-independent-root observer fixture and existing descendant fixture coverage for the remaining spec scenarios; record the installed check as blocked if approval or prerequisites are unavailable rather than substitute assembler output for a pass.
+- [x] 2.3 Record local results, installed acceptance evidence or blockers, tested versions, and final installation state in the verification report. Keep the original `pi-subagents-provider` cleanup-deadline retention gate separate and do not claim it passed from this shorter activity check. Verify the report also identifies the distinct lifecycle requirement added here so later spec integration preserves both active changes' requirements.

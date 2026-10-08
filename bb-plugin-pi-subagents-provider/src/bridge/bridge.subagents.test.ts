@@ -139,12 +139,14 @@ it("assembles background activity after parent idle and settles once with the sa
     status: "pending",
     taskStatus: "running",
     taskType: "local_subagent",
+    skipTranscript: false,
   });
   expect(active.items.at(-1)!.summary).toContain("read");
   await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "completed");
   const final = assembled(h);
   expect(new Set(final.items.map((item) => item.id)).size).toBe(1);
   expect(final.items.filter((item) => item.status === "completed")).toHaveLength(1);
+  expect(final.items.every((item) => item.skipTranscript === false)).toBe(true);
   expect(final.events.filter((e) => e.type === "turn/started")).toHaveLength(1);
   expect(final.events.filter((e) => e.type === "turn/completed")).toHaveLength(1);
   expect(h.readProcessLog().spawned).toHaveLength(1);
