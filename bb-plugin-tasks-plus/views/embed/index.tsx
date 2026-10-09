@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Task } from "../../shared/contract.js";
-import { useTasksRpc } from "../../shell/data.js";
+import { useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import { openTaskInSidePanel, PANEL_PATH, tasksRouteToSubPath } from "../../shell/routes.js";
 import { DetailView } from "../detail/index.js";
@@ -229,10 +229,43 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
   );
 }
 
-function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
+function TaskEmbedPanelContent({ params, threadId }: PluginThreadPanelProps) {
   const requestedKey =
     isRecord(params) && typeof params.taskKey === "string" ? params.taskKey.trim() : "";
-  const taskKey = useSafeTaskTarget(requestedKey);
+  const linked = useTasksQuery(
+    async (rpc) => (requestedKey ? [] : (await rpc.call("getTasksForThread", { threadId })).tasks),
+    ["tasks:changed", "threads:changed"],
+    [threadId, requestedKey],
+  );
+  // An unresolved lookup is not an empty result. Keep the last resolved target.
+  const resolvedKey =
+    requestedKey || (linked.isLoading || linked.error ? undefined : linked.data?.[0]?.key || "");
+  const [lastResolvedKey, setLastResolvedKey] = useState(requestedKey);
+  useEffect(() => {
+    if (resolvedKey !== undefined) setLastResolvedKey(resolvedKey);
+  }, [resolvedKey]);
+  const taskKey = useSafeTaskTarget(resolvedKey ?? lastResolvedKey);
+  const feedback = !requestedKey ? (
+    linked.isLoading ? (
+      <div role="status" aria-label="Loading linked task" className="text-sm text-muted-foreground">
+        Loading linked task...
+      </div>
+    ) : linked.error ? (
+      <div role="alert" className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Couldn't load the linked task.</span>
+        <Button variant="ghost" size="sm" onClick={linked.refresh}>
+          Retry
+        </Button>
+      </div>
+    ) : null
+  ) : null;
+  if (!taskKey && !requestedKey) {
+    return (
+      <div className="p-3 text-sm text-muted-foreground">
+        {feedback ?? "No task is linked to this thread."}
+      </div>
+    );
+  }
   if (!TASK_KEY_PATTERN.test(taskKey)) {
     return (
       <div className="p-3 text-sm text-muted-foreground">
@@ -242,6 +275,7 @@ function TaskEmbedPanelContent({ params }: PluginThreadPanelProps) {
   }
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {!requestedKey ? <div className="min-h-8 shrink-0">{feedback}</div> : null}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border pb-2">
         <div className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
           {taskKey}
