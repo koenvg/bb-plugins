@@ -11,6 +11,8 @@ import {
   type PiExtensionUiPayloadData,
 } from "./src/extension-ui-contract.js";
 import { SubagentsPanel } from "./src/ui/subagents-panel.js";
+import { NativeSubagentsContext } from "./src/ui/native-subagents-context.js";
+import { nativeComposerNavigation } from "./src/ui/native-composer-navigation.js";
 import "./src/ui/subagents.css";
 
 function parseRequest(payload: unknown): PiExtensionUiPayloadData | null {
@@ -184,6 +186,12 @@ function SubagentSupport() {
 
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({ id: "subagents", title: "Subagents", component: SubagentsPanel });
+  app.contentScripts.register(nativeComposerNavigation);
+  app.composer.customize({
+    id: "native-subagents-navigation",
+    scopes: ["thread"],
+    banners: [{ id: "navigation-context", chrome: "bare", component: NativeSubagentsContext }],
+  });
   app.slots.settingsSection({
     id: "subagent-support",
     title: "Subagent support",
