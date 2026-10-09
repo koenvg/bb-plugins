@@ -25,7 +25,7 @@ The tabs above the rows are **Needs attention**, **In flight**, and **All**. The
 | Has no PR, or no usable PR summary                                                                       | Needs attention                       |
 | Open PR has a failed merge queue entry                                                                   | Needs attention                       |
 | Open PR is queued or merging in a merge queue                                                            | In flight                             |
-| PR has failed checks, requested changes, conflicts, or unresolved comments                               | Needs attention                       |
+| PR has failed checks, a check waiting for you, requested changes, conflicts, or unresolved comments      | Needs attention                       |
 | Open PR has checks running or waits for a required review                                                | In flight                             |
 | Any other PR (ready, draft, behind, blocked, merged, closed)                                             | Needs attention                       |
 
@@ -104,7 +104,7 @@ Each row starts with the agent's logo. A red dot on the logo means the thread ne
 
 ## PR badges
 
-A thread row with a PR shows a PR icon on the right of the second line. The PR icon is draft, merged, or closed. For an open or draft PR, its colour shows checks: green when all passed, amber while running, red when one failed, grey when unknown. Hover it for the PR number. Each merge blocker that github-insight reports has an icon: conflicts, checks failed, changes requested, blocked, checks running, awaiting review, and unresolved comments. Problems come first. Failed checks, running checks, and pending reviews show a count, and the tooltip names them. Only problems (**Checks failed**, **Changes requested**, **Conflicts**, **Blocked**), **Ready**, **Merged**, and the merge queue states below also show a word. A branch that is out of date gets no icon. It shows only in the tooltip. A merged PR shows its icon and word in purple.
+A thread row with a PR shows a PR icon on the right of the second line. The PR icon is draft, merged, or closed. For an open or draft PR, its colour shows checks: green when all passed, amber while running, red when one failed, grey when unknown. Hover it for the PR number. Each merge blocker that github-insight reports has an icon: conflicts, checks failed, checks waiting for you, changes requested, blocked, checks running, awaiting review, and unresolved comments. A check waits for you when github-insight sees a pending commit status, such as a Chromatic UI review, that has had no update for 3 minutes after every other check finished. Problems come first. Failed checks, waiting checks, running checks, and pending reviews show a count, and the tooltip names them. Only problems (**Checks failed**, **Changes requested**, **Conflicts**, **Blocked**), **Ready**, **Merged**, and the merge queue states below also show a word. A branch that is out of date gets no icon. It shows only in the tooltip. A merged PR shows its icon and word in purple.
 
 An open PR in a merge queue shows its queue state instead of its blockers:
 

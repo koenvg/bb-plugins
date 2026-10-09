@@ -231,6 +231,7 @@ const taskWorkThreadSchema = z
 export const prChecksSchema = z
   .object({
     failed: z.number().int().nonnegative(),
+    waiting: z.number().int().nonnegative().optional(),
     running: z.number().int().nonnegative(),
     cancelled: z.number().int().nonnegative(),
     passed: z.number().int().nonnegative(),

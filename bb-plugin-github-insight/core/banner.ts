@@ -3,6 +3,7 @@ import type { PrInsight } from "./overview";
 
 const CHECK_COUNT_CODES: ReadonlySet<Blocker["code"]> = new Set([
   "checks_failed",
+  "checks_waiting",
   "checks_running",
 ]);
 
@@ -20,6 +21,7 @@ export function bannerParts(insight: PrInsight): string[] {
 
   return [
     textOf("checks_failed"),
+    textOf("checks_waiting"),
     textOf("checks_running"),
     pendingReviews > 0 ? `${countOf(pendingReviews, "review")} pending` : undefined,
     topOther?.text,

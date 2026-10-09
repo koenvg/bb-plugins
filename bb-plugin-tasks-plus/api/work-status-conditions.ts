@@ -6,6 +6,7 @@ type Reason = TaskWorkStatus["pullRequests"]["items"][number]["detailsReason"];
 const KNOWN = new Set([
   "conflicts",
   "checks_failed",
+  "checks_waiting",
   "changes_requested",
   "behind",
   "review_required",
@@ -36,6 +37,7 @@ export function normalizeConditions(
     if (applies) conditions.add(code);
   };
   add(value.checks.failed > 0, "checks_failed");
+  add((value.checks.waiting ?? 0) > 0, "checks_waiting");
   add(value.checks.running > 0, "checks_running");
   add(value.checks.cancelled > 0, "checks_cancelled");
   add(value.reviewers.pending > 0, "review_required");

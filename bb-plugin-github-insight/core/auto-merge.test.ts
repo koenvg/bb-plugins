@@ -26,6 +26,14 @@ describe("buildAutoMergeAction", () => {
     ).toEqual({ kind: "enable", method: "SQUASH" });
   });
 
+  it("offers auto-merge while a check waits for the user", () => {
+    const waiting = { code: "checks_waiting", text: "UI Review waiting for you" } as const;
+    expect(buildAutoMergeAction({ ...waitingForChecks, blockers: [waiting] })).toEqual({
+      kind: "enable",
+      method: "SQUASH",
+    });
+  });
+
   it.each([
     ["a failed check", { blockers: [failed] }],
     ["a draft", { prState: "draft" }],
