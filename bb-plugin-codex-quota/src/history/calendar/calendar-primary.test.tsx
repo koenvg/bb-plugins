@@ -54,13 +54,15 @@ it("removes secondary reports and instruction text from the primary view", async
     "Report limits",
     "Report options",
     "Select a day. Dashed bars mean missing data.",
+    "Inspect a date",
   ])
     expect(screen.queryByText(label)).toBeNull();
   expect(screen.queryByRole("combobox", { name: "Report grouping" })).toBeNull();
   expect(screen.queryByRole("combobox", { name: "Report comparison" })).toBeNull();
   expect(screen.queryByLabelText("Range summary")).toBeNull();
 });
-it("gives both allowance actions the same centred control frame", () => {
+it("puts a background-free refresh icon after the allowance heading", () => {
+  const onRefresh = vi.fn();
   render(
     <QuotaDashboard
       view={{ state: "unavailable", reason: "auth-required", snapshot: null }}
@@ -68,16 +70,18 @@ it("gives both allowance actions the same centred control frame", () => {
       selectedHostId="host_a"
       now={now}
       onHostChange={vi.fn()}
-      onRefresh={vi.fn()}
+      onRefresh={onRefresh}
     />,
   );
-  for (const action of [
-    screen.getByRole("button", { name: "Refresh allowance" }),
-    screen.getByRole("link", { name: "Open Codex Usage" }),
-  ]) {
-    for (const token of ["h-9", "inline-flex", "items-center", "leading-none"])
-      expect(action.classList.contains(token)).toBe(true);
-  }
+  const heading = screen.getByRole("heading", { name: "Allowance unavailable" });
+  const refresh = screen.getByRole("button", { name: "Refresh allowance" });
+  expect(heading.nextElementSibling).toBe(refresh);
+  expect(refresh.classList.contains("bg-transparent")).toBe(true);
+  expect(refresh.classList.contains("border-0")).toBe(true);
+  expect(refresh.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
+  expect(refresh.textContent).toBe("");
+  fireEvent.click(refresh);
+  expect(onRefresh).toHaveBeenCalledTimes(1);
 });
 
 it("gives both native dropdowns inset, centred decorative arrows without changing selection", async () => {
@@ -120,7 +124,7 @@ it("gives both native dropdowns inset, centred decorative arrows without changin
       expect(arrow.classList.contains(token)).toBe(true);
     expect(arrow.getAttribute("focusable")).toBe("false");
   }
-  expect(host.parentElement!.classList.contains("w-44")).toBe(true);
+  expect(host.parentElement!.classList.contains("@[32rem]:w-44")).toBe(true);
   fireEvent.change(host, { target: { value: "host_b" } });
   expect(onHostChange).toHaveBeenCalledWith("host_b");
   fireEvent.change(metric, { target: { value: "cost" } });
