@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { patchIdentity } from "../../review-ui/patch-identity";
+import { patchIdentity } from "./patch-identity";
 import type { ChangedFile } from "./changes";
 
 export const viewedMarksSchema = z.record(z.string(), z.string());

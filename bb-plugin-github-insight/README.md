@@ -205,7 +205,7 @@ Each file in the Review tab that has a patch shows a collapse button and a "View
 
 - Checking "Viewed" marks the file and collapses it. Unchecking expands it. The collapse button only expands or collapses: the toggle stays while bb runs, and resets on a reload or when the mark changes.
 - The top shows "N/M viewed". M counts the files with a patch.
-- A mark is the hash of the file's patch (`review-ui/patch-identity.ts`, on the output of `gitPatch`). When a push changes the patch or the file leaves the PR, the tab removes the mark (`core/viewed-marks.ts`).
+- A mark is the hash of the file's patch (`core/patch-identity.ts`, on the output of `gitPatch`). When a push changes the patch or the file leaves the PR, the tab removes the mark (`core/viewed-marks.ts`).
 - Marks belong to the PR, so every thread on the PR shows the same marks. They never go to GitHub.
 - `getReview` returns `viewedMarks`. RPC `updateViewed({ threadId, set, remove })` saves changes. It does not publish `review.updated`, so a click costs no `gh` call. A failed save reverts the checkbox and shows "Could not save viewed state: <error>".
 

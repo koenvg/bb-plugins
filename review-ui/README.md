@@ -1,9 +1,10 @@
 # review-ui
 
-Review UI parts that more than one plugin in this repo uses: the diff with a gutter **+** and inline cards, the inline comment form, the pending comment card, the "Viewed" checkbox and collapse button, the diff stat, the hunk line helper, the patch hash that viewed marks compare, and `pinToTop`, which keeps an element at the top of a scroll area while content above it loads.
+Review UI parts that more than one plugin in this repo uses: the diff with a gutter **+** and inline cards, the inline comment form, the pending comment card, the "Viewed" checkbox and collapse button, the diff stat, the hunk line helper, and `pinToTop`, which keeps an element at the top of a scroll area while content above it loads.
 
 Rules:
 
+- Only `ui/` code and type-only imports may use this folder. bb rejects a server source import outside the plugin directory when it reloads the plugin (`bb plugin build` does not check this). Server code that two plugins need goes in a copy in each plugin, like `core/patch-identity.ts`.
 - Source files import only `react` and `@pierre/diffs`. bb shims both at runtime, so the plugin bundle needs no copy. Tests can also import `vitest` and `@testing-library/react`.
 - Do not import `@get-bb/plugin-sdk`. Pass SDK values (code theme, icons) in through props.
 - Props and callbacks only. No RPC calls and no plugin state.

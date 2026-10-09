@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "./changes";
-import { patchIdentity } from "../../review-ui/patch-identity";
+import { patchIdentity } from "./patch-identity";
 import { viewedSummary } from "./viewed-files";
 
 const PATCH = "@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
