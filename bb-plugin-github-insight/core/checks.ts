@@ -41,7 +41,14 @@ export type StatusContextNode = z.infer<typeof statusContextNodeSchema>;
 
 export type CheckNode = CheckRunNode | StatusContextNode;
 
-export const checkStatusSchema = z.enum(["failed", "running", "cancelled", "passed", "skipped"]);
+export const checkStatusSchema = z.enum([
+  "failed",
+  "waiting",
+  "running",
+  "cancelled",
+  "passed",
+  "skipped",
+]);
 export type CheckStatus = z.infer<typeof checkStatusSchema>;
 
 export const checkSchema = z.object({
@@ -91,6 +98,7 @@ const NOT_STARTED = Number.POSITIVE_INFINITY;
 
 export interface CheckCandidate {
   name: string;
+  source: "check_run" | "status";
   status: CheckStatus;
   url: string | null;
   runId: string | null;
@@ -103,6 +111,7 @@ function toCandidate(node: CheckNode): CheckCandidate {
   if (node.__typename === "CheckRun") {
     return {
       name: node.name,
+      source: "check_run",
       status: mapCheckRunStatus(node.status, node.conclusion),
       url: node.detailsUrl,
       runId: node.id,
@@ -116,6 +125,7 @@ function toCandidate(node: CheckNode): CheckCandidate {
   }
   return {
     name: node.context,
+    source: "status",
     status: mapStatusContextState(node.state),
     url: node.targetUrl,
     runId: null,
@@ -142,6 +152,27 @@ export function latestCheckCandidates(nodes: readonly CheckNode[]): CheckCandida
     }
   }
   return [...newestByName.values()];
+}
+
+export const QUIET_STATUS_MS = 3 * 60_000;
+
+// GitHub has no state for "waits for a person", so a pending commit status that
+// stops updating after every check run is done is taken as waiting for the user.
+export function markWaitingStatuses(
+  candidates: readonly CheckCandidate[],
+  now: number,
+): CheckCandidate[] {
+  const checkRunRunning = candidates.some(
+    (candidate) => candidate.source === "check_run" && candidate.status === "running",
+  );
+  return candidates.map((candidate) =>
+    !checkRunRunning &&
+    candidate.source === "status" &&
+    candidate.status === "running" &&
+    now - candidate.recency[0] >= QUIET_STATUS_MS
+      ? { ...candidate, status: "waiting" }
+      : candidate,
+  );
 }
 
 export function failingCheckRunIds(candidates: readonly CheckCandidate[]): string[] {

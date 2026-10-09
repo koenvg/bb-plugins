@@ -15,6 +15,7 @@ const pr = (
   failedChecks: 0,
   passedChecks: 0,
   runningChecks: 0,
+  waitingChecks: 0,
   pendingReviews: 0,
   blockers,
   failedNames: [],
@@ -67,6 +68,12 @@ describe("tabFor", () => {
       "attention",
     ],
     ["has checks running", {}, pr(["checks_running"]), "inflight"],
+    [
+      "has a check waiting for the user and a required review",
+      {},
+      pr(["checks_waiting", "review_required"], "open", { waitingChecks: 1 }),
+      "attention",
+    ],
     [
       "has running checks the blockers do not name",
       {},

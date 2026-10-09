@@ -6,6 +6,7 @@ const MAX_OPEN_AGE_MS = 60 * 60_000;
 const BLOCKERS = [
   "conflicts",
   "checks_failed",
+  "checks_waiting",
   "changes_requested",
   "behind",
   "review_required",
@@ -33,6 +34,7 @@ export interface PrSummary {
   failedChecks: number;
   passedChecks: number;
   runningChecks: number;
+  waitingChecks: number;
   pendingReviews: number;
   blockers: BlockerCode[];
   failedNames: string[];
@@ -90,6 +92,7 @@ export function readSummary(value: unknown, now: number): PrSummary | null {
     failedChecks,
     passedChecks,
     runningChecks,
+    waitingChecks: count(checks.waiting) ?? 0,
     pendingReviews,
     blockers: blockers.filter(isBlocker),
     failedNames: strings(checks.failedNames),

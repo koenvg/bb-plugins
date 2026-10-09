@@ -37,6 +37,32 @@ it("reports Ready through public RPC and presentation only with explicit complet
   expect(primaryBucket(pr).label).toBe("Ready to merge");
 });
 
+it("reads a summary without a waiting count from an older producer", async () => {
+  const { read } = setup({ thr_a: clearSummary() });
+  expect((await read()).pullRequests.items[0]!.details).toBe("available");
+});
+
+it("shows a check waiting for the user instead of Ready", async () => {
+  const { read } = setup({
+    thr_a: clearSummary({
+      checks: {
+        failed: 0,
+        waiting: 1,
+        running: 0,
+        cancelled: 0,
+        passed: 3,
+        skipped: 0,
+        failedNames: [],
+      },
+      blockers: ["checks_waiting"],
+    }),
+  });
+  const pr = (await read()).pullRequests.items[0]!;
+  expect(pr.details).toBe("available");
+  expect(pr.rich?.conditions).toContain("checks_waiting");
+  expect(primaryBucket(pr).label).toBe("Checks waiting for you");
+});
+
 it("withholds Ready from fresh metadata when the current environment PR association is unreadable", async () => {
   const { read, store, task, harness } = setup(
     { thr_a: clearSummary() },

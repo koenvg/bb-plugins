@@ -84,6 +84,7 @@ describe("buildSummary on PR 25337", () => {
           "passed": 98,
           "running": 0,
           "skipped": 8,
+          "waiting": 0,
         },
         "error": null,
         "mergeQueue": null,
@@ -141,6 +142,22 @@ describe("buildSummary", () => {
       "check 4",
       "check 5",
     ]);
+  });
+
+  it("counts waiting checks apart from running checks and keeps the blocker code", () => {
+    const summary = buildSummary({
+      insight: insight({
+        checks: [check("UI Review", "waiting"), check("lint", "passed")],
+        blockers: [{ code: "checks_waiting", text: "UI Review waiting for you" }],
+      }),
+      refreshedAt,
+      error: null,
+    });
+
+    expect(summary.version).toBe(1);
+    expect(summary.checks.waiting).toBe(1);
+    expect(summary.checks.running).toBe(0);
+    expect(summary.blockers).toEqual(["checks_waiting"]);
   });
 
   it("marks pending teams and counts reviewers by state", () => {

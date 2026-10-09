@@ -3,6 +3,8 @@ import {
   failingCheckRunIds,
   latestCheckCandidates,
   mapCheckRunStatus,
+  markWaitingStatuses,
+  QUIET_STATUS_MS,
   mapStatusContextState,
   toCheck,
   type CheckNode,
@@ -203,5 +205,44 @@ describe("failingCheckRunIds", () => {
     );
 
     expect(ids).toEqual(["CR_failed", "CR_cancelled"]);
+  });
+});
+
+describe("markWaitingStatuses", () => {
+  const pendingSince = "2026-09-24T10:00:00Z";
+  const quietFor = (ms: number) => Date.parse(pendingSince) + ms;
+  const uiReview = statusContext({
+    context: "UI Review",
+    state: "PENDING",
+    createdAt: pendingSince,
+  });
+  const statusOf = (nodes: readonly CheckNode[], now: number, name: string) =>
+    markWaitingStatuses(latestCheckCandidates(nodes), now).find((c) => c.name === name)?.status;
+
+  it("marks a pending status as waiting once it is quiet and every check run is done", () => {
+    expect(statusOf([checkRun(), uiReview], quietFor(5 * 60_000), "UI Review")).toBe("waiting");
+  });
+
+  it("marks a pending status as waiting exactly at the quiet threshold", () => {
+    expect(statusOf([uiReview], quietFor(QUIET_STATUS_MS), "UI Review")).toBe("waiting");
+  });
+
+  it("keeps a recently updated pending status running", () => {
+    expect(statusOf([checkRun(), uiReview], quietFor(60_000), "UI Review")).toBe("running");
+  });
+
+  it("keeps a quiet pending status running while a check run is running", () => {
+    const build = checkRun({ status: "IN_PROGRESS", conclusion: null });
+    expect(statusOf([build, uiReview], quietFor(20 * 60_000), "UI Review")).toBe("running");
+  });
+
+  it("never marks a check run as waiting", () => {
+    const e2e = checkRun({ name: "e2e", status: "QUEUED", conclusion: null, startedAt: null });
+    expect(statusOf([e2e], quietFor(30 * 60_000), "e2e")).toBe("running");
+  });
+
+  it("leaves finished statuses alone", () => {
+    const published = statusContext({ createdAt: pendingSince });
+    expect(statusOf([published], quietFor(30 * 60_000), "Storybook Publish")).toBe("passed");
   });
 });

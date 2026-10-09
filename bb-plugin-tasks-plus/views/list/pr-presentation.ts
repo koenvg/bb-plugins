@@ -10,6 +10,7 @@ export const LIFECYCLE_LABELS: Record<WorkPr["state"], string> = {
 const CONDITIONS = [
   { key: "conflicts", label: "Conflicts", rank: 0 },
   { key: "checks_failed", label: "Checks failing", rank: 1 },
+  { key: "checks_waiting", label: "Checks waiting for you", rank: 1.5 },
   { key: "changes_requested", label: "Changes requested", rank: 2 },
   { key: "blocked", label: "Other merge blockers", rank: 3 },
   { key: "checks_cancelled", label: "Checks cancelled", rank: 3 },
@@ -36,6 +37,7 @@ export function currentConditions(pr: WorkPr): string[] {
     pr.rich.conditions.length === 0 &&
     !pr.rich.queue &&
     pr.rich.checks.failed === 0 &&
+    !pr.rich.checks.waiting &&
     pr.rich.checks.running === 0 &&
     pr.rich.checks.cancelled === 0 &&
     pr.rich.checks.failedNames.length === 0 &&

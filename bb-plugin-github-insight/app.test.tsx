@@ -273,6 +273,20 @@ describe("PR tab", () => {
     expect(headings).toEqual(["1 failed", "1 cancelled", "1 running", "2 passed, 1 skipped"]);
   });
 
+  it("shows a waiting check open with its own icon and no spinner", async () => {
+    const slot = renderTab(
+      ok({ ...emptyInsight, checks: [check("UI Review", "waiting"), check("lint", "passed")] }),
+    );
+
+    const row = (await slot.findByRole("link", { name: "UI Review" })).closest("li")!;
+    expect(slot.getAllByTestId("check-group-heading").map((h) => h.textContent)).toEqual([
+      "1 waiting",
+      "1 passed",
+    ]);
+    expect(row.querySelector('[data-icon="UserRound"]')).toBeTruthy();
+    expect(row.querySelector('[data-icon="Spinner"]')).toBeNull();
+  });
+
   it("links each check to GitHub", async () => {
     const slot = renderTab(insight);
 

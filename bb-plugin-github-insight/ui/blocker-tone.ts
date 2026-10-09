@@ -3,6 +3,7 @@ import type { Blocker } from "../core/blockers";
 const TONE: Record<Blocker["code"], string> = {
   conflicts: "text-destructive",
   checks_failed: "text-destructive",
+  checks_waiting: "text-attention",
   changes_requested: "text-destructive",
   behind: "text-attention",
   review_required: "text-attention",
