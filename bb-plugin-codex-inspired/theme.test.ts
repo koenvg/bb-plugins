@@ -5,19 +5,19 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 const root = new URL("./", import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
-const approvedHash = "2a83e20d9bda86f846665cd6d35cecca29bcccfce6de7deeb5c65dbf7da89b6b";
+const approvedHash = "b7c7c7c1bcfba16904fb10b44944185e128446b90273080f9a8e6d46765cd750";
 
 describe("Codex Inspired package", () => {
   it("keeps the installed plugin and theme identities and compatibility floors", () => {
     expect(manifest.name).toBe("bb-plugin-codex-inspired");
-    expect(manifest.version).toBe("0.1.1");
+    expect(manifest.version).toBe("0.1.2");
     expect(manifest.engines).toEqual({ bb: ">=0.45", bbPluginSdk: ">=0.6.15 <0.7" });
     expect(manifest.bb.themes).toEqual([
       {
         id: "codex-inspired",
         name: "Codex Inspired",
         description:
-          "Native system sans for chat, Inter for the sidebar, and a neutral light and dark palette.",
+          "Libron for chat and Markdown document text, Inter for the sidebar, and a neutral light and dark palette.",
         css: "./themes/codex-inspired.css",
       },
     ]);

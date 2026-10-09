@@ -1,8 +1,8 @@
 # Codex Inspired
 
-A selectable BB theme with a neutral light and dark palette, native system sans for app and chat text, and Inter for the sidebar. Messages and the composer use 16px text. Thread titles use 14px regular text, unread emphasis uses weight 500, and group headings use 14px at weight 500. Code metadata stays monospaced.
+A selectable BB theme with a neutral light and dark palette, Libron for chat messages and Markdown Reader document text, native system sans for app controls and the composer, and Inter for the sidebar. Messages and the composer use 16px text. Thread titles use 14px regular text, unread emphasis uses weight 500, and group headings use 14px at weight 500. Code and Raw view stay monospaced.
 
-Version `0.1.1` requires BB `>=0.45` and Plugin SDK `>=0.6.15 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Compose Chat is not required.
+Version `0.1.2` requires BB `>=0.45` and Plugin SDK `>=0.6.15 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Libron regular and bold are embedded in the theme under the SIL Open Font License 1.1; browsers synthesize italic styling. No system font installation is needed. Compose Chat is not required.
 
 ## Install from Git
 
@@ -35,7 +35,7 @@ npm run build
 bb plugin install .
 ```
 
-Tests need neither BB nor account credentials. Building, SDK pin checking, and installation require a compatible BB CLI. Tests check the approved CSS checksum, manifest paths and identity, package file declarations, and side-effect-free backend activation.
+Tests need neither BB nor account credentials. Building, SDK pin checking, and installation require a compatible BB CLI. Tests check embedded font integrity, the BB theme size limit, reading-font scope, the approved CSS checksum, manifest paths and identity, package file declarations, and side-effect-free backend activation.
 
 For later source changes, rerun checks and build, then use `bb plugin reload codex-inspired`. To move an existing local installation, build and verify the new package first, then run:
 
@@ -49,7 +49,7 @@ Use the same plugin identity; do not uninstall first. Confirm the source path, e
 
 ## Selector contract
 
-`themes/codex-inspired.css` contains the approved stylesheet, SHA256 `2a83e20d9bda86f846665cd6d35cecca29bcccfce6de7deeb5c65dbf7da89b6b`. Intentional future appearance changes require approval, an updated checksum, and a new version.
+`themes/codex-inspired.css` contains the approved stylesheet, SHA256 `b7c7c7c1bcfba16904fb10b44944185e128446b90273080f9a8e6d46765cd750`. Intentional future appearance changes require approval, an updated checksum, and a new version.
 
 The selectors depend on current BB and Threads with PRs markup, not a stable SDK styling API:
 
@@ -58,10 +58,12 @@ The selectors depend on current BB and Threads with PRs markup, not a stable SDK
 - `[class~="group/header"] .truncate.font-semibold` identifies group headings.
 - `[data-message-column]` and `[data-markdown-preview]` set 16px reading text without enlarging navigation or tool logs.
 - `form[data-promptbox] [contenteditable="true"]` targets the composer editor. The form retains the approved radius and shadow.
+
+- `[data-message-column] [data-markdown-preview]` and `.markdown-reader .mr-prose` use Libron for reading text. Controls inside these surfaces retain system sans; code retains monospace. The Markdown Reader toolbar, outline, and Raw view are not restyled.
 - The narrow coarse-pointer rule retains BB's larger touch typography without changing sidebar width or drawer layout.
 - `:is(button, [role="button"]):focus-visible` adds a 3px host-ring outline with a 3px gap. It overrides the host's thin focus utility without changing fills, hover styles, or input focus. Native disabled and `aria-disabled="true"` buttons are excluded.
 
-Check actual regular and unread thread titles, group headings, code metadata, messages, and the composer in light, dark, and narrow layouts after BB or thread-list upgrades. A fixture alone cannot verify BB's cascade. The CSS has no `!important` declarations or external font references.
+Check actual regular and unread thread titles, group headings, code metadata, messages, and the composer in light, dark, and narrow layouts after BB or thread-list upgrades. A fixture alone cannot verify BB's cascade. The CSS has no `!important` declarations or external font requests. The two unmodified Libron v0.30 web faces are embedded as data URLs to work across clients and stay below BB's 256,000-character theme limit. Their source, checksums, and license are in `themes/libron/`.
 
 ## Build and packaging
 
@@ -77,6 +79,6 @@ Switch to BB's default theme before disabling or removing this plugin:
 bb theme set default
 ```
 
-Disabling the plugin removes its theme choice. Ayu remains a separate theme only when its owning plugin is loaded. The unchanged CSS comment refers to `plugin:ayu:ayu-light`; that is not a bundled rollback dependency.
+Disabling the plugin removes its theme choice. Ayu remains a separate theme only when its owning plugin is loaded. The CSS comment refers to `plugin:ayu:ayu-light`; that is not a bundled rollback dependency.
 
 Compose Chat can use BB's existing color and font tokens without importing this CSS or selecting a theme on activation. Keep chat layout changes separate from this optional palette.

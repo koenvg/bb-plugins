@@ -62,6 +62,16 @@ typography:
     fontWeight: 680
     lineHeight: 1.2
     letterSpacing: "-0.035em"
+  codex-chat-body:
+    fontFamily: "Libron, Georgia, Times New Roman, serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.65
+  codex-reader-body:
+    fontFamily: "Libron, Georgia, Times New Roman, serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.75
   settings-body:
     fontFamily: "inherit"
     fontSize: "0.875rem"
@@ -166,10 +176,10 @@ Each plugin may add a small accent of its own: status marks, count pills, a sign
 - Grayscale in the baseline theme; plugin-added color carries state.
 - Host tokens through Tailwind utilities or CSS custom properties.
 - Flat panels by default; Compose Chat has a scoped soft writing-frame shadow.
-- Small host sans-serif type, tabular counts, and larger quota-summary type in full panels.
+- Small host sans-serif controls, theme-scoped Libron reading text, tabular counts, and larger quota-summary type in full panels.
 - Host SDK icons or the vendored `Icon` component; quota uses a current-color battery SVG.
 
-This refresh checks the current source for Tasks Plus, GitHub Insight, Threads with PRs, Codex Quota, Compose Chat, Changes, Markdown Reader, Code Cleanup settings, and the optional Codex-inspired theme. Committed PR-state evidence includes fixture screenshots and cropped host captures in light, dark, normal, and compact layouts. The acceptance report ties those captures to BB 0.44 and an earlier implementation; they support the compact status treatment, not a current palette measurement. No new live-browser or theme-contrast measurements were made.
+This record covers Tasks Plus, GitHub Insight, Threads with PRs, Codex Quota, Compose Chat, Changes, Markdown Reader, Code Cleanup settings, and the optional Codex-inspired theme. Committed PR-state evidence includes fixture screenshots and cropped host captures in light, dark, normal, and compact layouts. The acceptance report ties those captures to BB 0.44 and an earlier implementation; they support the compact status treatment, not a current palette measurement. The recorded palette has not been remeasured in the live BB app or checked for contrast across all host themes.
 
 | Evidence                                                                                     | Current visual pattern                                   |
 | -------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -208,7 +218,7 @@ A host ink-and-canvas ramp supplies neutral structure. Semantic hues carry state
 
 ### Optional theme
 
-Codex-inspired is a theme plugin, not the shared palette. Its source defines paired light/dark canvas, ink, sidebar, action, border, and status tokens. It uses a warm neutral sidebar, system sans-serif outside the sidebar, and Inter inside it. It also defines file, diff, and merged-PR colors. These affect controls that reference the corresponding host token; they do not recolor explicit utility hues.
+Codex-inspired is a theme plugin, not the shared palette. Its source defines paired light/dark canvas, ink, sidebar, action, border, and status tokens. It uses a warm neutral sidebar, system sans-serif for controls and the composer, Inter inside the sidebar, and Libron for chat Markdown and Markdown Reader document text. It also defines file, diff, and merged-PR colors. These affect controls that reference the corresponding host token; they do not recolor explicit utility hues.
 
 **The Theme Boundary Rule.** Keep the theme's palette and font overrides in `bb-plugin-codex-inspired/themes/codex-inspired.css`. Other plugins inherit the active theme and must not import or select this theme to obtain their styling.
 
@@ -243,13 +253,23 @@ Use the host's sans-serif family and system monospace stack. The frontmatter rec
 - Markdown Reader has a separate reading scale. Its body and title roles in the frontmatter do not replace compact plugin text. Reader section headings use 21px and 18px sizes. Code uses the host monospace family at 13px with a 1.9 line-height.
 - Markdown Reader reduces body text to 15px with a 1.8 line-height at a panel width of 600px or less. Its title steps to 34px at 1080px and 30px at 600px. These changes follow panel width, not desktop viewport width.
 - Code Cleanup settings use the `settings-body` role; the editable prompt and code preview use 13px monospace with a 1.6 line-height.
-- Codex-inspired overrides host small-text sizes, message reading text, and composer text. It sets sidebar thread titles to 14px and unread weight to 500. These are theme overrides, not new requirements for other plugins.
+- Codex-inspired uses the `codex-chat-body` role for chat Markdown and `codex-reader-body` for Markdown Reader prose. It keeps native system sans for controls and the composer, Inter for the sidebar, and monospace for code and Raw view. Sidebar thread titles stay at 14px, with unread weight 500. These are theme overrides, not new requirements for other plugins.
 
 On compact coarse-pointer screens, Tasks Plus promotes `text-xs` to `text-sm` and `text-sm` to `text-base`. Its shared icons grow to 20px. Use these helpers instead of freezing desktop dimensions.
+
+### Codex Inspired reading fonts
+
+Libron is scoped to `[data-message-column] [data-markdown-preview]` and `.markdown-reader .mr-prose`. The generic reader roles remain inherited when another theme is active. The theme changes the font family, not the reader's existing heading sizes, paragraph spacing, or panel-width breakpoints. Controls inside reading surfaces use the host sans family; code uses the host mono family.
+
+The theme embeds unmodified Libron v0.30 regular and bold WOFF2 faces under the SIL Open Font License 1.1. Browsers synthesize italics. Both faces use `font-display: swap`; the serif fallback stack is recorded in the scoped frontmatter roles. Embedding two faces keeps the stylesheet below BB's 256,000-character theme limit and needs no system font installation or third-party request. Font source, checksums, and license are in `bb-plugin-codex-inspired/themes/libron/`.
+
+The Libron update was checked in synthetic light and dark browser fixtures at 1200px and 390px viewport widths. The reading faces loaded, excluded controls and code kept their fonts, and no horizontal page overflow was found. These checks cover font loading and scope, not the live BB cascade or contrast across every host theme.
 
 ### Named rules
 
 **The Tabular Count Rule.** Use `tabular-nums` for changing counts, durations, percentages, and reset countdowns. This is the target convention; some incumbent reset text still lacks the class.
+
+**The Reading Font Boundary Rule.** Keep Libron in the optional Codex-inspired theme's chat Markdown and Markdown Reader prose selectors. Do not apply it to the app font token, navigation, the composer, tool logs, Raw view, or code.
 
 **The Weight Not Size Rule.** In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve the quota dashboard's large number for its full-panel summary.
 
@@ -341,7 +361,7 @@ A content-script theme treatment, not a replacement editor. It adds a faint surf
 
 ### Markdown Reader document and navigation
 
-A flat reading surface with a sticky identity/control toolbar, generous document margins, and inherited host colors. Preview and Raw controls use a recessed track with an active-state fill. The heading outline has a thin left border, depth-based indentation, wrapping labels, and 36px minimum-height targets. Toolbar and state-action targets rise to 44px on coarse pointers. Keyboard focus has a 2px host-ring outline with 3px offset.
+A flat reading surface with a sticky identity/control toolbar, generous document margins, and inherited host colors. Document text inherits the host font by default; Codex-inspired supplies the scoped Libron reading face. Preview and Raw controls use a recessed track with an active-state fill. The heading outline has a thin left border, depth-based indentation, wrapping labels, and 36px minimum-height targets. Toolbar and state-action targets rise to 44px on coarse pointers. Keyboard focus has a 2px host-ring outline with 3px offset.
 
 Tables use tabular numbers and recessed headers; code blocks use a recessed fill and thin border. Source-line highlighting uses the active veil with an inset host-ring mark. These reading patterns stay within the reader; they do not enlarge sidebar text.
 
