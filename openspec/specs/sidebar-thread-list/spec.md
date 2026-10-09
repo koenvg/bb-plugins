@@ -289,7 +289,6 @@ When the user resolves or unresolves a review thread from BB, the replacement SH
 - **WHEN** a review thread is resolved on GitHub outside BB
 - **THEN** the row updates on the next periodic refresh
 
-
 ### Requirement: PR badge navigation targets the clicked thread
 
 PR badge activation SHALL select the PR tab of the clicked row's thread, independently of which thread or panel was previously active. It SHALL open a closed panel and reuse an existing PR tab instead of creating a duplicate. On compact viewports it SHALL close the sidebar drawer as normal thread navigation does. An activation SHALL NOT open the PR tab in a different thread or client, and a consumed activation SHALL NOT reopen the panel on later unrelated navigation. Ordinary thread-title navigation SHALL NOT request the PR tab.

@@ -310,7 +310,6 @@ A tab with no threads SHALL show a short message that names the tab state, and t
 - **WHEN** no active thread needs attention
 - **THEN** the Needs attention tab shows a message that nothing needs the user
 
-
 ### Requirement: Selected tree stays in its attention tab
 
 A selected tree SHALL stay in its existing tab, either Needs attention or In flight, even when signals would place it in the other tab. Eligible selection SHALL be an active, non-hidden, non-snoozed member at any depth. Moving selection within the tree SHALL preserve the held tab. Selection alone SHALL NOT move a tree between tabs. A held tree SHALL appear in exactly one attention tab.
