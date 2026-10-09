@@ -5,15 +5,25 @@
 }
 
 .review-agent-running {
-  --review-agent-edge: color-mix(in oklab, var(--success) 45%, var(--border));
-  --review-agent-metal: color-mix(in oklab, var(--success) 70%, var(--foreground));
-  --review-agent-light: color-mix(in oklab, var(--success) 25%, var(--background));
+  --review-agent-tone: var(--success);
+}
+
+.review-agent-ready {
+  --review-agent-tone: var(--timeline-accent);
+}
+
+.review-agent-running,
+.review-agent-ready {
+  --review-agent-edge: color-mix(in oklab, var(--review-agent-tone) 45%, var(--border));
+  --review-agent-metal: color-mix(in oklab, var(--review-agent-tone) 70%, var(--foreground));
+  --review-agent-light: color-mix(in oklab, var(--review-agent-tone) 25%, var(--background));
   position: relative;
   isolation: isolate;
   border-color: transparent;
 }
 
-.review-agent-running::before {
+.review-agent-running::before,
+.review-agent-ready::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -38,14 +48,15 @@
   animation: review-agent-orbit 3.8s linear infinite;
 }
 
-.review-agent-running::after {
+.review-agent-running::after,
+.review-agent-ready::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  box-shadow: 0 2px 7px color-mix(in oklab, var(--success) 17%, transparent);
+  box-shadow: 0 2px 7px color-mix(in oklab, var(--review-agent-tone) 17%, transparent);
 }
 
 @keyframes review-agent-orbit {
@@ -55,7 +66,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .review-agent-running::before {
+  .review-agent-running::before,
+  .review-agent-ready::before {
     animation: none;
     --review-agent-orbit: 115deg;
   }

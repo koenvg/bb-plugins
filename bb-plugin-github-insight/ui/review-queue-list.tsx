@@ -77,8 +77,9 @@ const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: st
   },
   finished: {
     label: "Ready",
-    dotClass: "bg-primary",
-    toneClass: "border-primary/15 bg-primary/5 text-foreground hover:bg-primary/10",
+    dotClass: "bg-timeline-accent",
+    toneClass:
+      "review-agent-ready bg-timeline-accent/10 text-foreground hover:bg-timeline-accent/20",
   },
   failed: {
     label: "Failed",
