@@ -37,5 +37,10 @@
 
 ## 6. Integration check
 
-- [ ] 6.1 Run `npm test`, `npm run typecheck` and `npm run lint` in `bb-plugin-tasks-plus`, and verify all three pass
-- [ ] 6.2 In a running bb, go through list, board and detail with the keyboard only (open, change status, next task, dispatch menu, comment, help, palette commands), and verify every spec scenario works, the focus ring is visible on each step, and palette commands stay available with the bb sidebar hidden
+- [x] 6.1 Run `npm test`, `npm run typecheck` and `npm run lint` in `bb-plugin-tasks-plus`, and verify all three pass
+- [x] 6.2 In a running bb, go through list, board and detail with the keyboard only (open, change status, next task, dispatch menu, comment, help, palette commands), and verify every spec scenario works, the focus ring is visible on each step, and palette commands stay available with the bb sidebar hidden
+
+
+## Archive acceptance
+
+The user accepted this change for archive and waived the remaining verification on 2026-10-09. Checkboxes 6.1 and 6.2 record that waiver, not passing verification. The fresh 6.1 attempt stopped because `vitest` is not installed in this checkout; typecheck and lint did not run. The live keyboard walkthrough in 6.2 was not run in this archive session.
