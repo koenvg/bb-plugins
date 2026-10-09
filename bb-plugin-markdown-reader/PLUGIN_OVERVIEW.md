@@ -1,26 +1,31 @@
-# Markdown Reader
+## Read without scanning Markdown syntax
 
-A live Markdown file opener for workspace, absolute-host, and thread-storage files. BB supplies the source identity, chooses the opener, and owns the file tab. The plugin reads through the public SDK and shows read-only Preview and exact Raw views.
+Markdown source mixes document content with formatting syntax. In a long file, finding a section means scanning through both.
 
-## Registered behavior
+Markdown Reader provides formatted Preview, exact Raw text, and heading navigation in the same read-only BB file tab. Read the document, jump to a heading, and check its source without editing the file.
 
-- One file opener for `md` and `markdown`.
-- Two validated RPC methods: `read_document` reads text; `resolve_destinations` resolves safe links and obtains confined image-preview leases.
-- No chat, diff, Git-snapshot, or source-code renderer replacement.
-- No theme, content script, settings, CLI command, watcher, or preference mutation.
+Open live `.md` and `.markdown` files from a workspace, a connected host, or thread storage. Preview shows headings, lists, tables, read-only task lists, quotes, and fenced code. A leading YAML frontmatter block stays out of Preview.
 
-## Module boundaries
+Use Outline to move between headings. It sits beside the document when the reader is wide and uses an On this page disclosure in narrower panels. Heading links and footnotes move within the open reader.
 
-`source.ts` exposes `SourceReader.read`, `SourceReader.destinations`, and a narrow `SourceAdapter`. It owns target validation, all three source identities, host/root confinement, text limits, and snapshots with hash and document-directory data. `server.ts` connects the adapter to the public SDK and registers both wire schemas.
+## Preview and Raw
 
-`destinations.ts` resolves destination policy against that loaded source. `destination-types.ts` defines the wire results. `destination-view.tsx` owns source-bound batch resolution, image expiry/cleanup, native FileLink and UrlLink rendering, and readable failures. Unsafe lexical destinations stay inert. Native file links retain BB's ordinary permissions, not an extra plugin symlink guarantee.
+Switch to Raw to see the complete loaded text, including frontmatter, line endings, and code spaces. Raw is read-only. Switching views does not read or write the file.
 
-`reader.tsx` accepts a target, one read operation, BB's bound Original component, and optional line-range props. It owns load state, explicit refresh, view choice, outline visibility, filename/path identity, and failed/unsupported fallback. Retained snapshots are unverified during refresh and stale on failure. Only a source identity change remounts it. Superseded reads, fallback, and unmount discard late results. Line-only props do not read or replace the document model.
+Refresh reads the file again. There is no automatic watching. If a refresh fails, the reader keeps the previous content, marks it stale, and offers Retry. Failed or unsupported reads also offer BB's built-in preview.
 
-`document.tsx` builds one model with react-markdown's synchronous parser/renderer. A rehype transform records headings and namespaced targets on that exact rendered tree. GitHub-style fragments map to local targets. `outline.tsx` observes reader width and owns the aside/disclosure. `source-lines.ts` retains exact source-line slices; `raw.tsx` highlights and reveals requested real lines. `navigation.ts` scrolls/focuses only this reader. `code.ts` applies the single 20 KiB explicit-language policy on this same tree. It accepts only passive text/span tokens and verifies complete rendered text before using them. Unknown or failed highlighting stays plain.
+Supported code fences have syntax highlighting for JSON, JavaScript, TypeScript, Shell, Python, HTML/XML, and CSS. Unknown languages and code blocks over 20 KiB stay plain. Raw HTML does not run.
 
-`app.tsx` registers the live-file opener. `app.css` uses reader-scoped host tokens and container width. Tests use these public source and rendered-reader interfaces, not private path or parser helpers.
+## Links and images
 
-## Operating constraints
+Supported file and web links use BB's native navigation. Heading and footnote links stay within this reader. Supported local images use source-confined previews. Remote images can contact their image server. Unsafe or unsupported destinations remain inactive or show a readable fallback.
 
-UTF-8 text up to 1 MiB is supported across all three sources. Unsupported content offers BB preview. The SDK may transfer an oversized file to the server before rejection; the reader never receives it. Absolute-host reads are confined to the containing directory. Workspace and storage reads use their resolved source root. Supported fenced languages use a small bundled highlighter at or below 20 KiB. Unknown, unlabelled, oversized, or failed code stays plain. Code never reformats source. Raw HTML is inactive. No source writes or automatic watching occur. See [README.md](README.md) for selection, installation, checks, and deferred behavior.
+## Requirements and limits
+
+Requires BB 0.45 or newer and a compatible Plugin SDK version from 0.6.15 up to, but not including, 0.7. The plugin uses experimental BB file-opener contracts. Compatibility must be checked when those contracts change.
+
+After installation, choose Markdown Reader with Open with or under File openers. The plugin does not change your opener preferences. It does not replace chat messages, diffs, or Git-snapshot previews.
+
+The reader supports UTF-8 text up to 1 MiB. It does not edit files or require a paid account or a separate service. Reads use BB's SDK on the source host. The size limit bounds reader content, not the transfer from the host to BB's server.
+
+See the [plugin README](https://github.com/koenvg/bb-plugins/blob/main/bb-plugin-markdown-reader/README.md) for installation, source access, and compatibility details.
