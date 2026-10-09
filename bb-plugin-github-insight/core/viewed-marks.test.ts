@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { patchIdentity } from "../../review-ui/patch-identity";
+import { patchIdentity } from "./patch-identity";
 import { gitPatch, type ReviewFile } from "./pr-files";
 import { fileIdentities, viewedSummary } from "./viewed-marks";
 

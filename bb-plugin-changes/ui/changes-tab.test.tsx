@@ -12,7 +12,7 @@ import type {
   PatchesResult,
   SendFeedbackResult,
 } from "../core/changes";
-import { patchIdentity } from "../../review-ui/patch-identity";
+import { patchIdentity } from "../core/patch-identity";
 import type { GetViewedResult, UpdateViewedResult } from "../core/viewed-files";
 import { OUTLINE_WIDTH_KEY } from "./use-outline-width";
 
