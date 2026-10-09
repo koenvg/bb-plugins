@@ -69,7 +69,7 @@ for (const { width, theme, viewport, name } of cases) {
       expect(geometry.lineHeight).toBe(width === 390 ? "27px" : "28px");
       expect(parseFloat(geometry.sectionAbove)).toBeGreaterThan(parseFloat(geometry.sectionBelow));
       expect(geometry.pathTruncated).toBe(true);
-      expect(geometry.buttons.every((b) => b.inside && b.height >= 36)).toBe(true);
+      expect(geometry.buttons.every((b) => b.inside && b.height === 28)).toBe(true);
       expect(geometry.buttons).toHaveLength(4);
       expect(geometry.code.at(-1)!.scrollWidth).toBeGreaterThan(geometry.code.at(-1)!.width);
       expect(geometry.tables.at(-1)!.scrollWidth).toBeGreaterThan(geometry.tables.at(-1)!.width);

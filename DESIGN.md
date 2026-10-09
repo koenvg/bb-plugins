@@ -361,7 +361,7 @@ A content-script theme treatment, not a replacement editor. It adds a faint surf
 
 ### Markdown Reader document and navigation
 
-A flat reading surface with a sticky identity/control toolbar, generous document margins, and inherited host colors. Document text inherits the host font by default; Codex-inspired supplies the scoped Libron reading face. Preview and Raw controls use a recessed track with an active-state fill. The heading outline has a thin left border, depth-based indentation, wrapping labels, and 36px minimum-height targets. Toolbar and state-action targets rise to 44px on coarse pointers. Keyboard focus has a 2px host-ring outline with 3px offset.
+A flat reading surface with a sticky identity/control toolbar, generous document margins, and inherited host colors. Document text inherits the host font by default; Codex-inspired supplies the scoped Libron reading face. Preview and Raw controls use a recessed track with an active-state fill. The heading outline has a thin left border, depth-based indentation, wrapping labels, and 36px minimum-height targets. Toolbar icon targets are 28px square, rising to 36px on coarse pointers. State-action targets retain their 44px coarse-pointer minimum. Keyboard focus has a 2px host-ring outline with 3px offset.
 
 Tables use tabular numbers and recessed headers; code blocks use a recessed fill and thin border. Source-line highlighting uses the active veil with an inset host-ring mark. These reading patterns stay within the reader; they do not enlarge sidebar text.
 
