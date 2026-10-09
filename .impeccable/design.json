@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T10:55:24.869Z",
+  "generatedAt": "2026-10-09T06:55:28.289Z",
   "title": "Design System: BB plugins",
   "extensions": {
     "colorMeta": {
@@ -377,6 +377,14 @@
       "quota-summary": {
         "displayName": "Allowance summary",
         "purpose": "Full-panel Codex allowance. Rises to 30px at the sm breakpoint."
+      },
+      "codex-chat-body": {
+        "displayName": "Codex chat reading",
+        "purpose": "Chat Markdown only while Codex Inspired is active. Controls, the composer, tool logs, and code retain their existing fonts."
+      },
+      "codex-reader-body": {
+        "displayName": "Codex document reading",
+        "purpose": "Markdown Reader prose only while Codex Inspired is active. Retains reader sizing and panel-width breakpoints; the toolbar, outline, Raw view, and code are excluded."
       }
     },
     "shadows": [
@@ -587,7 +595,7 @@
       "Grayscale in the baseline theme; plugin-added color carries state.",
       "Host tokens through Tailwind utilities or CSS custom properties.",
       "Flat panels by default; Compose Chat has a scoped soft writing-frame shadow.",
-      "Small host sans-serif type, tabular counts, and larger quota-summary type in full panels.",
+      "Small host sans-serif controls, theme-scoped Libron reading text, tabular counts, and larger quota-summary type in full panels.",
       "Host SDK icons or the vendored `Icon` component; quota uses a current-color battery SVG."
     ],
     "rules": [
@@ -609,6 +617,11 @@
       {
         "name": "The Tabular Count Rule",
         "body": "Use `tabular-nums` for changing counts, durations, percentages, and reset countdowns. This is the target convention; some incumbent reset text still lacks the class.",
+        "section": "typography"
+      },
+      {
+        "name": "The Reading Font Boundary Rule",
+        "body": "Keep Libron in the optional Codex-inspired theme's chat Markdown and Markdown Reader prose selectors. Do not apply it to the app font token, navigation, the composer, tool logs, Raw view, or code.",
         "section": "typography"
       },
       {

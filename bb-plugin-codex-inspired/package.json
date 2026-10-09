@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-codex-inspired",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "files": [
     "server.ts",
@@ -17,7 +17,7 @@
   },
   "bb": {
     "name": "Codex Inspired",
-    "description": "A neutral light and dark theme with native chat typography and an Inter sidebar.",
+    "description": "A neutral light and dark theme with Libron reading typography and an Inter sidebar.",
     "branding": {
       "icon": "Palette"
     },
@@ -27,7 +27,7 @@
       {
         "id": "codex-inspired",
         "name": "Codex Inspired",
-        "description": "Native system sans for chat, Inter for the sidebar, and a neutral light and dark palette.",
+        "description": "Libron for chat and Markdown document text, Inter for the sidebar, and a neutral light and dark palette.",
         "css": "./themes/codex-inspired.css"
       }
     ]
