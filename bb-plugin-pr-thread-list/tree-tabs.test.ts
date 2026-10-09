@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { project, thread } from "./fixtures";
-import { visibleItems, type ListOptions } from "./list-model";
+import {
+  visibleItems,
+  naturalTreePlacements,
+  type TreePlacement,
+  type ListOptions,
+} from "./list-model";
 import type { PrSummary } from "./pr-insight";
 
 const options: ListOptions = {
@@ -155,5 +160,52 @@ describe("tree-wide tab priority", () => {
     const read = rows({ top: { status: "active" } });
     expect(shape(read, "attention")).toEqual([]);
     expect(shape(read, "inflight")).toEqual(tree);
+  });
+});
+
+describe("held tree placement", () => {
+  it.each(["attention", "inflight"] as const)(
+    "retains nesting only in the held %s tab without changing All",
+    (tab) => {
+      const threads = rows(tab === "attention" ? { top: { status: "active" } } : {});
+      const hold: TreePlacement = { rootId: "top", tab };
+      const other = tab === "attention" ? "inflight" : "attention";
+      const list = (tab: ListOptions["tab"], heldTree?: TreePlacement) =>
+        visibleItems(threads, [project], [], { ...options, tab }, prs, new Map(), heldTree);
+      expect(
+        list(tab, hold)
+          .filter((item) => item.kind === "thread")
+          .map((item) => [item.id, item.depth, item.context]),
+      ).toEqual(tree);
+      expect(list(other, hold)).toEqual([]);
+      expect(list("all", hold)).toEqual(list("all"));
+      expect(list(tab)).toEqual([]);
+      expect(list(other).filter((item) => item.kind === "thread")).toHaveLength(4);
+    },
+  );
+
+  it("ignores a hold for another root and keeps All's real Needs you grouping", () => {
+    const threads = rows({ leaf: { hasPendingInteraction: true } });
+    const hold: TreePlacement = { rootId: "top", tab: "inflight" };
+    const list = (heldTree?: TreePlacement) =>
+      visibleItems(threads, [project], [], { ...options, tab: "all" }, prs, new Map(), heldTree);
+    expect(list(hold)).toEqual(list());
+    expect(list(hold)[0]).toMatchObject({ kind: "group", label: "Needs you" });
+    expect(
+      visibleItems(threads, [project], [], options, prs, new Map(), {
+        rootId: "missing",
+        tab: "inflight",
+      }),
+    ).toHaveLength(5);
+  });
+
+  it("resolves eligible selections through hidden parents and loaded context ancestors", () => {
+    const threads = rows({ top: { isArchived: true }, mid: { status: "active" } });
+    const placements = naturalTreePlacements(threads, prs, new Map([["leaf", 9_000]]));
+    expect([...placements.keys()]).toEqual(["mid", "problem"]);
+    expect(placements.get("mid")).toEqual({ rootId: "top", tab: "inflight" });
+    const hidden = naturalTreePlacements(rows({ top: { isHidden: true } }), prs, new Map());
+    expect(hidden.has("top")).toBe(false);
+    expect(hidden.get("leaf")).toEqual({ rootId: "mid", tab: "attention" });
   });
 });

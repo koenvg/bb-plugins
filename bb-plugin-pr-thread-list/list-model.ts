@@ -172,6 +172,50 @@ function collectTrees(forest: Forest, members: readonly PluginSidebarThread[]): 
   return [...trees.values()];
 }
 
+export interface TreePlacement {
+  rootId: string;
+  tab: AttentionTab;
+}
+
+function tabOfTree(
+  { members }: Tree,
+  forest: Forest,
+  isMember: (thread: PluginSidebarThread) => boolean,
+  pullRequests: ReadonlyMap<string, PrSummary | null>,
+): AttentionTab {
+  if (members.some((t) => needsAttention(t) || t.isUnread)) return "attention";
+  if (members.some(isActive)) return "inflight";
+  // No eligible work or direct attention remains; apply the existing idle/PR rules.
+  const isTopMember = (t: PluginSidebarThread) => {
+    for (let parent = forest.parentOf(t); parent; parent = forest.parentOf(parent))
+      if (isMember(parent)) return false;
+    return true;
+  };
+  return members.some((t) =>
+    pullsTreeToAttention(t, pullRequests.get(t.id) ?? null, false, isTopMember(t)),
+  )
+    ? "attention"
+    : "inflight";
+}
+
+/** Natural placement of eligible selections, independent of tab, collapse, or a hold. */
+export function naturalTreePlacements(
+  threads: readonly PluginSidebarThread[],
+  pullRequests: ReadonlyMap<string, PrSummary | null>,
+  snoozed: ReadonlyMap<string, number>,
+): ReadonlyMap<string, TreePlacement> {
+  const forest = buildForest(threads);
+  const isMember = (t: PluginSidebarThread) => !t.isHidden && !t.isArchived && !snoozed.has(t.id);
+  const placements = new Map<string, TreePlacement>();
+  for (const tree of collectTrees(forest, threads.filter(isMember))) {
+    const placement = {
+      rootId: tree.root.id,
+      tab: tabOfTree(tree, forest, isMember, pullRequests),
+    };
+    for (const member of tree.members) placements.set(member.id, placement);
+  }
+  return placements;
+}
 /** One stable, flattened tree for rendering and windowing. Never mutates host rows. */
 export function visibleItems(
   threads: readonly PluginSidebarThread[],
@@ -180,6 +224,7 @@ export function visibleItems(
   options: ListOptions,
   pullRequests: ReadonlyMap<string, PrSummary | null> = new Map(),
   snoozed: ReadonlyMap<string, number> = new Map(),
+  heldTree?: TreePlacement,
 ): ListItem[] {
   const { tab } = options;
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
@@ -193,21 +238,6 @@ export function visibleItems(
   const isSnoozedMember = (t: PluginSidebarThread) =>
     tab === "all" && isListed(t) && snoozed.has(t.id);
   const forest = buildForest(threads);
-  const isTopMember = (t: PluginSidebarThread) => {
-    for (let parent = forest.parentOf(t); parent; parent = forest.parentOf(parent))
-      if (isMember(parent)) return false;
-    return true;
-  };
-  const tabOfTree = ({ members }: Tree): AttentionTab => {
-    if (members.some((t) => needsAttention(t) || t.isUnread)) return "attention";
-    if (members.some(isActive)) return "inflight";
-    // No eligible member has work or direct attention left; only idle/PR rules apply.
-    return members.some((t) =>
-      pullsTreeToAttention(t, pullRequests.get(t.id) ?? null, false, isTopMember(t)),
-    )
-      ? "attention"
-      : "inflight";
-  };
   const scopeOf = (
     root: PluginSidebarThread,
     members: readonly PluginSidebarThread[],
@@ -269,7 +299,11 @@ export function visibleItems(
       groups.set(groupKey(scope), { scope, roots: [], rows: new Set(), count: 0 });
     }
   for (const tree of collectTrees(forest, threads.filter(isMember))) {
-    if (tab !== "all" && tabOfTree(tree) !== tab) continue;
+    const effectiveTab =
+      heldTree?.rootId === tree.root.id
+        ? heldTree.tab
+        : tabOfTree(tree, forest, isMember, pullRequests);
+    if (tab !== "all" && effectiveTab !== tab) continue;
     add(scopeOf(tree.root, tree.members), tree);
   }
   for (const tree of collectTrees(forest, threads.filter(isSnoozedMember)))
