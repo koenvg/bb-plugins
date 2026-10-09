@@ -23,7 +23,7 @@
 - [x] 4.1 Exercise the sender and github-insight receiver together across a thread-scope transition, including a receiver mounted after activation and a receiver whose banner renders nothing. Verify the final panel call targets the clicked thread's `pr` action exactly once rather than merely asserting event dispatch.
 - [x] 4.2 Run `npm test`, `npm run typecheck`, and `npm run build` in both affected plugin directories. Verify both independently built bundles resolve the shared module without new SDK dependencies and record the results.
 - [x] 4.3 Reload both plugins and verify live clicks from a different active thread, an already-active thread with a closed panel, and an existing PR tab. Verify no duplicate tab, no browser tab, no modification to the previous thread's panel, and correct compact drawer dismissal.
-- [ ] 4.4 Verify real keyboard activation with Enter and Space and clicks across checks, review, conflicts, counts, and status text. Verify title navigation remains unchanged and revisiting a thread after handling an activation does not reopen its panel.
+- [x] 4.4 Verify real keyboard activation with Enter and Space and clicks across checks, review, conflicts, counts, and status text. Verify title navigation remains unchanged and revisiting a thread after handling an activation does not reopen its panel.
 
 ## Live verification status
 
@@ -34,3 +34,8 @@ After the user authorized choosing any thread, verification used the existing Co
 With separate repair approval, investigation found that BB resets the compact drawer in a parent effect after the receiving composer's mount effect. Cancellable microtask registration now lets that reset finish before opening. The regression failed before the fix and passed afterward; full suites passed with 385 GitHub Insight tests and 105 sidebar tests. Fresh live checks passed at 375×812 for both destination mounting and an already-active thread: sidebar dismissed, panel shelf full, visible selected PR tab. Desktop keyboard, tab reuse and title-return checks passed again. Task 4.3 is complete. The merged fixture lacks live check/review/conflict/count marks, so 4.4 stays unchecked (12/13 complete).
 
 Both original plugin sources, sidebar preferences and panel selections were restored. The test thread is rearchived, idle, still read, and has no queued messages; its pre-existing checkout remains ready and untouched. Owned Arc pages and sessions were closed, with emulation cleared. No agent input was sent and no PR was created or changed. The existing single review preceded the compact repair; no second review pass was run. Evidence is in `/tmp/pr-badge-verification-thr_t637csxixv/report.md`.
+
+
+## Archive acceptance
+
+The user accepted this change for archive and waived the remaining verification on 2026-10-09. Checkbox 4.4 records that waiver, not full live verification. The earlier verification limits above remain valid: the merged PR fixture did not provide live check, review, conflict, or count marks. No new live checks were run in this archive session.
