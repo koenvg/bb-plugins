@@ -107,13 +107,13 @@ it.each(["tokens", "cost"] as const)(
   },
 );
 it.each([
-  [0.39813160000000003, "$0.40"],
-  [1.384036, "$1.38"],
-  [287.24, "$287.24"],
-  [1234567.89, "$1.2M"],
-  [Number.MAX_SAFE_INTEGER, "$9007.2T"],
-  [0.0000001, "$1.00e-7"],
-  [Number.MIN_VALUE, "$4.94e-324"],
+  [0.39813160000000003, "<$1"],
+  [1.384036, "$1"],
+  [287.24, "$287"],
+  [1234567.89, "$1M"],
+  [Number.MAX_SAFE_INTEGER, "$9007T"],
+  [0.0000001, "<$1"],
+  [Number.MIN_VALUE, "<$1"],
 ] as const)("formats axis estimates without rounding %s to zero", (value, expected) => {
   expect(axisValue(value, "cost")).toBe(expected);
   const view = calendarSnapshot(query);
@@ -160,7 +160,7 @@ it("keeps billing limits and daily attribution exclusions in the screen-reader t
   );
   expect(within(row as HTMLElement).getByRole("cell", { name: "2 excluded tokens" })).toBeTruthy();
 });
-it("uses equal-height controls and centres date icons without inherited text-button padding", async () => {
+it("keeps date arrows visually compact with larger coarse-pointer hit areas", async () => {
   render(
     <CalendarReportPanel
       selection={{ hostId: "host_a", generation: 1 }}
@@ -171,13 +171,46 @@ it("uses equal-height controls and centres date icons without inherited text-but
   await screen.findByRole("group", { name: "Daily recorded values" });
   for (const label of ["Previous 30 days", "Next 30 days"]) {
     const button = screen.getByRole("button", { name: label });
-    for (const token of ["h-9", "w-9", "inline-flex", "items-center", "justify-center", "shrink-0"])
+    for (const token of [
+      "size-8",
+      "pointer-coarse:size-11",
+      "inline-flex",
+      "items-center",
+      "justify-center",
+      "shrink-0",
+    ])
       expect(button.classList.contains(token)).toBe(true);
     for (const token of ["h-8", "px-3", "py-2"])
       expect(button.classList.contains(token)).toBe(false);
     expect(button.querySelector("svg")?.classList.contains("shrink-0")).toBe(true);
+    expect(button.querySelector("span")?.classList.contains("size-8")).toBe(true);
+    expect(button.classList.contains("text-muted-foreground")).toBe(true);
   }
   expect(screen.getByRole("combobox", { name: "Report metric" }).classList.contains("h-9")).toBe(
     true,
   );
+});
+
+it.each([
+  [1_174_600_000, "1B"],
+  [587_300_000, "587M"],
+  [293_650_000, "294M"],
+  [1000.5, "1K"],
+  [0, "0"],
+] as const)("shows whole-number token axis labels for %s", (value, expected) => {
+  expect(axisValue(value, "tokens")).toBe(expected);
+});
+
+it("rounds displayed token averages without changing the chart values", () => {
+  const view = calendarSnapshot(query);
+  view.days[14].totalTokens = 1000;
+  view.days[14].activeEntities = 3;
+  const data = chartData(view.days, "per-entity");
+  expect(data.rows[14].value).toBe(1000 / 3);
+  render(<CalendarValues view={view} metric="per-entity" />);
+  const row = screen
+    .getByRole("table", { name: "Daily recorded usage" })
+    .querySelectorAll("tbody tr")[14];
+  expect(within(row as HTMLElement).getByRole("cell", { name: "333" })).toBeTruthy();
+  expect(view.days[14].totalTokens).toBe(1000);
 });

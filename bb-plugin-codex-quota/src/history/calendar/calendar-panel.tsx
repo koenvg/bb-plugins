@@ -10,7 +10,7 @@ import {
 } from "./calendar-contract.js";
 import { latestStart, shiftDate, validTimezone } from "./calendar-time.js";
 import { dateTick } from "./calendar-chart-data.js";
-import { CalendarValues, reportButton, reportControl, type TokenMetric } from "./calendar-view.js";
+import { CalendarValues, reportButton, type TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
 import { useReportPreparation } from "./report-preparation.js";
 import { usePageClock } from "./page-clock.js";
@@ -44,6 +44,8 @@ const reasons = {
     "Exact-thread identity is unknown or still being resolved. Workspace reports remain separate.",
   unsupported: "The calendar report is unavailable in this host/plugin version.",
 };
+const dateNavigationButton =
+  "group inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
 export function CalendarReportPanel({
   selection,
   selectionPending = false,
@@ -123,31 +125,36 @@ export function CalendarReportPanel({
       aria-busy={loading || selectionPending}
     >
       <h2 className="sr-only">Recorded usage</h2>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1">
+      <div className="flex flex-col gap-2 @[32rem]:flex-row @[32rem]:items-center @[32rem]:justify-between">
+        <div className="flex min-w-0 items-center justify-between gap-1 @[32rem]:justify-start">
           <button
             type="button"
-            className={`${reportControl} inline-flex w-9 shrink-0 items-center justify-center p-0`}
+            className={dateNavigationButton}
             disabled={!view?.previous || loading || selectionPending}
             onClick={() => start && navigate(shiftDate(start, -30))}
             aria-label="Previous 30 days"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              className="block shrink-0"
+            <span
               aria-hidden="true"
+              className="pointer-events-none inline-flex box-border size-8 items-center justify-center rounded-md border border-border group-hover:bg-accent"
             >
-              <path d="m15 6-6 6 6 6" />
-            </svg>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                className="block shrink-0"
+                aria-hidden="true"
+              >
+                <path d="m15 6-6 6 6 6" />
+              </svg>
+            </span>
           </button>
           {query && (
             <span
-              className="inline-flex h-9 items-center whitespace-nowrap px-1 text-xs tabular-nums text-muted-foreground"
+              className="inline-flex h-8 items-center whitespace-nowrap px-1 text-xs tabular-nums text-muted-foreground"
               aria-label={`${query.startDate} to ${shiftDate(query.startDate, 29)}, ${query.timezone}`}
             >
               {dateTick(query.startDate)} to {dateTick(shiftDate(query.startDate, 29))}
@@ -155,27 +162,33 @@ export function CalendarReportPanel({
           )}
           <button
             type="button"
-            className={`${reportControl} inline-flex w-9 shrink-0 items-center justify-center p-0`}
+            className={dateNavigationButton}
             disabled={!view?.next || loading || selectionPending}
             onClick={() => start && navigate(shiftDate(start, 30))}
             aria-label="Next 30 days"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              className="block shrink-0"
+            <span
               aria-hidden="true"
+              className="pointer-events-none inline-flex box-border size-8 items-center justify-center rounded-md border border-border group-hover:bg-accent"
             >
-              <path d="m9 6 6 6-6 6" />
-            </svg>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                className="block shrink-0"
+                aria-hidden="true"
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </span>
           </button>
         </div>
         <QuotaSelect
           aria-label="Report metric"
+          containerClassName="w-full @[32rem]:w-36"
           value={metric}
           onChange={(event) => setMetric(event.target.value as TokenMetric)}
         >

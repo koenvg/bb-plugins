@@ -44,6 +44,23 @@ const props = {
 
 afterEach(cleanup);
 describe("Codex quota UI", () => {
+  it("rounds allowance text but keeps the battery and observation precise", () => {
+    const view = fresh(63.6);
+    render(
+      <>
+        <QuotaDashboard {...props} view={view} />
+        <QuotaBadge view={view} now={observedAt} hostName="My Mac" />
+        <QuotaBattery view={view} now={observedAt} />
+        <QuotaOtherLimits view={view} now={observedAt} />
+      </>,
+    );
+    expect(screen.getByRole("heading", { name: "64% remaining" })).toBeTruthy();
+    expect(screen.getByText("64%", { exact: true })).toBeTruthy();
+    expect(document.querySelector("[data-battery-fill]")?.getAttribute("data-battery-fill")).toBe(
+      "63.6",
+    );
+    expect(view.snapshot?.bindingRemainingPercent).toBe(63.6);
+  });
   it("keeps the official link and host selector reachable without account data", () => {
     const onHostChange = vi.fn();
     const { container } = render(

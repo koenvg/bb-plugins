@@ -67,54 +67,67 @@ export function QuotaSummary({
           .join(" · ")
       : statusText(visible, selectedHostId);
   return (
-    <header className="flex items-start justify-between gap-2">
+    <header className="flex flex-col items-start gap-3 @[32rem]:flex-row @[32rem]:justify-between">
       <section
-        className="min-w-0 flex-1 text-xs text-muted-foreground"
+        className="min-w-0 w-full @[32rem]:flex-1 text-xs text-muted-foreground"
         aria-label="Codex allowance summary"
         aria-busy={!ready}
       >
-        <h2
-          className="text-2xl font-semibold tabular-nums text-foreground sm:text-3xl"
-          aria-label={
-            snapshot?.bindingRemainingPercent == null
-              ? !ready
-                ? "Allowance pending"
-                : selectedHostId
-                  ? "Allowance unavailable"
-                  : "No host selected"
-              : undefined
-          }
-        >
-          {snapshot?.bindingRemainingPercent != null
-            ? `${snapshot.bindingRemainingPercent}% remaining`
-            : "—"}
-        </h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <h2
+            className="min-w-0 text-2xl font-semibold tabular-nums text-foreground sm:text-3xl"
+            aria-label={
+              snapshot?.bindingRemainingPercent == null
+                ? !ready
+                  ? "Allowance pending"
+                  : selectedHostId
+                    ? "Allowance unavailable"
+                    : "No host selected"
+                : undefined
+            }
+          >
+            {snapshot?.bindingRemainingPercent != null
+              ? `${Math.round(snapshot.bindingRemainingPercent)}% remaining`
+              : "—"}
+          </h2>
+          <button
+            type="button"
+            className="inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+            aria-label="Refresh allowance"
+            title="Refresh allowance"
+            disabled={!selectedHostId || !!loading}
+            onClick={onRefresh}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5" />
+            </svg>
+          </button>
+        </div>
         {binding && (
           <p className="mt-1">
             {resetCountdown(binding.resetAt, now)} · {binding.name} window
           </p>
         )}
-        <div className="mt-2 flex items-center gap-3">
-          <button
-            type="button"
-            className="inline-flex h-9 items-center leading-none underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
-            aria-label="Refresh allowance"
-            disabled={!selectedHostId || !!loading}
-            onClick={onRefresh}
-          >
-            Refresh
-          </button>
-          <a
-            className="inline-flex h-9 items-center leading-none font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-            aria-label="Open Codex Usage"
-            aria-describedby={accountNote}
-            href="https://chatgpt.com/codex/settings/usage"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Codex Usage
-          </a>
-        </div>
+        <a
+          className="mt-1 inline-flex h-9 pointer-coarse:h-11 items-center leading-none font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label="Open Codex Usage"
+          aria-describedby={accountNote}
+          href="https://chatgpt.com/codex/settings/usage"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Codex Usage
+        </a>
         <p
           className={
             status
@@ -131,7 +144,7 @@ export function QuotaSummary({
       </section>
       <QuotaSelect
         aria-label="Codex host"
-        containerClassName="w-44 max-w-[42vw]"
+        containerClassName="w-full @[32rem]:w-44"
         title={hosts.find((host) => host.id === selectedHostId)?.name}
         value={selectedHostId ?? ""}
         onChange={(event) => onHostChange(event.target.value || null)}

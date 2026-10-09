@@ -1,5 +1,4 @@
 import type { CalendarSnapshot } from "./calendar-contract.js";
-import { compactEstimate } from "./calendar-money-view.js";
 
 export type TokenMetric = import("./calendar-comparison.js").ComparisonMetric;
 export type CalendarDay = CalendarSnapshot["days"][number];
@@ -85,19 +84,13 @@ export const dateLabel = (date: string) =>
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00Z`));
 export function axisValue(value: number, metric: TokenMetric) {
-  if (metric === "cost" || metric === "cost-per-entity") {
-    return value >= 1000
-      ? new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-          notation: "compact",
-          maximumFractionDigits: 1,
-        }).format(value)
-      : compactEstimate(value);
-  }
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
-    value,
-  );
+  const money = metric === "cost" || metric === "cost-per-entity";
+  if (money && value > 0 && value < 1) return "<$1";
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 0,
+    ...(money ? { style: "currency", currency: "USD" } : {}),
+  }).format(value);
 }
 export const metricName = (metric: TokenMetric) =>
   metric === "cost" || metric === "cost-per-entity"

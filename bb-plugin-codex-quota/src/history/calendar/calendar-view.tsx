@@ -17,9 +17,9 @@ import {
 export type { TokenMetric } from "./calendar-chart-data.js";
 export { coverageLabel } from "./calendar-chart-data.js";
 export const reportControl =
-  "h-9 rounded-md border border-border leading-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
+  "h-9 pointer-coarse:h-11 rounded-md border border-border leading-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
 export const reportButton = `${reportControl} inline-flex items-center justify-center px-3`;
-const exact = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 20 });
+const exact = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 function displayValue(day: CalendarDay, metric: TokenMetric) {
   const value = recordedValue(day, metric);
   return value === null
@@ -106,12 +106,7 @@ function CalendarDateTick({
 export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metric: TokenMetric }) {
   const [chartWidth, setChartWidth] = useState(320);
   const { rows, maximum } = chartData(view.days, metric);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const selectedDay = view.days.find((day) => day.date === selectedDate);
-  const ticks =
-    maximum < (metric === "cost" || metric === "cost-per-entity" ? 0.01 : 4)
-      ? [0, 1]
-      : [0, 0.25, 0.5, 0.75, 1];
+  const ticks = maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1];
   return (
     <div
       className="mt-4 min-w-0 text-muted-foreground"
@@ -127,7 +122,7 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
       >
         <BarChart
           data={rows}
-          margin={{ top: 14, right: 8, bottom: 8, left: 24 }}
+          margin={{ top: 14, right: 8, bottom: 8, left: chartWidth < 480 ? 16 : 24 }}
           accessibilityLayer
         >
           <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.16} />
@@ -145,7 +140,7 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
           <YAxis
             domain={[0, 1]}
             ticks={ticks}
-            width={84}
+            width={chartWidth < 480 ? 60 : 84}
             tickFormatter={(value) => axisValue(value * maximum, metric)}
             tickLine={false}
             axisLine={false}
@@ -209,34 +204,6 @@ export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metri
             </span>
           </p>
         )}
-      <details className="mt-3 text-sm text-foreground">
-        <summary className="min-h-9 cursor-pointer rounded-md px-2 py-2 focus-visible:outline-2 focus-visible:outline-ring">
-          Inspect a date
-        </summary>
-        <div
-          role="group"
-          aria-label="Choose a recorded date"
-          className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-10"
-        >
-          {view.days.map((day) => (
-            <button
-              key={day.date}
-              type="button"
-              aria-label={`Inspect ${day.date}`}
-              aria-pressed={selectedDay?.date === day.date}
-              className="min-h-9 min-w-0 rounded-md border border-border px-1 py-2 text-xs tabular-nums hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent"
-              onClick={() => setSelectedDate(day.date)}
-            >
-              {dateTick(day.date)}
-            </button>
-          ))}
-        </div>
-        {selectedDay && (
-          <section className="mt-3" aria-label="Selected date" aria-live="polite">
-            <UsageTooltip day={selectedDay} metric={metric} />
-          </section>
-        )}
-      </details>
       <div className="sr-only">
         <table aria-label="Daily recorded usage">
           <caption>
