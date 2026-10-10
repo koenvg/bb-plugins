@@ -1,10 +1,82 @@
-import { resolve } from "node:path";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { experimental_scanPublicSdkOnly } from "@get-bb/plugin-sdk/testing";
+import {
+  experimental_scanPublicSdkOnly,
+  type PublicSdkOnlyScanOptions,
+} from "@get-bb/plugin-sdk/testing";
+
+function scanPluginSources(packageRoot: string, options?: PublicSdkOnlyScanOptions) {
+  const scanRoot = mkdtempSync(join(tmpdir(), "quota-sdk-scan-"));
+  // SDK 0.6.15 has no path exclusions. Keep the package layout and manifest in a
+  // temporary copy, leaving Playwright evidence untouched at its configured paths.
+  const excludedRoots = new Set(["node_modules", "dist", "playwright-report", "test-results"]);
+  try {
+    cpSync(packageRoot, scanRoot, {
+      recursive: true,
+      filter: (path) => !excludedRoots.has(relative(packageRoot, path).split(sep)[0]),
+    });
+    return experimental_scanPublicSdkOnly(scanRoot, options);
+  } finally {
+    rmSync(scanRoot, { recursive: true, force: true });
+  }
+}
 
 describe("public SDK and quota-only boundary", () => {
+  it("excludes generated browser evidence without weakening source or dependency checks", () => {
+    const root = mkdtempSync(join(tmpdir(), "quota-sdk-fixture-"));
+    // Assemble fixture imports so the regex-based SDK scanner does not read them as test imports.
+    const importKeyword = "im" + "port";
+    const sourceImports = [
+      ["src/private.ts", "@bb/private", "private-package"],
+      ["scripts/check.mjs", "unlisted-script-package", "outside-allowlist"],
+      ["config.ts", "unlisted-config-package", "outside-allowlist"],
+      ["src/playwright-report/source.ts", "unlisted-source-package", "outside-allowlist"],
+      ["src/test-results/source.ts", "unlisted-source-package", "outside-allowlist"],
+      ["src/outside.ts", "../../outside.ts", "outside-package"],
+    ] as const;
+    const generatedFiles = [
+      "playwright-report/trace/assets/vendor.js",
+      "test-results/trace/assets/vendor.js",
+    ];
+    const generatedContent = `${importKeyword}(generatedAsset);\n`;
+    try {
+      writeFileSync(
+        join(root, "package.json"),
+        JSON.stringify({
+          dependencies: { "@bb/private": "1.0.0" },
+          devDependencies: { "@bb/private-dev": "1.0.0" },
+        }),
+      );
+      for (const [file, specifier] of sourceImports) {
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, file), `${importKeyword} ${JSON.stringify(specifier)};\n`);
+      }
+      for (const file of generatedFiles) {
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, file), generatedContent);
+      }
+
+      const scan = scanPluginSources(root);
+      expect(scan.files.sort()).toEqual(sourceImports.map(([file]) => file).sort());
+      expect(scan.violations).toHaveLength(sourceImports.length);
+      expect(scan.violations).toEqual(
+        expect.arrayContaining(
+          sourceImports.map(([file, specifier, reason]) => ({ file, specifier, reason })),
+        ),
+      );
+      expect(scan.privateDependencies).toEqual(["@bb/private", "@bb/private-dev"]);
+      for (const file of generatedFiles) {
+        expect(readFileSync(join(root, file), "utf8")).toBe(generatedContent);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("imports only public SDK surfaces and declared host/frontend dependencies", () => {
-    const scan = experimental_scanPublicSdkOnly(resolve(import.meta.dirname, "../.."), {
+    const scan = scanPluginSources(resolve(import.meta.dirname, "../.."), {
       allow: [
         /^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/,
         /^react(\/.*)?$/,
