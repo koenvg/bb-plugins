@@ -12,8 +12,21 @@
   --review-agent-tone: var(--timeline-accent);
 }
 
-.review-agent-running,
-.review-agent-ready {
+.review-agent-needs-you {
+  --review-agent-tone: var(--attention);
+}
+
+.review-agent-failed {
+  --review-agent-tone: var(--destructive);
+}
+
+.review-agent-idle {
+  --review-agent-tone: var(--muted-foreground);
+  --review-agent-orbit-duration: 7s;
+  --review-agent-glow: 0%;
+}
+
+.review-agent-orbit {
   --review-agent-edge: color-mix(in oklab, var(--review-agent-tone) 45%, var(--border));
   --review-agent-metal: color-mix(in oklab, var(--review-agent-tone) 70%, var(--foreground));
   --review-agent-light: color-mix(in oklab, var(--review-agent-tone) 25%, var(--background));
@@ -22,8 +35,7 @@
   border-color: transparent;
 }
 
-.review-agent-running::before,
-.review-agent-ready::before {
+.review-agent-orbit::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -45,18 +57,18 @@
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  animation: review-agent-orbit 3.8s linear infinite;
+  animation: review-agent-orbit var(--review-agent-orbit-duration, 3.8s) linear infinite;
 }
 
-.review-agent-running::after,
-.review-agent-ready::after {
+.review-agent-orbit::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  box-shadow: 0 2px 7px color-mix(in oklab, var(--review-agent-tone) 17%, transparent);
+  box-shadow: 0 2px 7px
+    color-mix(in oklab, var(--review-agent-tone) var(--review-agent-glow, 17%), transparent);
 }
 
 @keyframes review-agent-orbit {
@@ -66,8 +78,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .review-agent-running::before,
-  .review-agent-ready::before {
+  .review-agent-orbit::before {
     animation: none;
     --review-agent-orbit: 115deg;
   }
