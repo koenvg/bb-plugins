@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Project } from "../../shared/contract.js";
 import { rpcInput } from "../../test-fixtures.js";
 import { app, project } from "./manage.test-support.js";
+import { COMPACT_VIEWPORT_QUERY } from "../../components/ui/hooks/use-compact-viewport.js";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -128,6 +132,59 @@ async function chooseColor(env: ReturnType<typeof setup>, prefix: string, label:
   await waitFor(() => expect(palette.isConnected).toBe(false));
 }
 describe("Manage production project table", () => {
+  it.each([false, true])(
+    "keeps arrow choices local and restores row actions from the picker, compact=%s",
+    async (compact) => {
+      const matchMedia = window.matchMedia;
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        ...matchMedia(query),
+        matches: compact && query === COMPACT_VIEWPORT_QUERY,
+      }));
+      const env = setup();
+      await loaded(env);
+      const name = env.slot.getByRole("textbox", { name: "Project name for WORK" });
+      fireEvent.change(name, { target: { value: "Keyboard draft" } });
+      const trigger = env.slot.getByRole("button", { name: "Colour for WORK: Blue" });
+      act(() => trigger.focus());
+      fireEvent.click(trigger);
+      const palette = await within(document.body).findByRole("radiogroup", { name: "Color" });
+      const blue = within(palette).getByRole("radio", { name: "Blue" });
+      if (compact) {
+        const dialog = within(document.body).getByRole("dialog", { name: "Colour for WORK" });
+        fireEvent.keyDown(dialog, { key: "Tab" });
+      }
+      await waitFor(() => expect(document.activeElement).toBe(blue));
+      expect(blue.tabIndex).toBe(0);
+      fireEvent.keyDown(blue, { key: "ArrowRight" });
+      const teal = within(palette).getByRole("radio", { name: "Teal" });
+      expect(document.activeElement).toBe(teal);
+      expect(teal.getAttribute("aria-checked")).toBe("true");
+      fireEvent.keyDown(teal, { key: "ArrowDown" });
+      const green = within(palette).getByRole("radio", { name: "Green" });
+      expect(document.activeElement).toBe(green);
+      expect(palette.isConnected).toBe(true);
+      expect(env.calls).toEqual([]);
+      if (compact) {
+        // The drawer trap must skip all nine radios with tabIndex=-1.
+        fireEvent.keyDown(green, { key: "Tab" });
+        expect(document.activeElement).toBe(green);
+        fireEvent.keyDown(green, { key: "Tab", shiftKey: true });
+        expect(document.activeElement).toBe(green);
+      }
+      fireEvent.keyDown(green, { key: "Escape" });
+      await waitFor(() =>
+        expect(within(document.body).queryByRole("radiogroup", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+      expect(env.slot.getByRole("button", { name: "Colour for WORK: Green" })).toBe(trigger);
+      expect(name).toHaveProperty("value", "Keyboard draft");
+      expect(env.calls).toEqual([]);
+      fireEvent.click(env.slot.getByRole("button", { name: "Save WORK" }));
+      await waitFor(() => expect(env.calls).toHaveLength(1));
+      expect(env.calls[0]).toMatchObject({ name: "Keyboard draft", color: "mediumseagreen" });
+    },
+  );
+
   it("opens confirmation for saved identity, cancels safely and restores focus without losing drafts", async () => {
     const env = setup();
     const home = await loaded(env);

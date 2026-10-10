@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "../../shared/errors.js";
@@ -41,19 +42,43 @@ export function ColorSwatchPicker({
   onChange,
 }: {
   value: string;
-  onChange: (color: string) => void;
+  onChange: (color: string, interaction: "navigate" | "activate") => void;
 }) {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  // Exact custom colors stay unselected; Indigo is their keyboard entry point.
+  const entryIndex = Math.max(
+    0,
+    COLOR_PALETTE.findIndex((swatch) => swatch.value === value),
+  );
   return (
     <div role="radiogroup" aria-label="Color" className="flex flex-wrap gap-1.5">
-      {COLOR_PALETTE.map((swatch) => (
+      {COLOR_PALETTE.map((swatch, index) => (
         <button
           key={swatch.value}
+          ref={(button) => {
+            buttons.current[index] = button;
+          }}
+          tabIndex={index === entryIndex ? 0 : -1}
           type="button"
           role="radio"
           aria-checked={value === swatch.value}
           aria-label={swatch.label}
           title={swatch.label}
-          onClick={() => onChange(swatch.value)}
+          onClick={() => onChange(swatch.value, "activate")}
+          onKeyDown={(event) => {
+            const step =
+              event.key === "ArrowRight" || event.key === "ArrowDown"
+                ? 1
+                : event.key === "ArrowLeft" || event.key === "ArrowUp"
+                  ? -1
+                  : 0;
+            if (step === 0 || event.currentTarget.matches(":disabled")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const nextIndex = (index + step + COLOR_PALETTE.length) % COLOR_PALETTE.length;
+            buttons.current[nextIndex]?.focus();
+            onChange(COLOR_PALETTE[nextIndex]!.value, "navigate");
+          }}
           className={cn(
             "size-5 rounded-md",
             value === swatch.value && "ring-2 ring-ring ring-offset-2 ring-offset-background",
