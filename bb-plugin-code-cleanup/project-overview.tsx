@@ -8,20 +8,18 @@ export function ProjectOverview({
   overview,
   blocked,
   onEdit,
-  onConfirmed,
   activeProjectId,
 }: {
   overview: Overview;
   blocked: boolean;
   onEdit: (id: string, trigger: HTMLButtonElement) => void;
   activeProjectId?: string;
-  onConfirmed: (id: string) => void;
 }) {
   const { rows, reading, readError, pending, writeError, saved } = overview;
   const disabled = blocked || !!pending || !!readError;
   function persist(row: ProjectSummary, value: boolean | null) {
     if (disabled) return;
-    void overview.persist(row, value, () => onConfirmed(row.id));
+    void overview.persist(row, value);
   }
   return (
     <section className="cleanup-overview" aria-labelledby="cleanup-overview-title">

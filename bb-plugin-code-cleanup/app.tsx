@@ -30,7 +30,6 @@ function ProjectSettings() {
         blocked={editor !== null}
         activeProjectId={editor?.project.id}
         onEdit={openEditor}
-        onConfirmed={() => {}}
       />
       {editor && (
         <PromptDialog
