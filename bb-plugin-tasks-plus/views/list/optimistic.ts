@@ -53,7 +53,32 @@ export function applyEdit(task: Task, edit: TaskEdit | undefined): Task {
 
 export function editedTasks(serverTasks: readonly Task[], entries: TaskEntries): Task[] {
   if (entries.size === 0) return [...serverTasks];
-  return serverTasks.map((task) => applyEdit(task, entries.get(task.id)?.edit));
+  const tasks = serverTasks.map((task) => applyEdit(task, entries.get(task.id)?.edit));
+  const placement = new Map<string, number>();
+  for (const task of serverTasks) {
+    const edit = entries.get(task.id)?.edit;
+    if (edit?.status !== undefined && edit.status !== task.status) {
+      // Status updates append within this project/status on the server. Until the
+      // save returns its position, place the row after all known destination rows.
+      placement.set(task.id, edit.position ?? Infinity);
+    } else if (edit?.position !== undefined && edit.position !== task.position) {
+      placement.set(task.id, edit.position);
+    }
+  }
+  if (placement.size === 0) return tasks;
+  // Match the list query's Manual order, including All projects. Do not mutate
+  // task positions or send predicted ordering back to the server.
+  return tasks.sort((a, b) => {
+    if (a.projectId !== b.projectId) return a.projectId < b.projectId ? -1 : 1;
+    if (a.status !== b.status) return a.status < b.status ? -1 : 1;
+    const left = placement.get(a.id) ?? a.position;
+    const right = placement.get(b.id) ?? b.position;
+    if (left !== right) return left < right ? -1 : 1;
+    if (left === Infinity) {
+      return (entries.get(a.id)?.gens.status ?? 0) - (entries.get(b.id)?.gens.status ?? 0);
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 }
 
 export function matchesFilters(
@@ -85,6 +110,14 @@ export function beginEdit(
   const prev = entries.get(taskId);
   const edit: TaskEdit = { ...prev?.edit, ...patch };
   const gens = { ...prev?.gens };
+  if (
+    patch.status !== undefined &&
+    patch.status !== prev?.edit.status &&
+    patch.position === undefined
+  ) {
+    delete edit.position;
+    delete gens.position;
+  }
   for (const field of EDIT_FIELDS) {
     if (patch[field] !== undefined) gens[field] = gen;
   }
