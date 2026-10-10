@@ -94,8 +94,13 @@ export async function tooltip(page: Page, metric: Metric, dailyRows: string[][])
     // Status banners can move the chart during keyboard input. Resolve its current position.
     // Locator.hover can auto-scroll SVG paths out of view in Chromium. Use real pointer input
     // at the current visible bar instead, without changing the viewport for this proof.
-    const box = (await bar.boundingBox())!;
-    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    // Metric changes can detach the path between reads. Wait for visible geometry.
+    let box: Awaited<ReturnType<typeof bar.boundingBox>> = null;
+    await expect
+      .poll(async () => (box = await bar.boundingBox()), { timeout: 5_000 })
+      .not.toBeNull();
+    const readyBox = box!;
+    const point = { x: readyBox.x + readyBox.width / 2, y: readyBox.y + readyBox.height / 2 };
     const viewport = page.viewportSize()!;
     expect(point.x).toBeGreaterThan(0);
     expect(point.x).toBeLessThan(viewport.width);
