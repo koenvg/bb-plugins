@@ -165,7 +165,7 @@ const RowContents = memo(function RowContents({
   });
   const focusRowOnClose = (event: Event) => {
     event.preventDefault();
-    openButtonRef.current?.focus();
+    openButtonRef.current?.focus({ preventScroll: true });
   };
   return (
     <>
