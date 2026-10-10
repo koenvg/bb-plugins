@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BBP-98 project settings preview</title>
+    <style>
+      /* Match the host cascade: control utilities must override the form reset. */
+      @layer theme, base, components, utilities;
+    </style>
     <link rel="stylesheet" href="/dist/app.css" />
     <link rel="stylesheet" href="/project-settings-preview/preview.css" />
     <style>
@@ -23,6 +27,7 @@
         --secondary-foreground: #f4f4f5;
         --accent: #303034;
         --accent-foreground: #f4f4f5;
+        --state-hover: var(--accent);
         --popover: #202023;
         --popover-foreground: #f4f4f5;
         --destructive: #f87171;

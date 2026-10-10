@@ -69,29 +69,11 @@
   overflow-wrap: anywhere;
 }
 .project-settings-section .project-name-input {
-  width: 100%;
-  min-width: 0;
-  height: 36px;
-  padding: 6px 8px;
-  border: 1px solid var(--input);
-  border-radius: 6px;
-  font: inherit;
-  font-size: 13px;
-  color: var(--foreground);
-  background: transparent;
   caret-color: var(--foreground);
-}
-.project-settings-section .project-name-input:focus-visible,
-.project-settings-section .project-row-actions button:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 3px;
 }
 .project-settings-section .project-name-input::selection {
   background: var(--accent);
   color: var(--accent-foreground);
-}
-.project-settings-section .project-name-input[aria-invalid="true"] {
-  border-color: var(--destructive);
 }
 .project-settings-section .project-colour-trigger {
   display: flex;
@@ -141,41 +123,9 @@
   justify-content: flex-end;
   gap: 8px;
 }
-.project-settings-section .project-row-actions button {
-  height: 36px;
-  width: 36px;
-  min-width: 36px;
-  flex-shrink: 0;
-  padding: 0;
-  font: inherit;
-  font-size: 12px;
-  border: 1px solid var(--input);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground);
-  cursor: pointer;
-}
-.project-settings-section .project-row-actions button:hover:not(:disabled) {
-  background: var(--accent);
-}
-.project-settings-section .project-row-actions button[data-save] {
-  width: 36px;
-  border-color: var(--foreground);
-  background: var(--foreground);
-  color: var(--background);
-}
-.project-settings-section .project-row-actions button[data-save]:hover:not(:disabled) {
-  background: var(--foreground);
-  opacity: 0.85;
-}
 .project-settings-section .project-row-actions button[data-delete] {
   margin-left: 8px;
   color: var(--destructive);
-}
-.project-settings-section button:disabled,
-.project-settings-section .project-name-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 .project-settings-section .project-table-footer {
   padding-top: 16px;

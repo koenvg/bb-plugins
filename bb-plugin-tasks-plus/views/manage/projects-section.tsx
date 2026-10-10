@@ -298,7 +298,7 @@ function ProjectRow({
           }}
         >
           <Input
-            className="project-name-input"
+            className="project-name-input min-w-0 px-2 aria-invalid:border-destructive"
             aria-label={`Project name for ${project.prefix}`}
             aria-invalid={name.length === 0}
             value={draftName}
@@ -372,6 +372,7 @@ function ProjectRow({
                 type="submit"
                 form={formId}
                 size="icon"
+                className="shrink-0"
                 data-save
                 aria-label={`Save ${project.prefix}`}
                 aria-busy={pending}
@@ -389,6 +390,7 @@ function ProjectRow({
                 variant="outline"
                 size="icon"
                 aria-label={`Cancel ${project.prefix}`}
+                className="shrink-0"
                 disabled={locked}
                 onClick={() => {
                   if (mutationLock.current !== null) return;
@@ -408,6 +410,7 @@ function ProjectRow({
                 type="button"
                 variant="outline"
                 size="icon"
+                className="shrink-0"
                 data-delete
                 aria-label={`Delete ${project.prefix}`}
                 disabled={locked || !isReady(inventory)}
