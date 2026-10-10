@@ -222,7 +222,7 @@ PR problems SHALL include failed checks, requested changes, merge conflicts, unr
 
 ### Requirement: PR status decides the tab of an idle thread
 
-When no thread signal rule matches, the replacement SHALL use the github-insight PR summary. A PR with failed checks, requested changes, merge conflicts, unresolved review comments, or a failed merge queue entry SHALL put the thread in Needs attention. Otherwise, a PR with checks running, a required review, or a queued or merging merge queue entry SHALL put the thread in In flight. Every other PR state SHALL put the thread in Needs attention.
+When no thread signal rule matches, the replacement SHALL use the github-insight PR summary. A PR with failed checks, checks waiting for the user, requested changes, merge conflicts, unresolved review comments, or a failed merge queue entry SHALL put the thread in Needs attention. Otherwise, a PR with checks running, a required review, or a queued or merging merge queue entry SHALL put the thread in In flight. Every other PR state SHALL put the thread in Needs attention.
 
 #### Scenario: Problem wins over waiting
 
@@ -233,6 +233,12 @@ When no thread signal rule matches, the replacement SHALL use the github-insight
 
 - **WHEN** an idle, read thread has a PR with checks running and no problem
 - **THEN** the thread is in In flight
+
+#### Scenario: Check waits for the user
+
+- **WHEN** an idle, read thread has a PR where "UI Review" is waiting and a required review is pending
+- **THEN** the thread is in Needs attention
+- **AND** the row shows that a check waits for the user
 
 #### Scenario: Review required
 
