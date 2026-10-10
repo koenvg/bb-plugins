@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
+import { within } from "@testing-library/react";
+import { dashboardFixture } from "../machines/app.test-support.js";
 import { AccountActivity, ActivityPanel } from "./activity-view.js";
 import { normalizeActivity } from "./activity.js";
 const snapshot = () =>
@@ -113,152 +113,53 @@ describe("account activity disclosure and presentation", () => {
     });
     await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
   });
-  it("keeps quota and official link visible through an activity failure in the public SDK nav slot", async () => {
-    const installed = await loadPluginApp(() => import("../plugin/app.js"));
-    let activityCalls = 0;
-    let quotaCalls = 0;
-    const quota = {
-      observedAt: new Date().toISOString(),
-      plan: null,
-      bankedResets: 0,
-      additional: [],
-      general: [{ id: "primary_window", name: "5 hours", remainingPercent: 42, resetAt: null }],
-      bindingWindowId: "primary_window",
-      bindingRemainingPercent: 42,
-    };
-    const options = {
-      sdk: { hosts: { list: async () => [makeHostResponse({ id: "a" })] } },
-      rpc: {
-        selection: async () => ({ hostId: "a", generation: 1 }),
-        read: async () => {
-          quotaCalls++;
-          return { state: "fresh", reason: "ok", snapshot: quota };
-        },
-        activity: async () => {
-          activityCalls++;
-          return { state: "unavailable", reason: "service", snapshot: null };
-        },
-      },
-    };
-    const owner = renderSlot(
-      installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
-      {},
-      options,
+  it("keeps allowance and the official link visible through account activity failure", async () => {
+    const f = await dashboardFixture();
+    let reads = 0;
+    f.machineAccounts.mockImplementation(async (input) => {
+      if ((input as { includeActivity: boolean }).includeActivity) reads++;
+      return f.data;
+    });
+    const page = f.settings(),
+      q = within(page.container);
+    await q.findByText("63%");
+    fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
+    await waitFor(() => expect(reads).toBe(1));
+    expect(q.getByText("63%")).toBeTruthy();
+    expect(q.getByRole("link", { name: "Open Codex Usage" }).getAttribute("href")).toBe(
+      "https://chatgpt.com/codex/settings/usage",
     );
-    const page = renderSlot(installed.settingsSections[0]!, {}, options);
-    await waitFor(() => expect(page.getByText("42% remaining")).toBeTruthy());
-    expect(activityCalls).toBe(0);
-    await toggle(page.container, true);
-    await waitFor(() =>
-      expect(page.getByRole("status", { name: "Account activity status" }).textContent).toContain(
-        "service",
-      ),
-    );
-    expect(quotaCalls).toBe(1);
-    expect(activityCalls).toBe(1);
-    expect(page.getByText("42% remaining")).toBeTruthy();
-    expect(page.getByRole("link", { name: /Open Codex Usage/ })).toBeTruthy();
-    page.lifecycle.unmount();
-    owner.lifecycle.unmount();
+    expect(f.collectorControl).not.toHaveBeenCalled();
   });
   it.each(["settled", "pending"] as const)(
-    "stops hidden activity when plugin settings unmount with a %s read",
+    "stops activity requests when settings unmount with a %s read",
     async (mode) => {
-      vi.useFakeTimers({
-        toFake: ["Date", "setInterval", "clearInterval", "setTimeout", "clearTimeout"],
+      const f = await dashboardFixture();
+      let reads = 0,
+        finish!: (value: unknown) => void;
+      f.machineAccounts.mockImplementation(async (input) => {
+        if (!(input as { includeActivity: boolean }).includeActivity) return f.data;
+        reads++;
+        return mode === "pending"
+          ? new Promise((done) => {
+              finish = done;
+            })
+          : f.data;
       });
-      vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
-      const set = vi.spyOn(globalThis, "setInterval"),
-        clear = vi.spyOn(globalThis, "clearInterval");
-      const installed = await loadPluginApp(() => import("../plugin/app.js"));
-      let activityCalls = 0,
-        quotaCalls = 0,
-        finish!: (value: ReturnType<typeof fresh>) => void;
-      const options = {
-        sdk: {
-          hosts: {
-            list: async () => [makeHostResponse({ id: "a" }), makeHostResponse({ id: "b" })],
-          },
-        },
-        rpc: {
-          selection: async () => ({ hostId: "a", generation: 1 }),
-          selectHost: async (input: unknown) => ({
-            hostId: (input as { hostId: string }).hostId,
-            generation: 2,
-          }),
-          read: async () => {
-            quotaCalls++;
-            return {
-              state: "fresh",
-              reason: "ok",
-              snapshot: {
-                observedAt: new Date().toISOString(),
-                plan: null,
-                bankedResets: 0,
-                additional: [],
-                general: [
-                  { id: "primary_window", name: "5 hours", remainingPercent: 42, resetAt: null },
-                ],
-                bindingWindowId: "primary_window",
-                bindingRemainingPercent: 42,
-              },
-            };
-          },
-          activity: async () => {
-            activityCalls++;
-            return mode === "pending"
-              ? new Promise<ReturnType<typeof fresh>>((resolve) => {
-                  finish = resolve;
-                })
-              : fresh();
-          },
-        },
-      };
-      const owner = renderSlot(
-        installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
-        {},
-        options,
-      );
-      const page = renderSlot(installed.settingsSections[0]!, {}, options);
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(page.getByText("42% remaining")).toBeTruthy();
-      expect(activityCalls).toBe(0);
-      const intervalsBeforeActivity = set.mock.calls.length;
-      await toggle(page.container, true);
-      expect(activityCalls).toBe(1);
-      expect(set.mock.calls.length).toBe(intervalsBeforeActivity + 1);
-      const activityTimer = set.mock.results.at(-1)!.value;
-      const quotaTimer = set.mock.results[0]!.value;
-      page.lifecycle.unmount();
-      expect(clear).toHaveBeenCalledWith(activityTimer);
-      expect(clear).not.toHaveBeenCalledWith(quotaTimer);
-      expect(page.queryByRole("status", { name: "Account activity status" })).toBeNull();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(360_000);
-      });
-      expect(activityCalls).toBe(1);
-      expect(quotaCalls).toBeGreaterThan(1);
+      const settings = f.settings(),
+        q = within(settings.container);
+      await q.findByText("Account allowance");
+      fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
+      await waitFor(() => expect(reads).toBe(1));
+      settings.lifecycle.unmount();
       if (mode === "pending")
         await act(async () => {
-          finish(fresh());
+          finish(f.data);
         });
-      const reopened = renderSlot(installed.settingsSections[0]!, {}, options);
-      fireEvent.change(reopened.getByRole("combobox", { name: "Codex host" }), {
-        target: { value: "b" },
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(activityCalls).toBe(1);
-      const inner = Array.from(reopened.container.querySelectorAll("details")).find(
-        (item) => item.querySelector("summary")?.textContent === "Account details and activity",
-      )!;
-      expect(inner.open).toBe(false);
-      expect(activityCalls).toBe(1);
+      const reopened = f.settings();
+      await within(reopened.container).findByText("Account allowance");
+      expect(reads).toBe(1);
       reopened.lifecycle.unmount();
-      owner.lifecycle.unmount();
     },
   );
 });

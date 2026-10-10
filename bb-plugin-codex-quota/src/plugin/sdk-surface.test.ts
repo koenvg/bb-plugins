@@ -149,7 +149,7 @@ describe("public SDK and quota-only boundary", () => {
         if (
           entry.reason === "outside-allowlist" &&
           entry.specifier === "@get-bb/plugin-sdk/testing/app" &&
-          entry.file === "scripts/calendar-preview.tsx"
+          ["scripts/calendar-preview.tsx", "src/machines/app.test-support.ts"].includes(entry.file)
         )
           return false; // Public SDK React fixture. Never shipped as the plugin app.
         // CI-only guard imports exact file URLs resolved through the installed Pi graph.

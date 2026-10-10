@@ -23,6 +23,13 @@ import {
   preparationSchema,
   preparationUnavailable,
 } from "../history/report-preparation-contract.js";
+import { createMachineCoordinator } from "../machines/machines-server.js";
+import {
+  accountsRequestSchema,
+  accountsSchema,
+  reportsRequestSchema,
+  reportsSchema,
+} from "../machines/machines-contract.js";
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z
@@ -30,6 +37,12 @@ const selectionSchema = z
   .strict();
 
 export const rpcContract = defineRpcContract({
+  machineAccounts: { input: accountsRequestSchema, output: accountsSchema },
+  machineReports: { input: reportsRequestSchema, output: reportsSchema },
+  machinePreparation: {
+    input: z.object({ refresh: z.boolean() }).strict(),
+    output: preparationSchema,
+  },
   ping: {
     input: z.object({ hostId: hostIdSchema }).strict(),
     output: z.object({ reachable: z.boolean() }).strict(),
@@ -89,6 +102,33 @@ export default function plugin(bb: BbPluginApi) {
     (hostId, signal, input) => hostClient.call("historyReadiness", input, { hostId, signal }),
     (hostId, signal, input) => hostClient.call("reportPreparation", input, { hostId, signal }),
   );
+  const enrolledMachine = async (hostId: string) => {
+    try {
+      const host = await bb.sdk.hosts.get({ hostId });
+      return host.id === hostId && host.type === "persistent" && host.lifecycle.phase === "active"
+        ? { id: host.id, name: host.name.slice(0, 256) || "Machine", status: host.status }
+        : null;
+    } catch {
+      return null;
+    }
+  };
+  const machines = createMachineCoordinator({
+    storage: bb.storage.kv,
+    get: enrolledMachine,
+    list: async () =>
+      (await bb.sdk.hosts.list())
+        .filter((host) => host.type === "persistent" && host.lifecycle.phase === "active")
+        .map((host) => ({
+          id: host.id,
+          name: host.name.slice(0, 256) || "Machine",
+          status: host.status,
+        })),
+    observe: (hostId, input, signal) =>
+      hostClient.call("accountObservation", input, { hostId, signal }),
+    prepare: (hostId, signal, refresh) => historyCall.prepare(hostId, signal, refresh),
+    report: (hostId, input, signal) => hostClient.call("calendarReport", input, { hostId, signal }),
+  });
+  bb.onDispose(() => machines.dispose());
   const readHistory = (input: import("../history/history-contract.js").HistoryRequest) =>
     session.request(input, {
       schema: historyReadinessSchema,
@@ -96,6 +136,9 @@ export default function plugin(bb: BbPluginApi) {
       call: (signal) => historyCall(input.hostId, signal),
     });
   bb.rpc.register(rpcContract, {
+    machineAccounts: (input) => machines.accounts(input),
+    machineReports: (input) => machines.reports(input),
+    machinePreparation: ({ refresh }) => machines.preparation(refresh),
     selection: async () => session.selection(),
     selectHost: ({ hostId }) => session.select(hostId),
     read: (input) =>
@@ -136,14 +179,17 @@ export default function plugin(bb: BbPluginApi) {
         schema: historyReadinessSchema,
         unavailable: historyUnavailable,
         call: (signal) =>
-          hostClient.call(
-            "collectorControl",
-            {
-              action: input.action,
-              ...(input.confirmation ? { confirmation: input.confirmation } : {}),
-            },
-            { hostId: input.hostId, signal },
-          ),
+          machines.mutate(input.hostId, async () => {
+            signal.throwIfAborted();
+            return hostClient.call(
+              "collectorControl",
+              {
+                action: input.action,
+                ...(input.confirmation ? { confirmation: input.confirmation } : {}),
+              },
+              { hostId: input.hostId, signal },
+            );
+          }),
       }),
     calendarReport: (input) => {
       const query = structuredClone(input.query);
@@ -166,8 +212,13 @@ export default function plugin(bb: BbPluginApi) {
       session,
       sdk: bb.sdk,
       prepare: readHistory,
-      call: (hostId, signal, input) =>
-        hostClient.call("historicalImport", input, { hostId, signal }),
+      call: (hostId, signal, input) => {
+        const call = async () => {
+          signal.throwIfAborted();
+          return hostClient.call("historicalImport", input, { hostId, signal });
+        };
+        return input.command.action === "status" ? call() : machines.mutate(hostId, call);
+      },
     }),
     async ping({ hostId }) {
       try {

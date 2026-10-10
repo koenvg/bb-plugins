@@ -4,7 +4,7 @@ const QUOTA_URL = "https://chatgpt.com/backend-api/wham/usage";
 const MAX_RESPONSE_BYTES = 64 * 1024;
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
-function accountClaim(token: string): string | null {
+export function accountClaim(token: string): string | null {
   try {
     const jwt = JSON.parse(
       Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),

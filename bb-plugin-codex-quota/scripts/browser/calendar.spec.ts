@@ -23,7 +23,7 @@ const matrices = {
     "loading",
     "retry",
     "latest",
-    "selection",
+    "offline",
     "cancel",
     "settings",
   ],
@@ -46,40 +46,78 @@ for (const [suite, states] of Object.entries(matrices))
       test(`${suite} ${width} ${state} tokens and cost`, async ({ page }, info) => {
         await viewport(page, width);
         await page.goto(`/calendar.html?state=${state}`);
-        await expect(page.getByRole("combobox", { name: "Codex host" })).toBeVisible();
-        await expect(page.getByText("42% remaining", { exact: true })).toBeVisible();
+        await expect(page.getByRole("combobox", { name: "Codex host" })).toHaveCount(0);
+        await expect(page.getByLabel("Shared account allowance")).toContainText("42%");
         for (const label of ["Report grouping", "Report comparison", "Daily detail"])
           await expect(page.getByLabel(label)).toHaveCount(0);
         expect(await page.locator("body").innerText()).not.toContain(
           "Collection and history management",
         );
-        expect(
-          await page
-            .locator('select[aria-label="Report metric"] option')
-            .evaluateAll((options) => options.map((e) => (e as HTMLOptionElement).value)),
-        ).toEqual(["tokens", "cost"]);
+        await expect(
+          page.getByRole("group", { name: "Chart metric" }).getByRole("button"),
+        ).toHaveText(["Tokens", "Estimated cost"]);
         const unavailable = ["unavailable", "loading", "retry"].includes(state);
         if (unavailable) {
-          const message = {
-            unavailable: "History storage is incompatible or unsafe.",
-            loading: "Loading chart…",
-            retry: "Selected host is offline.",
-          }[state]!;
-          await expect(page.getByText(message, { exact: false })).toBeVisible();
+          await expect(
+            page.getByText(
+              state === "loading"
+                ? "Loading recorded usage…"
+                : "No usable recorded history for this range.",
+              { exact: false },
+            ),
+          ).toBeVisible();
           await expect(page.locator(".recharts-surface")).toHaveCount(0);
         } else await chart(page);
+        await expect(
+          page.getByRole("group", { name: "Usage grouping" }).getByRole("button"),
+        ).toHaveText(["Threads", "Workspaces"]);
+        await expect(page.getByRole("button", { name: "Threads", exact: true })).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+        if (state === "partial") {
+          const ranking = page.getByRole("table", { name: "Recorded usage ranking" });
+          await expect(ranking.locator("tbody tr")).toHaveCount(10);
+          const before = await rows(page);
+          const readsBefore = (await calls(page)).filter(
+            (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
+          ).length;
+          await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+          await expect(page.getByRole("heading", { name: "Top 10 workspaces" })).toBeVisible();
+          await expect(ranking.locator("tbody tr")).toHaveCount(10);
+          expect(await rows(page)).toEqual(before);
+          expect(
+            (await calls(page)).filter(
+              (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
+            ),
+          ).toHaveLength(readsBefore);
+          await page.getByRole("button", { name: "Threads", exact: true }).click();
+          await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
+          expect(await rows(page)).toEqual(before);
+        }
         const facts = [];
         const captures = [];
         for (const metric of ["tokens", "cost"] as const) {
           const before = await calls(page);
-          await page.getByRole("combobox", { name: "Report metric" }).selectOption(metric);
+          await page
+            .getByRole("group", { name: "Chart metric" })
+            .getByRole("button", {
+              name: metric === "tokens" ? "Tokens" : "Estimated cost",
+              exact: true,
+            })
+            .click();
           expect(await calls(page), "Metric switch must not send an RPC").toEqual(before);
           if (!unavailable) {
             await chart(page);
             const dailyRows = await rows(page);
             expect(dailyRows).toHaveLength(30);
             const values: Record<string, Record<string, string>> = {
-              tokens: { unknown: "Unavailable", inactive: "0", huge: "9,007,199,254,740,991" },
+              tokens: {
+                unknown: "Unavailable",
+                inactive: "0",
+                huge: "9,007,199,254,740,991",
+                offline: "1,200",
+              },
               cost: {
                 partial: "$287.24",
                 unknown: "Unavailable",
@@ -87,21 +125,20 @@ for (const [suite, states] of Object.entries(matrices))
                 "no-prices": "Unavailable",
                 huge: "$9,007,199,254,740,991",
                 tiny: "$5e-324",
+                offline: "$0.7962632000000001",
               },
             };
             const expected =
               values[metric][state] ?? (metric === "cost" ? "$0.39813160000000003" : "600");
             expect(dailyRows[14][1]).toBe(expected);
             expect(dailyRows[14][metric === "tokens" ? 3 : 2]).toContain(
-              state === "inactive"
-                ? "Observed inactivity"
-                : state === "unknown"
-                  ? "Unknown, uncovered gap"
-                  : "Partial, recorded usage",
+              state === "inactive" ? "Observed inactivity" : "Partial, coverage gaps",
             );
             if (!["inactive", "unknown"].includes(state)) {
               expect(dailyRows[0][1]).toBe("Unavailable");
-              expect(dailyRows[14][metric === "tokens" ? 4 : 3]).toBe("2 excluded tokens");
+              expect(dailyRows[14][metric === "tokens" ? 4 : 3]).toBe(
+                state === "offline" ? "4 excluded tokens" : "2 excluded tokens",
+              );
             }
             const tip = await tooltip(page, metric, dailyRows);
             const accessibility = await axFacts(page, dailyRows, metric);
@@ -137,8 +174,12 @@ for (const [suite, states] of Object.entries(matrices))
           );
           if (state === "partial" && metric === "tokens") {
             expect(
-              (await calls(page)).filter((call) => call.method === "calendarReport").at(-1)!.input
-                .query!.includeUncertain,
+              (await calls(page))
+                .filter(
+                  (call) =>
+                    call.method === "machineReports" && call.input.query!.group === "workspace",
+                )
+                .at(-1)!.input.query!.includeUncertain,
             ).toBe(true);
             expect((await rows(page))[14][2]).toBe("300");
             expect(
@@ -154,18 +195,19 @@ for (const [suite, states] of Object.entries(matrices))
         expect(
           requests.every((call) =>
             [
+              "machineAccounts",
+              "machinePreparation",
+              "machineReports",
               "selection",
               "selectHost",
-              "read",
-              "calendarReport",
-              "activity",
               "historyReadiness",
               "historicalImport",
             ].includes(call.method),
           ),
         ).toBe(true);
-        for (const call of requests.filter((call) => call.method === "calendarReport")) {
-          expect(call.input.query!.group).toBe("workspace");
+        for (const call of requests.filter((call) => call.method === "machineReports")) {
+          expect(call.input.query!.includeUncertain).toBe(call.input.query!.group === "workspace");
+          expect(call.input).toMatchObject({ prepare: false, refresh: false });
           expect(call.input.query!.scope).toEqual({ kind: "host" });
           expect(call.input.query!.comparison).toBeFalsy();
         }

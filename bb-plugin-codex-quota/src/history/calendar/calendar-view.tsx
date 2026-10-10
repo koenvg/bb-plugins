@@ -103,7 +103,13 @@ function CalendarDateTick({
     </text>
   );
 }
-export function CalendarValues({ view, metric }: { view: CalendarSnapshot; metric: TokenMetric }) {
+export function CalendarValues({
+  view,
+  metric,
+}: {
+  view: Pick<CalendarSnapshot, "query" | "days"> & { state?: CalendarSnapshot["state"] };
+  metric: TokenMetric;
+}) {
   const [chartWidth, setChartWidth] = useState(320);
   const { rows, maximum } = chartData(view.days, metric);
   const ticks = maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1];

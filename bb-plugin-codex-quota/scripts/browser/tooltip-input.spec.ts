@@ -1,6 +1,16 @@
 import { test, expect, jsonEvidence } from "./fixtures.js";
 import { chart, rows, tooltip } from "./calendar-driver.js";
 
+test("large-value hover proof keeps the chart in the viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto("/calendar.html?state=huge");
+  await chart(page);
+  const before = await page.evaluate(() => window.scrollY);
+  const facts = await tooltip(page, "tokens", await rows(page));
+  expect(facts.pointer).not.toBeNull();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+});
+
 declare global {
   interface Window {
     tooltipFrameCounts: number[];
@@ -11,7 +21,10 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
   await page.goto("/calendar.html?state=partial");
   await chart(page);
   await tooltip(page, "tokens", await rows(page));
-  await page.getByRole("combobox", { name: "Report metric" }).selectOption("cost");
+  await page
+    .getByRole("group", { name: "Chart metric" })
+    .getByRole("button", { name: "Estimated cost", exact: true })
+    .click();
   await chart(page);
   const dailyRows = await rows(page);
 
@@ -64,11 +77,14 @@ for (const metric of ["tokens", "cost"] as const) {
     await page.goto("/calendar.html?state=stale");
     await chart(page);
     await expect(
-      page.getByText("History preparation stopped. Recorded values remain available.", {
+      page.getByText("History preparation stopped. Known recorded values remain available.", {
         exact: true,
       }),
     ).toBeVisible();
-    await page.getByRole("combobox", { name: "Report metric" }).selectOption(metric);
+    await page
+      .getByRole("group", { name: "Chart metric" })
+      .getByRole("button", { name: metric === "tokens" ? "Tokens" : "Estimated cost", exact: true })
+      .click();
     await chart(page);
     const dailyRows = await rows(page);
 

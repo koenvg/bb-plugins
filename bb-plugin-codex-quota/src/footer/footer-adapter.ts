@@ -1,6 +1,7 @@
 export type FooterTarget = {
   container: HTMLSpanElement;
   descriptionId: string;
+  trigger: HTMLButtonElement;
   commit(): () => void;
 };
 type Attachment = FooterTarget & { rendered: boolean };
@@ -10,7 +11,7 @@ const styles = `
 [data-codex-quota-footer] { width: max-content !important; padding-inline: .5rem !important; gap: .35rem; flex-shrink: 0; }
 /* Portal events follow React ancestry, not the native button's tree. Keep its hit target. */
 [data-codex-quota-badge] { display: inline-flex; flex-shrink: 0; overflow: visible !important; pointer-events: none; }
-[data-codex-quota-badge] > span[title] { width: auto; min-width: 4ch; text-align: left; }
+[data-codex-quota-badge] > span[title] { width: auto; min-width: 4ch; white-space: nowrap; text-align: left; }
 [data-codex-quota-suppressed] { display: none !important; }
 `;
 
@@ -115,6 +116,7 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       button.append(container);
       const target: Attachment = {
         container,
+        trigger: button,
         descriptionId,
         rendered: false,
         commit: () => {
