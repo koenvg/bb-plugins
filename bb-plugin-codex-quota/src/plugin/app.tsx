@@ -189,7 +189,7 @@ function QuotaPage() {
             </p>
           </div>
           <button
-            className="min-h-9 shrink-0 rounded-md border border-border px-3 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+            className="min-h-9 pointer-coarse:min-h-11 shrink-0 rounded-md border border-border px-3 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
             disabled={state.loading}
             onClick={() => {
               void shared.refresh(true);

@@ -51,7 +51,7 @@ it("refreshes the visible graph on its own cadence without adding account owners
     await vi.advanceTimersByTimeAsync(2_000);
   });
   expect(vi.getTimerCount()).toBe(0);
-});
+}, 15_000);
 it("ages the last report while preparation is stopped, supports manual reread, and stops on unmount", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));

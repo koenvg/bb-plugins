@@ -11,7 +11,10 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
   await page.goto("/calendar.html?state=partial");
   await chart(page);
   await tooltip(page, "tokens", await rows(page));
-  await page.getByRole("combobox", { name: "Report metric" }).selectOption("cost");
+  await page
+    .getByRole("group", { name: "Chart metric" })
+    .getByRole("button", { name: "Estimated cost", exact: true })
+    .click();
   await chart(page);
   const dailyRows = await rows(page);
 
@@ -64,11 +67,14 @@ for (const metric of ["tokens", "cost"] as const) {
     await page.goto("/calendar.html?state=stale");
     await chart(page);
     await expect(
-      page.getByText("History preparation stopped. Recorded values remain available.", {
+      page.getByText("History preparation stopped. Known recorded values remain available.", {
         exact: true,
       }),
     ).toBeVisible();
-    await page.getByRole("combobox", { name: "Report metric" }).selectOption(metric);
+    await page
+      .getByRole("group", { name: "Chart metric" })
+      .getByRole("button", { name: metric === "tokens" ? "Tokens" : "Estimated cost", exact: true })
+      .click();
     await chart(page);
     const dailyRows = await rows(page);
 

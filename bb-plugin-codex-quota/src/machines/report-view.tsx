@@ -83,13 +83,13 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
     );
   return (
     <section
-      className="min-w-0 text-sm"
+      className="@container min-w-0 text-sm"
       aria-label="All-machine recorded usage"
       aria-busy={loading}
     >
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-col items-start gap-3 @sm:flex-row @sm:flex-wrap @sm:items-center @sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="basis-full text-xs tabular-nums text-muted-foreground sm:mr-2 sm:basis-auto">
+          <span className="basis-full text-xs tabular-nums text-muted-foreground @sm:mr-2 @sm:basis-auto">
             {start} – {shiftDate(start, 29)}
           </span>
           <button
@@ -119,7 +119,7 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
           {(["tokens", "cost"] as const).map((value) => (
             <button
               key={value}
-              className="min-h-8 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
+              className="min-h-8 pointer-coarse:min-h-11 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
               aria-pressed={metric === value}
               onClick={() => setMetric(value)}
             >
@@ -211,7 +211,7 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
           {(["thread", "workspace"] as const).map((value) => (
             <button
               key={value}
-              className="min-h-8 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
+              className="min-h-8 pointer-coarse:min-h-11 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
               aria-pressed={value === group}
               onClick={() => setGroup(value)}
             >
