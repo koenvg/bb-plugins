@@ -8,6 +8,16 @@ Async subagent runs also appear as normal BB background task rows alongside the 
 
 A represented run stays pending while it or its descendants are live. Authoritative completion, failure, or interruption settles its native item. This payload behavior is covered by source tests; installed activity, idle retention, and completion delivery still require live acceptance.
 
+## Composer shortcut
+
+Click the existing native background-agent bar above the composer, or focus it with Tab and press Enter or Space. A matched wide single-run bar opens that background root in Subagents. Aggregate and narrow bars open an overview with no run selected, including before their first expansion. Choose a captured run in the panel to read its detail. Your manual choice survives history refresh.
+
+No second bar, button, or replacement indicator is added. Native text, timing, activity counts, and aggregate expansion remain intact. The transcript indicator is unchanged. Navigation leaves the parent chat and draft intact and sends no agent request or execution command.
+
+This shortcut uses a trusted content script to match private BB composer DOM. Its fixtures are based on BB 0.45.0 and SDK 0.6.15. Panel navigation and history reads use the public SDK, but DOM matching is not an SDK compatibility promise. A BB upgrade can disable the shortcut. Unrecognized shapes, another selected provider, missing observations, or multiple ambiguous composer contexts leave the bar unchanged. Open Subagents from the thread panel actions when the shortcut is unavailable.
+
+Disabling or replacing the plugin removes its added listeners, observer, focus styling, and owned accessibility hints. Local tests cover these behaviors; installed layout and reload acceptance remain required.
+
 ## View and capture
 
 Open **Subagents** from the thread panel actions. Select a child with the pointer or Arrow Up/Down, Home, and End. The tree stays above wrapped detail on narrow screens. It shows available task, recent transcript, final output, state, timing/activity, ownership, capture time, and omission markers. Missing information stays explicit. The view has no spawn, stop, retry, steer, resume, or other execution control.
@@ -27,6 +37,7 @@ Foreground detail comes from structured `subagent` partial/final Details, not re
 The bridge emits public `extension.state`, qualified as `pi-subagents-provider/pi-subagents-view`, with a declared Zod schema. State version 1 has at most 128 rows and 256 KiB. IDs carry session identity, owning path, and published run/child identity. Repeated local step IDs under different parents stay distinct. No UI object or arbitrary artifact path is stored.
 
 The panel reads public `sdk.threads.events.list` for the newest 64 extension-state events and validates only this provider's qualified kind. It refreshes every four seconds and aborts on disposal. It restores earlier accepted captures within this bounded window when a newer state has an unavailable capture. The original capture time is retained; a failed attempt has a separate attempt time. Old missing live rows become unknown, not successful or proven still running. Unknown versions and malformed state remain explicit. A full history window warns that older captures may be outside the window.
+A full 64-event window shows a history-limit notice in the panel. It does not invalidate supported current observations or disable navigation to a uniquely matched current background root. An unsupported latest state, a read failure, or unavailable ownership still leaves native navigation untouched.
 
 Equal background presentation states are not repeatedly persisted. The process-local store retains at most 64 thread histories. Budgets can omit older rows, with an omission count. This is bounded observation history, not unlimited transcript storage or durable execution recovery. Process replacement can observe existing native work without relaunching it. Public stored captures are independent of whether canonical Pi artifacts remain available, within the view's documented history/budget limits.
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => {
   const list = vi.fn();
@@ -69,6 +69,18 @@ it("uses the public event list, filters its qualified kind and restores accepted
   await waitFor(() => expect(second.getByText("accepted answer")).toBeDefined());
   expect(second.getByText(/Capture unavailable: Artifact missing/)).toBeDefined();
 });
+it("keeps a full-window history notice without treating accepted current data as an error", async () => {
+  h.list.mockResolvedValue(
+    Array.from({ length: 64 }, () => event("pi-subagents-provider/pi-subagents-view", state)),
+  );
+  const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  await waitFor(() => expect(view.getByText("accepted answer")).toBeDefined());
+  expect(view.getByRole("status").textContent).toContain(
+    "Older history may be outside this bounded window.",
+  );
+  expect(view.queryByRole("alert")).toBeNull();
+});
+
 it("shows unsupported stored state rather than accepting it as an empty success", async () => {
   h.list.mockResolvedValue([
     event("pi-subagents-provider/pi-subagents-view", { ...state, version: 2 }),
@@ -77,4 +89,108 @@ it("shows unsupported stored state rather than accepting it as an empty success"
   await waitFor(() =>
     expect(view.getByRole("alert").textContent).toContain("unsupported or malformed"),
   );
+});
+
+const background = {
+  ...state.rows[0]!,
+  id: "background-owned",
+  runId: "bg",
+  source: "background",
+  label: "Builder",
+  capture: { status: "captured", capturedAt: 1, finalOutput: "background answer" },
+};
+it("selects a requested background root after loading and keeps manual selection across refresh", async () => {
+  vi.useFakeTimers();
+  try {
+    h.list.mockResolvedValue([
+      event("pi-subagents-provider/pi-subagents-view", {
+        ...state,
+        rows: [...state.rows, background],
+      }),
+    ]);
+    const view = render(
+      <SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
+      "background answer",
+    );
+    fireEvent.click(view.getByRole("button", { name: /reviewer/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(h.list).toHaveBeenCalledTimes(2);
+    expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
+      "accepted answer",
+    );
+    view.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it.each([{ rowId: "missing" }, { rowId: "x".repeat(1801) }, { rowId: 42 }, { rowId: "owned" }])(
+  "reports unavailable or invalid targets without showing the wrong detail: %j",
+  async (params) => {
+    h.list.mockResolvedValue([
+      event("pi-subagents-provider/pi-subagents-view", {
+        ...state,
+        rows: [...state.rows, background],
+      }),
+    ]);
+    const view = render(<SubagentsPanel threadId="owned-thread" params={params} />);
+    await waitFor(() => expect(view.getByRole("alert").textContent).toMatch(/unavailable|invalid/));
+    expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: /Builder/ }));
+    expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
+      "background answer",
+    );
+  },
+);
+it("applies a changed target without using a stale selection", async () => {
+  h.list.mockResolvedValue([
+    event("pi-subagents-provider/pi-subagents-view", {
+      ...state,
+      rows: [...state.rows, background],
+    }),
+  ]);
+  const view = render(<SubagentsPanel threadId="owned-thread" params={null} />);
+  await waitFor(() => expect(view.getByText("accepted answer")).toBeDefined());
+  view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
+  expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
+    "background answer",
+  );
+});
+
+it("opens an unselected overview and preserves a manual choice on refresh", async () => {
+  vi.useFakeTimers();
+  try {
+    h.list.mockResolvedValue([
+      event("pi-subagents-provider/pi-subagents-view", {
+        ...state,
+        rows: [...state.rows, background],
+      }),
+    ]);
+    const view = render(<SubagentsPanel threadId="owned-thread" params={{ overview: true }} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
+    expect(view.getByText("Select a captured run to view its detail.")).toBeDefined();
+    expect(view.queryByRole("alert")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: /Builder/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
+      "background answer",
+    );
+    view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
+    view.rerender(<SubagentsPanel threadId="owned-thread" params={{ overview: true }} />);
+    expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
+    view.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
 });
