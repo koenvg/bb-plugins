@@ -1,9 +1,14 @@
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { Project } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { useProjects, useTasksRpc } from "../../shell/data.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import UndoIcon from "@hugeicons/core-free-icons/UndoIcon";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Icon } from "@/components/ui/icon";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ProjectDeleteDialog } from "./project-delete-dialog.js";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COLOR_PALETTE, ColorSwatchPicker } from "./shared.js";
 import "./projects-section.css";
@@ -14,76 +19,155 @@ function isReady(inventory: Inventory) {
   return inventory.data !== undefined && !inventory.isLoading && inventory.error === null;
 }
 
+type Mutation = { id: string; kind: "save" | "delete" };
+
 export function ProjectsSection() {
   const inventory = useProjects();
+  const rpc = useTasksRpc();
   const currentInventory = useRef(inventory);
   currentInventory.current = inventory;
-  const saveLock = useRef<string | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const mutationLock = useRef<Mutation | null>(null);
+  const [pending, setPending] = useState<Mutation | null>(null);
+  const [selected, setSelected] = useState<Project | null>(null);
+  const [removed, setRemoved] = useState<Record<string, number>>({});
+  const [notice, setNotice] = useState("");
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const heading = useRef<HTMLHeadingElement | null>(null);
   const ready = isReady(inventory);
-  const rows = inventory.data ?? [];
+  const rows = (inventory.data ?? []).filter((row) => removed[row.id] === undefined);
 
-  function beginSave(id: string) {
+  useEffect(() => {
+    if (!isReady(inventory)) return;
+    setRemoved((previous) => {
+      const confirmed = Object.entries(previous).filter(
+        ([id, revision]) =>
+          inventory.revision > revision && !inventory.data?.some((row) => row.id === id),
+      );
+      if (confirmed.length === 0) return previous;
+      const next = { ...previous };
+      for (const [id] of confirmed) delete next[id];
+      return next;
+    });
+  }, [inventory]);
+
+  function beginMutation(id: string, kind: Mutation["kind"]) {
     const current = currentInventory.current;
     if (
-      saveLock.current !== null ||
+      mutationLock.current !== null ||
       !isReady(current) ||
+      removed[id] !== undefined ||
       !current.data?.some((row) => row.id === id)
     )
       return false;
-    saveLock.current = id;
-    setPendingId(id);
+    const mutation = { id, kind };
+    mutationLock.current = mutation;
+    setPending(mutation);
     return true;
   }
 
-  function endSave() {
-    saveLock.current = null;
-    setPendingId(null);
+  function endMutation() {
+    mutationLock.current = null;
+    setPending(null);
   }
+
+  async function deleteSelected(project: Project) {
+    if (!beginMutation(project.id, "delete")) return;
+    try {
+      const result = await rpc.call("deleteProject", { projectId: project.id, force: true });
+      if (!result.ok) throw new Error(result.error.message);
+      const revision = currentInventory.current.readRevision();
+      setRemoved((previous) => ({
+        ...previous,
+        [project.id]: revision,
+      }));
+      setNotice(
+        result.deleted
+          ? `Deleted ${project.name} (${project.prefix}) and all its tasks.`
+          : `${project.name} (${project.prefix}) is already absent.`,
+      );
+      setSelected(null);
+      inventory.refresh();
+    } finally {
+      endMutation();
+    }
+  }
+
+  const restoreFocus = useCallback(() => {
+    if (trigger.current?.isConnected && !trigger.current.disabled) trigger.current.focus();
+    else heading.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (selected === null && trigger.current !== null) queueMicrotask(restoreFocus);
+  }, [selected, restoreFocus]);
 
   return (
     <section className="project-settings-section" aria-label="Project settings">
       <div className="project-table-heading">
-        <h3>Projects</h3>
+        <h3 ref={heading} tabIndex={-1}>
+          Projects
+        </h3>
         <p>
-          Edit a name or colour, then Save that row. Cancel restores its saved values. Prefixes stay
-          unchanged.
+          Edit a name or colour, then use the check mark to Save. The undo arrow Cancels edits. The
+          trash icon opens Delete confirmation. Prefixes stay unchanged.
         </p>
       </div>
-      <table
-        className="project-settings-table"
-        aria-label="Projects"
-        aria-busy={inventory.isLoading}
-      >
-        <thead>
-          <tr>
-            <th scope="col">Prefix</th>
-            <th scope="col">Name</th>
-            <th scope="col">Colour</th>
-            <th scope="col">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((project) => (
-            <ProjectRow
-              key={project.id}
-              project={project}
-              inventory={inventory}
-              saveLock={saveLock}
-              pendingId={pendingId}
-              beginSave={beginSave}
-              endSave={endSave}
-            />
-          ))}
-        </tbody>
-      </table>
+      <TooltipProvider>
+        <table
+          className="project-settings-table"
+          aria-label="Projects"
+          aria-busy={inventory.isLoading}
+        >
+          <thead>
+            <tr>
+              <th scope="col">Prefix</th>
+              <th scope="col">Name</th>
+              <th scope="col">Colour</th>
+              <th scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((project) => (
+              <ProjectRow
+                key={project.id}
+                project={project}
+                inventory={inventory}
+                mutationLock={mutationLock}
+                pendingId={pending?.id ?? null}
+                savingId={pending?.kind === "save" ? pending.id : null}
+                beginSave={(id) => beginMutation(id, "save")}
+                endSave={endMutation}
+                onDelete={(saved, button) => {
+                  if (mutationLock.current !== null || !isReady(currentInventory.current)) return;
+                  trigger.current = button;
+                  setNotice("");
+                  setSelected(saved);
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      </TooltipProvider>
+      {selected ? (
+        <ProjectDeleteDialog
+          project={selected}
+          canDelete={ready && rows.some((row) => row.id === selected.id) && pending === null}
+          pending={pending?.kind === "delete"}
+          isLocked={() => mutationLock.current !== null}
+          onDelete={() => deleteSelected(selected)}
+          onClose={() => {
+            if (mutationLock.current === null) setSelected(null);
+          }}
+        />
+      ) : null}
       <div className="project-table-footer">
         <p>
           Each row has its own draft. Saving here does not change your Tasks view or linked BB
           workspace.
         </p>
+        <p aria-live="polite">{notice}</p>
         <div className="project-inventory-status">
           <p role="status">
             {inventory.isLoading
@@ -98,9 +182,9 @@ export function ProjectsSection() {
               <p role="alert">Could not load projects: {inventory.error}</p>
               <Button
                 variant="outline"
-                disabled={pendingId !== null || inventory.isLoading}
+                disabled={pending !== null || inventory.isLoading}
                 onClick={() => {
-                  if (saveLock.current === null) inventory.refresh();
+                  if (mutationLock.current === null) inventory.refresh();
                 }}
               >
                 Retry
@@ -116,15 +200,19 @@ export function ProjectsSection() {
 function ProjectRow({
   project,
   inventory,
-  saveLock,
+  mutationLock,
   pendingId,
+  savingId,
+  onDelete,
   beginSave,
   endSave,
 }: {
   project: Project;
   inventory: Inventory;
-  saveLock: RefObject<string | null>;
+  mutationLock: RefObject<Mutation | null>;
   pendingId: string | null;
+  savingId: string | null;
+  onDelete: (project: Project, trigger: HTMLButtonElement) => void;
   beginSave: (id: string) => boolean;
   endSave: () => void;
 }) {
@@ -141,7 +229,7 @@ function ProjectRow({
   const overlappingProject = useRef<Project | null>(null);
   const savedThroughRevision = useRef(-1);
   const locked = pendingId !== null;
-  const pending = pendingId === project.id;
+  const pending = savingId === project.id;
   const errorSpace = error ?? (pending ? retryErrorSpace.current : null);
   const name = draftName.trim();
   const colorLabel =
@@ -216,7 +304,7 @@ function ProjectRow({
             value={draftName}
             disabled={locked}
             onChange={(event) => {
-              if (saveLock.current === null) setDraftName(event.target.value);
+              if (mutationLock.current === null) setDraftName(event.target.value);
             }}
           />
         </form>
@@ -234,7 +322,7 @@ function ProjectRow({
         <Popover
           open={colorOpen && !locked}
           onOpenChange={(open) => {
-            if (saveLock.current === null) setColorOpen(open);
+            if (mutationLock.current === null) setColorOpen(open);
           }}
         >
           <PopoverTrigger asChild>
@@ -266,7 +354,7 @@ function ProjectRow({
               <ColorSwatchPicker
                 value={draftColor}
                 onChange={(color) => {
-                  if (saveLock.current !== null) return;
+                  if (mutationLock.current !== null) return;
                   setDraftColor(color);
                   setColorOpen(false);
                 }}
@@ -278,29 +366,58 @@ function ProjectRow({
       </td>
       <td className="project-actions-cell">
         <div className="project-row-actions">
-          <Button
-            type="submit"
-            form={formId}
-            data-save
-            aria-label={`Save ${project.prefix}`}
-            disabled={!canSave}
-          >
-            {pending ? "Saving…" : "Save"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            aria-label={`Cancel ${project.prefix}`}
-            disabled={locked}
-            onClick={() => {
-              if (saveLock.current !== null) return;
-              setDraftName(saved.name);
-              setDraftColor(saved.color);
-              setError(null);
-            }}
-          >
-            Cancel
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="submit"
+                form={formId}
+                size="icon"
+                data-save
+                aria-label={`Save ${project.prefix}`}
+                aria-busy={pending}
+                disabled={!canSave}
+              >
+                <Icon name={pending ? "Loading" : "Check"} className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save {project.prefix}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={`Cancel ${project.prefix}`}
+                disabled={locked}
+                onClick={() => {
+                  if (mutationLock.current !== null) return;
+                  setDraftName(saved.name);
+                  setDraftColor(saved.color);
+                  setError(null);
+                }}
+              >
+                <HugeiconsIcon icon={UndoIcon} size={16} aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Cancel {project.prefix}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-delete
+                aria-label={`Delete ${project.prefix}`}
+                disabled={locked || !isReady(inventory)}
+                onClick={(event) => onDelete(saved, event.currentTarget)}
+              >
+                <Icon name="Trash2" className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete {project.prefix}</TooltipContent>
+          </Tooltip>
         </div>
       </td>
     </tr>

@@ -125,6 +125,31 @@ When run from a thread, the CLI preserves that agent thread and any explicit
 `--author`; notification still targets the prior latest responder rather than
 the newly recorded agent comment itself.
 
+## Delete a Tasks project
+
+In **Manage → Projects**, the check mark saves a row, the undo arrow cancels its edits,
+and the separated trash icon opens deletion confirmation. Save and Cancel affect only
+that row's name and colour draft.
+
+The deletion dialog uses the saved project name and prefix, not an unsaved draft.
+It counts every task page, including completed and canceled tasks and subtasks.
+The displayed total is the count observed during confirmation. Deletion removes
+all tasks present when the operation runs, even if the total has since changed.
+
+Type the exact saved prefix, with matching case and no surrounding spaces, then select
+**Delete project and tasks**. Deletion is unavailable until the full count loads.
+If counting fails, use **Retry task count**. Cancel or Escape closes the dialog before
+submission without changing any drafts.
+
+Deletion is permanent. It removes the Tasks project, all its tasks and task-owned
+records and attachments. There is no restoration or undo. Linked BB workspace projects,
+BB threads and workspace files remain unchanged. Deleting task records does not stop BB workers.
+
+While deletion is pending, row editing, other saves/deletions and dialog dismissal are
+blocked. A deletion error keeps the typed confirmation and drafts for manual retry.
+A failed inventory refresh after successful deletion is a separate error: the removed
+row stays absent, and inventory **Retry** reloads the project choices without deleting again.
+
 ## Scan task lists
 
 List rows keep labels out of the table at every width. Labels remain available

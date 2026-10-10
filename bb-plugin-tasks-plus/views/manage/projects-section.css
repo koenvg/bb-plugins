@@ -143,7 +143,10 @@
 }
 .project-settings-section .project-row-actions button {
   height: 36px;
-  padding: 0 10px;
+  width: 36px;
+  min-width: 36px;
+  flex-shrink: 0;
+  padding: 0;
   font: inherit;
   font-size: 12px;
   border: 1px solid var(--input);
@@ -156,8 +159,7 @@
   background: var(--accent);
 }
 .project-settings-section .project-row-actions button[data-save] {
-  width: 76px;
-  flex-shrink: 0;
+  width: 36px;
   border-color: var(--foreground);
   background: var(--foreground);
   color: var(--background);
@@ -166,9 +168,9 @@
   background: var(--foreground);
   opacity: 0.85;
 }
-.project-settings-section .project-row-actions button:last-child {
-  width: 64px;
-  flex-shrink: 0;
+.project-settings-section .project-row-actions button[data-delete] {
+  margin-left: 8px;
+  color: var(--destructive);
 }
 .project-settings-section button:disabled,
 .project-settings-section .project-name-input:disabled {
