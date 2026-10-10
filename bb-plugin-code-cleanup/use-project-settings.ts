@@ -153,12 +153,11 @@ export function useProjectSettings(
   const draft = state ? view!.draft : "";
   const dirty = !!state && draft !== state.effectivePrompt;
   async function persist(
-    kind: "enablement" | "inherit" | "prompt",
     projectName: string,
-    prompt: string | null = null,
+    prompt: string | null,
     expected?: { prompt: string | null },
   ) {
-    if (!state || writeLock.current || (kind === "prompt" && view?.conflict)) return;
+    if (!state || writeLock.current || view?.conflict) return;
     const target = state.projectId;
     const refreshAfter = activeRead.current;
     const request = ++generation.current;
@@ -172,20 +171,11 @@ export function useProjectSettings(
     // but cannot discard the confirmed result of this serialized write.
     const valid = () => alive.current && selection.current === target && writeLock.current;
     try {
-      const response =
-        kind === "prompt"
-          ? await rpc.call("setPrompt", {
-              projectId: target,
-              prompt,
-              expectedPrompt: expected ? expected.prompt : state.prompt,
-            })
-          : {
-              status: "saved" as const,
-              state: await rpc.call("setEnablement", {
-                projectId: target,
-                enabledOverride: kind === "inherit" ? null : !state.enabled,
-              }),
-            };
+      const response = await rpc.call("setPrompt", {
+        projectId: target,
+        prompt,
+        expectedPrompt: expected ? expected.prompt : state.prompt,
+      });
       if (response.state.projectId !== target)
         throw new Error("Project response did not match the save target.");
       if (!valid()) return;
@@ -201,32 +191,11 @@ export function useProjectSettings(
         );
         return;
       }
-      setView((old) =>
-        kind === "prompt"
-          ? loaded(response.state)
-          : reconcile(
-              old
-                ? {
-                    ...old,
-                    snapshot: {
-                      ...old.snapshot,
-                      enabled: response.state.enabled,
-                      enabledOverride: response.state.enabledOverride,
-                      enableByDefault: response.state.enableByDefault,
-                    },
-                  }
-                : old,
-              response.state,
-            ),
-      );
+      setView(loaded(response.state));
       setSaved(
-        kind === "prompt"
-          ? prompt === null
-            ? `Reset prompt for ${projectName} to plugin default.`
-            : `Saved prompt for ${projectName}.`
-          : kind === "inherit"
-            ? `Saved. ${projectName} follows the default.`
-            : `Saved. Code Cleanup is ${response.state.enabled ? "On" : "Off"} for ${projectName}.`,
+        prompt === null
+          ? `Reset prompt for ${projectName} to plugin default.`
+          : `Saved prompt for ${projectName}.`,
       );
       return response.state;
     } catch (error) {
