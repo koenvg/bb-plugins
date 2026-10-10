@@ -142,10 +142,10 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
               : "—"}
           </p>
         </div>
-        <div>
+        <div className="min-w-0 max-w-full">
           <p className="text-xs text-muted-foreground">Estimated cost</p>
           <p
-            className="mt-1 text-2xl font-semibold tabular-nums"
+            className="mt-1 text-2xl font-semibold tabular-nums [overflow-wrap:anywhere]"
             aria-label="Captured cost subtotal"
           >
             {view?.summary.capturedCost == null

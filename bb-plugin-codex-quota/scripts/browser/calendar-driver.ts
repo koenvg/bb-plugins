@@ -92,7 +92,16 @@ export async function tooltip(page: Page, metric: Metric, dailyRows: string[][])
     const fromDate = await date.getAttribute("datetime");
     expect(dailyRows.map((row) => row[0])).toContain(fromDate);
     // Status banners can move the chart during keyboard input. Resolve its current position.
-    await bar.hover();
+    // Locator.hover can auto-scroll SVG paths out of view in Chromium. Use real pointer input
+    // at the current visible bar instead, without changing the viewport for this proof.
+    const box = (await bar.boundingBox())!;
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const viewport = page.viewportSize()!;
+    expect(point.x).toBeGreaterThan(0);
+    expect(point.x).toBeLessThan(viewport.width);
+    expect(point.y).toBeGreaterThan(0);
+    expect(point.y).toBeLessThan(viewport.height);
+    await page.mouse.move(point.x, point.y);
     await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
     pointer = await tooltipFacts(page, metric, dailyRows[14], fromDate);
   }

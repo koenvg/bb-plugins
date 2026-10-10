@@ -25,6 +25,9 @@ for (const width of [320, 375, 430, 1280]) {
       expect(boxes.next.y).toBeCloseTo(boxes.previous.y, 0);
       expect(boxes.latest.y).toBeCloseTo(boxes.previous.y, 0);
       expect(boxes.plot.width / boxes.chart.width).toBeGreaterThan(0.68);
+      // The panel can scroll internally even when the document does not overflow.
+      const main = page.getByRole("main");
+      expect(await main.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
       await noOverflow(page);
     };
     await check();

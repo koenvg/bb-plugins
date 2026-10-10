@@ -1,6 +1,16 @@
 import { test, expect, jsonEvidence } from "./fixtures.js";
 import { chart, rows, tooltip } from "./calendar-driver.js";
 
+test("large-value hover proof keeps the chart in the viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto("/calendar.html?state=huge");
+  await chart(page);
+  const before = await page.evaluate(() => window.scrollY);
+  const facts = await tooltip(page, "tokens", await rows(page));
+  expect(facts.pointer).not.toBeNull();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+});
+
 declare global {
   interface Window {
     tooltipFrameCounts: number[];
