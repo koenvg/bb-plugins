@@ -77,7 +77,27 @@ export const quotaViewSchema = z
   );
 export type QuotaStatus = z.infer<typeof quotaViewSchema>;
 
+// Host/server-only account correlation, separate from private token fingerprints.
+export const accountObservationInput = z
+  .object({
+    challenge: z.string().regex(/^[a-f0-9]{64}$/),
+    refresh: z.boolean(),
+    includeActivity: z.boolean(),
+  })
+  .strict();
+export const accountObservationSchema = z
+  .object({
+    proof: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .nullable(),
+    quota: quotaViewSchema,
+    activity: activityViewSchema,
+  })
+  .strict();
+
 export const hostContract = defineRpcContract({
+  accountObservation: { input: accountObservationInput, output: accountObservationSchema },
   ping: { input: z.null(), output: z.object({ reachable: z.boolean() }).strict() },
   quota: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: {

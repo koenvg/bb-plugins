@@ -1,349 +1,310 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, within, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, within, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
-import type { CalendarQuery } from "./calendar-contract.js";
-import { CalendarReportPanel } from "./calendar-panel.js";
+import { dashboardFixture, reportFixture } from "../../machines/app.test-support.js";
+import { reportsFixture } from "../../machines/machines.test-support.js";
 import { calendarEmptySnapshot, calendarSnapshot } from "./calendar-test-support.js";
-const app = await loadPluginApp(() => import("../../plugin/app.js"));
+import { latestStart, shiftDate } from "./calendar-time.js";
+import type { CalendarQuery } from "./calendar-contract.js";
+it("shows only the top ten rankings for each grouping and selected metric", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+  const f = await dashboardFixture();
+  f.machineReports.mockImplementation(async (input) => {
+    const data = reportsFixture(requested(input));
+    data.machines = data.machines.slice(0, 1);
+    const report = data.machines[0]!.report;
+    if (report.state === "unavailable") throw new Error("Fixture unavailable");
+    const template = report.ranking[0]!;
+    report.ranking = Array.from({ length: 12 }, (_, i) => ({
+      ...template,
+      key: `entry-${i}`,
+      label: `Ranking ${i + 1}`,
+      totalTokens: (i + 1) * 10,
+      money: { ...template.money, capturedCost: 12 - i },
+    }));
+    return data;
+  });
+  const page = f.page(),
+    q = within(page.container);
+  const table = await q.findByRole("table", { name: "Recorded usage ranking" });
+  await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(10));
+  const labels = () =>
+    Array.from(table.querySelectorAll("tbody tr td:first-child")).map(
+      (cell) => cell.firstChild?.textContent,
+    );
+  expect(labels()[0]).toContain("Ranking 12");
+  expect(labels()).not.toContain("Ranking 1");
+  expect(q.getByRole("heading", { name: "Top 10 threads" })).toBeTruthy();
+  fireEvent.click(q.getByRole("button", { name: "Workspaces" }));
+  await q.findByRole("heading", { name: "Top 10 workspaces" });
+  await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(10));
+  const totals = q.getByLabelText("Recorded token subtotal").textContent;
+  fireEvent.click(q.getByRole("button", { name: "Estimated cost" }));
+  await waitFor(() => expect(labels()[0]).toBe("Ranking 1"));
+  expect(labels()).not.toContain("Ranking 12");
+  expect(table.querySelectorAll("tbody tr")).toHaveLength(10);
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe(totals);
+});
+
+it("defaults to Threads first and removes the requested generic notices", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+  const f = await dashboardFixture();
+  f.machinePreparation.mockResolvedValue({ state: "pending", progress: "synthetic-pending" });
+  f.machineReports.mockImplementation(async (input) => {
+    const data = reportsFixture(requested(input));
+    for (const row of data.machines)
+      if (row.report.state !== "unavailable") row.report.truncated = true;
+    return data;
+  });
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByRole("table", { name: "Daily recorded usage" });
+  expect(q.getByRole("heading", { name: "Top 10 threads" })).toBeTruthy();
+  const grouping = q.getByLabelText("Usage grouping");
+  const buttons = within(grouping).getAllByRole("button");
+  expect(buttons.map((button) => button.textContent)).toEqual(["Threads", "Workspaces"]);
+  expect(buttons[0]!.getAttribute("aria-pressed")).toBe("true");
+  expect(q.queryByText(/Preparing newly recorded history/)).toBeNull();
+  expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
+  expect(q.queryByText(/Calendar dates use/)).toBeNull();
+  expect(q.queryByText(/Unknown dates are not certified zero/)).toBeNull();
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+});
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
-function calendarPage(
-  read: (input: {
-    hostId: string;
-    generation: number;
-    query: CalendarQuery;
-  }) => unknown | Promise<unknown>,
-  selectHost?: (input: {
-    hostId: string | null;
-  }) => Promise<{ hostId: string | null; generation: number }>,
-  prepare?: () => Promise<unknown>,
-  fakeTimers = false,
-) {
-  vi.useFakeTimers(fakeTimers ? {} : { toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
-  const options = {
-    sdk: {
-      hosts: {
-        list: async () => [
-          makeHostResponse({ id: "host_a", name: "Host A" }),
-          makeHostResponse({ id: "host_b", name: "Host B" }),
-        ],
-      },
-    },
-    rpc: {
-      selection: async () => ({ hostId: "host_a", generation: 1 }),
-      selectHost: async (input: unknown) => {
-        const { hostId } = input as { hostId: string | null };
-        return selectHost ? selectHost({ hostId }) : { hostId, generation: 2 };
-      },
-      read: async () => ({ state: "unavailable", reason: "auth-required", snapshot: null }),
-      historyReadiness: () =>
-        prepare
-          ? prepare()
-          : Promise.resolve({
-              state: "not-configured",
-              reason: "not-configured",
-              storage: "unconfigured",
-              collector: "missing",
-              writer: "unconfirmed",
-            }),
-      // Chart tests use a terminal preparation result, not a missing-handler retry path.
-      reportPreparation: async () => ({
-        state: "unavailable",
-        reason: "identity-unavailable",
-        progress: "",
-      }),
-      calendarReport: (input: unknown) =>
-        read(input as { hostId: string; generation: number; query: CalendarQuery }),
-    },
-  };
-  const owner = renderSlot(
-    app.appOverlays.find((item) => item.id === "quota-refresh")!,
-    {},
-    options,
-  );
-  const page = renderSlot(app.navPanels[0]!, { subPath: "" }, options);
-  return {
-    page,
-    q: within(page.container),
-    prepared: () => within(page.container).findByRole("button", { name: "Retry preparation" }),
-    stop: () => {
-      page.lifecycle.unmount();
-      owner.lifecycle.unmount();
-    },
-  };
-}
-it("navigates only the retained chart without mounting management controls", async () => {
-  const f = calendarPage(({ query }) => calendarSnapshot(query));
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  expect(f.q.getByRole("button", { name: "Next 30 days" })).toHaveProperty("disabled", true);
-  await f.prepared();
-  const before = f.page.inspection.rpcCalls.length;
-  fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
-    target: { value: "cost" },
-  });
-  expect(f.page.inspection.rpcCalls).toHaveLength(before);
-  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
-  await waitFor(() =>
-    expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-      "2026-08-03",
-    ),
-  );
-  expect(f.page.inspection.rpcCalls.slice(before).map((call) => call.method)).toEqual([
-    "calendarReport",
-  ]);
-  expect(
-    f.page.inspection.rpcCalls.filter((call) => call.method === "historyReadiness"),
-  ).toHaveLength(0);
-  expect(
-    f.page.inspection.rpcCalls.some((call) =>
-      /activity|historicalImport|collectorControl/.test(call.method),
-    ),
-  ).toBe(false);
-  expect(f.q.queryByText("Settings")).toBeNull();
-  expect(f.q.queryByText("Breakdown")).toBeNull();
-  expect(f.q.getByRole("link", { name: "Open Codex Usage" })).toBeTruthy();
-  f.stop();
-});
-it("hides an old range immediately and ignores a delayed response", async () => {
-  let finish!: (value: unknown) => void, oldQuery!: CalendarQuery;
-  const f = calendarPage(({ query }) =>
-    query.startDate === "2026-08-03"
-      ? new Promise((resolve) => {
-          finish = resolve;
-          oldQuery = query;
-        })
-      : calendarSnapshot(query),
-  );
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
-  expect(f.q.queryByRole("group", { name: "Daily recorded values" })).toBeNull();
-  await waitFor(() => expect(finish).toBeDefined());
-  fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
-    target: { value: "host_b" },
-  });
-  await act(async () => {
-    finish(calendarSnapshot(oldQuery));
-  });
-  expect(f.q.queryByRole("table", { name: "Daily recorded usage" })).toBeNull();
-  f.stop();
-});
-it("invalidates the earlier host before selection completes and suppresses late output", async () => {
-  let select!: (value: { hostId: string; generation: number }) => void;
-  const f = calendarPage(
-    ({ query }) => calendarSnapshot(query),
-    () =>
-      new Promise((resolve) => {
-        select = resolve;
-      }),
-  );
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
-    target: { value: "host_b" },
-  });
-  expect(f.q.queryByRole("group", { name: "Daily recorded values" })).toBeNull();
-  expect(f.q.getByText("Changing host.")).toBeTruthy();
-  await act(async () => {
-    select({ hostId: "host_b", generation: 2 });
-  });
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  expect(
-    f.page.inspection.rpcCalls.filter((call) => call.method === "calendarReport").at(-1)?.input,
-  ).toMatchObject({ hostId: "host_b", generation: 2 });
-  f.stop();
-});
-it("keeps a failed retry stale only for the same frozen key", async () => {
+const requested = (input: unknown) => (input as { query: CalendarQuery }).query;
+async function pageFixture() {
   vi.useFakeTimers({ toFake: ["Date"] });
-  const now = Date.parse("2026-10-01T12:00:00Z");
-  vi.setSystemTime(now);
-  let calls = 0;
-  const props = {
-    selection: { hostId: "host_a", generation: 1 },
-    now,
-    read: async ({ query }: { query: CalendarQuery }) =>
-      ++calls === 1 ? calendarSnapshot(query) : Promise.reject(Error("synthetic retry")),
-  };
-  const page = render(<CalendarReportPanel {...props} />);
-  await page.findByRole("group", { name: "Daily recorded values" });
-  page.rerender(<CalendarReportPanel {...props} now={now + 360_000} />);
-  fireEvent.click(page.getByRole("button", { name: "Refresh chart" }));
-  await waitFor(() =>
-    expect(page.getByRole("button", { name: "Refresh chart" })).toHaveProperty("disabled", false),
+  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+  const f = await dashboardFixture(),
+    page = f.page();
+  return { ...f, view: page, q: within(page.container) };
+}
+it("opens the latest thirty dates through today", async () => {
+  const f = await pageFixture();
+  await f.q.findByRole("table", { name: "Daily recorded usage" });
+  expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(
+    latestStart(Date.now(), "UTC"),
   );
-  expect(page.getByText("Chart is out of date.")).toBeTruthy();
-  expect(page.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain("600");
-  page.rerender(
-    <CalendarReportPanel
-      {...props}
-      now={now + 360_000}
-      selection={{ hostId: "host_b", generation: 2 }}
-    />,
-  );
-  expect(page.queryByRole("table", { name: "Daily recorded usage" })).toBeNull();
+  expect(f.q.getByText(/2026-09-02 – 2026-10-01/)).toBeTruthy();
+  expect(f.q.queryByText(/Preparing newly/)).toBeNull();
 });
-it("makes missing viewer timezone explicit and does not send a report request", async () => {
-  vi.spyOn(Intl, "DateTimeFormat").mockImplementation(
-    () => ({ resolvedOptions: () => ({ timeZone: "" }) }) as Intl.DateTimeFormat,
+it("navigates the retained chart without opening collection or import controls", async () => {
+  const f = await pageFixture();
+  await f.q.findByRole("group", { name: "Daily recorded values" });
+  const old = requested(f.machineReports.mock.lastCall![0]);
+  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
+  await waitFor(() =>
+    expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(
+      shiftDate(old.startDate, -30),
+    ),
   );
-  const f = calendarPage(({ query }) => calendarSnapshot(query));
-  await f.q.findByText("Viewer timezone is unavailable.");
-  expect(f.page.inspection.rpcCalls.some((call) => call.method === "calendarReport")).toBe(false);
-  f.stop();
+  fireEvent.click(f.q.getByRole("button", { name: "Latest" }));
+  await waitFor(() =>
+    expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(old.startDate),
+  );
+  expect(f.selectHost).not.toHaveBeenCalled();
+  expect(f.historyReadiness).not.toHaveBeenCalled();
+  expect(f.collectorControl).not.toHaveBeenCalled();
+  expect(f.historicalImport).not.toHaveBeenCalled();
+  expect(
+    f.machineReports.mock.calls.every(
+      ([input]) =>
+        !(input as { prepare: boolean }).prepare && !(input as { refresh: boolean }).refresh,
+    ),
+  ).toBe(true);
+});
+it("changes metrics locally without another report or preparation request", async () => {
+  const f = await pageFixture();
+  await f.q.findByRole("group", { name: "Daily recorded values" });
+  const reads = f.machineReports.mock.calls.length,
+    preparations = f.machinePreparation.mock.calls.length;
+  fireEvent.click(f.q.getByRole("button", { name: "Estimated cost" }));
+  expect(f.machineReports).toHaveBeenCalledTimes(reads);
+  expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);
+  expect(f.q.queryByText("Daily values")).toBeNull();
+});
+it("hides the previous date range immediately and ignores its late response", async () => {
+  const f = await pageFixture();
+  await f.q.findByRole("group", { name: "Daily recorded values" });
+  let done!: (value: unknown) => void;
+  f.machineReports.mockImplementationOnce(
+    async () =>
+      new Promise((resolve) => {
+        done = resolve;
+      }),
+  );
+  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
+  await waitFor(() => expect(done).toBeTypeOf("function"));
+  expect(f.q.queryByRole("group", { name: "Daily recorded values" })).toBeNull();
+  const oldQuery = requested(f.machineReports.mock.lastCall![0]);
+  fireEvent.click(f.q.getByRole("button", { name: "Latest" }));
+  await f.q.findByRole("group", { name: "Daily recorded values" });
+  const old = reportsFixture(oldQuery);
+  old.machines[0]!.report = { state: "unavailable", reason: "host-offline" };
+  await act(async () => {
+    done(old);
+  });
+  expect(f.q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+});
+it("makes a missing viewer time zone explicit and sends no report or ingestion request", async () => {
+  const f = await dashboardFixture();
+  vi.spyOn(Intl, "DateTimeFormat").mockImplementation(() => {
+    throw new Error("Timezone unavailable");
+  });
+  const page = f.page();
+  await within(page.container).findByText(/Viewer time zone unavailable/);
+  expect(f.machineReports).not.toHaveBeenCalled();
+  expect(f.machinePreparation).not.toHaveBeenCalled();
 });
 it.each(["unknown", "observed-inactivity"] as const)(
-  "keeps %s dates separate from invented zero usage",
+  "keeps %s dates distinct from invented zero usage",
   async (state) => {
-    const f = calendarPage(({ query }) => calendarEmptySnapshot(query, state));
-    await f.q.findByRole("table", { name: "Daily recorded usage" });
-    const rows = f.q
-      .getByRole("table", { name: "Daily recorded usage" })
-      .querySelectorAll("tbody tr");
-    expect(rows[0].children[1].textContent).toBe(state === "unknown" ? "Unavailable" : "0");
-    fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
-      target: { value: "cost" },
-    });
-    expect(rows[0].children[1].textContent).toBe("Unavailable");
-    f.stop();
+    const f = await dashboardFixture();
+    f.machineReports.mockImplementation(async (input) =>
+      reportFixture(calendarEmptySnapshot(requested(input), state)),
+    );
+    const page = f.page(),
+      q = within(page.container);
+    await q.findByRole("table", { name: "Daily recorded usage" });
+    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe(
+      state === "unknown" ? "Unknown" : "0",
+    );
+    expect(
+      within(q.getByRole("table", { name: "Daily recorded usage" })).getAllByRole("row").length,
+    ).toBe(31);
   },
 );
-it("does not draw monetary zero when no captured prices exist", async () => {
-  const f = calendarPage(({ query }) => {
-    const view = calendarSnapshot(query);
-    view.days[14].money = {
-      state: "unavailable",
-      capturedCost: null,
-      pricedRecords: 0,
-      records: 60,
-      pricedEntities: 0,
-      reason: "missing-prices",
-    };
-    return view;
-  });
-  await f.q.findByRole("table", { name: "Daily recorded usage" });
-  expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain("600");
-  fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
-    target: { value: "cost" },
-  });
+it("does not draw monetary zero when accepted records have no captured prices", async () => {
+  const f = await dashboardFixture();
+  f.machineReports.mockImplementation(async (input) =>
+    reportFixture(calendarSnapshot(requested(input))),
+  );
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByRole("table", { name: "Daily recorded usage" });
+  fireEvent.click(q.getByRole("button", { name: "Estimated cost" }));
+  expect(q.getByLabelText("Captured cost subtotal").textContent).toBe("Unknown");
+  expect(q.getAllByText(/0 of 60 accepted records priced/)).toBeTruthy();
+  expect(q.queryByText(/Recorded usage can be incomplete/)).toBeNull();
   expect(
-    f.q.getByRole("table", { name: "Daily recorded usage" }).querySelectorAll("tbody tr")[14]
-      .children[1].textContent,
-  ).toBe("Unavailable");
-  f.stop();
+    q.queryByText(/Dollar values are captured estimates, not subscription spending/),
+  ).toBeNull();
+  expect(q.queryByText(/tokens excluded\.$/)).toBeNull();
 });
-it("loads the retained index without waiting for management readiness on either host", async () => {
-  const f = calendarPage(
-    ({ query }) => calendarSnapshot(query),
-    undefined,
-    () => new Promise(() => {}),
-  );
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
-    target: { value: "host_b" },
+it("retains recorded offline values with an incomplete-coverage notice", async () => {
+  const f = await dashboardFixture();
+  f.machineReports.mockImplementation(async (input) => {
+    const data = reportsFixture(requested(input));
+    data.machines[0]!.cached = true;
+    data.machines[0]!.machine.status = "disconnected";
+    return data;
   });
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  expect(f.page.inspection.rpcCalls.filter((call) => call.method === "historyReadiness")).toEqual(
-    [],
-  );
-  expect(
-    f.page.inspection.rpcCalls
-      .filter((call) => call.method === "calendarReport")
-      .map((call) => call.input),
-  ).toMatchObject([
-    { hostId: "host_a", generation: 1 },
-    { hostId: "host_b", generation: 2 },
-  ]);
-  f.stop();
+  const page = f.page(),
+    q = within(page.container);
+  await waitFor(() => expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"));
+  expect(q.getByText(/Last-known summaries retained for MacBook/)).toBeTruthy();
+  expect(q.getByText(/newer usage is unknown/)).toBeTruthy();
 });
-it("retries an unavailable chart without refreshing allowance or maintaining history", async () => {
-  let calls = 0;
-  const f = calendarPage(({ query }) =>
-    ++calls === 1 ? { state: "unavailable", reason: "host-offline" } : calendarSnapshot(query),
-  );
-  await f.q.findByText("Selected host is offline.");
-  await f.prepared();
-  const before = f.page.inspection.rpcCalls.length;
-  fireEvent.click(f.q.getByRole("button", { name: "Retry chart" }));
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  expect(calls).toBe(2);
-  expect(f.page.inspection.rpcCalls.slice(before).map((call) => call.method)).toEqual([
-    "calendarReport",
-  ]);
-  f.stop();
-});
-it("recovers the latest range after the retained older range is rejected by another host", async () => {
-  const f = calendarPage(({ hostId, query }) =>
-    hostId === "host_b" && query.startDate === "2026-08-03"
-      ? { state: "unavailable", reason: "range-unavailable" }
-      : calendarSnapshot(query),
-  );
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
-  await waitFor(() =>
-    expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-      "2026-08-03",
-    ),
-  );
-  fireEvent.change(f.q.getByRole("combobox", { name: "Codex host" }), {
-    target: { value: "host_b" },
+it("does not turn absent history into zero, or hide independently available account allowance", async () => {
+  const f = await dashboardFixture();
+  f.machineReports.mockImplementation(async (input) => {
+    const data = reportsFixture(requested(input));
+    for (const row of data.machines) row.report = { state: "unavailable", reason: "host-offline" };
+    return data;
   });
-  await f.q.findByText(/outside the retained bounds/);
-  await f.prepared();
-  const before = f.page.inspection.rpcCalls.length;
-  fireEvent.click(f.q.getByRole("button", { name: "Latest 30 days" }));
-  await f.q.findByRole("group", { name: "Daily recorded values" });
-  expect(f.page.inspection.rpcCalls.slice(before).map((call) => call.method)).toEqual([
-    "calendarReport",
-  ]);
-  expect(f.page.inspection.rpcCalls.at(-1)?.input).toMatchObject({
-    hostId: "host_b",
-    generation: 2,
-    query: { startDate: "2026-09-02" },
-  });
-  f.stop();
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByText(/No usable recorded history/);
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("—");
+  expect(q.getByText("63%")).toBeTruthy();
 });
-
-it("finishes the fixture preparation before navigation and schedules no transport retries", async () => {
-  const f = calendarPage(({ query }) => calendarSnapshot(query), undefined, undefined, true);
+it("retries a chart failure without refreshing allowance or installing collection", async () => {
+  const f = await dashboardFixture();
+  f.machineReports.mockRejectedValue(new Error("private diagnostic"));
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByRole("button", { name: "Retry chart" });
+  expect(page.container.textContent).not.toContain("private diagnostic");
+  f.machineReports.mockImplementation(async (input) => reportsFixture(requested(input)));
+  fireEvent.click(q.getByRole("button", { name: "Retry chart" }));
+  await q.findByRole("group", { name: "Daily recorded values" });
+  expect(f.machineAccounts).toHaveBeenCalledTimes(1);
+  expect(f.collectorControl).not.toHaveBeenCalled();
+  expect(f.historicalImport).not.toHaveBeenCalled();
+});
+it("keeps stopped preparation visible after a successful report and offers manual retry", async () => {
+  const f = await dashboardFixture();
+  f.machinePreparation.mockResolvedValue({
+    state: "unavailable",
+    reason: "unsupported",
+    progress: "",
+  });
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByRole("group", { name: "Daily recorded values" });
+  await q.findByRole("button", { name: "Retry preparation" });
+  f.machinePreparation.mockResolvedValue({ state: "settled", progress: "ready" });
+  fireEvent.click(q.getByRole("button", { name: "Retry preparation" }));
+  await waitFor(() => expect(q.queryByRole("button", { name: "Retry preparation" })).toBeNull());
+  expect(f.historyReadiness).not.toHaveBeenCalled();
+});
+it("ignores report completion after the public slot unmounts", async () => {
+  const f = await dashboardFixture();
+  let done!: (value: unknown) => void;
+  f.machineReports.mockImplementation(
+    async () =>
+      new Promise((resolve) => {
+        done = resolve;
+      }),
+  );
+  const page = f.page();
+  await waitFor(() => expect(done).toBeTypeOf("function"));
+  const query = requested(f.machineReports.mock.lastCall![0]);
+  page.lifecycle.unmount();
   await act(async () => {
-    await Promise.resolve();
+    done(reportsFixture(query));
   });
-  expect(
-    f.q.getByText("History preparation stopped. Recorded values remain available."),
-  ).toBeTruthy();
-  expect(
-    f.page.inspection.rpcCalls.filter((call) => call.method === "reportPreparation"),
-  ).toHaveLength(1);
-  const before = f.page.inspection.rpcCalls.length;
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(2_000);
-  });
-  expect(f.page.inspection.rpcCalls).toHaveLength(before);
-  fireEvent.change(f.q.getByRole("combobox", { name: "Report metric" }), {
-    target: { value: "cost" },
-  });
-  expect(f.page.inspection.rpcCalls).toHaveLength(before);
-  f.stop();
+  expect(page.container.textContent).toBe("");
 });
-
-it("opens the latest thirty days through today without extra progress text", async () => {
-  const f = calendarPage(({ query }) => calendarSnapshot(query));
-  await f.q.findByRole("table", { name: "Daily recorded usage" });
-  await f.prepared();
-  expect(
-    f.page.inspection.rpcCalls.find((call) => call.method === "calendarReport")?.input,
-  ).toMatchObject({ query: { startDate: "2026-09-02" } });
-  expect(f.q.getByRole("table", { name: "Daily recorded usage" }).textContent).toContain(
-    "2026-10-01",
+it("keeps recorded totals while omitting the generic bounded-ranking notice", async () => {
+  const f = await dashboardFixture();
+  f.machineReports.mockImplementation(async (input) => {
+    const data = reportsFixture(requested(input));
+    const report = data.machines[0]!.report;
+    if (report.state !== "unavailable") report.truncated = true;
+    return data;
+  });
+  const page = f.page();
+  const q = within(page.container);
+  await waitFor(() => expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"));
+  expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
+});
+it("keeps a previous valid subtotal after a malformed response for the same range", async () => {
+  const f = await dashboardFixture();
+  let finish!: (value: unknown) => void,
+    reads = 0;
+  f.machinePreparation.mockImplementationOnce(
+    async () =>
+      new Promise((done) => {
+        finish = done;
+      }),
   );
-  expect(f.q.queryByText("Today is in progress. Values are recorded so far.")).toBeNull();
-  fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
-  await waitFor(() =>
-    expect(f.q.queryByText("Today is in progress. Values are recorded so far.")).toBeNull(),
+  f.machineReports.mockImplementation(async (input) =>
+    ++reads === 1 ? reportsFixture(requested(input)) : { machines: "invalid" },
   );
-  f.stop();
+  const page = f.page(),
+    q = within(page.container);
+  await q.findByRole("group", { name: "Daily recorded values" });
+  await act(async () => {
+    finish({ state: "settled", progress: "ready" });
+  });
+  await q.findByRole("button", { name: "Retry chart" });
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+  expect(q.getByText(/Recorded values are out of date/)).toBeTruthy();
 });
