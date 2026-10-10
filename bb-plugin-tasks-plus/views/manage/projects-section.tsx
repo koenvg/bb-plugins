@@ -353,10 +353,10 @@ function ProjectRow({
             <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
               <ColorSwatchPicker
                 value={draftColor}
-                onChange={(color) => {
+                onChange={(color, interaction) => {
                   if (mutationLock.current !== null) return;
                   setDraftColor(color);
-                  setColorOpen(false);
+                  if (interaction === "activate") setColorOpen(false);
                 }}
               />
             </fieldset>

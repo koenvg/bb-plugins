@@ -390,7 +390,9 @@ const persistentDrawerStacks = new WeakMap<Document, PersistentDrawerStack>();
 function getDrawerFocusableElements(panel: HTMLElement): HTMLElement[] {
   return Array.from(
     panel.querySelectorAll<HTMLElement>(PERSISTENT_DRAWER_FOCUSABLE_SELECTOR),
-  ).filter((element) => element.closest('[aria-hidden="true"], [inert]') === null);
+  ).filter(
+    (element) => element.tabIndex >= 0 && element.closest('[aria-hidden="true"], [inert]') === null,
+  );
 }
 
 function activeElementIsInAnotherOverlay(

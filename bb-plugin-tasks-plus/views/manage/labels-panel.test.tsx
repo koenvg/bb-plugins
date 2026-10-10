@@ -34,7 +34,14 @@ describe("Manage labels", () => {
       );
       const name = await slot.findByPlaceholderText("Label name");
       fireEvent.change(name, { target: { value: "  Release  " } });
-      fireEvent.click(slot.getByRole("radio", { name: "Green" }));
+      const indigo = slot.getByRole("radio", { name: "Indigo" });
+      expect(indigo.tabIndex).toBe(0);
+      indigo.focus();
+      for (const key of ["ArrowRight", "ArrowDown", "ArrowRight"]) {
+        fireEvent.keyDown(document.activeElement!, { key });
+      }
+      expect(document.activeElement).toBe(slot.getByRole("radio", { name: "Green" }));
+      expect(createCalls).toEqual([]);
       const submit = () => {
         if (submitWith === "Enter") fireEvent.keyDown(name, { key: "Enter" });
         else fireEvent.click(slot.getByRole("button", { name: "Add label" }));
