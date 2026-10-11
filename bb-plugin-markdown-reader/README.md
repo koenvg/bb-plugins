@@ -14,6 +14,33 @@ After an explicit installation, select Markdown Reader with BB's one-off **Open 
 - Refresh reads the current file again and updates both views. There is no automatic file watching. During refresh, the reader labels retained content as not verified current. If refresh fails, it reports the failure and marks the retained snapshot stale. Retry reads the source again and clears that label only after success.
 - Failed or unsupported reads offer Open in BB preview beside Retry. It renders BB's `Original` component, already bound to this file. It does not open the file again through plugin selection.
 
+## Add selected text to chat
+
+Select document text in Preview or Raw, then choose **Add to chat** near the selection. It appends a blockquote to this file panel's associated chat draft and focuses the composer. Existing text, mentions and uploaded attachments stay in place, even when the composer has a text selection. It never sends a message or writes the file.
+
+Preview quotes the visible text, including table cells and highlighted code. It does not include hidden frontmatter or infer source lines. Raw quotes exactly the selected source text, not the surrounding source lines. Raw references use inclusive one-based source lines; a wrapped line remains one source line. An endpoint at the start of the next line does not include that line.
+
+Examples of the first two quote lines:
+
+```text
+> notes/plan.md
+> workspace · host local · project project-id · environment environment-id
+
+> /srv/notes/plan.md:4-6
+> host · host remote-id
+
+> reports/plan.md:4-4
+> thread-storage · host remote-id · owner thread owner-id
+```
+
+The selected excerpt follows those lines, with a `> ` prefix on every line. References use the displayed snapshot's path and resolved host. A storage-owner thread identifies the file's origin, not the destination chat. Workspace project/environment identity is included when supplied with the snapshot target. Indentation, internal blank lines and Markdown punctuation stay intact. Browser selection can normalize newlines and rendered table spacing; quote newlines use LF.
+
+Only non-whitespace selections wholly inside the current document are eligible. Toolbar, outline, status and other-reader text do not qualify. Clearing the selection, Escape, outside activation, scrolling, switching views, Refresh, changing the file or associated composer, or leaving the reader closes the action. Select again after a successful read. Loading and stale content can still be copied normally, but cannot be added through this action.
+
+The action requires an associated thread or new-thread draft. Other editing sessions show an unavailable action and an explanation. Rejected insertion reports a local error without automatic retry; check the associated draft and select again. A focus failure after insertion reports that the quote was added, without adding it twice.
+
+With browser caret browsing enabled, create a selection with the keyboard, use Tab to reach **Add to chat**, then Enter or Space to activate it. Focus has a visible outline. Fine-pointer devices get the custom action; coarse-pointer devices retain the operating system's native selection controls.
+
 ## Heading and line navigation
 
 Outline lists only headings from the rendered Markdown parse. It keeps heading levels and visible inline text, including code and link text. Repeated headings have distinct GitHub-style fragment names, such as `#section` and `#section-1`. Non-ASCII names are supported, including percent-encoded fragments. Every mounted reader has separate DOM targets. Outline entries and known fragment links scroll and focus the heading in that reader without opening the file again. Missing or malformed fragments remain inert. Footnote references and return links scroll and focus targets within the same reader. Their accessibility references stay reader-local. The parser's hidden footnote label is not a source heading and does not create an outline entry.
@@ -72,7 +99,7 @@ The toolbar, reading column, and optional outline respond to the actual reader w
 
 ## Compatibility and local build
 
-The package targets BB **>=0.45** and Plugin SDK **>=0.6.15 <0.7**, with declarations pinned to **0.6.15**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
+The package targets BB **>=0.45** and Plugin SDK **>=0.6.15 <0.7**, with declarations pinned to **0.6.37**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
 From this package directory, with Node 24.15 or newer within Node 24 and a compatible `bb` CLI:
 
