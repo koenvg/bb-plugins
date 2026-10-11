@@ -20,6 +20,7 @@ export interface PiCatalogModel {
   provider: string;
   reasoning: boolean;
   supportedThinkingLevels: readonly string[];
+  supportedServiceTiers?: AvailableModel["supportedServiceTiers"];
 }
 
 interface BuildPiAvailableModelsArgs {
@@ -58,6 +59,8 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
     description: describePiModel(model),
     supportedReasoningEfforts,
     defaultReasoningEffort,
+    supportedServiceTiers:
+      model.provider === "openai-codex" ? (model.supportedServiceTiers ?? []) : [],
     isDefault: false,
   };
 }

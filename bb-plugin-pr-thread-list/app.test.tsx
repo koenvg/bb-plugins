@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+import { renderSidebarSlot as renderSlot } from "./sidebar-actions.test-support";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThreadsState } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreads, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
@@ -21,11 +22,27 @@ import {
 // The SDK harness ignores query options. Supply host-shaped snapshots for lifecycle regressions.
 const lifecycleViews = vi.hoisted(() => ({
   snapshots: undefined as Record<string, PluginSidebarThread[]> | undefined,
+  splitStarts: [] as string[],
 }));
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
   const sdk = await importOriginal<typeof import("@get-bb/plugin-sdk/app")>();
   return {
     ...sdk,
+    experimental_useSidebarThreadSplit(threadId: string) {
+      const split = sdk.experimental_useSidebarThreadSplit(threadId);
+      return {
+        ...split,
+        splitProps: {
+          ...split.splitProps,
+          onPointerDown: (
+            ...args: Parameters<NonNullable<typeof split.splitProps.onPointerDown>>
+          ) => {
+            lifecycleViews.splitStarts.push(threadId);
+            split.splitProps.onPointerDown?.(...args);
+          },
+        },
+      };
+    },
     experimental_useSidebarThreads(
       options: Parameters<typeof sdk.experimental_useSidebarThreads>[0],
     ) {
@@ -44,6 +61,7 @@ afterEach(() => {
   mounted?.lifecycle.unmount();
   mounted = undefined;
   lifecycleViews.snapshots = undefined;
+  lifecycleViews.splitStarts.length = 0;
   localStorage.clear();
   receivers.splice(0).forEach((dispose) => dispose());
   cancelPrPanelRequest();
@@ -447,7 +465,7 @@ describe("thread list slot", () => {
     expect(slot.getByRole("button", { name: "Collapse Live parent" })).toBeTruthy();
     expect(slot.getByRole("button", { name: "Actions for Live parent" })).toBeTruthy();
     fireEvent.click(slot.getByRole("link", { name: "Live parent" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "open", threadId: "live" });
+    expect(slot.inspection.threadActionCalls).toContainEqual({ method: "open", threadId: "live" });
   });
 
   it("registers one selectable list and renders a seeded thread", () => {
@@ -648,7 +666,7 @@ describe("thread list slot", () => {
     );
     expect(slot.container.querySelector("[data-project-badge]")?.textContent).toBe("S");
     fireEvent.click(slot.getByRole("button", { name: "New thread in Sample project" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "openNewThread",
       options: { projectId: "p1", focusPrompt: true },
     });
@@ -702,27 +720,27 @@ describe("thread list slot", () => {
     open();
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
     expect(rename).toHaveBeenCalled();
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "rename",
       threadId: "t1",
       title: "Renamed",
     });
     open();
     fireEvent.click(screen.getByRole("menuitem", { name: "Mark unread" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "setRead",
       threadId: "t1",
       read: false,
     });
     open();
     fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "archive",
       threadId: "t1",
     });
     open();
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "requestDelete",
       threadId: "t1",
     });
@@ -808,7 +826,7 @@ describe("thread list slot", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename section" }));
     expect(sdk.threadSections.update).toHaveBeenCalledWith({ id: "s1", name: "Renamed section" });
     fireEvent.click(slot.getByRole("button", { name: "New thread in Later" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "openNewThread",
       options: { sectionId: "s1", focusPrompt: true },
     });
@@ -822,7 +840,7 @@ describe("thread list slot", () => {
     expect(link.hasAttribute("data-sidebar-thread-shortcut-target")).toBe(true);
     expect(link.getAttribute("data-sidebar-thread-id")).toBe("t1");
     fireEvent.click(link);
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({ method: "open", threadId: "t1" });
+    expect(slot.inspection.threadActionCalls).toContainEqual({ method: "open", threadId: "t1" });
     expect(onNavigate).toHaveBeenCalledOnce();
     const preventModifiedNavigation = (event: MouseEvent) => {
       if (event.metaKey) event.preventDefault();
@@ -832,12 +850,10 @@ describe("thread list slot", () => {
     document.removeEventListener("click", preventModifiedNavigation);
     expect(onNavigate).toHaveBeenCalledOnce();
     fireEvent.pointerDown(link);
-    expect(
-      slot.inspection.sidebarActionCalls.filter((call) => call.method === "open"),
-    ).toHaveLength(2);
+    expect(lifecycleViews.splitStarts).toEqual(["t1"]);
     fireEvent.click(slot.getByRole("button", { name: "Actions for Prepare release" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Open in split" }));
-    expect(slot.inspection.sidebarActionCalls).toContainEqual({
+    expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "open",
       threadId: "t1",
       options: { split: true },
@@ -858,7 +874,7 @@ describe("thread list slot", () => {
     expect(slot.queryByText("#42")).toBeNull();
     expect(pr.textContent).toContain("Checks failed");
     fireEvent.click(pr);
-    expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
+    expect(slot.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
     expect(onNavigate).toHaveBeenCalledOnce();
     expect(open).toHaveBeenCalledOnce();
   });
@@ -894,7 +910,7 @@ describe("thread list slot", () => {
     for (const target of targets) fireEvent.click(target);
     expect(open).toHaveBeenCalledTimes(targets.length);
     expect(onNavigate).toHaveBeenCalledTimes(targets.length);
-    expect(slot.inspection.sidebarActionCalls).toEqual(
+    expect(slot.inspection.threadActionCalls).toEqual(
       targets.map(() => ({ method: "open", threadId: "t1" })),
     );
   });
@@ -913,7 +929,7 @@ describe("thread list slot", () => {
       const badge = await slot.findByRole("button", { name: `Open PR tab, PR #42: ${state}` });
       expect(badge.getAttribute("type")).toBe("button");
       fireEvent.click(badge);
-      expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
+      expect(slot.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "t1" }]);
     },
   );
   it("targets the clicked row when several threads share a PR", async () => {
@@ -930,7 +946,7 @@ describe("thread list slot", () => {
       expect(slot.getAllByRole("button", { name: /^Open PR tab/ })).toHaveLength(2),
     );
     fireEvent.click(slot.getAllByRole("button", { name: /^Open PR tab/ })[1]!);
-    expect(slot.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "t2" }]);
+    expect(slot.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "t2" }]);
     expect(second).toHaveBeenCalledOnce();
     expect(first).not.toHaveBeenCalled();
   });

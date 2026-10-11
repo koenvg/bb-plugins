@@ -40,6 +40,18 @@ These commands are examples, not actions taken by this task. A thread worktree c
 
 Select **Pi with subagents** for a new thread. Existing bundled-provider threads keep provider `pi` and their session files. This plugin does not change the default provider. It reads Pi's native skill roots as the inherited provider does, without editing Pi settings. Open **Subagents** from the thread panel actions. Missing capabilities show explicit unavailable states. See [capture limits](SUBAGENTS.md).
 
+## OpenAI Codex speed
+
+For the ChatGPT subscription route `openai-codex`, use BB's native speed selector. Speed stays separate from model and reasoning. This fork uses `@koenvg/pi-openai-codex-speed@0.1.0` and verifies Pi 1.1.0. Default stays usable if speed control or account discovery is unavailable.
+
+The selector shows only tiers returned for that account and model. Fast uses verified `priority` processing and reports increased usage. This package does not expose Ultrafast because its wire mapping is unverified. API-key routes and other providers offer no speed options.
+
+Send `/speed refresh` to retry discovery. The bridge handles it privately, including during steering, without a model prompt. Failed refresh returns a clear error. Reopen the model picker to read a fresh catalog. No automatic retries are added.
+
+BB saves the selected speed with the thread. The running Pi child checks it again on resume and before each prompt, steer, or queued follow-up. If saved Fast is no longer confirmed, the request fails. Select Default, or refresh and retry after Fast is confirmed. The provider never silently replaces a saved tier. Changes during a turn apply to the next turn; ongoing tool continuations keep their turn's choice.
+
+Child sessions retain their own settings. The fork neither installs the standalone extension globally nor changes the bundled Pi provider, credentials, or provider defaults.
+
 ## Preserved behavior
 
 Ordinary prompts, native tools, model and reasoning selection, extension dialogs, native skill discovery, checkpoint forks, and manual compaction keep their inherited regression tests. Dialog answers use the public host shortcut hook. The fork never loads or enables `pi-subagents` to make a view available. Standalone Pi still uses its own settings, prompts, packages, and agent definitions.

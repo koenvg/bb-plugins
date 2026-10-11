@@ -16,6 +16,7 @@ export interface PiRpcSessionOptions {
   cwd: string;
   model?: { provider: string; id: string };
   thinkingLevel?: string;
+  serviceTier?: string;
   additionalSkillPaths?: readonly string[];
   shellEnvOverrides?: Record<string, string>;
   dynamicTools?: readonly DynamicToolDefinition[];
@@ -49,6 +50,8 @@ type PiSessionDoneHandler = (error?: unknown) => void;
 
 export interface PiPromptRunOutcome {
   error?: unknown;
+  /** Recheck private-command completion at the bridge's settlement boundary. */
+  canSettle?: () => boolean;
 }
 
 export interface PiInputDispatch {
@@ -104,6 +107,7 @@ export interface PiRpcSessionState {
 export class PiRpcSession {
   private child: PiRpcChild | undefined;
   private isProcessing = false;
+  private processingGeneration = 0;
   private isCompacting = false;
   private manualCompactionCompletionCount = 0;
   private lastCompactionEndDelivery: Promise<void> = Promise.resolve();
@@ -127,6 +131,7 @@ export class PiRpcSession {
   } | null = null;
   private liveModel: PiRpcSessionState["model"] | undefined;
   private closed = false;
+  private serviceTier = "default";
   private readonly inspections = createInspectionChannel({
     context: () => this.channelRequest({ method: "subagent-inspection-context" }, 1500),
     command: (message) => this.requireChild().requestOk({ type: "prompt", message }, 2500),
@@ -138,7 +143,9 @@ export class PiRpcSession {
     private readonly forwardToolCall: ToolCallForwarder,
     private readonly onEvent: PiSessionEventHandler,
     private readonly onDone: PiSessionDoneHandler,
-  ) {}
+  ) {
+    this.serviceTier = options.serviceTier ?? "default";
+  }
 
   getIsCompacting(): boolean {
     return this.isCompacting;
@@ -203,6 +210,9 @@ export class PiRpcSession {
     const state = await this.getState(CHANNEL_REQUEST_TIMEOUT_MS);
     if (child.exited) throw new Error("pi exited before its extension reported ready");
     await channel.awaitReady(readinessTimeoutMs());
+    if (this.channel.supportsSpeed) {
+      await this.channelRequest({ method: "speed-restore", serviceTier: this.serviceTier });
+    }
     if (state.model?.provider === "unknown") {
       return {
         ok: false,
@@ -232,7 +242,51 @@ export class PiRpcSession {
     return state;
   }
 
+  setServiceTier(serviceTier: string): void {
+    this.serviceTier = serviceTier;
+  }
+
   prompt(text: string, images?: ImageContent[]): PiInputDispatch {
+    const duringTurn = this.isProcessing;
+    const processingGeneration = this.processingGeneration;
+    const dispatch =
+      text.trim() === "/speed refresh" && !images?.length
+        ? this.refreshSpeed().then(() => ({
+            consumed: Promise.resolve(),
+            settled: Promise.resolve(
+              duringTurn
+                ? null
+                : {
+                    canSettle: () =>
+                      !this.isProcessing && this.processingGeneration === processingGeneration,
+                  },
+            ),
+          }))
+        : this.prepareSpeed().then(() => this.dispatchPrompt(text, images));
+    return {
+      consumed: dispatch.then((run) => run.consumed),
+      settled: dispatch.then(
+        (run) => run.settled,
+        () => null,
+      ),
+    };
+  }
+
+  private async refreshSpeed(): Promise<void> {
+    if (!this.channel.supportsSpeed)
+      throw new Error("Speed control is unavailable. Select Default.");
+    await this.channelRequest({ method: "speed-refresh" });
+  }
+  private async prepareSpeed(): Promise<void> {
+    if (!this.channel.supportsSpeed) {
+      if (this.serviceTier !== "default")
+        throw new Error("Speed control is unavailable. Select Default.");
+      return;
+    }
+    await this.channelRequest({ method: "speed-select", serviceTier: this.serviceTier });
+  }
+
+  private dispatchPrompt(text: string, images?: ImageContent[]): PiInputDispatch {
     const child = this.child;
     if (!child || child.exited) {
       const consumed = Promise.reject(new Error("No active Pi session"));
@@ -240,6 +294,7 @@ export class PiRpcSession {
       return { consumed, settled: Promise.resolve(null) };
     }
     this.isProcessing = true;
+    this.processingGeneration += 1;
     const tracked = this.inputs.track("followUp");
     const settlement = new Promise<PiPromptRunOutcome>((resolve) => {
       this.pendingRunSettlements.push({ resolve });
@@ -277,6 +332,11 @@ export class PiRpcSession {
   }
 
   async steer(text: string, images?: ImageContent[]): Promise<void> {
+    if (text.trim() === "/speed refresh" && !images?.length) {
+      await this.refreshSpeed();
+      return;
+    }
+    await this.prepareSpeed();
     const child = this.requireChild();
     const tracked = this.inputs.track("steering");
     try {
@@ -308,8 +368,10 @@ export class PiRpcSession {
     if ((await this.getState()).isStreaming) {
       throw new Error("Cannot compact context while Pi is processing a turn");
     }
+    await this.prepareSpeed();
     const completionCount = this.manualCompactionCompletionCount;
     this.isProcessing = true;
+    this.processingGeneration += 1;
     this.isCompacting = true;
     try {
       await child.requestOk({ type: "compact" }, 10 * 60_000);
@@ -591,6 +653,7 @@ export class PiRpcSession {
       (event.type === "compaction_start" && event.reason === "manual")
     ) {
       this.isProcessing = true;
+      this.processingGeneration += 1;
     }
     if (event.type === "agent_end" && event.willRetry !== true) {
       this.isProcessing = false;

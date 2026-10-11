@@ -1,6 +1,8 @@
+import { CODEX_SPEED_SOURCE } from "./codex-speed-source.js";
 import { SUBAGENT_STATUS_SOURCE } from "./subagents/extension-source.js";
 
 export const BB_PI_EXTENSION_SOURCE =
+  CODEX_SPEED_SOURCE +
   SUBAGENT_STATUS_SOURCE +
   String.raw`
 import { randomUUID } from "node:crypto";
@@ -218,6 +220,7 @@ export default function bbExtension(pi) {
   const pendingToolCalls = new Map();
   let sessionContext = null;
   let detachBridgeChannel = () => {};
+  let speed = null;
   const readSubagentStatus = installSubagentStatusChannel(pi, () => sessionContext, () => {
     writeLine(CHILD_TO_BRIDGE_FD, { kind: "subagent-hint" });
   });
@@ -294,6 +297,50 @@ export default function bbExtension(pi) {
       }
       case "leaf":
         return { leafId: currentLeafId() };
+      case "speed-capabilities": {
+        const models = {};
+        const ids = Array.isArray(message.modelIds) ? message.modelIds : [];
+        let refreshed = false;
+        for (const id of ids) {
+          if (typeof id !== "string" || !id.startsWith("openai-codex/")) continue;
+          const model = sessionContext?.modelRegistry?.find?.("openai-codex", id.slice(13));
+          if (!model || !speed) {
+            models[id] = { tiers: [], error: "unsupported-runtime" };
+            continue;
+          }
+          const result = message.refresh && !refreshed
+            ? await speed.refresh(model)
+            : await speed.capabilities(model);
+          refreshed = true;
+          models[id] = {
+            tiers: result.tiers.filter((tier) => tier.id !== "default").map((tier) => ({
+              id: tier.id, label: tier.name, description: tier.description,
+            })),
+            ...(result.error ? { error: result.error } : {}),
+          };
+        }
+        return { models };
+      }
+      case "speed-restore":
+        speed?.restore(message.serviceTier);
+        return { selected: speed?.selected ?? "default" };
+      case "speed-select":
+        if (!speed) {
+          if (message.serviceTier === "default") return { selected: "default" };
+          throw new Error("Speed unavailable: unsupported-runtime. Select Default.");
+        }
+        await speed.select(sessionContext?.model, message.serviceTier);
+        return { selected: speed.selected };
+      case "speed-refresh": {
+        if (!speed || !sessionContext?.model) {
+          throw new Error("Speed unavailable: unsupported-runtime.");
+        }
+        const result = await speed.refresh(sessionContext.model);
+        if (result.error) {
+          throw new Error("Speed discovery failed: " + result.error + ". Retry /speed refresh or select Default.");
+        }
+        return { tiers: result.tiers.map((tier) => ({ id: tier.id, label: tier.name })) };
+      }
       case "model-scope":
         return currentModelScope();
       default:
@@ -362,6 +409,12 @@ export default function bbExtension(pi) {
   pi.on("session_start", async (_event, ctx) => {
     sessionContext = ctx;
     detachBridgeChannel = attachBridgeChannel(onBridgeLine);
+    try {
+      speed = __bbCodexSpeed.installSpeed(pi, ctx, { ownership: "bb-managed" }) ?? null;
+    } catch {
+      // Older Pi or a custom Codex transport still works at Default.
+      speed = null;
+    }
     writeLine(CHILD_TO_BRIDGE_FD, {
       kind: "model-scope",
       ...currentModelScope(),
@@ -379,7 +432,7 @@ export default function bbExtension(pi) {
       }
       if (missing) pi.setActiveTools([...active]);
     }
-    writeLine(CHILD_TO_BRIDGE_FD, { kind: "ready" });
+    writeLine(CHILD_TO_BRIDGE_FD, { kind: "ready", speedControl: true });
   });
 
   // The run's checkpoint, read in-process the moment the run ends: pi emits

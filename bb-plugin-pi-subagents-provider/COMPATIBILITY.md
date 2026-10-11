@@ -4,13 +4,23 @@
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Node         | 24.15.0 or newer within Node 24                                                                                                          |
 | BB           | 0.46.x; build tooling pinned to 0.46.0                                                                                                   |
-| Public SDK   | 0.6.37; manifest accepts 0.6.37 through 0.6.x                                                                                            |
-| Pi           | Inherited install gate requires 0.84.0 or newer; fixtures and type contracts use 0.84.0                                                  |
+| Public SDK   | 0.6.37; manifest accepts 0.6.37 through 0.6.x; development and runtime alias pins match                                                  |
+| Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
 Credential-free tests drive the real bridge through a scripted Pi RPC child and use published SDK harnesses. They cover prompts, native tool translation, dynamic tools, model/reasoning choices, select/confirm/input/editor dialogs, native skill roots, checkpoint forks, compaction, process handling, RPC framing, and bridge conformance. They do not prove compatibility with every later Pi release or with a live authenticated model.
 
 The inherited Pi version probe reports a missing or too-old executable before session creation. BB checks the manifest engine ranges. An unavailable package does not affect ordinary Pi work. Observation requires public RPC v1 and snapshot/projection v1. Capture additionally requires the registered inspection command and a handled extension-command disposition (statically checked in Pi 1.0.0). Missing capability has no model fallback. No live package/Pi version is certified for capture, persistence, or idle retention. See [capture boundaries](SUBAGENTS.md).
+
+## Shared Codex speed package
+
+The fork embeds `@koenvg/pi-openai-codex-speed@0.1.0` in its generated extension. The reviewed archive is a package-local development input at `vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz`. Its SHA-256 is `1642307063bd2867eb26e94853fd6906bc135c33161243de953012864b4718ff`. Run `npm run check:codex-speed` to check the generated source; use `npm run update:codex-speed` only when updating that reviewed input. Runtime does not load a pi-plugins sibling checkout or the development package.
+
+Intentional fork-only changes enable native service-tier metadata, add safe private-channel discovery/selection, and carry BB's saved tier through turn and resume dispatch. The shared module owns entitlement checks, the native Codex stream decorator, and final payload validation. Credentials and raw authenticated responses do not cross the bridge. Unavailable speed control permits Default only.
+
+Fixtures exercise the real embedded controller and synthetic accounts. Native selector contracts were checked against the pinned BB 0.45.0 artifact: model `supportedServiceTiers` narrows the provider vocabulary; an empty list hides non-default choices. The model menu omits speed choices when its model list is empty during cold loading. No new frontend control or DOM override is added. Installed selector, layout, account, and request acceptance remain untested.
+
+The initial speed delivery failed the current-host gate at source SDK 0.6.15 / BB 0.45.x. The approved migration now pins SDK 0.6.37 and BB 0.46.x. The read-only SDK check and standalone build pass on BB 0.46.0. No installation, reload, or live account request was made. See [the migration report](../BB-0.46-COMPATIBILITY.md).
 
 ## SDK packaging on BB 0.46.0
 

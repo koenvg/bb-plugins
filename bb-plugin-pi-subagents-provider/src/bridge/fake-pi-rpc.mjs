@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { fakePackageRpc } from "./subagents/fake-package-rpc.mjs";
+import { fakeSpeedRuntime } from "./fake-speed-runtime.mjs";
 
 import { randomUUID } from "node:crypto";
 import {
@@ -99,6 +100,18 @@ const MODELS = [
   },
 ];
 
+if (process.env.FAKE_PI_SPEED_STATE) {
+  MODELS.push({
+    id: "gpt-5.5",
+    name: "Fixture Codex",
+    provider: "openai-codex",
+    api: "openai-codex-responses",
+    baseUrl: "https://chatgpt.com/backend-api",
+    input: ["text"],
+    reasoning: true,
+    contextWindow: 200_000,
+  });
+}
 let model = MODELS[0];
 const requestedModel = flag("--model");
 let spawnIndex = 1;
@@ -171,6 +184,7 @@ const extensionHandlers = new Map();
 let activeTools = ["read", "bash", "edit", "write"];
 const scopedModel =
   process.env.FAKE_PI_SCOPE_BY_SPAWN === "1" ? MODELS[spawnIndex === 1 ? 0 : 1] : undefined;
+const speedRuntime = process.env.FAKE_PI_SPEED_STATE ? fakeSpeedRuntime(MODELS, event) : undefined;
 const extensionContext = {
   cwd: process.cwd(),
   sessionManager: {
@@ -179,8 +193,10 @@ const extensionContext = {
       sessionFile ? JSON.parse(readFileSync(sessionFile, "utf8").split("\n")[0]).id : undefined,
     getSessionFile: () => sessionFile,
   },
-  model: scopedModel,
+  model: scopedModel ?? model,
   scopedModels: scopedModel ? [{ model: scopedModel }] : [],
+  mode: "rpc",
+  ...(speedRuntime ? { modelRegistry: speedRuntime.registry, ui: speedRuntime.ui } : {}),
 };
 const fakeSubagents =
   process.env.FAKE_PI_SUBAGENT_PROTOCOL === "1"
@@ -191,6 +207,7 @@ const fakeSubagents =
     : undefined;
 
 async function emitExtensionEvent(type, payload = {}) {
+  extensionContext.model = scopedModel ?? model;
   for (const handler of extensionHandlers.get(type) ?? []) {
     await handler({ type, ...payload }, extensionContext);
   }
@@ -232,6 +249,7 @@ async function loadExtension(path) {
   }
   const module = await import(pathToFileURL(loadPath).href);
   module.default({
+    registerProvider: (provider) => speedRuntime?.register(provider),
     events: fakeSubagents?.events,
     getCommands: () =>
       fakeSubagents && process.env.FAKE_PI_INSPECTION_UNSUPPORTED !== "1"
@@ -303,6 +321,17 @@ async function runPrompt(text) {
   await emitExtensionEvent("agent_start");
   event({ type: "agent_start" });
   event({ type: "turn_start" });
+  const nativeFailure = await speedRuntime?.runNativeFailure(model, text);
+  if (nativeFailure) {
+    event({ type: "message_start", message: { role: "assistant", content: [] } });
+    event({ type: "message_end", message: nativeFailure });
+    event({ type: "turn_end", message: nativeFailure, toolResults: [] });
+    const messages = [{ role: "user", content: text }, nativeFailure];
+    await emitExtensionEvent("agent_end", { messages });
+    event({ type: "agent_end", messages });
+    isStreaming = false;
+    return;
+  }
   if (text === "/observe-background") fakeSubagents?.start();
   if (text === "/hold") {
     const released = await new Promise((resolve) => {
@@ -693,7 +722,7 @@ readLines(process.stdin, (line) => {
     command.type === "abort" ||
     command.type === "get_state" ||
     command.type === "get_session_stats" ||
-    (command.type === "prompt" && command.streamingBehavior === "steer")
+    (command.type === "prompt" && (command.streamingBehavior === "steer" || isStreaming))
   ) {
     void loaded.then(() => handle(command));
     return;

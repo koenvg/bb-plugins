@@ -2,8 +2,8 @@ import type {
   PluginBrowserBbSdk,
   PluginSidebarSection,
   PluginSidebarThread,
-  PluginSidebarThreadActions,
 } from "@get-bb/plugin-sdk/app";
+import type { ThreadListActions } from "./sidebar-actions";
 import type { MenuItem } from "./action-menu";
 import type { ListItem } from "./list-model";
 import { snoozePresets, type SnoozeControls } from "./snooze-model";
@@ -13,7 +13,7 @@ const askName = (label: string, current = "") => window.prompt(label, current)?.
 
 export function threadMenuItems(
   thread: PluginSidebarThread,
-  actions: PluginSidebarThreadActions,
+  actions: ThreadListActions,
   sdk: PluginBrowserBbSdk,
   sections: readonly PluginSidebarSection[],
   pinned: readonly PluginSidebarThread[],
@@ -25,17 +25,17 @@ export function threadMenuItems(
   const items: MenuItem[] = [
     {
       label: thread.isPinned ? "Unpin" : "Pin",
-      run: () => actions.setPinned(id, !thread.isPinned),
+      run: () => actions.togglePinned(),
     },
     {
       label: thread.isUnread ? "Mark read" : "Mark unread",
-      run: () => actions.setRead(id, thread.isUnread),
+      run: () => actions.toggleRead(),
     },
     {
       label: "Rename",
       run: () => {
         const title = askName("Rename thread", thread.displayTitle);
-        if (title) return actions.rename(id, title);
+        if (title) return actions.rename(title);
       },
     },
   ];
@@ -92,9 +92,9 @@ export function threadMenuItems(
   items.push(
     thread.isArchived
       ? { label: "Unarchive", run: () => sdk.threads.unarchive({ threadId: id }) }
-      : { label: "Archive", run: () => actions.archive(id) },
+      : { label: "Archive", run: () => actions.archive() },
   );
-  items.push({ label: "Delete…", run: () => actions.requestDelete(id) });
+  items.push({ label: "Delete…", run: () => actions.requestDelete() });
   return items;
 }
 

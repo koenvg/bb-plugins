@@ -14,7 +14,6 @@ import {
   experimental_useProviders,
   experimental_useSidebarThreads,
   experimental_useSidebarThreadSplit,
-  experimental_useSidebarThreadActions,
   useSdk,
   useSidebarThreadDraft,
   useSidebarThreadRowStatus,
@@ -22,12 +21,12 @@ import {
   type PluginBrowserBbSdk,
   type PluginSidebarSection,
   type PluginSidebarThread,
-  type PluginSidebarThreadActions,
   type PluginSidebarThreadRowStatus,
   type PluginThreadListProps,
   type ExperimentalProviderIconProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { useThreadListActions, useThreadListNavigation } from "./sidebar-actions";
 import {
   cancelPrPanelRequest,
   requestPrPanel,
@@ -211,7 +210,6 @@ function ThreadRow({
   now,
   onToggle,
   onNavigate,
-  actions,
   sdk,
   sections,
   pinned,
@@ -228,12 +226,12 @@ function ThreadRow({
   now: number;
   onToggle: (id: string) => void;
   onNavigate: () => void;
-  actions: PluginSidebarThreadActions;
   sdk: PluginBrowserBbSdk;
   sections: readonly PluginSidebarSection[];
   pinned: readonly PluginSidebarThread[];
 }) {
   const { thread } = item;
+  const actions = useThreadListActions(thread);
   const { hasUnsubmittedDraft } = useSidebarThreadDraft(thread.id);
   const rowStatus = useSidebarThreadRowStatus(thread.id);
   const shortcut = useSidebarThreadShortcut(thread.id);
@@ -552,7 +550,7 @@ function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient 
   const { threads: activeThreads } = experimental_useSidebarThreads({
     experimental_lifecycles: ACTIVE_ONLY,
   });
-  const actions = experimental_useSidebarThreadActions();
+  const actions = useThreadListNavigation();
   const sdk = useSdk();
   const now = useNow();
   const { providers } = experimental_useProviders();
@@ -747,7 +745,6 @@ function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient 
                   now={now}
                   onToggle={(id) => toggle("collapsedThreads", id)}
                   onNavigate={props.onNavigate}
-                  actions={actions}
                   sdk={sdk}
                   sections={sections}
                   pinned={pinned}

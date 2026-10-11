@@ -11,12 +11,15 @@ describe("standalone packaging", () => {
     const result = experimental_scanPublicSdkOnly(root, {
       allow: [
         /^@earendil-works\/pi-(ai|coding-agent)(?:\/providers\/all)?$/,
+        // The native failure fixture uses this exported Pi 1.1.0 transport.
+        /^@earendil-works\/pi-ai\/api\/openai-codex-responses$/,
         /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
         /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge)$/,
         /^typebox$/,
         /^@testing-library\/react$/,
         /^vitest(?:\/config)?$/,
         /^react(?:\/jsx-runtime)?$/,
+        /^esbuild$/,
       ],
     });
     // The inherited scripted child loads only the extension path supplied by the bridge.
@@ -45,7 +48,10 @@ describe("standalone packaging", () => {
     expect(manifest.bb.app).toBe("./app.tsx");
     expect(manifest.name).toBe("bb-plugin-pi-subagents-provider");
     expect(manifest.scripts.test).toContain("vitest run");
-    for (const value of Object.values({ ...manifest.dependencies, ...manifest.devDependencies })) {
+    const { "@koenvg/pi-openai-codex-speed": speedPackage, ...otherDevDependencies } =
+      manifest.devDependencies;
+    expect(speedPackage).toBe("file:vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz");
+    for (const value of Object.values({ ...manifest.dependencies, ...otherDevDependencies })) {
       expect(String(value)).not.toMatch(/^(workspace:|file:|link:)/);
     }
     expect(manifest.scripts.postinstall).toBeUndefined();

@@ -695,6 +695,7 @@ async function buildSessionOptions(args: {
       ? { additionalSkillPaths: [...args.params.additionalSkillPaths] }
       : {}),
     ...(args.params.thinkingLevel ? { thinkingLevel: args.params.thinkingLevel } : {}),
+    serviceTier: args.params.serviceTier,
     ...(args.params.dynamicTools && args.params.dynamicTools.length > 0
       ? { dynamicTools: args.params.dynamicTools }
       : {}),
@@ -933,7 +934,7 @@ function startPiPrompt(
 ): Promise<void> {
   const dispatch = threadSession.session.prompt(text, images.length > 0 ? images : undefined);
   void dispatch.settled.then((outcome) => {
-    if (outcome === null) {
+    if (outcome === null || outcome.canSettle?.() === false) {
       return;
     }
     reportPromptSettled({
@@ -974,6 +975,8 @@ async function reconcileTurnOptions(
 ): Promise<ThreadSession> {
   const turnOptions = buildPiTurnOptions(options);
   const construction = threadSession.construction;
+  threadSession.session.setServiceTier(turnOptions.serviceTier);
+  construction.serviceTier = turnOptions.serviceTier;
   const shellEnvOverrides =
     options.envVars && Object.keys(options.envVars).length > 0
       ? { BB_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
@@ -1072,6 +1075,8 @@ async function handleTurnSteer(id: string | number, params: TurnSteerParams): Pr
     return;
   }
   const { text, images } = input;
+  threadSession.session.setServiceTier(params.options.serviceTier ?? "default");
+  threadSession.construction.serviceTier = params.options.serviceTier ?? "default";
   if (threadSession.session.getIsCompacting()) {
     sendError(id, -32000, "Cannot steer while context compaction is active");
     return;
