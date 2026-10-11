@@ -79,11 +79,72 @@ function snapshot(query: CalendarQuery) {
     view.days[14].money.records = view.summary.money.records = 50;
     view.days[14].classes = {
       state: "available",
-      input: 200,
+      input: 0,
       output: 300,
       reasoning: 100,
       cacheRead: 200,
       cacheWrite: 0,
+    };
+  }
+  if (state === "cache-heavy" && query.group === "workspace") {
+    // Representative cache-heavy distribution for visual inspection; no account data.
+    const totals = [
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 320, 160, 0, 0, 0, 0, 0, 80, 0, 0, 60, 745, 1040, 640,
+      610, 450, 330, 190,
+    ];
+    view.days.forEach((day, index) => {
+      const total = totals[index] * 1_000_000;
+      day.totalTokens = total;
+      day.excludedTokens = 0;
+      day.activeEntities = total > 0 ? 1 : 0;
+      day.uncertain = { totalTokens: 0, records: 0 };
+      if (total > 0) {
+        const input = Math.floor(total * 0.032),
+          output = Math.floor(total * 0.008),
+          cacheWrite = Math.floor(total * 0.0005);
+        day.classes = {
+          state: "available",
+          input,
+          output,
+          cacheWrite,
+          cacheRead: total - input - output - cacheWrite,
+          reasoning: Math.floor(output * 0.4),
+        };
+        day.coverage = { ...view.days[14].coverage, state: "observed", zero: false };
+        day.money = {
+          state: "available",
+          capturedCost: total / 1_000_000,
+          pricedRecords: 1,
+          records: 1,
+          pricedEntities: 1,
+          reason: "ok",
+        };
+      } else {
+        day.classes = { state: "unavailable" };
+        day.money = {
+          state: "unavailable",
+          capturedCost: null,
+          pricedRecords: 0,
+          records: 0,
+          pricedEntities: 0,
+          reason: "missing-prices",
+        };
+      }
+    });
+    const records = totals.filter((total) => total > 0).length;
+    view.summary = {
+      totalTokens: totals.reduce((sum, total) => sum + total, 0) * 1_000_000,
+      activeEntities: 1,
+      excludedTokens: 0,
+      uncertain: { totalTokens: 0, records: 0 },
+      money: {
+        state: "available",
+        capturedCost: totals.reduce((sum, total) => sum + total, 0),
+        pricedRecords: records,
+        records,
+        pricedEntities: 1,
+        reason: "ok",
+      },
     };
   }
   view.previous = query.startDate > shiftDate(latestRange, -60);
