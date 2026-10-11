@@ -35,10 +35,10 @@ describe("standalone packaging", () => {
   });
 
   it("keeps the provider SDK available when development packages are omitted", () => {
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.6.15");
+    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.6.37");
     expect(manifest.dependencies["@get-bb/plugin-sdk"]).toBeUndefined();
     expect(manifest.dependencies["@get-bb/plugin-sdk-runtime"]).toBe(
-      "npm:@get-bb/plugin-sdk@0.6.15",
+      "npm:@get-bb/plugin-sdk@0.6.37",
     );
     expect(manifest.bb.server).toBe("./server.ts");
     expect(manifest.bb.host).toBe("./src/host.ts");
