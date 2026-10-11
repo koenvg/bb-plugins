@@ -1,5 +1,21 @@
 import { test, expect, jsonEvidence } from "./fixtures.js";
 import { chart, rows, tooltip } from "./calendar-driver.js";
+import { layout } from "./chart-layout.js";
+
+test("large mobile token tooltip fits when the cost subtotal wraps", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/calendar.html?state=huge");
+  // Reproduce CI's wider system-font metrics wrapping the subtotal onto two lines.
+  await page.addStyleTag({
+    content: '[aria-label="Captured cost subtotal"] { max-width: 300px; }',
+  });
+  await chart(page);
+  expect((await page.getByLabel("Captured cost subtotal").boundingBox())!.height).toBeGreaterThan(
+    40,
+  );
+  await tooltip(page, "tokens", await rows(page));
+  expect((await layout(page)).tooltipContained).toBe(true);
+});
 
 test("large-value hover proof keeps the chart in the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 900 });

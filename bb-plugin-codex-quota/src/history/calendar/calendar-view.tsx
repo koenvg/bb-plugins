@@ -58,7 +58,7 @@ export function UsageTooltip({
     <div
       role="tooltip"
       style={{ maxWidth }}
-      className="w-72 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-md [overflow-wrap:anywhere]"
+      className="w-80 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-md [overflow-wrap:anywhere]"
     >
       <p className="font-medium">
         <time dateTime={day.date}>{dateLabel(day.date)}</time>
