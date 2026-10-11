@@ -3,7 +3,8 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { allowedProjects, type Config } from "./config.js";
-import { hasAccess, type Identity } from "./control.js";
+import { hasAccess, hasControl } from "./control.js";
+import type { Identity } from "./auth.js";
 
 export type StartSource = {
   defaults: BbPluginApi["sdk"]["projects"]["defaultExecutionOptions"];
@@ -159,10 +160,9 @@ export function operationControl(options: {
       !active ||
       closed ||
       !hasAccess(config, identity) ||
-      !identity.scopes?.includes("bb.read") ||
       !allowedProjects(config).size ||
       (project !== undefined && !allowedProjects(config).has(project)) ||
-      (write && (!config.controlEnabled || !identity.scopes?.includes("bb.control")))
+      (write && !hasControl(config, identity))
     )
       throw new Error("OPERATION_UNAVAILABLE");
   }
@@ -596,11 +596,14 @@ export function operationControl(options: {
       signal: AbortSignal,
       onFailure: (tool: OperationTool) => void,
     ) {
+      const controlRequirement =
+        identity.mode === "cloudflare-access"
+          ? "Requires the verified owner/app local read-control permission and local control."
+          : "Requires bb.read, bb.control and local control.";
       server.registerTool(
         "bb_start_thread",
         {
-          description:
-            "Start an ordinary visible BB thread using project defaults. Requires bb.read, bb.control and local control. Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.",
+          description: `Start an ordinary visible BB thread using project defaults. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
           inputSchema: startSchema,
           annotations: {
             readOnlyHint: false,
@@ -626,8 +629,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_send_message",
         {
-          description:
-            "Send follow-up instructions to an allowed BB thread with normal idle/active auto behavior. Requires bb.read, bb.control and local control. Agents can change code, take external actions and incur provider costs under existing permissions. Accepted or queued is not completed work. Keep the same key after a lost reply; unknown requires BB inspection. Pending approvals remain in BB.",
+          description: `Send follow-up instructions to an allowed BB thread with normal idle/active auto behavior. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Accepted or queued is not completed work. Keep the same key after a lost reply; unknown requires BB inspection. Pending approvals remain in BB.`,
           inputSchema: sendSchema,
           annotations: {
             readOnlyHint: false,
@@ -661,8 +663,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_stop_thread",
         {
-          description:
-            "Request an ordinary stop of an allowed BB thread, preserving its history. Requires bb.read, bb.control and local control. This write does not delete queued input or approve pending permissions. Acknowledgement is not confirmed stop completion. Keep the same key after a lost reply; unknown requires BB inspection.",
+          description: `Request an ordinary stop of an allowed BB thread, preserving its history. ${controlRequirement} This write does not delete queued input or approve pending permissions. Acknowledgement is not confirmed stop completion. Keep the same key after a lost reply; unknown requires BB inspection.`,
           inputSchema: stopSchema,
           annotations: {
             readOnlyHint: false,

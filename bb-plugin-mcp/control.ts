@@ -5,15 +5,27 @@ import { allowedProjects, type Config } from "./config.js";
 import { registerThreadTools, type ThreadSource, type ThreadTool } from "./thread-tools.js";
 import type { Operations, OperationTool } from "./operations.js";
 
-export type Identity = { issuer: string; owner: string; scopes?: string[]; expiresAt?: number };
+import type { Identity } from "./auth.js";
 export type ProjectSource = Pick<BbPluginApi["sdk"]["projects"], "list">;
 
 export function hasAccess(config: Config | null, identity: Identity): config is Config {
   return (
     !!config?.remoteEnabled &&
+    config.authMode === identity.mode &&
     config.issuer === identity.issuer &&
     config.owner === identity.owner &&
-    (identity.expiresAt === undefined || Date.now() < identity.expiresAt * 1000)
+    identity.permissions.includes("read") &&
+    (config.authMode !== "cloudflare-access" || config.accessAudience === identity.audience) &&
+    Date.now() < identity.expiresAt * 1000
+  );
+}
+
+export function hasControl(config: Config | null, identity: Identity): boolean {
+  return (
+    hasAccess(config, identity) &&
+    config.controlEnabled &&
+    identity.permissions.includes("control") &&
+    (config.authMode !== "cloudflare-access" || config.accessPermission === "read-control")
   );
 }
 

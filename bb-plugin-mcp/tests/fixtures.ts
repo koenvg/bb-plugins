@@ -75,23 +75,32 @@ export async function fixture(
   overrides: Partial<typeof limits> = {},
   operationOptions: Pick<Parameters<typeof operationControl>[0], "now" | "limits"> = {},
   seedStorage?: (host: ReturnType<typeof createFakePluginHost>) => void,
+  authMode: Config["authMode"] = "bearer-jwt",
 ) {
   const pair = await generateKeyPair("RS256");
   const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
   let config: Config = {
     publicOrigin: "https://mcp.example.org",
     port: await freePort(),
-    issuer: "https://issuer.example.org/realm",
+    issuer: "https://issuer.example.org" + (authMode === "bearer-jwt" ? "/realm" : ""),
+    authMode,
+    accessAudience: authMode === "cloudflare-access" ? "dedicated-app" : "",
+    accessPermission: "read",
+    accessOAuthIssuer: authMode === "cloudflare-access" ? "https://oauth.example.net" : "",
     owner: "owner-1",
     projects: "proj_a",
     remoteEnabled: true,
     controlEnabled: false,
   };
+  const issuerKeys = { keys: [jwk] };
   const issuerCalls: string[] = [];
   const issuer = createServer((req, res) => {
     issuerCalls.push(req.url ?? "");
     res.setHeader("content-type", "application/json");
-    if (req.url === "/realm/.well-known/openid-configuration")
+    if (
+      req.url === "/realm/.well-known/openid-configuration" ||
+      req.url === "/.well-known/openid-configuration"
+    )
       res.end(
         JSON.stringify({
           issuer: config.issuer,
@@ -101,7 +110,8 @@ export async function fixture(
           code_challenge_methods_supported: ["S256"],
         }),
       );
-    else if (req.url === "/keys") res.end(JSON.stringify({ keys: [jwk] }));
+    else if (req.url === "/keys" || req.url === "/cdn-cgi/access/certs")
+      res.end(JSON.stringify(issuerKeys));
     else {
       res.statusCode = 404;
       res.end("{}");
@@ -168,11 +178,19 @@ export async function fixture(
     key = pair.privateKey,
     header: Record<string, unknown> = {},
   ) {
-    return new SignJWT({ scope: "bb.read", ...claims })
+    return new SignJWT({
+      ...(config.authMode === "cloudflare-access" ? { type: "app" } : { scope: "bb.read" }),
+      ...claims,
+    })
       .setProtectedHeader({ alg: "RS256", kid: "fixture", ...header })
       .setIssuer(typeof claims.iss === "string" ? claims.iss : config.issuer)
       .setSubject(typeof claims.sub === "string" ? claims.sub : config.owner)
-      .setAudience(claims.aud ?? config.publicOrigin + "/mcp")
+      .setAudience(
+        claims.aud ??
+          (config.authMode === "cloudflare-access"
+            ? config.accessAudience
+            : config.publicOrigin + "/mcp"),
+      )
       .setExpirationTime(claims.exp ?? Math.floor(Date.now() / 1000) + 300)
       .sign(key);
   }
@@ -193,7 +211,12 @@ export async function fixture(
       headers: {
         "content-type": "application/json",
         accept: "application/json, text/event-stream",
-        authorization: "Bearer " + (credential ?? (await token())),
+        ...(config.authMode === "cloudflare-access"
+          ? {
+              "cf-access-jwt-assertion": credential ?? (await token()),
+              authorization: "Bearer opaque-client-token",
+            }
+          : { authorization: "Bearer " + (credential ?? (await token())) }),
         ...headers,
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
@@ -203,7 +226,12 @@ export async function fixture(
     const instance = new Client({ name: "boundary-test", version: "1" });
     const credential = await token();
     const transport = new StreamableHTTPClientTransport(new URL(local + "/mcp"), {
-      requestInit: { headers: { authorization: "Bearer " + credential } },
+      requestInit: {
+        headers:
+          config.authMode === "cloudflare-access"
+            ? { "cf-access-jwt-assertion": credential, authorization: "Bearer opaque-client-token" }
+            : { authorization: "Bearer " + credential },
+      },
       fetch: async (input, init) => {
         const headers = new Headers(init?.headers);
         headers.set("host", "mcp.example.org");
@@ -224,6 +252,7 @@ export async function fixture(
     list,
     logs,
     issuerCalls,
+    issuerKeys,
     token,
     rpc,
     request,

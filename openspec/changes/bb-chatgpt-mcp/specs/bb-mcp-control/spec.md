@@ -16,6 +16,21 @@ The plugin SHALL expose tools for listing projects, listing threads, reading one
 - **THEN** it receives the bounded tool set and accurate read/write annotations
 - **AND** it receives no generic command or approval tool
 
+### Requirement: Writes retain mode-specific authorization
+
+Bearer-jwt mode SHALL retain both bb.read and bb.control scope checks. Cloudflare-access mode SHALL use only the explicit local read/read-control app permission, default read, for the verified owner/application. Every write SHALL also require local controlEnabled and current project/thread access. Identity alone, a forged scope claim or enabling only the control switch SHALL NOT grant Cloudflare control. Changing modes SHALL NOT alter operation identities, retention, unknown-state handling, permissions, queues or BB defaults.
+
+#### Scenario: Cloudflare read app permission with local control enabled
+
+- **WHEN** a valid owner/app assertion calls start, send or stop with accessPermission=read and controlEnabled=true
+- **THEN** no BB read-for-dispatch or mutation is submitted
+
+#### Scenario: Separate owner/app grants share the local control permission
+
+- **WHEN** the owner separately approves read-control and local control for that app
+- **THEN** all valid owner/app sessions share that permission and the same duplicate-operation identity
+- **AND** no claim of per-client OAuth scope separation is made
+
 ### Requirement: Project scope is enforced for every identifier
 
 Project listings SHALL include only allowed projects. Thread and operation access SHALL verify current project membership and the current allowlist even when the caller supplies an identifier directly. An identifier outside the caller's scope SHALL return no private object data and SHALL be indistinguishable from an unavailable identifier. Only the submitting owner SHALL read an operation record.

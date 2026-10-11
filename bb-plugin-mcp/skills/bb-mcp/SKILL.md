@@ -7,6 +7,7 @@ description: Inspect BB MCP readiness and operation outcomes, record owner-verif
 
 1. Run `bb mcp status --json`. Use the effective URL and listener state. Local listening does not prove public reachability.
 2. For settings, OAuth, tunnel routing, or reload problems, read [the package guide](../../README.md). Use standard BB plugin settings. A missing external issuer or existing named tunnel is a prerequisite.
+   For `cloudflare-access`, first read [the authorization exception](../../README.md#cloudflare-managed-oauth-mode). It uses a local app permission shared by all owner/app sessions, not BB OAuth scopes. Keep it read-only and control disabled unless both grants have explicit approval. Do not change modes to bypass a rejected credential.
 3. Make live installation, remote enablement, OAuth login, and connector changes only with specific owner approval. Preserve BB threads, existing infrastructure and credentials.
 4. Report local checks separately from public and ChatGPT checks. Record any missing setup. Use [the thread-read checkpoint](../../VERIFICATION-BBP80-CORRECTION.md) and [the connection checklist](../../VERIFICATION.md) for a release check.
 

@@ -106,6 +106,10 @@ describe("BB settings and listener lifecycle", () => {
     });
     expect(restored).toEqual({
       ...values,
+      authMode: "bearer-jwt",
+      accessAudience: "",
+      accessOAuthIssuer: "",
+      accessPermission: "read",
       publicOrigin: "https://another.example.com",
       port: nextPort,
       controlEnabled: true,

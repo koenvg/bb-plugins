@@ -14,15 +14,19 @@ Remote access and control start disabled. Starting or messaging an agent can cha
 
 Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` commands after a separately approved installation.
 
-| Setting          | Meaning                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `publicOrigin`   | Canonical public HTTPS origin, such as `https://mcp.example.org`. No path, query, credentials, or trailing slash. Any valid public domain can be used. |
-| `port`           | Dedicated loopback port from 1024 to 65535. Default 38991. Port 38886 is reserved for BB and is refused. Do not use any other BB service port.         |
-| `issuer`         | Exact HTTPS OpenID Connect issuer, with no trailing slash. Realm paths are supported.                                                                  |
-| `owner`          | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                              |
-| `projects`       | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                               |
-| `remoteEnabled`  | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                               |
-| `controlEnabled` | Local start/send/stop permission, false by default. Writes also require `bb.read` and `bb.control` OAuth scopes.                                       |
+| Setting             | Meaning                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `publicOrigin`      | Canonical public HTTPS origin, such as `https://mcp.example.org`. No path, query, credentials, or trailing slash. Any valid public domain can be used. |
+| `port`              | Dedicated loopback port from 1024 to 65535. Default 38991. Port 38886 is reserved for BB and is refused. Do not use any other BB service port.         |
+| `issuer`            | Exact signing issuer. Bearer mode uses OIDC (realm paths supported, no trailing slash); Cloudflare mode uses the Access team HTTPS origin.             |
+| `owner`             | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                              |
+| `authMode`          | `bearer-jwt` (default) or explicit `cloudflare-access`; never selected from caller headers.                                                            |
+| `accessAudience`    | Cloudflare only: exact dedicated application AUD. Missing AUD fails closed.                                                                            |
+| `accessPermission`  | Cloudflare only: local `read` (default) or `read-control` permission shared by all owner/app sessions.                                                 |
+| `accessOAuthIssuer` | Cloudflare only: exact OAuth authorization-server issuer from verified discovery, separate from the assertion issuer.                                  |
+| `projects`          | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                               |
+| `remoteEnabled`     | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                               |
+| `controlEnabled`    | Local start/send/stop switch, false by default. Writes also require the selected mode's control permission.                                            |
 
 Invalid settings fail closed. Settings remain in BB's normal settings store. The plugin does not keep a second configuration file.
 
@@ -36,7 +40,21 @@ The operator must supply an existing named Cloudflare Tunnel and a compatible OA
 
 Missing issuer, tunnel, public certificate trust, or ChatGPT account support is a setup prerequisite. It is not permission to create infrastructure or use BB/Cloudflare browser cookies.
 
-## OAuth issuer recipe
+## Cloudflare Managed OAuth mode
+
+Select `cloudflare-access` only after separate setup approval. Cloudflare issues opaque client tokens and sends a signed `Cf-Access-Jwt-Assertion` to the origin. The plugin ignores cookies and opaque bearer credentials in this mode. It verifies RS256 against the configured team origin plus `/cdn-cgi/access/certs`, the exact issuer, owner subject, dedicated app AUD, expiry/validity and application type. Empty-sub service tokens and organization/session tokens are refused. Duplicate assertions and token-selected key URLs are refused or ignored, never trusted. No failed credential can fall back to the other mode.
+
+This mode uses an owner-approved authorization exception, not Cloudflare `bb.read`/`bb.control` OAuth scopes. `accessPermission=read` permits only allowlisted reads, even when `controlEnabled=true` or a token claims `bb.control`. Writes require both `accessPermission=read-control` and `controlEnabled=true`, plus current owner/app/project/thread access. All valid sessions/grants for the exact owner and app share the local permission. They cannot have different per-client read/control grants. Downgrading the local app permission removes writes immediately, including cached mutation results; operation inspection remains available with read access. Changing the owner, issuer, mode or AUD invalidates in-flight evidence before BB dispatch/data return. Token expiry is still enforced after waits.
+
+Setup prerequisites, not actions performed by this plugin:
+
+1. Use a new dedicated Access app/owner-only email policy and the selected existing login provider. Email PIN is not MFA. Leave shared apps/policies and global MFA unchanged.
+2. Enable Managed OAuth only with exact operator approval. Proposed token/grant values are `15m`/`336h`; fourteen days is not a verified maximum. Save-time entitlement and limits need an approved setup check. Refresh can occur in the background within the grant; expiry/revocation can still require sign-in. Assertion expiry need not equal the opaque client token lifetime; verify both during live acceptance.
+3. Obtain the exact ChatGPT callback, new app AUD, stable owner Access user ID and actual OAuth discovery issuer. Disable localhost/loopback registration and wildcard redirects. Do not copy an old/shared app AUD or assume the team signing issuer is the OAuth authorization server. Missing facts block setup. Origin metadata names `accessOAuthIssuer` without advertising invented BB scopes; verify the edge metadata/challenges separately.
+4. Have the operator route only the MCP/discovery paths to the dedicated loopback listener. With an existing wildcard route, add an exact-host unmatched-path 404 rule before that wildcard. Preserve assertion and MCP headers; never forward this hostname to BB's main port. No tunnel/DNS/connector lifecycle action is part of installation.
+5. Keep remote/control disabled and local app permission read until their separate live approvals. Native ChatGPT acceptance needs owner/device OS/app evidence and real approved writes; fixtures and a phone browser do not count. Keep the operation ledger/history during rollback.
+
+## Bearer-JWT OAuth issuer recipe
 
 A dedicated Keycloak 26 OpenID Connect realm/client can supply the required RS256 JWTs. Use its public HTTPS issuer, for example `https://login.example.org/realms/bb`. The discovery document is at that issuer plus `/.well-known/openid-configuration`; it supplies the signing-key URL. Public HTTPS certificates for both issuer and MCP hostname must validate with normal public trust. Do not disable TLS verification.
 
@@ -65,7 +83,7 @@ The request path is ChatGPT → Cloudflare HTTPS → encrypted tunnel → `cloud
 
 Route only `/mcp` and the two discovery paths to the dedicated local port. Reject unmatched paths with 404. Never route BB's main server port. The listener accepts only the effective public Host and, if supplied, that exact HTTPS Origin. Set `httpHostHeader` to that public authority. It never derives policy or audience from `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`, or caller IP headers.
 
-Preserve `Authorization`, `Content-Type`, `Accept`, `Origin`, `MCP-Protocol-Version`, and MCP request headers. Do not add Cloudflare Access browser login, interactive bot challenges, or an extra service-token gate to these paths. Keep protection for unrelated applications unchanged. Do not put bearer tokens in URLs.
+Preserve `Authorization`, `Content-Type`, `Accept`, `Origin`, `MCP-Protocol-Version`, and MCP request headers. Bearer mode must not have a Cloudflare browser-only gate. Cloudflare mode requires Managed OAuth and preservation of `Cf-Access-Jwt-Assertion`; a plain browser-only gate is insufficient. Neither mode uses an extra service-token gate or URL credentials. Keep unrelated applications unchanged.
 
 Validate a local config without starting a connector:
 
@@ -119,9 +137,9 @@ Routine rejection logs contain only a generated request ID and fixed safe error 
 
 `bb_start_thread` requires `projectId`, a nonblank text `prompt` of at most 32 KiB UTF-8, and an `operationKey`. It accepts an optional nonblank `title` of at most 200 characters. Keys contain 1 to 128 ASCII letters, digits, `_`, `.`, `:`, or `-`. Extra fields are refused. IDs and title are trimmed. Prompt text is preserved exactly. Normalized input differences, including prompt whitespace or title changes, conflict under the same key.
 
-The token needs both `bb.read` and `bb.control`. Local remote access and control must be enabled, and the project must be allowed. The plugin checks owner, token expiry, control and project access again immediately before dispatch. It reads `projects.defaultExecutionOptions` and passes only its provider, model, permission mode, reasoning and service tier to `threads.spawn`. The environment is always `project-default` and visibility is always `visible`. Missing defaults fail before dispatch. No fallback machine, execution override, task-board action, permission response or agent-completion wait exists.
+Bearer tokens need both `bb.read` and `bb.control`; Cloudflare mode needs the explicit local `read-control` app permission. Local remote access and control must be enabled, and the project must be allowed. The plugin checks owner, token expiry, control and project access again immediately before dispatch. It reads `projects.defaultExecutionOptions` and passes only its provider, model, permission mode, reasoning and service tier to `threads.spawn`. The environment is always `project-default` and visibility is always `visible`. Missing defaults fail before dispatch. No fallback machine, execution override, task-board action, permission response or agent-completion wait exists.
 
-The start result has `operationId`, `state`, `threadId`, `code`, and `meaning`. Start waits up to three seconds for submission, with a total four-second tool-response budget including current thread access checks. Authentication and HTTP processing still have the existing five-second request deadline. A slow access check returns `OPERATION_UNAVAILABLE`; retain the original input/key and inspect BB. `bb_get_operation` takes only `operationId`, requires read scope, and never repeats an action. Status remains available when local control is disabled. Status reads and cached start replies recheck the submitting owner, project allowlist, and current thread membership when a thread ID is known. Missing and disallowed records use the same safe unavailable error.
+The start result has `operationId`, `state`, `threadId`, `code`, and `meaning`. Start waits up to three seconds for submission, with a total four-second tool-response budget including current thread access checks. Authentication and HTTP processing still have the existing five-second request deadline. A slow access check returns `OPERATION_UNAVAILABLE`; retain the original input/key and inspect BB. `bb_get_operation` takes only `operationId`, requires the selected mode's read permission, and never repeats an action. Status remains available when local control is disabled. Status reads and cached start replies recheck the submitting owner, project allowlist, and current thread membership when a thread ID is known. Missing and disallowed records use the same safe unavailable error.
 
 | State      | Meaning                                                                                                                                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -157,7 +175,7 @@ const operationId = followUp.structuredContent?.operationId;
 // Poll bb_get_operation with this ID to inspect submission, not completed work.
 ```
 
-Both OAuth scopes, the current owner, local control permission and current project membership are required. A direct ID does not bypass project access. Membership is checked before claiming the operation, again before send, and before returning saved results. Status reads remain available with read scope when local control is disabled, but current owner/project/thread access still applies.
+The selected mode's read/control permissions, the current owner, local control permission and current project membership are required. A direct ID does not bypass project access. Membership is checked before claiming the operation, again before send, and before returning saved results. Status reads remain available with read permission when local control is disabled, but current owner/project/thread access still applies.
 
 The plugin calls only `threads.send` with text input and `mode: "auto"`. BB starts idle input or applies its normal queue/steer behavior during active work. It keeps existing thread execution settings, dispatch hooks, concurrency limits, environment checks and pending approvals. It never approves a request or tries another route after a deferment or rejection. Handle permission decisions in BB.
 
@@ -178,7 +196,7 @@ Send uses the same response budget, SDK deadline, durable claim, capacity and ge
 
 ## Stop requests
 
-`bb_stop_thread` accepts only `threadId` and `operationKey`. The ID is trimmed and bounded to 200 characters. Keys use the start/send format and retention rules. Extra fields are refused. Both OAuth scopes, local control, the configured owner and current project membership are required. Access is checked before the durable claim, immediately before stop and before returning saved results. Missing and disallowed threads use the same safe unavailable result.
+`bb_stop_thread` accepts only `threadId` and `operationKey`. The ID is trimmed and bounded to 200 characters. Keys use the start/send format and retention rules. Extra fields are refused. The selected mode's read/control permissions, local control, the configured owner and current project membership are required. Access is checked before the durable claim, immediately before stop and before returning saved results. Missing and disallowed threads use the same safe unavailable result.
 
 With separately approved control, request a stop through an authenticated MCP client:
 
@@ -250,4 +268,5 @@ For cleanup, preserve the plugin database while unresolved records exist. Comple
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
+See [the Cloudflare fixture checkpoint](VERIFICATION-BBP85-CLOUDFLARE.md) for the mode-specific authorization exception, fresh checks and current-host SDK prerequisite. It is not deployment or native acceptance evidence.
 See [the BBP-84 local resolution checkpoint](VERIFICATION-BBP84.md), [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.

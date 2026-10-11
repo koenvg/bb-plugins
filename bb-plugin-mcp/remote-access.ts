@@ -72,10 +72,10 @@ export function remoteAccess(options: {
     });
     response.end(JSON.stringify({ error: code }));
   }
-  function challenge(response: ServerResponse, scope = false) {
+  function challenge(response: ServerResponse, config: Config, scope = false) {
     response.setHeader(
       "WWW-Authenticate",
-      `Bearer resource_metadata="${metadata}", scope="bb.read", error="${scope ? "insufficient_scope" : "invalid_token"}"`,
+      `Bearer resource_metadata="${metadata}"${config.authMode === "bearer-jwt" ? ', scope="bb.read"' : ""}, error="${scope ? "insufficient_scope" : "invalid_token"}"`,
     );
     send(response, scope ? 403 : 401, scope ? "INSUFFICIENT_SCOPE" : "UNAUTHORIZED");
   }
@@ -162,8 +162,12 @@ export function remoteAccess(options: {
         response.end(
           JSON.stringify({
             resource,
-            authorization_servers: [config.issuer],
-            scopes_supported: ["bb.read", "bb.control"],
+            authorization_servers: [
+              config.authMode === "cloudflare-access" ? config.accessOAuthIssuer : config.issuer,
+            ],
+            ...(config.authMode === "bearer-jwt"
+              ? { scopes_supported: ["bb.read", "bb.control"] }
+              : {}),
             bearer_methods_supported: ["header"],
           }),
         );
@@ -171,11 +175,12 @@ export function remoteAccess(options: {
       }
       let identity;
       try {
-        identity = await verify(request.headers.authorization, config, options.connection);
+        identity = await verify(request.headers, config, options.connection);
       } catch (error) {
         options.log({ request: id, code: "AUTH_REJECTED" });
         return challenge(
           response,
+          config,
           error instanceof Error && error.message === "INSUFFICIENT_SCOPE",
         );
       }
@@ -192,6 +197,7 @@ export function remoteAccess(options: {
         parsed = await body(request);
       }
       if (controller.signal.aborted) return;
+      if (!hasAccess(options.policy(), identity)) return send(response, 503, "ACCESS_DISABLED");
       server = projectServer(
         projects,
         threads,

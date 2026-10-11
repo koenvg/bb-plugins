@@ -106,7 +106,14 @@ export default async function plugin(bb: BbPluginApi) {
         }),
         configuration: current ? "valid" : "invalid",
         remoteEnabled: current?.remoteEnabled ?? false,
-        controlTools: current?.controlEnabled ? "enabled" : "disabled",
+        authMode: current?.authMode ?? null,
+        localAppPermission:
+          current?.authMode === "cloudflare-access" ? current.accessPermission : undefined,
+        controlTools:
+          current?.controlEnabled &&
+          (current.authMode !== "cloudflare-access" || current.accessPermission === "read-control")
+            ? "enabled"
+            : "disabled",
         reloadRequired:
           !access ||
           connection.publicOrigin !== saved.publicOrigin ||

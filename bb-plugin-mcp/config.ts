@@ -13,17 +13,44 @@ export const settingsDefinition = {
     default: 38991,
     description: "Reload after a change. Never use BB's main port.",
   },
+  authMode: {
+    type: "string",
+    label: "Authentication mode",
+    default: "bearer-jwt",
+    description: "bearer-jwt or cloudflare-access. No credential fallback between modes.",
+  },
+  accessAudience: {
+    type: "string",
+    label: "Cloudflare application AUD",
+    default: "",
+    description: "Exact dedicated Access application audience. Never use a shared app AUD.",
+  },
+  accessPermission: {
+    type: "string",
+    label: "Cloudflare local app permission",
+    default: "read",
+    description:
+      "read or read-control. All owner/app sessions share this local permission, not OAuth scopes.",
+  },
+  accessOAuthIssuer: {
+    type: "string",
+    label: "Cloudflare OAuth discovery issuer",
+    default: "",
+    description:
+      "Exact Managed OAuth server issuer from verified discovery, not the assertion issuer.",
+  },
   issuer: {
     type: "string",
-    label: "OAuth issuer",
+    label: "Assertion signing issuer",
     default: "",
-    description: "HTTPS OpenID Connect issuer with RS256 access tokens.",
+    description:
+      "Bearer mode: OpenID Connect issuer. Cloudflare mode: exact HTTPS Access team origin.",
   },
   owner: {
     type: "string",
     label: "Owner subject",
     default: "",
-    description: "Exact OAuth sub claim. Removing it denies access immediately.",
+    description: "Exact signed sub claim. Removing it denies access immediately.",
   },
   projects: {
     type: "string",
@@ -44,7 +71,7 @@ export const settingsDefinition = {
     label: "Enable remote control",
     default: false,
     description:
-      "Allow thread starts with read/control OAuth scopes. Agents can change files and incur costs.",
+      "Require control permission as well as this switch. Agents can change files and incur costs.",
   },
 } as const;
 
@@ -58,6 +85,10 @@ export const configSchema = z
       .max(65535)
       .refine((p) => p !== 38886),
     issuer: z.string().max(2048),
+    authMode: z.enum(["bearer-jwt", "cloudflare-access"]).default("bearer-jwt"),
+    accessAudience: z.string().max(256).default(""),
+    accessPermission: z.enum(["read", "read-control"]).default("read"),
+    accessOAuthIssuer: z.string().max(2048).default(""),
     owner: z
       .string()
       .min(1)
@@ -88,6 +119,35 @@ export const configSchema = z
           code: "custom",
           path: [field],
           message: "Use a canonical public HTTPS URL.",
+        });
+      }
+    }
+    if (value.authMode === "cloudflare-access") {
+      if (!/^[A-Za-z0-9_-]{1,256}$/.test(value.accessAudience))
+        ctx.addIssue({
+          code: "custom",
+          path: ["accessAudience"],
+          message: "Use the exact application AUD.",
+        });
+      try {
+        const issuer = new URL(value.issuer);
+        const oauth = new URL(value.accessOAuthIssuer);
+        if (
+          value.issuer !== issuer.origin ||
+          oauth.protocol !== "https:" ||
+          oauth.username ||
+          oauth.password ||
+          oauth.search ||
+          oauth.hash ||
+          !oauth.hostname.includes(".") ||
+          (value.accessOAuthIssuer !== oauth.href && value.accessOAuthIssuer !== oauth.origin)
+        )
+          throw new Error();
+      } catch {
+        ctx.addIssue({
+          code: "custom",
+          path: ["accessOAuthIssuer"],
+          message: "Use verified public HTTPS issuers; the signing issuer must be a team origin.",
         });
       }
     }
