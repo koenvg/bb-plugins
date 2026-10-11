@@ -130,9 +130,16 @@ The reader SHALL derive an optional outline from actual rendered headings, suppo
 
 The reader SHALL resolve relative file links and images from the containing document to decoded, normalized paths lexically within the permitted source root and SHALL preserve the source's host identity. In-document fragments SHALL navigate locally. Valid external HTTP(S) links SHALL use BB's URL-opening behavior. Unsupported or executable schemes, malformed encodings/URLs, encoded traversal, and lexical paths outside the permitted root SHALL be inert and SHALL NOT cause an SDK file read, preview allocation, image request, or navigation.
 
-Reader reads and local-image content requests SHALL use explicit host/root identity and SDK confinement during the operation. Confined SDK read calls, root-preview lease allocation, and image requests MAY occur before the host rejects a symlink escape. A rejected confined read or image request SHALL NOT deliver outside-root content and SHALL leave an actionable reader error or readable image alt/error content. Metadata-only validation before activation or preview allocation is not required.
+Reader reads and local-image content requests SHALL use explicit host/root identity and SDK confinement during the operation. Confined SDK reads MAY occur before the host rejects a symlink escape. A rejected confined read or image request SHALL NOT deliver outside-root content and SHALL leave an actionable reader error or readable image alt/error content. Metadata-only validation before activation is not required. Each local-image URL SHALL select exactly one supported raster file, SHALL use BB's normal frontend route access checks, SHALL hide host/root/path identity, and SHALL reject changes to its opaque file identity. It SHALL NOT grant access to a folder or other files, SHALL NOT allocate a folder-preview lease, and SHALL NOT expire based on elapsed time. Loaded images SHALL remain visible without a timeout. Plugin reload or server restart MAY invalidate old URLs; Refresh SHALL issue fresh URLs.
 
 Local file links SHALL use BB's normal source-aware file-opening behavior and permissions after lexical validation. The plugin SHALL NOT claim an additional guarantee that native file navigation keeps a symlink's final target within the original source root. The README SHALL document this limit. Remote HTTP(S) images SHALL load as ordinary images without proxying authenticated BB credentials; local images SHALL use confined host file-preview transport.
+
+#### Scenario: Keep a local screenshot available
+
+- **WHEN** a supported local screenshot is displayed and the document remains open longer than 60 seconds
+- **THEN** the image remains visible and its URL continues to serve that same image without renewal
+- **AND** a changed opaque identity is rejected without reading any file
+- **AND** extra file/root parameters cannot change which file that URL serves
 
 #### Scenario: Open a sibling document
 

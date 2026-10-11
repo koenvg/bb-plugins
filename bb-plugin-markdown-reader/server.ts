@@ -7,6 +7,7 @@ import {
   destinationsResultSchema,
 } from "./source";
 import { hostContract } from "./host-contract";
+import { createImageTransport } from "./images";
 
 export const rpcContract = defineRpcContract({
   read_document: { input: targetSchema, output: readResultSchema },
@@ -15,6 +16,10 @@ export const rpcContract = defineRpcContract({
 
 export default function plugin(bb: BbPluginApi) {
   const host = bb.hosts.experimental_client({ contract: hostContract });
+  const images = createImageTransport((target) => bb.sdk.files.read(target));
+  bb.http.route("GET", "/image", (context) => images.serve(context.req.query("asset") ?? null), {
+    auth: "local",
+  });
   const reader = createSourceReader({
     environment: (environmentId) => bb.sdk.environments.get({ environmentId }),
     project: (projectId) => bb.sdk.projects.get({ projectId }),
@@ -23,7 +28,7 @@ export default function plugin(bb: BbPluginApi) {
     resolveHostRoot: async ({ hostId, rootPath }) =>
       (await host.call("resolve_root", { rootPath }, { hostId })).rootPath,
     read: (target) => bb.sdk.files.read(target),
-    createPreview: (target) => bb.sdk.files.createPreview(target),
+    imageUrl: images.urlFor,
   });
   bb.rpc.register(rpcContract, {
     read_document: (target) => reader.read(target),

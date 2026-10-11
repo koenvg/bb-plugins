@@ -11,7 +11,7 @@ export type Destination =
   | { kind: "fragment"; fragment: string }
   | { kind: "local-file"; target: ExperimentalLiveFileTarget; hostId: string }
   | { kind: "external-url"; url: string }
-  | { kind: "image"; url: string; remote: boolean; expiresAtMs?: number }
+  | { kind: "image"; url: string; remote: boolean }
   | { kind: "rejected"; reason: string };
 export interface DestinationResult {
   identity: { hostId: string; rootPath: string; documentPath: string } | null;
