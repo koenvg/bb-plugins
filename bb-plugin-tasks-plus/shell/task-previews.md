@@ -63,9 +63,12 @@ The existing save barrier still controls navigation to an already-warmed task.
 ## Invalidation and failure
 
 `invalidate(key)` revokes that key's publication rights and marks matching data
-stale. Without a key it invalidates all previews. Task events use their task key
-or task ID when available. A cold issued request has no confirmed ID, so an
-ID-based event also revokes unknown in-flight requests. Project changes invalidate
+stale. Without a key it invalidates all previews. An identified task event
+invalidates its own snapshot and snapshots with a matching `blockedBy` or `blocks`
+reference. This refreshes linked titles, statuses and blocker counts after updates
+or deletion. Unrelated current snapshots stay usable. All issued revalidations are
+revoked because their responses can contain links absent from their old snapshots.
+Events without a task ID invalidate all previews. Project changes also invalidate
 all previews because task keys can change with a project. Manual refresh and
 reconnect use the shared refresh generation. Every publication checks both its
 request identity and the current generation, including before a render occurs.
