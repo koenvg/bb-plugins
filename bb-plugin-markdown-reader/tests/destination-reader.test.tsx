@@ -37,9 +37,10 @@ afterEach(async () => {
 async function mount(
   target = targets[0]!,
   text = "# Note",
-  preview?: () => Promise<{ baseUrl: string; expiresAtMs: number }>,
+  resolve?: (
+    result: import("../destination-types").DestinationResult,
+  ) => Promise<import("../destination-types").DestinationResult>,
 ) {
-  let leases = 0;
   let readFailure = false;
   const { bb, harness } = createFakePluginHost({
     pluginId: "markdown-reader",
@@ -68,12 +69,6 @@ async function mount(
             sizeBytes: text.length,
           };
         },
-        createPreview:
-          preview ??
-          (async () => ({
-            baseUrl: `/api/v1/file-previews/lease-${++leases}`,
-            expiresAtMs: Date.now() + 60000,
-          })),
       },
     },
   });
@@ -88,10 +83,12 @@ async function mount(
       rpc: {
         read_document: async (input) =>
           readResultSchema.parse(await harness.behavior.callRpc("read_document", input)),
-        resolve_destinations: async (input) =>
-          destinationsResultSchema.parse(
+        resolve_destinations: async (input) => {
+          const result = destinationsResultSchema.parse(
             await harness.behavior.callRpc("resolve_destinations", input),
-          ),
+          );
+          return resolve ? resolve(result) : result;
+        },
       },
       openUrl: () => true,
       openFilePreview: () => true,
@@ -138,13 +135,15 @@ describe("rendered destinations and source-owned image transport", () => {
         url: "https://example.com/guide",
       });
       const image = await slot.findByRole("img", { name: "Local alt" });
-      expect(image.getAttribute("src")).toMatch(/^\/api\/v1\/file-previews\/lease-1\//);
+      expect(image.getAttribute("src")).toMatch(
+        /^\/api\/v1\/plugins\/markdown-reader\/http\/image\?asset=/,
+      );
       expect(image.getAttribute("src")).not.toMatch(/remote|\/notes|\/work|\/actual/);
       expect(slot.getByRole("img", { name: "Remote alt" }).getAttribute("src")).toBe(
         "https://images.test/picture.png",
       );
       expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
-      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
       fireEvent.click(slot.getByRole("button", { name: "Raw" }));
       expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);
     },
@@ -209,22 +208,27 @@ describe("rendered destinations and source-owned image transport", () => {
     await userEvent.setup().keyboard("{Enter}");
     expect(slot.inspection.navigateCalls).toHaveLength(2);
   });
-  it("deduplicates within a snapshot and renews transport on same-text/hash Refresh without a view-switch lease", async () => {
+  it("deduplicates within a snapshot and refreshes URLs without view-switch requests", async () => {
     const { slot, harness } = await mount(
       targets[0],
       "# Note\n\n![first](a.png) ![second](./a.png)",
     );
     const first = await slot.findByRole("img", { name: "first" });
-    const second = slot.getByRole("img", { name: "second" });
-    expect(first.getAttribute("src")).toBe(second.getAttribute("src"));
+    const src = first.getAttribute("src");
+    expect(src).toBe(slot.getByRole("img", { name: "second" }).getAttribute("src"));
     fireEvent.click(slot.getByRole("button", { name: "Raw" }));
     fireEvent.click(slot.getByRole("button", { name: "Preview" }));
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+    expect(
+      slot.inspection.rpcCalls.filter((c) => c.method === "resolve_destinations"),
+    ).toHaveLength(1);
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     await waitFor(() =>
-      expect(slot.getByRole("img", { name: "first" }).getAttribute("src")).toContain("lease-2"),
+      expect(slot.getByRole("img", { name: "first" }).getAttribute("src")).not.toBe(src),
     );
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(2);
+    expect(
+      slot.inspection.rpcCalls.filter((c) => c.method === "resolve_destinations"),
+    ).toHaveLength(2);
+    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
   });
   it("leaves readable alt/error content after a confined asset request fails, then Refresh recovers", async () => {
     const { slot, harness } = await mount(
@@ -238,35 +242,38 @@ describe("rendered destinations and source-owned image transport", () => {
     expect(slot.getByText("Symlink alt")).toBeTruthy();
     expect(slot.getByText(/Image unavailable/)).toBeTruthy();
     expect(slot.getByText("Surrounding text.")).toBeTruthy();
-    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     await slot.findByRole("img", { name: "Symlink alt" });
   });
-  it("discards late previews on source switching and unmount without cross-source reuse", async () => {
-    const pending: ((p: { baseUrl: string; expiresAtMs: number }) => void)[] = [];
-    const { slot, harness, Opener } = await mount(
+  it("discards late image URLs on source switching and unmount without cross-source reuse", async () => {
+    const pending: {
+      result: import("../destination-types").DestinationResult;
+      complete: () => void;
+    }[] = [];
+    const { slot, Opener } = await mount(
       targets[0],
       "# Note\n\n![Picture](a.png)",
-      () => new Promise((resolve) => pending.push(resolve)),
+      (result) =>
+        new Promise((resolve) => pending.push({ result, complete: () => resolve(result) })),
     );
     await waitFor(() => expect(pending).toHaveLength(1));
     slot.lifecycle.rerender(<Opener {...targets[1]!} Original={() => <p>Bound Original</p>} />);
     await waitFor(() => expect(pending).toHaveLength(2));
-    pending[1]!({ baseUrl: "/api/v1/file-previews/current", expiresAtMs: Date.now() + 60000 });
+    pending[1]!.complete();
     const image = await slot.findByRole("img", { name: "Picture" });
-    expect(image.getAttribute("src")).toContain("current");
-    pending[0]!({ baseUrl: "/api/v1/file-previews/late", expiresAtMs: Date.now() + 60000 });
+    const src = image.getAttribute("src");
+    pending[0]!.complete();
     await Promise.resolve();
-    expect(slot.getByRole("img", { name: "Picture" }).getAttribute("src")).not.toContain("late");
+    expect(slot.getByRole("img", { name: "Picture" }).getAttribute("src")).toBe(src);
+    expect(pending[0]!.result.identity?.rootPath).toBe("/work");
+    expect(pending[1]!.result.identity?.rootPath).toBe("/notes");
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(pending).toHaveLength(3));
     slot.lifecycle.unmount();
-    pending[2]!({ baseUrl: "/api/v1/file-previews/unmounted", expiresAtMs: Date.now() + 60000 });
+    pending[2]!.complete();
     await Promise.resolve();
-    expect(document.querySelector('img[src*="unmounted"]')).toBeNull();
-    const previews = harness.inspection.sdk.callsTo("files.createPreview");
-    expect(previews[0]![0]).toMatchObject({ hostId: "remote", rootPath: "/work" });
-    expect(previews[1]![0]).toMatchObject({ hostId: "remote", rootPath: "/notes" });
+    expect(document.querySelector("img")).toBeNull();
   });
   it("removes stale image sources during Refresh and a failed read, while keeping readable stale text", async () => {
     const { slot, failRead } = await mount(
@@ -281,19 +288,23 @@ describe("rendered destinations and source-owned image transport", () => {
     expect(slot.queryByRole("img")).toBeNull();
     expect(slot.getByText("Stale paragraph.")).toBeTruthy();
   });
-  it("expires loaded images, clears timers on unmount, and does not allocate on its own", async () => {
+  it("keeps local images visible after a day without timers or extra requests", async () => {
     vi.useFakeTimers();
     let mounted!: Awaited<ReturnType<typeof mount>>;
     await act(async () => {
-      mounted = await mount(targets[0], "# Note\n\n![Expiring alt](a.png)");
+      mounted = await mount(targets[0], "# Note\n\n![Persistent alt](a.png)");
     });
-    expect(mounted.slot.getByRole("img").getAttribute("src")).toContain("lease-1");
+    const image = mounted.slot.getByRole("img");
+    const src = image.getAttribute("src");
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60001);
+      await vi.advanceTimersByTimeAsync(86400000);
     });
-    expect(mounted.slot.queryByRole("img")).toBeNull();
-    expect(mounted.slot.getByText("Expiring alt")).toBeTruthy();
-    expect(mounted.harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+    expect(mounted.slot.getByRole("img")).toBe(image);
+    expect(image.getAttribute("src")).toBe(src);
+    expect(
+      mounted.slot.inspection.rpcCalls.filter((c) => c.method === "resolve_destinations"),
+    ).toHaveLength(1);
+    expect(mounted.harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
     mounted.slot.lifecycle.unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -332,11 +343,11 @@ describe("rendered destinations and source-owned image transport", () => {
       expect(slot.getByText("oversized").tagName).toBe("SPAN");
       expect(slot.getByText("Oversized alt")).toBeTruthy();
       expect((await slot.findByRole("img", { name: "Good alt" })).getAttribute("src")).toContain(
-        "lease-1",
+        "/api/v1/plugins/markdown-reader/http/image?asset=",
       );
       expect(slot.container.querySelectorAll("img")).toHaveLength(1);
       expect(slot.inspection.navigateCalls).toHaveLength(0);
-      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(1);
+      expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
       const resolution = slot.inspection.rpcCalls.find((c) => c.method === "resolve_destinations")!;
       expect(JSON.stringify(resolution)).not.toContain(oversized);
       fireEvent.click(slot.getByRole("button", { name: "Raw" }));

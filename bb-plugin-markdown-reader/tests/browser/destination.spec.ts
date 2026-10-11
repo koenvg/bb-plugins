@@ -17,8 +17,9 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
           await route.fulfill({ status: 403, body: "Confined fixture denial" });
         else await route.fulfill({ status: 200, contentType: "image/png", body: png });
       };
-      await page.route("**/api/v1/file-previews/**", imageRoute);
+      await page.route("**/api/v1/plugins/markdown-reader/http/image?asset=*", imageRoute);
       await page.route("https://images.test/**", imageRoute);
+      await page.clock.install();
       await page.goto(
         `/tests/destination-preview.html?source=${source}&width=${width}&theme=${theme}`,
       );
@@ -34,6 +35,11 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
       await page.getByText("Confined symlink alt", { exact: false }).waitFor();
       await expect(page.getByRole("img", { name: "Confined symlink alt" })).toHaveCount(0);
       await page.getByText("Rejected SVG alt", { exact: true }).waitFor();
+      const imageRequests = requests.length;
+      await page.clock.fastForward(120000);
+      await expect(local).toBeVisible();
+      expect(await local.evaluate((e) => (e as HTMLImageElement).naturalWidth)).toBe(1200);
+      expect(requests).toHaveLength(imageRequests);
       await expect(page.getByRole("link", { name: "script", exact: true })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "escape", exact: true })).toHaveCount(0);
       for (const name of ["sibling", "web"]) {
@@ -73,9 +79,9 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         await page.evaluate("window.destinationFixture.text"),
       );
       await page.getByRole("button", { name: "Preview", exact: true }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-fixture-leases", "1");
+      await expect(page.locator("html")).toHaveAttribute("data-fixture-resolutions", "1");
       await page.getByRole("button", { name: "Refresh", exact: true }).click();
-      await page.waitForFunction("document.documentElement.dataset.fixtureLeases === '2'");
+      await page.waitForFunction("document.documentElement.dataset.fixtureResolutions === '2'");
       await expect(local).not.toHaveAttribute("src", oldSrc!);
       await local.scrollIntoViewIfNeeded();
       await page.waitForFunction(

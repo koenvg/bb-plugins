@@ -22,6 +22,7 @@ const targets: ReaderTarget[] = [
   },
 ];
 function setup() {
+  let images = 0;
   const adapter: SourceAdapter = {
     resolveHostRoot: vi.fn(async ({ rootPath }) => rootPath),
     environment: vi.fn(async () => ({
@@ -43,10 +44,9 @@ function setup() {
       sha256: "hash",
       sizeBytes: 6,
     })),
-    createPreview: vi.fn(async () => ({
-      baseUrl: "/api/v1/file-previews/opaque",
-      expiresAtMs: Date.now() + 60000,
-    })),
+    imageUrl: vi.fn(
+      async () => `/api/v1/plugins/markdown-reader/http/image?asset=image${++images}`,
+    ),
   };
   return { adapter, reader: createSourceReader(adapter) };
 }
@@ -79,7 +79,7 @@ describe("source destination interface", () => {
         { kind: "external-url", url: "https://example.com/a?q=1#x" },
       ]);
       expect(adapter.read).not.toHaveBeenCalled();
-      expect(adapter.createPreview).not.toHaveBeenCalled();
+      expect(adapter.imageUrl).not.toHaveBeenCalled();
     },
   );
   it.each([targets[0]!, targets[2]!])(
@@ -131,7 +131,7 @@ describe("source destination interface", () => {
     });
     expect(result.destinations.every((d) => d.kind === "rejected")).toBe(true);
     expect(adapter.read).not.toHaveBeenCalled();
-    expect(adapter.createPreview).not.toHaveBeenCalled();
+    expect(adapter.imageUrl).not.toHaveBeenCalled();
   });
   it("does not expand an absolute-host containing-directory root", async () => {
     const { reader, adapter } = setup();
@@ -143,10 +143,10 @@ describe("source destination interface", () => {
         })
       ).destinations.every((d) => d.kind === "rejected"),
     ).toBe(true);
-    expect(adapter.createPreview).not.toHaveBeenCalled();
+    expect(adapter.imageUrl).not.toHaveBeenCalled();
   });
   it.each(targets)(
-    "uses one bounded root lease for supported $source.kind images, with encoded relative URLs and no leaked identities",
+    "uses image-only URLs for supported $source.kind images with no leaked identities",
     async (target) => {
       const { reader, adapter } = setup();
       const result = await reader.destinations({
@@ -164,17 +164,16 @@ describe("source destination interface", () => {
           : target.source.kind === "host"
             ? "/notes"
             : "/actual/storage";
-      expect(adapter.createPreview).toHaveBeenCalledExactlyOnceWith({
+      expect(adapter.imageUrl).toHaveBeenNthCalledWith(1, {
         hostId: "remote",
         rootPath,
-        ttlMs: 60000,
+        path: `${rootPath}/${target.source.kind === "host" ? "" : "reports/"}picture one.png`,
       });
-      const directory = target.source.kind === "host" ? "" : "reports/";
+      expect(adapter.imageUrl).toHaveBeenCalledTimes(2);
       expect(result.destinations[0]).toMatchObject({
         kind: "image",
-        url: `/api/v1/file-previews/opaque/${directory}picture%20one.png`,
+        url: "/api/v1/plugins/markdown-reader/http/image?asset=image1",
         remote: false,
-        expiresAtMs: expect.any(Number),
       });
       expect(result.destinations[1]).toEqual(result.destinations[0]);
       expect(result.destinations[3]).toEqual({
@@ -193,12 +192,12 @@ describe("source destination interface", () => {
         (await reader.destinations({ target: targets[0], requests: [request(url, true)] }))
           .destinations[0],
       ).toMatchObject({ kind: "rejected" });
-      expect(adapter.createPreview).not.toHaveBeenCalled();
+      expect(adapter.imageUrl).not.toHaveBeenCalled();
     },
   );
-  it("keeps valid file/URL results when preview allocation fails", async () => {
+  it("keeps valid file/URL results when image URL creation fails", async () => {
     const { reader, adapter } = setup();
-    vi.mocked(adapter.createPreview!).mockRejectedValue(new Error("Host disconnected"));
+    vi.mocked(adapter.imageUrl!).mockRejectedValue(new Error("Host disconnected"));
     const result = await reader.destinations({
       target: targets[0],
       requests: [request("image.png", true), request("next.md"), request("https://example.com")],
@@ -232,25 +231,24 @@ describe("source destination interface", () => {
       (await reader.destinations({ target: bad, requests: [request("x.png", true)] }))
         .destinations[0],
     ).toMatchObject({ kind: "rejected" });
-    expect(adapter.createPreview).not.toHaveBeenCalled();
+    expect(adapter.imageUrl).not.toHaveBeenCalled();
   });
-  it("bounds image destinations at 32 and renews leases on each new snapshot request", async () => {
+  it("bounds image destinations at 32 and creates fresh URLs on each snapshot request", async () => {
     const { reader, adapter } = setup();
     const requests = Array.from({ length: 33 }, (_, i) => request(`${i}.png`, true));
     const result = await reader.destinations({ target: targets[0], requests });
     expect(result.destinations.filter((d) => d.kind === "image")).toHaveLength(32);
     expect(result.destinations[32]).toMatchObject({ kind: "rejected" });
     await reader.destinations({ target: targets[0], requests: [request("0.png", true)] });
-    expect(adapter.createPreview).toHaveBeenCalledTimes(2);
+    expect(adapter.imageUrl).toHaveBeenCalledTimes(33);
   });
   it.each([
-    { baseUrl: "https://evil.test/x", expiresAtMs: Date.now() + 60000 },
-    { baseUrl: "/api/v1/file-previews/x/../y", expiresAtMs: Date.now() + 60000 },
-    { baseUrl: "/api/v1/file-previews/token", expiresAtMs: Date.now() - 1 },
-    { baseUrl: "/api/v1/file-previews/token", expiresAtMs: Date.now() + 3600000 },
-  ])("rejects invalid or expired SDK lease %j", async (preview) => {
+    "https://evil.test/x",
+    "/api/v1/file-previews/token",
+    "/api/v1/plugins/markdown-reader/http/image?asset=x&path=other.png",
+  ])("rejects invalid image URL %j", async (url) => {
     const { reader, adapter } = setup();
-    vi.mocked(adapter.createPreview!).mockResolvedValue(preview);
+    vi.mocked(adapter.imageUrl!).mockResolvedValue(url);
     expect(
       (await reader.destinations({ target: targets[0], requests: [request("x.png", true)] }))
         .destinations[0],
@@ -278,10 +276,10 @@ describe("source destination interface", () => {
       target: { kind: "workspace", path: "ok.md" },
     });
     expect(result.destinations[1]).toMatchObject({ kind: "rejected" });
-    expect(adapter.createPreview).toHaveBeenCalledExactlyOnceWith({
+    expect(adapter.imageUrl).toHaveBeenCalledExactlyOnceWith({
       hostId: "remote",
       rootPath: "C:\\work",
-      ttlMs: 60000,
+      path: "C:\\work\\reports\\picture.png",
     });
   });
   it("keeps project-only workspace links inert without guessing an environment, while images retain the project host/root", async () => {
@@ -296,10 +294,10 @@ describe("source destination interface", () => {
     });
     expect(result.destinations[0]).toMatchObject({ kind: "rejected" });
     expect(result.destinations[1]).toMatchObject({ kind: "image" });
-    expect(adapter.createPreview).toHaveBeenCalledExactlyOnceWith({
+    expect(adapter.imageUrl).toHaveBeenCalledExactlyOnceWith({
       hostId: "remote",
       rootPath: "/work",
-      ttlMs: 60000,
+      path: "/work/reports/photo.png",
     });
   });
   it.each([
@@ -317,7 +315,7 @@ describe("source destination interface", () => {
       ).destinations.every((d) => d.kind === "rejected"),
     ).toBe(true);
     expect(adapter.read).not.toHaveBeenCalled();
-    expect(adapter.createPreview).not.toHaveBeenCalled();
+    expect(adapter.imageUrl).not.toHaveBeenCalled();
   });
   it("accepts a 4096-character external URL at the wire bound and rejects a longer direct RPC request without effects", async () => {
     const { reader, adapter } = setup();
@@ -330,6 +328,6 @@ describe("source destination interface", () => {
       reader.destinations({ target: targets[0], requests: [request(url + "a")] }),
     ).rejects.toThrow();
     expect(adapter.read).not.toHaveBeenCalled();
-    expect(adapter.createPreview).not.toHaveBeenCalled();
+    expect(adapter.imageUrl).not.toHaveBeenCalled();
   });
 });
