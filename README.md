@@ -41,6 +41,14 @@ Tasks Plus replaces BB's bundled Tasks plugin and keeps the `bb tasks` command. 
 
 Code Cleanup's [default guidance](bb-plugin-code-cleanup/guidance.ts) uses `bb tasks`. It requires one tracker whose `linkedBbProjectId` matches the current BB project. Use the tracker prefix or ID for task commands, never the BB project ID. If the CLI is unavailable or the tracker is missing or ambiguous, report the problem and ask for a linked tracker or the CLI. Do not file cleanup in another tracker. The guidance searches all open-task pages, reuses matches, and records follow-ups without starting cleanup work. Saved custom prompts replace this default.
 
+## BB worktree setup
+
+BB runs the tracked root `.bb-env-setup.sh` when it creates a new managed worktree. The hook requires Node 24.15 or newer within Node 24 and a working npm, then runs `npm ci --include=dev --prefer-offline --no-audit --no-fund` at the repository root. It installs only the shared development tools, not each plugin's dependencies. Dependencies stay inside the worktree; npm can reuse its download cache.
+
+Missing or unsupported tools and failed installs stop provisioning with a non-zero exit. The hook does not run tests, write a readiness report, or change Pi settings. Existing attached checkouts do not run it automatically. The hook must be committed and present on the ref used to create the worktree before automatic setup takes effect.
+
+To run it manually from the repository root, use `bash .bb-env-setup.sh`. Like any `npm ci`, this replaces the root `node_modules` directory. Test the hook with `node --test scripts/environment-setup.test.mjs`.
+
 ## Formatting and linting
 
 Use [Oxfmt and Oxlint](https://oxc.rs/) for this repository. Install the pinned tools once at the repository root:
