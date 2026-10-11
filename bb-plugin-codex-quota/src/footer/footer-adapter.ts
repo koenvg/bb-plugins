@@ -21,7 +21,7 @@ function isAvailable(button: HTMLButtonElement): boolean {
   for (let node: HTMLElement | null = button; node; node = node.parentElement) {
     // Modal menus set aria-hidden on the background without removing the footer.
     // Keep its attachment and navigation suppression until it is actually hidden.
-    if (node.hidden || node.inert) return false;
+    if (node.hidden || node.inert || node.hasAttribute("inert")) return false;
     const style = node.ownerDocument.defaultView?.getComputedStyle(node);
     if (style?.display === "none" || style?.visibility === "hidden") return false;
   }
@@ -33,6 +33,12 @@ function isAvailable(button: HTMLButtonElement): boolean {
  * Identity selectors are intentionally isolated here. Missing/ambiguous targets
  * leave normal navigation alone. Never move or replace host-owned children,
  * write sidebar preferences, or retain suppression after a portal detaches.
+ *
+ * Discover sidebar lifetimes from changed subtrees, then observe each sidebar
+ * and its outer visibility ancestors. Unrelated task changes cause no sidebar
+ * scan or computed-style reads. Relevant changes share one queued microtask.
+ * Stylesheet DOM/load and viewport signals recheck visibility without polling.
+ * Direct CSSOM changes need a DOM/load/resize signal. Disposal revokes queued work.
  */
 export function mountFooterAdapter(document: Document, pluginId: string) {
   let targets: readonly FooterTarget[] = [];
@@ -43,6 +49,8 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
   const suppressed = new Set<Element>();
   let navigationReady = false;
   const key = `plugin:${encodeURIComponent(pluginId)}/quota`;
+  const sidebarSelector = '[data-sidebar="sidebar"]';
+  const sidebars = new Set<Element>(Array.from(document.querySelectorAll(sidebarSelector)));
   const style = document.createElement("style");
   style.setAttribute("data-codex-quota-style", pluginId);
   style.textContent = styles;
@@ -91,7 +99,11 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
   function reconcile() {
     if (disposed) return;
     const buttons = new Set<HTMLButtonElement>();
-    for (const sidebar of Array.from(document.querySelectorAll('[data-sidebar="sidebar"]'))) {
+    for (const sidebar of sidebars) {
+      if (!sidebar.isConnected || !sidebar.matches(sidebarSelector)) sidebars.delete(sidebar);
+    }
+    observeContext();
+    for (const sidebar of sidebars) {
       const items = Array.from(
         sidebar.querySelectorAll('[data-sidebar="footer"] [data-footer-item]'),
       ).filter((item) => item.getAttribute("data-footer-item") === key);
@@ -142,35 +154,157 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     publish();
     updateNavigation();
   }
-  const observer = new MutationObserver((records) => {
-    if (
-      queued ||
-      records.every((record) => (record.target as Element).closest?.("[data-codex-quota-badge]"))
-    )
-      return;
+  function schedule() {
+    if (disposed || queued) return;
     queued = true;
     queueMicrotask(() => {
       queued = false;
-      reconcile();
+      if (!disposed) reconcile();
     });
+  }
+  function owns(node: Node): boolean {
+    const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
+    return !!element?.closest("[data-codex-quota-badge], [data-codex-quota-style]");
+  }
+  function relevantSidebarChange(record: MutationRecord): boolean {
+    if (owns(record.target)) return false;
+    if (record.type === "childList") {
+      return (
+        [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
+          (node) => !owns(node),
+        ) ||
+        Array.from(record.removedNodes).some((node) =>
+          [...attached.values()].some((target) => node.contains(target.container)),
+        )
+      );
+    }
+    // Preserve host tooltip tokens without observing our own idempotent write.
+    if (record.attributeName === "aria-describedby") {
+      const target = attached.get(record.target as HTMLButtonElement);
+      if (
+        !target ||
+        (record.target as Element)
+          .getAttribute("aria-describedby")
+          ?.split(/\s+/)
+          .includes(target.descriptionId)
+      )
+        return false;
+    }
+    return true;
+  }
+  const sidebarObserver = new MutationObserver((records) => {
+    if (records.some(relevantSidebarChange)) schedule();
   });
-  observer.observe(document.documentElement, {
+  const ancestorObserver = new MutationObserver(schedule);
+  function observeContext() {
+    sidebarObserver.disconnect();
+    ancestorObserver.disconnect();
+    const ancestors = new Set<Element>();
+    for (const sidebar of sidebars) {
+      sidebarObserver.observe(sidebar, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: [
+          "hidden",
+          "inert",
+          "style",
+          "class",
+          "aria-disabled",
+          "aria-describedby",
+          "disabled",
+          "data-sidebar",
+          "data-testid",
+          "data-footer-item",
+          "data-sidebar-navigation-item",
+        ],
+      });
+      for (let node = sidebar.parentElement; node; node = node.parentElement) ancestors.add(node);
+    }
+    for (const ancestor of ancestors)
+      ancestorObserver.observe(ancestor, {
+        attributes: true,
+        attributeFilter: ["hidden", "inert", "style", "class"],
+      });
+  }
+  // Discovery checks changed subtrees, never rescans the document.
+  const lifecycleObserver = new MutationObserver((records) => {
+    if (disposed) return;
+    let changed = false;
+    for (const record of records) {
+      if (owns(record.target)) continue;
+      if (record.type === "attributes") {
+        const element = record.target as Element;
+        if (sidebars.has(element)) changed = true;
+        if (element.matches(sidebarSelector)) {
+          sidebars.add(element);
+          changed = true;
+        }
+        continue;
+      }
+      for (const node of Array.from(record.removedNodes)) {
+        if ([...sidebars].some((sidebar) => node.contains(sidebar))) changed = true;
+      }
+      for (const node of Array.from(record.addedNodes)) {
+        if (node.nodeType !== 1 || owns(node)) continue;
+        const element = node as Element;
+        const found = Array.from(element.querySelectorAll(sidebarSelector));
+        if (element.matches(sidebarSelector)) found.push(element);
+        for (const sidebar of found) {
+          if (!sidebar.isConnected) continue;
+          sidebars.add(sidebar);
+          changed = true;
+        }
+      }
+    }
+    if (changed) schedule();
+  });
+  lifecycleObserver.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: [
-      "hidden",
-      "inert",
-      "style",
-      "class",
-      "aria-hidden",
-      "aria-disabled",
-      "aria-describedby",
-      "disabled",
-      "data-footer-item",
-      "data-sidebar-navigation-item",
-    ],
+    attributeFilter: ["data-sidebar"],
   });
+  const stylesheetSelector = 'style:not([data-codex-quota-style]), link[rel="stylesheet"]';
+  function affectsStylesheet(node: Node): boolean {
+    const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
+    return (
+      !owns(node) &&
+      !!element &&
+      (element.matches(stylesheetSelector) ||
+        !!element.closest(stylesheetSelector) ||
+        !!element.querySelector(stylesheetSelector))
+    );
+  }
+  const stylesheetObserver = new MutationObserver((records) => {
+    const relevant = records.some((record) => {
+      // A link can cease to match after a rel change.
+      if (
+        record.type === "attributes" &&
+        record.attributeName === "rel" &&
+        (record.target as Element).tagName === "LINK"
+      )
+        return true;
+      return (
+        affectsStylesheet(record.target) ||
+        [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
+          affectsStylesheet,
+        )
+      );
+    });
+    if (relevant) schedule();
+  });
+  stylesheetObserver.observe(document.head, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+  });
+  const onStylesheetLoad = (event: Event) => {
+    if (event.target instanceof Element && event.target.matches(stylesheetSelector)) schedule();
+  };
+  document.addEventListener("load", onStylesheetLoad, true);
+  document.defaultView?.addEventListener("resize", schedule);
   reconcile();
   return {
     getSnapshot: () => targets,
@@ -187,7 +321,13 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      observer.disconnect();
+      lifecycleObserver.disconnect();
+      sidebarObserver.disconnect();
+      ancestorObserver.disconnect();
+      stylesheetObserver.disconnect();
+      document.removeEventListener("load", onStylesheetLoad, true);
+      document.defaultView?.removeEventListener("resize", schedule);
+      sidebars.clear();
       for (const [button, target] of attached) release(button, target);
       updateNavigation();
       style.remove();

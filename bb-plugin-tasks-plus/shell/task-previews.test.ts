@@ -165,4 +165,63 @@ describe("session task previews", () => {
     expect(previews.read("TSK-1").data).toEqual(task(1));
     release();
   });
+  it.each(["blockedBy", "blocks"] as const)(
+    "invalidates retained %s references while preserving unrelated current tasks",
+    async (relationship) => {
+      const linked = task(1);
+      const reference = {
+        id: linked.id,
+        key: linked.key,
+        title: linked.title,
+        status: linked.status,
+      };
+      const dependent = { ...task(2), [relationship]: [reference] };
+      const fetch = vi.fn(async (key: string) =>
+        key === "TSK-2" ? dependent : task(Number(key.split("-")[1])),
+      );
+      const previews = createTaskPreviews(fetch);
+      await previews.load("TSK-1");
+      await previews.load("TSK-2");
+      await previews.load("TSK-3");
+      previews.invalidateTask(linked.id);
+      expect(previews.read("TSK-2").current).toBe(false);
+      expect(previews.read("TSK-3").current).toBe(true);
+      dependent[relationship] = [{ ...reference, title: "Changed", status: "done" }];
+      await previews.load("TSK-2");
+      expect(previews.read("TSK-2").data?.[relationship]).toEqual(dependent[relationship]);
+      expect(fetch.mock.calls.filter(([key]) => key === "TSK-2")).toHaveLength(2);
+    },
+  );
+
+  it("revokes a revalidation whose newly linked identity is not in its old snapshot", async () => {
+    const old = deferred<ReturnType<typeof task>>();
+    const fresh = deferred<ReturnType<typeof task>>();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(task(2))
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(fresh.promise);
+    const previews = createTaskPreviews(fetch);
+    await previews.load("TSK-2");
+    previews.invalidate("TSK-2");
+    const obsolete = previews.load("TSK-2");
+    await Promise.resolve();
+    previews.invalidateTask("task-1");
+    const current = previews.load("TSK-2");
+    expect(current).not.toBe(obsolete);
+    const reference = {
+      id: "task-1",
+      key: "TSK-1",
+      title: "Fresh blocker",
+      status: "done" as const,
+    };
+    fresh.resolve({ ...task(2, "Fresh"), blockedBy: [reference] });
+    await current;
+    old.resolve({ ...task(2, "Obsolete"), blockedBy: [{ ...reference, status: "todo" }] });
+    await obsolete;
+    expect(previews.read("TSK-2")).toMatchObject({
+      current: true,
+      data: { description: "Fresh", blockedBy: [reference] },
+    });
+  });
 });

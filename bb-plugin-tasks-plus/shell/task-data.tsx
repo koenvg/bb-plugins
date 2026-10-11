@@ -93,9 +93,8 @@ export function TaskDataProvider({ children }: { children: ReactNode }) {
   const data = useMemo(() => createSessionData(rpc), [rpc]);
   useSessionDataLifetime(data, true);
   useRealtime("tasks:changed", (payload) => {
-    const event = payload as { taskId?: unknown; taskKey?: unknown } | null;
-    if (typeof event?.taskKey === "string") data.previews.invalidate(event.taskKey);
-    else if (typeof event?.taskId === "string") data.previews.invalidateTask(event.taskId);
+    const event = payload as { taskId?: unknown } | null;
+    if (typeof event?.taskId === "string") data.previews.invalidateTask(event.taskId);
     else data.previews.invalidate();
   });
   useRealtime("projects:changed", () => {
