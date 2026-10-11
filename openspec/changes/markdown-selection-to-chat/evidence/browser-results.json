@@ -1,0 +1,151 @@
+{
+  "fixtureOnly": true,
+  "stats": {
+    "startTime": "2026-10-11T14:05:18.866Z",
+    "duration": 16991.409,
+    "expected": 65,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "selection": [
+    {
+      "file": "selection.spec.ts",
+      "title": "Preview selection appends a quote to the associated draft and preserves its content",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "Raw selection preserves indentation and blank lines without adding the next line",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "Preview quotes visible table without source lines",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "Preview quotes visible highlighted code without source lines",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "a partial wrapped Raw line remains a single source line",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on clear",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on Escape",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on outside",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on scroll",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on view",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on composer",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on Refresh",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "dismisses obsolete selection on unmount",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "failed refresh leaves copyable stale content without an action and permits Original",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "rejects whitespace, outline, controls and cross-document selections",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "two readers isolate selection and destination, including after unmount",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "loading retained text has no action and needs a new selection after read completion",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "keyboard-created selection has visible focus and Enter activation",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "keyboard-created selection has visible focus and Space activation",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "selection menu stays themed and bounded at 390-dark without layout shift",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "selection menu stays themed and bounded at 1440-light without layout shift",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "changing the file discards its old selection",
+      "ok": true,
+      "status": "passed"
+    },
+    {
+      "file": "selection.spec.ts",
+      "title": "retains native selection without a custom menu",
+      "ok": true,
+      "status": "passed"
+    }
+  ]
+}
