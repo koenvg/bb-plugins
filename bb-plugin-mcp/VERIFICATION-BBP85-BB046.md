@@ -20,7 +20,7 @@ The exact newly verified pair is BB 0.46.0 / SDK 0.6.37. Later BB/SDK/Node versi
 
 ## Public contract inspection
 
-Compared the published SDK 0.6.15 and 0.6.37 declarations, not private BB APIs. Project execution-default schema/arguments, thread spawn/send/status/stop contracts, thread response schema and interaction interface used by MCP remain compatible. The queue area adds experimental edit-hold/release methods; MCP does not call or expose them. Input/queued-message schemas add attachment mentions and optional attachment host/source-project fields. MCP's strict text-only tool schemas do not expose those inputs. Public export names are unchanged.
+Compared the published SDK 0.6.15 and 0.6.37 declarations, not private BB APIs. Project execution-default schema/arguments, thread spawn/send/status/stop contracts, thread response schema and interaction interface used by MCP remain compatible. The queue area adds experimental edit-hold/release methods; MCP does not call or expose them. Input/queued-message schemas add attachment mentions and optional attachment host/source-project fields. MCP's strict text-only tool schemas do not expose those inputs. Existing public export names remain available; SDK 0.6.37 adds `experimental_THREAD_ACTION_GROUPS`, which MCP does not use.
 
 The unchanged runtime still verifies Cloudflare signature/issuer/owner/app AUD/expiry/type, uses explicit LOCAL shared owner/app read/read-control permission (default read), requires local control as well for writes, preserves bearer BB scopes and current-access rechecks, and retains operation identity, ledger/duplicate/unknown/generation protection and normal BB defaults/permissions/queueing. Both remote/control defaults remain disabled.
 
