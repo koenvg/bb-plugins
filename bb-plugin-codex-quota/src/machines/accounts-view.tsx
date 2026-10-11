@@ -191,7 +191,7 @@ export function AccountsOverview({
       )}
       <a
         className="mt-3 inline-block rounded-sm text-xs text-muted-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
-        href="https://chatgpt.com/codex/settings/usage"
+        href="https://chatgpt.com/settings/usage?tab=overview"
         target="_blank"
         rel="noreferrer"
       >

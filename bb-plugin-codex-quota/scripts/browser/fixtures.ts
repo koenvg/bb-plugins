@@ -32,7 +32,7 @@ export async function officialLink(page: Page) {
   const link = page.getByRole("link", { name: /Open Codex Usage/ });
   await link.focus();
   expect(await link.evaluate((e) => e === document.activeElement)).toBe(true);
-  await expect(link).toHaveAttribute("href", "https://chatgpt.com/codex/settings/usage");
+  await expect(link).toHaveAttribute("href", "https://chatgpt.com/settings/usage?tab=overview");
 }
 export async function jsonEvidence(info: TestInfo, name: string, value: unknown) {
   const path = info.outputPath(name);

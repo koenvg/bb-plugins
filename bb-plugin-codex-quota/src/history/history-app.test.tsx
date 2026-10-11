@@ -16,7 +16,7 @@ it("keeps one account owner and the official link while history is unconfigured"
   expect(f.machineAccounts).toHaveBeenCalledTimes(1);
   expect(q.getByText("63%")).toBeTruthy();
   expect(q.getByRole("link", { name: "Open Codex Usage" }).getAttribute("href")).toBe(
-    "https://chatgpt.com/codex/settings/usage",
+    "https://chatgpt.com/settings/usage?tab=overview",
   );
   expect(f.collectorControl).not.toHaveBeenCalled();
   expect(within(page.container).queryByRole("region", { name: "History readiness" })).toBeNull();

@@ -127,7 +127,7 @@ describe("account activity disclosure and presentation", () => {
     await waitFor(() => expect(reads).toBe(1));
     expect(q.getByText("63%")).toBeTruthy();
     expect(q.getByRole("link", { name: "Open Codex Usage" }).getAttribute("href")).toBe(
-      "https://chatgpt.com/codex/settings/usage",
+      "https://chatgpt.com/settings/usage?tab=overview",
     );
     expect(f.collectorControl).not.toHaveBeenCalled();
   });

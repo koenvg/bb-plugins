@@ -41,7 +41,7 @@ The plugin SHALL display the remaining percentage for each valid Codex general a
 
 ### Requirement: Banked reset availability and official link
 
-The plugin SHALL show a nonnegative banked-reset count only when Codex explicitly reports a valid count. It SHALL distinguish zero available from unknown availability. It SHALL link to the official Codex Usage page at `https://chatgpt.com/codex/settings/usage` for details, expiration, and user-controlled redemption. It SHALL NOT offer an in-plugin action that spends or applies a reset. The link SHALL remain usable when quota data is unavailable, and the UI SHALL NOT assume the browser's signed-in account matches the selected host's Pi account.
+The plugin SHALL show a nonnegative banked-reset count only when Codex explicitly reports a valid count. It SHALL distinguish zero available from unknown availability. It SHALL link to the official Codex Usage page at `https://chatgpt.com/settings/usage?tab=overview` for details, expiration, and user-controlled redemption. It SHALL NOT offer an in-plugin action that spends or applies a reset. The link SHALL remain usable when quota data is unavailable, and the UI SHALL NOT assume the browser's signed-in account matches the selected host's Pi account.
 
 #### Scenario: Reset count is present
 

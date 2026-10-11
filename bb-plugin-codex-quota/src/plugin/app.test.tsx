@@ -60,7 +60,7 @@ describe("all-machine Codex slots", () => {
     expect(f.machineAccounts).toHaveBeenCalledTimes(1);
     expect(f.selectHost).not.toHaveBeenCalled();
     expect(page.getByRole("link", { name: /Open Codex Usage/ }).getAttribute("href")).toBe(
-      "https://chatgpt.com/codex/settings/usage",
+      "https://chatgpt.com/settings/usage?tab=overview",
     );
     const ids = timers.mock.calls.flatMap((args, index) =>
       args[1] === 1000 ? [timers.mock.results[index]!.value] : [],
