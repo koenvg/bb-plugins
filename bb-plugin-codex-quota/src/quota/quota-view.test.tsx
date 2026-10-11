@@ -69,7 +69,7 @@ describe("Codex quota UI", () => {
     expect(screen.getByText(/Select a host to view/i)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "No host selected" })).toBeTruthy();
     const link = screen.getByRole("link", { name: /Open Codex Usage/i });
-    expect(link.getAttribute("href")).toBe("https://chatgpt.com/codex/settings/usage");
+    expect(link.getAttribute("href")).toBe("https://chatgpt.com/settings/usage?tab=overview");
     fireEvent.change(screen.getByRole("combobox", { name: /Codex host/i }), {
       target: { value: "host_1" },
     });

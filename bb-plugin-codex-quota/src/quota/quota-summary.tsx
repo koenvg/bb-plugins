@@ -122,7 +122,7 @@ export function QuotaSummary({
           className="mt-1 inline-flex h-9 pointer-coarse:h-11 items-center leading-none font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           aria-label="Open Codex Usage"
           aria-describedby={accountNote}
-          href="https://chatgpt.com/codex/settings/usage"
+          href="https://chatgpt.com/settings/usage?tab=overview"
           target="_blank"
           rel="noopener noreferrer"
         >
