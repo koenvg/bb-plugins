@@ -25,7 +25,19 @@ function table(metric: Metric = "cost") {
           "2 excluded tokens",
           "1 of 60 accepted records priced; 1 priced active entities; pricing partial",
         ]
-      : [date, "600", "350", "Partial, recorded usage", "2 excluded tokens"];
+      : [
+          date,
+          "600",
+          "40",
+          "340",
+          "200",
+          "20",
+          "100",
+          "0",
+          "350",
+          "Partial, recorded usage",
+          "2 excluded tokens",
+        ];
   });
   const headers = [
     "Date",
@@ -34,7 +46,18 @@ function table(metric: Metric = "cost") {
     "Recorded exclusions",
   ];
   if (metric === "cost") headers.push("Pricing");
-  else headers.splice(2, 0, "Uncertain token estimate");
+  else
+    headers.splice(
+      2,
+      0,
+      "Input (uncached) tokens",
+      "Output tokens",
+      "Cache read tokens",
+      "Cache write tokens",
+      "Reasoning tokens (in output)",
+      "Unclassified tokens",
+      "Uncertain token estimate",
+    );
   const nodes = [
     node("table", "table", "Daily recorded usage", ["caption", "head", "body"]),
     node("caption", "caption", "", ["caption-text"]),

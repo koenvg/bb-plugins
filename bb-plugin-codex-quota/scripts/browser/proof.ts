@@ -47,7 +47,18 @@ export function accessibleFacts(
     "Coverage",
     "Recorded exclusions",
   ];
-  if (metric === "tokens") headers.splice(2, 0, "Uncertain token estimate");
+  if (metric === "tokens")
+    headers.splice(
+      2,
+      0,
+      "Input (uncached) tokens",
+      "Output tokens",
+      "Cache read tokens",
+      "Cache write tokens",
+      "Reasoning tokens (in output)",
+      "Unclassified tokens",
+      "Uncertain token estimate",
+    );
   else headers.push("Pricing");
   assert.deepEqual(
     descendants(axRows[0])
@@ -66,9 +77,22 @@ export function accessibleFacts(
 }
 export function tooltipDefinitions(row: string[], metric: Metric) {
   const definitions = [[metric === "cost" ? "USD estimate" : "Recorded tokens", row[1]]];
-  if (metric === "tokens" && row[2] !== "0")
-    definitions.push(["Uncertain estimate", `${row[2]} tokens`]);
-  const exclusions = row[metric === "tokens" ? 4 : 3].replace(/ excluded tokens$/, "");
+  if (metric === "tokens") {
+    if (row[2] === "Unavailable") definitions.push(["Token breakdown", "Unavailable"]);
+    else {
+      [
+        "Input (uncached) tokens",
+        "Output tokens",
+        "Cache read tokens",
+        "Cache write tokens",
+      ].forEach((label, index) => definitions.push([label, row[index + 2]]));
+      if (row[6] !== "0") definitions.push(["Reasoning tokens (in output)", row[6]]);
+    }
+    if (row[7] !== "0" && row[7] !== "Unavailable")
+      definitions.push(["Unclassified tokens", row[7]]);
+    if (row[8] !== "0") definitions.push(["Uncertain estimate", `${row[8]} tokens`]);
+  }
+  const exclusions = row[metric === "tokens" ? 10 : 3].replace(/ excluded tokens$/, "");
   if (exclusions !== "0") definitions.push(["Excluded tokens", exclusions]);
   return definitions;
 }

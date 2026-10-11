@@ -11,6 +11,9 @@ import {
   weekdayTick,
   metricName,
   recordedValue,
+  tokenSeries,
+  tokenCategories,
+  tokenBreakdown,
   type CalendarDay,
   type TokenMetric,
 } from "./calendar-chart-data.js";
@@ -48,13 +51,14 @@ export function UsageTooltip({
   maxWidth?: number;
 }) {
   const value = displayValue(day, metric);
+  const classes = tokenBreakdown(day);
   const hasUncertain = metric === "tokens" && (day.uncertain?.totalTokens ?? 0) > 0;
   const row = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1";
   return (
     <div
       role="tooltip"
       style={{ maxWidth }}
-      className="w-72 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-md [overflow-wrap:anywhere]"
+      className="w-80 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-md [overflow-wrap:anywhere]"
     >
       <p className="font-medium">
         <time dateTime={day.date}>{dateLabel(day.date)}</time>
@@ -66,6 +70,41 @@ export function UsageTooltip({
           </dt>
           <dd className="text-sm font-semibold tabular-nums">{value}</dd>
         </div>
+        {metric === "tokens" &&
+          (classes.state === "available" ? (
+            <>
+              {tokenCategories.map((series) => (
+                <div className={row} key={series.key}>
+                  <dt className="inline-flex items-center gap-2 text-muted-foreground">
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: series.color }}
+                    />
+                    {series.label} tokens
+                  </dt>
+                  <dd className="tabular-nums">{exact(classes[series.key])}</dd>
+                </div>
+              ))}
+              {classes.reasoning > 0 && (
+                <div className={row}>
+                  <dt className="text-muted-foreground">Reasoning tokens (in output)</dt>
+                  <dd className="tabular-nums">{exact(classes.reasoning)}</dd>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className={row}>
+              <dt className="text-muted-foreground">Token breakdown</dt>
+              <dd>Unavailable</dd>
+            </div>
+          ))}
+        {metric === "tokens" && classes.unclassified > 0 && (
+          <div className={row}>
+            <dt className="text-muted-foreground">Unclassified tokens</dt>
+            <dd className="tabular-nums">{exact(classes.unclassified)}</dd>
+          </div>
+        )}
         {hasUncertain && (
           <div className={row}>
             <dt className="text-muted-foreground">Uncertain estimate</dt>
@@ -171,15 +210,29 @@ export function CalendarValues({
               ) : null;
             }}
           />
-          <Bar
-            stackId="tokens"
-            dataKey="height"
-            className="fill-primary"
-            radius={[3, 3, 0, 0]}
-            maxBarSize={28}
-            isAnimationActive={false}
-            minPointSize={(_value, index) => ((rows[index]?.value ?? 0) > 0 ? 2 : 0)}
-          />
+          {metric === "tokens" ? (
+            tokenSeries.map((series) => (
+              <Bar
+                key={series.key}
+                stackId="tokens"
+                dataKey={`tokenHeights.${series.key}`}
+                name={series.label}
+                fill={series.color}
+                maxBarSize={28}
+                isAnimationActive={false}
+              />
+            ))
+          ) : (
+            <Bar
+              stackId="tokens"
+              dataKey="height"
+              className="fill-primary"
+              radius={[3, 3, 0, 0]}
+              maxBarSize={28}
+              isAnimationActive={false}
+              minPointSize={(_value, index) => ((rows[index]?.value ?? 0) > 0 ? 2 : 0)}
+            />
+          )}
           {metric === "tokens" && view.query.includeUncertain && (
             <Bar
               dataKey="uncertainHeight"
@@ -193,23 +246,36 @@ export function CalendarValues({
           )}
         </BarChart>
       </ResponsiveContainer>
-      {metric === "tokens" &&
-        view.query.includeUncertain &&
-        view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
-          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="size-2.5 rounded-sm bg-primary" />
-              Recorded
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="size-2.5 border border-dashed border-muted-foreground bg-muted"
-              />
-              Uncertain estimate
-            </span>
-          </p>
-        )}
+      {metric === "tokens" && (
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Token categories">
+          {tokenSeries
+            .filter(
+              (series) =>
+                series.key !== "unclassified" ||
+                rows.some((row) => (row.tokenHeights.unclassified ?? 0) > 0),
+            )
+            .map((series) => (
+              <span className="inline-flex items-center gap-2" key={series.key}>
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-sm"
+                  style={{ backgroundColor: series.color }}
+                />
+                {series.label}
+              </span>
+            ))}
+          {view.query.includeUncertain &&
+            view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 border border-dashed border-muted-foreground bg-muted"
+                />
+                Uncertain estimate
+              </span>
+            )}
+        </p>
+      )}
       <div className="sr-only">
         <table aria-label="Daily recorded usage">
           <caption>
@@ -225,6 +291,17 @@ export function CalendarValues({
             <tr>
               <th scope="col">Date</th>
               <th scope="col">{metricName(metric)}</th>
+              {metric === "tokens" && (
+                <>
+                  {tokenCategories.map((series) => (
+                    <th scope="col" key={series.key}>
+                      {series.label} tokens
+                    </th>
+                  ))}
+                  <th scope="col">Reasoning tokens (in output)</th>
+                  <th scope="col">Unclassified tokens</th>
+                </>
+              )}
               {metric === "tokens" && view.query.includeUncertain && (
                 <th scope="col">Uncertain token estimate</th>
               )}
@@ -236,10 +313,27 @@ export function CalendarValues({
           <tbody>
             {view.days.map((day) => {
               const facts = usageFacts(day, metric);
+              const classes = tokenBreakdown(day);
               return (
                 <tr key={day.date}>
                   <th scope="row">{day.date}</th>
                   <td>{facts.value}</td>
+                  {metric === "tokens" && (
+                    <>
+                      {(["input", "output", "cacheRead", "cacheWrite", "reasoning"] as const).map(
+                        (key) => (
+                          <td key={key}>
+                            {classes.state === "available" ? exact(classes[key]) : "Unavailable"}
+                          </td>
+                        ),
+                      )}
+                      <td>
+                        {recordedValue(day, "tokens") === null
+                          ? "Unavailable"
+                          : exact(classes.unclassified)}
+                      </td>
+                    </>
+                  )}
                   {metric === "tokens" && view.query.includeUncertain && (
                     <td>{exact(day.uncertain?.totalTokens ?? 0)}</td>
                   )}

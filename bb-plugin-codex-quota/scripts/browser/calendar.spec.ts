@@ -131,12 +131,12 @@ for (const [suite, states] of Object.entries(matrices))
             const expected =
               values[metric][state] ?? (metric === "cost" ? "$0.39813160000000003" : "600");
             expect(dailyRows[14][1]).toBe(expected);
-            expect(dailyRows[14][metric === "tokens" ? 3 : 2]).toContain(
+            expect(dailyRows[14][metric === "tokens" ? 9 : 2]).toContain(
               state === "inactive" ? "Observed inactivity" : "Partial, coverage gaps",
             );
             if (!["inactive", "unknown"].includes(state)) {
               expect(dailyRows[0][1]).toBe("Unavailable");
-              expect(dailyRows[14][metric === "tokens" ? 4 : 3]).toBe(
+              expect(dailyRows[14][metric === "tokens" ? 10 : 3]).toBe(
                 state === "offline" ? "4 excluded tokens" : "2 excluded tokens",
               );
             }
@@ -181,7 +181,7 @@ for (const [suite, states] of Object.entries(matrices))
                 )
                 .at(-1)!.input.query!.includeUncertain,
             ).toBe(true);
-            expect((await rows(page))[14][2]).toBe("300");
+            expect((await rows(page))[14][8]).toBe("300");
             expect(
               await page.locator(".recharts-bar-rectangle path[stroke-dasharray]").count(),
             ).toBeGreaterThan(0);

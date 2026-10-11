@@ -8,6 +8,8 @@ Today's values include only recorded events before the report's observation time
 
 The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, ranking, grouping, entity-inspection or comparison controls on this page. The report uses workspace grouping and host scope.
 
+The token chart stacks uncached input, output, cache reads and cache writes, with matching exact counts in the tooltip and accessible table. Reasoning tokens are shown in the tooltip as part of output, not added to the stack. Retained totals without complete category detail use an unclassified segment. Machines with no recorded tokens do not suppress another machine’s recorded category detail.
+
 Tokens includes retained uncertain counts by default as a separate dashed chart segment. There is no uncertainty toggle or combined-total banner. The tooltip and accessible table separate recorded and uncertain counts. Duplicate checks are approximate; missing or unreadable records remain unknown. Estimated cost, recorded totals, rankings, quota and account activity do not include uncertain tokens. This mode is not available for exact-thread reports or comparisons.
 
 The chart reads the index only. To recover earlier omissions, start a new manual import from the configured roots in Historical import. The UI enables uncertain recovery automatically. Resume preserves the frozen import mode. See [Historical import](IMPORT.md) for source limits and duplicate rules.

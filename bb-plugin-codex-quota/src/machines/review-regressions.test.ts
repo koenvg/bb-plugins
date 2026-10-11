@@ -15,6 +15,24 @@ const query: CalendarQuery = {
   scope: { kind: "host" },
   includeUncertain: true,
 };
+it("keeps token detail from active machines when another has no recorded tokens", () => {
+  const data = reportsFixture(query, now);
+  const empty = data.machines[1].report;
+  if (empty.state === "unavailable") throw new Error("Fixture must be available");
+  empty.days[14].totalTokens = 0;
+  empty.days[14].classes = { state: "unavailable" };
+  expect(combineReports(data, query)?.days[0].classes).toEqual({ state: "unavailable" });
+  expect(combineReports(data, query)?.days[14].classes).toEqual({
+    state: "available",
+    input: 40,
+    output: 360,
+    cacheRead: 200,
+    cacheWrite: 0,
+    reasoning: 100,
+  });
+  empty.days[14].totalTokens = 1;
+  expect(combineReports(data, query)?.days[14].classes).toEqual({ state: "unavailable" });
+});
 it("physically removes expired summaries and indices after restart", async () => {
   const storage = memorySummaries();
   await createReportCache(storage, () => now).save("host_one", recordedFixture(query, now));

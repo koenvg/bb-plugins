@@ -2,6 +2,55 @@ import type { CalendarSnapshot } from "./calendar-contract.js";
 
 export type TokenMetric = import("./calendar-comparison.js").ComparisonMetric;
 export type CalendarDay = CalendarSnapshot["days"][number];
+// Graphite palette: neutral cache reads with restrained category accents.
+// BB's inherited color-scheme selects the approved light/dark pairs for bars and swatches.
+export const tokenCategories = [
+  {
+    key: "input",
+    label: "Input (uncached)",
+    color: "light-dark(#42689c, #92b4e2)",
+  },
+  {
+    key: "output",
+    label: "Output",
+    color: "light-dark(#2c8b7d, #6ac3b0)",
+  },
+  {
+    key: "cacheRead",
+    label: "Cache read",
+    color: "light-dark(#555b63, #9198a2)",
+  },
+  {
+    key: "cacheWrite",
+    label: "Cache write",
+    color: "light-dark(#ab8b54, #d8b978)",
+  },
+] as const;
+export const tokenSeries = [
+  ...tokenCategories,
+  { key: "unclassified", label: "Unclassified", color: "var(--muted-foreground)" },
+] as const;
+export function tokenBreakdown(day: CalendarDay) {
+  const classes = day.classes;
+  const unavailable = { state: "unavailable" as const, unclassified: day.totalTokens };
+  if (classes.state !== "available") return unavailable;
+  // Reasoning is already included in output. Retained totals can outlive their detail.
+  const classified = classes.input + classes.output + classes.cacheRead + classes.cacheWrite;
+  if (!Number.isSafeInteger(classified) || classified > day.totalTokens) return unavailable;
+  return { ...classes, unclassified: day.totalTokens - classified };
+}
+function tokenParts(day: CalendarDay) {
+  const breakdown = tokenBreakdown(day);
+  return breakdown.state === "available"
+    ? {
+        input: breakdown.input,
+        output: breakdown.output,
+        cacheRead: breakdown.cacheRead,
+        cacheWrite: breakdown.cacheWrite,
+        unclassified: breakdown.unclassified,
+      }
+    : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unclassified: breakdown.unclassified };
+}
 export function coverageLabel(day: { coverage: CalendarDay["coverage"] }) {
   const c = day.coverage;
   return c.zero
@@ -63,6 +112,16 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
             : 0,
       uncertainHeight:
         metric === "tokens" && maximum ? (day.uncertain?.totalTokens ?? 0) / maximum : 0,
+      tokenHeights: Object.fromEntries(
+        Object.entries(tokenParts(day)).map(([key, value]) => [
+          key,
+          values[index] === null && !(day.uncertain?.totalTokens ?? 0)
+            ? null
+            : maximum
+              ? value / maximum
+              : 0,
+        ]),
+      ),
     })),
   };
 }

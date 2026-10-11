@@ -62,6 +62,110 @@ it("keeps missing data null rather than drawing invented usage", () => {
   expect(first.textContent).toContain("Unavailable");
   expect(first.textContent).toContain("Unknown, uncovered gap");
 });
+it("stacks disjoint token categories without counting reasoning twice", () => {
+  const view = calendarSnapshot({ ...query, includeUncertain: true });
+  view.days[14].classes = {
+    state: "available",
+    input: 40,
+    output: 340,
+    cacheRead: 200,
+    cacheWrite: 20,
+    reasoning: 100,
+  };
+  view.days[14].uncertain = { totalTokens: 300, records: 1 };
+  const data = chartData(view.days, "tokens");
+  expect(data.maximum).toBe(900);
+  expect(data.rows[14].tokenHeights).toEqual({
+    input: 40 / 900,
+    output: 340 / 900,
+    cacheRead: 200 / 900,
+    cacheWrite: 20 / 900,
+    unclassified: 0,
+  });
+  expect(
+    Object.values(data.rows[14].tokenHeights).reduce<number>(
+      (sum, value) => sum + (value ?? 0),
+      0,
+    ) + data.rows[14].uncertainHeight,
+  ).toBeCloseTo(1);
+  expect(Object.values(data.rows[0].tokenHeights).every((value) => value === null)).toBe(true);
+  render(<CalendarValues view={view} metric="tokens" />);
+  expect(screen.getByLabelText("Token categories").textContent).toContain("Cache write");
+  const row = screen
+    .getByRole("table", { name: "Daily recorded usage" })
+    .querySelectorAll("tbody tr")[14];
+  expect(Array.from(row.children, (cell) => cell.textContent).slice(1, 9)).toEqual([
+    "600",
+    "40",
+    "340",
+    "200",
+    "20",
+    "100",
+    "0",
+    "300",
+  ]);
+});
+it.each(["missing", "inconsistent", "partial"])(
+  "preserves retained totals with %s category detail",
+  (state) => {
+    const view = calendarSnapshot(query),
+      day = view.days[14];
+    if (state === "missing") day.classes = { state: "unavailable" };
+    else
+      day.classes = {
+        state: "available",
+        input: state === "inconsistent" ? 600 : 100,
+        output: 100,
+        cacheRead: 100,
+        cacheWrite: 0,
+        reasoning: 50,
+      };
+    const parts = chartData(view.days, "tokens").rows[14].tokenHeights;
+    expect(Object.values(parts).reduce<number>((sum, value) => sum + (value ?? 0), 0)).toBeCloseTo(
+      1,
+    );
+    expect(parts.unclassified).toBe(state === "partial" ? 0.5 : 1);
+    render(
+      <>
+        <CalendarValues view={view} metric="tokens" />
+        <UsageTooltip day={day} metric="tokens" />
+      </>,
+    );
+    const tip = screen.getByRole("tooltip");
+    const unclassified = within(tip).getByText("Unclassified tokens").parentElement!;
+    expect(unclassified.querySelector("dd")?.textContent).toBe(state === "partial" ? "300" : "600");
+    expect(!!within(tip).queryByText("Input (uncached) tokens")).toBe(state === "partial");
+    const cells = screen
+      .getByRole("table", { name: "Daily recorded usage" })
+      .querySelectorAll("tbody tr")[14].children;
+    expect(cells[2].textContent).toBe(state === "partial" ? "100" : "Unavailable");
+    expect(cells[7].textContent).toBe(state === "partial" ? "300" : "600");
+  },
+);
+it("shows exact category counts and reasoning's output relationship in the tooltip", () => {
+  const day = calendarSnapshot(query).days[14];
+  render(<UsageTooltip day={day} metric="tokens" />);
+  const definitions = Array.from(
+    screen.getByRole("tooltip").querySelectorAll("dl > div"),
+    (row) => [row.querySelector("dt")?.textContent, row.querySelector("dd")?.textContent],
+  );
+  expect(definitions).toEqual([
+    ["Recorded tokens", "600"],
+    ["Input (uncached) tokens", "40"],
+    ["Output tokens", "360"],
+    ["Cache read tokens", "200"],
+    ["Cache write tokens", "0"],
+    ["Reasoning tokens (in output)", "100"],
+    ["Excluded tokens", "2"],
+  ]);
+});
+it("labels unavailable category detail rather than inventing zero counts", () => {
+  const day = calendarSnapshot(query).days[14];
+  day.classes = { state: "unavailable" };
+  render(<UsageTooltip day={day} metric="tokens" />);
+  expect(screen.getByRole("tooltip").textContent).toContain("Token breakdownUnavailable");
+  expect(screen.queryByText("Input (uncached) tokens")).toBeNull();
+});
 it("keeps precise captured prices without the lower tooltip details", () => {
   const view = calendarSnapshot(query),
     day = view.days[14];

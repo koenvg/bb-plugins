@@ -129,32 +129,38 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
           classes: { state: "unavailable" as const },
         },
     );
-    const classes = values.every((value) => value.classes.state === "available")
-      ? {
-          state: "available" as const,
-          input: sum(
-            values.map((value) => (value.classes.state === "available" ? value.classes.input : 0)),
-          ),
-          output: sum(
-            values.map((value) => (value.classes.state === "available" ? value.classes.output : 0)),
-          ),
-          reasoning: sum(
-            values.map((value) =>
-              value.classes.state === "available" ? value.classes.reasoning : 0,
+    const classes =
+      values.some((value) => value.classes.state === "available") &&
+      values.every((value) => value.classes.state === "available" || value.totalTokens === 0)
+        ? {
+            state: "available" as const,
+            input: sum(
+              values.map((value) =>
+                value.classes.state === "available" ? value.classes.input : 0,
+              ),
             ),
-          ),
-          cacheRead: sum(
-            values.map((value) =>
-              value.classes.state === "available" ? value.classes.cacheRead : 0,
+            output: sum(
+              values.map((value) =>
+                value.classes.state === "available" ? value.classes.output : 0,
+              ),
             ),
-          ),
-          cacheWrite: sum(
-            values.map((value) =>
-              value.classes.state === "available" ? value.classes.cacheWrite : 0,
+            reasoning: sum(
+              values.map((value) =>
+                value.classes.state === "available" ? value.classes.reasoning : 0,
+              ),
             ),
-          ),
-        }
-      : { state: "unavailable" as const };
+            cacheRead: sum(
+              values.map((value) =>
+                value.classes.state === "available" ? value.classes.cacheRead : 0,
+              ),
+            ),
+            cacheWrite: sum(
+              values.map((value) =>
+                value.classes.state === "available" ? value.classes.cacheWrite : 0,
+              ),
+            ),
+          }
+        : { state: "unavailable" as const };
     return {
       date,
       totalTokens: sum(values.map((value) => value.totalTokens)),
