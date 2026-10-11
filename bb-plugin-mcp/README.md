@@ -2,7 +2,7 @@
 
 A headless BB plugin for authenticated, allowlisted reads, ordinary thread starts, follow-up instructions and stop requests. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, `bb_stop_thread`, and `bb_get_operation`. It has no deletion, remote approval, task-board, shell, file, admin, or generic forwarding tools.
 
-Requires BB 0.45 with SDK 0.6.15 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
+Requires BB 0.46 with SDK 0.6.37 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
 ## Safety and consent
 
@@ -268,5 +268,5 @@ For cleanup, preserve the plugin database while unresolved records exist. Comple
 
 Run the package's `test`, `typecheck`, and `build` scripts after `npm ci`. Also run `bb plugin types --check` against the supported BB version and repository `npm run check`. CI includes this package and its standalone build.
 
-See [the Cloudflare fixture checkpoint](VERIFICATION-BBP85-CLOUDFLARE.md) for the mode-specific authorization exception, fresh checks and current-host SDK prerequisite. It is not deployment or native acceptance evidence.
+See [the current BB 0.46 compatibility checkpoint](VERIFICATION-BBP85-BB046.md) for current SDK/build results and remaining setup gates. The [earlier Cloudflare checkpoint](VERIFICATION-BBP85-CLOUDFLARE.md) preserves the BB 0.45 evidence at commit `6be6aa30fd4fe7e9e7c6887b5380a6cb7df68b7f`; use that revision for BB 0.45. Neither checkpoint is deployment or native acceptance evidence.
 See [the BBP-84 local resolution checkpoint](VERIFICATION-BBP84.md), [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
