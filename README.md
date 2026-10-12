@@ -29,7 +29,7 @@ Install one plugin at a time from Git with `--subdirectory`, for example:
 bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirectory bb-plugin-github-insight
 ```
 
-For a local checkout, run `bun install --frozen-lockfile` and `bb plugin build` in the selected directory before `bb plugin install .`. Follow each plugin's README for setup and compatibility details.
+For a local checkout, run `bun install --frozen-lockfile` for Bun-locked packages, or `npm ci` for MCP, then `bb plugin build` in the selected directory before `bb plugin install .`. Follow each plugin's README for setup and compatibility details.
 
 Codex Inspired is an optional theme, independent of Compose Chat. After its package is published on `main`, install and select it with:
 
