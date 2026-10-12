@@ -3,7 +3,7 @@ import recordedFiles from "../test/fixtures/pr-25259-files.json";
 import recordedThreads from "../test/fixtures/pr-25259-review-threads.json";
 import { parsePrFiles, type ReviewFile } from "./pr-files";
 import { parseReviewThreads, type ReviewThread } from "./review-threads";
-import { openThreadCounts, placeThreads } from "./thread-placement";
+import { commentHolders, openThreadCounts, placeThreads, visibleThreads } from "./thread-placement";
 
 const file: ReviewFile = {
   path: "src/a.ts",
@@ -129,5 +129,46 @@ describe("openThreadCounts", () => {
     });
 
     expect(counts).toEqual({ open: 2, outdated: 1 });
+  });
+});
+
+describe("visibleThreads", () => {
+  const placement = placeThreads(
+    parsePrFiles(recordedFiles),
+    parseReviewThreads([recordedThreads]),
+  );
+  const resolved = "PRRT_kwDOHI7l-86jvKxS";
+  const ids = (threads: ReturnType<typeof visibleThreads>) => [
+    ...threads.placed.map(({ thread }) => thread.id),
+    ...threads.outdated.map(({ id }) => id),
+  ];
+
+  it("hides a resolved thread when show resolved is off", () => {
+    expect(ids(visibleThreads(placement, false, new Set()))).not.toContain(resolved);
+  });
+
+  it("shows a revealed resolved thread when show resolved is off", () => {
+    expect(ids(visibleThreads(placement, false, new Set([resolved])))).toContain(resolved);
+  });
+});
+
+describe("commentHolders", () => {
+  const placement = placeThreads(
+    parsePrFiles(recordedFiles),
+    parseReviewThreads([recordedThreads]),
+  );
+
+  it("names the threads and files that hold the comments", () => {
+    const holders = commentHolders(
+      placement,
+      new Set(["PRRC_kwDOHI7l-87xSFQS", "PRRC_kwDOHI7l-87xNizU"]),
+    );
+
+    expect(holders.threadIds).toEqual(new Set(["PRRT_kwDOHI7l-86jxula", "PRRT_kwDOHI7l-86jvKxS"]));
+    expect(holders.paths).toEqual(
+      new Set([
+        "apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts",
+      ]),
+    );
   });
 });

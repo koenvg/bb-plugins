@@ -35,11 +35,34 @@ export function placeThreads(files: ReviewFile[], threads: ReviewThread[]): Thre
   return placement;
 }
 
-export function visibleThreads(threads: ThreadPlacement, showResolved: boolean): ThreadPlacement {
+export function visibleThreads(
+  threads: ThreadPlacement,
+  showResolved: boolean,
+  revealedThreadIds: ReadonlySet<string>,
+): ThreadPlacement {
   if (showResolved) return threads;
+  const shows = (thread: ReviewThread) => !thread.resolved || revealedThreadIds.has(thread.id);
   return {
-    placed: threads.placed.filter(({ thread }) => !thread.resolved),
-    outdated: threads.outdated.filter((thread) => !thread.resolved),
+    placed: threads.placed.filter(({ thread }) => shows(thread)),
+    outdated: threads.outdated.filter(shows),
+  };
+}
+
+export interface CommentHolders {
+  threadIds: Set<string>;
+  paths: Set<string>;
+}
+
+export function commentHolders(
+  placement: ThreadPlacement,
+  commentIds: ReadonlySet<string>,
+): CommentHolders {
+  const holds = (thread: ReviewThread) => thread.comments.some(({ id }) => commentIds.has(id));
+  const placed = placement.placed.filter(({ thread }) => holds(thread));
+  const outdated = placement.outdated.filter(holds);
+  return {
+    threadIds: new Set([...placed.map(({ thread }) => thread.id), ...outdated.map(({ id }) => id)]),
+    paths: new Set(placed.map(({ thread }) => thread.path)),
   };
 }
 

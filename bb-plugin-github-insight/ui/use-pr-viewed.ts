@@ -22,6 +22,7 @@ export function usePrViewed(
   threadId: string,
   files: readonly ReviewFile[],
   storedMarks: ViewedMarks,
+  pathsWithNewComments: ReadonlySet<string>,
 ): PrViewed {
   const rpc = useRpc<typeof rpcContract>();
   const read = useCallback(() => viewedFiles.get(threadId), [threadId]);
@@ -60,7 +61,8 @@ export function usePrViewed(
       const identity = identities.get(file.path) ?? null;
       if (identity === null) return undefined;
       const viewed = summary.viewed.has(file.path);
-      const collapsed = entry.collapsed.get(file.path) ?? viewed;
+      const collapsed =
+        entry.collapsed.get(file.path) ?? (viewed && !pathsWithNewComments.has(file.path));
       return {
         viewed,
         collapsed,

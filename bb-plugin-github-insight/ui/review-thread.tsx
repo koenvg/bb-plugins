@@ -6,12 +6,16 @@ import { relativeTime } from "../core/relative-time";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
 import { JUMPED_RING, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA } from "./controls";
 import { useJumpHighlight } from "./jump-highlight";
+import { useNewComment, useThreadHasNewComment } from "./new-comment-glow";
+import "./new-comment.css";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
 export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
   const selection = useThreadSelection();
-  const [expanded, setExpanded] = useState(false);
+  const hasNewComment = useThreadHasNewComment(thread);
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const expanded = toggled ?? hasNewComment;
   const selected = !thread.resolved && selection.isSelected(thread.id);
   const open = !thread.resolved || expanded;
   const jumped = useJumpHighlight("thread", thread.id);
@@ -26,11 +30,7 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
       )}
     >
       {thread.resolved && (
-        <ResolvedSummary
-          thread={thread}
-          expanded={expanded}
-          toggle={() => setExpanded((current) => !current)}
-        />
+        <ResolvedSummary thread={thread} expanded={expanded} toggle={() => setToggled(!expanded)} />
       )}
       {open && (
         <>
@@ -115,8 +115,13 @@ function AgentToggle({ reviewThreadId }: { reviewThreadId: string }) {
 
 function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: ReactNode }) {
   const createdAt = new Date(comment.createdAt);
+  const { ref, glowing } = useNewComment(comment.id);
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-2.5 pt-2">
+    <div
+      ref={ref}
+      data-review-comment-id={comment.id}
+      className={cn("flex flex-col gap-1.5 px-3 pb-2.5 pt-2", glowing && "review-comment-new")}
+    >
       <div className="flex min-h-6 items-center gap-2 text-xs">
         <Avatar login={comment.author} url={comment.avatarUrl} />
         <span className="truncate font-semibold text-foreground">{comment.author}</span>

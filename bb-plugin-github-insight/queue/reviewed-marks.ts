@@ -21,6 +21,13 @@ export interface ReviewedMark {
 
 export type ReviewedMarks = ReturnType<typeof createReviewedMarks>;
 
+function markOf(stored: unknown): ReviewedMark | null {
+  const entry = markEntrySchema.safeParse(stored);
+  if (!entry.success) return null;
+  const { owner, repo, number, headOid, markedAt } = entry.data;
+  return { ref: { owner, repo, number }, headOid, markedAt };
+}
+
 function keyOf({ owner, repo, number }: PullRequestRef): string {
   return `${PREFIX}${owner.toLowerCase()}/${repo.toLowerCase()}#${number}`;
 }
@@ -42,15 +49,13 @@ export function createReviewedMarks(
 
     delete: (ref: PullRequestRef) => kv.delete(keyOf(ref)),
 
+    get: async (ref: PullRequestRef) => markOf(await kv.get(keyOf(ref))),
+
     async list(): Promise<ReviewedMark[]> {
-      const entries = await Promise.all(
-        (await kv.list(PREFIX)).map(async (key) => markEntrySchema.safeParse(await kv.get(key))),
+      const marks = await Promise.all(
+        (await kv.list(PREFIX)).map(async (key) => markOf(await kv.get(key))),
       );
-      return entries.flatMap((entry) => {
-        if (!entry.success) return [];
-        const { owner, repo, number, headOid, markedAt } = entry.data;
-        return [{ ref: { owner, repo, number }, headOid, markedAt }];
-      });
+      return marks.filter((mark) => mark !== null);
     },
   };
 }

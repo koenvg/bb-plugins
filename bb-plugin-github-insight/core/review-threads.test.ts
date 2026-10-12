@@ -118,4 +118,32 @@ describe("collectReviewThreads", () => {
     expect(calls).toBe(MAX_THREAD_PAGES);
     expect(complete).toBe(false);
   });
+
+  it("lists the comments of other people with their publish time", async () => {
+    const node = threadNode("t1");
+    const comment = (id: string, author: unknown, publishedAt: string | null) => ({
+      id,
+      author,
+      body: "hi",
+      createdAt: "2026-10-01T09:00:00Z",
+      publishedAt,
+      url: `https://github.com/o/r/pull/1#discussion_${id}`,
+      diffHunk: "@@ -1 +1 @@",
+    });
+    node.comments.nodes = [
+      comment("c1", { __typename: "User", login: "alice" }, "2026-10-01T11:00:00Z"),
+      comment("c2", { __typename: "User", login: "me" }, null),
+      comment("c3", { __typename: "Bot", login: "renovate" }, null),
+      comment("c4", null, null),
+    ] as never[];
+    const page = { data: { viewer: { login: "me" }, ...threadsPage([node]).data } };
+
+    const { othersComments } = await collectReviewThreads(async () => page);
+
+    expect(othersComments).toEqual([{ id: "c1", postedAt: "2026-10-01T11:00:00Z" }]);
+  });
+
+  it("lists no comments of other people without a viewer", async () => {
+    expect((await collectReviewThreads(async () => recordedThreads)).othersComments).toEqual([]);
+  });
 });

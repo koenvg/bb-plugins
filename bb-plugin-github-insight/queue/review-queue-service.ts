@@ -6,6 +6,7 @@ import type {
   MarkQueueSeenRequest,
   MarkReviewedRequest,
 } from "../contract";
+import { newCommentIds } from "../core/new-comments";
 import type { PullRequestRef } from "../core/pr-ref";
 import { readReviewPr, type ReviewPr } from "../core/review-pr";
 import { parseGithubRepo, type FetchedQueue, type PrActivity } from "../core/review-queue";
@@ -27,7 +28,8 @@ import { reviewState } from "../core/review-state";
 import type { PrResolution } from "../pr-lookup";
 import { isSharedEnvironment } from "./review-environment";
 import { createReturnedThreads } from "./returned-threads";
-import { createReviewedMarks } from "./reviewed-marks";
+import { createReviewedMarks, type ReviewedMark } from "./reviewed-marks";
+import { createSeenComments } from "./seen-comments";
 import { createSeenPrs } from "./seen-prs";
 
 export const NO_HOST_MESSAGE = "No host available";
@@ -105,7 +107,7 @@ function threadStatus(thread: QueueThread): ReviewThreadStatus {
   return "running";
 }
 
-const storedReviewQueueSchema = z.object({ v: z.literal(2), result: loadedReviewQueueSchema });
+const storedReviewQueueSchema = z.object({ v: z.literal(3), result: loadedReviewQueueSchema });
 
 function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
   if (result.kind === "error") return result.lastGood;
@@ -138,11 +140,18 @@ function mergeRows({ requests, tracked }: FetchedQueue): QueueRow[] {
   return rows;
 }
 
-function newActivitySince(activity: PrActivity | null, markedAt: number): NewActivity[] {
+function newActivitySince(
+  activity: PrActivity | null,
+  markedAt: number,
+  seenComments: ReadonlySet<string>,
+): NewActivity[] {
   if (activity === null) return [];
   const isAfterMark = (at: string | null) => at !== null && Date.parse(at) > markedAt;
+  const hasNewComments =
+    isAfterMark(activity.lastConversationAt) ||
+    newCommentIds(activity.inlineComments, markedAt, seenComments).length > 0;
   return [
-    ...(isAfterMark(activity.lastCommentAt) ? (["new_comments"] as const) : []),
+    ...(hasNewComments ? (["new_comments"] as const) : []),
     ...(isAfterMark(activity.lastRequestedAt) ? (["requested_again"] as const) : []),
   ];
 }
@@ -194,6 +203,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   const marks = createReviewedMarks(deps.kv, deps.now);
   const seenPrs = createSeenPrs(deps.kv);
   const returnedThreads = createReturnedThreads(deps.kv);
+  const seenComments = createSeenComments(deps.kv);
   let running: Promise<LoadedReviewQueue> | null = null;
   let queued: Promise<LoadedReviewQueue> | null = null;
 
@@ -203,7 +213,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   }
 
   async function store(result: LoadedReviewQueue): Promise<void> {
-    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result });
+    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result });
     deps.publish(result);
   }
 
@@ -274,15 +284,18 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   ): Promise<LinkedView> {
     const loadingLive = liveReviewThreads();
     const loadingReviews = loadingLive.then(startedReviews);
-    const [projectIds, live, reviews, threads, marked, seen, returned] = await Promise.all([
-      projectIdsByRepo(),
-      loadingLive,
-      loadingReviews,
-      loadingReviews.then(threadsByPr),
-      marks.list(),
-      seenPrs.list(),
-      returnedThreads.list(),
-    ]);
+    const loadingMarks = marks.list();
+    const [projectIds, live, reviews, threads, marked, seenByPr, seen, returned] =
+      await Promise.all([
+        projectIdsByRepo(),
+        loadingLive,
+        loadingReviews,
+        loadingReviews.then(threadsByPr),
+        loadingMarks,
+        loadingMarks.then(seenCommentsByPr),
+        seenPrs.list(),
+        returnedThreads.list(),
+      ]);
     const marksByPr = new Map(marked.map((mark) => [refKey(mark.ref), mark]));
     const reviewThreadIds = new Set(reviews.map(({ thread }) => thread.id));
     const liveIds = new Set(live.map(({ id }) => id));
@@ -307,7 +320,10 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
           ...row,
           projectIds: projectIds.get(row.repo.toLowerCase()) ?? [],
           review: reviewState(mark?.headOid ?? null, row.headOid),
-          newActivity: mark === undefined ? [] : newActivitySince(row.activity, mark.markedAt),
+          newActivity:
+            mark === undefined
+              ? []
+              : newActivitySince(row.activity, mark.markedAt, seenByPr.get(key) ?? new Set()),
           thread: linkThread(threads.get(key)),
         },
       ];
@@ -328,6 +344,14 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
         seenKeys: [...seen].filter((key) => !needsReviewKeys.has(key)),
       },
     };
+  }
+
+  async function seenCommentsByPr(marked: ReviewedMark[]): Promise<Map<string, Set<string>>> {
+    return new Map(
+      await Promise.all(
+        marked.map(async (mark) => [refKey(mark.ref), await seenComments.get(mark.ref)] as const),
+      ),
+    );
   }
 
   async function trackedRefs(): Promise<PullRequestRef[]> {
@@ -470,6 +494,14 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     return view !== null && rowsOf(view).some((row) => prKey(row.repo, row.number) === refKey(ref));
   }
 
+  async function forgetSeenComments(ref: PullRequestRef): Promise<void> {
+    try {
+      await seenComments.delete(ref);
+    } catch (error) {
+      deps.warn(`Could not delete seen comments of ${refKey(ref)}: ${errorText(error)}`);
+    }
+  }
+
   async function markReviewed({
     repo,
     number,
@@ -482,6 +514,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     } catch (error) {
       return { kind: "error", message: errorText(error) };
     }
+    await forgetSeenComments(ref);
     if (await isListed(ref).catch(() => false)) await relink();
     else void refreshReviewQueue();
     return { kind: "ok" };
@@ -495,6 +528,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     } catch (error) {
       return { kind: "error", message: errorText(error) };
     }
+    await forgetSeenComments(ref);
     await relink();
     return { kind: "ok" };
   }
@@ -502,6 +536,26 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   async function markQueueSeen({ prs }: MarkQueueSeenRequest): Promise<ActionResult> {
     try {
       await seenPrs.replace(prs.map((pr) => prKey(pr.repo, pr.number)));
+    } catch (error) {
+      return { kind: "error", message: errorText(error) };
+    }
+    await relink();
+    return { kind: "ok" };
+  }
+
+  async function newCommentBasis(
+    ref: PullRequestRef,
+  ): Promise<{ markedAt: number | null; seen: Set<string> }> {
+    const [mark, seen] = await Promise.all([marks.get(ref), seenComments.get(ref)]);
+    return { markedAt: mark?.markedAt ?? null, seen };
+  }
+
+  async function markCommentsSeen(
+    ref: PullRequestRef,
+    ids: readonly string[],
+  ): Promise<ActionResult> {
+    try {
+      await seenComments.add(ref, ids);
     } catch (error) {
       return { kind: "error", message: errorText(error) };
     }
@@ -569,6 +623,8 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     markReviewed,
     markNeedsReview,
     markQueueSeen,
+    newCommentBasis,
+    markCommentsSeen,
     threadActive,
     threadStopped,
     markThreadOpened,

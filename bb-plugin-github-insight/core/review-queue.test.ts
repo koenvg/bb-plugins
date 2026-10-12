@@ -180,8 +180,17 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     return parseReviewQueue(response, [ref]).tracked[0]!.activity;
   }
 
-  function review(author: unknown, body: string, comments: number, submittedAt: string | null) {
-    return { submittedAt, body, comments: { totalCount: comments }, author };
+  function review(
+    author: unknown,
+    body: string,
+    submittedAt: string | null,
+    comments: { id: string; createdAt: string; publishedAt: string | null }[] = [],
+  ) {
+    return { submittedAt, body, author, comments: { nodes: comments } };
+  }
+
+  function inline(id: string, createdAt: string, publishedAt: string | null = createdAt) {
+    return { id, createdAt, publishedAt };
   }
 
   it("has no activity on review request rows", () => {
@@ -189,7 +198,11 @@ describe("parseReviewQueue activity on tracked PRs", () => {
   });
 
   it("reports nothing when nobody posted", () => {
-    expect(activityOf({})).toEqual({ lastCommentAt: null, lastRequestedAt: null });
+    expect(activityOf({})).toEqual({
+      lastConversationAt: null,
+      inlineComments: [],
+      lastRequestedAt: null,
+    });
   });
 
   it("takes the newest PR comment from a person", () => {
@@ -198,7 +211,7 @@ describe("parseReviewQueue activity on tracked PRs", () => {
       { createdAt: "2026-10-07T09:00:00Z", author: person("bob") },
     ];
 
-    expect(activityOf({ comments })?.lastCommentAt).toBe("2026-10-07T09:00:00Z");
+    expect(activityOf({ comments })?.lastConversationAt).toBe("2026-10-07T09:00:00Z");
   });
 
   it.each([
@@ -206,38 +219,67 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     ["the viewer", { createdAt: "2026-10-07T09:00:00Z", author: person("me") }],
     ["a deleted user", { createdAt: "2026-10-07T09:00:00Z", author: null }],
   ])("ignores a PR comment from %s", (_, comment) => {
-    expect(activityOf({ comments: [comment] })?.lastCommentAt).toBeNull();
+    expect(activityOf({ comments: [comment] })?.lastConversationAt).toBeNull();
   });
 
-  it("counts a reply review with no body and one comment", () => {
-    const reviews = [review(person("alice"), "", 1, "2026-10-07T08:38:57Z")];
-
-    expect(activityOf({ reviews })?.lastCommentAt).toBe("2026-10-07T08:38:57Z");
-  });
-
-  it("counts a review with a body and no comments", () => {
+  it("puts a reply review with no body in the inline comments only", () => {
     const reviews = [
-      review(person("alice"), "Fixed, please look again", 0, "2026-10-07T08:38:57Z"),
+      review(person("alice"), "", "2026-10-07T08:38:57Z", [
+        inline("PRRC_1", "2026-10-07T08:38:57Z"),
+      ]),
     ];
 
-    expect(activityOf({ reviews })?.lastCommentAt).toBe("2026-10-07T08:38:57Z");
+    expect(activityOf({ reviews })).toMatchObject({
+      lastConversationAt: null,
+      inlineComments: [{ id: "PRRC_1", postedAt: "2026-10-07T08:38:57Z" }],
+    });
+  });
+
+  it("times an inline comment of a pending review at its publish time", () => {
+    const reviews = [
+      review(person("alice"), "", "2026-10-07T11:00:00Z", [
+        inline("PRRC_1", "2026-10-07T09:00:00Z", "2026-10-07T11:00:00Z"),
+      ]),
+    ];
+
+    expect(activityOf({ reviews })?.inlineComments).toEqual([
+      { id: "PRRC_1", postedAt: "2026-10-07T11:00:00Z" },
+    ]);
+  });
+
+  it("counts a review body as conversation", () => {
+    const reviews = [review(person("alice"), "Fixed, please look again", "2026-10-07T08:38:57Z")];
+
+    expect(activityOf({ reviews })?.lastConversationAt).toBe("2026-10-07T08:38:57Z");
   });
 
   it.each([
-    ["an approval with no text", review(person("alice"), "", 0, "2026-10-07T08:44:48Z")],
-    ["a bot review", review(bot, "Looks fine", 1, "2026-10-07T08:44:48Z")],
-    ["a viewer review", review(person("me"), "Nit", 1, "2026-10-07T08:44:48Z")],
-    ["a pending review", review(person("alice"), "Draft", 1, null)],
+    ["an approval with no text", review(person("alice"), "", "2026-10-07T08:44:48Z")],
+    [
+      "a bot review",
+      review(bot, "Looks fine", "2026-10-07T08:44:48Z", [inline("c", "2026-10-07T08:44:48Z")]),
+    ],
+    [
+      "a viewer review",
+      review(person("me"), "Nit", "2026-10-07T08:44:48Z", [inline("c", "2026-10-07T08:44:48Z")]),
+    ],
+    [
+      "a pending review",
+      review(person("alice"), "Draft", null, [inline("c", "2026-10-07T08:44:48Z")]),
+    ],
   ])("ignores %s", (_, item) => {
-    expect(activityOf({ reviews: [item] })?.lastCommentAt).toBeNull();
+    expect(activityOf({ reviews: [item] })).toMatchObject({
+      lastConversationAt: null,
+      inlineComments: [],
+    });
   });
 
-  it("takes the newest of PR comments and reviews", () => {
+  it("takes the newest of PR comments and review bodies", () => {
     expect(
       activityOf({
         comments: [{ createdAt: "2026-10-07T08:00:00Z", author: person("alice") }],
-        reviews: [review(person("alice"), "", 1, "2026-10-07T09:00:00Z")],
-      })?.lastCommentAt,
+        reviews: [review(person("alice"), "Done", "2026-10-07T09:00:00Z")],
+      })?.lastConversationAt,
     ).toBe("2026-10-07T09:00:00Z");
   });
 

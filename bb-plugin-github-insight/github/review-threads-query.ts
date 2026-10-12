@@ -2,6 +2,7 @@ import type { PrPageRequest } from "../contract";
 
 const REVIEW_THREADS_QUERY = `
 query ($owner: String!, $repo: String!, $number: Int!, $after: String) {
+  viewer { login }
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       reviewThreads(first: 100, after: $after) {
@@ -16,7 +17,7 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String) {
           diffSide
           comments(first: 100) {
             totalCount
-            nodes { id author { login avatarUrl(size: 40) } body createdAt url diffHunk }
+            nodes { id author { __typename login avatarUrl(size: 40) } body createdAt publishedAt url diffHunk }
           }
         }
       }

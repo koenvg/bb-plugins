@@ -1,11 +1,13 @@
 import type {
   ActionResult,
+  MarkCommentsSeenRequest,
   ReviewDrafts,
   SendToAgentResult,
   UpdateViewedRequest,
 } from "../contract";
 import { buildAgentPrompt } from "../core/agent-prompt";
 import type { Draft, Drafts } from "../core/drafts";
+import { newCommentIds } from "../core/new-comments";
 import { parsePrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
@@ -24,6 +26,7 @@ export interface PrReview extends ReviewDrafts {
   files: ReviewFile[];
   threads: ThreadPlacement;
   viewedMarks: ViewedMarks;
+  newCommentIds: string[];
 }
 
 export interface ReviewBasis {
@@ -54,6 +57,8 @@ interface ReviewServiceDeps {
   fetchPrHead(target: PrTarget): Promise<unknown>;
   drafts: DraftStore;
   viewed: ViewedMarksStore;
+  newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
+  markCommentsSeen(pr: PullRequestRef, ids: readonly string[]): Promise<ActionResult>;
   publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
 }
@@ -106,14 +111,16 @@ export function createReviewService(deps: ReviewServiceDeps) {
   function load(threadId: string): Promise<ReviewLoad> {
     return withPr(threadId, async (target) => {
       const { head, files, collected } = await fetchPr(target);
-      const [drafts, viewedMarks] = await Promise.all([
+      const [drafts, viewedMarks, { markedAt, seen }] = await Promise.all([
         readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected)),
         deps.viewed.get(target.ref),
+        deps.newCommentBasis(target.ref),
       ]);
       const threads = placeThreads(files, collected.threads);
+      const newIds = newCommentIds(collected.othersComments, markedAt, seen);
       return {
         allThreadsRead: collected.complete,
-        review: { head, files, threads, viewedMarks, ...drafts },
+        review: { head, files, threads, viewedMarks, newCommentIds: newIds, ...drafts },
       };
     });
   }
@@ -162,16 +169,30 @@ export function createReviewService(deps: ReviewServiceDeps) {
     deps.publishDrafts({ threadId });
   }
 
+  async function withPrRef(
+    threadId: string,
+    write: (pr: PullRequestRef) => Promise<ActionResult>,
+  ): Promise<ActionResult> {
+    const resolution = await deps.resolvePr(threadId);
+    if (resolution.kind === "error") return resolution;
+    if (resolution.kind === "no_pr")
+      return { kind: "error", message: "No pull request for this thread" };
+    return write(resolution.target.ref);
+  }
+
   async function updateViewed({
     threadId,
     set,
     remove,
   }: UpdateViewedRequest): Promise<ActionResult> {
-    const resolution = await deps.resolvePr(threadId);
-    if (resolution.kind === "error") return resolution;
-    if (resolution.kind === "no_pr")
-      return { kind: "error", message: "No pull request for this thread" };
-    return deps.viewed.update(resolution.target.ref, set, remove);
+    return withPrRef(threadId, (pr) => deps.viewed.update(pr, set, remove));
+  }
+
+  async function markCommentsSeen({
+    threadId,
+    commentIds,
+  }: MarkCommentsSeenRequest): Promise<ActionResult> {
+    return withPrRef(threadId, (pr) => deps.markCommentsSeen(pr, commentIds));
   }
 
   async function sendToAgent(
@@ -202,5 +223,6 @@ export function createReviewService(deps: ReviewServiceDeps) {
     saveSummaryDraft,
     sendToAgent,
     updateViewed,
+    markCommentsSeen,
   };
 }

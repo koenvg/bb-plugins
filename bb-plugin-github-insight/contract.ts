@@ -216,6 +216,7 @@ export const reviewResultSchema = z.discriminatedUnion("kind", [
     files: z.array(reviewFileSchema),
     threads: threadPlacementSchema,
     viewedMarks: viewedMarksSchema,
+    newCommentIds: z.array(z.string()),
   }),
 ]);
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
@@ -291,6 +292,11 @@ const updateViewedRequestSchema = z
   })
   .strict();
 export type UpdateViewedRequest = z.infer<typeof updateViewedRequestSchema>;
+
+const markCommentsSeenRequestSchema = z
+  .object({ threadId: z.string().min(1), commentIds: z.array(z.string().min(1)).min(1) })
+  .strict();
+export type MarkCommentsSeenRequest = z.infer<typeof markCommentsSeenRequestSchema>;
 
 const discardDraftRequestSchema = z
   .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1) })
@@ -405,6 +411,7 @@ export const rpcContract = defineRpcContract({
   deleteCommentDraft: { input: deleteCommentDraftRequestSchema, output: actionResultSchema },
   saveSummaryDraft: { input: saveSummaryDraftRequestSchema, output: actionResultSchema },
   updateViewed: { input: updateViewedRequestSchema, output: actionResultSchema },
+  markCommentsSeen: { input: markCommentsSeenRequestSchema, output: actionResultSchema },
   submitReview: { input: submitReviewRequestSchema, output: submitReviewResultSchema },
   getReviewQueue: { input: z.object({}).strict(), output: reviewQueueResultSchema },
   refreshReviewQueue: { input: z.object({}).strict(), output: loadedReviewQueueSchema },

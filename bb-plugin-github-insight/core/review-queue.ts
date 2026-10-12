@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
+import { actorSchema, isOtherPerson } from "./actor";
+import { postedAt } from "./new-comments";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -41,9 +43,6 @@ const prNodeSchema = z.object({
 });
 type PrNode = z.infer<typeof prNodeSchema>;
 
-const actorSchema = z.object({ __typename: z.string(), login: z.string().optional() }).nullable();
-type Actor = z.infer<typeof actorSchema>;
-
 const trackedPrNodeSchema = prNodeSchema.extend({
   comments: z.object({
     nodes: z.array(z.object({ createdAt: z.string(), author: actorSchema })),
@@ -53,8 +52,12 @@ const trackedPrNodeSchema = prNodeSchema.extend({
       z.object({
         submittedAt: z.string().nullable(),
         body: z.string(),
-        comments: z.object({ totalCount: z.number() }),
         author: actorSchema,
+        comments: z.object({
+          nodes: z.array(
+            z.object({ id: z.string(), createdAt: z.string(), publishedAt: z.string().nullable() }),
+          ),
+        }),
       }),
     ),
   }),
@@ -95,7 +98,8 @@ const CI_STATE: Record<z.infer<typeof rollupStateSchema>, CiState> = {
 };
 
 const prActivitySchema = z.object({
-  lastCommentAt: z.string().nullable(),
+  lastConversationAt: z.string().nullable(),
+  inlineComments: z.array(z.object({ id: z.string(), postedAt: z.string() })),
   lastRequestedAt: z.string().nullable(),
 });
 export type PrActivity = z.infer<typeof prActivitySchema>;
@@ -150,10 +154,6 @@ export function parseReviewQueue(
   return { requests: toQueueList(data.reviewRequests), tracked, gone };
 }
 
-function isOtherPerson(actor: Actor | undefined, viewer: string): boolean {
-  return actor?.__typename === "User" && actor.login !== viewer;
-}
-
 function latest(times: string[]): string | null {
   return times.reduce<string | null>(
     (newest, at) => (newest === null || Date.parse(at) > Date.parse(newest) ? at : newest),
@@ -165,12 +165,14 @@ function activityOf(node: ActivityNode, viewer: string): PrActivity {
   const commentTimes = node.comments.nodes
     .filter((comment) => isOtherPerson(comment.author, viewer))
     .map((comment) => comment.createdAt);
-  const reviewTimes = node.reviews.nodes.flatMap((review) =>
-    review.submittedAt !== null &&
-    isOtherPerson(review.author, viewer) &&
-    (review.body !== "" || review.comments.totalCount > 0)
-      ? [review.submittedAt]
-      : [],
+  const reviews = node.reviews.nodes.filter(
+    (review) => review.submittedAt !== null && isOtherPerson(review.author, viewer),
+  );
+  const reviewTimes = reviews.flatMap((review) =>
+    review.body !== "" && review.submittedAt !== null ? [review.submittedAt] : [],
+  );
+  const inlineComments = reviews.flatMap((review) =>
+    review.comments.nodes.map((comment) => ({ id: comment.id, postedAt: postedAt(comment) })),
   );
   const requestTimes = node.timelineItems.nodes.flatMap(({ createdAt, requestedReviewer }) =>
     createdAt !== undefined &&
@@ -180,7 +182,8 @@ function activityOf(node: ActivityNode, viewer: string): PrActivity {
       : [],
   );
   return {
-    lastCommentAt: latest([...commentTimes, ...reviewTimes]),
+    lastConversationAt: latest([...commentTimes, ...reviewTimes]),
+    inlineComments,
     lastRequestedAt: latest(requestTimes),
   };
 }

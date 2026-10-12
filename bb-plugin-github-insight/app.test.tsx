@@ -80,6 +80,7 @@ const unusedReviewRpc = {
   deleteCommentDraft: () => ({ kind: "error" as const, message: "unused" }),
   saveSummaryDraft: () => ({ kind: "error" as const, message: "unused" }),
   updateViewed: () => ({ kind: "error" as const, message: "unused" }),
+  markCommentsSeen: () => ({ kind: "error" as const, message: "unused" }),
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   getReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
   refreshReviewQueue: () => ({ kind: "error" as const, message: "unused", lastGood: null }),
@@ -1088,7 +1089,9 @@ describe("PR tab palette commands", () => {
 
     await slot.findByText("#25337");
 
-    expect(slot.inspection.navigateCalls).toEqual([{ method: "openUrl", url: pr.url }]);
+    await vi.waitFor(() =>
+      expect(slot.inspection.navigateCalls).toEqual([{ method: "openUrl", url: pr.url }]),
+    );
   });
 
   it("opens no URL for a thread without a PR", async () => {

@@ -132,6 +132,7 @@ const noReviewDrafts = {
   commentDrafts: [],
   summaryDraft: null,
   viewedMarks: {},
+  newCommentIds: [],
 } satisfies Partial<ReviewResult>;
 const recorded = {
   kind: "ok",
@@ -162,6 +163,10 @@ interface RpcHandlers {
   deleteCommentDraft?: () => ActionResult | Promise<ActionResult>;
   saveSummaryDraft?: () => ActionResult | Promise<ActionResult>;
   updateViewed?: () => ActionResult | Promise<ActionResult>;
+  markCommentsSeen?: (input: {
+    threadId: string;
+    commentIds: string[];
+  }) => ActionResult | Promise<ActionResult>;
   submitReview?: () => SubmitReviewResult | Promise<SubmitReviewResult>;
 }
 
@@ -228,6 +233,7 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
         deleteCommentDraft: handlers.deleteCommentDraft ?? (() => ({ kind: "ok" })),
         saveSummaryDraft: handlers.saveSummaryDraft ?? (() => ({ kind: "ok" })),
         updateViewed: handlers.updateViewed ?? (() => ({ kind: "ok" })),
+        markCommentsSeen: handlers.markCommentsSeen ?? (() => ({ kind: "ok" })),
         submitReview: handlers.submitReview ?? (() => ({ kind: "submitted" })),
         getReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
         refreshReviewQueue: () => ({ kind: "error", message: "unused", lastGood: null }),
@@ -1640,6 +1646,225 @@ describe("Review tab new comments", () => {
 
     const diffs = await slot.findAllByTestId("file-diff");
     expect(diffs.map((diff) => diff.dataset.gutterUtility)).not.toContain("true");
+  });
+});
+
+describe("Review tab new comment glow", () => {
+  const FIRST = "PRRC_kwDOHI7l-87xQrkh";
+  const REPLY = "PRRC_kwDOHI7l-87xSFQS";
+  const OPEN_THREAD = "PRRT_kwDOHI7l-86jxula";
+  const DATABRICKS =
+    "apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts";
+  const watchedComments = new Map<Element, IntersectionObserverCallback>();
+  let threadCount = 0;
+
+  class WatchComments {
+    constructor(private readonly callback: IntersectionObserverCallback) {}
+    observe(target: Element) {
+      if (target.hasAttribute("data-review-comment-id")) {
+        watchedComments.set(target, this.callback);
+        return;
+      }
+      this.callback(
+        [{ isIntersecting: true, target } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    }
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("IntersectionObserver", WatchComments);
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    watchedComments.clear();
+  });
+
+  function withNew(result: ReviewResult, ...newCommentIds: string[]): ReviewResult {
+    return { ...result, newCommentIds } as ReviewResult;
+  }
+
+  function resolved(threadId: string): ReviewResult {
+    return {
+      ...threaded,
+      threads: {
+        placed: threaded.threads.placed.map((placed) =>
+          placed.thread.id === threadId
+            ? { ...placed, thread: { ...placed.thread, resolved: true } }
+            : placed,
+        ),
+        outdated: threaded.threads.outdated,
+      },
+    };
+  }
+
+  function renderGlow(handlers: RpcHandlers, ...results: ReviewResult[]) {
+    return renderTabFor(`thr_glow_${++threadCount}`, handlers, ...results);
+  }
+
+  function commentOf(slot: ReturnType<typeof renderTab>, id: string) {
+    return slot.container.querySelector<HTMLElement>(`[data-review-comment-id="${id}"]`);
+  }
+
+  function readFor(ms: number, ...elements: HTMLElement[]) {
+    vi.useFakeTimers();
+    act(() => {
+      for (const element of elements) {
+        watchedComments.get(element)?.(
+          [
+            {
+              isIntersecting: true,
+              intersectionRatio: 1,
+              target: element,
+            } as unknown as IntersectionObserverEntry,
+          ],
+          {} as IntersectionObserver,
+        );
+      }
+      vi.advanceTimersByTime(ms);
+    });
+    vi.useRealTimers();
+  }
+
+  it("glows only the new reply of a thread", async () => {
+    const slot = renderGlow({}, withNew(threaded, REPLY));
+
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
+    expect(commentOf(slot, FIRST)!.classList).not.toContain("review-comment-new");
+  });
+
+  it("shows no glow when nothing is new", async () => {
+    const slot = renderGlow({}, threaded);
+
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+    expect(slot.container.querySelector(".review-comment-new")).toBeNull();
+  });
+
+  it("saves the comment as seen after the user reads it and keeps the glow", async () => {
+    const slot = renderGlow({}, withNew(threaded, REPLY));
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+
+    readFor(1800, commentOf(slot, REPLY)!);
+
+    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
+    await waitFor(() =>
+      expect(callsTo(slot, "markCommentsSeen")).toEqual([
+        { threadId: `thr_glow_${threadCount}`, commentIds: [REPLY] },
+      ]),
+    );
+  });
+
+  it("does not save a comment that the user scrolls past", async () => {
+    const slot = renderGlow({}, withNew(threaded, REPLY));
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+
+    readFor(500, commentOf(slot, REPLY)!);
+
+    expect(callsTo(slot, "markCommentsSeen")).toEqual([]);
+  });
+
+  it("keeps the glow when a reload no longer lists the comment as new", async () => {
+    const threadId = `thr_glow_${++threadCount}`;
+    const slot = renderTabFor(threadId, {}, withNew(threaded, REPLY), threaded);
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+
+    await slot.behavior.emitRealtime("review.updated", { threadId });
+    await waitFor(() => expect(methods(slot).filter((m) => m === "getReview")).toHaveLength(2));
+    await quietly();
+
+    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
+  });
+
+  it("does not try again to save a comment that failed to save", async () => {
+    const slot = renderGlow(
+      { markCommentsSeen: () => ({ kind: "error", message: "disk full" }) },
+      withNew(threaded, REPLY),
+    );
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+    readFor(1800, commentOf(slot, REPLY)!);
+    await waitFor(() => expect(callsTo(slot, "markCommentsSeen")).toHaveLength(1));
+
+    readFor(1800, commentOf(slot, REPLY)!);
+    await quietly();
+
+    expect(callsTo(slot, "markCommentsSeen")).toHaveLength(1);
+  });
+
+  it("saves comments seen close together in one call", async () => {
+    const slot = renderGlow({}, withNew(threaded, FIRST, REPLY));
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+
+    readFor(1800, commentOf(slot, FIRST)!, commentOf(slot, REPLY)!);
+
+    await waitFor(() =>
+      expect(callsTo(slot, "markCommentsSeen")).toEqual([
+        { threadId: `thr_glow_${threadCount}`, commentIds: [FIRST, REPLY] },
+      ]),
+    );
+  });
+
+  it("saves a seen comment when the tab closes before the save delay", async () => {
+    const slot = renderGlow({}, withNew(threaded, REPLY));
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+
+    readFor(1500, commentOf(slot, REPLY)!);
+    slot.unmount();
+
+    expect(callsTo(slot, "markCommentsSeen")).toEqual([
+      { threadId: `thr_glow_${threadCount}`, commentIds: [REPLY] },
+    ]);
+  });
+
+  it("expands a shown resolved thread when a refresh brings a new reply", async () => {
+    const threadId = `thr_glow_${++threadCount}`;
+    const slot = renderTabFor(
+      threadId,
+      {},
+      resolved(OPEN_THREAD),
+      withNew(resolved(OPEN_THREAD), REPLY),
+    );
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
+    expect(commentOf(slot, REPLY)).toBeNull();
+
+    await slot.behavior.emitRealtime("review.updated", { threadId });
+
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+  });
+
+  it("shows and expands a resolved thread with a new reply when 'Show resolved' is off", async () => {
+    const slot = renderGlow({}, withNew(resolved(OPEN_THREAD), REPLY));
+
+    await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
+    expect(
+      (slot.getByRole("checkbox", { name: "Show resolved" }) as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("hides a resolved thread with no new comment when 'Show resolved' is off", async () => {
+    const slot = renderGlow({}, resolved(OPEN_THREAD));
+
+    await slot.findAllByTestId("file-diff");
+    expect(commentOf(slot, REPLY)).toBeNull();
+  });
+
+  it("starts a viewed file with a new comment expanded", async () => {
+    const identity = fileIdentity(threaded.files.find((file) => file.path === DATABRICKS)!)!;
+    const viewed = { ...threaded, viewedMarks: { [DATABRICKS]: identity } };
+    const slot = renderGlow({}, withNew(viewed, REPLY));
+
+    const diff = (await slot.findAllByTestId("file-diff")).find(
+      (candidate) => candidate.getAttribute("data-path") === DATABRICKS,
+    )!;
+    expect(diff.dataset.collapsed).toBe("false");
+    expect(
+      (slot.getByRole("checkbox", { name: `Viewed ${DATABRICKS}` }) as HTMLInputElement).checked,
+    ).toBe(true);
   });
 });
 
