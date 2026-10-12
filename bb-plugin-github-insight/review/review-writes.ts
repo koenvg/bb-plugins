@@ -23,12 +23,12 @@ import type { ReviewUpdated } from "../core/review-updated";
 import { write, type Written } from "../github/gh-write";
 import { submitReviewError } from "../github/review-mutations";
 import { isPendingReply } from "../github/review-thread-mutations";
-import type { PrResolution, PrTarget } from "../pr-lookup";
+import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
 import type { BasisLoad, PrReview, ReviewLoad } from "./review-service";
 
 interface ReviewWritesDeps {
-  resolvePr(threadId: string): Promise<PrResolution>;
+  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
   replyToThread(target: PrTarget, reviewThreadId: string, body: string): Promise<unknown>;
   setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
   loadReview(threadId: string): Promise<ReviewLoad>;
@@ -84,7 +84,7 @@ function reviewInput(
 
 export function createReviewWrites(deps: ReviewWritesDeps) {
   async function targetOf(threadId: string): Promise<Written<PrTarget>> {
-    const resolution = await deps.resolvePr(threadId);
+    const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
     if (resolution.kind === "pr") return { ok: true, value: resolution.target };
     return { ok: false, message: resolution.kind === "error" ? resolution.message : NO_PR_MESSAGE };
   }
