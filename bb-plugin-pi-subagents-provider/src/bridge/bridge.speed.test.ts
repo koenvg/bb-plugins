@@ -33,13 +33,13 @@ const prompts = () =>
         .split("\n")
         .filter((line) => line === "prompt")
     : [];
-const turn = (serviceTier = "fast", text = "hello") =>
+const turn = (serviceTier = "fast", text = "hello", reasoningLevel = "high") =>
   harness.request(++id, "turn/start", {
     threadId,
     providerThreadId: currentProviderId(),
     clientRequestId: `creq_abcdefghi${"23456789"[id % 8]}`,
     input: [{ type: "text", text }],
-    options: options(serviceTier),
+    options: { ...options(serviceTier), reasoningLevel },
   });
 
 beforeEach(async () => {
@@ -306,8 +306,11 @@ describe("shared speed module through the BB bridge", () => {
       });
       setState(revoked);
       expect((await resume()).error).toBeUndefined();
-      expect((await turn()).error).toBeDefined();
+      expect((await turn("fast", "reasoning-only change", "low")).error).toBeDefined();
       expect(prompts()).toHaveLength(2);
+      expect((await turn("default", "explicit speed recovery", "low")).error).toBeUndefined();
+      await harness.waitForTurnBoundary(threadId, 2);
+      expect(prompts()).toHaveLength(3);
     },
   );
 });

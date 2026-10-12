@@ -1,6 +1,16 @@
 # BB 0.46 source compatibility
 
-## Scope
+## Rebase onto Bun tooling
+
+The later rebase targets main `b4a5511ed0642f752e28e165adc2823e1367fecf`. It retains main's Bun 1.4.3 migration, GitHub Insight changes, and shorter cleanup tasks. Deleted npm locks stay deleted. Bun locks retain SDK 0.6.37 and the package-local speed archive. The Pi typecheck/upstream scripts remain on Bun; speed generation also uses Bun. Only generator command guidance and the generated header changed, not the embedded controller body or archive.
+
+All 11 frozen Bun installs, SDK gates, typechecks, and builds pass. Tests: browser-annotate 110; changes 205; code-cleanup 103; codex-inspired 9; codex-quota 812; compose-chat 55; github-insight 1,545; markdown-reader 262; Pi 533; pr-thread-list 419; tasks-plus 1,290. Total: **5,343 passing tests**. Code Cleanup has no build script on main; the initial script attempt failed, then direct `bb plugin build` passed after its SDK gate. Root checks, generated-source check, strict OpenSpec validation, and whitespace checks pass.
+
+A later parallel Pi rerun timed out in one resumed-session case at the existing 5-second deadline: 532 passed, 1 failed. The final full Pi run with `--no-file-parallelism` passed all 533 tests in 95 seconds. Both logs are retained. No test deadline or runtime recovery behavior was changed; contention is a suspected cause, not a proven diagnosis.
+
+No installation or reload accompanies this rebase. [BBP-201](bbtask://BBP-201) remains a release prerequisite: installed BB 0.46.0 can silently replace saved Fast with Default after failed discovery and a reasoning-only edit. The local BB core fix is not published or installed. Limited earlier installed acceptance and its remaining gaps are recorded in [verification](openspec/changes/openai-codex-speed-options/verification.md). Historical scope, checks, and limits below are not current deployment approval.
+
+## Initial migration scope
 
 Koen approved upgrading all 11 repository plugins to BB 0.46 / SDK 0.6.37. Existing Codex speed work stays in its owning package. No plugin installation, reload, publishing, push, credential change, provider-default change, or session-history change is included.
 
@@ -38,7 +48,7 @@ Impeccable's targeted mechanical detector reports no findings. Native BB 0.46 se
 
 Independent migration review: **request changes**, one P2 native-stream recovery-text defect. The parent fixed it and added a regression using Pi 1.1.0's real native stream through BB translation and failed-turn settlement. Zero network dispatch is confirmed; unrelated provider errors keep their original text. The full 533-test Pi suite and affected gates pass after the fix. The original reviewer verdict remains unchanged; no follow-up review was launched. No SDK migration or native-action structural blocker was reported.
 
-## Remaining limits
+## Initial limits
 
 - Nothing is installed or reloaded. Existing installed-plugin behavior is not certified by these checks.
 - No browser or live-account speed acceptance was run. Existing OpenSpec selector/layout, session lifecycle, and account acceptance gates remain open.
