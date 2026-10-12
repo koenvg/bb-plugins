@@ -62,7 +62,7 @@ it("keeps missing data null rather than drawing invented usage", () => {
   expect(first.textContent).toContain("Unavailable");
   expect(first.textContent).toContain("Unknown, uncovered gap");
 });
-it("stacks disjoint token categories without counting reasoning twice", () => {
+it("stacks models separately from uncertainty and retains token class facts", () => {
   const view = calendarSnapshot({ ...query, includeUncertain: true });
   view.days[14].classes = {
     state: "available",
@@ -72,25 +72,32 @@ it("stacks disjoint token categories without counting reasoning twice", () => {
     cacheWrite: 20,
     reasoning: 100,
   };
+  view.days[14].models = {
+    named: [
+      { model: "gpt-5", totalTokens: 400 },
+      { model: "gpt-6", totalTokens: 200 },
+    ],
+    otherTokens: 0,
+  };
   view.days[14].uncertain = { totalTokens: 300, records: 1 };
   const data = chartData(view.days, "tokens");
   expect(data.maximum).toBe(900);
-  expect(data.rows[14].tokenHeights).toEqual({
-    input: 40 / 900,
-    output: 340 / 900,
-    cacheRead: 200 / 900,
-    cacheWrite: 20 / 900,
-    unclassified: 0,
+  expect(data.rows[14].modelHeights).toEqual({
+    m0: 400 / 900,
+    m1: 200 / 900,
+    other: 0,
+    unknown: 0,
   });
   expect(
-    Object.values(data.rows[14].tokenHeights).reduce<number>(
+    Object.values(data.rows[14].modelHeights).reduce<number>(
       (sum, value) => sum + (value ?? 0),
       0,
     ) + data.rows[14].uncertainHeight,
   ).toBeCloseTo(1);
-  expect(Object.values(data.rows[0].tokenHeights).every((value) => value === null)).toBe(true);
+  expect(Object.values(data.rows[0].modelHeights).every((value) => value === null)).toBe(true);
   render(<CalendarValues view={view} metric="tokens" />);
-  expect(screen.getByLabelText("Token categories").textContent).toContain("Cache write");
+  expect(screen.getByLabelText("Models").textContent).toContain("gpt-5");
+  expect(screen.getByLabelText("Models").textContent).not.toContain("Cache write");
   const row = screen
     .getByRole("table", { name: "Daily recorded usage" })
     .querySelectorAll("tbody tr")[14];
@@ -120,11 +127,11 @@ it.each(["missing", "inconsistent", "partial"])(
         cacheWrite: 0,
         reasoning: 50,
       };
-    const parts = chartData(view.days, "tokens").rows[14].tokenHeights;
+    const parts = chartData(view.days, "tokens").rows[14].modelHeights;
     expect(Object.values(parts).reduce<number>((sum, value) => sum + (value ?? 0), 0)).toBeCloseTo(
       1,
     );
-    expect(parts.unclassified).toBe(state === "partial" ? 0.5 : 1);
+    expect(parts.unknown).toBe(1);
     render(
       <>
         <CalendarValues view={view} metric="tokens" />
@@ -192,7 +199,7 @@ it("shows weekdays and exact values without zero-estimate clutter", () => {
   expect(tip.querySelector("time")?.dateTime).toBe("2026-09-15");
   expect(within(tip).getByText("Tue, Sep 15, 2026")).toBeTruthy();
   expect(within(tip).getByText("Recorded tokens")).toBeTruthy();
-  expect(within(tip).getByText("600")).toBeTruthy();
+  expect(tip.querySelector("dl dd")?.textContent).toBe("600");
   expect(within(tip).getByText("Excluded tokens")).toBeTruthy();
   expect(within(tip).getByText("2")).toBeTruthy();
   expect(within(tip).queryByText("Uncertain estimate")).toBeNull();
@@ -318,3 +325,62 @@ it("rounds displayed token averages without changing the chart values", () => {
   expect(within(row as HTMLElement).getByRole("cell", { name: "333" })).toBeTruthy();
   expect(view.days[14].totalTokens).toBe(1000);
 });
+
+it("uses the same model counts and labels in legend, tooltip, and accessible daily cells", () => {
+  const view = calendarSnapshot(query);
+  view.days[14].models = { named: [{ model: "gpt.5[fast]", totalTokens: 400 }], otherTokens: 100 };
+  render(
+    <>
+      <CalendarValues view={view} metric="tokens" />
+      <UsageTooltip day={view.days[14]} metric="tokens" />
+    </>,
+  );
+  expect(screen.getByLabelText("Models").textContent).toBe("gpt.5[fast]Other modelsUnknown model");
+  const models = screen.getByLabelText("Tokens by model");
+  expect(models.querySelectorAll("li")).toHaveLength(3);
+  expect(
+    Array.from(models.querySelectorAll("li [title]"), (node) => node.getAttribute("title")),
+  ).toEqual(["400 tokens", "100 tokens", "100 tokens"]);
+  const table = screen.getByRole("table", { name: "Daily recorded usage" });
+  expect(
+    Array.from(table.querySelectorAll("thead th"))
+      .slice(-3)
+      .map((node) => node.textContent),
+  ).toEqual(["gpt.5[fast] tokens", "Other models tokens", "Unknown model tokens"]);
+  expect(
+    Array.from(table.querySelectorAll("tbody tr")[14].children)
+      .slice(-3)
+      .map((node) => node.textContent),
+  ).toEqual(["400", "100", "100"]);
+});
+
+it.each([14, 0])(
+  "omits duplicate or empty model details for day %s in a mixed-model range",
+  (index) => {
+    const view = calendarSnapshot(query);
+    view.days[15] = {
+      ...view.days[14],
+      date: view.days[15].date,
+      models: { named: [{ model: "gpt-5.4", totalTokens: 600 }], otherTokens: 0 },
+    };
+    const chart = chartData(view.days, "tokens");
+    render(
+      <>
+        <CalendarValues view={view} metric="tokens" />
+        <UsageTooltip
+          day={view.days[index]}
+          metric="tokens"
+          modelView={{ series: chart.models, values: chart.rows[index].modelFacts }}
+        />
+      </>,
+    );
+    expect(screen.getByLabelText("Models").textContent).toBe("gpt-5.4Unknown model");
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip.querySelector("dl dd")?.textContent).toBe(index === 14 ? "600" : "Unavailable");
+    expect(within(tooltip).queryByLabelText("Tokens by model")).toBeNull();
+    const cells = screen
+      .getByRole("table", { name: "Daily recorded usage" })
+      .querySelectorAll("tbody tr")[index].children;
+    expect(cells[cells.length - 1].textContent).toBe(index === 14 ? "600" : "Unavailable");
+  },
+);

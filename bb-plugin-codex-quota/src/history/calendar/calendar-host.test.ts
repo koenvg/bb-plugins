@@ -67,6 +67,7 @@ function put(
   workspace = "/original",
   total = 10,
   providerSessionKey: string | null = null,
+  model = "synthetic",
 ) {
   const value = usageRecordSchema.parse({
     version: 1,
@@ -78,7 +79,7 @@ function put(
     providerSessionKey,
     claimedThreadId: null,
     provider: "openai-codex",
-    model: "synthetic",
+    model,
     inputTokens: 4,
     outputTokens: 6,
     reasoningTokens: 3,
@@ -272,6 +273,7 @@ it("keeps expired classes unavailable and recorded tokens intact after reopen", 
   expect(view.days.find((day) => day.date === "2026-08-05")).toMatchObject({
     totalTokens: 10,
     classes: { state: "unavailable" },
+    models: { named: [], otherTokens: 0 },
   });
   expect(view.summary.totalTokens).toBe(10);
   await f.harness.experimental_dispose();
@@ -572,6 +574,7 @@ it("reports retained import-only usage independently of collector assets without
           cacheWrite: 0,
         },
         excludedTokens: 0,
+        models: { named: [{ model: "synthetic", totalTokens: 10 }], otherTokens: 0 },
       },
     ]),
   });
@@ -788,5 +791,35 @@ it("does not certify today as a full-day zero even with inactivity evidence", as
   expect(view.state).toBe("unknown");
   expect(view.days.at(-1)?.coverage).toMatchObject({ state: "incomplete", zero: false });
   expect(view.days.slice(0, -1).every((day) => day.coverage.zero)).toBe(true);
+  await f.harness.experimental_dispose();
+});
+
+it("bounds model attribution without losing unknown totals or including excluded scopes", async () => {
+  const f = await calendarFixture();
+  for (let n = 1; n <= 10; n++)
+    put(f.db, n, undefined, "/original", 10, null, `model-${String(n).padStart(2, "0")}`);
+  put(f.db, 11, undefined, "/original", 5, null, "expired");
+  f.db.prepare("UPDATE usage_compact SET detail_available=0 WHERE total=5").run();
+  put(f.db, 12, undefined, "/excluded", 7, null, "excluded");
+  f.db.prepare("UPDATE usage_compact SET accepted=0 WHERE total=7").run();
+  put(f.db, 13, undefined, "/different", 20, null, "different");
+  f.db.close();
+  const view = await f.read({
+    startDate: "2026-09-01",
+    timezone: "UTC",
+    group: "workspace",
+    scope: { kind: "workspace", workspace: "/original" },
+  });
+  const day = view.days[14];
+  expect(day.totalTokens).toBe(105);
+  expect(day.models).toEqual({
+    named: Array.from({ length: 8 }, (_, n) => ({
+      model: `model-${String(n + 1).padStart(2, "0")}`,
+      totalTokens: 10,
+    })),
+    otherTokens: 20,
+  });
+  expect(day.classes.state).toBe("unavailable");
+  expect(view.summary.totalTokens).toBe(105);
   await f.harness.experimental_dispose();
 });

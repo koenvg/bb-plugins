@@ -135,3 +135,31 @@ it.each([false, true])(
     }
   },
 );
+
+it("merges model IDs across machines while retaining an older report remainder", () => {
+  const data = reportsFixture(query, now);
+  const reports = data.machines.map((row) => row.report);
+  if (reports.some((row) => row.state === "unavailable")) throw Error("Fixture unavailable");
+  const first = reports[0];
+  if (first.state === "unavailable") throw Error("Fixture unavailable");
+  first.days[14].models = { named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 };
+  const day = combineReports(data, query)!.days[14];
+  expect(day.totalTokens).toBe(1200);
+  expect(day.models).toEqual({ named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 });
+  const second = reports[1];
+  if (second.state === "unavailable") throw Error("Fixture unavailable");
+  second.days[14].models = {
+    named: [
+      { model: "gpt-5", totalTokens: 300 },
+      { model: "gpt-6", totalTokens: 300 },
+    ],
+    otherTokens: 0,
+  };
+  expect(combineReports(data, query)!.days[14].models).toEqual({
+    named: [
+      { model: "gpt-5", totalTokens: 700 },
+      { model: "gpt-6", totalTokens: 300 },
+    ],
+    otherTokens: 100,
+  });
+});

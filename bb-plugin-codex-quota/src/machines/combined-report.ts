@@ -7,6 +7,7 @@ import { checkedCount } from "../history/calendar/calendar-aggregation.js";
 import { safeCapturedSum } from "../history/calendar/calendar-money.js";
 import { shiftDate } from "../history/calendar/calendar-time.js";
 import type { MachineReports } from "./machines-contract.js";
+import { mergeDayModels } from "../history/calendar/calendar-models.js";
 
 type Day = CalendarSnapshot["days"][number];
 const sum = (values: number[]) =>
@@ -164,6 +165,7 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
     return {
       date,
       totalTokens: sum(values.map((value) => value.totalTokens)),
+      models: mergeDayModels(values),
       activeEntities: sum(values.map((value) => value.activeEntities)),
       excludedTokens: sum(values.map((value) => value.excludedTokens)),
       classes,

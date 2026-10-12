@@ -42,7 +42,9 @@ async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?
       ]),
     );
   const lines = await page
-    .locator('.recharts-tooltip-wrapper [role="tooltip"] > div p')
+    .locator(
+      '.recharts-tooltip-wrapper [role="tooltip"] > div:not([aria-label="Tokens by model"]) p',
+    )
     .allTextContents();
   const date = await page.locator(".recharts-tooltip-wrapper time").getAttribute("datetime");
   verifyTooltip(row, metric, date, definitions, lines, fromDate);
@@ -116,7 +118,11 @@ export async function axFacts(page: Page, dailyRows: string[][], metric: Metric)
   const session = await page.context().newCDPSession(page);
   try {
     const result = await session.send("Accessibility.getFullAXTree");
-    return accessibleFacts(result.nodes as AxNode[], dailyRows, metric);
+    const headers =
+      metric === "tokens"
+        ? await page.locator('table[aria-label="Daily recorded usage"] thead th').allTextContents()
+        : [];
+    return accessibleFacts(result.nodes as AxNode[], dailyRows, metric, "UTC", headers.slice(11));
   } finally {
     await session.detach();
   }

@@ -1,4 +1,5 @@
 import type { CalendarSnapshot } from "./calendar-contract.js";
+import { projectTokenModels } from "./calendar-models.js";
 
 export type TokenMetric = import("./calendar-comparison.js").ComparisonMetric;
 export type CalendarDay = CalendarSnapshot["days"][number];
@@ -26,10 +27,6 @@ export const tokenCategories = [
     color: "light-dark(#ab8b54, #d8b978)",
   },
 ] as const;
-export const tokenSeries = [
-  ...tokenCategories,
-  { key: "unclassified", label: "Unclassified", color: "var(--muted-foreground)" },
-] as const;
 export function tokenBreakdown(day: CalendarDay) {
   const classes = day.classes;
   const unavailable = { state: "unavailable" as const, unclassified: day.totalTokens };
@@ -38,18 +35,6 @@ export function tokenBreakdown(day: CalendarDay) {
   const classified = classes.input + classes.output + classes.cacheRead + classes.cacheWrite;
   if (!Number.isSafeInteger(classified) || classified > day.totalTokens) return unavailable;
   return { ...classes, unclassified: day.totalTokens - classified };
-}
-function tokenParts(day: CalendarDay) {
-  const breakdown = tokenBreakdown(day);
-  return breakdown.state === "available"
-    ? {
-        input: breakdown.input,
-        output: breakdown.output,
-        cacheRead: breakdown.cacheRead,
-        cacheWrite: breakdown.cacheWrite,
-        unclassified: breakdown.unclassified,
-      }
-    : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unclassified: breakdown.unclassified };
 }
 export function coverageLabel(day: { coverage: CalendarDay["coverage"] }) {
   const c = day.coverage;
@@ -87,6 +72,7 @@ export function recordedValue(day: CalendarDay, metric: TokenMetric): number | n
 }
 export function chartData(days: CalendarDay[], metric: TokenMetric) {
   const values = days.map((day) => recordedValue(day, metric));
+  const models = projectTokenModels(days);
   const maximum = Math.max(
     0,
     ...values.map(
@@ -97,6 +83,7 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
   // Scale only the drawing coordinates. Facts and tooltip values stay unchanged.
   // A unit domain also avoids unsafe tick arithmetic for subnormal captured prices.
   return {
+    models: models.series,
     maximum,
     rows: days.map((day, index) => ({
       date: day.date,
@@ -112,13 +99,14 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
             : 0,
       uncertainHeight:
         metric === "tokens" && maximum ? (day.uncertain?.totalTokens ?? 0) / maximum : 0,
-      tokenHeights: Object.fromEntries(
-        Object.entries(tokenParts(day)).map(([key, value]) => [
+      modelFacts: models.facts[index],
+      modelHeights: Object.fromEntries(
+        Object.entries(models.facts[index]).map(([key, value]) => [
           key,
-          values[index] === null && !(day.uncertain?.totalTokens ?? 0)
+          value === null && !(day.uncertain?.totalTokens ?? 0)
             ? null
             : maximum
-              ? value / maximum
+              ? (value ?? 0) / maximum
               : 0,
         ]),
       ),

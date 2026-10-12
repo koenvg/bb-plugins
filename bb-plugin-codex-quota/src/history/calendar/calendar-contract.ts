@@ -105,6 +105,7 @@ const classes = z.discriminatedUnion("state", [
     })
     .strict(),
 ]);
+import { dayModelsSchema, modelTotal } from "./calendar-models.js";
 export const calendarDaySchema = z
   .object({
     date: z.string().refine(validDate),
@@ -115,6 +116,7 @@ export const calendarDaySchema = z
     coverage: calendarCoverageSchema,
     money: calendarMoneySchema,
     classes,
+    models: dayModelsSchema.optional(),
   })
   .strict()
   .refine(
@@ -125,6 +127,10 @@ export const calendarDaySchema = z
         day.excludedTokens === 0 &&
         day.money.records === 0),
     "Calendar zero certificate mismatch",
+  )
+  .refine(
+    (day) => !day.models || modelTotal(day.models) <= day.totalTokens,
+    "Model attribution exceeds recorded tokens",
   );
 export const calendarSummarySchema = z
   .object({
