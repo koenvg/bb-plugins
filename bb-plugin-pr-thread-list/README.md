@@ -43,7 +43,7 @@ When selection leaves, the tree immediately follows the current rules above. Arc
 
 **All** shows every thread, with the **Needs you** group on top and the **Snoozed** group at the bottom.
 
-The tab of a thread does not depend on whether its row is on screen. The `summary-watch` service on the plugin server reads the github-insight summary of every active thread every 5 seconds. When a summary changes, it sends a `summaries.changed` realtime signal, and the list loads the summaries again. github-insight refreshes a PR when its thread goes idle, so a PR that an agent opens or pushes to shows within seconds. Changes on GitHub only, such as a finished check, come from github-insight's 60 second poll. When you resolve or unresolve a review thread in github-insight's Review tab, the list asks at once. As a fallback, the list also asks once a minute and when the connection comes back.
+The tab of a thread does not depend on whether its row is on screen. The `summary-watch` service on the plugin server reads the github-insight summary of every active thread every 5 seconds. When a summary changes, it sends a `summaries.changed` realtime signal, and the list loads the summaries again. github-insight refreshes a PR when its thread goes idle, so a PR that an agent opens or pushes to shows within seconds. Changes on GitHub only, such as a finished check, come from github-insight's 60 second poll. When you resolve or unresolve a review thread in the Files sub-tab of github-insight's PR tab, the list asks at once. As a fallback, the list also asks once a minute and when the connection comes back.
 
 ## Snooze
 

@@ -28,6 +28,7 @@ import { createDraftStore } from "./review/draft-store";
 import { createReviewCli } from "./review/review-cli";
 import { createReviewService } from "./review/review-service";
 import { createReviewWrites } from "./review/review-writes";
+import { createTimelineService } from "./timeline/timeline-service";
 import { createViewedMarksStore } from "./review/viewed-marks-store";
 
 export type { rpcContract } from "./contract";
@@ -177,6 +178,14 @@ export default async function plugin(bb: BbPluginApi) {
     warn: (message) => bb.log.warn(message),
   });
 
+  const timeline = createTimelineService({
+    resolvePr,
+    fetchTimelinePage: async ({ ref, hostId }, before) =>
+      unwrap(await host.call("fetchTimeline", { ...ref, before }, { hostId })),
+    addComment: async ({ hostId }, request) =>
+      unwrap(await host.call("addComment", request, { hostId })),
+  });
+
   async function getReview(threadId: string): Promise<ReviewResult> {
     const load = await review.load(threadId);
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
@@ -192,6 +201,8 @@ export default async function plugin(bb: BbPluginApi) {
     refresh: ({ threadId }) => service.refresh(threadId),
     getReview: ({ threadId }) => getReview(threadId),
     getDrafts: ({ threadId }) => getDrafts(threadId),
+    getTimeline: ({ threadId, before }) => timeline.getTimeline(threadId, before),
+    addPrComment: (request) => timeline.addPrComment(request),
     sendToAgent: ({ threadId, reviewThreadIds }) => review.sendToAgent(threadId, reviewThreadIds),
     reply: (request) => writes.reply(request),
     setResolved: (request) => writes.setResolved(request),

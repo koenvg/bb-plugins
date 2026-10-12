@@ -6,6 +6,7 @@ import type { ActionResult, InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights, rememberInsight } from "./pr-availability";
+import { forgetSubTabs } from "./pr-sub-tab";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
@@ -54,7 +55,12 @@ function fixture(initial: InsightResult = ok()) {
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
   const write = vi.fn(async (): Promise<ActionResult> => ({ kind: "ok" }));
   const options = {
-    rpc: { getInsight, refresh, runPrAction: write },
+    rpc: {
+      getInsight,
+      refresh,
+      runPrAction: write,
+      getTimeline: () => ({ kind: "no_pr" as const }),
+    },
     composer: { scope: { kind: "thread" as const, threadId: "flow" } },
   };
   const mountBanner = () => {
@@ -95,6 +101,7 @@ afterEach(() => {
   mounted.length = 0;
   cleanup();
   forgetInsights();
+  forgetSubTabs();
   openPanel.mockClear();
 });
 
@@ -334,7 +341,7 @@ describe("palette merge without side-panel navigation", () => {
     },
   );
 
-  it.each(["closed", "review"])(
+  it.each(["closed", "other"])(
     "keeps a %s side panel unchanged through merge progress",
     async (selected) => {
       const f = fixture();
@@ -358,6 +365,27 @@ describe("palette merge without side-panel navigation", () => {
       expect(panel).toBe(selected);
     },
   );
+
+  it("keeps the Files sub-tab of the PR tab through merge progress", async () => {
+    const f = fixture();
+    const pending = deferred<ActionResult>();
+    f.write.mockImplementation(() => pending.promise);
+    f.mountBanner();
+    const panel = f.mountTab();
+    await screen.findByText("Ready to merge");
+    fireEvent.click(within(panel.container).getByRole("tab", { name: "Files" }));
+    const selectedTab = () =>
+      within(panel.container).getByRole("tab", { selected: true }).querySelector("[data-tab-label]")
+        ?.textContent;
+
+    await merge();
+    await confirm();
+    expect(selectedTab()).toBe("Files");
+    await act(async () => pending.resolve({ kind: "ok" }));
+
+    expect(selectedTab()).toBe("Files");
+    expect(openPanel).not.toHaveBeenCalled();
+  });
 
   it("supports keyboard cancellation and a keyboard-generated confirmation click", async () => {
     const f = fixture();

@@ -118,8 +118,10 @@ describe("PR state parity", () => {
       name: /Draft.*1 check failed.*Merge conflicts/,
     });
     expect(button.textContent?.match(/Draft/g)).toHaveLength(1);
-    await within(panel.container).findByRole("region", { name: "Merge blockers" });
-    expect(panel.container.querySelector("header")?.textContent).toContain("Draft");
+    await within(panel.container).findByRole("list", { name: "Merge blockers" });
+    expect(panel.container.querySelector("[data-testid=pr-header]")?.textContent).toContain(
+      "Draft",
+    );
     expect(within(chat.container).queryByText(/Ready to/)).toBeNull();
   });
 

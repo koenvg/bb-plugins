@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 
 export interface IntentsByTab {
-  pr: "refresh" | "open-on-github";
+  pr: "show-overview" | "show-files";
+  overview: "refresh" | "open-on-github";
+  files: "submit" | "next-comment" | "previous-comment";
   merge: "merge";
-  review: "submit" | "next-comment" | "previous-comment";
 }
 
 export type CommandTab = keyof IntentsByTab;
@@ -29,6 +30,15 @@ export function postIntent<Tab extends CommandTab>(
   const listener = listeners.get(key)?.at(-1);
   if (listener) listener(intent);
   else pending.set(key, { intent, postedAt: Date.now() });
+}
+
+export function peekIntent<Tab extends CommandTab>(
+  threadId: string,
+  tab: Tab,
+): IntentOf<Tab> | null {
+  const entry = pending.get(keyOf(threadId, tab));
+  if (!entry || Date.now() - entry.postedAt > PENDING_TTL_MS) return null;
+  return entry.intent as IntentOf<Tab>;
 }
 
 function takePending(key: string): string | null {

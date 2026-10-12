@@ -8,32 +8,24 @@ function availableWhen(check: ThreadCheck) {
   return (context: PluginCommandContext) => context.threadId !== null && check(context.threadId);
 }
 
-function openTabCommand(id: string, title: string, tab: CommandTab): PluginCommandRegistration {
+type PostedIntent = { [Tab in CommandTab]: { tab: Tab; intent: IntentOf<Tab> } }[CommandTab];
+
+const SHOW_OVERVIEW = { tab: "pr", intent: "show-overview" } as const;
+const SHOW_FILES = { tab: "pr", intent: "show-files" } as const;
+
+function prTabCommand(
+  id: string,
+  title: string,
+  ...intents: PostedIntent[]
+): PluginCommandRegistration {
   return {
     id,
     title,
     isAvailable: availableWhen(hasPr),
     run: (context) => {
-      if (context.threadId !== null) context.openPanel({ actionId: tab });
-    },
-  };
-}
-
-function intentCommand<Tab extends CommandTab>(
-  id: string,
-  title: string,
-  tab: Tab,
-  intent: IntentOf<Tab>,
-  check: ThreadCheck = hasPr,
-): PluginCommandRegistration {
-  return {
-    id,
-    title,
-    isAvailable: availableWhen(check),
-    run: (context) => {
       const { threadId } = context;
-      if (threadId !== null && context.openPanel({ actionId: tab }))
-        postIntent(threadId, tab, intent);
+      if (threadId === null || !context.openPanel({ actionId: "pr" })) return;
+      for (const { tab, intent } of intents) postIntent(threadId, tab, intent);
     },
   };
 }
@@ -47,11 +39,26 @@ export const GITHUB_COMMANDS: readonly PluginCommandRegistration[] = [
       if (threadId !== null) postIntent(threadId, "merge", "merge");
     },
   },
-  openTabCommand("open-pr-tab", "GitHub: Open PR tab", "pr"),
-  openTabCommand("open-review-tab", "GitHub: Open Review tab", "review"),
-  intentCommand("submit-review", "GitHub: Submit review", "review", "submit"),
-  intentCommand("next-comment", "GitHub: Next comment", "review", "next-comment"),
-  intentCommand("previous-comment", "GitHub: Previous comment", "review", "previous-comment"),
-  intentCommand("refresh-pr", "GitHub: Refresh PR", "pr", "refresh"),
-  intentCommand("open-pr-on-github", "GitHub: Open PR on GitHub", "pr", "open-on-github"),
+  prTabCommand("open-pr-tab", "GitHub: Open PR tab", SHOW_OVERVIEW),
+  prTabCommand("open-pr-files", "GitHub: Open PR files", SHOW_FILES),
+  prTabCommand("submit-review", "GitHub: Submit review", SHOW_FILES, {
+    tab: "files",
+    intent: "submit",
+  }),
+  prTabCommand("next-comment", "GitHub: Next comment", SHOW_FILES, {
+    tab: "files",
+    intent: "next-comment",
+  }),
+  prTabCommand("previous-comment", "GitHub: Previous comment", SHOW_FILES, {
+    tab: "files",
+    intent: "previous-comment",
+  }),
+  prTabCommand("refresh-pr", "GitHub: Refresh PR", SHOW_OVERVIEW, {
+    tab: "overview",
+    intent: "refresh",
+  }),
+  prTabCommand("open-pr-on-github", "GitHub: Open PR on GitHub", {
+    tab: "overview",
+    intent: "open-on-github",
+  }),
 ];

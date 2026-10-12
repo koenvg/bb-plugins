@@ -55,7 +55,7 @@ function fixture(initial: InsightResult = ok()) {
   const read = vi.fn(async (_input: { threadId: string }): Promise<InsightResult> => current);
   const refresh = vi.fn(async (): Promise<InsightResult> => current);
   const options = {
-    rpc: { getInsight: read, refresh },
+    rpc: { getInsight: read, refresh, getTimeline: () => ({ kind: "no_pr" as const }) },
     composer: { scope: { kind: "thread" as const, threadId: "a" } },
   };
   const chat = renderSlot<object, ReadMethods>(banner, {}, options);

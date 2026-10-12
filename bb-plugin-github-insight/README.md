@@ -1,6 +1,24 @@
 # bb-plugin-github-insight
 
-Shows the merge blockers, reviewers, and checks of a thread's pull request in a **PR** tab in the thread's right panel. A **Review** tab shows the PR's diff from GitHub, with the review threads on their lines. A **Pull Requests** nav panel lists the open PRs that wait for your review in "Needs review" and "Reviewed", starts a hidden review thread for a PR, and keeps a PR reviewed until its author pushes.
+Shows a thread's pull request in a **PR** tab in the thread's right panel. The tab has two sub-tabs. **Overview** shows the merge blockers, reviewers, checks, and the PR conversation, and lets you add a PR comment. **Files** shows the PR's diff from GitHub, with the review threads on their lines. A **Pull Requests** nav panel lists the open PRs that wait for your review in "Needs review" and "Reviewed", starts a hidden review thread for a PR, and keeps a PR reviewed until its author pushes.
+
+## PR tab
+
+```
+PR tab (actionId "pr", layout flush)
++-- [Overview] [Files]          sub-tab bar (ui/pr-panel.tsx)
++-- Overview: PR status + Conversation (timeline, comment box)
++-- Files:    diff, review threads, drafts, submit panel
+```
+
+- `ui/pr-panel.tsx` registers as the only thread panel action. It keeps the selected sub-tab for each thread in module memory (`ui/pr-sub-tab.ts`), so the choice survives a switch to another side-panel tab or thread. A new PR tab starts on Overview.
+- Files mounts the first time it shows, then stays mounted and hidden while Overview shows. So `getReview` runs only after the first show, and scroll position, comment position, and typed text stay.
+- The sidebar PR badge and the banner text open the PR tab on Overview (`openPrOverview` in `ui/use-pr-panel-navigation.ts`). The tab keeps `params` null, so bb reuses the open PR tab. The sub-tab comes from the `pr` intent (`show-overview` or `show-files`).
+- A "Description" section below the merge status shows the PR description (author, "opened this", Markdown body, or "No description provided."). A description taller than 320px folds behind "Show full description". The timeline query reads it with the events, so it costs no extra call.
+- The conversation (`ui/timeline.tsx`) reads `getTimeline` when Overview mounts and when the insight `refreshedAt` changes. It is not in the snapshot store. A failed read shows an error and "Retry" in the conversation and does not hide the status. The query (`github/timeline-query.ts`) reads the newest 100 PR comments, reviews, commits, and ready for review, closed, reopened, and merged events. "Load older events" reads the next 100. `core/timeline.ts` drops the closed event that GitHub adds to a merge and groups commits in a row.
+- A review shows its verdict, body, and "N inline comments". The link selects Files and jumps to the first thread of that review that Files shows. If all of them are resolved, it turns on "Show resolved" first. The timeline does not show inline comments.
+- The comment box posts a PR comment with RPC `addPrComment` (the `addComment` mutation on the PR node id), then reads the newest page again. On a locked PR, only a viewer who can update the PR sees the box.
+- Upgrade: the plugin no longer registers the `review` panel action. bb does not restore a "Review" tab saved by an earlier version. Use the Files sub-tab of the PR tab.
 
 ## How it works
 
@@ -10,9 +28,9 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
       +------ insight.updated ----------+  (pr-poller, every 60s)
 ```
 
-- `pr-lookup.ts`: finds the thread's PR through `bb.sdk.environments.pullRequest`. Both tabs use it. No PR means no GitHub call. A lookup that reports `no git remotes found` also means no PR: the composer PR banner is hidden, and the PR tab shows "No pull request for this thread". Other lookup and refresh errors remain visible with Retry.
+- `pr-lookup.ts`: finds the thread's PR through `bb.sdk.environments.pullRequest`. Both sub-tabs use it. No PR means no GitHub call. A lookup that reports `no git remotes found` also means no PR: the composer PR banner is hidden, and the PR tab shows "No pull request for this thread". Other lookup and refresh errors remain visible with Retry.
 - `server.ts`: asks the thread's host for the PR data.
-- `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Review tab and the CLI both use it.
+- `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Files sub-tab and the CLI both use it.
 - `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads").
 - `review/review-writes.ts`: the review thread writes. `reply` posts a reply, and for "Post + resolve" then resolves the thread. When the resolve fails, the reply stays posted and the error shows. `setResolved` resolves or unresolves. Only the tab's RPCs call it. The CLI does not. After a successful resolve or unresolve, both refresh the PR insight and write `prSummary` before they return. Then the tab posts `{ threadId }` on the `github-insight.summary-written` BroadcastChannel (`ui/summary-written.ts`), and the pr-thread-list sidebar reads the summary again.
 - `merge/pr-writes.ts`: all PR writes behind `runPrAction`: merge, enqueue, branch update with merge or rebase, and auto-merge on or off (see "Merge and enqueue", "Update branch", and "Auto-merge"). `merge/local-commits-lookup.ts`: the `localCommitsAhead` check for the rebase.
@@ -29,14 +47,14 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
   | `UNMERGEABLE`         | `failed`          | Merge queue failed (problem tone) |
   | no entry              | none              | none                              |
 
-- `ui/pr-tab.tsx`: the PR header (number, state, "Updated <age>", refresh button, title, then `head → base`, lines added and removed, changed files, and author), one summary line (`prSummaryLine` in `ui/pr-status-view.ts`: the queue state, "Auto-merge on", the first blocker with "+N more", or "Ready to merge"), the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers when there are 2 or more, the reviewers, and the checks. Failed, cancelled, waiting, and running checks show open. Passed and skipped share one collapsed line, for example "52 passed, 2 skipped". A required check has a "required" label. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
+- `ui/overview-tab.tsx`: the Overview sub-tab. The PR header (number, state, "Updated <age>", refresh button, title, then `head → base`, lines added and removed, changed files, and author), one summary line (`prSummaryLine` in `ui/pr-status-view.ts`: the queue state, "Auto-merge on", the first blocker with "+N more", or "Ready to merge"), the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers when there are 2 or more, the reviewers, and the checks. Failed, cancelled, waiting, and running checks show open. Passed and skipped share one collapsed line, for example "52 passed, 2 skipped". A required check has a "required" label. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/pr-availability.ts`: the last PR result per thread in the window. `useInsight` writes each accepted load there (a PR sets it, no PR deletes it, a failed load keeps it) and seeds a thread switch from it, so the PR tab and banner show the last PR at once with a spinner while the new load runs.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `ui/pr-status-view.ts` picks lifecycle, queue detail, and valid actions for both views; `core/banner.ts` selects compact blockers (see "Merge and enqueue"). The text opens the PR tab.
 - `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects, the linked thread, and the reviewed state to each PR, and keeps the result in plugin kv storage.
 - `pr-panel-navigation.ts` and `ui/use-pr-panel-navigation.ts`: the sidebar badge records a one-shot PR-panel request in the current window before navigating. A receiver in this plugin opens its own `pr` action when the matching thread mounts, even if its blocker banner is hidden. The newest request wins; accepted requests are consumed, ordinary sidebar navigation cancels them, and abandoned requests expire after 30 seconds. Requests are not stored on the server, persisted across reloads, or broadcast to other clients.
-- `ui/review-tab.tsx`: the file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
-- Comment drafts in the Review tab (see "Review drafts"): a draft at the PR head shows below its line, on its side, marked "Pending comment", with the line or range. The "+" in the diff gutter saves an empty comment draft on that line and side (RPC `createCommentDraft`) and focuses its box. The "+" does not show on a merged or closed PR, or when drafts are on an older commit. Drafts at another commit show in "Drafts on an older commit" at the top, with "PR has new commits since these drafts (<draft commit> -> <head>)", "Submit or delete these drafts to add new comments.", the path, side, line, and body. The user can edit or delete each draft. Edits are saved 500 ms after the last key press and when the tab closes (`ui/draft-saves.ts`, shared with reply drafts). "Delete" hides the card at once and writes nothing to GitHub. If the delete fails, the card comes back with the error.
+- `ui/files-tab.tsx`: the Files sub-tab. The file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). A file without a patch shows "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
+- Comment drafts in the Files sub-tab (see "Review drafts"): a draft at the PR head shows below its line, on its side, marked "Pending comment", with the line or range. The "+" in the diff gutter saves an empty comment draft on that line and side (RPC `createCommentDraft`) and focuses its box. The "+" does not show on a merged or closed PR, or when drafts are on an older commit. Drafts at another commit show in "Drafts on an older commit" at the top, with "PR has new commits since these drafts (<draft commit> -> <head>)", "Submit or delete these drafts to add new comments.", the path, side, line, and body. The user can edit or delete each draft. Edits are saved 500 ms after the last key press and when the tab closes (`ui/draft-saves.ts`, shared with reply drafts). "Delete" hides the card at once and writes nothing to GitHub. If the delete fails, the card comes back with the error.
 - "Submit review" in the tab header opens the submit panel (`ui/submit-panel.tsx`). It opens at once when the PR has drafts. It shows the summary draft as an editable body, the number of comment drafts with text, and the verdicts from `submitRules` (`core/review-submit.ts`): Comment, Approve, and Request changes, or only Comment on your own PR. A disabled submit shows the reason, for example "Add a summary to request changes" or "Pull request is merged". Submit saves the open edits first, then calls `submitReview`. After success the tab shows "Review submitted" and no drafts, and the PR is marked reviewed (see "Reviewed state"). A failed submit shows the GitHub error, with "Open the PR" when you have a pending review on GitHub, and keeps all drafts and the body.
 - The comment stepper in the tab header (`ui/use-comment-navigation.ts`) shows `<position> / <total>` with "Previous comment" and "Next comment". It goes through comment drafts and open threads in page order (`commentStops` in `core/comment-stops.ts`): older drafts, outdated threads, then each file by line, old side before new side, threads before drafts. Resolved threads count only with "Show resolved". The position is the first comment at or below the top of the diff area, so it follows a manual scroll. A comment in a diff that has not loaded uses the place of its file. "Next" goes to that comment when it is below the top, else to the one after it. Both buttons wrap. A jump keeps the card at the top while diffs above it load (`pinToTop` in `review-ui/`), until the user scrolls or presses a key, and rings the card for 1.5 s. The stepper hides when there are no comments.
 - The tab header shows your last submitted review from GitHub's `viewerLatestReview` (`ui/viewer-review-badge.tsx`): "You approved", "You requested changes", "You commented", or "Your review was dismissed", with its age. "new commits since" shows when the head moved after that review. A review you just submitted animates in; under reduced motion it only fades.
@@ -88,22 +106,22 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - "Mark reviewed" writes the kv entry `reviewed:<owner/repo#n>` (lowercase): `{ v: 1, owner, repo, number, headOid, markedAt }` (`queue/reviewed-marks.ts`). `headOid` is the head commit that the card shows.
 - `core/review-state.ts` compares the mark with the current head: no mark is "Needs review", the same commit is "Reviewed", another commit is "Needs review" with "New commits". A push or force push changes the head, so the PR comes back by itself.
 - "Reviewed" is collapsed when the panel opens. "Mark as needs review" deletes the mark. A PR with no request and no review thread then leaves the list.
-- A successful submit in the Review tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
+- A successful submit in the Files sub-tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
 - A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps the newest time of each kind:
   - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
-  - A review comment or reply that you saw in the Review tab does not count (see "New comments in the Review tab"). A PR comment or review text still counts until "Mark reviewed", because the Review tab does not show it.
+  - A review comment or reply that you saw in the Files sub-tab does not count (see "New comments in the Files sub-tab"). A PR comment or review text still counts until "Mark reviewed", because the Files sub-tab does not show it.
   - The fragment reads the first 20 comments of each of the last 20 reviews, with `id` and `publishedAt`. A comment in a pending review counts at the time the review is submitted.
   - "Review requested again": a review request to your login. Requests to a team do not count.
 - "Mark reviewed" writes a new `markedAt`, so it clears both labels. "Mark reviewed" and "Mark as needs review" also delete the seen comments of the PR. PRs with no mark get no activity labels, also when they have a review thread.
 - Reviews submitted on github.com do not set a mark.
-- "Start review" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
+- "Start review" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR tab shows it.
 
 ### Hidden review threads
 
 - `startReview` spawns the thread with `visibility: "hidden"`, so it is not in the sidebar thread list. It also writes the plugin metadata key `review-pr`: `{ v: 1, repo, number, title, url }` (`core/review-pr.ts`). A missing entry, a malformed entry, or another version reads as no review thread.
 - A review thread keeps its PR in the list after the PR leaves the review requests, until the thread is archived or the PR is merged or closed.
 - "Archive thread" calls `archiveReview`. The server archives the thread only when it has a `review-pr` entry, so the panel cannot archive other threads.
-- The queue service and the `pr-poller` list threads with `includeHidden: true`, so the PR and Review tabs of a hidden thread refresh like on a visible thread.
+- The queue service and the `pr-poller` list threads with `includeHidden: true`, so the PR tab of a hidden thread refresh like on a visible thread.
 - To find a review thread without the plugin, run `bb thread list --include-hidden`. To show it in the sidebar again, run `bb thread update <thread-id> --visibility visible`.
 
 ### Check it on a fresh install
@@ -112,7 +130,7 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 2. Install the plugin (see "Develop") and open **Pull Requests** in the bb sidebar.
 3. "Needs review" shows the same PRs as `https://github.com/pulls/review-requested`, with its count. Its header row shows Refresh and "Updated <time> ago".
 4. On a review request in a repo that has a bb project, select "Start review". The composer shows that project, a new worktree, and the review prompt. Submit it.
-5. bb opens the new thread. It is not in the sidebar thread list. The agent runs `gh pr checkout <n>`. Then the PR and Review tabs show that PR.
+5. bb opens the new thread. It is not in the sidebar thread list. The agent runs `gh pr checkout <n>`. Then the PR tab shows that PR.
 6. Go back to **Pull Requests**. The card shows the thread status button.
 7. Select "Mark reviewed" on the card. The PR moves to "Reviewed". Select "Mark as needs review" to move it back.
 8. Select "Archive thread" on the card. bb archives the thread, and the card shows "Start review" again.
@@ -150,15 +168,15 @@ bb github-insight review draft <thread-id> --body-file <path>
 - `review draft` saves the text as a draft for one unresolved thread. A new draft replaces the old one. An unknown or resolved thread id fails.
 - `--body-file` is read on the thread's host, relative to the agent's working directory. It must be a regular file of max 64 KB.
 - Drafts are kept in plugin kv storage, one row per PR and thread (`review/draft-store.ts`). They stay after a bb restart. The draft of a resolved or deleted thread is deleted on the next load. When the PR has more than 5 pages of threads, a draft of a thread that was not read is kept, but not shown.
-- The Review tab puts a draft in the reply box of its thread, marked "Draft from agent". It updates when the agent saves a draft (realtime event `review.drafts-updated`). Edits are saved to the draft 500 ms after the last key press, and when the tab closes. "Post" and "Post + resolve" save the edit first, and a successful post deletes the draft. "Discard" deletes the draft and writes nothing to GitHub. While the user has edited a draft, a new draft from the agent does not replace the edited text.
+- The Files sub-tab puts a draft in the reply box of its thread, marked "Draft from agent". It updates when the agent saves a draft (realtime event `review.drafts-updated`). Edits are saved to the draft 500 ms after the last key press, and when the tab closes. "Post" and "Post + resolve" save the edit first, and a successful post deletes the draft. "Discard" deletes the draft and writes nothing to GitHub. While the user has edited a draft, a new draft from the agent does not replace the edited text.
 - Both commands only read from GitHub. A draft is never posted to GitHub by the CLI.
-- In the Review tab, select open threads and click "Send N to agent". The server loads the threads again and sends one message to the thread's chat (`bb.sdk.threads.send`, `auto` mode: it starts a turn, or it waits until the agent is idle). The message holds each thread's id, path, line, the last 10 lines of its diff hunk, and the comments. It tells the agent to fix the code, save a draft per thread, and not post or resolve. Threads that were resolved in the meantime are left out (`core/agent-prompt.ts`).
+- In the Files sub-tab, select open threads and click "Send N to agent". The server loads the threads again and sends one message to the thread's chat (`bb.sdk.threads.send`, `auto` mode: it starts a turn, or it waits until the agent is idle). The message holds each thread's id, path, line, the last 10 lines of its diff hunk, and the comments. It tells the agent to fix the code, save a draft per thread, and not post or resolve. Threads that were resolved in the meantime are left out (`core/agent-prompt.ts`).
 
-**Rule for the agent: never post or resolve with `gh`.** The plugin cannot block `gh`. Only the user posts a reply, from the Review tab.
+**Rule for the agent: never post or resolve with `gh`.** The plugin cannot block `gh`. Only the user posts a reply, from the Files sub-tab.
 
 ### Review drafts
 
-The agent saves its own review of the PR as drafts. The user can add comment drafts from the diff gutter in the Review tab. The user submits them from the Review tab as one GitHub review.
+The agent saves its own review of the PR as drafts. The user can add comment drafts from the diff gutter in the Files sub-tab. The user submits them from the Files sub-tab as one GitHub review.
 
 ```bash
 bb github-insight review comment <path> --line <n> --body <text>
@@ -170,11 +188,11 @@ bb github-insight review summary --body-file <path>
 - `review comment` saves a comment draft on a line, or on a range with `--start-line`. `--side` is `RIGHT` (new file, the default) or `LEFT` (old file). It prints the new draft id.
 - It fails, and saves nothing, when the path is not a file of the PR, when a line of the range is not in the file's diff on that side (the message names the diff ranges), when the start line is after the line, or when the body is empty.
 - Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` and `createCommentDraft` fail and name both commits: submit or delete the old drafts first.
-- `createCommentDraft({ threadId, path, side, line })` is the Review tab's way to start a comment draft. It runs the same file, diff, and commit checks as `review comment`, saves an empty body with `source: "user"`, and publishes `review.drafts-updated`. It checks against the PR files and head of the last full load of that PR (`getReview`, `review list`, or a CLI write), kept in server memory. It loads the PR from GitHub only when the server has not loaded it since it started.
-- Draft writes (`createCommentDraft`, `deleteCommentDraft`, `discardDraft`, and the CLI commands) publish `review.drafts-updated`, not `review.updated`. The Review tab then calls `getDrafts`, which reads the drafts from plugin kv only and makes no GitHub call. Reply drafts are filtered by the review threads of the last full load. If `getDrafts` fails, the tab loads the whole review.
+- `createCommentDraft({ threadId, path, side, line })` is the Files sub-tab's way to start a comment draft. It runs the same file, diff, and commit checks as `review comment`, saves an empty body with `source: "user"`, and publishes `review.drafts-updated`. It checks against the PR files and head of the last full load of that PR (`getReview`, `review list`, or a CLI write), kept in server memory. It loads the PR from GitHub only when the server has not loaded it since it started.
+- Draft writes (`createCommentDraft`, `deleteCommentDraft`, `discardDraft`, and the CLI commands) publish `review.drafts-updated`, not `review.updated`. The Files sub-tab then calls `getDrafts`, which reads the drafts from plugin kv only and makes no GitHub call. Reply drafts are filtered by the review threads of the last full load. If `getDrafts` fails, the tab loads the whole review.
 - `review summary` saves the review body. A new summary replaces the old one.
 - `review list` prints the comment drafts (id, path, line or range, side, body) and the summary draft after the threads. With `--json`, they are `comments` and `summary` (text or `null`) next to `threads`.
-- Both commands publish `review.drafts-updated`, so an open Review tab shows the new draft at once. They read the PR from GitHub to check the draft, and never write to GitHub.
+- Both commands publish `review.drafts-updated`, so an open Files sub-tab shows the new draft at once. They read the PR from GitHub to check the draft, and never write to GitHub.
 
 Plugin kv keys (`review/draft-store.ts`, schemas in `core/review-drafts.ts`). An entry of another version reads as no draft.
 
@@ -184,7 +202,7 @@ Plugin kv keys (`review/draft-store.ts`, schemas in `core/review-drafts.ts`). An
 | `comment:<owner>/<repo>#<n>:<draftId>`      | comment draft: `{ v: 1, path, side, line, startLine, body, commitOid, updatedAt, source }` |
 | `summary:<owner>/<repo>#<n>`                | summary draft: `{ v: 1, body, updatedAt, source }`                                         |
 
-Submit (RPC `submitReview({ threadId, event, body })`, only from the Review tab):
+Submit (RPC `submitReview({ threadId, event, body })`, only from the Files sub-tab):
 
 ```
 submitReview --> server: load the review again (files, threads, head, drafts from kv)
@@ -204,7 +222,7 @@ submitReview --> server: load the review again (files, threads, head, drafts fro
 
 ### Viewed files
 
-Each file in the Review tab that has a patch shows a collapse button and a "Viewed" checkbox in its header. It works like the Changes tab.
+Each file in the Files sub-tab that has a patch shows a collapse button and a "Viewed" checkbox in its header. It works like the Changes tab.
 
 - Checking "Viewed" marks the file and collapses it. Unchecking expands it. The collapse button only expands or collapses: the toggle stays while bb runs, and resets on a reload or when the mark changes.
 - The top shows "N/M viewed". M counts the files with a patch.
@@ -216,15 +234,15 @@ Each file in the Review tab that has a patch shows a collapse button and a "View
 | ------------------------------ | ------------------------------------------- |
 | `viewed:v1:<owner>/<repo>#<n>` | `{ v: 1, marks: { <path>: <patch hash> } }` |
 
-### New comments in the Review tab
+### New comments in the Files sub-tab
 
 A review comment or reply is new when the PR has a reviewed mark, the comment was published after `markedAt`, its author is a `User` that is not you, and you have not seen it (`core/new-comments.ts`).
 
 - `getReview` returns `newCommentIds`. The review threads query reads `viewer { login }`, the author `__typename`, and `publishedAt` for this.
 - A new comment has a glowing border (`ui/new-comment.css`). Only the new comment glows, not the full thread. With reduced motion, the border does not pulse.
-- A comment is seen when at least 60% of it is in the diff area, or it fills 60% of the diff area height, for 1.5 s without a break, while the page is visible and the bb window has focus (`ui/use-comment-seen.ts`). The glow stays while the Review tab is open, also after a refresh, so you can find the comment again. When you open the tab again, a seen comment has no glow.
+- A comment is seen when at least 60% of it is in the diff area, or it fills 60% of the diff area height, for 1.5 s without a break, while the page is visible and the bb window has focus (`ui/use-comment-seen.ts`). The glow stays while the PR tab is open, also after a refresh, so you can find the comment again. When you open the tab again, a seen comment has no glow.
 - The tab sends seen ids in one RPC `markCommentsSeen({ threadId, commentIds })` 300 ms after the first one, or when the tab closes. The server saves them and re-links the review queue, so the "New comments" label updates without a GitHub call. A failed save is ignored, so the comment is new again the next time the tab opens.
-- A resolved thread with a new comment shows and is expanded, also when "Show resolved" is off. A viewed file with a new comment starts expanded. This holds while the Review tab is open.
+- A resolved thread with a new comment shows and is expanded, also when "Show resolved" is off. A viewed file with a new comment starts expanded. This holds while the PR tab is open.
 - Seen ids belong to the PR, so every thread on the PR shares them.
 
 | Key                                  | Value                           |
@@ -331,26 +349,26 @@ server: gh api graphql updatePullRequestBranch(pullRequestId, expectedHeadOid, u
 - `isAvailable` must be sync, so `useInsight` writes each load into `ui/pr-availability.ts` (in memory). A PR sets the entry, no PR deletes it, and a failed load keeps it.
 - The composer banner loads the insight of each thread you open. Until that first load ends, no command shows.
 
-| Command                   | Opens      | Then                                                                             |
-| ------------------------- | ---------- | -------------------------------------------------------------------------------- |
-| GitHub: Merge PR          | no panel   | uses loaded PR data; confirm dialog for merge, enqueue at once; feedback in chat |
-| GitHub: Open PR tab       | PR tab     | nothing                                                                          |
-| GitHub: Open Review tab   | Review tab | nothing                                                                          |
-| GitHub: Submit review     | Review tab | opens the submit panel; the user submits                                         |
-| GitHub: Next comment      | Review tab | the "Next comment" button's jump, once the review loads                          |
-| GitHub: Previous comment  | Review tab | the "Previous comment" button's jump, once the review loads                      |
-| GitHub: Refresh PR        | PR tab     | the refresh button's action                                                      |
-| GitHub: Open PR on GitHub | PR tab     | opens the PR URL                                                                 |
+| Command                   | Opens                     | Then                                                                             |
+| ------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| GitHub: Merge PR          | no panel                  | uses loaded PR data; confirm dialog for merge, enqueue at once; feedback in chat |
+| GitHub: Open PR tab       | PR tab, Overview          | nothing                                                                          |
+| GitHub: Open PR files     | PR tab, Files             | nothing                                                                          |
+| GitHub: Submit review     | PR tab, Files             | opens the submit panel; the user submits                                         |
+| GitHub: Next comment      | PR tab, Files             | the "Next comment" button's jump, once the review loads                          |
+| GitHub: Previous comment  | PR tab, Files             | the "Previous comment" button's jump, once the review loads                      |
+| GitHub: Refresh PR        | PR tab, Overview          | the refresh button's action                                                      |
+| GitHub: Open PR on GitHub | PR tab, sub-tab unchanged | opens the PR URL                                                                 |
 
 ```
 merge command --> chat merge intent --> loaded PR data --> confirm or enqueue
                                         | error/unavailable
                                         v
                                    chat banner feedback
-other commands --> ctx.openPanel({ actionId }) --> tab intent --> tab UI
+other commands --> ctx.openPanel({ actionId: "pr" }) --> pr intent (sub-tab) --> overview/files intent --> sub-tab UI
 ```
 
-- Merge never opens, closes, switches, or focuses a side-panel tab, including on error. The explicit Open PR tab command and normal banner text still open the PR tab.
+- Merge never opens, closes, switches, or focuses a side-panel tab or a PR sub-tab, including on error. The explicit Open PR tab command and normal banner text still open the PR tab.
 - Merge opens confirmation immediately from loaded PR data, like the button. If data is missing or a load or refresh is in progress, preparation shows loading in chat and waits for that result without starting another request. Errors and unavailable reasons remain visible with a dismiss control, including when the normal PR banner is hidden. New attempts replace that feedback; relevant PR updates clear obsolete messages.
 - Merge captures the selected PR, action, and head commit for confirmation. If that target changes, the confirmation closes without a write. A failed load never falls back to an earlier action.
 - Repeated merge commands during preparation, confirmation, or a write do not start another action. Leaving the thread cancels unsent palette work; a sent write keeps its original thread.

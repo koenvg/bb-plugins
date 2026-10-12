@@ -2,10 +2,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
 import { useComposer } from "@get-bb/plugin-sdk/app";
-import { act, cleanup, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { InsightResult, rpcContract } from "../contract";
 import { cancelPrPanelRequest, requestPrPanel } from "../pr-panel-navigation";
+import { useCommandIntent } from "./command-intents";
 import { forgetInsights } from "./pr-availability";
 
 const app = await loadPluginApp(() => import("../app"));
@@ -186,4 +187,27 @@ it("does not open an unmounted destination while registration is pending", async
   expect(abandoned.inspection.navigateCalls).toHaveLength(0);
   const destination = mount();
   await waitFor(() => expect(destination.inspection.navigateCalls).toHaveLength(1));
+});
+
+function listenForSubTab(threadId: string) {
+  const received: string[] = [];
+  renderHook(() => useCommandIntent(threadId, "pr", (intent) => received.push(intent)));
+  return received;
+}
+
+it("selects Overview in the PR tab that the badge opens", async () => {
+  const subTab = listenForSubTab("thread-sub-tab");
+  const slot = mount("thread-sub-tab");
+  act(() => requestPrPanel("thread-sub-tab", () => {}));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  expect(subTab).toEqual(["show-overview"]);
+});
+
+it("selects no sub-tab when the host declines the open", async () => {
+  const subTab = listenForSubTab("thread-declined");
+  const declined = vi.fn(() => false);
+  mount("thread-declined", () => readyInsight, declined);
+  act(() => requestPrPanel("thread-declined", () => {}));
+  await waitFor(() => expect(declined).toHaveBeenCalled());
+  expect(subTab).toEqual([]);
 });

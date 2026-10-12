@@ -19,6 +19,7 @@ import { Notice, RefreshButton, RefreshError } from "./feedback";
 import { usePullRequestsNavigation } from "./pull-requests-routes";
 import { ACTION_CLASS, COUNT_CLASS, LABEL_CLASS } from "./queue-styles";
 import type { ReviewQueueState } from "./use-review-queue";
+import { SUCCESS_TEXT } from "./text-tones";
 import "./thread-status.css";
 
 const CI_MARK: Record<CiState, { text: string; icon: IconName; className: string }> = {
@@ -36,7 +37,7 @@ const REVIEW_DECISION_LABEL: Record<
   NonNullable<QueuePr["reviewDecision"]>,
   { text: string; className: string } | null
 > = {
-  APPROVED: { text: "Approved", className: "font-medium text-success" },
+  APPROVED: { text: "Approved", className: cn("font-medium", SUCCESS_TEXT) },
   CHANGES_REQUESTED: { text: "Changes requested", className: "font-medium text-destructive" },
   REVIEW_REQUIRED: null,
 };

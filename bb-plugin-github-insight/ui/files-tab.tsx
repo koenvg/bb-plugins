@@ -16,6 +16,7 @@ import {
   commentHolders,
   openThreadCounts,
   openThreads,
+  threadsWithComments,
   visibleThreads,
   type PlacedThread,
   type ThreadPlacement,
@@ -26,6 +27,7 @@ import { useCommandIntent } from "./command-intents";
 import { CommentDraftsProvider, useNewComments } from "./comment-drafts";
 import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedback";
 import { PrFileDiff } from "./file-diff";
+import type { FilesJumpRequest } from "./files-jump";
 import { IconTooltip } from "./icon-tooltip";
 import { JumpMarkContext } from "./jump-highlight";
 import { NewCommentGlowContext, useNewCommentGlowState } from "./new-comment-glow";
@@ -106,7 +108,7 @@ function useReviewCommands(
 ): ReviewCommandRequests {
   const [submitRequested, setSubmitRequested] = useState(false);
   const [stepRequested, setStepRequested] = useState<StepDirection | null>(null);
-  useCommandIntent(threadId, "review", (intent) => {
+  useCommandIntent(threadId, "files", (intent) => {
     if (intent === "submit") setSubmitRequested(true);
     else setStepRequested(STEP_OF_INTENT[intent]);
   });
@@ -132,11 +134,16 @@ function useReviewCommands(
   return { submit, commentStep };
 }
 
-export function ReviewTab({ threadId }: { threadId: string }) {
-  return <ReviewTabContent key={threadId} threadId={threadId} />;
+interface FilesTabProps {
+  threadId: string;
+  jump: FilesJumpRequest | null;
 }
 
-function ReviewTabContent({ threadId }: { threadId: string }) {
+export function FilesTab({ threadId, jump }: FilesTabProps) {
+  return <FilesTabContent key={threadId} threadId={threadId} jump={jump} />;
+}
+
+function FilesTabContent({ threadId, jump }: FilesTabProps) {
   const { result, refreshing, refresh, reload, reloadDrafts, removeCommentDraft } =
     useReview(threadId);
   const requests = useReviewCommands(threadId, result);
@@ -191,6 +198,7 @@ function ReviewTabContent({ threadId }: { threadId: string }) {
           refreshing={refreshing}
           refresh={refresh}
           requests={requests}
+          jump={jump}
         />
       </CommentDraftsProvider>
     </ThreadActionsProvider>
@@ -210,6 +218,7 @@ interface ReviewContentProps {
   refreshing: boolean;
   refresh: () => void;
   requests: ReviewCommandRequests;
+  jump: FilesJumpRequest | null;
 }
 
 function ReviewContent({
@@ -225,6 +234,7 @@ function ReviewContent({
   refreshing,
   refresh,
   requests,
+  jump,
 }: ReviewContentProps) {
   const [showResolved, setShowResolved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(
@@ -283,6 +293,17 @@ function ReviewContent({
     step(commentStep.direction);
     commentStep.onHandled();
   }, [commentStep, step]);
+  const jumpToFirstThread = navigation.jumpToFirstThread;
+  useEffect(() => {
+    if (jump === null) return;
+    const targets = threadsWithComments(threads, jump.commentIds);
+    if (!showResolved && targets.length > 0 && targets.every(({ resolved }) => resolved)) {
+      setShowResolved(true);
+      return;
+    }
+    jumpToFirstThread(new Set(targets.map(({ id }) => id)));
+    jump.onHandled();
+  }, [jump, threads, showResolved, jumpToFirstThread]);
   const { create, createError } = useNewComments();
   const viewed = usePrViewed(threadId, files, viewedMarks, newCommentHolders.paths);
   const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;

@@ -92,23 +92,33 @@ describe("PR header", () => {
   });
 });
 
-describe("PR summary line", () => {
-  function summaryOf(view: ReturnType<typeof renderTab>) {
-    return view.getByRole("status", { name: "Merge status" }).textContent;
+describe("Merge status card", () => {
+  function card(view: ReturnType<typeof renderTab>) {
+    return within(view.getByRole("region", { name: "Merge status" }));
   }
 
-  it("shows the only blocker", async () => {
+  function verdictOf(view: ReturnType<typeof renderTab>) {
+    return card(view).getByRole("status", { name: "Merge verdict" }).textContent;
+  }
+
+  function blockerRows(view: ReturnType<typeof renderTab>) {
+    return card(view).getByRole("list", { name: "Merge blockers" }).querySelectorAll(":scope > li");
+  }
+
+  it("says the PR can't merge yet and lists the only blocker", async () => {
     const view = renderTab({
       ...insight,
       blockers: [{ code: "review_required", text: "Review required" }],
     });
     await view.findByText("#25707");
 
-    expect(summaryOf(view)).toBe("Review required");
-    expect(view.queryByRole("region", { name: "Merge blockers" })).toBeNull();
+    expect(verdictOf(view)).toBe("Can't merge yet1 blocker");
+    expect(Array.from(blockerRows(view), (row) => row.textContent)).toEqual([
+      expect.stringContaining("Review required"),
+    ]);
   });
 
-  it("shows the first blocker and how many more", async () => {
+  it("lists every blocker in order, each once", async () => {
     const view = renderTab({
       ...insight,
       blockers: [
@@ -119,12 +129,16 @@ describe("PR summary line", () => {
     });
     await view.findByText("#25707");
 
-    expect(summaryOf(view)).toBe("Merge conflicts+2 more");
-    const list = view.getByRole("region", { name: "Merge blockers" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(verdictOf(view)).toBe("Can't merge yet3 blockers");
+    expect(Array.from(blockerRows(view), (row) => row.textContent)).toEqual([
+      expect.stringContaining("Merge conflicts"),
+      expect.stringContaining("1 check failed"),
+      expect.stringContaining("Review required"),
+    ]);
+    expect(view.getAllByText("1 check failed")).toHaveLength(1);
   });
 
-  it("counts Draft in neither the summary line nor the blocker list", async () => {
+  it("does not count Draft as a blocker", async () => {
     const view = renderTab({
       ...insight,
       pr: { ...insight.pr, state: "draft" },
@@ -135,22 +149,111 @@ describe("PR summary line", () => {
     });
     await view.findByText("#25707");
 
-    expect(summaryOf(view)).toBe("Review required");
-    expect(view.queryByRole("region", { name: "Merge blockers" })).toBeNull();
+    expect(verdictOf(view)).toBe("Can't merge yet1 blocker");
   });
 
-  it("shows a ready PR", async () => {
+  it("says a draft without other blockers is not ready for review", async () => {
+    const view = renderTab({
+      ...insight,
+      pr: { ...insight.pr, state: "draft" },
+      blockers: [{ code: "draft", text: "Draft" }],
+    });
+    await view.findByText("#25707");
+
+    expect(verdictOf(view)).toBe("Draft, not ready for review");
+  });
+
+  it("shows a ready PR with its merge button in the card", async () => {
     const view = renderTab({ ...insight, mergeAction: { kind: "merge", method: "SQUASH" } });
     await view.findByText("#25707");
 
-    expect(summaryOf(view)).toBe("Ready to merge");
+    expect(verdictOf(view)).toBe("Ready to merge");
+    expect(card(view).getByRole("button", { name: "Squash and merge" })).toBeTruthy();
   });
 
-  it("shows no summary line for a merged PR", async () => {
+  it("shows no card for a merged PR", async () => {
     const view = renderTab({ ...insight, pr: { ...insight.pr, state: "merged" } });
     await view.findByText("#25707");
 
-    expect(view.queryByRole("status", { name: "Merge status" })).toBeNull();
+    expect(view.queryByRole("region", { name: "Merge status" })).toBeNull();
+  });
+
+  it("puts Update branch on the out of date blocker", async () => {
+    const view = renderTab({
+      ...insight,
+      canUpdateBranch: true,
+      blockers: [{ code: "behind", text: "Branch out of date" }],
+    });
+    await view.findByText("#25707");
+
+    const row = blockerRows(view)[0] as HTMLElement;
+    expect(within(row).getByRole("button", { name: "Update branch" })).toBeTruthy();
+    expect(view.getAllByRole("button", { name: "Update branch" })).toHaveLength(1);
+  });
+
+  it("links conflicts to GitHub's conflict page", async () => {
+    const view = renderTab({
+      ...insight,
+      blockers: [{ code: "conflicts", text: "Merge conflicts" }],
+    });
+    await view.findByText("#25707");
+
+    expect(card(view).getByRole("link", { name: "Resolve on GitHub" }).getAttribute("href")).toBe(
+      "https://github.com/o/r/pull/25707/conflicts",
+    );
+  });
+
+  it("lists the reviewers under the review blocker, always open", async () => {
+    const view = renderTab({
+      ...insight,
+      blockers: [{ code: "review_required", text: "Review required" }],
+      reviewers: [
+        { name: "alice", kind: "user", state: "approved", codeOwner: false },
+        { name: "ai-governance", kind: "team", state: "pending", codeOwner: true },
+      ],
+    });
+    await view.findByText("#25707");
+
+    const row = blockerRows(view)[0] as HTMLElement;
+    expect(within(row).queryByRole("button")).toBeNull();
+    const reviewers = within(row).getByRole("list", { name: "Reviewers" });
+    expect(
+      Array.from(reviewers.querySelectorAll("li"), (item: Element) => item.textContent),
+    ).toEqual([expect.stringContaining("alice"), expect.stringContaining("ai-governance (team)")]);
+    expect(view.queryByRole("region", { name: "Reviewers" })).toBeNull();
+  });
+
+  it("keeps the Reviewers section when no review blocker shows", async () => {
+    const view = renderTab({
+      ...insight,
+      reviewers: [{ name: "alice", kind: "user", state: "approved", codeOwner: false }],
+    });
+    await view.findByText("#25707");
+
+    expect(view.getByRole("region", { name: "Reviewers" })).toBeTruthy();
+  });
+
+  it("opens a check blocker in place to show its checks", async () => {
+    const view = renderTab({
+      ...insight,
+      checks: [check("build", "failed"), check("lint", "failed"), check("unit", "passed")],
+      blockers: [{ code: "checks_failed", text: "2 checks failed" }],
+    });
+    await view.findByText("#25707");
+    const toggle = card(view).getByRole("button", { name: /2 checks failed/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.hasAttribute("aria-controls")).toBe(false);
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const shown = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    expect(Array.from(shown.querySelectorAll("li"), (row: Element) => row.textContent)).toEqual([
+      expect.stringContaining("build"),
+      expect.stringContaining("lint"),
+    ]);
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 });
 

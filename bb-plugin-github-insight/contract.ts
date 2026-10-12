@@ -15,6 +15,7 @@ import { reviewPrSchema } from "./core/review-pr";
 import { reviewEventSchema } from "./core/review-submit";
 import { loadedReviewQueueSchema, reviewQueueResultSchema } from "./core/review-queue-view";
 import { threadPlacementSchema } from "./core/thread-placement";
+import { prDescriptionSchema, timelineEventSchema } from "./core/timeline";
 import { ghFailureSchema } from "./github/gh-failure";
 
 export type {
@@ -37,6 +38,16 @@ const prRequestFields = {
 
 const prPageRequestSchema = z.object({ ...prRequestFields, after: z.string().nullable() }).strict();
 export type PrPageRequest = z.infer<typeof prPageRequestSchema>;
+
+const timelinePageRequestSchema = z
+  .object({ ...prRequestFields, before: z.string().nullable() })
+  .strict();
+export type TimelinePageRequest = z.infer<typeof timelinePageRequestSchema>;
+
+const addCommentRequestSchema = z
+  .object({ subjectId: z.string().min(1), body: z.string().regex(/\S/) })
+  .strict();
+export type AddCommentRequest = z.infer<typeof addCommentRequestSchema>;
 
 const checkRunDetailsRequestSchema = z.object({ ids: z.array(z.string().min(1)).min(1) }).strict();
 export type CheckRunDetailsRequest = z.infer<typeof checkRunDetailsRequestSchema>;
@@ -140,6 +151,14 @@ export const hostContract = defineRpcContract({
   },
   fetchPrHead: {
     input: prFilesRequestSchema,
+    output: ghResultSchema,
+  },
+  fetchTimeline: {
+    input: timelinePageRequestSchema,
+    output: ghResultSchema,
+  },
+  addComment: {
+    input: addCommentRequestSchema,
     output: ghResultSchema,
   },
   readTextFile: {
@@ -279,6 +298,34 @@ export const actionResultSchema = z.discriminatedUnion("kind", [
 ]);
 export type ActionResult = z.infer<typeof actionResultSchema>;
 
+const timelineRequestSchema = z
+  .object({ threadId: z.string().min(1), before: z.string().nullable() })
+  .strict();
+
+export const timelineResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("no_pr") }),
+  z.object({ kind: z.literal("error"), message: z.string() }),
+  z.object({
+    kind: z.literal("ok"),
+    prNodeId: z.string(),
+    description: prDescriptionSchema,
+    locked: z.boolean(),
+    viewerCanUpdate: z.boolean(),
+    events: z.array(timelineEventSchema),
+    olderCursor: z.string().nullable(),
+  }),
+]);
+export type TimelineResult = z.infer<typeof timelineResultSchema>;
+
+const addPrCommentRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    prNodeId: z.string().min(1),
+    body: z.string().regex(/\S/),
+  })
+  .strict();
+export type AddPrCommentRequest = z.infer<typeof addPrCommentRequestSchema>;
+
 const saveDraftRequestSchema = z
   .object({ threadId: z.string().min(1), reviewThreadId: z.string().min(1), body: z.string() })
   .strict();
@@ -398,6 +445,8 @@ export const rpcContract = defineRpcContract({
   refresh: { input: threadRequestSchema, output: insightResultSchema },
   getReview: { input: threadRequestSchema, output: reviewResultSchema },
   getDrafts: { input: threadRequestSchema, output: draftsResultSchema },
+  getTimeline: { input: timelineRequestSchema, output: timelineResultSchema },
+  addPrComment: { input: addPrCommentRequestSchema, output: actionResultSchema },
   sendToAgent: { input: sendToAgentRequestSchema, output: sendToAgentResultSchema },
   reply: { input: replyRequestSchema, output: replyResultSchema },
   setResolved: { input: setResolvedRequestSchema, output: actionResultSchema },

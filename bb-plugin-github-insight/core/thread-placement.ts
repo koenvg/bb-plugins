@@ -88,3 +88,13 @@ export function openThreads(placement: ThreadPlacement): OpenThread[] {
       .map((thread) => ({ thread, line: thread.originalLine, outdated: true })),
   ];
 }
+
+export function threadsWithComments(
+  threads: ThreadPlacement,
+  commentIds: readonly string[],
+): ReviewThread[] {
+  const wanted = new Set(commentIds);
+  return [...threads.placed.map(({ thread }) => thread), ...threads.outdated].filter((thread) =>
+    thread.comments.some(({ id }) => wanted.has(id)),
+  );
+}
