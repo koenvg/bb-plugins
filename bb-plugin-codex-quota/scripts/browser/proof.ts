@@ -75,8 +75,21 @@ export function accessibleFacts(
   });
   return { table: "Daily recorded usage", dates: rows.length, metric, caption };
 }
+const tooltipTokens = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  compactDisplay: "long",
+  maximumFractionDigits: 2,
+});
+function readableTokens(exact: string) {
+  return exact === "Unavailable" ? exact : tooltipTokens.format(Number(exact.replaceAll(",", "")));
+}
 export function tooltipDefinitions(row: string[], metric: Metric) {
-  const definitions = [[metric === "cost" ? "USD estimate" : "Recorded tokens", row[1]]];
+  const definitions = [
+    [
+      metric === "cost" ? "USD estimate" : "Recorded tokens",
+      metric === "cost" ? row[1] : readableTokens(row[1]),
+    ],
+  ];
   if (metric === "tokens") {
     if (row[2] === "Unavailable") definitions.push(["Token breakdown", "Unavailable"]);
     else {
@@ -85,15 +98,17 @@ export function tooltipDefinitions(row: string[], metric: Metric) {
         "Output tokens",
         "Cache read tokens",
         "Cache write tokens",
-      ].forEach((label, index) => definitions.push([label, row[index + 2]]));
-      if (row[6] !== "0") definitions.push(["Reasoning tokens (in output)", row[6]]);
+      ].forEach((label, index) => definitions.push([label, readableTokens(row[index + 2])]));
+      if (row[6] !== "0")
+        definitions.push(["Reasoning tokens (in output)", readableTokens(row[6])]);
     }
     if (row[7] !== "0" && row[7] !== "Unavailable")
-      definitions.push(["Unclassified tokens", row[7]]);
-    if (row[8] !== "0") definitions.push(["Uncertain estimate", `${row[8]} tokens`]);
+      definitions.push(["Unclassified tokens", readableTokens(row[7])]);
+    if (row[8] !== "0")
+      definitions.push(["Uncertain estimate", `${readableTokens(row[8])} tokens`]);
   }
   const exclusions = row[metric === "tokens" ? 10 : 3].replace(/ excluded tokens$/, "");
-  if (exclusions !== "0") definitions.push(["Excluded tokens", exclusions]);
+  if (exclusions !== "0") definitions.push(["Excluded tokens", readableTokens(exclusions)]);
   return definitions;
 }
 export function verifyTooltip(

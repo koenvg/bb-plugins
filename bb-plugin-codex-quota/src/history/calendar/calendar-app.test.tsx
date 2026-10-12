@@ -70,7 +70,7 @@ it("defaults to Threads first and removes the requested generic notices", async 
   expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
   expect(q.queryByText(/Calendar dates use/)).toBeNull();
   expect(q.queryByText(/Unknown dates are not certified zero/)).toBeNull();
-  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
 });
 afterEach(() => {
   cleanup();
@@ -150,7 +150,7 @@ it("hides the previous date range immediately and ignores its late response", as
   await act(async () => {
     done(old);
   });
-  expect(f.q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+  expect(f.q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
 });
 it("makes a missing viewer time zone explicit and sends no report or ingestion request", async () => {
   const f = await dashboardFixture();
@@ -207,7 +207,9 @@ it("retains recorded offline values with an incomplete-coverage notice", async (
   });
   const page = f.page(),
     q = within(page.container);
-  await waitFor(() => expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"));
+  await waitFor(() =>
+    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
+  );
   expect(q.getByText(/Last-known summaries retained for MacBook/)).toBeTruthy();
   expect(q.getByText(/newer usage is unknown/)).toBeTruthy();
 });
@@ -282,7 +284,9 @@ it("keeps recorded totals while omitting the generic bounded-ranking notice", as
   });
   const page = f.page();
   const q = within(page.container);
-  await waitFor(() => expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"));
+  await waitFor(() =>
+    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
+  );
   expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
 });
 it("keeps a previous valid subtotal after a malformed response for the same range", async () => {
@@ -305,6 +309,6 @@ it("keeps a previous valid subtotal after a malformed response for the same rang
     finish({ state: "settled", progress: "ready" });
   });
   await q.findByRole("button", { name: "Retry chart" });
-  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
   expect(q.getByText(/Recorded values are out of date/)).toBeTruthy();
 });

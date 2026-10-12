@@ -76,7 +76,7 @@ describe("all-machine Codex slots", () => {
     const f = fixture(true),
       page = f.dashboard();
     await waitFor(() =>
-      expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"),
+      expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
     );
     expect(page.getByLabelText("Captured cost subtotal").textContent).toMatch(/^\$6/);
     const metric = page.getByRole("button", { name: "Estimated cost" });
@@ -124,7 +124,7 @@ describe("all-machine Codex slots", () => {
     });
     const page = f.dashboard();
     await waitFor(() =>
-      expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K"),
+      expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
     );
     const baseReads = f.machineReports.mock.calls.filter(
       ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",
@@ -135,7 +135,7 @@ describe("all-machine Codex slots", () => {
         "thread",
       ),
     );
-    expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+    expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
     expect(
       f.machineReports.mock.calls.filter(
         ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { tokenCountText } from "../token-counts.js";
 import { CalendarValues, reportButton } from "../history/calendar/calendar-view.js";
 import { useReportPreparation } from "../history/calendar/report-preparation.js";
 import { latestStart, shiftDate, validTimezone } from "../history/calendar/calendar-time.js";
@@ -8,8 +9,6 @@ import type { PreparationRequest } from "../history/report-preparation-contract.
 import { useMachineReport } from "./use-report.js";
 
 const allMachines = { hostId: "all-machines", generation: 0 };
-const count = (value: number) =>
-  value.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 2 });
 type Props = {
   now: number;
   read(input: { query: CalendarQuery; prepare: boolean; refresh: boolean }): Promise<unknown>;
@@ -72,6 +71,10 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
         : (b.money.capturedCost ?? -1) - (a.money.capturedCost ?? -1),
     )
     .slice(0, 10);
+  const tokenSubtotal =
+    view && (view.summary.totalTokens > 0 || view.days.every((day) => day.coverage.zero))
+      ? tokenCountText(view.summary.totalTokens)
+      : null;
   if (!timezone)
     return (
       <section
@@ -134,12 +137,9 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
           <p
             className="mt-1 text-2xl font-semibold tabular-nums"
             aria-label="Recorded token subtotal"
+            title={tokenSubtotal ? `${tokenSubtotal.exact} tokens` : undefined}
           >
-            {view
-              ? view.summary.totalTokens > 0 || view.days.every((day) => day.coverage.zero)
-                ? count(view.summary.totalTokens)
-                : "Unknown"
-              : "—"}
+            {view ? (tokenSubtotal?.readable ?? "Unknown") : "—"}
           </p>
         </div>
         <div className="min-w-0 max-w-full">
@@ -250,23 +250,29 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
           </tr>
         </thead>
         <tbody>
-          {rankings?.map((row) => (
-            <tr key={row.key} className="border-b border-border">
-              <td className="py-2.5 pr-4 [overflow-wrap:anywhere]">
-                <span className="block font-medium leading-5">{row.label}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {row.machineName}
-                </span>
-              </td>
-              <td className="py-2.5 text-right font-medium tabular-nums">
-                {metric === "tokens"
-                  ? count(row.totalTokens)
-                  : row.money.capturedCost === null
-                    ? "Unknown"
-                    : compactEstimate(row.money.capturedCost)}
-              </td>
-            </tr>
-          ))}
+          {rankings?.map((row) => {
+            const tokens = metric === "tokens" ? tokenCountText(row.totalTokens) : null;
+            return (
+              <tr key={row.key} className="border-b border-border">
+                <td className="py-2.5 pr-4 [overflow-wrap:anywhere]">
+                  <span className="block font-medium leading-5">{row.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {row.machineName}
+                  </span>
+                </td>
+                <td
+                  className="py-2.5 text-right font-medium tabular-nums"
+                  title={tokens ? `${tokens.exact} tokens` : undefined}
+                >
+                  {metric === "tokens"
+                    ? tokens!.readable
+                    : row.money.capturedCost === null
+                      ? "Unknown"
+                      : compactEstimate(row.money.capturedCost)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {group === "thread" && (
