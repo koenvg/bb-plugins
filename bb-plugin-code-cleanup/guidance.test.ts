@@ -67,10 +67,51 @@ describe("default Code Cleanup guidance", () => {
     expect(text).toContain("A possible edge case alone does not justify a task.");
   });
 
+  it("defines short human and agent sections without losing required context", () => {
+    const text = defaultGuidance("proj_example");
+    expect(text).toContain("80 words");
+    expect(text).toContain("120 words");
+    expect(text).toContain("whitespace-delimited");
+    expect(text).toContain("no minimum");
+    expect(text).toContain("up to three completion criteria");
+    expect(text).toContain("State each fact once");
+    expect(text).toContain("required safeguards");
+    expect(text).toContain("briefly explain any overrun");
+    expect(text).toContain("uncertain causes");
+    expect(text).toContain("retrievable");
+    expect(text).toContain("task attachments");
+    expect(text).toContain("evidence cannot be shared");
+  });
+
+  it("demonstrates three illustrative follow-ups within the section budgets", () => {
+    const text = defaultGuidance("proj_example");
+    expect(text).toContain("Illustrative examples");
+    expect(text).toContain("Replace placeholders with verified values");
+    for (const kind of ["Defect", "Maintenance", "Investigation"]) {
+      expect(text).toContain(`### ${kind}:`);
+    }
+    const examples = [...text.matchAll(/```markdown\n([\s\S]*?)```/g)];
+    expect(examples).toHaveLength(3);
+    for (const [, example] of examples) {
+      const sections = example!.match(/^## Summary\n([\s\S]+?)\n## Agent context\n([\s\S]+)$/);
+      expect(sections).not.toBeNull();
+      const [, summary, context] = sections!;
+      const wordCount = (value: string) => value.trim().split(/\s+/).length;
+      expect(wordCount(summary!)).toBeLessThanOrEqual(80);
+      expect(wordCount(context!)).toBeLessThanOrEqual(120);
+      expect(summary!.match(/^- /gm)?.length).toBeGreaterThanOrEqual(1);
+      expect(summary!.match(/^- /gm)?.length).toBeLessThanOrEqual(3);
+      expect(context).toContain("Evidence:");
+      expect(context).toContain("Source:");
+      expect(context).toMatch(/\[[^\]]+\]/);
+    }
+    expect(examples[1]![1]).toContain("required matching edits in three parsers");
+    expect(examples[2]![1]).toContain("not a proven cause");
+  });
+
   it("is concise and below the instruction limit for real project IDs", () => {
     for (const id of ["proj_example", "proj_gjz4e6jtmg", `proj_${"x".repeat(64)}`]) {
       expect(defaultGuidance(id).length).toBeLessThanOrEqual(4096);
-      expect(defaultGuidance(id).length).toBeLessThan(2000);
     }
   });
 });
