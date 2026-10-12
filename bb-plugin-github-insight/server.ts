@@ -22,6 +22,7 @@ import { parseReviewQueue } from "./core/review-queue";
 import { createLocalCommitsLookup } from "./merge/local-commits-lookup";
 import { createPrWrites } from "./merge/pr-writes";
 import { createPrLookup } from "./pr-lookup";
+import { createRateLimitPause } from "./github/rate-limit-pause";
 import { createReviewQueueService } from "./queue/review-queue-service";
 import { createInsightService } from "./refresh/insight-service";
 import { createDraftStore } from "./review/draft-store";
@@ -40,7 +41,13 @@ function unwrap(result: GhResult): unknown {
 
 export default async function plugin(bb: BbPluginApi) {
   const host = bb.hosts.experimental_client({ contract: hostContract });
-  const { resolvePr, resolveEnvironmentPr } = createPrLookup(bb.sdk);
+  const pause = createRateLimitPause();
+  const { resolvePr, resolveEnvironmentPr } = createPrLookup({
+    sdk: bb.sdk,
+    pause,
+    readRateLimitReset: async (hostId) =>
+      (await host.call("readRateLimitReset", {}, { hostId })).resetAt,
+  });
 
   const service = createInsightService({
     listThreads: async () =>
@@ -68,6 +75,7 @@ export default async function plugin(bb: BbPluginApi) {
       await bb.sdk.threads.updatePluginMetadata({ threadId, remove: [SUMMARY_METADATA_KEY] });
     },
     kv: bb.storage.kv,
+    pause,
     warn: (message) => bb.log.warn(message),
   });
 

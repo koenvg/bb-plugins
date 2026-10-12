@@ -205,6 +205,10 @@ export const hostContract = defineRpcContract({
     input: addPullRequestReviewRequestSchema,
     output: ghResultSchema,
   },
+  readRateLimitReset: {
+    input: z.object({}).strict(),
+    output: z.object({ resetAt: z.number().nullable() }).strict(),
+  },
 });
 
 export const insightResultSchema = z.discriminatedUnion("kind", [

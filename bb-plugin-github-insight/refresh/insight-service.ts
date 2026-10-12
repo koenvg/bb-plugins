@@ -9,14 +9,15 @@ import {
   type PrSummary,
   type WrittenSummary,
 } from "../core/summary";
-import { GhFailureError, ghFailureText } from "../github/gh-failure";
-import type { PrResolution, PrTarget } from "../pr-lookup";
+import { GhFailureError, RATE_LIMITED_TEXT } from "../github/gh-failure";
+import type { LookupOptions, PrResolution, PrTarget } from "../pr-lookup";
+import type { RateLimitPause } from "../github/rate-limit-pause";
 
 export const POLL_INTERVAL_MS = 60_000;
 export const MAX_PARALLEL_REFRESHES = 4;
-export const RATE_LIMIT_FALLBACK_MS = 5 * 60_000;
 export const IDLE_RETRY_MS = 10_000;
 export const STORED_READING_PREFIX = "insight:";
+const FRESH: LookupOptions = { fresh: true };
 
 const storedReadingSchema = z.object({
   v: z.literal(1),
@@ -31,13 +32,14 @@ export interface ThreadRef {
 
 export interface InsightServiceDeps {
   listThreads(): Promise<ThreadRef[]>;
-  resolvePr(threadId: string): Promise<PrResolution>;
+  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
   resolveEnvironmentPr(environmentId: string): Promise<PrResolution>;
   fetchInsight(target: PrTarget): Promise<PrReading>;
   publish(threadIds: string[]): void;
   writeSummary(threadId: string, summary: PrSummary): Promise<void>;
   removeSummary(threadId: string): Promise<void>;
   kv: Pick<PluginKvStorage, "get" | "set" | "delete" | "list">;
+  pause: RateLimitPause;
   warn(message: string): void;
 }
 
@@ -126,14 +128,11 @@ export function createInsightService(deps: InsightServiceDeps) {
   const running = new Map<string, { group: PrGroup; done: Promise<CacheEntry> }>();
   const writtenSummaries = new Map<string, WrittenSummary>();
   const removedSummaries = new Set<string>();
-  let pausedUntil = 0;
-
-  const isPaused = () => Date.now() < pausedUntil;
+  const { isPaused } = deps.pause;
 
   function pauseAfter(error: unknown) {
     if (error instanceof GhFailureError && error.failure.kind === "rate_limited") {
-      const until = error.failure.resetAt ?? Date.now() + RATE_LIMIT_FALLBACK_MS;
-      pausedUntil = Math.max(pausedUntil, until);
+      deps.pause.pauseUntilReset(error.failure.resetAt);
     }
   }
 
@@ -310,6 +309,12 @@ export function createInsightService(deps: InsightServiceDeps) {
     return refreshPr({ target, threadIds });
   }
 
+  function resultWhilePaused(entry: CacheEntry): InsightResult {
+    const result = toResult(entry);
+    if (result.kind !== "ok" || result.error !== null || !isPaused()) return result;
+    return { ...result, error: RATE_LIMITED_TEXT };
+  }
+
   return {
     async getInsight(threadId: string): Promise<InsightResult> {
       const resolution = await deps.resolvePr(threadId);
@@ -318,23 +323,21 @@ export function createInsightService(deps: InsightServiceDeps) {
       const entry = entries.get(key);
       if (entry !== undefined) {
         entry.threadIds.add(threadId);
-        return toResult(entry);
+        return resultWhilePaused(entry);
       }
       const stored = await readStoredReading(key, threadId);
       if (stored !== null) {
         const current = entries.get(key) ?? stored;
         entries.set(key, current);
         if (!isPaused()) void refreshThread(threadId, resolution.target);
-        return toResult(current);
+        return resultWhilePaused(current);
       }
-      if (isPaused()) {
-        return { kind: "error", message: ghFailureText({ kind: "rate_limited", resetAt: null }) };
-      }
+      if (isPaused()) return { kind: "error", message: RATE_LIMITED_TEXT };
       return toResult(await refreshThread(threadId, resolution.target));
     },
 
     async refresh(threadId: string): Promise<InsightResult> {
-      const resolution = await deps.resolvePr(threadId);
+      const resolution = await deps.resolvePr(threadId, FRESH);
       if (resolution.kind !== "pr") return resolution;
       return toResult(await refreshThread(threadId, resolution.target));
     },
@@ -353,7 +356,7 @@ export function createInsightService(deps: InsightServiceDeps) {
     },
 
     async refreshAfterWrite(threadId: string): Promise<void> {
-      const resolution = await deps.resolvePr(threadId);
+      const resolution = await deps.resolvePr(threadId, FRESH);
       if (resolution.kind !== "pr") return;
       await running.get(prKey(resolution.target.ref))?.done;
       await refreshThread(threadId, resolution.target);
@@ -362,12 +365,12 @@ export function createInsightService(deps: InsightServiceDeps) {
     async refreshOnIdle(threadId: string, signal: AbortSignal): Promise<void> {
       try {
         if (isPaused()) return;
-        let resolution = await deps.resolvePr(threadId);
+        let resolution = await deps.resolvePr(threadId, FRESH);
         // BB can link a PR that the agent just opened a few seconds after the turn ends.
         if (resolution.kind === "no_pr") {
           await sleep(IDLE_RETRY_MS, signal);
           if (signal.aborted || isPaused()) return;
-          resolution = await deps.resolvePr(threadId);
+          resolution = await deps.resolvePr(threadId, FRESH);
         }
         if (resolution.kind === "error") throw new Error(resolution.message);
         if (resolution.kind !== "pr" || isSettled(resolution.target) || isPaused()) return;
@@ -389,7 +392,7 @@ export function createInsightService(deps: InsightServiceDeps) {
           aborted,
         ]);
         if (signal.aborted) return;
-        await sleep(Math.max(POLL_INTERVAL_MS, pausedUntil - Date.now()), signal);
+        await sleep(Math.max(POLL_INTERVAL_MS, deps.pause.pausedUntil() - Date.now()), signal);
       }
     },
   };

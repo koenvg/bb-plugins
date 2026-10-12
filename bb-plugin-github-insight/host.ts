@@ -61,6 +61,9 @@ export default experimental_defineHostEntry({
       runGhJson(disableAutoMergeArgs(request), context.signal),
     submitReview: (request, context) =>
       runGhJson(ADD_REVIEW_ARGS, context.signal, addPullRequestReviewInput(request)),
+    readRateLimitReset: async (_request, context) => ({
+      resetAt: await readRateLimitReset(context.signal),
+    }),
   },
 });
 
