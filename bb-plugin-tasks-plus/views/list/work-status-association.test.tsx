@@ -235,7 +235,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     });
     fireEvent.keyDown(dialog, { key: "Escape" });
     recovered = true;
-    await slot.behavior.emitRealtime("tasks:changed", {
+    await slot.behavior.emitRealtime("threads:changed", {
       taskId: task.id,
       projectId: project.id,
     });

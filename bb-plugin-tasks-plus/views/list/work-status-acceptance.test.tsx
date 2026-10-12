@@ -597,7 +597,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   expect(dialog.textContent).toContain("thr_ready_b");
   fireEvent.keyDown(dialog, { key: "Escape" });
   phase++;
-  await slot.behavior.emitRealtime("tasks:changed", {
+  await slot.behavior.emitRealtime("threads:changed", {
     taskId: shared.id,
     projectId: project.id,
   });

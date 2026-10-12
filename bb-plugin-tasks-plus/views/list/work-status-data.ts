@@ -166,7 +166,7 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
     previousGeneration.current = generation;
     refresh();
   }, [generation, refresh]);
-  useInvalidation(["threads:changed", "tasks:changed"], refresh);
+  useInvalidation(["threads:changed"], refresh);
   return {
     data: state.key === key ? state.data : undefined,
     error: state.key === key ? state.error : null,

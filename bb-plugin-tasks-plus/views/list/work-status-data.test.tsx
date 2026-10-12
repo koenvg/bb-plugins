@@ -84,7 +84,7 @@ describe("visible work status loading", () => {
     ]);
   });
 
-  it("refreshes at 60 seconds, invalidation, manual refresh and reconnect, then stops on unmount", async () => {
+  it("refreshes at 60 seconds, thread invalidation, manual refresh and reconnect, then stops on unmount", async () => {
     vi.useFakeTimers();
     let calls = 0;
     const slot = renderSlot(
@@ -109,16 +109,16 @@ describe("visible work status loading", () => {
     await slot.behavior.emitRealtime("threads:changed", { taskId: ID });
     expect(calls).toBe(3);
     await slot.behavior.emitRealtime("tasks:changed", { taskId: ID });
-    expect(calls).toBe(4);
+    expect(calls).toBe(3);
     fireEvent.click(slot.getByText("Refresh"));
     await act(async () => {});
-    expect(calls).toBe(5);
+    expect(calls).toBe(4);
     await slot.behavior.setRealtimeConnectionState("reconnecting");
     await slot.behavior.setRealtimeConnectionState("connected");
-    expect(calls).toBe(6);
+    expect(calls).toBe(5);
     slot.lifecycle.unmount();
     await act(() => vi.advanceTimersByTimeAsync(120_000));
-    expect(calls).toBe(6);
+    expect(calls).toBe(5);
     expect(vi.getTimerCount()).toBe(0);
   });
 
