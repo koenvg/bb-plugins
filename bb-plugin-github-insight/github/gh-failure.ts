@@ -18,6 +18,10 @@ const EXIT_AUTH_REQUIRED = 4;
 const LOGGED_OUT = /gh auth login|Bad credentials|HTTP 401/;
 const RATE_LIMITED = /rate limit/i;
 
+export function isRateLimitMessage(message: string): boolean {
+  return RATE_LIMITED.test(message);
+}
+
 export function classifyGhFailure(error: GhProcessError): GhFailure {
   if (error.code === "ENOENT") return { kind: "gh_missing" };
   const stderr = error.stderr.trim();
@@ -40,6 +44,8 @@ export function ghFailureText(failure: GhFailure): string {
       return failure.message;
   }
 }
+
+export const RATE_LIMITED_TEXT = ghFailureText({ kind: "rate_limited", resetAt: null });
 
 export class GhFailureError extends Error {
   constructor(readonly failure: GhFailure) {

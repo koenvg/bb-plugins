@@ -72,6 +72,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const HOST_RATE_LIMIT_MESSAGE = "gh pr view failed: GraphQL: API rate limit already exceeded";
+
 describe("getInsight", () => {
   it("reports no PR and makes no GitHub call for a thread without an environment", async () => {
     const harness = await setup({ threads: [{ id: "thr_1", environmentId: null }] });
@@ -110,6 +112,8 @@ describe("getInsight", () => {
         });
       }
       const previousHostCalls = harness.experimental_hostRpcCalls.length;
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.advanceTimersByTime(60_000);
       pullRequests.env_1 = {
         outcome: "unavailable",
         message: "gh pr view failed: no git remotes found",
@@ -212,6 +216,47 @@ describe("getInsight", () => {
 
     expect(result).toEqual({ kind: "error", message: "gh not found" });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+});
+
+describe("getInsight after a rate-limited PR lookup", () => {
+  it("shows the last PR data with the rate limited error", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-12T10:00:00Z") });
+    const pullRequests: Record<string, PullRequestResult> = { env_1: linkedPr(25337) };
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests,
+      host: (call) => (call.method === "readRateLimitReset" ? { resetAt: null } : pages()(call)),
+    });
+    const good = (await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })) as object;
+
+    vi.advanceTimersByTime(60_000);
+    pullRequests.env_1 = { outcome: "unavailable", message: HOST_RATE_LIMIT_MESSAGE };
+
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toEqual({
+      ...good,
+      error: "rate limited",
+    });
+  });
+
+  it("shows rate limited for a thread whose PR was never looked up", async () => {
+    const harness = await setup({
+      threads: [
+        { id: "thr_1", environmentId: "env_1" },
+        { id: "thr_2", environmentId: "env_2" },
+      ],
+      pullRequests: {
+        env_1: { outcome: "unavailable", message: HOST_RATE_LIMIT_MESSAGE },
+        env_2: linkedPr(25337),
+      },
+      host: () => ({ resetAt: null }),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_2" })).toEqual({
+      kind: "error",
+      message: "rate limited",
+    });
   });
 });
 
@@ -606,7 +651,7 @@ describe("pr-poller", () => {
     run.controller.abort();
   });
 
-  it("refreshes a closed PR again when bb reports it open again", async () => {
+  it("refreshes a closed PR again when bb reports it open again 15 minutes later", async () => {
     const pullRequests = { env_1: linkedPr(25337, "closed") };
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1" }],
@@ -617,9 +662,40 @@ describe("pr-poller", () => {
     await settle();
 
     pullRequests.env_1 = linkedPr(25337, "open");
-    await advance(60_000);
+    await advance(14 * 60_000);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
 
+    await advance(60_000);
     expect(overviewRefreshes(harness)).toHaveLength(2);
+    run.controller.abort();
+  });
+
+  it("makes no PR lookup or GitHub call after bb's PR lookup is rate limited, until the reset time", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {
+      env_1: { outcome: "unavailable", message: HOST_RATE_LIMIT_MESSAGE },
+    };
+    const resetAt = Date.now() + 12 * 60_000;
+    const lookups: string[] = [];
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: new Proxy(pullRequests, {
+        get: (target, key: string) => (lookups.push(key), target[key]),
+      }),
+      host: (call) => (call.method === "readRateLimitReset" ? { resetAt } : pages()(call)),
+    });
+
+    const run = harness.behavior.runService("pr-poller");
+    await settle();
+    expect(lookups).toEqual(["env_1"]);
+
+    pullRequests.env_1 = linkedPr(25337);
+    await advance(12 * 60_000 - 1);
+    expect(lookups).toEqual(["env_1"]);
+    expect(overviewRefreshes(harness)).toHaveLength(0);
+
+    await advance(1);
+    expect(lookups).toEqual(["env_1", "env_1"]);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
     run.controller.abort();
   });
 
@@ -862,6 +938,23 @@ describe("refresh on idle", () => {
     expect(overviewRefreshes(harness)).toHaveLength(0);
 
     await advance(1);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("finds the PR an agent opened while bb's earlier no-PR answer is still stored", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {};
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests,
+      host: pages(),
+    });
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_1" })).toEqual({
+      kind: "no_pr",
+    });
+
+    pullRequests.env_1 = linkedPr(25337);
+    await goIdle(harness, "thr_1");
+
     expect(overviewRefreshes(harness)).toHaveLength(1);
   });
 
