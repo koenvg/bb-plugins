@@ -32,7 +32,7 @@ Each file section of the Review tab that shows a diff SHALL have a "Viewed" chec
 
 ### Requirement: Expand and collapse a PR file
 
-Each file section of the Review tab that shows a diff SHALL have a button in its header to collapse or expand the section. The button SHALL NOT change the mark. A viewed file SHALL start collapsed and another file SHALL start expanded. A toggle by the button SHALL stay when the user switches tabs or threads, and SHALL be lost when bb reloads, when the user checks or unchecks "Viewed", or when the mark drops.
+Each file section of the Review tab that shows a diff SHALL have a button in its header to collapse or expand the section. The button SHALL NOT change the mark. A viewed file SHALL start collapsed and another file SHALL start expanded. A viewed file with a new comment SHALL start expanded. A toggle by the button SHALL stay when the user switches tabs or threads, and SHALL be lost when bb reloads, when the user checks or unchecks "Viewed", or when the mark drops.
 
 #### Scenario: Expand a viewed file
 
@@ -48,6 +48,11 @@ Each file section of the Review tab that shows a diff SHALL have a button in its
 
 - **WHEN** the user expands a viewed `src/a.ts` and reloads bb
 - **THEN** `src/a.ts` is collapsed
+
+#### Scenario: Viewed file with a new comment
+
+- **WHEN** `src/a.ts` is viewed and has a new comment, and the user opens the Review tab
+- **THEN** `src/a.ts` is expanded and "Viewed" stays checked
 
 ### Requirement: A change to the PR file drops the mark
 

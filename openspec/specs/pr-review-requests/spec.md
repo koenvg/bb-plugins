@@ -504,7 +504,7 @@ Each icon-only control on a PR row SHALL show a tooltip with its label when the 
 
 ### Requirement: New activity after the mark
 
-A marked PR SHALL have new activity when, after the mark time, a person other than the user posts a PR comment, a review comment or reply, or a review with text, or when GitHub requests the user's review again. Activity from bots and from the user SHALL NOT count. A review with no text and no comments SHALL NOT count. The card SHALL show "New comments" for comments and "Review requested again" for a new request. "Mark reviewed" SHALL set a new mark time, which clears both labels.
+A marked PR SHALL have new activity when, after the mark time, a person other than the user posts a PR comment, a review comment or reply, or a review with text, or when GitHub requests the user's review again. Activity from bots and from the user SHALL NOT count. A review with no text and no comments SHALL NOT count. An inline review comment or reply that the user saw in the Review tab SHALL NOT count. The card SHALL show "New comments" for comments and "Review requested again" for a new request. "Mark reviewed" SHALL set a new mark time, which clears both labels.
 
 #### Scenario: Reply on the user's comment
 
@@ -560,3 +560,23 @@ A marked PR SHALL have new activity when, after the mark time, a person other th
 
 - **WHEN** `acme/api#15` has a review thread, has no mark, and is not requested, and the author posts a comment
 - **THEN** `#15` stays in "Needs review" with no "New comments" label
+
+#### Scenario: User saw all new replies
+
+- **WHEN** the user marked `acme/api#15` reviewed at `abc123`, the author replies twice in review threads, and the user sees both replies in the Review tab
+- **THEN** `#15` moves to "Reviewed" and "New comments" is gone
+
+#### Scenario: User saw one of two replies
+
+- **WHEN** the user marked `acme/api#15` reviewed, the author replies twice in review threads, and the user sees only one reply
+- **THEN** `#15` stays in "Needs review" with "New comments"
+
+#### Scenario: Conversation comment keeps the label
+
+- **WHEN** the user marked `acme/api#15` reviewed, the author replies in a review thread and posts a PR comment, and the user sees the reply in the Review tab
+- **THEN** `#15` stays in "Needs review" with "New comments"
+
+#### Scenario: Seen reply and a new push
+
+- **WHEN** the user marked `acme/api#15` reviewed at `abc123`, the author replies and pushes `def456`, and the user sees the reply
+- **THEN** `#15` stays in "Needs review" with "Updated since review" and without "New comments"
