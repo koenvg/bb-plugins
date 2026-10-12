@@ -43,4 +43,4 @@
 ## 7. Integration
 
 - [x] 7.1 Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run format:check` in `bb-plugin-github-insight` and `bb-plugin-pr-thread-list`. All pass.
-- [ ] 7.2 Build and load the plugin in bb (`npm run build`). In a thread with an open PR: open the PR tab, switch sub-tabs, post a comment, click "N inline comments", run each "GitHub:" command, and click the sidebar badge while on "Files". Record the result in this task line.
+- [x] 7.2 Build and load the plugin in bb (`npm run build`). In a thread with an open PR: open the PR tab, switch sub-tabs, post a comment, click "N inline comments", run each "GitHub:" command, and click the sidebar badge while on "Files". Result: confirmed by the user in bb.
