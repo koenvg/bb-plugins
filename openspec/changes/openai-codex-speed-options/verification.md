@@ -65,6 +65,14 @@ The current rebase targets main `b4a5511ed0642f752e28e165adc2823e1367fecf`, incl
 
 A later parallel Pi rerun had one 5-second resume-test timeout, with 532 passes. The final serial-file rerun passed all 533 tests in 95 seconds. This timing limit is retained in the evidence; no deadline or behavior was changed. Resource contention is suspected, not established.
 
+## CI resume-test follow-up
+
+After the rebase push, CI passed 13 checks but the Pi job failed the resumed-Fast discovery-failure case at its 5-second test deadline. A cleanup `ENOTEMPTY` error was also reported. The related local run had already timed out for the revoked-tiers variant. The test covers three session lifecycles; the follow-up assigns only this case a bounded 15-second test budget. No runtime timeout, test retry, global deadline, or parallelism setting changes.
+
+Two waits also used literal `1`/`2` offsets even though the helper expects delta offsets, not turn counts. They now use the offsets returned after the preceding boundaries. This prevents an older boundary from satisfying the new-turn wait. All saved Fast, reasoning-only rejection, zero-extra-dispatch, and explicit Default recovery assertions remain.
+
+Local checks after the change: 14 speed tests passed; two complete default-parallel Pi runs passed all 533 tests in 22.74 and 42.53 seconds; typecheck and build passed. Original failure logs are retained. These results do not establish installed acceptance or resolve the BBP-201 host prerequisite. Independent review and post-push CI results are separate completion gates.
+
 ## Remaining acceptance
 
 - Task 3.3 is partial. Native selector, Default/Fast visibility, and model/reasoning independence passed authorized installed acceptance. Failed discovery and loading/layout behavior are not verified live.

@@ -276,7 +276,7 @@ describe("shared speed module through the BB bridge", () => {
     async (revoked) => {
       await harness.startThread(threadId, { options: options() });
       expect((await turn()).error).toBeUndefined();
-      await harness.waitForTurnBoundary(threadId);
+      const firstTurnEnd = await harness.waitForTurnBoundary(threadId);
       expect(
         (
           await harness.request(++id, "thread/stop", {
@@ -297,7 +297,7 @@ describe("shared speed module through the BB bridge", () => {
         });
       expect((await resume()).error).toBeUndefined();
       expect((await turn()).error).toBeUndefined();
-      await harness.waitForTurnBoundary(threadId, 1);
+      const resumedTurnEnd = await harness.waitForTurnBoundary(threadId, firstTurnEnd);
       await harness.request(++id, "thread/stop", {
         threadId,
         providerThreadId: currentProviderId(),
@@ -309,8 +309,9 @@ describe("shared speed module through the BB bridge", () => {
       expect((await turn("fast", "reasoning-only change", "low")).error).toBeDefined();
       expect(prompts()).toHaveLength(2);
       expect((await turn("default", "explicit speed recovery", "low")).error).toBeUndefined();
-      await harness.waitForTurnBoundary(threadId, 2);
+      await harness.waitForTurnBoundary(threadId, resumedTurnEnd);
       expect(prompts()).toHaveLength(3);
     },
+    15_000,
   );
 });
