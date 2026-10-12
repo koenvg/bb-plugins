@@ -17,21 +17,17 @@ describe("Pi with subagents speed contract", () => {
   it("declares speed only for this provider", () => {
     const declaration = piProviderDeclaration();
     expect(declaration.id).toBe("pi-subagents");
-    expect(declaration.capabilities?.supportsServiceTier).toBe(true);
-    expect(declaration.serviceTiers?.map((tier) => tier.id)).toEqual([
-      "default",
-      "fast",
-      "ultrafast",
-    ]);
+    expect(declaration.capabilities?.supportsServiceTier).toBe(false);
+    expect(declaration.serviceTiers ?? []).toEqual([]);
   });
 
-  it("can narrow both tiers when a verified implementation supplies them", () => {
+  it("hides native tiers even when private capability discovery supplies them", () => {
     const ultrafast = { id: "ultrafast", label: "Ultrafast" };
     expect(
       buildPiAvailableModels({
         models: [{ ...codex, supportedServiceTiers: [fast, ultrafast] }],
       }).models[0]?.supportedServiceTiers,
-    ).toEqual([fast, ultrafast]);
+    ).toEqual([]);
     for (const provider of ["openai", "anthropic"]) {
       expect(
         buildPiAvailableModels({
@@ -40,11 +36,11 @@ describe("Pi with subagents speed contract", () => {
       ).toEqual([]);
     }
   });
-  it("narrows a Fast-only account without offering Ultrafast", () => {
+  it("leaves reasoning options intact while hiding native speed", () => {
     const result = buildPiAvailableModels({
       models: [{ ...codex, supportedServiceTiers: [fast] }],
     });
-    expect(result.models[0]?.supportedServiceTiers).toEqual([fast]);
+    expect(result.models[0]?.supportedServiceTiers).toEqual([]);
     expect(result.models[0]?.supportedReasoningEfforts).toHaveLength(3);
   });
 
@@ -55,18 +51,18 @@ describe("Pi with subagents speed contract", () => {
     }
   });
 
-  it("preserves narrowing for scoped and selected-only versions", () => {
+  it("hides native speed for scoped and selected-only versions", () => {
     const dated = { ...codex, id: "gpt-5.5-20260423", supportedServiceTiers: [fast] };
     expect(
       buildPiAvailableModels({ models: [dated] }).selectedOnlyModels[0]?.supportedServiceTiers,
-    ).toEqual([fast]);
+    ).toEqual([]);
     expect(
       buildPiAvailableModels({ models: [dated], scopedModelIds: [`${dated.provider}/${dated.id}`] })
         .models[0]?.supportedServiceTiers,
-    ).toEqual([fast]);
+    ).toEqual([]);
   });
 
-  it("carries the saved tier separately from reasoning and defaults old sessions", () => {
+  it("keeps legacy startup migration separate from reasoning and defaults old sessions", () => {
     const params = buildPiSessionParams({
       threadId: "thread",
       cwd: "/workspace",

@@ -187,31 +187,10 @@ async function spawnCatalog(
   return {
     async listModels() {
       const { active, raw } = await fetchGeneration();
-      let speedModels: Record<string, { tiers?: AvailableModel["supportedServiceTiers"] }> = {};
-      const modelIds = raw
-        .filter((model) => model.provider === "openai-codex")
-        .map((model) => model.provider + "/" + model.id);
-      if (modelIds.length > 0) {
-        try {
-          const response = (await active.channel.request(
-            {
-              method: "speed-capabilities",
-              modelIds,
-              refresh: true,
-            },
-            15_000,
-          )) as { models?: typeof speedModels };
-          speedModels = response?.models ?? {};
-        } catch {
-          // Unconfirmed discovery must never grant provider-wide speed choices.
-        }
-      }
       const models: PiCatalogModel[] = [];
       for (const model of raw) {
         const catalogModel = toCatalogModel(model);
         if (catalogModel) {
-          catalogModel.supportedServiceTiers =
-            speedModels[model.provider + "/" + model.id]?.tiers ?? [];
           models.push(catalogModel);
         } else {
           process.stderr.write(

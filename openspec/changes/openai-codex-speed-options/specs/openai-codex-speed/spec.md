@@ -44,7 +44,7 @@ Missing, expired, failed, or unrecognized account-capability data SHALL expose n
 
 ### Requirement: Speed selection is separate from reasoning
 
-Standalone Pi SHALL provide a speed command with an interactive picker and explicit tier arguments. The BB `pi-subagents` provider SHALL expose the same confirmed tiers through BB's existing service-tier selector. Selecting speed SHALL leave the model, reasoning effort, chat draft, and running turn unchanged, and SHALL NOT initiate a model request.
+Standalone Pi SHALL provide a speed command with an interactive picker and explicit tier arguments. The BB `pi-subagents` provider SHALL use private `/speed`, `/speed fast`, `/speed default`, and `/speed refresh` commands and SHALL hide its native service-tier selector. BB speed preferences SHALL be stored independently of BB's execution settings. Native fallback Default values and reasoning-only edits SHALL NOT overwrite that preference. Selecting speed SHALL leave model, reasoning effort, and the running turn unchanged, and SHALL NOT initiate a model request.
 
 #### Scenario: User chooses Fast
 

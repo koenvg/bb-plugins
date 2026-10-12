@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 // The generated extension runs its real shared controller against this HTTP/auth seam.
 export function fakeSpeedRuntime(models, emit) {
@@ -81,6 +81,31 @@ export function fakeSpeedRuntime(models, emit) {
           },
         )
         .result();
+    },
+    async prepareSessionManager(context) {
+      if (!state().realSessionManager) return;
+      const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+      const file = context.sessionManager.getSessionFile();
+      const existing = SessionManager.open(file);
+      if (
+        state().unflushedSessionManager &&
+        !existing.getEntries().some((entry) => entry.type === "message")
+      ) {
+        rmSync(file, { force: true });
+        context.sessionManager = SessionManager.open(file);
+        context.sessionManager.appendModelChange(context.model.provider, context.model.id);
+        context.sessionManager.appendThinkingLevelChange("high");
+      } else {
+        context.sessionManager = existing;
+      }
+    },
+    appendUserMessage(context, text) {
+      if (!state().unflushedSessionManager) return;
+      context.sessionManager.appendMessage({
+        role: "user",
+        content: [{ type: "text", text }],
+        timestamp: Date.now(),
+      });
     },
     register(provider) {
       registered = provider;

@@ -1,6 +1,16 @@
 # Delivery and verification
 
-The BB implementation is present in `bb-plugin-pi-subagents-provider`. Acceptance and deployment remain incomplete. No package was installed or published, and no credential or live model request was used.
+The current BB revision uses private `/speed` commands and separate preference storage. BB core and the bundled Pi provider are unchanged by this revision. Source validation is not installed acceptance. No installation, reload, merge, or deployment is authorized. Earlier sections below record the superseded native-selector implementation and its historical acceptance limits.
+
+## Current private-command revision
+
+- Baseline: `b8dc25a993509aeaf70ef90859e0fb896fd5765b`. At source validation, this revision was local and the remote draft still used the native selector. The user then authorized publication through the existing draft PR #215. Publication does not authorize installation, reload, merge, or deployment.
+- Before review, targeted checks passed 29 tests and the full package passed 542 tests. Those passing fixtures did not cover the defects reproduced by the reviewer. After parent correction, the full package passes 547 tests in 53 files. Final typecheck, SDK 0.6.37, generated-source, root quality, strict OpenSpec, formatting, and whitespace checks pass. Logs use the `review-` prefix. Root lint warnings are non-failing. Earlier failed checks are retained as evidence.
+- Coverage includes BB fallback Default after a reasoning edit, release/resume before model dispatch, corrupt state, write failure with prior choice preserved, temporary-file cleanup, delayed Fast superseded by Default, captured active speed, separate sessions, and native identity persistence through the public Pi session API.
+- Evidence: `/tmp/bb-private-speed-wmheh36xv4/`. The one independent review (`review.md`) returned **request changes** for unflushed native-writer ownership and late private routing. The parent corrected both after failing boundary regressions and reran validation. No follow-up reviewer was launched. Parent correction is not independent post-fix approval; the original verdict and earlier review records remain unchanged.
+- Parent correction evidence: `review-red.log` reproduces the first-native-message failure and attachment-routing failures; `routing-red-final.log` reproduces child replacement for valid and invalid controls carrying different model/reasoning. The fixture setup mistakes in `routing-red.log` remain recorded. `review-green.log` passes 28 speed cases. `review-full.log` passes 547 tests in 53 files, including isolated production packaging. The identity fixture now uses a genuinely unflushed real SessionManager, appends model/reasoning setup, selects privately, appends a real first user message with the same live manager, then verifies history and identity after resume. Startup uses public native `switch_session`; no private writer fields or synthetic model messages are used.
+- The superseded native-selector design sections are explicitly labeled historical to prevent maintenance work from restoring the rejected interface.
+- No installation, reload, merge, deployment, new live model request, or changes to core/bundled Pi occurred in this revision. Installed private-command acceptance is still required.
 
 ## Project ownership
 
@@ -8,7 +18,7 @@ The BB implementation is present in `bb-plugin-pi-subagents-provider`. Acceptanc
 - BB adapter delivery belongs to **bb-plugins**, thread @thread:thr_wmheh36xv4. Baseline: `d0f28467b0975ce36b859e26eb2229316b1530b3`. Branch: `bb/add-fast-and-ultrafast-options-for-openai-models-thr_wmheh36xv4`. The BB changes are prepared on this branch for a pull request; installation and live acceptance remain separate.
 - BB core and bundled Pi have no implementation changes. No provider default, provider enabled state, credentials, or existing history was changed.
 
-## BB implementation
+## Original native-selector implementation (superseded)
 
 The fork embeds reviewed `@koenvg/pi-openai-codex-speed@0.1.0` from its own versioned archive. SHA-256: `1642307063bd2867eb26e94853fd6906bc135c33161243de953012864b4718ff`. Runtime needs no sibling pi-plugins checkout or development package.
 
@@ -75,10 +85,10 @@ Local checks after the change: 14 speed tests passed; two complete default-paral
 
 ## Remaining acceptance
 
-- Task 3.3 is partial. Native selector, Default/Fast visibility, and model/reasoning independence passed authorized installed acceptance. Failed discovery and loading/layout behavior are not verified live.
-- Saved Fast under failed discovery is a demonstrated BB 0.46.0 defect, not an unverified risk. The local host fix passes boundary regressions, but has not shipped or received installed acceptance.
+- Task 3.3 remains incomplete. The new private commands, hidden native selector, loading/error feedback, and model/reasoning independence need installed acceptance. Earlier native-selector acceptance does not complete this gate.
+- BBP-201 remains a demonstrated defect in the native-control design. This private-command revision avoids that execution-setting path and needs no host update. Its installed behavior is not yet verified.
 - Task 4.3 remains incomplete. Local regressions, current-host SDK compatibility, standalone build, and production-only packaging pass. Upstream compatibility remains inconclusive.
 - Group 5 is partial. The BB draft provider was installed with explicit approval; limited real-account requests and installed resume passed. Standalone/global installation, bundled-provider isolation, in-flight changes, compaction, and failed-discovery live acceptance remain incomplete.
 - Live Ultrafast acceptance was not run. Synthetic presentation coverage does not prove entitlement or a verified wire mapping.
 
-Select Default to stop requesting Fast while keeping the thread and its history. Any return to prior package versions requires separate installation/source-switch approval. Do not delete credentials, history, other packages, or change provider defaults.
+Use `/speed default` to stop requesting Fast while keeping the thread and its history. Any return to prior package versions requires separate installation/source-switch approval. Do not delete credentials, history, other packages, or change provider defaults.

@@ -211,7 +211,17 @@ export class PiRpcSession {
     if (child.exited) throw new Error("pi exited before its extension reported ready");
     await channel.awaitReady(readinessTimeoutMs());
     if (this.channel.supportsSpeed) {
-      await this.channelRequest({ method: "speed-restore", serviceTier: this.serviceTier });
+      const restored = (await this.channelRequest({
+        method: "speed-restore",
+        serviceTier: this.serviceTier,
+      })) as { reopenSessionFile?: string };
+      if (restored.reopenSessionFile) {
+        const result = (await child.requestOk({
+          type: "switch_session",
+          sessionPath: restored.reopenSessionFile,
+        })) as { cancelled?: boolean };
+        if (result.cancelled) throw new Error("Pi session identity reload was cancelled.");
+      }
     }
     if (state.model?.provider === "unknown") {
       return {
@@ -242,27 +252,25 @@ export class PiRpcSession {
     return state;
   }
 
-  setServiceTier(serviceTier: string): void {
-    this.serviceTier = serviceTier;
+  private async runSpeedCommand(action: string): Promise<void> {
+    if (!this.channel.supportsSpeed) throw new Error("Speed control is unavailable.");
+    await this.channelRequest({ method: "speed-command", action });
   }
 
-  prompt(text: string, images?: ImageContent[]): PiInputDispatch {
+  speedCommand(action: string): PiInputDispatch {
     const duringTurn = this.isProcessing;
     const processingGeneration = this.processingGeneration;
-    const dispatch =
-      text.trim() === "/speed refresh" && !images?.length
-        ? this.refreshSpeed().then(() => ({
-            consumed: Promise.resolve(),
-            settled: Promise.resolve(
-              duringTurn
-                ? null
-                : {
-                    canSettle: () =>
-                      !this.isProcessing && this.processingGeneration === processingGeneration,
-                  },
-            ),
-          }))
-        : this.prepareSpeed().then(() => this.dispatchPrompt(text, images));
+    const dispatch = this.runSpeedCommand(action).then(() => ({
+      consumed: Promise.resolve(),
+      settled: Promise.resolve(
+        duringTurn
+          ? null
+          : {
+              canSettle: () =>
+                !this.isProcessing && this.processingGeneration === processingGeneration,
+            },
+      ),
+    }));
     return {
       consumed: dispatch.then((run) => run.consumed),
       settled: dispatch.then(
@@ -272,18 +280,24 @@ export class PiRpcSession {
     };
   }
 
-  private async refreshSpeed(): Promise<void> {
-    if (!this.channel.supportsSpeed)
-      throw new Error("Speed control is unavailable. Select Default.");
-    await this.channelRequest({ method: "speed-refresh" });
+  prompt(text: string, images?: ImageContent[]): PiInputDispatch {
+    const dispatch = this.prepareSpeed().then(() => this.dispatchPrompt(text, images));
+    return {
+      consumed: dispatch.then((run) => run.consumed),
+      settled: dispatch.then(
+        (run) => run.settled,
+        () => null,
+      ),
+    };
   }
+
   private async prepareSpeed(): Promise<void> {
     if (!this.channel.supportsSpeed) {
       if (this.serviceTier !== "default")
-        throw new Error("Speed control is unavailable. Select Default.");
+        throw new Error("Speed control is unavailable. Use /speed default.");
       return;
     }
-    await this.channelRequest({ method: "speed-select", serviceTier: this.serviceTier });
+    await this.channelRequest({ method: "speed-prepare", active: this.isProcessing });
   }
 
   private dispatchPrompt(text: string, images?: ImageContent[]): PiInputDispatch {
@@ -332,10 +346,6 @@ export class PiRpcSession {
   }
 
   async steer(text: string, images?: ImageContent[]): Promise<void> {
-    if (text.trim() === "/speed refresh" && !images?.length) {
-      await this.refreshSpeed();
-      return;
-    }
     await this.prepareSpeed();
     const child = this.requireChild();
     const tracked = this.inputs.track("steering");

@@ -1,5 +1,13 @@
 # Design
 
+## Approved command-only revision
+
+Koen approved replacing the BB native speed selector with plugin-owned private `/speed` commands. BB core and its bundled Pi provider must remain unchanged. The closed core PR is historical work, not a dependency of this revised implementation. Native BB speed values are not authoritative after migration. The Pi-managed runtime stores only the selected tier beside its native session file, so release/resume and compaction preserve the choice without BB execution-setting normalization. Separate session files do not inherit this state.
+
+`/speed` reports the saved preference and confirmed choices. `/speed fast` and `/speed default` select the next turn's preference; `/speed refresh` retries discovery. Invalid commands in this family fail privately without model dispatch. All entitlement and final-payload guards remain in the pinned shared controller. Live UI and installed acceptance still require separate approval; source work does not permit installation or reload.
+Private controls are classified from structured text input before execution reconciliation, skill expansion, or attachment reads. Both start and steer use the same private path. Any attachment is rejected regardless of input order. Model and reasoning options are reconciled only for actual model requests.
+Preference writes use a mode-0600 temporary file and rename; memory changes only after a successful write. Invalid saved versions or tiers remain blocked until a private choice replaces them. Pi 1.1.0 leaves a session file unwritten before its first model prompt. During bridge initialization, the adapter publishes public session header/entries only if the file is absent, using a complete temporary file and exclusive hard link. Before the bridge accepts input, it reopens the file through Pi's public `switch_session` RPC. This updates the live native writer through its supported lifecycle. Preference commands never publish native history or mutate private flush fields.
+
 ## Context
 
 See [proposal.md](proposal.md) for motivation and project ownership, and [the capability spec](specs/openai-codex-speed/spec.md) for behavior.
@@ -10,7 +18,7 @@ Observed implementation:
 - `src/model-list.ts` builds BB model entries without supported service tiers. `src/session-params.ts` carries model and reasoning options, not speed.
 - `src/bridge/catalog.ts` starts a workspace-scoped Pi RPC child with the generated extension, queries `get_available_models`, and reads model scope over the existing private channel.
 - `src/bridge/bb-pi-extension.ts` already serves private channel requests and has a Pi session context. `src/bridge/rpc-session.ts` owns turn dispatch and the channel. These are the integration points, not BB core.
-- The installed BB SDK supports provider `serviceTiers` and model `supportedServiceTiers`, which narrows the provider-wide choices. This provides a native selector without a new panel or DOM workaround.
+- BB's native service-tier selector cannot distinguish an intentional Default from the BB 0.46 display fallback. The revised plugin therefore disables native tier controls and uses private commands.
 - Pi 1.1.0 exposes native provider registration, active-auth resolution, session entries, command registration, and payload instrumentation. Its native Codex transport can send `service_tier`.
 - Pi's `before_provider_request` runner catches handler exceptions and continues. An exception in that event alone is not a reliable dispatch guard.
 - The inspected Codex CLI account cache advertises Fast with wire ID `priority` and no Ultrafast. It proves the data shape for that CLI account, not the entitlements of Pi's active account. Pi's ordinary static model catalog is also not entitlement evidence.
@@ -24,7 +32,7 @@ The proposal is owned by bb-plugins. Implementation of the Pi package belongs to
 
 - One shared account-capability and dispatch implementation used by two small adapters.
 - A real pre-dispatch guard with the existing Codex transport, OAuth handling, streaming, and usage accounting preserved.
-- Account-aware native BB controls and a small Pi command that do not create agent turns.
+- Account-aware private BB commands and a small standalone Pi command that do not create model turns.
 - A self-contained BB plugin build and an independently installable Pi package.
 
 **Non-Goals:**
@@ -66,8 +74,9 @@ Snapshot the selection at turn start so a mid-turn UI change affects only the ne
 
 The standalone entry and generated BB extension must not install two decorators. Give the BB adapter explicit managed ownership. The globally installed standalone entry must skip BB-launched sessions; the `pi-subagents` generated extension explicitly installs its adapter. Verify the bundled Pi bridge remains unaffected even when the standalone package is globally installed. Preserve existing custom provider compatibility; report unsupported overrides rather than replacing their transport silently.
 
-### 4. Use the existing BB catalog and private channel
+### 4. Historical native-selector integration. Superseded
 
+This section records the rejected native-selector design. It is not implementation guidance for the approved private-command revision. In particular, do not enable native tier controls or make BB execution settings authoritative.
 Enable `supportsServiceTier` in this plugin's declaration and register Default, Fast, and Ultrafast as the accepted vocabulary. Every model entry explicitly narrows that vocabulary: `openai-codex` models use confirmed tiers, and other routes or failed discovery expose no non-default tier. Do not omit the narrowing field and fall back to provider-wide options. Verify the supported BB version's empty/default-only behavior in the real selector.
 
 Extend the generated extension's existing private channel with bounded capability and selection operations. The catalog child reads normalized capabilities from the same Pi runtime that owns its authentication. Keep current model IDs, scoped-model filtering, and selected-only entries intact.
@@ -76,7 +85,7 @@ Carry BB `sessionOptions.serviceTier` through session construction and per-turn 
 
 BB owns the saved thread selection. Pi session entries own standalone persistence. Resume validates either preference before use. Account changes invalidate the safe catalog snapshot; they must not reuse old account options from a workspace catalog cache.
 
-### 5. Reuse the existing visual controls
+### 5. Historical native visual controls. Superseded
 
 BB uses its native speed selector beside the model and reasoning controls. Pi adds `/speed`, `/speed default`, `/speed fast`, `/speed ultrafast`, and `/speed refresh`; the no-argument form offers only current confirmed choices. Explicit unsupported arguments fail clearly. Pi shows the selected speed in a compact status indicator and uses the current theme and keyboard conventions.
 
@@ -93,7 +102,7 @@ The direction reuses established controls and the confirmed visibility rule. No 
 - Shared code can resolve a second Pi SDK instance or a sibling-only dependency. Keep Pi host packages as peers, preserve the loader's module mapping, and verify the built plugin without access to the pi-plugins checkout.
 - Global extension loading can affect unrelated BB providers. Explicit adapter ownership and a bundled-provider regression test prevent that scope leak.
 
-## Migration Plan
+## Historical native-selector migration plan. Superseded
 
 1. In pi-plugins, implement and verify the independently installable package without changing token-audit behavior. Produce a pinned distributable artifact and record its version.
 2. In bb-plugins, consume that artifact, update only this provider, and verify inherited behavior plus service-tier selection and dispatch.

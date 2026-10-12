@@ -17,7 +17,7 @@ export function piProviderDeclaration(): PluginProviderDeclaration {
     env: { passthrough: ["BB_PI_BRIDGE_COMMAND", "BB_PI_BRIDGE_ARGS"] },
     extensionKinds: { [VIEW_KIND]: { state: viewSchema } },
     capabilities: {
-      supportsServiceTier: true,
+      supportsServiceTier: false,
       supportsNativeUserQuestion: false,
       fork: "checkpoint",
       supportsManualCompaction: true,
@@ -33,11 +33,6 @@ export function piProviderDeclaration(): PluginProviderDeclaration {
       { id: "high", label: "High" },
       { id: "xhigh", label: "Extra High" },
       { id: "max", label: "Max" },
-    ],
-    serviceTiers: [
-      { id: "default", label: "Default" },
-      { id: "fast", label: "Fast" },
-      { id: "ultrafast", label: "Ultrafast" },
     ],
     ...PI_NATIVE_ROOTS_DECLARATION,
     composerActions: [],

@@ -2,7 +2,7 @@
 
 See [the capability spec](specs/openai-codex-speed/spec.md) for acceptance and [design.md](design.md) for the approach. Each delivery includes its tests and documentation. Before acceptance, check completion evidence and the owning project's validation and review requirements.
 
-Delivery status and remaining gates are recorded in [verification.md](verification.md). Groups 1–2 use the reviewed pi-plugins delivery. Task 3.3 remains partial pending current-host selector/layout acceptance. The approved BB 0.46 / SDK 0.6.37 migration clears the SDK and build gates. Task 4.3 remains incomplete because the upstream check is inconclusive. Group 5 remains unapproved.
+Delivery status and remaining gates are in [verification.md](verification.md). Groups 1–2 use the reviewed pi-plugins delivery. The approved BB revision uses private commands instead of the native selector. Task 3.3 remains incomplete pending installed command and selector-hidden acceptance. The BB 0.46 / SDK 0.6.37 migration gates passed. Task 4.3 remains incomplete because the upstream check is inconclusive. Group 5 remains unapproved.
 
 Project ownership is mandatory:
 
@@ -26,16 +26,16 @@ This proposal records cross-repository work but does not authorize a repo-local 
 - [x] 2.3 Persist the standalone session preference and restore it with fresh account/model validation. Resume and provider-switch tests must cover supported Fast, unavailable saved tiers, discovery failure, and account changes, with no non-default leakage to other routes. Document explicit selection or refresh after an unavailable saved tier.
 - [x] 2.4 Add explicit standalone versus BB-managed registration ownership, so a global install cannot change the bundled BB Pi provider or double-decorate the plugin session. Verify the relevant runtime-mode fixtures and that separate child sessions keep their own settings. Deliver a versioned package artifact and a documented BB-consumption interface; no sibling checkout may be needed at runtime.
 
-## 3. Native BB speed choices in bb-plugins
+## 3. Private BB speed controls in bb-plugins
 
 - [x] 3.1 Consume the versioned shared artifact and make its implementation available inside the generated Pi extension without copying the Codex transport. Verify build packaging and the generated extension from a clean artifact with no pi-plugins sibling checkout; document the pinned version and supported Pi/BB versions.
-- [x] 3.2 Enable service-tier vocabulary only in `src/declaration.ts` for `pi-subagents`. Extend `src/bridge/catalog.ts`, its private-channel exchange, and `src/model-list.ts` to publish explicitly narrowed tiers for every model. Catalog/model-list tests must cover Fast-only, both-tier, no-tier, failed/cold discovery, non-Codex routes, account changes, scoped models, and selected-only entries; none may fall back to all provider-wide choices.
-- [ ] 3.3 Verify the native BB selector with these model entries, including empty/default-only narrowing and loading states. UI/contract checks must show hidden Ultrafast for a Fast-only account, no disabled unavailable choices, stable controls, separate reasoning selection, and no new panel or DOM workaround. Update the plugin README with speed selection and manual capability refresh.
+- [x] 3.2 Disable native tier support in `src/declaration.ts` and return empty native tier lists for all models. Implement private status, Fast, Default, and refresh commands. Test model/scoped/selected-only entries, invalid commands, failed discovery, account changes, and zero model dispatch for controls.
+- [ ] 3.3 Verify private commands and hidden native speed controls on installed BB. Check confirmed choices only, separate model/reasoning selection, clear selection/error feedback, no new panel or DOM workaround, and bundled-provider isolation. Source fixtures do not complete this gate.
 
 ## 4. Guarded BB turn dispatch and resume in bb-plugins
 
-- [x] 4.1 Carry `sessionOptions.serviceTier` through `src/session-params.ts` and `src/bridge/rpc-session.ts`; select and validate model plus speed through the generated extension's private channel before dispatching prompt, steer, or follow-up. Extend existing turn-options and bridge tests to prove the effective tier is applied without synthetic chat turns and that unavailable input causes zero request dispatch.
-- [x] 4.2 Preserve BB's saved thread selection on resume and revalidate in the running Pi child, not solely the separate catalog child. Integration tests must prove supported resume, revoked or unconfirmed selection requiring an explicit choice/refresh, account isolation, Default behavior, and no tier injection on other routes. Document these states and the unchanged subagent settings behavior.
+- [x] 4.1 Store the preference separately from BB execution settings, restore it across release/resume, and validate it before prompt, steer, queue, and compaction dispatch. Keep active turns at their captured speed. Test BB fallback Default, reasoning-only changes, delayed selection, corrupt storage, failed writes, and separate sessions. Preserve final-payload guards.
+- [x] 4.2 Preserve the private preference on resume and revalidate in the active Pi child. Test supported resume, revoked/unconfirmed selection, explicit private recovery, account isolation, and no tier injection on other routes. Separate sessions keep their own preferences.
 - [ ] 4.3 Run the inherited provider test suite, typecheck, build, and applicable upstream-compatibility checks. Add regression evidence for native tools, reasoning/model selection, extension UI, checkpoint forks, manual compaction, and subagent lifecycle/observation. Update compatibility notes with intentional fork-only changes and confirm no BB core, bundled-provider, default-provider, or credential edits.
 
 ## 5. Cross-project installed acceptance

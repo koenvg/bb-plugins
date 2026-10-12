@@ -42,13 +42,13 @@ Select **Pi with subagents** for a new thread. Existing bundled-provider threads
 
 ## OpenAI Codex speed
 
-For the ChatGPT subscription route `openai-codex`, use BB's native speed selector. Speed stays separate from model and reasoning. This fork uses `@koenvg/pi-openai-codex-speed@0.1.0` and verifies Pi 1.1.0. Default stays usable if speed control or account discovery is unavailable.
+For the ChatGPT subscription route `openai-codex`, use this provider's private commands. BB's native speed selector is hidden. The bundled BB Pi provider and BB core are unchanged. This fork embeds `@koenvg/pi-openai-codex-speed@0.1.0` and verifies Pi 1.1.0. Default remains usable if speed discovery fails.
 
-The selector shows only tiers returned for that account and model. Fast uses verified `priority` processing and reports increased usage. This package does not expose Ultrafast because its wire mapping is unverified. API-key routes and other providers offer no speed options.
+Use `/speed` to show the saved preference and confirmed choices, `/speed fast` to select Fast, or `/speed default` to select Default. Fast uses verified `priority` and increased usage. Ultrafast is not exposed because its wire mapping is unverified. Fast is never applied to API-key routes or other providers.
 
-Send `/speed refresh` to retry discovery. The bridge handles it privately, including during steering, without a model prompt. Failed refresh returns a clear error. Reopen the model picker to read a fresh catalog. No automatic retries are added.
+Use `/speed refresh` to retry discovery. All `/speed` commands, including steering and invalid arguments, stay private and issue no model prompt. Attachments are rejected. Failed discovery requires manual retry or `/speed default`; no automatic recovery is added.
 
-BB saves the selected speed with the thread. The running Pi child checks it again on resume and before each prompt, steer, or queued follow-up. If saved Fast is no longer confirmed, the request fails. Select Default, or refresh and retry after Fast is confirmed. The provider never silently replaces a saved tier. Changes during a turn apply to the next turn; ongoing tool continuations keep their turn's choice.
+The provider saves its preference beside the native Pi session in a mode-0600 `.bb-codex-speed.json` file. It does not save entitlements, credentials, or raw account data. A missing record can migrate a still-available legacy Fast setting; invalid records block Codex dispatch until an explicit private choice repairs them. BB execution settings, including incoming Default, do not control this preference. Use the private commands, not native service-tier flags. Release/resume restores the private choice. A non-default choice must remain confirmed before dispatch. Changes during a running turn affect the next turn; current tool continuations keep their captured speed.
 
 Child sessions retain their own settings. The fork neither installs the standalone extension globally nor changes the bundled Pi provider, credentials, or provider defaults.
 

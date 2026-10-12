@@ -59,8 +59,7 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
     description: describePiModel(model),
     supportedReasoningEfforts,
     defaultReasoningEffort,
-    supportedServiceTiers:
-      model.provider === "openai-codex" ? (model.supportedServiceTiers ?? []) : [],
+    supportedServiceTiers: [],
     isDefault: false,
   };
 }

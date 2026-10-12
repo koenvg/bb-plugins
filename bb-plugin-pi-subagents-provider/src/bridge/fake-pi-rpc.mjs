@@ -198,6 +198,7 @@ const extensionContext = {
   mode: "rpc",
   ...(speedRuntime ? { modelRegistry: speedRuntime.registry, ui: speedRuntime.ui } : {}),
 };
+await speedRuntime?.prepareSessionManager(extensionContext);
 const fakeSubagents =
   process.env.FAKE_PI_SUBAGENT_PROTOCOL === "1"
     ? fakePackageRpc(
@@ -531,6 +532,10 @@ async function handle(command) {
     appendFileSync(commandLogPath, `${command.type}\n`);
   }
   switch (command.type) {
+    case "switch_session":
+      extensionContext.sessionManager.setSessionFile(command.sessionPath);
+      respond(id, "switch_session", { cancelled: false });
+      return;
     case "get_state":
       respond(id, "get_state", {
         model,
@@ -603,6 +608,7 @@ async function handle(command) {
       if (promptDumpPath) {
         writeFileSync(promptDumpPath, JSON.stringify(command), "utf8");
       }
+      speedRuntime?.appendUserMessage(extensionContext, command.message);
       if (isStreaming && command.streamingBehavior === "steer") {
         steering.push(command.message);
         queueUpdate();
