@@ -1,5 +1,6 @@
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Project } from "../../shared/contract.js";
+import { makeTask } from "../../test-fixtures.js";
 import { ProjectsSection } from "../../views/manage/projects-section.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 
@@ -40,6 +41,14 @@ let projects = [
 let failSave = false;
 let failInventory = false;
 let saveCalls = 0;
+let deleteCalls = 0;
+let failCount = false;
+let failDelete = false;
+let zeroTasks = false;
+let failAfterDelete = false;
+let postDeleteFailure = false;
+let overlapNextDelete = false;
+let overlapSnapshot: Project[] | null = null;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const panel = document.getElementById("panel")!;
 const evidence = document.getElementById("evidence")!;
@@ -55,6 +64,13 @@ function showEvidence() {
     {
       fixtureOnly: true,
       saveCalls,
+      deleteCalls,
+      failNextCount: failCount,
+      failNextDelete: failDelete,
+      failAfterDelete,
+      postDeleteFailure,
+      overlapNextDelete,
+      zeroTasks,
       failNextSave: failSave,
       failNextInventory: failInventory,
       projects,
@@ -70,18 +86,72 @@ const slot = renderSlot(
     pluginId: "bbp97-isolated-preview",
     rpc: {
       listProjects: async () => {
-        await delay(250);
+        const stale = overlapSnapshot;
+        overlapSnapshot = null;
+        await delay(stale ? 1400 : 250);
+        if (postDeleteFailure)
+          throw new Error(
+            "Fixture post-delete inventory unavailable. Allow inventory reads, then use Retry.",
+          );
         if (failInventory) {
           failInventory = false;
           showEvidence();
           throw new Error("Fixture inventory unavailable. Use Retry.");
         }
-        return { projects };
+        return { projects: stale ?? projects };
       },
       listFolders: () => ({ folders: [] }),
       listPresets: () => ({ presets: [] }),
       listLabels: () => ({ labels: [] }),
-      listTasks: () => ({ tasks: [] }),
+      listTasks: async (raw: unknown) => {
+        const input = raw as { projectId?: string; cursor?: string };
+        if (!input.projectId) return { tasks: [] };
+        await delay(350);
+        if (failCount) {
+          failCount = false;
+          showEvidence();
+          throw new Error("Fixture task count unavailable. Use Retry task count.");
+        }
+        if (zeroTasks) return { tasks: [] };
+        const tasks = Array.from({ length: 42 }, (_, index) =>
+          makeTask({
+            id: `fixture-task-${index}`,
+            projectId: input.projectId,
+            number: index + 1,
+            key: `HOME-${index + 1}`,
+            status: index % 2 === 0 ? "done" : "todo",
+            parentTaskId: index > 0 ? "fixture-task-0" : null,
+          }),
+        );
+        const start = input.cursor ? Number(input.cursor) : 0;
+        return { tasks: tasks.slice(start, start + 21), nextCursor: start === 0 ? "21" : null };
+      },
+      deleteProject: async (raw: unknown) => {
+        const input = raw as { projectId: string; force: boolean };
+        deleteCalls++;
+        showEvidence();
+        if (overlapNextDelete) {
+          overlapNextDelete = false;
+          overlapSnapshot = projects.map((row) => ({ ...row }));
+          void slot.emitRealtime("projects:changed", {});
+        }
+        await delay(900);
+        if (failDelete) {
+          failDelete = false;
+          showEvidence();
+          throw new Error("Fixture deletion failed. Your confirmation is kept; try again.");
+        }
+        if (!input.force) throw new Error("Fixture requires forced deletion.");
+        const deleted = projects.some((row) => row.id === input.projectId);
+        projects = projects.filter((row) => row.id !== input.projectId);
+        if (failAfterDelete) {
+          failAfterDelete = false;
+          postDeleteFailure = true;
+        }
+        showEvidence();
+        await slot.emitRealtime("projects:changed", { projectId: input.projectId });
+        return { ok: true, deleted };
+      },
       sidebarSummary: () => ({ projects: [] }),
       updateProject: async (raw: unknown) => {
         const input = raw as { projectId: string; name: string; color: string };
@@ -109,6 +179,33 @@ panel.replaceChildren(slot.container);
 function control(id: string, action: () => void) {
   document.getElementById(id)!.addEventListener("click", action);
 }
+control("fail-post-delete", () => {
+  failAfterDelete = true;
+  showEvidence();
+});
+control("allow-inventory", () => {
+  postDeleteFailure = false;
+  showEvidence();
+});
+control("overlap-delete", () => {
+  overlapNextDelete = true;
+  showEvidence();
+});
+control("fail-count", () => {
+  failCount = true;
+  showEvidence();
+});
+control("fail-delete", () => {
+  failDelete = true;
+  showEvidence();
+});
+control("zero-tasks", () => {
+  zeroTasks = !zeroTasks;
+  showEvidence();
+});
+control("theme", () => {
+  document.documentElement.classList.toggle("light");
+});
 control("fail-save", () => {
   failSave = true;
   showEvidence();

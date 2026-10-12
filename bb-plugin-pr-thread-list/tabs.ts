@@ -8,6 +8,7 @@ export type Tab = AttentionTab | "all";
 const PROBLEMS: readonly BlockerCode[] = [
   "conflicts",
   "checks_failed",
+  "checks_waiting",
   "changes_requested",
   "unresolved_threads",
 ];

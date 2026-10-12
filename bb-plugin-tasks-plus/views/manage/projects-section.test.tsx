@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Project } from "../../shared/contract.js";
 import { rpcInput } from "../../test-fixtures.js";
 import { app, project } from "./manage.test-support.js";
+import { COMPACT_VIEWPORT_QUERY } from "../../components/ui/hooks/use-compact-viewport.js";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -41,6 +45,7 @@ function fixtures(): Project[] {
 function setup(initial = fixtures()) {
   let rows = initial;
   const calls: Record<string, unknown>[] = [];
+  const deleteCalls: Record<string, unknown>[] = [];
   let list: () => { projects: Project[] } | Promise<{ projects: Project[] }> = () => ({
     projects: rows.map((row) => ({ ...row })),
   });
@@ -65,6 +70,12 @@ function setup(initial = fixtures()) {
         listPresets: () => ({ presets: [] }),
         listLabels: () => ({ labels: [] }),
         listTasks: () => ({ tasks: [] }),
+        deleteProject: (raw: unknown) => {
+          const input = rpcInput(raw);
+          deleteCalls.push(input);
+          rows = rows.filter((row) => row.id !== input.projectId);
+          return { ok: true, deleted: true };
+        },
         sidebarSummary: () => ({ projects: [] }),
         updateProject: (raw: unknown) => {
           const input = rpcInput(raw);
@@ -77,6 +88,7 @@ function setup(initial = fixtures()) {
   return {
     slot,
     calls,
+    deleteCalls,
     setRows: (next: Project[]) => {
       rows = next;
     },
@@ -117,8 +129,153 @@ async function chooseColor(env: ReturnType<typeof setup>, prefix: string, label:
   fireEvent.click(env.slot.getByRole("button", { name: new RegExp(`^Colour for ${prefix}:`) }));
   const palette = await within(document.body).findByRole("radiogroup", { name: "Color" });
   fireEvent.click(within(palette).getByRole("radio", { name: label }));
+  await waitFor(() => expect(palette.isConnected).toBe(false));
 }
 describe("Manage production project table", () => {
+  it.each([false, true])(
+    "keeps arrow choices local and restores row actions from the picker, compact=%s",
+    async (compact) => {
+      const matchMedia = window.matchMedia;
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        ...matchMedia(query),
+        matches: compact && query === COMPACT_VIEWPORT_QUERY,
+      }));
+      const env = setup();
+      await loaded(env);
+      const name = env.slot.getByRole("textbox", { name: "Project name for WORK" });
+      fireEvent.change(name, { target: { value: "Keyboard draft" } });
+      const trigger = env.slot.getByRole("button", { name: "Colour for WORK: Blue" });
+      act(() => trigger.focus());
+      fireEvent.click(trigger);
+      const palette = await within(document.body).findByRole("radiogroup", { name: "Color" });
+      const blue = within(palette).getByRole("radio", { name: "Blue" });
+      if (compact) {
+        const dialog = within(document.body).getByRole("dialog", { name: "Colour for WORK" });
+        fireEvent.keyDown(dialog, { key: "Tab" });
+      }
+      await waitFor(() => expect(document.activeElement).toBe(blue));
+      expect(blue.tabIndex).toBe(0);
+      fireEvent.keyDown(blue, { key: "ArrowRight" });
+      const teal = within(palette).getByRole("radio", { name: "Teal" });
+      expect(document.activeElement).toBe(teal);
+      expect(teal.getAttribute("aria-checked")).toBe("true");
+      fireEvent.keyDown(teal, { key: "ArrowDown" });
+      const green = within(palette).getByRole("radio", { name: "Green" });
+      expect(document.activeElement).toBe(green);
+      expect(palette.isConnected).toBe(true);
+      expect(env.calls).toEqual([]);
+      if (compact) {
+        // The drawer trap must skip all nine radios with tabIndex=-1.
+        fireEvent.keyDown(green, { key: "Tab" });
+        expect(document.activeElement).toBe(green);
+        fireEvent.keyDown(green, { key: "Tab", shiftKey: true });
+        expect(document.activeElement).toBe(green);
+      }
+      fireEvent.keyDown(green, { key: "Escape" });
+      await waitFor(() =>
+        expect(within(document.body).queryByRole("radiogroup", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+      expect(env.slot.getByRole("button", { name: "Colour for WORK: Green" })).toBe(trigger);
+      expect(name).toHaveProperty("value", "Keyboard draft");
+      expect(env.calls).toEqual([]);
+      fireEvent.click(env.slot.getByRole("button", { name: "Save WORK" }));
+      await waitFor(() => expect(env.calls).toHaveLength(1));
+      expect(env.calls[0]).toMatchObject({ name: "Keyboard draft", color: "mediumseagreen" });
+    },
+  );
+
+  it("opens confirmation for saved identity, cancels safely and restores focus without losing drafts", async () => {
+    const env = setup();
+    const home = await loaded(env);
+    const work = env.slot.getByRole("textbox", { name: "Project name for WORK" });
+    fireEvent.change(home, { target: { value: "Unsaved home" } });
+    fireEvent.change(work, { target: { value: "Unsaved work" } });
+    const trigger = env.slot.getByRole("button", { name: "Delete HOME" });
+    for (const dismissal of ["cancel", "escape"]) {
+      fireEvent.click(trigger);
+      const dialog = await within(document.body).findByRole("dialog", {
+        name: "Delete Home Lab (HOME)?",
+      });
+      const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+      await waitFor(() => expect(document.activeElement).toBe(cancel));
+      const description = document.getElementById(dialog.getAttribute("aria-describedby")!);
+      expect(description?.className).toContain("text-sm");
+      expect(description?.querySelector('[role="status"]')).not.toBeNull();
+      expect(description?.textContent).toContain(
+        "BB workspaces, threads and files remain unchanged.",
+      );
+      expect(
+        within(dialog).getByText(/BB workspaces, threads and files remain unchanged/),
+      ).toBeDefined();
+      if (dismissal === "cancel") fireEvent.click(cancel);
+      else fireEvent.keyDown(dialog, { key: "Escape" });
+      await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+    }
+    expect(home).toHaveProperty("value", "Unsaved home");
+    expect(work).toHaveProperty("value", "Unsaved work");
+    expect(env.calls).toEqual([]);
+    expect(env.deleteCalls).toEqual([]);
+  });
+
+  it("requires an exact prefix and known zero count before explicit deletion, then removes only that row", async () => {
+    const env = setup();
+    await loaded(env);
+    const work = env.slot.getByRole("textbox", { name: "Project name for WORK" });
+    fireEvent.change(work, { target: { value: "Keep this draft" } });
+    fireEvent.click(env.slot.getByRole("button", { name: "Delete HOME" }));
+    const dialog = await within(document.body).findByRole("dialog");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("status").textContent).toBe(
+        "Delete this project and all 0 tasks? This cannot be undone.",
+      ),
+    );
+    const prefix = within(dialog).getByRole("textbox", { name: "Type HOME to confirm" });
+    const button = within(dialog).getByRole("button", { name: "Delete project and tasks" });
+    for (const value of ["", "home", "WORK", " HOME", "HOME "]) {
+      fireEvent.change(prefix, { target: { value } });
+      expect(button).toHaveProperty("disabled", true);
+    }
+    fireEvent.change(prefix, { target: { value: "HOME" } });
+    expect(button).toHaveProperty("disabled", false);
+    expect(env.deleteCalls).toEqual([]);
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull(),
+    );
+    expect(env.deleteCalls).toEqual([{ projectId: project.id, force: true }]);
+    expect(work).toHaveProperty("value", "Keep this draft");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(env.slot.getByRole("heading", { name: "Projects" })),
+    );
+    expect(env.slot.getByText(/Deleted Home Lab/)).toBeDefined();
+  });
+
+  it("uses named icon actions and keeps the existing Save/Cancel behaviour", async () => {
+    const env = setup();
+    const input = await loaded(env);
+    for (const name of ["Save HOME", "Cancel HOME", "Delete HOME"]) {
+      const button = env.slot.getByRole("button", { name });
+      expect(button.querySelector("svg")).not.toBeNull();
+      expect(button.textContent).toBe("");
+      expect(button.className).toContain("h-9 w-9");
+    }
+    expect(
+      (env.slot.getByRole("button", { name: "Save HOME" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.change(input, { target: { value: "Local draft" } });
+    fireEvent.click(env.slot.getByRole("button", { name: "Cancel HOME" }));
+    expect((input as HTMLInputElement).value).toBe("Home Lab");
+    fireEvent.change(input, { target: { value: "Saved name" } });
+    fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
+    await waitFor(() => expect(env.calls).toHaveLength(1));
+    expect(env.calls[0]?.name).toBe("Saved name");
+    fireEvent.keyDown(document, { key: "Tab" });
+    fireEvent.focus(env.slot.getByRole("button", { name: "Cancel HOME" }));
+    expect((await within(document.body).findByRole("tooltip")).textContent).toBe("Cancel HOME");
+  });
+
   it("offers the existing named palette without replacing custom colours until an explicit choice", async () => {
     const env = setup();
     await loaded(env);
@@ -302,7 +459,9 @@ describe("Manage production project table", () => {
     for (const input of [home, work]) expect(input).toHaveProperty("disabled", true);
     for (const name of ["Save HOME", "Save WORK", "Cancel HOME", "Cancel WORK"])
       expect(env.slot.getByRole("button", { name })).toHaveProperty("disabled", true);
-    expect(env.slot.getByRole("button", { name: "Save HOME" }).textContent).toBe("Saving…");
+    expect(env.slot.getByRole("button", { name: "Save HOME" }).getAttribute("aria-busy")).toBe(
+      "true",
+    );
     request.reject(new Error("Fixture save unavailable"));
     expect((await env.slot.findByRole("alert")).textContent).toBe(
       "Could not save HOME: Fixture save unavailable",
@@ -715,7 +874,9 @@ describe("Manage production project table", () => {
         "disabled",
         true,
       );
-      expect(env.slot.getByRole("button", { name: "Save HOME" }).textContent).toBe("Saving…");
+      expect(env.slot.getByRole("button", { name: "Save HOME" }).getAttribute("aria-busy")).toBe(
+        "true",
+      );
       fireEvent.submit(home.closest("form")!);
       expect(env.calls).toHaveLength(1);
     } finally {

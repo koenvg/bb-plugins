@@ -26,12 +26,22 @@ describe("github-insight PR summary", () => {
       failedChecks: 1,
       passedChecks: 5,
       runningChecks: 2,
+      waitingChecks: 0,
       pendingReviews: 1,
       blockers: ["checks_failed", "review_required"],
       failedNames: ["lint"],
       pendingNames: ["ana"],
       mergeQueue: null,
     });
+  });
+  it("reads the waiting check count and blocker", () => {
+    const checks = { failed: 0, waiting: 1, running: 0, cancelled: 0, passed: 5, skipped: 0 };
+    expect(
+      readSummary(
+        summary({ checks: { ...checks, failedNames: [] }, blockers: ["checks_waiting"] }),
+        NOW,
+      ),
+    ).toMatchObject({ waitingChecks: 1, runningChecks: 0, blockers: ["checks_waiting"] });
   });
   it("rejects an open or draft summary older than one hour", () => {
     expect(readSummary(summary({ updatedAt: TWO_HOURS_AGO }), NOW)).toBeNull();

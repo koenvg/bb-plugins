@@ -40,8 +40,35 @@ describe("applyEdit / editedTasks", () => {
     expect(editedTasks(tasks, empty)).not.toBe(tasks);
     const entries = beginEdit(empty, "T1", { status: "done" }, 1);
     const result = editedTasks(tasks, entries);
-    expect(result[0]?.status).toBe("done");
-    expect(result[1]).toBe(tasks[1]);
+    expect(result.find((task) => task.id === "T1")?.status).toBe("done");
+    expect(result.find((task) => task.id === "T2")).toBe(tasks[1]);
+  });
+
+  it("discards the previous destination position before another status move", () => {
+    const tasks = [
+      task({ id: "T1", status: "todo" }),
+      task({ id: "T2", status: "canceled", position: 8000 }),
+    ];
+    let entries = beginEdit(empty, "T1", { status: "done" }, 1);
+    entries = settleSuccess(
+      entries,
+      "T1",
+      { status: "done" },
+      1,
+      task({ id: "T1", status: "done", position: 100 }),
+    );
+    entries = beginEdit(entries, "T1", { status: "canceled" }, 2);
+    expect(editedTasks(tasks, entries).map((task) => task.id)).toEqual(["T2", "T1"]);
+  });
+
+  it("keeps destination placement when the saved position equals the old position", () => {
+    const tasks = [
+      task({ id: "T1", status: "backlog", position: 2048 }),
+      task({ id: "T2", status: "done", position: 1024 }),
+    ];
+    let entries = beginEdit(empty, "T1", { status: "done" }, 1);
+    entries = settleSuccess(entries, "T1", { status: "done" }, 1, { ...tasks[0]!, status: "done" });
+    expect(editedTasks(tasks, entries).map((task) => task.id)).toEqual(["T2", "T1"]);
   });
 });
 

@@ -9,6 +9,7 @@ import { RawDocument } from "./raw";
 import type { LineRequest } from "./source-lines";
 import { revealInReader } from "./navigation";
 import { DestinationProvider, type ResolveDocumentDestinations } from "./destination-view";
+import { SelectionAction, type ExcerptDestination } from "./selection";
 const NO_DESTINATIONS: import("./destination-types").DestinationRequest[] = [];
 
 export type ReadDocument = (target: ReaderTarget) => Promise<ReadResult>;
@@ -18,6 +19,7 @@ export interface ReaderProps {
   Original: ComponentType;
   lineRange?: LineRequest;
   resolveDestinations?: ResolveDocumentDestinations;
+  destination?: ExcerptDestination;
 }
 
 /** The target owner remounts this reader only when source identity changes. */
@@ -27,6 +29,7 @@ export function Reader({
   Original,
   lineRange,
   resolveDestinations,
+  destination,
 }: ReaderProps) {
   const [state, setState] = useState<{
     loading: boolean;
@@ -171,6 +174,13 @@ export function Reader({
             ))}
         </DestinationProvider>
       </div>
+      <SelectionAction
+        panel={root}
+        snapshot={!loading && result?.kind === "ready" ? snapshot : null}
+        view={view}
+        destination={destination}
+        revision={refresh}
+      />
     </section>
   );
 }

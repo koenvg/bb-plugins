@@ -70,6 +70,7 @@ export function buildSummary({
     pr: { number: pr.number, url: pr.url, state: pr.state },
     checks: {
       failed: countChecks("failed"),
+      waiting: countChecks("waiting"),
       running: countChecks("running"),
       cancelled: countChecks("cancelled"),
       passed: countChecks("passed"),

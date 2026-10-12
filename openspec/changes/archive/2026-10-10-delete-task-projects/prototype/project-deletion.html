@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project deletion prototype</title>
+  <style>
+    :root { color-scheme: light; --background: #fff; --foreground: #292929; --muted: #595959; --border: #e3e3e3; --input: #c8c8c8; --destructive: #a51d2d; --ring: #292929; --hover: #f3f3f3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--foreground); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    ::selection { background: var(--foreground); color: var(--background); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    button:focus-visible, input:focus-visible, h1:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+    main { padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 600; line-height: 1.3; }
+    .intro { max-width: 70ch; color: var(--muted); margin: 0 0 28px; }
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    .prefix-column { width: 112px; }
+    .colour-column { width: 150px; }
+    .actions-column { width: 160px; }
+    th { padding: 0 16px 14px 0; text-align: left; font-size: 13px; font-weight: 500; color: var(--muted); }
+    td { padding: 18px 16px 18px 0; border-top: 1px solid var(--border); }
+    td:last-child, th:last-child { padding-right: 0; }
+    .prefix { font-size: 13px; font-weight: 500; color: var(--muted); overflow-wrap: anywhere; }
+    .name { width: 100%; min-width: 0; height: 36px; border: 1px solid var(--input); background: transparent; border-radius: 6px; padding: 0 10px; color: var(--foreground); caret-color: var(--foreground); }
+    .colour { height: 36px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--input); border-radius: 6px; padding: 0 10px; }
+    .swatch { width: 14px; height: 14px; flex-shrink: 0; border-radius: 4px; border: 1px solid #0003; }
+    .teal { background: #20ada8; } .blue { background: #0000ff; } .pink { background: #d56a92; }
+    .row-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .icon-button { width: 36px; height: 36px; padding: 8px; border-radius: 6px; border: 1px solid var(--input); background: transparent; color: var(--foreground); flex-shrink: 0; }
+    .icon-button svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .save { background: var(--foreground); border-color: var(--foreground); color: var(--background); }
+    .delete { margin-left: 12px; color: var(--destructive); border-color: transparent; }
+    .icon-button:not(:disabled):hover, .cancel:hover { background: var(--hover); }
+    .save:not(:disabled):hover { background: var(--foreground); opacity: .85; }
+    .table-note { margin: 20px 0 0; color: var(--muted); font-size: 12px; }
+    .prototype-note { margin: 36px 0 0; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+    dialog { width: min(480px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); box-shadow: 0 10px 28px #0002; }
+    dialog::backdrop { background: #0005; }
+    dialog h2 { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 0 0 14px; }
+    dialog p { margin: 0 0 12px; }
+    .warning { font-weight: 500; }
+    .retained { color: var(--muted); }
+    .confirmation-label { display: block; margin: 24px 0 8px; font-weight: 500; }
+    .confirmation-help { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+    .dialog-actions button { height: 36px; border-radius: 6px; padding: 0 14px; white-space: nowrap; }
+    .cancel { background: transparent; color: var(--foreground); border: 1px solid var(--input); }
+    .confirm { background: var(--destructive); color: #fff; border: 1px solid var(--destructive); min-width: 190px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .count { font-variant-numeric: tabular-nums; }
+    @media (max-width: 600px) {
+      main { padding: 20px 16px; }
+      .intro { margin-bottom: 20px; }
+      thead { display: none; }
+      table, tbody { display: block; }
+      tr { display: grid; grid-template-columns: minmax(0, 1fr) 138px; padding: 16px 0; border-top: 1px solid var(--border); gap: 12px; }
+      td { border: 0; padding: 0; min-width: 0; }
+      .prefix { grid-column: 1 / -1; }
+      .name-cell { grid-column: 1 / -1; }
+      .row-actions { justify-content: flex-end; }
+      .delete { margin-left: 4px; }
+      dialog { padding: 20px; }
+      .dialog-actions { flex-wrap: wrap; }
+      .confirm { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 tabindex="-1">Projects</h1>
+    <p class="intro">Edit a name or colour, then select the check mark to save. The undo arrow restores saved values. The trash icon opens delete confirmation. Prefixes stay unchanged.</p>
+    <table aria-label="Projects">
+      <colgroup><col class="prefix-column"><col><col class="colour-column"><col class="actions-column"></colgroup>
+      <thead><tr><th scope="col">Prefix</th><th scope="col">Name</th><th scope="col">Colour</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        <tr data-prefix="BBP" data-name="BB Plugins" data-count="42">
+          <td class="prefix">BBP</td><td class="name-cell"><input class="name" aria-label="Project name for BBP" value="BB Plugins"></td>
+          <td><span class="colour"><span class="swatch teal"></span>Teal</span></td><td class="action-cell"></td>
+        </tr>
+        <tr data-prefix="CSP" data-name="ClassSpotter" data-count="16">
+          <td class="prefix">CSP</td><td class="name-cell"><input class="name" aria-label="Project name for CSP" value="ClassSpotter"></td>
+          <td><span class="colour"><span class="swatch blue"></span>Blue</span></td><td class="action-cell"></td>
+        </tr>
+        <tr data-prefix="ALLERGIES" data-name="Easy Allergies" data-count="0">
+          <td class="prefix">ALLERGIES</td><td class="name-cell"><input class="name" aria-label="Project name for ALLERGIES" value="Easy Allergies"></td>
+          <td><span class="colour"><span class="swatch pink"></span>Pink</span></td><td class="action-cell"></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="table-note">Each row has its own draft. Editing here does not change your Tasks view or linked BB workspace.</p>
+    <p class="prototype-note">Design prototype with sample data. No real projects or tasks can be changed or deleted.</p>
+    <p id="status" role="status"></p>
+  </main>
+  <dialog aria-labelledby="dialog-title" aria-describedby="dialog-summary dialog-warning dialog-retained">
+    <h2 id="dialog-title">Delete BB Plugins?</h2>
+    <p id="dialog-summary">Permanently delete this Tasks project and all <strong class="count">42 tasks</strong>, including subtasks and completed tasks.</p>
+    <p class="warning" id="dialog-warning">This cannot be undone.</p>
+    <p class="retained" id="dialog-retained">Your linked BB workspace project and BB threads stay.</p>
+    <label class="confirmation-label" for="prefix-input">Type <strong id="required-prefix">BBP</strong> to confirm</label>
+    <input id="prefix-input" class="name" autocomplete="off" spellcheck="false" aria-describedby="prefix-help">
+    <p id="prefix-help" class="confirmation-help">Enter the prefix exactly as shown.</p>
+    <div class="dialog-actions"><button type="button" class="cancel" autofocus>Cancel</button><button type="button" class="confirm" disabled>Delete project and tasks</button></div>
+  </dialog>
+  <script>
+    const glyphs = {
+      save: '<path d="m4 9 4 4 8-8"/>',
+      undo: '<path d="M6 4 2 8l4 4"/><path d="M2 8h8a6 6 0 0 1 0 12" transform="translate(0 -2)"/>',
+      delete: '<path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6M12 8v6"/>'
+    };
+    const modal = document.querySelector('dialog');
+    const prefixInput = document.querySelector('#prefix-input');
+    const confirmButton = document.querySelector('.confirm');
+    let selectedRow = null;
+    let trigger = null;
+    function openConfirmation(row, button) {
+      selectedRow = row;
+      trigger = button;
+      document.querySelector('#dialog-title').textContent = `Delete ${row.dataset.name}?`;
+      document.querySelector('.count').textContent = `${row.dataset.count} tasks`;
+      document.querySelector('#required-prefix').textContent = row.dataset.prefix;
+      prefixInput.value = '';
+      confirmButton.disabled = true;
+      modal.showModal();
+      document.querySelector('.cancel').focus();
+    }
+    for (const row of document.querySelectorAll('tbody tr')) {
+      const actions = document.createElement('div');
+      actions.className = 'row-actions';
+      for (const [kind, label] of [['save', 'Save'], ['undo', 'Cancel'], ['delete', 'Delete']]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `icon-button ${kind}`;
+        button.title = `${label} ${row.dataset.prefix}`;
+        button.setAttribute('aria-label', button.title);
+        button.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true">${glyphs[kind]}</svg>`;
+        if (kind === 'save') button.disabled = true;
+        button.addEventListener('click', () => {
+          if (kind === 'delete') openConfirmation(row, button);
+          else if (kind === 'undo') { row.querySelector('input').value = row.dataset.name; row.querySelector('.save').disabled = true; }
+          else { row.dataset.name = row.querySelector('input').value.trim(); row.querySelector('input').value = row.dataset.name; button.disabled = true; }
+        });
+        actions.append(button);
+      }
+      row.querySelector('.action-cell').append(actions);
+      row.querySelector('input').addEventListener('input', (event) => {
+        const value = event.target.value.trim();
+        row.querySelector('.save').disabled = !value || value === row.dataset.name;
+      });
+    }
+    prefixInput.addEventListener('input', () => { confirmButton.disabled = prefixInput.value !== selectedRow?.dataset.prefix; });
+    document.querySelector('.cancel').addEventListener('click', () => modal.close());
+    modal.addEventListener('close', () => { prefixInput.value = ''; confirmButton.disabled = true; trigger?.focus(); });
+    confirmButton.addEventListener('click', () => { modal.close(); document.querySelector('#status').textContent = 'Prototype only. No project or task was deleted.'; });
+  </script>
+</body>
+</html>

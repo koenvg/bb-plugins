@@ -58,6 +58,15 @@ describe("bannerParts", () => {
     ]);
   });
 
+  it("puts waiting checks between failed and running checks", () => {
+    const waiting: Blocker = { code: "checks_waiting", text: "UI Review waiting for you" };
+    expect(bannerParts(insight([failed, waiting, running]))).toEqual([
+      "2 checks failed",
+      "UI Review waiting for you",
+      "3 checks running",
+    ]);
+  });
+
   it("counts pending reviewers only", () => {
     const approved: Reviewer = { ...pending("c"), state: "approved" };
     expect(bannerParts(insight([reviewRequired], [pending("a"), pending("b"), approved]))).toEqual([
@@ -85,7 +94,7 @@ describe("bannerParts", () => {
       mergeStateStatus: "BLOCKED",
       reviewDecision: "REVIEW_REQUIRED",
       unresolvedThreads: 0,
-      checkStatuses: ["running"],
+      checks: [{ name: "build", status: "running" }],
       mergeQueue: { position: 2, state: "queued" },
     });
 

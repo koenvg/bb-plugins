@@ -111,8 +111,14 @@ export function createTaskPreviews(
     synchronize();
     const keys = [...allKeys()].filter((key) => {
       const data = active.get(key)?.data ?? retained.get(key)?.snapshot.data;
-      // A cold issued request has no task ID yet; conservatively revoke it.
-      return data === undefined || data === null || data.id === taskId;
+      // Revalidation can discover new links not present in the old snapshot.
+      return (
+        requests.has(key) ||
+        data == null ||
+        data.id === taskId ||
+        data.blockedBy?.some((task) => task.id === taskId) ||
+        data.blocks?.some((task) => task.id === taskId)
+      );
     });
     invalidateKeys(keys);
   }

@@ -311,6 +311,7 @@ describe("visibleItems", () => {
       failedChecks: 0,
       passedChecks: 0,
       runningChecks: 1,
+      waitingChecks: 0,
       pendingReviews: 0,
       blockers: ["checks_running"],
       failedNames: [],

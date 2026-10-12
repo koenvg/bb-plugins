@@ -17,7 +17,7 @@ function recordedGitHub(overrides: Partial<GitHubReader> = {}): GitHubReader {
   };
 }
 
-function onlyPassingChecksPage() {
+function onlyPassingChecksPage(extraNodes: readonly unknown[] = []) {
   return {
     data: {
       repository: {
@@ -31,10 +31,12 @@ function onlyPassingChecksPage() {
                   statusCheckRollup: {
                     contexts: {
                       pageInfo: { hasNextPage: false, endCursor: null },
-                      nodes:
-                        pageOne.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts.nodes.filter(
+                      nodes: [
+                        ...pageOne.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts.nodes.filter(
                           (node) => node.conclusion === "SUCCESS",
                         ),
+                        ...extraNodes,
+                      ],
                     },
                   },
                 },
@@ -228,6 +230,35 @@ describe("collectInsight on PR 25337", () => {
 
     expect(insight.checks.length).toBeGreaterThan(0);
     expect(detailCalls).toBe(0);
+  });
+});
+
+describe("collectInsight waiting checks", () => {
+  const uiReview = {
+    __typename: "StatusContext",
+    context: "UI Review",
+    state: "PENDING",
+    description: "Go review the new and updated UI",
+    targetUrl: "https://www.chromatic.com/review",
+    createdAt: "2026-10-08T13:45:13Z",
+    isRequired: false,
+  };
+  const github = recordedGitHub({
+    fetchOverviewPage: async () => onlyPassingChecksPage([uiReview]),
+  });
+  const statusOf = (checks: readonly { name: string; status: string }[]) =>
+    checks.find((check) => check.name === "UI Review")?.status;
+
+  it("reports a quiet pending status as waiting after every check run is done", async () => {
+    const { insight } = await collectInsight(github, Date.parse("2026-10-08T13:50:00Z"));
+
+    expect(statusOf(insight.checks)).toBe("waiting");
+  });
+
+  it("keeps a pending status running while it is still being updated", async () => {
+    const { insight } = await collectInsight(github, Date.parse("2026-10-08T13:46:00Z"));
+
+    expect(statusOf(insight.checks)).toBe("running");
   });
 });
 

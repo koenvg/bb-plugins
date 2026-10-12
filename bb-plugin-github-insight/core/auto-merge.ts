@@ -17,6 +17,7 @@ export const AUTO_MERGE_METHOD_LABEL: Record<MergeMethod, string> = {
 
 const WAITING_BLOCKERS: ReadonlySet<Blocker["code"]> = new Set([
   "checks_running",
+  "checks_waiting",
   "review_required",
 ]);
 

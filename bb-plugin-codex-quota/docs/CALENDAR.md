@@ -8,6 +8,8 @@ Today's values include only recorded events before the report's observation time
 
 The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, ranking, grouping, entity-inspection or comparison controls on this page. The report uses workspace grouping and host scope.
 
+The token chart stacks uncached input, output, cache reads and cache writes, with matching exact counts in the tooltip and accessible table. Reasoning tokens are shown in the tooltip as part of output, not added to the stack. Retained totals without complete category detail use an unclassified segment. Machines with no recorded tokens do not suppress another machine’s recorded category detail.
+
 Tokens includes retained uncertain counts by default as a separate dashed chart segment. There is no uncertainty toggle or combined-total banner. The tooltip and accessible table separate recorded and uncertain counts. Duplicate checks are approximate; missing or unreadable records remain unknown. Estimated cost, recorded totals, rankings, quota and account activity do not include uncertain tokens. This mode is not available for exact-thread reports or comparisons.
 
 The chart reads the index only. To recover earlier omissions, start a new manual import from the configured roots in Historical import. The UI enables uncertain recovery automatically. Resume preserves the frozen import mode. See [Historical import](IMPORT.md) for source limits and duplicate rules.
@@ -54,9 +56,9 @@ Host changes, hiding and unmounting cancel queued continuation and ignore late r
 
 Quota, its footer, countdown, host selection, refresh and the official usage link remain independent of chart failure. At 375 CSS pixels the primary controls wrap. The browser fixture checks document overflow, settled chart width and trusted Chromium mouse, keyboard and emulated touch input. It does not prove physical-device input or installed BB settings navigation.
 
-The 30-day chart has a collapsed Inspect a date control below it. Open it to select any date with a native button. The picker uses five columns on narrow screens and ten on wider screens, with a minimum button height of 36px. Selected facts use the same date and exact values as the chart tooltip, including nonzero exclusions and separate uncertain token estimates. Coverage and pricing details remain in the accessible table. Unknown history stays unavailable; recorded inactivity stays zero. Date selection is local and makes no report request.
+The 30-day chart supports pointer tooltips and keyboard date navigation. The separate date inspector is removed. Tooltips show recorded values, nonzero exclusions and separate uncertain token estimates. Coverage and pricing details remain in the accessible table. Unknown history stays unavailable; recorded inactivity stays zero.
 
-For date-picker target measurements and trusted-input regression checks, run `npm run test:browser -- date-picker.spec.ts` after the setup below. All twelve width/state cases run without a touch-skip option. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
+For compact control sizes, refresh behaviour and touch navigation checks, run `npm run test:browser -- mobile-layout.spec.ts` after the setup below. The suite checks 32px date-arrow visuals with 44px coarse-pointer hit areas and a background-free refresh icon after the allowance heading. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
 
 ## Storage and interfaces
 
@@ -95,9 +97,9 @@ The accessibility check follows the named table's own AX descendants. It matches
 
 Recharts schedules hover through an animation frame. Playwright moves the real browser mouse and waits for the exact target date, then checks every definition value. It does not dispatch a DOM mouse event or replace the hover handler. Vitest proof regressions reject a no-op hover, incorrect values and an unchanged keyboard date.
 
-`test-results/` holds named PNGs, decoded image dimensions and SHA-256 JSON, per-case `checks.json` and `result.json`, and date-picker `measurements.json`. `playwright-report/` includes these attachments. Failures retain traces and screenshots. PNG checks decode pixels and reject invalid or solid captures. Recharts can omit numeric tick labels when every daily value is missing or zero; tests still require date ticks and the value-axis label. Positive-value cases require numeric ticks.
+`test-results/` holds named PNGs, decoded image dimensions and SHA-256 JSON, per-case `checks.json` and `result.json`. `playwright-report/` includes these attachments. Failures retain traces and screenshots. PNG checks decode pixels and reject invalid or solid captures. Recharts can omit numeric tick labels when every daily value is missing or zero; tests still require date ticks and the value-axis label. Positive-value cases require numeric ticks.
 
-Keyboard, mouse and date-picker touch checks use Playwright browser input. Date-picker receipts require `isTrusted` and mouse/touch pointer types. Select controls use `selectOption`; native OS dropdown interaction is not proved. AX facts do not prove screen-reader speech. Separate public SDK React tests cover queued close/unmount cancellation at deterministic request boundaries. Browser close/reopen checks cannot prove that already dispatched host work was canceled.
+Keyboard, mouse and compact-control touch checks use Playwright browser input. The mobile layout suite taps refresh and both date-navigation buttons. Select controls use `selectOption`; native OS dropdown interaction is not proved. AX facts do not prove screen-reader speech. Separate public SDK React tests cover queued close/unmount cancellation at deterministic request boundaries. Browser close/reopen checks cannot prove that already dispatched host work was canceled.
 
 The browser late-response cases still use identical host values and fixed settle delays. They are weaker than the deterministic public SDK cancellation tests. They do not independently prove rejection of a different wrong-host payload. Keep that browser-evidence limit separate from the stronger SDK tests.
 

@@ -5,7 +5,7 @@ import { visibleView } from "../account/freshness.js";
 import { resetCountdown } from "./reset-countdown.js";
 import { QuotaSummary, type QuotaSummaryProps } from "./quota-summary.js";
 
-const percentText = (value: number): string => `${value}%`;
+const percentText = (value: number): string => `${Math.round(value)}%`;
 const dateText = (value: string): string =>
   new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
@@ -45,7 +45,7 @@ type Props = QuotaSummaryProps & {
 export function QuotaDashboard({ history, children, ...summary }: Props) {
   return (
     <main className="h-full overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto w-full max-w-4xl px-5 py-5 md:px-8 md:py-6">
+      <div className="@container mx-auto w-full max-w-4xl px-5 py-5 md:px-8 md:py-6">
         <h1 className="sr-only">Usage</h1>
         <QuotaSummary {...summary} />
         {children}

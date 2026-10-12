@@ -14,7 +14,7 @@ export type ResolveDocumentDestinations = (
 ) => Promise<DestinationResult>;
 const Context = createContext<ReadonlyMap<string, Destination>>(new Map());
 
-/** One resolution/lease per loaded snapshot. View changes do not allocate transport. */
+/** One resolution per loaded snapshot. View changes reuse its image URLs. */
 export function DestinationProvider({
   snapshot,
   requests,
@@ -60,7 +60,7 @@ export function DestinationProvider({
         /* Readable links/alt text remain inert. Refresh retries the source. */
       },
     );
-    // The SDK has no lease revocation. Drop references and let its bounded TTL expire.
+    // Ignore late results after source changes, fallback, or unmount.
     return () => {
       current = false;
     };
@@ -127,17 +127,7 @@ function LoadedImage({
   title?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (!destination.expiresAtMs) return;
-    const remaining = destination.expiresAtMs - Date.now();
-    if (remaining <= 0) {
-      setFailed(true);
-      return;
-    }
-    const timer = setTimeout(() => setFailed(true), remaining);
-    return () => clearTimeout(timer);
-  }, [destination.expiresAtMs]);
-  if (failed || (destination.expiresAtMs != null && destination.expiresAtMs <= Date.now()))
+  if (failed)
     return (
       <span className="mr-image-placeholder">
         {alt || "Image"}

@@ -66,11 +66,7 @@ export interface SourceAdapter {
     sha256: string;
     sizeBytes: number;
   }>;
-  createPreview?(target: {
-    hostId: string;
-    rootPath: string;
-    ttlMs: number;
-  }): Promise<{ baseUrl: string; expiresAtMs: number }>;
+  imageUrl?(target: { hostId: string; rootPath: string; path: string }): Promise<string>;
 }
 export interface SourceReader {
   read(target: unknown): Promise<ReadResult>;
@@ -104,7 +100,6 @@ export const destinationsResultSchema = z.object({
         kind: z.literal("image"),
         url: z.string(),
         remote: z.boolean(),
-        expiresAtMs: z.number().optional(),
       }),
       z.object({ kind: z.literal("rejected"), reason: z.string() }),
     ]),
@@ -299,7 +294,7 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
       const { hostId, rootPath, documentPath } = location;
       return {
         identity: { hostId, rootPath, documentPath },
-        destinations: await resolveDestinations(location, requests, adapter.createPreview),
+        destinations: await resolveDestinations(location, requests, adapter.imageUrl),
       };
     },
   };

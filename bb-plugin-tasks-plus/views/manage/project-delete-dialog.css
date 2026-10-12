@@ -1,0 +1,50 @@
+.project-delete-dialog {
+  width: min(100%, 32rem);
+  overflow-wrap: anywhere;
+}
+.project-delete-dialog p {
+  margin: 0;
+}
+.project-delete-count {
+  min-height: 1lh;
+  font-variant-numeric: tabular-nums;
+}
+.project-delete-count-error button {
+  margin-top: 8px;
+}
+.project-delete-count-error [role="alert"],
+.project-delete-error {
+  color: var(--destructive);
+}
+.project-delete-error[aria-hidden="true"] {
+  visibility: hidden;
+}
+.project-delete-field {
+  display: grid;
+  gap: 8px;
+}
+.project-delete-field input {
+  caret-color: var(--foreground);
+}
+.project-delete-field input::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.project-delete-actions {
+  gap: 8px;
+}
+.project-delete-submit {
+  min-width: 190px;
+}
+.project-delete-dialog button:focus-visible,
+.project-delete-field input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-delete-dialog,
+  .project-delete-dialog * {
+    animation: none;
+    transition: none;
+  }
+}

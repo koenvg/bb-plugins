@@ -78,11 +78,7 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
     };
   }, [rpc, attempt, pending, editorPending]);
 
-  async function persist(
-    row: ProjectSummary,
-    enabledOverride: boolean | null,
-    confirmed: () => void,
-  ) {
+  async function persist(row: ProjectSummary, enabledOverride: boolean | null) {
     if (writeLock.current || editorLock.current || readError || !rows) return;
     const refreshAfter = activeRead.current;
     ++generation.current;
@@ -112,7 +108,6 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
           ) ?? null,
       );
       setSaved(`Saved settings for ${row.name}.`);
-      confirmed();
     } catch (error) {
       if (alive.current) setWriteError({ id: row.id, message: message(error) });
     } finally {

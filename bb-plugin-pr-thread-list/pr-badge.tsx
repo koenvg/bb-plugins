@@ -5,6 +5,7 @@ import { Tip } from "./tip";
 
 const CHECKS_TONE = {
   passed: "text-success",
+  waiting: "text-warning-text",
   running: "text-warning-text",
   failed: "text-destructive",
   unknown: "text-muted-foreground",

@@ -68,7 +68,7 @@ describe("visible history readiness independent from quota", () => {
     expect(screen.getByText("42% remaining")).toBeTruthy();
     expect(screen.getAllByText(/1 hour.*left/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Open Codex Usage/ }).getAttribute("href")).toBe(
-      "https://chatgpt.com/codex/settings/usage",
+      "https://chatgpt.com/settings/usage?tab=overview",
     );
     fireEvent.click(screen.getByRole("button", { name: "Refresh allowance" }));
     expect(refresh).toHaveBeenCalledOnce();

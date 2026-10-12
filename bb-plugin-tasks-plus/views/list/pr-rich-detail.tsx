@@ -56,9 +56,10 @@ export function PrRichDetail({ pr }: { pr: WorkPr }) {
             <p key={observation}>{observation}</p>
           ))}
           <p>
-            Checks: {rich.checks.failed} failed · {rich.checks.running} running ·{" "}
-            {rich.checks.cancelled} cancelled · {rich.checks.passed} passed · {rich.checks.skipped}{" "}
-            skipped
+            Checks: {rich.checks.failed} failed ·{" "}
+            {rich.checks.waiting ? `${rich.checks.waiting} waiting for you · ` : ""}
+            {rich.checks.running} running · {rich.checks.cancelled} cancelled · {rich.checks.passed}{" "}
+            passed · {rich.checks.skipped} skipped
           </p>
           {rich.checks.failedNames.length ? (
             <p>Reported failing checks: {rich.checks.failedNames.join(", ")}</p>

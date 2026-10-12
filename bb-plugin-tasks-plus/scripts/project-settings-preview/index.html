@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BBP-98 project settings preview</title>
+    <style>
+      /* Match the host cascade: control utilities must override the form reset. */
+      @layer theme, base, components, utilities;
+    </style>
     <link rel="stylesheet" href="/dist/app.css" />
     <link rel="stylesheet" href="/project-settings-preview/preview.css" />
     <style>
@@ -23,13 +27,50 @@
         --secondary-foreground: #f4f4f5;
         --accent: #303034;
         --accent-foreground: #f4f4f5;
+        --state-hover: var(--accent);
         --popover: #202023;
         --popover-foreground: #f4f4f5;
         --destructive: #f87171;
         --radius: 0.5rem;
+
+        --destructive-foreground: #18181b;
+      }
+      :root.light {
+        color-scheme: light;
+        --background: #fafafa;
+        --foreground: #18181b;
+        --muted: #f4f4f5;
+        --muted-foreground: #52525b;
+        --border: #d4d4d8;
+        --border-hairline: #e4e4e7;
+        --input: #d4d4d8;
+        --ring: #2563eb;
+        --primary: #18181b;
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #18181b;
+        --accent: #e4e4e7;
+        --accent-foreground: #18181b;
+        --popover: #ffffff;
+        --popover-foreground: #18181b;
+        --destructive: #b91c1c;
+        --destructive-foreground: #ffffff;
       }
       * {
         box-sizing: border-box;
+      }
+      /* The fixture needs the form-control baseline supplied by the BB host. */
+      @layer base {
+        button,
+        input,
+        select,
+        textarea {
+          font-family: inherit;
+        }
+        button {
+          border-width: 0;
+          border-style: solid;
+        }
       }
       body {
         margin: 0;
@@ -99,6 +140,13 @@
       </p>
       <div class="fixture-controls">
         <button id="fail-save">Fail next save</button>
+        <button id="fail-count">Fail next task count</button>
+        <button id="fail-delete">Fail next deletion</button>
+        <button id="fail-post-delete">Fail post-delete refresh</button>
+        <button id="allow-inventory">Allow inventory reads</button>
+        <button id="overlap-delete">Overlap stale inventory on next delete</button>
+        <button id="zero-tasks">Toggle zero task count</button>
+        <button id="theme">Toggle light/dark</button>
         <button id="fail-inventory">Fail next inventory refresh</button>
         <button id="refresh">Refresh inventory</button>
         <button id="remove">Remove first fixture project</button>

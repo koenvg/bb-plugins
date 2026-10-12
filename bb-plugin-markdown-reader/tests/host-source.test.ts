@@ -48,10 +48,6 @@ async function setup() {
       sizeBytes: Buffer.byteLength(content),
     };
   });
-  const createPreview = vi.fn(async ({ rootPath }: { rootPath: string }) => {
-    if ((await lstat(rootPath)).isSymbolicLink()) throw new Error("Root must not be a symlink");
-    return { baseUrl: "/api/v1/file-previews/opaque", expiresAtMs: Date.now() + 60000 };
-  });
   const { bb, harness } = createFakePluginHost({
     pluginId: "markdown-reader",
     experimental_callHostRpc: async ({ method, input, hostId }) => {
@@ -59,7 +55,7 @@ async function setup() {
       expect(method).toBe("resolve_root");
       return host.experimental_call("resolve_root", input as { rootPath: string });
     },
-    sdk: { files: { read, createPreview } },
+    sdk: { files: { read } },
   });
   disposers.push(() => harness.lifecycle.dispose());
   plugin(bb);
@@ -73,7 +69,7 @@ async function setup() {
       experimental_hostId: "selected-host",
     },
   };
-  return { directory, root, alias, host, harness, target, read, createPreview };
+  return { directory, root, alias, host, harness, target, read };
 }
 
 describe("host directory aliases", () => {
@@ -85,7 +81,8 @@ describe("host directory aliases", () => {
   });
 
   it("reads through an alias and uses the same real root for sibling links and images", async () => {
-    const { root, harness, target, read, createPreview } = await setup();
+    const { root, harness, target, read } = await setup();
+    await writeFile(join(root, "figure.png"), "image bytes");
     expect(await harness.behavior.callRpc("read_document", target)).toMatchObject({
       kind: "ready",
       snapshot: { text: "# Report\n", target, rootPath: root, documentPath: join(root, "note.md") },
@@ -95,16 +92,15 @@ describe("host directory aliases", () => {
       rootPath: root,
       path: join(root, "note.md"),
     });
-    expect(
-      await harness.behavior.callRpc("resolve_destinations", {
-        target,
-        requests: [
-          { url: "sibling.md", image: false },
-          { url: "figure.png", image: true },
-          { url: "../outside.md", image: false },
-        ],
-      }),
-    ).toMatchObject({
+    const result = (await harness.behavior.callRpc("resolve_destinations", {
+      target,
+      requests: [
+        { url: "sibling.md", image: false },
+        { url: "figure.png", image: true },
+        { url: "../outside.md", image: false },
+      ],
+    })) as { identity: unknown; destinations: { kind: string; url?: string }[] };
+    expect(result).toMatchObject({
       identity: { hostId: "selected-host", rootPath: root, documentPath: join(root, "note.md") },
       destinations: [
         { kind: "local-file", target: { kind: "host", path: join(root, "sibling.md") } },
@@ -112,16 +108,17 @@ describe("host directory aliases", () => {
         { kind: "rejected" },
       ],
     });
-    expect(createPreview).toHaveBeenCalledExactlyOnceWith({
+    const query = new URL(result.destinations[1]!.url!, "http://plugin.test").search;
+    const image = await harness.behavior.fetchHttp("GET", `/image${query}`);
+    expect(image.status).toBe(200);
+    expect(await image.text()).toBe("image bytes");
+    expect(read).toHaveBeenNthCalledWith(2, {
       hostId: "selected-host",
       rootPath: root,
-      ttlMs: 60000,
+      path: join(root, "figure.png"),
     });
-    expect(
-      harness.inspection.sdk.calls.every((call) =>
-        ["files.read", "files.createPreview"].includes(call.path),
-      ),
-    ).toBe(true);
+    expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
+    expect(harness.inspection.sdk.calls.every((call) => call.path === "files.read")).toBe(true);
   });
 
   it("does not resolve the document itself to permit an outside-root file symlink", async () => {

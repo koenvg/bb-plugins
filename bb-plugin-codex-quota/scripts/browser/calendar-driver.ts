@@ -92,7 +92,21 @@ export async function tooltip(page: Page, metric: Metric, dailyRows: string[][])
     const fromDate = await date.getAttribute("datetime");
     expect(dailyRows.map((row) => row[0])).toContain(fromDate);
     // Status banners can move the chart during keyboard input. Resolve its current position.
-    await bar.hover();
+    // Locator.hover can auto-scroll SVG paths out of view in Chromium. Use real pointer input
+    // at the current visible bar instead, without changing the viewport for this proof.
+    // Metric changes can detach the path between reads. Wait for visible geometry.
+    let box: Awaited<ReturnType<typeof bar.boundingBox>> = null;
+    await expect
+      .poll(async () => (box = await bar.boundingBox()), { timeout: 5_000 })
+      .not.toBeNull();
+    const readyBox = box!;
+    const point = { x: readyBox.x + readyBox.width / 2, y: readyBox.y + readyBox.height / 2 };
+    const viewport = page.viewportSize()!;
+    expect(point.x).toBeGreaterThan(0);
+    expect(point.x).toBeLessThan(viewport.width);
+    expect(point.y).toBeGreaterThan(0);
+    expect(point.y).toBeLessThan(viewport.height);
+    await page.mouse.move(point.x, point.y);
     await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
     pointer = await tooltipFacts(page, metric, dailyRows[14], fromDate);
   }
@@ -109,106 +123,95 @@ export async function axFacts(page: Page, dailyRows: string[][], metric: Metric)
 }
 export async function interactions(page: Page, state: string, suite: string) {
   const click = (name: string) => page.getByRole("button", { name, exact: true }).click();
-  const methodsSince = async (start: number) =>
-    (await calls(page)).slice(start).map((call) => call.method);
+  const daily = page.locator('table[aria-label="Daily recorded usage"]');
+  const chartReads = async () =>
+    (await calls(page)).filter(
+      (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
+    ).length;
   if (state === "partial" && suite === "calendar") {
-    const start = (await calls(page)).length;
+    const start = await chartReads();
     for (const date of ["2026-08-03", "2026-07-04"]) {
       await click("Previous 30 days");
-      await expect(page.locator("table")).toContainText(date);
+      await expect(daily).toContainText(date);
     }
     await expect(
       page.getByRole("button", { name: "Previous 30 days", exact: true }),
     ).toBeDisabled();
     for (const date of ["2026-08-03", "2026-09-02"]) {
       await click("Next 30 days");
-      await expect(page.locator("table")).toContainText(date);
+      await expect(daily).toContainText(date);
     }
-    expect(await methodsSince(start)).toEqual(Array(4).fill("calendarReport"));
+    expect(await chartReads()).toBe(start + 4);
   }
   if (state === "retry") {
-    const start = (await calls(page)).length;
+    const start = await chartReads();
     await click("Retry chart");
     await chart(page);
-    expect(await methodsSince(start)).toEqual(["calendarReport"]);
+    expect(await chartReads()).toBe(start + 1);
   }
   if (state === "stale") {
-    const start = (await calls(page)).length;
+    const start = await chartReads();
     await click("Refresh chart");
-    await expect(page.getByText("Chart is out of date.", { exact: false })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Refresh chart", exact: true })).toBeEnabled();
-    expect(await methodsSince(start)).toEqual(["calendarReport"]);
+    await expect(
+      page.getByText("Recorded values are out of date.", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry chart", exact: true })).toBeEnabled();
+    expect(await chartReads()).toBe(start + 1);
     expect((await rows(page))[14][1]).not.toMatch(/^(Unavailable|0)$/);
   }
   if (["latest", "cancel"].includes(state)) {
+    const start = await chartReads();
     await click("Previous 30 days");
-    await page.waitForFunction(
-      () => window.calendarFixture.calls.filter((c) => c.method === "calendarReport").length === 2,
-    );
-    if (state === "cancel") await expect(page.locator("table")).toHaveCount(0);
-    else await chart(page);
-    await page.getByRole("combobox", { name: "Codex host" }).selectOption("host_b");
-    if (state === "latest") {
-      await expect(page.getByText("outside the retained bounds", { exact: false })).toBeVisible();
-      const start = (await calls(page)).length;
-      await click("Latest 30 days");
-      await chart(page);
-      expect((await rows(page))[0][0]).toBe("2026-09-02");
-      expect(await methodsSince(start)).toEqual(["calendarReport"]);
-    } else {
-      await chart(page);
+    await expect.poll(chartReads).toBe(start + 1);
+    await expect(daily).toHaveCount(0);
+    if (state === "latest")
+      await expect(
+        page.getByText("No usable recorded history for this range.", { exact: false }),
+      ).toBeVisible();
+    else await page.waitForFunction(() => window.calendarFixture.pending() > 0);
+    await click("Latest");
+    await chart(page);
+    expect((await rows(page))[0][0]).toBe("2026-09-02");
+    expect(await chartReads()).toBe(start + 2);
+    if (state === "cancel") {
       const before = await rows(page);
       await click("Release pending responses");
       await page.waitForTimeout(200); // Observe delayed obsolete response completion.
       expect(await rows(page)).toEqual(before);
-      expect((await calls(page)).at(-1)!.input.hostId).toBe("host_b");
     }
   }
-  if (state === "selection") {
-    await page.getByRole("combobox", { name: "Codex host" }).selectOption("host_b");
-    await expect(page.getByText("Changing host.", { exact: false })).toBeVisible();
-    await expect(page.locator("table")).toHaveCount(0);
-    await click("Release pending responses");
-    await chart(page);
-    expect((await calls(page)).at(-1)!.input.hostId).toBe("host_b");
+  if (state === "offline") {
+    await expect(
+      page.getByText("Last-known summaries retained for Host B", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.2K");
+    expect((await calls(page)).some((call) => call.method === "selectHost")).toBe(false);
   }
   if (state === "settings") {
-    expect(
-      (await calls(page)).some((call) =>
-        ["historyReadiness", "activity", "historicalImport"].includes(call.method),
-      ),
-    ).toBe(false);
+    const managementReads = () =>
+      calls(page).then((items) =>
+        items.filter((call) => ["historyReadiness", "historicalImport"].includes(call.method)),
+      );
+    expect(await managementReads()).toHaveLength(0);
     await click("Show usage settings");
     await expect(page.getByLabel("Usage collection settings")).toBeVisible();
-    expect(
-      (await calls(page)).some((call) =>
-        ["historyReadiness", "historicalImport"].includes(call.method),
-      ),
-    ).toBe(false);
-    const management = page.locator("summary", { hasText: "Collection and history management" });
-    await management.click();
+    expect(await managementReads()).toHaveLength(0);
+    await page.locator("summary", { hasText: "Machine status and collection settings" }).click();
+    expect(await managementReads()).toHaveLength(0);
+    const management = page.getByRole("button", { name: "Manage history", exact: true });
+    await management.nth(0).click();
     await page.waitForFunction(() => window.calendarFixture.pending() === 2);
-    await management.click();
+    await management.nth(0).click();
     await expect(page.getByLabel("History readiness")).toHaveCount(0);
-    await page.getByRole("combobox", { name: "Codex host" }).selectOption("host_b");
-    await page.waitForFunction(() =>
-      window.calendarFixture.calls.some((c) => c.method === "selectHost"),
-    );
-    await click("Release pending responses");
-    await page.waitForTimeout(200);
-    expect(await page.locator("body").innerText()).not.toContain(
-      "History not configured on this host.",
-    );
-    await management.click();
-    await page.waitForFunction(() => window.calendarFixture.pending() === 2);
+    await management.nth(1).click();
+    await page.waitForFunction(() => window.calendarFixture.pending() === 4);
     await click("Release pending responses");
     await expect(
       page.getByText("History not configured on this host.", { exact: false }),
     ).toBeVisible();
-    const requests = (await calls(page)).filter((call) =>
-      ["historyReadiness", "historicalImport"].includes(call.method),
-    );
+    const requests = await managementReads();
     expect(requests).toHaveLength(4);
+    expect(requests.slice(0, 2).every((call) => call.input.hostId === "host_a")).toBe(true);
     expect(requests.slice(2).every((call) => call.input.hostId === "host_b")).toBe(true);
     await click("Show chart");
     await chart(page);

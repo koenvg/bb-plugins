@@ -13,6 +13,13 @@ const cases = [
   ),
   { width: 390, theme: "light", viewport: 1440, zoom: 1, name: "narrow-in-wide" },
   { width: 760, theme: "light", viewport: 760, zoom: 2, name: "zoom-200" },
+  ...["light", "dark"].map((theme) => ({
+    width: 390,
+    theme,
+    viewport: 390,
+    zoom: 1,
+    name: `390-${theme}-coarse`,
+  })),
   { width: 320, theme: "custom", viewport: 320, zoom: 1, name: "320-custom-coarse" },
 ];
 for (const { width, theme, viewport, zoom, name } of cases) {
@@ -65,6 +72,9 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       expect(measured.buttons.map((b) => b.name)).toEqual(["Preview", "Raw", "Outline", "Refresh"]);
       expect(measured.outlineBackground).not.toBeNull();
       expect(measured.outlineBackground).not.toBe("rgba(0, 0, 0, 0)");
+      expect(measured.toolbar.height).toBeLessThanOrEqual(
+        (measured.width <= 600 ? (name.endsWith("coarse") ? 108 : 100) : 64) * zoom,
+      );
       expect(measured.identity).not.toBeNull();
       expect(measured.actions).not.toBeNull();
       if (measured.width <= 600)
@@ -83,7 +93,7 @@ for (const { width, theme, viewport, zoom, name } of cases) {
           measured.actions!.y >= measured.view.bottom,
       ).toBe(true);
       for (const b of measured.buttons) {
-        expect(b.height).toBeGreaterThanOrEqual(36 * zoom);
+        expect(b.height).toBeGreaterThanOrEqual(28 * zoom);
         expect(b.x).toBeGreaterThanOrEqual(measured.toolbar.x);
         expect(b.right).toBeLessThanOrEqual(measured.toolbar.right + 1);
       }
@@ -136,7 +146,7 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       for (const action of [preview, raw, outline, refresh]) {
         const box = await action.boundingBox();
         expect(box).not.toBeNull();
-        const target = name.endsWith("coarse") ? 44 : 36;
+        const target = name.endsWith("coarse") ? 36 : 28;
         expect(box!.width).toBe(target * zoom);
         expect(box!.height).toBe(target * zoom);
         await expect(action).toHaveText("");

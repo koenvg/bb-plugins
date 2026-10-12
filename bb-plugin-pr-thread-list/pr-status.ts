@@ -7,6 +7,7 @@ type Reason =
   | "closed"
   | "checks_running"
   | "checks_failed"
+  | "checks_waiting"
   | "review"
   | "changes_requested"
   | "unresolved_threads"
@@ -27,7 +28,7 @@ export interface PrMark {
   title: string;
 }
 
-export type ChecksState = "passed" | "running" | "failed" | "unknown";
+export type ChecksState = "passed" | "waiting" | "running" | "failed" | "unknown";
 
 export interface PrView {
   lead: string;
@@ -61,6 +62,7 @@ const REASONS: Record<
     mark: "CircleX",
     word: "Checks failed",
   },
+  checks_waiting: { status: "waiting for you", tone: "waiting", mark: "UserRound" },
   review: { status: "awaiting review", tone: "waiting", mark: "Eye" },
   changes_requested: {
     status: "changes requested",
@@ -101,6 +103,7 @@ const QUEUE_REASON: Record<MergeQueueState, Reason> = {
 const BLOCKER_REASON: Record<BlockerCode, Reason> = {
   conflicts: "conflicts",
   checks_failed: "checks_failed",
+  checks_waiting: "checks_waiting",
   changes_requested: "changes_requested",
   blocked: "blocked",
   checks_running: "checks_running",
@@ -112,6 +115,7 @@ const BLOCKER_REASON: Record<BlockerCode, Reason> = {
 const REASON_ORDER: Reason[] = [
   "conflicts",
   "checks_failed",
+  "checks_waiting",
   "changes_requested",
   "blocked",
   "checks_running",
@@ -146,6 +150,11 @@ const COUNTS: Partial<Record<Reason, (pr: PrSummary) => Counted>> = {
     text: plural(pr.failedChecks, "failed check", "failed checks"),
     details: names("Failed", pr.failedNames),
   }),
+  checks_waiting: (pr) => ({
+    count: pr.waitingChecks,
+    text: plural(pr.waitingChecks, "check waiting for you", "checks waiting for you"),
+    details: [],
+  }),
   checks_running: (pr) => ({
     count: pr.runningChecks,
     text: plural(pr.runningChecks, "check running", "checks running"),
@@ -165,6 +174,7 @@ function counted(reason: Reason, pr: PrSummary): Counted | null {
 
 const CHECKS_TEXT: Record<ChecksState, string | null> = {
   passed: "All checks passed",
+  waiting: "Checks waiting for you",
   running: "Checks running",
   failed: "Checks failed",
   unknown: null,
@@ -173,6 +183,7 @@ const CHECKS_TEXT: Record<ChecksState, string | null> = {
 function checksState(pr: PrSummary): ChecksState {
   if (pr.state === "merged" || pr.state === "closed") return "unknown";
   if (pr.failedChecks > 0) return "failed";
+  if (pr.waitingChecks > 0) return "waiting";
   if (pr.runningChecks > 0) return "running";
   return pr.passedChecks > 0 ? "passed" : "unknown";
 }

@@ -54,12 +54,19 @@ describe("NewProjectDialog", () => {
       target: { value: "Home Lab" },
     });
     expect((slot.getByPlaceholderText("TSK") as HTMLInputElement).value).toBe("HL");
+    const indigo = slot.getByRole("radio", { name: "Indigo" });
+    expect(indigo.tabIndex).toBe(0);
+    indigo.focus();
+    fireEvent.keyDown(indigo, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(slot.getByRole("radio", { name: "Blue" }));
+    expect(createCalls).toEqual([]);
     fireEvent.click(slot.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(createCalls).toHaveLength(1));
     expect(createCalls[0]).toMatchObject({
       name: "Home Lab",
       prefix: "HL",
       folderId: null,
+      color: "steelblue",
       linkedBbProjectId: null,
     });
     await waitFor(() =>

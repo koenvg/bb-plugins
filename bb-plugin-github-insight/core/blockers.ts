@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CheckStatus } from "./checks";
+import type { Check } from "./checks";
 import type { MergeQueue } from "./merge-queue";
 
 export const mergeableSchema = z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]);
@@ -20,6 +20,7 @@ export const reviewDecisionSchema = z
 export const blockerCodeSchema = z.enum([
   "conflicts",
   "checks_failed",
+  "checks_waiting",
   "changes_requested",
   "behind",
   "review_required",
@@ -40,7 +41,7 @@ export interface BlockerInput {
   mergeStateStatus: z.infer<typeof mergeStateStatusSchema>;
   reviewDecision: z.infer<typeof reviewDecisionSchema>;
   unresolvedThreads: number;
-  checkStatuses: readonly CheckStatus[];
+  checks: readonly Pick<Check, "name" | "status">[];
   mergeQueue: MergeQueue;
 }
 
@@ -58,14 +59,24 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
   if (input.mergeQueue !== null) return [];
   if (READY_TO_MERGE.has(input.mergeStateStatus)) return [];
 
-  const failed = input.checkStatuses.filter((status) => status === "failed").length;
-  const running = input.checkStatuses.filter((status) => status === "running").length;
+  const withStatus = (status: Check["status"]) =>
+    input.checks.filter((check) => check.status === status);
+  const failed = withStatus("failed").length;
+  const running = withStatus("running").length;
+  const waiting = withStatus("waiting");
   const candidates: [applies: boolean, blocker: Blocker][] = [
     [
       input.mergeable === "CONFLICTING" || input.mergeStateStatus === "DIRTY",
       { code: "conflicts", text: "Merge conflicts" },
     ],
     [failed > 0, { code: "checks_failed", text: `${countOf(failed, "check")} failed` }],
+    [
+      waiting.length > 0,
+      {
+        code: "checks_waiting",
+        text: `${waiting.length === 1 ? waiting[0]!.name : countOf(waiting.length, "check")} waiting for you`,
+      },
+    ],
     [
       input.reviewDecision === "CHANGES_REQUESTED",
       { code: "changes_requested", text: "Changes requested" },

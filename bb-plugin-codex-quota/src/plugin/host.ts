@@ -25,6 +25,13 @@ export function createQuotaHostEntry(deps: Dependencies) {
     },
     handlers: {
       ping: async () => ({ reachable: true }),
+      accountObservation: ({ challenge, refresh, includeActivity }, context) =>
+        account.observation(
+          challenge,
+          refresh,
+          includeActivity,
+          AbortSignal.any([context.signal, context.lifecycle.signal]),
+        ),
       calendarReport: (calendar, context) =>
         history.report(calendar, {
           dataDir: context.experimental_paths.dataDir,

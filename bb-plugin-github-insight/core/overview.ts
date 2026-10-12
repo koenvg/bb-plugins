@@ -5,6 +5,7 @@ import {
   failingCheckRunIds,
   type Check,
   latestCheckCandidates,
+  markWaitingStatuses,
   statusContextNodeSchema,
   toCheck,
 } from "./checks";
@@ -231,7 +232,7 @@ function blockers(
     reviewDecision: reviewState.reviewDecision,
     unresolvedThreads: reviewState.reviewThreads.nodes.filter((thread) => !thread.isResolved)
       .length,
-    checkStatuses: checks.map((check) => check.status),
+    checks,
   });
 }
 
@@ -277,9 +278,15 @@ function autoMergeAction(
   });
 }
 
-export async function collectInsight(github: GitHubReader): Promise<PrReading> {
+export async function collectInsight(
+  github: GitHubReader,
+  now: number = Date.now(),
+): Promise<PrReading> {
   const { pages, reviewState, mergeSettings } = await readOverviewPages(github.fetchOverviewPage);
-  const latest = latestCheckCandidates(pages.flatMap((page) => contextsOf(page)?.nodes ?? []));
+  const latest = markWaitingStatuses(
+    latestCheckCandidates(pages.flatMap((page) => contextsOf(page)?.nodes ?? [])),
+    now,
+  );
   const annotations = await readFailureAnnotations(
     github.fetchCheckRunDetails,
     failingCheckRunIds(latest),

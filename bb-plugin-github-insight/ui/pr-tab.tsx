@@ -23,13 +23,14 @@ import {
   type SummaryLine,
 } from "./pr-status-view";
 
-const OPEN_STATUSES: readonly CheckStatus[] = ["failed", "cancelled", "running"];
+const OPEN_STATUSES: readonly CheckStatus[] = ["failed", "cancelled", "waiting", "running"];
 
 const COLLAPSED_STATUSES: readonly CheckStatus[] = ["passed", "skipped"];
 
 const STATUS_ICON: Record<CheckStatus, { name: IconName; className: string }> = {
   failed: { name: "CircleX", className: "text-destructive" },
   cancelled: { name: "Unavailable", className: "text-muted-foreground" },
+  waiting: { name: "UserRound", className: "text-attention" },
   running: { name: "Spinner", className: "text-attention" },
   passed: { name: "CircleCheck", className: "text-success" },
   skipped: { name: "Circle", className: "text-muted-foreground" },

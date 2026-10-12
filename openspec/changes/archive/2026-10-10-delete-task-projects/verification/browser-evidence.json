@@ -1,0 +1,592 @@
+[
+  {
+    "case": "desktop-dark",
+    "ready": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 193.5,
+        "y": 239,
+        "width": 598,
+        "height": 324
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 659.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 703.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete HOME",
+          "x": 755.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Save WORK",
+          "x": 659.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 703.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete WORK",
+          "x": 755.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        }
+      ],
+      "action": null,
+      "font": null,
+      "paragraphGap": null
+    },
+    "confirmation": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 193.5,
+        "y": 239,
+        "width": 598,
+        "height": 324
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 659.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 703.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete HOME",
+          "x": 755.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Save WORK",
+          "x": 659.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 703.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete WORK",
+          "x": 755.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        }
+      ],
+      "action": {
+        "x": 541,
+        "y": 513.28515625,
+        "width": 190,
+        "height": 36
+      },
+      "copy": "Delete this project and all 42 tasks? This cannot be undone.",
+      "font": {
+        "size": "13px",
+        "descriptionSize": "13px",
+        "family": "system-ui, sans-serif",
+        "controlFamilies": [
+          "system-ui, sans-serif",
+          "system-ui, sans-serif",
+          "system-ui, sans-serif"
+        ],
+        "lineHeight": "19.5px",
+        "color": "rgb(161, 161, 170)"
+      },
+      "paragraphGap": 8
+    },
+    "keyboard": "Tab, Space, native input and Escape; Cancel focus and trigger focus return verified"
+  },
+  {
+    "case": "desktop-light",
+    "ready": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 193.5,
+        "y": 239,
+        "width": 598,
+        "height": 324
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 659.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 703.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete HOME",
+          "x": 755.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Save WORK",
+          "x": 659.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 703.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete WORK",
+          "x": 755.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        }
+      ],
+      "action": null,
+      "font": null,
+      "paragraphGap": null
+    },
+    "confirmation": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 193.5,
+        "y": 239,
+        "width": 598,
+        "height": 324
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 659.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 703.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete HOME",
+          "x": 755.5,
+          "y": 379,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Save WORK",
+          "x": 659.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 703.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Delete WORK",
+          "x": 755.5,
+          "y": 448,
+          "width": 36,
+          "height": 36
+        }
+      ],
+      "action": {
+        "x": 541,
+        "y": 513.28515625,
+        "width": 190,
+        "height": 36
+      },
+      "copy": "Delete this project and all 42 tasks? This cannot be undone.",
+      "font": {
+        "size": "13px",
+        "descriptionSize": "13px",
+        "family": "system-ui, sans-serif",
+        "controlFamilies": [
+          "system-ui, sans-serif",
+          "system-ui, sans-serif",
+          "system-ui, sans-serif"
+        ],
+        "lineHeight": "19.5px",
+        "color": "rgb(82, 82, 91)"
+      },
+      "paragraphGap": 8
+    },
+    "keyboard": "Tab, Space, native input and Escape; Cancel focus and trigger focus return verified"
+  },
+  {
+    "case": "narrow-panel-dark",
+    "ready": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 353.5,
+        "y": 239,
+        "width": 278,
+        "height": 521
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 499.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 543.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete HOME",
+          "x": 595.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Save WORK",
+          "x": 499.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 543.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete WORK",
+          "x": 595.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        }
+      ],
+      "action": null,
+      "font": null,
+      "paragraphGap": null
+    },
+    "confirmation": {
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 353.5,
+        "y": 239,
+        "width": 278,
+        "height": 521
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 499.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 543.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete HOME",
+          "x": 595.5,
+          "y": 465,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Save WORK",
+          "x": 499.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 543.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete WORK",
+          "x": 595.5,
+          "y": 623,
+          "width": 36,
+          "height": 40
+        }
+      ],
+      "action": {
+        "x": 541,
+        "y": 513.28515625,
+        "width": 190,
+        "height": 36
+      },
+      "copy": "Delete this project and all 42 tasks? This cannot be undone.",
+      "font": {
+        "size": "13px",
+        "descriptionSize": "13px",
+        "family": "system-ui, sans-serif",
+        "controlFamilies": [
+          "system-ui, sans-serif",
+          "system-ui, sans-serif",
+          "system-ui, sans-serif"
+        ],
+        "lineHeight": "19.5px",
+        "color": "rgb(161, 161, 170)"
+      },
+      "paragraphGap": 8
+    },
+    "keyboard": "Tab, Space, native input and Escape; Cancel focus and trigger focus return verified"
+  },
+  {
+    "case": "mobile-light",
+    "ready": {
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 17,
+        "y": 491,
+        "width": 341,
+        "height": 501.5
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 226,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 270,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete HOME",
+          "x": 322,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Save WORK",
+          "x": 226,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 270,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete WORK",
+          "x": 322,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        }
+      ],
+      "action": null,
+      "font": null,
+      "paragraphGap": null
+    },
+    "confirmation": {
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "pageOverflow": false,
+      "table": {
+        "x": 17,
+        "y": 491,
+        "width": 341,
+        "height": 501.5
+      },
+      "icons": [
+        {
+          "name": "Save HOME",
+          "x": 226,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel HOME",
+          "x": 270,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete HOME",
+          "x": 322,
+          "y": 697.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Save WORK",
+          "x": 226,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Cancel WORK",
+          "x": 270,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        },
+        {
+          "name": "Delete WORK",
+          "x": 322,
+          "y": 855.5,
+          "width": 36,
+          "height": 40
+        }
+      ],
+      "action": {
+        "x": 17,
+        "y": 788,
+        "width": 326,
+        "height": 36
+      },
+      "copy": "Delete this project and all 42 tasks? This cannot be undone.",
+      "font": {
+        "size": "13px",
+        "descriptionSize": "13px",
+        "family": "system-ui, sans-serif",
+        "controlFamilies": [
+          "system-ui, sans-serif",
+          "system-ui, sans-serif",
+          "system-ui, sans-serif"
+        ],
+        "lineHeight": "19.5px",
+        "color": "rgb(82, 82, 91)"
+      },
+      "paragraphGap": 8
+    },
+    "keyboard": "Tab, Space, native input and Escape; Cancel focus and trigger focus return verified"
+  },
+  {
+    "case": "zero-and-count-retry",
+    "passed": true
+  },
+  {
+    "case": "fail-post-delete",
+    "passed": true,
+    "pendingButton": {
+      "x": 17,
+      "y": 788,
+      "width": 326,
+      "height": 36
+    },
+    "draftPreserved": true
+  },
+  {
+    "case": "overlap-delete",
+    "passed": true,
+    "pendingButton": {
+      "x": 17,
+      "y": 788,
+      "width": 326,
+      "height": 36
+    },
+    "draftPreserved": true
+  }
+]

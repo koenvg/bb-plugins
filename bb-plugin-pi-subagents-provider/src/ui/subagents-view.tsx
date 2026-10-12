@@ -25,15 +25,42 @@ export function SubagentsView({
   state,
   loading = false,
   error,
+  warning,
+  target,
+  overview = false,
 }: {
   state?: ViewState;
   loading?: boolean;
   error?: string;
+  warning?: string;
+  target?: string | null;
+  overview?: boolean;
 }) {
-  const [selected, setSelected] = useState<string>();
+  const [selection, setSelection] = useState<{
+    target?: string | null;
+    overview?: boolean;
+    id?: string;
+  }>({ target, overview });
+  const targetChanged = selection.target !== target || Boolean(selection.overview) !== overview;
+  if (targetChanged) setSelection({ target, overview });
+  const selected = targetChanged ? target : (selection.id ?? target);
+  const setSelected = (id: string) => setSelection({ target, overview, id });
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const items = useMemo(() => orderedRows(state?.rows ?? []), [state]);
-  const row = state?.rows.find((r) => r.id === selected) ?? items[0]?.row;
+  const targetRow = state?.rows.find(
+    (r) => r.id === target && r.source === "background" && !r.parentId,
+  );
+  const row = selected
+    ? state?.rows.find(
+        (r) =>
+          r.id === selected &&
+          ((!targetChanged && selection.id !== undefined) ||
+            selected !== target ||
+            r === targetRow),
+      )
+    : target === undefined && !overview
+      ? items[0]?.row
+      : undefined;
   if (loading && !state) return <p role="status">Loading captured subagents...</p>;
   return (
     <section
@@ -46,9 +73,21 @@ export function SubagentsView({
           Read-only captured observations. Pi owns execution and delivery.
         </p>
       </header>
+      {overview && !row && <p role="status">Select a captured run to view its detail.</p>}
+      {target === null && (
+        <p role="alert">Requested subagent target is invalid. Select another captured run.</p>
+      )}
+      {target && !loading && !targetRow && (
+        <p role="alert">Requested background detail is unavailable. Select another captured run.</p>
+      )}
       {error && (
         <p role="alert" className="text-destructive">
           {error} Previously captured detail stays visible.
+        </p>
+      )}
+      {warning && (
+        <p role="status" className="text-muted-foreground">
+          {warning}
         </p>
       )}
       {state?.availability !== "available" && (

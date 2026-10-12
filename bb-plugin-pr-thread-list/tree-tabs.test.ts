@@ -25,6 +25,7 @@ const conflicts: PrSummary = {
   failedChecks: 0,
   passedChecks: 0,
   runningChecks: 0,
+  waitingChecks: 0,
   pendingReviews: 0,
   blockers: ["conflicts"],
   failedNames: [],

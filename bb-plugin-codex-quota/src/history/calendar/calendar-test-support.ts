@@ -52,7 +52,7 @@ export function calendarSnapshot(
         n === 14
           ? {
               state: "available",
-              input: 240,
+              input: 40,
               output: 360,
               reasoning: 100,
               cacheRead: 200,

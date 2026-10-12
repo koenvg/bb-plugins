@@ -2,6 +2,7 @@
 import { act, cleanup, configure, render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { metadataFixture } from "../machines/app.test-support.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
 afterEach(() => {
@@ -18,9 +19,9 @@ function options() {
       observedAt: new Date(Date.now()).toISOString(),
       plan: null,
       bankedResets: null,
-      general: [{ id: "primary", name: "Primary", remainingPercent: 42, resetAt: null }],
+      general: [{ id: "primary_window", name: "Primary", remainingPercent: 42, resetAt: null }],
       additional: [],
-      bindingWindowId: "primary",
+      bindingWindowId: "primary_window",
       bindingRemainingPercent: 42,
     },
   }));
@@ -28,6 +29,7 @@ function options() {
     read,
     rpc: {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
+      machineAccounts: async () => metadataFixture(["host_a"], await read()),
       read,
     },
   };
@@ -113,9 +115,11 @@ describe("app-wide quota ownership", () => {
                 observedAt: new Date(Date.now()).toISOString(),
                 plan: null,
                 bankedResets: null,
-                general: [{ id: "primary", name: "Primary", remainingPercent: 42, resetAt: null }],
+                general: [
+                  { id: "primary_window", name: "Primary", remainingPercent: 42, resetAt: null },
+                ],
                 additional: [],
-                bindingWindowId: "primary",
+                bindingWindowId: "primary_window",
                 bindingRemainingPercent: 42,
               },
             });
@@ -130,20 +134,20 @@ describe("app-wide quota ownership", () => {
       battery.container.querySelector("[data-battery-fill]")?.getAttribute("data-battery-fill"),
     ).toBe("42");
     expect(
-      within(page.getByRole("region", { name: "Codex allowance summary" })).getByRole("status")
+      within(page.getByRole("region", { name: "Account allowance" })).getByRole("status")
         .textContent,
-    ).toMatch(/^Updating/);
+    ).toMatch(/^Fresh · updating/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(240_000);
     });
     expect(input.read).toHaveBeenCalledTimes(2);
-    expect(badge.container.textContent).toBe("Stale");
+    expect(badge.container.textContent).toBe("—");
     expect(badge.container.querySelector("[title]")!.getAttribute("title")).toContain(
       `observed ${observation}`,
     );
     expect(battery.container.querySelector("[data-battery-fill]")).toBeNull();
     expect(
-      within(page.getByRole("region", { name: "Codex allowance summary" })).getByRole("status")
+      within(page.getByRole("region", { name: "Account allowance" })).getByRole("status")
         .textContent,
     ).toMatch(/^Stale · updating/);
     await act(async () => {

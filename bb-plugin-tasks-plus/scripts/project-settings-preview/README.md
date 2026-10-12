@@ -2,6 +2,20 @@
 
 This preview renders the actual `ProjectsSection`, not a separate table editor. BBP-97's accepted name editor is inherited. BBP-98 adds the existing named color palette in each row's responsive popover or compact drawer. Name and color drafts stay local until that row's Save. Custom colors remain exact until a deliberate replacement. Cancel restores both latest loaded values for that row.
 
+## Project deletion early preview
+
+The check mark saves a row, the undo arrow cancels its edits, and the separated red trash icon opens deletion confirmation. Each icon has a named tooltip and a 36px minimum target. The name and colour editor and compact table layout are unchanged.
+
+Open trash while a row has a draft. The dialog shows the saved name and prefix, not that draft. Cancel or Escape closes it without saving. Cancel gets initial focus. On opening, the prefix field is empty. Type the exact case-sensitive prefix, without surrounding spaces, to enable **Delete project and tasks**. Matching alone sends no deletion request.
+
+The fixture count loads two pages containing 42 tasks, including completed tasks and subtasks. The total describes the tasks observed during confirmation; it is not a fixed deletion snapshot. Use **Toggle zero task count** before opening for a known zero. Use **Fail next task count** before opening for an error, then **Retry task count**. Deletion is disabled while counting or on count failure.
+
+Deleting here changes browser memory only. All row edits and actions, the prefix field and dialog dismissal lock while the request is pending. **Fail next deletion** keeps the confirmation for manual retry. Successful deletion removes only the selected fixture row; Reset restores both fixtures. The production API permanently deletes the Tasks project and all its tasks. It does not delete linked BB workspaces, BB threads or workspace files. No restoration or undo is provided.
+
+Use **Overlap stale inventory on next delete** before opening the dialog to start a delayed old inventory during deletion. The deleted row must stay absent when that read returns. To test a successful deletion followed by a failed refresh, arm **Fail post-delete refresh** before opening. The row disappears and success stays separate from the inventory alert. Select **Allow inventory reads**, then inventory **Retry** to recover without deleting again.
+
+Use **Toggle light/dark** and resize the panel to inspect both layouts. These tokens approximate the host themes. Koen approved the shorter copy and adjusted spacing/typography with "Perfect". See [the change's implementation notes](../../../openspec/changes/archive/2026-10-10-delete-task-projects/implementation-notes.md) for current validation, visual evidence and review limits. Approval of this preview is not deployment approval.
+
 ## BBP-98 delivery and feedback history
 
 BBP-98 stays attached to `bbthread://thr_yaw3edehh3`, with coordinator `bbthread://thr_djtxs2h8t2`. Koen approved the combined editor and then its scoped round, borderless swatches with "looks good!". The coordinator authorized final delivery validation and one fresh independent full-delivery review, not deployment or publication. Delivery-1 boxes 1.1-1.9 are checked; delivery-2 boxes 2.1-2.6 stay unchecked for coordinator evidence checking. User visual approval, implementation validation and coordinator completion checking remain separate.

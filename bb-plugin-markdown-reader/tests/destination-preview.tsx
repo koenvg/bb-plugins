@@ -38,7 +38,7 @@ const identity = {
 const text =
   "# Destinations\n\n[sibling](next.md) [web](https://example.com/guide) [here](#destinations)\n\nUnsafe: [script](javascript:alert(1)) [escape](../../outside.md)\n\n![Local picture](picture.png)\n\n![Confined symlink alt](escape.png)\n\n![Remote picture](https://images.test/picture.png)\n\n![Rejected SVG alt](active.svg)\n\nFootnote[^1].\n\n[^1]: Local note.\n";
 let reads = 0,
-  leases = 0;
+  resolutions = 0;
 document.documentElement.dataset.theme = params.get("theme") ?? "light";
 document.getElementById("root")!.style.cssText =
   `width:${Number(params.get("width")) || 760}px;max-width:100%;height:850px`;
@@ -67,8 +67,8 @@ const slot = renderSlot(
       },
       resolve_destinations: async (input): Promise<DestinationResult> => {
         const { requests } = input as { requests: DestinationRequest[] };
-        const base = `/api/v1/file-previews/fixture-${++leases}`;
-        document.documentElement.dataset.fixtureLeases = String(leases);
+        const generation = ++resolutions;
+        document.documentElement.dataset.fixtureResolutions = String(generation);
         return {
           identity,
           destinations: requests.map((request) => {
@@ -91,8 +91,7 @@ const slot = renderSlot(
               return {
                 kind: "image",
                 remote: false,
-                url: `${base}/${request.url}`,
-                expiresAtMs: Date.now() + 60000,
+                url: `/api/v1/plugins/markdown-reader/http/image?asset=fixture-${generation}-${request.url}`,
               };
             return { kind: "rejected", reason: "Unsafe or unsupported fixture destination" };
           }),

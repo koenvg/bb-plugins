@@ -2,7 +2,6 @@ import { posix, win32 } from "node:path";
 import type { ReaderTarget } from "./source";
 import { MAX_IMAGES, type Destination, type DestinationRequest } from "./destination-types";
 
-export const PREVIEW_TTL_MS = 60000;
 export interface DocumentLocation {
   target: ReaderTarget;
   hostId: string;
@@ -119,52 +118,44 @@ function resolve(location: DocumentLocation, { url, image }: DestinationRequest)
 export async function resolveDestinations(
   location: DocumentLocation,
   requests: DestinationRequest[],
-  createPreview?: (args: {
-    hostId: string;
-    rootPath: string;
-    ttlMs: number;
-  }) => Promise<{ baseUrl: string; expiresAtMs: number }>,
+  imageUrl?: (target: { hostId: string; rootPath: string; path: string }) => Promise<string>,
 ): Promise<Destination[]> {
   const images = new Set<string>();
-  const resolved = requests.map((request) => {
-    const result = resolve(location, request);
-    if (result.kind === "local-image" || result.kind === "image") {
-      const key = result.kind === "local-image" ? result.relative : result.url;
-      if (!images.has(key) && images.size >= MAX_IMAGES)
-        return rejected("This document exceeds the 32-image limit.");
-      images.add(key);
-    }
-    return result;
-  });
-  if (!resolved.some((r) => r.kind === "local-image")) return resolved as Destination[];
-  try {
-    if (!createPreview) throw new Error("Preview transport unavailable");
-    const preview = await createPreview({
-      hostId: location.hostId,
-      rootPath: location.rootPath,
-      ttlMs: PREVIEW_TTL_MS,
-    });
-    // Only the public SDK's opaque path-shaped transport is accepted, never a filesystem URL.
-    if (
-      !/^\/api\/v1\/file-previews\/[a-z\d-]+$/i.test(preview.baseUrl) ||
-      !Number.isFinite(preview.expiresAtMs) ||
-      preview.expiresAtMs <= Date.now() ||
-      preview.expiresAtMs > Date.now() + PREVIEW_TTL_MS + 5000
-    )
-      throw new Error("Invalid preview transport");
-    return resolved.map((r) =>
-      r.kind === "local-image"
-        ? {
-            kind: "image",
-            remote: false,
-            url: `${preview.baseUrl}/${r.relative.split("/").map(encodeURIComponent).join("/")}`,
-            expiresAtMs: preview.expiresAtMs,
-          }
-        : r,
-    );
-  } catch {
-    return resolved.map((r) =>
-      r.kind === "local-image" ? rejected("Image preview is unavailable. Refresh to retry.") : r,
-    );
-  }
+  const localUrls = new Map<string, Promise<Destination>>();
+  return Promise.all(
+    requests.map(async (request) => {
+      const result = resolve(location, request);
+      if (result.kind === "local-image" || result.kind === "image") {
+        const key = result.kind === "local-image" ? result.relative : result.url;
+        if (!images.has(key) && images.size >= MAX_IMAGES)
+          return rejected("This document exceeds the 32-image limit.");
+        images.add(key);
+      }
+      if (result.kind !== "local-image") return result;
+      if (!localUrls.has(result.relative)) {
+        localUrls.set(
+          result.relative,
+          (async (): Promise<Destination> => {
+            try {
+              if (!imageUrl) throw new Error("Image transport unavailable");
+              const paths = /^[a-z]:[\\/]|^\\\\/i.test(location.rootPath) ? win32 : posix;
+              const url = await imageUrl({
+                hostId: location.hostId,
+                rootPath: location.rootPath,
+                path: paths.resolve(location.rootPath, ...result.relative.split("/")),
+              });
+              if (
+                !/^\/api\/v1\/plugins\/markdown-reader\/http\/image\?asset=[a-z\d_-]+$/i.test(url)
+              )
+                throw new Error("Invalid image transport");
+              return { kind: "image", remote: false, url };
+            } catch {
+              return rejected("Image preview is unavailable. Refresh to retry.");
+            }
+          })(),
+        );
+      }
+      return localUrls.get(result.relative)!;
+    }),
+  );
 }

@@ -103,7 +103,6 @@ export function PromptDialog({
   async function persist(prompt: string | null) {
     if (busy || writeLock.current || conflict || !state) return;
     const result = await settings.persist(
-      "prompt",
       project.name,
       prompt,
       prompt === null ? resetExpected.current : undefined,
