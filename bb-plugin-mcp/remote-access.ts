@@ -264,12 +264,15 @@ export function remoteAccess(options: {
     }
   }
   return {
-    status: () => ({
-      url: resource,
-      port: options.connection.port,
-      listener: state,
-      publicReachability: "unverified" as const,
-    }),
+    status: () => {
+      const address = listener?.address();
+      return {
+        url: resource,
+        port: address && typeof address === "object" ? address.port : options.connection.port,
+        listener: state,
+        publicReachability: "unverified" as const,
+      };
+    },
     async start() {
       if (listener || closing) throw new Error("LISTENER_ALREADY_STARTED");
       options.operations?.activate();

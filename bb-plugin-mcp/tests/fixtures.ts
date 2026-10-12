@@ -81,7 +81,7 @@ export async function fixture(
   const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
   let config: Config = {
     publicOrigin: "https://mcp.example.org",
-    port: await freePort(),
+    port: 0,
     issuer: "https://issuer.example.org" + (authMode === "bearer-jwt" ? "/realm" : ""),
     authMode,
     accessAudience: authMode === "cloudflare-access" ? "dedicated-app" : "",
@@ -172,6 +172,8 @@ export async function fixture(
   }
   let { operations, access } = createAccess();
   await access.start();
+  // Keep the OS-assigned port bound instead of releasing a probe before startup.
+  config.port = access.status().port;
   const local = `http://127.0.0.1:${config.port}`;
   async function token(
     claims: JWTPayload = {},
