@@ -85,8 +85,6 @@ it("stacks models separately from uncertainty and retains token class facts", ()
   expect(data.rows[14].modelHeights).toEqual({
     m0: 400 / 900,
     m1: 200 / 900,
-    other: 0,
-    unknown: 0,
   });
   expect(
     Object.values(data.rows[14].modelHeights).reduce<number>(
@@ -335,8 +333,10 @@ it("uses the same model counts and labels in legend, tooltip, and accessible dai
       <UsageTooltip day={view.days[14]} metric="tokens" />
     </>,
   );
-  expect(screen.getByLabelText("Models").textContent).toBe("gpt.5[fast]Other modelsUnknown model");
-  const models = screen.getByLabelText("Tokens by model");
+  expect(screen.getByLabelText("Models").textContent).toBe(
+    "gpt.5[fast] DefaultOther models DefaultUnknown model Default",
+  );
+  const models = screen.getByLabelText("Tokens by model and speed");
   expect(models.querySelectorAll("li")).toHaveLength(3);
   expect(
     Array.from(models.querySelectorAll("li [title]"), (node) => node.getAttribute("title")),
@@ -346,7 +346,11 @@ it("uses the same model counts and labels in legend, tooltip, and accessible dai
     Array.from(table.querySelectorAll("thead th"))
       .slice(-3)
       .map((node) => node.textContent),
-  ).toEqual(["gpt.5[fast] tokens", "Other models tokens", "Unknown model tokens"]);
+  ).toEqual([
+    "gpt.5[fast] Default tokens",
+    "Other models Default tokens",
+    "Unknown model Default tokens",
+  ]);
   expect(
     Array.from(table.querySelectorAll("tbody tr")[14].children)
       .slice(-3)
@@ -374,10 +378,12 @@ it.each([14, 0])(
         />
       </>,
     );
-    expect(screen.getByLabelText("Models").textContent).toBe("gpt-5.4Unknown model");
+    expect(screen.getByLabelText("Models").textContent).toBe(
+      "gpt-5.4 DefaultUnknown model Default",
+    );
     const tooltip = screen.getByRole("tooltip");
     expect(tooltip.querySelector("dl dd")?.textContent).toBe(index === 14 ? "600" : "Unavailable");
-    expect(within(tooltip).queryByLabelText("Tokens by model")).toBeNull();
+    expect(within(tooltip).queryByLabelText("Tokens by model and speed")).toBeNull();
     const cells = screen
       .getByRole("table", { name: "Daily recorded usage" })
       .querySelectorAll("tbody tr")[index].children;

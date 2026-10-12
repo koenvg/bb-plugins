@@ -4,7 +4,7 @@ This combines reviewed identity/import work at `11be5e0c04a5d9c5631e4626a9a4c5bf
 
 ## One schema owner
 
-`initializeHistory` owns the transactional migration to **schema 4**. It checks the supported version and base layout before mutation. It initializes retention, writer observation, identity and import together, then publishes `user_version=4` last.
+`initializeHistory` owns the transactional migration to **schema 5**. It checks the supported version and base layout before mutation. It initializes retention, writer observation, identity and import together, adds source/speed/native metadata, then publishes `user_version=5` last. Supported schema-4 read-only reports stay all Normal; see [SPEED.md](SPEED.md).
 
 - Schema 1: resumable, bounded compact ownership backfill. Supported additive identity/import layouts keep their configuration and receipts.
 - Schemas 2 and 3: keep compact rows, original ownership, cutoffs, completed cursors and scalar values. Reset only the bounded identity projection backfill.
@@ -37,7 +37,7 @@ All database work uses persistent temporary SQLite. Source files, agent folders,
 
 - `src/history/storage/storage-integration.test.ts`: schema-1/2/3 migration/reopen, protected layout/header/WAL cases, compact replay and identity expiry, import backfill gating, independent observation, observed-only recovery and import-only retention.
 - `src/history/storage/storage-delivery.test.ts`: public SDK host harness plus persistent server storage, recovery/redelivery, stable catalog fingerprint/generation, unchanged metadata call count and quota isolation.
-- `scripts/check-prior-schema3.mjs`: verifies the exact old artifact hash, creates actual combined schema 4 through packaged handlers, and proves old readiness/repair reject it before database open. Database, control, WAL/SHM and owned agent files remain unchanged.
+- `scripts/check-prior-schema3.mjs`: verifies the exact old artifact hash, creates the current combined schema through packaged handlers, and proves old readiness/repair reject it before database open. Database, control, WAL/SHM and owned agent files remain unchanged.
 - Existing history, identity, import, live-overlap/fork, FIFO, OAuth and activity bundle proofs remain. The schema-1 overlap fixture retains its original scalar and owner assertions and now exercises the real combined migration.
 - `scripts/browser/management.spec.ts`, `storage combined` cases: the same 28 desktop/375px states, including recovery, incompatible storage, legacy phases and frozen/completed/canceled import. Keyboard access, thread navigation, quota, official link and overflow are checked. Generated scoped Tailwind CSS and fixture theme are present. Run `bun run test:browser --grep 'storage combined'`. See [browser verification](BROWSER-TESTING.md).
 - `scripts/check-storage-integration.mjs`: actual packaged partial-schema/singleton and absent/empty WAL non-mutation, plus compact-only unconfirmed overlap exclusion after import/reopen. The exact pre-review artifact reproduces the three failures.

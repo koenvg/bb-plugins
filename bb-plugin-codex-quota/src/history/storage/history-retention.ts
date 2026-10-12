@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { canonicalInterval, readCoverage } from "../collection/history-coverage.js";
 
 import { aggregateDays } from "../calendar/calendar-aggregation.js";
-export const HISTORY_VERSION = 4;
+export const HISTORY_VERSION = 5;
 export type CompactRow = {
   event_id: string;
   session_id: string;
@@ -168,6 +168,7 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
       db.prepare("INSERT OR IGNORE INTO usage_expired VALUES (?)").run(row.event_id);
       db.prepare("DELETE FROM usage_events WHERE event_id=?").run(row.event_id);
       retireIdentityUsage(db, row.event_id);
+      db.prepare("DELETE FROM usage_metadata WHERE event_id=?").run(row.event_id);
       db.prepare("DELETE FROM usage_compact WHERE event_id=?").run(row.event_id);
     }
     const details = db

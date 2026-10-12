@@ -6,14 +6,37 @@ import { createServer } from "node:http";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const scripts = dirname(fileURLToPath(import.meta.url));
 const packageRoot = dirname(scripts);
 const root = await mkdtemp(join(tmpdir(), "codex-quota-preview-"));
-const suites = ["activity", "collector", "identity", `import`, "calendar"];
+const suites = ["activity", "collector", "identity", `import`, "calendar", "speed"];
 let server;
 try {
+  // Node also runs this preview lifecycle test. Compile .js-to-.ts source imports before loading.
+  const fixtureArtifact = join(root, "speed-fixture.mjs");
+  await build({
+    entryPoints: [join(scripts, "prepare-speed-fixture.ts")],
+    outfile: fixtureArtifact,
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    plugins: [
+      {
+        name: "fixture-dependencies",
+        setup(builder) {
+          // Keep installed dependencies at their real package roots, including Pi's runtime metadata.
+          builder.onResolve({ filter: /^[^./]/ }, (args) => ({
+            path: import.meta.resolve(args.path),
+            external: true,
+          }));
+        },
+      },
+    ],
+  });
+  const { prepareSpeedFixture } = await import(pathToFileURL(fixtureArtifact).href);
+  const speedReports = await prepareSpeedFixture(join(packageRoot, "fixtures"));
   const css = await compile(await readFile(join(scripts, "preview.css"), "utf8"), {
     base: scripts,
     onDependency() {},
@@ -35,7 +58,10 @@ try {
       format: "esm",
       jsx: "automatic",
       // The public SDK testing renderer uses React.act, which requires the development build.
-      define: { "process.env.NODE_ENV": '"development"' },
+      define: {
+        "process.env.NODE_ENV": '"development"',
+        __SPEED_REPORTS__: JSON.stringify(speedReports),
+      },
     });
     await writeFile(
       join(root, `${suite}.html`),

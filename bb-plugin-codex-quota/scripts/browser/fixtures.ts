@@ -21,6 +21,32 @@ export const test = base.extend<{ localOnly: void }>({
   ],
 });
 export { expect };
+
+export async function reportTheme(page: Page, theme: "light" | "dark") {
+  await page.evaluate((theme) => {
+    const root = document.documentElement.style;
+    root.colorScheme = theme;
+    if (theme === "light") {
+      for (const [name, value] of Object.entries({
+        background: "#ffffff",
+        foreground: "oklch(32.11% 0 0)",
+        "muted-foreground": "oklch(44% 0 0)",
+        muted: "#eeeeee",
+        border: "#dddddd",
+        accent: "#eeeeee",
+        primary: "oklch(27% 0 0)",
+        ring: "oklch(27% 0 0)",
+        popover: "#ffffff",
+        "popover-foreground": "oklch(32.11% 0 0)",
+      }))
+        root.setProperty("--" + name, value);
+    }
+    document.body.style.backgroundColor = "var(--background)";
+  }, theme);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(
+    theme,
+  );
+}
 export const sizes = [1280, 375];
 export async function viewport(page: Page, width: number) {
   await page.setViewportSize({ width, height: width === 375 ? 812 : 1100 });

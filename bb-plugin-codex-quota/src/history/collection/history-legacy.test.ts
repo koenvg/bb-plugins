@@ -475,7 +475,7 @@ it("upgrades checkpoint schema 2 without new backfill or changing scalar ownersh
   ]);
   const reopened = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
   try {
-    expect(reopened.prepare("PRAGMA user_version").get()).toEqual({ user_version: 4 });
+    expect(reopened.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
     expect(
       reopened
         .prepare("SELECT captured_cost FROM usage_compact WHERE event_id=?")

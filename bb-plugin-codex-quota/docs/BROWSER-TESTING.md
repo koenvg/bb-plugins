@@ -12,13 +12,13 @@ bun run typecheck
 
 `@playwright/test` is locked to 1.64.0. `bun run test` remains Vitest. Its default exclusions are retained, with only `scripts/browser/**/*.spec.ts` added. `proof.test.ts` remains in Vitest.
 
-No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for browser checks. Existing `.mjs` bundle checks and `bun run test:bundle` are unchanged and remain separate backend verification.
+No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for browser checks. The `.mjs` bundle checks remain separate backend verification. `test:bundle` also runs the actual built-entry speed/native proof.
 
 ## Ownership and local resources
 
 Playwright launches its own Chromium, creates fresh test contexts, and closes them. No existing browser profile, login, tab or daemon is used. The Bun preview builds the existing TSX/HTML fixtures and scoped Tailwind utilities into a fresh `codex-quota-preview-*` directory under the OS temporary directory. Playwright sends SIGTERM and waits up to five seconds for server cleanup. The server removes that directory on normal shutdown. It never builds into `dist/` or writes product/source-root data.
 
-The preview listens only on `127.0.0.1:38716`. An occupied port fails; an existing server is never reused or replaced. It serves only the five fixture HTML/JavaScript pairs and generated CSS, not the checkout. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
+The preview listens only on `127.0.0.1:38716`. An occupied port fails; an existing server is never reused or replaced. It serves only the six fixture HTML/JavaScript pairs and generated CSS, not the checkout. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
 
 The CSS compiler uses the BB Tailwind 4.3 theme/utility layer pattern without preflight, fixture theme aliases and the existing HTML dark theme. This is synthetic fixture CSS, not acceptance of BB's packaged CSS build or installed theme. The public SDK calendar renderer needs React's development build for `act`. All hosts, RPCs, clocks and datasets are synthetic.
 
@@ -57,7 +57,7 @@ bun run test scripts/browser/proof.test.ts
 bun --bun run playwright show-report
 ```
 
-The full run has 111 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
+The full run has 121 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
 
 ## Evidence limits
 
@@ -66,3 +66,7 @@ The full run has 111 browser tests. `test-results/` holds screenshots with origi
 - A positive rendered bar must restore the target date after a different keyboard date, then match every exact value. Missing/zero-height bars have no pointer receipt. Tooltips require opaque backgrounds and text contrast at least 4.5:1.
 - Browser cancellation fixtures use identical host values and the retained 200ms settle windows. They cannot independently prove rejection of a different wrong-host payload or cancellation of already dispatched work. Existing deterministic public SDK Vitest regressions remain the stronger request-boundary checks.
 - This is not installed BB navigation, live capture, identity completeness, complete active collection, source-root mutation, recovery of real data, subscription billing or signed-in account acceptance. No external traffic is authorized.
+
+## Speed and native fixture
+
+`speed.spec.ts` adds eight desktop/375px cases using reports from `createHostHistory.prepare/report`, not hand-written UI speed totals. It checks the three labels and exact accessible counts, both metrics, date navigation, host/all-machine scope, ranking, stable loading-group space, explicit retry and offline display. Screenshots and `backend-reports.json` retain these facts. Native tiers are forward-format policy only; installed-format supported requests are Normal. See [SPEED.md](SPEED.md).

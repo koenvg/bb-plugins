@@ -1,4 +1,13 @@
-import { mkdtemp, rm, writeFile, readFile, readdir, symlink, rename } from "node:fs/promises";
+import {
+  mkdtemp,
+  rm,
+  writeFile,
+  readFile,
+  readdir,
+  symlink,
+  rename,
+  mkdir,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -173,4 +182,127 @@ it("resumes durable quarantine after the database move without touching unrelate
   expect(await readFile(join(f.directory, directory, "usage-v1.sqlite-wal"), "utf8")).toBe(
     "late-sidecar",
   );
+});
+
+it.each([false, true])(
+  "preserves recovery ownership between quarantine move and phase publication with native preparation=%s",
+  async (prepare) => {
+    const f = await fixture();
+    await f.history.control("pause", f.context);
+    const boundary = JSON.parse(
+      await readFile(join(f.directory, "retention-boundary-v2.json"), "utf8"),
+    );
+    const directory = "quarantine-00000000-0000-4000-8000-000000000099";
+    const receiptPath = join(f.directory, "recovery-v2.json");
+    await writeFile(
+      receiptPath,
+      JSON.stringify({
+        phase: "quarantine",
+        directory,
+        boundary,
+        start: boundary.compact,
+        end: new Date(at).toISOString(),
+      }),
+    );
+    await mkdir(join(f.directory, directory));
+    await rename(f.path, join(f.directory, directory, "usage-v1.sqlite"));
+    const receipt = await readFile(receiptPath);
+    const control = await readFile(join(f.directory, "collector-control-v1.json"));
+    const quarantined = await readFile(join(f.directory, directory, "usage-v1.sqlite"));
+    const names = await readdir(f.directory);
+    const home = join(f.root, "codex");
+    await mkdir(join(home, "sessions"), { recursive: true });
+    await writeFile(
+      join(home, "sessions", "rollout.jsonl"),
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: "native-A", cwd: "/fixture" },
+      }) + "\n",
+    );
+    const history = createHostHistory({
+      agentDir: () => f.agent,
+      codexHome: () => home,
+      now: () => at,
+    });
+    try {
+      const preparation = prepare
+        ? await history.prepare!({
+            ...f.context,
+            identities: {
+              hostId: "host_fixture",
+              generation: 1,
+              offset: 0,
+              total: 0,
+              rows: [],
+            },
+          })
+        : null;
+      const afterPreparation = {
+        names: await readdir(f.directory),
+        receipt: await readFile(receiptPath),
+        control: await readFile(join(f.directory, "collector-control-v1.json")),
+        quarantined: await readFile(join(f.directory, directory, "usage-v1.sqlite")),
+      };
+      const readiness = await history.read(f.context);
+      expect({
+        state: readiness.state,
+        reason: readiness.reason,
+        phase: JSON.parse(await readFile(receiptPath, "utf8")).phase,
+      }).toEqual({ state: "available", reason: "ok", phase: "complete" });
+      expect(readiness.health).toMatchObject({ state: "recovered" });
+      if (prepare)
+        expect(preparation).toEqual({ state: "unavailable", reason: "storage-unavailable" });
+      expect(afterPreparation).toEqual({ names, receipt, control, quarantined });
+      expect(await readFile(join(f.directory, directory, "usage-v1.sqlite"))).toEqual(quarantined);
+      expect(await readFile(join(f.directory, "collector-control-v1.json"))).toEqual(control);
+    } finally {
+      history.dispose();
+      f.history.dispose();
+    }
+  },
+);
+
+it.each([
+  "collector-control-v1.json",
+  "recovery-v2.json",
+  "retention-boundary-v2.json",
+  "quarantine-00000000-0000-4000-8000-000000000099",
+])("native preparation cannot create an index beside established %s evidence", async (evidence) => {
+  const f = await fixture();
+  await rm(f.path);
+  for (const name of await readdir(f.directory))
+    await rm(join(f.directory, name), { recursive: true });
+  if (evidence.startsWith("quarantine-")) await mkdir(join(f.directory, evidence));
+  else
+    await writeFile(
+      join(f.directory, evidence),
+      evidence === "collector-control-v1.json"
+        ? JSON.stringify({
+            protocol: 2,
+            enabled: false,
+            revision: "00000000-0000-4000-8000-000000000099",
+          })
+        : "retained-evidence",
+    );
+  const home = join(f.root, "codex");
+  await mkdir(join(home, "sessions"), { recursive: true });
+  const history = createHostHistory({ codexHome: () => home, now: () => at });
+  try {
+    expect(
+      await history.prepare!({
+        ...f.context,
+        identities: {
+          hostId: "host_fixture",
+          generation: 1,
+          offset: 0,
+          total: 0,
+          rows: [],
+        },
+      }),
+    ).toEqual({ state: "unavailable", reason: "storage-unavailable" });
+    expect(await readdir(f.directory)).toEqual([evidence]);
+  } finally {
+    history.dispose();
+    f.history.dispose();
+  }
 });

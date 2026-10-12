@@ -76,7 +76,11 @@ it("preserves unknown dates, observed zero, and a real model named unknown", () 
     { totalTokens: 0, coverage: { zero: false } },
     { totalTokens: 0, coverage: { zero: true } },
   ]);
-  expect(projection.series[0]).toMatchObject({ key: "m0", label: "unknown", model: "unknown" });
+  expect(projection.series[0]).toMatchObject({
+    key: "m0",
+    label: "unknown Default",
+    model: "unknown",
+  });
   expect(projection.facts[1].m0).toBeNull();
   expect(projection.facts[2].m0).toBe(0);
 });

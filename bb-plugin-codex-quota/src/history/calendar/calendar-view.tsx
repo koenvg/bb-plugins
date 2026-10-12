@@ -149,31 +149,34 @@ export function UsageTooltip({
           </div>
         )}
       </dl>
-      {metric === "tokens" && positiveModels.some((series) => series.key !== "unknown") && (
-        <div className="mt-3 border-t border-border pt-2" aria-label="Tokens by model">
-          <p className="font-medium">Tokens by model</p>
-          <ul className="mt-2 space-y-2">
-            {positiveModels.map((series) => {
-              const text = tokenCountText(modelValues[series.key] ?? 0);
-              return (
-                <li key={series.key} className={row}>
-                  <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
-                    <span
-                      aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-sm"
-                      style={{ backgroundColor: series.color }}
-                    />
-                    {series.label}
-                  </span>
-                  <span className="tabular-nums" title={`${text.exact} tokens`}>
-                    {text.readable}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      {metric === "tokens" &&
+        positiveModels.some(
+          (series) => series.model || series.key.startsWith("other") || series.speed !== "normal",
+        ) && (
+          <div className="mt-3 border-t border-border pt-2" aria-label="Tokens by model and speed">
+            <p className="font-medium">Tokens by model and speed</p>
+            <ul className="mt-2 space-y-2">
+              {positiveModels.map((series) => {
+                const text = tokenCountText(modelValues[series.key] ?? 0);
+                return (
+                  <li key={series.key} className={row}>
+                    <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="size-2.5 shrink-0 rounded-sm"
+                        style={{ backgroundColor: series.color }}
+                      />
+                      {series.label}
+                    </span>
+                    <span className="tabular-nums" title={`${text.exact} tokens`}>
+                      {text.readable}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
     </div>
   );
 }

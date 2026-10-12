@@ -89,6 +89,7 @@ try {
   assert.equal(report.state, "partial");
   assert.deepEqual(report.summary, {
     totalTokens: 120600,
+    speedTokens: { normal: 120600, fast: 0, ultrafast: 0 },
     activeEntities: 60,
     excludedTokens: 0,
     money: {
@@ -128,7 +129,7 @@ try {
   assert.equal(old.days[3].totalTokens, 17);
   assert.deepEqual(old.days[3].classes, { state: "unavailable" });
   const db = await bundled.openHistoryDatabase(path, true);
-  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 4);
+  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 5);
   assert.equal(
     db.prepare("SELECT captured_cost FROM usage_compact WHERE event_id=?").get(event(1).eventId)
       .captured_cost,

@@ -59,7 +59,7 @@ async function fixture(collector = true) {
   );
   acceptIdentityBatch(db, { hostId: "host_a", generation: 1, offset: 0, total: 1, rows: [row] });
   reconcileIdentity(db, signal());
-  db.exec("DROP TABLE identity_uncertain");
+  db.exec("DROP TABLE identity_uncertain; PRAGMA user_version=4");
   db.close();
   if (collector)
     await writeFile(

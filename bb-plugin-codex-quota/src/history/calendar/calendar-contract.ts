@@ -1,3 +1,4 @@
+import { normalTokens, speedTokensSchema } from "../usage-speed.js";
 import { z } from "zod";
 import { shiftDate, validDate, validTimezone } from "./calendar-time.js";
 import {
@@ -5,6 +6,10 @@ import {
   comparisonReasonCodes,
   comparisonReasons,
 } from "./calendar-comparison.js";
+export function checkedCount(n: number): number {
+  if (!Number.isSafeInteger(n) || n < 0) throw Error("Calendar total unavailable");
+  return n;
+}
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const path = z
   .string()
@@ -105,11 +110,12 @@ const classes = z.discriminatedUnion("state", [
     })
     .strict(),
 ]);
-import { dayModelsSchema, modelTotal } from "./calendar-models.js";
+import { dayModelsSchema, modelTotal, validModelSpeeds } from "./calendar-models.js";
 export const calendarDaySchema = z
   .object({
     date: z.string().refine(validDate),
     totalTokens: count,
+    speedTokens: speedTokensSchema.optional(),
     activeEntities: count,
     excludedTokens: count,
     uncertain: z.object({ totalTokens: count, records: count }).strict().optional(),
@@ -131,16 +137,22 @@ export const calendarDaySchema = z
   .refine(
     (day) => !day.models || modelTotal(day.models) <= day.totalTokens,
     "Model attribution exceeds recorded tokens",
-  );
+  )
+  .refine(validSpeed, "Calendar speed mismatch")
+  .refine(validModelSpeeds, "Model speed attribution exceeds recorded speeds")
+  .transform(decodeSpeed);
 export const calendarSummarySchema = z
   .object({
     uncertain: z.object({ totalTokens: count, records: count }).strict().optional(),
     totalTokens: count,
+    speedTokens: speedTokensSchema.optional(),
     activeEntities: count,
     excludedTokens: count,
     money: calendarMoneySchema,
   })
-  .strict();
+  .strict()
+  .refine(validSpeed, "Calendar speed mismatch")
+  .transform(decodeSpeed);
 const unavailableSchema = z
   .object({
     state: z.literal("unavailable"),
@@ -316,4 +328,16 @@ export function calendarUnavailable(
   reason: Extract<CalendarReport, { state: "unavailable" }>["reason"],
 ): CalendarReport {
   return { state: "unavailable", reason };
+}
+
+function validSpeed(value: {
+  totalTokens: number;
+  speedTokens?: { normal: number; fast: number; ultrafast: number };
+}) {
+  if (!value.speedTokens) return true;
+  const total = value.speedTokens.normal + value.speedTokens.fast + value.speedTokens.ultrafast;
+  return Number.isSafeInteger(total) && total === value.totalTokens;
+}
+function decodeSpeed<T extends { totalTokens: number; speedTokens?: unknown }>(value: T): T {
+  return { ...value, speedTokens: value.speedTokens ?? normalTokens(value.totalTokens) };
 }

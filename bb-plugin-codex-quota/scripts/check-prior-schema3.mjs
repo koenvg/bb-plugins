@@ -66,7 +66,7 @@ try {
     false,
   );
   const db = await current.openHistoryDatabase(path);
-  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 4);
+  assert.equal(db.prepare("PRAGMA user_version").get().user_version, 5);
   for (const table of [
     "usage_compact",
     "usage_expired",
@@ -106,7 +106,7 @@ try {
     assert.deepEqual(
       opens,
       [],
-      "Prior artifact must reject combined schema 4 before database open",
+      "Prior artifact must reject combined schema 5 before database open",
     );
     assert.deepEqual(readFileSync(path), database);
     assert.deepEqual(readFileSync(join(directory, "collector-control-v1.json")), control);
@@ -118,7 +118,7 @@ try {
     assert.ok(!readdirSync(directory).some((name) => name.includes("quarantine")));
   }
   console.log(
-    "Actual schema-3 artifact rejected actual combined schema 4 before database open; database/control/WAL/SHM/agent preserved. Node",
+    "Actual schema-3 artifact rejected actual combined schema 5 before database open; database/control/WAL/SHM/agent preserved. Node",
     process.versions.node,
   );
 } finally {

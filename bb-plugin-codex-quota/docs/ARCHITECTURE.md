@@ -18,6 +18,7 @@ src/
     import/     Import contracts, sources, parsing, queue, and views
     identity/   Identity catalog, discovery, resolution, storage, and views
     calendar/   Read-only reports, aggregation, money, chart, and views
+    native/     Confined native source discovery, request admission and cursors
 ```
 
 Tests and test helpers stay with their modules. The history coordinator and shared history interface stay in `src/history/`. The folders follow ownership, not file types. They add no wrapper modules or barrel exports.
@@ -41,7 +42,7 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 `src/history/history-host.ts` owns one database-operation queue and the import cancellation epochs. Its interface is `read`, `report`, `prepare`, `control`, `controlImport`, and `dispose`.
 
 - `report` is explicitly read-only. It returns a calendar report directly, not a fake readiness result containing a calendar field.
-- `prepare` loads bounded existing collector logs, accepts identity evidence and reconciles identity. Ingestion and identity backlog both prevent settlement. It does not call mutable readiness or change collector controls, assets, imports, retention, or recovery.
+- `prepare` loads bounded existing Pi logs and supported native Codex requests, accepts provider-qualified identity evidence and reconciles identity. Both source backlogs prevent settlement, but native backlog cannot block Pi ingestion. Native preparation may create a collector-disabled index, migrate supported storage and perform bounded physical retention. It does not change collector controls, assets, Pi import consent or recovery.
 - Collector discovery keeps its next unchecked UTC date in the reserved `@collector-discovery-v1` row of `collector_sources`. The `stamp` field holds the date; all numeric fields are zero, so this metadata row does not count as source backlog or invalid records. It is never opened as a file. This adds durable progress without a schema migration. Per-file offsets commit with projections before discovery can advance. Cancellation or failure leaves the current date slice replayable. `collector_log_retention` remains the independent management-only pruning cursor.
 - `src/history/storage/retained-history.ts` checks existing storage and control before report or preparation work. It closes each connection only after its synchronous or asynchronous callback finishes.
 - `src/history/history-maintenance.ts` owns mutable readiness, collector control, reconciliation, retention, identity maintenance, and recovery.
@@ -49,7 +50,7 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 - Canceling a request can release its caller without releasing the database queue. The next operation cannot enter storage until the previous operation actually settles.
 - Imports must also finish database cleanup before the host entry releases their retained-worker lease.
 
-The storage schema, collector asset, import format, prices, attribution rules, and UI remain unchanged.
+Schema 5 stores source/speed metadata outside unchanged Pi v1 proofs. Reports remain read-only, and schema-4 reports decode absent speed as Normal. The changed collector asset requires explicit repair after future deployment. Pi prices, retention dates and import controls remain. See [SPEED.md](SPEED.md) for native identity, alias and speed rules.
 
 ## Tests
 

@@ -1,9 +1,11 @@
+import { normalTokens, sumSpeed } from "../usage-speed.js";
 import { uncertainTotals } from "../import/import-uncertain.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { readCalendarTotals, effectiveRetentionState } from "../storage/history-retention.js";
 import { readCoverage } from "../collection/history-coverage.js";
 import { calendarDays, dayBoundary, latestStart, shiftDate } from "./calendar-time.js";
 import {
+  checkedCount,
   calendarQuerySchema,
   calendarReportSchema,
   calendarUnavailable,
@@ -11,7 +13,7 @@ import {
   type CalendarReport,
   type CalendarSnapshot,
 } from "./calendar-contract.js";
-import { checkedCount, queryScope, scopeFilter } from "./calendar-aggregation.js";
+import { queryScope, scopeFilter } from "./calendar-aggregation.js";
 import { historyObserved } from "../storage/history-projection.js";
 import { calendarMoney, moneyColumns, type MoneyAggregate } from "./calendar-money.js";
 import { comparisonReasons } from "./calendar-comparison.js";
@@ -129,6 +131,7 @@ function readRange(
       date: day.date,
       totalTokens: recorded?.totalTokens ?? 0,
       models: recorded?.models ?? { named: [], otherTokens: 0 },
+      speedTokens: recorded?.speedTokens ?? normalTokens(0),
       activeEntities: recorded?.activeEntities ?? 0,
       excludedTokens,
       coverage: uncertain?.records
@@ -239,6 +242,7 @@ function readRange(
           }
         : {}),
       totalTokens: summary.totalTokens,
+      speedTokens: sumSpeed(days.map((day) => day.speedTokens ?? normalTokens(day.totalTokens))),
       activeEntities: summary.activeEntities,
       money: calendarMoney(summary),
       excludedTokens: checkedCount(days.reduce((n, day) => n + day.excludedTokens, 0)),

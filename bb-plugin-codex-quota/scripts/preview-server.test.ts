@@ -42,6 +42,7 @@ test("owned preview shutdown and occupied-port failure preserve other receipts",
     expect(response.status).toBe(200);
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'none'");
     expect((await fetch(`${base}/package.json`)).status).toBe(404);
+    expect((await fetch(`${base}/speed-fixture.mjs`)).status).toBe(404);
     expect((await readdir(root)).sort()).toEqual([
       "activity.html",
       "activity.js",
@@ -54,6 +55,9 @@ test("owned preview shutdown and occupied-port failure preserve other receipts",
       "identity.js",
       "import.html",
       "import.js",
+      "speed-fixture.mjs",
+      "speed.html",
+      "speed.js",
     ]);
     const conflict = start(new URL(base).port);
     const conflictClosed = once(conflict, "exit");

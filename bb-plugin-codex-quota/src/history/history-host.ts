@@ -1,3 +1,4 @@
+import { createNativeUsage } from "./native/native-usage.js";
 import { readHostCalendar } from "./calendar/calendar-host.js";
 import {
   calendarUnavailable,
@@ -44,6 +45,12 @@ export interface HostHistory {
 export function createHostHistory(deps: HistoryDependencies = {}): HostHistory {
   let queue = Promise.resolve<unknown>(null);
   const lifecycle = new AbortController();
+  const native = createNativeUsage({
+    home: deps.codexHome,
+    now: deps.now,
+    read: deps.nativeRead,
+    lines: deps.nativeLines,
+  });
   const maintenance = createHistoryMaintenance(deps);
   const importOperation = createImportOperation({
     storage: deps.storage,
@@ -69,7 +76,7 @@ export function createHostHistory(deps: HistoryDependencies = {}): HostHistory {
   };
   return {
     prepare: (context) =>
-      serialize(context, (scoped) => prepareHostReport(scoped, deps), {
+      serialize(context, (scoped) => prepareHostReport(scoped, deps, native), {
         state: "unavailable",
         reason: "selection-changed",
       } as const),
@@ -113,6 +120,7 @@ export function createHostHistory(deps: HistoryDependencies = {}): HostHistory {
     },
     dispose() {
       lifecycle.abort();
+      void queue.finally(() => native.dispose()).catch(() => {});
     },
   };
 }

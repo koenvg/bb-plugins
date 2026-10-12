@@ -47,6 +47,9 @@ export type HistoryReadContext = {
 };
 export type HistoryDependencies = {
   storage?: () => Promise<HistoryDatabaseFactory | null>;
+  codexHome?: () => string;
+  nativeRead?: () => void;
+  nativeLines?: number;
   agentDir?: () => string;
   collector?: (dataDir: string) => Promise<HistoryReadiness["collector"]>;
   now?: () => number;

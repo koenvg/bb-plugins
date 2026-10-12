@@ -42,17 +42,34 @@ export const confirmationSchema = z
     entryId: scalar(256),
   })
   .strict();
+const envelopeSchema = z
+  .object({
+    version: z.literal(2),
+    usage: usageRecordSchema,
+    metadata: z
+      .object({
+        responseId: scalar(256).nullable(),
+        serviceTier: z.string().max(128).nullable().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 export function parseCompact(line: string, confirmation: boolean) {
   try {
+    const input = JSON.parse(line);
+    const envelope = !confirmation && input?.version === 2 ? envelopeSchema.safeParse(input) : null;
+    if (envelope && !envelope.success) return null;
     const result = (confirmation ? confirmationSchema : usageRecordSchema).safeParse(
-      JSON.parse(line),
+      envelope?.success ? envelope.data.usage : input,
     );
     if (!result.success) return null;
     if ("workspace" in result.data) {
       result.data.workspace = normalize(result.data.workspace);
       result.data.occurredAt = new Date(result.data.occurredAt).toISOString();
     }
-    return result.data;
+    return "workspace" in result.data
+      ? { ...result.data, ...(envelope?.success ? { metadata: envelope.data.metadata } : {}) }
+      : result.data;
   } catch {
     return null;
   }

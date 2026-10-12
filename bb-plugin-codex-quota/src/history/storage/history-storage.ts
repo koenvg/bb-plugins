@@ -14,7 +14,7 @@ export type HistoryDatabaseFactory = (path: string, readonly?: boolean) => Histo
 
 import { HISTORY_VERSION } from "./history-retention.js";
 export const supportedHistoryVersion = (version: number) =>
-  [1, 2, 3, HISTORY_VERSION].includes(version);
+  [1, 2, 3, 4, HISTORY_VERSION].includes(version);
 
 import { supportedHistoryLayout } from "./history-layout.js";
 export { supportedHistoryLayout } from "./history-layout.js";

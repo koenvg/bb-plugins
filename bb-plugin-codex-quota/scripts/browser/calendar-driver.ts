@@ -43,7 +43,7 @@ async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?
     );
   const lines = await page
     .locator(
-      '.recharts-tooltip-wrapper [role="tooltip"] > div:not([aria-label="Tokens by model"]) p',
+      '.recharts-tooltip-wrapper [role="tooltip"] > div:not([aria-label="Tokens by model and speed"]) p',
     )
     .allTextContents();
   const date = await page.locator(".recharts-tooltip-wrapper time").getAttribute("datetime");
