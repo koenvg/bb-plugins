@@ -25,7 +25,7 @@
 - [x] 5.1 Add `ui/use-comment-seen.ts` (design decision 5) with tests that use a manual IntersectionObserver and fake timers: seen after 1.5 s, not seen after 0.5 s and scroll out, not seen without focus, seen for a comment taller than the diff area
 - [x] 5.2 Add `ui/new-comment.css` with the glow and the reduced-motion rules from design decision 6
 - [x] 5.3 In `ui/review-thread.tsx`, give each comment `data-review-comment-id`, the glow class when new, and the dwell hook. Batch seen ids into one `markCommentsSeen` call after 300 ms and keep the glow while the tab is open. Add `ui/review-tab.test.tsx` cases for "One new reply in a thread", "User stops on the comment", "Glow stays after a refresh", and no glow when `newCommentIds` is empty
-- [ ] 5.4 Check the glow in the running bb in light and dark theme and with reduced motion on, and attach screenshots to the PR
+- [x] 5.4 Check the glow in the running bb in light and dark theme and with reduced motion on, and attach screenshots to the PR
 
 ## 6. Show hidden new comments
 
