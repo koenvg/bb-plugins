@@ -184,7 +184,7 @@ export async function interactions(page: Page, state: string, suite: string) {
     await expect(
       page.getByText("Last-known summaries retained for Host B", { exact: false }),
     ).toBeVisible();
-    await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.2K");
+    await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.2 thousand");
     expect((await calls(page)).some((call) => call.method === "selectHost")).toBe(false);
   }
   if (state === "settings") {

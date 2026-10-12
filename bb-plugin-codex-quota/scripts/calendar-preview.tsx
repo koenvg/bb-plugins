@@ -147,6 +147,11 @@ function snapshot(query: CalendarQuery) {
       },
     };
   }
+  if (state === "cache-heavy")
+    view.ranking = [745_920_001, 301_550_001, 301_550_002].map((totalTokens, index) => ({
+      ...view.ranking[index],
+      totalTokens,
+    }));
   view.previous = query.startDate > shiftDate(latestRange, -60);
   view.next = query.startDate < latestRange;
   return view;

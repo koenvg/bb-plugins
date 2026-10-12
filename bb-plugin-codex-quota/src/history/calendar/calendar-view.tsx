@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tokenCountText } from "../../token-counts.js";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { CalendarSnapshot } from "./calendar-contract.js";
 import { capturedEstimate, pricingLabel } from "./calendar-money-view.js";
@@ -50,8 +51,14 @@ export function UsageTooltip({
   metric: TokenMetric;
   maxWidth?: number;
 }) {
-  const value = displayValue(day, metric);
+  const recorded = recordedValue(day, metric);
+  const tokens = metric === "tokens" && recorded !== null ? tokenCountText(recorded) : null;
+  const value = tokens?.readable ?? displayValue(day, metric);
   const classes = tokenBreakdown(day);
+  const reasoning = tokenCountText(classes.state === "available" ? classes.reasoning : 0);
+  const unclassified = tokenCountText(classes.unclassified);
+  const uncertain = tokenCountText(day.uncertain?.totalTokens ?? 0);
+  const excluded = tokenCountText(day.excludedTokens);
   const hasUncertain = metric === "tokens" && (day.uncertain?.totalTokens ?? 0) > 0;
   const row = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1";
   return (
@@ -68,28 +75,40 @@ export function UsageTooltip({
           <dt className="text-muted-foreground">
             {metric === "tokens" ? "Recorded tokens" : metricName(metric)}
           </dt>
-          <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+          <dd
+            className="text-sm font-semibold tabular-nums"
+            title={tokens ? `${tokens.exact} tokens` : undefined}
+          >
+            {value}
+          </dd>
         </div>
         {metric === "tokens" &&
           (classes.state === "available" ? (
             <>
-              {tokenCategories.map((series) => (
-                <div className={row} key={series.key}>
-                  <dt className="inline-flex items-center gap-2 text-muted-foreground">
-                    <span
-                      aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-sm"
-                      style={{ backgroundColor: series.color }}
-                    />
-                    {series.label} tokens
-                  </dt>
-                  <dd className="tabular-nums">{exact(classes[series.key])}</dd>
-                </div>
-              ))}
+              {tokenCategories.map((series) => {
+                const text = tokenCountText(classes[series.key]);
+                return (
+                  <div className={row} key={series.key}>
+                    <dt className="inline-flex items-center gap-2 text-muted-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="size-2.5 shrink-0 rounded-sm"
+                        style={{ backgroundColor: series.color }}
+                      />
+                      {series.label} tokens
+                    </dt>
+                    <dd className="tabular-nums" title={`${text.exact} tokens`}>
+                      {text.readable}
+                    </dd>
+                  </div>
+                );
+              })}
               {classes.reasoning > 0 && (
                 <div className={row}>
                   <dt className="text-muted-foreground">Reasoning tokens (in output)</dt>
-                  <dd className="tabular-nums">{exact(classes.reasoning)}</dd>
+                  <dd className="tabular-nums" title={`${reasoning.exact} tokens`}>
+                    {reasoning.readable}
+                  </dd>
                 </div>
               )}
             </>
@@ -102,19 +121,25 @@ export function UsageTooltip({
         {metric === "tokens" && classes.unclassified > 0 && (
           <div className={row}>
             <dt className="text-muted-foreground">Unclassified tokens</dt>
-            <dd className="tabular-nums">{exact(classes.unclassified)}</dd>
+            <dd className="tabular-nums" title={`${unclassified.exact} tokens`}>
+              {unclassified.readable}
+            </dd>
           </div>
         )}
         {hasUncertain && (
           <div className={row}>
             <dt className="text-muted-foreground">Uncertain estimate</dt>
-            <dd className="tabular-nums">{exact(day.uncertain!.totalTokens)} tokens</dd>
+            <dd className="tabular-nums" title={`${uncertain.exact} tokens`}>
+              {uncertain.readable} tokens
+            </dd>
           </div>
         )}
         {!!day.excludedTokens && (
           <div className={row}>
             <dt className="text-muted-foreground">Excluded tokens</dt>
-            <dd className="tabular-nums">{exact(day.excludedTokens)}</dd>
+            <dd className="tabular-nums" title={`${excluded.exact} tokens`}>
+              {excluded.readable}
+            </dd>
           </div>
         )}
       </dl>

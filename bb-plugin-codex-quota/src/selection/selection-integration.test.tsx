@@ -44,7 +44,7 @@ it.each([
     fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]!);
     expect(q.queryByRole("region", { name: "History readiness" })).toBeNull();
     expect(q.getByText("63%")).toBeTruthy();
-    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2K");
+    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
     if (back) fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]!);
     await act(async () => {
       if (late)

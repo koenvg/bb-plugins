@@ -163,3 +163,61 @@ test("AX swapped dates fail", () => {
   [first.name, last.name] = [last.name, first.name];
   expect(() => accessibleFacts(nodes, rows, "cost")).toThrow();
 });
+
+test("readable tooltip facts stay separate from exact daily facts", () => {
+  const row = [
+    "2026-09-15",
+    "5,880,000,001",
+    "301,550,001",
+    "745,920,001",
+    "1,200",
+    "0",
+    "100",
+    "0",
+    "745,920,001",
+    "Partial, recorded usage",
+    "301,550,001 excluded tokens",
+  ];
+  const expected = [
+    ["Recorded tokens", "5.88 billion"],
+    ["Input (uncached) tokens", "301.55 million"],
+    ["Output tokens", "745.92 million"],
+    ["Cache read tokens", "1.2 thousand"],
+    ["Cache write tokens", "0"],
+    ["Reasoning tokens (in output)", "100"],
+    ["Uncertain estimate", "745.92 million tokens"],
+    ["Excluded tokens", "301.55 million"],
+  ];
+  expect(tooltipDefinitions(row, "tokens")).toEqual(expected);
+  verifyTooltip(row, "tokens", row[0], expected, [], "2026-09-14");
+  expect(() =>
+    verifyTooltip(
+      row,
+      "tokens",
+      row[0],
+      [["Recorded tokens", "5.87 billion"], ...expected.slice(1)],
+      [],
+    ),
+  ).toThrow();
+  expect(() => verifyTooltip(row, "tokens", "2026-09-14", expected, [])).toThrow(
+    /restore the target date/,
+  );
+});
+
+test("cost tooltip proof rounds only the excluded token count", () => {
+  expect(
+    tooltipDefinitions(
+      [
+        "2026-09-15",
+        "$0.39813160000000003",
+        "Partial",
+        "745,920,001 excluded tokens",
+        "Pricing partial",
+      ],
+      "cost",
+    ),
+  ).toEqual([
+    ["USD estimate", "$0.39813160000000003"],
+    ["Excluded tokens", "745.92 million"],
+  ]);
+});
