@@ -117,6 +117,7 @@ export function pruneCatalogSnapshots(
     for (const table of [
       "discovery_environments",
       "discovery_threads",
+      "discovery_providers",
       "discovery_ownership",
       "discovery_resolved",
       "discovery_rows",

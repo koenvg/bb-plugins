@@ -1,9 +1,10 @@
+import { normalTokens, sumSpeed, type SpeedTokens } from "../history/usage-speed.js";
 import type {
   CalendarQuery,
   CalendarSnapshot,
   CalendarMoney,
 } from "../history/calendar/calendar-contract.js";
-import { checkedCount } from "../history/calendar/calendar-aggregation.js";
+import { checkedCount } from "../history/calendar/calendar-contract.js";
 import { safeCapturedSum } from "../history/calendar/calendar-money.js";
 import { shiftDate } from "../history/calendar/calendar-time.js";
 import type { MachineReports } from "./machines-contract.js";
@@ -79,6 +80,7 @@ export type CombinedReport = {
   next: boolean;
   summary: {
     totalTokens: number;
+    speedTokens: SpeedTokens;
     capturedCost: number | null;
     pricedRecords: number;
     records: number;
@@ -166,6 +168,12 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
       date,
       totalTokens: sum(values.map((value) => value.totalTokens)),
       models: mergeDayModels(values),
+      speedTokens: sumSpeed(
+        values.map(
+          (value) =>
+            ("speedTokens" in value ? value.speedTokens : null) ?? normalTokens(value.totalTokens),
+        ),
+      ),
       activeEntities: sum(values.map((value) => value.activeEntities)),
       excludedTokens: sum(values.map((value) => value.excludedTokens)),
       classes,
@@ -212,6 +220,7 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
     next: available.some((row) => row.report.next),
     summary: {
       totalTokens: sum(days.map((day) => day.totalTokens)),
+      speedTokens: sumSpeed(days.map((day) => day.speedTokens)),
       capturedCost: totalMoney.capturedCost,
       pricedRecords: totalMoney.pricedRecords,
       records: totalMoney.records,

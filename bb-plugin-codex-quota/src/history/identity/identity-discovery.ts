@@ -69,6 +69,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       CREATE TABLE IF NOT EXISTS discovery_rows (id INTEGER PRIMARY KEY, generation INTEGER NOT NULL, host_id TEXT NOT NULL, thread_id TEXT NOT NULL, provider_identity TEXT, title TEXT, state TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS discovery_delivery ON discovery_rows(generation,host_id,id);
       CREATE TABLE IF NOT EXISTS discovery_receipts (generation INTEGER NOT NULL, host_id TEXT NOT NULL, offset INTEGER NOT NULL, last_id INTEGER NOT NULL, total INTEGER NOT NULL, PRIMARY KEY(generation,host_id));`);
+    value.exec(
+      "CREATE TABLE IF NOT EXISTS discovery_providers (generation INTEGER NOT NULL,thread_id TEXT NOT NULL,provider TEXT NOT NULL,PRIMARY KEY(generation,thread_id))",
+    );
     initializeCatalog(value);
     value
       .prepare("INSERT OR IGNORE INTO discovery_state VALUES (1,?)")
@@ -109,7 +112,10 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       signal.throwIfAborted();
       database.transaction(() => {
         for (const thread of page) {
-          if (thread.providerId !== "pi") continue;
+          if (thread.providerId !== "pi" && thread.providerId !== "codex") continue;
+          database
+            .prepare("INSERT OR REPLACE INTO discovery_providers VALUES (?,?,?)")
+            .run(state.generation, thread.id, thread.providerId);
           const env = thread.environmentId
             ? (database
                 .prepare(
@@ -269,6 +275,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             )
             .run(state.generation, next.thread_id, next.state);
         }
+        const provider = database
+          .prepare("SELECT provider FROM discovery_providers WHERE generation=? AND thread_id=?")
+          .get(state.generation, next.thread_id) as { provider: string } | undefined;
         let seq = state.afterSeq;
         for (const event of page) {
           // Reject non-progressing or wrong-scope pages instead of declaring completeness.
@@ -295,7 +304,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
               state.generation,
               next.host_id,
               next.thread_id,
-              row.data.providerIdentity,
+              provider?.provider === "codex"
+                ? `codex-native:${row.data.providerIdentity}`
+                : row.data.providerIdentity,
               next.host_id ? next.title : null,
               next.state,
             );
@@ -496,6 +507,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       total: receipt.total,
       rows: rows.map(({ id: _id, host_id, ownership_resolved, ...row }) => ({
         ...row,
+        ...(row.providerIdentity?.startsWith("codex-native:")
+          ? { provider: "codex-native" as const, providerIdentity: row.providerIdentity.slice(13) }
+          : {}),
         ...(!host_id ? { ownershipUnknown: !ownership_resolved } : {}),
       })),
     };

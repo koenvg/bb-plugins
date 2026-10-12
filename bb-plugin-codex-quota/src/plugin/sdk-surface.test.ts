@@ -113,6 +113,8 @@ describe("public SDK and quota-only boundary", () => {
       ["scripts/check-bundled-calendar.mjs", "pathToFileURL(artifact"], // Owned copies, persistent reopen and import-only packaged report.
       ["scripts/check-bundled-live-refresh.mjs", "pathToFileURL(artifact"], // Owned copied host artifact and temporary collector logs. No live source.
       ["scripts/check-bundled-money.mjs", "pathToFileURL(artifact"], // Owned copied host artifact, real SQLite and original import prices.
+      ["scripts/check-bundled-speed.mjs", "pathToFileURL(artifact"], // Owned actual host copy and isolated native/Pi fixture sources.
+      ["scripts/preview-server.mjs", "pathToFileURL(fixtureArtifact"], // Locally built fixture generator in a fresh temporary directory; never served.
       [
         "src/history/import/import-source.test.ts",
         '${JSON.stringify(new URL("./import-source.ts", import.meta.url',

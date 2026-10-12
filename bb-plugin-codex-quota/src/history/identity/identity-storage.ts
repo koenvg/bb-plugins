@@ -101,7 +101,14 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
     if (stored && stored.digest !== digest) throw Error("Identity batch conflict");
     if (!stored) {
       if (batch.offset !== current.received) throw Error("Identity batch overlap");
-      for (const row of batch.rows) {
+      for (const input of batch.rows) {
+        const row = {
+          ...input,
+          providerIdentity:
+            input.provider === "codex-native" && input.providerIdentity
+              ? `codex-native:${input.providerIdentity}`
+              : input.providerIdentity,
+        };
         if (row.ownershipUnknown) {
           if (
             row.providerIdentity &&

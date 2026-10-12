@@ -143,6 +143,18 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
       "SELECT id FROM history_reconciliation WHERE pending=1 AND started<? AND ended>? LIMIT 1",
     )
     .get(end, start);
+  const nativeLayout =
+    (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version >= 5;
+  const nativePending =
+    nativeLayout && !!db.prepare("SELECT id FROM native_discovery WHERE pending=1 LIMIT 1").get();
+  const nativeUncertain =
+    nativeLayout &&
+    (!!db.prepare("SELECT id FROM native_discovery WHERE incomplete=1 LIMIT 1").get() ||
+      !!db.prepare("SELECT name FROM native_sources WHERE incomplete=1 LIMIT 1").get() ||
+      !!db
+        .prepare("SELECT response_key FROM usage_response_owners WHERE native_conflicted=1 LIMIT 1")
+        .get() ||
+      !!db.prepare("SELECT event_id FROM usage_metadata WHERE speed_conflict=1 LIMIT 1").get());
   const sourcePending = !!db
     .prepare("SELECT name FROM collector_sources WHERE offset<size OR dropping=1 LIMIT 1")
     .get();
@@ -155,6 +167,7 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
     .prepare("SELECT id FROM history_legacy_pending WHERE pending=1 LIMIT 1")
     .get();
   const backlog =
+    nativePending ||
     imported.pending ||
     legacyPending ||
     !retention.backfill_done ||
@@ -163,6 +176,7 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
     rows.some((row) => row.kind === "backlog");
   const truncated = imported.truncated || rows.length > 1000 || pauses.length > 1000;
   const incomplete =
+    nativeUncertain ||
     imported.uncertain ||
     recovery ||
     pauses.length > 0 ||
@@ -214,6 +228,7 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
     pauses: Math.min(pauses.length, 1000),
     omissions: imported.omissions + rows.filter((row) => row.kind === "omission").length,
     uncertain:
+      nativeUncertain ||
       imported.uncertain ||
       sourceUncertain ||
       rows.some((row) => row.kind === "uncertain") ||

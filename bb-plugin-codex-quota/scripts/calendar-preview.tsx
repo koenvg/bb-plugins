@@ -168,6 +168,49 @@ function snapshot(query: CalendarQuery) {
       };
     }
   }
+  if (state === "model-speeds") {
+    for (const day of view.days) {
+      const normal = Math.floor(day.totalTokens / 6);
+      const fast = day.totalTokens - normal * 2;
+      day.speedTokens = { normal: normal * 2, fast, ultrafast: 0 };
+      day.models = {
+        named: day.totalTokens
+          ? [
+              {
+                model: "gpt-6.1",
+                totalTokens: normal,
+                speedTokens: { normal, fast: 0, ultrafast: 0 },
+              },
+              {
+                model: "gpt-6.1-sol",
+                totalTokens: normal + fast,
+                speedTokens: { normal, fast, ultrafast: 0 },
+              },
+            ]
+          : [],
+        otherTokens: 0,
+        otherSpeedTokens: { normal: 0, fast: 0, ultrafast: 0 },
+      };
+    }
+    view.summary.speedTokens = {
+      normal: Math.floor(view.summary.totalTokens / 6) * 2,
+      fast: view.summary.totalTokens - Math.floor(view.summary.totalTokens / 6) * 2,
+      ultrafast: 0,
+    };
+  }
+  if (state === "unknown-model-speeds") {
+    const total = { normal: 0, fast: 0, ultrafast: 0 };
+    for (const day of view.days) {
+      const normal = Math.floor(day.totalTokens / 6);
+      const speedTokens = { normal, fast: normal * 2, ultrafast: day.totalTokens - normal * 3 };
+      day.speedTokens = speedTokens;
+      delete day.models;
+      total.normal += speedTokens.normal;
+      total.fast += speedTokens.fast;
+      total.ultrafast += speedTokens.ultrafast;
+    }
+    view.summary.speedTokens = total;
+  }
   return view;
 }
 const missing = {

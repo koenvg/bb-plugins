@@ -17,6 +17,7 @@ export const threadIdSchema = z.string().regex(/^thr_[A-Za-z0-9_-]{1,124}$/);
 export const identityRowSchema = z
   .object({
     threadId: threadIdSchema,
+    provider: z.enum(["pi", "codex-native"]).optional(),
     providerIdentity: scalar(250)
       .regex(/^[^/\\]+$/)
       .nullable(),

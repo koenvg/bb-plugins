@@ -145,7 +145,13 @@ it("merges model IDs across machines while retaining an older report remainder",
   first.days[14].models = { named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 };
   const day = combineReports(data, query)!.days[14];
   expect(day.totalTokens).toBe(1200);
-  expect(day.models).toEqual({ named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 });
+  expect(day.models).toEqual({
+    named: [
+      { model: "gpt-5", totalTokens: 400, speedTokens: { normal: 400, fast: 0, ultrafast: 0 } },
+    ],
+    otherTokens: 100,
+    otherSpeedTokens: { normal: 100, fast: 0, ultrafast: 0 },
+  });
   const second = reports[1];
   if (second.state === "unavailable") throw Error("Fixture unavailable");
   second.days[14].models = {
@@ -157,9 +163,10 @@ it("merges model IDs across machines while retaining an older report remainder",
   };
   expect(combineReports(data, query)!.days[14].models).toEqual({
     named: [
-      { model: "gpt-5", totalTokens: 700 },
-      { model: "gpt-6", totalTokens: 300 },
+      { model: "gpt-5", totalTokens: 700, speedTokens: { normal: 700, fast: 0, ultrafast: 0 } },
+      { model: "gpt-6", totalTokens: 300, speedTokens: { normal: 300, fast: 0, ultrafast: 0 } },
     ],
     otherTokens: 100,
+    otherSpeedTokens: { normal: 100, fast: 0, ultrafast: 0 },
   });
 });

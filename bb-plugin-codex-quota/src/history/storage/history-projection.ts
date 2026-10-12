@@ -1,3 +1,4 @@
+import { initializeUsageMetadata, recordPiMetadata } from "./usage-metadata.js";
 import {
   supportedHistoryVersion,
   supportedHistoryLayout,
@@ -56,6 +57,7 @@ export function initializeHistory(db: HistoryDatabase, firstObservedAt: string, 
     if (version !== HISTORY_VERSION)
       db.prepare("UPDATE identity_receipt SET backfill=0,backfilled=0 WHERE id=1").run();
     initializeImport(db);
+    initializeUsageMetadata(db);
     db.exec(`PRAGMA user_version = ${HISTORY_VERSION}`);
   });
 }
@@ -156,8 +158,9 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
   if ("workspace" in record) {
     if (record.provenance === "observed")
       db.prepare("UPDATE history_writer_observation SET observed=1 WHERE id=1").run();
+    const { metadata, ...scalars } = record;
     const prior = eventRow(db, record.eventId),
-      payload = JSON.stringify(record),
+      payload = JSON.stringify(scalars),
       retention = retentionState(db);
     if (
       !prior &&
@@ -181,6 +184,7 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
           if (owner) conflictOwner(db, binding, owner);
         }
       }
+      if (sameCompactUsage(prior, payload)) recordPiMetadata(db, record.eventId, metadata);
       return;
     }
     const accepted = db
@@ -211,6 +215,7 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
       .prepare("SELECT session_id,entry_id FROM usage_confirmations WHERE event_id=?")
       .get(record.eventId) as Binding | undefined;
     if (binding) resolveBinding(db, row, binding);
+    recordPiMetadata(db, record.eventId, metadata);
   } else {
     const binding: Binding = { session_id: record.sessionId, entry_id: record.entryId };
     const prior = db

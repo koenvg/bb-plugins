@@ -195,11 +195,32 @@ function coreHistoryLayout(db: HistoryDatabase, version: number) {
   return true;
 }
 
+const native: Layout = {
+  usage_metadata: [
+    "event_id",
+    "source",
+    "speed",
+    "origin",
+    "speed_conflict",
+    "provider_thread",
+    "classes_available",
+  ],
+  usage_response_owners: [
+    "response_key",
+    "pi_event",
+    "native_event",
+    "native_evidence",
+    "native_conflicted",
+  ],
+  native_sources: ["name", "identity", "size", "stamp", "offset", "edge", "context", "incomplete"],
+  native_discovery: ["id", "value", "pending", "incomplete"],
+};
 const uncertainty: Layout = { identity_uncertain: ["thread_id", "provider_identity"] };
 
 export function supportedHistoryLayout(db: HistoryDatabase, version: number) {
   return (
     coreHistoryLayout(db, version) &&
+    (!(version >= 5 || present(db, native)) || matches(db, native)) &&
     (!(version >= 4 || present(db, identity)) || matches(db, uncertainty))
   );
 }

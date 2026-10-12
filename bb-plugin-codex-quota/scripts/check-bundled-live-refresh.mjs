@@ -140,7 +140,7 @@ try {
   assert.deepEqual(readFileSync(join(directory, "collector-control-v1.json")), control);
   const db = await bundled.openHistoryDatabase(path, true);
   try {
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 4);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 5);
     assert.equal(db.prepare("SELECT count(*) AS n FROM usage_compact").get().n, 501);
     assert.equal(
       db
@@ -155,7 +155,10 @@ try {
   }
   // Prove the shipped offline upgrade against this owned legacy database.
   const legacy = await bundled.openHistoryDatabase(path);
-  legacy.exec("DROP TABLE identity_uncertain");
+  // Reconstruct the supported old schema-4 layout, not damaged schema-5 storage.
+  legacy.exec(
+    "DROP TABLE usage_metadata; DROP TABLE usage_response_owners; DROP TABLE native_sources; DROP TABLE native_discovery; DROP TABLE identity_uncertain; PRAGMA user_version=4",
+  );
   legacy.close();
   const beforeUpgrade = readFileSync(path);
   assert.equal((await prepare()).reason, "storage-incompatible");

@@ -581,3 +581,109 @@ it("bounds source rows even when the whole previous uncertainty catalog is now r
   expect(result.total).toBe(0);
   await host.harness.lifecycle.dispose();
 });
+
+it.each(["pi", "codex"])(
+  "bounds %s provider snapshots across eight completed refreshes and preserves active delivery",
+  async (providerId) => {
+    const db = await fixture();
+    let now = 1;
+    const host = createFakePluginHost({
+      pluginId: "identity-test",
+      sdk: {
+        environments: { list: async () => [{ id: "env_a", hostId: "host_a" }] },
+        threads: {
+          list: async (args = {}) =>
+            args.archived
+              ? []
+              : [
+                  makeThreadResponse({
+                    id: "thr_a",
+                    providerId,
+                    environmentId: "env_a",
+                    title: "Retained fixture",
+                  }),
+                ],
+          events: {
+            list: async () => [
+              {
+                seq: 1,
+                threadId: "thr_a",
+                type: "thread/identity",
+                data: { providerThreadId: "source-A" },
+              },
+            ],
+          },
+        },
+      },
+    });
+    const discovery = createIdentityDiscovery(
+      host.bb.sdk,
+      () => db,
+      () => now,
+    );
+    const signal = new AbortController().signal;
+    const complete = async () => {
+      let batch = await discovery.next("host_a", signal);
+      for (let n = 0; batch.total === null && n < 20; n++)
+        batch = await discovery.next("host_a", signal);
+      expect(batch.total).toBe(2);
+      return batch;
+    };
+    try {
+      const first = await complete();
+      const expected = [
+        {
+          threadId: "thr_a",
+          providerIdentity: null,
+          title: "Retained fixture",
+          state: "available",
+        },
+        {
+          threadId: "thr_a",
+          providerIdentity: "source-A",
+          title: "Retained fixture",
+          state: "available",
+          ...(providerId === "codex" ? { provider: "codex-native" } : {}),
+        },
+      ];
+      expect(first).toEqual({
+        hostId: "host_a",
+        generation: 1,
+        offset: 0,
+        total: 2,
+        rows: expected,
+      });
+      discovery.delivered(first);
+      for (let generation = 2; generation <= 8; generation++) {
+        now = (generation - 1) * 60_000 + 1;
+        expect(await complete()).toEqual({
+          hostId: "host_a",
+          generation: 1,
+          offset: 2,
+          total: 2,
+          rows: [],
+        });
+      }
+      expect(db.prepare("SELECT host_id,generation FROM discovery_targets").all()).toEqual([
+        { host_id: "host_a", generation: 1 },
+      ]);
+      const retained = db
+        .prepare("SELECT DISTINCT generation FROM discovery_threads ORDER BY generation")
+        .all();
+      expect(retained).toEqual([{ generation: 1 }, { generation: 7 }, { generation: 8 }]);
+      expect(
+        db.prepare("SELECT DISTINCT generation FROM discovery_providers ORDER BY generation").all(),
+      ).toEqual(retained);
+      discovery.resetDelivery(first);
+      expect(await discovery.next("host_a", signal, false)).toEqual({
+        hostId: "host_a",
+        generation: 1,
+        offset: 0,
+        total: 2,
+        rows: expected,
+      });
+    } finally {
+      await host.harness.lifecycle.dispose();
+    }
+  },
+);

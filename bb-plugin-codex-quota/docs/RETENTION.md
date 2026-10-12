@@ -14,7 +14,7 @@ Original instants let reports regroup retained totals for a changed IANA timezon
 
 ## Maintenance and replay
 
-`initializeHistory` owns the unified schema-4 migration. See [STORAGE-INTEGRATION.md](STORAGE-INTEGRATION.md) for the full contract. Schema 1 is a historical migration input. Its compact ownership backfill uses transactions of at most 500 rows and saves a durable cursor. Migration from schemas 2 and 3 preserves compact rows, original ownership, cutoffs, completed cursors and scalar values. It resets only the bounded identity projection backfill.
+`initializeHistory` owns the unified schema-5 migration. Supported schema-4 read-only reports remain available without writes. Source/speed metadata survives detail expiry and is removed with numeric compact history; minimal hashed response aliases prevent expired native replay. Native preparation can continue bounded physical retention without changing the cutoffs or collector controls. See [SPEED.md](SPEED.md). See [STORAGE-INTEGRATION.md](STORAGE-INTEGRATION.md) for the full contract. Schema 1 is a historical migration input. Its compact ownership backfill uses transactions of at most 500 rows and saves a durable cursor. Migration from schemas 2 and 3 preserves compact rows, original ownership, cutoffs, completed cursors and scalar values. It resets only the bounded identity projection backfill.
 
 Reconciliation, identity resolution and import work wait for compact ownership backfill to finish, so a partial compact index cannot change replay ownership. Pruning also uses batches of at most 500 records. Log retirement advances at most 14 dates per check. Discovery uses fixed daily names, not a directory-wide or transcript scan.
 

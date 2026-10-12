@@ -50,7 +50,7 @@ export async function upgradeRetainedIdentityStorage(
     try {
       const version = (checked.prepare("PRAGMA user_version").get() as { user_version: number })
         .user_version;
-      if (version !== 4) return unavailable("storage-incompatible");
+      if (version !== 4 && version !== 5) return unavailable("storage-incompatible");
       await readHistoryControl(checked, directory);
       signal.throwIfAborted();
       if (supportedHistoryLayout(checked, version)) return { state: "current" };
@@ -74,7 +74,8 @@ export async function upgradeRetainedIdentityStorage(
         signal.throwIfAborted();
         const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
           .user_version;
-        if (version === 4 && supportedHistoryLayout(db, version)) return { state: "current" };
+        if ((version === 4 || version === 5) && supportedHistoryLayout(db, version))
+          return { state: "current" };
         if (!legacyIdentityUpgradeLayout(db, version))
           throw Error("Identity upgrade layout changed");
         if (

@@ -116,7 +116,7 @@ async function fixture() {
     });
   return { root, directory, path, db, context, make, reads: () => reads };
 }
-it("upgrades collector-only version 1 to schema 4 and resumes bounded ownership backfill before collector replay", async () => {
+it("upgrades collector-only version 1 to schema 5 and resumes bounded ownership backfill before collector replay", async () => {
   const f = await fixture();
   seedCollectorV1(f.db);
   f.db.close();
@@ -136,7 +136,7 @@ it("upgrades collector-only version 1 to schema 4 and resumes bounded ownership 
   expect(f.reads()).toBe(0);
   const db = (await openHistoryDatabase(f.path))!;
   try {
-    expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 4 });
+    expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
   } finally {
     db.close();
   }
@@ -246,7 +246,7 @@ test.each([1, 2, 3])(
     expect(f.reads()).toBe(0);
     const db = (await openHistoryDatabase(f.path))!;
     try {
-      expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 4 });
+      expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
       expect(
         db
           .prepare("SELECT frozen,provider_cursor,state FROM import_generations WHERE id=?")
@@ -285,7 +285,7 @@ test.each(["newer", "wal"] as const)(
   async (kind) => {
     const f = await fixture();
     seedCollectorV1(f.db);
-    f.db.exec(`PRAGMA user_version=${kind === "newer" ? 5 : 4}`);
+    f.db.exec(`PRAGMA user_version=${kind === "newer" ? 6 : 4}`);
     f.db.close();
     if (kind === "wal") await writeFile(f.path + "-wal", "owned-unsettled-wal");
     const { readFile, readdir } = await import("node:fs/promises");

@@ -544,7 +544,7 @@ it.each(["missing", "version", "backfill"])(
         const db = (await openHistoryDatabase(f.path))!;
         expect(
           (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version,
-        ).toBe(mode === "version" ? 99 : 4);
+        ).toBe(mode === "version" ? 99 : 5);
         if (mode === "backfill")
           expect(db.prepare("SELECT backfill_done FROM history_retention").get()).toEqual({
             backfill_done: 0,

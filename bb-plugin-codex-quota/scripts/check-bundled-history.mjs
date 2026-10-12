@@ -309,7 +309,7 @@ try {
       .get(legacyEvent.sessionId, "retained-entry").event_id,
     legacyEvent.eventId,
   );
-  assert.equal(legacyDb.prepare("PRAGMA user_version").get().user_version, 4);
+  assert.equal(legacyDb.prepare("PRAGMA user_version").get().user_version, 5);
   legacyDb.close();
   console.log(
     "Packaged legacy retirement: paused fresh consent, invalid-token rejection, bounded tail/copy, original body/time/workspace/cost/ownership and disabled durable reopen passed. Synthetic only.",
