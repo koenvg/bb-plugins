@@ -9,16 +9,16 @@ The package targets BB 0.45 and SDK 0.6.15. Presets support provider-defined ser
 
 ## Development checks
 
-Use Node `>=24.15.0 <25` and npm with the committed lockfiles. Install repository
-lint/format tooling with `npm ci` at the root. Then run from this directory:
+Use Bun 1.4.3 with the committed lockfiles, and Node `>=24.15.0 <25` for Vitest. Install repository
+lint/format tooling with `bun install --frozen-lockfile` at the root. Then run from this directory:
 
 ```sh
-npm ci
-npm run typecheck -- --version
-npm run typecheck
-npm test
-npm run lint
-npm run format:check
+bun install --frozen-lockfile
+bun run typecheck --version
+bun run typecheck
+bun run test
+bun run lint
+bun run format:check
 ```
 
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
@@ -26,7 +26,7 @@ The `typescript-7` dependency is pinned to `npm:typescript@7.0.2`. The script ru
 its published executable through Node at `./node_modules/typescript-7/bin/tsc`.
 It does not use `node_modules/.bin/tsc`, a global compiler, or a downloaded fallback.
 The package selects its native compiler for the host platform. Keep optional
-dependencies enabled during `npm ci` so that compiler is installed.
+dependencies enabled during `bun install --frozen-lockfile` so that compiler is installed.
 
 The TypeScript 6 alias remains until its removal is approved. Its transitive
 `@typescript/old` dependency and TypeScript 7 both export `tsc`. The explicit path
@@ -63,7 +63,7 @@ Only one of the two plugins can be enabled at a time.
 1. Back up the bundled data:
    `cp -R ~/.bb/plugins/tasks ~/.bb/plugins/tasks.backup-$(date +%F)`
 2. From this repository's root, install the fork, then keep it disabled:
-   `cd bb-plugin-tasks-plus && npm ci && bb plugin build && bb plugin install . --yes && cd ..`,
+   `cd bb-plugin-tasks-plus && bun install --frozen-lockfile && bb plugin build && bb plugin install . --yes && cd ..`,
    then `bb plugin disable tasks-plus`.
 3. Disable the bundled plugin: `bb plugin disable tasks`. Do not use
    `bb plugin remove tasks`.

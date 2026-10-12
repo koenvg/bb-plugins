@@ -30,9 +30,9 @@ The desktop and 375px preview uses the existing React components and generated s
 To repeat without installing or reloading the plugin:
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:browser -- activity.spec.ts
+bun install --frozen-lockfile
+bun --bun run playwright install chromium
+bun run test:browser activity.spec.ts
 ```
 
 Playwright owns the server and browser lifetime. Screenshots, decoded PNG hashes and layout JSON go to `test-results/`, with attachments in `playwright-report/`. See [browser verification](BROWSER-TESTING.md). The fixture blocks external browser requests. It is not an installed BB slot, real sign-in, or live endpoint check.

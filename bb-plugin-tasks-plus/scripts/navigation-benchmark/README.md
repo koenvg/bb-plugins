@@ -12,12 +12,12 @@ The served Tasks app matches the installed disk app by SHA-256. The served quota
 
 ## Repository-only rerun and cleanup
 
-Run from the repository root with Node 24. These commands do not contact the tracker or open a browser.
+Run from the repository root with Bun 1.4.3. These commands do not contact the tracker or open a browser.
 
 ```sh
-node --test bb-plugin-tasks-plus/scripts/navigation-benchmark/benchmark.test.mjs bb-plugin-tasks-plus/scripts/navigation-benchmark/qualification.test.mjs
-node bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs fixture /tmp/bbp60-owned-fixture bbp60-native-baseline
-node bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs cleanup /tmp/bbp60-owned-fixture bbp60-native-baseline
+bun test ./bb-plugin-tasks-plus/scripts/navigation-benchmark/benchmark.test.mjs bb-plugin-tasks-plus/scripts/navigation-benchmark/qualification.test.mjs
+bun bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs fixture /tmp/bbp60-owned-fixture bbp60-native-baseline
+bun bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs cleanup /tmp/bbp60-owned-fixture bbp60-native-baseline
 ```
 
 Fixture creation refuses existing directories. Cleanup requires the matching owner, original fixture hash and exactly the two owned regular files. It refuses foreign or modified content. Preserve a copy of `fixture.json` and its ownership record in the evidence archive before cleanup. No generic tracker-delete or browser-close command is provided.
@@ -52,7 +52,7 @@ await writeFile("/tmp/bbp60-latency.json", JSON.stringify(raw, null, 2), { flag:
 ```
 
 ```sh
-node bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs report /tmp/bbp60-latency.json > /tmp/bbp60-latency-summary.json
+bun bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs report /tmp/bbp60-latency.json > /tmp/bbp60-latency-summary.json
 ```
 
 The driver sets 1440x900 and CPU throttling rate 1. It visits all ten tasks and returns to the first, keeps those 18 warm-up samples separate, then records 36 warm movements. Each recorded movement requires the expected selected row, native detail key, exact title, description heading marker, rendered paragraphs, list and link. Timing starts at captured keydown. It ends on the second animation-frame callback after matching content becomes available, with identity checked again. This gives a presentation opportunity, not proof of a physical display paint. Check User Timing marks against a separate timeline trace. A failed warm sample blocks the summary; raw failures remain in the run. There is no automatic claim of a speed-up or task completion.

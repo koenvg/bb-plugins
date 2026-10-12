@@ -167,6 +167,6 @@ cd "$SOURCE" || fail
 ${prerequisites.map((file) => `[ -f ${quote(`${pkg}/${file}`)} ] && [ ! -L ${quote(`${pkg}/${file}`)} ] || fail\ngit --no-optional-locks -c core.fsmonitor=false show ${quote(`HEAD:${packageName}/${file}`)} | cmp - ${quote(`${pkg}/${file}`)} >/dev/null || fail`).join("\n")}
 DIRTY=$(git --no-optional-locks -c core.fsmonitor=false status --porcelain=v1 --untracked-files=all -- ${prerequisites.map((file) => quote(`${packageName}/${file}`)).join(" ")}) || fail
 [ -z "$DIRTY" ] || fail
-exec node "$PACKAGE/src/upstream/cli.ts" --source "$PACKAGE" --project ${quote(projectId)}
+exec bun "$PACKAGE/src/upstream/cli.ts" --source "$PACKAGE" --project ${quote(projectId)}
 `;
 }

@@ -48,7 +48,7 @@ CLI `prompt set` and `prompt reset` remain deliberate unconditional replacements
 
 ## Test the isolated Settings preview
 
-Run `npm ci`, then `npm run preview:settings` from this package. Open `http://127.0.0.1:4888/`. Set `PORT` to use another port.
+Run `bun install --frozen-lockfile`, then `bun run preview:settings` from this package. Open `http://127.0.0.1:4888/`. Set `PORT` to use another port.
 
 The preview renders the actual app entry with a small public app runtime adapter. Requests use official fake-host RPC, the host Settings write driver, and temporary real SQLite, not production storage. Its default control renders the actual backend descriptor but is not BB's native host form. Alpha starts explicitly On with multiline custom text. Beta starts inherited Off with the factory prompt. Delta starts explicitly Off with the factory prompt. Gamma has a long name and starts explicitly Off with custom text. Personal projects are excluded. Fixture links cover empty, load-failure, refresh-failure, save-failure, and slow-request states. Refresh failure starts with readable summaries. Change the fixture default to make subsequent summary reads fail. Recover fixture requests clears failure mode without reloading the app or losing drafts; then use Retry overview or repeat the failed row action. Click a project name or Edit prompt to inspect the native dialog. Use two preview tabs to try dirty-draft conflicts and discard-before-reload. Two preview tabs share the same temporary state. A fixture-only event poll delivers confirmed changes to both tabs. This poll is not part of the installed plugin. Restarting resets fixture values.
 

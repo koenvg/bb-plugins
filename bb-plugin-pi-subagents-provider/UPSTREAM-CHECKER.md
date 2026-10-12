@@ -11,12 +11,12 @@ Stable server-host source placement and scheduling still need operator decisions
 Run the command only from a trusted local copy after source review:
 
 ```sh
-node /ABSOLUTE_SOURCE/bb-plugin-pi-subagents-provider/src/upstream/cli.ts \
+bun /ABSOLUTE_SOURCE/bb-plugin-pi-subagents-provider/src/upstream/cli.ts \
   --source /ABSOLUTE_SOURCE/bb-plugin-pi-subagents-provider \
   --project proj_gjz4e6jtmg
 ```
 
-`npm run check:upstream -- --source ABSOLUTE_PACKAGE_PATH --project proj_gjz4e6jtmg` is equivalent. Node 24.15.0 or newer within Node 24 and Git are prerequisites. The checker uses Node's native TypeScript support. It does not need installed plugin dependencies or a model. These examples are instructions for later approved use, not evidence of a run here.
+`bun run check:upstream --source ABSOLUTE_PACKAGE_PATH --project proj_gjz4e6jtmg` is equivalent. Bun 1.4.3 and Git are prerequisites. The checker uses Bun's native TypeScript support. It does not need installed plugin dependencies or a model. These examples are instructions for later approved use, not evidence of a run here.
 
 The checker reads `HEAD:bb-plugin-pi-subagents-provider/UPSTREAM.json` with read-only Git commands. It ignores an uncommitted baseline. Other dirty work stays untouched. The scheduled wrapper takes a stricter approach and refuses uncommitted baseline/checker prerequisites before it executes the checker. Raw content checks also catch dirty files hidden by Git index flags.
 
@@ -107,6 +107,6 @@ Review reported provider and contract changes outside the monitored source. Obta
 
 ## Source-only test seams
 
-Credential-free tests exercise `checkUpstream` and `checkerCommand` through injected transport/clock/environment values, Git-generated owned trees, `readCommittedBaseline` and `inspectStableSource` through owned Git fixtures, and `planWeeklyCheck` through complete read-only inventory fixtures. Mutating scheduler methods are stubs and remain unused. The copied wrapper executes only an owned fake Node command. Plugin install/reload tests use the published fake host, never the real installer or scheduler.
+Credential-free tests exercise `checkUpstream` and `checkerCommand` through injected transport/clock/environment values, Git-generated owned trees, `readCommittedBaseline` and `inspectStableSource` through owned Git fixtures, and `planWeeklyCheck` through complete read-only inventory fixtures. Mutating scheduler methods are stubs and remain unused. The copied wrapper executes only an owned fake Bun command. Plugin install/reload tests use the published fake host, never the real installer or scheduler.
 
-Run `npm test -- src/upstream`, complete `npm test`, and `npm run typecheck`. Follow the repository verify skill for the non-activating build. The normal `bb plugin types ABSOLUTE_PACKAGE_PATH --check` gate must pass on the current BB 0.46.0 / SDK 0.6.37 source. See [compatibility and source-gate evidence](COMPATIBILITY.md). The provider-only exception covers only the historical BB 0.44.0 / SDK 0.5.29 diagnostic. Keep that original checker result failed, exit 1; replacement checks do not change it. Fixtures do not prove stable placement, enabled scheduling, native installed behavior, or live model acceptance.
+Run `bun run test src/upstream`, complete `bun run test`, and `bun run typecheck`. Follow the repository verify skill for the non-activating build. The normal `bb plugin types ABSOLUTE_PACKAGE_PATH --check` gate must pass on the current BB 0.46.0 / SDK 0.6.37 source. See [compatibility and source-gate evidence](COMPATIBILITY.md). The provider-only exception covers only the historical BB 0.44.0 / SDK 0.5.29 diagnostic. Keep that original checker result failed, exit 1; replacement checks do not change it. Fixtures do not prove stable placement, enabled scheduling, native installed behavior, or live model acceptance.

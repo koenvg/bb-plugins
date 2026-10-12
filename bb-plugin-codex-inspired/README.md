@@ -27,11 +27,11 @@ Use Node `>=24.15.0 <25`, matching the repository's test workflow. Run these com
 
 ```sh
 cd bb-plugin-codex-inspired
-npm ci
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
 bb plugin types --check
-npm run build
+bun run build
 bb plugin install .
 ```
 
@@ -67,7 +67,7 @@ Check actual regular and unread thread titles, group headings, code metadata, me
 
 ## Build and packaging
 
-`npm run build` emits `dist/server.js`, its source map, and SDK/identity metadata. CSS remains a manifest-referenced file. Build before `npm pack`; use `npm pack --dry-run` to inspect the release contents. Generated `dist/` and tarballs are not source files and must not be committed.
+`bun run build` emits `dist/server.js`, its source map, and SDK/identity metadata. CSS remains a manifest-referenced file. Build before `npm pack`; use `npm pack --dry-run` to inspect the release contents. Generated `dist/` and tarballs are not source files and must not be committed.
 
 The package keeps `server.ts` for Git source installs. The type-only SDK import needs no production dependency. Built backend artifacts also ship in packed releases. Each plugin is versioned independently; no release tag or marketplace publication is needed for direct Git installation.
 

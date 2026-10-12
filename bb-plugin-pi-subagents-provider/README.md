@@ -2,21 +2,21 @@
 
 An independent fork of BB's Pi provider. It registers provider `pi-subagents` alongside bundled `pi` and preserves ordinary Pi work. The source implements native background observation and a read-only Subagents panel with bounded task, transcript, output, parallel/nested structure, and captured-history recovery. Installed lifecycle and persistence acceptance remain unproved; this is not a lifecycle-safety claim.
 
-The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provider`. It ships server, host, and frontend entries, published dependencies, a committed npm lockfile, and the upstream MIT notice. See [UPSTREAM.json](UPSTREAM.json), [local adaptations](UPSTREAM.md), and [compatibility and check limits](COMPATIBILITY.md).
+The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provider`. It ships server, host, and frontend entries, published dependencies, a committed Bun lockfile, and the upstream MIT notice. See [UPSTREAM.json](UPSTREAM.json), [local adaptations](UPSTREAM.md), and [compatibility and check limits](COMPATIBILITY.md).
 
 ## Local checks
 
-Use Node 24.15.0 or newer within Node 24. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
+Use Bun 1.4.3 for installs and scripts, with Node 24.15.0 or newer within Node 24 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
 
 ```sh
 cd bb-plugin-pi-subagents-provider
-npm ci
-npm test
-npm run typecheck
-npm run build
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
+bun run build
 ```
 
-`npm test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `npm run build` uses the pinned published `bb-app@0.46.0` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.37, which stays available with `npm ci --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0460).
+`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.46.0` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.37, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0460).
 
 Also run the read-only `bb plugin types . --check` and retain its actual exit code and complete output. The normal current-host gate must pass before building. When updating BB compatibility, synchronize the canonical SDK with `bb plugin types`, update the runtime alias to the same exact version, and rerun all checks. The historical BB 0.44.0 / SDK 0.5.29 exception does not apply. Local checks do not authorize installation or paid tests.
 

@@ -40,8 +40,8 @@ From the worktree root, build first, then start the fixture server only if port 
 
 ```sh
 bb plugin build bb-plugin-tasks-plus
-node bb-plugin-tasks-plus/node_modules/vite/bin/vite.js build --config bb-plugin-tasks-plus/scripts/project-settings-preview/bundle.config.mjs
-node bb-plugin-tasks-plus/node_modules/vite/bin/vite.js --config bb-plugin-tasks-plus/scripts/project-settings-preview/vite.config.mjs
+bun bb-plugin-tasks-plus/node_modules/vite/bin/vite.js build --config bb-plugin-tasks-plus/scripts/project-settings-preview/bundle.config.mjs
+bun bb-plugin-tasks-plus/node_modules/vite/bin/vite.js --config bb-plugin-tasks-plus/scripts/project-settings-preview/vite.config.mjs
 ```
 
 Generated files in `public/project-settings-preview/` are ignored. The preview reuses the locked SDK, Vite and Vitest dependencies. React's development build is necessary for the SDK slot harness's `act()`; this does not alter the production plugin build.

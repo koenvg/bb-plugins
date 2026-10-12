@@ -13,9 +13,9 @@ Active rows use the lattice in place of their native activity glyph, keeping one
 Requires BB 0.45 or newer. From this directory:
 
 ```sh
-npm ci
-npm run typecheck
-npm run build
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
 bb plugin install .
 ```
 
@@ -52,27 +52,27 @@ BB's chat DOM is not a public API. The selectors were checked against the BB 0.4
 ## Develop and test
 
 ```sh
-npm test
-npm run typecheck
+bun run test
+bun run typecheck
 bb plugin types . --check
-npm run build
+bun run build
 ```
 
 ### Browser matrix
 
-Use Node 24.15 or newer in the Node 24 release line. From this package:
+Use Bun 1.4.3. From this package:
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:browser
+bun install --frozen-lockfile
+bun --bun run playwright install chromium
+bun run test:browser
 ```
 
-The pinned Playwright Test 1.64.0 runner starts its own Chromium browser and a local fixture server on `127.0.0.1:56429`. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
+The pinned Playwright Test 1.64.0 runner starts its own Chromium browser and a local fixture server on `127.0.0.1:56429`. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `bun --bun run playwright install --with-deps chromium` if browser system libraries are missing.
 
 The server builds the unchanged `app.tsx` entry and its CSS with esbuild on every run. It serves these assets in memory at the fixture's existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite an existing BB build in `dist/`. Only fixture assets are served, with caching disabled. An occupied port fails instead of reusing another server. Playwright owns browser, context and server cleanup on success or failure. Assertions, navigation errors, build errors and timeouts fail the command; retries are disabled.
 
-`npm test` still runs Vitest. Its only discovery change excludes `tests/browser/**`, where Playwright's `*.spec.ts` files live. `browser-evidence.test.ts` retains the complete-PNG and backing-pixel safeguards. The Python daemon/session contract tests were removed because the runner no longer connects to user browsers.
+`bun run test` still runs Vitest. Its only discovery change excludes `tests/browser/**`, where Playwright's `*.spec.ts` files live. `browser-evidence.test.ts` retains the complete-PNG and backing-pixel safeguards. The Python daemon/session contract tests were removed because the runner no longer connects to user browsers.
 
 Coverage from `tests/browser-matrix.py` maps one-to-one to the same case names in `tests/browser/matrix.spec.ts`:
 
@@ -95,13 +95,13 @@ Results are in `test-results/results.json` and the HTML report in `playwright-re
 To rerun only the split-send regression cases:
 
 ```sh
-npm run test:browser -- --grep split-send
+bun run test:browser --grep split-send
 ```
 
 To put per-case files in a separate directory, use `--output`. The JSON and HTML reports still use their configured paths:
 
 ```sh
-npm run test:browser -- --output /tmp/compose-chat-evidence
+bun run test:browser --output /tmp/compose-chat-evidence
 ```
 
 The 16 cases and six screenshots are synthetic fixture evidence, not an installed native-BB acceptance check. Standalone actions get larger touch targets. Native split-send controls keep BB's joined corners and original widths, including the zero-width hidden options segment.

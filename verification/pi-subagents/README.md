@@ -5,20 +5,20 @@ These tools support BBP-69 and BBP-77. They do not change the provider, BB, the 
 ## Checks without a model
 
 ```sh
-node --test verification/pi-subagents/*.test.mjs
-node verification/pi-subagents/deadline-guard.mjs --help
+bun test ./verification/pi-subagents/*.test.mjs
+bun verification/pi-subagents/deadline-guard.mjs --help
 ```
 
 The tests use a virtual clock, fake public-command responses and one separate Node fixture process. They do not start Pi or native subagents. These checks do not prove installed lifecycle safety.
 
 ## Independent deadline control
 
-Run `deadline-guard.mjs` in its own Node process. Do not make the model prepare a stop command when a deadline is near. The guard never dispatches a prompt. The coordinator owns dispatch, evidence collection and acceptance.
+Run `deadline-guard.mjs` in its own Bun process. Do not make the model prepare a stop command when a deadline is near. The guard never dispatches a prompt. The coordinator owns dispatch, evidence collection and acceptance.
 
 1. Obtain a new bounded phase approval. Keep all closed ledgers unchanged.
 2. Create only owned fixture records. If a prompt is queued, schedule it beyond the phase deadline. Record its exact message ID. Do not let it dispatch before the guard is armed.
 3. Write the approved action plan. Use the earliest action start time, including fixture or queued-prompt creation. Do not reset the clock when the guard starts.
-4. Start `node verification/pi-subagents/deadline-guard.mjs --run PLAN.json` with a private controller input channel and retained stdout/stderr. Wait for the `armed` receipt and check the process identity before dispatch.
+4. Start `bun verification/pi-subagents/deadline-guard.mjs --run PLAN.json` with a private controller input channel and retained stdout/stderr. Wait for the `armed` receipt and check the process identity before dispatch.
 5. Dispatch the owned queued prompt through the existing public CLI. Keep the approved provider, model, reasoning, service tier and permission selection. Do not change defaults or profiles.
 6. Send validated identity and exclusive native PID receipts to the guard. Keep the original public events, process correlations and timestamps separately.
 7. Send completion only after the required canonical outcomes are observed. Child output or a captured result alone is insufficient.

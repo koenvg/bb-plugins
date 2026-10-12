@@ -101,12 +101,12 @@ The toolbar, reading column, and optional outline respond to the actual reader w
 
 The package targets BB **>=0.45** and Plugin SDK **>=0.6.15 <0.7**, with declarations pinned to **0.6.37**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
-From this package directory, with Node 24.15 or newer within Node 24 and a compatible `bb` CLI:
+From this package directory, with Bun 1.4.3 and a compatible `bb` CLI. Vitest also needs Node 24.15 or newer within Node 24:
 
 ```sh
-npm ci
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
 bb plugin types . --check
 bb plugin build
 ```
@@ -137,19 +137,19 @@ Source tests exercise the public source-module interface with an in-memory adapt
 Browser tests use native TypeScript Playwright Test **1.64.0** and owned Chromium contexts. No Python or signed-in browser is needed. From this package directory:
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:browser
+bun install --frozen-lockfile
+bun --bun run playwright install chromium
+bun run test:browser
 # Target one suite or one matrix case:
-npm run test:browser -- navigation.spec.ts
-npm run test:browser -- presentation.spec.ts --grep 'presentation 760-light$'
+bun run test:browser navigation.spec.ts
+bun run test:browser presentation.spec.ts --grep 'presentation 760-light$'
 # The former UI --reproduce case:
-npm run test:browser -- ui.spec.ts --grep '760-light$'
+bun run test:browser ui.spec.ts --grep '760-light$'
 ```
 
 Playwright starts and stops Vite on `http://127.0.0.1:4187`, waits for HTTP readiness, and serves the latest local TSX and CSS. That port must be free. It does not reuse an existing server. Each test has a new browser context. Remote images are routed to synthetic PNGs, and unexpected non-local HTTP traffic is blocked and fails the test. There are no live host reads, real native navigation calls, or BB installation steps.
 
-`npm test` remains the primary Vitest suite. Its `tests/**/*.test.{ts,tsx}` include does not collect the browser `tests/browser/*.spec.ts` files. `npm run typecheck` checks both suites.
+`bun run test` remains the primary Vitest suite. Its `tests/**/*.test.{ts,tsx}` include does not collect the browser `tests/browser/*.spec.ts` files. `bun run typecheck` checks both suites.
 
 ### Coverage mapping
 
@@ -166,6 +166,6 @@ All six Python runners are replaced. The 42 browser cases retain their assertion
 
 ### Evidence and limits
 
-Each run writes an aggregate JSON report at `test-results/results.json` and an HTML report at `playwright-report/index.html`. Each case attaches JSON results. Captures and SHA-256 identities retain all 46 original success screenshots, including the presentation top/code pairs and eight UI captures, and add the 320 px custom and 390 px light/dark coarse-pointer captures for 49 success screenshots. Presentation results include geometry, measured contrast, live contrasts, focus proof, adjacent styles, and bounded browser diagnostics. Failed tests retain a screenshot and trace in `test-results/`. Both output directories are ignored by Git and replaced by the next run. Open the report with `npx playwright show-report`.
+Each run writes an aggregate JSON report at `test-results/results.json` and an HTML report at `playwright-report/index.html`. Each case attaches JSON results. Captures and SHA-256 identities retain all 46 original success screenshots, including the presentation top/code pairs and eight UI captures, and add the 320 px custom and 390 px light/dark coarse-pointer captures for 49 success screenshots. Presentation results include geometry, measured contrast, live contrasts, focus proof, adjacent styles, and bounded browser diagnostics. Failed tests retain a screenshot and trace in `test-results/`. Both output directories are ignored by Git and replaced by the next run. Open the report with `bun --bun run playwright show-report`.
 
 The fixtures reuse the existing HTML/TSX pages and the same Reader and MarkdownDocument modules. Navigation uses the committed CRLF source and the `fixture-line-request` event to change public reader props only. Destination and presentation pages use the public SDK registered-app test runtime with synthetic RPC responses, navigation callbacks, image GETs, and confined GET denial. These are local fixture tests, **not installed BB acceptance**. They do not prove real host confinement, live BB routing, extension preference selection, host fonts, or native theme behavior. Default-token contrast is a controlled check, not certification of all palettes. See [token provenance and limits](tests/fixtures/theme-tokens.md).

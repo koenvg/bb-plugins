@@ -1,22 +1,22 @@
 # Synthetic browser verification
 
-Run from `bb-plugin-codex-quota/` with Node 24.15 and npm:
+Run from `bb-plugin-codex-quota/` with Bun 1.4.3. Vitest also needs Node 24.15 or newer within Node 24:
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:browser
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun --bun run playwright install chromium
+bun run test:browser
+bun run test
+bun run typecheck
 ```
 
-`@playwright/test` is locked to 1.64.0. `npm test` remains Vitest. Its default exclusions are retained, with only `scripts/browser/**/*.spec.ts` added. `proof.test.ts` remains in Vitest.
+`@playwright/test` is locked to 1.64.0. `bun run test` remains Vitest. Its default exclusions are retained, with only `scripts/browser/**/*.spec.ts` added. `proof.test.ts` remains in Vitest.
 
-No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for browser checks. Existing `.mjs` bundle checks and `npm run test:bundle` are unchanged and remain separate backend verification.
+No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for browser checks. Existing `.mjs` bundle checks and `bun run test:bundle` are unchanged and remain separate backend verification.
 
 ## Ownership and local resources
 
-Playwright launches its own Chromium, creates fresh test contexts, and closes them. No existing browser profile, login, tab or daemon is used. The Node preview builds the existing TSX/HTML fixtures and scoped Tailwind utilities into a fresh `codex-quota-preview-*` directory under the OS temporary directory. Playwright sends SIGTERM and waits up to five seconds for server cleanup. The server removes that directory on normal shutdown. It never builds into `dist/` or writes product/source-root data.
+Playwright launches its own Chromium, creates fresh test contexts, and closes them. No existing browser profile, login, tab or daemon is used. The Bun preview builds the existing TSX/HTML fixtures and scoped Tailwind utilities into a fresh `codex-quota-preview-*` directory under the OS temporary directory. Playwright sends SIGTERM and waits up to five seconds for server cleanup. The server removes that directory on normal shutdown. It never builds into `dist/` or writes product/source-root data.
 
 The preview listens only on `127.0.0.1:38716`. An occupied port fails; an existing server is never reused or replaced. It serves only the five fixture HTML/JavaScript pairs and generated CSS, not the checkout. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
 
@@ -49,12 +49,12 @@ The date inspector and its dedicated browser and component suites were removed. 
 ## Commands and receipts
 
 ```sh
-npm run test:browser -- activity.spec.ts
-npm run test:browser -- calendar.spec.ts --grep '^money'
-npm run test:browser -- mobile-layout.spec.ts
-npm run test:browser -- --grep 'storage combined'
-npm test -- scripts/browser/proof.test.ts
-npx playwright show-report
+bun run test:browser activity.spec.ts
+bun run test:browser calendar.spec.ts --grep '^money'
+bun run test:browser mobile-layout.spec.ts
+bun run test:browser --grep 'storage combined'
+bun run test scripts/browser/proof.test.ts
+bun --bun run playwright show-report
 ```
 
 The full run has 111 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.

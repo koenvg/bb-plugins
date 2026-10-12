@@ -58,7 +58,7 @@ Quota, its footer, countdown, host selection, refresh and the official usage lin
 
 The 30-day chart supports pointer tooltips and keyboard date navigation. The separate date inspector is removed. Tooltips show recorded values, nonzero exclusions and separate uncertain token estimates. Coverage and pricing details remain in the accessible table. Unknown history stays unavailable; recorded inactivity stays zero.
 
-For compact control sizes, refresh behaviour and touch navigation checks, run `npm run test:browser -- mobile-layout.spec.ts` after the setup below. The suite checks 32px date-arrow visuals with 44px coarse-pointer hit areas and a background-free refresh icon after the allowance heading. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
+For compact control sizes, refresh behaviour and touch navigation checks, run `bun run test:browser mobile-layout.spec.ts` after the setup below. The suite checks 32px date-arrow visuals with 44px coarse-pointer hit areas and a background-free refresh icon after the allowance heading. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
 
 ## Storage and interfaces
 
@@ -75,14 +75,14 @@ Preparation opens that existing index for bounded writes only after the same saf
 Run from this package. Browser checks do not need the BB CLI or an installed plugin.
 
 ```sh
-npm ci
-npx playwright install chromium
-npm run test:browser
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun --bun run playwright install chromium
+bun run test:browser
+bun run test
+bun run typecheck
 # Diagnostic subset only. Do not report a subset as full acceptance.
-npm run test:browser -- calendar.spec.ts --grep 'calendar.*partial'
-npm run test:browser -- calendar.spec.ts --grep '^money'
+bun run test:browser calendar.spec.ts --grep 'calendar.*partial'
+bun run test:browser calendar.spec.ts --grep '^money'
 ```
 
 The Node preview builds the existing TSX fixtures and scoped Tailwind CSS from this checkout into a fresh temporary directory. Playwright starts its owned loopback server on port 38716, refuses an occupied port, and launches fresh Chromium contexts. It does not reuse a user browser, daemon, server or signed-in profile. It removes only its fresh preview directory on normal shutdown. See [browser verification](BROWSER-TESTING.md) for all old-to-new coverage mappings.
@@ -109,7 +109,7 @@ These checks do not certify installed BB navigation, native desktop behavior, re
 
 Do not overwrite historical evidence. Base-calendar receipts belong to BBP-20, `bbthread://thr_kt33mse6a5`, baseline `ceb1ab8087f486a03a5193729232d0ad310436de`. Captured-money and conservative-comparison receipts belong to BBP-21, `bbthread://thr_4xmb2qv79d`, baseline `b9d53677ec1f80da07caa2a96be58e80e09b878c`. Their old frontend matrices describe that earlier UI, not the current chart. The approved installed axes-chart receipts are at `/Users/koen/.bb/thread-storage/thr_2k7buag9sh/ui-axes-8aTS4n/`. This task reads them only.
 
-`npm run test:bundle` is separate backend verification. `check-bundled-calendar.mjs` uses persistent temporary SQLite and owned synthetic files to check full totals beyond top-50 output, reopen, expired classes, cancellation and import-only reporting. `check-bundled-money.mjs` checks original prices, unpriced tokens, denominators, safe sums and conservative comparisons. They are not browser or installed-frontend proof. Node 22 SQLite remains experimental; record exact runtime versions when running these fixtures.
+`bun run test:bundle` is separate backend verification. `check-bundled-calendar.mjs` uses persistent temporary SQLite and owned synthetic files to check full totals beyond top-50 output, reopen, expired classes, cancellation and import-only reporting. `check-bundled-money.mjs` checks original prices, unpriced tokens, denominators, safe sums and conservative comparisons. They are not browser or installed-frontend proof. Node 22 SQLite remains experimental; record exact runtime versions when running these fixtures.
 
 `check-bundled-live-refresh.mjs` uses the built host artifact with temporary collector logs and SQLite. After fixture setup, it calls only preparation and calendar handlers. It checks a multi-batch update, original dates/tokens/captured prices, replay, storage reopen and artifact reload, with network rejected and live paths untouched. Public SDK tests separately check the visible-page schedule with unavailable quota, stopped status, explicit retry, age, visibility return, selection changes and disposal.
 
