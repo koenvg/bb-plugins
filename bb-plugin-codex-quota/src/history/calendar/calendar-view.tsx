@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { projectTokenModels, type ModelSeries } from "./calendar-models.js";
 import { tokenCountText } from "../../token-counts.js";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { CalendarSnapshot } from "./calendar-contract.js";
@@ -12,7 +13,6 @@ import {
   weekdayTick,
   metricName,
   recordedValue,
-  tokenSeries,
   tokenCategories,
   tokenBreakdown,
   type CalendarDay,
@@ -46,12 +46,18 @@ export function UsageTooltip({
   day,
   metric,
   maxWidth,
+  modelView,
 }: {
   day: CalendarDay;
   metric: TokenMetric;
+  modelView?: { series: ModelSeries[]; values: Record<string, number | null> };
   maxWidth?: number;
 }) {
   const recorded = recordedValue(day, metric);
+  const projection = modelView ? null : projectTokenModels([day]);
+  const modelSeries = modelView?.series ?? projection!.series;
+  const modelValues = modelView?.values ?? projection!.facts[0];
+  const positiveModels = modelSeries.filter((series) => (modelValues[series.key] ?? 0) > 0);
   const tokens = metric === "tokens" && recorded !== null ? tokenCountText(recorded) : null;
   const value = tokens?.readable ?? displayValue(day, metric);
   const classes = tokenBreakdown(day);
@@ -143,6 +149,31 @@ export function UsageTooltip({
           </div>
         )}
       </dl>
+      {metric === "tokens" && positiveModels.some((series) => series.key !== "unknown") && (
+        <div className="mt-3 border-t border-border pt-2" aria-label="Tokens by model">
+          <p className="font-medium">Tokens by model</p>
+          <ul className="mt-2 space-y-2">
+            {positiveModels.map((series) => {
+              const text = tokenCountText(modelValues[series.key] ?? 0);
+              return (
+                <li key={series.key} className={row}>
+                  <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: series.color }}
+                    />
+                    {series.label}
+                  </span>
+                  <span className="tabular-nums" title={`${text.exact} tokens`}>
+                    {text.readable}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -175,7 +206,7 @@ export function CalendarValues({
   metric: TokenMetric;
 }) {
   const [chartWidth, setChartWidth] = useState(320);
-  const { rows, maximum } = chartData(view.days, metric);
+  const { rows, maximum, models } = chartData(view.days, metric);
   const ticks = maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1];
   return (
     <div
@@ -231,16 +262,24 @@ export function CalendarValues({
             content={({ active, label }) => {
               const day = active ? view.days.find((day) => day.date === label) : null;
               return day ? (
-                <UsageTooltip day={day} metric={metric} maxWidth={Math.max(0, chartWidth - 16)} />
+                <UsageTooltip
+                  day={day}
+                  metric={metric}
+                  modelView={{
+                    series: models,
+                    values: rows.find((row) => row.date === day.date)!.modelFacts,
+                  }}
+                  maxWidth={Math.max(0, chartWidth - 16)}
+                />
               ) : null;
             }}
           />
           {metric === "tokens" ? (
-            tokenSeries.map((series) => (
+            models.map((series) => (
               <Bar
                 key={series.key}
                 stackId="tokens"
-                dataKey={`tokenHeights.${series.key}`}
+                dataKey={`modelHeights.${series.key}`}
                 name={series.label}
                 fill={series.color}
                 maxBarSize={28}
@@ -272,23 +311,20 @@ export function CalendarValues({
         </BarChart>
       </ResponsiveContainer>
       {metric === "tokens" && (
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Token categories">
-          {tokenSeries
-            .filter(
-              (series) =>
-                series.key !== "unclassified" ||
-                rows.some((row) => (row.tokenHeights.unclassified ?? 0) > 0),
-            )
-            .map((series) => (
-              <span className="inline-flex items-center gap-2" key={series.key}>
-                <span
-                  aria-hidden="true"
-                  className="size-2.5 rounded-sm"
-                  style={{ backgroundColor: series.color }}
-                />
-                {series.label}
-              </span>
-            ))}
+        <p
+          className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs [overflow-wrap:anywhere]"
+          aria-label="Models"
+        >
+          {models.map((series) => (
+            <span className="inline-flex min-w-0 max-w-full items-center gap-2" key={series.key}>
+              <span
+                aria-hidden="true"
+                className="size-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: series.color }}
+              />
+              {series.label}
+            </span>
+          ))}
           {view.query.includeUncertain &&
             view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
               <span className="inline-flex items-center gap-2">
@@ -333,6 +369,12 @@ export function CalendarValues({
               <th scope="col">Coverage</th>
               <th scope="col">Recorded exclusions</th>
               {isMoney(metric) && <th scope="col">Pricing</th>}
+              {metric === "tokens" &&
+                models.map((series) => (
+                  <th scope="col" key={series.key}>
+                    {series.label} tokens
+                  </th>
+                ))}
             </tr>
           </thead>
           <tbody>
@@ -365,6 +407,17 @@ export function CalendarValues({
                   <td>{facts.coverage}</td>
                   <td>{facts.exclusions}</td>
                   {facts.pricing && <td>{facts.pricing}</td>}
+                  {metric === "tokens" &&
+                    models.map((series) => {
+                      const value = rows.find((row) => row.date === day.date)?.modelFacts[
+                        series.key
+                      ];
+                      return (
+                        <td key={series.key}>
+                          {value === null || value === undefined ? "Unavailable" : exact(value)}
+                        </td>
+                      );
+                    })}
                 </tr>
               );
             })}

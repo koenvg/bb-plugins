@@ -154,6 +154,20 @@ function snapshot(query: CalendarQuery) {
     }));
   view.previous = query.startDate > shiftDate(latestRange, -60);
   view.next = query.startDate < latestRange;
+  if (state === "models" || state === "cache-heavy") {
+    for (const day of view.days) {
+      const first = Math.floor(day.totalTokens * 0.6);
+      day.models = {
+        named: day.totalTokens
+          ? [
+              { model: "gpt-5.4", totalTokens: first },
+              { model: "gpt-5.3-codex", totalTokens: day.totalTokens - first },
+            ]
+          : [],
+        otherTokens: 0,
+      };
+    }
+  }
   return view;
 }
 const missing = {

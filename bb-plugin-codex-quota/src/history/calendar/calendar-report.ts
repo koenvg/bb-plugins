@@ -128,6 +128,7 @@ function readRange(
     return {
       date: day.date,
       totalTokens: recorded?.totalTokens ?? 0,
+      models: recorded?.models ?? { named: [], otherTokens: 0 },
       activeEntities: recorded?.activeEntities ?? 0,
       excludedTokens,
       coverage: uncertain?.records

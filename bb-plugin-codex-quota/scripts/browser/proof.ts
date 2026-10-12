@@ -13,6 +13,7 @@ export function accessibleFacts(
   rows: string[][],
   metric: Metric,
   timezone = "UTC",
+  modelHeaders: string[] = [],
 ) {
   const byId = new Map(nodes.map((node) => [node.nodeId, node]));
   const role = (node: AxNode) => node.role?.value;
@@ -60,6 +61,7 @@ export function accessibleFacts(
       "Uncertain token estimate",
     );
   else headers.push("Pricing");
+  if (metric === "tokens") headers.push(...modelHeaders);
   assert.deepEqual(
     descendants(axRows[0])
       .filter((node) => role(node) === "columnheader")

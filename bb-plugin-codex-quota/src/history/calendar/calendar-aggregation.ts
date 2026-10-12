@@ -1,4 +1,5 @@
 import type { HistoryDatabase } from "../storage/history-storage.js";
+import { MODEL_LIMIT, dayModelsSchema, type DayModels } from "./calendar-models.js";
 import { calendarDays, localDate } from "./calendar-time.js";
 import type { CalendarQuery } from "./calendar-contract.js";
 import { canonicalInterval } from "../collection/history-coverage.js";
@@ -35,6 +36,7 @@ export function queryScope(query: CalendarQuery) {
 }
 export type CalendarAggregate = {
   date: string;
+  models: DayModels;
   totalTokens: number;
   capturedCost: number | null;
   pricedEvents: number;
@@ -76,6 +78,14 @@ export function aggregateDays(
     coalesce(sum(json_extract(e.payload,'$.cacheWriteTokens')),0) AS cacheWrite
     FROM usage_compact c LEFT JOIN usage_events e ON e.event_id=c.event_id AND c.detail_available=1 AND c.occurred_at>=?
     WHERE c.accepted=1 AND ${filter.sql} AND c.occurred_at>=? AND c.occurred_at<?`);
+  const modelsStatement = db.prepare(`
+    SELECT model,totalTokens,sum(totalTokens) OVER () AS knownTokens FROM (
+      SELECT json_extract(e.payload,'$.model') AS model,sum(c.total) AS totalTokens
+      FROM usage_compact c JOIN usage_events e ON e.event_id=c.event_id
+      WHERE c.accepted=1 AND ${filter.sql} AND c.detail_available=1
+        AND c.occurred_at>=? AND c.occurred_at>=? AND c.occurred_at<?
+      GROUP BY model HAVING sum(c.total)>0
+    ) ORDER BY totalTokens DESC,model COLLATE BINARY LIMIT ${MODEL_LIMIT}`);
   return calendarDays(first, query.timezone, count).map((day) => {
     const row = statement.get(
       detailCutoff,
@@ -83,6 +93,18 @@ export function aggregateDays(
       day.start < interval.start ? interval.start : day.start,
       day.end > interval.end ? interval.end : day.end,
     ) as Omit<CalendarAggregate, "date">;
+    const modelRows = modelsStatement.all(
+      ...filter.values,
+      detailCutoff,
+      day.start < interval.start ? interval.start : day.start,
+      day.end > interval.end ? interval.end : day.end,
+    ) as { model: string; totalTokens: number; knownTokens: number }[];
+    const knownTokens = checkedCount(modelRows[0]?.knownTokens ?? 0);
+    const models = dayModelsSchema.parse({
+      named: modelRows.map(({ model, totalTokens }) => ({ model, totalTokens })),
+      otherTokens:
+        knownTokens - modelRows.reduce((total, row) => checkedCount(total + row.totalTokens), 0),
+    });
     for (const key of [
       "totalTokens",
       "pricedEvents",
@@ -96,6 +118,6 @@ export function aggregateDays(
       for (const key of ["input", "output", "reasoning", "cacheRead", "cacheWrite"] as const)
         checkedCount(row[key]);
     row.capturedCost = safeCapturedSum(row.capturedCost);
-    return { date: day.date, ...row };
+    return { date: day.date, ...row, models };
   });
 }
