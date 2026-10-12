@@ -56,7 +56,7 @@ function attentionLabels(pr: LinkedQueuePr): { text: string; icon: IconName }[] 
 }
 
 const NEUTRAL_PILL_TONE =
-  "border-input text-muted-foreground hover:bg-state-hover hover:text-foreground";
+  "review-agent-orbit review-agent-idle text-muted-foreground hover:bg-state-hover hover:text-foreground";
 
 const ACTIVE_AGENT_STATES = ["running", "needs_you", "finished", "failed"] as const;
 
@@ -68,23 +68,26 @@ const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: st
   running: {
     label: "Running",
     dotClass: "animate-pulse bg-success motion-reduce:animate-none",
-    toneClass: "review-agent-running bg-success/10 text-foreground hover:bg-success/20",
+    toneClass:
+      "review-agent-orbit review-agent-running bg-success/10 text-foreground hover:bg-success/20",
   },
   needs_you: {
     label: "Needs you",
     dotClass: "bg-attention",
-    toneClass: "border-attention/50 bg-attention/15 text-foreground hover:bg-attention/25",
+    toneClass:
+      "review-agent-orbit review-agent-needs-you bg-attention/15 text-foreground hover:bg-attention/25",
   },
   finished: {
     label: "Ready",
     dotClass: "bg-timeline-accent",
     toneClass:
-      "review-agent-ready bg-timeline-accent/10 text-foreground hover:bg-timeline-accent/20",
+      "review-agent-orbit review-agent-ready bg-timeline-accent/10 text-foreground hover:bg-timeline-accent/20",
   },
   failed: {
     label: "Failed",
     dotClass: "bg-destructive",
-    toneClass: "border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/10",
+    toneClass:
+      "review-agent-orbit review-agent-failed bg-destructive/5 text-destructive hover:bg-destructive/10",
   },
   idle: {
     label: "Waiting",
