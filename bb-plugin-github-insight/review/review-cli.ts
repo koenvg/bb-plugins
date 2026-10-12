@@ -187,7 +187,7 @@ function assertOneCommit(drafts: readonly ListedCommentDraft[], head: PrHead) {
   const check = checkOneCommit(drafts, head.oid);
   if (check.ok) return;
   throw new PluginCliError(check.message, {
-    hint: "Submit or delete those drafts first, in the Review tab.",
+    hint: "Submit or delete those drafts first, in the Files sub-tab of the PR tab.",
   });
 }
 

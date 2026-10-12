@@ -4,10 +4,9 @@ import { ComposerBanner } from "./ui/composer-banner";
 import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
 import { PrRailBadge } from "./ui/pr-rail-badge";
 import { PrSidebarBadge } from "./ui/pr-sidebar-badge";
-import { PrTab } from "./ui/pr-tab";
+import { PrPanel } from "./ui/pr-panel";
 import { PullRequestsPanel } from "./ui/pull-requests-panel";
 import { PANEL_PATH } from "./ui/pull-requests-routes";
-import { ReviewTab } from "./ui/review-tab";
 
 export default definePluginApp((app) => {
   app.slots.navPanel({
@@ -22,14 +21,8 @@ export default definePluginApp((app) => {
   app.slots.threadPanelAction({
     id: "pr",
     title: "PR",
-    layout: "padded",
-    component: PrTab,
-  });
-  app.slots.threadPanelAction({
-    id: "review",
-    title: "Review",
     layout: "flush",
-    component: ReviewTab,
+    component: PrPanel,
   });
   app.composer.customize({
     id: "pr-insight",

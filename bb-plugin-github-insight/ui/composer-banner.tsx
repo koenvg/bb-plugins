@@ -6,7 +6,7 @@ import { prStatusView, type StatusRow } from "./pr-status-view";
 import { RefreshError } from "./feedback";
 import { useInsight } from "./use-insight";
 import { usePaletteMerge } from "./use-palette-merge";
-import { usePrPanelNavigation } from "./use-pr-panel-navigation";
+import { openPrOverview, usePrPanelNavigation } from "./use-pr-panel-navigation";
 import { useReportThreadOpened } from "./use-report-thread-opened";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 
@@ -36,7 +36,7 @@ function ThreadBanner({ threadId }: { threadId: string }) {
       : operation.kind === "error"
         ? operation.message
         : null;
-  const openPrTab = () => navigate.openThreadPanel({ actionId: "pr" });
+  const openPrTab = () => openPrOverview(navigate, threadId);
 
   function normalBanner() {
     if (result?.kind !== "ok") {

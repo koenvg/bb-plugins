@@ -46,7 +46,7 @@ describe("GitHub palette commands", () => {
     expect(GITHUB_COMMANDS.map(({ title }) => title)).toEqual([
       "GitHub: Merge PR",
       "GitHub: Open PR tab",
-      "GitHub: Open Review tab",
+      "GitHub: Open PR files",
       "GitHub: Submit review",
       "GitHub: Next comment",
       "GitHub: Previous comment",
@@ -100,7 +100,7 @@ describe("GitHub palette commands", () => {
 
   const ALL_BUT_MERGE = [
     "open-pr-tab",
-    "open-review-tab",
+    "open-pr-files",
     "submit-review",
     "next-comment",
     "previous-comment",
@@ -145,22 +145,43 @@ describe("GitHub palette commands", () => {
   });
 
   it.each([
-    ["open-pr-tab", "pr", null],
-    ["open-review-tab", "review", null],
-    ["submit-review", "review", "submit"],
-    ["next-comment", "review", "next-comment"],
-    ["previous-comment", "review", "previous-comment"],
-    ["refresh-pr", "pr", "refresh"],
-    ["open-pr-on-github", "pr", "open-on-github"],
-  ] as const)("%s opens the %s tab once, without params, with intent %s", (id, tab, intent) => {
-    const threadId = `thr_${id}`;
-    const received = listen(threadId, tab);
-    const { ctx, opened } = context(threadId);
+    ["open-pr-tab", "show-overview", null],
+    ["open-pr-files", "show-files", null],
+    ["submit-review", "show-files", ["files", "submit"]],
+    ["next-comment", "show-files", ["files", "next-comment"]],
+    ["previous-comment", "show-files", ["files", "previous-comment"]],
+    ["refresh-pr", "show-overview", ["overview", "refresh"]],
+    ["open-pr-on-github", null, ["overview", "open-on-github"]],
+  ] as const)(
+    "%s opens the PR tab once, without params, on sub-tab %s, then posts %s",
+    (id, subTab, followUp) => {
+      const threadId = `thr_${id}`;
+      const subTabs = listen(threadId, "pr");
+      const followUps = {
+        overview: listen(threadId, "overview"),
+        files: listen(threadId, "files"),
+      };
+      const { ctx, opened } = context(threadId);
 
-    void command(id).run(ctx);
+      void command(id).run(ctx);
 
-    expect(opened).toEqual([{ actionId: tab }]);
-    expect(received).toEqual(intent === null ? [] : [intent]);
+      expect(opened).toEqual([{ actionId: "pr" }]);
+      expect(subTabs).toEqual(subTab === null ? [] : [subTab]);
+      expect(followUps).toEqual({
+        overview: followUp?.[0] === "overview" ? [followUp[1]] : [],
+        files: followUp?.[0] === "files" ? [followUp[1]] : [],
+      });
+    },
+  );
+
+  it("posts the sub-tab before the Files action", () => {
+    const order: string[] = [];
+    renderHook(() => useCommandIntent("thr_order", "pr", (intent) => order.push(intent)));
+    renderHook(() => useCommandIntent("thr_order", "files", (intent) => order.push(intent)));
+
+    void command("next-comment").run(context("thr_order").ctx);
+
+    expect(order).toEqual(["show-files", "next-comment"]);
   });
 
   it("leaves no intent behind when the host declines to open the tab", () => {
@@ -169,5 +190,6 @@ describe("GitHub palette commands", () => {
     void command("refresh-pr").run(ctx);
 
     expect(listen("thr_declined", "pr")).toEqual([]);
+    expect(listen("thr_declined", "overview")).toEqual([]);
   });
 });

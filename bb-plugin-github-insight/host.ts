@@ -8,6 +8,7 @@ import {
   updatePullRequestBranchArgs,
 } from "./github/branch-mutations";
 import { checkRunDetailsArgs } from "./github/check-run-details-query";
+import { addCommentArgs } from "./github/comment-mutation";
 import {
   classifyGhFailure,
   parseGraphqlRateLimitReset,
@@ -23,6 +24,7 @@ import { reviewQueueArgs } from "./github/review-queue-query";
 import { ADD_REVIEW_ARGS, addPullRequestReviewInput } from "./github/review-mutations";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
+import { timelinePageArgs } from "./github/timeline-query";
 import { countLocalCommitsAhead } from "./local-commits";
 import { readTextFile } from "./read-text-file";
 
@@ -38,6 +40,8 @@ export default experimental_defineHostEntry({
     fetchReviewThreads: (request, context) =>
       runGhJson(reviewThreadsPageArgs(request), context.signal),
     fetchPrHead: (request, context) => runGhJson(prHeadArgs(request), context.signal),
+    fetchTimeline: (request, context) => runGhJson(timelinePageArgs(request), context.signal),
+    addComment: (request, context) => runGhJson(addCommentArgs(request), context.signal),
     readTextFile: (request) => readTextFile(request),
     countLocalCommitsAhead: (request) => countLocalCommitsAhead(request),
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),

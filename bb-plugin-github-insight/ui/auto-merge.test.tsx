@@ -7,7 +7,7 @@ import type { ActionResult, InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
 
-type Methods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction">;
+type Methods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction" | "getTimeline">;
 const app = await loadPluginApp(() => import("../app"));
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
 
@@ -52,7 +52,14 @@ function renderTab(
   const slot = renderSlot<PluginThreadPanelProps, Methods>(
     tab,
     { threadId: "thr_auto", params: null },
-    { rpc: { getInsight: async () => result, refresh: async () => result, runPrAction: run } },
+    {
+      rpc: {
+        getInsight: async () => result,
+        refresh: async () => result,
+        runPrAction: run,
+        getTimeline: () => ({ kind: "no_pr" as const }),
+      },
+    },
   );
   return { view: within(slot.container), run };
 }
@@ -87,7 +94,7 @@ describe("Auto-merge", () => {
   it("shows auto-merge that is on with a Disable button", async () => {
     const { view, run } = renderTab(autoMergeOn);
 
-    const summary = await view.findByRole("status", { name: "Merge status" });
+    const summary = await view.findByRole("status", { name: "Merge verdict" });
     expect(summary.textContent).toContain("Auto-merge on (squash)");
     fireEvent.click(within(summary).getByRole("button", { name: "Disable" }));
 

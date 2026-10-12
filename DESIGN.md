@@ -184,7 +184,7 @@ This record covers Tasks Plus, GitHub Insight, Threads with PRs, Codex Quota, Co
 | Evidence                                                                                     | Current visual pattern                                   |
 | -------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | `bb-plugin-tasks-plus/components/ui/button.tsx`, `input.tsx`, `coarse-pointer-sizing.ts`     | Host control variants and compact touch sizing           |
-| `bb-plugin-github-insight/ui/pr-tab.tsx`, `review-queue-list.tsx`                            | Status-first PR detail and grouped review lists          |
+| `bb-plugin-github-insight/ui/overview-tab.tsx`, `review-queue-list.tsx`                      | Status-first PR detail and grouped review lists          |
 | `bb-plugin-pr-thread-list/app.tsx`, `running-glyph.css`                                      | Two-line sidebar rows and a running-state lattice        |
 | `bb-plugin-codex-quota/src/quota/quota-summary.tsx`, `quota-view.tsx`                        | Allowance summary and battery                            |
 | `bb-plugin-codex-quota/src/history/calendar/calendar-view.tsx`                               | Daily usage bars, axes, and tooltip                      |

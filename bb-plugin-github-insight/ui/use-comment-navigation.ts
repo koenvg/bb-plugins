@@ -14,6 +14,7 @@ export interface CommentNavigation {
   total: number;
   jumpMark: JumpMark | null;
   step(direction: StepDirection): void;
+  jumpToFirstThread(threadIds: ReadonlySet<string>): void;
 }
 
 interface Pin {
@@ -67,11 +68,10 @@ export function useCommentNavigation(
 
   useEffect(() => () => pin.current?.release(), []);
 
-  const step = useCallback(
-    (direction: StepDirection) => {
+  const jumpTo = useCallback(
+    (index: number) => {
       const area = scrollArea.current;
-      if (area === null || stops.length === 0) return;
-      const index = wrap(targetIndex(area, stops, pinnedIndex(), direction), stops.length);
+      if (area === null) return;
       const stop = stops[index]!;
       pin.current?.release();
       const entry: Pin = { stop, release: () => {} };
@@ -87,7 +87,24 @@ export function useCommentNavigation(
         },
       );
     },
-    [scrollArea, content, stops, pinnedIndex],
+    [scrollArea, content, stops],
+  );
+
+  const step = useCallback(
+    (direction: StepDirection) => {
+      const area = scrollArea.current;
+      if (area === null || stops.length === 0) return;
+      jumpTo(wrap(targetIndex(area, stops, pinnedIndex(), direction), stops.length));
+    },
+    [scrollArea, stops, pinnedIndex, jumpTo],
+  );
+
+  const jumpToFirstThread = useCallback(
+    (threadIds: ReadonlySet<string>) => {
+      const index = stops.findIndex(({ kind, id }) => kind === "thread" && threadIds.has(id));
+      if (index !== -1) jumpTo(index);
+    },
+    [stops, jumpTo],
   );
 
   return {
@@ -95,6 +112,7 @@ export function useCommentNavigation(
     total: stops.length,
     jumpMark,
     step,
+    jumpToFirstThread,
   };
 }
 

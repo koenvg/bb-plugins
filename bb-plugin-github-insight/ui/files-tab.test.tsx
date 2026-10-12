@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ReactNode } from "react";
 import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import type {
@@ -21,6 +20,7 @@ import { parseReviewThreads, type ReviewThread } from "../core/review-threads";
 import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import { fileIdentity } from "../core/viewed-marks";
 import { postIntent } from "./command-intents";
+import { FilesTab } from "./files-tab";
 import prFiles from "../test/fixtures/pr-1-files.json";
 import threadedPrFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
@@ -115,8 +115,7 @@ beforeAll(() => {
   vi.stubGlobal("ResizeObserver", RecordedResizeObserver);
 });
 
-const app = await loadPluginApp(() => import("../app"));
-const reviewTab = app.threadPanelActions.find((action) => action.id === "review")!;
+const filesTab = { component: FilesTab };
 
 afterEach(cleanup);
 
@@ -210,13 +209,15 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
     const { drafts, commentDrafts, summaryDraft } = latest;
     return { kind: "ok", drafts, commentDrafts, summaryDraft };
   };
-  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
-    reviewTab,
-    { threadId, params: null },
+  return renderSlot<{ threadId: string; jump: null }, typeof rpcContract>(
+    filesTab,
+    { threadId, jump: null },
     {
       rpc: {
         getReview,
         getDrafts: handlers.getDrafts ?? getDrafts,
+        getTimeline: () => ({ kind: "no_pr" }),
+        addPrComment: () => ({ kind: "error", message: "unused" }),
         sendToAgent:
           handlers.sendToAgent ?? (() => ({ kind: "sent", delivery: "sent", threadCount: 1 })),
         getInsight: () => ({ kind: "no_pr" }),
@@ -261,11 +262,7 @@ function callsTo(slot: ReturnType<typeof renderTab>, method: string) {
     .map((call) => call.input);
 }
 
-describe("Review tab", () => {
-  it("registers as the flush Review thread panel action", () => {
-    expect(reviewTab).toMatchObject({ title: "Review", layout: "flush" });
-  });
-
+describe("Files tab", () => {
   it("asks for the review of its own thread", async () => {
     const slot = renderTab({ kind: "no_pr" });
 
@@ -332,7 +329,7 @@ describe("Review tab", () => {
   });
 });
 
-describe("Review tab viewed files", () => {
+describe("Files tab viewed files", () => {
   const APP = "plugins/github-insight/app.tsx";
   const PR_REF = "plugins/github-insight/core/pr-ref.ts";
   const LOCK = "plugins/github-insight/package-lock.json";
@@ -511,7 +508,7 @@ describe("Review tab viewed files", () => {
   });
 });
 
-describe("Review tab threads", () => {
+describe("Files tab threads", () => {
   const OPEN_THREAD = "There's no wait for the new row to mount";
   const REPLY = "Agreed, removed.";
   const RESOLVED_REPLY = "False positive.";
@@ -673,7 +670,7 @@ describe("Review tab threads", () => {
   });
 });
 
-describe("Review tab drafts", () => {
+describe("Files tab drafts", () => {
   const PLACED = "PRRT_kwDOHI7l-86jxula";
   const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
   const draft = { body: "Renamed in abc123", updatedAt: 1, source: "agent" as const };
@@ -938,7 +935,7 @@ describe("Review tab drafts", () => {
   });
 });
 
-describe("Review tab send to agent", () => {
+describe("Files tab send to agent", () => {
   const PLACED = "PRRT_kwDOHI7l-86jxula";
   const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
   const PLACED_TEXT = "There's no wait for the new row to mount";
@@ -1097,7 +1094,7 @@ describe("Review tab send to agent", () => {
   });
 });
 
-describe("Review tab thread actions", () => {
+describe("Files tab thread actions", () => {
   const PLACED = "PRRT_kwDOHI7l-86jxula";
   const OPEN_THREAD = "There's no wait for the new row to mount";
   const REPLY = 'Fixed in "abc123"\nThanks';
@@ -1444,7 +1441,7 @@ async function findCommentDraft(slot: ReturnType<typeof renderTab>) {
   };
 }
 
-describe("Review tab comment drafts", () => {
+describe("Files tab comment drafts", () => {
   it("shows a comment draft below its line on the new side, as 'Pending comment'", async () => {
     const slot = renderTab(withCommentDrafts(commentDraft("c1")));
 
@@ -1573,7 +1570,7 @@ describe("Review tab comment drafts", () => {
   });
 });
 
-describe("Review tab new comments", () => {
+describe("Files tab new comments", () => {
   const created = commentDraft("new1", { body: "", source: "user" });
 
   async function clickAdd(slot: ReturnType<typeof renderTab>, side: "additions" | "deletions") {
@@ -1649,7 +1646,7 @@ describe("Review tab new comments", () => {
   });
 });
 
-describe("Review tab new comment glow", () => {
+describe("Files tab new comment glow", () => {
   const FIRST = "PRRC_kwDOHI7l-87xQrkh";
   const REPLY = "PRRC_kwDOHI7l-87xSFQS";
   const OPEN_THREAD = "PRRT_kwDOHI7l-86jxula";
@@ -1868,7 +1865,7 @@ describe("Review tab new comment glow", () => {
   });
 });
 
-describe("Review tab drafts on an older commit", () => {
+describe("Files tab drafts on an older commit", () => {
   const older = commentDraft("c1", { commitOid: "abc123", side: "LEFT", startLine: 2 });
 
   it("warns with both commits and lists the drafts above the files, not on their lines", async () => {
@@ -1903,7 +1900,7 @@ describe("Review tab drafts on an older commit", () => {
   });
 });
 
-describe("Review tab submit panel", () => {
+describe("Files tab submit panel", () => {
   const summary = { body: "Looks good overall", updatedAt: 5, source: "agent" as const };
   const ownPr = { ...recorded, head: { ...recorded.head, viewerIsAuthor: true } };
   const merged = {
@@ -2133,12 +2130,12 @@ describe("Review tab submit panel", () => {
   });
 });
 
-describe("Review tab palette commands", () => {
+describe("Files tab palette commands", () => {
   const submitRegion = (slot: ReturnType<typeof renderTab>) =>
     slot.queryByRole("region", { name: "Submit review" });
 
   it("opens the submit panel once the review has loaded", async () => {
-    postIntent("thr_1", "review", "submit");
+    postIntent("thr_1", "files", "submit");
     const slot = renderTab(recorded);
 
     expect(await slot.findByRole("region", { name: "Submit review" })).toBeTruthy();
@@ -2153,7 +2150,7 @@ describe("Review tab palette commands", () => {
     }) as HTMLTextAreaElement;
     fireEvent.change(summary, { target: { value: "Looks good" } });
 
-    await act(async () => postIntent("thr_1", "review", "submit"));
+    await act(async () => postIntent("thr_1", "files", "submit"));
 
     expect(
       (within(submitRegion(slot)!).getByRole("textbox", { name: "Summary" }) as HTMLTextAreaElement)
@@ -2162,7 +2159,7 @@ describe("Review tab palette commands", () => {
   });
 
   it("drops the request when the thread has no PR yet", async () => {
-    postIntent("thr_1", "review", "submit");
+    postIntent("thr_1", "files", "submit");
     const slot = renderTab({ kind: "no_pr" }, recorded);
     await slot.findByText("No pull request for this thread");
 
@@ -2174,7 +2171,7 @@ describe("Review tab palette commands", () => {
   });
 
   it("does not open the panel again when the tab mounts again", async () => {
-    postIntent("thr_1", "review", "submit");
+    postIntent("thr_1", "files", "submit");
     const first = renderTab(recorded);
     await first.findByRole("region", { name: "Submit review" });
     first.unmount();
@@ -2187,7 +2184,7 @@ describe("Review tab palette commands", () => {
   });
 });
 
-describe("Review tab viewer review", () => {
+describe("Files tab viewer review", () => {
   function reviewedAt(commitOid: string, state: "APPROVED" | "CHANGES_REQUESTED" = "APPROVED") {
     return {
       ...recorded,
@@ -2232,7 +2229,7 @@ describe("Review tab viewer review", () => {
   });
 });
 
-describe("Review tab comment navigation", () => {
+describe("Files tab comment navigation", () => {
   const AREA_TOP = 100;
   const MOUNTED_HEIGHT = 1000;
   const UNMOUNTED_HEIGHT = 40;
@@ -2544,7 +2541,7 @@ describe("Review tab comment navigation", () => {
   });
 
   it("jumps from a palette request posted before the review loaded, without the submit panel", async () => {
-    postIntent("thr_1", "review", "next-comment");
+    postIntent("thr_1", "files", "next-comment");
     const slot = await renderNavigation(farThreads());
     resize();
 
@@ -2556,7 +2553,7 @@ describe("Review tab comment navigation", () => {
     const slot = await renderNavigation(standard);
     await slot.findAllByTestId("file-diff");
 
-    act(() => postIntent("thr_1", "review", "previous-comment"));
+    act(() => postIntent("thr_1", "files", "previous-comment"));
 
     expect(slot.area.scrollTop).toBe(cardTop(2100));
   });
@@ -2565,7 +2562,7 @@ describe("Review tab comment navigation", () => {
     const slot = renderTab({ kind: "error", message: "gh failed" }, standard);
     await slot.findByText("gh failed");
 
-    act(() => postIntent("thr_1", "review", "next-comment"));
+    act(() => postIntent("thr_1", "files", "next-comment"));
     fireEvent.click(slot.getByRole("button", { name: /Retry/ }));
     await slot.findByRole("group", { name: "Comment navigation" });
     await act(quietly);
@@ -2594,7 +2591,7 @@ describe("Review tab comment navigation", () => {
   });
 
   it("does not scroll on a palette request when there are no comments", async () => {
-    postIntent("thr_1", "review", "next-comment");
+    postIntent("thr_1", "files", "next-comment");
     const slot = await renderNavigation(review([]));
     await act(quietly);
 
