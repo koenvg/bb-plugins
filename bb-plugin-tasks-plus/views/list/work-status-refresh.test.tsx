@@ -1,17 +1,43 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
 import type { Task, TaskWorkStatus } from "../../shared/contract.js";
+import { rpcInput } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
+import { ListView } from "./index.js";
 
 import { ThreadSummary } from "./thread-summary.js";
 const disposers: (() => Promise<void>)[] = [];
+window.matchMedia ??= (query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener() {},
+  removeListener() {},
+  addEventListener() {},
+  removeEventListener() {},
+  dispatchEvent: () => false,
+});
+window.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+function List(props: ComponentProps<typeof ListView>) {
+  return (
+    <TasksRefreshProvider>
+      <ListView {...props} />
+    </TasksRefreshProvider>
+  );
+}
 afterEach(async () => {
   cleanup();
+  window.localStorage.clear();
   for (const dispose of disposers.splice(0)) await dispose();
   vi.useRealTimers();
 });
@@ -338,4 +364,199 @@ it("shares settled environment successes, absence and failures across 501 sequen
     ),
   ).toBe(true);
   expect(harness.realtimeSignals).toEqual([]);
+});
+
+it("keeps work metadata stable after a status edit and refreshes it for a thread event", async () => {
+  window.localStorage.clear();
+  let threadStatus: "active" | "idle" = "active";
+  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
+    makeThreadResponse({ id: threadId, status: threadStatus }),
+  );
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "tasks",
+    sdk: { threads: { get } },
+  });
+  disposers.push(() => harness.lifecycle.dispose());
+  const store = createStore(bb);
+  const project = store.tasks.createProject({
+    name: "Status reload",
+    prefix: "SRL",
+    color: "blue",
+  });
+  const task = store.tasks.createTask({
+    projectId: project.id,
+    title: "Status reload",
+    status: "todo",
+  });
+  store.tasks.upsertTaskThread({
+    taskId: task.id,
+    threadId: "thr_status_reload",
+    presetName: "Worker",
+    title: "Worker",
+    liveStatus: "completed",
+  });
+  registerTasksApi(bb, store);
+  const workStatusInputs: string[][] = [];
+  const listTasksInputs: unknown[] = [];
+  const slot = renderSlot(
+    { component: List },
+    { projectId: project.id, onRequestSelection: vi.fn() },
+    {
+      rpc: {
+        listProjects: (input) => harness.behavior.callRpc("listProjects", input),
+        listLabels: (input) => harness.behavior.callRpc("listLabels", input),
+        listTasks: (input) => {
+          listTasksInputs.push(rpcInput(input));
+          return harness.behavior.callRpc("listTasks", input);
+        },
+        listTaskWorkStatus: (input) => {
+          const parsed = rpcInput(input) as { taskIds: string[] };
+          workStatusInputs.push(parsed.taskIds);
+          return harness.behavior.callRpc("listTaskWorkStatus", input);
+        },
+        updateTask: (input) => harness.behavior.callRpc("updateTask", input),
+      },
+    },
+  );
+  const row = () => slot.container.querySelector<HTMLElement>(`[data-task-key="${task.key}"]`)!;
+  const statusControl = (label: string) =>
+    within(row()).getByRole("button", { name: `Change status, currently ${label}` });
+  let signalIndex = 0;
+  const replaySignals = async () => {
+    await waitFor(() => expect(harness.realtimeSignals.length).toBeGreaterThan(signalIndex));
+    const signals = harness.realtimeSignals.slice(signalIndex);
+    signalIndex = harness.realtimeSignals.length;
+    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    return signals;
+  };
+
+  await slot.findByRole("button", { name: `Open ${task.key}: Status reload` });
+  expect(statusControl("Todo")).toBeTruthy();
+  await slot.findByRole("button", { name: new RegExp(`Threads for ${task.key}: 1 Running`) });
+  await waitFor(() => expect(workStatusInputs).toEqual([[task.id]]));
+  const readsAfterInitialLoad = workStatusInputs.length;
+  const threadReadsAfterInitialLoad = get.mock.calls.length;
+  const listReadsAfterInitialLoad = listTasksInputs.length;
+
+  fireEvent.pointerDown(statusControl("Todo"), { button: 0, ctrlKey: false });
+  fireEvent.click(await slot.findByRole("menuitem", { name: /Done/ }));
+  await waitFor(() => expect(statusControl("Done")).toBeTruthy());
+  const statusSignals = await replaySignals();
+  expect(statusSignals).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        channel: "tasks:changed",
+        payload: { taskId: task.id, projectId: project.id },
+      }),
+    ]),
+  );
+  await waitFor(() => expect(listTasksInputs.length).toBeGreaterThan(listReadsAfterInitialLoad));
+  expect(statusControl("Done")).toBeTruthy();
+  expect(
+    slot.getByRole("button", { name: new RegExp(`Threads for ${task.key}: 1 Running`) }),
+  ).toBeTruthy();
+  expect(workStatusInputs).toHaveLength(readsAfterInitialLoad);
+  expect(workStatusInputs.at(-1)).toEqual([task.id]);
+  expect(get).toHaveBeenCalledTimes(threadReadsAfterInitialLoad);
+
+  threadStatus = "idle";
+  await slot.behavior.emitRealtime("threads:changed", { taskId: task.id });
+  await waitFor(() => expect(workStatusInputs).toHaveLength(readsAfterInitialLoad + 1));
+  expect(workStatusInputs.at(-1)).toEqual([task.id]);
+  await slot.findByRole("button", { name: new RegExp(`Threads for ${task.key}: 1 Idle`) });
+});
+
+it("loads work metadata for the remaining visible IDs when a status filter removes an edited task", async () => {
+  window.localStorage.clear();
+  const threadStatus = new Map([
+    ["thr_removed", "active" as const],
+    ["thr_remaining", "idle" as const],
+  ]);
+  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
+    makeThreadResponse({ id: threadId, status: threadStatus.get(threadId) ?? "idle" }),
+  );
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "tasks",
+    sdk: { threads: { get } },
+  });
+  disposers.push(() => harness.lifecycle.dispose());
+  const store = createStore(bb);
+  const project = store.tasks.createProject({
+    name: "Status filter",
+    prefix: "SFL",
+    color: "blue",
+  });
+  const removed = store.tasks.createTask({
+    projectId: project.id,
+    title: "Move out",
+    status: "todo",
+  });
+  const remaining = store.tasks.createTask({
+    projectId: project.id,
+    title: "Stay visible",
+    status: "todo",
+  });
+  for (const [task, threadId] of [
+    [removed, "thr_removed"],
+    [remaining, "thr_remaining"],
+  ] as const)
+    store.tasks.upsertTaskThread({
+      taskId: task.id,
+      threadId,
+      presetName: "Worker",
+      title: "Worker",
+      liveStatus: "completed",
+    });
+  registerTasksApi(bb, store);
+  const workStatusInputs: string[][] = [];
+  const slot = renderSlot(
+    { component: List },
+    { projectId: project.id, onRequestSelection: vi.fn() },
+    {
+      rpc: {
+        listProjects: (input) => harness.behavior.callRpc("listProjects", input),
+        listLabels: (input) => harness.behavior.callRpc("listLabels", input),
+        listTasks: (input) => harness.behavior.callRpc("listTasks", input),
+        listTaskWorkStatus: (input) => {
+          const parsed = rpcInput(input) as { taskIds: string[] };
+          workStatusInputs.push(parsed.taskIds);
+          return harness.behavior.callRpc("listTaskWorkStatus", input);
+        },
+        updateTask: (input) => harness.behavior.callRpc("updateTask", input),
+      },
+    },
+  );
+  let signalIndex = 0;
+  const replaySignals = async () => {
+    await waitFor(() => expect(harness.realtimeSignals.length).toBeGreaterThan(signalIndex));
+    const signals = harness.realtimeSignals.slice(signalIndex);
+    signalIndex = harness.realtimeSignals.length;
+    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+  };
+
+  await slot.findByRole("button", { name: `Open ${removed.key}: Move out` });
+  await slot.findByRole("button", { name: new RegExp(`Threads for ${remaining.key}: 1 Idle`) });
+  fireEvent.pointerDown(slot.getByRole("button", { name: "Status" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: /Todo/ }));
+  await waitFor(() => expect(workStatusInputs.at(-1)).toEqual([removed.id, remaining.id].sort()));
+
+  const removedRow = () =>
+    slot.container.querySelector<HTMLElement>(`[data-task-key="${removed.key}"]`)!;
+  const removedStatus = removedRow().querySelector<HTMLButtonElement>(
+    '[aria-label="Change status, currently Todo"]',
+  )!;
+  fireEvent.pointerDown(removedStatus, { button: 0, ctrlKey: false });
+  fireEvent.click(await slot.findByRole("menuitem", { name: /Done/ }));
+  await waitFor(() =>
+    expect(slot.queryByRole("button", { name: `Open ${removed.key}: Move out` })).toBeNull(),
+  );
+  await replaySignals();
+  await waitFor(() => expect(workStatusInputs.at(-1)).toEqual([remaining.id]));
+  expect(slot.getByRole("button", { name: `Open ${remaining.key}: Stay visible` })).toBeTruthy();
+  expect(
+    slot.getByRole("button", { name: new RegExp(`Threads for ${remaining.key}: 1 Idle`) }),
+  ).toBeTruthy();
 });

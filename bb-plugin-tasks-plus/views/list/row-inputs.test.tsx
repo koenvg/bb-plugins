@@ -100,6 +100,7 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
   prState = "merged";
   tasks = [{ ...tasks[0]!, title: "Edited", dueDate: "2026-11-04", labelIds: ["bug"] }, tasks[1]!];
   await slot.behavior.emitRealtime("tasks:changed", {});
+  await slot.behavior.emitRealtime("threads:changed", { taskId: "t1" });
   await slot.findByRole("button", { name: "Open TSK-1: Edited" });
   await slot.findByRole("button", { name: /Threads for TSK-1: 1 Failed/ });
   expect(
