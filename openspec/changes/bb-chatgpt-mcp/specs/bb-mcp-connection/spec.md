@@ -42,12 +42,12 @@ The owner SHALL be able to set the public HTTPS origin, local listener port, OAu
 
 ### Requirement: The supported deployment uses Cloudflare Tunnel
 
-The initial supported deployment SHALL use an existing, operator-managed named Cloudflare Tunnel with a stable HTTPS hostname routed to the local MCP listener without inbound router port forwarding. The plugin SHALL NOT create, configure, delete, start, or stop tunnel infrastructure, manage DNS, or request or store Cloudflare credentials. It SHALL NOT use a temporary Quick Tunnel URL or expose BB's main server. Only the MCP and required discovery paths SHALL reach the listener; other paths SHALL return not found. MCP requests SHALL reach OAuth authentication without a Cloudflare browser-login gate, interactive challenge, or extra service-token requirement. Restarting the tunnel connector SHALL preserve the public URL and SHALL NOT resubmit BB work. Disabling or reloading the plugin SHALL leave the operator's tunnel and connector unchanged.
+The initial supported deployment SHALL use an existing, operator-managed named Cloudflare Tunnel with a stable HTTPS hostname routed to the local MCP listener without inbound router port forwarding. The plugin SHALL NOT create, configure, delete, start, or stop tunnel infrastructure, manage DNS, or request or store Cloudflare credentials. It SHALL NOT use a temporary Quick Tunnel URL or expose BB's main server. Only the MCP and required discovery paths SHALL reach the listener; other paths SHALL return not found. Bearer mode SHALL have no Cloudflare browser-only gate, interactive challenge or extra service-token requirement. Cloudflare-access mode SHALL use the dedicated Managed OAuth flow with no separate service-token header. Restarting the tunnel connector SHALL preserve the public URL and SHALL NOT resubmit BB work. Disabling or reloading the plugin SHALL leave the operator's tunnel and connector unchanged.
 
 #### Scenario: Cookie-free remote connection
 
 - **WHEN** ChatGPT connects to the configured HTTPS hostname without Cloudflare browser cookies
-- **THEN** metadata requests receive the required public discovery data and unauthenticated MCP requests receive the plugin's OAuth challenge
+- **THEN** metadata requests receive required public discovery data and unauthenticated MCP requests receive the selected deployment's OAuth challenge, with Cloudflare edge discovery/challenges separately verified for Managed OAuth
 - **AND** BB admin paths are not forwarded to BB
 
 #### Scenario: Connector restarts
@@ -72,7 +72,7 @@ The endpoint SHALL support MCP initialization, tool discovery, and tool calls ov
 
 ### Requirement: Every protected request is authenticated
 
-The endpoint SHALL require OAuth bearer credentials for MCP initialization, discovery, and tool calls. It SHALL validate token signature, trusted issuer, intended resource audience, expiry, validity start, and configured owner identity. Tokens in URLs or ordinary BB plugin tokens SHALL NOT substitute for OAuth credentials. Public resource metadata SHALL contain no BB user data.
+The endpoint SHALL authenticate MCP initialization, discovery, and tool calls using the explicitly selected mode. Default bearer-jwt mode SHALL require OAuth bearer JWT credentials and validate signature, trusted issuer, intended resource audience, expiry, validity start and configured owner. Cloudflare-access mode SHALL require a signed identity-based application assertion with the exact configured owner and dedicated application AUD, as specified below. Tokens in URLs, cookies or ordinary BB plugin tokens SHALL NOT substitute for the selected credential. Public metadata SHALL contain no BB user data.
 
 #### Scenario: Invalid credentials
 
@@ -85,9 +85,29 @@ The endpoint SHALL require OAuth bearer credentials for MCP initialization, disc
 - **WHEN** a valid token identifies someone other than the configured owner
 - **THEN** access is denied even if that account has the requested OAuth scopes
 
+### Requirement: Cloudflare Access is explicit and independently verified
+
+The plugin SHALL default to bearer-jwt mode and SHALL NOT infer authentication mode from request headers or fall back after authentication failure. Cloudflare-access mode SHALL require configured public signing/OAuth issuers, stable owner subject and a dedicated app AUD before starting. It SHALL verify exactly one bounded signed Cf-Access-Jwt-Assertion using RS256 and keys only from the trusted team origin plus `/cdn-cgi/access/certs`. It SHALL enforce issuer, owner, application AUD, mandatory expiry, optional validity start, valid issuance time when present and application token type. It SHALL reject empty-sub service credentials, org tokens, malformed/combined assertions and untrusted signature/key algorithms. Token-supplied verification URLs, cookies and opaque bearer tokens SHALL NOT authorize origin calls. Signing keys SHALL use bounded retrieval, rotation and cache behavior, with no raw credential/claim logging.
+
+#### Scenario: Invalid assertion plus a valid bearer
+
+- **WHEN** Cloudflare mode receives a forged assertion alongside a valid bearer JWT
+- **THEN** it rejects the request without a BB call or credential fallback
+
+#### Scenario: Another app or service credential
+
+- **WHEN** a signed assertion has another app AUD, another owner or empty-sub service identity
+- **THEN** it cannot read data or invoke a BB mutation
+
+#### Scenario: Role downgrade or audience change while waiting
+
+- **WHEN** the local Cloudflare permission is downgraded or selected mode/AUD changes during an awaited access check
+- **THEN** no unauthorized dispatch or cached private result is returned
+- **AND** read-only operation inspection remains available when only write permission is removed
+
 ### Requirement: Read and control permissions are separate
 
-Read tools SHALL require `bb.read`. State-changing tools SHALL require both `bb.read` and `bb.control`, plus the owner's local remote-control setting. Control SHALL be disabled by default. Disabling remote access, disabling control, removing an owner identity, or removing a project SHALL apply to subsequent requests, including requests using previously issued tokens. Authorization SHALL be checked again immediately before a state-changing BB call.
+In bearer-jwt mode, read tools SHALL require `bb.read`; writes SHALL require both `bb.read` and `bb.control`. In cloudflare-access mode, an explicit LOCAL app permission SHALL default to `read`; writes SHALL also require `read-control`. All state-changing tools in either mode SHALL require the owner's local control setting, disabled by default. Cloudflare permissions SHALL be shared by every valid owner/app session, not treated as OAuth scopes or per-client grants. Current owner, issuer, mode, audience, expiry, project access and write permission SHALL be rechecked after waits, before dispatch and before cached private results. Removing access SHALL NOT stop existing BB work.
 
 #### Scenario: Read-only connection attempts a mutation
 
@@ -102,7 +122,7 @@ Read tools SHALL require `bb.read`. State-changing tools SHALL require both `bb.
 
 ### Requirement: Connection setup follows OAuth discovery
 
-The public endpoint SHALL publish protected-resource metadata with its canonical resource identifier, trusted authorization-server location, and supported scopes. Setup documentation SHALL describe an OAuth authorization-code flow with PKCE, supported ChatGPT client registration, and token renewal. It SHALL distinguish the MCP resource server from the authorization server and reject credentials minted for another resource.
+The public endpoint SHALL publish protected-resource metadata with its canonical resource identifier and configured authorization-server issuer. Bearer mode SHALL advertise its supported BB scopes. Cloudflare mode SHALL NOT advertise unproved BB OAuth scopes, and SHALL distinguish the verified OAuth server issuer from the assertion-signing issuer. Setup documentation SHALL describe authorization code with PKCE, supported ChatGPT registration and renewal. Credentials for another resource/application SHALL be rejected.
 
 #### Scenario: First connection and later token renewal
 
