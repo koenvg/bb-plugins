@@ -3,7 +3,15 @@ import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 import type { ReviewResult } from "../contract";
 import plugin from "../server";
-import { failed, linkedPr, ok, prHeadResponse, setup, type HostCall } from "../test/plugin-harness";
+import {
+  failed,
+  linkedPr,
+  ok,
+  prHeadResponse,
+  setup,
+  type HostCall,
+  type PullRequestResult,
+} from "../test/plugin-harness";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -104,6 +112,38 @@ describe("review CLI", () => {
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("No pull request for this thread");
+  });
+
+  it("finds the PR right after the thread's branch gets one", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {};
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests,
+      host: reviewHost(),
+    });
+    await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
+    pullRequests.env_1 = linkedPr(25259);
+
+    const result = await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("drafts on the PR right after the thread's branch gets one", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {};
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests,
+      host: reviewHost(),
+    });
+    await harness.behavior.runCli(["review", "list"], { threadId: "thr_1" });
+    pullRequests.env_1 = linkedPr(25259);
+
+    const result = await harness.behavior.runCli(["review", "draft", OPEN, "--body", "Done"], {
+      threadId: "thr_1",
+    });
+
+    expect(result.exitCode).toBe(0);
   });
 
   it("names the gh failure", async () => {

@@ -17,7 +17,7 @@ import type { ReviewUpdated } from "../core/review-updated";
 import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import type { ViewedMarks } from "../core/viewed-marks";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
-import type { PrResolution, PrTarget } from "../pr-lookup";
+import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
 import type { ViewedMarksStore } from "./viewed-marks-store";
 
@@ -51,7 +51,7 @@ interface LoadedPr {
 }
 
 interface ReviewServiceDeps {
-  resolvePr(threadId: string): Promise<PrResolution>;
+  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
   fetchPrFiles(target: PrTarget): Promise<unknown>;
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
@@ -72,7 +72,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     threadId: string,
     read: (target: PrTarget) => Promise<T>,
   ): Promise<PrLoad<T>> {
-    const resolution = await deps.resolvePr(threadId);
+    const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
     if (resolution.kind !== "pr") return resolution;
     try {
       return { kind: "ok", target: resolution.target, ...(await read(resolution.target)) };
@@ -173,7 +173,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     threadId: string,
     write: (pr: PullRequestRef) => Promise<ActionResult>,
   ): Promise<ActionResult> {
-    const resolution = await deps.resolvePr(threadId);
+    const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
     if (resolution.kind === "error") return resolution;
     if (resolution.kind === "no_pr")
       return { kind: "error", message: "No pull request for this thread" };

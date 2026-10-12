@@ -76,6 +76,23 @@ describe("createPrLookup", () => {
     expect(lookup.pullRequest).toHaveBeenCalledTimes(1);
   });
 
+  it("looks up again when asked to recheck a stored no PR", async () => {
+    const lookup = setup({ outcome: "absent" });
+    await lookup.resolveEnvironmentPr("env_1");
+    lookup.answer(linkedPr(15));
+
+    expect((await lookup.resolveEnvironmentPr("env_1", { recheckNoPr: true })).kind).toBe("pr");
+  });
+
+  it("reuses a stored PR when asked to recheck no PR", async () => {
+    const lookup = setup();
+    await lookup.resolveEnvironmentPr("env_1");
+
+    await lookup.resolveEnvironmentPr("env_1", { recheckNoPr: true });
+
+    expect(lookup.pullRequest).toHaveBeenCalledTimes(1);
+  });
+
   it("does not reuse a failed lookup", async () => {
     const lookup = setup(unavailable("gh not logged in"));
     expect(await lookup.resolveEnvironmentPr("env_1")).toEqual({

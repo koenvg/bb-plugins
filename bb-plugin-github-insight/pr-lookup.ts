@@ -16,7 +16,10 @@ export type PrResolution =
 
 export interface LookupOptions {
   fresh?: boolean;
+  recheckNoPr?: boolean;
 }
+
+export const RECHECK_NO_PR: LookupOptions = { recheckNoPr: true };
 
 type LinkedPrState = "open" | "draft" | "closed" | "merged";
 
@@ -113,12 +116,16 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
 
   async function resolveEnvironmentPr(
     environmentId: string,
-    { fresh = false }: LookupOptions = {},
+    { fresh = false, recheckNoPr = false }: LookupOptions = {},
   ): Promise<PrResolution> {
     if (!fresh) {
       const known = stored.get(environmentId);
       if (pause.isPaused()) return known?.resolution ?? RATE_LIMITED;
-      if (known !== undefined && Date.now() < known.expiresAt) return known.resolution;
+      const reusable =
+        known !== undefined &&
+        Date.now() < known.expiresAt &&
+        !(recheckNoPr && known.resolution.kind === "no_pr");
+      if (reusable) return known.resolution;
       return lookUpOnce(environmentId);
     }
     return lookUpAfterRunning(environmentId);
