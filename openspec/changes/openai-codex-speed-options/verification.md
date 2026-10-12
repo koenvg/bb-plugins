@@ -85,10 +85,12 @@ Local checks after the change: 14 speed tests passed; two complete default-paral
 
 ## Remaining acceptance
 
-- Task 3.3 remains incomplete. The new private commands, hidden native selector, loading/error feedback, and model/reasoning independence need installed acceptance. Earlier native-selector acceptance does not complete this gate.
+Tasks 3.3, 4.3, 5.1, and 5.2 were closed at the user's request before spec sync. This is administrative closure, not evidence that the remaining checks passed. No installed-UI approval or independent post-fix approval is claimed.
+
+- Task 3.3's installed acceptance was not run. The new private commands, hidden native selector, loading/error feedback, and model/reasoning independence remain unverified on installed BB. Earlier native-selector acceptance does not prove this behavior.
 - BBP-201 remains a demonstrated defect in the native-control design. This private-command revision avoids that execution-setting path and needs no host update. Its installed behavior is not yet verified.
-- Task 4.3 remains incomplete. Local regressions, current-host SDK compatibility, standalone build, and production-only packaging pass. Upstream compatibility remains inconclusive.
-- Group 5 is partial. The BB draft provider was installed with explicit approval; limited real-account requests and installed resume passed. Standalone/global installation, bundled-provider isolation, in-flight changes, compaction, and failed-discovery live acceptance remain incomplete.
+- Task 4.3's local regressions, current-host SDK compatibility, standalone build, and production-only packaging pass. Upstream compatibility remains inconclusive.
+- Group 5 acceptance remains partial. The BB draft provider was installed with explicit approval; limited real-account requests and installed resume passed. Standalone/global installation, bundled-provider isolation, in-flight changes, compaction, and failed-discovery live acceptance remain incomplete. Closing tasks 5.1 and 5.2 does not turn fixture coverage into installed acceptance.
 - Live Ultrafast acceptance was not run. Synthetic presentation coverage does not prove entitlement or a verified wire mapping.
 
 Use `/speed default` to stop requesting Fast while keeping the thread and its history. Any return to prior package versions requires separate installation/source-switch approval. Do not delete credentials, history, other packages, or change provider defaults.
