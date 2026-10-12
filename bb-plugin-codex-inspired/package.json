@@ -32,13 +32,14 @@
       }
     ]
   },
+  "packageManager": "bun@1.4.3",
   "scripts": {
-    "lint": "npm --prefix .. run lint -- bb-plugin-codex-inspired",
-    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-codex-inspired",
-    "format": "npm --prefix .. run format -- bb-plugin-codex-inspired",
-    "format:check": "npm --prefix .. run format:check -- bb-plugin-codex-inspired",
+    "lint": "bun run --cwd .. lint bb-plugin-codex-inspired",
+    "lint:fix": "bun run --cwd .. lint:fix bb-plugin-codex-inspired",
+    "format": "bun run --cwd .. format bb-plugin-codex-inspired",
+    "format:check": "bun run --cwd .. format:check bb-plugin-codex-inspired",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun --bun tsc --noEmit",
     "build": "bb plugin build"
   },
   "devDependencies": {

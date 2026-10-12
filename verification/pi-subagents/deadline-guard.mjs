@@ -248,7 +248,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exitCode = 1;
     }
   } else {
-    console.log("Usage: node deadline-guard.mjs --run approved-action.json");
+    console.log("Usage: bun deadline-guard.mjs --run approved-action.json");
     console.log(
       "Requires fresh bounded approval. No dispatch, model call or default change. Trusted receipts on stdin.",
     );

@@ -35,7 +35,7 @@ function json(path: string, value: unknown) {
 }
 
 function run(cwd: string) {
-  return spawnSync(process.execPath, ["--experimental-import-meta-resolve", script], {
+  return spawnSync("bun", [script], {
     cwd,
     encoding: "utf8",
     timeout: 10_000,
@@ -126,8 +126,8 @@ it("fails when the installed Pi package is missing, with a retry command", () =>
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(1);
   expect(result.stderr).toContain("@earendil-works/pi-coding-agent");
-  expect(result.stderr).toContain("npm ci");
-  expect(result.stderr).toContain("npm run check:installed-globs");
+  expect(result.stderr).toContain("bun install --frozen-lockfile");
+  expect(result.stderr).toContain("bun run check:installed-globs");
 });
 
 it("fails when a fixed-version package breaks ordinary brace expansion", () => {

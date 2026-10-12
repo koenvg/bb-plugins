@@ -2,7 +2,7 @@
 
 A selectable BB sidebar thread list. It shows threads in three tabs and the PR status beside each thread. The PR status comes from the **github-insight** plugin. This plugin stores no Git host credentials.
 
-Build: `npm install && bb plugin types && bb plugin build`. Install locally: `bb plugin install .`. Choose **Threads with PRs** in Settings → Appearance → Sidebar. The bundled **Thread list** stays installed and can be selected again at any time.
+Build: `bun install --frozen-lockfile && bb plugin types && bb plugin build`. Install locally: `bb plugin install .`. Choose **Threads with PRs** in Settings → Appearance → Sidebar. The bundled **Thread list** stays installed and can be selected again at any time.
 
 ## Requirements
 

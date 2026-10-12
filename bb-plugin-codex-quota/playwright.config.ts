@@ -20,7 +20,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "node scripts/preview-server.mjs",
+    command: "bun scripts/preview-server.mjs",
     env: { CODEX_QUOTA_PREVIEW_PORT: "38716" },
     url: "http://127.0.0.1:38716",
     reuseExistingServer: false,

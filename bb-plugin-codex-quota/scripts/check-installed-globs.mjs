@@ -3,13 +3,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// The second import.meta.resolve argument needs --experimental-import-meta-resolve.
-// Use ESM conditions, as Pi does, without loading Pi or starting its runtime.
+// Use parent-aware ESM resolution without loading Pi or starting its runtime.
 try {
-  assert.ok(
-    process.execArgv.includes("--experimental-import-meta-resolve"),
-    "Run npm run check:installed-globs to enable parent-aware ESM resolution",
-  );
   const root = pathToFileURL(resolve("package.json")).href;
   const pi = import.meta.resolve("@earendil-works/pi-coding-agent", root);
   const minimatch = import.meta.resolve("minimatch", pi);
@@ -26,7 +21,7 @@ try {
     version && (major > 5 || (major === 5 && (minor > 0 || patch >= 12))),
     `Pi -> minimatch -> brace-expansion installed ${manifest.version} at ${manifestPath}; ` +
       "requires stable >=5.0.12. Update the upstream dependency that selects this copy, " +
-      "then run npm ci and this check again. Parent lockfile edits or audit output are not proof of a fix.",
+      "then run bun install --frozen-lockfile and this check again. Parent lockfile edits or audit output are not proof of a fix.",
   );
 
   // Bounded ordinary inputs only. Do not run denial-of-service payloads in CI.
@@ -42,6 +37,8 @@ try {
   );
 } catch (error) {
   console.error(`Installed glob guard failed: ${error.message}`);
-  console.error("Run npm ci in bb-plugin-codex-quota, then npm run check:installed-globs.");
+  console.error(
+    "Run bun install --frozen-lockfile in bb-plugin-codex-quota, then bun run check:installed-globs.",
+  );
   process.exitCode = 1;
 }

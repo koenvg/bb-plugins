@@ -20,7 +20,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "node tests/preview-server.ts",
+    command: "bun tests/preview-server.ts",
     url: "http://127.0.0.1:56429/tests/preview.html",
     reuseExistingServer: false,
     timeout: 30_000,

@@ -4,7 +4,7 @@ Mark areas in a BB Browser tab and write a comment for each one. Each comment be
 
 This plugin replaces BB's bundled **agent-annotations** plugin.
 
-Build: `npm install && bb plugin build`. Install locally: `bb plugin install .`.
+Build: `bun install --frozen-lockfile && bb plugin build`. Install locally: `bb plugin install .`.
 
 ## Turn off the bundled plugin
 
@@ -67,7 +67,7 @@ The screenshot is taken when you save the comment, not when you send. Edits to t
 ## Checks
 
 ```sh
-npm test
-npm run typecheck
+bun run test
+bun run typecheck
 bb plugin build
 ```

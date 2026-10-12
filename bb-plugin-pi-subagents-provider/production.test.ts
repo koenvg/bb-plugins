@@ -40,13 +40,12 @@ it("builds and loads the public provider artifacts without development dependenc
       return result.stdout;
     };
     expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe("0.46.0");
-    run("npm", [
-      "ci",
-      "--omit=dev",
+    run("bun", [
+      "install",
+      "--frozen-lockfile",
+      "--production",
       "--omit=optional",
       "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
     ]);
     for (const name of [
       "@get-bb/plugin-sdk",

@@ -31,13 +31,14 @@
   "keywords": [
     "bb-plugin"
   ],
+  "packageManager": "bun@1.4.3",
   "scripts": {
-    "lint": "npm --prefix .. run lint -- bb-plugin-tasks-plus",
-    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-tasks-plus",
-    "format": "npm --prefix .. run format -- bb-plugin-tasks-plus",
-    "format:check": "npm --prefix .. run format:check -- bb-plugin-tasks-plus",
+    "lint": "bun run --cwd .. lint bb-plugin-tasks-plus",
+    "lint:fix": "bun run --cwd .. lint:fix bb-plugin-tasks-plus",
+    "format": "bun run --cwd .. format bb-plugin-tasks-plus",
+    "format:check": "bun run --cwd .. format:check bb-plugin-tasks-plus",
     "build": "bb plugin build",
-    "typecheck": "node ./node_modules/typescript-7/bin/tsc --noEmit",
+    "typecheck": "bun ./node_modules/typescript-7/bin/tsc --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {

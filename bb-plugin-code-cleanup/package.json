@@ -16,14 +16,15 @@
     "app": "./app.tsx",
     "skills": []
   },
+  "packageManager": "bun@1.4.3",
   "scripts": {
-    "lint": "npm --prefix .. run lint -- bb-plugin-code-cleanup",
-    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-code-cleanup",
-    "format": "npm --prefix .. run format -- bb-plugin-code-cleanup",
-    "format:check": "npm --prefix .. run format:check -- bb-plugin-code-cleanup",
+    "lint": "bun run --cwd .. lint bb-plugin-code-cleanup",
+    "lint:fix": "bun run --cwd .. lint:fix bb-plugin-code-cleanup",
+    "format": "bun run --cwd .. format bb-plugin-code-cleanup",
+    "format:check": "bun run --cwd .. format:check bb-plugin-code-cleanup",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "preview:settings": "tsx preview/server.ts"
+    "typecheck": "bun --bun tsc --noEmit",
+    "preview:settings": "bun preview/server.ts"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.15",

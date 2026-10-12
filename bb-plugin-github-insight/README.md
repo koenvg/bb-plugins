@@ -383,9 +383,9 @@ other commands --> ctx.openPanel({ actionId: "pr" }) --> pr intent (sub-tab) -->
 ## Develop
 
 ```bash
-npm install --include=dev
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
 bb plugin install .
 bb plugin dev
 ```

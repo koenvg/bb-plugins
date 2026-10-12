@@ -23,7 +23,7 @@ export default defineConfig({
     serviceWorkers: "block",
   },
   webServer: {
-    command: "npm run preview:fixture -- --port 4187 --strictPort",
+    command: "bun run preview:fixture --port 4187 --strictPort",
     url: "http://127.0.0.1:4187",
     reuseExistingServer: false,
     timeout: 30_000,

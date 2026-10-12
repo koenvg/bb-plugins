@@ -133,7 +133,7 @@ it("accepts a committed ordinary checkout and rejects missing or uncommitted pre
 it("runs the checker against committed data without changing dirty source, dependencies, or owned settings", async () => {
   const r = repo();
   writeFileSync(join(r.pkg, "UPSTREAM.json"), "dirty baseline");
-  writeFileSync(join(r.pkg, "package-lock.json"), "owned dependency fixture");
+  writeFileSync(join(r.pkg, "bun.lock"), "owned dependency fixture");
   mkdirSync(join(r.pkg, "node_modules"));
   writeFileSync(join(r.pkg, "node_modules/fixture"), "owned dependencies");
   writeFileSync(join(r.root, "settings.json"), "dirty owned settings");
@@ -170,15 +170,15 @@ it("rejects linked worktrees even with a permanent-looking name", async () => {
   expect(await inspectStableSource(linked)).toMatchObject({ ready: false });
 });
 
-it("validates the copied wrapper before invoking only an owned fake Node command", async () => {
+it("validates the copied wrapper before invoking only an owned fake Bun command", async () => {
   const r = repo();
   const wrapper = join(r.root, "wrapper.sh");
   writeFileSync(wrapper, await plannedWrapper(r.root));
   const bin = join(r.root, "owned-bin");
   mkdirSync(bin);
-  const fakeNode = join(bin, "node");
-  writeFileSync(fakeNode, '#!/bin/bash\nprintf "fixture-checker-only\\n"\n');
-  chmodSync(fakeNode, 0o700);
+  const fakeBun = join(bin, "bun");
+  writeFileSync(fakeBun, '#!/bin/bash\nprintf "fixture-checker-only\\n"\n');
+  chmodSync(fakeBun, 0o700);
   const env = { ...process.env, BB_PROJECT_ID: "proj_fixture", PATH: `${bin}:${process.env.PATH}` };
   const before = bytes(r.root);
   const ok = spawnSync("bash", [wrapper], { env, encoding: "utf8" });
@@ -264,12 +264,12 @@ it("copied wrappers ignore foreign Git contexts and use the real source index", 
   writeFileSync(wrapper, await plannedWrapper(r.root));
   const bin = join(r.root, "owned-bin");
   mkdirSync(bin);
-  const fakeNode = join(bin, "node");
+  const fakeBun = join(bin, "bun");
   writeFileSync(
-    fakeNode,
+    fakeBun,
     '#!/bin/bash\n[ -z "${GIT_DIR:-}${GIT_INDEX_FILE:-}${GIT_OBJECT_DIRECTORY:-}${GIT_FUTURE_SELECTION:-}" ] || exit 4\nprintf "fixture-checker-only\\n"\n',
   );
-  chmodSync(fakeNode, 0o700);
+  chmodSync(fakeBun, 0o700);
   const environment = {
     ...process.env,
     BB_PROJECT_ID: "proj_fixture",

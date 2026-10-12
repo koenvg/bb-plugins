@@ -97,9 +97,9 @@ The plugin never commits, pushes, or writes to GitHub.
 ## Development
 
 ```sh
-npm ci
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
 bb plugin build
 ```
 

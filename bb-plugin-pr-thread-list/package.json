@@ -48,13 +48,14 @@
     "vaul": "^1.1.2",
     "vitest": "^5.0.1"
   },
+  "packageManager": "bun@1.4.3",
   "scripts": {
-    "lint": "npm --prefix .. run lint -- bb-plugin-pr-thread-list",
-    "lint:fix": "npm --prefix .. run lint:fix -- bb-plugin-pr-thread-list",
-    "format": "npm --prefix .. run format -- bb-plugin-pr-thread-list",
-    "format:check": "npm --prefix .. run format:check -- bb-plugin-pr-thread-list",
+    "lint": "bun run --cwd .. lint bb-plugin-pr-thread-list",
+    "lint:fix": "bun run --cwd .. lint:fix bb-plugin-pr-thread-list",
+    "format": "bun run --cwd .. format bb-plugin-pr-thread-list",
+    "format:check": "bun run --cwd .. format:check bb-plugin-pr-thread-list",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun --bun tsc --noEmit",
     "build": "bb plugin build"
   },
   "dependencies": {

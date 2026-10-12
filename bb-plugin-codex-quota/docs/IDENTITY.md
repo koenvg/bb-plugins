@@ -108,6 +108,6 @@ an existing database need not shrink on disk immediately.
 
 ## Validation
 
-Run focused `identity-*.test.ts*` tests, full `npm test`, typecheck, SDK `--check`, then the complete bundle suite. `scripts/check-bundled-identity.mjs` copies the host artifact outside its dependency tree, forbids network and exercises real temporary persistent SQLite. Run it on both the current Node runtime and Node 22. Run strict OpenSpec and the final build after bundle checks.
+Run focused `identity-*.test.ts*` tests, full `bun run test`, typecheck, SDK `--check`, then the complete bundle suite. `scripts/check-bundled-identity.mjs` copies the host artifact outside its dependency tree, forbids network and exercises real temporary persistent SQLite. Run it on both the current Node runtime and Node 22. Run strict OpenSpec and the final build after bundle checks.
 
-Run `npm run test:browser -- --grep identity` after `npm ci` and `npx playwright install chromium`. The maintained suite builds `scripts/identity-preview.tsx`, checks desktop/375px layout and keyboard navigation callbacks, and blocks external traffic in fresh Chromium contexts. See [browser verification](BROWSER-TESTING.md). This does not prove installed BB navigation.
+Run `bun run test:browser --grep identity` after `bun install --frozen-lockfile` and `bun --bun run playwright install chromium`. The maintained suite builds `scripts/identity-preview.tsx`, checks desktop/375px layout and keyboard navigation callbacks, and blocks external traffic in fresh Chromium contexts. See [browser verification](BROWSER-TESTING.md). This does not prove installed BB navigation.

@@ -7,6 +7,7 @@
   "description": "An independent Pi provider fork for BB subagent integration.",
   "engines": {
     "node": ">=24.15.0 <25",
+    "bun": "1.4.3",
     "bb": ">=0.46.0 <0.47.0",
     "bbPluginSdk": ">=0.6.37 <0.7.0"
   },
@@ -24,10 +25,11 @@
   "keywords": [
     "bb-plugin"
   ],
+  "packageManager": "bun@1.4.3",
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
-    "typecheck": "tsc --noEmit --allowImportingTsExtensions",
-    "check:upstream": "node src/upstream/cli.ts",
+    "typecheck": "bun --bun tsc --noEmit --allowImportingTsExtensions",
+    "check:upstream": "bun src/upstream/cli.ts",
     "build": "bb plugin build ."
   },
   "dependencies": {

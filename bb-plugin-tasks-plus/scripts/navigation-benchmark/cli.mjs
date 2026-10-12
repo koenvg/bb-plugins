@@ -16,7 +16,7 @@ try {
     console.log(JSON.stringify(summarize(run), null, 2));
   } else
     throw new Error(
-      "Usage: node cli.mjs fixture|cleanup DIRECTORY bbp60-OWNER; node cli.mjs report RUN.json",
+      "Usage: bun cli.mjs fixture|cleanup DIRECTORY bbp60-OWNER; bun cli.mjs report RUN.json",
     );
 } catch (error) {
   console.error(error.message);
