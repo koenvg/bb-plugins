@@ -35,7 +35,7 @@ function thread(id: string, resolved = false): ReviewThread {
 }
 
 function allThreads(...threads: ReviewThread[]) {
-  return { threads, complete: true };
+  return { threads, othersComments: [], complete: true };
 }
 
 const pr = { owner: "collibra", repo: "frontend", number: 25259 };
@@ -98,6 +98,7 @@ describe("draft store", () => {
 
     const drafts = await store.liveDrafts(pr, {
       threads: [thread("PRRT_resolved", true)],
+      othersComments: [],
       complete: false,
     });
 

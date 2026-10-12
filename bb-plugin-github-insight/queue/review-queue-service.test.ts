@@ -570,8 +570,24 @@ describe("new activity after the mark", () => {
     return queuePr("acme/api", 15, { activity, ...overrides });
   }
 
-  function activityOf(lastCommentAt: string | null, lastRequestedAt: string | null = null) {
-    return { lastCommentAt, lastRequestedAt };
+  function activityOf(
+    lastConversationAt: string | null,
+    lastRequestedAt: string | null = null,
+    inlineComments: { id: string; postedAt: string }[] = [],
+  ) {
+    return { lastConversationAt, inlineComments, lastRequestedAt };
+  }
+
+  function replies(...ids: string[]) {
+    return activityOf(
+      null,
+      null,
+      ids.map((id) => ({ id, postedAt: AFTER })),
+    );
+  }
+
+  function seenComments(...ids: string[]) {
+    return ["comment-seen:v1:acme/api#15", { v: 1, ids }] as const;
   }
 
   function serviceWithTracked(requested: QueuePr[], tracked: QueuePr[]) {
@@ -662,6 +678,135 @@ describe("new activity after the mark", () => {
     expect(sections(published[1]!)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
   });
 
+  it("puts a marked PR back in Needs review after an unseen inline reply", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(replies("PRRC_1"))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([
+      "new_comments",
+    ]);
+  });
+
+  it("keeps a marked PR in Reviewed when the user saw all new replies", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(replies("PRRC_1", "PRRC_2"))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1", "PRRC_2"));
+
+    const result = await service.refreshReviewQueue();
+
+    expect(firstReviewRequest(result).newActivity).toEqual([]);
+    expect(sections(result)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+  });
+
+  it("keeps new comments when the user saw one of two replies", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(replies("PRRC_1", "PRRC_2"))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1"));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([
+      "new_comments",
+    ]);
+  });
+
+  it("keeps new comments for a conversation comment after a seen reply", async () => {
+    const activity = activityOf(AFTER, null, [{ id: "PRRC_1", postedAt: AFTER }]);
+    const { service, kv } = serviceWithTracked([], [tracked15(activity)]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1"));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([
+      "new_comments",
+    ]);
+  });
+
+  it("keeps the push but drops new comments after a seen reply", async () => {
+    const { service, kv } = serviceWithTracked(
+      [],
+      [tracked15(replies("PRRC_1"), { headOid: "def456" })],
+    );
+    kv.entries.set(...mark("acme/api", 15, "abc123", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1"));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue())).toMatchObject({
+      review: "updated_since_review",
+      newActivity: [],
+    });
+  });
+
+  it("drops new comments when the user sees the last reply", async () => {
+    const { service, kv, published } = serviceWithTracked([], [tracked15(replies("PRRC_1"))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    await service.refreshReviewQueue();
+
+    expect(
+      await service.markCommentsSeen({ owner: "acme", repo: "api", number: 15 }, ["PRRC_1"]),
+    ).toEqual({ kind: "ok" });
+
+    expect(kv.entries.get("comment-seen:v1:acme/api#15")).toEqual({ v: 1, ids: ["PRRC_1"] });
+    expect(firstReviewRequest(published.at(-1)!).newActivity).toEqual([]);
+  });
+
+  it("returns an error when the seen comments cannot be saved", async () => {
+    const { service, kv } = serviceWith();
+    kv.set = async () => {
+      throw new Error("disk full");
+    };
+
+    expect(
+      await service.markCommentsSeen({ owner: "acme", repo: "api", number: 15 }, ["PRRC_1"]),
+    ).toEqual({ kind: "error", message: "disk full" });
+  });
+
+  it.each([
+    ["marks it reviewed", "markReviewed"],
+    ["marks it as needs review", "markNeedsReview"],
+  ] as const)("deletes the seen comments when the user %s", async (_, action) => {
+    const { service, kv } = serviceWithTracked([], [tracked15(replies("PRRC_1"))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1"));
+    await service.refreshReviewQueue();
+
+    await service[action]({ repo: "acme/api", number: 15, headOid: "head-15" });
+
+    expect(kv.entries.has("comment-seen:v1:acme/api#15")).toBe(false);
+  });
+
+  it("marks the PR reviewed and warns when the seen comments cannot be deleted", async () => {
+    const warnings: string[] = [];
+    const { service, kv } = serviceWith({ warn: (message) => warnings.push(message) });
+    kv.delete = async () => {
+      throw new Error("disk full");
+    };
+
+    expect(
+      await service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" }),
+    ).toEqual({ kind: "ok" });
+    expect(warnings).toEqual(["Could not delete seen comments of acme/api#15: disk full"]);
+  });
+
+  it("reads the mark time and seen comments of a PR", async () => {
+    const { service, kv } = serviceWith();
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRRC_1"));
+
+    expect(await service.newCommentBasis({ owner: "acme", repo: "api", number: 15 })).toEqual({
+      markedAt: MARKED_AT,
+      seen: new Set(["PRRC_1"]),
+    });
+    expect(await service.newCommentBasis({ owner: "acme", repo: "api", number: 16 })).toEqual({
+      markedAt: null,
+      seen: new Set(),
+    });
+  });
+
+  it("drops a stored queue from before inline comment tracking", async () => {
+    const { service, kv } = serviceWith();
+    const loaded = await service.refreshReviewQueue();
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: loaded });
+
+    expect(await service.getReviewQueue()).toEqual({ kind: "loading" });
+  });
+
   it("reads a stored PR from before activity tracking as without activity", async () => {
     const { service, kv } = serviceWith();
     const loaded = await service.refreshReviewQueue();
@@ -669,7 +814,7 @@ describe("new activity after the mark", () => {
     const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
     delete prs[0]!.newActivity;
     delete prs[0]!.activity;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
       { activity: null, newActivity: [] },
@@ -1166,7 +1311,7 @@ describe("unseen PRs", () => {
   it("reads a stored view from before unseen tracking as all seen", async () => {
     const { service, kv } = serviceWith();
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
-      v: 2,
+      v: 3,
       result: { kind: "ok", needsReview: [], reviewed: [], truncated: false, loadedAt: 1 },
     });
 
@@ -1251,7 +1396,7 @@ describe("returned review threads", () => {
     delete stored.hasReturned;
     const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
     delete prs[0]!.thread.returned;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result: stored });
 
     expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
       row: null,

@@ -90,8 +90,10 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - A successful submit in the Review tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
 - A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps the newest time of each kind:
   - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
+  - A review comment or reply that you saw in the Review tab does not count (see "New comments in the Review tab"). A PR comment or review text still counts until "Mark reviewed", because the Review tab does not show it.
+  - The fragment reads the first 20 comments of each of the last 20 reviews, with `id` and `publishedAt`. A comment in a pending review counts at the time the review is submitted.
   - "Review requested again": a review request to your login. Requests to a team do not count.
-- "Mark reviewed" writes a new `markedAt`, so it clears both labels. PRs with no mark get no activity labels, also when they have a review thread.
+- "Mark reviewed" writes a new `markedAt`, so it clears both labels. "Mark reviewed" and "Mark as needs review" also delete the seen comments of the PR. PRs with no mark get no activity labels, also when they have a review thread.
 - Reviews submitted on github.com do not set a mark.
 - "Start review" opens the new-thread composer on `review/<owner>/<repo>/<number>`, filled in with the first matching project, a new worktree on the primary host from the default branch, and the prompt from `core/review-prompt.ts`. The composer shows after the plugin gets the primary host ID, because bb ignores a worktree seed without a host. With no primary host, the composer uses its own environment default. The prompt tells the agent to run `gh pr checkout <n>`, review the PR, save each finding with `review comment` and one summary with `review summary` (see "Review drafts"), and not post to GitHub. Submit starts the thread and opens it. A review thread starts only in an environment that no other thread can share. The project checkout, a personal workspace, an existing environment, and the project default are rejected with "Review threads need a new worktree". After the checkout, bb links the PR to the thread, and the PR and Review tabs show it.
 
@@ -212,6 +214,21 @@ Each file in the Review tab that has a patch shows a collapse button and a "View
 | Key                            | Value                                       |
 | ------------------------------ | ------------------------------------------- |
 | `viewed:v1:<owner>/<repo>#<n>` | `{ v: 1, marks: { <path>: <patch hash> } }` |
+
+### New comments in the Review tab
+
+A review comment or reply is new when the PR has a reviewed mark, the comment was published after `markedAt`, its author is a `User` that is not you, and you have not seen it (`core/new-comments.ts`).
+
+- `getReview` returns `newCommentIds`. The review threads query reads `viewer { login }`, the author `__typename`, and `publishedAt` for this.
+- A new comment has a glowing border (`ui/new-comment.css`). Only the new comment glows, not the full thread. With reduced motion, the border does not pulse.
+- A comment is seen when at least 60% of it is in the diff area, or it fills 60% of the diff area height, for 1.5 s without a break, while the page is visible and the bb window has focus (`ui/use-comment-seen.ts`). The glow stays while the Review tab is open, also after a refresh, so you can find the comment again. When you open the tab again, a seen comment has no glow.
+- The tab sends seen ids in one RPC `markCommentsSeen({ threadId, commentIds })` 300 ms after the first one, or when the tab closes. The server saves them and re-links the review queue, so the "New comments" label updates without a GitHub call. A failed save is ignored, so the comment is new again the next time the tab opens.
+- A resolved thread with a new comment shows and is expanded, also when "Show resolved" is off. A viewed file with a new comment starts expanded. This holds while the Review tab is open.
+- Seen ids belong to the PR, so every thread on the PR shares them.
+
+| Key                                  | Value                           |
+| ------------------------------------ | ------------------------------- |
+| `comment-seen:v1:<owner>/<repo>#<n>` | `{ v: 1, ids: [<comment id>] }` |
 
 ## Merge and enqueue
 

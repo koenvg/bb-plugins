@@ -13,6 +13,7 @@ import {
 } from "../core/review-updated";
 import type { ViewedMarks } from "../core/viewed-marks";
 import {
+  commentHolders,
   openThreadCounts,
   openThreads,
   visibleThreads,
@@ -27,6 +28,7 @@ import { Notice, RefreshButton, RefreshError, SendToAgentButton } from "./feedba
 import { PrFileDiff } from "./file-diff";
 import { IconTooltip } from "./icon-tooltip";
 import { JumpMarkContext } from "./jump-highlight";
+import { NewCommentGlowContext, useNewCommentGlowState } from "./new-comment-glow";
 import { OlderCommentDrafts } from "./older-comment-drafts";
 import { OutdatedThreads } from "./outdated-threads";
 import { SubmitPanel, SubmitReviewToggle } from "./submit-panel";
@@ -184,6 +186,7 @@ function ReviewTabContent({ threadId }: { threadId: string }) {
           commentDrafts={result.commentDrafts}
           summaryDraft={result.summaryDraft}
           viewedMarks={result.viewedMarks}
+          newCommentIds={result.newCommentIds}
           reload={reload}
           refreshing={refreshing}
           refresh={refresh}
@@ -202,6 +205,7 @@ interface ReviewContentProps {
   commentDrafts: readonly ListedCommentDraft[];
   summaryDraft: SummaryDraft | null;
   viewedMarks: ViewedMarks;
+  newCommentIds: readonly string[];
   reload: () => void;
   refreshing: boolean;
   refresh: () => void;
@@ -216,6 +220,7 @@ function ReviewContent({
   commentDrafts,
   summaryDraft,
   viewedMarks,
+  newCommentIds,
   reload,
   refreshing,
   refresh,
@@ -234,7 +239,16 @@ function ReviewContent({
   const openIds = useMemo(() => openThreads(threads).map(({ thread }) => thread.id), [threads]);
   const { selection, selectedIds, deselect } = useThreadSelectionState(openIds);
   const agent = useSendToAgent(threadId, deselect);
-  const visible = useMemo(() => visibleThreads(threads, showResolved), [threads, showResolved]);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  const glow = useNewCommentGlowState(threadId, newCommentIds, scrollArea);
+  const newCommentHolders = useMemo(
+    () => commentHolders(threads, glow.glowingIds),
+    [threads, glow.glowingIds],
+  );
+  const visible = useMemo(
+    () => visibleThreads(threads, showResolved, newCommentHolders.threadIds),
+    [threads, showResolved, newCommentHolders],
+  );
   const placedByPath = useMemo(
     () => groupByPath(visible.placed, ({ thread }) => thread.path),
     [visible.placed],
@@ -256,10 +270,10 @@ function ReviewContent({
         olderDrafts: draftsByCommit.older,
         drafts: draftsByCommit.atHead,
         showResolved,
+        revealedThreadIds: newCommentHolders.threadIds,
       }),
-    [files, threads, draftsByCommit, showResolved],
+    [files, threads, draftsByCommit, showResolved, newCommentHolders],
   );
-  const scrollArea = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const navigation = useCommentNavigation(scrollArea, content, stops);
   const commentStep = requests.commentStep;
@@ -270,7 +284,7 @@ function ReviewContent({
     commentStep.onHandled();
   }, [commentStep, step]);
   const { create, createError } = useNewComments();
-  const viewed = usePrViewed(threadId, files, viewedMarks);
+  const viewed = usePrViewed(threadId, files, viewedMarks, newCommentHolders.paths);
   const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;
   return (
     <div className="flex h-full flex-col">
@@ -317,24 +331,26 @@ function ReviewContent({
         <ErrorBanner>{agent.outcome.result.message}</ErrorBanner>
       )}
       <ThreadSelectionContext.Provider value={selection}>
-        <JumpMarkContext.Provider value={navigation.jumpMark}>
-          <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
-            <div ref={content}>
-              <OlderCommentDrafts drafts={draftsByCommit.older} headOid={head.oid} />
-              <OutdatedThreads threads={visible.outdated} />
-              {files.map((file) => (
-                <PrFileDiff
-                  key={file.path}
-                  file={file}
-                  threads={placedByPath.get(file.path) ?? NO_THREADS}
-                  commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
-                  onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
-                  viewed={viewed.of(file)}
-                />
-              ))}
+        <NewCommentGlowContext.Provider value={glow}>
+          <JumpMarkContext.Provider value={navigation.jumpMark}>
+            <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
+              <div ref={content}>
+                <OlderCommentDrafts drafts={draftsByCommit.older} headOid={head.oid} />
+                <OutdatedThreads threads={visible.outdated} />
+                {files.map((file) => (
+                  <PrFileDiff
+                    key={file.path}
+                    file={file}
+                    threads={placedByPath.get(file.path) ?? NO_THREADS}
+                    commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
+                    onAddComment={canAddComment ? (...args) => void create(...args) : undefined}
+                    viewed={viewed.of(file)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        </JumpMarkContext.Provider>
+          </JumpMarkContext.Provider>
+        </NewCommentGlowContext.Provider>
       </ThreadSelectionContext.Provider>
     </div>
   );

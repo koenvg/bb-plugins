@@ -26,6 +26,7 @@ const loaded: ReviewLoad = {
     commentDrafts: [],
     summaryDraft: null,
     viewedMarks: {},
+    newCommentIds: [],
   },
 };
 

@@ -1,10 +1,13 @@
 import { z } from "zod";
+import { isOtherPerson } from "./actor";
+import { postedAt, type PostedComment } from "./new-comments";
 
 export const MAX_THREAD_PAGES = 5;
 export const MAX_COMMENT_BODY_CHARS = 4000;
 
 const threadsPageSchema = z.object({
   data: z.object({
+    viewer: z.object({ login: z.string() }).optional(),
     repository: z.object({
       pullRequest: z.object({
         reviewThreads: z.object({
@@ -24,10 +27,15 @@ const threadsPageSchema = z.object({
                   z.object({
                     id: z.string(),
                     author: z
-                      .object({ login: z.string(), avatarUrl: z.string().optional() })
+                      .object({
+                        __typename: z.string().optional(),
+                        login: z.string(),
+                        avatarUrl: z.string().optional(),
+                      })
                       .nullable(),
                     body: z.string(),
                     createdAt: z.string(),
+                    publishedAt: z.string().nullable().optional(),
                     url: z.string(),
                     diffHunk: z.string(),
                   }),
@@ -85,10 +93,14 @@ function toReviewThread(node: ThreadNode): ReviewThread {
     line: node.line,
     originalLine: node.originalLine,
     side: node.diffSide,
-    comments: node.comments.nodes.map((comment) => ({
-      ...comment,
-      author: comment.author?.login ?? GHOST_AUTHOR,
-      avatarUrl: comment.author?.avatarUrl ?? null,
+    comments: node.comments.nodes.map(({ id, author, body, createdAt, url, diffHunk }) => ({
+      id,
+      author: author?.login ?? GHOST_AUTHOR,
+      avatarUrl: author?.avatarUrl ?? null,
+      body,
+      createdAt,
+      url,
+      diffHunk,
     })),
     hasMoreComments: node.comments.totalCount > node.comments.nodes.length,
   };
@@ -106,7 +118,18 @@ export function parseReviewThreads(pages: unknown[]): ReviewThread[] {
 
 export interface CollectedReviewThreads {
   threads: ReviewThread[];
+  othersComments: PostedComment[];
   complete: boolean;
+}
+
+function othersCommentsOf(page: ThreadsPage): PostedComment[] {
+  const viewer = page.data.viewer?.login;
+  if (viewer === undefined) return [];
+  return threadsOf(page).nodes.flatMap((thread) =>
+    thread.comments.nodes
+      .filter((comment) => isOtherPerson(comment.author, viewer))
+      .map((comment) => ({ id: comment.id, postedAt: postedAt(comment) })),
+  );
 }
 
 export async function collectReviewThreads(
@@ -122,6 +145,7 @@ export async function collectReviewThreads(
   } while (after !== null && pages.length < MAX_THREAD_PAGES);
   return {
     threads: pages.flatMap((page) => threadsOf(page).nodes.map(toReviewThread)),
+    othersComments: pages.flatMap(othersCommentsOf),
     complete: after === null,
   };
 }

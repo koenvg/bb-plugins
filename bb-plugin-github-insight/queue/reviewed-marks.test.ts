@@ -61,4 +61,16 @@ describe("reviewed marks", () => {
 
     expect(await createReviewedMarks(kv, () => 1).list()).toEqual([]);
   });
+
+  it("reads the mark of one PR without regard to case", async () => {
+    const marks = createReviewedMarks(fakeKv(), () => 7);
+    await marks.save({ owner: "acme", repo: "api", number: 15 }, "abc123");
+
+    expect(await marks.get({ owner: "Acme", repo: "API", number: 15 })).toEqual({
+      ref: { owner: "acme", repo: "api", number: 15 },
+      headOid: "abc123",
+      markedAt: 7,
+    });
+    expect(await marks.get({ owner: "acme", repo: "api", number: 16 })).toBeNull();
+  });
 });

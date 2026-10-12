@@ -51,6 +51,7 @@ function draft(
 }
 
 const none = { placed: [], outdated: [] } satisfies ThreadPlacement;
+const noIds: ReadonlySet<string> = new Set();
 
 describe("commentStops", () => {
   it("orders outdated threads first, then each file in file order by line", () => {
@@ -63,6 +64,7 @@ describe("commentStops", () => {
       olderDrafts: [],
       drafts: [draft("a12", "a.ts", 12)],
       showResolved: false,
+      revealedThreadIds: noIds,
     });
 
     expect(stops).toEqual([
@@ -80,6 +82,7 @@ describe("commentStops", () => {
       olderDrafts: [draft("stale", "a.ts", 3)],
       drafts: [],
       showResolved: false,
+      revealedThreadIds: noIds,
     });
 
     expect(stops.map(({ id }) => id)).toEqual(["stale", "old"]);
@@ -99,6 +102,7 @@ describe("commentStops", () => {
       olderDrafts: [],
       drafts: [draft("new-draft", "a.ts", 5, "RIGHT"), draft("old-draft", "a.ts", 5, "LEFT")],
       showResolved: false,
+      revealedThreadIds: noIds,
     });
 
     expect(stops.map(({ id }) => id)).toEqual([
@@ -117,7 +121,7 @@ describe("commentStops", () => {
       ],
       outdated: [thread("done-old", { resolved: true })],
     };
-    const input = { files, threads, olderDrafts: [], drafts: [] };
+    const input = { files, threads, olderDrafts: [], drafts: [], revealedThreadIds: noIds };
 
     expect(commentStops({ ...input, showResolved: false }).map(({ id }) => id)).toEqual(["open"]);
     expect(commentStops({ ...input, showResolved: true }).map(({ id }) => id)).toEqual([
@@ -127,6 +131,27 @@ describe("commentStops", () => {
     ]);
   });
 
+  it("keeps a resolved thread with a new comment when show resolved is off", () => {
+    const threads: ThreadPlacement = {
+      placed: [
+        placed("open", "a.ts", 1),
+        placed("done", "a.ts", 2, "additions", { resolved: true }),
+      ],
+      outdated: [],
+    };
+
+    expect(
+      commentStops({
+        files,
+        threads,
+        olderDrafts: [],
+        drafts: [],
+        showResolved: false,
+        revealedThreadIds: new Set(["done"]),
+      }).map(({ id }) => id),
+    ).toEqual(["open", "done"]);
+  });
+
   it("leaves out drafts on a file that is not in the PR", () => {
     const stops = commentStops({
       files,
@@ -134,6 +159,7 @@ describe("commentStops", () => {
       olderDrafts: [],
       drafts: [draft("gone", "c.ts", 1)],
       showResolved: false,
+      revealedThreadIds: noIds,
     });
 
     expect(stops).toEqual([]);

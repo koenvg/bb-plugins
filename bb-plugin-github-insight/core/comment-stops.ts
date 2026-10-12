@@ -23,14 +23,16 @@ export function commentStops({
   olderDrafts,
   drafts,
   showResolved,
+  revealedThreadIds,
 }: {
   files: readonly { path: string }[];
   threads: ThreadPlacement;
   olderDrafts: readonly ListedCommentDraft[];
   drafts: readonly ListedCommentDraft[];
   showResolved: boolean;
+  revealedThreadIds: ReadonlySet<string>;
 }): CommentStop[] {
-  const visible = visibleThreads(threads, showResolved);
+  const visible = visibleThreads(threads, showResolved, revealedThreadIds);
   const byPath = new Map<string, FileComment[]>(files.map((file) => [file.path, []]));
   for (const { thread, side, lineNumber } of visible.placed) {
     byPath.get(thread.path)?.push({

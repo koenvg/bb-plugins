@@ -1305,6 +1305,109 @@ describe("getReview", () => {
   });
 });
 
+describe("new comments", () => {
+  const MARK_KEY = "reviewed:collibra/frontend#25259";
+  const SEEN_KEY = "comment-seen:v1:collibra/frontend#25259";
+  const REPLIES = ["PRRC_kwDOHI7l-87xSEuq", "PRRC_kwDOHI7l-87xSFQS", "PRRC_kwDOHI7l-87xSFlT"];
+
+  function threadsSeenBy(viewer: string) {
+    const { data } = reviewThreads;
+    const pullRequest = data.repository.pullRequest;
+    return {
+      data: {
+        viewer: { login: viewer },
+        repository: {
+          pullRequest: {
+            ...pullRequest,
+            reviewThreads: {
+              ...pullRequest.reviewThreads,
+              nodes: pullRequest.reviewThreads.nodes.map((node) => ({
+                ...node,
+                comments: {
+                  ...node.comments,
+                  nodes: node.comments.nodes.map((comment) => ({
+                    ...comment,
+                    author: { ...comment.author, __typename: "User" },
+                  })),
+                },
+              })),
+            },
+          },
+        },
+      },
+    };
+  }
+
+  function reviewedBy(viewer: string, kv: Record<string, unknown>) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host: (call: HostCall) =>
+        call.method === "fetchReviewThreads" ? ok(threadsSeenBy(viewer)) : recordedReviewHost(call),
+      kv,
+    });
+  }
+
+  function markedAt(at: string) {
+    return {
+      [MARK_KEY]: {
+        v: 1,
+        owner: "collibra",
+        repo: "frontend",
+        number: 25259,
+        headOid: "abc",
+        markedAt: Date.parse(at),
+      },
+    };
+  }
+
+  async function newCommentIdsOf(harness: Awaited<ReturnType<typeof setup>>) {
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
+    return result.kind === "ok" ? result.newCommentIds : null;
+  }
+
+  it("returns the replies of other people after the mark", async () => {
+    const harness = await reviewedBy("a-bandziuk", markedAt("2026-09-18T15:00:00Z"));
+
+    expect(await newCommentIdsOf(harness)).toEqual(REPLIES);
+  });
+
+  it("returns no new comments without a mark", async () => {
+    const harness = await reviewedBy("a-bandziuk", {});
+
+    expect(await newCommentIdsOf(harness)).toEqual([]);
+  });
+
+  it("skips the comments of the viewer", async () => {
+    const harness = await reviewedBy("RuslanPleskunCollibra", markedAt("2026-09-18T15:00:00Z"));
+
+    expect(await newCommentIdsOf(harness)).toEqual([]);
+  });
+
+  it("saves seen comments, so the next load leaves them out", async () => {
+    const harness = await reviewedBy("a-bandziuk", markedAt("2026-09-18T15:00:00Z"));
+
+    const saved = await harness.behavior.callRpc("markCommentsSeen", {
+      threadId: "thr_1",
+      commentIds: [REPLIES[0]!],
+    });
+
+    expect(saved).toEqual({ kind: "ok" });
+    expect(await harness.kv.get(SEEN_KEY)).toEqual({ v: 1, ids: [REPLIES[0]] });
+    expect(await newCommentIdsOf(harness)).toEqual(REPLIES.slice(1));
+  });
+
+  it("rejects seen comments for a thread without a PR", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: "env_1" }] });
+
+    expect(
+      await harness.behavior.callRpc("markCommentsSeen", { threadId: "thr_1", commentIds: ["c1"] }),
+    ).toEqual({ kind: "error", message: "No pull request for this thread" });
+  });
+});
+
 describe("viewed marks", () => {
   const KEY = "viewed:v1:collibra/frontend#25259";
 

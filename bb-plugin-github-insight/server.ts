@@ -86,6 +86,8 @@ export default async function plugin(bb: BbPluginApi) {
     drafts,
     publishDrafts: publishDraftsUpdate,
     viewed: createViewedMarksStore(bb.storage.kv),
+    newCommentBasis: (pr) => reviewQueue.newCommentBasis(pr),
+    markCommentsSeen: (pr, ids) => reviewQueue.markCommentsSeen(pr, ids),
     sendMessage: async (threadId, text) => {
       const result = await bb.sdk.threads.send({
         threadId,
@@ -200,6 +202,7 @@ export default async function plugin(bb: BbPluginApi) {
     deleteCommentDraft: (request) => writes.deleteCommentDraft(request),
     saveSummaryDraft: (request) => writes.saveSummaryDraft(request),
     updateViewed: (request) => review.updateViewed(request),
+    markCommentsSeen: (request) => review.markCommentsSeen(request),
     submitReview: (request) => writes.submitReview(request),
     getReviewQueue: () => reviewQueue.getReviewQueue(),
     refreshReviewQueue: () => reviewQueue.refreshReviewQueue(),

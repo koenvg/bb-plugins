@@ -22,7 +22,9 @@ fragment QueuePr on PullRequest {
 const ACTIVITY_FRAGMENT = `
 fragment QueueActivity on PullRequest {
   comments(last: 20) { nodes { createdAt author { __typename login } } }
-  reviews(last: 20) { nodes { submittedAt body comments { totalCount } author { __typename login } } }
+  reviews(last: 20) {
+    nodes { submittedAt body author { __typename login } comments(first: 20) { nodes { id createdAt publishedAt } } }
+  }
   timelineItems(last: 10, itemTypes: [REVIEW_REQUESTED_EVENT]) {
     nodes { ... on ReviewRequestedEvent { createdAt requestedReviewer { __typename ... on User { login } } } }
   }
