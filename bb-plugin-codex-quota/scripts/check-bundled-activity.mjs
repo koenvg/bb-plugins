@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createBundleFixture } from "./bundle-fixture.mjs";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Actual self-contained host artifact, synthetic isolated Pi auth only. All network is stubbed.
-const agentDir = mkdtempSync(join(tmpdir(), "codex-activity-"));
+const agentDir = createBundleFixture("codex-activity-");
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
 const previousNow = Date.now;
@@ -91,5 +91,4 @@ try {
   Date.now = previousNow;
   if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
   else process.env.CODEX_HOME = previousCodexHome;
-  rmSync(agentDir, { recursive: true, force: true });
 }
