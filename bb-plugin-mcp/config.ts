@@ -44,7 +44,7 @@ export const settingsDefinition = {
     label: "Assertion signing issuer",
     default: "",
     description:
-      "Bearer mode: OpenID Connect issuer. Cloudflare mode: exact HTTPS Access team origin.",
+      "Bearer mode: exact OpenID Connect issuer, including any trailing slash. Cloudflare mode: exact HTTPS Access team origin.",
   },
   owner: {
     type: "string",
@@ -54,11 +54,11 @@ export const settingsDefinition = {
   },
   projects: {
     type: "string",
-    label: "Allowed project IDs",
+    label: "Thread access project IDs",
     default: "",
     experimental_multiline: true,
     description:
-      "One ID per line. Empty means no projects. Allowed content can be sent to ChatGPT.",
+      "One ID per line for thread content and control. Project discovery always shows all IDs and names. Allowed content can be sent to ChatGPT.",
   },
   remoteEnabled: {
     type: "boolean",
@@ -111,7 +111,7 @@ export const configSchema = z
           !url.hostname.includes(".") ||
           url.hostname === "localhost" ||
           (field === "publicOrigin" && value[field] !== url.origin) ||
-          (field === "issuer" && value[field] !== url.href.replace(/\/$/, ""))
+          (field === "issuer" && value[field] !== url.href && value[field] !== url.origin)
         )
           throw new Error();
       } catch {

@@ -43,7 +43,10 @@ const event = (n, cost, at = "2026-09-15T12:00:00.000Z", workspace = `/workspace
   totalTokens: 10,
   capturedCost: cost,
 });
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   globalThis.Date = FixtureDate;
   globalThis.fetch = async () => {
     throw Error("Network forbidden");
@@ -271,5 +274,7 @@ try {
   globalThis.fetch = oldFetch;
   if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = oldAgent;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });
 }

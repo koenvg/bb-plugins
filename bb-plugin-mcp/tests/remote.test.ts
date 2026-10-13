@@ -55,7 +55,10 @@ describe("authenticated HTTP boundary", () => {
         expect(tools.tools[0].annotations?.readOnlyHint).toBe(true);
         const result = await client.callTool(call);
         expect(result.structuredContent).toEqual({
-          projects: [{ id: "proj_a", name: "Allowed" }],
+          projects: [
+            { id: "proj_a", name: "Allowed" },
+            { id: "proj_hidden", name: "Private" },
+          ],
           nextCursor: null,
         });
       } finally {
@@ -70,7 +73,39 @@ describe("authenticated HTTP boundary", () => {
     ]);
   });
 
-  it("pages at most 50 selected ID/name records and applies live project removal", async () => {
+  it.each(["https://issuer.example.org/", "https://issuer.example.org/realm/"])(
+    "authenticates a matching slash-ending issuer without changing metadata: %s",
+    async (issuer) => {
+      const f = await setup();
+      f.change({ issuer });
+      const metadata = await f.request("/.well-known/oauth-protected-resource/mcp");
+      expect((await metadata.json()).authorization_servers).toEqual([issuer]);
+      const client = await f.client();
+      try {
+        expect((await client.callTool(call)).structuredContent).toEqual({
+          projects: [
+            { id: "proj_a", name: "Allowed" },
+            { id: "proj_hidden", name: "Private" },
+          ],
+          nextCursor: null,
+        });
+      } finally {
+        await client.close();
+      }
+      expect(f.issuerCalls).toEqual([
+        issuer.endsWith("/realm/")
+          ? "/realm/.well-known/openid-configuration"
+          : "/.well-known/openid-configuration",
+        "/keys",
+      ]);
+      const reads = f.list.mock.calls.length;
+      const mismatch = await f.token({ iss: issuer.slice(0, -1) });
+      expect((await f.rpc("tools/call", call, mismatch)).status).toBe(401);
+      expect(f.list.mock.calls).toHaveLength(reads);
+    },
+  );
+
+  it("pages at most 50 ID/name records across all projects and applies live project deletion", async () => {
     const f = await setup();
     const records = Array.from({ length: 65 }, (_, i) => ({
       ...project(`proj_${String(i).padStart(3, "0")}`),
@@ -89,16 +124,18 @@ describe("authenticated HTTP boundary", () => {
       const second = (
         await client.callTool({ name: call.name, arguments: { cursor: first.nextCursor } })
       ).structuredContent as { projects: unknown[]; nextCursor: null };
-      expect(second.projects).toHaveLength(15);
+      expect(second.projects).toHaveLength(16);
       expect(second.nextCursor).toBeNull();
-      expect(JSON.stringify([first, second])).not.toMatch(/secret|private SDK field|Hidden/);
+      expect(JSON.stringify([first, second])).not.toMatch(/secret|private SDK field/);
+      expect(second.projects.at(-1)).toEqual({ id: "proj_hidden", name: "Hidden" });
+      f.list.mockResolvedValue([]);
       f.change({ projects: "" });
       const calls = f.list.mock.calls.length;
       expect((await client.callTool(call)).structuredContent).toEqual({
         projects: [],
         nextCursor: null,
       });
-      expect(f.list.mock.calls).toHaveLength(calls);
+      expect(f.list.mock.calls).toHaveLength(calls + 1);
       f.change({ controlEnabled: true });
       expect((await client.listTools()).tools).toHaveLength(7);
       const write = await client.callTool({
@@ -326,15 +363,16 @@ describe("authenticated HTTP boundary", () => {
     expect((await f.rpc("tools/list")).status).toBe(200);
   });
 
-  it("removes revoked data during an in-flight read and hides SDK errors/oversized output", async () => {
+  it("rechecks the owner during an in-flight read and hides SDK errors/oversized output", async () => {
     const f = await setup();
     f.list.mockImplementationOnce(async () => {
-      f.change({ projects: "" });
+      f.change({ owner: "revoked-owner" });
       return [project("proj_a", "Private")];
     });
     const result = await (await f.rpc("tools/call", call)).json();
-    expect(result.result.structuredContent.projects).toEqual([]);
-    f.change({ projects: "proj_a" });
+    expect(result.result.isError).toBe(true);
+    expect(JSON.stringify(result)).not.toContain("Private");
+    f.change({ owner: "owner-1" });
     f.list.mockRejectedValueOnce(new Error("TOKEN and project secret"));
     const error = await (await f.rpc("tools/call", call)).text();
     expect(error).toContain("PROJECTS_UNAVAILABLE");

@@ -1,0 +1,43 @@
+$ bun run test:setup && bun run lint && bun run format:check
+$ bun test ./scripts/environment-setup.test.mjs
+bun test v1.4.3 (c6da4a4d3)
+
+scripts/environment-setup.test.mjs:
+(pass) pinned Bun installs only locked root tools, including dev tools in production mode [275.46ms]
+(pass) unpinned Bun 1.3.14 fails before installation [151.26ms]
+(pass) unpinned Bun 1.4.2 fails before installation [195.79ms]
+(pass) unpinned Bun 1.4.4 fails before installation [128.52ms]
+(pass) unpinned Bun 1.4.3-canary.1 fails before installation [136.12ms]
+(pass) missing Bun fails with a useful error [4.05ms]
+(pass) a broken Bun executable fails before installation [127.51ms]
+(pass) an install failure is returned without retry or fallback [152.74ms]
+
+ 8 pass
+ 0 fail
+Ran 8 tests across 1 file. [1186.00ms]
+$ oxlint
+bb-plugin-markdown-reader/tests/reader.test.tsx:212:241: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+bb-plugin-markdown-reader/tests/reader.test.tsx:212:250: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+bb-plugin-markdown-reader/tests/reader.test.tsx:224:35: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+bb-plugin-markdown-reader/tests/reader.test.tsx:224:44: warning eslint(no-useless-escape): Unnecessary escape character '"' help: Replace `\"` with `"`.
+bb-plugin-tasks-plus/attachments/index.ts:161:16: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-tasks-plus/api/index.ts:497:19: warning unicorn(no-new-array): Do not use `new Array(singleArgument)`. help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+bb-plugin-markdown-reader/source.ts:117:45: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-markdown-reader/source.ts:272:15: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-tasks-plus/views/list/list-preference.ts:170:22: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+bb-plugin-markdown-reader/destinations.ts:32:39: warning eslint(no-control-regex): Unexpected control character help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-markdown-reader/destinations.ts:39:9: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-github-insight/ui/draft-saves.ts:50:26: warning unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily. help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+bb-plugin-github-insight/core/review-list.ts:62:35: warning eslint(no-unused-vars): Parameter '_' is declared but never used. help: Consider removing this parameter.
+bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10: warning eslint(no-unused-vars): Function 'task' is declared but never used. help: Consider removing this declaration.
+bb-plugin-github-insight/core/summary.ts:106:35: warning eslint(no-unused-vars): Parameter '_' is declared but never used. help: Consider removing this parameter.
+bb-plugin-pr-thread-list/app.test.tsx:9:3: warning eslint(no-unused-vars): Type 'PluginSidebarThreadRowStatus' is imported but never used. help: Consider removing this import.
+bb-plugin-pr-thread-list/app.test.tsx:10:3: warning eslint(no-unused-vars): Type 'PluginSidebarThreadShortcut' is imported but never used. help: Consider removing this import.
+bb-plugin-github-insight/queue/review-queue-service.ts:120:34: warning eslint(no-unused-vars): Parameter '_' is declared but never used. help: Consider removing this parameter.
+$ oxfmt --check
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 1247ms on 1462 files using 10 threads.
+
+Exit code: 0

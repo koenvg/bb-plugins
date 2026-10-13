@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createBundleFixture } from "./bundle-fixture.mjs";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Actual self-contained host artifact, synthetic isolated Pi auth only. All network is stubbed.
-const agentDir = mkdtempSync(join(tmpdir(), "codex-activity-"));
+const agentDir = createBundleFixture("codex-activity-");
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
 const previousNow = Date.now;
@@ -24,7 +24,10 @@ const writeAuth = (token) =>
     }),
     { mode: 0o600 },
   );
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(agentDir, "absent-codex");
   process.env.PI_CODING_AGENT_DIR = agentDir;
   Date.now = () => now;
   writeAuth("synthetic-account-a");
@@ -86,5 +89,6 @@ try {
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;
   Date.now = previousNow;
-  rmSync(agentDir, { recursive: true, force: true });
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
 }

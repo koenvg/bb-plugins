@@ -29,6 +29,7 @@ vi.mock("@pierre/diffs/react", () => ({
     options: {
       diffStyle?: string;
       collapsed?: boolean;
+      onPostRender?: (node: HTMLElement) => void;
       onGutterUtilityClick?: (range: SelectedLineRange) => void;
     };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
@@ -37,6 +38,15 @@ vi.mock("@pierre/diffs/react", () => ({
     renderHeaderMetadata?: () => ReactNode;
   }) => (
     <div
+      ref={(element: HTMLDivElement | null) => {
+        if (element === null) return;
+        const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
+        if (!root.firstChild) {
+          root.innerHTML = "<div data-diffs-header><div data-title></div></div>";
+          root.querySelector("[data-title]")!.textContent = fileDiff.name;
+        }
+        options.onPostRender?.(element);
+      }}
       data-testid="file-diff"
       data-path={fileDiff.name}
       data-diff-style={options.diffStyle}
@@ -657,6 +667,37 @@ describe("Viewed files", () => {
     expect(checkbox(slot).checked).toBe(true);
     expect(slot.getByTestId("diff-summary").textContent).toContain("1/1 viewed");
     expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("toggles only the clicked filename's accordion and keeps Viewed controls independent", async () => {
+    const patchB = PATCH_A.replaceAll("src/a.ts", "src/b.ts");
+    const slot = renderTab({
+      getChanges: () =>
+        changes([file("src/a.ts"), file("src/b.ts")], {
+          patches: { "src/a.ts": PATCH_A, "src/b.ts": patchB },
+        }),
+    });
+    await waitFor(() => expect(checkbox(slot).disabled).toBe(false));
+    const filename = diffOf(slot).shadowRoot!.querySelector("[data-title]")!;
+
+    fireEvent.click(filename);
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+    expect(diffOf(slot, "src/b.ts").dataset.collapsed).toBe("false");
+    expect(checkbox(slot).checked).toBe(false);
+    expect(slot.getByTestId("diff-summary").textContent).toContain("0/2 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+
+    fireEvent.click(filename);
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
+    fireEvent.click(checkbox(slot));
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
+    expect(checkbox(slot).checked).toBe(true);
+    fireEvent.click(filename);
+    expect(diffOf(slot).dataset.collapsed).toBe("false");
+    expect(checkbox(slot).checked).toBe(true);
+    expect(slot.getByTestId("diff-summary").textContent).toContain("1/2 viewed");
+    fireEvent.click(slot.getByRole("button", { name: "Collapse src/a.ts" }));
+    expect(diffOf(slot).dataset.collapsed).toBe("true");
   });
 
   it("collapses a file that is not viewed and keeps it not viewed", async () => {

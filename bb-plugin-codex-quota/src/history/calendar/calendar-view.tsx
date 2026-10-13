@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { projectTokenModels, type ModelSeries } from "./calendar-models.js";
 import { tokenCountText } from "../../token-counts.js";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceDot,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  usePlotArea,
+} from "recharts";
 import type { CalendarSnapshot } from "./calendar-contract.js";
 import { capturedEstimate, pricingLabel } from "./calendar-money-view.js";
 import {
@@ -201,6 +211,31 @@ function CalendarDateTick({
     </text>
   );
 }
+function PositiveUsageMarkers({ rows }: Pick<ReturnType<typeof chartData>, "rows">) {
+  const plot = usePlotArea();
+  if (!plot) return null;
+  // Mark the day, not each stack segment. Drawing coordinates and recorded facts stay proportional.
+  return rows
+    .filter((row) => (row.value ?? 0) > 0 && (row.height ?? 0) * plot.height < 2)
+    .map((row) => (
+      <ReferenceDot
+        key={row.date}
+        x={row.date}
+        y={0}
+        shape={({ cx = 0, cy = 0 }) => (
+          <rect
+            data-positive-usage={row.date}
+            aria-hidden="true"
+            x={cx - 3}
+            y={cy - 2}
+            width={6}
+            height={2}
+            fill="currentColor"
+          />
+        )}
+      />
+    ));
+}
 export function CalendarValues({
   view,
   metric,
@@ -228,6 +263,7 @@ export function CalendarValues({
           data={rows}
           margin={{ top: 14, right: 8, bottom: 8, left: chartWidth < 480 ? 16 : 24 }}
           accessibilityLayer
+          aria-label={`Daily usage chart: ${metricName(metric)}`}
         >
           <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.16} />
           <XAxis
@@ -311,6 +347,7 @@ export function CalendarValues({
               isAnimationActive={false}
             />
           )}
+          {metric === "tokens" && <PositiveUsageMarkers rows={rows} />}
         </BarChart>
       </ResponsiveContainer>
       {metric === "tokens" && (

@@ -41,7 +41,7 @@ export default async function plugin(bb: BbPluginApi) {
     ? remoteAccess({
         connection,
         policy: () => readConfig(saved),
-        projects: { list: () => bb.sdk.projects.list() },
+        projects: { list: () => bb.sdk.projects.list({ includePersonal: true }) },
         threads: {
           list: (args) => bb.sdk.threads.list(args),
           get: (args) => bb.sdk.threads.get(args),

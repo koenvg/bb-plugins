@@ -16,7 +16,10 @@ const root = mkdtempSync(join(tmpdir(), "bbp16-storage-proof-")),
   oldAgent = process.env.PI_CODING_AGENT_DIR,
   oldFetch = globalThis.fetch;
 let leases = 0;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   mkdirSync(join(root, "agent"));
   process.env.PI_CODING_AGENT_DIR = join(root, "agent");
   globalThis.fetch = async () => {
@@ -244,5 +247,7 @@ try {
   if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = oldAgent;
   globalThis.fetch = oldFetch;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });
 }

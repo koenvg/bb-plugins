@@ -1,0 +1,15 @@
+
+> bb-plugin-tasks-plus@0.1.2 test
+> vitest run --config vitest.config.ts --maxWorkers=1 scripts/navigation-benchmark/local-host.test.tsx scripts/navigation-benchmark/local-backend.test.ts shell/preview-invalidation.integration.test.tsx shell/task-previews.test.ts views/detail/safe-transition.test.ts views/detail/transitions.test.tsx
+
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_pydvt2bpzn-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  6 passed (6)
+      Tests  39 passed (39)
+   Start at  15:59:48
+   Duration  3.64s (transform 505ms, setup 494ms, import 978ms, tests 1.11s, environment 682ms)
+
+
+Exit code: 0

@@ -1,0 +1,55 @@
+✔ 100 owned tasks, ten 2 KiB descriptions, separate 50-comment case (2.409375ms)
+✔ cleanup refuses a foreign owner, changed contents, and extra files (8.026833ms)
+✔ ends only after a matching rendered description and a presentation opportunity (0.2955ms)
+✔ a mismatched row at the final frame fails rather than entering warm statistics (0.118ms)
+✔ timeouts, save waits and cold transitions stay distinct (0.066125ms)
+✔ profiling and final runs cannot be mixed; failed warm samples block acceptance (0.177125ms)
+✔ browser runner refuses missing approval or source evidence before touching a page (0.894708ms)
+✔ bounded driver warms ten keys, records 36 paired movements, and removes only its probe (4.026292ms)
+✔ native DOM probe does not count offscreen descriptions as presented (0.213709ms)
+✔ CDP configuration failure still detaches the created session (1.023166ms)
+✔ probe disposal failure cannot skip CDP detachment (0.631375ms)
+✔ complete matching description qualifies (0.368834ms)
+✔ qualification rejects wrongRow (0.041ms)
+✔ qualification rejects wrongDetail (0.026375ms)
+✔ qualification rejects wrongTitle (0.023916ms)
+✔ qualification rejects wrongRowTitle (0.024625ms)
+✔ qualification rejects wrongLink (0.047542ms)
+✔ qualification rejects missingTail (0.040708ms)
+✔ qualification rejects staleContent (0.042917ms)
+✔ qualification rejects hiddenRow (0.034375ms)
+✔ qualification rejects hidden (0.056416ms)
+✔ qualification rejects unrendered (0.031041ms)
+✔ nested li/p extraction counts each complete bullet once in DOM order (40.74525ms)
+✔ rejected detach and context close do not skip owned closures or the durable ledger (8.014375ms)
+✔ capture/write failures retain the original error and still close every handle (3.633708ms)
+✔ failed identity movement retains excluded warmups, prior/failed samples and partial observations (5.42175ms)
+✔ failed timeout movement retains excluded warmups, prior/failed samples and partial observations (3.861459ms)
+✔ warmup failure retains earlier and failed samples without starting a measured interval (2.642542ms)
+✔ page closure records unavailable captures but preserves driver history and closes remaining resources (2.388209ms)
+✔ failure after a successful measurement never overwrites raw artifacts or ranks an incomplete run (3.235ms)
+✔ an endpoint close error does not skip database closure or ledger persistence (1.327417ms)
+✔ ledger write failure is reported only after all owned closures and prevents completion (1.600834ms)
+✔ late result publication failure retains failure evidence without a committed warm summary (1.748708ms)
+✔ late ledger publication failure retains failure evidence without a committed warm summary (2.429083ms)
+✔ successful terminal ledger commits ranking and the actual prepared result outcome (1.672584ms)
+✔ late ledger failure preserves the original failure and adds outcomes without overwriting failure evidence (1.782792ms)
+✔ a successful run writes completion only after exact cleanup and refuses output reuse (1.310542ms)
+✔ previsited and still-current loaded entries are different after invalidation (0.658042ms)
+✔ a response begun before invalidation cannot restore warmth (0.085333ms)
+✔ changed revisions and attempted writes block clean qualification (0.419792ms)
+✔ all own signal channels invalidate; other plugins and thread notices do not (0.12925ms)
+✔ invalidation during presentation remains explicit, not a warm success (0.078791ms)
+✔ observer preserves response and socket semantics and restores its own wrappers (0.315667ms)
+✔ settle waits for current reads, excludes later reads and clears completed work (0.250958ms)
+✔ settle records parsing failure and preserves native fetch rejection (0.322291ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 45
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 417.808708
+
+Exit code: 0

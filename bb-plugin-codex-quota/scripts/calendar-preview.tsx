@@ -2,6 +2,7 @@
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import {
   calendarEmptySnapshot,
+  calendarMixedMagnitudeSnapshot,
   calendarSnapshot,
 } from "../src/history/calendar/calendar-test-support.js";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
@@ -40,11 +41,15 @@ accounts.machines = [
 accounts.accounts[0].machines = ["host_a", "host_b"];
 accounts.accounts[0].quota = quotaFixture(now, 42);
 const emptySnapshot = (query: CalendarQuery) => ({
-  ...calendarEmptySnapshot(query, state === "inactive" ? "observed-inactivity" : "unknown"),
+  ...calendarEmptySnapshot(
+    query,
+    ["inactive", "mixed-magnitude"].includes(state) ? "observed-inactivity" : "unknown",
+  ),
   previous: query.startDate > shiftDate(latestRange, -60),
   next: query.startDate < latestRange,
 });
 function snapshot(query: CalendarQuery) {
+  if (state === "mixed-magnitude") return calendarMixedMagnitudeSnapshot(query);
   if (state === "unknown" || state === "inactive") return emptySnapshot(query);
   const view = calendarSnapshot(query, state === "stale" ? now - 600000 : now);
   if (query.includeUncertain && state === "partial") {

@@ -119,7 +119,11 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
             Latest
           </button>
         </div>
-        <div className="inline-flex rounded-md bg-muted p-1" role="group" aria-label="Chart metric">
+        <div
+          className="inline-flex max-w-full flex-wrap rounded-md bg-muted p-1"
+          role="group"
+          aria-label="Chart metric"
+        >
           {(["tokens", "cost"] as const).map((value) => (
             <button
               key={value}
@@ -206,7 +210,7 @@ export function MachineReportPanel({ now, read, prepare }: Props) {
           Top 10 {group === "workspace" ? "workspaces" : "threads"}
         </h2>
         <div
-          className="inline-flex rounded-md bg-muted p-1"
+          className="inline-flex max-w-full flex-wrap rounded-md bg-muted p-1"
           role="group"
           aria-label="Usage grouping"
         >

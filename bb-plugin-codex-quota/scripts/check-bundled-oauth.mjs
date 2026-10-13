@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createBundleFixture } from "./bundle-fixture.mjs";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Run against bb plugin build's actual self-contained host artifact. No real credentials or network.
-const agentDir = mkdtempSync(join(tmpdir(), "codex-quota-oauth-"));
+const agentDir = createBundleFixture("codex-quota-oauth-");
 const refresh = process.argv.includes("--refresh");
 const access = "synthetic-access-token-do-not-log";
 const refreshedAccess = `e30.${Buffer.from(
@@ -16,7 +16,10 @@ const refreshedAccess = `e30.${Buffer.from(
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
 let harness;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(agentDir, "absent-codex");
   writeFileSync(
     join(agentDir, "auth.json"),
     JSON.stringify({
@@ -85,5 +88,6 @@ try {
   if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;
-  rmSync(agentDir, { recursive: true, force: true });
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
 }

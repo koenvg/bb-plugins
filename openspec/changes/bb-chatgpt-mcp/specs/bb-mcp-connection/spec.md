@@ -8,21 +8,22 @@ Lets the owner connect ChatGPT web and the native ChatGPT mobile app to a restri
 
 ### Requirement: Remote access is explicitly configured
 
-The plugin SHALL start with remote access disabled. Enabling access SHALL require a canonical public HTTPS URL, trusted OAuth issuer, accepted owner identity, and explicit project allowlist. An empty allowlist SHALL grant access to no projects. The plugin SHALL NOT create public exposure, reuse account cookies, or expose BB's main server as a setup side effect.
+The plugin SHALL start with remote access disabled. Enabling access SHALL require a canonical public HTTPS URL, trusted OAuth issuer, and accepted owner identity. Authenticated read access SHALL permit ID/name discovery for all current and future projects, including Personal. The explicit project allowlist SHALL govern thread content and control, not project discovery. An empty allowlist SHALL deny thread content and control while preserving authenticated project discovery. The plugin SHALL NOT create public exposure, reuse account cookies, or expose BB's main server as a setup side effect.
 
 #### Scenario: Fresh installation
 
 - **WHEN** the plugin is installed without remote access configuration
 - **THEN** it exposes no usable remote tools and reports the missing setup locally without disclosing credentials
 
-#### Scenario: No projects are allowed
+#### Scenario: Empty thread-access allowlist
 
-- **WHEN** the owner configures authentication but allows no projects
-- **THEN** the client receives no project data and cannot operate on a project or thread
+- **WHEN** the owner enables remote access with valid authentication and an empty project allowlist
+- **THEN** an authorized client can discover all existing project IDs and names, including Personal
+- **AND** it cannot read thread content or operate on a project or thread
 
 ### Requirement: The connection is configurable in plugin settings
 
-The owner SHALL be able to set the public HTTPS origin, local listener port, OAuth issuer and owner identity, allowed projects, and read/control access through BB's standard plugin settings. Values SHALL persist across restarts. No specific domain SHALL be hard-coded or required. Public-origin and listener-port changes SHALL take effect after plugin reload, while authentication and access changes SHALL retain their immediate effect. The local status command SHALL show the effective MCP URL and listener state without claiming public reachability from local readiness alone. Invalid origins or ports SHALL prevent the affected configuration from starting remote access.
+The owner SHALL be able to set the public HTTPS origin, local listener port, OAuth issuer and owner identity, projects allowed for thread content and control, and read/control access through BB's standard plugin settings. Values SHALL persist across restarts. No specific domain SHALL be hard-coded or required. Public-origin and listener-port changes SHALL take effect after plugin reload, while authentication and access changes SHALL retain their immediate effect. The local status command SHALL show the effective MCP URL and listener state without claiming public reachability from local readiness alone. Invalid origins or ports SHALL prevent the affected configuration from starting remote access.
 
 #### Scenario: Owner connects an existing tunnel
 
@@ -107,17 +108,18 @@ The plugin SHALL default to bearer-jwt mode and SHALL NOT infer authentication m
 
 ### Requirement: Read and control permissions are separate
 
-In bearer-jwt mode, read tools SHALL require `bb.read`; writes SHALL require both `bb.read` and `bb.control`. In cloudflare-access mode, an explicit LOCAL app permission SHALL default to `read`; writes SHALL also require `read-control`. All state-changing tools in either mode SHALL require the owner's local control setting, disabled by default. Cloudflare permissions SHALL be shared by every valid owner/app session, not treated as OAuth scopes or per-client grants. Current owner, issuer, mode, audience, expiry, project access and write permission SHALL be rechecked after waits, before dispatch and before cached private results. Removing access SHALL NOT stop existing BB work.
+In bearer-jwt mode, read tools SHALL require `bb.read`; writes SHALL require both `bb.read` and `bb.control`. In cloudflare-access mode, an explicit LOCAL app permission SHALL default to `read`; writes SHALL also require `read-control`. All state-changing tools in either mode SHALL require the owner's local control setting, disabled by default. Cloudflare permissions SHALL be shared by every valid owner/app session, not treated as OAuth scopes or per-client grants. Current owner, issuer, mode, audience, expiry, thread/operation project access and write permission SHALL be rechecked after waits, before dispatch and before cached private results. Removing access SHALL NOT stop existing BB work.
 
 #### Scenario: Read-only connection attempts a mutation
 
 - **WHEN** a connected client has `bb.read` but not `bb.control`, or local control is disabled
-- **THEN** it can read allowed data but cannot start, message, or stop a thread
+- **THEN** it can discover all project IDs/names and read allowlisted thread data but cannot start, message, or stop a thread
 
 #### Scenario: Access is removed during a connection
 
 - **WHEN** the owner removes a project's access after a client has connected
-- **THEN** subsequent reads and writes for that project are denied
+- **THEN** subsequent thread-content and operation reads and writes for that project are denied
+- **AND** authenticated project discovery still lists its ID and name
 - **AND** previously running BB work is not stopped merely because remote access was removed
 
 ### Requirement: Connection setup follows OAuth discovery

@@ -20,6 +20,7 @@ export interface ReviewFileDiffProps<T> {
   headerPrefix?: ReactNode;
   headerMetadata?: ReactNode;
   collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 export function ReviewFileDiff<T>({
@@ -32,6 +33,7 @@ export function ReviewFileDiff<T>({
   headerPrefix,
   headerMetadata,
   collapsed = false,
+  onToggleCollapsed,
 }: ReviewFileDiffProps<T>) {
   return (
     <FileDiff
@@ -42,6 +44,36 @@ export function ReviewFileDiff<T>({
         overflow: "wrap",
         stickyHeader: true,
         collapsed,
+        unsafeCSS:
+          onToggleCollapsed === undefined
+            ? undefined
+            : `[data-diffs-header] [role="button"] { cursor: pointer; }
+               [data-diffs-header] [role="button"]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }`,
+        onPostRender: (node) => {
+          const filenames = node.shadowRoot?.querySelectorAll<HTMLElement>(
+            "[data-diffs-header] [data-title], [data-diffs-header] [data-prev-name]",
+          );
+          filenames?.forEach((filename) => {
+            filename.onclick = onToggleCollapsed ?? null;
+            filename.onkeydown =
+              onToggleCollapsed === undefined
+                ? null
+                : (event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    if (!event.repeat) onToggleCollapsed();
+                  };
+            if (onToggleCollapsed === undefined) {
+              filename.removeAttribute("role");
+              filename.removeAttribute("tabindex");
+              filename.removeAttribute("aria-expanded");
+            } else {
+              filename.setAttribute("role", "button");
+              filename.tabIndex = 0;
+              filename.setAttribute("aria-expanded", String(!collapsed));
+            }
+          });
+        },
         diffStyle: view,
         enableGutterUtility: onAddComment !== undefined,
         onGutterUtilityClick:

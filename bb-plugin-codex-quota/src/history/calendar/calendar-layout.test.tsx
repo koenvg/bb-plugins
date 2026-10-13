@@ -30,6 +30,19 @@ it("renders the real library's axes and keyboard-accessible chart", () => {
   ).toHaveLength(30);
   expect(screen.queryByRole("region", { name: "Daily detail" })).toBeNull();
 });
+it("names the focusable chart for the current metric without replacing it", () => {
+  const view = calendarSnapshot(query);
+  const page = render(<CalendarValues view={view} metric="tokens" />);
+  const chart = screen.getByRole("application", { name: "Daily usage chart: Tokens" });
+  expect(chart.tagName.toLowerCase()).toBe("svg");
+  expect(chart.getAttribute("tabindex")).toBe("0");
+  page.rerender(<CalendarValues view={view} metric="cost" />);
+  expect(screen.getByRole("application", { name: "Daily usage chart: USD estimate" })).toBe(chart);
+  expect(screen.queryByRole("application", { name: "Daily usage chart: Tokens" })).toBeNull();
+  expect(
+    screen.getByRole("table", { name: "Daily recorded usage" }).querySelectorAll("tbody tr"),
+  ).toHaveLength(30);
+});
 it("keeps just date navigation and two local metrics", async () => {
   const read = vi.fn(async ({ query }) => calendarSnapshot(query));
   render(
@@ -110,41 +123,66 @@ it("stacks models separately from uncertainty and retains token class facts", ()
     "300",
   ]);
 });
-it.each(["missing", "inconsistent", "partial"])(
-  "preserves retained totals with %s category detail",
-  (state) => {
+it.each([
+  { state: "inconsistent", total: 500, available: false, remainder: 500 },
+  { state: "partial", total: 800, available: true, remainder: 200 },
+  { state: "missing", total: 800, available: false, remainder: 800 },
+  { state: "complete", total: 600, available: true, remainder: 0 },
+])(
+  "preserves $total recorded tokens with $state category detail",
+  ({ state, total, available, remainder }) => {
     const view = calendarSnapshot(query),
       day = view.days[14];
+    day.totalTokens = total;
+    view.summary.totalTokens = total;
     if (state === "missing") day.classes = { state: "unavailable" };
-    else
-      day.classes = {
-        state: "available",
-        input: state === "inconsistent" ? 600 : 100,
-        output: 100,
-        cacheRead: 100,
-        cacheWrite: 0,
-        reasoning: 50,
-      };
-    const parts = chartData(view.days, "tokens").rows[14].modelHeights;
-    expect(Object.values(parts).reduce<number>((sum, value) => sum + (value ?? 0), 0)).toBeCloseTo(
-      1,
-    );
-    expect(parts.unknown).toBe(1);
+    // Otherwise retain the recorded example: 40 input + 360 output + 200 cache read.
+    // Its 100 reasoning tokens are part of output, not another contribution to the total.
+    const data = chartData(view.days, "tokens"),
+      row = data.rows[14];
+    expect(data.maximum).toBe(total);
+    expect(row.value).toBe(total);
+    expect(row.height).toBe(1);
+    expect(
+      Object.values(row.modelFacts).reduce<number>((sum, value) => sum + (value ?? 0), 0),
+    ).toBe(total);
+    expect(row.modelHeights).toEqual({ unknown: 1 });
     render(
       <>
         <CalendarValues view={view} metric="tokens" />
         <UsageTooltip day={day} metric="tokens" />
       </>,
     );
-    const tip = screen.getByRole("tooltip");
-    const unclassified = within(tip).getByText("Unclassified tokens").parentElement!;
-    expect(unclassified.querySelector("dd")?.textContent).toBe(state === "partial" ? "300" : "600");
-    expect(!!within(tip).queryByText("Input (uncached) tokens")).toBe(state === "partial");
+    const definitions = Array.from(
+      screen.getByRole("tooltip").querySelectorAll("dl > div"),
+      (row) => [row.querySelector("dt")?.textContent, row.querySelector("dd")?.textContent],
+    );
+    expect(definitions).toEqual([
+      ["Recorded tokens", String(total)],
+      ...(available
+        ? [
+            ["Input (uncached) tokens", "40"],
+            ["Output tokens", "360"],
+            ["Cache read tokens", "200"],
+            ["Cache write tokens", "0"],
+            ["Reasoning tokens (in output)", "100"],
+          ]
+        : [["Token breakdown", "Unavailable"]]),
+      ...(remainder ? [["Unclassified tokens", String(remainder)]] : []),
+      ["Excluded tokens", "2"],
+    ]);
     const cells = screen
       .getByRole("table", { name: "Daily recorded usage" })
       .querySelectorAll("tbody tr")[14].children;
-    expect(cells[2].textContent).toBe(state === "partial" ? "100" : "Unavailable");
-    expect(cells[7].textContent).toBe(state === "partial" ? "300" : "600");
+    expect(Array.from(cells, (cell) => cell.textContent)).toEqual([
+      day.date,
+      String(total),
+      ...(available ? ["40", "360", "200", "0", "100"] : Array<string>(5).fill("Unavailable")),
+      String(remainder),
+      "Partial, recorded usage",
+      "2 excluded tokens",
+      String(total), // The model-based graph and table keep the authoritative total.
+    ]);
   },
 );
 it("shows exact category counts and reasoning's output relationship in the tooltip", () => {

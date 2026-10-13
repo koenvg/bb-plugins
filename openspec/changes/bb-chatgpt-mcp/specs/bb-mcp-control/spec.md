@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets an authorized remote client inspect and control ordinary BB threads through a small, project-scoped set of MCP tools while preserving BB execution permissions.
+Lets an authorized remote client discover all project IDs and names and inspect and control allowlisted ordinary BB threads through a small set of MCP tools while preserving BB execution permissions.
 
 ## ADDED Requirements
 
@@ -31,9 +31,29 @@ Bearer-jwt mode SHALL retain both bb.read and bb.control scope checks. Cloudflar
 - **THEN** all valid owner/app sessions share that permission and the same duplicate-operation identity
 - **AND** no claim of per-client OAuth scope separation is made
 
-### Requirement: Project scope is enforced for every identifier
+### Requirement: Project discovery is independent of thread access
 
-Project listings SHALL include only allowed projects. Thread and operation access SHALL verify current project membership and the current allowlist even when the caller supplies an identifier directly. An identifier outside the caller's scope SHALL return no private object data and SHALL be indistinguishable from an unavailable identifier. Only the submitting owner SHALL read an operation record.
+Project listings SHALL include every existing project returned by the supported public SDK, including Personal requested through `projects.list({ includePersonal: true })`. Discovery SHALL NOT filter by the thread-access allowlist or skip its SDK read because that allowlist is empty. New projects SHALL appear on the next listing request without a settings edit. Discovery SHALL retain authentication and read-access checks before and after the SDK read, return only project IDs and names, and preserve non-mutating ID ordering, bounded pagination and request limits.
+
+#### Scenario: Discovery with populated or empty thread grants
+
+- **WHEN** an authenticated client with current read access lists projects with a populated or empty project allowlist
+- **THEN** the paginated results include all existing project IDs and names, including Personal and projects outside the allowlist
+- **AND** no other SDK project fields are returned
+
+#### Scenario: Newly created project
+
+- **WHEN** a project is created after a successful listing and settings remain unchanged
+- **THEN** it is included in the next project listing under the same pagination and ordering rules
+
+#### Scenario: Access changes during discovery
+
+- **WHEN** the owner, authentication or remote-read access becomes invalid while the SDK project read is in progress
+- **THEN** the request returns no project data after the read completes
+
+### Requirement: Thread and operation scope is enforced for every identifier
+
+Thread and operation access SHALL verify current project membership and the current allowlist even when the caller supplies an identifier directly or discovers its project through a listing. Project discovery SHALL NOT grant thread-content or control access. A thread or operation identifier outside the caller's scope SHALL return no private object data and SHALL be indistinguishable from an unavailable identifier. Only the submitting owner SHALL read an operation record.
 
 #### Scenario: Direct access to a disallowed thread
 

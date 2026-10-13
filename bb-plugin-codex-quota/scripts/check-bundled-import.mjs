@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, copyFileSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createBundleFixture } from "./bundle-fixture.mjs";
 import { pathToFileURL } from "node:url";
 assert.ok(Number(process.versions.node.split(".")[0]) >= 22);
 const liveOverlap = process.argv.includes("--live-overlap");
-const root = mkdtempSync(join(tmpdir(), "bbp22-bundle-")),
+const root = createBundleFixture("bbp22-bundle-"),
   fetch = globalThis.fetch,
   agent = process.env.PI_CODING_AGENT_DIR;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   const source = join(root, "configured-custom-source"),
     ordinary = join(root, "ordinary-workspace-sessions"),
     workspace = join(root, "workspace"),
@@ -398,5 +401,6 @@ try {
   globalThis.fetch = fetch;
   if (agent === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = agent;
-  rmSync(root, { recursive: true, force: true });
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
 }
