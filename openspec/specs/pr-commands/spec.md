@@ -8,11 +8,16 @@ Lets the user run the PR actions of the thread in view from bb's command palette
 
 ### Requirement: Commands in the palette
 
-The plugin SHALL add these commands to bb's command palette: "GitHub: Merge PR", "GitHub: Open PR tab", "GitHub: Open Review tab", "GitHub: Submit review", "GitHub: Refresh PR", and "GitHub: Open PR on GitHub". The plugin SHALL NOT add a command that sends review threads to the agent.
+The plugin SHALL add these commands to bb's command palette: "GitHub: Merge PR", "GitHub: Open PR tab", "GitHub: Open PR files", "GitHub: Submit review", "GitHub: Refresh PR", and "GitHub: Open PR on GitHub". The plugin SHALL NOT add a command that sends review threads to the agent. The plugin SHALL NOT add "GitHub: Open Review tab".
 
 #### Scenario: No send to agent command
 
 - **WHEN** the user searches the palette for "agent"
+- **THEN** no "GitHub:" command is in the result
+
+#### Scenario: No Review tab command
+
+- **WHEN** the user searches the palette for "Review tab"
 - **THEN** no "GitHub:" command is in the result
 
 ### Requirement: Commands only for a thread with a PR
@@ -22,7 +27,7 @@ The palette SHALL list the "GitHub:" commands only when the thread in view has a
 #### Scenario: Thread with a PR
 
 - **WHEN** the thread in view has a merged PR and the user opens the palette
-- **THEN** the palette lists "GitHub: Open PR tab", "GitHub: Open Review tab", "GitHub: Submit review", "GitHub: Refresh PR", and "GitHub: Open PR on GitHub"
+- **THEN** the palette lists "GitHub: Open PR tab", "GitHub: Open PR files", "GitHub: Submit review", "GitHub: Refresh PR", and "GitHub: Open PR on GitHub"
 
 #### Scenario: Thread without a PR
 
@@ -65,21 +70,26 @@ The palette SHALL list "GitHub: Merge PR" only when the last PR load of the thre
 
 ### Requirement: Open a tab from the palette
 
-"GitHub: Open PR tab" SHALL open the "PR" tab of the thread in view, and "GitHub: Open Review tab" SHALL open its "Review" tab. When the tab is already open, the command SHALL focus it and SHALL NOT open a second tab.
+"GitHub: Open PR tab" SHALL open the "PR" tab of the thread in view on "Overview", and "GitHub: Open PR files" SHALL open it on "Files". When the PR tab is already open, the command SHALL focus it, select the named sub-tab, and SHALL NOT open a second tab.
 
 #### Scenario: Open the PR tab
 
 - **WHEN** the user runs "GitHub: Open PR tab" and the "PR" tab is closed
-- **THEN** the "PR" tab opens
+- **THEN** the "PR" tab opens on "Overview"
+
+#### Scenario: Open the PR files
+
+- **WHEN** the user runs "GitHub: Open PR files" and the "PR" tab is closed
+- **THEN** the "PR" tab opens on "Files"
 
 #### Scenario: Tab already open
 
-- **WHEN** the user runs "GitHub: Open Review tab" and the "Review" tab is already open
-- **THEN** the "Review" tab gets focus and the panel has one "Review" tab
+- **WHEN** the user runs "GitHub: Open PR files" and the "PR" tab is already open on "Overview"
+- **THEN** the "PR" tab gets focus, shows "Files", and the panel has one "PR" tab
 
 ### Requirement: Merge from the palette
 
-"GitHub: Merge PR" SHALL run the merge action of the thread in view without opening, closing, switching, or focusing a side-panel tab. For a "Merge" action, it SHALL open a confirm dialog that names the PR number, title, and merge method, and the merge SHALL run only when the user confirms. For an "Enqueue" action, it SHALL run the enqueue without a dialog. Progress and errors SHALL show in the composer banner. An already open PR tab SHALL also show the shared operation progress and result. Neither success nor failure SHALL change the side-panel layout or selected tab.
+"GitHub: Merge PR" SHALL run the merge action of the thread in view without opening, closing, switching, or focusing a side-panel tab or a PR sub-tab. For a "Merge" action, it SHALL open a confirm dialog that names the PR number, title, and merge method, and the merge SHALL run only when the user confirms. For an "Enqueue" action, it SHALL run the enqueue without a dialog. Progress and errors SHALL show in the composer banner. An already open PR tab SHALL also show the shared operation progress and result. Neither success nor failure SHALL change the side-panel layout, the selected tab, or the selected sub-tab.
 
 #### Scenario: Merge with confirm
 
@@ -103,8 +113,13 @@ The palette SHALL list "GitHub: Merge PR" only when the last PR load of the thre
 
 #### Scenario: Another panel tab is selected
 
-- **WHEN** the Review tab is selected and the user runs and confirms "GitHub: Merge PR"
-- **THEN** the Review tab stays selected throughout preparation, confirmation, progress, and the result
+- **WHEN** another side-panel tab is selected and the user runs and confirms "GitHub: Merge PR"
+- **THEN** that tab stays selected throughout preparation, confirmation, progress, and the result
+
+#### Scenario: Files sub-tab is selected
+
+- **WHEN** the PR tab shows "Files" and the user runs and confirms "GitHub: Merge PR"
+- **THEN** the PR tab keeps showing "Files" throughout preparation, confirmation, progress, and the result
 
 ### Requirement: Merge command when no merge is possible
 
@@ -151,17 +166,22 @@ When the PR data used by the command shows no runnable merge action, "GitHub: Me
 
 ### Requirement: Submit review from the palette
 
-"GitHub: Submit review" SHALL open the "Review" tab with the "Submit review" panel open. It SHALL NOT submit. The user submits from the panel as before.
+"GitHub: Submit review" SHALL open the "PR" tab on "Files" with the "Submit review" panel open. It SHALL NOT submit. The user submits from the panel as before.
 
 #### Scenario: Open the submit panel
 
 - **WHEN** the user runs "GitHub: Submit review"
-- **THEN** the "Review" tab opens with the "Submit review" panel open, and no GitHub write occurs
+- **THEN** the "PR" tab opens on "Files" with the "Submit review" panel open, and no GitHub write occurs
 
 #### Scenario: Panel already open
 
 - **WHEN** the "Submit review" panel is already open and the user runs "GitHub: Submit review"
 - **THEN** the panel stays open with the body the user typed
+
+#### Scenario: PR tab on Overview
+
+- **WHEN** the "PR" tab shows "Overview" and the user runs "GitHub: Submit review"
+- **THEN** the "PR" tab shows "Files" with the "Submit review" panel open
 
 ### Requirement: Refresh from the palette
 
