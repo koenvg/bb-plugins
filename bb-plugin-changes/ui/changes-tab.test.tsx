@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
-import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
+import {
+  parsePatchFiles,
+  type DiffLineAnnotation,
+  type FileDiffMetadata,
+  type SelectedLineRange,
+} from "@pierre/diffs";
+import { ReviewFileDiff } from "../../review-ui/review-file-diff";
 import type { rpcContract } from "../contract";
 import type {
   ChangedFile,
@@ -24,24 +30,28 @@ vi.mock("@pierre/diffs/react", () => ({
     renderAnnotation,
     renderHeaderPrefix,
     renderHeaderMetadata,
+    renderCustomHeader,
   }: {
     fileDiff: FileDiffMetadata;
     options: {
       diffStyle?: string;
       collapsed?: boolean;
       onPostRender?: (node: HTMLElement) => void;
+      stickyHeader?: boolean;
+      overflow?: string;
       onGutterUtilityClick?: (range: SelectedLineRange) => void;
     };
     lineAnnotations?: DiffLineAnnotation<unknown>[];
     renderAnnotation?: (annotation: DiffLineAnnotation<unknown>) => ReactNode;
     renderHeaderPrefix?: () => ReactNode;
     renderHeaderMetadata?: () => ReactNode;
+    renderCustomHeader?: () => ReactNode;
   }) => (
     <div
       ref={(element: HTMLDivElement | null) => {
         if (element === null) return;
         const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
-        if (!root.firstChild) {
+        if (!root.firstChild && renderCustomHeader === undefined) {
           root.innerHTML = "<div data-diffs-header><div data-title></div></div>";
           root.querySelector("[data-title]")!.textContent = fileDiff.name;
         }
@@ -51,10 +61,22 @@ vi.mock("@pierre/diffs/react", () => ({
       data-path={fileDiff.name}
       data-diff-style={options.diffStyle}
       data-collapsed={String(options.collapsed ?? false)}
+      data-sticky={String(options.stickyHeader)}
+      data-overflow={options.overflow}
+      data-header-mode={renderCustomHeader === undefined ? "default" : "custom"}
+      data-prefix-renderer={String(renderHeaderPrefix !== undefined)}
+      data-metadata-renderer={String(renderHeaderMetadata !== undefined)}
     >
-      {renderHeaderPrefix?.()}
-      <span>{fileDiff.prevName}</span>
-      {renderHeaderMetadata?.()}
+      {renderCustomHeader !== undefined ? (
+        renderCustomHeader()
+      ) : (
+        <>
+          {renderHeaderPrefix?.()}
+          {fileDiff.prevName !== undefined && <span>{fileDiff.prevName}</span>}
+          <span>{fileDiff.name}</span>
+          {renderHeaderMetadata?.()}
+        </>
+      )}
       {(["additions", "deletions"] as const).flatMap((side) =>
         [1, 2, 3].map((line) => (
           <button
@@ -124,7 +146,15 @@ function changes(
   files: ChangedFile[],
   extra: Partial<Extract<ChangesResult, { kind: "ok" }>> = {},
 ): ChangesResult {
-  return { kind: "ok", query: ALL_QUERY, files, patches: {}, commits: [], ...extra };
+  return {
+    kind: "ok",
+    environmentId: "env-1",
+    query: ALL_QUERY,
+    files,
+    patches: {},
+    commits: [],
+    ...extra,
+  };
 }
 
 const A_ONLY = changes([file("src/a.ts", { additions: 34, deletions: 5 })]);
@@ -137,6 +167,7 @@ interface Handlers {
   sendFeedback?: (input: { text: string }) => SendFeedbackResult | Promise<SendFeedbackResult>;
   getViewed?: (input: { target: unknown }) => GetViewedResult | Promise<GetViewedResult>;
   updateViewed?: () => UpdateViewedResult | Promise<UpdateViewedResult>;
+  openFilePreview?: () => boolean;
 }
 
 function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
@@ -144,6 +175,7 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
     changesTab,
     { threadId, params: null },
     {
+      openFilePreview: handlers.openFilePreview ?? (() => true),
       rpc: {
         getChanges: handlers.getChanges ?? (() => A_ONLY),
         getPatches:
@@ -352,6 +384,407 @@ describe("Changes tab", () => {
     const slot = renderTab({ getChanges: () => ({ kind: "no_git" }) });
 
     expect(await slot.findByText("No git repository for this thread")).toBeTruthy();
+  });
+});
+
+describe("shared diff header", () => {
+  const fileDiff = parsePatchFiles(PATCH_A, undefined, true)[0]!.files[0]!;
+
+  it("renders only custom content and keeps sticky, wrap, and controlled collapse", () => {
+    const screen = render(
+      <ReviewFileDiff
+        fileDiff={fileDiff}
+        annotations={[]}
+        renderAnnotation={() => null}
+        view="split"
+        theme={{ name: "github-dark", mode: "dark" }}
+        collapsed
+        customHeader={<span>Changes-owned header</span>}
+        headerPrefix={<span>Default prefix</span>}
+        headerMetadata={<span>Default metadata</span>}
+      />,
+    );
+    const diff = screen.getByTestId("file-diff");
+    expect(diff.textContent).toBe(
+      "Changes-owned header+ additions 1+ additions 2+ additions 3+ deletions 1+ deletions 2+ deletions 3",
+    );
+    expect(diff.dataset).toMatchObject({
+      headerMode: "custom",
+      prefixRenderer: "false",
+      metadataRenderer: "false",
+      sticky: "true",
+      overflow: "wrap",
+      collapsed: "true",
+      diffStyle: "split",
+    });
+  });
+
+  it.each([undefined, null])(
+    "keeps the GitHub-style default header for customHeader=%s",
+    (customHeader) => {
+      const screen = render(
+        <ReviewFileDiff
+          fileDiff={fileDiff}
+          annotations={[]}
+          renderAnnotation={() => null}
+          view="unified"
+          theme={{ name: "github-light", mode: "light" }}
+          customHeader={customHeader}
+          headerPrefix={<button type="button">Collapse src/a.ts</button>}
+          headerMetadata={
+            <label>
+              <input type="checkbox" aria-label="Viewed src/a.ts" />
+              Viewed
+            </label>
+          }
+        />,
+      );
+      const diff = screen.getByTestId("file-diff");
+      expect(
+        screen.getByRole("button", { name: "Collapse src/a.ts" }).nextElementSibling?.textContent,
+      ).toBe("src/a.ts");
+      expect(
+        screen.getByRole("checkbox", { name: "Viewed src/a.ts" }).parentElement?.textContent,
+      ).toBe("Viewed");
+      expect(diff.dataset).toMatchObject({
+        headerMode: "default",
+        prefixRenderer: "true",
+        metadataRenderer: "true",
+        sticky: "true",
+        overflow: "wrap",
+        collapsed: "false",
+      });
+    },
+  );
+});
+
+describe("open file", () => {
+  it("opens the thread workspace file beside its filename without changing collapse or Viewed", async () => {
+    const slot = renderTab({}, "thr_preview");
+    const diff = await slot.findByTestId("file-diff");
+    const button = within(diff).getByRole("button", { name: "Open src/a.ts in file viewer" });
+    expect(button.previousElementSibling?.textContent).toBe("src/a.ts");
+    expect(button.previousElementSibling?.getAttribute("title")).toBe("src/a.ts");
+    expect(diff.dataset.headerMode).toBe("custom");
+    expect(diff.dataset.prefixRenderer).toBe("false");
+    expect(diff.dataset.metadataRenderer).toBe("false");
+    expect(button.nextElementSibling?.textContent).toBe("+34-5Viewed");
+    expect(
+      Array.from(diff.querySelectorAll('button, input[type="checkbox"]'))
+        .slice(0, 4)
+        .map((control) => control.getAttribute("aria-label")),
+    ).toEqual([
+      "Collapse src/a.ts",
+      "Toggle diff for src/a.ts",
+      "Open src/a.ts in file viewer",
+      "Viewed src/a.ts",
+    ]);
+    expect(within(diff).getByRole("img", { name: "modified file" }).getAttribute("title")).toBe(
+      "modified file",
+    );
+    expect(button.title).toBe("Open src/a.ts in file viewer");
+
+    fireEvent.click(button);
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+    expect(diff.dataset.collapsed).toBe("false");
+    expect(
+      (slot.getByRole("checkbox", { name: "Viewed src/a.ts" }) as HTMLInputElement).checked,
+    ).toBe(false);
+    expect(slot.queryByRole("alert")).toBeNull();
+    expect(callsTo(slot, "getChanges")).toEqual([
+      { threadId: "thr_preview", target: { kind: "all" } },
+    ]);
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("accepts a focused native button activation with no pointer detail", async () => {
+    const slot = renderTab();
+    const diff = await slot.findByTestId("file-diff");
+    const button = within(diff).getByRole("button", { name: "Open src/a.ts in file viewer" });
+    button.focus();
+    expect(document.activeElement).toBe(button);
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("type")).toBe("button");
+
+    const bubbledKeys: string[] = [];
+    const onKeyDown = (event: KeyboardEvent) =>
+      bubbledKeys.push((event.target as HTMLElement).tagName);
+    document.addEventListener("keydown", onKeyDown);
+    try {
+      fireEvent.keyDown(button, { key: "Enter" });
+      fireEvent.click(button, { detail: 0 });
+      fireEvent.keyDown(slot.getByRole("checkbox", { name: "Viewed src/a.ts" }), { key: "Enter" });
+    } finally {
+      document.removeEventListener("keydown", onKeyDown);
+    }
+    expect(bubbledKeys).toEqual(["INPUT"]);
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+  });
+
+  it("opens a renamed file's current path, including from a historical diff", async () => {
+    const slot = renderTab({
+      getChanges: (input) =>
+        changes([file("src/new.ts", { previousPath: "src/old.ts", status: "renamed" })], {
+          query:
+            (input as { target: { kind: string } }).target.kind === "commit"
+              ? { target: "commit", sha: "abc1234def" }
+              : ALL_QUERY,
+          commits: [{ sha: "abc1234def", shortSha: "abc1234", subject: "rename file" }],
+          patches: { "src/new.ts": PATCH_RENAME },
+        }),
+    });
+    await slot.findByTestId("file-diff");
+    fireEvent.change(slot.getByRole("combobox", { name: "Diff target" }), {
+      target: { value: "commit:abc1234def" },
+    });
+    await waitFor(() =>
+      expect(callsTo(slot, "getViewed").at(-1)).toEqual({
+        threadId: slot.threadId,
+        target: { kind: "commit", sha: "abc1234def" },
+      }),
+    );
+
+    const open = slot.getByRole("button", { name: "Open src/new.ts in file viewer" });
+    expect(open.previousElementSibling?.textContent).toBe("src/old.ts → src/new.ts");
+    expect(open.previousElementSibling?.getAttribute("title")).toBe("src/old.ts → src/new.ts");
+    expect(open.previousElementSibling?.querySelectorAll("bdi").length).toBe(2);
+    fireEvent.click(open);
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/new.ts" },
+          location: null,
+        },
+      },
+    ]);
+  });
+
+  it("uses the environment returned for this thread, not the ambient context", async () => {
+    const slot = renderTab({
+      getChanges: () => changes([file("src/a.ts")], { environmentId: "env-thread-2" }),
+    });
+    await slot.findByTestId("file-diff");
+
+    fireEvent.click(slot.getByRole("button", { name: "Open src/a.ts in file viewer" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-thread-2", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+  });
+
+  it("opens a collapsed viewed file without expanding it or changing its mark", async () => {
+    const slot = renderTab({
+      getChanges: () => changes([file("src/a.ts")], { patches: { "src/a.ts": PATCH_A } }),
+      getViewed: () => ({ kind: "ok", marks: { "src/a.ts": patchIdentity(PATCH_A) } }),
+    });
+    const diff = await slot.findByTestId("file-diff");
+    await waitFor(() => expect(diff.dataset.collapsed).toBe("true"));
+    const open = within(diff).getByRole("button", { name: "Open src/a.ts in file viewer" });
+    expect(open.previousElementSibling?.textContent).toBe("src/a.ts");
+    expect(open.nextElementSibling?.textContent).toBe("+1-1Viewed");
+
+    fireEvent.click(open);
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+    expect(diff.dataset.collapsed).toBe("true");
+    expect(
+      (slot.getByRole("checkbox", { name: "Viewed src/a.ts" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(slot.getByTestId("diff-summary").textContent).toBe("1 file+1-11/1 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it.each([
+    ["Binary file", { binary: true }, undefined],
+    ["Diff too large", { loadMode: "too_large" }, undefined],
+    ["Loading diff…", {}, () => new Promise<PatchesResult>(() => {})],
+    ["patch denied", {}, () => ({ kind: "error", message: "patch denied" })],
+    ["Diff not available", {}, () => ({ kind: "ok", patches: { "src/a.ts": "not a patch" } })],
+  ] satisfies [string, Partial<ChangedFile>, Handlers["getPatches"]][])(
+    "opens the live file from the %s notice",
+    async (notice, overrides, getPatches) => {
+      const slot = renderTab({
+        getChanges: () => changes([file("src/a.ts", overrides)]),
+        getPatches,
+      });
+      const text = await slot.findByText(notice);
+      expect(text.textContent).toBe(notice);
+
+      const open = slot.getByRole("button", { name: "Open src/a.ts in file viewer" });
+      expect(open.previousElementSibling?.textContent).toBe("src/a.ts");
+      expect(open.nextElementSibling?.textContent).toBe("+1-1");
+      fireEvent.click(open);
+
+      expect(slot.inspection.navigateCalls).toEqual([
+        {
+          method: "experimental_openFilePreview",
+          options: {
+            target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+            location: null,
+          },
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    ["Binary file", { binary: true }, undefined],
+    ["Diff too large", { loadMode: "too_large" }, undefined],
+    ["Loading diff…", {}, () => new Promise<PatchesResult>(() => {})],
+    ["patch denied", {}, () => ({ kind: "error", message: "patch denied" })],
+    ["Diff not available", {}, () => ({ kind: "ok", patches: { "src/new.ts": "not a patch" } })],
+  ] satisfies [string, Partial<ChangedFile>, Handlers["getPatches"]][])(
+    "keeps rename context and trailing preview in the %s notice",
+    async (notice, overrides, getPatches) => {
+      const slot = renderTab({
+        getChanges: () =>
+          changes([
+            file("src/new.ts", { ...overrides, previousPath: "src/old.ts", status: "renamed" }),
+          ]),
+        getPatches,
+      });
+      expect((await slot.findByText(notice)).textContent).toBe(notice);
+      const open = slot.getByRole("button", { name: "Open src/new.ts in file viewer" });
+      expect(open.previousElementSibling?.textContent).toBe("src/old.ts → src/new.ts");
+      expect(open.previousElementSibling?.getAttribute("title")).toBe("src/old.ts → src/new.ts");
+      expect(open.previousElementSibling?.querySelectorAll("bdi").length).toBe(2);
+      fireEvent.click(open);
+      expect(slot.inspection.navigateCalls).toEqual([
+        {
+          method: "experimental_openFilePreview",
+          options: {
+            target: { kind: "workspace", environmentId: "env-1", path: "src/new.ts" },
+            location: null,
+          },
+        },
+      ]);
+    },
+  );
+
+  it.each([false, true])(
+    "disables deleted files in diff and notice headers, binary=%s",
+    async (binary) => {
+      const slot = renderTab({
+        getChanges: () =>
+          changes([
+            file("src/deleted.ts", { status: "deleted", binary }),
+            file("src/new.ts", { previousPath: "src/old.ts", status: "renamed" }),
+          ]),
+      });
+      await slot.findAllByTestId("file-diff");
+      const deleted = slot.getByRole("button", {
+        name: "Open src/deleted.ts in file viewer",
+      }) as HTMLButtonElement;
+      expect(deleted.disabled).toBe(true);
+      expect(deleted.title).toBe("Deleted files cannot be opened in the live workspace");
+      fireEvent.click(deleted);
+      fireEvent.click(slot.getByRole("button", { name: "Open src/new.ts in file viewer" }));
+
+      expect(slot.inspection.navigateCalls).toEqual([
+        {
+          method: "experimental_openFilePreview",
+          options: {
+            target: { kind: "workspace", environmentId: "env-1", path: "src/new.ts" },
+            location: null,
+          },
+        },
+      ]);
+    },
+  );
+
+  it("reports a rejected preview intent and clears feedback after acceptance", async () => {
+    let accepted = false;
+    const slot = renderTab({ openFilePreview: () => accepted });
+    await slot.findByTestId("file-diff");
+    const button = slot.getByRole("button", { name: "Open src/a.ts in file viewer" });
+
+    fireEvent.click(button);
+
+    expect(slot.getByRole("alert").textContent).toBe("Could not open src/a.ts in file viewer");
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+    accepted = true;
+    fireEvent.click(button);
+    expect(slot.queryByRole("alert")).toBeNull();
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
+  });
+
+  it("shows feedback if the preview host throws", async () => {
+    const slot = renderTab({
+      openFilePreview: () => {
+        throw new Error("viewer unavailable");
+      },
+    });
+    await slot.findByTestId("file-diff");
+
+    fireEvent.click(slot.getByRole("button", { name: "Open src/a.ts in file viewer" }));
+
+    expect(slot.getByRole("alert").textContent).toBe("Could not open src/a.ts in file viewer");
+    expect(slot.inspection.navigateCalls).toEqual([
+      {
+        method: "experimental_openFilePreview",
+        options: {
+          target: { kind: "workspace", environmentId: "env-1", path: "src/a.ts" },
+          location: null,
+        },
+      },
+    ]);
   });
 });
 
@@ -678,7 +1111,8 @@ describe("Viewed files", () => {
         }),
     });
     await waitFor(() => expect(checkbox(slot).disabled).toBe(false));
-    const filename = diffOf(slot).shadowRoot!.querySelector("[data-title]")!;
+    const filename = within(diffOf(slot)).getByRole("button", { name: "Toggle diff for src/a.ts" });
+    expect(filename.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.click(filename);
     expect(diffOf(slot).dataset.collapsed).toBe("true");

@@ -177,6 +177,21 @@ describe("getChanges", () => {
     expect(calls.diffFiles).toEqual([expected]);
   });
 
+  it("returns the environment resolved from the requested thread", async () => {
+    const { harness } = await setup({ environmentId: "env-thread-2" });
+
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_2",
+      target: { kind: "uncommitted" },
+    });
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      environmentId: "env-thread-2",
+      query: { target: "uncommitted" },
+    });
+  });
+
   it("returns files, initial patches, and branch commits", async () => {
     const { harness } = await setup();
 
@@ -187,6 +202,7 @@ describe("getChanges", () => {
 
     expect(result).toEqual({
       kind: "ok",
+      environmentId: "env-1",
       query: { target: "all", mergeBaseBranch: "origin/main" },
       files: [
         {

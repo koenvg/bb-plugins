@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { DIFFS_TAG_NAME, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import type { DiffSide } from "./diff-lines";
@@ -17,6 +17,7 @@ export interface ReviewFileDiffProps<T> {
   onAddComment?: (side: DiffSide, line: number) => void;
   view: DiffView;
   theme: CodeTheme;
+  customHeader?: ReactNode;
   headerPrefix?: ReactNode;
   headerMetadata?: ReactNode;
   collapsed?: boolean;
@@ -30,11 +31,14 @@ export function ReviewFileDiff<T>({
   onAddComment,
   view,
   theme,
+  customHeader,
   headerPrefix,
   headerMetadata,
   collapsed = false,
   onToggleCollapsed,
 }: ReviewFileDiffProps<T>) {
+  const renderCustomHeader = useCallback(() => customHeader, [customHeader]);
+  const hasCustomHeader = customHeader != null;
   return (
     <FileDiff
       fileDiff={fileDiff}
@@ -85,8 +89,13 @@ export function ReviewFileDiff<T>({
       renderAnnotation={(annotation) => (
         <div style={{ contain: "inline-size" }}>{renderAnnotation(annotation)}</div>
       )}
-      renderHeaderPrefix={headerPrefix === undefined ? undefined : () => headerPrefix}
-      renderHeaderMetadata={headerMetadata === undefined ? undefined : () => headerMetadata}
+      renderCustomHeader={hasCustomHeader ? renderCustomHeader : undefined}
+      renderHeaderPrefix={
+        hasCustomHeader || headerPrefix === undefined ? undefined : () => headerPrefix
+      }
+      renderHeaderMetadata={
+        hasCustomHeader || headerMetadata === undefined ? undefined : () => headerMetadata
+      }
     />
   );
 }

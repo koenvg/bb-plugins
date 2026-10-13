@@ -46,6 +46,7 @@ export type BranchCommit = z.infer<typeof branchCommitSchema>;
 export const changesResultSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("ok"),
+    environmentId: z.string().min(1),
     query: diffQuerySchema,
     files: z.array(changedFileSchema),
     patches: z.record(z.string(), z.string()),

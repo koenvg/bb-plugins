@@ -201,6 +201,7 @@ function FileList({
           <FileSection
             key={file.path}
             threadId={threadId}
+            environmentId={changes.environmentId}
             file={file}
             patch={patches.stateOf(file.path)}
             lines={lines === undefined || typeof lines === "string" ? null : lines}
