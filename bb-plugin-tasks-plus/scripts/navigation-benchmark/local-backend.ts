@@ -42,28 +42,6 @@ export function createLocalBackend(owner: string) {
     task.id = stored.id;
     for (const label of task.labelIds) store.tasks.addTaskLabel(stored.id, labelIds.get(label)!);
   });
-  fixture.activity.comments.forEach((comment: any, i: number) => {
-    const stored = store.tasks.createComment({
-      id: id(1000 + i),
-      taskId: fixture.tasks[99].id,
-      kind: comment.authorKind === "human" ? "user" : "agent",
-      authorName: comment.authorKind === "human" ? "Lab user" : "Lab agent",
-      body: comment.body,
-      threadId: null,
-    });
-    comment.id = stored.id;
-    comment.attachments.forEach((attachment: any, j: number) =>
-      store.tasks.createAttachment({
-        id: id(2000 + i * 10 + j),
-        commentId: stored.id,
-        fileName: attachment.name,
-        mime: attachment.mimeType,
-        sizeBytes: Buffer.byteLength(attachment.content),
-        blobPath: `lab/${attachment.name}`,
-        isImage: false,
-      }),
-    );
-  });
   bb.storage
     .database()
     .prepare("UPDATE tasks SET created_at = ?, updated_at = ?")

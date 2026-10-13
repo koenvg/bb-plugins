@@ -26,8 +26,7 @@ export function mentionWrapper(
   context: string,
   fixture: ReturnType<typeof createAgentContextFixture>,
 ): string {
-  const { task, project, subtask, label, thread, comments, taskAttachment, commentAttachment } =
-    fixture;
+  const { task, project, subtask, label, thread, taskAttachment, retainedAttachment } = fixture;
   const values = [
     task.key,
     task.title,
@@ -44,10 +43,9 @@ export function mentionWrapper(
     thread.threadId,
     thread.title,
     displayName(thread.liveStatus),
-    ...[taskAttachment, commentAttachment].flatMap((a) => [a.id, a.fileName]),
-    ...comments.flatMap((c) => [c.body, c.authorName, displayName(c.kind), c.createdAt]),
+    ...[taskAttachment, retainedAttachment].flatMap((a) => [a.id, a.fileName]),
   ];
-  // Remove long values first so short values cannot alter a description or comment.
+  // Remove long values first so short values cannot alter a description.
   return values
     .sort((a, b) => b.length - a.length)
     .reduce((text, value) => text.replaceAll(value, ""), context);
@@ -107,14 +105,6 @@ export function createAgentContextFixture() {
     color: "blue",
   });
   store.tasks.addTaskLabel(task.id, label.id);
-  const comments = Array.from({ length: 7 }, (_, index) =>
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "user",
-      authorName: "Fixture user",
-      body: `Comment sentinel ${index}. ` + "Old permission discussion. ".repeat(100),
-    }),
-  );
   const taskAttachment = store.tasks.createAttachment({
     taskId: task.id,
     fileName: "task-sentinel.md",
@@ -123,12 +113,12 @@ export function createAgentContextFixture() {
     blobPath: "blobs/task-sentinel.md",
     isImage: false,
   });
-  const commentAttachment = store.tasks.createAttachment({
-    commentId: comments[0]!.id,
-    fileName: "old-comment-sentinel.md",
+  const retainedAttachment = store.tasks.createAttachment({
+    taskId: task.id,
+    fileName: "retained-sentinel.md",
     mime: "text/markdown",
     sizeBytes: 0,
-    blobPath: "blobs/old-comment-sentinel.md",
+    blobPath: "blobs/retained-sentinel.md",
     isImage: false,
   });
   const thread = store.tasks.upsertTaskThread({
@@ -164,11 +154,10 @@ export function createAgentContextFixture() {
     task,
     subtask,
     blocker,
-    comments,
     label,
     thread,
     taskAttachment,
-    commentAttachment,
+    retainedAttachment,
     preset,
     presetInstructions,
     extraInstructions,

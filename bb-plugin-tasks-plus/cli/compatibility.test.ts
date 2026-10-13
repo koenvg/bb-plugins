@@ -22,7 +22,6 @@ const commands = [
   "list",
   "show",
   "update",
-  "comment",
   "label",
   "label create",
   "label list",

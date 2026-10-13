@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
-import type { TaskActivityEntry } from "../../shared/contract.js";
 import { createLocalBackend } from "./local-backend.js";
 const backends: ReturnType<typeof createLocalBackend>[] = [];
 afterEach(async () => {
@@ -13,7 +12,7 @@ function setup() {
   return backend;
 }
 describe("owned local SDK backend", () => {
-  it("uses native schema-validated tasks, labels and heavy activity with local ownership", async () => {
+  it("uses native schema-validated tasks and labels without comment fixtures", async () => {
     const backend = setup();
     expect(existsSync(backend.databasePath)).toBe(true);
     const task = await backend.call("getTaskByKey", { taskKey: "BENCH-1" });
@@ -24,18 +23,21 @@ describe("owned local SDK backend", () => {
         labelIds: [expect.any(String)],
       },
     });
-    const activity = (await backend.call("getTaskActivity", {
-      taskId: backend.fixture.tasks[99].id,
-    })) as { entries: TaskActivityEntry[] };
-    expect(activity.entries).toHaveLength(50);
-    expect(activity.entries.filter((entry) => entry.comment.kind === "user")).toHaveLength(25);
-    expect(activity.entries.filter((entry) => entry.comment.kind === "agent")).toHaveLength(25);
-    expect(activity.entries.flatMap((entry) => entry.attachments)).toHaveLength(10);
-    for (const entry of activity.entries)
-      for (const attachment of entry.attachments)
-        expect(attachment.commentId).toBe(entry.comment.id);
+    expect(backend.fixture).not.toHaveProperty("activity");
+    const descriptionTask = await backend.call("getTaskByKey", { taskKey: "BENCH-100" });
+    expect(descriptionTask).toMatchObject({
+      task: {
+        id: backend.fixture.tasks[99].id,
+        description: backend.fixture.tasks[99].description,
+      },
+    });
+    expect(await backend.call("listAttachments", { taskId: backend.fixture.tasks[99].id })).toEqual(
+      {
+        attachments: [],
+      },
+    );
   });
-  it("rejects malformed RPC inputs, dispatch, notifications and unstubbed SDK access", async () => {
+  it("rejects malformed inputs, removed RPCs, mutations, dispatch and unstubbed SDK access", async () => {
     const backend = setup();
     await expect(backend.call("getTaskByKey", { taskKey: 42 })).rejects.toThrow();
     await expect(
@@ -44,6 +46,12 @@ describe("owned local SDK backend", () => {
         body: "blocked",
         notify: true,
       }),
+    ).rejects.toThrow("Unknown RPC");
+    await expect(
+      backend.call("getTaskActivity", { taskId: backend.fixture.tasks[0].id }),
+    ).rejects.toThrow("Unknown RPC");
+    await expect(
+      backend.call("createTask", { projectId: "00000000000000000000000001", title: "blocked" }),
     ).rejects.toThrow("blocks");
     await expect(backend.call("dispatchTask", {})).rejects.toThrow();
     expect(() => backend.bb.sdk.hosts.list()).toThrow("not stubbed");

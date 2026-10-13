@@ -9,7 +9,6 @@ interface SeedDemoResult {
   projectsCreated: number;
   labelsCreated: number;
   tasksCreated: number;
-  commentsCreated: number;
   linkedBbProjectId: string | null;
   projects: Array<{ id: string; keyPrefix: string; name: string }>;
 }
@@ -230,28 +229,11 @@ export async function seedDemo(
     }),
   );
 
-  const comments = [
-    [taskOne.id, "The main layout is ready for a final pass."],
-    [tasks[1]!.id, "Keep JSON output stable for agent callers."],
-    [opsParent.id, "Release window is tentatively Friday afternoon."],
-    [homeParent.id, "Start with the kitchen and entryway."],
-  ] as const;
-  for (const [taskId, body] of comments) {
-    await domain.createComment(
-      tasksRpcContract.createComment.input.parse({
-        taskId,
-        body,
-        notify: false,
-      }),
-    );
-  }
-
   return {
     foldersCreated: 2,
     projectsCreated: projects.length,
     labelsCreated: labels.length,
     tasksCreated: tasks.length,
-    commentsCreated: comments.length,
     linkedBbProjectId: linkedBbProjectId ?? null,
     projects: projects.map((project) => ({
       id: project.id,

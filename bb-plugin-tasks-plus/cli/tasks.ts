@@ -23,7 +23,6 @@ import {
   KEY_POSITIONAL,
   guard,
   withWarnings,
-  taskAuthor,
   type TasksDomain,
 } from "./common";
 import {
@@ -425,13 +424,6 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
               parentTaskId: task.id,
             }),
           );
-          const comments = tasksRpcContract.listComments.output.parse(
-            await domain.listComments(
-              tasksRpcContract.listComments.input.parse({
-                taskId: task.id,
-              }),
-            ),
-          ).comments;
           const attachments = store.tasks.listTaskAttachments(task.id);
           const taskThreads = tasksRpcContract.listTaskThreads.output.parse(
             await domain.listTaskThreads(
@@ -461,7 +453,6 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
               taskThreads,
               pullRequests,
               pullRequestUnavailableThreadIds: unavailableThreadIds,
-              comments,
             });
           }
           return [
@@ -524,17 +515,6 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
                 ? `\nPR lookup unavailable for: ${unavailableThreadIds.join(", ")}`
                 : ""
             }`,
-            `Comments\n${table(
-              ["TIME", "KIND", "AUTHOR", "PROVIDER", "BODY"],
-              comments.map((comment) => [
-                comment.createdAt,
-                comment.kind,
-                comment.threadTitle ?? comment.authorName,
-                comment.provider?.name ?? "-",
-                comment.body,
-              ]),
-              "(none)",
-            )}`,
           ].join("\n\n");
         });
       },
@@ -697,7 +677,6 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
                 labelIds: labelsChanged ? [...nextLabels] : undefined,
                 addBlockerTaskIds,
                 removeBlockerTaskIds,
-                authorName: taskAuthor(ctx),
               }),
             ),
           );

@@ -2,7 +2,7 @@
 
 `TasksSessionProvider` mounts `TaskDataProvider` once per page or thread detail
 session. It owns a `createTaskPreviews` instance for that session's RPC binding.
-The accepted route, pending-edit barrier and task-owned comment records keep their
+The accepted route, pending-edit barrier and task-owned edits keep their
 existing owners. Returning to A after B reads A's current snapshot synchronously.
 It does not wait for a repeated lookup or retain A's old editor tree.
 
@@ -19,7 +19,7 @@ It does not wait for a repeated lookup or retain A's old editor tree.
 - Normalize keys with trim and uppercase. A request is shared only for the same
   normalized key and current generation. Reject a positive response whose key
   does not match. Reads never select a task, open a tab or change focus.
-- Store task data only. Editors, draft patches, staged files, comments,
+- Store task data only. Editors, draft patches, staged files,
   attachments and current thread/PR lifecycle responses do not enter this cache.
   Only the basic task lookup participates in adjacent preloading.
 
@@ -56,7 +56,7 @@ rescheduling, even when the transport cannot cancel a call. A request disposed o
 invalidated before its start microtask does not issue a transport.
 
 Speculation calls only `getTaskByKey`. It does not mount neighbor detail views or
-load their comments, attachments, project catalogs, dependencies, thread status or
+load their attachments, project catalogs, dependencies, thread status or
 PR status. It cannot save, submit, notify, navigate, open host tabs or change focus.
 The existing save barrier still controls navigation to an already-warmed task.
 

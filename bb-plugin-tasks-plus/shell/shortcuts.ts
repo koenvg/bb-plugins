@@ -115,12 +115,6 @@ export const SHORTCUTS = [
     keys: ["d"],
     label: "Choose dispatch preset",
   },
-  {
-    id: "detail.comment",
-    scope: "detail",
-    keys: ["m"],
-    label: "Write a comment",
-  },
 ] as const satisfies readonly ShortcutDefinition[];
 
 export type Shortcut = (typeof SHORTCUTS)[number];

@@ -1,8 +1,8 @@
-# Native Ticket baseline
+# Native Ticket navigation benchmark
 
-Current completed paired baseline: [paired-baseline-report.md](paired-baseline-report.md). The earlier manual checkpoint remains in [baseline-report.md](baseline-report.md). No optimization has run. The benchmark is outside the app bundle and does not change application selection, saves, drafts, keyboard guards or Ticket lifetime. The new report records the existing BBP-50 compact draft-loss defect and BBP-104 lint gap.
+Historical paired baseline: [paired-baseline-report.md](paired-baseline-report.md). The earlier manual checkpoint is in [baseline-report.md](baseline-report.md). These reports predate migration 12 and keep their original source and fixture identities. They are not validation of the current comment-free build. The benchmark stays outside the app bundle and does not change selection, saves, title/description drafts, keyboard guards or Ticket lifetime.
 
-## Original source gate
+## Historical source gate
 
 See `source-identity.json` for captured source and bundle identities. Native Ticket commit `78fdd0857c79cc6ed10ea2c3a31bf94e9ba58664` is already an ancestor of implementation base `43c2804c53cc07f1e7959c9b2bc93000e1c670ce`. No prerequisite merge was needed.
 
@@ -22,7 +22,11 @@ bun bb-plugin-tasks-plus/scripts/navigation-benchmark/cli.mjs cleanup /tmp/bbp60
 
 Fixture creation refuses existing directories. Cleanup requires the matching owner, original fixture hash and exactly the two owned regular files. It refuses foreign or modified content. Preserve a copy of `fixture.json` and its ownership record in the evidence archive before cleanup. No generic tracker-delete or browser-close command is provided.
 
-The fixture contains 100 tasks, labels, dates, ten approximately 2 KiB descriptions, a 36-movement up/down sequence, and a separate task with 50 alternating human/agent comments and ten text attachments. It is an offline fixture manifest, not an import into live storage. Provisioning into a native tracker needs a separately approved adapter or manual setup. Record actual project/task/comment/attachment IDs in an ownership manifest. The ten navigation task keys must match `warmKeys` and form a consecutive visible window. Do not use a full-tracker prefetch.
+The current offline manifest contains 100 tasks with labels, dates and approximately 2 KiB descriptions, ten consecutive warm keys, and a 36-movement up/down sequence. It does not create comments or files. Provisioning into a native tracker needs a separately approved adapter or manual setup. Record actual project/task/label IDs in an ownership manifest. Provision any task-owned files for secondary checks separately, with their exact task/file IDs and bytes recorded. The ten warm keys must form a consecutive visible window. Do not use a full-tracker prefetch.
+
+## Current approval gate
+
+Obtain explicit operator approval for an isolated test plugin/tracker, the exact fixture records and a dedicated browser session before live work. Do not replace the live Tasks plugin or edit existing user tasks. Record source and built artifact hashes for the current build; do not reuse historical bundle identities. File provisioning is separate from the offline fixture generator.
 
 ## Approved browser run
 
@@ -65,11 +69,11 @@ Run `runNavigation` again with `mode: 'profile'` in the same approved dataset, n
 
 Record rendering, style and layout trace totals without adding nested durations as independent costs. The probe exports supported long-task and resource entries. The driver counts plugin HTTP requests by path and method when discoverable. Batched/unresolved RPC calls and date work outside the wrapped formatter require trace/transport inspection. Missing browser support stays `null`, not zero. Per-sample attribution uses entry `startTime` and sample start/end marks; report run totals separately from per-movement counts.
 
-Measure the 50-comment task separately. Record initial description presentation, then scroll to activity and record the complete feed/editor count and attachment requests. Do not mix that work into warm navigation percentiles. Also report cold load, rapid repeats, long descriptions, compact native drawer, failed reads, failed saves, task-owned comment drafts and Ticket close/park/reopen separately. Later cache invalidation/eviction cases belong to the optimization slices, not this baseline implementation.
+Measure long-description rendering and separately provisioned task files outside warm navigation percentiles. Record initial description presentation, complete file counts and file requests. Also report cold load, rapid repeats, compact native drawer, failed reads, failed saves, task-owned title/description drafts and Ticket close/park/reopen separately. Do not request an activity feed or stage a comment draft.
 
-## Approval request and rollback
+## Historical approval request and rollback
 
-Ask parent `thr_w7j752igff` to obtain approval for this exact live checkpoint:
+The following records the original pre-migration-12 approval request. It is not current approval, installation guidance or a rollback procedure for the new schema. Do not run the old source-switch rollback against a migrated database. For the current build, follow [the consistent backup and paired deployment procedure](../../COMMENT-REMOVAL-UPGRADE.md).
 
 1. Move only installed `tasks-plus` from `path:/Users/koen/workspace/bb-plugins/bb-plugin-tasks-plus` to this shared environment's `bb-plugin-tasks-plus` source. Candidate app SHA-256 is in `source-identity.json`. This includes the already-integrated upstream list-declutter delta; it adds no BBP-61 through BBP-67 optimization. Leave quota source, enabled states, existing fixture plugins and settings unchanged. Record the newly activated bundle identity before measuring. Do not replace or restart anything until approval is explicit.
 2. Approve a separate owned benchmark project containing exactly the manifest's 100 tasks, labels, 50 comments and ten text files. No existing user task can be edited. Decide the isolated tracker and identity mapping before provisioning. Do not seed live data on this worker's authority.
@@ -83,11 +87,11 @@ Cleanup after an approved run must use recorded owned IDs only. If any record ch
 
 1. Move down, up and back through the owned warm window. Check row key, title and description key after each move.
 2. Stage a description edit, inject a fixture-only save failure, then request another task. Confirm the first task and retry control remain.
-3. Write distinct unsent comments on A and B. Return to A. Confirm both drafts stay with their tasks.
+3. Save distinct description/title edits on A and B. Return to A. Confirm both saved values stay with their tasks. Keep failed-save drafts covered by the previous check.
 4. Type arrow keys in an editor and while an overlay is open. Confirm selection does not move.
-5. Park, close and reopen Ticket. Confirm accepted task and drafts remain. Check compact host layout and the full 50-comment feed.
+5. Park, close and reopen Ticket. Confirm the accepted task and title/description state remain. Check compact layout and every separately provisioned task file, including its retained bytes.
 
-## Checkpoint checks
+## Historical checkpoint checks
 
 - Test-first missing-module failures were recorded before implementation. Eleven focused Node tests now pass, including a mock page driver. No real-browser run has occurred.
 - Tasks: 89 test files, 966 tests pass. Typecheck and repository-local build pass. Lint is blocked because `oxlint` is not declared/installed. Follow-up BBP-104 records this existing setup problem; no unrelated fix was made.

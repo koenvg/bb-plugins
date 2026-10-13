@@ -20,6 +20,18 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
+export function makeAttachment(taskId: string, fileName = "a.txt") {
+  return {
+    id: "01HZZZZZZZZZZZZZZZZZZZZZA1",
+    taskId,
+    fileName,
+    mime: "text/plain",
+    sizeBytes: 1,
+    isImage: false,
+    createdAt: "2026-07-15T00:00:00.000Z",
+  };
+}
+
 export function rpcInput(input: unknown): Record<string, unknown> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new Error(`expected an RPC input object, got ${JSON.stringify(input)}`);

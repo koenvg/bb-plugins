@@ -63,9 +63,7 @@ export function createWarmthLedger({ now, expectedRevisions }) {
       if (
         message?.type === "plugin-signal" &&
         message.pluginId === "tasks-plus" &&
-        ["tasks:changed", "projects:changed", "comments:changed", "threads:changed"].includes(
-          message.channel,
-        )
+        ["tasks:changed", "projects:changed", "threads:changed"].includes(message.channel)
       ) {
         invalidate("plugin-signal", message.channel);
       }

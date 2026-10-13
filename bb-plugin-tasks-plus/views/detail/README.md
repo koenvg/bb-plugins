@@ -7,7 +7,7 @@ It does not select rows, reconcile visible order, or own project preferences.
 
 - Mount `TasksSessionProvider` once for the Tasks panel. `TasksAppShell` already does
   this. BrowseWorkspace reuses that provider, never nests one or keys it by selection.
-  It owns one active editor barrier and task-id-keyed comment records. The native
+  It owns one active editor barrier for title and description saves. The native
   Ticket tab is only a portal outlet; its unmount does not end this page session.
 - `useTasksSession()` returns the transition interface, or null outside a session.
   Call `request(() => commitDestination())` for selection, scope, or context changes.
@@ -98,19 +98,6 @@ the replacement detail. The replacement loads choices only when requested.
 Self and linked tasks on either side remain excluded. Link direction, removal,
 cycle errors, and blocked-work confirmation are unchanged.
 
-## Comment ownership
+## Task files
 
-`CommentDraftsProvider` is part of `TasksSessionProvider`. `useCommentDraft(taskId)`
-returns that task's snapshot and bound record. Updates and async completion must
-use that captured record, never the newly selected task or a global setter.
-Records include body revision, staged files, notification preference, send state,
-and upload errors. A successful send clears only the body revision it submitted.
-Uploads and retry retain the explicit submitted comment id even across unmount
-and remount. Removing a staged file never uploads it.
-
-Without a provider, the composer retains its local mounted lifetime. Files and
-records are not written to local storage or the server on navigation. File preview
-object URLs are revoked on unmount. Session records become unreachable with the
-provider; an in-flight explicit operation retains only its originating record until
-completion. No persistence after panel closure, browser reload, or on another device
-is promised. Closing the whole host panel can only attempt a best-effort autosave.
+Saved files belong to tasks. Navigation does not upload or reassign them. Description/title autosave barriers remain independent of file operations. Closing the Tasks page ends the editor session; closing or parking its Ticket tab does not.

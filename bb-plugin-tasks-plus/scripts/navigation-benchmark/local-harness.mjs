@@ -188,7 +188,7 @@ try {
           "Production createRoot with a small documented PluginSdkApp host adapter; not the installed BB renderer.",
           "Host layout is a small fixed native-tab double, not the BB renderer or compact drawer.",
           "Actual quota adapter and QuotaBadge run with unavailable synthetic quota; no collector, OAuth or host transport.",
-          "50 alternating user/agent comments have no real thread/provider lifecycle; attachment metadata and text bytes are local.",
+          "The fixture has no comments or files; task-owned file checks require separate provisioning.",
         ],
       };
       evidence.provenance = provenance;
@@ -455,41 +455,10 @@ try {
           );
           const heavyDescription = await page.evaluate(() => window.lab.read());
           const descriptionMs = Date.now() - heavyStart;
-          await page
-            .getByRole("region", { name: "Activity", exact: true })
-            .scrollIntoViewIfNeeded();
-          await page.waitForFunction(
-            () =>
-              document.querySelectorAll(
-                '[data-detail-key="BENCH-100"] .tiptap[contenteditable="false"]',
-              ).length === 50,
-          );
-          const heavy = await page.evaluate(() => {
-            const activity = document.querySelector(
-              '[data-detail-key="BENCH-100"] [aria-label="Activity"]',
-            );
-            return {
-              readOnlyEditors: activity.querySelectorAll('.tiptap[contenteditable="false"]').length,
-              commentHeadings: [...activity.querySelectorAll(".tiptap h3")].map(
-                (node) => node.textContent,
-              ),
-              attachmentLinks: [...activity.querySelectorAll("a[download]")].map((node) => ({
-                name: node.textContent,
-                href: node.getAttribute("href"),
-              })),
-            };
-          });
-          if (
-            heavy.commentHeadings.length !== 50 ||
-            heavy.commentHeadings.some((heading, i) => heading !== `Review ${i + 1}`)
-          )
-            throw new Error("Heavy activity content mismatch");
-          await write("heavy-activity.json", {
-            classification: "heavy",
+          await write("long-description.json", {
+            classification: "long-description",
             description: heavyDescription,
             descriptionMs,
-            activationTotalMs: Date.now() - heavyStart,
-            ...heavy,
           });
         }
       }

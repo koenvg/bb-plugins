@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { rpcInput } from "../test-fixtures.js";
+import { makeAttachment, rpcInput } from "../test-fixtures.js";
 import {
   acceptNavigation,
-  activateActivity,
+  readyDescription,
   deferred,
   edit,
   row,
@@ -22,12 +22,18 @@ const lookups = (slot: ReturnType<typeof setup>, key: string) =>
 
 describe("retained browse detail", () => {
   it("returns A-to-B-to-A without an empty matching detail commit or duplicate lookup", async () => {
-    const slot = setup();
+    const fileA = makeAttachment(tasks[0]!.id);
+    const fileB = { ...makeAttachment(tasks[1]!.id, "b.txt"), id: "01HZZZZZZZZZZZZZZZZZZZZZA2" };
+    const slot = setup("all", {
+      listAttachments: (raw) => ({
+        attachments: [rpcInput(raw).taskId === fileA.taskId ? fileA : fileB],
+      }),
+    });
     await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
     await select(slot, 1);
-    await edit(slot, "Draft A", 1);
+    await readyDescription(slot);
     await select(slot, 2);
-    await edit(slot, "Draft B", 1);
+    await readyDescription(slot);
     const blanks: string[] = [];
     const observer = new MutationObserver(() => {
       const title = slot.container.querySelector('[aria-label="Task title"]');
@@ -42,9 +48,9 @@ describe("retained browse detail", () => {
     expect(slot.container.querySelector('[data-detail-key="TSK-1"]')?.textContent).toContain(
       "Description 1",
     );
-    await activateActivity(slot);
-    expect(slot.container.textContent).toContain("Draft A");
-    expect(slot.container.textContent).not.toContain("Draft B");
+    await readyDescription(slot);
+    expect(slot.container.textContent).toContain("a.txt");
+    expect(slot.container.textContent).not.toContain("b.txt");
     observer.disconnect();
     expect(blanks).toEqual([]);
     expect(lookups(slot, "TSK-1")).toHaveLength(1);

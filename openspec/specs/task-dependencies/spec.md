@@ -189,21 +189,6 @@ The prompt that a delegated worker receives SHALL have a "Blocked by" section. I
 - **WHEN** ABC-5 is delegated while ABC-3 (`todo`) and ABC-2 (`done`) block it
 - **THEN** the worker prompt lists ABC-3 as `todo` and ABC-2 as `done`
 
-### Requirement: Unblocked comment
-
-When a blocker changes to `done` or `canceled` and this makes a blocked task ready, the system SHALL add one system comment to that task: "Unblocked: <key> is <status>". It SHALL NOT notify or resume any agent thread. It SHALL NOT add a comment to a task that is still blocked by another open blocker.
-
-#### Scenario: Last blocker done
-
-- **WHEN** ABC-3 is the only open blocker of ABC-5 and goes to `done`
-- **THEN** ABC-5 gets the system comment "Unblocked: ABC-3 is done"
-- **AND** no agent thread of ABC-5 is messaged
-
-#### Scenario: Other blocker still open
-
-- **WHEN** ABC-3 and ABC-4 block ABC-5 and only ABC-3 goes to `done`
-- **THEN** ABC-5 gets no comment
-
 ### Requirement: Tasks skill covers dependencies
 
 The bundled `tasks` skill SHALL tell agents to run `bb tasks show` and check blockers before they start a task, and SHALL document the dependency flags.
@@ -241,3 +226,23 @@ In the detail view of a parent task, each sub-task row SHALL show the same depen
 
 - **WHEN** sub-task ABC-2 is blocked and ABC-1 has no blockers
 - **THEN** ABC-1 is ready
+
+### Requirement: Dependency resolution creates no comments
+
+Resolving or reopening a blocker SHALL continue to update readiness, badges and filters from current task status. It SHALL NOT create a task comment or replacement history entry, notify a thread or resume an agent.
+
+#### Scenario: Last blocker done
+
+- **WHEN** ABC-3 is the only open blocker of ABC-5 and changes to `done`
+- **THEN** ABC-5 is ready and its blocked badge disappears
+- **AND** no comment, replacement history entry or thread message is created
+
+#### Scenario: Other blocker still open
+
+- **WHEN** ABC-3 and ABC-4 block ABC-5 and only ABC-3 changes to `done`
+- **THEN** ABC-5 remains blocked by ABC-4 with no comment or notification
+
+#### Scenario: Blocker reopened or canceled
+
+- **WHEN** a blocker reopens or changes to `canceled`
+- **THEN** readiness, badges and filters reflect the existing dependency rules without activity writes

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
+import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
 import { loadExpandedTasks, storeExpandedTasks } from "../views/list/expanded-tasks.js";
 import {
   acceptNavigation,
-  activateActivity,
+  readyDescription,
   deferred,
   edit,
   project,
@@ -121,7 +122,16 @@ describe("removal combined with context transitions", () => {
     let removed = false;
     let canSave = false;
     const writes: Record<string, unknown>[] = [];
+    const origin = { ...tasks[0]! };
+    const file = makeAttachment(origin.id, "origin.txt");
     const slot = setup("all", {
+      getTaskByKey: (raw) => ({
+        task:
+          rpcInput(raw).taskKey === origin.key
+            ? origin
+            : tasks.find((t) => t.key === rpcInput(raw).taskKey),
+      }),
+      listAttachments: (raw) => ({ attachments: rpcInput(raw).taskId === origin.id ? [file] : [] }),
       listTasks: (raw) => ({
         tasks: rpcInput(raw).parentTaskId ? [] : removed ? tasks.slice(1) : tasks,
         nextCursor: null,
@@ -130,7 +140,7 @@ describe("removal combined with context transitions", () => {
         const input = rpcInput(raw);
         writes.push(input);
         return canSave
-          ? { ok: true, task: { ...tasks[0], ...input } }
+          ? { ok: true, task: Object.assign(origin, input) }
           : { ok: false, error: { message: "Save before Back and removal" } };
       },
     });
@@ -144,10 +154,6 @@ describe("removal combined with context transitions", () => {
     await select(slot, 1);
     const title = slot.getByRole("textbox", { name: "Task title" });
     await edit(slot, "Origin description");
-    await edit(slot, "Unsent origin comment", 1);
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
-      target: { files: [new File(["origin"], "origin.txt")] },
-    });
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("alert");
@@ -175,18 +181,16 @@ describe("removal combined with context transitions", () => {
     expect(slot.container.querySelector('[aria-current="true"]')).toBeNull();
     expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull();
     await select(slot, 2);
-    expect(slot.container.textContent).not.toContain("Unsent origin comment");
+    expect(slot.container.textContent).not.toContain("Origin description");
     expect(slot.queryByText("origin.txt")).toBeNull();
     slot.getByRole("region", { name: "Selected ticket" }).focus();
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     removed = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await select(slot, 1);
-    await activateActivity(slot);
+    await readyDescription(slot);
     expect(slot.getByText("origin.txt")).toBeTruthy();
-    expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe(
-      "Unsent origin comment",
-    );
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Origin description");
     expect(
       slot.inspection.rpcCalls.filter((c) =>
         ["createComment", "delegate", "createAttachment"].includes(c.method),

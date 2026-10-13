@@ -212,7 +212,6 @@ describe("task pager", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -252,7 +251,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -291,7 +289,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -322,7 +319,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -395,7 +391,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -454,7 +449,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -545,7 +539,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );
@@ -589,7 +582,6 @@ describe("tasks app shell", () => {
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
-          getTaskActivity: () => ({ entries: [] }),
         }),
       },
     );

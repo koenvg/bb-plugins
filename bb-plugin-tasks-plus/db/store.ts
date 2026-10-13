@@ -19,9 +19,7 @@ import {
 } from "../shared/contract.js";
 import type {
   Attachment,
-  Comment,
   CreateAttachmentInput,
-  CreateCommentInput,
   CreateFolderInput,
   CreateLabelInput,
   CreatePresetInput,
@@ -41,7 +39,6 @@ import type {
   TaskThread,
   TaskThreadLiveStatus,
   UpdateAttachmentInput,
-  UpdateCommentInput,
   UpdateFolderInput,
   UpdateLabelInput,
   UpdatePresetInput,
@@ -56,7 +53,6 @@ type SqlParameter = string | number;
 
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const POSITION_STEP = 1_024;
-const SYSTEM_AUTHOR_NAME = "Tasks";
 const MIN_POSITION_GAP = 0.000_001;
 
 interface FolderRow {
@@ -130,22 +126,9 @@ interface TaskLabelRow {
   label_id: string;
 }
 
-interface CommentRow {
-  id: string;
-  task_id: string;
-  kind: Comment["kind"];
-  author_name: string;
-  preset_name: string | null;
-  thread_id: string | null;
-  body: string;
-  notified_count: number;
-  created_at: string;
-}
-
 interface AttachmentRow {
   id: string;
-  task_id: string | null;
-  comment_id: string | null;
+  task_id: string;
   file_name: string;
   mime: string;
   size_bytes: number;
@@ -412,25 +395,10 @@ function taskLabelFromRow(row: TaskLabelRow): TaskLabel {
   return { taskId: row.task_id, labelId: row.label_id };
 }
 
-function commentFromRow(row: CommentRow): Comment {
-  return {
-    id: row.id,
-    taskId: row.task_id,
-    kind: row.kind,
-    authorName: row.author_name,
-    presetName: row.preset_name,
-    threadId: row.thread_id,
-    body: row.body,
-    notifiedCount: row.notified_count,
-    createdAt: row.created_at,
-  };
-}
-
 function attachmentMetadataFromRow(row: Omit<AttachmentRow, "blob_path">): AttachmentMetadata {
   return {
     id: row.id,
     taskId: row.task_id,
-    commentId: row.comment_id,
     fileName: row.file_name,
     mime: row.mime,
     sizeBytes: row.size_bytes,
@@ -513,7 +481,6 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   `;
   const getTaskRow = db.prepare<[string], TaskRow>(`${taskSelect} WHERE t.id = ?`);
   const getLabelRow = db.prepare<[string], LabelRow>("SELECT * FROM labels WHERE id = ?");
-  const getCommentRow = db.prepare<[string], CommentRow>("SELECT * FROM comments WHERE id = ?");
   const getAttachmentRow = db.prepare<[string], AttachmentRow>(
     "SELECT * FROM attachments WHERE id = ?",
   );
@@ -1069,18 +1036,9 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   `,
   );
 
-  function commentOnUnblockedTasks(before: Task, after: Task): void {
+  function publishUnblockedTasks(before: Task, after: Task): void {
     if (!isOpenStatus(before.status) || isOpenStatus(after.status)) return;
     const taskIds = selectNewlyReadyTaskIds.all(after.id).map((row) => row.id);
-    for (const taskId of taskIds) {
-      createComment({
-        taskId,
-        kind: "system",
-        authorName: SYSTEM_AUTHOR_NAME,
-        body: `Unblocked: ${after.key} is ${after.status}`,
-        notifiedCount: 0,
-      });
-    }
     if (taskIds.length > 0) options.onTasksUnblocked?.(taskIds);
   }
 
@@ -1135,7 +1093,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
       id,
     );
     const updated = requireTask(id);
-    commentOnUnblockedTasks(current, updated);
+    publishUnblockedTasks(current, updated);
     return updated;
   });
 
@@ -1217,7 +1175,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
       `,
       ).run(input.status, position, nowIso(), id);
       const moved = requireTask(id);
-      commentOnUnblockedTasks(task, moved);
+      publishUnblockedTasks(task, moved);
       return moved;
     },
   );
@@ -1487,93 +1445,6 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
       .map(labelFromRow);
   }
 
-  function getComment(id: string): Comment | undefined {
-    const row = getCommentRow.get(id);
-    return row ? commentFromRow(row) : undefined;
-  }
-
-  function requireComment(id: string): Comment {
-    const comment = getComment(id);
-    if (!comment) throw new Error(`Comment not found: ${id}`);
-    return comment;
-  }
-
-  function createComment(input: CreateCommentInput): Comment {
-    const id = createOrValidateUlid(input.id);
-    requireTask(input.taskId);
-    db.prepare<
-      [
-        string,
-        string,
-        Comment["kind"],
-        string,
-        string | null,
-        string | null,
-        string,
-        number,
-        string,
-      ]
-    >(
-      `
-      INSERT INTO comments (
-        id, task_id, kind, author_name, preset_name, thread_id, body,
-        notified_count, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    ).run(
-      id,
-      input.taskId,
-      input.kind,
-      requireNonEmpty(input.authorName, "Comment authorName"),
-      input.presetName ?? null,
-      validateThreadId(input.threadId ?? null),
-      input.body,
-      input.notifiedCount ?? 0,
-      nowIso(),
-    );
-    return requireComment(id);
-  }
-
-  function listComments(taskId: string): Comment[] {
-    return db
-      .prepare<[string], CommentRow>(
-        `
-        SELECT * FROM comments WHERE task_id = ? ORDER BY created_at, rowid
-      `,
-      )
-      .all(taskId)
-      .map(commentFromRow);
-  }
-
-  function getLatestAgentComment(
-    taskId: string,
-    excludeCommentId: string | null,
-  ): Comment | undefined {
-    const row = db
-      .prepare<[string, string | null, string | null], CommentRow>(
-        `
-        SELECT * FROM comments
-        WHERE task_id = ?
-          AND kind = 'agent'
-          AND (? IS NULL OR id <> ?)
-        ORDER BY created_at DESC, rowid DESC
-        LIMIT 1
-      `,
-      )
-      .get(taskId, excludeCommentId, excludeCommentId);
-    return row ? commentFromRow(row) : undefined;
-  }
-
-  function updateComment(id: string, input: UpdateCommentInput): Comment {
-    const current = requireComment(id);
-    db.prepare<[string, number, string]>(
-      `
-      UPDATE comments SET body = ?, notified_count = ? WHERE id = ?
-    `,
-    ).run(input.body ?? current.body, input.notifiedCount ?? current.notifiedCount, id);
-    return requireComment(id);
-  }
-
   function getAttachment(id: string): Attachment | undefined {
     const row = getAttachmentRow.get(id);
     return row ? attachmentFromRow(row) : undefined;
@@ -1586,27 +1457,17 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   }
 
   function createAttachment(input: CreateAttachmentInput): Attachment {
-    const taskId = input.taskId ?? null;
-    const commentId = input.commentId ?? null;
-    if ((taskId === null) === (commentId === null)) {
-      throw new Error("An attachment must belong to exactly one task or comment");
-    }
-    if (taskId !== null) requireTask(taskId);
-    if (commentId !== null) requireComment(commentId);
+    requireTask(input.taskId);
     const id = createOrValidateUlid(input.id);
-    db.prepare<
-      [string, string | null, string | null, string, string, number, string, number, string]
-    >(
+    db.prepare<[string, string, string, string, number, string, number, string]>(
       `
       INSERT INTO attachments (
-        id, task_id, comment_id, file_name, mime, size_bytes, blob_path,
-        is_image, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, task_id, file_name, mime, size_bytes, blob_path, is_image, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       id,
-      taskId,
-      commentId,
+      input.taskId,
       requireNonEmpty(input.fileName, "Attachment fileName"),
       requireNonEmpty(input.mime, "Attachment mime"),
       input.sizeBytes,
@@ -1618,17 +1479,9 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   }
 
   function listAttachmentsForTask(taskId: string): Attachment[] {
-    return db
-      .prepare<[string], AttachmentRow>(
-        `
-        SELECT * FROM attachments WHERE task_id = ? ORDER BY created_at, id
-      `,
-      )
-      .all(taskId)
-      .map(attachmentFromRow);
+    return listTaskAttachments(taskId, { includeBlobPath: true });
   }
 
-  // Complete task scope, including system-comment files. Keep the legacy owner-walk order.
   function listTaskAttachments(taskId: string): AttachmentMetadata[];
   function listTaskAttachments(taskId: string, options: { includeBlobPath: true }): Attachment[];
   function listTaskAttachments(
@@ -1636,51 +1489,17 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     options?: { includeBlobPath: true },
   ): AttachmentMetadata[] | Attachment[] {
     const sql = `
-      SELECT a.id, a.task_id, a.comment_id, a.file_name, a.mime,
-             a.size_bytes, a.is_image, a.created_at${options?.includeBlobPath ? ", a.blob_path" : ""}
-      FROM attachments a
-      LEFT JOIN comments c ON c.id = a.comment_id
-      WHERE a.task_id = ? OR a.comment_id IN (SELECT id FROM comments WHERE task_id = ?)
-      ORDER BY CASE WHEN a.task_id IS NOT NULL THEN 0 ELSE 1 END,
-               c.created_at, c.rowid, a.created_at, a.id
+      SELECT id, task_id, file_name, mime, size_bytes, is_image, created_at
+        ${options?.includeBlobPath ? ", blob_path" : ""}
+      FROM attachments WHERE task_id = ? ORDER BY created_at, id
     `;
     if (options?.includeBlobPath) {
-      return db
-        .prepare<[string, string], AttachmentRow>(sql)
-        .all(taskId, taskId)
-        .map(attachmentFromRow);
+      return db.prepare<[string], AttachmentRow>(sql).all(taskId).map(attachmentFromRow);
     }
     return db
-      .prepare<[string, string], Omit<AttachmentRow, "blob_path">>(sql)
-      .all(taskId, taskId)
-      .map(attachmentMetadataFromRow);
-  }
-
-  function listActivityAttachments(taskId: string): AttachmentMetadata[] {
-    return db
-      .prepare<[string], Omit<AttachmentRow, "blob_path">>(
-        `
-        SELECT a.id, a.task_id, a.comment_id, a.file_name, a.mime,
-               a.size_bytes, a.is_image, a.created_at
-        FROM attachments a
-        JOIN comments c ON c.id = a.comment_id
-        WHERE c.task_id = ? AND c.kind <> 'system'
-        ORDER BY a.created_at, a.id
-      `,
-      )
+      .prepare<[string], Omit<AttachmentRow, "blob_path">>(sql)
       .all(taskId)
       .map(attachmentMetadataFromRow);
-  }
-
-  function listAttachmentsForComment(commentId: string): Attachment[] {
-    return db
-      .prepare<[string], AttachmentRow>(
-        `
-        SELECT * FROM attachments WHERE comment_id = ? ORDER BY created_at, id
-      `,
-      )
-      .all(commentId)
-      .map(attachmentFromRow);
   }
 
   function updateAttachment(id: string, input: UpdateAttachmentInput): Attachment {
@@ -1978,17 +1797,10 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     removeTaskLabel,
     listTaskLabels,
     listLabelsForTask,
-    createComment,
-    getComment,
-    listComments,
-    getLatestAgentComment,
-    updateComment,
     createAttachment,
     getAttachment,
     listAttachmentsForTask,
-    listAttachmentsForComment,
     listTaskAttachments,
-    listActivityAttachments,
     updateAttachment,
     deleteAttachment,
     upsertTaskThread,

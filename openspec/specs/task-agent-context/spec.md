@@ -8,7 +8,7 @@ Provide small, intent-specific task context to agents while preserving full task
 
 ### Requirement: Small ordinary delegation guidance
 
-Ordinary delegated workers SHALL receive a short task-work instruction covering assigned scope, relevant checks, review/completion gates and retained task/thread links. The instruction MUST NOT require intermediate milestone comments, automatic parent summaries, native reporting, private report contexts or returned report IDs.
+Ordinary delegated workers SHALL receive a short task-work instruction covering assigned scope, relevant checks, review/completion gates and retained task/thread links. The instruction MUST NOT require task comments, automatic parent summaries, native reporting, private report contexts or returned report IDs.
 
 #### Scenario: User delegates ordinary task work
 
@@ -19,7 +19,7 @@ Ordinary delegated workers SHALL receive a short task-work instruction covering 
 
 ### Requirement: Preserve delegated task requirements
 
-Delegation SHALL preserve the task description, project identity, blocker list, subtasks, task/comment attachment references, preset instructions and explicit per-dispatch instructions. Shorter plugin guidance MUST NOT truncate those requirements or weaken existing blocker, status or thread-link rules.
+Delegation SHALL preserve the task description, project identity, blocker list, subtasks, task attachment references, preset instructions and explicit per-dispatch instructions. Shorter plugin guidance MUST NOT truncate those requirements or weaken existing blocker, status or thread-link rules.
 
 #### Scenario: Description and instructions contain important restrictions
 
@@ -35,19 +35,9 @@ Delegation SHALL preserve the task description, project identity, blocker list, 
 
 #### Scenario: An attachment belongs to an old comment
 
-- **WHEN** a relevant stored attachment belongs to a comment outside the previous five-comment window
+- **WHEN** an existing comment attachment has been converted to task ownership by the removal upgrade
 - **THEN** the delegated attachment manifest still includes its reference
-- **AND** omitting comment bodies does not remove the file or change its owner
-
-### Requirement: No automatic comment history in delegation
-
-Delegation SHALL omit recent comment bodies and any Recent comments section from the initial worker prompt. It MUST NOT insert a default summary of those comments. Stored comments SHALL remain available through existing task reads when relevant to the requested work.
-
-#### Scenario: Large or obsolete comments exist
-
-- **WHEN** a task has long comments or old permission discussions
-- **THEN** automatic delegation does not include their bodies or a synthesized history summary
-- **AND** a later task read can retrieve the original comments
+- **AND** the prompt exposes no comment body or comment owner and does not lose the file
 
 ### Requirement: Lightweight neutral task mentions
 
@@ -101,17 +91,17 @@ The Tasks skill description and entry guidance SHALL distinguish task references
 
 #### Scenario: User requests an administrative operation
 
-- **WHEN** the user requests task creation, dependency management, attachment handling, delegation or a comment
+- **WHEN** the user requests task creation, dependency management, attachment handling or delegation
 - **THEN** the skill identifies the reference for that operation without requiring unrelated procedures
 
 ### Requirement: Existing task details remain readable on demand
 
-The existing task CLI SHALL retain access to current task properties, blockers, subtasks, comments, attachments and linked threads. A neutral mention or short skill MUST NOT hide read failures or substitute old comments for current verified state. Reading details MUST NOT itself dispatch, notify or change task status.
+The existing task CLI SHALL retain access to current task properties, blockers, subtasks, task attachments and linked threads. A neutral mention or short skill MUST NOT hide read failures or substitute stale information for current verified state. Reading details MUST NOT itself dispatch, notify or change task status.
 
 #### Scenario: Agent needs comment evidence
 
 - **WHEN** an agent requests current task details for a relevant clarification or review response
-- **THEN** the existing reads return stored comments and references
+- **THEN** the existing reads return retained current task details and references without comments
 - **AND** no worker is resumed and task status remains unchanged
 
 #### Scenario: Current details cannot be read
@@ -137,10 +127,26 @@ Delegated report-back guidance SHALL use at most 120 whitespace-delimited words,
 
 ### Requirement: Context changes preserve data and unrelated configuration
 
-The context reduction SHALL leave stored descriptions, comments, presets, attachments and thread links unchanged. It SHALL apply to newly produced context and newly loaded guidance, not rewrite previously delivered prompts or active provider sessions. Code Cleanup configuration and orchestration runtime changes SHALL remain outside this capability change.
+The context reduction SHALL leave stored descriptions, presets, task attachments and thread links unchanged, except for the explicit comment-removal migration and attachment ownership conversion. It SHALL apply to newly produced context and newly loaded guidance, not rewrite previously delivered prompts or active provider sessions. Code Cleanup configuration and orchestration runtime changes SHALL remain outside this capability change.
 
 #### Scenario: Guidance is updated
 
 - **WHEN** a new task context is produced after the plugin source update
 - **THEN** it uses the reduced guidance
-- **AND** existing records, custom cleanup prompts and previously delivered prompts remain unchanged
+- **AND** retained records, custom cleanup prompts and previously delivered prompts remain unchanged
+
+### Requirement: Agent guidance does not depend on comments
+
+New plugin-authored delegation prompts and bundled Tasks guidance SHALL NOT direct posting or reading task comments, comment notification or comment-owner attachment operations. Useful work reports and required questions SHALL use the linked work thread. Existing authored-context budgets, task-work authorization rules, blocker checks and completion gates SHALL remain in force.
+
+#### Scenario: New delegated worker
+
+- **WHEN** a user delegates a task after comment removal
+- **THEN** the worker receives full retained requirements and comment-free reporting guidance
+- **AND** no automatic replacement summary or new reporting API is introduced
+
+#### Scenario: Prior instructions or user presets
+
+- **WHEN** a running worker or stored custom preset still refers to an old comment command
+- **THEN** previously delivered instructions and stored presets remain unchanged
+- **AND** the removed command is unavailable without a compatibility alias

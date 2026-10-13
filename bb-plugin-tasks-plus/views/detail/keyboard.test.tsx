@@ -111,7 +111,6 @@ function render(
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        getTaskActivity: () => ({ entries: [] }),
         listBbProjects: () => ({ bbProjects: [] }),
         delegate: () => {
           calls.push("delegate");
@@ -227,14 +226,18 @@ describe("task detail property keys", () => {
 });
 
 describe("task detail comment key", () => {
-  it("focuses the comment box on m and lets c be typed there", async () => {
+  it("leaves m inactive and protects description typing", async () => {
     const slot = render("TSK-1");
     await ready(slot, "1 / 3");
-    const activity = await slot.findByRole("region", { name: "Activity" });
-    expect(activity.querySelector('[contenteditable="true"]')).toBeNull();
+    const focus = document.activeElement;
     fireEvent.keyDown(window, { key: "m" });
-    await waitFor(() => expect(activity.contains(document.activeElement)).toBe(true));
-    fireEvent.keyDown(document.activeElement!, { key: "c" });
+    expect(document.activeElement).toBe(focus);
+    expect(slot.queryByRole("region", { name: "Activity" })).toBeNull();
+    const description = slot.container.querySelector<HTMLElement>(
+      '.tiptap[contenteditable="true"]',
+    )!;
+    description.focus();
+    fireEvent.keyDown(description, { key: "c" });
     expect(slot.queryByRole("dialog")).toBeNull();
   });
 });

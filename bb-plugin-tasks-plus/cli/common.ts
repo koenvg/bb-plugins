@@ -1,9 +1,4 @@
-import {
-  PluginCliError,
-  cliCommand,
-  type PluginCliContext,
-  type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+import { PluginCliError, cliCommand, type PluginCliResult } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import type { registerHandlers } from "../api";
 import { errorMessage } from "../shared/errors";
@@ -88,10 +83,6 @@ function withWarnings(stdout: string, warnings: readonly string[]): string | Plu
   };
 }
 
-function taskAuthor(ctx: PluginCliContext): string {
-  return ctx.threadId ? `agent (${ctx.threadId})` : "cli";
-}
-
 function groupCommand(
   group: string,
   summary: string,
@@ -133,7 +124,6 @@ export {
   CliError,
   guard,
   withWarnings,
-  taskAuthor,
   groupCommand,
 };
 export type { PluginStatus, TasksDomain };

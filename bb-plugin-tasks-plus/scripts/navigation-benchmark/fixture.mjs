@@ -16,7 +16,7 @@ export function createFixture(owner) {
   const tasks = Array.from({ length: 100 }, (_, i) => {
     const key = `BENCH-${i + 1}`;
     const marker = `${owner} description ${key}`;
-    const intro = `## ${marker}\n\nCheck the native Ticket pane for ${key}.\n\n- Keep the selected row and description together.\n- Keep comment drafts on their original task.\n\n[Reference](https://example.com/benchmark)\n\n`;
+    const intro = `## ${marker}\n\nCheck the native Ticket pane for ${key}.\n\n- Keep the selected row and description together.\n- Keep description drafts on their original task.\n\n[Reference](https://example.com/benchmark)\n\n`;
     const paragraph =
       "The reviewer checks the current description, dates and labels before moving to the next task. Save failures must keep the original task and its draft available.\n\n";
     const description =
@@ -38,26 +38,6 @@ export function createFixture(owner) {
       marker,
     };
   });
-  const activity = {
-    taskKey: tasks[99].key,
-    comments: Array.from({ length: 50 }, (_, i) => ({
-      id: `${owner}-comment-${i + 1}`,
-      authorKind: i % 2 ? "agent" : "human",
-      body: `### Review ${i + 1}\n\n${owner} checked attachment ownership and task identity.`,
-      createdAt: `2026-10-01T10:${String(i).padStart(2, "0")}:00.000Z`,
-      attachments:
-        i % 5 === 0
-          ? [
-              {
-                id: `${owner}-attachment-${i}`,
-                name: `review-${i}.txt`,
-                mimeType: "text/plain",
-                content: `${owner} review ${i}\n`,
-              },
-            ]
-          : [],
-    })),
-  };
   const warmKeys = tasks.slice(0, 10).map((t) => t.key);
   // Ten visits in each direction, repeated twice: 36 movements with A-B-A returns.
   const movements = [...warmKeys.slice(1), ...warmKeys.slice(0, -1).reverse()];
@@ -69,7 +49,6 @@ export function createFixture(owner) {
     tasks,
     warmKeys,
     movements: [...movements, ...movements],
-    activity,
   };
 }
 export async function writeFixture(dir, owner) {

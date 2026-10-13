@@ -151,14 +151,9 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    fireEvent.click(within(ticket.container).getByRole("button", { name: "Show activity" }));
-    await waitFor(() => expect(ticket.container.querySelectorAll(".tiptap")).toHaveLength(2));
-    const comment = ticket.container.querySelectorAll<HTMLElement>(
-      '.tiptap[contenteditable="true"]',
-    )[1]!;
     await act(async () => {
-      comment.innerHTML = "<p>Old page draft</p>";
-      fireEvent.input(comment);
+      title.textContent = "Old page draft";
+      fireEvent.input(title);
     });
     page.lifecycle.unmount();
     expect(ticket.queryByRole("textbox", { name: "Task title" })).toBeNull();

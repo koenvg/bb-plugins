@@ -74,7 +74,6 @@ function renderList(tasks: Task[], options: Options = {}) {
         listLabels: () => ({ labels: [label] }),
         listTasks: () => ({ tasks }),
         listTaskThreads: () => ({ taskThreads: [] }),
-        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
         updateTask: (raw) => {
           const input = rpcInput(raw);

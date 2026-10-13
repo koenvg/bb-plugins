@@ -110,7 +110,6 @@ function render(subPath: string, detailTask: Task = blocked) {
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
         updateTask: (raw) => {
           const input = rpcInput(raw);

@@ -410,7 +410,6 @@ export function BoardView({ projectId }: BoardViewProps) {
         status: toStatus,
         beforeTaskId: neighbors.beforeTaskId,
         afterTaskId: neighbors.afterTaskId,
-        authorName: "You",
       })
       .then(
         (result) => {

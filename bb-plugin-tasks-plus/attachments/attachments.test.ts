@@ -68,7 +68,6 @@ describe("task attachments", () => {
       expect(result.url).toBe(attachmentDownloadUrl(result.attachmentId));
       expect(attachment).toMatchObject({
         taskId: task.id,
-        commentId: null,
         fileName: "unsafe.png",
         mime: "image/png",
         sizeBytes: 9,
@@ -124,10 +123,10 @@ describe("task attachments", () => {
       expect(noOwner.status).toBe(400);
       expect(twoOwners.status).toBe(400);
       await expect(noOwner.json()).resolves.toEqual({
-        error: "exactly one of taskId or commentId is required",
+        error: "taskId is required",
       });
       await expect(twoOwners.json()).resolves.toEqual({
-        error: "exactly one of taskId or commentId is required",
+        error: "comment ownership is unavailable",
       });
     } finally {
       await harness.dispose();

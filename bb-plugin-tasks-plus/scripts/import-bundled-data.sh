@@ -23,6 +23,7 @@ fail() {
 }
 
 command -v sqlite3 >/dev/null || fail "sqlite3 is not installed"
+command -v node >/dev/null || fail "Node 24.15 or newer is required for the schema migration"
 [ -f "$from/data.db" ] || fail "no database at $from/data.db"
 
 if command -v bb >/dev/null && bb plugin list 2>/dev/null | grep -Eq '^tasks-plus@[^ ]+ +running'; then
@@ -49,12 +50,10 @@ sqlite3 "$tmp/data.db" "
   SET description = replace(description, '/api/v1/plugins/tasks/http/attachments/download?',
                             '/api/v1/plugins/tasks-plus/http/attachments/download?')
   WHERE instr(description, '/api/v1/plugins/tasks/http/attachments/download?') > 0;
-  UPDATE comments
-  SET body = replace(body, '/api/v1/plugins/tasks/http/attachments/download?',
-                      '/api/v1/plugins/tasks-plus/http/attachments/download?')
-  WHERE instr(body, '/api/v1/plugins/tasks/http/attachments/download?') > 0;
   COMMIT;
 "
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+node "$script_dir/migrate-imported-data.mjs" "$tmp/data.db"
 [ "$(sqlite3 "$tmp/data.db" 'PRAGMA integrity_check')" = "ok" ] ||
   fail "attachment link migration failed the integrity check"
 mkdir -p "$to"
@@ -73,4 +72,4 @@ sqlite3 "$to/data.db" "
   SELECT 'presets: ' || count(*) FROM presets;
   SELECT 'thread links: ' || count(*) FROM task_threads;
   SELECT 'attachments: ' || count(*) FROM attachments;"
-echo "Imported $from into $to. Enable the fork with 'bb plugin enable tasks-plus'."
+echo "Imported $from into $to with task-only files. Task comment text was permanently removed from this copy. Enable the fork with 'bb plugin enable tasks-plus'."

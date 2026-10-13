@@ -5,7 +5,7 @@ import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import { cn } from "@/lib/utils";
 import { MAX_ATTACHMENT_SIZE_BYTES } from "../shared/attachments.js";
 import { errorMessage } from "../shared/errors.js";
-import { formatFileSize } from "../views/activity/time.js";
+import { formatFileSize } from "../shared/attachments.js";
 import { uploadAttachment, type AttachmentOwnerRef } from "../views/detail/attachments.js";
 
 export interface StagedAttachment {

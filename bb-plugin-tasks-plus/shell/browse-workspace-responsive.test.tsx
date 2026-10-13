@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -119,39 +120,16 @@ describe("host-controlled Ticket presentation", () => {
     expect(slot.getByRole("region", { name: "Selected ticket" })).toBe(detail);
     expect(detail.scrollTop).toBe(93);
   });
-  it("keeps the same title, description, comment, files and notification choice when the host unmounts the tab", async () => {
+  it("keeps title, description and saved files when the host unmounts Ticket", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
+    const file = makeAttachment(tasks[0]!.id);
+    const saved = deferred<unknown>();
     const slot = setup("all?task=TSK-1", {
-      getTaskActivity: () => ({
-        entries: [
-          {
-            id: "reply",
-            taskId: tasks[0]!.id,
-            kind: "agent",
-            authorName: "Agent",
-            presetName: null,
-            threadId: "thr_agent",
-            threadTitle: "Agent thread",
-            body: "Reply",
-            notifiedCount: 0,
-            createdAt: project.createdAt,
-            provider: null,
-          },
-        ].map((comment) => ({ comment, attachments: [] })),
-      }),
-      updateTask: (raw) => ({
-        ok: true,
-        task: { ...tasks[0], ...rpcInput(raw) },
-      }),
+      listAttachments: () => ({ attachments: [file] }),
+      updateTask: () => saved.promise,
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
     const description = slot.container.querySelector(".tiptap");
-    await edit(slot, "Unsent A", 1);
-    const comment = slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1];
-    fireEvent.click(await slot.findByRole("switch", { name: "Notify Agent thread" }));
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
-      target: { files: [new File(["A"], "a.txt")] },
-    });
     title.textContent = "Unblurred A";
     fireEvent.input(title);
     await edit(slot, "Description draft");
@@ -162,16 +140,17 @@ describe("host-controlled Ticket presentation", () => {
     expect(title.textContent).toBe("Unblurred A");
     expect(slot.container.querySelector(".tiptap")).toBe(description);
     expect(description?.textContent).toBe("Description draft");
-    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]).toBe(comment);
-    expect(comment?.textContent).toBe("Unsent A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(
-      slot.getByRole("switch", { name: "Notify Agent thread" }).getAttribute("aria-checked"),
-    ).toBe("false");
     expect(
       slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();
+    await act(async () =>
+      saved.resolve({
+        ok: true,
+        task: { ...tasks[0], title: "Unblurred A", description: "Description draft" },
+      }),
+    );
   });
 
   it("does not lose a pending originating save when the host closes Ticket", async () => {

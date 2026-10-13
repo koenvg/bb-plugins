@@ -59,7 +59,6 @@ function taskDetailRpc(getTaskByKey: () => { task: typeof task }) {
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
     listPresets: () => ({ presets: [] }),
-    getTaskActivity: () => ({ entries: [] }),
     searchThreads: () => ({ threads: [] }),
   };
 }

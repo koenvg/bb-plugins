@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { registerAttachments } from "../attachments";
 import { attachmentDownloadUrl } from "../shared/attachments";
 import { tasksRpcContract } from "../shared/contract";
-import { createComment, createStore, registerTasksApi } from ".";
+import { createStore, registerTasksApi } from ".";
 
 describe("Tasks RPC domain API", () => {
   it("counts unfinished top-level tasks once across projects", async () => {
@@ -244,329 +244,6 @@ describe("Tasks RPC domain API", () => {
     await harness.dispose();
   });
 
-  it("persists one successful notification to the latest replying agent", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        threads: {
-          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
-          send: async () => undefined,
-        },
-      },
-    });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Notifications",
-      prefix: "NTF",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Notify workers",
-    });
-    for (const [threadId, liveStatus] of [
-      ["thr_one", "working"],
-      ["thr_two", "working"],
-      ["thr_done", "completed"],
-    ] as const) {
-      store.tasks.upsertTaskThread({
-        taskId: task.id,
-        threadId,
-        presetName: "Default",
-        title: threadId,
-        liveStatus,
-      });
-    }
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "First agent",
-      threadId: "thr_one",
-      body: "First reply",
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "Second agent",
-      threadId: "thr_two",
-      body: "Latest reply",
-    });
-
-    const result = tasksRpcContract.createComment.output.parse(
-      await harness.callRpc("createComment", {
-        taskId: task.id,
-        body: "Keep both workers aligned.",
-        notify: true,
-      }),
-    );
-
-    expect(result.comment.notifiedCount).toBe(1);
-    expect(store.tasks.getComment(result.comment.id)?.notifiedCount).toBe(1);
-    expect(harness.sdk.callsTo("threads.send")).toEqual([
-      [expect.objectContaining({ threadId: "thr_two" })],
-    ]);
-    expect(harness.realtimeSignals.at(-1)).toEqual({
-      channel: "comments:changed",
-      payload: { taskId: task.id },
-    });
-    await harness.dispose();
-  });
-
-  it("resolves the live thread title for agent comments and falls back otherwise", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        threads: {
-          get: async ({ threadId }: { threadId: string }) => {
-            if (threadId === "thr_titled") {
-              return makeThreadResponse({
-                id: threadId,
-                title: "Fix the login bug",
-              });
-            }
-            if (threadId === "thr_fallback_only") {
-              return makeThreadResponse({
-                id: threadId,
-                title: null,
-                titleFallback: "Untitled work",
-              });
-            }
-            if (threadId === "thr_blank_title") {
-              return makeThreadResponse({
-                id: threadId,
-                title: "   ",
-                titleFallback: "Recovered fallback",
-              });
-            }
-            if (threadId === "thr_side_chat") {
-              return makeThreadResponse({
-                id: threadId,
-                title: "Internal side chat",
-                originKind: "fork",
-                originPluginId: "side-chat",
-                visibility: "hidden",
-              });
-            }
-            throw new Error("thread_not_found");
-          },
-        },
-      },
-    });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Notifications",
-      prefix: "NTF",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Wire up comments",
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (thr_titled)",
-      threadId: "thr_titled",
-      body: "Titled",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (thr_fallback_only)",
-      threadId: "thr_fallback_only",
-      body: "Fallback title",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (thr_blank_title)",
-      threadId: "thr_blank_title",
-      body: "Blank title",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (thr_side_chat)",
-      threadId: "thr_side_chat",
-      body: "Side chat",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (thr_missing)",
-      threadId: "thr_missing",
-      body: "Missing thread",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "agent (legacy)",
-      threadId: null,
-      body: "Legacy",
-      notifiedCount: 0,
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "user",
-      authorName: "You",
-      threadId: null,
-      body: "Human note",
-      notifiedCount: 0,
-    });
-
-    const result = tasksRpcContract.listComments.output.parse(
-      await harness.callRpc("listComments", { taskId: task.id }),
-    );
-    const titleByBody = new Map(
-      result.comments.map((comment) => [comment.body, comment.threadTitle]),
-    );
-    expect(titleByBody.get("Titled")).toBe("Fix the login bug");
-    expect(titleByBody.get("Fallback title")).toBe("Untitled work");
-    expect(titleByBody.get("Blank title")).toBe("Recovered fallback");
-    expect(titleByBody.get("Side chat")).toBeNull();
-    expect(titleByBody.get("Missing thread")).toBeNull();
-    expect(titleByBody.get("Legacy")).toBeNull();
-    expect(titleByBody.get("Human note")).toBeNull();
-    expect(harness.sdk.callsTo("threads.get")).toHaveLength(5);
-    await harness.dispose();
-  });
-
-  it("resolves the authoring provider badge for agent comments and falls back otherwise", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        threads: {
-          get: async ({ threadId }: { threadId: string }) => {
-            if (threadId === "thr_codex") {
-              return makeThreadResponse({ id: threadId, providerId: "codex" });
-            }
-            if (threadId === "thr_custom") {
-              return makeThreadResponse({
-                id: threadId,
-                providerId: "acp-custom",
-              });
-            }
-            if (threadId === "thr_side_chat") {
-              return makeThreadResponse({
-                id: threadId,
-                title: "Internal side chat",
-                originKind: "fork",
-                originPluginId: "side-chat",
-                visibility: "hidden",
-                providerId: "claude-code",
-              });
-            }
-            if (threadId === "thr_uninstalled") {
-              return makeThreadResponse({
-                id: threadId,
-                providerId: "acp-gone",
-              });
-            }
-            throw new Error("thread_not_found");
-          },
-        },
-        providers: {
-          list: async () => [
-            {
-              id: "codex",
-              displayName: "Codex",
-              logoUrl: null,
-              icon: { glyph: "Check" },
-              strings: { iconTint: { light: "#123456", dark: "#abcdef" } },
-            },
-            { id: "claude-code", displayName: "Claude Code", logoUrl: null },
-            {
-              id: "acp-custom",
-              displayName: "Custom Agent",
-              logoUrl: "/api/v1/system/providers/acp-custom/logo",
-            },
-          ],
-        },
-      },
-    });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Providers",
-      prefix: "PRV",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Provider badges",
-    });
-    const agentComment = (body: string, threadId: string | null): void => {
-      store.tasks.createComment({
-        taskId: task.id,
-        kind: "agent",
-        authorName: `agent (${threadId ?? "legacy"})`,
-        threadId,
-        body,
-        notifiedCount: 0,
-      });
-    };
-    agentComment("Codex", "thr_codex");
-    agentComment("Custom logo", "thr_custom");
-    agentComment("Side chat", "thr_side_chat");
-    agentComment("Uninstalled", "thr_uninstalled");
-    agentComment("Missing thread", "thr_missing");
-    agentComment("Legacy", null);
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "user",
-      authorName: "You",
-      threadId: null,
-      body: "Human note",
-      notifiedCount: 0,
-    });
-
-    const result = tasksRpcContract.listComments.output.parse(
-      await harness.callRpc("listComments", { taskId: task.id }),
-    );
-    const byBody = new Map(result.comments.map((comment) => [comment.body, comment]));
-    expect(byBody.get("Codex")?.provider).toEqual({
-      id: "codex",
-      name: "Codex",
-      logoUrl: null,
-      icon: { glyph: "Check" },
-      strings: { iconTint: { light: "#123456", dark: "#abcdef" } },
-    });
-    expect(byBody.get("Custom logo")?.provider).toEqual({
-      id: "acp-custom",
-      name: "Custom Agent",
-      logoUrl: "/api/v1/system/providers/acp-custom/logo",
-      icon: null,
-      strings: { iconTint: null },
-    });
-    expect(byBody.get("Side chat")?.provider).toEqual({
-      id: "claude-code",
-      name: "Claude Code",
-      logoUrl: null,
-      icon: null,
-      strings: { iconTint: null },
-    });
-    expect(byBody.get("Side chat")?.threadTitle).toBeNull();
-    expect(byBody.get("Uninstalled")?.provider).toEqual({
-      id: "acp-gone",
-      name: "acp-gone",
-      logoUrl: null,
-      icon: null,
-      strings: { iconTint: null },
-    });
-    expect(byBody.get("Missing thread")?.provider).toBeNull();
-    expect(byBody.get("Legacy")?.provider).toBeNull();
-    expect(byBody.get("Human note")?.provider).toBeNull();
-    expect(harness.sdk.callsTo("providers.list")).toHaveLength(1);
-    await harness.dispose();
-  });
-
   it("lists bb workspace projects as id/name options", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
@@ -684,177 +361,6 @@ describe("Tasks RPC domain API", () => {
     await harness.dispose();
   });
 
-  it("does not send for notify=false or when no prior agent has replied", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: { threads: { send: async () => undefined } },
-    });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Quiet comments",
-      prefix: "QIT",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Avoid loops",
-    });
-    store.tasks.upsertTaskThread({
-      taskId: task.id,
-      threadId: "thr_worker",
-      presetName: "Default",
-      title: "Worker",
-      liveStatus: "working",
-    });
-
-    const quietResult = tasksRpcContract.createComment.output.parse(
-      await harness.callRpc("createComment", {
-        taskId: task.id,
-        body: "Record this without notifying.",
-        notify: false,
-      }),
-    );
-    const agentComment = await createComment(bb, store, {
-      taskId: task.id,
-      kind: "agent",
-      authorName: "Worker",
-      presetName: null,
-      threadId: "thr_worker",
-      body: "Reporting progress.",
-      notify: true,
-    });
-
-    expect(quietResult.comment.notifiedCount).toBe(0);
-    expect(agentComment.notifiedCount).toBe(0);
-    expect(harness.sdk.callsTo("threads.send")).toEqual([]);
-    expect(harness.realtimeSignals.slice(-2)).toEqual([
-      {
-        channel: "comments:changed",
-        payload: { taskId: task.id },
-      },
-      {
-        channel: "comments:changed",
-        payload: { taskId: task.id },
-      },
-    ]);
-    await harness.dispose();
-  });
-
-  it("allows an empty comment body only with attachment intent", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Attachment comments",
-      prefix: "ACM",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Attach without text",
-    });
-
-    await expect(
-      harness.callRpc("createComment", {
-        taskId: task.id,
-        body: "",
-        notify: false,
-      }),
-    ).rejects.toMatchObject({ code: "invalid_input" });
-
-    await expect(
-      harness.callRpc("createComment", {
-        taskId: task.id,
-        body: "",
-        notify: false,
-        allowEmptyBody: true,
-      }),
-    ).resolves.toEqual({
-      comment: expect.objectContaining({
-        taskId: task.id,
-        body: "",
-        notifiedCount: 0,
-      }),
-    });
-
-    await harness.dispose();
-  });
-
-  it("keeps the comment when delivery to the latest responder fails", async () => {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: {
-        threads: {
-          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
-          send: async (input) => {
-            if (input.threadId === "thr_failing") {
-              throw new Error("active turn finished");
-            }
-          },
-        },
-      },
-    });
-    const store = createStore(bb);
-    registerTasksApi(bb, store);
-    const project = store.tasks.createProject({
-      name: "Partial delivery",
-      prefix: "PRT",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Keep comments durable",
-    });
-    for (const threadId of ["thr_success", "thr_failing"]) {
-      store.tasks.upsertTaskThread({
-        taskId: task.id,
-        threadId,
-        presetName: "Default",
-        title: threadId,
-        liveStatus: "working",
-      });
-    }
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "Earlier agent",
-      threadId: "thr_success",
-      body: "Earlier reply",
-    });
-    store.tasks.createComment({
-      taskId: task.id,
-      kind: "agent",
-      authorName: "Latest agent",
-      threadId: "thr_failing",
-      body: "Latest reply",
-    });
-
-    const result = tasksRpcContract.createComment.output.parse(
-      await harness.callRpc("createComment", {
-        taskId: task.id,
-        body: "This comment must survive delivery failures.",
-        notify: true,
-      }),
-    );
-
-    expect(result.comment.notifiedCount).toBe(0);
-    expect(store.tasks.getComment(result.comment.id)).toMatchObject({
-      body: "This comment must survive delivery failures.",
-      notifiedCount: 0,
-    });
-    expect(harness.sdk.callsTo("threads.send")).toHaveLength(1);
-    expect(harness.logEntries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          level: "warn",
-          message: expect.stringContaining("thr_failing"),
-        }),
-      ]),
-    );
-    await harness.dispose();
-  });
-
   it("removes task and comment attachment blobs when deleting a task", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     const store = createStore(bb);
@@ -869,12 +375,6 @@ describe("Tasks RPC domain API", () => {
       projectId: project.id,
       title: "Delete blobs",
     });
-    const comment = store.tasks.createComment({
-      taskId: task.id,
-      kind: "user",
-      authorName: "Sawyer",
-      body: "Attached context",
-    });
 
     try {
       const taskUpload = await harness.fetchHttp(
@@ -884,15 +384,15 @@ describe("Tasks RPC domain API", () => {
       );
       const commentUpload = await harness.fetchHttp(
         "POST",
-        `/attachments/upload?commentId=${comment.id}&fileName=comment.txt&mime=text%2Fplain`,
+        `/attachments/upload?taskId=${task.id}&fileName=comment.txt&mime=text%2Fplain`,
         { body: "comment blob", headers: { "content-type": "text/plain" } },
       );
       const taskAttachmentId = ((await taskUpload.json()) as { attachmentId: string }).attachmentId;
-      const commentAttachmentId = ((await commentUpload.json()) as { attachmentId: string })
+      const retainedAttachmentId = ((await commentUpload.json()) as { attachmentId: string })
         .attachmentId;
       const taskAttachment = store.tasks.getAttachment(taskAttachmentId);
-      const commentAttachment = store.tasks.getAttachment(commentAttachmentId);
-      if (!taskAttachment || !commentAttachment) {
+      const retainedAttachment = store.tasks.getAttachment(retainedAttachmentId);
+      if (!taskAttachment || !retainedAttachment) {
         throw new Error("attachment rows were not created");
       }
       const database = bb.storage
@@ -901,7 +401,7 @@ describe("Tasks RPC domain API", () => {
         .all()
         .find((entry) => entry.name === "main");
       if (!database) throw new Error("test database path is missing");
-      const blobDirectories = [taskAttachment, commentAttachment].map((attachment) =>
+      const blobDirectories = [taskAttachment, retainedAttachment].map((attachment) =>
         dirname(join(dirname(database.file), attachment.blobPath)),
       );
 
@@ -1001,41 +501,20 @@ describe("Tasks RPC domain API", () => {
         priority: "high",
         dueDate: "2026-07-20",
         labelIds: [labelResult.label.id],
-        authorName: "Sawyer",
       }),
     );
     expect(updateResult).toMatchObject({
       ok: true,
       task: { status: "in_review" },
     });
-    expect(store.tasks.listComments(createResult.task.id)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "system",
-          authorName: "Sawyer",
-          body: "Status changed to In Review by Sawyer",
-          notifiedCount: 0,
-        }),
-        expect.objectContaining({
-          kind: "system",
-          body: "Priority changed to High by Sawyer",
-        }),
-        expect.objectContaining({
-          kind: "system",
-          body: "Due date changed to 2026-07-20 by Sawyer",
-        }),
-        expect.objectContaining({
-          kind: "system",
-          body: "Labels changed to Backend by Sawyer",
-        }),
-      ]),
-    );
+    expect(
+      bb.storage.database().prepare("SELECT name FROM sqlite_master WHERE name = 'comments'").all(),
+    ).toEqual([]);
 
     const moveResult = tasksRpcContract.boardMove.output.parse(
       await harness.callRpc("boardMove", {
         taskId: createResult.task.id,
         status: "done",
-        authorName: "Sawyer",
       }),
     );
     expect(moveResult).toMatchObject({ ok: true, task: { status: "done" } });
@@ -1120,10 +599,6 @@ describe("Tasks RPC domain API", () => {
         {
           channel: "tasks:changed",
           payload: { taskId: createResult.task.id, projectId: project.id },
-        },
-        {
-          channel: "comments:changed",
-          payload: { taskId: createResult.task.id },
         },
       ]),
     );

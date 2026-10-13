@@ -164,7 +164,6 @@ function baseRpc(
       return { tasks: next };
     },
     listTaskThreads: () => ({ taskThreads: [] }),
-    getTaskActivity: () => ({ entries: [] }),
     listAttachments: () => ({ attachments: [] }),
     ...overrides,
   };

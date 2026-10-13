@@ -92,7 +92,6 @@ export function setup(
         }),
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
-        getTaskActivity: () => ({ entries: [] }),
         listTaskThreads: () => ({ taskThreads: [] }),
         listTaskDependencies: () => ({ blockers: [], blocking: [] }),
         listTaskPullRequests: () => ({
@@ -117,7 +116,9 @@ export async function acceptNavigation(slot: ReturnType<typeof setup>) {
 export const row = (slot: ReturnType<typeof setup>, n: number) =>
   slot.getByRole("button", { name: `Open TSK-${n}: Title ${n}` });
 export async function select(slot: ReturnType<typeof setup>, n: number) {
+  const before = slot.inspection.navigateCalls.length;
   fireEvent.click(row(slot, n));
+  await waitFor(() => expect(slot.inspection.navigateCalls.length).toBeGreaterThan(before));
   await acceptNavigation(slot);
   await slot.findByRole("textbox", { name: "Task title" });
 }
@@ -128,15 +129,13 @@ export function deferred<T>() {
   });
   return { promise, resolve };
 }
-export async function activateActivity(slot: ReturnType<typeof setup>) {
-  const button = slot.queryByRole("button", { name: "Show activity" });
-  if (button) fireEvent.click(button);
+export async function readyDescription(slot: ReturnType<typeof setup>) {
   await waitFor(() =>
-    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')).toHaveLength(2),
+    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')).toHaveLength(1),
   );
 }
 export async function edit(slot: ReturnType<typeof setup>, text: string, index = 0) {
-  if (index === 1) await activateActivity(slot);
+  await readyDescription(slot);
   await act(async () => {
     const editor = slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[
       index

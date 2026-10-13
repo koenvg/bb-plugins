@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
+import { makeAttachment } from "../test-fixtures.js";
 import { StrictMode } from "react";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
 import {
   acceptNavigation,
-  activateActivity,
   Panel,
   deferred,
   edit,
@@ -128,27 +128,36 @@ describe("retained preview safety", () => {
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved warm A");
   });
 
-  it("recreates editors but preserves task-owned comment text and staged files", async () => {
-    const slot = setup();
-    await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
-    await select(slot, 1);
-    const origin = slot.container.querySelector(".tiptap");
-    await edit(slot, "Comment A", 1);
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
-      target: { files: [new File(["A"], "draft-a.txt")] },
+  it("preserves saved descriptions and task files through A-B-A navigation", async () => {
+    const records = tasks.map((task) => ({ ...task }));
+    const file = makeAttachment(records[0]!.id);
+    const writes: Record<string, unknown>[] = [];
+    const slot = setup("all?task=TSK-1", {
+      getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
+      listAttachments: (raw) => ({
+        attachments: rpcInput(raw).taskId === file.taskId ? [file] : [],
+      }),
+      updateTask: (raw) => {
+        const input = rpcInput(raw);
+        writes.push(input);
+        const task = records.find((t) => t.id === input.taskId)!;
+        Object.assign(task, input);
+        return { ok: true, task };
+      },
     });
+    await slot.findByRole("textbox", { name: "Task title" });
+    const origin = slot.container.querySelector(".tiptap");
+    await edit(slot, "Saved A");
     await select(slot, 2);
-    await edit(slot, "Comment B", 1);
+    expect(slot.queryByText("a.txt")).toBeNull();
+    expect(slot.container.textContent).not.toContain("Saved A");
     await select(slot, 1);
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
-    await activateActivity(slot);
-    expect(slot.container.textContent).toContain("Comment A");
-    expect(slot.container.textContent).not.toContain("Comment B");
-    expect(slot.getByText("draft-a.txt")).toBeTruthy();
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
+    expect(slot.getByText("a.txt")).toBeTruthy();
+    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
     expect(
-      slot.inspection.rpcCalls.filter((c) =>
-        ["createComment", "createAttachment", "delegate"].includes(c.method),
-      ),
+      slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
   });
 

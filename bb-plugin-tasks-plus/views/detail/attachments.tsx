@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { attachmentDownloadUrl, TASKS_PLUS_API_BASE } from "../../shared/attachments.js";
 import type { Attachment } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
-import { formatFileSize } from "../activity/time.js";
+import { formatFileSize } from "../../shared/attachments.js";
 import { ConfirmDialog } from "../../components/confirm-dialog.js";
 import { Icon } from "@/components/ui/icon";
 
@@ -31,7 +31,7 @@ function pluginToken(): Promise<string> {
   return tokenPromise;
 }
 
-export type AttachmentOwnerRef = { taskId: string } | { commentId: string };
+export type AttachmentOwnerRef = { taskId: string };
 
 export async function uploadAttachment(
   file: File,

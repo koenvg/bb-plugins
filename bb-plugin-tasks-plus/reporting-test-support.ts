@@ -3,7 +3,7 @@ import { expect } from "vitest";
 // Check emitted instructions, not model compliance or a fixed prose template.
 export function expectReportingRules(text: string): void {
   const guidance = text.replace(/\s+/g, " ");
-  expect(guidance).toMatch(/comment only for/i);
+  expect(guidance).toMatch(/report useful outcomes in the linked work thread/i);
   for (const outcome of [
     "review readiness",
     "completion",

@@ -3,9 +3,11 @@
 Tasks is a Linear-style tracker inside bb for planning work, delegating it to
 agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
-subtasks, Markdown comments, attachments, agent presets, and a full CLI.
+subtasks, attachments, agent presets, and a full CLI.
 
 The package targets BB 0.45 and SDK 0.6.15. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
+
+Task comments are removed by migration 12. Read [the upgrade and rollback procedure](COMMENT-REMOVAL-UPGRADE.md) before enabling this build against existing data.
 
 ## Development checks
 
@@ -37,9 +39,9 @@ selection does not change typecheck coverage or CI wiring.
 
 BB Orchestrator is no longer available. Its commands, RPCs, report tools,
 approval UI, and bundled skill have been removed. Use ordinary Tasks commands
-for manual worker starts and task comments.
+for manual worker starts and linked work-thread reporting.
 
-Existing migration versions, historical records, comments, and worker links
+Existing migration versions, historical records and worker links
 remain intact for upgrade safety. Loading or reloading Tasks does not replay
 old Orchestrator work. Removal does not stop native workers or cancel input
 that BB already accepted.
@@ -82,7 +84,7 @@ The import does not change `~/.bb/plugins/tasks/`. If that folder is damaged,
 restore it from the backup. Changes made in the fork do not go back to the
 bundled plugin.
 
-The import rewrites attachment download links in copied task descriptions and comments
+The import rewrites attachment download links in copied task descriptions
 to `tasks-plus` routes. It leaves the bundled database unchanged.
 
 ## Quick start
@@ -115,15 +117,7 @@ at the CLI boundary. You can also delegate from a task's **Delegate** menu,
 choose or create presets under **Manage → Presets**, and type `@` in the bb
 composer to send a task mention to an agent.
 
-The comment composer shows a **Notify last responding agent** switch. When the
-task has an agent reply, leave it on to send the new comment to the thread that
-authored the latest reply, resuming that thread when it is idle. Turn it off to
-keep the comment in Tasks only. If no agent has replied, the disabled control
-says so explicitly. Agents and scripts can use the same behavior with
-`bb tasks comment PROD-1 --body "New context" --notify`.
-When run from a thread, the CLI preserves that agent thread and any explicit
-`--author`; notification still targets the prior latest responder rather than
-the newly recorded agent comment itself.
+Task descriptions hold requirements and current state. Linked work threads hold discussion, outcome reports and questions. There is no task Activity section or notification control.
 
 ## Delete a Tasks project
 
@@ -301,13 +295,7 @@ accessible until Retry succeeds.
 Removing the last project follows the same rule: the empty-project screen waits
 until pending saves succeed and the selected route clears.
 
-Unsent comment text, staged files, and the notification switch stay with each
-ticket while the Tasks panel remains mounted. Switching never posts a comment,
-uploads staged files, notifies an agent, or delegates work. An explicit send or
-upload that finishes after switching still belongs to the original ticket.
-
-Comment drafts are memory-only. Closing the panel or reloading the browser can
-lose them. Leaving BB or closing the panel is not an awaited-save guarantee.
+Saved task files keep task ownership across selection changes. Switching does not upload files, notify an agent or delegate work. Closing the panel is not an awaited-save guarantee.
 Standalone links and thread-side detail keep the same editor and explicit actions.
 See [the transition contract](views/detail/README.md) for workspace integration.
 
@@ -335,9 +323,8 @@ machine; pass `--machine <id-or-name>` to target another enrolled machine.
 | `bb tasks folder create\|list\|update\|delete` | Organize tracker projects into nested folders. Deleting a folder moves its projects and subfolders to the top level; no tasks are deleted.                 |
 | `bb tasks create`                              | Create a task with description, priority, labels, due date, optional parent, and file attachments (repeatable `--attach <path>`).                          |
 | `bb tasks list`                                | Page/filter tasks by project, status, priority, label, active agents, search text, or `--ready`/`--blocked`; supports `--sort`, `--limit`, and `--cursor`. |
-| `bb tasks show <key-or-id>`                    | Show the complete task record, including blockers, blocked tasks, comments, attachments, subtasks, and attached threads.                                   |
+| `bb tasks show <key-or-id>`                    | Show the complete task record, including blockers, blocked tasks, attachments, subtasks, and attached threads.                                             |
 | `bb tasks update <key-or-id>`                  | Update status, priority, title, description, due date, labels, or blockers (`--blocked-by`, `--unblocked-by`).                                             |
-| `bb tasks comment <key-or-id>`                 | Add a Markdown comment from inline text or a file; optionally notify the latest responding task agent.                                                     |
 | `bb tasks attachment add\|get\|list\|remove`   | Add, fetch, list, or remove attachments. Referenced attachments require `remove --remove-references`.                                                      |
 | `bb tasks preset list\|create\|update\|delete` | Manage reusable agent execution presets.                                                                                                                   |
 | `bb tasks delegate <key>`                      | Start and attach a new agent thread using a preset.                                                                                                        |
@@ -345,7 +332,7 @@ machine; pass `--machine <id-or-name>` to target another enrolled machine.
 | `bb tasks detach <key-or-id>`                  | Detach the current bb thread (or `--thread <id>`) from a task, when the user explicitly requests removal of the link.                                      |
 | `bb tasks threads <key>`                       | List the bb threads attached to a task: live threads first, newest first.                                                                                  |
 | `bb tasks label create\|list\|delete`          | Manage project-scoped labels.                                                                                                                              |
-| `bb tasks seed-demo --yes`                     | Create sample folders, projects, labels, tasks, and comments for evaluation.                                                                               |
+| `bb tasks seed-demo --yes`                     | Create sample folders, projects, labels, tasks for evaluation.                                                                                             |
 
 Statuses are `backlog`, `todo`, `in_progress`, `in_review`, `done`, and
 `canceled`. Priorities are `urgent`, `high`, `medium`, `low`, and `none`.
@@ -368,7 +355,7 @@ bb tasks list --blocked                        # tasks with an open blocker
 - `update --status in_progress` and `dispatch` on a blocked task still run.
   They print a warning on stderr, or a `warnings` array with `--json`.
 - When the last open blocker goes to `done` or `canceled`, the blocked task
-  gets an "Unblocked" system comment. No thread is notified.
+  becomes ready without a comment or replacement history entry. No thread is notified.
 - The worker prompt of a dispatched task has a "Blocked by" section.
 
 Task lists default to 100 rows and accept `--limit 1-500`. JSON output is
@@ -389,13 +376,9 @@ uses repeatedly before dispatching work.
 
 Delegation creates a worker thread in the linked bb project, attaches that
 thread to the task, and advances a `backlog` or `todo` task to `in_progress`.
-The worker receives the full task description, blockers, subtasks, task/comment
+The worker receives the full task description, blockers, subtasks, task
 attachment references, preset instructions and explicit extra instructions.
-Its short report-back policy calls for comments only at review readiness,
-completion, failure, blockers or user decisions. Workers read current requirements
-and blockers before work, and read comments only when relevant. Recent comment
-bodies are not added to the starting prompt. Use `in_review` while required review
-remains and `done` only when all completion gates are met.
+Useful review-readiness, completion, failure, blocker and decision reports go in the linked work thread. Report relevant checks and limits, and distinguish reported from verified evidence. Workers read current requirements and blockers before work. Use `in_review` while required review remains and `done` only after all completion gates.
 
 If work begins outside the Delegate action, the agent can associate its current
 thread with `bb tasks attach KEY`. Keep task-to-thread links when work completes,
@@ -419,10 +402,10 @@ ownership or reporting authority and do not dispatch work.
 Type `@` in the bb composer and select **Tasks** to search by task key or title.
 Sending the mention gives the agent the task key, title, full description and a
 pointer to read current details when needed. It does not assign work or direct
-attachment, comments, delegation or status changes. Tasks linked to the current
+attachment, delegation or status changes. Tasks linked to the current
 bb project still rank first.
 
-Inside a task description or comment, `@` also inserts a task pill. These
+Inside a task description, `@` also inserts a task pill. These
 references are stored in Markdown as `[PROD-1](bbtask://PROD-1)`, so they remain
 portable in task content.
 
@@ -458,7 +441,7 @@ Tasks does not create an inner split. The selected row stays highlighted, both
 areas scroll independently, and selection does not focus an editor.
 
 The detail keeps title, description, properties, dependencies, subtasks, files,
-comments, linked threads, and delegation. Pending autosaves must succeed before
+linked threads, and delegation. Pending autosaves must succeed before
 selection changes. Retry a failed save without leaving the originating draft.
 
 Browse links carry optional selection, for example `all?task=TSK-2` or
@@ -524,11 +507,7 @@ Long row titles and important metadata wrap in constrained list containers.
 Status, priority, and expansion controls have larger coarse-pointer targets.
 Board and thread-side detail layouts are unchanged.
 
-Unsent comment text, staged files, and notification choice stay task-owned for the
-mounted Tasks session. Tab switches and resize do not submit, upload, notify, or delegate.
-Explicit operations finishing later still belong to their originating task.
-Closing the native Ticket tab is safe; closing the Tasks page or reloading the
-browser ends this session's unsent-draft retention.
+Title and description drafts stay with the mounted Tasks session when Ticket is parked. Saved task files keep their owner. Tab switches and resize do not upload, notify or delegate. Closing the Tasks page or reloading the browser ends session retention.
 
 ## Remembered project scope
 
@@ -560,14 +539,14 @@ shortcut definitions as the listener. Single keys do nothing while typing in
 inputs or rich text, during composition, with Cmd/Ctrl/Alt held, inside another
 BB pane, or while a menu or dialog is open. Escape never discards an editor draft.
 
-| Where            | Keys                                                                                                                                |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Anywhere         | `c` new task, `?` shortcuts, `v` list or board on project routes                                                                    |
-| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order  |
-| List row         | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row           |
-| Ticket detail    | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu, `m` comment focus                                   |
-| Board            | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority                                        |
-| Standalone task  | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu, and comment keys as above |
+| Where            | Keys                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Anywhere         | `c` new task, `?` shortcuts, `v` list or board on project routes                                                                   |
+| Browse workspace | `j` `k` / `↓` `↑` select next/previous preview from either non-editable pane; `[` `]` and pager buttons use the same visible order |
+| List row         | `Enter` `o` select the row and focus its loaded preview; `s` status, `p` priority, `l` labels on the focused selected row          |
+| Ticket detail    | `Esc` return to the same row; `s` `p` `l` properties, `d` dispatch preset menu                                                     |
+| Board            | `h` `l` / `←` `→` column, `j` `k` / `↓` `↑` card, `Enter` `o` open, `s` status, `p` priority                                       |
+| Standalone task  | `Esc` back, `[` `]` previous/next in the existing standalone pager order; detail property, dispatch-menu keys as above             |
 
 Movement starts at the first row in either direction with no selection, clamps at
 the ends, and waits for settled filtered/sorted order, including expanded subtasks
@@ -579,8 +558,7 @@ error. Escape restores row focus without scrolling or clearing selection.
 Selection and context changes wait for safe saves. Failure leaves the origin,
 draft, selection, and Retry accessible. A superseded request cannot steal focus.
 Property keys belong only to the focused pane, even while both panes stay mounted.
-Closing help or a row menu restores its prior focus. Navigation never submits a
-comment, uploads a file, notifies, or delegates.
+Closing help or a row menu restores its prior focus. Navigation never uploads a file, notifies, or delegates.
 
 The bb command palette (`Mod+Shift+P`) also lists **Tasks: New task**,
 **Tasks: Go to All tasks**, **Tasks: Go to Active tasks**, **Tasks: Go to
@@ -611,6 +589,4 @@ There is no direct board shortcut for the picker, including Shift+P.
 
 ## Fast follow
 
-- Batch task-list enrichment for comments and attached-thread state.
-- Add notifications and an inbox for task activity.
 - Add a command palette entry for Tasks to cmd-K.

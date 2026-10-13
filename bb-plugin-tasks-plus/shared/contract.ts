@@ -136,56 +136,16 @@ const labelSchema = z
   })
   .strict();
 
-const commentSchema = z
-  .object({
-    id: idSchema,
-    taskId: idSchema,
-    kind: z.enum(["user", "agent", "system"]),
-    authorName: z.string(),
-    presetName: z.string().nullable(),
-    threadId: z.string().startsWith("thr_").nullable(),
-    body: z.string(),
-    notifiedCount: z.number().int().nonnegative(),
-    createdAt: z.string(),
-  })
-  .strict();
-
-const commentProviderSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    logoUrl: z.string().nullable(),
-    icon: z.object({ glyph: z.string() }).strict().nullable(),
-    strings: z
-      .object({
-        iconTint: z.object({ light: z.string(), dark: z.string() }).strict().nullable(),
-      })
-      .strict(),
-  })
-  .strict();
-
-const displayCommentSchema = commentSchema
-  .extend({
-    threadTitle: z.string().nullable(),
-    provider: commentProviderSchema.nullable(),
-  })
-  .strict();
-
 const attachmentSchema = z
   .object({
     id: idSchema,
-    taskId: idSchema.nullable(),
-    commentId: idSchema.nullable(),
+    taskId: idSchema,
     fileName: z.string(),
     mime: z.string(),
     sizeBytes: z.number().int().nonnegative(),
     isImage: z.boolean(),
     createdAt: z.string(),
   })
-  .strict();
-
-const taskActivityEntrySchema = z
-  .object({ comment: displayCommentSchema, attachments: z.array(attachmentSchema) })
   .strict();
 
 const taskThreadSchema = z
@@ -417,7 +377,6 @@ const updateTaskInputSchema = z
     labelIds: taskLabelsSchema.optional(),
     addBlockerTaskIds: z.array(idSchema).max(100).optional(),
     removeBlockerTaskIds: z.array(idSchema).max(100).optional(),
-    authorName: nonBlankStringSchema.default("You"),
   })
   .strict()
   .refine(
@@ -660,7 +619,6 @@ export const tasksRpcContract = defineRpcContract({
         status: taskStatusSchema,
         beforeTaskId: idSchema.nullable().optional(),
         afterTaskId: idSchema.nullable().optional(),
-        authorName: nonBlankStringSchema.default("You"),
       })
       .strict(),
     output: taskMutationResultSchema,
@@ -687,34 +645,8 @@ export const tasksRpcContract = defineRpcContract({
     input: z.object({ projectId: idSchema }).strict(),
     output: z.object({ labels: z.array(labelSchema) }).strict(),
   },
-  createComment: {
-    input: z
-      .object({
-        taskId: idSchema,
-        body: z.string(),
-        notify: z.boolean(),
-        allowEmptyBody: z.boolean().default(false),
-      })
-      .strict()
-      .refine((input) => input.allowEmptyBody || input.body.trim().length > 0, {
-        path: ["body"],
-        message: "Comment body cannot be empty",
-      }),
-    output: z.object({ comment: commentSchema }).strict(),
-  },
-  listComments: {
-    input: z.object({ taskId: idSchema }).strict(),
-    output: z.object({ comments: z.array(displayCommentSchema) }).strict(),
-  },
-  getTaskActivity: {
-    input: z.object({ taskId: idSchema }).strict(),
-    output: z.object({ entries: z.array(taskActivityEntrySchema) }).strict(),
-  },
   listAttachments: {
-    input: z.union([
-      z.object({ taskId: idSchema }).strict(),
-      z.object({ commentId: idSchema }).strict(),
-    ]),
+    input: z.object({ taskId: idSchema }).strict(),
     output: z.object({ attachments: z.array(attachmentSchema) }).strict(),
   },
   deleteAttachment: {
@@ -865,11 +797,7 @@ export type TaskDependencyRef = z.infer<typeof taskDependencyRefSchema>;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 export type Label = z.infer<typeof labelSchema>;
-export type Comment = z.infer<typeof commentSchema>;
-export type CommentProvider = z.infer<typeof commentProviderSchema>;
-export type DisplayComment = z.infer<typeof displayCommentSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
-export type TaskActivityEntry = z.infer<typeof taskActivityEntrySchema>;
 export type TaskThread = z.infer<typeof taskThreadSchema>;
 export type TaskPullRequest = z.infer<typeof taskPullRequestSchema>;
 export type TaskWorkThread = z.infer<typeof taskWorkThreadSchema>;
@@ -892,10 +820,6 @@ export interface TasksChangedEvent {
 
 export interface ProjectsChangedEvent {
   projectId: string | null;
-}
-
-export interface CommentsChangedEvent {
-  taskId: string;
 }
 
 export interface ThreadsChangedEvent {
