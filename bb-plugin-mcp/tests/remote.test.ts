@@ -73,6 +73,38 @@ describe("authenticated HTTP boundary", () => {
     ]);
   });
 
+  it.each(["https://issuer.example.org/", "https://issuer.example.org/realm/"])(
+    "authenticates a matching slash-ending issuer without changing metadata: %s",
+    async (issuer) => {
+      const f = await setup();
+      f.change({ issuer });
+      const metadata = await f.request("/.well-known/oauth-protected-resource/mcp");
+      expect((await metadata.json()).authorization_servers).toEqual([issuer]);
+      const client = await f.client();
+      try {
+        expect((await client.callTool(call)).structuredContent).toEqual({
+          projects: [
+            { id: "proj_a", name: "Allowed" },
+            { id: "proj_hidden", name: "Private" },
+          ],
+          nextCursor: null,
+        });
+      } finally {
+        await client.close();
+      }
+      expect(f.issuerCalls).toEqual([
+        issuer.endsWith("/realm/")
+          ? "/realm/.well-known/openid-configuration"
+          : "/.well-known/openid-configuration",
+        "/keys",
+      ]);
+      const reads = f.list.mock.calls.length;
+      const mismatch = await f.token({ iss: issuer.slice(0, -1) });
+      expect((await f.rpc("tools/call", call, mismatch)).status).toBe(401);
+      expect(f.list.mock.calls).toHaveLength(reads);
+    },
+  );
+
   it("pages at most 50 ID/name records across all projects and applies live project deletion", async () => {
     const f = await setup();
     const records = Array.from({ length: 65 }, (_, i) => ({

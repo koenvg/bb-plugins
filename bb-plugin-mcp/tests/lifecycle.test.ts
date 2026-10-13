@@ -54,6 +54,25 @@ describe("BB settings and listener lifecycle", () => {
   });
 
   it.each([
+    "https://login.example.net/",
+    "https://login.example.net",
+    "https://login.example.net/realm/",
+    "https://login.example.net/realm",
+  ])("preserves the exact bearer issuer in saved settings and metadata: %s", async (issuer) => {
+    const values = { ...(await stored()), issuer };
+    expect(readConfig(values)?.issuer).toBe(issuer);
+    host = createFakePluginHost({ settings: values });
+    await plugin(host.bb);
+    await start();
+    expect(await status()).toMatchObject({ configuration: "valid" });
+    expect((await (await metadata(values.port)).json()).authorization_servers).toEqual([issuer]);
+    host = await host.harness.lifecycle.reload(plugin);
+    await start();
+    expect((await (await metadata(values.port)).json()).authorization_servers).toEqual([issuer]);
+    expect(host.harness.inspection.sdk.calls).toEqual([]);
+  });
+
+  it.each([
     { publicOrigin: "http://public.example.net" },
     { publicOrigin: "https://public.example.net/path" },
     { publicOrigin: "https://user:password@public.example.net" },
@@ -64,6 +83,16 @@ describe("BB settings and listener lifecycle", () => {
     { port: 65536 },
     { owner: "" },
     { issuer: "http://login.example.net" },
+    { issuer: "not-a-url" },
+    { issuer: "https://user:password@login.example.net/" },
+    { issuer: "https://login.example.net/?token=x" },
+    { issuer: "https://login.example.net/#fragment" },
+    { issuer: "https://localhost/" },
+    { issuer: "https://login/" },
+    { issuer: " https://login.example.net/" },
+    { issuer: "https://LOGIN.example.net/" },
+    { issuer: "https://login.example.net:443/" },
+    { issuer: "https://login.example.net/realm/../" },
     { projects: "arbitrary,path" },
   ])("invalid saved configuration prevents listener startup: %j", async (invalid) => {
     const values = { ...(await stored()), ...invalid };
