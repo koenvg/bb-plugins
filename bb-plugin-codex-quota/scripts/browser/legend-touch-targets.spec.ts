@@ -66,7 +66,12 @@ for (const coarse of [false, true]) {
               }
             measurements.push({ scale, boxes });
             if (scale === 100)
-              await capture(page, info, `legend-${coarse ? "touch" : "mouse"}-${width}-${theme}`);
+              await capture(
+                page,
+                info,
+                `legend-${coarse ? "touch" : "mouse"}-${width}-${theme}`,
+                false,
+              );
             const box = (await fast.boundingBox())!;
             const position = { x: box.width / 2, y: box.height - 2 };
             if (coarse) await fast.tap({ position });
