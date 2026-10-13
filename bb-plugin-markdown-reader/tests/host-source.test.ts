@@ -154,4 +154,20 @@ describe("host directory aliases", () => {
       "must be absolute",
     );
   });
+
+  it("finds files by name below a root, skipping dot and dependency directories", async () => {
+    const { root, host } = await setup();
+    await mkdir(join(root, "knowledge", "deep"), { recursive: true });
+    await mkdir(join(root, "node_modules", "pkg"), { recursive: true });
+    await mkdir(join(root, ".git"));
+    await writeFile(join(root, "knowledge", "deep", "guide.md"), "");
+    await writeFile(join(root, "node_modules", "pkg", "guide.md"), "");
+    await writeFile(join(root, ".git", "guide.md"), "");
+    expect(
+      await host.experimental_call("find_by_name", { rootPath: root, name: "guide.md" }),
+    ).toEqual({ paths: ["knowledge/deep/guide.md"] });
+    await expect(
+      host.experimental_call("find_by_name", { rootPath: "relative", name: "guide.md" }),
+    ).rejects.toThrow("must be absolute");
+  });
 });

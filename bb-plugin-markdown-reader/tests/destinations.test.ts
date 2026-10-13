@@ -38,6 +38,7 @@ function setup() {
     })),
     thread: vi.fn(async () => ({ id: "thread", projectId: "project", environmentId: "env" })),
     storageLocation: vi.fn(async () => ({ hostId: "remote", storageRootPath: "/actual/storage" })),
+    findByName: vi.fn(async () => []),
     read: vi.fn(async () => ({
       content: "# Note",
       contentEncoding: "utf8" as const,

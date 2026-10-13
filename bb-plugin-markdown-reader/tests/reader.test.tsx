@@ -48,6 +48,13 @@ describe("rendered reader", () => {
     await slot.findByRole("heading", { name: "Document" });
     expect(slot.inspection.rpcCalls).toEqual([{ method: "read_document", input: target }]);
   });
+  it("shows the path of the file found by name in the header", async () => {
+    const { slot } = await mount(() => ready("# Document", "knowledge/note.md"));
+    await slot.findByRole("heading", { name: "Document" });
+    expect(slot.getByRole("group", { name: "knowledge/note.md" }).textContent).toBe(
+      "note.mdknowledge/",
+    );
+  });
   it("keeps ready controls grouped without a normal-header Original action", async () => {
     const { slot } = await mount(() => ready("# Document\n\n## Section"));
     await slot.findByRole("heading", { name: "Document" });
