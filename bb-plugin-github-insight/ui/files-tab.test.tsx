@@ -39,6 +39,7 @@ vi.mock("@pierre/diffs/react", () => ({
     fileDiff: FileDiffMetadata;
     options?: {
       collapsed?: boolean;
+      onPostRender?: (node: HTMLElement) => void;
       diffStyle?: string;
       enableGutterUtility?: boolean;
       onGutterUtilityClick?: (range: SelectedLineRange) => void;
@@ -50,9 +51,13 @@ vi.mock("@pierre/diffs/react", () => ({
   }) => (
     <DiffsContainer
       ref={(element: HTMLElement | null) => {
-        const root = element?.shadowRoot;
-        if (!root || root.querySelector("[data-diffs-header]")) return;
-        root.innerHTML = "<div data-diffs-header data-sticky></div>";
+        if (element === null) return;
+        const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
+        if (!root.querySelector("[data-diffs-header]")) {
+          root.innerHTML = "<div data-diffs-header data-sticky><div data-title></div></div>";
+          root.querySelector("[data-title]")!.textContent = fileDiff.name;
+        }
+        options?.onPostRender?.(element);
       }}
       data-testid="file-diff"
       data-path={fileDiff.name}
@@ -407,6 +412,31 @@ describe("Files tab viewed files", () => {
     expect(checkbox(slot, APP).checked).toBe(true);
     expect(slot.getByText("1/2 viewed")).toBeTruthy();
     expect(callsTo(slot, "updateViewed")).toEqual([]);
+  });
+
+  it("toggles only the clicked filename's accordion and keeps Viewed controls independent", async () => {
+    const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
+    await slot.findByRole("button", { name: `Expand ${APP}` });
+    const filename = diffOf(slot, APP).shadowRoot!.querySelector("[data-title]")!;
+
+    fireEvent.click(filename);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+    expect(diffOf(slot, PR_REF).dataset.collapsed).toBe("false");
+    expect(checkbox(slot, APP).checked).toBe(true);
+    expect(slot.getByText("1/2 viewed").textContent).toBe("1/2 viewed");
+    expect(callsTo(slot, "updateViewed")).toEqual([]);
+
+    fireEvent.click(filename);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("true");
+    fireEvent.click(checkbox(slot, APP));
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
+    expect(checkbox(slot, APP).checked).toBe(false);
+    fireEvent.click(filename);
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("true");
+    expect(checkbox(slot, APP).checked).toBe(false);
+    expect(slot.getByText("0/2 viewed").textContent).toBe("0/2 viewed");
+    fireEvent.click(slot.getByRole("button", { name: `Expand ${APP}` }));
+    expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
   });
 
   it("collapses a file that is not viewed and keeps it unmarked", async () => {

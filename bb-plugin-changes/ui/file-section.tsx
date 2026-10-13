@@ -109,6 +109,7 @@ function FileDiffWithComments({
       view={view}
       theme={theme}
       collapsed={viewed.collapsed}
+      onToggleCollapsed={viewed.toggleCollapsed}
       headerPrefix={
         <CollapseButton
           path={file.path}
