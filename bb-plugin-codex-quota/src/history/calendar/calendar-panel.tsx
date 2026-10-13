@@ -128,7 +128,7 @@ export function CalendarReportPanel({
     >
       <h2 className="sr-only">Recorded usage</h2>
       <div className="flex flex-col gap-2 @[32rem]:flex-row @[32rem]:items-center @[32rem]:justify-between">
-        <div className="flex min-w-0 items-center justify-between gap-1 @[32rem]:justify-start">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-1 @[32rem]:justify-start">
           <button
             type="button"
             className={dateNavigationButton}
@@ -156,7 +156,7 @@ export function CalendarReportPanel({
           </button>
           {query && (
             <span
-              className="inline-flex h-8 items-center whitespace-nowrap px-1 text-xs tabular-nums text-muted-foreground"
+              className="order-first inline-flex min-h-8 min-w-0 basis-full items-center px-1 text-xs tabular-nums text-muted-foreground @[32rem]:order-none @[32rem]:basis-auto"
               aria-label={`${query.startDate} to ${shiftDate(query.startDate, 29)}, ${query.timezone}`}
             >
               {dateTick(query.startDate)} to {dateTick(shiftDate(query.startDate, 29))}
@@ -190,7 +190,8 @@ export function CalendarReportPanel({
         </div>
         <QuotaSelect
           aria-label="Report metric"
-          containerClassName="w-full @[32rem]:w-36"
+          containerClassName="w-full @[32rem]:w-36 [&>svg]:right-1"
+          className="pl-1! pr-6!"
           value={metric}
           onChange={(event) => setMetric(event.target.value as TokenMetric)}
         >
