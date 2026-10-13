@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ActionResult, rpcContract, TimelineResult } from "../contract";
@@ -19,12 +19,19 @@ afterEach(cleanup);
 type LoadedTimeline = Extract<TimelineResult, { kind: "ok" }>;
 
 function page(fixture: keyof typeof timelines, olderCursor: string | null = null): LoadedTimeline {
-  return { kind: "ok", ...parseTimelinePage(timelines[fixture]), olderCursor };
+  const { othersComments: _, ...parsed } = parseTimelinePage(timelines[fixture]);
+  return { kind: "ok", ...parsed, olderCursor, newCommentIds: [] };
 }
 
-function withEvents(events: TimelineEvent[], olderCursor: string | null = null): LoadedTimeline {
-  return { ...page("cli-14578"), events, olderCursor };
+function withEvents(
+  events: TimelineEvent[],
+  olderCursor: string | null = null,
+  newCommentIds: string[] = [],
+): LoadedTimeline {
+  return { ...page("cli-14578"), events, olderCursor, newCommentIds };
 }
+
+const scrollRoot = { current: null };
 
 const at = "2026-10-01T10:00:00Z";
 const comment = (id: string, body: string): TimelineEvent => ({
@@ -39,18 +46,23 @@ const comment = (id: string, body: string): TimelineEvent => ({
 interface Handlers {
   getTimeline?: (input: { before: string | null }) => TimelineResult | Promise<TimelineResult>;
   addPrComment?: () => ActionResult | Promise<ActionResult>;
+  markCommentsSeen?: () => ActionResult | Promise<ActionResult>;
 }
 
 function renderTimeline(handlers: Handlers | TimelineResult, refreshedAt = 1) {
-  const { getTimeline, addPrComment } =
-    "kind" in handlers ? { getTimeline: () => handlers, addPrComment: undefined } : handlers;
-  return renderSlot<{ threadId: string; refreshedAt: number }, typeof rpcContract>(
+  const { getTimeline, addPrComment, markCommentsSeen }: Handlers =
+    "kind" in handlers ? { getTimeline: () => handlers } : handlers;
+  return renderSlot<
+    { threadId: string; refreshedAt: number; scrollRoot: typeof scrollRoot },
+    typeof rpcContract
+  >(
     { component: TimelineSections },
-    { threadId: "thr_1", refreshedAt },
+    { threadId: "thr_1", refreshedAt, scrollRoot },
     {
       rpc: {
         getTimeline: getTimeline ?? (() => page("cli-14578")),
         addPrComment: addPrComment ?? (() => ({ kind: "ok" })),
+        markCommentsSeen: markCommentsSeen ?? (() => ({ kind: "ok" })),
       } as never,
     },
   );
@@ -252,7 +264,9 @@ describe("conversation timeline", () => {
     fireEvent.change(box, { target: { value: "Half written" } });
 
     result = { kind: "error", message: "rate limited" };
-    slot.lifecycle.rerender(<TimelineSections threadId="thr_1" refreshedAt={2} />);
+    slot.lifecycle.rerender(
+      <TimelineSections threadId="thr_1" refreshedAt={2} scrollRoot={scrollRoot} />,
+    );
 
     expect((await slot.findByRole("alert")).textContent).toContain("rate limited");
     expect(slot.getByText("First")).toBeTruthy();
@@ -271,7 +285,9 @@ describe("conversation timeline", () => {
     await act(async () => fireEvent.click(loadOlder));
 
     newest = withEvents([comment("3", "Newest")], "Y3Vz");
-    slot.lifecycle.rerender(<TimelineSections threadId="thr_1" refreshedAt={2} />);
+    slot.lifecycle.rerender(
+      <TimelineSections threadId="thr_1" refreshedAt={2} scrollRoot={scrollRoot} />,
+    );
 
     await slot.findByText("Newest");
     expect(events(slot).map((item) => item.textContent)).toEqual([
@@ -324,5 +340,142 @@ describe("conversation timeline", () => {
     } finally {
       height.mockRestore();
     }
+  });
+});
+
+describe("new conversation comments", () => {
+  const watched = new Map<Element, IntersectionObserverCallback>();
+
+  class WatchCards {
+    constructor(private readonly callback: IntersectionObserverCallback) {}
+    observe(target: Element) {
+      watched.set(target, this.callback);
+    }
+    disconnect() {}
+  }
+
+  const review = (id: string, body: string): TimelineEvent => ({
+    kind: "review",
+    id,
+    actor: "bob",
+    at,
+    state: "commented",
+    body,
+    url: `https://github.com/o/r/pull/1#pullrequestreview-${id}`,
+    inlineCount: 0,
+    inlineCommentIds: [],
+  });
+
+  beforeEach(() => {
+    vi.stubGlobal("IntersectionObserver", WatchCards);
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.stubGlobal("ResizeObserver", Unobserved);
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    watched.clear();
+  });
+
+  function cardOf(slot: Slot, id: string) {
+    return slot.container.querySelector<HTMLElement>(`[data-timeline-comment-id="${id}"]`);
+  }
+
+  function readFor(ms: number, inView: boolean, element: HTMLElement) {
+    vi.useFakeTimers();
+    act(() => {
+      watched.get(element)?.(
+        [
+          {
+            isIntersecting: inView,
+            intersectionRatio: inView ? 1 : 0,
+            target: element,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver,
+      );
+      vi.advanceTimersByTime(ms);
+    });
+    vi.useRealTimers();
+  }
+
+  function seenCalls(slot: Slot) {
+    return slot.inspection.rpcCalls
+      .filter((call) => call.method === "markCommentsSeen")
+      .map((call) => call.input);
+  }
+
+  it("glows only the new comment", async () => {
+    const slot = renderTimeline(
+      withEvents([comment("1", "Old"), comment("2", "Old too"), comment("3", "New")], null, ["3"]),
+    );
+    await loaded(slot);
+
+    expect(cardOf(slot, "3")!.classList).toContain("review-comment-new");
+    expect(cardOf(slot, "1")!.classList).not.toContain("review-comment-new");
+    expect(cardOf(slot, "2")!.classList).not.toContain("review-comment-new");
+  });
+
+  it("glows a new review text", async () => {
+    const slot = renderTimeline(
+      withEvents([review("PRR_1", "Please rename this")], null, ["PRR_1"]),
+    );
+    await loaded(slot);
+
+    expect(cardOf(slot, "PRR_1")!.classList).toContain("review-comment-new");
+  });
+
+  it("saves the comment as seen after the user reads it and keeps the glow", async () => {
+    const slot = renderTimeline(withEvents([comment("1", "New")], null, ["1"]));
+    await loaded(slot);
+
+    readFor(1800, true, cardOf(slot, "1")!);
+
+    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
+    await vi.waitFor(() =>
+      expect(seenCalls(slot)).toEqual([{ threadId: "thr_1", commentIds: ["1"] }]),
+    );
+  });
+
+  it("does not save a comment that the user scrolls past", async () => {
+    const slot = renderTimeline(withEvents([comment("1", "New")], null, ["1"]));
+    await loaded(slot);
+
+    readFor(500, true, cardOf(slot, "1")!);
+    readFor(1800, false, cardOf(slot, "1")!);
+
+    expect(seenCalls(slot)).toEqual([]);
+  });
+
+  it("keeps the glow when a refresh no longer lists the comment as new", async () => {
+    let result = withEvents([comment("1", "New")], null, ["1"]);
+    const slot = renderTimeline({ getTimeline: () => result });
+    await loaded(slot);
+
+    result = withEvents([comment("1", "New")]);
+    slot.lifecycle.rerender(
+      <TimelineSections threadId="thr_1" refreshedAt={2} scrollRoot={scrollRoot} />,
+    );
+    await vi.waitFor(() => expect(timelineCalls(slot)).toHaveLength(2));
+
+    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
+  });
+
+  it("glows a new comment from an older page", async () => {
+    const slot = renderTimeline({
+      getTimeline: ({ before }) =>
+        before === null
+          ? withEvents([comment("2", "Newer")], "Y3Vy")
+          : withEvents([comment("1", "Older")], null, ["1"]),
+    });
+    await loaded(slot);
+    await act(async () =>
+      fireEvent.click(await slot.findByRole("button", { name: "Load older events" })),
+    );
+
+    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
+    expect(cardOf(slot, "2")!.classList).not.toContain("review-comment-new");
   });
 });

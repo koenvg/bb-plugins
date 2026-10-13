@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
 import { actorSchema, isOtherPerson } from "./actor";
-import { postedAt } from "./new-comments";
+import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -45,11 +45,12 @@ type PrNode = z.infer<typeof prNodeSchema>;
 
 const trackedPrNodeSchema = prNodeSchema.extend({
   comments: z.object({
-    nodes: z.array(z.object({ createdAt: z.string(), author: actorSchema })),
+    nodes: z.array(z.object({ id: z.string(), createdAt: z.string(), author: actorSchema })),
   }),
   reviews: z.object({
     nodes: z.array(
       z.object({
+        id: z.string(),
         submittedAt: z.string().nullable(),
         body: z.string(),
         author: actorSchema,
@@ -97,9 +98,11 @@ const CI_STATE: Record<z.infer<typeof rollupStateSchema>, CiState> = {
   EXPECTED: "running",
 };
 
+const postedCommentSchema = z.object({ id: z.string(), postedAt: z.string() });
+
 const prActivitySchema = z.object({
-  lastConversationAt: z.string().nullable(),
-  inlineComments: z.array(z.object({ id: z.string(), postedAt: z.string() })),
+  conversationComments: z.array(postedCommentSchema),
+  inlineComments: z.array(postedCommentSchema),
   lastRequestedAt: z.string().nullable(),
 });
 export type PrActivity = z.infer<typeof prActivitySchema>;
@@ -162,14 +165,8 @@ function latest(times: string[]): string | null {
 }
 
 function activityOf(node: ActivityNode, viewer: string): PrActivity {
-  const commentTimes = node.comments.nodes
-    .filter((comment) => isOtherPerson(comment.author, viewer))
-    .map((comment) => comment.createdAt);
   const reviews = node.reviews.nodes.filter(
     (review) => review.submittedAt !== null && isOtherPerson(review.author, viewer),
-  );
-  const reviewTimes = reviews.flatMap((review) =>
-    review.body !== "" && review.submittedAt !== null ? [review.submittedAt] : [],
   );
   const inlineComments = reviews.flatMap((review) =>
     review.comments.nodes.map((comment) => ({ id: comment.id, postedAt: postedAt(comment) })),
@@ -182,7 +179,10 @@ function activityOf(node: ActivityNode, viewer: string): PrActivity {
       : [],
   );
   return {
-    lastConversationAt: latest([...commentTimes, ...reviewTimes]),
+    conversationComments: [
+      ...othersPrComments(node.comments.nodes, viewer),
+      ...othersReviewTexts(node.reviews.nodes, viewer),
+    ],
     inlineComments,
     lastRequestedAt: latest(requestTimes),
   };

@@ -504,7 +504,7 @@ Each icon-only control on a PR row SHALL show a tooltip with its label when the 
 
 ### Requirement: New activity after the mark
 
-A marked PR SHALL have new activity when, after the mark time, a person other than the user posts a PR comment, a review comment or reply, or a review with text, or when GitHub requests the user's review again. Activity from bots and from the user SHALL NOT count. A review with no text and no comments SHALL NOT count. An inline review comment or reply that the user saw in the Review tab SHALL NOT count. The card SHALL show "New comments" for comments and "Review requested again" for a new request. "Mark reviewed" SHALL set a new mark time, which clears both labels.
+A marked PR SHALL have new activity when, after the mark time, a person other than the user posts a PR comment, a review comment or reply, or a review with text, or when GitHub requests the user's review again. Activity from bots and from the user SHALL NOT count. A review with no text and no comments SHALL NOT count. An inline review comment or reply that the user saw in the Review tab SHALL NOT count. A PR comment or review text that the user saw in the Overview Conversation timeline SHALL NOT count. The card SHALL show "New comments" for comments and "Review requested again" for a new request. "Mark reviewed" SHALL set a new mark time, which clears both labels.
 
 #### Scenario: Reply on the user's comment
 
@@ -573,7 +573,22 @@ A marked PR SHALL have new activity when, after the mark time, a person other th
 
 #### Scenario: Conversation comment keeps the label
 
-- **WHEN** the user marked `acme/api#15` reviewed, the author replies in a review thread and posts a PR comment, and the user sees the reply in the Review tab
+- **WHEN** the user marked `acme/api#15` reviewed, the author replies in a review thread and posts a PR comment, and the user sees only the reply in the Review tab
+- **THEN** `#15` stays in "Needs review" with "New comments"
+
+#### Scenario: User saw the conversation comment
+
+- **WHEN** the user marked `acme/api#15` reviewed, another reviewer posts a PR comment, and the user sees it in the Overview Conversation timeline
+- **THEN** `#15` moves to "Reviewed" and "New comments" is gone
+
+#### Scenario: User saw a review text
+
+- **WHEN** the user marked `acme/api#15` reviewed, another reviewer submits a review with text and no inline comments, and the user sees the review in the Overview Conversation timeline
+- **THEN** `#15` moves to "Reviewed" and "New comments" is gone
+
+#### Scenario: User saw the review text but not its inline comments
+
+- **WHEN** the user marked `acme/api#15` reviewed, another reviewer submits a review with text and one inline comment, and the user sees only the review text in the Overview Conversation timeline
 - **THEN** `#15` stays in "Needs review" with "New comments"
 
 #### Scenario: Seen reply and a new push

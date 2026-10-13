@@ -25,6 +25,7 @@ function serviceWith(overrides: Partial<Deps> = {}) {
       comments.push([prTarget, request]);
       return { data: {} };
     },
+    newCommentBasis: async () => ({ markedAt: null, seen: new Set<string>() }),
     ...overrides,
   });
   return { service, pages, comments };
@@ -41,6 +42,26 @@ describe("timeline service", () => {
     expect(pages).toEqual([[target, null]]);
     expect(result).toMatchObject({ kind: "ok", olderCursor: null, locked: false });
     expect(result.kind === "ok" && result.events.at(-1)?.kind).toBe("merged");
+  });
+
+  it("returns the PR comments from other people after the mark as new", async () => {
+    const { service } = serviceWith({
+      newCommentBasis: async () => ({
+        markedAt: Date.parse("2026-10-06T00:00:00Z"),
+        seen: new Set(["IC_kwDODKw3uc8AAAABaFQoVw"]),
+      }),
+    });
+
+    const result = await service.getTimeline("thr_1", null);
+
+    expect(result).toMatchObject({ kind: "ok", newCommentIds: ["IC_kwDODKw3uc8AAAABZwikEw"] });
+    expect(result).not.toHaveProperty("othersComments");
+  });
+
+  it("returns no new comments for a PR with no mark", async () => {
+    const { service } = serviceWith();
+
+    expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });
   });
 
   it("passes the cursor for older events", async () => {

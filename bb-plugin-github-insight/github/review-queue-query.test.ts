@@ -25,6 +25,15 @@ describe("reviewQueueArgs", () => {
     expect(query).toContain("pullRequest(number: $n0) { ...QueuePr ...QueueActivity }");
   });
 
+  it("asks for the id of each PR comment and review, so a seen one stops counting", () => {
+    const query = reviewQueueArgs([{ owner: "acme", repo: "api", number: 15 }]).find((arg) =>
+      arg.startsWith("query="),
+    )!;
+
+    expect(query).toContain("comments(last: 20) { nodes { id createdAt");
+    expect(query).toMatch(/reviews\(last: 20\) \{\s+nodes \{ id submittedAt/);
+  });
+
   it("passes the tracked repository names as variables, not inside the query", () => {
     const args = reviewQueueArgs([{ owner: 'acme"', repo: "api", number: 15 }]);
     const query = args.find((arg) => arg.startsWith("query="))!;

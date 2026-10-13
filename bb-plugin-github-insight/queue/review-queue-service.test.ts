@@ -571,11 +571,17 @@ describe("new activity after the mark", () => {
   }
 
   function activityOf(
-    lastConversationAt: string | null,
+    conversationAt: string | null,
     lastRequestedAt: string | null = null,
     inlineComments: { id: string; postedAt: string }[] = [],
   ) {
-    return { lastConversationAt, inlineComments, lastRequestedAt };
+    const conversationComments =
+      conversationAt === null ? [] : [conversation("IC_1", conversationAt)];
+    return { conversationComments, inlineComments, lastRequestedAt };
+  }
+
+  function conversation(id: string, postedAt = AFTER) {
+    return { id, postedAt };
   }
 
   function replies(...ids: string[]) {
@@ -719,6 +725,40 @@ describe("new activity after the mark", () => {
     ]);
   });
 
+  it("drops new comments when the user saw the conversation comment", async () => {
+    const { service, kv } = serviceWithTracked([], [tracked15(activityOf(AFTER))]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("IC_1"));
+
+    const result = await service.refreshReviewQueue();
+
+    expect(firstReviewRequest(result).newActivity).toEqual([]);
+    expect(sections(result)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+  });
+
+  it("drops new comments when the user saw a review text", async () => {
+    const activity = { ...activityOf(null), conversationComments: [conversation("PRR_1")] };
+    const { service, kv } = serviceWithTracked([], [tracked15(activity)]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRR_1"));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([]);
+  });
+
+  it("keeps new comments when the user saw a review text but not its inline comment", async () => {
+    const activity = {
+      ...activityOf(null, null, [{ id: "PRRC_1", postedAt: AFTER }]),
+      conversationComments: [conversation("PRR_1")],
+    };
+    const { service, kv } = serviceWithTracked([], [tracked15(activity)]);
+    kv.entries.set(...mark("acme/api", 15, "head-15", MARKED_AT));
+    kv.entries.set(...seenComments("PRR_1"));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue()).newActivity).toEqual([
+      "new_comments",
+    ]);
+  });
+
   it("keeps the push but drops new comments after a seen reply", async () => {
     const { service, kv } = serviceWithTracked(
       [],
@@ -799,10 +839,13 @@ describe("new activity after the mark", () => {
     });
   });
 
-  it("drops a stored queue from before inline comment tracking", async () => {
+  it.each([
+    ["inline comment tracking", 2],
+    ["conversation comment ids", 3],
+  ])("drops a stored queue from before %s", async (_, v) => {
     const { service, kv } = serviceWith();
     const loaded = await service.refreshReviewQueue();
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 2, result: loaded });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v, result: loaded });
 
     expect(await service.getReviewQueue()).toEqual({ kind: "loading" });
   });
@@ -814,7 +857,7 @@ describe("new activity after the mark", () => {
     const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
     delete prs[0]!.newActivity;
     delete prs[0]!.activity;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
       { activity: null, newActivity: [] },
@@ -1311,7 +1354,7 @@ describe("unseen PRs", () => {
   it("reads a stored view from before unseen tracking as all seen", async () => {
     const { service, kv } = serviceWith();
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
-      v: 3,
+      v: 4,
       result: { kind: "ok", needsReview: [], reviewed: [], truncated: false, loadedAt: 1 },
     });
 
@@ -1396,7 +1439,7 @@ describe("returned review threads", () => {
     delete stored.hasReturned;
     const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
     delete prs[0]!.thread.returned;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result: stored });
 
     expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
       row: null,

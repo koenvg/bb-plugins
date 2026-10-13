@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { actorSchema } from "./actor";
+import { othersPrComments, othersReviewTexts, type PostedComment } from "./new-comments";
 
 const loginSchema = z.object({ login: z.string() }).nullable();
 
@@ -14,7 +16,7 @@ const nodeSchema = z.discriminatedUnion("__typename", [
   z.object({
     __typename: z.literal("IssueComment"),
     id: z.string(),
-    author: loginSchema,
+    author: actorSchema,
     body: z.string(),
     createdAt: z.string(),
     url: z.string(),
@@ -22,7 +24,7 @@ const nodeSchema = z.discriminatedUnion("__typename", [
   z.object({
     __typename: z.literal("PullRequestReview"),
     id: z.string(),
-    author: loginSchema,
+    author: actorSchema,
     state: z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]),
     body: z.string(),
     submittedAt: z.string().nullable(),
@@ -50,6 +52,7 @@ const nodeSchema = z.discriminatedUnion("__typename", [
 
 const timelinePageSchema = z.object({
   data: z.object({
+    viewer: z.object({ login: z.string() }),
     repository: z.object({
       pullRequest: z.object({
         id: z.string(),
@@ -110,6 +113,7 @@ export interface TimelinePage {
   locked: boolean;
   viewerCanUpdate: boolean;
   events: TimelineEvent[];
+  othersComments: PostedComment[];
   olderCursor: string | null;
 }
 
@@ -174,8 +178,21 @@ function isMergeClose(node: Node, nodes: readonly Node[]): boolean {
   );
 }
 
+type NodeOf<T extends Node["__typename"]> = Extract<Node, { __typename: T }>;
+
+function othersCommentsOf(nodes: readonly Node[], viewer: string): PostedComment[] {
+  const comments = nodes.filter(
+    (node): node is NodeOf<"IssueComment"> => node.__typename === "IssueComment",
+  );
+  const reviews = nodes.filter(
+    (node): node is NodeOf<"PullRequestReview"> => node.__typename === "PullRequestReview",
+  );
+  return [...othersPrComments(comments, viewer), ...othersReviewTexts(reviews, viewer)];
+}
+
 export function parseTimelinePage(response: unknown): TimelinePage {
-  const { pullRequest } = timelinePageSchema.parse(response).data.repository;
+  const { viewer, repository } = timelinePageSchema.parse(response).data;
+  const { pullRequest } = repository;
   const { nodes, pageInfo } = pullRequest.timelineItems;
   return {
     prNodeId: pullRequest.id,
@@ -191,6 +208,7 @@ export function parseTimelinePage(response: unknown): TimelinePage {
       const event = toEvent(node);
       return event === null ? [] : [event];
     }),
+    othersComments: othersCommentsOf(nodes, viewer.login),
     olderCursor: pageInfo.hasPreviousPage ? pageInfo.startCursor : null,
   };
 }

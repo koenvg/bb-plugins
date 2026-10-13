@@ -185,8 +185,13 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     body: string,
     submittedAt: string | null,
     comments: { id: string; createdAt: string; publishedAt: string | null }[] = [],
+    id = "PRR_1",
   ) {
-    return { submittedAt, body, author, comments: { nodes: comments } };
+    return { id, submittedAt, body, author, comments: { nodes: comments } };
+  }
+
+  function prComment(id: string, createdAt: string, author: unknown) {
+    return { id, createdAt, author };
   }
 
   function inline(id: string, createdAt: string, publishedAt: string | null = createdAt) {
@@ -199,27 +204,30 @@ describe("parseReviewQueue activity on tracked PRs", () => {
 
   it("reports nothing when nobody posted", () => {
     expect(activityOf({})).toEqual({
-      lastConversationAt: null,
+      conversationComments: [],
       inlineComments: [],
       lastRequestedAt: null,
     });
   });
 
-  it("takes the newest PR comment from a person", () => {
+  it("keeps each PR comment from a person with its id", () => {
     const comments = [
-      { createdAt: "2026-10-07T08:00:00Z", author: person("alice") },
-      { createdAt: "2026-10-07T09:00:00Z", author: person("bob") },
+      prComment("IC_1", "2026-10-07T08:00:00Z", person("alice")),
+      prComment("IC_2", "2026-10-07T09:00:00Z", person("bob")),
     ];
 
-    expect(activityOf({ comments })?.lastConversationAt).toBe("2026-10-07T09:00:00Z");
+    expect(activityOf({ comments })?.conversationComments).toEqual([
+      { id: "IC_1", postedAt: "2026-10-07T08:00:00Z" },
+      { id: "IC_2", postedAt: "2026-10-07T09:00:00Z" },
+    ]);
   });
 
   it.each([
-    ["a bot", { createdAt: "2026-10-07T09:00:00Z", author: bot }],
-    ["the viewer", { createdAt: "2026-10-07T09:00:00Z", author: person("me") }],
-    ["a deleted user", { createdAt: "2026-10-07T09:00:00Z", author: null }],
+    ["a bot", prComment("IC_1", "2026-10-07T09:00:00Z", bot)],
+    ["the viewer", prComment("IC_1", "2026-10-07T09:00:00Z", person("me"))],
+    ["a deleted user", prComment("IC_1", "2026-10-07T09:00:00Z", null)],
   ])("ignores a PR comment from %s", (_, comment) => {
-    expect(activityOf({ comments: [comment] })?.lastConversationAt).toBeNull();
+    expect(activityOf({ comments: [comment] })?.conversationComments).toEqual([]);
   });
 
   it("puts a reply review with no body in the inline comments only", () => {
@@ -230,7 +238,7 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     ];
 
     expect(activityOf({ reviews })).toMatchObject({
-      lastConversationAt: null,
+      conversationComments: [],
       inlineComments: [{ id: "PRRC_1", postedAt: "2026-10-07T08:38:57Z" }],
     });
   });
@@ -247,10 +255,14 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     ]);
   });
 
-  it("counts a review body as conversation", () => {
-    const reviews = [review(person("alice"), "Fixed, please look again", "2026-10-07T08:38:57Z")];
+  it("keeps a review body as a conversation comment with the review id", () => {
+    const reviews = [
+      review(person("alice"), "Fixed, please look again", "2026-10-07T08:38:57Z", [], "PRR_7"),
+    ];
 
-    expect(activityOf({ reviews })?.lastConversationAt).toBe("2026-10-07T08:38:57Z");
+    expect(activityOf({ reviews })?.conversationComments).toEqual([
+      { id: "PRR_7", postedAt: "2026-10-07T08:38:57Z" },
+    ]);
   });
 
   it.each([
@@ -269,18 +281,9 @@ describe("parseReviewQueue activity on tracked PRs", () => {
     ],
   ])("ignores %s", (_, item) => {
     expect(activityOf({ reviews: [item] })).toMatchObject({
-      lastConversationAt: null,
+      conversationComments: [],
       inlineComments: [],
     });
-  });
-
-  it("takes the newest of PR comments and review bodies", () => {
-    expect(
-      activityOf({
-        comments: [{ createdAt: "2026-10-07T08:00:00Z", author: person("alice") }],
-        reviews: [review(person("alice"), "Done", "2026-10-07T09:00:00Z")],
-      })?.lastConversationAt,
-    ).toBe("2026-10-07T09:00:00Z");
   });
 
   it("takes the newest review request for the viewer", () => {

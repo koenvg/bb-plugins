@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode, type RefObject } from "react";
 import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { countOf, type Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
@@ -70,11 +70,16 @@ function usePrCommands(
   }, [intent, result, refreshing, refresh, navigate]);
 }
 
-export function OverviewTab({ threadId }: { threadId: string }) {
-  return <OverviewTabContent key={threadId} threadId={threadId} />;
+interface OverviewTabProps {
+  threadId: string;
+  scrollRoot: RefObject<HTMLElement | null>;
 }
 
-function OverviewTabContent({ threadId }: { threadId: string }) {
+export function OverviewTab({ threadId, scrollRoot }: OverviewTabProps) {
+  return <OverviewTabContent key={threadId} threadId={threadId} scrollRoot={scrollRoot} />;
+}
+
+function OverviewTabContent({ threadId, scrollRoot }: OverviewTabProps) {
   const insight = useInsight(threadId);
   const { result, refreshing, revalidating, refresh } = insight;
   const [branchUpdated, setBranchUpdated] = useState(false);
@@ -120,6 +125,7 @@ function OverviewTabContent({ threadId }: { threadId: string }) {
       <TimelineSections
         threadId={threadId}
         refreshedAt={result.refreshedAt}
+        scrollRoot={scrollRoot}
         between={
           <>
             {!reviewersInCard(status.blockers) && (

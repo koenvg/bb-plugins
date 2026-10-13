@@ -107,9 +107,9 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - `core/review-state.ts` compares the mark with the current head: no mark is "Needs review", the same commit is "Reviewed", another commit is "Needs review" with "New commits". A push or force push changes the head, so the PR comes back by itself.
 - "Reviewed" is collapsed when the panel opens. "Mark as needs review" deletes the mark. A PR with no request and no review thread then leaves the list.
 - A successful submit in the Files sub-tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
-- A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps the newest time of each kind:
+- A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 20 PR comments, the last 20 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). `core/review-queue.ts` keeps each comment with its `id` and time, and the newest review request time:
   - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
-  - A review comment or reply that you saw in the Files sub-tab does not count (see "New comments in the Files sub-tab"). A PR comment or review text still counts until "Mark reviewed", because the Files sub-tab does not show it.
+  - A comment that you saw does not count (see "New comments"). A review comment or reply is seen in the Files sub-tab. A PR comment or review text is seen in the Overview Conversation timeline. The seen key of a review text is the review `id`.
   - The fragment reads the first 20 comments of each of the last 20 reviews, with `id` and `publishedAt`. A comment in a pending review counts at the time the review is submitted.
   - "Review requested again": a review request to your login. Requests to a team do not count.
 - "Mark reviewed" writes a new `markedAt`, so it clears both labels. "Mark reviewed" and "Mark as needs review" also delete the seen comments of the PR. PRs with no mark get no activity labels, also when they have a review thread.
@@ -234,16 +234,20 @@ Each file in the Files sub-tab that has a patch shows a collapse button and a "V
 | ------------------------------ | ------------------------------------------- |
 | `viewed:v1:<owner>/<repo>#<n>` | `{ v: 1, marks: { <path>: <patch hash> } }` |
 
-### New comments in the Files sub-tab
+### New comments
 
-A review comment or reply is new when the PR has a reviewed mark, the comment was published after `markedAt`, its author is a `User` that is not you, and you have not seen it (`core/new-comments.ts`).
+A comment is new when the PR has a reviewed mark, the comment was published after `markedAt`, its author is a `User` that is not you, and you have not seen it (`core/new-comments.ts`). This holds for:
 
-- `getReview` returns `newCommentIds`. The review threads query reads `viewer { login }`, the author `__typename`, and `publishedAt` for this.
-- A new comment has a glowing border (`ui/new-comment.css`). Only the new comment glows, not the full thread. With reduced motion, the border does not pulse.
-- A comment is seen when at least 60% of it is in the diff area, or it fills 60% of the diff area height, for 1.5 s without a break, while the page is visible and the bb window has focus (`ui/use-comment-seen.ts`). The glow stays while the PR tab is open, also after a refresh, so you can find the comment again. When you open the tab again, a seen comment has no glow.
+- A review comment or reply. The Files sub-tab shows it. `getReview` returns `newCommentIds`. The review threads query reads `viewer { login }`, the author `__typename`, and `publishedAt` for this.
+- A PR comment, or the text of a submitted review. The Overview Conversation timeline shows it. `getTimeline` returns `newCommentIds` for the page. The timeline query reads `viewer { login }` and the author `__typename`. The id of a review text is the review id. A review with no text is not new. Its inline comments are new in the Files sub-tab.
+
+Both sub-tabs work the same:
+
+- A new comment has a glowing border (`ui/new-comment.css`). In the Files sub-tab, only the new comment glows, not the full thread. In the Overview tab, the timeline card glows. With reduced motion, the border does not pulse.
+- A comment is seen when at least 60% of it is in the scroll area, or it fills 60% of the scroll area height, for 1.5 s without a break, while the page is visible and the bb window has focus (`ui/use-comment-seen.ts`). The scroll area is the diff area in the Files sub-tab and the Overview scroll area in the Overview tab. The glow stays while the PR tab is open, also after a refresh, so you can find the comment again. When you open the tab again, a seen comment has no glow.
 - The tab sends seen ids in one RPC `markCommentsSeen({ threadId, commentIds })` 300 ms after the first one, or when the tab closes. The server saves them and re-links the review queue, so the "New comments" label updates without a GitHub call. A failed save is ignored, so the comment is new again the next time the tab opens.
-- A resolved thread with a new comment shows and is expanded, also when "Show resolved" is off. A viewed file with a new comment starts expanded. This holds while the PR tab is open.
-- Seen ids belong to the PR, so every thread on the PR shares them.
+- In the Files sub-tab, a resolved thread with a new comment shows and is expanded, also when "Show resolved" is off. A viewed file with a new comment starts expanded. This holds while the PR tab is open.
+- Seen ids belong to the PR, so every thread on the PR shares them. Review comment ids, PR comment ids, and review ids share one set.
 
 | Key                                  | Value                           |
 | ------------------------------------ | ------------------------------- |

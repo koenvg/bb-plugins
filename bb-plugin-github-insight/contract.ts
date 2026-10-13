@@ -322,6 +322,7 @@ export const timelineResultSchema = z.discriminatedUnion("kind", [
     viewerCanUpdate: z.boolean(),
     events: z.array(timelineEventSchema),
     olderCursor: z.string().nullable(),
+    newCommentIds: z.array(z.string()),
   }),
 ]);
 export type TimelineResult = z.infer<typeof timelineResultSchema>;

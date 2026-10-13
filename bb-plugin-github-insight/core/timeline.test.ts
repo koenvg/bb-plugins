@@ -122,6 +122,54 @@ describe("parseTimelinePage", () => {
     ]);
   });
 
+  it("keeps PR comments and review texts from other people as posted comments", () => {
+    expect(merged.othersComments).toEqual([
+      { id: "IC_kwDODKw3uc8AAAABYzeJXQ", postedAt: "2026-10-02T19:08:19Z" },
+      { id: "IC_kwDODKw3uc8AAAABZwikEw", postedAt: "2026-10-06T19:12:00Z" },
+      { id: "IC_kwDODKw3uc8AAAABaFQoVw", postedAt: "2026-10-07T19:31:48Z" },
+    ]);
+  });
+
+  it("keeps a review text from another person with the review id", () => {
+    const page = structuredClone(timelines["cli-14578"]);
+    const approval = page.data.repository.pullRequest.timelineItems.nodes.find(
+      (node) => node.id === "PRR_kwDODKw3uc8AAAABRK-09w",
+    ) as { body: string };
+    approval.body = "Looks good";
+
+    expect(parseTimelinePage(page).othersComments).toContainEqual({
+      id: "PRR_kwDODKw3uc8AAAABRK-09w",
+      postedAt: "2026-10-07T19:31:56Z",
+    });
+  });
+
+  function nodeOf(page: (typeof timelines)["cli-14578"], id: string) {
+    return page.data.repository.pullRequest.timelineItems.nodes.find(
+      (node) => node.id === id,
+    ) as Record<string, unknown>;
+  }
+
+  it.each([
+    ["a deleted user", { author: null }],
+    ["a pending review", { state: "PENDING", submittedAt: null }],
+  ])("keeps no review text from %s", (_, change) => {
+    const page = structuredClone(timelines["cli-14578"]);
+    Object.assign(nodeOf(page, "PRR_kwDODKw3uc8AAAABRK-09w"), { body: "Looks good", ...change });
+
+    expect(parseTimelinePage(page).othersComments).not.toContainEqual(
+      expect.objectContaining({ id: "PRR_kwDODKw3uc8AAAABRK-09w" }),
+    );
+  });
+
+  it("keeps no PR comment from a deleted user", () => {
+    const page = structuredClone(timelines["cli-14578"]);
+    nodeOf(page, "IC_kwDODKw3uc8AAAABYzeJXQ").author = null;
+
+    expect(parseTimelinePage(page).othersComments).not.toContainEqual(
+      expect.objectContaining({ id: "IC_kwDODKw3uc8AAAABYzeJXQ" }),
+    );
+  });
+
   it("returns the cursor of older events when GitHub has more", () => {
     const page = structuredClone(timelines["cli-14578"]);
     page.data.repository.pullRequest.timelineItems.pageInfo = {

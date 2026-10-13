@@ -1,6 +1,9 @@
 {
   "cli-14578": {
     "data": {
+      "viewer": {
+        "login": "williammartin"
+      },
       "repository": {
         "pullRequest": {
           "id": "PR_kwDODKw3uc8AAAABGUJatA",
@@ -36,6 +39,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABQYRBcg",
                 "author": {
+                  "__typename": "Bot",
                   "login": "copilot-pull-request-reviewer"
                 },
                 "state": "COMMENTED",
@@ -61,6 +65,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABYzeJXQ",
                 "author": {
+                  "__typename": "User",
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this recording and comment.\n\n### Exercising `gh extension browse` at e15e40d\n\nThis recording exercises this PR's build ([`e15e40d`](https://github.com/cli/cli/pull/14578/commits/e15e40d099bb09c62c4bc549a0d58397917efb45), `gh version 2.102.0-1-ge15e40\u2026",
@@ -101,6 +106,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABQ7H3ZQ",
                 "author": {
+                  "__typename": "Bot",
                   "login": "copilot-pull-request-reviewer"
                 },
                 "state": "COMMENTED",
@@ -146,6 +152,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABZwikEw",
                 "author": {
+                  "__typename": "User",
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this screenshot and comment.\n\n\ud83d\udc1b potential bug, minor, non-blocking, \ud83e\udd16 copilot found: README lines that can't wrap push the footer off-screen\n\nIn a 120x30 terminal, run `gh extension browse`, press `/`, and type `t4y3`. The README frame runs off the s\u2026",
@@ -171,6 +178,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABZ3sHLw",
                 "author": {
+                  "__typename": "User",
                   "login": "williammartin"
                 },
                 "body": "> [!NOTE]\r\n> Copilot generated this screenshot and comment.\r\n\r\nFixed in c12892961. Lipgloss v2 includes the border in the styled width and height, so the frame now adds the two border columns and rows around the viewport instead of taking them from its content area.\r\n\r\nI also str\u2026",
@@ -181,6 +189,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABaFQoVw",
                 "author": {
+                  "__typename": "User",
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this screenshot and comment.\n\nTwo more findings. Neither should block merging.\n\n\ud83d\udc1b potential bug, minor, non-blocking, \ud83e\udd16 copilot found: Multi-line install errors are cut off\n\nIf an extension has no build for the user's platform, the install error span\u2026",
@@ -191,6 +200,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABRK-09w",
                 "author": {
+                  "__typename": "User",
                   "login": "BagToad"
                 },
                 "state": "APPROVED",
@@ -221,6 +231,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABaMAhXA",
                 "author": {
+                  "__typename": "User",
                   "login": "williammartin"
                 },
                 "body": "Fixed the multi-line error display in 7dca83938 and polished wrapped command indentation in 7cb1cfff7. Status text now wraps at terminal width, the catalog/README area gives up the corresponding rows, and continuations preserve the command block's four-space indent. The complete \u2026",
@@ -266,6 +277,9 @@
   },
   "cli-13390": {
     "data": {
+      "viewer": {
+        "login": "me"
+      },
       "repository": {
         "pullRequest": {
           "id": "PR_kwDODKw3uc7Z5TNs",
@@ -316,6 +330,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABBw95Yw",
                 "author": {
+                  "__typename": "Bot",
                   "login": "github-actions"
                 },
                 "body": "This pull request appears to be a resubmission of a recently closed PR (#13384) that did not meet the contribution requirements.\n\nRather than resubmitting, please ensure your contribution:\n1. References an issue with the `help wanted` label\n2. Includes a detailed description\n\nIf \u2026",
@@ -342,6 +357,7 @@
                 "__typename": "IssueComment",
                 "id": "IC_kwDODKw3uc8AAAABCK0HGw",
                 "author": {
+                  "__typename": "Bot",
                   "login": "github-actions"
                 },
                 "body": "This pull request appears to be a resubmission of a recently closed PR (#13384) that did not meet the contribution requirements.\n\nRather than resubmitting, please ensure your contribution:\n1. References an issue with the `help wanted` label\n2. Includes a detailed description\n\nIf \u2026",
@@ -356,6 +372,9 @@
   },
   "cli-14507": {
     "data": {
+      "viewer": {
+        "login": "me"
+      },
       "repository": {
         "pullRequest": {
           "id": "PR_kwDODKw3uc8AAAABEu0z3A",
@@ -376,6 +395,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABO1e-YQ",
                 "author": {
+                  "__typename": "Bot",
                   "login": "copilot-pull-request-reviewer"
                 },
                 "state": "COMMENTED",
@@ -412,6 +432,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABO1oRaw",
                 "author": {
+                  "__typename": "Bot",
                   "login": "copilot-pull-request-reviewer"
                 },
                 "state": "COMMENTED",
@@ -532,6 +553,7 @@
                 "__typename": "PullRequestReview",
                 "id": "PRR_kwDODKw3uc8AAAABO7cQCQ",
                 "author": {
+                  "__typename": "User",
                   "login": "BagToad"
                 },
                 "state": "APPROVED",

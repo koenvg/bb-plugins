@@ -192,6 +192,7 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("fetchTimeline", { ...ref, before }, { hostId })),
     addComment: async ({ hostId }, request) =>
       unwrap(await host.call("addComment", request, { hostId })),
+    newCommentBasis: (pr) => reviewQueue.newCommentBasis(pr),
   });
 
   async function getReview(threadId: string): Promise<ReviewResult> {
