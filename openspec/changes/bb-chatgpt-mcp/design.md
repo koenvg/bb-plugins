@@ -70,7 +70,7 @@ Why not an unauthenticated endpoint or token in the URL: it would expose agent e
 
 | Tool               | Input                                             | Result and BB operation                                                                                                  |
 | ------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `bb_list_projects` | Optional page controls                            | All project IDs and names, including Personal, from `projects.list({ includePersonal: true })`                                                                       |
+| `bb_list_projects` | Optional page controls                            | All project IDs and names, including Personal, from `projects.list({ includePersonal: true })`                           |
 | `bb_list_threads`  | Project ID, page controls                         | Bounded visible thread summaries from `threads.list`                                                                     |
 | `bb_get_thread`    | Thread ID                                         | Current status, latest bounded output, pending-interaction indicator from `threads.get`, `output`, and interaction reads |
 | `bb_start_thread`  | Project ID, prompt, optional title, operation key | Ordinary visible thread from `threads.spawn`, using `environment: { type: "project-default" }` and BB execution defaults |

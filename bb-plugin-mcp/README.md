@@ -24,7 +24,7 @@ Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` c
 | `accessAudience`    | Cloudflare only: exact dedicated application AUD. Missing AUD fails closed.                                                                                              |
 | `accessPermission`  | Cloudflare only: local `read` (default) or `read-control` permission shared by all owner/app sessions.                                                                   |
 | `accessOAuthIssuer` | Cloudflare only: exact OAuth authorization-server issuer from verified discovery, separate from the assertion issuer.                                                    |
-| `projects`          | Thread-content and control project IDs separated by newlines or spaces, at most 1000. Empty blocks thread content and control, not project discovery.                                                 |
+| `projects`          | Thread-content and control project IDs separated by newlines or spaces, at most 1000. Empty blocks thread content and control, not project discovery.                    |
 | `remoteEnabled`     | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                                                 |
 | `controlEnabled`    | Local start/send/stop switch, false by default. Writes also require the selected mode's control permission.                                                              |
 
