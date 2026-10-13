@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { Type } from "typebox";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { CODEX_SPEED_SOURCE } from "./codex-speed-source.js";
 
 const cli = join(
   fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")),
@@ -185,10 +186,10 @@ it("ignores late tool results from a replaced session", async () => {
     }
     unref() {}
   }
-  const source = BB_PI_EXTENSION_SOURCE.replace(/^import .+;$/gm, "").replace(
-    "export default function bbExtension",
-    "function bbExtension",
-  );
+  expect(BB_PI_EXTENSION_SOURCE.startsWith(CODEX_SPEED_SOURCE)).toBe(true);
+  const source = BB_PI_EXTENSION_SOURCE.slice(CODEX_SPEED_SOURCE.length)
+    .replace(/^import .+;$/gm, "")
+    .replace("export default function bbExtension", "function bbExtension");
   const factory = runInNewContext(source + "\nbbExtension;", {
     Socket: BridgeSocket,
     StringDecoder: (await import("node:string_decoder")).StringDecoder,

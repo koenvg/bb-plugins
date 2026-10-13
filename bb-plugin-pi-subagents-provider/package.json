@@ -30,7 +30,9 @@
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "bun --bun tsc --noEmit --allowImportingTsExtensions",
     "check:upstream": "bun src/upstream/cli.ts",
-    "build": "bb plugin build ."
+    "build": "bb plugin build .",
+    "update:codex-speed": "bun scripts/update-codex-speed.mjs",
+    "check:codex-speed": "bun scripts/update-codex-speed.mjs --check"
   },
   "dependencies": {
     "@get-bb/plugin-sdk-runtime": "npm:@get-bb/plugin-sdk@0.6.37",
@@ -40,6 +42,7 @@
     "@earendil-works/pi-ai": "1.1.0",
     "@earendil-works/pi-coding-agent": "1.1.0",
     "@get-bb/plugin-sdk": "0.6.37",
+    "@koenvg/pi-openai-codex-speed": "file:vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",
     "@types/better-sqlite3": "7.6.13",
@@ -49,6 +52,7 @@
     "bb-app": "0.46.0",
     "better-sqlite3": "12.10.0",
     "cron-parser": "5.5.0",
+    "esbuild": "0.28.2",
     "hono": "4.13.13",
     "jsdom": "29.0.1",
     "react": "19.2.0",

@@ -64,7 +64,7 @@ import {
 } from "./catalog.js";
 import { PiRpcSession, type PiRpcSessionOptions, type ToolCallForwarder } from "./rpc-session.js";
 import { resolvePiBridgeSessionDir, resolvePiSessionFilePath } from "./session-paths.js";
-import { extractPiPromptInput } from "./turn-input.js";
+import { extractPiPromptInput, extractPrivateSpeedCommand } from "./turn-input.js";
 import { createSubagentObservation, type SubagentObservation } from "./subagents/observation.js";
 import { createViewStore } from "./subagents/view-store.js";
 import { VIEW_EXTENSION_KIND } from "../subagents-contract.js";
@@ -695,6 +695,7 @@ async function buildSessionOptions(args: {
       ? { additionalSkillPaths: [...args.params.additionalSkillPaths] }
       : {}),
     ...(args.params.thinkingLevel ? { thinkingLevel: args.params.thinkingLevel } : {}),
+    serviceTier: args.params.serviceTier,
     ...(args.params.dynamicTools && args.params.dynamicTools.length > 0
       ? { dynamicTools: args.params.dynamicTools }
       : {}),
@@ -925,15 +926,13 @@ async function handleThreadFork(id: string | number, params: ThreadForkParams): 
   await handleThreadConstruction(id, params.threadId, params.threadId, toPiSessionParams(params));
 }
 
-function startPiPrompt(
+function settlePiInput(
   threadSession: ThreadSession,
   threadId: string,
-  text: string,
-  images: ImageContent[],
+  dispatch: ReturnType<PiRpcSession["prompt"]>,
 ): Promise<void> {
-  const dispatch = threadSession.session.prompt(text, images.length > 0 ? images : undefined);
   void dispatch.settled.then((outcome) => {
-    if (outcome === null) {
+    if (outcome === null || outcome.canSettle?.() === false) {
       return;
     }
     reportPromptSettled({
@@ -945,6 +944,37 @@ function startPiPrompt(
   return dispatch.consumed;
 }
 
+function startPiPrompt(
+  threadSession: ThreadSession,
+  threadId: string,
+  text: string,
+  images: ImageContent[],
+): Promise<void> {
+  return settlePiInput(
+    threadSession,
+    threadId,
+    threadSession.session.prompt(text, images.length > 0 ? images : undefined),
+  );
+}
+
+async function handlePrivateSpeedCommand(
+  id: string | number,
+  params: TurnStartParams | TurnSteerParams,
+  threadSession: ThreadSession,
+): Promise<boolean> {
+  try {
+    const action = extractPrivateSpeedCommand(params.input);
+    if (action === null) return false;
+    await settlePiInput(threadSession, params.threadId, threadSession.session.speedCommand(action));
+    sendThreadDeltas(params.threadId, [
+      { kind: "input.accepted", clientRequestId: params.clientRequestId },
+    ]);
+    sendResult(id, { threadId: params.threadId });
+  } catch (error) {
+    sendError(id, -32000, error instanceof Error ? error.message : String(error));
+  }
+  return true;
+}
 function startPiCompaction(threadSession: ThreadSession, threadId: string): void {
   void threadSession.session.compact().then(
     () =>
@@ -974,6 +1004,8 @@ async function reconcileTurnOptions(
 ): Promise<ThreadSession> {
   const turnOptions = buildPiTurnOptions(options);
   const construction = threadSession.construction;
+  threadSession.session.setServiceTier(turnOptions.serviceTier);
+  construction.serviceTier = turnOptions.serviceTier;
   const shellEnvOverrides =
     options.envVars && Object.keys(options.envVars).length > 0
       ? { BB_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
@@ -1032,6 +1064,7 @@ async function handleTurnStart(id: string | number, params: TurnStartParams): Pr
     sendError(id, -32000, "No active pi session");
     return;
   }
+  if (await handlePrivateSpeedCommand(id, params, liveSession)) return;
   let threadSession: ThreadSession;
   try {
     threadSession = await reconcileTurnOptions(params.threadId, liveSession, params.options);
@@ -1066,12 +1099,15 @@ async function handleTurnSteer(id: string | number, params: TurnSteerParams): Pr
     sendError(id, -32000, "No active pi session");
     return;
   }
+  if (await handlePrivateSpeedCommand(id, params, threadSession)) return;
   const input = extractPiPromptInput(params.input);
   if (input === null) {
     sendError(id, BRIDGE_JSON_RPC_ERRORS.INVALID_PARAMS, "Missing input text");
     return;
   }
   const { text, images } = input;
+  threadSession.session.setServiceTier(params.options.serviceTier ?? "default");
+  threadSession.construction.serviceTier = params.options.serviceTier ?? "default";
   if (threadSession.session.getIsCompacting()) {
     sendError(id, -32000, "Cannot steer while context compaction is active");
     return;

@@ -29,6 +29,7 @@ function toPiThinkingLevel(
 interface PiSessionOptions {
   model?: string | undefined;
   reasoningLevel?: ReasoningLevel | undefined;
+  serviceTier?: string | undefined;
   instructions?: string | undefined;
   envVars?: Record<string, string> | undefined;
 }
@@ -51,17 +52,20 @@ export interface PiSessionParams {
   model?: string;
   shellEnvOverrides: Record<string, string>;
   thinkingLevel?: PiReasoningLevel;
+  serviceTier?: string;
 }
 
 export interface PiTurnOptions {
   model: string | undefined;
   thinkingLevel: PiReasoningLevel | undefined;
+  serviceTier: string;
 }
 
 export function buildPiTurnOptions(options: PiSessionOptions): PiTurnOptions {
   return {
     model: options.model ? options.model : undefined,
     thinkingLevel: toPiThinkingLevel(options.reasoningLevel),
+    serviceTier: options.serviceTier ?? "default",
   };
 }
 
@@ -70,6 +74,7 @@ export function buildPiSessionParams(args: BuildPiSessionParamsArgs): PiSessionP
   const thinkingLevel = toPiThinkingLevel(args.options.reasoningLevel);
   return {
     cwd: args.cwd,
+    serviceTier: args.options.serviceTier ?? "default",
     shellEnvOverrides: {
       BB_THREAD_ID: args.threadId,
       ...buildShellEnvOverrides(args.options.envVars),

@@ -17,6 +17,19 @@ interface SelectedPiSkill {
   start: number;
 }
 
+export function extractPrivateSpeedCommand(input: PromptInput[]): string | null {
+  const text = input
+    .filter((item) => item.type === "text")
+    .map((item) => item.text)
+    .join("\n")
+    .trim();
+  if (!/^\/speed(?:\s|$)/.test(text)) return null;
+  if (input.some((item) => item.type !== "text")) {
+    throw new Error("Speed commands do not accept attachments.");
+  }
+  return text.slice(6).trim() || "status";
+}
+
 export function extractPiPromptInput(input: PromptInput[]): ExtractedPiPromptInput | null {
   const chunks: string[] = [];
   const images: ImageContent[] = [];

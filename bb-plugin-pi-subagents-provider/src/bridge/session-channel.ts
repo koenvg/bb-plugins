@@ -14,12 +14,18 @@ export class PiSessionChannel {
   private leafWaiter: ((leafId: string | null) => void) | null = null;
   private readonly ready = createDeferred();
   private disposedError: Error | null = null;
+  private speedControl = false;
+
+  get supportsSpeed(): boolean {
+    return this.speedControl;
+  }
 
   constructor(private readonly send: (message: Record<string, unknown>) => void) {}
 
   handle(message: Record<string, unknown>): void {
     if (this.disposedError) return;
     if (message.kind === "ready") {
+      this.speedControl = message.speedControl === true;
       this.ready.resolve();
     } else if (message.kind === "agent-end-leaf") {
       const leafId = typeof message.leafId === "string" ? message.leafId : null;

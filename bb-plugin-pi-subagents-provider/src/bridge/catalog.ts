@@ -6,6 +6,7 @@ import {
 } from "../delta-translation.js";
 import { buildPiAvailableModels, type PiCatalogModel } from "../model-list.js";
 import { PiRpcChild, PiRpcChildExitedError, buildPiChildEnv } from "./rpc-child.js";
+import { PiSessionChannel } from "./session-channel.js";
 
 const EXTENDED_THINKING_LEVELS = [
   "off",
@@ -85,6 +86,7 @@ async function spawnCatalog(
 ): Promise<PiCatalog> {
   interface CatalogChildGeneration {
     child: PiRpcChild;
+    channel: PiSessionChannel;
     ready: Promise<Record<string, unknown>>;
     getModelScope(): { scopedModelIds: string[]; defaultModelId?: string } | undefined;
   }
@@ -102,12 +104,14 @@ async function spawnCatalog(
         defaultModelId: typeof value.defaultModelId === "string" ? value.defaultModelId : undefined,
       };
     };
+    const channel = new PiSessionChannel((message) => child.sendChannel(message));
     const child = new PiRpcChild({
       cwd,
       env: buildPiChildEnv({}),
       args: ["--mode", "rpc", "--no-session", "--extension", extensionPath],
       onEvent: () => {},
       onChannelMessage: (message) => {
+        channel.handle(message);
         if (message.kind === "model-scope") {
           acceptModelScope(message);
           return;
@@ -123,11 +127,12 @@ async function spawnCatalog(
           settleModelScopeRequest = undefined;
         }
       },
-      onExit: () => {},
+      onExit: () => channel.dispose(new Error("Pi catalog child exited")),
       recordThreadId: null,
     });
     const ready = (async (): Promise<Record<string, unknown>> => {
       const data = await child.requestOk({ type: "get_state" });
+      await channel.awaitReady(2_000);
       await new Promise<void>((resolveScope) => {
         const timeout = setTimeout(resolveScope, 2_000);
         timeout.unref?.();
@@ -143,7 +148,7 @@ async function spawnCatalog(
       });
       return typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
     })();
-    return { child, ready, getModelScope: () => modelScope };
+    return { child, channel, ready, getModelScope: () => modelScope };
   };
   const activeGeneration = (): CatalogChildGeneration => {
     if (generation === null || generation.child.exited) {
@@ -182,10 +187,31 @@ async function spawnCatalog(
   return {
     async listModels() {
       const { active, raw } = await fetchGeneration();
+      let speedModels: Record<string, { tiers?: AvailableModel["supportedServiceTiers"] }> = {};
+      const modelIds = raw
+        .filter((model) => model.provider === "openai-codex")
+        .map((model) => model.provider + "/" + model.id);
+      if (modelIds.length > 0) {
+        try {
+          const response = (await active.channel.request(
+            {
+              method: "speed-capabilities",
+              modelIds,
+              refresh: true,
+            },
+            15_000,
+          )) as { models?: typeof speedModels };
+          speedModels = response?.models ?? {};
+        } catch {
+          // Unconfirmed discovery must never grant provider-wide speed choices.
+        }
+      }
       const models: PiCatalogModel[] = [];
       for (const model of raw) {
         const catalogModel = toCatalogModel(model);
         if (catalogModel) {
+          catalogModel.supportedServiceTiers =
+            speedModels[model.provider + "/" + model.id]?.tiers ?? [];
           models.push(catalogModel);
         } else {
           process.stderr.write(

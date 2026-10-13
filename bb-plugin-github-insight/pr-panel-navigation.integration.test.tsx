@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within, waitFor } from "@testing-library/react";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+import { renderSidebarSlot as renderSlot } from "../bb-plugin-pr-thread-list/sidebar-actions.test-support";
 import { project, thread } from "../bb-plugin-pr-thread-list/fixtures";
 import { cancelPrPanelRequest } from "./pr-panel-navigation";
 import { forgetInsights } from "./ui/pr-availability";
@@ -75,7 +76,7 @@ it("navigates from the sidebar to the correct destination and opens its owner-pl
   fireEvent.click(
     await sidebar.findByRole("button", { name: "Open PR tab, PR #42: 1 failed check" }),
   );
-  expect(sidebar.inspection.sidebarActionCalls).toEqual([{ method: "open", threadId: "thread-b" }]);
+  expect(sidebar.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "thread-b" }]);
   expect(onNavigate).toHaveBeenCalledOnce();
   expect(previous.inspection.navigateCalls).toHaveLength(0);
   previous.lifecycle.unmount();

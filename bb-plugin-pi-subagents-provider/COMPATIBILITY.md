@@ -4,13 +4,25 @@
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Node         | 24.15.0 or newer within Node 24                                                                                                          |
 | BB           | 0.46.x; build tooling pinned to 0.46.0                                                                                                   |
-| Public SDK   | 0.6.37; manifest accepts 0.6.37 through 0.6.x                                                                                            |
-| Pi           | Inherited install gate requires 0.84.0 or newer; fixtures and type contracts use 0.84.0                                                  |
+| Public SDK   | 0.6.37; manifest accepts 0.6.37 through 0.6.x; development and runtime alias pins match                                                  |
+| Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
 Credential-free tests drive the real bridge through a scripted Pi RPC child and use published SDK harnesses. They cover prompts, native tool translation, dynamic tools, model/reasoning choices, select/confirm/input/editor dialogs, native skill roots, checkpoint forks, compaction, process handling, RPC framing, and bridge conformance. They do not prove compatibility with every later Pi release or with a live authenticated model.
 
 The inherited Pi version probe reports a missing or too-old executable before session creation. BB checks the manifest engine ranges. An unavailable package does not affect ordinary Pi work. Observation requires public RPC v1 and snapshot/projection v1. Capture additionally requires the registered inspection command and a handled extension-command disposition (statically checked in Pi 1.0.0). Missing capability has no model fallback. No live package/Pi version is certified for capture, persistence, or idle retention. See [capture boundaries](SUBAGENTS.md).
+
+## Shared Codex speed package
+
+The fork embeds `@koenvg/pi-openai-codex-speed@0.1.0` in its generated extension. The reviewed archive is a package-local development input at `vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz`. Its SHA-256 is `1642307063bd2867eb26e94853fd6906bc135c33161243de953012864b4718ff`. Run `bun run check:codex-speed` to check the generated source; use `bun run update:codex-speed` only when updating that reviewed input. Runtime does not load a pi-plugins sibling checkout or the development package.
+
+Fork-only changes restore BB's existing model-picker speed controls for `pi-subagents`. Provider vocabulary is Default/Fast; only account-confirmed Codex models expose Fast. The shared module retains entitlement checks, native transport, captured-turn speed, and final payload validation. Generated BB recovery text points to Default in the BB speed selector or `/speed refresh`; the reviewed archive and guard logic are unchanged. Credentials and raw authenticated responses stay Pi-private.
+
+The user accepted [BBP-201](bbtask://BBP-201) as a known limitation. After failed or revoked discovery, a model or reasoning edit can replace saved Fast with BB's displayed fallback Default. BB core is unchanged and its fix is not installed. This is an accepted execution-input ambiguity, not permission to send an unconfirmed non-default tier or downgrade after a server refusal.
+
+The private preference/publish/reopen path was removed. This removes the startup session replacement associated with [BBP-208](bbtask://BBP-208). Existing private preference files and native history are not migrated or deleted. Only `/speed refresh` remains a supported control command; all other speed commands are rejected before reconciliation or attachment reads. Fixtures cover first native-message persistence and resume with a real unflushed Pi SessionManager, zero startup `switch_session` calls, and the accepted fallback path.
+
+Earlier native-selector live acceptance is historical evidence, not acceptance of the restored build. The historical private-command installed attempt failed at startup with a stale extension context and zero model requests. The user then approved installing the pre-rebase native restoration from this worktree. Activation confirmed Default/Fast provider support; retained host SHA-256 is `9d527872118587b9ceb99ffad09a690ceb5c254f8793f7830082410c24609f9e`. Subsequent main lifecycle integration and the fixture repair have not been reloaded. One fresh independent review approved the current source with a non-blocking documentation finding, corrected by the parent. Renewed installed/live acceptance remains required. See [verification](../openspec/changes/openai-codex-speed-options/verification.md).
 
 ## SDK packaging on BB 0.46.0
 
@@ -20,7 +32,7 @@ On 2026-10-06, the read-only checker exited 0 at published source `2952bf97d8416
 
 The canonical `@get-bb/plugin-sdk` pin is a development dependency for public types and test harnesses. Runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of the same published SDK 0.6.37 package. Only its public `/host` and `/provider-bridge` exports are used. This is not a separate SDK fork. BB bundles those exports into the host and server artifacts. Production installs retain the alias and Zod without development packages.
 
-`production.test.ts` creates a package-local copy, runs `npm ci --omit=dev --omit=optional --ignore-scripts`, checks the normal gate, builds with BB 0.46.0, and loads the server and host artifacts in Node. It checks all three artifact version records, provider registration, native-roots RPC and an unknown bridge request. The child cannot resolve the canonical SDK. The SDK test harnesses stay outside the production copy. Pi settings and model sessions are not used.
+`production.test.ts` creates a package-local copy, runs `bun install --frozen-lockfile --production --omit=optional --ignore-scripts`, checks the normal gate, builds with BB 0.46.0, and loads the server and host artifacts in Node. It checks all three artifact version records, provider registration, native-roots RPC and an unknown bridge request. The child cannot resolve the canonical SDK. The SDK test harnesses stay outside the production copy. Pi settings and model sessions are not used.
 
 Moving only the canonical SDK to development dependencies is insufficient. BB 0.45.0 cannot build this provider's public host contract without an installed runtime SDK. The production regression keeps that failure covered.
 
