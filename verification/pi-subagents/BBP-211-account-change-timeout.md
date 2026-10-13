@@ -24,25 +24,25 @@ Local raw logs and the baseline tracing patch are in the [evidence archive](/api
 
 Local checks before the change:
 
-| Check | Result |
-| --- | --- |
-| Speed file alone | 25 passed, 14.92 seconds |
-| Full package suite plus typecheck | 548 passed, 34.08 seconds; typecheck exit 0 |
-| Two full suites plus typecheck, stage tracing enabled in one suite | Both passed 548; traced account test finished in 2456 ms |
-| Four full suites plus typecheck, stage tracing enabled | All four account tests timed out; suites had 8, 8, 8, and 9 failures; typecheck exit 0 |
+| Check                                                              | Result                                                                                 |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Speed file alone                                                   | 25 passed, 14.92 seconds                                                               |
+| Full package suite plus typecheck                                  | 548 passed, 34.08 seconds; typecheck exit 0                                            |
+| Two full suites plus typecheck, stage tracing enabled in one suite | Both passed 548; traced account test finished in 2456 ms                               |
+| Four full suites plus typecheck, stage tracing enabled             | All four account tests timed out; suites had 8, 8, 8, and 9 failures; typecheck exit 0 |
 
 The temporary trace used `performance.now()` around each awaited stage in the account-change test. It did not add sleeps, mocks, timeout changes, or retries. The trace is removed from the final code. The attached evidence archive contains the instrumentation patch and raw logs.
 
 Stage times are cumulative from entry to the test body:
 
-| Stage | Isolated test | Two-suite load | Four-suite load, suite 4 |
-| --- | ---: | ---: | ---: |
-| Catalog ready | 391 ms | 1618 ms | 4666 ms |
-| Active thread ready | 765 ms | 2423 ms | 11055 ms, after timeout |
-| First prompt accepted | 776 ms | 2434 ms | Not reached before timeout |
-| First turn boundary | 776 ms | 2434 ms | Not reached before timeout |
-| Changed account rejected | 786 ms | 2445 ms | Not reached before timeout |
-| Default accepted | 798 ms | 2456 ms | Not reached before timeout |
+| Stage                    | Isolated test | Two-suite load |   Four-suite load, suite 4 |
+| ------------------------ | ------------: | -------------: | -------------------------: |
+| Catalog ready            |        391 ms |        1618 ms |                    4666 ms |
+| Active thread ready      |        765 ms |        2423 ms |    11055 ms, after timeout |
+| First prompt accepted    |        776 ms |        2434 ms | Not reached before timeout |
+| First turn boundary      |        776 ms |        2434 ms | Not reached before timeout |
+| Changed account rejected |        786 ms |        2445 ms | Not reached before timeout |
+| Default accepted         |        798 ms |        2456 ms | Not reached before timeout |
 
 Across the four failing suites, catalog startup alone took 4392 to 4671 ms. By contrast, the rejection and recovery stages took about 33 ms under the two-suite load. A timed-out async body can continue briefly during teardown, so post-timeout traces are not successful checks.
 
@@ -59,15 +59,15 @@ Vitest's default run worker count on this host is nine, derived from available C
 
 All checks below were run by the worker on the final code, with temporary tracing removed:
 
-| Check | Result |
-| --- | --- |
-| Speed file alone, verbose reporter | 25 passed; account test 902 ms |
-| Full package suite alone | 548 passed, 58.93 seconds |
-| Full package suite plus typecheck | 548 passed, 39.07 seconds; account test 1311 ms; typecheck exit 0 |
-| Four full package suites plus typecheck | Four times 548 passed; account tests 4752 to 4818 ms; suites 88.58 to 89.92 seconds; typecheck exit 0 |
-| Oxfmt check of both changed TypeScript files | Passed |
-| Oxlint of both changed TypeScript files | Passed |
-| `git diff --check` | Passed |
+| Check                                        | Result                                                                                                |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Speed file alone, verbose reporter           | 25 passed; account test 902 ms                                                                        |
+| Full package suite alone                     | 548 passed, 58.93 seconds                                                                             |
+| Full package suite plus typecheck            | 548 passed, 39.07 seconds; account test 1311 ms; typecheck exit 0                                     |
+| Four full package suites plus typecheck      | Four times 548 passed; account tests 4752 to 4818 ms; suites 88.58 to 89.92 seconds; typecheck exit 0 |
+| Oxfmt check of both changed TypeScript files | Passed                                                                                                |
+| Oxlint of both changed TypeScript files      | Passed                                                                                                |
+| `git diff --check`                           | Passed                                                                                                |
 
 The same four-suite experiment with the worker cap and temporary tracing still enabled also passed four times 548 tests. Its account tests finished in 3641 to 4143 ms. None of these experiments used retries.
 
