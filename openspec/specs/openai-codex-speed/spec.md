@@ -10,6 +10,8 @@ Let users select speed tiers supported by their active ChatGPT account and OpenA
 
 The system SHALL offer non-default speed tiers only when the active `openai-codex` account's authoritative model capability response confirms their availability for the selected model. Static model names, subscription labels, provider-wide tier declarations, and another account's cached catalog SHALL NOT establish availability.
 
+Ultrafast SHALL remain absent while its wire mapping is unverified. The current BB provider SHALL declare only Default and Fast.
+
 #### Scenario: Current account supports Fast only
 
 - **WHEN** the active account's selected model advertises Fast and does not advertise Ultrafast
@@ -18,7 +20,7 @@ The system SHALL offer non-default speed tiers only when the active `openai-code
 
 #### Scenario: Account supports both tiers
 
-- **WHEN** the active account's selected model explicitly advertises supported Fast and Ultrafast tiers
+- **WHEN** the active account's selected model explicitly advertises Fast and Ultrafast tiers with verified wire mappings
 - **THEN** both options are selectable with Default
 
 #### Scenario: Model has no advertised speed tiers
@@ -44,7 +46,7 @@ Missing, expired, failed, or unrecognized account-capability data SHALL expose n
 
 ### Requirement: Speed selection is separate from reasoning
 
-Standalone Pi SHALL provide a speed command with an interactive picker and explicit tier arguments. The BB `pi-subagents` provider SHALL use private `/speed`, `/speed fast`, `/speed default`, and `/speed refresh` commands and SHALL hide its native service-tier selector. BB speed preferences SHALL be stored independently of BB's execution settings. Native fallback Default values and reasoning-only edits SHALL NOT overwrite that preference. Selecting speed SHALL leave model, reasoning effort, and the running turn unchanged, and SHALL NOT initiate a model request.
+Standalone Pi SHALL provide a speed command with an interactive picker and explicit tier arguments. The BB `pi-subagents` provider SHALL use BB's native model-picker speed controls and its native service-tier setting. Selecting speed SHALL leave model, reasoning effort, and the running turn unchanged and SHALL NOT initiate a model request. The user accepts BBP-201: when discovery fails or revokes Fast, a model or reasoning edit can submit BB's displayed fallback Default as explicit and replace saved Fast. This known limitation SHALL be documented; it does not relax non-default entitlement or payload guards. BB SHALL support `/speed refresh` privately and reject all other `/speed` commands and attachments without model dispatch or execution reconciliation.
 
 #### Scenario: User chooses Fast
 
@@ -62,6 +64,12 @@ Standalone Pi SHALL provide a speed command with an interactive picker and expli
 
 - **WHEN** the user selects another available speed during a running turn
 - **THEN** the change applies to the next turn without changing in-flight requests
+
+#### Scenario: Accepted BB fallback Default
+
+- **WHEN** failed or revoked discovery narrows the displayed BB speed to Default and a model or reasoning edit submits that fallback as explicit
+- **THEN** BB may replace saved Fast with Default under the accepted BBP-201 limitation
+- **AND** unconfirmed non-default dispatch remains blocked, with no automatic retry after a server refusal
 
 ### Requirement: Dispatch uses the selected supported tier
 
@@ -88,6 +96,8 @@ Each applicable `openai-codex` request SHALL use the verified wire tier associat
 
 Pi session resume and BB thread resume SHALL restore the saved speed preference and validate it against the active account and model before sending a non-default request. If the saved tier is unavailable or cannot be confirmed, the system SHALL report the problem and require an explicit supported selection or successful refresh rather than silently downgrading.
 
+BB SHALL restore its native service-tier setting without consulting or deleting the superseded private preference sidecar. Speed initialization SHALL NOT publish native history or reopen the session before its first model prompt.
+
 #### Scenario: Supported Fast selection is resumed
 
 - **WHEN** a session or thread saved with Fast resumes and Fast is still confirmed
@@ -104,6 +114,12 @@ Pi session resume and BB thread resume SHALL restore the saved speed preference 
 - **WHEN** the active Pi account changes
 - **THEN** prior account capability data does not authorize a tier for the new account
 - **AND** the saved preference is revalidated before dispatch
+
+#### Scenario: New BB thread uses the native writer
+
+- **WHEN** a new Pi with subagents thread starts before its first model prompt
+- **THEN** speed initialization does not replace or reopen the native session
+- **AND** Pi persists the first user message and resumed history through its own session writer
 
 ### Requirement: Scope stays limited to the selected provider
 

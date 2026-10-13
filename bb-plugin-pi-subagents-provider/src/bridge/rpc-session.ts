@@ -211,17 +211,7 @@ export class PiRpcSession {
     if (child.exited) throw new Error("pi exited before its extension reported ready");
     await channel.awaitReady(readinessTimeoutMs());
     if (this.channel.supportsSpeed) {
-      const restored = (await this.channelRequest({
-        method: "speed-restore",
-        serviceTier: this.serviceTier,
-      })) as { reopenSessionFile?: string };
-      if (restored.reopenSessionFile) {
-        const result = (await child.requestOk({
-          type: "switch_session",
-          sessionPath: restored.reopenSessionFile,
-        })) as { cancelled?: boolean };
-        if (result.cancelled) throw new Error("Pi session identity reload was cancelled.");
-      }
+      await this.channelRequest({ method: "speed-restore", serviceTier: this.serviceTier });
     }
     if (state.model?.provider === "unknown") {
       return {
@@ -252,9 +242,18 @@ export class PiRpcSession {
     return state;
   }
 
+  setServiceTier(serviceTier: string): void {
+    this.serviceTier = serviceTier;
+  }
+
   private async runSpeedCommand(action: string): Promise<void> {
-    if (!this.channel.supportsSpeed) throw new Error("Speed control is unavailable.");
-    await this.channelRequest({ method: "speed-command", action });
+    if (action !== "refresh")
+      throw new Error(
+        "Choose Default or Fast in the BB speed selector. Only /speed refresh is supported.",
+      );
+    if (!this.channel.supportsSpeed)
+      throw new Error("Speed control is unavailable. Select Default.");
+    await this.channelRequest({ method: "speed-refresh" });
   }
 
   speedCommand(action: string): PiInputDispatch {
@@ -294,10 +293,10 @@ export class PiRpcSession {
   private async prepareSpeed(): Promise<void> {
     if (!this.channel.supportsSpeed) {
       if (this.serviceTier !== "default")
-        throw new Error("Speed control is unavailable. Use /speed default.");
+        throw new Error("Speed control is unavailable. Select Default in the BB speed selector.");
       return;
     }
-    await this.channelRequest({ method: "speed-prepare", active: this.isProcessing });
+    await this.channelRequest({ method: "speed-select", serviceTier: this.serviceTier });
   }
 
   private dispatchPrompt(text: string, images?: ImageContent[]): PiInputDispatch {

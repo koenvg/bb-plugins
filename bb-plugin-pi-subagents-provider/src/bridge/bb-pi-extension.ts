@@ -6,7 +6,7 @@ export const BB_PI_EXTENSION_SOURCE =
   SUBAGENT_STATUS_SOURCE +
   String.raw`
 import { randomUUID } from "node:crypto";
-import { existsSync, linkSync, readFileSync, renameSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { readFileSync, renameSync, writeSync } from "node:fs";
 import { Socket } from "node:net";
 import { StringDecoder } from "node:string_decoder";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -221,91 +221,6 @@ export default function bbExtension(pi) {
   let sessionContext = null;
   let detachBridgeChannel = () => {};
   let speed = null;
-  let preferredSpeed = "default";
-  let speedSelectionGeneration = 0;
-
-  function speedPreferenceFile() {
-    const file = sessionContext?.sessionManager?.getSessionFile?.();
-    if (!file) throw new Error("Speed preference cannot be saved in this session.");
-    return file + ".bb-codex-speed.json";
-  }
-
-  function persistSessionIdentity() {
-    const manager = sessionContext?.sessionManager;
-    const file = manager?.getSessionFile?.();
-    if (!file || existsSync(file)) return;
-    const header = manager.getHeader?.();
-    if (!header) throw new Error("Native session identity is unavailable.");
-    const temporary = file + ".bb-codex-speed.identity." + process.pid + ".tmp";
-    try {
-      writeFileSync(temporary, [header, ...manager.getEntries()].map((entry) => JSON.stringify(entry)).join("\n") + "\n", { mode: 0o600 });
-      try { linkSync(temporary, file); }
-      catch (error) { if (error?.code !== "EEXIST") throw error; }
-    } finally {
-      rmSync(temporary, { force: true });
-    }
-    return file;
-  }
-
-  function saveSpeedPreference(value) {
-    const file = speedPreferenceFile();
-    const temporary = file + "." + process.pid + ".tmp";
-    try {
-      writeFileSync(temporary, JSON.stringify({ version: 1, speed: value }), { mode: 0o600 });
-      renameSync(temporary, file);
-    } catch {
-      try { rmSync(temporary, { force: true }); } catch {}
-      throw new Error("Speed preference could not be saved. Retry the /speed command.");
-    }
-    preferredSpeed = value;
-  }
-
-  function restoreSpeedPreference(legacy) {
-    let missing = false;
-    let value = legacy === "fast" ? "fast" : legacy === undefined || legacy === "default" ? "default" : null;
-    try {
-      const saved = JSON.parse(readFileSync(speedPreferenceFile(), "utf8"));
-      value = saved.version === 1 && (saved.speed === "default" || saved.speed === "fast")
-        ? saved.speed : null;
-    } catch (error) {
-      missing = error?.code === "ENOENT";
-      if (!missing) value = null;
-    }
-    preferredSpeed = value;
-    speed?.restore(value);
-    if (missing && value !== "default") saveSpeedPreference(value);
-    return { selected: preferredSpeed ?? "invalid" };
-  }
-
-  async function runSpeedCommand(action) {
-    const generation = action === "fast" || action === "default"
-      ? ++speedSelectionGeneration : speedSelectionGeneration;
-    if (action === "default") {
-      saveSpeedPreference("default");
-    } else if (action === "fast") {
-      if (!speed || !sessionContext?.model) throw new Error("Speed unavailable. Use /speed default.");
-      const result = await speed.capabilities(sessionContext.model);
-      if (generation !== speedSelectionGeneration) return { selected: preferredSpeed };
-      if (result.error || !result.tiers.some((tier) => tier.id === "fast"))
-        throw new Error("Fast is not confirmed for this account and model. Use /speed refresh or /speed default.");
-      saveSpeedPreference("fast");
-    } else if (action !== "status" && action !== "refresh") {
-      throw new Error("Unknown speed command. Use /speed, /speed fast, /speed default, or /speed refresh.");
-    }
-    const choices = action === "status" || action === "refresh"
-      ? await (action === "refresh" ? speed?.refresh(sessionContext?.model) : speed?.capabilities(sessionContext?.model))
-      : null;
-    if (action === "refresh" && (!choices || choices.error))
-      throw new Error("Speed discovery failed. Retry /speed refresh or use /speed default.");
-    const available = choices?.tiers?.filter((tier) => tier.id !== "ultrafast").map((tier) => tier.name).join(", ");
-    const message = "Saved Codex speed: " + (preferredSpeed ?? "invalid") + " for the next turn."
-      + (available ? " Available: " + available + "." : "")
-      + (choices && !choices.tiers?.some((tier) => tier.id === preferredSpeed) ? " Not confirmed for this account and model." : "")
-      + (choices?.error ? " Discovery failed. Use /speed refresh or /speed default." : "")
-      + (preferredSpeed === "fast" ? " Fast uses increased usage." : "");
-    sessionContext?.ui?.notify?.(message, "info");
-    return { selected: preferredSpeed ?? "invalid", message };
-  }
   const readSubagentStatus = installSubagentStatusChannel(pi, () => sessionContext, () => {
     writeLine(CHILD_TO_BRIDGE_FD, { kind: "subagent-hint" });
   });
@@ -382,20 +297,49 @@ export default function bbExtension(pi) {
       }
       case "leaf":
         return { leafId: currentLeafId() };
-      case "speed-restore": {
-        const reopenSessionFile = persistSessionIdentity();
-        return { ...restoreSpeedPreference(message.serviceTier), ...(reopenSessionFile ? { reopenSessionFile } : {}) };
-      }
-      case "speed-command":
-        return runSpeedCommand(message.action);
-      case "speed-prepare": {
-        const selected = sessionContext?.model?.provider === "openai-codex" ? (message.active ? (speed?.selected ?? "default") : preferredSpeed) : "default";
-        if (!speed) {
-          if (selected !== "default") throw new Error("Speed unavailable. Use /speed default.");
-        } else {
-          await speed.select(sessionContext?.model, selected);
+      case "speed-capabilities": {
+        const models = {};
+        const ids = Array.isArray(message.modelIds) ? message.modelIds : [];
+        let refreshed = false;
+        for (const id of ids) {
+          if (typeof id !== "string" || !id.startsWith("openai-codex/")) continue;
+          const model = sessionContext?.modelRegistry?.find?.("openai-codex", id.slice(13));
+          if (!model || !speed) {
+            models[id] = { tiers: [], error: "unsupported-runtime" };
+            continue;
+          }
+          const result = message.refresh && !refreshed
+            ? await speed.refresh(model)
+            : await speed.capabilities(model);
+          refreshed = true;
+          models[id] = {
+            tiers: result.tiers.filter((tier) => tier.id !== "default").map((tier) => ({
+              id: tier.id, label: tier.name, description: tier.description,
+            })),
+            ...(result.error ? { error: result.error } : {}),
+          };
         }
-        return { selected: preferredSpeed ?? "invalid" };
+        return { models };
+      }
+      case "speed-restore":
+        speed?.restore(message.serviceTier);
+        return { selected: speed?.selected ?? "default" };
+      case "speed-select":
+        if (!speed) {
+          if (message.serviceTier === "default") return { selected: "default" };
+          throw new Error("Speed unavailable: unsupported-runtime. Select Default.");
+        }
+        await speed.select(sessionContext?.model, message.serviceTier);
+        return { selected: speed.selected };
+      case "speed-refresh": {
+        if (!speed || !sessionContext?.model) {
+          throw new Error("Speed unavailable: unsupported-runtime.");
+        }
+        const result = await speed.refresh(sessionContext.model);
+        if (result.error) {
+          throw new Error("Speed discovery failed: " + result.error + ". Retry /speed refresh or select Default.");
+        }
+        return { tiers: result.tiers.map((tier) => ({ id: tier.id, label: tier.name })) };
       }
       case "model-scope":
         return currentModelScope();

@@ -1004,6 +1004,7 @@ async function reconcileTurnOptions(
 ): Promise<ThreadSession> {
   const turnOptions = buildPiTurnOptions(options);
   const construction = threadSession.construction;
+  threadSession.session.setServiceTier(turnOptions.serviceTier);
   construction.serviceTier = turnOptions.serviceTier;
   const shellEnvOverrides =
     options.envVars && Object.keys(options.envVars).length > 0
@@ -1105,6 +1106,7 @@ async function handleTurnSteer(id: string | number, params: TurnSteerParams): Pr
     return;
   }
   const { text, images } = input;
+  threadSession.session.setServiceTier(params.options.serviceTier ?? "default");
   threadSession.construction.serviceTier = params.options.serviceTier ?? "default";
   if (threadSession.session.getIsCompacting()) {
     sendError(id, -32000, "Cannot steer while context compaction is active");

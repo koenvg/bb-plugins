@@ -22,7 +22,7 @@ Also run the read-only `bb plugin types . --check` and retain its actual exit co
 
 ## Install after approval
 
-Installation runs full-trust plugin code. First obtain the approvals and pass the gates in the repository verify skill. No install command below grants paid-test, source-switch, or destructive-cleanup permission. This implementation has not installed, enabled, or reloaded the provider.
+Installation runs full-trust plugin code. First obtain the approvals and pass the gates in the repository verify skill. No install command below grants paid-test, source-switch, or destructive-cleanup permission. An earlier private-command build failed at startup. The user then approved installing the pre-rebase native-control restoration from this worktree; activation succeeded. The subsequent rebase lifecycle changes and test repair have not been reloaded. Source approval and activation do not establish live acceptance.
 
 From an approved stable local checkout after local checks:
 
@@ -42,13 +42,13 @@ Select **Pi with subagents** for a new thread. Existing bundled-provider threads
 
 ## OpenAI Codex speed
 
-For the ChatGPT subscription route `openai-codex`, use this provider's private commands. BB's native speed selector is hidden. The bundled BB Pi provider and BB core are unchanged. This fork embeds `@koenvg/pi-openai-codex-speed@0.1.0` and verifies Pi 1.1.0. Default remains usable if speed discovery fails.
+For the ChatGPT subscription route `openai-codex`, select Default or confirmed Fast in BB's existing model picker, alongside reasoning. BB core and the bundled Pi provider are unchanged. This fork embeds `@koenvg/pi-openai-codex-speed@0.1.0` and verifies Pi 1.1.0. Fast uses the verified `priority` wire value and increased usage. Ultrafast is absent because its wire mapping is unverified. API-key routes and other providers offer no Fast choice.
 
-Use `/speed` to show the saved preference and confirmed choices, `/speed fast` to select Fast, or `/speed default` to select Default. Fast uses verified `priority` and increased usage. Ultrafast is not exposed because its wire mapping is unverified. Fast is never applied to API-key routes or other providers.
+Known limitation accepted by the user: [BBP-201](bbtask://BBP-201). If discovery fails or revokes Fast, a model or reasoning edit can send BB's displayed fallback Default as an explicit choice and replace saved Fast. Check the speed selection after these edits. Refresh availability and select Fast again if needed. The core fix is not installed and is not a dependency of this revision.
 
-Use `/speed refresh` to retry discovery. All `/speed` commands, including steering and invalid arguments, stay private and issue no model prompt. Attachments are rejected. Failed discovery requires manual retry or `/speed default`; no automatic recovery is added.
+Use `/speed refresh` for manual discovery retry. Other `/speed` commands fail privately with instructions to use the BB speed selector; they never become model prompts. Start and steer reject attachments before reading them or changing execution settings. No automatic retry or dispatch downgrade is added.
 
-The provider saves its preference beside the native Pi session in a mode-0600 `.bb-codex-speed.json` file. It does not save entitlements, credentials, or raw account data. A missing record can migrate a still-available legacy Fast setting; invalid records block Codex dispatch until an explicit private choice repairs them. BB execution settings, including incoming Default, do not control this preference. Use the private commands, not native service-tier flags. Release/resume restores the private choice. A non-default choice must remain confirmed before dispatch. Changes during a running turn affect the next turn; current tool continuations keep their captured speed.
+BB's native service-tier setting is authoritative and carries the choice through start, resume, model/reasoning rebuilds, and compaction. The removed private-command adapter's `.bb-codex-speed.json` files are neither read nor deleted. Startup no longer publishes or reopens native history before the first model prompt. Pi owns its session writer. Non-default requests still require current account/model confirmation. Speed changes affect subsequent turns; current tool continuations keep their captured speed.
 
 Child sessions retain their own settings. The fork neither installs the standalone extension globally nor changes the bundled Pi provider, credentials, or provider defaults.
 

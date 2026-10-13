@@ -9,7 +9,7 @@ Pi and the Pi with subagents BB plugin do not expose the OpenAI Codex speed tier
 - Add account-aware Default, Fast, and Ultrafast selection for `openai-codex` in standalone Pi and BB's `pi-subagents` provider.
 - Show each non-default option only when the active Pi account's model capability response advertises it. Missing or failed discovery does not grant access. The current account advertises Fast, not Ultrafast.
 - Keep speed independent from reasoning effort and preserve the selected speed across session or thread resume when it remains available.
-- Hide this plugin's native service-tier selector. Use private `/speed` status, selection, and refresh commands with separate preference storage. Standalone Pi retains its own command and picker; no new BB panel is added.
+- Restore this plugin's native speed controls inside BB's existing model picker. BB's service-tier setting is authoritative; only `/speed refresh` remains a supported private command. The user accepts BBP-201 fallback Default resetting Fast after failed/revoked discovery and an execution edit. No custom header control or new panel is added.
 - Share account-capability discovery and request-tier mapping between the Pi extension and this provider's bridge. Do not use another account's Codex CLI cache as entitlement evidence.
 - Keep the bundled BB Pi provider, BB core, and other model routes unchanged. Do not disable providers or change defaults as part of this change.
 

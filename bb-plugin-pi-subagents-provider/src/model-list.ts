@@ -59,7 +59,10 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
     description: describePiModel(model),
     supportedReasoningEfforts,
     defaultReasoningEffort,
-    supportedServiceTiers: [],
+    supportedServiceTiers:
+      model.provider === "openai-codex"
+        ? (model.supportedServiceTiers ?? []).filter((tier) => tier.id === "fast")
+        : [],
     isDefault: false,
   };
 }
