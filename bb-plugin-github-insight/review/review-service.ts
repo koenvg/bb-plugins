@@ -8,7 +8,7 @@ import type {
 import { buildAgentPrompt } from "../core/agent-prompt";
 import type { Draft, Drafts } from "../core/drafts";
 import { newCommentIds } from "../core/new-comments";
-import { parsePrFiles, type ReviewFile } from "../core/pr-files";
+import { collectPrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
 import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
@@ -52,7 +52,7 @@ interface LoadedPr {
 
 interface ReviewServiceDeps {
   resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
-  fetchPrFiles(target: PrTarget): Promise<unknown>;
+  fetchPrFilesPage(target: PrTarget, page: number): Promise<unknown>;
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
   drafts: DraftStore;
@@ -86,7 +86,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
 
   async function fetchPr(target: PrTarget): Promise<LoadedPr> {
     const [files, collected, head] = await Promise.all([
-      deps.fetchPrFiles(target).then(parsePrFiles),
+      collectPrFiles((page) => deps.fetchPrFilesPage(target, page)),
       collectReviewThreads((after) => deps.fetchReviewThreadsPage(target, after)),
       deps.fetchPrHead(target).then(parsePrHead),
     ]);

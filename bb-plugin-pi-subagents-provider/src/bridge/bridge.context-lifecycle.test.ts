@@ -11,16 +11,25 @@ import { runInNewContext } from "node:vm";
 import { Type } from "typebox";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
 
-const cli = join(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")), "..", "cli.js");
+const cli = join(
+  fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")),
+  "..",
+  "cli.js",
+);
 const children: ChildProcess[] = [];
 const roots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(children.splice(0).map((child) => new Promise<void>((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) return resolve();
-    child.once("exit", () => resolve());
-    child.kill("SIGKILL");
-  })));
+  await Promise.all(
+    children.splice(0).map(
+      (child) =>
+        new Promise<void>((resolve) => {
+          if (child.exitCode !== null || child.signalCode !== null) return resolve();
+          child.once("exit", () => resolve());
+          child.kill("SIGKILL");
+        }),
+    ),
+  );
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -33,25 +42,44 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   const extension = join(root, "bb-extension.mjs");
   writeFileSync(extension, BB_PI_EXTENSION_SOURCE);
   const controls = join(root, "controls.mjs");
-  writeFileSync(controls, `export default function(pi) {
+  writeFileSync(
+    controls,
+    `export default function(pi) {
     pi.on("project_trust", () => ({ trusted: true }));
     pi.registerCommand("bb-test-reload", { handler: async (_, ctx) => { await ctx.reload(); } });
-  }`);
+  }`,
+  );
   if (projectTrust) {
     mkdirSync(join(root, ".pi"));
     writeFileSync(join(root, ".pi", "settings.json"), "{}");
     mkdirSync(join(root, ".pi", "extensions"));
     writeFileSync(join(root, ".pi", "extensions", "project.mjs"), "export default function() {}");
   }
-  const child = spawn(runtime, [cli, "--mode", "rpc", "--no-session", ...(projectTrust ? [] : ["-ne"]), "--extension", extension, "--extension", controls], {
-    cwd: root,
-    env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_BB_TOOLS_FILE: "" },
-    stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
-  });
+  const child = spawn(
+    runtime,
+    [
+      cli,
+      "--mode",
+      "rpc",
+      "--no-session",
+      ...(projectTrust ? [] : ["-ne"]),
+      "--extension",
+      extension,
+      "--extension",
+      controls,
+    ],
+    {
+      cwd: root,
+      env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_BB_TOOLS_FILE: "" },
+      stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
+    },
+  );
   children.push(child);
   const messages: Record<string, unknown>[] = [];
   let stderr = "";
-  child.stderr!.on("data", (chunk) => { stderr += String(chunk); });
+  child.stderr!.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
   for (const stream of [child.stdout!, child.stdio[3] as Readable]) {
     let pending = "";
     stream.on("data", (chunk) => {
@@ -92,10 +120,28 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   await waitFor((message) => message.kind === "ready");
   const sessionPath = join(root, "switched.jsonl");
   const timestamp = new Date().toISOString();
-  writeFileSync(sessionPath, [
-    { type: "session", version: 3, id: "11111111-1111-4111-8111-111111111111", timestamp, cwd: root },
-    { type: "custom", id: "switched-leaf", parentId: null, timestamp, customType: "probe", data: {} },
-  ].map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+  writeFileSync(
+    sessionPath,
+    [
+      {
+        type: "session",
+        version: 3,
+        id: "11111111-1111-4111-8111-111111111111",
+        timestamp,
+        cwd: root,
+      },
+      {
+        type: "custom",
+        id: "switched-leaf",
+        parentId: null,
+        timestamp,
+        customType: "probe",
+        data: {},
+      },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n") + "\n",
+  );
   return { rpc, channel, sessionPath };
 }
 
@@ -115,7 +161,8 @@ it("keeps the bridge channel usable after session replacement and reload", async
   expect(await pi.channel("leaf")).toHaveProperty("leafId");
   await pi.rpc("switch_session", { sessionPath: pi.sessionPath });
   expect(await pi.channel("subagent-inspection-context")).toMatchObject({
-    sessionId: "11111111-1111-4111-8111-111111111111", sessionFile: pi.sessionPath,
+    sessionId: "11111111-1111-4111-8111-111111111111",
+    sessionFile: pi.sessionPath,
   });
   expect(await pi.channel("leaf")).toHaveProperty("leafId");
 }, 30_000);
@@ -132,15 +179,25 @@ it("ignores late tool results from a replaced session", async () => {
   const replies: Record<string, unknown>[] = [];
   const readers: EventEmitter[] = [];
   class BridgeSocket extends EventEmitter {
-    constructor() { super(); readers.push(this); }
+    constructor() {
+      super();
+      readers.push(this);
+    }
     unref() {}
   }
-  const source = BB_PI_EXTENSION_SOURCE
-    .replace(/^import .+;$/gm, "")
-    .replace("export default function bbExtension", "function bbExtension");
+  const source = BB_PI_EXTENSION_SOURCE.replace(/^import .+;$/gm, "").replace(
+    "export default function bbExtension",
+    "function bbExtension",
+  );
   const factory = runInNewContext(source + "\nbbExtension;", {
-    Socket: BridgeSocket, StringDecoder: (await import("node:string_decoder")).StringDecoder,
-    Type, Buffer, Symbol, randomUUID, setTimeout, clearTimeout,
+    Socket: BridgeSocket,
+    StringDecoder: (await import("node:string_decoder")).StringDecoder,
+    Type,
+    Buffer,
+    Symbol,
+    randomUUID,
+    setTimeout,
+    clearTimeout,
     process: { env: { PI_BB_TOOLS_FILE: "tools.json" } },
     readFileSync: () => JSON.stringify([{ name: "probe", description: "probe", inputSchema: {} }]),
     writeSync: (_fd: number, buffer: Buffer, offset: number, length: number) => {
@@ -160,7 +217,9 @@ it("ignores late tool results from a replaced session", async () => {
         list.push(handler);
         handlers.set(event, list);
       },
-      registerTool(value) { tool = value; },
+      registerTool(value) {
+        tool = value;
+      },
     });
     const emit = async (event: string) => {
       for (const handler of handlers.get(event) ?? []) await handler({}, {});
@@ -179,12 +238,19 @@ it("ignores late tool results from a replaced session", async () => {
   const currentResult = current.tool.execute();
   const currentId = replies.find((message) => message.kind === "tool-call")!.id;
   expect(readers).toHaveLength(1);
-  const sendResult = (id: unknown, text: string) => readers[0]!.emit("data", Buffer.from(
-    JSON.stringify({ kind: "tool-result", id, content: [{ type: "text", text }] }) + "\n",
-  ));
+  const sendResult = (id: unknown, text: string) =>
+    readers[0]!.emit(
+      "data",
+      Buffer.from(
+        JSON.stringify({ kind: "tool-result", id, content: [{ type: "text", text }] }) + "\n",
+      ),
+    );
   sendResult(oldId, "OLD SESSION RESULT");
   sendResult(currentId, "CURRENT SESSION RESULT");
-  expect(await currentResult).toEqual({ content: [{ type: "text", text: "CURRENT SESSION RESULT" }], details: {} });
+  expect(await currentResult).toEqual({
+    content: [{ type: "text", text: "CURRENT SESSION RESULT" }],
+    details: {},
+  });
   expect(currentId).not.toBe(oldId);
   await current.shutdown();
 });

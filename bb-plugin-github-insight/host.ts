@@ -18,7 +18,7 @@ import {
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { readNotFoundPartial } from "./github/not-found-partial";
 import { overviewPageArgs } from "./github/overview-query";
-import { prFilesArgs } from "./github/pr-files-query";
+import { fitPrFilesPage, prFilesPageArgs } from "./github/pr-files-query";
 import { prHeadArgs } from "./github/pr-head-query";
 import { reviewQueueArgs } from "./github/review-queue-query";
 import { ADD_REVIEW_ARGS, addPullRequestReviewInput } from "./github/review-mutations";
@@ -36,7 +36,10 @@ export default experimental_defineHostEntry({
     fetchOverviewPage: (request, context) => runGhJson(overviewPageArgs(request), context.signal),
     fetchCheckRunDetails: (request, context) =>
       runGhJson(checkRunDetailsArgs(request), context.signal),
-    fetchPrFiles: (request, context) => runGhJson(prFilesArgs(request), context.signal),
+    fetchPrFiles: async (request, context): Promise<GhResult> => {
+      const result = await runGhJson(prFilesPageArgs(request), context.signal);
+      return result.ok ? { ok: true, data: fitPrFilesPage(result.data) } : result;
+    },
     fetchReviewThreads: (request, context) =>
       runGhJson(reviewThreadsPageArgs(request), context.signal),
     fetchPrHead: (request, context) => runGhJson(prHeadArgs(request), context.signal),

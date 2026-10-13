@@ -45,7 +45,7 @@ describe("review CLI", () => {
     options: { threads?: () => unknown; file?: unknown; headOid?: () => string } = {},
   ) {
     return ({ method }: HostCall) => {
-      if (method === "fetchPrFiles") return ok(prFiles);
+      if (method === "fetchPrFiles") return ok(prFiles[0]);
       if (method === "fetchReviewThreads") return ok(options.threads?.() ?? reviewThreads);
       if (method === "fetchPrHead") return ok(prHeadResponse({ oid: options.headOid?.() }));
       if (method === "readTextFile") return options.file ?? { ok: true, text: "From file" };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import recordedFiles from "../test/fixtures/pr-1-files.json";
-import { gitPatch, parsePrFiles, type ReviewFile } from "./pr-files";
+import { collectPrFiles, gitPatch, parsePrFiles, type ReviewFile } from "./pr-files";
 
 function restFile(fields: Record<string, unknown>) {
   return {
@@ -67,6 +67,38 @@ describe("parsePrFiles", () => {
       ["plugins/github-insight/core/pr-ref.ts", true],
       ["plugins/github-insight/package-lock.json", false],
     ]);
+  });
+});
+
+describe("collectPrFiles", () => {
+  function fullPage(prefix: string) {
+    return Array.from({ length: 100 }, (_, index) =>
+      restFile({ filename: `${prefix}-${index}.ts`, status: "added" }),
+    );
+  }
+
+  it("asks for the next page while GitHub returns full pages", async () => {
+    const pages = [fullPage("a"), fullPage("b"), [restFile({ filename: "c.ts", status: "added" })]];
+    const requested: number[] = [];
+
+    const files = await collectPrFiles(async (page) => {
+      requested.push(page);
+      return pages[page - 1];
+    });
+
+    expect(requested).toEqual([1, 2, 3]);
+    expect(files).toHaveLength(201);
+  });
+
+  it("stops at the 3000 files GitHub lists", async () => {
+    const requested: number[] = [];
+
+    await collectPrFiles(async (page) => {
+      requested.push(page);
+      return fullPage(`p${page}`);
+    });
+
+    expect(requested).toHaveLength(30);
   });
 });
 

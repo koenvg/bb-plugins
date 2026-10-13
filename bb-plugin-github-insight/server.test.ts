@@ -1235,7 +1235,7 @@ describe("prSummary metadata", () => {
 });
 
 function recordedReviewHost({ method }: HostCall) {
-  if (method === "fetchPrFiles") return ok(prFiles);
+  if (method === "fetchPrFiles") return ok(prFiles[0]);
   if (method === "fetchReviewThreads") return ok(reviewThreads);
   if (method === "fetchPrHead") return ok(prHeadResponse());
   throw new Error(`unexpected host call ${method}`);
@@ -1279,7 +1279,11 @@ describe("getReview", () => {
     const pr = { owner: "collibra", repo: "frontend", number: 25259 };
     expect(harness.experimental_hostRpcCalls).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ method: "fetchPrFiles", hostId: "host-1", input: pr }),
+        expect.objectContaining({
+          method: "fetchPrFiles",
+          hostId: "host-1",
+          input: { ...pr, page: 1 },
+        }),
         expect.objectContaining({
           method: "fetchReviewThreads",
           hostId: "host-1",
