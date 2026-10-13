@@ -94,6 +94,11 @@ jobs:
         if: matrix.plugin == 'bb-plugin-codex-quota'
         run: bun run check:installed-globs
 
+      - name: Install Tasks navigation lab dependencies
+        id: install_tasks_navigation_lab
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        run: bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
+
       - name: Lint Tasks Plus
         if: matrix.plugin == 'bb-plugin-tasks-plus'
         run: bun run lint
@@ -113,6 +118,7 @@ jobs:
             steps.setup_node.outcome == 'success' &&
             steps.install_dependencies.outcome == 'success' &&
             (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_tasks_navigation_lab.outcome == 'success') &&
             (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
           }}
         run: bun run test
@@ -126,6 +132,7 @@ jobs:
             steps.setup_node.outcome == 'success' &&
             steps.install_dependencies.outcome == 'success' &&
             (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_tasks_navigation_lab.outcome == 'success') &&
             (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
           }}
         run: |
