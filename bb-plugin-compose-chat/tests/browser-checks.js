@@ -23,7 +23,11 @@ export function runChecks() {
   const retainedDraft = draft || "Keep my @literal /literal draft";
   if (new URLSearchParams(location.search).has("long"))
     check("long native draft is present", draft.length > 400);
-  const children = document.body.querySelectorAll("*").length;
+  const nativeChildren = () =>
+    [...document.body.querySelectorAll("*")].filter(
+      (el) => !el.closest("[data-compose-speed-owned]"),
+    );
+  const children = nativeChildren();
   const liveLabel = document.querySelector(
     '[data-timeline-row-id="fixture:tools:1"] .animate-shine',
   );
@@ -298,7 +302,11 @@ export function runChecks() {
     getComputedStyle(unrelated).backgroundColor === unrelatedStyle,
   );
   check("host font is unchanged", getComputedStyle(field).fontFamily === font);
-  check("no chat DOM replacements", document.body.querySelectorAll("*").length === children);
+  check(
+    "no chat DOM replacements",
+    nativeChildren().length === children.length &&
+      nativeChildren().every((el, i) => el === children[i]),
+  );
   check("native shadow returns when inactive", getComputedStyle(form).boxShadow !== "none");
   styleToggle.click();
   check("re-enable restores the owned style", root.getAttribute("data-compose-chat") === "active");

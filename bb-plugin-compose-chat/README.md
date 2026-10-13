@@ -8,9 +8,21 @@ A small nine-dot arrow sweep appears inline beside active tool and Thinking titl
 
 Active rows use the lattice in place of their native activity glyph, keeping one 20px icon/text column. Grouped tool rows indent by that same column; completion restores the native glyph without shifting text.
 
+Fast and Ultrafast have two selectable borders, using the approved gold palette in dark mode and cyan palette in light mode. Glow is the default and has no idle animation. Ultrafast Glow starts at the top-right and bottom-left corners, with the angle calculated from the frame dimensions. Electric uses the approved 15 fps preset and runs only for visible Fast/Ultrafast composers. Normal stays quiet. The effect follows BB 0.46 model-picker title metadata, not measured response speed; missing or changed metadata leaves the normal frame.
+
+Glow follows pointer movement across the page, including outside the composer. It resets when the pointer leaves the page or the window loses focus. Pointer updates use at most one scheduled frame and do not start an idle animation loop.
+
+## Speed border settings
+
+Open **Settings → Installed plugins → Compose Chat**. **Speed border effect** offers **Glow**, **Electric**, and **Off**. Changes apply live without reload. **Animate Electric border** starts enabled, matching the approved preset; turn it off for a static Electric border. Reduced motion, hidden windows, hidden/clipped composers and modal dialogs stop Electric motion. Switching to Glow or Off disposes its renderer. Electric still costs GPU/CPU work when running; its limits are not a live-performance guarantee. The old inherited-angle metallic animation is removed.
+
+The exact approved values live in `speed-settings.ts`. Fast uses 75% of the selected intensity, speed, arc density and glow intensity. Ultrafast uses the full values. Decorations are inert SDK-owned overlays; native nodes, draft contents and controls are never copied, moved or replaced.
+
+React Bits Electric Border and Border Glow are vendored under `effects/react-bits/`. Their MIT + Commons Clause license is preserved in `effects/react-bits/LICENSE.md` and component notices. Local adaptations bound rendering and enforce pause/reduced-motion/arc cleanup. The plugin is an integrated application feature, not a standalone component library.
+
 ## Install
 
-Requires BB 0.45 or newer. From this directory:
+Requires BB 0.46 or newer. From this directory:
 
 ```sh
 bun install --frozen-lockfile
@@ -41,10 +53,10 @@ These controls use native BB 0.44 and 0.45 attributes and button labels, not a p
 
 ## Scope
 
-- Uses the active theme's colors, font, and radius. No theme switch or custom font.
+- Uses the active theme's colors, font, and radius. The speed borders alone use the approved theme-specific gold or cyan colors. No theme switch or custom font.
 - Preserves native compact mode, footer visibility, input layout, focus order, and mobile drawer/keyboard behavior.
 - Adds a configurable Start voice input command, not a replacement composer or recorder.
-- Does not read or write messages, drafts, or audio. No plugin network calls, persistent storage, RPC, or polling.
+- Does not read or write messages, drafts, or audio. Only BB's plugin settings persist. No plugin HTTP/RPC surfaces, custom storage, or polling.
 - Public SDK content scripts own style markers and voice-keyboard listeners. A DOM observer reads native voice state and error-title metadata. Abort removes all listeners and observers and restores owned attributes. BB owns frontend generation updates.
 
 BB's chat DOM is not a public API. The selectors were checked against the BB 0.44 and 0.45 frontend source. A future host release can require selector changes. The user-bubble selector also depends on BB's current message wrapper classes.
@@ -70,7 +82,7 @@ bun run test:browser
 
 The pinned Playwright Test 1.64.0 runner starts its own Chromium browser and a local fixture server on `127.0.0.1:56429`. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `bun --bun run playwright install --with-deps chromium` if browser system libraries are missing.
 
-The server builds the unchanged `app.tsx` entry and its CSS with esbuild on every run. It serves these assets in memory at the fixture's existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite an existing BB build in `dist/`. Only fixture assets are served, with caching disabled. An occupied port fails instead of reusing another server. Playwright owns browser, context and server cleanup on success or failure. Assertions, navigation errors, build errors and timeouts fail the command; retries are disabled.
+The server builds `tests/effects-fixture.tsx`, which imports the real `app.tsx` entry and decorator and its CSS with esbuild on every run. It serves these assets in memory at the fixture's existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite an existing BB build in `dist/`. Only fixture assets are served, with caching disabled. An occupied port fails instead of reusing another server. Playwright owns browser, context and server cleanup on success or failure. Assertions, navigation errors, build errors and timeouts fail the command; retries are disabled.
 
 `bun run test` still runs Vitest. Its only discovery change excludes `tests/browser/**`, where Playwright's `*.spec.ts` files live. `browser-evidence.test.ts` retains the complete-PNG and backing-pixel safeguards. The Python daemon/session contract tests were removed because the runner no longer connects to user browsers.
 
@@ -88,7 +100,7 @@ Coverage from `tests/browser-matrix.py` maps one-to-one to the same case names i
 | `long-draft`                                               | Long native draft and no horizontal overflow                               |
 | `split-send-empty`, `split-send-draft`                     | Native split-send dimensions, joined corners and zero-width hidden options |
 
-All 16 cases run the unchanged `tests/browser-checks.js` assertions through the existing `tests/preview.html` fixture. These include contrast, lattice and glyph alignment, native Thinking expansion, animation states, draft/node identity, native submit behavior, style abort/re-enable and unrelated-editor isolation. Every case also uses a real Tab key event to check native order, `:focus-visible` and the focus outline width.
+All 16 cases run the `tests/browser-checks.js` assertions, including native-node identity/order after excluding owned decorations through the existing `tests/preview.html` fixture. These include contrast, lattice and glyph alignment, native Thinking expansion, animation states, draft/node identity, native submit behavior, style abort/re-enable and unrelated-editor isolation. Every case also uses a real Tab key event to check native order, `:focus-visible` and the focus outline width.
 
 Results are in `test-results/results.json` and the HTML report in `playwright-report/`. Each case attaches its named checks as JSON. The six original PNG filenames and their `.provenance.json` files are in per-case `test-results/` folders and attached to the report. Provenance records the viewport, validated PNG dimensions, pixel ratio, SHA-256 and hashes of the served build and fixture sources. The pixel ratio is fixed at 1 for repeatable dimensions. Failure screenshots and traces are retained. These directories are ignored by Git and replaced on the next run; copy them before rerunning if needed. Inspect the six images for clipping; PNG validation alone is not visual acceptance.
 

@@ -18,6 +18,7 @@ declare global {
     fixture: {
       ready: boolean;
       originalInput: HTMLTextAreaElement;
+      setSpeedEffect: (effect: string, motion?: boolean) => void;
       check: () => Promise<CheckResult>;
     };
   }

@@ -16,7 +16,7 @@ describe("Compose Chat's public content-script lifecycle", () => {
     expect(app.contentScripts).toHaveLength(2);
     expect(app.contentScripts[0]?.id).toBe("chat-styles");
     expect(app.navPanels).toHaveLength(0);
-    expect(app.appOverlays).toHaveLength(0);
+    expect(app.appOverlays).toHaveLength(1);
     expect(app.composerCustomizations).toHaveLength(0);
     expect(app.threadLists).toHaveLength(0);
     expect(app.timelineRenderers).toHaveLength(0);
