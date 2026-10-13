@@ -16,7 +16,10 @@ const refreshedAccess = `e30.${Buffer.from(
 const previousDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
 let harness;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(agentDir, "absent-codex");
   writeFileSync(
     join(agentDir, "auth.json"),
     JSON.stringify({
@@ -85,5 +88,7 @@ try {
   if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(agentDir, { recursive: true, force: true });
 }
