@@ -188,10 +188,11 @@ export function CalendarReportPanel({
             </span>
           </button>
         </div>
+        {/* Keep decorative icon space fixed so enlarged labels retain room. */}
         <QuotaSelect
           aria-label="Report metric"
-          containerClassName="w-full @[32rem]:w-36 [&>svg]:right-1"
-          className="pl-1! pr-6!"
+          containerClassName="w-full @[32rem]:w-36 [&>svg]:right-[8px] [&>svg]:size-[16px]"
+          className="pl-[8px]! pr-[32px]!"
           value={metric}
           onChange={(event) => setMetric(event.target.value as TokenMetric)}
         >
