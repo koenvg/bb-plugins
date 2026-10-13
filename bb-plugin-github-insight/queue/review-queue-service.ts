@@ -107,7 +107,7 @@ function threadStatus(thread: QueueThread): ReviewThreadStatus {
   return "running";
 }
 
-const storedReviewQueueSchema = z.object({ v: z.literal(3), result: loadedReviewQueueSchema });
+const storedReviewQueueSchema = z.object({ v: z.literal(4), result: loadedReviewQueueSchema });
 
 function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
   if (result.kind === "error") return result.lastGood;
@@ -147,9 +147,8 @@ function newActivitySince(
 ): NewActivity[] {
   if (activity === null) return [];
   const isAfterMark = (at: string | null) => at !== null && Date.parse(at) > markedAt;
-  const hasNewComments =
-    isAfterMark(activity.lastConversationAt) ||
-    newCommentIds(activity.inlineComments, markedAt, seenComments).length > 0;
+  const comments = [...activity.conversationComments, ...activity.inlineComments];
+  const hasNewComments = newCommentIds(comments, markedAt, seenComments).length > 0;
   return [
     ...(hasNewComments ? (["new_comments"] as const) : []),
     ...(isAfterMark(activity.lastRequestedAt) ? (["requested_again"] as const) : []),
@@ -213,7 +212,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   }
 
   async function store(result: LoadedReviewQueue): Promise<void> {
-    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 3, result });
+    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result });
     deps.publish(result);
   }
 

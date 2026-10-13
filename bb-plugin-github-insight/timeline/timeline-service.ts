@@ -4,6 +4,8 @@ import type {
   AddPrCommentRequest,
   TimelineResult,
 } from "../contract";
+import { newCommentIds } from "../core/new-comments";
+import type { PullRequestRef } from "../core/pr-ref";
 import { parseTimelinePage } from "../core/timeline";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import { write } from "../github/gh-write";
@@ -13,6 +15,7 @@ interface TimelineServiceDeps {
   resolvePr(threadId: string): Promise<PrResolution>;
   fetchTimelinePage(target: PrTarget, before: string | null): Promise<unknown>;
   addComment(target: PrTarget, request: AddCommentRequest): Promise<unknown>;
+  newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
 }
 
 export function createTimelineService(deps: TimelineServiceDeps) {
@@ -20,8 +23,11 @@ export function createTimelineService(deps: TimelineServiceDeps) {
     const resolution = await deps.resolvePr(threadId);
     if (resolution.kind !== "pr") return resolution;
     try {
-      const page = parseTimelinePage(await deps.fetchTimelinePage(resolution.target, before));
-      return { kind: "ok", ...page };
+      const [{ othersComments, ...page }, { markedAt, seen }] = await Promise.all([
+        deps.fetchTimelinePage(resolution.target, before).then(parseTimelinePage),
+        deps.newCommentBasis(resolution.target.ref),
+      ]);
+      return { kind: "ok", ...page, newCommentIds: newCommentIds(othersComments, markedAt, seen) };
     } catch (error) {
       if (error instanceof GhFailureError) {
         return { kind: "error", message: ghFailureText(error.failure) };

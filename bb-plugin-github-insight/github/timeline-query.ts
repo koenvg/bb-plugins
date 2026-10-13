@@ -2,11 +2,12 @@ import type { TimelinePageRequest } from "../contract";
 
 const TIMELINE_PAGE_SIZE = 100;
 
-const ACTOR = "author { login }";
+const ACTOR = "author { __typename login }";
 const EVENT_FIELDS = "id actor { login } createdAt";
 
 const TIMELINE_QUERY = `
 query ($owner: String!, $repo: String!, $number: Int!, $before: String) {
+  viewer { login }
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       id

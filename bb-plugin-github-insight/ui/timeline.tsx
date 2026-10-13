@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Markdown, UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, TimelineResult } from "../contract";
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { QUIET_BUTTON, SECONDARY_BUTTON } from "./controls";
 import { messageOf } from "./error-message";
 import { useShowFiles } from "./files-jump";
+import { NewCommentGlowContext, useNewComment, useNewCommentGlowState } from "./new-comment-glow";
+import "./new-comment.css";
 import { OverviewSection } from "./overview-section";
 import { PrCommentComposer } from "./pr-comment-composer";
 import { SUCCESS_TEXT } from "./text-tones";
@@ -33,9 +36,12 @@ interface Conversation {
   pr: Pick<LoadedPage, "prNodeId" | "locked" | "viewerCanUpdate">;
   description: PrDescription;
   events: TimelineEvent[];
+  newCommentIds: readonly string[];
   olderCursor: string | null;
   olderLoaded: boolean;
 }
+
+const NO_NEW_COMMENTS: readonly string[] = [];
 
 function prOf({ prNodeId, locked, viewerCanUpdate }: LoadedPage): Conversation["pr"] {
   return { prNodeId, locked, viewerCanUpdate };
@@ -69,6 +75,7 @@ function useTimeline(threadId: string, refreshedAt: number) {
       pr: prOf(page),
       description: page.description,
       events: mergeEvents(current?.events ?? [], page.events),
+      newCommentIds: page.newCommentIds,
       olderCursor: current?.olderLoaded ? current.olderCursor : page.olderCursor,
       olderLoaded: current?.olderLoaded ?? false,
     }));
@@ -94,6 +101,7 @@ function useTimeline(threadId: string, refreshedAt: number) {
         current && {
           ...current,
           events: mergeEvents(page.events, current.events),
+          newCommentIds: page.newCommentIds,
           olderCursor: page.olderCursor,
           olderLoaded: true,
         },
@@ -108,10 +116,12 @@ type Timeline = ReturnType<typeof useTimeline>;
 export function TimelineSections({
   threadId,
   refreshedAt,
+  scrollRoot,
   between,
 }: {
   threadId: string;
   refreshedAt: number;
+  scrollRoot: RefObject<HTMLElement | null>;
   between?: ReactNode;
 }) {
   const timeline = useTimeline(threadId, refreshedAt);
@@ -119,14 +129,27 @@ export function TimelineSections({
     <>
       <DescriptionSection timeline={timeline} />
       {between}
-      <ConversationTimeline threadId={threadId} timeline={timeline} />
+      <ConversationTimeline threadId={threadId} timeline={timeline} scrollRoot={scrollRoot} />
     </>
   );
 }
 
-function ConversationTimeline({ threadId, timeline }: { threadId: string; timeline: Timeline }) {
+function ConversationTimeline({
+  threadId,
+  timeline,
+  scrollRoot,
+}: {
+  threadId: string;
+  timeline: Timeline;
+  scrollRoot: RefObject<HTMLElement | null>;
+}) {
   const { conversation, readError } = timeline;
   const entries = useMemo(() => groupTimeline(conversation?.events ?? []), [conversation]);
+  const glow = useNewCommentGlowState(
+    threadId,
+    conversation?.newCommentIds ?? NO_NEW_COMMENTS,
+    scrollRoot,
+  );
   if (!timeline.hasPr) return null;
   return (
     <OverviewSection label="Conversation" summary={conversationSummary(conversation?.events ?? [])}>
@@ -137,21 +160,23 @@ function ConversationTimeline({ threadId, timeline }: { threadId: string; timeli
         readError === null && <TimelineSkeleton />
       ) : (
         <>
-          <TimelineList
-            older={
-              conversation.olderCursor !== null && (
-                <button
-                  type="button"
-                  className={cn(QUIET_BUTTON, "-ml-2.5 self-start")}
-                  disabled={timeline.loadingOlder}
-                  onClick={() => void timeline.loadOlder()}
-                >
-                  {timeline.loadingOlder ? "Loading older events…" : "Load older events"}
-                </button>
-              )
-            }
-            entries={entries}
-          />
+          <NewCommentGlowContext.Provider value={glow}>
+            <TimelineList
+              older={
+                conversation.olderCursor !== null && (
+                  <button
+                    type="button"
+                    className={cn(QUIET_BUTTON, "-ml-2.5 self-start")}
+                    disabled={timeline.loadingOlder}
+                    onClick={() => void timeline.loadOlder()}
+                  >
+                    {timeline.loadingOlder ? "Loading older events…" : "Load older events"}
+                  </button>
+                )
+              }
+              entries={entries}
+            />
+          </NewCommentGlowContext.Provider>
           {timeline.olderError !== null && (
             <TimelineError message={timeline.olderError} retry={() => void timeline.loadOlder()} />
           )}
@@ -439,12 +464,12 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
   switch (entry.kind) {
     case "comment":
       return (
-        <Card>
+        <CommentCard commentId={entry.id}>
           <EventHeader actor={entry.actor} at={entry.at} url={entry.url}>
             commented
           </EventHeader>
           <Body markdown={entry.body} />
-        </Card>
+        </CommentCard>
       );
     case "review":
       return <ReviewItem review={entry} />;
@@ -471,8 +496,8 @@ function ReviewItem({ review }: { review: Extract<TimelineEntry, { kind: "review
     </EventHeader>
   );
   if (!hasDetail) return header;
-  return (
-    <Card>
+  const detail = (
+    <>
       {header}
       {review.body !== "" && <Body markdown={review.body} />}
       {review.inlineCount > 0 && (
@@ -485,8 +510,10 @@ function ReviewItem({ review }: { review: Extract<TimelineEntry, { kind: "review
           {review.inlineCount === 1 ? "1 inline comment" : `${review.inlineCount} inline comments`}
         </button>
       )}
-    </Card>
+    </>
   );
+  if (review.body === "") return <Card>{detail}</Card>;
+  return <CommentCard commentId={review.id}>{detail}</CommentCard>;
 }
 
 function CommitGroup({ group }: { group: Extract<TimelineEntry, { kind: "commits" }> }) {
@@ -518,9 +545,21 @@ function CommitGroup({ group }: { group: Extract<TimelineEntry, { kind: "commits
   );
 }
 
+const CARD_CLASS =
+  "flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-background px-3 py-2";
+
 function Card({ children }: { children: ReactNode }) {
+  return <div className={CARD_CLASS}>{children}</div>;
+}
+
+function CommentCard({ commentId, children }: { commentId: string; children: ReactNode }) {
+  const { ref, glowing } = useNewComment(commentId);
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-background px-3 py-2">
+    <div
+      ref={ref}
+      data-timeline-comment-id={commentId}
+      className={cn(CARD_CLASS, glowing && "review-comment-new")}
+    >
       {children}
     </div>
   );

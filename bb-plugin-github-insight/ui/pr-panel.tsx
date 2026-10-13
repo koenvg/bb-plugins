@@ -61,6 +61,7 @@ function PrPanelContent({ threadId }: { threadId: string }) {
   );
   useCommandIntent(threadId, "pr", (intent) => select(SUB_TAB_OF_INTENT[intent]));
   const [summary, setSummary] = useState<PrTabSummary | null>(null);
+  const overviewScroll = useRef<HTMLDivElement>(null);
   const idPrefix = useId();
   const ids = (subTab: PrSubTab) => ({
     tab: `${idPrefix}-${subTab}-tab`,
@@ -76,10 +77,10 @@ function PrPanelContent({ threadId }: { threadId: string }) {
         summary={summary}
       />
       <SubTabPanel ids={ids("overview")} shown={selected === "overview"}>
-        <div className="h-full overflow-y-auto px-4 py-4">
+        <div ref={overviewScroll} className="h-full overflow-y-auto px-4 py-4">
           <ShowFilesProvider value={showFiles}>
             <ReportSummaryProvider value={setSummary}>
-              <OverviewTab threadId={threadId} />
+              <OverviewTab threadId={threadId} scrollRoot={overviewScroll} />
             </ReportSummaryProvider>
           </ShowFilesProvider>
         </div>

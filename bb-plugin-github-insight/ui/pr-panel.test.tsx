@@ -352,6 +352,7 @@ const timelineOf = (events: TimelineEvent[]): TimelineResult => ({
   viewerCanUpdate: true,
   events,
   olderCursor: null,
+  newCommentIds: [],
 });
 
 function timelineReads(slot: Slot) {
