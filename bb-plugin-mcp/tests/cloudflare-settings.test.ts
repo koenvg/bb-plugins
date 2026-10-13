@@ -46,6 +46,7 @@ const invalidConfigurations: Record<string, string>[] = [
   { accessOAuthIssuer: "https://oauth.example.net#fragment" },
   { accessOAuthIssuer: "https://localhost" },
   { issuer: "https://access.example.net/realm" },
+  { issuer: "https://access.example.net/" },
   { accessPermission: "bb.control" },
   { authMode: "auto" },
   { owner: "" },
