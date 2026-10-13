@@ -8,6 +8,7 @@
         "pullRequest": {
           "id": "PR_kwDODKw3uc8AAAABGUJatA",
           "body": "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the conte\u2026",
+          "bodyHTML": "",
           "author": {
             "login": "williammartin"
           },
@@ -44,6 +45,7 @@
                 },
                 "state": "COMMENTED",
                 "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### \ud83d\udfe1 Changes recommended\n\nFiltering regressions, hidden action failures, and short-terminal overflow remain unresolved.\n\n**Review effort:** Balanced  \n**Findings:** 3 <picture><source media=\"(prefers-color-scheme: dark)\" srcs\u2026",
+                "bodyHTML": "",
                 "submittedAt": "2026-10-02T16:20:58Z",
                 "url": "https://github.com/cli/cli/pull/14578#pullrequestreview-5394153842",
                 "comments": {
@@ -69,6 +71,7 @@
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this recording and comment.\n\n### Exercising `gh extension browse` at e15e40d\n\nThis recording exercises this PR's build ([`e15e40d`](https://github.com/cli/cli/pull/14578/commits/e15e40d099bb09c62c4bc549a0d58397917efb45), `gh version 2.102.0-1-ge15e40\u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-10-02T19:08:19Z",
                 "url": "https://github.com/cli/cli/pull/14578#issuecomment-5959551325"
               },
@@ -111,6 +114,7 @@
                 },
                 "state": "COMMENTED",
                 "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### \ud83d\udfe1 Changes recommended\n\nPrintable-key handling and quitting during extension mutations can cause broken help access and interrupted filesystem operations.\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source medi\u2026",
+                "bodyHTML": "",
                 "submittedAt": "2026-10-06T15:22:31Z",
                 "url": "https://github.com/cli/cli/pull/14578#pullrequestreview-5430703973",
                 "comments": {
@@ -156,6 +160,7 @@
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this screenshot and comment.\n\n\ud83d\udc1b potential bug, minor, non-blocking, \ud83e\udd16 copilot found: README lines that can't wrap push the footer off-screen\n\nIn a 120x30 terminal, run `gh extension browse`, press `/`, and type `t4y3`. The README frame runs off the s\u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-10-06T19:12:00Z",
                 "url": "https://github.com/cli/cli/pull/14578#issuecomment-6023586835"
               },
@@ -182,6 +187,7 @@
                   "login": "williammartin"
                 },
                 "body": "> [!NOTE]\r\n> Copilot generated this screenshot and comment.\r\n\r\nFixed in c12892961. Lipgloss v2 includes the border in the styled width and height, so the frame now adds the two border columns and rows around the viewport instead of taking them from its content area.\r\n\r\nI also str\u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-10-07T04:42:46Z",
                 "url": "https://github.com/cli/cli/pull/14578#issuecomment-6031083311"
               },
@@ -193,6 +199,7 @@
                   "login": "BagToad"
                 },
                 "body": "> [!NOTE]\n> Copilot generated this screenshot and comment.\n\nTwo more findings. Neither should block merging.\n\n\ud83d\udc1b potential bug, minor, non-blocking, \ud83e\udd16 copilot found: Multi-line install errors are cut off\n\nIf an extension has no build for the user's platform, the install error span\u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-10-07T19:31:48Z",
                 "url": "https://github.com/cli/cli/pull/14578#issuecomment-6045313111"
               },
@@ -205,6 +212,7 @@
                 },
                 "state": "APPROVED",
                 "body": "",
+                "bodyHTML": "",
                 "submittedAt": "2026-10-07T19:31:56Z",
                 "url": "https://github.com/cli/cli/pull/14578#pullrequestreview-5447333111",
                 "comments": {
@@ -235,6 +243,7 @@
                   "login": "williammartin"
                 },
                 "body": "Fixed the multi-line error display in 7dca83938 and polished wrapped command indentation in 7cb1cfff7. Status text now wraps at terminal width, the catalog/README area gives up the corresponding rows, and continuations preserve the command block's four-space indent. The complete \u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-10-08T04:40:32Z",
                 "url": "https://github.com/cli/cli/pull/14578#issuecomment-6052389212"
               },
@@ -284,6 +293,7 @@
         "pullRequest": {
           "id": "PR_kwDODKw3uc7Z5TNs",
           "body": "Adds `gh discussion edit` to allow editing a discussion's title, body, and category via flags or interactive prompts.\n\n## What's included\n- `--title`, `--body`, `--body-file`, `--category` flags\n- Interactive MultiSelect prompt when no flags supplied (TTY)\n- Early-exit no-op when\u2026",
+          "bodyHTML": "",
           "author": {
             "login": "maxbeizer"
           },
@@ -334,6 +344,7 @@
                   "login": "github-actions"
                 },
                 "body": "This pull request appears to be a resubmission of a recently closed PR (#13384) that did not meet the contribution requirements.\n\nRather than resubmitting, please ensure your contribution:\n1. References an issue with the `help wanted` label\n2. Includes a detailed description\n\nIf \u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-05-09T18:54:45Z",
                 "url": "https://github.com/cli/cli/pull/13390#issuecomment-4413421923"
               },
@@ -361,6 +372,7 @@
                   "login": "github-actions"
                 },
                 "body": "This pull request appears to be a resubmission of a recently closed PR (#13384) that did not meet the contribution requirements.\n\nRather than resubmitting, please ensure your contribution:\n1. References an issue with the `help wanted` label\n2. Includes a detailed description\n\nIf \u2026",
+                "bodyHTML": "",
                 "createdAt": "2026-05-13T11:36:18Z",
                 "url": "https://github.com/cli/cli/pull/13390#issuecomment-4440524571"
               }
@@ -379,6 +391,7 @@
         "pullRequest": {
           "id": "PR_kwDODKw3uc8AAAABEu0z3A",
           "body": "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n-->\n\n<!-- List related issues here. Use `fixes` or `closes` keywords to associate an issue number. -->\n\nFollow-up to #14475.\n\n### Descript\u2026",
+          "bodyHTML": "",
           "author": {
             "login": "williammartin"
           },
@@ -400,6 +413,7 @@
                 },
                 "state": "COMMENTED",
                 "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### \ud83d\udfe1 Changes recommended\n\nLegacy font semantics are documented inaccurately, and new validation and provenance behavior lack ordinary regression coverage.\n\n*Get a fresh assessment by requesting another Copilot review.*\n\n**Rev\u2026",
+                "bodyHTML": "",
                 "submittedAt": "2026-09-23T11:52:09Z",
                 "url": "https://github.com/cli/cli/pull/14507#pullrequestreview-5290573409",
                 "comments": {
@@ -437,6 +451,7 @@
                 },
                 "state": "COMMENTED",
                 "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### \ud83d\udfe1 Changes recommended\n\nExplicit font enforcement and complete provenance for auto-loaded style fonts remain unresolved.\n\n*Get a fresh assessment by requesting another Copilot review.*\n\n**Review effort:** Balanced  \n**Findi\u2026",
+                "bodyHTML": "",
                 "submittedAt": "2026-09-23T12:07:33Z",
                 "url": "https://github.com/cli/cli/pull/14507#pullrequestreview-5290725739",
                 "comments": {
@@ -558,6 +573,7 @@
                 },
                 "state": "APPROVED",
                 "body": "",
+                "bodyHTML": "",
                 "submittedAt": "2026-09-23T21:08:55Z",
                 "url": "https://github.com/cli/cli/pull/14507#pullrequestreview-5296820233",
                 "comments": {

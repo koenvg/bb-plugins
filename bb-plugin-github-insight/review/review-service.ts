@@ -12,7 +12,12 @@ import { collectPrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
 import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
-import { collectReviewThreads, type CollectedReviewThreads } from "../core/review-threads";
+import {
+  collectReviewThreads,
+  type CollectedReviewThreads,
+  type ReviewThread,
+} from "../core/review-threads";
+import type { SignMedia } from "../core/signed-media";
 import type { ReviewUpdated } from "../core/review-updated";
 import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-placement";
 import type { ViewedMarks } from "../core/viewed-marks";
@@ -61,6 +66,7 @@ interface ReviewServiceDeps {
   markCommentsSeen(pr: PullRequestRef, ids: readonly string[]): Promise<ActionResult>;
   publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
+  signMedia: SignMedia;
 }
 
 export type ReviewService = ReturnType<typeof createReviewService>;
@@ -108,7 +114,28 @@ export function createReviewService(deps: ReviewServiceDeps) {
     return { drafts, commentDrafts, summaryDraft };
   }
 
+  function signedThreads({ threads, bodyHtml }: CollectedReviewThreads): ReviewThread[] {
+    return threads.map((thread) => ({
+      ...thread,
+      comments: thread.comments.map((comment) => ({
+        ...comment,
+        body: deps.signMedia(comment.body, bodyHtml.get(comment.id) ?? ""),
+      })),
+    }));
+  }
+
   function load(threadId: string): Promise<ReviewLoad> {
+    return loadReview(threadId, ({ threads }) => threads);
+  }
+
+  function loadForDisplay(threadId: string): Promise<ReviewLoad> {
+    return loadReview(threadId, signedThreads);
+  }
+
+  function loadReview(
+    threadId: string,
+    threadsOf: (collected: CollectedReviewThreads) => ReviewThread[],
+  ): Promise<ReviewLoad> {
     return withPr(threadId, async (target) => {
       const { head, files, collected } = await fetchPr(target);
       const [drafts, viewedMarks, { markedAt, seen }] = await Promise.all([
@@ -116,7 +143,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
         deps.viewed.get(target.ref),
         deps.newCommentBasis(target.ref),
       ]);
-      const threads = placeThreads(files, collected.threads);
+      const threads = placeThreads(files, threadsOf(collected));
       const newIds = newCommentIds(collected.othersComments, markedAt, seen);
       return {
         allThreadsRead: collected.complete,
@@ -216,6 +243,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
 
   return {
     load,
+    loadForDisplay,
     loadDrafts,
     loadBasis,
     saveDraft,

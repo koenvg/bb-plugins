@@ -15,6 +15,7 @@ import {
   type ReviewUpdated,
 } from "./core/review-updated";
 import { newCommentDraftId } from "./core/review-drafts";
+import { createMediaSigner } from "./core/signed-media";
 import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
@@ -85,8 +86,11 @@ export default async function plugin(bb: BbPluginApi) {
   const publishDraftsUpdate = (update: ReviewUpdated) =>
     bb.realtime.publish(REVIEW_DRAFTS_UPDATED_CHANNEL, update);
 
+  const signMedia = createMediaSigner(Date.now);
+
   const review = createReviewService({
     resolvePr,
+    signMedia,
     fetchPrFilesPage: async ({ ref, hostId }, page) =>
       unwrap(await host.call("fetchPrFiles", { ...ref, page }, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
@@ -193,10 +197,11 @@ export default async function plugin(bb: BbPluginApi) {
     addComment: async ({ hostId }, request) =>
       unwrap(await host.call("addComment", request, { hostId })),
     newCommentBasis: (pr) => reviewQueue.newCommentBasis(pr),
+    signMedia,
   });
 
   async function getReview(threadId: string): Promise<ReviewResult> {
-    const load = await review.load(threadId);
+    const load = await review.loadForDisplay(threadId);
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
   }
 

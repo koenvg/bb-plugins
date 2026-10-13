@@ -6,6 +6,7 @@ import type {
 } from "../contract";
 import { newCommentIds } from "../core/new-comments";
 import type { PullRequestRef } from "../core/pr-ref";
+import type { SignMedia } from "../core/signed-media";
 import { parseTimelinePage } from "../core/timeline";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import { write } from "../github/gh-write";
@@ -16,6 +17,7 @@ interface TimelineServiceDeps {
   fetchTimelinePage(target: PrTarget, before: string | null): Promise<unknown>;
   addComment(target: PrTarget, request: AddCommentRequest): Promise<unknown>;
   newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
+  signMedia: SignMedia;
 }
 
 export function createTimelineService(deps: TimelineServiceDeps) {
@@ -24,7 +26,9 @@ export function createTimelineService(deps: TimelineServiceDeps) {
     if (resolution.kind !== "pr") return resolution;
     try {
       const [{ othersComments, ...page }, { markedAt, seen }] = await Promise.all([
-        deps.fetchTimelinePage(resolution.target, before).then(parseTimelinePage),
+        deps
+          .fetchTimelinePage(resolution.target, before)
+          .then((response) => parseTimelinePage(response, deps.signMedia)),
         deps.newCommentBasis(resolution.target.ref),
       ]);
       return { kind: "ok", ...page, newCommentIds: newCommentIds(othersComments, markedAt, seen) };

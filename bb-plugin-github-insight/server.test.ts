@@ -6,6 +6,7 @@ import readyToEnqueuePage from "./test/fixtures/pr-25693-overview-ready-to-enque
 import prFiles from "./test/fixtures/pr-25259-files.json";
 import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import reviewQueue from "./test/fixtures/review-queue.json";
+import { reviewThreadsWithAttachment, SIGNED_ATTACHMENT_URL } from "./test/attachment";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 import type { LoadedReviewQueue, ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
@@ -1319,6 +1320,26 @@ describe("getReview", () => {
       "PRRT_kwDOHI7l-86jvKxS",
       "PRRT_kwDOHI7l-86jx0SN",
     ]);
+  });
+
+  it("shows review comments with the signed URLs of their attachments", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host: (call: HostCall) =>
+        call.method === "fetchReviewThreads"
+          ? ok(reviewThreadsWithAttachment())
+          : recordedReviewHost(call),
+    });
+
+    const result = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
+
+    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    expect(result.threads.placed[0]!.thread.comments[0]!.body).toBe(
+      `![shot](${SIGNED_ATTACHMENT_URL})`,
+    );
   });
 
   it("returns the PR head, the comment drafts at the head and at an older commit, and the summary draft", async () => {

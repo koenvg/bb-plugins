@@ -19,7 +19,10 @@ afterEach(cleanup);
 type LoadedTimeline = Extract<TimelineResult, { kind: "ok" }>;
 
 function page(fixture: keyof typeof timelines, olderCursor: string | null = null): LoadedTimeline {
-  const { othersComments: _, ...parsed } = parseTimelinePage(timelines[fixture]);
+  const { othersComments: _, ...parsed } = parseTimelinePage(
+    timelines[fixture],
+    (markdown) => markdown,
+  );
   return { kind: "ok", ...parsed, olderCursor, newCommentIds: [] };
 }
 

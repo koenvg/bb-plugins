@@ -17,7 +17,7 @@ query ($owner: String!, $repo: String!, $number: Int!, $after: String) {
           diffSide
           comments(first: 100) {
             totalCount
-            nodes { id author { __typename login avatarUrl(size: 40) } body createdAt publishedAt url diffHunk }
+            nodes { id author { __typename login avatarUrl(size: 40) } body bodyHTML createdAt publishedAt url diffHunk }
           }
         }
       }
