@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { expectReportingRules, expectTaskLinkRules } from "./reporting-test-support";
@@ -59,32 +58,15 @@ describe("task reporting skill", () => {
     expect(reporting).toContain("If the user requests a parent summary");
     expect(reporting).toContain("child counts or worker reports do not prove parent acceptance");
     expect(reporting).toContain("Reporting alone does not authorize a notification");
-    expect(reporting).toContain("task-records.md#notify-the-latest-responder");
+    expect(reporting).toContain("linked work thread");
     expect(skill).not.toContain("cat <<'REPORT'");
     expect(skill).not.toContain("parent summary");
   });
 
-  it("posts the documented multiline body without shell expansion", () => {
-    const example = [...reporting.matchAll(/^```sh\n([\s\S]*?)\n```/gm)]
-      .map((match) => match[1])
-      .find((body) => body.startsWith("bb tasks comment ABC-12 --body"));
-    expect(example, "multiline posting example").toBeDefined();
-    // Replace only the external CLI boundary. No BB records are touched.
-    const output = execFileSync(
-      "bash",
-      ["--noprofile", "--norc", "-c", `bb() { printf '%s\\0' "$@"; }\n${example}`],
-      { encoding: "utf8" },
-    );
-    expect(output.split("\0")).toEqual([
-      "tasks",
-      "comment",
-      "ABC-12",
-      "--body",
-      "**The change is ready for review.**\n\n" +
-        "- Focused checks pass for `parse()` and literal `$(name)` input.\n" +
-        "- Next: complete the required review.\n" +
-        "- [Evidence](bbthread://thr_abc123).",
-      "",
-    ]);
+  it("offers no task comment command or reporting alias", () => {
+    for (const guidance of [skill, taskRecords, reporting]) {
+      expect(guidance).not.toMatch(/bb tasks comment|comment --notify|--body-file/);
+    }
+    expect(reporting).toContain("no task reporting command");
   });
 });

@@ -1,7 +1,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { publishCommentsChanged, type TasksApiStore } from "../api";
+import { type TasksApiStore } from "../api";
 import type { TaskThread, TaskThreadLiveStatus } from "../db";
-import { createSystemComment, publishThreadsChanged } from "../delegate";
+import { publishThreadsChanged } from "../delegate";
 import { errorMessage } from "../shared/errors";
 
 const TERMINAL_LIVE_STATUSES = new Set<TaskThreadLiveStatus>(["completed"]);
@@ -36,14 +36,6 @@ function trackedThreads(store: TasksApiStore): TaskThread[] {
   return tracked;
 }
 
-function statusCommentBody(
-  thread: TaskThread,
-  liveStatus: Extract<TaskThreadLiveStatus, "completed" | "failed">,
-): string {
-  const outcome = liveStatus === "completed" ? "completed — final message posted" : "failed";
-  return `Thread "${thread.title}" ${outcome} · ${thread.threadId}`;
-}
-
 function sdkErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) {
     return undefined;
@@ -63,18 +55,9 @@ function transitionThread(
 
   store.transaction(() => {
     store.tasks.updateTaskThreadStatus(thread.id, liveStatus);
-    if (liveStatus === "completed" || liveStatus === "failed") {
-      createSystemComment(store.tasks, {
-        taskId: thread.taskId,
-        presetName: thread.presetName,
-        threadId: thread.threadId,
-        body: statusCommentBody(thread, liveStatus),
-      });
-    }
   });
 
   publishThreadsChanged(bb, thread.taskId);
-  publishCommentsChanged(bb, thread.taskId);
 }
 
 function transitionTrackedThread(

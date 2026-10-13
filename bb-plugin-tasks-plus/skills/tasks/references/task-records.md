@@ -14,19 +14,7 @@ old cursor; restart the listing without it.
 Changing a parent does not add a dependency. A dependency cycle is rejected
 without saving.
 
-The last blocker becoming `done` or `canceled` adds an "Unblocked" system
-comment. This means the dependency gate cleared, not that the task is complete.
-
-## Notify the latest responder
-
-Use `comment --notify` only when the intended recipient is the thread that
-wrote the task's latest agent reply. That recipient is not necessarily the
-parent agent or coordinator. An idle recipient resumes; with no prior agent
-reply, the comment is stored without delivery to an unrelated thread.
-
-In agent context, an explicit `--author` changes the display name, not the
-current thread identity. Delivery targets the prior latest responder, not the
-new comment's author. Reporting guidance does not authorize notification.
+The last blocker becoming `done` or `canceled` clears the dependency gate, not task completion. Read current blocker state and badges; this causes no notification.
 
 ## Repair thread links
 

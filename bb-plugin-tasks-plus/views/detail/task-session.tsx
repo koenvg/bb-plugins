@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { createSafeTaskTransition } from "./safe-transition.js";
-import { CommentDraftsProvider } from "../activity/comment-drafts.js";
 
 import { TaskDataProvider } from "../../shell/task-data.js";
 const TasksSessionContext = createContext<ReturnType<typeof createSafeTaskTransition> | null>(null);
@@ -19,9 +18,7 @@ export function TasksSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => () => transition.cancel(), [transition]);
   return (
     <TasksSessionContext.Provider value={transition}>
-      <TaskDataProvider>
-        <CommentDraftsProvider>{children}</CommentDraftsProvider>
-      </TaskDataProvider>
+      <TaskDataProvider>{children}</TaskDataProvider>
     </TasksSessionContext.Provider>
   );
 }

@@ -94,7 +94,6 @@ function render(tasks: Task[], subPath: string) {
           return { tasks: shown, nextCursor: null };
         },
         listTaskThreads: () => ({ taskThreads: [] }),
-        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
       },
     },

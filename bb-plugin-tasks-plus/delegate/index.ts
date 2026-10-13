@@ -1,7 +1,7 @@
 import type { BbPluginApi, PluginRpcHandlers } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import type { Attachment, Preset, Project, Task, TasksStore, TaskThreadLiveStatus } from "../db";
-import { publishCommentsChanged, publishTasksChanged, type TasksApiStore } from "../api";
+import { publishTasksChanged, type TasksApiStore } from "../api";
 import {
   presetPermissionModeSchema,
   presetReasoningLevelSchema,
@@ -13,7 +13,6 @@ import { truncateToWidth } from "../shared/text-measure";
 import { delegationRpcContract } from "./contract";
 
 const MAX_DELEGATED_THREAD_TITLE_WIDTH = 120;
-const SYSTEM_AUTHOR_NAME = "Tasks";
 const MANUAL_PRESET_NAME = "Attached";
 
 const presetExecutionSchema = z
@@ -84,7 +83,7 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
       [
         `Work on ${input.task.key} within scope, acceptance criteria and project instructions. Your thread is already attached.`,
         `Read current requirements/blockers: bb tasks show ${input.task.key} --json. Report read failures, not assumed state. Fetch relevant attachments. Wait for explicit approval if blockers are not done/canceled.`,
-        "Comment only for review readiness, completion, failure, blockers or user decisions. State result, relevant checks including unrun/blocked checks, material limits and evidence link; distinguish reported/verified checks. See Tasks references/reporting.md for posting.",
+        "Report useful outcomes in the linked work thread: review readiness, completion, failure, blockers or user decisions. State result, relevant checks including unrun/blocked checks, material limits and evidence links; distinguish reported/verified checks.",
         "Use in_review while review remains; done only after all gates. Keep task-to-thread links through all work changes. Detach only on explicit user request. Detaching does not stop the thread or change status. Links grant no ownership or reporting authority.",
       ].join("\n"),
     ),
@@ -194,26 +193,6 @@ function mapSpawnTargetError(error: unknown, preset: Preset): never {
   throw error;
 }
 
-export function createSystemComment(
-  store: TasksStore,
-  input: {
-    taskId: string;
-    presetName: string;
-    threadId: string;
-    body: string;
-  },
-): void {
-  store.createComment({
-    taskId: input.taskId,
-    kind: "system",
-    authorName: SYSTEM_AUTHOR_NAME,
-    presetName: input.presetName,
-    threadId: input.threadId,
-    body: input.body,
-    notifiedCount: 0,
-  });
-}
-
 export function publishThreadsChanged(bb: BbPluginApi, taskId: string): void {
   const payload: ThreadsChangedEvent = { taskId };
   bb.realtime.publish("threads:changed", payload);
@@ -267,20 +246,8 @@ export function handlers(
 
         if (task.status === "backlog" || task.status === "todo") {
           store.tasks.updateTask(task.id, { status: "in_progress" });
-          createSystemComment(store.tasks, {
-            taskId: task.id,
-            presetName: preset.name,
-            threadId: thread.id,
-            body: `Status changed to In Progress · dispatched to ${preset.name}`,
-          });
         }
 
-        createSystemComment(store.tasks, {
-          taskId: task.id,
-          presetName: preset.name,
-          threadId: thread.id,
-          body: `Dispatched to ${preset.name}`,
-        });
         return attached;
       });
 
@@ -298,7 +265,6 @@ export function handlers(
 
       publishThreadsChanged(bb, task.id);
       publishTasksChanged(bb, task.id, task.projectId);
-      publishCommentsChanged(bb, task.id);
       return { threadId: thread.id };
     },
 

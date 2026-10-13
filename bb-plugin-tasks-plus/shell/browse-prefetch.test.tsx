@@ -94,12 +94,7 @@ describe("prefetch from the rendered visible order", () => {
     await act(async () => {});
     expect(keysRead(slot)).toEqual(expected);
     expect(slot.inspection.navigateCalls).toEqual([]);
-    for (const method of [
-      "listAttachments",
-      "getTaskActivity",
-      "listTaskThreads",
-      "listTaskPullRequests",
-    ]) {
+    for (const method of ["listAttachments", "listTaskThreads", "listTaskPullRequests"]) {
       const calls = slot.inspection.rpcCalls.filter((call) => call.method === method);
       expect(calls, method).toHaveLength(1);
       expect(rpcInput(calls[0]!.input).taskId, method).toBe(`task-${selected}`);

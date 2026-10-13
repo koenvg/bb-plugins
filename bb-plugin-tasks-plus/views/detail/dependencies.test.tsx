@@ -107,7 +107,6 @@ function renderDetail(
           pullRequests: [],
           unavailableThreadIds: [],
         }),
-        getTaskActivity: () => ({ entries: [] }),
         addTaskDependency: (raw) => {
           const input = rpcInput(raw);
           if (cycle && input.blockerTaskId === cycle[0] && input.blockedTaskId === cycle[1]) {

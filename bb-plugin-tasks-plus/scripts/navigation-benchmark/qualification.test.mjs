@@ -45,15 +45,10 @@ test("all own signal channels invalidate; other plugins and thread notices do no
   l.message({ type: "changed", entity: "thread", id: "irrelevant" });
   l.message({ type: "plugin-signal", pluginId: "other", channel: "tasks:changed" });
   assert.equal(l.inspect("A").current, true);
-  for (const channel of [
-    "tasks:changed",
-    "projects:changed",
-    "comments:changed",
-    "threads:changed",
-  ]) {
+  for (const channel of ["tasks:changed", "projects:changed", "threads:changed"]) {
     l.message({ type: "plugin-signal", pluginId: "tasks-plus", channel });
   }
-  assert.equal(l.export().invalidations.length, 4);
+  assert.equal(l.export().invalidations.length, 3);
   assert.equal(l.inspect("A").current, false);
 });
 test("invalidation during presentation remains explicit, not a warm success", () => {

@@ -294,7 +294,7 @@ export function NewTaskDialog({
             className="w-full bg-transparent text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground"
           />
           <TasksEditor
-            variant="comment"
+            variant="compact"
             value={description}
             onChange={setDescription}
             placeholder="Description — rich text, round-trips as markdown for agents"

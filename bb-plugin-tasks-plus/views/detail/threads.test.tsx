@@ -79,7 +79,6 @@ function detailRpc(overrides: Record<string, unknown> = {}) {
       pullRequests: [],
       unavailableThreadIds: [],
     }),
-    getTaskActivity: () => ({ entries: [] }),
     listBbProjects: () => ({ bbProjects: [] }),
     ...overrides,
   };

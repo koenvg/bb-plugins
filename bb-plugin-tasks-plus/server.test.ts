@@ -116,7 +116,6 @@ describe("Tasks without Orchestrator", () => {
         const store = createStore(current.bb);
         expect(readHistory(current.bb.storage.database())).toEqual(before);
         expect(store.tasks.getTask(fixture.task.id)).toEqual(fixture.task);
-        expect(store.tasks.listComments(fixture.task.id)).toEqual([fixture.comment]);
         expect(store.tasks.listTaskThreads(fixture.task.id)).toEqual([fixture.association]);
         expect(current.harness.inspection.sdk.calls.map(({ path }) => path)).toEqual([
           "threads.get",

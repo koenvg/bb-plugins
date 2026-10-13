@@ -83,18 +83,9 @@ describe("task thread lifecycle", () => {
     });
 
     expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("completed");
-    expect(fixture.store.tasks.listComments(fixture.taskId)).toContainEqual(
-      expect.objectContaining({
-        kind: "system",
-        authorName: "Tasks",
-        presetName: "GPT-5.6 · high",
-        threadId: "thr_worker",
-        body: 'Thread "Lifecycle worker" completed — final message posted · thr_worker',
-      }),
-    );
+    expect(fixture.store.tasks.getTask(fixture.taskId)?.status).not.toBe("done");
     expect(fixture.harness.realtimeSignals).toEqual([
       { channel: "threads:changed", payload: { taskId: fixture.taskId } },
-      { channel: "comments:changed", payload: { taskId: fixture.taskId } },
     ]);
 
     await fixture.harness.dispose();
@@ -114,16 +105,9 @@ describe("task thread lifecycle", () => {
     });
 
     expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("failed");
-    const commentsAfterFailure = fixture.store.tasks.listComments(fixture.taskId);
-    expect(commentsAfterFailure).toContainEqual(
-      expect.objectContaining({
-        kind: "system",
-        body: 'Thread "Lifecycle worker" failed · thr_worker',
-      }),
-    );
+    expect(fixture.store.tasks.getTask(fixture.taskId)?.status).not.toBe("done");
     expect(fixture.harness.realtimeSignals).toEqual([
       { channel: "threads:changed", payload: { taskId: fixture.taskId } },
-      { channel: "comments:changed", payload: { taskId: fixture.taskId } },
     ]);
 
     await fixture.harness.emitThreadEvent("thread.active", {
@@ -134,7 +118,6 @@ describe("task thread lifecycle", () => {
       }),
     });
     expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("working");
-    expect(fixture.store.tasks.listComments(fixture.taskId)).toEqual(commentsAfterFailure);
 
     await fixture.harness.dispose();
   });
@@ -148,7 +131,6 @@ describe("task thread lifecycle", () => {
     expect(fixture.store.tasks.getTaskThread(fixture.taskThreadId)?.liveStatus).toBe("idle");
     expect(fixture.harness.realtimeSignals).toEqual([
       { channel: "threads:changed", payload: { taskId: fixture.taskId } },
-      { channel: "comments:changed", payload: { taskId: fixture.taskId } },
     ]);
 
     await fixture.harness.dispose();

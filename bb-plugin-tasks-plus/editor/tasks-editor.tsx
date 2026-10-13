@@ -14,17 +14,12 @@ import TextBoldIcon from "@hugeicons/core-free-icons/TextBoldIcon";
 import TextItalicIcon from "@hugeicons/core-free-icons/TextItalicIcon";
 import type { SuggestionProps } from "@tiptap/suggestion";
 import { Button } from "@/components/ui/button";
-import { usePointerCoarse } from "@/components/ui/hooks/use-pointer-coarse";
 import { cn } from "@/lib/utils";
 import {
   createEditorExtensions,
   type MentionItem,
   type MentionSuggestionHandle,
 } from "./extensions.js";
-
-function isImeComposing(event: KeyboardEvent): boolean {
-  return event.isComposing || event.keyCode === 229;
-}
 
 const STYLE_MARKER = "data-bb-tasks-editor-styles";
 const EDITOR_CSS = `
@@ -33,7 +28,7 @@ const EDITOR_CSS = `
   color: var(--foreground); caret-color: var(--foreground);
   overflow-wrap: break-word; -webkit-font-smoothing: antialiased;
 }
-.bb-tasks-editor[data-variant="comment"] .tiptap { font-size: 13px; line-height: 1.55; }
+.bb-tasks-editor[data-variant="compact"] .tiptap { font-size: 13px; line-height: 1.55; }
 /* Doc variant: let the ProseMirror surface fill the wrapper's min-height so
    the whole area is editable. Otherwise a short document (e.g. a single block
    image) leaves a non-editable dead zone below it that swallows clicks, and a
@@ -45,7 +40,7 @@ const EDITOR_CSS = `
 .bb-tasks-editor .tiptap li > :first-child,
 .bb-tasks-editor .tiptap blockquote > :first-child { margin-top: 0; }
 .bb-tasks-editor .tiptap p { margin: 0.75em 0 0; }
-.bb-tasks-editor[data-variant="comment"] .tiptap p { margin: 0.5em 0 0; }
+.bb-tasks-editor[data-variant="compact"] .tiptap p { margin: 0.5em 0 0; }
 .bb-tasks-editor .tiptap h1,
 .bb-tasks-editor .tiptap h2,
 .bb-tasks-editor .tiptap h3,
@@ -193,13 +188,11 @@ interface TasksEditorProps {
   value: string;
   onChange(markdown: string): void;
   placeholder?: string;
-  readOnly?: boolean;
-  variant?: "doc" | "comment";
+  variant?: "doc" | "compact";
   onUploadImage?: (file: File) => Promise<{ url: string; attachmentId: string }>;
   onAttachFiles?: (files: File[]) => void;
   mentionItems?: (query: string) => Promise<MentionItem[]>;
   onOpenThread?: (threadId: string) => void;
-  onSubmit?: () => void;
   onEditorReady?: (editor: Editor) => void;
   className?: string;
 }
@@ -208,13 +201,11 @@ export function TasksEditor({
   value,
   onChange,
   placeholder,
-  readOnly = false,
   variant = "doc",
   onUploadImage,
   onAttachFiles,
   mentionItems,
   onOpenThread,
-  onSubmit,
   onEditorReady,
   className,
 }: TasksEditorProps) {
@@ -235,16 +226,9 @@ export function TasksEditor({
   mentionItemsRef.current = mentionItems;
   const openThreadRef = useRef(onOpenThread);
   openThreadRef.current = onOpenThread;
-  const onSubmitRef = useRef(onSubmit);
-  onSubmitRef.current = onSubmit;
   const readyRef = useRef(onEditorReady);
   readyRef.current = onEditorReady;
   const initialValueRef = useRef(value);
-  const isPointerCoarse = usePointerCoarse();
-  const canSubmitWithEnterKey = Boolean(onSubmit) && !isPointerCoarse;
-  const canSubmitWithEnterRef = useRef(canSubmitWithEnterKey);
-  canSubmitWithEnterRef.current = canSubmitWithEnterKey;
-  const editorEnterKeyHint = onSubmit ? (isPointerCoarse ? "enter" : "send") : undefined;
 
   const [, setRevision] = useState(0);
   const [mention, setMentionState] = useState<MentionPopoverState | null>(null);
@@ -313,7 +297,7 @@ export function TasksEditor({
     };
     editor = new Editor({
       element: rootRef.current,
-      editable: !readOnly,
+      editable: true,
       extensions: createEditorExtensions({
         placeholder: () => placeholderRef.current ?? "",
         mentionHandle,
@@ -321,25 +305,6 @@ export function TasksEditor({
       content: initialValueRef.current,
       autofocus: false,
       editorProps: {
-        handleKeyDown(_view, event) {
-          if (!onSubmitRef.current || readOnly) return false;
-          if (event.key !== "Enter") return false;
-          if (isImeComposing(event)) return false;
-          const openMention = mentionRef.current;
-          if (openMention && openMention.items.length > 0) return false;
-
-          const withPrimaryMod =
-            (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey;
-          const plainEnter = !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
-
-          if (event.shiftKey && !withPrimaryMod) return false;
-          if (!withPrimaryMod && !plainEnter) return false;
-          if (plainEnter && !canSubmitWithEnterRef.current) return false;
-
-          event.preventDefault();
-          onSubmitRef.current();
-          return true;
-        },
         handlePaste(_view, event) {
           const files = [...(event.clipboardData?.files ?? [])];
           if (attachFilesRef.current) {
@@ -371,16 +336,14 @@ export function TasksEditor({
       },
     });
     editorRef.current = editor;
-    if (!readOnly) {
-      const last = editor.state.doc.lastChild;
-      const paragraph = editor.state.schema.nodes.paragraph;
-      if (paragraph && last && last.type.isLeaf) {
-        editor.view.dispatch(
-          editor.state.tr.insert(editor.state.doc.content.size, paragraph.create()),
-        );
-      }
+    const last = editor.state.doc.lastChild;
+    const paragraph = editor.state.schema.nodes.paragraph;
+    if (paragraph && last && last.type.isLeaf) {
+      editor.view.dispatch(
+        editor.state.tr.insert(editor.state.doc.content.size, paragraph.create()),
+      );
     }
-    if (variant === "doc" && !readOnly && bubbleRef.current) {
+    if (variant === "doc" && bubbleRef.current) {
       editor.registerPlugin(
         BubbleMenuPlugin({
           pluginKey: "tasksBubbleMenu",
@@ -427,7 +390,7 @@ export function TasksEditor({
       setMentionRef.current(null);
       editor.destroy();
     };
-  }, [readOnly, variant]);
+  }, [variant]);
 
   useEffect(() => {
     initialValueRef.current = value;
@@ -436,16 +399,6 @@ export function TasksEditor({
     lastMarkdownRef.current = value;
     editor.commands.setContent(value, false);
   }, [value]);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor || editor.isDestroyed) return;
-    if (editorEnterKeyHint) {
-      editor.view.dom.setAttribute("enterkeyhint", editorEnterKeyHint);
-    } else {
-      editor.view.dom.removeAttribute("enterkeyhint");
-    }
-  }, [editorEnterKeyHint]);
 
   const editor = editorRef.current;
   const mentionRect = mention?.clientRect?.() ?? null;
@@ -481,7 +434,6 @@ export function TasksEditor({
   );
 
   const focusOnEmptyMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (readOnly) return;
     if (event.target === wrapperRef.current || event.target === rootRef.current) {
       event.preventDefault();
       editorRef.current?.commands.focus("end");
@@ -495,7 +447,7 @@ export function TasksEditor({
       data-variant={variant}
       onMouseDown={variant === "doc" ? focusOnEmptyMouseDown : undefined}
     >
-      {variant === "doc" && !readOnly ? (
+      {variant === "doc" ? (
         <div
           ref={bubbleRef}
           role="toolbar"

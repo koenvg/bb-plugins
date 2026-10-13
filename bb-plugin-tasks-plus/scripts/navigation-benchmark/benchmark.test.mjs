@@ -9,7 +9,7 @@ import { createProbe } from "./probe.mjs";
 import { summarize } from "./report.mjs";
 
 const owner = "bbp60-local-test";
-test("100 owned tasks, ten 2 KiB descriptions, separate 50-comment case", () => {
+test("100 owned tasks, ten 2 KiB descriptions, without activity fixtures", () => {
   const f = createFixture(owner);
   assert.deepEqual(f, createFixture(owner));
   assert.equal(f.tasks.length, 100);
@@ -22,10 +22,7 @@ test("100 owned tasks, ten 2 KiB descriptions, separate 50-comment case", () => 
     assert.match(t.description, /\n- /);
     assert.ok(t.labelIds.length && t.dueDate);
   }
-  assert.ok(!f.warmKeys.includes(f.activity.taskKey));
-  assert.equal(f.activity.comments.length, 50);
-  assert.equal(f.activity.comments.filter((c) => c.authorKind === "agent").length, 25);
-  assert.ok(f.activity.comments.some((c) => c.attachments.length));
+  assert.ok(!Object.hasOwn(f, "activity"));
   assert.throws(() => createFixture("../real-tasks"));
 });
 test("cleanup refuses a foreign owner, changed contents, and extra files", async () => {

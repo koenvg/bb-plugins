@@ -18,7 +18,7 @@ export function workspaceCommands(domain: TasksDomain, status: PluginStatus) {
       },
     }),
     "seed-demo": cliCommand({
-      summary: "Create sample folders, projects, labels, tasks, and comments",
+      summary: "Create sample folders, projects, labels, tasks",
       options: {
         yes: {
           type: "boolean",
@@ -41,7 +41,6 @@ export function workspaceCommands(domain: TasksDomain, status: PluginStatus) {
                 ["Projects", result.projectsCreated],
                 ["Labels", result.labelsCreated],
                 ["Tasks", result.tasksCreated],
-                ["Comments", result.commentsCreated],
                 ["BB project", result.linkedBbProjectId ?? "-"],
               ]);
         });

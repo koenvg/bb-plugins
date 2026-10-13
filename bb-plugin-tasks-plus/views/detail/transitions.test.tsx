@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { makeAttachment } from "../../test-fixtures.js";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -44,7 +45,6 @@ function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments: [] }),
         listTaskThreads: () => ({ taskThreads: [] }),
-        getTaskActivity: () => ({ entries: [] }),
         listTaskPullRequests: () => ({
           pullRequests: [],
           unavailableThreadIds: [],
@@ -150,35 +150,42 @@ describe("safe standalone detail navigation", () => {
       expect(slot.getAllByRole("button", { name: /Urgent/ }).length).toBeGreaterThan(0),
     );
   });
-  it("retains unsent comment text and files through actual shell A-B-A navigation", async () => {
-    const slot = setup();
+  it("preserves saved descriptions and task files through A-B-A navigation", async () => {
+    const records = tasks.map((task) => ({ ...task }));
+    const file = makeAttachment(records[0]!.id);
+    const writes: Record<string, unknown>[] = [];
+    const slot = setup({
+      getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
+      listAttachments: (raw) => ({
+        attachments: rpcInput(raw).taskId === file.taskId ? [file] : [],
+      }),
+      updateTask: (raw) => {
+        const input = rpcInput(raw);
+        writes.push(input);
+        const task = records.find((t) => t.id === input.taskId)!;
+        Object.assign(task, input);
+        return { ok: true, task };
+      },
+    });
     await slot.findByRole("textbox", { name: "Task title" });
-    fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
-    await act(async () => {
-      const comment = slot.container.querySelectorAll<HTMLElement>(".tiptap")[1]!;
-      comment.innerHTML = "<p>Unsent A</p>";
-      fireEvent.input(comment);
-    });
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
-      target: { files: [new File(["A"], "a.txt")] },
-    });
+    const origin = slot.container.querySelector(".tiptap");
+    await changeDescription(slot, "Saved A");
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
     );
     expect(slot.queryByText("a.txt")).toBeNull();
-    expect(slot.container.textContent).not.toContain("Unsent A");
+    expect(slot.container.textContent).not.toContain("Saved A");
     slot.lifecycle.rerender(<Panel subPath="task/TSK-1" />);
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1"),
     );
-    fireEvent.click(slot.getByRole("button", { name: "Show activity" }));
+    expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toContain("Unsent A");
+    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
     expect(
-      slot.inspection.rpcCalls.filter((call) =>
-        ["createComment", "updateTask", "delegate"].includes(call.method),
-      ),
+      slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
   });
   it("captures an unblurred title and holds external route changes until confirmation", async () => {

@@ -3,7 +3,6 @@ import {
   createTasksStore,
   TaskDependencyError,
   type Attachment as StoredAttachment,
-  type Comment as StoredComment,
   type Task as StoredTask,
   type TasksStore,
 } from "../db";
@@ -12,9 +11,6 @@ import {
   deleteAttachmentById,
   removeAttachmentBlobs,
 } from "../attachments";
-import { deliverCommentToLatestAgent } from "../steer";
-import { displayName } from "../shared/display-name";
-import { isSideChatShapedThread } from "../shared/side-chat";
 import {
   tasksRpcContract,
   type Attachment as AttachmentMetadata,
@@ -24,9 +20,6 @@ import {
   type TaskPullRequest,
   type TasksChangedEvent,
   type TasksDomainError,
-  type CommentsChangedEvent,
-  type CommentProvider,
-  type DisplayComment,
 } from "../shared/contract";
 
 import { createWorkStatusReader } from "./work-status.js";
@@ -65,7 +58,10 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
   const database = bb.storage.database();
   const tasks = createTasksStore(database, {
     onTasksUnblocked(taskIds) {
-      for (const taskId of taskIds) publishCommentsChanged(bb, taskId);
+      for (const taskId of taskIds) {
+        const task = tasks.getTask(taskId);
+        if (task) publishTasksChanged(bb, task.id, task.projectId);
+      }
     },
   });
 
@@ -185,11 +181,6 @@ export function publishProjectsChanged(bb: BbPluginApi, projectId: string | null
   bb.realtime.publish("projects:changed", payload);
 }
 
-export function publishCommentsChanged(bb: BbPluginApi, taskId: string): void {
-  const payload: CommentsChangedEvent = { taskId };
-  bb.realtime.publish("comments:changed", payload);
-}
-
 function apiTask(store: TasksApiStore, task: StoredTask): Task {
   return apiTasks(store, [task])[0]!;
 }
@@ -300,44 +291,10 @@ function replaceTaskLabels(
   }
 }
 
-function labelsChanged(before: readonly string[], after: readonly string[]): boolean {
-  if (before.length !== after.length) return true;
-  const afterSet = new Set(after);
-  return before.some((labelId) => !afterSet.has(labelId));
-}
-
-function labelChangeBody(store: TasksApiStore, taskId: string, authorName: string): string {
-  const names = store.tasks
-    .listLabelsForTask(taskId)
-    .map((label) => label.name)
-    .sort((left, right) => left.localeCompare(right));
-  return names.length === 0
-    ? `Labels cleared by ${authorName}`
-    : `Labels changed to ${names.join(", ")} by ${authorName}`;
-}
-
-function writeSystemComments(
-  store: TasksApiStore,
-  taskId: string,
-  authorName: string,
-  bodies: readonly string[],
-): void {
-  for (const body of bodies) {
-    store.tasks.createComment({
-      taskId,
-      kind: "system",
-      authorName,
-      body,
-      notifiedCount: 0,
-    });
-  }
-}
-
 function attachmentMetadata(attachment: StoredAttachment): AttachmentMetadata {
   return {
     id: attachment.id,
     taskId: attachment.taskId,
-    commentId: attachment.commentId,
     fileName: attachment.fileName,
     mime: attachment.mime,
     sizeBytes: attachment.sizeBytes,
@@ -348,138 +305,6 @@ function attachmentMetadata(attachment: StoredAttachment): AttachmentMetadata {
 
 function attachmentsForTasks(store: TasksStore, taskIds: readonly string[]): StoredAttachment[] {
   return taskIds.flatMap((taskId) => store.listTaskAttachments(taskId, { includeBlobPath: true }));
-}
-
-interface AgentThreadInfo {
-  title: string | null;
-  providerId: string;
-}
-
-async function resolveAgentThreadInfo(
-  bb: BbPluginApi,
-  comments: readonly StoredComment[],
-): Promise<Map<string, AgentThreadInfo>> {
-  const threadIds = new Set<string>();
-  for (const comment of comments) {
-    if (comment.kind === "agent" && comment.threadId !== null) {
-      threadIds.add(comment.threadId);
-    }
-  }
-  const infos = new Map<string, AgentThreadInfo>();
-  await Promise.all(
-    [...threadIds].map(async (threadId) => {
-      try {
-        const thread = await bb.sdk.threads.get({ threadId });
-        const isSideChat = isSideChatShapedThread(thread);
-        const title = isSideChat
-          ? undefined
-          : [thread.title, thread.titleFallback].find(
-              (candidate) => candidate !== null && candidate.trim() !== "",
-            );
-        infos.set(threadId, {
-          title: title ?? null,
-          providerId: thread.providerId,
-        });
-      } catch {}
-    }),
-  );
-  return infos;
-}
-
-async function resolveProviderBadges(
-  bb: BbPluginApi,
-  threadInfo: ReadonlyMap<string, AgentThreadInfo>,
-): Promise<Map<string, CommentProvider>> {
-  const providerIds = new Set([...threadInfo.values()].map((info) => info.providerId));
-  const badges = new Map<string, CommentProvider>();
-  if (providerIds.size === 0) return badges;
-  let providers: Awaited<ReturnType<typeof bb.sdk.providers.list>>;
-  try {
-    providers = await bb.sdk.providers.list();
-  } catch {
-    return badges;
-  }
-  for (const provider of providers) {
-    if (providerIds.has(provider.id)) {
-      badges.set(provider.id, {
-        id: provider.id,
-        name: provider.displayName,
-        logoUrl: provider.logoUrl,
-        icon: provider.icon ?? null,
-        strings: { iconTint: provider.strings?.iconTint ?? null },
-      });
-    }
-  }
-  return badges;
-}
-
-async function displayComments(
-  bb: BbPluginApi,
-  comments: readonly StoredComment[],
-): Promise<DisplayComment[]> {
-  const threadInfo = await resolveAgentThreadInfo(bb, comments);
-  const providerBadges = await resolveProviderBadges(bb, threadInfo);
-  return comments.map((comment) => {
-    const info =
-      comment.kind === "agent" && comment.threadId !== null
-        ? threadInfo.get(comment.threadId)
-        : undefined;
-    return {
-      ...comment,
-      threadTitle: info?.title ?? null,
-      provider:
-        info === undefined
-          ? null
-          : (providerBadges.get(info.providerId) ?? {
-              id: info.providerId,
-              name: info.providerId,
-              logoUrl: null,
-              icon: null,
-              strings: { iconTint: null },
-            }),
-    };
-  });
-}
-
-interface CreateCommentInput {
-  taskId: string;
-  kind: StoredComment["kind"];
-  authorName: string;
-  presetName: string | null;
-  threadId: string | null;
-  body: string;
-  notify: boolean;
-}
-
-export async function createComment(
-  bb: BbPluginApi,
-  store: TasksApiStore,
-  input: CreateCommentInput,
-): Promise<StoredComment> {
-  let comment = store.transaction(() =>
-    store.tasks.createComment({
-      taskId: input.taskId,
-      kind: input.kind,
-      authorName: input.authorName,
-      presetName: input.presetName,
-      threadId: input.threadId,
-      body: input.body,
-      notifiedCount: 0,
-    }),
-  );
-
-  if (input.notify) {
-    const notifiedCount = await deliverCommentToLatestAgent(bb, store.tasks, {
-      taskId: comment.taskId,
-      commentId: comment.id,
-      body: comment.body,
-      authorName: comment.authorName,
-    });
-    comment = store.transaction(() => store.tasks.updateComment(comment.id, { notifiedCount }));
-  }
-
-  publishCommentsChanged(bb, input.taskId);
-  return comment;
 }
 
 interface TaskPullRequestsResult {
@@ -737,8 +562,7 @@ export function registerHandlers(
         }
 
         const result = store.transaction(() => {
-          const beforeLabelIds = store.tasks.listTaskLabels(current.id).map((link) => link.labelId);
-          const updated = store.tasks.updateTask(current.id, {
+          store.tasks.updateTask(current.id, {
             title: input.title,
             description: input.description,
             status: input.status,
@@ -751,30 +575,9 @@ export function registerHandlers(
           }
           const linkedTaskIds = changeTaskBlockers(store, current.id, input);
 
-          const bodies: string[] = [];
-          if (updated.status !== current.status) {
-            bodies.push(`Status changed to ${displayName(updated.status)} by ${input.authorName}`);
-          }
-          if (updated.priority !== current.priority) {
-            bodies.push(
-              `Priority changed to ${displayName(updated.priority)} by ${input.authorName}`,
-            );
-          }
-          if (updated.dueDate !== current.dueDate) {
-            bodies.push(
-              updated.dueDate === null
-                ? `Due date removed by ${input.authorName}`
-                : `Due date changed to ${updated.dueDate} by ${input.authorName}`,
-            );
-          }
-          if (input.labelIds && labelsChanged(beforeLabelIds, input.labelIds)) {
-            bodies.push(labelChangeBody(store, current.id, input.authorName));
-          }
-          writeSystemComments(store, current.id, input.authorName, bodies);
           return {
             task: apiTask(store, store.tasks.getTask(current.id)!),
             linkedTaskIds,
-            systemCommentsWritten: bodies.length,
           };
         });
 
@@ -782,9 +585,6 @@ export function registerHandlers(
         for (const taskId of result.linkedTaskIds) {
           const linked = store.tasks.getTask(taskId);
           if (linked) publishTasksChanged(bb, linked.id, linked.projectId);
-        }
-        if (result.systemCommentsWritten > 0) {
-          publishCommentsChanged(bb, result.task.id);
         }
         const warnings = input.status === "in_progress" ? blockedWorkWarnings(result.task) : [];
         return warnings.length > 0
@@ -865,16 +665,9 @@ export function registerHandlers(
           beforeTaskId: input.beforeTaskId,
           afterTaskId: input.afterTaskId,
         });
-        const statusChanged = moved.status !== current.status;
-        if (statusChanged) {
-          writeSystemComments(store, current.id, input.authorName, [
-            `Status changed to ${displayName(moved.status)} by ${input.authorName}`,
-          ]);
-        }
-        return { task: apiTask(store, moved), statusChanged };
+        return { task: apiTask(store, moved) };
       });
       publishTasksChanged(bb, result.task.id, result.task.projectId);
-      if (result.statusChanged) publishCommentsChanged(bb, result.task.id);
       return { ok: true, task: result.task };
     },
     createLabel(input) {
@@ -899,47 +692,8 @@ export function registerHandlers(
     listLabels(input) {
       return { labels: store.tasks.listLabels(input.projectId) };
     },
-    async createComment(input) {
-      const comment = await createComment(bb, store, {
-        taskId: input.taskId,
-        kind: "user",
-        authorName: "You",
-        presetName: null,
-        threadId: null,
-        body: input.body,
-        notify: input.notify,
-      });
-      return { comment };
-    },
-    async listComments(input) {
-      return { comments: await displayComments(bb, store.tasks.listComments(input.taskId)) };
-    },
-    async getTaskActivity(input) {
-      // Read a consistent task snapshot before resolving live display information.
-      // Store failures reject the entire read, never a partial attachment-free feed.
-      const { comments, attachments } = store.transaction(() => ({
-        comments: store.tasks.listComments(input.taskId),
-        attachments: store.tasks.listActivityAttachments(input.taskId),
-      }));
-      const byCommentId = new Map<string, AttachmentMetadata[]>();
-      for (const attachment of attachments) {
-        if (attachment.commentId === null) continue;
-        const group = byCommentId.get(attachment.commentId) ?? [];
-        group.push(attachment);
-        byCommentId.set(attachment.commentId, group);
-      }
-      return {
-        entries: (await displayComments(bb, comments)).map((comment) => ({
-          comment,
-          attachments: byCommentId.get(comment.id) ?? [],
-        })),
-      };
-    },
     listAttachments(input) {
-      const attachments =
-        "taskId" in input
-          ? store.tasks.listAttachmentsForTask(input.taskId)
-          : store.tasks.listAttachmentsForComment(input.commentId);
+      const attachments = store.tasks.listAttachmentsForTask(input.taskId);
       return {
         attachments: attachments.map(attachmentMetadata),
       };

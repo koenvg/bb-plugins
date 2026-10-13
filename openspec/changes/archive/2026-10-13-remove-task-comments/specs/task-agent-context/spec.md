@@ -1,0 +1,103 @@
+# Spec Delta
+
+## MODIFIED Requirements
+
+### Requirement: Small ordinary delegation guidance
+
+Ordinary delegated workers SHALL receive a short task-work instruction covering assigned scope, relevant checks, review/completion gates and retained task/thread links. The instruction MUST NOT require task comments, automatic parent summaries, native reporting, private report contexts or returned report IDs.
+
+#### Scenario: User delegates ordinary task work
+
+- **WHEN** a user delegates a task using an existing preset
+- **THEN** the worker receives the short task-work instruction
+- **AND** ordinary guidance contains none of the excluded reporting or orchestration duties
+- **AND** execution selection, task attachment and the existing status transition behave as before
+
+### Requirement: Preserve delegated task requirements
+
+Delegation SHALL preserve the task description, project identity, blocker list, subtasks, task attachment references, preset instructions and explicit per-dispatch instructions. Shorter plugin guidance MUST NOT truncate those requirements or weaken existing blocker, status or thread-link rules.
+
+#### Scenario: Description and instructions contain important restrictions
+
+- **WHEN** a task description, preset or per-dispatch instruction contains explicit scope restrictions and completion criteria
+- **THEN** the generated worker prompt preserves that content
+- **AND** the authored-context budget does not truncate it
+
+#### Scenario: Blocked task is deliberately delegated
+
+- **WHEN** the existing delegation path accepts a task with blockers
+- **THEN** the worker prompt still lists each blocker with its key, title and status
+- **AND** existing confirmation and task-work approval requirements remain unchanged
+
+#### Scenario: An attachment belongs to an old comment
+
+- **WHEN** an existing comment attachment has been converted to task ownership by the removal upgrade
+- **THEN** the delegated attachment manifest still includes its reference
+- **AND** the prompt exposes no comment body or comment owner and does not lose the file
+
+### Requirement: Intent-specific Tasks skill guidance
+
+The Tasks skill description and entry guidance SHALL distinguish task references and read-only requests from assigned task work. Referencing a key alone MUST NOT be described as authorization to attach a thread, implement, report or change status. Detailed operation references SHALL be required only for the requested operation, not for every task request.
+
+#### Scenario: User asks about a task
+
+- **WHEN** an agent loads the Tasks skill to answer a read-only task question
+- **THEN** its entry guidance directs only the reads needed for that question
+- **AND** it does not instruct task-work mutations or loading all administration references
+
+#### Scenario: User explicitly assigns task work
+
+- **WHEN** the user assigns implementation of a task
+- **THEN** the skill directs reading current requirements and blockers before acting
+- **AND** relevant attachment, status and link-retention requirements still apply
+
+#### Scenario: User requests an administrative operation
+
+- **WHEN** the user requests task creation, dependency management, attachment handling or delegation
+- **THEN** the skill identifies the reference for that operation without requiring unrelated procedures
+
+### Requirement: Existing task details remain readable on demand
+
+The existing task CLI SHALL retain access to current task properties, blockers, subtasks, task attachments and linked threads. A neutral mention or short skill MUST NOT hide read failures or substitute stale information for current verified state. Reading details MUST NOT itself dispatch, notify or change task status.
+
+#### Scenario: Agent needs comment evidence
+
+- **WHEN** an agent requests current task details for a relevant clarification or review response
+- **THEN** the existing reads return retained current task details and references without comments
+- **AND** no worker is resumed and task status remains unchanged
+
+#### Scenario: Current details cannot be read
+
+- **WHEN** a current-state read fails
+- **THEN** the guidance requires reporting that limit rather than asserting current blockers or completion from assumed state
+
+### Requirement: Context changes preserve data and unrelated configuration
+
+The context reduction SHALL leave stored descriptions, presets, task attachments and thread links unchanged, except for the explicit comment-removal migration and attachment ownership conversion. It SHALL apply to newly produced context and newly loaded guidance, not rewrite previously delivered prompts or active provider sessions. Code Cleanup configuration and orchestration runtime changes SHALL remain outside this capability change.
+
+#### Scenario: Guidance is updated
+
+- **WHEN** a new task context is produced after the plugin source update
+- **THEN** it uses the reduced guidance
+- **AND** retained records, custom cleanup prompts and previously delivered prompts remain unchanged
+
+## REMOVED Requirements
+
+### Requirement: No automatic comment history in delegation
+**Reason**: Task comment storage and reads are removed entirely rather than selectively omitted from prompts.
+**Migration**: Use current task details, task attachments and linked work threads. Do not retrieve or summarize removed comments.
+
+## ADDED Requirements
+
+### Requirement: Agent guidance does not depend on comments
+New plugin-authored delegation prompts and bundled Tasks guidance SHALL NOT direct posting or reading task comments, comment notification or comment-owner attachment operations. Useful work reports and required questions SHALL use the linked work thread. Existing authored-context budgets, task-work authorization rules, blocker checks and completion gates SHALL remain in force.
+
+#### Scenario: New delegated worker
+- **WHEN** a user delegates a task after comment removal
+- **THEN** the worker receives full retained requirements and comment-free reporting guidance
+- **AND** no automatic replacement summary or new reporting API is introduced
+
+#### Scenario: Prior instructions or user presets
+- **WHEN** a running worker or stored custom preset still refers to an old comment command
+- **THEN** previously delivered instructions and stored presets remain unchanged
+- **AND** the removed command is unavailable without a compatibility alias

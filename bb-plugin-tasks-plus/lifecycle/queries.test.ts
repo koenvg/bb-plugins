@@ -147,7 +147,6 @@ describe("lifecycle SQL scope", () => {
           status: "active" | "idle" | "error" | "deleted",
           expected: string,
           statementsPerMapping: number,
-          comments: number,
         ) => {
           f.queries.length = 0;
           const signalsBefore = f.harness.realtimeSignals.length;
@@ -177,15 +176,16 @@ describe("lifecycle SQL scope", () => {
           );
           expect(f.queries).toHaveLength(1 + count * statementsPerMapping);
           expect(f.harness.realtimeSignals.length - signalsBefore).toBe(
-            statementsPerMapping === 0 ? 0 : count * 2,
+            statementsPerMapping === 0 ? 0 : count,
           );
           if (statementsPerMapping > 0) {
             expect(f.harness.realtimeSignals.slice(signalsBefore)).toEqual(
               expect.arrayContaining(
-                f.tasks.slice(0, count).flatMap((task) => [
-                  { channel: "threads:changed", payload: { taskId: task.id } },
-                  { channel: "comments:changed", payload: { taskId: task.id } },
-                ]),
+                f.tasks
+                  .slice(0, count)
+                  .flatMap((task) => [
+                    { channel: "threads:changed", payload: { taskId: task.id } },
+                  ]),
               ),
             );
           }
@@ -193,28 +193,18 @@ describe("lifecycle SQL scope", () => {
             expect(f.store.tasks.getTaskThreadByThreadId(task.id, "thr_shared")?.liveStatus).toBe(
               expected,
             );
-            const recorded = f.store.tasks.listComments(task.id);
-            expect(recorded).toHaveLength(comments);
-            expect(
-              recorded.every(
-                (comment) =>
-                  comment.kind === "system" &&
-                  comment.threadId === "thr_shared" &&
-                  comment.presetName === "Default",
-              ),
-            ).toBe(true);
             expect(f.store.tasks.getTask(task.id)!.status).toBe("backlog");
           }
           expect(f.store.tasks.getTaskThread(f.mappings[count]!.id)?.liveStatus).toBe("working");
         };
-        await transition("active", "working", 0, 0);
-        await transition("idle", "idle", 3, 0);
-        await transition("error", "failed", 6, 1);
-        await transition("error", "failed", 0, 1);
-        await transition("active", "working", 3, 1);
-        await transition("deleted", "completed", 6, 2);
-        await transition("active", "completed", 0, 2);
-        await transition("deleted", "completed", 0, 2);
+        await transition("active", "working", 0);
+        await transition("idle", "idle", 3);
+        await transition("error", "failed", 3);
+        await transition("error", "failed", 0);
+        await transition("active", "working", 3);
+        await transition("deleted", "completed", 3);
+        await transition("active", "completed", 0);
+        await transition("deleted", "completed", 0);
       } finally {
         await f.dispose();
       }
@@ -227,9 +217,9 @@ describe("lifecycle SQL scope", () => {
     ["active", null, "working", 1],
     ["stopping", null, "working", 1],
     ["idle", null, "idle", 4],
-    ["error", null, "failed", 7],
-    ["idle", 1, "completed", 7],
-    ["error", 1, "failed", 7],
+    ["error", null, "failed", 4],
+    ["idle", 1, "completed", 4],
+    ["error", 1, "failed", 4],
   ] as const)(
     "maps created %s / deletedAt %s to %s",
     async (status, deletedAt, expected, statements) => {

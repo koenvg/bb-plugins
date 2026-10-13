@@ -4,13 +4,12 @@ Turn a plan into tracked tasks, hand each task to an agent, and see the worker's
 
 - A **Tasks** panel with list and board views, filters, and a detail page for each task.
 - Projects with key prefixes such as `PROD-1`, nested folders, labels, priorities, due dates, subtasks, and file attachments.
-- Markdown comments with a **Notify last responding agent** switch. The comment goes to the worker thread and resumes it when idle.
 - A **Delegate** menu that starts a worker thread from a preset. A preset sets the provider, model, reasoning level, permission mode, and instructions.
 - Live thread cards on each task and a **Task** panel action inside a thread.
 
 ## How it works
 
-Link a tracker project to a bb project. Delegation creates and attaches a worker thread, moving `backlog` or `todo` tasks to `in_progress`. The worker receives full requirements, blockers, subtasks, attachment references and explicit instructions. Recent comment bodies stay out of the starting prompt.
+Link a tracker project to a bb project. Delegation creates and attaches a worker thread, moving `backlog` or `todo` tasks to `in_progress`. The worker receives full requirements, blockers, subtasks, attachment references and explicit instructions.
 
 Select **Task** in a thread's right-side launcher to open its first linked task, matching the header chip. Completed tasks remain available. A header-chip or message-card click opens that specific task instead. If no task is linked, the panel says so. A lookup error has a separate **Retry** button. Changing the selected task waits for current edits to save; a failed save keeps the current task and edits.
 
@@ -20,6 +19,6 @@ Type `@` in the composer and choose **Tasks** to send a task key, title, full de
 
 ## For agents
 
-The `bb tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `comment`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The small `tasks` skill separates read-only questions from assigned work and loads operation details only when needed. Comments cover review readiness, completion, failure, blockers or user decisions. Required review keeps work `in_review`; `done` requires all completion gates.
+The `bb tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The small `tasks` skill separates read-only questions from assigned work and loads operation details only when needed. Linked work-thread reports cover review readiness, completion, failure, blockers or user decisions. Required review keeps work `in_review`; `done` requires all completion gates.
 
 Presets are user-defined. Create at least one before you delegate.

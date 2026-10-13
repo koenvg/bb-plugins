@@ -321,8 +321,8 @@ describe("browse shortcut guards and pane actions", () => {
     await waitFor(() => expect(slot.queryByRole("menu")).toBeNull());
     detail(slot).focus();
     press("m");
-    const activity = slot.getByRole("region", { name: "Activity" });
-    await waitFor(() => expect(activity.contains(document.activeElement)).toBe(true));
+    expect(slot.queryByRole("region", { name: "Activity" })).toBeNull();
+    expect(document.activeElement).toBe(detail(slot));
     expect(
       slot.inspection.rpcCalls.some((c) =>
         ["delegate", "createComment", "updateTask"].includes(c.method),

@@ -52,14 +52,12 @@ describe("Tiptap advisory input boundaries", () => {
 
   it("discards unknown attributes when Tasks loads and replaces Markdown with raw HTML", async () => {
     const onChange = vi.fn();
-    const { container, rerender } = render(
-      <TasksEditor value={html} onChange={onChange} readOnly />,
-    );
+    const { container, rerender } = render(<TasksEditor value={html} onChange={onChange} />);
     const surface = container.querySelector(".tiptap")!;
     expect(surface.querySelector("img")?.getAttribute("alt")).toBe("kept");
     expectNoInjectedAttributes(surface);
 
-    rerender(<TasksEditor value={html.replace("kept", "replaced")} onChange={onChange} readOnly />);
+    rerender(<TasksEditor value={html.replace("kept", "replaced")} onChange={onChange} />);
     await waitFor(() => {
       expect(surface.querySelector("img")?.getAttribute("alt")).toBe("replaced");
     });

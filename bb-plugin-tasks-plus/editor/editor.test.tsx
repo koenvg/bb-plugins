@@ -2,28 +2,10 @@
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Editor } from "@tiptap/core";
-import { POINTER_COARSE_QUERY } from "@/components/ui/hooks/use-pointer-coarse";
 import { createEditorExtensions } from "./extensions.js";
 import { TasksEditor } from "./tasks-editor.js";
 
 afterEach(cleanup);
-
-function mockPointerCoarse(matches: boolean): () => void {
-  const original = window.matchMedia;
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: query === POINTER_COARSE_QUERY ? matches : false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  }));
-  return () => {
-    window.matchMedia = original;
-  };
-}
 
 function getEditorSurface(container: HTMLElement): HTMLElement {
   const surface = container.querySelector(".tiptap");
@@ -116,7 +98,6 @@ describe("markdown round-trip", () => {
       <TasksEditor
         value={"| Item | Owner |\n| --- | --- |\n| Parser | Ada |"}
         onChange={() => undefined}
-        readOnly
       />,
     );
 
@@ -263,14 +244,14 @@ describe("thread mention extension", () => {
     }
   });
 
-  it("opens the thread when a pill is clicked, including read-only", () => {
+  it("opens the thread when a pill is clicked", () => {
     const onOpenThread = vi.fn();
     const screen = render(
       <TasksEditor
         value="See [Fix login flow](bbthread://thr_a82u8wp8qq)."
         onChange={() => undefined}
-        readOnly
-        variant="comment"
+
+        variant="compact"
         onOpenThread={onOpenThread}
       />,
     );
@@ -357,15 +338,15 @@ describe("TasksEditor component", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("- [x] write tests"));
   });
 
-  it("renders read-only without a toolbar or editable surface", () => {
+  it("renders the compact editor without a toolbar", () => {
     const screen = render(
-      <TasksEditor value={"**Done** deal"} onChange={() => undefined} readOnly variant="comment" />,
+      <TasksEditor value={"**Done** deal"} onChange={() => undefined} variant="compact" />,
     );
     expect(screen.queryByRole("toolbar")).toBeNull();
     const surface = screen.container.querySelector(".tiptap");
-    expect(surface?.getAttribute("contenteditable")).toBe("false");
+    expect(surface?.getAttribute("contenteditable")).toBe("true");
     expect(surface?.querySelector("strong")?.textContent).toBe("Done");
-    expect(screen.container.querySelector('[data-variant="comment"]')).toBeTruthy();
+    expect(screen.container.querySelector('[data-variant="compact"]')).toBeTruthy();
   });
 
   it("renders pasted Markdown as rich content", async () => {
@@ -451,21 +432,13 @@ describe("TasksEditor component", () => {
   });
 });
 
-describe("TasksEditor submit-on-Enter", () => {
-  function callHandleKeyDown(editor: Editor, event: KeyboardEvent): boolean {
-    const { handleKeyDown } = editor.options.editorProps;
-    return Boolean(handleKeyDown?.call(editor.view, editor.view, event));
-  }
-
-  it("submits on bare Enter when onSubmit is provided", () => {
-    const onSubmit = vi.fn();
+describe("TasksEditor typing", () => {
+  it.each([false, true])("keeps multiline typing with Shift=%s", (shiftKey) => {
     let editor: Editor | null = null;
     const screen = render(
       <TasksEditor
-        value="Draft"
+        value="First"
         onChange={() => undefined}
-        onSubmit={onSubmit}
-        variant="comment"
         onEditorReady={(ready) => {
           editor = ready;
         }}
@@ -473,146 +446,25 @@ describe("TasksEditor submit-on-Enter", () => {
     );
     editor!.commands.focus("end");
     const surface = getEditorSurface(screen.container);
-    expect(surface.getAttribute("enterkeyhint")).toBe("send");
-
-    expect(
-      callHandleKeyDown(editor!, new KeyboardEvent("keydown", { key: "Enter", cancelable: true })),
-    ).toBe(true);
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-  });
-
-  it("inserts a newline on Shift+Enter instead of submitting", () => {
-    const onSubmit = vi.fn();
-    let editor: Editor | null = null;
-    render(
-      <TasksEditor
-        value="Line"
-        onChange={() => undefined}
-        onSubmit={onSubmit}
-        variant="comment"
-        onEditorReady={(ready) => {
-          editor = ready;
-        }}
-      />,
-    );
-    editor!.commands.focus("end");
-    expect(
-      callHandleKeyDown(
-        editor!,
-        new KeyboardEvent("keydown", {
-          key: "Enter",
-          shiftKey: true,
-          cancelable: true,
-        }),
-      ),
-    ).toBe(false);
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
-
-  it("does not submit during IME composition", () => {
-    const onSubmit = vi.fn();
-    let editor: Editor | null = null;
-    render(
-      <TasksEditor
-        value="候補"
-        onChange={() => undefined}
-        onSubmit={onSubmit}
-        variant="comment"
-        onEditorReady={(ready) => {
-          editor = ready;
-        }}
-      />,
-    );
-    editor!.commands.focus("end");
-    const composing = new KeyboardEvent("keydown", {
-      key: "Enter",
-      cancelable: true,
-      isComposing: true,
-    });
-    expect(callHandleKeyDown(editor!, composing)).toBe(false);
-
-    const keyCode229 = new KeyboardEvent("keydown", {
-      key: "Enter",
-      cancelable: true,
-    });
-    Object.defineProperty(keyCode229, "keyCode", {
-      get: () => 229,
-    });
-    expect(callHandleKeyDown(editor!, keyCode229)).toBe(false);
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
-
-  it("submits on Cmd/Ctrl+Enter even when pointer is coarse", () => {
-    const restore = mockPointerCoarse(true);
-    try {
-      const onSubmit = vi.fn();
-      let editor: Editor | null = null;
-      const screen = render(
-        <TasksEditor
-          value="Touch draft"
-          onChange={() => undefined}
-          onSubmit={onSubmit}
-          variant="comment"
-          onEditorReady={(ready) => {
-            editor = ready;
-          }}
-        />,
-      );
-      editor!.commands.focus("end");
-      const surface = getEditorSurface(screen.container);
-      expect(surface.getAttribute("enterkeyhint")).toBe("enter");
-
-      expect(
-        callHandleKeyDown(
-          editor!,
-          new KeyboardEvent("keydown", { key: "Enter", cancelable: true }),
-        ),
-      ).toBe(false);
-      expect(onSubmit).not.toHaveBeenCalled();
-
-      expect(
-        callHandleKeyDown(
-          editor!,
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            metaKey: true,
-            cancelable: true,
-          }),
-        ),
-      ).toBe(true);
-      expect(onSubmit).toHaveBeenCalledTimes(1);
-    } finally {
-      restore();
+    expect(surface.getAttribute("enterkeyhint")).toBeNull();
+    fireEvent.keyDown(surface, { key: "Enter", shiftKey });
+    editor!.commands.insertContent("Second");
+    const blocks = editor!.getJSON().content!;
+    if (shiftKey) {
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]!.content).toContainEqual({ type: "hardBreak" });
+    } else {
+      expect(blocks).toHaveLength(2);
     }
+    expect(editor!.getText()).toContain("Second");
   });
-
-  it("does not claim Enter when onSubmit is omitted", () => {
-    let editor: Editor | null = null;
-    render(
-      <TasksEditor
-        value="Description"
-        onChange={() => undefined}
-        variant="comment"
-        onEditorReady={(ready) => {
-          editor = ready;
-        }}
-      />,
-    );
-    editor!.commands.focus("end");
-    expect(
-      callHandleKeyDown(editor!, new KeyboardEvent("keydown", { key: "Enter", cancelable: true })),
-    ).toBe(false);
-  });
-
   it("lets the mention popover own Enter while open", async () => {
-    const onSubmit = vi.fn();
     let editor: Editor | null = null;
     const screen = render(
       <TasksEditor
         value=""
         onChange={() => undefined}
-        onSubmit={onSubmit}
-        variant="comment"
+        variant="compact"
         mentionItems={() =>
           Promise.resolve([
             {
@@ -634,6 +486,5 @@ describe("TasksEditor submit-on-Enter", () => {
     await waitFor(() =>
       expect(screen.container.querySelector('[data-task-mention="TSK-1"]')).toBeTruthy(),
     );
-    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

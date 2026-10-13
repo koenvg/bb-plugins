@@ -11,8 +11,6 @@ import type {
 
 export type { TaskPriority, TaskStatus };
 
-type CommentKind = "user" | "agent" | "system";
-
 export type TaskThreadLiveStatus = (typeof TASK_THREAD_LIVE_STATUSES)[number];
 
 export type PresetEnvironmentKind = (typeof PRESET_ENVIRONMENT_KINDS)[number];
@@ -63,22 +61,9 @@ export interface TaskLabel {
   labelId: string;
 }
 
-export interface Comment {
-  id: string;
-  taskId: string;
-  kind: CommentKind;
-  authorName: string;
-  presetName: string | null;
-  threadId: string | null;
-  body: string;
-  notifiedCount: number;
-  createdAt: string;
-}
-
 export interface Attachment {
   id: string;
-  taskId: string | null;
-  commentId: string | null;
+  taskId: string;
   fileName: string;
   mime: string;
   sizeBytes: number;
@@ -216,26 +201,9 @@ export interface UpdateLabelInput {
   color?: string;
 }
 
-export interface CreateCommentInput {
-  id?: string;
-  taskId: string;
-  kind: CommentKind;
-  authorName: string;
-  presetName?: string | null;
-  threadId?: string | null;
-  body: string;
-  notifiedCount?: number;
-}
-
-export interface UpdateCommentInput {
-  body?: string;
-  notifiedCount?: number;
-}
-
 export interface CreateAttachmentInput {
   id?: string;
-  taskId?: string | null;
-  commentId?: string | null;
+  taskId: string;
   fileName: string;
   mime: string;
   sizeBytes: number;

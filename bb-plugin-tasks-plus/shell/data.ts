@@ -46,12 +46,7 @@ export async function listAllTasks(rpc: TasksRpc, input: TaskListQuery = {}): Pr
   return tasks;
 }
 
-const INVALIDATION_CHANNELS = [
-  "tasks:changed",
-  "projects:changed",
-  "comments:changed",
-  "threads:changed",
-] as const;
+const INVALIDATION_CHANNELS = ["tasks:changed", "projects:changed", "threads:changed"] as const;
 
 type InvalidationChannel = (typeof INVALIDATION_CHANNELS)[number];
 
@@ -66,7 +61,6 @@ export function useInvalidation(
   }, []);
   useRealtime("tasks:changed", () => fire("tasks:changed"));
   useRealtime("projects:changed", () => fire("projects:changed"));
-  useRealtime("comments:changed", () => fire("comments:changed"));
   useRealtime("threads:changed", () => fire("threads:changed"));
 }
 

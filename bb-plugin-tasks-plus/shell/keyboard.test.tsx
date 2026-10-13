@@ -66,7 +66,6 @@ function rpc(tasks: Task[] = [], overrides: Record<string, unknown> = {}) {
     }),
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
-    getTaskActivity: () => ({ entries: [] }),
     listTaskPullRequests: () => ({
       pullRequests: [],
       unavailableThreadIds: [],

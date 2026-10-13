@@ -20,17 +20,9 @@ describe("retired Orchestrator storage compatibility", () => {
       createTasksStore(db);
       expect(readHistory(db)).toEqual(before);
       expect(store.getTask(fixture.task.id)).toEqual(fixture.task);
-      expect(store.listComments(fixture.task.id)).toEqual([fixture.comment]);
       expect(store.listTaskThreads(fixture.task.id)).toEqual([fixture.association]);
 
       store.updateTask(fixture.task.id, { title: "Operator continues manually" });
-      const comment = store.createComment({
-        taskId: fixture.task.id,
-        kind: "user",
-        authorName: "Operator",
-        body: "Manual update",
-      });
-      expect(store.listComments(fixture.task.id)).toContainEqual(comment);
       const updated = store.upsertTaskThread({
         ...fixture.association,
         title: "Manual worker link",

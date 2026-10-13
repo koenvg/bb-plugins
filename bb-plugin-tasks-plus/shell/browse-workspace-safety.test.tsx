@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
+import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
 import { browsePreference } from "./browse-preference.js";
 import {
   Panel,
   acceptNavigation,
-  activateActivity,
+  readyDescription,
   deferred,
   edit,
   project,
@@ -20,22 +21,17 @@ import {
 useWorkspaceTestLifecycle();
 
 describe("browse save and task ownership", () => {
-  it("presents the native Ticket heading and description before activity settles", async () => {
-    const activity = deferred<unknown>();
-    const slot = setup("all?task=TSK-1", { getTaskActivity: () => activity.promise });
-    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 1");
-    await waitFor(() =>
-      expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1"),
-    );
-    expect(slot.getByText("Activity will open when you scroll here.")).toBeTruthy();
-    expect(slot.container.querySelectorAll(".tiptap")).toHaveLength(1);
-    await activateActivity(slot);
-    expect(slot.getByText("Loading activity…")).toBeTruthy();
-    expect(slot.queryByText("No activity yet.")).toBeNull();
-    await act(async () => activity.resolve(Promise.reject(new Error("Metadata unavailable"))));
-    expect((await slot.findByRole("alert")).textContent).toContain("Metadata unavailable");
+  it("renders native Ticket without requesting activity", async () => {
+    const slot = setup("all?task=TSK-1", {
+      getTaskActivity: () => {
+        throw new Error("Removed RPC");
+      },
+    });
+    await slot.findByRole("textbox", { name: "Task title" });
+    await readyDescription(slot);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1");
-    expect(slot.getByRole("button", { name: "Retry activity" })).toBeTruthy();
+    expect(slot.queryByRole("region", { name: "Activity" })).toBeNull();
+    expect(slot.inspection.rpcCalls.some((c) => c.method === "getTaskActivity")).toBe(false);
   });
 
   it("keeps identity, drafts and URL on failure, then retries only the latest click", async () => {
@@ -91,51 +87,37 @@ describe("browse save and task ownership", () => {
     expect(browsePreference().load()).toEqual({ kind: "all" });
   });
 
-  it("keeps unsent text, files and notification preference with A through A-B-A clicks", async () => {
-    const fetch = vi.spyOn(globalThis, "fetch");
+  it("preserves saved descriptions and task files through A-B-A navigation", async () => {
+    const records = tasks.map((task) => ({ ...task }));
+    const file = makeAttachment(records[0]!.id);
+    const writes: Record<string, unknown>[] = [];
     const slot = setup("all?task=TSK-1", {
-      getTaskActivity: () => ({
-        entries: [
-          {
-            id: "reply",
-            taskId: tasks[0]!.id,
-            kind: "agent",
-            authorName: "Agent",
-            presetName: null,
-            threadId: "thr_agent",
-            threadTitle: "Agent thread",
-            body: "Existing reply",
-            notifiedCount: 0,
-            createdAt: project.createdAt,
-            provider: null,
-          },
-        ].map((comment) => ({ comment, attachments: [] })),
+      getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
+      listAttachments: (raw) => ({
+        attachments: rpcInput(raw).taskId === file.taskId ? [file] : [],
       }),
+      updateTask: (raw) => {
+        const input = rpcInput(raw);
+        writes.push(input);
+        const task = records.find((t) => t.id === input.taskId)!;
+        Object.assign(task, input);
+        return { ok: true, task };
+      },
     });
     await slot.findByRole("textbox", { name: "Task title" });
-    await edit(slot, "Unsent A", 1);
-    fireEvent.click(await slot.findByRole("switch", { name: "Notify Agent thread" }));
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
-      target: { files: [new File(["A"], "a.txt")] },
-    });
+    const origin = slot.container.querySelector(".tiptap");
+    await edit(slot, "Saved A");
     await select(slot, 2);
     expect(slot.queryByText("a.txt")).toBeNull();
-    expect(slot.container.textContent).not.toContain("Unsent A");
+    expect(slot.container.textContent).not.toContain("Saved A");
     await select(slot, 1);
-    await activateActivity(slot);
+    expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(slot.container.querySelectorAll('.tiptap[contenteditable="true"]')[1]?.textContent).toBe(
-      "Unsent A",
-    );
+    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
     expect(
-      slot.getByRole("switch", { name: "Notify Agent thread" }).getAttribute("aria-checked"),
-    ).toBe("false");
-    expect(
-      slot.inspection.rpcCalls.filter((call) =>
-        ["createComment", "updateTask", "delegate"].includes(call.method),
-      ),
+      slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
-    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

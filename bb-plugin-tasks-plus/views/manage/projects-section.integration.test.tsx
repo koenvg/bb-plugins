@@ -66,12 +66,6 @@ describe("production project table persistence and consumer refresh", () => {
         presetName: "Fixture",
         liveStatus: "idle",
       });
-      const comment = store.tasks.createComment({
-        taskId: children[0]!.id,
-        body: "Owned comment",
-        authorName: "Fixture",
-        kind: "user",
-      });
       const rpc = Object.fromEntries(
         Object.keys(tasksRpcContract).map((method) => [
           method,
@@ -131,7 +125,6 @@ describe("production project table persistence and consumer refresh", () => {
       expect(persisted.listTasks({ projectId: target.id })).toEqual([]);
       for (const task of ownedTasks) expect(persisted.getTask(task.id)).toBeUndefined();
       expect(persisted.getTaskThread(taskThread.id)).toBeUndefined();
-      expect(persisted.getComment(comment.id)).toBeUndefined();
       expect(persisted.getProject(survivor.id)).toEqual(store.tasks.getProject(survivor.id));
       expect(persisted.getTask(survivingTask.id)).toEqual(survivingTask);
       expect(persisted.getFolder(folder.id)).toEqual(folder);

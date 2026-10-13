@@ -5,7 +5,7 @@ import { rpcInput } from "../test-fixtures.js";
 import { browsePreference } from "./browse-preference.js";
 import {
   acceptNavigation,
-  activateActivity,
+  readyDescription,
   deferred,
   edit,
   project,
@@ -195,8 +195,8 @@ describe("embedded detail actions and links", () => {
       ).toBe(true),
     );
     expect(detail.getByRole("button", { name: "Add blocked task" })).toBeTruthy();
-    await activateActivity(slot);
-    expect(detail.getAllByRole("button", { name: "Attach file" })).toHaveLength(2);
+    await readyDescription(slot);
+    expect(detail.getAllByRole("button", { name: "Attach file" })).toHaveLength(1);
     fireEvent.click(detail.getByRole("button", { name: "Open thread" }));
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
       method: "toThread",
@@ -213,8 +213,7 @@ describe("embedded detail actions and links", () => {
     );
   });
 
-  it("finishes an explicitly sent comment and failed file upload on A after selecting B", async () => {
-    const sent = deferred<unknown>();
+  it("keeps a failed originating file upload separate from the newly selected task", async () => {
     const uploaded = deferred<Response>();
     const fetch = vi.fn((url: string) =>
       url.endsWith("/token")
@@ -222,30 +221,29 @@ describe("embedded detail actions and links", () => {
         : uploaded.promise,
     );
     vi.stubGlobal("fetch", fetch);
-    const slot = setup("all?task=TSK-1", { createComment: () => sent.promise });
+    const slot = setup("all?task=TSK-1", {
+      updateTask: (raw) => ({
+        ok: true,
+        task: { ...tasks.find((t) => t.id === rpcInput(raw).taskId), ...rpcInput(raw) },
+      }),
+    });
     await slot.findByRole("textbox", { name: "Task title" });
-    await edit(slot, "Send A", 1);
-    fireEvent.change(slot.container.querySelectorAll('input[type="file"]')[1]!, {
+    fireEvent.change(slot.container.querySelector('input[type="file"]')!, {
       target: { files: [new File(["A"], "a.txt")] },
     });
-    fireEvent.click(slot.getByRole("button", { name: "Comment" }));
-    await select(slot, 2);
-    await edit(slot, "Keep B", 1);
-    await act(async () => sent.resolve({ comment: { id: "comment-A" } }));
     await waitFor(() =>
-      expect(fetch.mock.calls.some(([url]) => url.includes("commentId=comment-A"))).toBe(true),
+      expect(fetch.mock.calls.some(([url]) => url.includes(`taskId=${tasks[0]!.id}`))).toBe(true),
     );
+    await select(slot, 2);
+    await edit(slot, "Keep B");
     await act(async () =>
       uploaded.resolve(new Response(JSON.stringify({ error: "Offline" }), { status: 500 })),
     );
-    expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe("Keep B");
+    expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep B");
+    expect(fetch.mock.calls.some(([url]) => url.includes(`taskId=${tasks[1]!.id}`))).toBe(false);
     expect(slot.queryByText("a.txt")).toBeNull();
     await select(slot, 1);
-    await activateActivity(slot);
-    expect(slot.container.querySelectorAll(".tiptap")[1]?.textContent).toBe("");
-    expect(slot.getByRole("button", { name: "Retry upload of a.txt" })).toBeTruthy();
-    expect(slot.inspection.rpcCalls.filter((c) => c.method === "createComment")).toMatchObject([
-      { input: { taskId: tasks[0]!.id, body: "Send A", notify: false } },
-    ]);
+    expect(slot.queryByRole("button", { name: "Retry upload of a.txt" })).toBeNull();
+    expect(slot.inspection.rpcCalls.filter((c) => c.method === "createComment")).toEqual([]);
   });
 });

@@ -8,7 +8,7 @@ Lets users scan and edit consecutive tickets in a persistent list/detail workspa
 
 ### Requirement: List and editable ticket share the workspace
 
-Tasks list destinations SHALL fill the main Tasks area and show the selected ticket's existing fully editable detail in a plugin-owned Ticket tab in BB's native right-hand pane. The detail SHALL retain title and description editing, properties, dependencies, subtasks, attachments, comments, linked threads, and delegation. The areas SHALL scroll independently without a permanent project-navigation pane on the right or an internal Tasks split. BB SHALL own the pane's tab strip, resizing, and compact drawer; Browser and Terminal SHALL remain available as host tabs. Before selection, an opened Ticket tab SHALL prompt the user to select a ticket.
+Tasks list destinations SHALL fill the main Tasks area and show the selected ticket's existing fully editable detail in a plugin-owned Ticket tab in BB's native right-hand pane. The detail SHALL retain title and description editing, properties, dependencies, subtasks, attachments, linked threads, and delegation. The areas SHALL scroll independently without a permanent project-navigation pane on the right or an internal Tasks split. BB SHALL own the pane's tab strip, resizing, and compact drawer; Browser and Terminal SHALL remain available as host tabs. Before selection, an opened Ticket tab SHALL prompt the user to select a ticket.
 
 #### Scenario: Select a ticket with the mouse
 
@@ -20,7 +20,7 @@ Tasks list destinations SHALL fill the main Tasks area and show the selected tic
 #### Scenario: Use existing ticket actions
 
 - **WHEN** the selected ticket is shown on the right
-- **THEN** the user can edit its properties and description, comment, manage attachments, open linked threads, and delegate work with the same behavior as the existing detail view
+- **THEN** the user can edit its properties and description, manage attachments, open linked threads, and delegate work with the same behavior as the existing detail view
 
 #### Scenario: No ticket selected yet
 
@@ -29,7 +29,7 @@ Tasks list destinations SHALL fill the main Tasks area and show the selected tic
 
 #### Scenario: Independent scrolling
 
-- **WHEN** the user scrolls a long ticket description or activity feed
+- **WHEN** the user scrolls a long ticket description or attachment list
 - **THEN** the list's scroll position remains unchanged
 - **AND** scrolling the list does not move the detail content
 
@@ -117,7 +117,7 @@ Single-key actions SHALL NOT fire while typing in a text input or rich-text edit
 
 ### Requirement: Ticket changes do not lose or misattribute edits
 
-A transition that replaces the selected ticket or its browsing context SHALL complete pending autosaved edits for the originating ticket before committing the transition. If saving fails, Tasks SHALL retain the current ticket and its draft, show a retryable error, and SHALL NOT silently discard the edit. Older saves and detail responses SHALL NOT overwrite newer content or appear under another ticket. Unsent comments and staged attachments SHALL NOT be posted, notified, or moved to another ticket merely because selection changes; they SHALL remain associated with their originating ticket for the current mounted Tasks session. Sending a comment or starting delegation SHALL still require the existing explicit action.
+A transition that replaces the selected ticket or its browsing context SHALL complete pending autosaved edits for the originating ticket before committing the transition. If saving fails, Tasks SHALL retain the current ticket and its draft, show a retryable error, and SHALL NOT silently discard the edit. Older saves and detail responses SHALL NOT overwrite newer content or appear under another ticket. Existing task attachments SHALL remain associated with their owning task when selection changes. Selection SHALL NOT itself upload a file, notify an agent or start delegation. File operations and delegation SHALL still require the existing explicit action.
 
 #### Scenario: Switch during the description debounce
 
@@ -138,9 +138,9 @@ A transition that replaces the selected ticket or its browsing context SHALL com
 
 #### Scenario: Return to an unsent comment
 
-- **WHEN** the user drafts a comment with an attachment on ABC-1, selects ABC-2, and returns to ABC-1 during the same mounted Tasks session
-- **THEN** the unsent text and attachment are still associated with ABC-1
-- **AND** no comment or agent notification was sent by switching tickets
+- **WHEN** a user saves description edits and adds a task attachment on ABC-1, selects ABC-2, and returns to ABC-1
+- **THEN** ABC-1 retains its saved description and attachment without a comment draft
+- **AND** switching tickets uploads no extra file and notifies no agent
 
 ### Requirement: Native pane lifecycle preserves browsing context
 
@@ -148,9 +148,9 @@ Tasks SHALL preserve the selected editor and task-owned drafts when the native T
 
 #### Scenario: Switch to Browser or Terminal and return
 
-- **WHEN** ABC-2 has unsent comment text and staged files and the user switches away from Ticket or closes its tab
+- **WHEN** ABC-2 has unsaved description text and the user switches away from Ticket or closes its tab
 - **THEN** its editor, drafts, and pending writes remain owned by the mounted Tasks page
-- **AND** reopening Ticket restores that editor without submitting, uploading, notifying, or delegating
+- **AND** reopening Ticket restores that editor without uploading files, notifying, or delegating
 
 #### Scenario: Resize or use the compact drawer
 
@@ -177,7 +177,7 @@ Tasks SHALL preserve the selected editor and task-owned drafts when the native T
 
 ### Requirement: Errors and existing destinations remain usable
 
-A selected ticket's loading, missing-ticket, or load-error state SHALL appear in the detail area without disabling the list or showing another ticket as the selected ticket. Load errors SHALL offer retry. A successfully confirmed deletion SHALL safely clear the unavailable selection. Existing standalone task links, board behavior, CLI commands, task mentions, and thread-side task embeds SHALL continue to work.
+A selected ticket's loading, missing-ticket, or load-error state SHALL appear in the detail area without disabling the list or showing another ticket as the selected ticket. Load errors SHALL offer retry. A successfully confirmed deletion SHALL safely clear the unavailable selection. Existing standalone task links, board behavior, retained CLI commands, task mentions, and thread-side task embeds SHALL continue to work.
 
 #### Scenario: Detail lookup fails
 
@@ -194,4 +194,17 @@ A selected ticket's loading, missing-ticket, or load-error state SHALL appear in
 
 - **WHEN** the user opens a project board or a standalone task link
 - **THEN** the board or named ticket opens with its existing task actions available
-- **AND** thread-side embeds and CLI behavior are unchanged
+- **AND** thread-side embeds and retained CLI behavior are unchanged
+
+### Requirement: Task detail has no comment UI
+Every task detail destination SHALL omit comment history, the Activity section, composer, comment drafts, notification controls and comment-author presentation. Retained description editing, properties, dependencies, subtasks, task attachments, linked threads and delegation SHALL remain available without a replacement activity feed.
+
+#### Scenario: Open task details
+- **WHEN** a user opens a standalone task, native Ticket tab or thread-side Task panel
+- **THEN** no comment UI, activity-loading control or comment error state appears
+- **AND** retained task actions and files remain available
+
+#### Scenario: Change task or host tab
+- **WHEN** a user switches tasks, parks Ticket or returns from Browser or Terminal
+- **THEN** no comment state is retained or activated
+- **AND** retained task edits, task-attachment state and browsing context follow existing save and lifecycle safeguards

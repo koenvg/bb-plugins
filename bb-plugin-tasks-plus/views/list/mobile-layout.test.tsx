@@ -145,7 +145,6 @@ function renderList(rich = false) {
             },
           },
         }),
-        getTaskActivity: () => ({ entries: [] }),
         listAttachments: () => ({ attachments: [] }),
       },
     },

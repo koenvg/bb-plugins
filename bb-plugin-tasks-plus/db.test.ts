@@ -48,7 +48,7 @@ describe("tasks storage", () => {
       expect(
         db.prepare<[], { count: number }>("SELECT COUNT(*) AS count FROM schema_version").get()
           ?.count,
-      ).toBe(11);
+      ).toBe(12);
     } finally {
       await harness.dispose();
     }
@@ -672,38 +672,6 @@ describe("tasks storage", () => {
     }
   });
 
-  it("lists task comments in chronological order", async () => {
-    const { db, harness, store } = setup();
-    try {
-      const project = createProject(store, "CMT");
-      const task = store.createTask({ projectId: project.id, title: "Task" });
-      const later = store.createComment({
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Agent",
-        body: "Later",
-      });
-      const earlier = store.createComment({
-        taskId: task.id,
-        kind: "user",
-        authorName: "Sawyer",
-        body: "Earlier",
-      });
-      const setCreatedAt = db.prepare<[string, string]>(
-        "UPDATE comments SET created_at = ? WHERE id = ?",
-      );
-      setCreatedAt.run("2026-07-15T10:00:00.000Z", later.id);
-      setCreatedAt.run("2026-07-15T09:00:00.000Z", earlier.id);
-
-      expect(store.listComments(task.id).map((comment) => comment.body)).toEqual([
-        "Earlier",
-        "Later",
-      ]);
-    } finally {
-      await harness.dispose();
-    }
-  });
-
   it("lists live task threads before terminal ones, newest first", async () => {
     const { db, harness, store } = setup();
     try {
@@ -776,87 +744,6 @@ describe("tasks storage", () => {
 
       expect(store.listTasksForThread("thr_shared")).toEqual([earlier, later]);
       expect(store.listTasksForThread("thr_none")).toEqual([]);
-    } finally {
-      await harness.dispose();
-    }
-  });
-
-  it("finds the latest agent comment by reply time and ignores other activity", async () => {
-    const { db, harness, store } = setup();
-    try {
-      const project = createProject(store, "LAR");
-      const task = store.createTask({ projectId: project.id, title: "Task" });
-      const latest = store.createComment({
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Latest responder",
-        threadId: "thr_latest",
-        body: "Latest agent reply",
-      });
-      const older = store.createComment({
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Older responder",
-        threadId: "thr_older",
-        body: "Older agent reply",
-      });
-      store.createComment({
-        taskId: task.id,
-        kind: "user",
-        authorName: "Sawyer",
-        body: "Newer user activity",
-      });
-      const setCreatedAt = db.prepare<[string, string]>(
-        "UPDATE comments SET created_at = ? WHERE id = ?",
-      );
-      setCreatedAt.run("2026-07-15T10:00:00.000Z", older.id);
-      setCreatedAt.run("2026-07-15T11:00:00.000Z", latest.id);
-
-      expect(store.getLatestAgentComment(task.id, null)).toMatchObject({
-        id: latest.id,
-        threadId: "thr_latest",
-      });
-    } finally {
-      await harness.dispose();
-    }
-  });
-
-  it("uses insertion order when agent replies share a timestamp", async () => {
-    const { db, harness, store } = setup();
-    try {
-      const project = createProject(store, "TIE");
-      const task = store.createTask({ projectId: project.id, title: "Task" });
-      const earlier = store.createComment({
-        id: "01H00000000000000000000002",
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Earlier responder",
-        threadId: "thr_earlier",
-        body: "Earlier reply",
-      });
-      const later = store.createComment({
-        id: "01H00000000000000000000001",
-        taskId: task.id,
-        kind: "agent",
-        authorName: "Later responder",
-        threadId: "thr_later",
-        body: "Later reply",
-      });
-      const setCreatedAt = db.prepare<[string, string]>(
-        "UPDATE comments SET created_at = ? WHERE id = ?",
-      );
-      const sharedTime = "2026-07-15T10:00:00.000Z";
-      setCreatedAt.run(sharedTime, earlier.id);
-      setCreatedAt.run(sharedTime, later.id);
-
-      expect(store.listComments(task.id).map((comment) => comment.id)).toEqual([
-        earlier.id,
-        later.id,
-      ]);
-      expect(store.getLatestAgentComment(task.id, null)).toMatchObject({
-        id: later.id,
-        threadId: "thr_later",
-      });
     } finally {
       await harness.dispose();
     }

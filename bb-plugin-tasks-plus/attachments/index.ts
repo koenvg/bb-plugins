@@ -29,9 +29,7 @@ const MIME_PATTERN =
   /^(application|audio|font|image|message|model|multipart|text|video)\/[!#$&^_.+\-A-Za-z0-9]+$/;
 const storeRoots = new WeakMap<TasksStore, string>();
 
-export type AttachmentOwner =
-  | { taskId: string; commentId?: never }
-  | { taskId?: never; commentId: string };
+type AttachmentOwner = { taskId: string };
 
 type SaveAttachmentFromBytesOptions = AttachmentOwner & {
   fileName: string;
@@ -221,18 +219,16 @@ function inferMimeFromBytes(bytes: Uint8Array, fileName: string): string {
   return (extension && RASTER_MIME_BY_EXTENSION[extension]) ?? "application/octet-stream";
 }
 
-function normalizeOwner(
-  taskId: string | null | undefined,
-  commentId: string | null | undefined,
-): AttachmentOwner {
-  const normalizedTaskId = taskId?.trim() || undefined;
-  const normalizedCommentId = commentId?.trim() || undefined;
-  if (Boolean(normalizedTaskId) === Boolean(normalizedCommentId)) {
-    throw new AttachmentRequestError(400, "exactly one of taskId or commentId is required");
+function normalizeOwner(taskId: string | null | undefined): AttachmentOwner {
+  const normalizedTaskId = taskId?.trim();
+  if (!normalizedTaskId) throw new AttachmentRequestError(400, "taskId is required");
+  return { taskId: normalizedTaskId };
+}
+
+function rejectLegacyOwner(context: PluginHttpContext): void {
+  if ("commentId" in context.req.query() || context.req.header("x-comment-id") !== undefined) {
+    throw new AttachmentRequestError(400, "comment ownership is unavailable");
   }
-  if (normalizedTaskId) return { taskId: normalizedTaskId };
-  if (normalizedCommentId) return { commentId: normalizedCommentId };
-  throw new Error("unreachable attachment owner state");
 }
 
 function attachmentParameters(context: PluginHttpContext): {
@@ -240,11 +236,9 @@ function attachmentParameters(context: PluginHttpContext): {
   fileName: string;
   mime: string;
 } {
+  rejectLegacyOwner(context);
   const query = context.req.query();
-  const owner = normalizeOwner(
-    query.taskId ?? context.req.header("x-task-id"),
-    query.commentId ?? context.req.header("x-comment-id"),
-  );
+  const owner = normalizeOwner(query.taskId ?? context.req.header("x-task-id"));
   const requestedFileName = query.fileName ?? context.req.header("x-file-name") ?? "";
   if (!requestedFileName.trim()) {
     throw new AttachmentRequestError(400, "fileName is required");
@@ -336,7 +330,7 @@ export async function saveAttachmentFromBytes(
 ): Promise<Attachment> {
   return persistAttachment(
     store,
-    normalizeOwner(options.taskId, options.commentId),
+    normalizeOwner(options.taskId),
     options.fileName,
     options.mime ?? inferMimeFromBytes(bytes, options.fileName),
     bytes.byteLength,
@@ -379,9 +373,7 @@ export async function deleteAttachmentById(
   const attachment = store.getAttachment(attachmentId);
   if (!attachment) return null;
 
-  const taskId =
-    attachment.taskId ??
-    (attachment.commentId ? store.getComment(attachment.commentId)?.taskId : undefined);
+  const taskId = attachment.taskId;
   const ownerTask = taskId ? store.getTask(taskId) : undefined;
   let nextDescription: string | undefined;
   if (ownerTask?.description.includes(attachmentDownloadUrl(attachment.id))) {
@@ -412,9 +404,7 @@ export function publishAttachmentChanged(
   store: TasksStore,
   attachment: Attachment,
 ): void {
-  const taskId =
-    attachment.taskId ??
-    (attachment.commentId ? store.getComment(attachment.commentId)?.taskId : undefined);
+  const taskId = attachment.taskId;
   const task = taskId ? store.getTask(taskId) : undefined;
   if (!task) {
     bb.log.warn(`failed to publish attachment change ${attachment.id}`);
@@ -467,6 +457,11 @@ export function registerAttachments(
   );
 
   bb.http.route("GET", DOWNLOAD_PATH, async (context) => {
+    try {
+      rejectLegacyOwner(context);
+    } catch (error) {
+      return errorResponse(context, error);
+    }
     const attachmentId = context.req.query("attachmentId")?.trim();
     const attachment = attachmentId ? store.getAttachment(attachmentId) : undefined;
     if (!attachment) return context.json({ error: "attachment not found" }, 404);
@@ -491,6 +486,7 @@ export function registerAttachments(
   bb.http.route("DELETE", DELETE_PATH, async (context) => {
     const attachmentId = context.req.query("attachmentId")?.trim();
     try {
+      rejectLegacyOwner(context);
       const attachment = attachmentId
         ? await deleteAttachmentById(bb, store, attachmentId, {
             removeBlobs: options.removeBlobs,

@@ -70,7 +70,7 @@ describe("bb tasks CLI", () => {
     await plugin(bb);
 
     expect(stdout(await harness.runCli(["--help"]))).toMatch(
-      /bb tasks seed-demo\s+Create sample folders, projects, labels, tasks, and comments/,
+      /bb tasks seed-demo\s+Create sample folders, projects, labels, tasks/,
     );
     await expect(harness.runCli(["seed-demo"])).resolves.toMatchObject({
       exitCode: 1,
@@ -81,7 +81,7 @@ describe("bb tasks CLI", () => {
     await harness.dispose();
   });
 
-  it("runs create, list, show, update, and comment through case-insensitive key addressing", async () => {
+  it("runs create, list, show, update through case-insensitive key addressing", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
@@ -167,7 +167,6 @@ describe("bb tasks CLI", () => {
       subtasks: [],
       attachments: [],
       taskThreads: [],
-      comments: [],
     });
 
     const updateResult = await harness.runCli([
@@ -190,60 +189,13 @@ describe("bb tasks CLI", () => {
       },
     });
 
-    const commentResult = await harness.runCli(
-      ["comment", "CLI-1", "--body", "Ready for review.", "--json"],
-      { threadId: "thr_cli_worker", projectId: "proj_bb" },
-    );
-    expect(JSON.parse(stdout(commentResult))).toMatchObject({
-      comment: {
-        taskId: createPayload.task.id,
-        kind: "agent",
-        authorName: "agent (thr_cli_worker)",
-        threadId: "thr_cli_worker",
-        body: "Ready for review.",
-        notifiedCount: 0,
-      },
-    });
-
     const updatedShow = JSON.parse(
       stdout(await harness.runCli(["show", createPayload.task.id, "--json"])),
     );
-    expect(updatedShow.comments).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "system",
-          body: "Status changed to In Progress by cli",
-        }),
-        expect.objectContaining({
-          kind: "system",
-          body: "Priority changed to High by cli",
-        }),
-        expect.objectContaining({
-          kind: "agent",
-          body: "Ready for review.",
-          threadTitle: "CLI provider worker",
-          provider: {
-            id: "codex",
-            name: "Codex",
-            logoUrl: null,
-            icon: null,
-            strings: { iconTint: null },
-          },
-        }),
-      ]),
-    );
+    expect(updatedShow).not.toHaveProperty("comments");
 
     const updatedShowTable = stdout(await harness.runCli(["show", createPayload.task.id]));
-    expect(updatedShowTable).toContain(
-      "TIME                      KIND    AUTHOR               PROVIDER  BODY",
-    );
-    const agentRow = updatedShowTable
-      .split("\n")
-      .find((line) => line.includes("Ready for review."));
-    expect(agentRow).toContain("agent");
-    expect(agentRow).toContain("CLI provider worker");
-    expect(agentRow).toContain("Codex");
-
+    expect(updatedShowTable).not.toContain("Comments");
     await harness.dispose();
   });
 
@@ -965,55 +917,7 @@ describe("bb tasks CLI", () => {
         presetName: "Attached",
       }),
     ]);
-    const taskStore = createStore(bb).tasks;
-    taskStore.createComment({
-      taskId: threads.task.id,
-      kind: "agent",
-      authorName: "Prior worker",
-      threadId: "thr_prior_worker",
-      body: "Prior reply from another agent.",
-    });
-
-    const notified = JSON.parse(
-      stdout(
-        await harness.runCli(
-          [
-            "comment",
-            "ATT-1",
-            "--body",
-            "Include the new edge case.",
-            "--author",
-            "Custom CLI agent",
-            "--notify",
-            "--json",
-          ],
-          { threadId: "thr_cli_sender", projectId: "proj_bb" },
-        ),
-      ),
-    ).comment;
-    expect(notified).toMatchObject({
-      taskId: threads.task.id,
-      kind: "agent",
-      authorName: "Custom CLI agent",
-      threadId: "thr_cli_sender",
-      body: "Include the new edge case.",
-      notifiedCount: 1,
-    });
-    expect(taskStore.getComment(notified.id)).toMatchObject({
-      kind: "agent",
-      authorName: "Custom CLI agent",
-      threadId: "thr_cli_sender",
-      notifiedCount: 1,
-    });
-    expect(harness.sdk.callsTo("threads.send")).toEqual([
-      [
-        expect.objectContaining({
-          threadId: "thr_prior_worker",
-          mode: "steer-if-active",
-        }),
-      ],
-    ]);
-
+    expect(harness.sdk.callsTo("threads.send")).toEqual([]);
     await harness.dispose();
   });
 
@@ -1147,13 +1051,11 @@ describe("bb tasks CLI", () => {
       expect(created.attachments).toEqual([
         expect.objectContaining({
           taskId: created.task.id,
-          commentId: null,
           fileName: "notes.txt",
           isImage: false,
         }),
         expect.objectContaining({
           taskId: created.task.id,
-          commentId: null,
           fileName: "pixel.png",
           mime: "image/png",
           isImage: true,
@@ -1432,36 +1334,6 @@ describe("bb tasks CLI", () => {
         expect.arrayContaining([
           expect.objectContaining({ id: attachment.id }),
           expect.objectContaining({ id: pngAttachment.id }),
-        ]),
-      );
-
-      const comment = JSON.parse(
-        stdout(
-          await harness.runCli([
-            "comment",
-            "FILE-1",
-            "--body",
-            "Attach the source to this comment.",
-            "--json",
-          ]),
-        ),
-      ).comment;
-      const commentAttachment = JSON.parse(
-        stdout(
-          await harness.runCli(["attachment", "add", comment.id, "--file", inputPath, "--json"]),
-        ),
-      ).attachment;
-      expect(commentAttachment).toMatchObject({
-        taskId: null,
-        commentId: comment.id,
-      });
-      const listedWithCommentAttachment = JSON.parse(
-        stdout(await harness.runCli(["attachment", "list", "FILE-1", "--json"])),
-      );
-      expect(listedWithCommentAttachment.attachments).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: attachment.id }),
-          expect.objectContaining({ id: commentAttachment.id }),
         ]),
       );
 

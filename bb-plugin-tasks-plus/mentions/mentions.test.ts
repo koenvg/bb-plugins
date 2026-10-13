@@ -118,7 +118,6 @@ describe("@task mention provider", () => {
       vi.spyOn(store.tasks, "getProject"),
       vi.spyOn(store.tasks, "listLabelsForTask"),
       vi.spyOn(store.tasks, "listSubtasks"),
-      vi.spyOn(store.tasks, "listComments"),
       vi.spyOn(store.tasks, "listTaskThreads"),
     ];
     try {
@@ -141,7 +140,7 @@ describe("@task mention provider", () => {
         "Subtask sentinel",
         "Label sentinel",
         "task-sentinel.md",
-        "old-comment-sentinel.md",
+        "retained-sentinel.md",
         "Comment sentinel",
         "thr_prior_sentinel",
         "bb tasks attach",

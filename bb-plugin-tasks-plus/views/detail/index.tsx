@@ -15,7 +15,6 @@ import {
 } from "../../shell/task-data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
-import { TaskActivity, type TaskActivityHandle } from "../activity/task-activity.js";
 import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
 import { createTaskEditSession } from "./edit-session.js";
 import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
@@ -297,7 +296,6 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
   const detailRef = useRef<HTMLDivElement>(null);
-  const activityRef = useRef<TaskActivityHandle>(null);
   const [openMenu, setOpenMenu] = useState<{
     menu: DetailMenu;
     layout: PropertiesLayout;
@@ -314,10 +312,6 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     "detail.priority": openFromShortcut("priority"),
     "detail.labels": openFromShortcut("labels"),
     "detail.dispatch": presets.data?.length ? openFromShortcut("dispatch") : null,
-    "detail.comment": () => {
-      if (!activityRef.current) return false;
-      activityRef.current.focusComposer();
-    },
   });
 
   const updateTask = async (
@@ -545,10 +539,6 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
               />
             </div>
           ) : null}
-
-          <div className="mt-1">
-            <TaskActivity taskId={task.id} ref={activityRef} />
-          </div>
         </div>
 
         <PropertiesRail

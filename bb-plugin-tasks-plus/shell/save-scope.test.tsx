@@ -98,7 +98,6 @@ describe("save-before-switch with remembered browse scope", () => {
             getTaskByKey: () => ({ task }),
             getTask: () => ({ task: null }),
             listAttachments: () => ({ attachments: [] }),
-            getTaskActivity: () => ({ entries: [] }),
             listTaskDependencies: () => ({ blockers: [], blocking: [] }),
             listTaskThreads: () => ({ taskThreads: [] }),
             listTaskPullRequests: () => ({

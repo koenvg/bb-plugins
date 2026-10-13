@@ -49,9 +49,8 @@ describe("task delegation", () => {
       project,
       subtask,
       blocker,
-      comments,
       taskAttachment,
-      commentAttachment,
+      retainedAttachment,
       presetInstructions,
       extraInstructions,
     } = fixture;
@@ -72,7 +71,7 @@ describe("task delegation", () => {
       expect(args.prompt).toContain(`${subtask.key} · ${subtask.title} (${subtask.status})`);
       expect(args.prompt).toContain(presetInstructions);
       expect(args.prompt).toContain(extraInstructions);
-      for (const attachment of [taskAttachment, commentAttachment]) {
+      for (const attachment of [taskAttachment, retainedAttachment]) {
         expect(args.prompt).toContain(`${attachment.fileName} · ${attachment.id}`);
         expect(args.prompt).toContain(`bb tasks attachment get ${attachment.id}`);
       }
@@ -83,13 +82,9 @@ describe("task delegation", () => {
           .map((link) => link.threadId)
           .sort(),
       ).toEqual(["thr_context", "thr_prior_sentinel"]);
-      expect(store.tasks.listComments(task.id)).toEqual(expect.arrayContaining(comments));
       expect(policy).not.toBe("");
       expect.soft(wordCount(authoredPolicy), "authored policy budget").toBeLessThanOrEqual(120);
       expect.soft(args.prompt.includes("## Recent comments"), "no history section").toBe(false);
-      for (const comment of comments) {
-        expect.soft(args.prompt.includes(comment.body), "no injected comment body").toBe(false);
-      }
       for (const excluded of [
         "meaningful milestones",
         "40-80 words",
@@ -147,7 +142,6 @@ describe("task delegation", () => {
       const updated = await harness.behavior.callRpc("updateTask", {
         taskId: task.id,
         status: "done",
-        authorName: "User",
       });
       expect(updated).toMatchObject({ ok: true, task: { id: task.id, status: "done" } });
       expect(await harness.behavior.callRpc("listTaskThreads", { taskId: task.id })).toEqual(
@@ -225,7 +219,9 @@ describe("task delegation", () => {
         ],
       ]);
       expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
-        prompt: expect.stringContaining("Comment only for review readiness"),
+        prompt: expect.stringContaining(
+          "Report useful outcomes in the linked work thread: review readiness",
+        ),
       });
       expect(store.tasks.listTaskThreads(task.id)).toEqual([
         expect.objectContaining({
@@ -237,31 +233,18 @@ describe("task delegation", () => {
         }),
       ]);
       expect(store.tasks.getTask(task.id)?.status).toBe("in_progress");
-      expect(store.tasks.listComments(task.id)).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            kind: "system",
-            authorName: "Tasks",
-            presetName: "Test worker",
-            threadId: "thr_delegated",
-            body: "Status changed to In Progress · dispatched to Test worker",
-          }),
-          expect.objectContaining({
-            kind: "system",
-            authorName: "Tasks",
-            presetName: "Test worker",
-            threadId: "thr_delegated",
-            body: "Dispatched to Test worker",
-          }),
-        ]),
-      );
+      expect(
+        bb.storage
+          .database()
+          .prepare("SELECT name FROM sqlite_master WHERE name = 'comments'")
+          .all(),
+      ).toEqual([]);
       expect(harness.realtimeSignals).toEqual([
         { channel: "threads:changed", payload: { taskId: task.id } },
         {
           channel: "tasks:changed",
           payload: { taskId: task.id, projectId: project.id },
         },
-        { channel: "comments:changed", payload: { taskId: task.id } },
       ]);
 
       await harness.dispose();
@@ -629,11 +612,9 @@ describe("task thread detach", () => {
       await harness.behavior.callRpc("updateTask", {
         taskId: task.id,
         status: "done",
-        authorName: "User",
       }),
     ).toMatchObject({ ok: true, task: { status: "done" } });
     const completedTask = store.tasks.getTask(task.id);
-    const commentsBeforeDetach = store.tasks.listComments(task.id);
     const sdkCallsBeforeDetach = [...harness.inspection.sdk.calls];
     harness.realtimeSignals.length = 0;
 
@@ -646,7 +627,6 @@ describe("task thread detach", () => {
 
     expect(store.tasks.getTask(task.id)).toEqual(completedTask);
     expect(store.tasks.getTask(task.id)?.status).toBe("done");
-    expect(store.tasks.listComments(task.id)).toEqual(commentsBeforeDetach);
     expect(harness.inspection.sdk.calls).toEqual(sdkCallsBeforeDetach);
     const linked = tasksRpcContract.getTasksForThread.output.parse(
       await harness.behavior.callRpc("getTasksForThread", { threadId: "thr_dead" }),
@@ -724,7 +704,7 @@ describe("delegation seed prompt", () => {
       const report = prompt.split("## Report-back contract\n\n")[1]?.split("\n\n## ")[0] ?? "";
       expectReportingRules(report);
       expect(report).toContain(`bb tasks show ${task.key} --json`);
-      expect(report).toContain("Tasks references/reporting.md");
+      expect(report).toContain("linked work thread");
       expect(report).toContain("already attached");
       expect(prompt).toContain("## Preset instructions\n\nKeep the preset.");
       expect(prompt).toContain("## Additional instructions\n\nKeep the request.");
@@ -819,7 +799,7 @@ describe("delegation seed prompt", () => {
 
       Work on TASK-1 within scope, acceptance criteria and project instructions. Your thread is already attached.
       Read current requirements/blockers: bb tasks show TASK-1 --json. Report read failures, not assumed state. Fetch relevant attachments. Wait for explicit approval if blockers are not done/canceled.
-      Comment only for review readiness, completion, failure, blockers or user decisions. State result, relevant checks including unrun/blocked checks, material limits and evidence link; distinguish reported/verified checks. See Tasks references/reporting.md for posting.
+      Report useful outcomes in the linked work thread: review readiness, completion, failure, blockers or user decisions. State result, relevant checks including unrun/blocked checks, material limits and evidence links; distinguish reported/verified checks.
       Use in_review while review remains; done only after all gates. Keep task-to-thread links through all work changes. Detach only on explicit user request. Detaching does not stop the thread or change status. Links grant no ownership or reporting authority.
 
       ## Preset instructions

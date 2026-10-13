@@ -360,6 +360,28 @@ const MIGRATIONS = [
     DROP TABLE presets;
     ALTER TABLE presets_provider_tiers RENAME TO presets;
   `,
+  `
+    CREATE TABLE attachments_task_only (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      file_name TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+      blob_path TEXT NOT NULL,
+      is_image INTEGER NOT NULL CHECK (is_image IN (0, 1)),
+      created_at TEXT NOT NULL
+    );
+    INSERT INTO attachments_task_only (
+      id, task_id, file_name, mime, size_bytes, blob_path, is_image, created_at
+    ) SELECT
+      a.id, COALESCE(a.task_id, c.task_id), a.file_name, a.mime,
+      a.size_bytes, a.blob_path, a.is_image, a.created_at
+    FROM attachments a LEFT JOIN comments c ON c.id = a.comment_id;
+    DROP TABLE attachments;
+    ALTER TABLE attachments_task_only RENAME TO attachments;
+    CREATE INDEX idx_attachments_task ON attachments(task_id);
+    DROP TABLE comments;
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): void {

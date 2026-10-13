@@ -45,13 +45,6 @@ export function seedHistory(db: Database) {
     title: task.title,
     liveStatus: "working",
   });
-  const comment = store.createComment({
-    taskId: task.id,
-    kind: "agent",
-    authorName: "Historical worker",
-    threadId: association.threadId,
-    body: "Historical outcome, preserved without replay.",
-  });
   const time = "2026-10-05T10:00:00.000Z";
   const run = JSON.stringify({ id: "run-history", phase: "active", epicId: epic.id });
   const origin = JSON.stringify({
@@ -111,7 +104,7 @@ export function seedHistory(db: Database) {
     JSON.stringify({
       summary: "Needs operator decision",
       question: "Continue?",
-      commentId: comment.id,
+      commentId: "removed-comment-history",
       origin,
     }),
     JSON.stringify({ state: "queued", reference: "receipt-history" }),
@@ -131,5 +124,5 @@ export function seedHistory(db: Database) {
     Date.now() + 86_400_000,
     origin,
   );
-  return { epic, task, association, comment };
+  return { epic, task, association };
 }

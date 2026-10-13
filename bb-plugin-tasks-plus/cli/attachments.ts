@@ -6,7 +6,7 @@ import {
   readAttachmentContent,
   saveAttachmentFromBytes,
 } from "../attachments";
-import { tasksRpcContract, ULID_PATTERN } from "../shared/contract";
+import { tasksRpcContract } from "../shared/contract";
 import { attachmentDownloadUrl } from "../shared/attachments";
 import {
   CliError,
@@ -29,19 +29,19 @@ import { bytes, table } from "./format";
 export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain: TasksDomain) {
   return {
     attachment: groupCommand("attachment", "Add, download, list, or remove task attachments", [
-      ["add", "Attach a file to a task or comment"],
+      ["add", "Attach a file to a task"],
       ["get", "Download an attachment to a path"],
       ["list", "List a task's attachments"],
       ["remove", "Remove an attachment"],
     ]),
     "attachment add": cliCommand({
-      summary: "Attach a file to a task or comment",
+      summary: "Attach a file to a task",
       description:
         "File paths are read from the invoking machine: the thread's machine inside an agent thread, otherwise the server's.",
       positionals: [
         {
-          name: "key-or-comment-id",
-          description: "Task key such as ABC-12, a task ULID, or a comment ULID",
+          name: "key-or-id",
+          description: "Task key such as ABC-12 or a task ULID",
           required: true,
         },
       ],
@@ -62,20 +62,9 @@ export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain
       },
       run(input, ctx) {
         return guard(async () => {
-          const ownerAddress = input.positionals["key-or-comment-id"];
+          const ownerAddress = input.positionals["key-or-id"];
           const sourcePath = resolve(ctx.cwd ?? process.cwd(), input.options.file);
-          const normalizedOwner = ownerAddress.trim().toUpperCase();
-          const comment = ULID_PATTERN.test(normalizedOwner)
-            ? store.tasks.getComment(normalizedOwner)
-            : undefined;
-          if (ULID_PATTERN.test(normalizedOwner) && !comment) {
-            throw new CliError(`comment not found: ${ownerAddress}`, {
-              code: "comment_not_found",
-            });
-          }
-          const owner = comment
-            ? { commentId: comment.id }
-            : { taskId: (await resolveTask(domain, ownerAddress)).id };
+          const owner = { taskId: (await resolveTask(domain, ownerAddress)).id };
           const clientHostId = await resolveClientHostId(bb, domain, input.options.machine, ctx);
           const content = await readAttachmentSource(bb, clientHostId, sourcePath);
           const attachment = await saveAttachmentFromBytes(store.tasks, content, {
