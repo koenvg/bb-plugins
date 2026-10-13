@@ -84,14 +84,15 @@ export function Reader({
   }, [target, readDocument, refresh, fallback]);
 
   if (fallback) return <Original />;
-  const filenameStart = Math.max(target.path.lastIndexOf("/"), target.path.lastIndexOf("\\")) + 1;
-  const filename = target.path.slice(filenameStart) || target.path;
-  const directory = target.path.slice(0, filenameStart);
   const { result, snapshot, loading } = state;
+  const path = snapshot?.target.path ?? target.path;
+  const filenameStart = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1;
+  const filename = path.slice(filenameStart) || path;
+  const directory = path.slice(0, filenameStart);
   return (
     <section ref={root} className="markdown-reader" aria-label="Markdown Reader">
       <header className="mr-toolbar">
-        <div className="mr-identity" role="group" aria-label={target.path} title={target.path}>
+        <div className="mr-identity" role="group" aria-label={path} title={path}>
           <span className="mr-filename">{filename}</span>
           {directory && <span className="mr-path">{directory}</span>}
         </div>

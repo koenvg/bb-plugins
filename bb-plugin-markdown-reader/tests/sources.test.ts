@@ -34,6 +34,7 @@ function setup() {
       hostId: "remote",
       storageRootPath: "/host-data/thread-storage/thread",
     })),
+    findByName: vi.fn(async () => []),
     read: vi.fn(async () => ({
       content: "# Exact\r\n",
       contentEncoding: "utf8" as const,
@@ -386,5 +387,85 @@ describe("all live source identities", () => {
       target.path = "changed.md";
       expect(result.snapshot.target.path).toBe("reports/note.md");
     }
+  });
+});
+
+describe("bare file names missing at the source root", () => {
+  const bare: ReaderTarget = {
+    path: "project-instructions.md",
+    source: { kind: "workspace", threadId: "thread", environmentId: null, projectId: null },
+  };
+  function setupMissing(matches: string[]) {
+    const { adapter } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(
+      new Error("HTTP 404: Path does not exist: /work/project-instructions.md"),
+    );
+    const findByName = vi.fn(async (): Promise<string[]> => matches);
+    const reader = createSourceReader({ ...adapter, findByName });
+    return { adapter, reader, findByName };
+  }
+
+  it("opens the only file with that name below the root", async () => {
+    const { adapter, reader, findByName } = setupMissing(["knowledge/project-instructions.md"]);
+    expect(await reader.read(bare)).toMatchObject({
+      kind: "ready",
+      snapshot: {
+        target: { path: "knowledge/project-instructions.md", source: bare.source },
+        rootPath: "/work",
+        documentPath: "/work/knowledge/project-instructions.md",
+      },
+    });
+    expect(findByName).toHaveBeenCalledExactlyOnceWith({
+      hostId: "remote",
+      rootPath: "/work",
+      name: "project-instructions.md",
+    });
+    expect(adapter.read).toHaveBeenLastCalledWith({
+      hostId: "remote",
+      rootPath: "/work",
+      path: "/work/knowledge/project-instructions.md",
+    });
+  });
+
+  it("lists every match when the name is ambiguous", async () => {
+    const { reader } = setupMissing(["a/project-instructions.md", "b/project-instructions.md"]);
+    const result = await reader.read(bare);
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toContain("a/project-instructions.md");
+      expect(result.message).toContain("b/project-instructions.md");
+    }
+  });
+
+  it("keeps the original error when no file has that name", async () => {
+    const { reader } = setupMissing([]);
+    expect(await reader.read(bare)).toEqual({
+      kind: "error",
+      message: "HTTP 404: Path does not exist: /work/project-instructions.md",
+    });
+  });
+
+  it("keeps the original error when the search fails", async () => {
+    const { reader, findByName } = setupMissing([]);
+    findByName.mockRejectedValueOnce(new Error("Host disconnected"));
+    expect(await reader.read(bare)).toEqual({
+      kind: "error",
+      message: "HTTP 404: Path does not exist: /work/project-instructions.md",
+    });
+  });
+
+  it("keeps the original error when the unreadable file exists at the root", async () => {
+    const { reader, adapter } = setupMissing([
+      "project-instructions.md",
+      "knowledge/project-instructions.md",
+    ]);
+    expect(await reader.read(bare)).toMatchObject({ kind: "error" });
+    expect(adapter.read).toHaveBeenCalledOnce();
+  });
+
+  it("does not search for a path that names a directory", async () => {
+    const { reader, findByName } = setupMissing(["other/note.md"]);
+    expect((await reader.read(targets[0]!)).kind).toBe("error");
+    expect(findByName).not.toHaveBeenCalled();
   });
 });

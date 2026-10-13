@@ -30,6 +30,7 @@ function setup() {
       hostId: "remote",
       storageRootPath: "/data/thread-storage/thread",
     })),
+    findByName: vi.fn(async () => []),
     read: vi.fn(async () => ({
       content: "# Exact\r\n",
       contentEncoding: "utf8" as const,

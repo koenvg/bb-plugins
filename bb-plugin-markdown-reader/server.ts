@@ -27,6 +27,8 @@ export default function plugin(bb: BbPluginApi) {
     storageLocation: (threadId) => bb.sdk.threads.storageLocation({ threadId }),
     resolveHostRoot: async ({ hostId, rootPath }) =>
       (await host.call("resolve_root", { rootPath }, { hostId })).rootPath,
+    findByName: async ({ hostId, rootPath, name }) =>
+      (await host.call("find_by_name", { rootPath, name }, { hostId })).paths,
     read: (target) => bb.sdk.files.read(target),
     imageUrl: images.urlFor,
   });

@@ -67,6 +67,7 @@ export interface SourceAdapter {
     sizeBytes: number;
   }>;
   imageUrl?(target: { hostId: string; rootPath: string; path: string }): Promise<string>;
+  findByName(target: { hostId: string; rootPath: string; name: string }): Promise<string[]>;
 }
 export interface SourceReader {
   read(target: unknown): Promise<ReadResult>;
@@ -210,6 +211,28 @@ async function documentLocation(
     throw new Error("The document is outside the source root.");
   return { target, hostId, rootPath, documentPath, ...identity };
 }
+async function readOrFindByName(adapter: SourceAdapter, target: ReaderTarget) {
+  const location = await documentLocation(adapter, target);
+  const { hostId, rootPath } = location;
+  const read = ({ documentPath }: DocumentLocation) =>
+    adapter.read({ hostId, rootPath, path: documentPath });
+  try {
+    return { location, file: await read(location) };
+  } catch (cause) {
+    if (target.source.kind === "host" || target.path.includes("/")) throw cause;
+    const matches = await adapter
+      .findByName({ hostId, rootPath, name: target.path })
+      .catch((): string[] => []);
+    if (matches.length === 0 || matches.includes(target.path)) throw cause;
+    if (matches.length > 1)
+      throw new Error(
+        `${target.path} is not at the source root. Matching files: ${matches.join(", ")}`,
+      );
+    const found = await documentLocation(adapter, { ...target, path: matches[0]! });
+    return { location: found, file: await read(found) };
+  }
+}
+
 export function createSourceReader(adapter: SourceAdapter): SourceReader {
   return {
     async read(input) {
@@ -219,15 +242,14 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
           kind: "unsupported",
           message: "Invalid file source. Open this file in BB preview.",
         };
-      const target = parsed.data;
-      if (!validDocumentPath(target))
+      if (!validDocumentPath(parsed.data))
         return { kind: "unsupported", message: "Unsupported Markdown file path. Use BB preview." };
       try {
-        const { hostId, rootPath, documentPath } = await documentLocation(adapter, target);
-        const paths = hostPaths(rootPath);
         // The SDK enforces root confinement, including symlinks, on this explicit host.
         // It has no stat or max-byte read option. Oversized content can reach this server.
-        const file = await adapter.read({ hostId, rootPath, path: documentPath });
+        const { location, file } = await readOrFindByName(adapter, parsed.data);
+        const { target, hostId, rootPath, documentPath } = location;
+        const paths = hostPaths(rootPath);
         if (file.sizeBytes > MAX_DOCUMENT_BYTES)
           return {
             kind: "unsupported",
