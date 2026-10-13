@@ -65,7 +65,13 @@ it("uses the official MCP client and exact app assertion for reads, with truthfu
   try {
     expect(
       (await client.callTool({ name: "bb_list_projects", arguments: {} })).structuredContent,
-    ).toEqual({ projects: [{ id: "proj_a", name: "Allowed" }], nextCursor: null });
+    ).toEqual({
+      projects: [
+        { id: "proj_a", name: "Allowed" },
+        { id: "proj_hidden", name: "Private" },
+      ],
+      nextCursor: null,
+    });
     const { tools } = await client.listTools();
     expect(tools.find((t) => t.name === "bb_start_thread")).toMatchObject({
       description: expect.stringContaining("local read-control permission"),
@@ -409,7 +415,7 @@ it("enforces assertion expiry after an awaited default lookup", async () => {
   expect(spawn).not.toHaveBeenCalled();
 });
 
-it("does not use forwarded Host/Origin to expose BB or disallowed projects", async () => {
+it("rejects forwarded Host/Origin and BB routes while allowing authenticated project discovery", async () => {
   await setup();
   const token = await f.token();
   expect(
@@ -428,10 +434,13 @@ it("does not use forwarded Host/Origin to expose BB or disallowed projects", asy
   ).toBe(404);
   f.change({ projects: "" });
   expect((await call("bb_list_projects", {}, token)).structuredContent).toEqual({
-    projects: [],
+    projects: [
+      { id: "proj_a", name: "Allowed" },
+      { id: "proj_hidden", name: "Private" },
+    ],
     nextCursor: null,
   });
-  expect(f.host.harness.inspection.sdk.calls).toEqual([]);
+  expect(f.host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual(["projects.list"]);
 });
 
 it("bounds unavailable key retrieval by the fetch abort signal", async () => {

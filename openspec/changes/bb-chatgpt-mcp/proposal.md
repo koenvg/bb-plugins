@@ -8,8 +8,8 @@ Koen wants to control BB remotely from both ChatGPT web and the native ChatGPT m
 
 - Add a separate, headless `bb-plugin-mcp` package. It uses an existing, operator-managed Cloudflare Tunnel with a stable HTTPS hostname, without exposing BB's main server.
 - Make the public HTTPS address, local listener port, OAuth connection, project access, and read/control settings configurable through BB's standard plugin settings. No domain is hard-coded. The plugin does not create tunnels, manage DNS, run `cloudflared`, or request Cloudflare credentials.
-- Support a small set of tools to list allowed projects and threads, read thread status and recent output, start a thread, send instructions, stop work, and inspect a submitted operation.
-- Use OAuth access tokens, an explicit owner identity, project allowlists, and separate read and control permissions. Keep remote control disabled until configured.
+- Support a small set of tools to discover all current and future project IDs and names, including Personal, list allowed threads, read thread status and recent output, start a thread, send instructions, stop work, and inspect a submitted operation.
+- Use OAuth access tokens, an explicit owner identity, project allowlists for thread content and control, and separate read and control permissions. Keep remote control disabled until configured.
 - Treat starting and messaging an agent as write actions with possible code changes, external actions, and provider costs. Keep BB's existing permission and approval behavior.
 - Return promptly for long-running work. Protect mutations against duplicate requests and report uncertain outcomes instead of silently retrying them.
 - Document connection setup and require live read and write checks in both ChatGPT web and Koen's native mobile app. Record account and client details because availability can vary.

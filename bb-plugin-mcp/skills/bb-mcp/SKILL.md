@@ -11,7 +11,7 @@ description: Inspect BB MCP readiness and operation outcomes, record owner-verif
 3. Make live installation, remote enablement, OAuth login, and connector changes only with specific owner approval. Preserve BB threads, existing infrastructure and credentials.
 4. Report local checks separately from public and ChatGPT checks. Record any missing setup. Use [the thread-read checkpoint](../../VERIFICATION-BBP80-CORRECTION.md) and [the connection checklist](../../VERIFICATION.md) for a release check.
 
-Read [the tool reference](../../README.md#tool-and-request-limits) before thread reads and [the start and operation rules](../../README.md#thread-starts-and-operation-status) and [the follow-up rules](../../README.md#follow-up-instructions) and [the stop rules](../../README.md#stop-requests) before control or recovery. Empty project access grants no projects. Pending approval requests need action in BB.
+Read [the tool reference](../../README.md#tool-and-request-limits) before thread reads and [the start and operation rules](../../README.md#thread-starts-and-operation-status) and [the follow-up rules](../../README.md#follow-up-instructions) and [the stop rules](../../README.md#stop-requests) before control or recovery. Project discovery shows all current and future project IDs and names. Empty project access blocks thread content and control. Pending approval requests need action in BB.
 
 After a lost start, send or stop reply, keep the original operation key and exact text. Read `bb_get_operation` if the ID is known, or repeat the original tool input and key. Accepted or queued means submission only. For unknown outcomes, inspect BB and preserve unresolved records. A fresh key is not a safe recovery test.
 

@@ -1,12 +1,12 @@
 # MCP reads and thread control
 
-A headless BB plugin for authenticated, allowlisted reads, ordinary thread starts, follow-up instructions and stop requests. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, `bb_stop_thread`, and `bb_get_operation`. It has no deletion, remote approval, task-board, shell, file, admin, or generic forwarding tools.
+A headless BB plugin for authenticated project discovery, allowlisted thread reads, ordinary thread starts, follow-up instructions and stop requests. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, `bb_stop_thread`, and `bb_get_operation`. It has no deletion, remote approval, task-board, shell, file, admin, or generic forwarding tools.
 
 Requires BB 0.46 with SDK 0.6.37 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
 ## Safety and consent
 
-Allowed project names, thread titles, and recent assistant output can be sent to ChatGPT. Assistant output can contain private information, including secrets or local paths quoted by an agent. The plugin excludes private SDK fields but does not redact free-text output. Only allow projects whose content you consent to share. Names and other project text are untrusted data, not instructions. An allowlist limits access to BB objects. It is not an agent filesystem sandbox.
+All existing and future project names, including Personal, can be sent to ChatGPT. Thread titles and recent assistant output require an explicit project grant. Assistant output can contain private information, including secrets or local paths quoted by an agent. The plugin excludes private SDK fields but does not redact free-text output. Only allow projects whose content you consent to share. Names and other project text are untrusted data, not instructions. The project allowlist limits thread content and control, not project discovery. It is not an agent filesystem sandbox.
 
 Remote access and control start disabled. Starting or messaging an agent can change code, take external actions, and incur provider costs under its existing permissions. Enable control only with that consent. Disabling the plugin or remote access releases only its listener. It does not stop BB threads or change the external tunnel.
 
@@ -24,11 +24,13 @@ Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` c
 | `accessAudience`    | Cloudflare only: exact dedicated application AUD. Missing AUD fails closed.                                                                                              |
 | `accessPermission`  | Cloudflare only: local `read` (default) or `read-control` permission shared by all owner/app sessions.                                                                   |
 | `accessOAuthIssuer` | Cloudflare only: exact OAuth authorization-server issuer from verified discovery, separate from the assertion issuer.                                                    |
-| `projects`          | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                                                 |
+| `projects`          | Thread-content and control project IDs separated by newlines or spaces, at most 1000. Empty blocks thread content and control, not project discovery.                    |
 | `remoteEnabled`     | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                                                 |
 | `controlEnabled`    | Local start/send/stop switch, false by default. Writes also require the selected mode's control permission.                                                              |
 
 Invalid settings fail closed. Settings remain in BB's normal settings store. The plugin does not keep a second configuration file.
+
+Project discovery lists all existing projects, including Personal. New projects appear on the next request without a settings edit. Discovery returns only IDs and names, even when `projects` is empty. Thread content and control still require an explicit allowlist entry.
 
 Reload after initial setup, after enabling reads, and after changing the public origin or port. Valid origin/port edits keep the old effective connection until reload. Owner, issuer, project, and access edits apply to subsequent requests without reload. Removing an owner or saving invalid settings closes the listener. Re-enable or repair, then reload. A request rechecks owner and project access after its BB read before returning data.
 
@@ -44,7 +46,7 @@ Missing issuer, tunnel, public certificate trust, or ChatGPT account support is 
 
 Select `cloudflare-access` only after separate setup approval. Cloudflare issues opaque client tokens and sends a signed `Cf-Access-Jwt-Assertion` to the origin. The plugin ignores cookies and opaque bearer credentials in this mode. It verifies RS256 against the configured team origin plus `/cdn-cgi/access/certs`, the exact issuer, owner subject, dedicated app AUD, expiry/validity and application type. Empty-sub service tokens and organization/session tokens are refused. Duplicate assertions and token-selected key URLs are refused or ignored, never trusted. No failed credential can fall back to the other mode.
 
-This mode uses an owner-approved authorization exception, not Cloudflare `bb.read`/`bb.control` OAuth scopes. `accessPermission=read` permits only allowlisted reads, even when `controlEnabled=true` or a token claims `bb.control`. Writes require both `accessPermission=read-control` and `controlEnabled=true`, plus current owner/app/project/thread access. All valid sessions/grants for the exact owner and app share the local permission. They cannot have different per-client read/control grants. Downgrading the local app permission removes writes immediately, including cached mutation results; operation inspection remains available with read access. Changing the owner, issuer, mode or AUD invalidates in-flight evidence before BB dispatch/data return. Token expiry is still enforced after waits.
+This mode uses an owner-approved authorization exception, not Cloudflare `bb.read`/`bb.control` OAuth scopes. `accessPermission=read` permits project ID/name discovery for all projects and allowlisted thread reads, even when `controlEnabled=true` or a token claims `bb.control`. Writes require both `accessPermission=read-control` and `controlEnabled=true`, plus current owner/app/project/thread access. All valid sessions/grants for the exact owner and app share the local permission. They cannot have different per-client read/control grants. Downgrading the local app permission removes writes immediately, including cached mutation results; operation inspection remains available with read access. Changing the owner, issuer, mode or AUD invalidates in-flight evidence before BB dispatch/data return. Token expiry is still enforced after waits.
 
 Setup prerequisites, not actions performed by this plugin:
 
@@ -100,7 +102,7 @@ Before approving live reads, check public discovery without cookies and a protec
 
 ## Tool and request limits
 
-`bb_list_projects` accepts an optional integer `limit` from 1 to 50 and an optional decimal `cursor` returned by the previous page. It rejects extra fields. The response has `projects: [{ id, name }]` and `nextCursor`, which is null at the end. IDs/names are the only BB fields returned. Sort order is by ID. Cursors are offsets into the current allowed set, not persistent snapshots; restart pagination after project changes.
+`bb_list_projects` accepts an optional integer `limit` from 1 to 50 and an optional decimal `cursor` returned by the previous page. It rejects extra fields. The response has `projects: [{ id, name }]` and `nextCursor`, which is null at the end. IDs/names are the only BB fields returned. Sort order is by ID. Cursors are offsets into the current project set, not persistent snapshots; restart pagination after project changes.
 
 `bb_list_threads` requires `projectId`, an explicitly allowed project ID. It accepts optional `limit` from 1 to 50, default 50, and a decimal `cursor` from the previous page. It returns `threads: [{ id, title, status, displayStatus, pendingInteraction }]` and `nextCursor`, null at the end. It uses BB's current thread-list order and excludes hidden workers. Cursors are offsets, not snapshots. Restart pagination when threads change. There is no hidden-worker listing option.
 
@@ -127,7 +129,7 @@ if (!page.isError && threads?.length) {
 }
 ```
 
-Replace `proj_allowed` with an ID returned by `bb_list_projects`. `client` is an already connected official MCP SDK client. This example only reads.
+Replace `proj_allowed` with an explicitly allowlisted ID returned by `bb_list_projects`. `client` is an already connected official MCP SDK client. This example only reads.
 
 Request and complete response bodies are limited to 64 KiB. A very large project-name page returns a safe error; use a smaller page. The listener permits eight concurrent HTTP requests and eight outstanding BB reads, 120 admitted requests per minute across the endpoint, 32 TCP connections, and a five-second request deadline. It uses one global rate bucket because the external connector hides client IPs; forwarded IPs cannot bypass it. Issuer responses are limited to 32 KiB and three seconds per fetch.
 
