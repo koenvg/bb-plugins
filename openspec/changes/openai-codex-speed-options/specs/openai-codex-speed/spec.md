@@ -30,13 +30,20 @@ Ultrafast SHALL remain absent while its wire mapping is unverified. The current 
 
 ### Requirement: Uncertain discovery grants no tier
 
-Missing, expired, failed, or unrecognized account-capability data SHALL expose no non-default speed tier. Standard-speed operation SHALL remain usable. The system SHALL provide a manual refresh action and distinguish a discovery failure from a successful response with no additional tiers.
+Missing, expired, failed, or unrecognized account-capability data SHALL expose no non-default speed tier. Standard-speed operation SHALL remain usable. The system SHALL provide a manual refresh action and distinguish a discovery failure from a successful response with no additional tiers. The BB-managed source SHALL renew expired successful evidence before non-default dispatch with at most one discovery attempt per validation, coalescing pending discovery. Only fresh evidence for the current account and request token SHALL authorize the final payload. Cached discovery failures for the same token SHALL require manual refresh or invalidation before discovery can run again. This renewal SHALL NOT retry a model request after server refusal.
 
 #### Scenario: Initial discovery fails
 
 - **WHEN** account-capability discovery fails while the selection is Default
 - **THEN** the user can run at Default and retry discovery manually
 - **AND** Fast and Ultrafast remain hidden
+
+#### Scenario: Successful evidence expires before dispatch
+
+- **GIVEN** the BB-managed adapter has a successful capability snapshot for Fast
+- **WHEN** that snapshot expires before a new turn or continuation payload is ready
+- **THEN** the source renews discovery once before dispatch and authorizes Fast only with fresh evidence
+- **AND** failed or revoked discovery blocks Fast while Default remains usable without discovery
 
 #### Scenario: Unknown tier is returned
 
