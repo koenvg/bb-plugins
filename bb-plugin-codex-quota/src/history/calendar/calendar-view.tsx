@@ -228,6 +228,7 @@ export function CalendarValues({
           data={rows}
           margin={{ top: 14, right: 8, bottom: 8, left: chartWidth < 480 ? 16 : 24 }}
           accessibilityLayer
+          aria-label={`Daily usage chart: ${metricName(metric)}`}
         >
           <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.16} />
           <XAxis
