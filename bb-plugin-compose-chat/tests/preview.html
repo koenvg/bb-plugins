@@ -23,6 +23,7 @@
         --state-hover: #ffffff12;
         --state-active: #ffffff20;
         --sidebar: #252627;
+        --attention: oklch(74% 0.15 80);
         --radius: 8px;
       }
       :root[data-theme="light"] {
@@ -664,7 +665,7 @@
                     <button type="button" aria-label="Prompt actions">
                       <svg><use href="#plus" /></svg></button
                     ><button type="button" aria-label="Provider, model and reasoning">
-                      Provider / model</button
+                      <span title="Codex: GPT · High reasoning">Provider / model</span></button
                     ><button type="button" aria-label="Start voice input">
                       <svg><use href="#mic" /></svg></button
                     ><button
@@ -761,16 +762,20 @@
       entry.default.setup({
         contentScripts: { register: (r) => registrations.push(r) },
         commands: { register: (c) => commands.push(c) },
+        slots: { experimental_appOverlay: () => {} },
       });
       let controller,
-        disposers = [];
+        disposers = [],
+        speedBorders;
       function activate() {
         controller = new AbortController();
         disposers = registrations.map((r) =>
           r.mount({ pluginId: "compose-chat", generation: 1, signal: controller.signal }),
         );
+        speedBorders = entry.mountSpeedBorders();
       }
       function dispose() {
+        speedBorders?.dispose();
         for (const cleanup of disposers.reverse()) cleanup?.();
         disposers = [];
       }
@@ -796,6 +801,7 @@
       }
       window.fixture = {
         ready: true,
+        setSpeedEffect: (effect, motion = true) => speedBorders.set(effect, motion),
         nativeSplit,
         originalInput,
         form,

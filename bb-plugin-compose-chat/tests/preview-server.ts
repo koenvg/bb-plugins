@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../", import.meta.url);
 const bundle = await build({
   absWorkingDir: fileURLToPath(root),
-  entryPoints: ["app.tsx"],
+  entryPoints: ["tests/effects-fixture.tsx"],
   outfile: "dist/app.js",
   bundle: true,
   platform: "browser",
