@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import timelines from "../test/fixtures/pr-timelines.json";
 import { groupTimeline, mergeEvents, parseTimelinePage, type TimelineEvent } from "./timeline";
 
-const merged = parseTimelinePage(timelines["cli-14578"]);
-const reopened = parseTimelinePage(timelines["cli-13390"]);
-const commitRun = parseTimelinePage(timelines["cli-14507"]);
+const keepMedia = (markdown: string) => markdown;
+
+const merged = parseTimelinePage(timelines["cli-14578"], keepMedia);
+const reopened = parseTimelinePage(timelines["cli-13390"], keepMedia);
+const commitRun = parseTimelinePage(timelines["cli-14507"], keepMedia);
 
 function kinds(events: readonly { kind: string }[]) {
   return events.map(({ kind }) => kind);
@@ -33,7 +35,7 @@ describe("parseTimelinePage", () => {
     const page = structuredClone(timelines["cli-13390"]);
     page.data.repository.pullRequest.body = "";
 
-    expect(parseTimelinePage(page).description.body).toBe("");
+    expect(parseTimelinePage(page, keepMedia).description.body).toBe("");
   });
 
   it("keeps the event order of GitHub", () => {
@@ -137,7 +139,7 @@ describe("parseTimelinePage", () => {
     ) as { body: string };
     approval.body = "Looks good";
 
-    expect(parseTimelinePage(page).othersComments).toContainEqual({
+    expect(parseTimelinePage(page, keepMedia).othersComments).toContainEqual({
       id: "PRR_kwDODKw3uc8AAAABRK-09w",
       postedAt: "2026-10-07T19:31:56Z",
     });
@@ -156,7 +158,7 @@ describe("parseTimelinePage", () => {
     const page = structuredClone(timelines["cli-14578"]);
     Object.assign(nodeOf(page, "PRR_kwDODKw3uc8AAAABRK-09w"), { body: "Looks good", ...change });
 
-    expect(parseTimelinePage(page).othersComments).not.toContainEqual(
+    expect(parseTimelinePage(page, keepMedia).othersComments).not.toContainEqual(
       expect.objectContaining({ id: "PRR_kwDODKw3uc8AAAABRK-09w" }),
     );
   });
@@ -165,7 +167,7 @@ describe("parseTimelinePage", () => {
     const page = structuredClone(timelines["cli-14578"]);
     nodeOf(page, "IC_kwDODKw3uc8AAAABYzeJXQ").author = null;
 
-    expect(parseTimelinePage(page).othersComments).not.toContainEqual(
+    expect(parseTimelinePage(page, keepMedia).othersComments).not.toContainEqual(
       expect.objectContaining({ id: "IC_kwDODKw3uc8AAAABYzeJXQ" }),
     );
   });
@@ -177,7 +179,7 @@ describe("parseTimelinePage", () => {
       startCursor: "Y3Vy",
     };
 
-    expect(parseTimelinePage(page).olderCursor).toBe("Y3Vy");
+    expect(parseTimelinePage(page, keepMedia).olderCursor).toBe("Y3Vy");
   });
 
   it("uses the commit author name when the author has no GitHub user", () => {
@@ -187,7 +189,7 @@ describe("parseTimelinePage", () => {
     };
     commit.commit.author.user = null;
 
-    expect(parseTimelinePage(page).events[0]).toMatchObject({ actor: "William Martin" });
+    expect(parseTimelinePage(page, keepMedia).events[0]).toMatchObject({ actor: "William Martin" });
   });
 });
 

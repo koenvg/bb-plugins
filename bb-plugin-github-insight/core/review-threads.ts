@@ -34,6 +34,7 @@ const threadsPageSchema = z.object({
                       })
                       .nullable(),
                     body: z.string(),
+                    bodyHTML: z.string(),
                     createdAt: z.string(),
                     publishedAt: z.string().nullable().optional(),
                     url: z.string(),
@@ -119,6 +120,7 @@ export function parseReviewThreads(pages: unknown[]): ReviewThread[] {
 export interface CollectedReviewThreads {
   threads: ReviewThread[];
   othersComments: PostedComment[];
+  bodyHtml: Map<string, string>;
   complete: boolean;
 }
 
@@ -146,6 +148,13 @@ export async function collectReviewThreads(
   return {
     threads: pages.flatMap((page) => threadsOf(page).nodes.map(toReviewThread)),
     othersComments: pages.flatMap(othersCommentsOf),
+    bodyHtml: new Map(
+      pages.flatMap((page) =>
+        threadsOf(page).nodes.flatMap((thread) =>
+          thread.comments.nodes.map(({ id, bodyHTML }) => [id, bodyHTML] as const),
+        ),
+      ),
+    ),
     complete: after === null,
   };
 }

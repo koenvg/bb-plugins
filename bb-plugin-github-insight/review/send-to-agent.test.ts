@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
+import {
+  ATTACHMENT_URL,
+  reviewThreadsWithAttachment,
+  SIGNED_ATTACHMENT_URL,
+} from "../test/attachment";
 import { failed, linkedPr, ok, prHeadResponse, setup, type HostCall } from "../test/plugin-harness";
 
 const PLACED = "PRRT_kwDOHI7l-86jxula";
@@ -53,6 +58,17 @@ describe("sendToAgent", () => {
     expect(text).toContain(`## Review thread ${OUTDATED}`);
     expect(text).not.toContain("## Review thread PRRT_kwDOHI7l-86jxqt3");
     expect(text).toContain("bb github-insight review draft");
+  });
+
+  it("sends the attachment URLs of review comments, not their short-lived signed URLs", async () => {
+    const harness = await setupWithPr((call) =>
+      call.method === "fetchReviewThreads" ? ok(reviewThreadsWithAttachment()) : reviewHost(call),
+    );
+
+    await harness.behavior.callRpc("sendToAgent", { threadId: "thr_1", reviewThreadIds: [PLACED] });
+
+    expect(sentText(harness)).toContain(ATTACHMENT_URL);
+    expect(sentText(harness)).not.toContain(SIGNED_ATTACHMENT_URL);
   });
 
   it("says when the message is queued behind a busy agent", async () => {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import timelines from "../test/fixtures/pr-timelines.json";
+import { createMediaSigner } from "../core/signed-media";
 import { GhFailureError } from "../github/gh-failure";
+import { ATTACHMENT_BODY, ATTACHMENT_HTML, SIGNED_ATTACHMENT_URL } from "../test/attachment";
 import type { PrResolution } from "../pr-lookup";
 import { createTimelineService } from "./timeline-service";
 
@@ -26,6 +28,7 @@ function serviceWith(overrides: Partial<Deps> = {}) {
       return { data: {} };
     },
     newCommentBasis: async () => ({ markedAt: null, seen: new Set<string>() }),
+    signMedia: (markdown) => markdown,
     ...overrides,
   });
   return { service, pages, comments };
@@ -42,6 +45,28 @@ describe("timeline service", () => {
     expect(pages).toEqual([[target, null]]);
     expect(result).toMatchObject({ kind: "ok", olderCursor: null, locked: false });
     expect(result.kind === "ok" && result.events.at(-1)?.kind).toBe("merged");
+  });
+
+  it("shows the description and comments with the signed URLs of their attachments", async () => {
+    const page = structuredClone(timelines["cli-14578"]);
+    const { pullRequest } = page.data.repository;
+    Object.assign(pullRequest, { body: ATTACHMENT_BODY, bodyHTML: ATTACHMENT_HTML });
+    for (const node of pullRequest.timelineItems.nodes)
+      if (node.__typename === "IssueComment")
+        Object.assign(node, { body: ATTACHMENT_BODY, bodyHTML: ATTACHMENT_HTML });
+    const { service } = serviceWith({
+      fetchTimelinePage: async () => page,
+      signMedia: createMediaSigner(Date.now),
+    });
+
+    const result = await service.getTimeline("thr_1", null);
+
+    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    const signedBody = `![shot](${SIGNED_ATTACHMENT_URL})`;
+    expect(result.description.body).toBe(signedBody);
+    expect(result.events.find((event) => event.kind === "comment")).toMatchObject({
+      body: signedBody,
+    });
   });
 
   it("returns the PR comments from other people after the mark as new", async () => {

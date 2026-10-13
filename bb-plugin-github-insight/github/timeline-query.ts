@@ -12,6 +12,7 @@ query ($owner: String!, $repo: String!, $number: Int!, $before: String) {
     pullRequest(number: $number) {
       id
       body
+      bodyHTML
       author { login }
       createdAt
       locked
@@ -32,9 +33,9 @@ query ($owner: String!, $repo: String!, $number: Int!, $before: String) {
         pageInfo { hasPreviousPage startCursor }
         nodes {
           __typename
-          ... on IssueComment { id ${ACTOR} body createdAt url }
+          ... on IssueComment { id ${ACTOR} body bodyHTML createdAt url }
           ... on PullRequestReview {
-            id ${ACTOR} state body submittedAt url
+            id ${ACTOR} state body bodyHTML submittedAt url
             comments(first: 100) { totalCount nodes { id } }
           }
           ... on PullRequestCommit {

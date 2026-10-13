@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { actorSchema } from "./actor";
+import type { SignMedia } from "./signed-media";
 import { othersPrComments, othersReviewTexts, type PostedComment } from "./new-comments";
 
 const loginSchema = z.object({ login: z.string() }).nullable();
@@ -18,6 +19,7 @@ const nodeSchema = z.discriminatedUnion("__typename", [
     id: z.string(),
     author: actorSchema,
     body: z.string(),
+    bodyHTML: z.string(),
     createdAt: z.string(),
     url: z.string(),
   }),
@@ -27,6 +29,7 @@ const nodeSchema = z.discriminatedUnion("__typename", [
     author: actorSchema,
     state: z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]),
     body: z.string(),
+    bodyHTML: z.string(),
     submittedAt: z.string().nullable(),
     url: z.string(),
     comments: z.object({
@@ -57,6 +60,7 @@ const timelinePageSchema = z.object({
       pullRequest: z.object({
         id: z.string(),
         body: z.string(),
+        bodyHTML: z.string(),
         author: loginSchema,
         createdAt: z.string(),
         locked: z.boolean(),
@@ -126,7 +130,7 @@ const LIFECYCLE_KIND = {
   MergedEvent: "merged",
 } as const;
 
-function toEvent(node: Node): TimelineEvent | null {
+function toEvent(node: Node, signMedia: SignMedia): TimelineEvent | null {
   switch (node.__typename) {
     case "IssueComment":
       return {
@@ -134,7 +138,7 @@ function toEvent(node: Node): TimelineEvent | null {
         id: node.id,
         actor: node.author?.login ?? null,
         at: node.createdAt,
-        body: node.body,
+        body: signMedia(node.body, node.bodyHTML),
         url: node.url,
       };
     case "PullRequestReview":
@@ -145,7 +149,7 @@ function toEvent(node: Node): TimelineEvent | null {
         actor: node.author?.login ?? null,
         at: node.submittedAt,
         state: reviewStateSchema.parse(node.state.toLowerCase()),
-        body: node.body,
+        body: signMedia(node.body, node.bodyHTML),
         url: node.url,
         inlineCount: node.comments.totalCount,
         inlineCommentIds: node.comments.nodes.map(({ id }) => id),
@@ -190,14 +194,14 @@ function othersCommentsOf(nodes: readonly Node[], viewer: string): PostedComment
   return [...othersPrComments(comments, viewer), ...othersReviewTexts(reviews, viewer)];
 }
 
-export function parseTimelinePage(response: unknown): TimelinePage {
+export function parseTimelinePage(response: unknown, signMedia: SignMedia): TimelinePage {
   const { viewer, repository } = timelinePageSchema.parse(response).data;
   const { pullRequest } = repository;
   const { nodes, pageInfo } = pullRequest.timelineItems;
   return {
     prNodeId: pullRequest.id,
     description: {
-      body: pullRequest.body,
+      body: signMedia(pullRequest.body, pullRequest.bodyHTML),
       author: pullRequest.author?.login ?? null,
       at: pullRequest.createdAt,
     },
@@ -205,7 +209,7 @@ export function parseTimelinePage(response: unknown): TimelinePage {
     viewerCanUpdate: pullRequest.viewerCanUpdate,
     events: nodes.flatMap((node) => {
       if (isMergeClose(node, nodes)) return [];
-      const event = toEvent(node);
+      const event = toEvent(node, signMedia);
       return event === null ? [] : [event];
     }),
     othersComments: othersCommentsOf(nodes, viewer.login),
