@@ -120,15 +120,17 @@ describe("shared speed module through the BB bridge", () => {
   );
 
   it("does not trust the separate catalog when the active account has changed", async () => {
-    await harness.request(++id, "model/list", { cwd: harness.workspaceDir });
-    await harness.startThread(threadId, { options: options() });
+    expect(
+      (await harness.request(++id, "model/list", { cwd: harness.workspaceDir })).error,
+    ).toBeUndefined();
+    expect((await harness.startThread(threadId, { options: options() })).error).toBeUndefined();
     expect((await turn()).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId);
+    const firstEnd = await harness.waitForTurnBoundary(threadId);
     setState({ account: "different-account", tiers: [] });
     expect((await turn()).error).toBeDefined();
     expect(prompts()).toHaveLength(1);
     expect((await turn("default")).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, 1);
+    await harness.waitForTurnBoundary(threadId, firstEnd);
     expect(prompts()).toHaveLength(2);
   });
 
