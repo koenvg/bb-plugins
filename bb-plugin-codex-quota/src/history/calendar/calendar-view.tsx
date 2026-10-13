@@ -256,7 +256,7 @@ function PositiveUsageMarkers({
     ));
 }
 const legendButton =
-  "inline-flex min-w-0 max-w-full items-center gap-2 m-0 appearance-none border-0 bg-transparent p-0 text-left [font:inherit] [color:inherit] focus-visible:outline-2 focus-visible:outline-ring";
+  "inline-flex min-w-0 pointer-coarse:min-w-[44px] pointer-coarse:min-h-[44px] max-w-full items-center gap-2 m-0 appearance-none border-0 bg-transparent p-0 text-left [font:inherit] [color:inherit] focus-visible:outline-2 focus-visible:outline-ring";
 export function CalendarValues({
   view,
   metric,

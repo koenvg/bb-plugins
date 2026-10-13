@@ -350,7 +350,7 @@ for (const width of [375, 1280])
       expect(initial[3][0].height).toBeLessThan(1);
       const long = series(page, names[2]);
       const box = (await long.boundingBox())!;
-      expect(box.height).toBe(width === 375 ? 64 : 16);
+      expect(box.height).toBe(width === 375 ? 64 : 44);
       expect(await long.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       for (let index = 0; index < names.length; index++) {
         await series(page, names[index]).click();
