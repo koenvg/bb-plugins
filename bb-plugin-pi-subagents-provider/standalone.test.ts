@@ -22,15 +22,20 @@ describe("standalone packaging", () => {
         /^esbuild$/,
       ],
     });
-    // The inherited scripted child loads only the extension path supplied by the bridge.
-    // Keep that one computed fixture import visible; no production imports are exempt.
+    // Only these fixtures load runtime-generated modules or use the development archive's types.
+    // Production imports remain subject to the public-package allowlist.
     expect(
       result.violations.filter(
         (violation) =>
           !(
-            violation.file === "src/bridge/fake-pi-rpc.mjs" &&
-            violation.reason === "dynamic-specifier" &&
-            violation.specifier === "pathToFileURL(loadPath"
+            (violation.file === "src/bridge/fake-pi-rpc.mjs" &&
+              violation.reason === "dynamic-specifier" &&
+              violation.specifier === "pathToFileURL(loadPath") ||
+            (violation.file === "src/bridge/codex-speed-source.test.ts" &&
+              ((violation.reason === "outside-allowlist" &&
+                violation.specifier === "@koenvg/pi-openai-codex-speed") ||
+                (violation.reason === "dynamic-specifier" &&
+                  violation.specifier === "/* @vite-ignore */ path")))
           ),
       ),
     ).toEqual([]);

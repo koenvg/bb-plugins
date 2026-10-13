@@ -7,6 +7,8 @@ export function fakeSpeedRuntime(models, emit) {
     process.env.FAKE_PI_SPEED_STATE
       ? JSON.parse(readFileSync(process.env.FAKE_PI_SPEED_STATE, "utf8"))
       : { tiers: ["priority"] };
+  const realNow = Date.now;
+  Date.now = () => state().now ?? realNow();
   let accountOverride;
   let nativeSimple;
   globalThis.fetch = async (url) => {

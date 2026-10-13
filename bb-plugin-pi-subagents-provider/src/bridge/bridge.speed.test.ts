@@ -99,6 +99,24 @@ describe("shared speed module through the BB bridge", () => {
     expect(harness.readProcessLog().spawned).toHaveLength(1);
   });
 
+  it("renews expired successful evidence between Fast turns through JSON-RPC", async () => {
+    setState({ tiers: ["priority"], now: 1_700_000_000_000 });
+    await harness.startThread(threadId, { options: options() });
+    expect((await turn("fast", "before expiry")).error).toBeUndefined();
+    const firstEnd = await harness.waitForTurnBoundary(threadId);
+    setState({ tiers: ["priority"], now: 1_700_000_300_001 });
+    expect((await turn("fast", "after expiry")).error).toBeUndefined();
+    await harness.waitForTurnBoundary(threadId, firstEnd);
+    expect(
+      harness
+        .deltasOf(threadId)
+        .filter((delta) => delta.kind === "item.textDelta")
+        .map((delta) => delta.text),
+    ).toEqual(["Response to: before expiry", "Response to: after expiry"]);
+    expect(prompts()).toHaveLength(2);
+    expect(harness.readProcessLog().spawned).toHaveLength(1);
+  });
+
   it.each(["ultrafast", "unrecognized"])(
     "blocks %s before prompt or steer dispatch",
     async (tier) => {

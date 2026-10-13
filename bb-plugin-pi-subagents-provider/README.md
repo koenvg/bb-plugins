@@ -46,7 +46,9 @@ For the ChatGPT subscription route `openai-codex`, select Default or confirmed F
 
 Known limitation accepted by the user: [BBP-201](bbtask://BBP-201). If discovery fails or revokes Fast, a model or reasoning edit can send BB's displayed fallback Default as an explicit choice and replace saved Fast. Check the speed selection after these edits. Refresh availability and select Fast again if needed. The core fix is not installed and is not a dependency of this revision.
 
-Use `/speed refresh` for manual discovery retry. Other `/speed` commands fail privately with instructions to use the BB speed selector; they never become model prompts. Start and steer reject attachments before reading them or changing execution settings. No automatic retry or dispatch downgrade is added.
+Before Fast dispatch, the BB-managed source renews expired successful capability evidence with one coalesced discovery attempt. This includes tool continuations and expiry during an awaited payload callback. Only fresh, account-confirmed evidence authorizes the final payload.
+
+After discovery fails, use `/speed refresh` for manual recovery or select Default. Cached discovery failures do not trigger automatic retry. Other `/speed` commands fail privately with instructions to use the BB speed selector; they never become model prompts. Start and steer reject attachments before reading them or changing execution settings. A server refusal causes no automatic retry or dispatch downgrade.
 
 BB's native service-tier setting is authoritative and carries the choice through start, resume, model/reasoning rebuilds, and compaction. The removed private-command adapter's `.bb-codex-speed.json` files are neither read nor deleted. Startup no longer publishes or reopens native history before the first model prompt. Pi owns its session writer. Non-default requests still require current account/model confirmation. Speed changes affect subsequent turns; current tool continuations keep their captured speed.
 
