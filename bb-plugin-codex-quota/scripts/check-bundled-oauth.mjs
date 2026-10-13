@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createBundleFixture } from "./bundle-fixture.mjs";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 
 // Run against bb plugin build's actual self-contained host artifact. No real credentials or network.
-const agentDir = mkdtempSync(join(tmpdir(), "codex-quota-oauth-"));
+const agentDir = createBundleFixture("codex-quota-oauth-");
 const refresh = process.argv.includes("--refresh");
 const access = "synthetic-access-token-do-not-log";
 const refreshedAccess = `e30.${Buffer.from(
@@ -90,5 +90,4 @@ try {
   globalThis.fetch = previousFetch;
   if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
   else process.env.CODEX_HOME = previousCodexHome;
-  rmSync(agentDir, { recursive: true, force: true });
 }
