@@ -102,6 +102,53 @@ export function calendarSnapshot(
   return value;
 }
 
+// Tiny recorded totals beside a large day, with and without retained detail.
+export function calendarMixedMagnitudeSnapshot(query: CalendarQuery): CalendarSnapshot {
+  const view = calendarEmptySnapshot(query, "unknown");
+  for (const [index, totalTokens] of [
+    [14, 1_000_000_000],
+    [15, 4],
+    [16, 1],
+  ] as const) {
+    const day = view.days[index];
+    day.totalTokens = totalTokens;
+    day.activeEntities = 1;
+    day.money = { ...day.money, records: 1 };
+    day.coverage = { ...day.coverage, state: "observed", zero: false };
+    if (index !== 16) {
+      day.classes = {
+        state: "available",
+        input: totalTokens / 4,
+        output: totalTokens / 4,
+        cacheRead: totalTokens / 4,
+        cacheWrite: totalTokens / 4,
+        reasoning: 0,
+      };
+      day.models = {
+        named: [
+          { model: "gpt-5.3-codex", totalTokens: totalTokens / 4 },
+          { model: "gpt-5.4", totalTokens: (totalTokens * 3) / 4 },
+        ],
+        otherTokens: 0,
+      };
+    }
+  }
+  view.days[17].coverage = {
+    ...view.days[17].coverage,
+    state: "observed-inactivity",
+    zero: true,
+  };
+  if (query.includeUncertain) {
+    view.days[18].uncertain = { totalTokens: 10_000_000, records: 1 };
+    view.summary.uncertain = { totalTokens: 10_000_000, records: 1 };
+  }
+  view.state = "partial";
+  view.summary.totalTokens = 1_000_000_005;
+  view.summary.activeEntities = 3;
+  view.summary.money = { ...view.summary.money, records: 3 };
+  return view;
+}
+
 // Empty unknown history is not zero. Inactivity fixtures contain no accepted usage.
 export function calendarEmptySnapshot(
   query: CalendarQuery,
