@@ -115,6 +115,7 @@ function LazyFileDiff({
           view="split"
           theme={theme}
           collapsed={viewed?.collapsed}
+          onToggleCollapsed={viewed?.toggleCollapsed}
           headerPrefix={
             viewed && (
               <CollapseButton
