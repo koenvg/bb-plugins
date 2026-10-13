@@ -87,8 +87,8 @@ export default async function plugin(bb: BbPluginApi) {
 
   const review = createReviewService({
     resolvePr,
-    fetchPrFiles: async ({ ref, hostId }) =>
-      unwrap(await host.call("fetchPrFiles", ref, { hostId })),
+    fetchPrFilesPage: async ({ ref, hostId }, page) =>
+      unwrap(await host.call("fetchPrFiles", { ...ref, page }, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),

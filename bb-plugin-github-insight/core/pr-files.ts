@@ -7,7 +7,12 @@ const restFileSchema = z.object({
   patch: z.string().optional(),
 });
 
-const restFilePagesSchema = z.array(z.array(restFileSchema));
+const restFilePageSchema = z.array(restFileSchema);
+const restFilePagesSchema = z.array(restFilePageSchema);
+
+export const PR_FILES_PER_PAGE = 100;
+// GitHub lists at most 3000 files per pull request.
+const MAX_PR_FILE_PAGES = 3000 / PR_FILES_PER_PAGE;
 
 export const reviewFileSchema = z.object({
   path: z.string(),
@@ -26,6 +31,18 @@ export function parsePrFiles(pages: unknown): ReviewFile[] {
       patch: file.patch ?? null,
     })),
   );
+}
+
+export async function collectPrFiles(
+  fetchPage: (page: number) => Promise<unknown>,
+): Promise<ReviewFile[]> {
+  const pages: z.infer<typeof restFilePagesSchema> = [];
+  let page: z.infer<typeof restFilePageSchema>;
+  do {
+    page = restFilePageSchema.parse(await fetchPage(pages.length + 1));
+    pages.push(page);
+  } while (page.length === PR_FILES_PER_PAGE && pages.length < MAX_PR_FILE_PAGES);
+  return parsePrFiles(pages);
 }
 
 export function gitPatch(file: ReviewFile): string | null {

@@ -55,6 +55,11 @@ export type CheckRunDetailsRequest = z.infer<typeof checkRunDetailsRequestSchema
 const prFilesRequestSchema = z.object(prRequestFields).strict();
 export type PrFilesRequest = z.infer<typeof prFilesRequestSchema>;
 
+const prFilesPageRequestSchema = z
+  .object({ ...prRequestFields, page: z.number().int().positive() })
+  .strict();
+export type PrFilesPageRequest = z.infer<typeof prFilesPageRequestSchema>;
+
 const ghResultSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), data: z.unknown() }),
   z.object({ ok: z.literal(false), failure: ghFailureSchema }),
@@ -142,7 +147,7 @@ export const hostContract = defineRpcContract({
     output: ghResultSchema,
   },
   fetchPrFiles: {
-    input: prFilesRequestSchema,
+    input: prFilesPageRequestSchema,
     output: ghResultSchema,
   },
   fetchReviewThreads: {

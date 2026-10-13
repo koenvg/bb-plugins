@@ -37,3 +37,25 @@ describe("readRateLimitReset", () => {
     expect(await readRateLimitReset()).toEqual({ resetAt: null });
   });
 });
+
+describe("fetchPrFiles", () => {
+  it("returns less than the 8 MiB host output cap when the patches add up to more", async () => {
+    const files = Array.from({ length: 100 }, (_, index) => ({
+      filename: `src/file-${index}.ts`,
+      status: "modified",
+      patch: "+".repeat(200 * 1024),
+    }));
+    ghStdout.value = JSON.stringify(files);
+    const context = { signal: new AbortController().signal } as Parameters<
+      typeof host.handlers.fetchPrFiles
+    >[1];
+
+    const result = await host.handlers.fetchPrFiles(
+      { owner: "o", repo: "r", number: 1, page: 1 },
+      context,
+    );
+
+    expect(result).toMatchObject({ ok: true });
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(8 * 1024 * 1024);
+  });
+});

@@ -8,7 +8,7 @@ const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
 const RESOLVED = "PRRT_kwDOHI7l-86jvKxS";
 
 function reviewHost({ method }: HostCall) {
-  if (method === "fetchPrFiles") return ok(prFiles);
+  if (method === "fetchPrFiles") return ok(prFiles[0]);
   if (method === "fetchReviewThreads") return ok(reviewThreads);
   if (method === "fetchPrHead") return ok(prHeadResponse());
   throw new Error(`unexpected host call ${method}`);
