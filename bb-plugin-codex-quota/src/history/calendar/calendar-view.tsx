@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { projectTokenModels, type ModelSeries } from "./calendar-models.js";
 import { tokenCountText } from "../../token-counts.js";
 import {
@@ -211,12 +211,31 @@ function CalendarDateTick({
     </text>
   );
 }
-function PositiveUsageMarkers({ rows }: Pick<ReturnType<typeof chartData>, "rows">) {
+type SeriesSelection = { query: string; hidden: ReadonlySet<string> };
+function seriesId(series: ModelSeries): string {
+  if (series.model !== undefined) return JSON.stringify(["model", series.model, series.speed]);
+  const suffix = series.speed === "normal" ? "" : `_${series.speed}`;
+  if (series.key === `other${suffix}`) return JSON.stringify(["other", series.speed]);
+  if (series.key === `unknown${suffix}`) return JSON.stringify(["unknown", series.speed]);
+  throw Error("Unrecognized model bucket");
+}
+const graphFilterHelp =
+  "Graph filters affect bars only. Recorded totals and table include all series. Uncertain estimates are not filtered.";
+function PositiveUsageMarkers({
+  rows,
+  models,
+}: Pick<ReturnType<typeof chartData>, "rows" | "models">) {
   const plot = usePlotArea();
   if (!plot) return null;
   // Mark the day, not each stack segment. Drawing coordinates and recorded facts stay proportional.
   return rows
-    .filter((row) => (row.value ?? 0) > 0 && (row.height ?? 0) * plot.height < 2)
+    .filter((row) => {
+      const height = models.reduce(
+        (total, series) => total + (row.modelHeights[series.key] ?? 0),
+        0,
+      );
+      return height > 0 && height * plot.height < 2;
+    })
     .map((row) => (
       <ReferenceDot
         key={row.date}
@@ -236,6 +255,8 @@ function PositiveUsageMarkers({ rows }: Pick<ReturnType<typeof chartData>, "rows
       />
     ));
 }
+const legendButton =
+  "inline-flex min-w-0 max-w-full items-center gap-2 m-0 appearance-none border-0 bg-transparent p-0 text-left [font:inherit] [color:inherit] focus-visible:outline-2 focus-visible:outline-ring";
 export function CalendarValues({
   view,
   metric,
@@ -244,13 +265,62 @@ export function CalendarValues({
   metric: TokenMetric;
 }) {
   const [chartWidth, setChartWidth] = useState(320);
+  const query = JSON.stringify(view.query);
+  const helpId = useId();
+  const group = useRef<HTMLDivElement>(null);
+  const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const lastToggled = useRef<string | null>(null);
+  const restoreButton = useRef<HTMLButtonElement | null>(null);
+  const removedFocusedRestore = useRef(false);
+  const restoreRef = useCallback((node: HTMLButtonElement | null) => {
+    if (!node && restoreButton.current === document.activeElement)
+      removedFocusedRestore.current = true;
+    restoreButton.current = node;
+  }, []);
+  const [selection, setSelection] = useState<SeriesSelection>(() => ({ query, hidden: new Set() }));
+  const hidden = selection.query === query ? selection.hidden : new Set<string>();
+  if (selection.query !== query) setSelection({ query, hidden: new Set() });
+  const toggle = (id: string) => {
+    lastToggled.current = id;
+    setSelection((previous) => {
+      const next = new Set(previous.query === query ? previous.hidden : []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { query, hidden: next };
+    });
+  };
   const { rows, maximum, models } = chartData(view.days, metric);
+  const entries = models.map((series) => {
+    const id = seriesId(series);
+    return { id, series, hidden: hidden.has(id) };
+  });
+  const hasSelection = hidden.size > 0;
+  const currentHiddenCount = entries.filter((entry) => entry.hidden).length;
+  const allCurrentHidden = entries.length > 0 && currentHiddenCount === entries.length;
+  const focusSeries = () => {
+    const last =
+      lastToggled.current === null ? undefined : buttons.current.get(lastToggled.current);
+    const target = last ?? buttons.current.get(entries[0]?.id) ?? group.current;
+    target?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => {
+    if (
+      removedFocusedRestore.current &&
+      !restoreButton.current &&
+      document.activeElement === document.body
+    ) {
+      focusSeries();
+    }
+    removedFocusedRestore.current = false;
+  });
   const ticks = maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1];
   return (
     <div
       className="mt-4 min-w-0 text-muted-foreground"
       role="group"
       aria-label="Daily recorded values"
+      ref={group}
+      tabIndex={-1}
     >
       <ResponsiveContainer
         onResize={setChartWidth}
@@ -263,6 +333,7 @@ export function CalendarValues({
           data={rows}
           margin={{ top: 14, right: 8, bottom: 8, left: chartWidth < 480 ? 16 : 24 }}
           accessibilityLayer
+          aria-describedby={metric === "tokens" ? helpId : undefined}
           aria-label={`Daily usage chart: ${metricName(metric)}`}
         >
           <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.16} />
@@ -314,9 +385,10 @@ export function CalendarValues({
             }}
           />
           {metric === "tokens" ? (
-            models.map((series) => (
+            entries.map(({ id, series, hidden }) => (
               <Bar
-                key={series.key}
+                key={id}
+                hide={hidden}
                 stackId="tokens"
                 dataKey={`modelHeights.${series.key}`}
                 name={series.label}
@@ -347,35 +419,86 @@ export function CalendarValues({
               isAnimationActive={false}
             />
           )}
-          {metric === "tokens" && <PositiveUsageMarkers rows={rows} />}
+          {metric === "tokens" && (
+            <PositiveUsageMarkers
+              rows={rows}
+              models={entries.filter((entry) => !entry.hidden).map((entry) => entry.series)}
+            />
+          )}
         </BarChart>
       </ResponsiveContainer>
       {metric === "tokens" && (
-        <p
-          className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs [overflow-wrap:anywhere]"
-          aria-label="Models"
-        >
-          {models.map((series) => (
-            <span className="inline-flex min-w-0 max-w-full items-center gap-2" key={series.key}>
-              <span
-                aria-hidden="true"
-                className="size-2.5 shrink-0 rounded-sm"
-                style={{ backgroundColor: series.color }}
-              />
-              {series.label}
-            </span>
-          ))}
-          {view.query.includeUncertain &&
-            view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
-              <span className="inline-flex items-center gap-2">
+        <>
+          <p
+            role="group"
+            aria-label="Models"
+            aria-describedby={helpId}
+            className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs [overflow-wrap:anywhere]"
+          >
+            {entries.map(({ id, series, hidden }) => (
+              <button
+                type="button"
+                key={id}
+                ref={(node) => {
+                  if (node) buttons.current.set(id, node);
+                  else buttons.current.delete(id);
+                }}
+                aria-pressed={!hidden}
+                aria-label={
+                  series.model === "Unknown model" || series.model === "Other models"
+                    ? `${series.label} named model`
+                    : undefined
+                }
+                onClick={() => toggle(id)}
+                className={legendButton}
+              >
                 <span
                   aria-hidden="true"
-                  className="size-2.5 border border-dashed border-muted-foreground bg-muted"
+                  className="size-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: series.color }}
                 />
-                Uncertain estimate
-              </span>
+                <span className={`min-w-0${hidden ? " line-through" : ""}`}>{series.label}</span>
+              </button>
+            ))}
+            {view.query.includeUncertain &&
+              view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 border border-dashed border-muted-foreground bg-muted"
+                  />
+                  Uncertain estimate
+                </span>
+              )}
+            {hasSelection && (
+              <button
+                type="button"
+                ref={restoreRef}
+                className={legendButton}
+                onClick={() => {
+                  if (restoreButton.current === document.activeElement) focusSeries();
+                  setSelection({ query, hidden: new Set() });
+                }}
+              >
+                Restore all series
+              </button>
             )}
-        </p>
+          </p>
+          <p id={helpId} className="sr-only">
+            {graphFilterHelp}
+          </p>
+          <p
+            role="status"
+            aria-live="polite"
+            className={allCurrentHidden ? "mt-1 text-xs" : "sr-only"}
+          >
+            {models.length === 0
+              ? "No recorded model/speed series."
+              : allCurrentHidden
+                ? "All model/speed series hidden. Recorded usage is not zero."
+                : `${currentHiddenCount} model/speed series hidden.`}
+          </p>
+        </>
       )}
       <div className="sr-only">
         <table aria-label="Daily recorded usage">
@@ -387,6 +510,7 @@ export function CalendarValues({
                 ? "Unknown history"
                 : "Partial history"}
             . {isMoney(metric) && billingLimit}
+            {metric === "tokens" && " Graph filters do not change this table."}
           </caption>
           <thead>
             <tr>
