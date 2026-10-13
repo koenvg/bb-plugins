@@ -44,7 +44,7 @@ export const settingsDefinition = {
     label: "Assertion signing issuer",
     default: "",
     description:
-      "Bearer mode: OpenID Connect issuer. Cloudflare mode: exact HTTPS Access team origin.",
+      "Bearer mode: exact OpenID Connect issuer, including any trailing slash. Cloudflare mode: exact HTTPS Access team origin.",
   },
   owner: {
     type: "string",
@@ -111,7 +111,7 @@ export const configSchema = z
           !url.hostname.includes(".") ||
           url.hostname === "localhost" ||
           (field === "publicOrigin" && value[field] !== url.origin) ||
-          (field === "issuer" && value[field] !== url.href.replace(/\/$/, ""))
+          (field === "issuer" && value[field] !== url.href && value[field] !== url.origin)
         )
           throw new Error();
       } catch {

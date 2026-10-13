@@ -56,7 +56,10 @@ export function authenticator(fetcher: typeof fetch = fetch) {
         promise: (async () => {
           let url = new URL(issuer + "/cdn-cgi/access/certs");
           if (authMode === "bearer-jwt") {
-            const response = await boundedFetch(issuer + "/.well-known/openid-configuration");
+            // Remove only the discovery separator; issuer identity stays exact.
+            const response = await boundedFetch(
+              issuer.replace(/\/$/, "") + "/.well-known/openid-configuration",
+            );
             const discovery = discoverySchema.parse(await response.json());
             url = new URL(discovery.jwks_uri);
             if (

@@ -14,19 +14,19 @@ Remote access and control start disabled. Starting or messaging an agent can cha
 
 Use Settings → Plugins → MCP in BB, or the standard `bb plugin config mcp` commands after a separately approved installation.
 
-| Setting             | Meaning                                                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `publicOrigin`      | Canonical public HTTPS origin, such as `https://mcp.example.org`. No path, query, credentials, or trailing slash. Any valid public domain can be used. |
-| `port`              | Dedicated loopback port from 1024 to 65535. Default 38991. Port 38886 is reserved for BB and is refused. Do not use any other BB service port.         |
-| `issuer`            | Exact signing issuer. Bearer mode uses OIDC (realm paths supported, no trailing slash); Cloudflare mode uses the Access team HTTPS origin.             |
-| `owner`             | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                              |
-| `authMode`          | `bearer-jwt` (default) or explicit `cloudflare-access`; never selected from caller headers.                                                            |
-| `accessAudience`    | Cloudflare only: exact dedicated application AUD. Missing AUD fails closed.                                                                            |
-| `accessPermission`  | Cloudflare only: local `read` (default) or `read-control` permission shared by all owner/app sessions.                                                 |
-| `accessOAuthIssuer` | Cloudflare only: exact OAuth authorization-server issuer from verified discovery, separate from the assertion issuer.                                  |
-| `projects`          | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                               |
-| `remoteEnabled`     | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                               |
-| `controlEnabled`    | Local start/send/stop switch, false by default. Writes also require the selected mode's control permission.                                            |
+| Setting             | Meaning                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `publicOrigin`      | Canonical public HTTPS origin, such as `https://mcp.example.org`. No path, query, credentials, or trailing slash. Any valid public domain can be used.                   |
+| `port`              | Dedicated loopback port from 1024 to 65535. Default 38991. Port 38886 is reserved for BB and is refused. Do not use any other BB service port.                           |
+| `issuer`            | Exact signing issuer. Bearer mode uses the exact HTTPS OIDC issuer, including its path and trailing slash if present; Cloudflare mode uses the Access team HTTPS origin. |
+| `owner`             | Exact issuer subject, the token's `sub`. Spaces at the edges are refused.                                                                                                |
+| `authMode`          | `bearer-jwt` (default) or explicit `cloudflare-access`; never selected from caller headers.                                                                              |
+| `accessAudience`    | Cloudflare only: exact dedicated application AUD. Missing AUD fails closed.                                                                                              |
+| `accessPermission`  | Cloudflare only: local `read` (default) or `read-control` permission shared by all owner/app sessions.                                                                   |
+| `accessOAuthIssuer` | Cloudflare only: exact OAuth authorization-server issuer from verified discovery, separate from the assertion issuer.                                                    |
+| `projects`          | Project IDs separated by newlines or spaces, at most 1000. Empty permits no projects and makes no project-list SDK call.                                                 |
+| `remoteEnabled`     | Local read-access switch. False by default. Disable applies to the next request and closes the listener.                                                                 |
+| `controlEnabled`    | Local start/send/stop switch, false by default. Writes also require the selected mode's control permission.                                                              |
 
 Invalid settings fail closed. Settings remain in BB's normal settings store. The plugin does not keep a second configuration file.
 
@@ -56,7 +56,9 @@ Setup prerequisites, not actions performed by this plugin:
 
 ## Bearer-JWT OAuth issuer recipe
 
-A dedicated Keycloak 26 OpenID Connect realm/client can supply the required RS256 JWTs. Use its public HTTPS issuer, for example `https://login.example.org/realms/bb`. The discovery document is at that issuer plus `/.well-known/openid-configuration`; it supplies the signing-key URL. Public HTTPS certificates for both issuer and MCP hostname must validate with normal public trust. Do not disable TLS verification.
+A dedicated Keycloak 26 OpenID Connect realm/client can supply the required RS256 JWTs. Use its public HTTPS issuer, for example `https://login.example.org/realms/bb`. The discovery document appends `/.well-known/openid-configuration` after removing one final slash from the endpoint base only; it supplies the signing-key URL. The configured issuer stays unchanged. Public HTTPS certificates for both issuer and MCP hostname must validate with normal public trust. Do not disable TLS verification.
+
+Copy the issuer exactly from verified discovery and the access token's `iss` claim. A slash-ending root issuer such as Auth0's `https://my-domain.auth0.com/` is valid. Its discovery URL is `https://my-domain.auth0.com/.well-known/openid-configuration`, not a double-slash path. Issuers with and without a final slash are different identities; do not add or remove that slash in settings or tokens. Credentials, queries, fragments and non-canonical URL spellings are refused. Cloudflare's assertion issuer still requires a team origin without a final slash. See [Auth0's access-token reference](https://auth0.com/docs/secure/tokens/access-tokens). Local fixtures cover this URL format, not a live Auth0 tenant or login.
 
 Configure the issuer outside this plugin:
 
