@@ -61,4 +61,18 @@ The parent accepted and fixed the blocker. `terminal-red.log` preserves the thre
 
 The terminal regressions cover result-path rejection, latency ledger publication rejection, persisted successful-result accounting and original failure preservation after late ledger rejection. Existing closure and failed-movement safeguards remain passing. `terminal-green.log` records the thirteen-test checkpoint before the last original-failure case; `final-node-tests.log` is the final state.
 
-The reviewer verdict remains the historical request-changes verdict. The parent resolved its sole finding and verified the final regressions. No second review pass was launched, as required by the one-pass review instructions. The changes remain uncommitted in the task worktree. Full suites/builds/browser/installed checks remain unrun. Historical measurements, BBP-68 and dependency targets remain unchanged. No additional cleanup ticket is needed for the now-fixed assigned defect.
+The reviewer verdict remains the historical request-changes verdict. The parent resolved its sole finding and verified the final regressions. No second review pass was launched, as required by the one-pass review instructions. The changes were uncommitted at task completion. The operator subsequently requested a PR; its preparation is recorded below. Full suites/builds/browser/installed checks remain unrun. Historical measurements, BBP-68 and dependency targets remain unchanged. No additional cleanup ticket is needed for the now-fixed assigned defect.
+
+## PR preparation
+
+The operator requested a PR for the current task branch. The unpublished lab harness is required by the fix, so this PR includes its nine original files along with BBP-198. The already-merged preview/footer prerequisite was removed from this branch's history. No production UI, SDK, manifest or lockfile change is included in the PR.
+
+The branch was rebased onto `origin/main` at `430f14d5e754d5b74f33ae00d060761a35bfabea`. Rebased harness commit: `55e5e11`. Rebased implementation commit: `5601fac`. The new executable modules did not change during the rebase. This is a publication baseline, not a replacement identity for any historical measured run or review.
+
+Post-rebase checks all pass with explicit exit 0:
+- 45 Node tests: `pr-node-tests.log`.
+- Six focused Vitest files, 39 tests: `pr-focused-vitest.log`.
+- Tasks typecheck: `pr-typecheck.log`.
+- Local harness lint: `pr-lint.log`.
+
+The original raw logs and tracked-diff checkpoint remain byte-for-byte evidence in the BBP-198 attachment `raw-evidence.tar.gz`, ID `01M4TS11H2TNF18TGJHMP3AZ0K`. They are intentionally not rewritten to satisfy Git whitespace checks or included as duplicate raw repository files. The committed final and PR logs retain the verification results. The two local dependency links and local raw evidence files are not part of the PR.
