@@ -136,14 +136,17 @@ The context reduction SHALL leave stored descriptions, presets, task attachments
 - **AND** retained records, custom cleanup prompts and previously delivered prompts remain unchanged
 
 ### Requirement: Agent guidance does not depend on comments
+
 New plugin-authored delegation prompts and bundled Tasks guidance SHALL NOT direct posting or reading task comments, comment notification or comment-owner attachment operations. Useful work reports and required questions SHALL use the linked work thread. Existing authored-context budgets, task-work authorization rules, blocker checks and completion gates SHALL remain in force.
 
 #### Scenario: New delegated worker
+
 - **WHEN** a user delegates a task after comment removal
 - **THEN** the worker receives full retained requirements and comment-free reporting guidance
 - **AND** no automatic replacement summary or new reporting API is introduced
 
 #### Scenario: Prior instructions or user presets
+
 - **WHEN** a running worker or stored custom preset still refers to an old comment command
 - **THEN** previously delivered instructions and stored presets remain unchanged
 - **AND** the removed command is unavailable without a compatibility alias

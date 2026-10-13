@@ -11,7 +11,7 @@ The production control and separate profile completed. The supervisor accepted t
 - SDK fake backend host, actual Tasks API/store, temporary SQLite and RPC input/output schema validation.
 - Existing fixture, probe, qualification and report helpers. A visible selected row, exact row title, detail key/title, complete normalized description and exact link must match. Nested list text is counted once. Negative tests reject wrong identity, stale content, missing description tails and hidden rows/content.
 - Actual quota footer adapter and `QuotaBadge` on the existing native footer fixture with synthetic unavailable quota. No OAuth, collector or real quota polling.
-- 100 tasks, canonical labels, ten warm tasks and a separate heavy task with 50 comments alternating user and agent authors. Ten small text attachment records remain local. Downloads and real provider/thread/PR lifecycles are not acceptance claims.
+- 100 tasks, canonical labels, ten warm tasks and a separate long-description task. The fixture has no comments or files. Provision task-owned files separately for file checks. Downloads and real provider/thread/PR lifecycles are not acceptance claims.
 
 The host is a fixed layout double, not the installed BB renderer or compact drawer. Context, RPC, navigation and fixed-tab controllers keep stable identity across selections. Each accepted route is delivered in FIFO order in its own `setTimeout` task after commit microtasks. Inputs are not coalesced. Disposal revokes queued delivery. Future control/candidate runs must use identical scheduling.
 
@@ -68,7 +68,7 @@ node bb-plugin-tasks-plus/scripts/navigation-benchmark/local-harness.mjs profile
 
 The minified production build records its esbuild graph. Gates require production React/ReactDOM inputs, exclude development/testing renderer inputs, check runtime production metadata and compare browser-loaded JS bytes with disk. Every run records source/dirty state, source and executable-harness hashes, SDK versions, fixture/JS/CSS hashes, browser/executable, UTC, 1440x900 and no CPU throttling.
 
-Latency excludes 18 observed warmups and retains 36 warm movements only when the destination is current before and after with no interval invalidation. Exact content is checked again at the second frame. Cold BENCH-80, failed cold BENCH-99/retry, invalidation, delayed title save, failed-save origin/draft/retry and heavy activity remain separate. Cold click timings include driver polling; saves use wall-clock observation. Neither is a warm percentile.
+Latency excludes 18 observed warmups and retains 36 warm movements only when the destination is current before and after with no interval invalidation. Exact content is checked again at the second frame. Cold BENCH-80, failed cold BENCH-99/retry, invalidation, delayed title save, failed-save origin/draft/retry and long-description presentation remain separate. Cold click timings include driver polling; saves use wall-clock observation. Neither is a warm percentile.
 
 Profiling is a fresh separate phase with the same build/fixture/configuration. It retains CPU samples, timeline events and date work. Do not add nested trace durations or use profiled latency as the control percentile.
 

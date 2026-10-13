@@ -197,14 +197,17 @@ A selected ticket's loading, missing-ticket, or load-error state SHALL appear in
 - **AND** thread-side embeds and retained CLI behavior are unchanged
 
 ### Requirement: Task detail has no comment UI
+
 Every task detail destination SHALL omit comment history, the Activity section, composer, comment drafts, notification controls and comment-author presentation. Retained description editing, properties, dependencies, subtasks, task attachments, linked threads and delegation SHALL remain available without a replacement activity feed.
 
 #### Scenario: Open task details
+
 - **WHEN** a user opens a standalone task, native Ticket tab or thread-side Task panel
 - **THEN** no comment UI, activity-loading control or comment error state appears
 - **AND** retained task actions and files remain available
 
 #### Scenario: Change task or host tab
+
 - **WHEN** a user switches tasks, parks Ticket or returns from Browser or Terminal
 - **THEN** no comment state is retained or activated
 - **AND** retained task edits, task-attachment state and browsing context follow existing save and lifecycle safeguards
