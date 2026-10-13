@@ -30,6 +30,19 @@ it("renders the real library's axes and keyboard-accessible chart", () => {
   ).toHaveLength(30);
   expect(screen.queryByRole("region", { name: "Daily detail" })).toBeNull();
 });
+it("names the focusable chart for the current metric without replacing it", () => {
+  const view = calendarSnapshot(query);
+  const page = render(<CalendarValues view={view} metric="tokens" />);
+  const chart = screen.getByRole("application", { name: "Daily usage chart: Tokens" });
+  expect(chart.tagName.toLowerCase()).toBe("svg");
+  expect(chart.getAttribute("tabindex")).toBe("0");
+  page.rerender(<CalendarValues view={view} metric="cost" />);
+  expect(screen.getByRole("application", { name: "Daily usage chart: USD estimate" })).toBe(chart);
+  expect(screen.queryByRole("application", { name: "Daily usage chart: Tokens" })).toBeNull();
+  expect(
+    screen.getByRole("table", { name: "Daily recorded usage" }).querySelectorAll("tbody tr"),
+  ).toHaveLength(30);
+});
 it("keeps just date navigation and two local metrics", async () => {
   const read = vi.fn(async ({ query }) => calendarSnapshot(query));
   render(
