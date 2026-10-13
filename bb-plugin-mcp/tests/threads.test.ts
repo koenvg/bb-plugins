@@ -44,7 +44,12 @@ async function setup(options: Parameters<typeof fixture>[0] = {}) {
   const rows = Array.from({ length: 65 }, (_, i) => row(`thr_${i}`));
   const listing = vi.fn<Threads["list"]>(async (args) =>
     rows
-      .filter((t) => t.projectId === args?.projectId && t.visibility === "visible")
+      .filter(
+        (t) =>
+          t.projectId === args?.projectId &&
+          t.visibility === "visible" &&
+          (args?.archived === undefined || (t.archivedAt !== null) === args.archived),
+      )
       .slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 50)),
   );
   current.host.harness.sdk.stub("threads.get", get);
@@ -98,6 +103,7 @@ describe("read-only thread protocol", () => {
         {},
         { projectId: "" },
         { projectId: "proj_a", limit: 51 },
+        { projectId: "proj_a", archived: true },
         { projectId: "proj_a", cursor: "-1" },
       ]) {
         expect((await client.callTool({ name: list.name, arguments: args })).isError).toBe(true);
@@ -146,6 +152,7 @@ describe("read-only thread protocol", () => {
       expect(f.listing.mock.calls[0][0]).toMatchObject({
         projectId: "proj_a",
         includeHidden: false,
+        archived: false,
         limit: 51,
         offset: 0,
       });
@@ -168,8 +175,58 @@ describe("read-only thread protocol", () => {
     expect(f.host.harness.inspection.sdk.calls.every((c) => c.path === "threads.list")).toBe(true);
   });
 
-  it("returns only selected status and assistant output, labeled as untrusted data", async () => {
+  it("pages nonarchived threads without gaps when archived rows cross page boundaries", async () => {
     const f = await setup();
+    f.rows.splice(
+      0,
+      f.rows.length,
+      row("archived_0", { archivedAt: 1 }),
+      row("thr_0"),
+      row("thr_1"),
+      row("archived_1", { archivedAt: 1 }),
+      row("thr_2"),
+      row("archived_2", { archivedAt: 1 }),
+      row("thr_3"),
+      row("thr_4"),
+      row("archived_3", { archivedAt: 1 }),
+    );
+    const pages = [];
+    for (const cursor of [undefined, "2", "4"]) {
+      pages.push(
+        (
+          await call(f, {
+            name: list.name,
+            arguments: { projectId: "proj_a", limit: 2, ...(cursor ? { cursor } : {}) },
+          })
+        ).body.result.structuredContent,
+      );
+    }
+    expect(pages.map((page) => page.threads.map((thread: { id: string }) => thread.id))).toEqual([
+      ["thr_0", "thr_1"],
+      ["thr_2", "thr_3"],
+      ["thr_4"],
+    ]);
+    expect(pages.map((page) => page.threads.length)).toEqual([2, 2, 1]);
+    expect(pages.map((page) => page.nextCursor)).toEqual(["2", "4", null]);
+    expect(JSON.stringify(pages)).not.toContain("archived_");
+    f.rows.splice(0, f.rows.length, row("archived_only", { archivedAt: 1 }));
+    expect((await call(f, list)).body.result.structuredContent).toEqual({
+      threads: [],
+      nextCursor: null,
+    });
+  });
+
+  it("returns selected status and assistant output for archived direct IDs, labeled as untrusted data", async () => {
+    const f = await setup();
+    f.get.mockResolvedValue(
+      makeThreadResponse({
+        id: "thr_a",
+        projectId: "proj_a",
+        title: "Allowed",
+        status: "active",
+        archivedAt: 1,
+      }),
+    );
     const { body } = await call(f);
     expect(body.result.structuredContent).toEqual({
       id: "thr_a",

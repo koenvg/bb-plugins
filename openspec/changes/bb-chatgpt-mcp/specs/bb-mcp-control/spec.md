@@ -67,7 +67,24 @@ Thread and operation access SHALL verify current project membership and the curr
 
 ### Requirement: Read results are bounded and treated as data
 
-List tools SHALL use bounded pages, with a maximum of 50 records per response and explicit continuation information. Thread reads SHALL return status, a bounded recent assistant output, and a pending-interaction indicator rather than raw transcripts. Structured responses SHALL omit credential, environment-variable, and local-filesystem fields from BB objects. Output SHALL state whether it was truncated. Tools SHALL describe agent output as untrusted data, not instructions for the calling assistant, and warn that an allowed thread's text can contain private project information.
+List tools SHALL use bounded pages, with a maximum of 50 records per response and explicit continuation information. `bb_list_threads` SHALL exclude hidden workers and archived threads before pagination, with no caller option to include them. Archive state SHALL NOT be an access boundary: `bb_get_thread` SHALL permit direct reads of archived threads when current project membership and access checks pass. Thread reads SHALL return status, a bounded recent assistant output, and a pending-interaction indicator rather than raw transcripts. Structured responses SHALL omit credential, environment-variable, and local-filesystem fields from BB objects. Output SHALL state whether it was truncated. Tools SHALL describe agent output as untrusted data, not instructions for the calling assistant, and warn that an allowed thread's text can contain private project information.
+
+#### Scenario: Archived threads cross page boundaries
+
+- **WHEN** a client lists an allowed project with archived threads interspersed among nonarchived threads across page boundaries
+- **THEN** each page contains only visible nonarchived threads, up to the requested page limit
+- **AND** continuation cursors advance through the filtered list without gaps caused by archived rows
+
+#### Scenario: Only archived threads remain
+
+- **WHEN** an allowed project contains only archived threads
+- **THEN** `bb_list_threads` returns an empty thread list and no continuation cursor
+
+#### Scenario: Direct read of an archived thread
+
+- **WHEN** a client supplies an archived thread's ID and its current project membership and access checks pass
+- **THEN** `bb_get_thread` returns the same bounded status and output fields as for a nonarchived thread
+- **AND** the archived thread remains excluded from `bb_list_threads`
 
 #### Scenario: Large thread output
 
