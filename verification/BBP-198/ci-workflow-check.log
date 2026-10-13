@@ -1,0 +1,3 @@
+Workflow dependency ordering and setup/cancellation gates pass; lint/test failure does not suppress checks after successful setup.
+
+Exit code: 0

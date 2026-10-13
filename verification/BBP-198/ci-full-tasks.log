@@ -1,0 +1,12 @@
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_pydvt2bpzn-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  130 passed (130)
+      Tests  1300 passed (1300)
+   Start at  16:17:06
+   Duration  43.03s (transform 6.43s, setup 25.13s, import 41.39s, tests 233.28s, environment 68.76s)
+
+
+Exit code: 0

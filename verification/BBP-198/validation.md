@@ -70,9 +70,28 @@ The operator requested a PR for the current task branch. The unpublished lab har
 The branch was rebased onto `origin/main` at `430f14d5e754d5b74f33ae00d060761a35bfabea`. Rebased harness commit: `55e5e11`. Rebased implementation commit: `5601fac`. The new executable modules did not change during the rebase. This is a publication baseline, not a replacement identity for any historical measured run or review.
 
 Post-rebase checks all pass with explicit exit 0:
+
 - 45 Node tests: `pr-node-tests.log`.
 - Six focused Vitest files, 39 tests: `pr-focused-vitest.log`.
 - Tasks typecheck: `pr-typecheck.log`.
 - Local harness lint: `pr-lint.log`.
 
 The original raw logs and tracked-diff checkpoint remain byte-for-byte evidence in the BBP-198 attachment `raw-evidence.tar.gz`, ID `01M4TS11H2TNF18TGJHMP3AZ0K`. They are intentionally not rewritten to satisfy Git whitespace checks or included as duplicate raw repository files. The committed final and PR logs retain the verification results. The two local dependency links and local raw evidence files are not part of the PR.
+
+## CI correction
+
+The operator requested correction of PR #235's failed checks. Run `38409914582` on head `4bdeebb2cf90f2e6a796eb17b255f53d27fc168d` failed formatting and the Tasks typecheck. Its Tasks tests passed; the job failure was in typecheck, not the test suite. Formatting listed the eight inherited lab source files and this report. The typecheck followed `local-ui.tsx` imports into quota source, but the Tasks matrix job had installed only Tasks dependencies.
+
+The fix formats those exact files and installs quota's existing frozen dependencies in the Tasks job before lint. Tests and typecheck require successful lab dependency setup but still run after lint or test failure. No check, type inclusion, dependency version, manifest, lockfile, SDK or production UI source is changed. The existing GitHub Insight integration setup remains unchanged.
+
+An isolated temporary source copy reproduced the missing quota-module errors with only Tasks dependencies available. Making the existing quota dependency directory available made the unchanged typecheck pass. Only the exact owned source copy was removed. No local package install or dependency mutation was performed. This validates dependency presence, not the remote Bun install itself.
+
+Verified local correction checks:
+
+- Full root `bun run check`: setup tests, lint and whole-repository formatting pass, exit 0 in `ci-local-check.log`. Existing lint warnings remain warnings.
+- Full Tasks suite: 130 files, 1,300 tests pass, exit 0 in `ci-full-tasks.log`.
+- Benchmark safeguards: 45 tests pass, exit 0 in `ci-node-tests.log`.
+- Tasks typecheck: exit 0 in `ci-typecheck.log` and the isolated dependency-present case.
+- Parsed workflow assertions verify install-before-lint ordering, setup failure/cancellation gates, unrelated matrix jobs and running checks despite lint/test failure. Exit 0 in `ci-workflow-check.log`.
+
+Failure logs and the isolated red/green reproduction are retained without rewriting in task attachment `ci-failure-evidence.tar.gz`, ID `01M4TT3XT7DG5QJ5NT5MGSGGYV`. Earlier coverage statements remain historical; the full Tasks suite is now locally verified. No performance measurement, new installed check or second independent review was run. Formatting changes future executable hashes, not historical run identities. A new remote CI run is still required to verify the frozen integration install.

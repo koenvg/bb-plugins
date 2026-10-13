@@ -30,24 +30,40 @@ export function createLocalHost(options: LocalHostOptions) {
   const identity = {};
   const channels = new Map<string, Set<(payload: unknown) => void>>();
   const rpcCalls: Array<{ method: string; input: unknown }> = [];
-  const navigateCalls: Array<{ method: "toPluginPanel"; path: string; options: { subPath: string; replace: boolean } }> = [];
+  const navigateCalls: Array<{
+    method: "toPluginPanel";
+    path: string;
+    options: { subPath: string; replace: boolean };
+  }> = [];
   const fixedTabOpenCalls: Parameters<ExperimentalAppPanel["openFixedTab"]>[0][] = [];
   const context = Object.freeze({ projectId: null, threadId: null, ...options.context });
   const settings = Object.freeze({ values: undefined, isLoading: false });
-  const live = () => { if (disposed) throw new Error("Owned host disposed"); };
+  const live = () => {
+    if (disposed) throw new Error("Owned host disposed");
+  };
   const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
   function store<T>(initial: T) {
     let snapshot = initial;
     const listeners = new Set<() => void>();
     return {
       get: () => snapshot,
-      subscribe(listener: () => void) { live(); listeners.add(listener); return () => { listeners.delete(listener); }; },
+      subscribe(listener: () => void) {
+        live();
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
       set(next: T) {
-        live(); if (Object.is(snapshot, next)) return; snapshot = next;
+        live();
+        if (Object.is(snapshot, next)) return;
+        snapshot = next;
         const recipients = [...listeners]; // Changes during delivery affect the next event.
         for (const listener of recipients) listener();
       },
-      clear() { listeners.clear(); },
+      clear() {
+        listeners.clear();
+      },
     };
   }
   const route = store("all");
@@ -67,7 +83,11 @@ export function createLocalHost(options: LocalHostOptions) {
       scheduleRoute();
     }, 0);
   };
-  const acceptRoute = (subPath: string) => { live(); acceptedRoutes.push(subPath); scheduleRoute(); };
+  const acceptRoute = (subPath: string) => {
+    live();
+    acceptedRoutes.push(subPath);
+    scheduleRoute();
+  };
   const connection = store<PluginRealtimeConnectionState>("connected");
   const rpcClient = {
     async call(method: string, input?: unknown) {
@@ -80,24 +100,40 @@ export function createLocalHost(options: LocalHostOptions) {
     },
   } as PluginRpcClient;
   const blockedNavigation = new Map<PropertyKey, () => never>();
-  const navigate = new Proxy({
-    toPluginPanel(path: string, navigation?: { subPath?: string; replace?: boolean }) {
-      live();
-      if (path !== options.panel.path || typeof (navigation?.subPath ?? "") !== "string") throw new Error("Owned host blocks non-Tasks navigation");
-      const subPath = navigation?.subPath ?? "";
-      navigateCalls.push({ method: "toPluginPanel", path, options: { subPath, replace: navigation?.replace ?? false } });
-      acceptRoute(subPath);
+  const navigate = new Proxy(
+    {
+      toPluginPanel(path: string, navigation?: { subPath?: string; replace?: boolean }) {
+        live();
+        if (path !== options.panel.path || typeof (navigation?.subPath ?? "") !== "string")
+          throw new Error("Owned host blocks non-Tasks navigation");
+        const subPath = navigation?.subPath ?? "";
+        navigateCalls.push({
+          method: "toPluginPanel",
+          path,
+          options: { subPath, replace: navigation?.replace ?? false },
+        });
+        acceptRoute(subPath);
+      },
     },
-  }, { get(target, name) {
-    if (name in target) return Reflect.get(target, name);
-    if (!blockedNavigation.has(name)) blockedNavigation.set(name, () => { throw new Error(`Owned host blocks navigation ${String(name)}`); });
-    return blockedNavigation.get(name);
-  } }) as BbNavigate;
+    {
+      get(target, name) {
+        if (name in target) return Reflect.get(target, name);
+        if (!blockedNavigation.has(name))
+          blockedNavigation.set(name, () => {
+            throw new Error(`Owned host blocks navigation ${String(name)}`);
+          });
+        return blockedNavigation.get(name);
+      },
+    },
+  ) as BbNavigate;
   const panel: ExperimentalAppPanel = {
     openFixedTab(input) {
       live();
-      const eligible = options.panel.fixedTabs?.find(tab => tab.id === input.tab.id && tab.panelId === input.tab.panelId);
-      if (input.surface.kind !== "current" || !eligible || input.target !== undefined) throw new Error("Owned host blocks unsupported fixed tab");
+      const eligible = options.panel.fixedTabs?.find(
+        (tab) => tab.id === input.tab.id && tab.panelId === input.tab.panelId,
+      );
+      if (input.surface.kind !== "current" || !eligible || input.target !== undefined)
+        throw new Error("Owned host blocks unsupported fixed tab");
       fixedTabOpenCalls.push(input);
       ticket.set(true);
       return true;
@@ -109,22 +145,45 @@ export function createLocalHost(options: LocalHostOptions) {
     if (owner !== identity) throw new Error("SDK hook outside owned host context");
   }
   const supported = {
-    useRpc<Contract extends PluginRpcContract>() { useOwner(); return rpcClient as PluginRpcClient<Contract>; },
-    useBbNavigate() { useOwner(); return navigate; },
-    useBbContext() { useOwner(); return context; },
-    useSettings() { useOwner(); return settings; },
-    experimental_usePluginId() { useOwner(); return "tasks-plus"; },
-    experimental_useAppPanel() { useOwner(); return panel; },
+    useRpc<Contract extends PluginRpcContract>() {
+      useOwner();
+      return rpcClient as PluginRpcClient<Contract>;
+    },
+    useBbNavigate() {
+      useOwner();
+      return navigate;
+    },
+    useBbContext() {
+      useOwner();
+      return context;
+    },
+    useSettings() {
+      useOwner();
+      return settings;
+    },
+    experimental_usePluginId() {
+      useOwner();
+      return "tasks-plus";
+    },
+    experimental_useAppPanel() {
+      useOwner();
+      return panel;
+    },
     useRealtime(channel: string, handler: (payload: unknown) => void) {
       useOwner();
       const current = React.useRef(handler);
-      React.useEffect(() => { current.current = handler; });
+      React.useEffect(() => {
+        current.current = handler;
+      });
       React.useEffect(() => {
         const listener = (payload: unknown) => current.current(payload);
         const listeners = channels.get(channel) ?? new Set();
         channels.set(channel, listeners);
         listeners.add(listener);
-        return () => { listeners.delete(listener); if (!listeners.size) channels.delete(channel); };
+        return () => {
+          listeners.delete(listener);
+          if (!listeners.size) channels.delete(channel);
+        };
       }, [channel]);
     },
     useRealtimeConnectionState() {
@@ -137,24 +196,35 @@ export function createLocalHost(options: LocalHostOptions) {
       return <Icon {...props} name="Bot" />;
     },
   } satisfies Partial<PluginSdkApp>;
-  const runtime = new Proxy(supported, { get(target, name) {
-    if (name in target) return Reflect.get(target, name);
-    throw new Error(`Owned host blocks unsupported SDK operation ${String(name)}`);
-  } });
+  const runtime = new Proxy(supported, {
+    get(target, name) {
+      if (name in target) return Reflect.get(target, name);
+      throw new Error(`Owned host blocks unsupported SDK operation ${String(name)}`);
+    },
+  });
   const installed = { react: React, pluginSdkApp: runtime };
   global.__bbPluginRuntime = installed;
   function dispose() {
     if (disposed) return;
     if (routeTask !== undefined) clearTimeout(routeTask);
-    routeTask = undefined; acceptedRoutes.length = 0;
+    routeTask = undefined;
+    acceptedRoutes.length = 0;
     root?.unmount();
     root = null;
     disposed = true;
-    channels.clear(); route.clear(); ticket.clear(); connection.clear();
+    channels.clear();
+    route.clear();
+    ticket.clear();
+    connection.clear();
     if (global.__bbPluginRuntime === installed) global.__bbPluginRuntime = previous;
   }
   return {
-    inspection: { routePublications, rpcCalls, navigateCalls, experimental_fixedTabOpenCalls: fixedTabOpenCalls },
+    inspection: {
+      routePublications,
+      rpcCalls,
+      navigateCalls,
+      experimental_fixedTabOpenCalls: fixedTabOpenCalls,
+    },
     behavior: {
       async emitRealtime(channel: string, payload: unknown) {
         live();
@@ -166,14 +236,26 @@ export function createLocalHost(options: LocalHostOptions) {
       setTicketVisible: ticket.set,
     },
     lifecycle: {
-      mount(container: HTMLElement, Component: React.ComponentType<{ subPath: string; ticketVisible: boolean }>, subPath = "all") {
+      mount(
+        container: HTMLElement,
+        Component: React.ComponentType<{ subPath: string; ticketVisible: boolean }>,
+        subPath = "all",
+      ) {
         live();
         if (root) throw new Error("Owned host already mounted");
         route.set(subPath);
         function Frame() {
           const subPath = React.useSyncExternalStore(route.subscribe, route.get, route.get);
-          const ticketVisible = React.useSyncExternalStore(ticket.subscribe, ticket.get, ticket.get);
-          return <Scope.Provider value={identity}><Component subPath={subPath} ticketVisible={ticketVisible} /></Scope.Provider>;
+          const ticketVisible = React.useSyncExternalStore(
+            ticket.subscribe,
+            ticket.get,
+            ticket.get,
+          );
+          return (
+            <Scope.Provider value={identity}>
+              <Component subPath={subPath} ticketVisible={ticketVisible} />
+            </Scope.Provider>
+          );
         }
         root = createRoot(container);
         root.render(<Frame />);
