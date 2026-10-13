@@ -8,7 +8,10 @@ const liveOverlap = process.argv.includes("--live-overlap");
 const root = mkdtempSync(join(tmpdir(), "bbp22-bundle-")),
   fetch = globalThis.fetch,
   agent = process.env.PI_CODING_AGENT_DIR;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   const source = join(root, "configured-custom-source"),
     ordinary = join(root, "ordinary-workspace-sessions"),
     workspace = join(root, "workspace"),
@@ -398,5 +401,7 @@ try {
   globalThis.fetch = fetch;
   if (agent === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = agent;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });
 }

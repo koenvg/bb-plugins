@@ -20,7 +20,10 @@ assert.ok(Number(process.versions.node.split(".")[0]) >= 22, "Node host runtime 
 const root = mkdtempSync(join(tmpdir(), "bbp17-bundle-"));
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
 const previousFetch = globalThis.fetch;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   const agentDir = join(root, "agent");
   const dataDir = join(root, "host-data");
   const cwd = join(root, "workspace");
@@ -382,5 +385,7 @@ try {
   globalThis.fetch = previousFetch;
   if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });
 }

@@ -24,7 +24,10 @@ const writeAuth = (token) =>
     }),
     { mode: 0o600 },
   );
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(agentDir, "absent-codex");
   process.env.PI_CODING_AGENT_DIR = agentDir;
   Date.now = () => now;
   writeAuth("synthetic-account-a");
@@ -86,5 +89,7 @@ try {
   else process.env.PI_CODING_AGENT_DIR = previousDir;
   globalThis.fetch = previousFetch;
   Date.now = previousNow;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(agentDir, { recursive: true, force: true });
 }

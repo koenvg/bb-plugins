@@ -21,7 +21,10 @@ const oldFetch = globalThis.fetch;
 const NativeDate = Date;
 const now = NativeDate.parse("2026-10-01T12:00:00Z");
 let bundled;
+const previousCodexHome = process.env.CODEX_HOME;
 try {
+  // Native input is absent unless this check creates its own fixture.
+  process.env.CODEX_HOME = join(root, "absent-codex");
   globalThis.Date = class extends NativeDate {
     constructor(...args) {
       super(...(args.length ? args : [now]));
@@ -238,5 +241,7 @@ try {
   globalThis.fetch = oldFetch;
   if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = oldAgent;
+  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+  else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });
 }
