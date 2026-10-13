@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fixtureDigest } from './fixture.mjs';
-import { summarize } from './report.mjs';
+import { runLocalHarness } from './local-lifecycle.mjs';
+import { measureLocalNavigation } from './local-measurement.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../../..');
 const tasks = join(repo, 'bb-plugin-tasks-plus');
@@ -20,17 +21,15 @@ const { chromium } = requireQuota('@playwright/test');
 const phase = process.argv[2];
 if (!['preview','latency','profile'].includes(phase) || !process.argv[3]) throw new Error('Usage: node local-harness.mjs preview|latency|profile NEW_OUTPUT_DIR');
 const output = resolve(process.argv[3]);
-await mkdir(output, {mode:0o700}); // Never merge or overwrite evidence.
-const write = (name, value) => writeFile(join(output, name), typeof value === 'string' ? value : JSON.stringify(value, null, 2)+'\n', {flag:'wx'});
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = (...args) => execFileSync('git', args, {cwd:repo, encoding:'utf8'}).trim();
-const ledger = {owner:'thr_rsrnshzk3z-harness', run:randomUUID(), output, repo, phase, processPid:process.pid, server:null, browser:null, database:null, cleanup:{}};
-const saveLedger = () => writeFile(join(output,'ownership-ledger.json'), JSON.stringify(ledger,null,2)+'\n');
-await saveLedger();
-let backend, server, browserServer, browser, context, page, cdp;
-const consoleErrors = [], requests = [], blocked = [];
-let traceEvents = [];
 try {
+await runLocalHarness({output, phase, execute: async ({ledger, resources, evidence, write, saveLedger}) => {
+  ledger.repo = repo;
+  ledger.sourceCommit = git('rev-parse','HEAD');
+  ledger.dirtyState = git('status','--short');
+  let backend, server, browserServer, browser, context, page, cdp;
+  const {consoleErrors, requests, blocked} = evidence;
   const versions = Object.fromEntries(await Promise.all([tasks,quota].map(async (root) => [root,JSON.parse(await readFile(join(root,'node_modules/@get-bb/plugin-sdk/package.json'),'utf8')).version])));
   if (Object.values(versions).some(version => version !== '0.6.37')) throw new Error('Actual SDK mismatch');
   await mkdir(join(output,'data'), {mode:0o700});
@@ -41,7 +40,7 @@ try {
   const backendSource = (await readFile(join(output,'backend.mjs'),'utf8')).replaceAll('from "@get-bb/plugin-sdk/testing"', `from ${JSON.stringify(join(tasks,'node_modules/@get-bb/plugin-sdk/dist/testing/index.js'))}`);
   await writeFile(join(output,'backend.mjs'),backendSource);
   const module = await import(join(output,'backend.mjs'));
-  backend = module.createLocalBackend('bbp60-navigation-lab');
+  resources.backend = backend = module.createLocalBackend('bbp60-navigation-lab');
   ledger.database = backend.databasePath;
   await saveLedger();
   // Confirm every fixture read through the schema-validating SDK boundary.
@@ -59,9 +58,10 @@ try {
   await write('lab.css',styles);
   const productionCss = await readFile(join(output,'app.css'));
   const appBytes = await readFile(join(output,'app.js'));
-  const provenance = {sourceCommit:git('rev-parse','HEAD'),dirtyState:git('status','--short'),sourceDigest:hash(Buffer.concat(await Promise.all(git('ls-files','bb-plugin-tasks-plus','bb-plugin-codex-quota').split('\n').map(async name=>Buffer.concat([Buffer.from(name+'\0'),await readFile(join(repo,name))]))))),bundleDigest:hash(appBytes),hostCssDigest:hash(styles),productionCssDigest:hash(productionCss),cssCascade:["app.css","lab.css"],buildMode:"production",minify:true,react:JSON.parse(await readFile(join(tasks,"node_modules/react/package.json"),"utf8")).version,reactDom:JSON.parse(await readFile(join(tasks,"node_modules/react-dom/package.json"),"utf8")).version,harnessDigest:hash(Buffer.concat(await Promise.all(["local-backend.ts","local-host.tsx","local-ui.tsx","local-identity.mjs","local-harness.mjs"].map(name=>readFile(join(here,name)))))),fixtureDigest:fixtureDigest(backend.fixture),sdk:versions,viewport:[1440,900],cpuThrottlingRate:1,mode:phase,node:process.version,machine:{platform:process.platform,architecture:process.arch},limitations:['Local headless mock ranking only, not installed acceptance.','Production createRoot with a small documented PluginSdkApp host adapter; not the installed BB renderer.','Host layout is a small fixed native-tab double, not the BB renderer or compact drawer.','Actual quota adapter and QuotaBadge run with unavailable synthetic quota; no collector, OAuth or host transport.','50 alternating user/agent comments have no real thread/provider lifecycle; attachment metadata and text bytes are local.']};
+  const provenance = {sourceCommit:git('rev-parse','HEAD'),dirtyState:git('status','--short'),sourceDigest:hash(Buffer.concat(await Promise.all(git('ls-files','bb-plugin-tasks-plus','bb-plugin-codex-quota').split('\n').map(async name=>Buffer.concat([Buffer.from(name+'\0'),await readFile(join(repo,name))]))))),bundleDigest:hash(appBytes),hostCssDigest:hash(styles),productionCssDigest:hash(productionCss),cssCascade:["app.css","lab.css"],buildMode:"production",minify:true,react:JSON.parse(await readFile(join(tasks,"node_modules/react/package.json"),"utf8")).version,reactDom:JSON.parse(await readFile(join(tasks,"node_modules/react-dom/package.json"),"utf8")).version,harnessDigest:hash(Buffer.concat(await Promise.all(["local-backend.ts","local-host.tsx","local-ui.tsx","local-identity.mjs","local-harness.mjs","local-lifecycle.mjs","local-measurement.mjs"].map(name=>readFile(join(here,name)))))),fixtureDigest:fixtureDigest(backend.fixture),sdk:versions,viewport:[1440,900],cpuThrottlingRate:1,mode:phase,node:process.version,machine:{platform:process.platform,architecture:process.arch},limitations:['Local headless mock ranking only, not installed acceptance.','Production createRoot with a small documented PluginSdkApp host adapter; not the installed BB renderer.','Host layout is a small fixed native-tab double, not the BB renderer or compact drawer.','Actual quota adapter and QuotaBadge run with unavailable synthetic quota; no collector, OAuth or host transport.','50 alternating user/agent comments have no real thread/provider lifecycle; attachment metadata and text bytes are local.']};
+  evidence.provenance = provenance;
   let signalIndex = backend.harness.realtimeSignals.length;
-  server = createServer(async(req,res) => {
+  resources.server = server = createServer(async(req,res) => {
     try {
       if (req.headers.host !== ledger.server?.host) return res.writeHead(403).end();
       const path = new URL(req.url,'http://127.0.0.1').pathname;
@@ -80,12 +80,12 @@ try {
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   const endpoint=`http://127.0.0.1:${server.address().port}`;
   ledger.server={pid:process.pid,endpoint,host:new URL(endpoint).host};await saveLedger();
-  browserServer=await chromium.launchServer({headless:true});
+  resources.browserServer=browserServer=await chromium.launchServer({headless:true});
   ledger.browser={pid:browserServer.process().pid,args:browserServer.process().spawnargs,endpoint:browserServer.wsEndpoint(),contextId:randomUUID()};await saveLedger();
-  browser=await chromium.connect(browserServer.wsEndpoint());
-  context=await browser.newContext({viewport:{width:1440,height:900},timezoneId:'UTC',serviceWorkers:'block'});
+  resources.browser=browser=await chromium.connect(browserServer.wsEndpoint());
+  resources.context=context=await browser.newContext({viewport:{width:1440,height:900},timezoneId:'UTC',serviceWorkers:'block'});
   await context.route('**/*',async route=>{const url=new URL(route.request().url());if(url.origin !== endpoint){blocked.push(url.href);return route.abort('blockedbyclient');}return route.continue();});
-  page=await context.newPage();
+  resources.page=page=await context.newPage();
   page.on('pageerror',error=>consoleErrors.push(error.message));
   page.on('request',request=>requests.push({url:request.url(),method:request.method()}));
   const loadedResponse = page.waitForResponse(response=>response.url()===endpoint+'/app.js');
@@ -108,42 +108,8 @@ try {
   await write('provenance.json',provenance);
   if(consoleErrors.length)throw new Error('UI errors: '+consoleErrors.join('; '));
   if(phase !== 'preview') {
-    cdp=await context.newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate:1});
-    await page.evaluate(mode=>window.lab.startProbe(mode),phase==='profile'?'profile':'latency');
-    let fromKey='BENCH-1';
-    async function move(key,classification) {
-      await page.evaluate(()=>window.lab.qualification.settle());
-      const before=await page.evaluate(key=>window.lab.qualification.ledger.inspect(key),key);
-      if(classification==='observed')classification=before.classification;
-      if(classification==='warm'&&!before.current)throw new Error('Unqualified destination '+key);
-      const n=await page.evaluate(()=>window.lab.probe.samples.length);
-      await page.locator(`[data-task-key="${fromKey}"] [data-nav-item]`).focus();
-      await page.evaluate(({key,fromKey,classification})=>{const task=window.lab.fixture.tasks.find(t=>t.key===key);window.lab.probe.arm({key,fromKey,title:task.title,marker:task.marker,classification});},{key,fromKey,classification});
-      await page.keyboard.press(Number(key.split('-')[1])>Number(fromKey.split('-')[1])?'ArrowDown':'ArrowUp');
-      await page.waitForFunction(n=>window.lab.probe.samples.length>n,n,{timeout:10000});
-      await page.evaluate(()=>window.lab.qualification.settle());
-      const result=await page.evaluate(before=>({sample:window.lab.probe.samples.at(-1),qualification:window.lab.qualification.ledger.qualify(before),identity:window.lab.read()}),before);
-      if(result.sample.status!=='presented'||!result.identity.rendered||result.identity.detailKey!==key)throw new Error('Movement failed '+JSON.stringify(result));
-      if(classification==='warm'&&result.qualification.classification!=='warm')throw new Error('Movement invalidated');
-      fromKey=key;return result;
-    }
-    const warmup=[];for(const key of backend.fixture.movements.slice(0,18))warmup.push(await move(key,'observed'));
-    await page.evaluate(mode=>window.lab.startProbe(mode),phase==='profile'?'profile':'latency');
-    if(phase==='profile') {
-      await cdp.send('Profiler.enable');await cdp.send('Profiler.start');
-      cdp.on('Tracing.dataCollected',event=>traceEvents.push(...event.value));
-      await cdp.send('Tracing.start',{categories:'devtools.timeline,blink.user_timing,v8',transferMode:'ReportEvents'});
-    }
-    const movements=[];for(const key of backend.fixture.movements)movements.push(await move(key,'warm'));
-    if(phase==='profile') {
-      const profile=(await cdp.send('Profiler.stop')).profile;await write('cpu-profile.json',profile);
-      const ended=new Promise(resolve=>cdp.once('Tracing.tracingComplete',resolve));await cdp.send('Tracing.end');await ended;await write('timeline.json',{traceEvents});
-    }
-    const raw=await page.evaluate(()=>{window.lab.probe.dispose();return window.lab.probe.export();});
-    const qualification=await page.evaluate(()=>window.lab.qualification.ledger.export());
-    await write('warmup.json',warmup);await write('movements.json',movements);await write('qualification.json',qualification);
-    await write('raw.json',{...raw,provenance});
-    if(phase==='latency')await write('summary.json',summarize(raw));
+    resources.cdp=cdp=await context.newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate:1});
+    const move = await measureLocalNavigation({page, cdp, fixture:backend.fixture, phase, evidence, write, provenance});
     // Cases never enter the qualified warm result or the profile interval.
     if(phase==='latency') {
       await page.evaluate(()=>window.lab.invalidate('BENCH-2'));
@@ -201,24 +167,9 @@ try {
   }
   if(blocked.length)throw new Error('Unexpected external network attempt');
   if(consoleErrors.length)throw new Error('UI errors: '+consoleErrors.join('; '));
-  await write('result.json',{status:'completed',phase,provenance});
+}});
 } catch(error) {
-  if(page&&!page.isClosed()) {
-    await page.screenshot({path:join(output,'failed-ui.png')}).catch(()=>{});
-    await write('failed-dom.json',await page.evaluate(()=>({state:window.lab?.read(),qualification:window.lab?.qualification.ledger.export(),fixtureTask:window.lab?.fixture.tasks[0],navigation:window.lab?.slot.inspection.navigateCalls,order:[...document.querySelectorAll('[data-task-key]')].map(row=>row.getAttribute('data-task-key')),detailHtml:document.querySelector('[data-detail-key]')?.outerHTML,descriptionText:document.querySelector('.bb-tasks-editor[data-variant=doc] .tiptap')?.textContent})).catch(error=>({captureError:error.message})));
-  }
-  await write('failure.json',{status:'BLOCKED',error:error.stack,sourceCommit:git('rev-parse','HEAD'),dirtyState:git('status','--short')});
-  process.exitCode=1;console.error(error.stack);
-} finally {
-  if(page&&!page.isClosed()) {
-    await write('browser-evidence.json',{consoleErrors,requests,blocked});
-    await page.evaluate(()=>window.lab?.dispose()).catch(error=>{ledger.cleanup.uiError=error.message;});
-  }
-  if(backend)await write('rpc-calls.json',backend.calls);
-  await cdp?.detach();await context?.close();ledger.cleanup.contextClosed=true;
-  await browser?.close();await browserServer?.close();ledger.cleanup.browserClosed=true;
-  if(server)await new Promise(resolve=>server.close(resolve));ledger.cleanup.endpointClosed=true;
-  await backend?.dispose();ledger.cleanup.databaseClosed=true;
-  await saveLedger();
+  process.exitCode=1;
+  console.error(error.stack);
 }
 console.log(output);

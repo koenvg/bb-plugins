@@ -25,6 +25,15 @@ No BB CLI, installed state, real database, credentials, existing browser, notifi
 
 Cleanup closes only owned context/browser/server/database handles. Ledgers retain exact PIDs, browser arguments/profile, endpoint and database path. Existing output directories cannot be overwritten. Keep failures and raw evidence. Do not use broad process kills or temporary-directory removal.
 
+## Failure evidence and teardown
+
+`local-lifecycle.mjs` owns the run directory, evidence writes and exact acquired handles. `local-measurement.mjs` uses the existing probe and qualification ledger. Each capture and closure has its own outcome in `ownership-ledger.json`. A rejected detach, close, capture or write cannot skip later owned closures. The original execution error remains the reported failure. No cleanup retry, resource search, process kill or directory deletion is performed.
+
+Warmup movements and the warmup probe export are saved before replacing the probe. On execution failure, distinct `partial-*` artifacts retain available movements, the active attempt, raw samples, qualification and profile evidence before UI disposal. The probe drains pending observations and records interrupted samples. Missing or failed captures are explicit ledger outcomes. Successful artifacts remain exclusive and unchanged. A failed run has no committed completion and must not be ranked.
+
+`result.json` is a prepared record, not proof of completion. The only completion commit is `ownership-ledger.json` with `status: completed`, the same run ID and a saved result-capture outcome. Its embedded `summary` is the only new warm-ranking artifact. The runner no longer creates a separate `summary.json`. Ledger updates use an owned pending file followed by rename, so a rejected write cannot publish completion or damage the previous ledger. Failed pending files remain uncommitted evidence. Terminal result or ledger errors publish failure evidence; a late ledger error after an existing failure adds `terminal-failure.json` without replacing the first failure. No operation is retried.
+
+BBP-198 changes the executable runner identity. The archived measurements and commit bindings below remain historical evidence for the old runner. They are not rebound to these modules. No new measurement or installed acceptance is claimed.
 All recorded benchmark resources are closed and their removal is independently checked. One earlier timed-out quota test did not reach SDK disposal; its temporary directory identity is not in the log. Cleanup of that unidentified test directory is not proved. No broad deletion was attempted.
 
 ## Setup and checks
@@ -37,7 +46,7 @@ Both installed SDK versions must be exactly 0.6.37. No browser install is needed
 # Only after inspecting the installed hooks and cached headers:
 npm_config_build_from_source=true npm_config_offline=true npm --prefix bb-plugin-tasks-plus rebuild better-sqlite3 --build-from-source --offline --nodedir="$HOME/Library/Caches/node-gyp/24.15.0"
 npm_config_build_from_source=true npm_config_offline=true npm --prefix bb-plugin-codex-quota rebuild better-sqlite3 --build-from-source --offline --nodedir="$HOME/Library/Caches/node-gyp/24.15.0"
-node --test bb-plugin-tasks-plus/scripts/navigation-benchmark/{benchmark,qualification,local-identity}.test.mjs
+node --test bb-plugin-tasks-plus/scripts/navigation-benchmark/{benchmark,qualification,local-identity,local-lifecycle}.test.mjs
 npm --prefix bb-plugin-tasks-plus test -- --maxWorkers=1 scripts/navigation-benchmark/local-host.test.tsx scripts/navigation-benchmark/local-backend.test.ts shell/preview-invalidation.integration.test.tsx shell/task-previews.test.ts views/detail/safe-transition.test.ts views/detail/transitions.test.tsx
 npm --prefix bb-plugin-codex-quota test -- --maxWorkers=1 src/footer/footer-work-isolation.test.ts
 npm --prefix bb-plugin-tasks-plus run typecheck
