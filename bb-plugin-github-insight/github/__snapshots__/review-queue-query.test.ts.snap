@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`reviewQueueArgs > asks for each tracked PR by repository and number in the same request 1`] = `
+exports[`reviewQueueBatchArgs first request > asks for each tracked PR by repository and number in the same request 1`] = `
 [
   "api",
   "graphql",
@@ -33,9 +33,9 @@ fragment QueuePr on PullRequest {
 }
 
 fragment QueueActivity on PullRequest {
-  comments(last: 20) { nodes { id createdAt author { __typename login } } }
-  reviews(last: 20) {
-    nodes { id submittedAt body author { __typename login } comments(first: 20) { nodes { id createdAt publishedAt } } }
+  comments(last: 10) { nodes { id createdAt author { __typename login } } }
+  reviews(last: 10) {
+    nodes { id submittedAt body author { __typename login } comments(first: 10) { nodes { id createdAt publishedAt } } }
   }
   timelineItems(last: 10, itemTypes: [REVIEW_REQUESTED_EVENT]) {
     nodes { ... on ReviewRequestedEvent { createdAt requestedReviewer { __typename ... on User { login } } } }
@@ -57,7 +57,7 @@ fragment QueueActivity on PullRequest {
 ]
 `;
 
-exports[`reviewQueueArgs > asks for the review requests in one GraphQL search when nothing is tracked 1`] = `
+exports[`reviewQueueBatchArgs first request > asks for the review requests in one GraphQL search when nothing is tracked 1`] = `
 [
   "api",
   "graphql",

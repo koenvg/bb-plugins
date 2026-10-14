@@ -2718,14 +2718,14 @@ function acmeApiPr(number: number): PullRequestResult {
 
 describe("review queue", () => {
   it("reports loading before the first load and makes no GitHub call", async () => {
-    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const harness = await setup({ threads: [], host: () => ok([reviewQueue]) });
 
     expect(await harness.behavior.callRpc("getReviewQueue", {})).toEqual({ kind: "loading" });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
   });
 
   it("loads in the review-queue service, stores and publishes the view, and serves it", async () => {
-    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const harness = await setup({ threads: [], host: () => ok([reviewQueue]) });
 
     const run = harness.behavior.runService("review-queue");
     await settle();
@@ -2741,7 +2741,7 @@ describe("review queue", () => {
   });
 
   it("serves the stored view after a plugin reload", async () => {
-    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const harness = await setup({ threads: [], host: () => ok([reviewQueue]) });
     const loaded = await harness.behavior.callRpc("refreshReviewQueue", {});
 
     const reloaded = await harness.lifecycle.reload(plugin);
@@ -2762,7 +2762,7 @@ describe("review queue", () => {
         },
       ],
       primaryHostId: "host-7",
-      host: () => ok(reviewQueue),
+      host: () => ok([reviewQueue]),
     });
 
     const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
@@ -2833,7 +2833,7 @@ describe("review queue", () => {
           updatedAt: 1,
         },
       ],
-      host: () => ok(reviewQueue),
+      host: () => ok([reviewQueue]),
     });
 
     const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
@@ -2873,7 +2873,7 @@ describe("review queue", () => {
   });
 
   it("publishes a seen queue after the panel marks the PRs it shows", async () => {
-    const harness = await setup({ threads: [], host: () => ok(reviewQueue) });
+    const harness = await setup({ threads: [], host: () => ok([reviewQueue]) });
     const loaded = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
     if (loaded.kind !== "ok") throw new Error(loaded.message);
     expect(loaded.hasUnseen).toBe(true);
@@ -2938,7 +2938,7 @@ describe("startReview", () => {
   it("publishes the queue with the new thread on its PR row without a GitHub call", async () => {
     const harness = await setup({
       threads: [],
-      host: () => ok(reviewQueue),
+      host: () => ok([reviewQueue]),
       spawn: async () => makeThreadResponse({ id: "thr_review" }),
     });
     await harness.behavior.callRpc("refreshReviewQueue", {});
@@ -2966,7 +2966,7 @@ describe("startReview", () => {
     async (event) => {
       const harness = await setup({
         threads: [],
-        host: () => ok(reviewQueue),
+        host: () => ok([reviewQueue]),
         pluginMetadata: { thr_review: { "review-pr": { v: 1, ...pr } } },
       });
       harness.sdk.stub("threads.list", async () => [
@@ -2998,7 +2998,7 @@ describe("startReview", () => {
   it("publishes the thread as not returned after the user opens it", async () => {
     const harness = await setup({
       threads: [],
-      host: () => ok(reviewQueue),
+      host: () => ok([reviewQueue]),
       pluginMetadata: { thr_review: { "review-pr": { v: 1, ...pr } } },
     });
     harness.sdk.stub("threads.list", async () => [
