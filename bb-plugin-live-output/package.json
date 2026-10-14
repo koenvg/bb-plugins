@@ -1,0 +1,52 @@
+{
+  "name": "bb-plugin-live-output",
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.4.3",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37 <0.7",
+    "node": ">=24.15.0 <25",
+    "bun": "1.4.3"
+  },
+  "bb": {
+    "name": "Live Output",
+    "description": "Watch observed output across BB threads in a live ten-minute graph.",
+    "branding": {
+      "icon": "./assets/gauge.svg",
+      "experimental_icons": {
+        "gauge": "./assets/gauge.svg"
+      }
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": []
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "bun --bun tsc --noEmit",
+    "build": "bb plugin build",
+    "lint": "bun run --cwd .. lint bb-plugin-live-output",
+    "format": "bun run --cwd .. format bb-plugin-live-output",
+    "format:check": "bun run --cwd .. format:check bb-plugin-live-output"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.37",
+    "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.5.0",
+    "hono": "^4.11.9",
+    "jsdom": "^26.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^5.0.2"
+  }
+}

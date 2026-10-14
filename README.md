@@ -18,6 +18,7 @@ Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copie
 | Threads with PRs  | [`bb-plugin-pr-thread-list`](bb-plugin-pr-thread-list)               |
 | GitHub Insight    | [`bb-plugin-github-insight`](bb-plugin-github-insight)               |
 | Tasks Plus        | [`bb-plugin-tasks-plus`](bb-plugin-tasks-plus)                       |
+| Live Output       | [`bb-plugin-live-output`](bb-plugin-live-output)                     |
 | Markdown Reader   | [`bb-plugin-markdown-reader`](bb-plugin-markdown-reader)             |
 | MCP               | [`bb-plugin-mcp`](bb-plugin-mcp)                                     |
 | Pi with subagents | [`bb-plugin-pi-subagents-provider`](bb-plugin-pi-subagents-provider) |
