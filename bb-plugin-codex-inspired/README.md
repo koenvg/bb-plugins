@@ -56,10 +56,10 @@ The selectors depend on current BB and Threads with PRs markup, not a stable SDK
 - `[data-sidebar="sidebar"]` scopes Inter to the desktop sidebar and responsive drawer.
 - `[data-sidebar-thread-id]` sets thread-name anchors to 14px. `.font-semibold` on the same anchor sets unread emphasis to weight 500.
 - `[class~="group/header"] .truncate.font-semibold` identifies group headings.
-- `[data-message-column]` and `[data-markdown-preview]` set 16px reading text without enlarging navigation or tool logs.
+- `[data-message-column]`, `[data-markdown-preview]`, and the Subagents viewer's `.pi-subagents .pi-subagents-prose` hook set 16px reading text without enlarging navigation or tool logs.
 - `form[data-promptbox] [contenteditable="true"]` targets the composer editor. The form retains the approved radius and shadow.
 
-- `[data-message-column] [data-markdown-preview]` and `.markdown-reader .mr-prose` use Libron for reading text. Controls inside these surfaces retain system sans; code retains monospace. The Markdown Reader toolbar, outline, and Raw view are not restyled.
+- Chat Markdown, `.markdown-reader .mr-prose`, and `.pi-subagents .pi-subagents-prose` use Libron for reading text. Controls inside these surfaces retain system sans; code retains monospace. Viewer labels, metadata, and escaped tool payloads remain outside the prose hook. The Markdown Reader toolbar, outline, and Raw view are not restyled.
 - The narrow coarse-pointer rule retains BB's larger touch typography without changing sidebar width or drawer layout.
 - `:is(button, [role="button"]):focus-visible` adds a 3px host-ring outline with a 3px gap. It overrides the host's thin focus utility without changing fills, hover styles, or input focus. Native disabled and `aria-disabled="true"` buttons are excluded.
 

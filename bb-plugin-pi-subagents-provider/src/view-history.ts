@@ -1,8 +1,8 @@
+import { retainCapture } from "./capture-history.js";
 import {
   parseViewState,
   boundedValue,
   VIEW_BYTES,
-  type Capture,
   type ViewState,
   type ViewRow,
 } from "./subagents-contract.js";
@@ -25,25 +25,17 @@ export function restoreViewHistory(values: readonly unknown[]): ViewState | unde
           original.id,
           structuredClone({
             ...original,
+            capture: undefined,
             ...(olderLive ? { state: "unknown" as const, incomplete: true } : {}),
           }),
         );
-      } else if (original.capture) {
-        const capture = previous.capture;
-        const old = original.capture;
-        const restored: Capture = {
-          ...old,
-          ...capture,
-          task: capture?.task ?? old.task,
-          finalOutput: capture?.finalOutput ?? old.finalOutput,
-          messages: capture?.messages?.length ? capture.messages : old.messages,
-        };
-        if (capture?.status !== "captured" && old.status === "captured") {
-          restored.capturedAt = old.capturedAt;
-          restored.attemptedAt = capture?.attemptedAt ?? capture?.capturedAt;
-        }
-        previous.capture = restored;
       }
+    }
+  // Replay captures in live-store order; row identity and ordering remain newest first.
+  for (const state of [...states].reverse())
+    for (const original of state.rows) {
+      const row = rows.get(original.id)!;
+      row.capture = retainCapture(original.capture, row.capture);
     }
   const result = { ...latest, rows: [...rows.values()], omitted: latest.omitted };
   while (result.rows.length > 128 || !boundedValue(result, VIEW_BYTES)) {

@@ -5,7 +5,12 @@ const h = vi.hoisted(() => {
   const list = vi.fn();
   return { list, sdk: { threads: { events: { list } } } };
 });
-vi.mock("@get-bb/plugin-sdk/app", () => ({ useSdk: () => h.sdk }));
+vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useSdk: () => h.sdk,
+}));
+import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+installTestPluginRuntime();
 import { SubagentsPanel } from "./subagents-panel.js";
 const state = {
   kind: "pi-subagents-view",

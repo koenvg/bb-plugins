@@ -121,3 +121,53 @@ it("does not guess the owner of materialized inner workflow lanes with repeated 
     status: "unavailable",
   });
 });
+
+it("preserves foreground enrichment when newer detail lacks it, and isolates sessions", () => {
+  let clock = 2;
+  const v = createViewStore(
+    () => {},
+    () => clock,
+  );
+  const details = {
+    mode: "single",
+    runId: "r",
+    results: [
+      {
+        index: 0,
+        agent: "a",
+        exitCode: 0,
+        task: "task",
+        finalOutput: "answer",
+        messages: [
+          { role: "assistant", provider: "child-provider", model: "child-model", content: "text" },
+          { role: "toolResult", toolName: "bash", isError: true, content: "denied" },
+        ],
+      },
+    ],
+  };
+  v.foreground(owner, details, true);
+  const id = v.snapshot().rows[0]!.id;
+  const model = { provider: "child-provider", model: "child-model", capturedAt: 2 };
+  clock = 10;
+  v.foreground(owner, { ...details, results: [{ index: 0, agent: "a", exitCode: 0 }] }, true);
+  expect(v.snapshot().rows[0]!.capture).toMatchObject({
+    resolvedModel: model,
+    capturedAt: 10,
+    finalOutput: "answer",
+  });
+  v.capture(id, { status: "timeout", capturedAt: 12 });
+  expect(v.snapshot().rows[0]!.capture).toMatchObject({
+    resolvedModel: model,
+    capturedAt: 10,
+    attemptedAt: 12,
+    messages: [{ kind: "text" }, { name: "bash", isError: true }],
+  });
+  v.foreground(
+    { ...owner, sessionId: "other" },
+    { ...details, results: [{ index: 0, agent: "a" }] },
+    true,
+  );
+  expect(
+    v.snapshot().rows.find((r) => r.sessionId === "other")!.capture!.resolvedModel,
+  ).toBeUndefined();
+});

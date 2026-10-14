@@ -1,10 +1,20 @@
+import { Markdown } from "@get-bb/plugin-sdk/app";
 import { useMemo, useRef, useState } from "react";
 import { type ViewRow, type ViewState } from "../subagents-contract.js";
 
 function elapsed(row: ViewRow) {
-  if (row.durationMs !== undefined) return `${Math.floor(row.durationMs / 1000)}s`;
-  if (row.startedAt === undefined) return "Elapsed time unavailable";
-  return `${Math.max(0, Math.floor(((row.endedAt ?? row.observedAt) - row.startedAt) / 1000))}s at observation`;
+  const terminal = !["queued", "running", "unknown", "detached"].includes(row.state);
+  const duration =
+    row.durationMs ??
+    (row.startedAt !== undefined && (!terminal || row.endedAt !== undefined)
+      ? Math.max(0, (row.endedAt ?? row.observedAt) - row.startedAt)
+      : undefined);
+  if (duration === undefined) return "Duration unavailable";
+  return `${terminal ? "Total" : "Elapsed"} ${Math.floor(duration / 1000)}s${terminal ? "" : " at observation"}`;
+}
+function modelLabel(row: ViewRow) {
+  const model = row.capture?.resolvedModel;
+  return model ? `Captured model: ${model.model} · ${model.provider}` : "Model unavailable";
 }
 function orderedRows(rows: readonly ViewRow[]) {
   const result: { row: ViewRow; depth: number }[] = [];
@@ -21,6 +31,148 @@ function orderedRows(rows: readonly ViewRow[]) {
   for (const row of rows) visit(row, 0);
   return result;
 }
+
+function CapturedConversation({ row }: { row: ViewRow }) {
+  const output = useRef<HTMLElement>(null);
+  const capture = row.capture;
+  const occurrences = new Map<string, number>();
+  return (
+    <article aria-label="Child detail" className="pi-subagents-detail">
+      <header className="pi-subagents-identity">
+        <div className="pi-subagents-heading pi-subagents-conversation-heading">
+          <h3>{row.label || "Label unavailable"}</h3>
+          <button
+            type="button"
+            disabled={!capture?.finalOutput}
+            onClick={() => {
+              output.current?.scrollIntoView({ block: "start", behavior: "instant" });
+              output.current?.focus({ preventScroll: true });
+            }}
+          >
+            Final output
+          </button>
+        </div>
+        <div className="pi-subagents-metadata">
+          <span
+            className="pi-subagents-state"
+            data-state={row.state}
+            aria-label={`Execution state: ${row.state}`}
+          >
+            {row.state}
+          </span>
+          <span>{elapsed(row)}</span>
+          {capture?.resolvedModel && <span>{modelLabel(row)}</span>}
+        </div>
+        <p className="pi-subagents-muted">Captured observation, not a live feed.</p>
+      </header>
+      <div
+        className="pi-subagents-transcript"
+        role="region"
+        aria-label="Captured conversation"
+        tabIndex={0}
+      >
+        {row.incomplete && (
+          <p className="pi-subagents-notice">
+            Coverage is incomplete; missing data does not prove completion.
+          </p>
+        )}
+        {capture?.status !== "captured" && (
+          <p role="status" className="pi-subagents-notice">
+            Capture {capture?.status ?? "not-captured"}:{" "}
+            {capture?.reason ?? "No supported inspection reply has been captured."}
+          </p>
+        )}
+        {capture?.task !== undefined && (
+          <section className="pi-subagents-task" aria-label="Captured task">
+            <div className="pi-subagents-heading">
+              <h4>Task</h4>
+            </div>
+            <Markdown className="pi-subagents-prose" content={capture.task} />
+          </section>
+        )}
+        {capture?.messages?.length
+          ? capture.messages.map((message) => {
+              // Identity follows content, not its position in a changing bounded tail.
+              const identity = JSON.stringify(message);
+              const occurrence = occurrences.get(identity) ?? 0;
+              occurrences.set(identity, occurrence + 1);
+              const key = `${identity}:${occurrence}`;
+              return message.kind === "text" ? (
+                <section
+                  key={key}
+                  className="pi-subagents-message"
+                  aria-label={`${message.role} message`}
+                >
+                  <div className="pi-subagents-heading">
+                    <h4>{message.role}</h4>
+                  </div>
+                  <Markdown className="pi-subagents-prose" content={message.text} />
+                </section>
+              ) : (
+                <details key={key} className="pi-subagents-tool">
+                  <summary>
+                    {message.name || (message.kind === "toolCall" ? "Tool call" : "Tool result")}
+                    <span className="pi-subagents-muted">
+                      {message.kind === "toolCall" ? "Call" : "Result"} · {message.role}
+                    </span>
+                    {message.isError && <span className="pi-subagents-tool-error">Error</span>}
+                  </summary>
+                  <pre>{message.text}</pre>
+                  {message.textTruncated && (
+                    <p className="pi-subagents-muted">Tool text was truncated.</p>
+                  )}
+                </details>
+              );
+            })
+          : null}
+        <section
+          ref={output}
+          tabIndex={-1}
+          className="pi-subagents-output"
+          aria-label="Final output"
+        >
+          <h4>Final output</h4>
+          {capture?.finalOutput !== undefined ? (
+            <Markdown className="pi-subagents-prose" content={capture.finalOutput} />
+          ) : (
+            <p>Final output not captured. This does not change the known execution outcome.</p>
+          )}
+        </section>
+        <details className="pi-subagents-capture">
+          <summary>Capture details</summary>
+          <p>
+            Run {row.runId}
+            {row.index === undefined ? "" : ` · child index ${row.index}`} · {row.source} ·{" "}
+            {row.kind}
+          </p>
+          {!capture?.resolvedModel && <p>{modelLabel(row)}</p>}
+          {capture?.task === undefined && <p>Task attribution not captured.</p>}
+          {!capture?.messages?.length && <p>Recent transcript not captured.</p>}
+          <p>Observed {new Date(row.observedAt).toISOString()}</p>
+          <p>
+            {capture ? `Captured ${new Date(capture.capturedAt).toISOString()}` : "Not captured"}
+          </p>
+          {capture?.resolvedModel && (
+            <p>Model captured {new Date(capture.resolvedModel.capturedAt).toISOString()}</p>
+          )}
+          {capture?.attemptedAt !== undefined && (
+            <p>Last capture attempt {new Date(capture.attemptedAt).toISOString()}</p>
+          )}
+          <p>{row.activity || "Activity unavailable"}</p>
+          {capture?.truncated?.task && <p>Task text was truncated.</p>}
+          {!!capture?.truncated?.messages && (
+            <p>{capture.truncated.messages} transcript entries omitted.</p>
+          )}
+          {capture?.messages?.some((message) => message.textTruncated) && (
+            <p>Transcript text was truncated.</p>
+          )}
+          {capture?.truncated?.finalOutput && <p>Final output was truncated.</p>}
+        </details>
+      </div>
+    </article>
+  );
+}
+
 export function SubagentsView({
   state,
   loading = false,
@@ -63,15 +215,10 @@ export function SubagentsView({
       : undefined;
   if (loading && !state) return <p role="status">Loading captured subagents...</p>;
   return (
-    <section
-      aria-label="Subagents"
-      className="pi-subagents min-w-0 space-y-4 text-sm text-foreground"
-    >
-      <header>
-        <h2 className="font-medium">Subagents</h2>
-        <p className="text-xs text-muted-foreground">
-          Read-only captured observations. Pi owns execution and delivery.
-        </p>
+    <section aria-label="Subagents" className="pi-subagents">
+      <header className="pi-subagents-heading">
+        <h2>Subagents</h2>
+        <span className="pi-subagents-muted">Read-only</span>
       </header>
       {overview && !row && <p role="status">Select a captured run to view its detail.</p>}
       {target === null && (
@@ -80,18 +227,10 @@ export function SubagentsView({
       {target && !loading && !targetRow && (
         <p role="alert">Requested background detail is unavailable. Select another captured run.</p>
       )}
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error} Previously captured detail stays visible.
-        </p>
-      )}
-      {warning && (
-        <p role="status" className="text-muted-foreground">
-          {warning}
-        </p>
-      )}
+      {error && <p role="alert">{error} Previously captured detail stays visible.</p>}
+      {warning && <p role="status">{warning}</p>}
       {state?.availability !== "available" && (
-        <p role="status" className="text-muted-foreground">
+        <p role="status">
           {state?.reason || "Subagent observation is not available for this thread."}
         </p>
       )}
@@ -100,111 +239,71 @@ export function SubagentsView({
       )}
       {!items.length && <p>No child work has been captured. Ordinary Pi work remains available.</p>}
       {!!items.length && (
-        <nav aria-label="Observed children">
-          <ul className="max-h-64 space-y-1 overflow-y-auto">
-            {items.map(({ row: item, depth }, index) => (
-              <li key={item.id} style={{ paddingInlineStart: `${depth * 12}px` }}>
-                <button
-                  ref={(button) => {
-                    buttons.current[index] = button;
-                  }}
-                  type="button"
-                  aria-pressed={item.id === row?.id}
-                  onClick={() => setSelected(item.id)}
-                  onKeyDown={(event) => {
-                    let next = index;
-                    if (event.key === "ArrowDown") next = Math.min(items.length - 1, index + 1);
-                    else if (event.key === "ArrowUp") next = Math.max(0, index - 1);
-                    else if (event.key === "Home") next = 0;
-                    else if (event.key === "End") next = items.length - 1;
-                    else return;
-                    event.preventDefault();
-                    setSelected(items[next]!.row.id);
-                    buttons.current[next]?.focus();
-                  }}
-                  className="w-full min-w-0 rounded-md border border-border bg-card px-3 py-2 text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-surface-raised"
-                >
-                  <span className="block break-words font-medium">
-                    {item.label || "Label unavailable"}
-                  </span>
-                  <span className="block break-words text-xs text-muted-foreground">
-                    {item.source} · {item.runId}
-                    {item.index !== undefined ? ` · child ${item.index}` : ""} · {item.state} ·{" "}
-                    {elapsed(item)} · {item.activity || "Activity unavailable"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <details className="pi-subagents-runs" open>
+          <summary>
+            Runs <span className="pi-subagents-muted">{items.length} captured</span>
+          </summary>
+          <nav aria-label="Observed children">
+            <ul>
+              {items.map(({ row: item, depth }, index) => (
+                <li key={item.id} style={{ paddingInlineStart: `${depth * 12}px` }}>
+                  <button
+                    ref={(button) => {
+                      buttons.current[index] = button;
+                    }}
+                    type="button"
+                    aria-pressed={item.id === row?.id}
+                    onClick={() => setSelected(item.id)}
+                    onKeyDown={(event) => {
+                      let next = index;
+                      if (event.key === "ArrowDown") next = Math.min(items.length - 1, index + 1);
+                      else if (event.key === "ArrowUp") next = Math.max(0, index - 1);
+                      else if (event.key === "Home") next = 0;
+                      else if (event.key === "End") next = items.length - 1;
+                      else return;
+                      event.preventDefault();
+                      setSelected(items[next]!.row.id);
+                      buttons.current[next]?.focus();
+                      buttons.current[next]?.scrollIntoView({
+                        block: "nearest",
+                        behavior: "instant",
+                      });
+                    }}
+                  >
+                    <span className="pi-subagents-heading">
+                      <strong>{item.label || "Label unavailable"}</strong>
+                      <span className="pi-subagents-reference">
+                        {item.index === undefined
+                          ? item.runId.slice(-6)
+                          : `Child ${item.index + 1}`}
+                      </span>
+                      <span className="pi-subagents-state" data-state={item.state}>
+                        {item.state}
+                      </span>
+                    </span>
+                    <span className="pi-subagents-row-meta">
+                      <span className="pi-subagents-row-context">
+                        {item.capture?.task?.trim() ||
+                          (item.parentId
+                            ? "Child run"
+                            : item.source === "background"
+                              ? "Background run"
+                              : "Foreground run")}
+                      </span>
+                      {item.capture?.resolvedModel && (
+                        <span className="pi-subagents-row-model">
+                          {item.capture.resolvedModel.model}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </details>
       )}
-      {row && (
-        <article
-          aria-label="Child detail"
-          className="min-w-0 space-y-3 rounded-md border border-border bg-card p-3"
-        >
-          <h3 className="break-words font-medium">{row.label || "Label unavailable"}</h3>
-          <p className="break-all text-xs text-muted-foreground">
-            Run {row.runId}
-            {row.index === undefined ? "" : ` · child index ${row.index}`}
-          </p>
-          <p>
-            Execution state: {row.state}
-            {row.incomplete
-              ? ". Coverage is incomplete; missing data does not prove completion."
-              : ""}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Observed {new Date(row.observedAt).toISOString()}
-            {row.capture
-              ? ` · Captured ${new Date(row.capture.capturedAt).toISOString()}`
-              : " · Not captured"}
-          </p>
-          {row.capture?.attemptedAt !== undefined && (
-            <p className="text-xs text-muted-foreground">
-              Last capture attempt {new Date(row.capture.attemptedAt).toISOString()}
-            </p>
-          )}
-          {row.capture?.status !== "captured" && (
-            <p role="status">
-              Capture {row.capture?.status ?? "not-captured"}:{" "}
-              {row.capture?.reason ?? "No supported inspection reply has been captured."}
-            </p>
-          )}
-          <h4 className="font-medium">Task</h4>
-          <pre className="whitespace-pre-wrap break-words font-sans">
-            {row.capture?.task ?? "Task attribution not captured."}
-          </pre>
-          {row.capture?.truncated?.task && <p>Task text was truncated.</p>}
-          <h4 className="font-medium">Recent transcript</h4>
-          {row.capture?.messages?.length ? (
-            row.capture.messages.map((message, index) => (
-              <div key={index}>
-                <p className="text-xs text-muted-foreground">
-                  {message.role} · {message.kind}
-                </p>
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs">
-                  {message.text}
-                </pre>
-              </div>
-            ))
-          ) : (
-            <p>Recent transcript not captured.</p>
-          )}
-          {!!row.capture?.truncated?.messages && (
-            <p>{row.capture.truncated.messages} transcript entries omitted.</p>
-          )}
-          {row.capture?.messages?.some((message) => message.textTruncated) && (
-            <p>Transcript text was truncated.</p>
-          )}
-          <h4 className="font-medium">Final output</h4>
-          <pre className="whitespace-pre-wrap break-words font-mono text-xs">
-            {row.capture?.finalOutput ??
-              "Final output not captured. This does not change the known execution outcome."}
-          </pre>
-          {row.capture?.truncated?.finalOutput && <p>Final output was truncated.</p>}
-        </article>
-      )}
+      {row && <CapturedConversation key={row.id} row={row} />}
     </section>
   );
 }

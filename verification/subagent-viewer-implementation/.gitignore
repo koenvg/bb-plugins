@@ -1,0 +1,6 @@
+# Detailed browser runs, profiles, snapshots and logs stay local.
+# Publish only the explicitly reviewed PR evidence bundle.
+*
+!.gitignore
+!pr/
+!pr/**

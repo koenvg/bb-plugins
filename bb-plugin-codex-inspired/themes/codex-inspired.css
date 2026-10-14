@@ -103,22 +103,32 @@
   line-height: 1.65;
 }
 
+.pi-subagents .pi-subagents-prose,
 [data-message-column] [data-markdown-preview] {
   font-size: 1rem;
   line-height: 1.65;
 }
 /* Reading faces only; navigation, tool logs, and the composer stay sans. */
 [data-message-column] [data-markdown-preview],
-.markdown-reader .mr-prose {
+.markdown-reader .mr-prose,
+.pi-subagents .pi-subagents-prose {
   font-family: "Libron", Georgia, "Times New Roman", serif;
 }
 
-:is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose)
+:is(
+    [data-message-column] [data-markdown-preview],
+    .markdown-reader .mr-prose,
+    .pi-subagents .pi-subagents-prose
+  )
   :is(button, input, select, textarea, [role="button"]) {
   font-family: var(--font-sans);
 }
 
-:is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose)
+:is(
+    [data-message-column] [data-markdown-preview],
+    .markdown-reader .mr-prose,
+    .pi-subagents .pi-subagents-prose
+  )
   :is(code, pre, kbd, samp) {
   font-family: var(--font-mono);
 }

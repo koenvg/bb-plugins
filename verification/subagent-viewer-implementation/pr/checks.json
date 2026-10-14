@@ -1,0 +1,307 @@
+{
+  "baseCommit": "f272d45d9ff8638ddff81700474959345feaf472",
+  "overallInstalledReading": "failed: legacy tool-result prose; BBP-227 deferred by user",
+  "source": {
+    "providerTests": 584,
+    "themeTests": 10,
+    "providerTestFiles": 57,
+    "themeTestFiles": 2,
+    "typecheck": "both passed",
+    "sdk": "both normal --check passed",
+    "build": "both passed",
+    "oxc": "affected files passed",
+    "runtimeUiSourceUnchangedSinceInstalledCheck": true
+  },
+  "ciRepair": {
+    "originalRun": 38614671894,
+    "originalFailures": ["formatting in three evidence files", "five bridge speed test timeouts"],
+    "workerBudget": "half available CPU capacity, minimum one and maximum four workers",
+    "workerBudgetRegressionCases": 6,
+    "normalSuitePassed": 584,
+    "singleWorkerSuitePassed": 584,
+    "assertionDeadlinesChanged": false,
+    "rootCheck": "passed with existing unrelated lint warnings",
+    "prototypeHtmlStructureAttributesAndText": "unchanged after normalizing void-element syntax",
+    "prototypeJavaScriptAndCss": "compile identically before and after formatting"
+  },
+  "providerArtifacts": {
+    "js": {
+      "bytes": 151377,
+      "sha256": "b14d6f6b5ff819c44d9744f858e173f65eb9954c4eaebae3598bedb1b2a84690",
+      "servedMatchesBuild": true
+    },
+    "css": {
+      "bytes": 25547,
+      "sha256": "723c11640a2833e387cd879f61a288286d822bbcc3a90f15e2d5cc0ddd4154aa",
+      "servedMatchesBuild": true
+    }
+  },
+  "themeCssSha256": "24aaea6fd54e4484b8a7c293f9ae81ca809eca956fcd96671e3608e9d0d8691a",
+  "nativeInput": {
+    "assertions": 14,
+    "passed": 14
+  },
+  "layouts": [
+    {
+      "width": 1200,
+      "height": 800,
+      "readingHeight": 346,
+      "outerClientHeight": 708,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": null
+    },
+    {
+      "width": 1200,
+      "height": 350,
+      "readingHeight": 200,
+      "outerClientHeight": 258,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": 292
+    },
+    {
+      "width": 768,
+      "height": 640,
+      "readingHeight": 200,
+      "outerClientHeight": 548,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": 87
+    },
+    {
+      "width": 500,
+      "height": 800,
+      "readingHeight": 346,
+      "outerClientHeight": 708,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": null
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "readingHeight": 337,
+      "outerClientHeight": 720,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": null
+    },
+    {
+      "width": 375,
+      "height": 320,
+      "readingHeight": 200,
+      "outerClientHeight": 228,
+      "rootOverflow": false,
+      "transcriptOverflow": false,
+      "pageOverflow": false,
+      "outerRecoveryScrollTop": 343
+    }
+  ],
+  "hierarchyMotion": {
+    "rows": 6,
+    "navFullIds": false,
+    "navMissingModels": false,
+    "fullIdRetained": true,
+    "modelAbsenceRetained": true,
+    "missingTaskRetained": true,
+    "durationCount": 1,
+    "rootHeight": 808,
+    "readingHeight": 446,
+    "navHeight": 128,
+    "chevron": "0.16s",
+    "controls": "0.12s, 0.12s",
+    "contentAnimation": "none",
+    "nativeCaptureDetailsOpened": true,
+    "openChevron": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+    "reduced": [
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s",
+      "0s"
+    ]
+  },
+  "typography": [
+    {
+      "theme": "codex",
+      "mode": "light",
+      "normal": {
+        "font": "Libron, Georgia, \"Times New Roman\", serif",
+        "size": "16px",
+        "line": "26.4px",
+        "color": "rgb(41, 41, 41)"
+      },
+      "viewer": {
+        "font": "Libron, Georgia, \"Times New Roman\", serif",
+        "size": "16px",
+        "line": "26.4px",
+        "color": "rgb(41, 41, 41)"
+      },
+      "matchesNormal": true,
+      "controlsSans": true,
+      "codeMono": true,
+      "toolOutsideProse": true,
+      "readingFaceLoaded": true,
+      "coarseMinimumFontPx": 16,
+      "coarseMinimumControlHeight": 44
+    },
+    {
+      "theme": "codex",
+      "mode": "dark",
+      "normal": {
+        "font": "Libron, Georgia, \"Times New Roman\", serif",
+        "size": "16px",
+        "line": "26.4px",
+        "color": "rgb(237, 237, 235)"
+      },
+      "viewer": {
+        "font": "Libron, Georgia, \"Times New Roman\", serif",
+        "size": "16px",
+        "line": "26.4px",
+        "color": "rgb(237, 237, 235)"
+      },
+      "matchesNormal": true,
+      "controlsSans": true,
+      "codeMono": true,
+      "toolOutsideProse": true,
+      "readingFaceLoaded": true,
+      "coarseMinimumFontPx": 16,
+      "coarseMinimumControlHeight": 44
+    },
+    {
+      "theme": "default",
+      "mode": "light",
+      "normal": {
+        "font": "\"Inter Variable\", Inter, sans-serif",
+        "size": "13px",
+        "line": "21.45px",
+        "color": "oklch(0.3211 0 0)"
+      },
+      "viewer": {
+        "font": "\"Inter Variable\", Inter, sans-serif",
+        "size": "13px",
+        "line": "21.45px",
+        "color": "oklch(0.3211 0 0)"
+      },
+      "matchesNormal": true,
+      "controlsSans": true,
+      "codeMono": true,
+      "toolOutsideProse": true,
+      "readingFaceLoaded": null,
+      "coarseMinimumFontPx": 16,
+      "coarseMinimumControlHeight": 44
+    },
+    {
+      "theme": "default",
+      "mode": "dark",
+      "normal": {
+        "font": "\"Inter Variable\", Inter, sans-serif",
+        "size": "13px",
+        "line": "21.45px",
+        "color": "oklch(0.81 0 0)"
+      },
+      "viewer": {
+        "font": "\"Inter Variable\", Inter, sans-serif",
+        "size": "13px",
+        "line": "21.45px",
+        "color": "oklch(0.81 0 0)"
+      },
+      "matchesNormal": true,
+      "controlsSans": true,
+      "codeMono": true,
+      "toolOutsideProse": true,
+      "readingFaceLoaded": null,
+      "coarseMinimumFontPx": 16,
+      "coarseMinimumControlHeight": 44
+    }
+  ],
+  "reload": {
+    "acceptedOutputRetained": true
+  },
+  "draft": {
+    "draftSha256": "f1762abf6d20eacaa0ff6fb4a33843f1c686b1ac3d22f884f1d191464c57f327",
+    "draftLength": 43,
+    "closedRetained": true,
+    "reopenedRetained": true,
+    "captureRetained": true,
+    "originalEmptyDraftRestored": true
+  },
+  "sourceFileHashes": [
+    {
+      "path": "bb-plugin-pi-subagents-provider/src/ui/subagents-view.tsx",
+      "beforeSha256": "a8cec3da72220387496a33fae4029749be9ef9d2677b9f1c3f49d799626ef525",
+      "afterSha256": "303d18afe515993a85f55a6b6bc2ff46684765189098ed84f529750242406d27"
+    },
+    {
+      "path": "bb-plugin-pi-subagents-provider/src/ui/subagents-view.test.tsx",
+      "beforeSha256": "8aa44230fe73776bf15b6b3fb40144fe3fd1676265233faec474a31bc74cccce",
+      "afterSha256": "b08523c52ffcde11b54c028a1a38d264c3a7dd6294d9c44462d06a02b72fdc2e"
+    },
+    {
+      "path": "bb-plugin-pi-subagents-provider/src/ui/subagents.css",
+      "beforeSha256": "b251dc358530a5914ebb8af8132942afa257fd2e642311bc7bbd76af0efd2812",
+      "afterSha256": "eda03d4bf39fced14991ce3222d10b3ece782fed7b16ea1fb88c41dd7851fb8c"
+    },
+    {
+      "path": "bb-plugin-pi-subagents-provider/src/ui/subagents-styles.test.ts",
+      "beforeSha256": "1b1caf9abf6928b4435f56b739a63a94f92c0ae14d59c064455cb5438302f65d",
+      "afterSha256": "37fe9389110f69592132a1619d0cb9970265da9feac375000ea3284af09f9249"
+    }
+  ],
+  "cleanup": {
+    "originalSourcesRestored": true,
+    "enabledAndRunningRestored": true,
+    "exactAppearanceRestored": true,
+    "emptyDraftAndClosedPanelRestored": true,
+    "ownedBrowserTargetsClosed": 5,
+    "browserExited": true,
+    "daemonStopped": true,
+    "retainedDeployment": false,
+    "modelRunsCreated": 0
+  },
+  "remaining": [
+    "BBP-225 background model availability",
+    "BBP-227 legacy tool-result prose, deferred",
+    "OpenSpec 4.3 live lifecycle fixtures",
+    "OpenSpec 4.4 human visual approval"
+  ],
+  "coverageLimits": [
+    "physical touch",
+    "screen readers",
+    "native browser zoom",
+    "other browsers",
+    "actual link navigation",
+    "full console/event-network collection"
+  ]
+}

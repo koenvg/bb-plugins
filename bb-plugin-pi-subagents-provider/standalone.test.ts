@@ -14,6 +14,8 @@ describe("standalone packaging", () => {
         // The native failure fixture uses this exported Pi 1.1.0 transport.
         /^@earendil-works\/pi-ai\/api\/openai-codex-responses$/,
         /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
+        /^@get-bb\/plugin-sdk\/testing\/app$/,
+        /^react-dom\/client$/,
         /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge)$/,
         /^typebox$/,
         /^@testing-library\/react$/,
