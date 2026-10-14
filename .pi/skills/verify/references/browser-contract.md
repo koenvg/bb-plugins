@@ -15,7 +15,7 @@ This route does not start Chrome automatically. Ask before browser launch, remot
 ## Inspect the installed contract
 
 1. Load the installed `browser-use` skill and its multi-session and CDP/Python references. Inspect `browser-use --help` and the matching `browser-harness --help` before choosing commands. Resolve the harness executable from the same installation as Browser Use, not another environment. In the inspected installation it is `/Users/koen/.browser-use-env/bin/browser-harness`. Set `harness` to the confirmed executable path.
-2. Confirm helper signatures from the installed harness `helpers.py` without making a browser call. This route uses `cdp(method, session_id=..., **params)`, `current_tab`, `list_tabs`, `new_tab`, and `close_tab`. Public `Target.attachToTarget` returns a CDP session ID for the recorded target. If these are unavailable, report the prerequisite. Do not change installed tools or use private session internals.
+2. Confirm helper signatures from the installed harness `helpers.py` without making a browser call. This route uses `cdp(method, session_id=None, _response_timeout=..., **params)`, `current_tab`, `list_tabs`, `new_tab`, and `close_tab`. Public `Target.attachToTarget` returns a CDP session ID for the recorded target. If these are unavailable, report the prerequisite. Do not change installed tools or use private session internals.
 3. Use harness diagnostics directly. In Browser Use 0.13.10, the wrapper rejects `doctor --json` despite advertising it. The strict harness diagnostic checks only the named daemon and does not start, repair, or discover a browser.
 
 ## Provision once, then require strict reuse
@@ -88,28 +88,95 @@ Verify the expected result through session-bound DOM reads, persistence checks, 
 
 ## Scoped cleanup
 
-On success, failure, or a blocker, close only IDs recorded as task-created. A user-selected existing tab must remain open. Use strict health first, then select no substitute target:
+On success, failure, or a blocker, close only IDs recorded as task-created. A user-selected existing tab must remain open. Before invoking cleanup, run the strict diagnostic for the recorded name and require exit 0, `healthy=true`, `daemon.alive=true`, and `daemon.browser_ready=true`. Recheck the endpoint's browser process/profile and the named daemon's PID against the approved ledger. Uncertain or changed ownership blocks cleanup before mutation.
+
+Export `cleanup_ownership` as a JSON object with `recorded` and `current` identity objects. Each has exactly `name`, `endpoint`, `daemon_pid`, `browser_pid`, and `profile`. Names, endpoints, and profile paths are nonempty strings; PIDs are positive integers. Take `recorded` from the ledger and `current` from the fresh diagnostic and process/profile inspection, not a copy of `recorded`. Keep the same `BU_NAME`, exactly one endpoint variable, and `BH_REQUIRE_EXISTING_DAEMON=1`. Export `provisioning_target` and the complete `task_created_targets` JSON array from the task-created ledger. Include the provisioning ID even if `list_tabs()` hides it. Keep user-selected and unowned IDs out of this array.
 
 ```sh
 browser-use <<'PY'
-import json, os
+import json, os, signal, time
+deadline = time.monotonic() + 5
+ownership = json.loads(os.environ["cleanup_ownership"])
+fields = {"name", "endpoint", "daemon_pid", "browser_pid", "profile"}
+if not isinstance(ownership, dict) or set(ownership) != {"recorded", "current"}:
+    raise RuntimeError("Cleanup ownership is uncertain")
+for identity in ownership.values():
+    if not isinstance(identity, dict) or set(identity) != fields:
+        raise RuntimeError("Invalid cleanup identity")
+    if any(not isinstance(identity[key], str) or not identity[key].strip()
+           for key in ("name", "endpoint", "profile")):
+        raise RuntimeError("Invalid cleanup identity")
+    if any(type(identity[key]) is not int or identity[key] <= 0
+           for key in ("daemon_pid", "browser_pid")):
+        raise RuntimeError("Invalid cleanup process identity")
+recorded = ownership["recorded"]
+endpoints = [os.environ[key] for key in ("BU_CDP_URL", "BU_CDP_WS") if os.environ.get(key)]
+if (ownership["current"] != recorded or recorded["name"] == "default"
+        or os.environ.get("BU_NAME") != recorded["name"]
+        or endpoints != [recorded["endpoint"]]
+        or os.environ.get("BH_REQUIRE_EXISTING_DAEMON") != "1"):
+    raise RuntimeError("Cleanup ownership conflict or non-strict route")
 targets = json.loads(os.environ["task_created_targets"])
-# Use only IDs recorded as task-created, including the provisioning tab.
-errors = []
-for target in targets:
+if (not isinstance(targets, list) or not targets
+        or any(not isinstance(target, str) or not target or any(c.isspace() for c in target)
+               for target in targets)
+        or len(set(targets)) != len(targets)
+        or os.environ.get("provisioning_target") not in targets):
+    raise RuntimeError("Invalid task-created target ledger")
+
+if not hasattr(signal, "setitimer") or signal.getitimer(signal.ITIMER_REAL) != (0.0, 0.0):
+    raise RuntimeError("Cleanup requires an unused POSIX real-time timer")
+
+def expire(signum, frame):
+    raise TimeoutError("Target cleanup timed out")
+
+def bounded(method, **params):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise RuntimeError("Target cleanup timed out")
+    previous_handler = signal.signal(signal.SIGALRM, expire)
     try:
-        if target in {tab["targetId"] for tab in list_tabs()}:
-            close_tab(target)
-        if target in {tab["targetId"] for tab in list_tabs()}:
-            raise RuntimeError("Task target remains open: " + target)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Target cleanup timed out")
+        signal.setitimer(signal.ITIMER_REAL, remaining)
+        result = cdp(method, _response_timeout=remaining, **params)
     except Exception as error:
-        errors.append(str(error))
-if errors:
-    raise RuntimeError("Target cleanup failed: " + "; ".join(errors))
+        raise RuntimeError("Target cleanup RPC failed for " + method + ": " + str(error)) from error
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+    if time.monotonic() >= deadline:
+        raise RuntimeError("Target cleanup timed out")
+    return result
+
+present = {info["targetId"] for info in bounded("Target.getTargets")["targetInfos"]}
+for target in targets:
+    if target in present:
+        ack = bounded("Target.closeTarget", targetId=target)
+        if ack.get("success") is not True:
+            raise RuntimeError("Cleanup conflict, close not acknowledged for " + target)
+if set(targets) & present:
+    while True:
+        present = {info["targetId"] for info in bounded("Target.getTargets")["targetInfos"]}
+        if not set(targets) & present:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError("Target cleanup timed out")
+        time.sleep(min(0.1, remaining))
+if time.monotonic() >= deadline:
+    raise RuntimeError("Target cleanup timed out")
 print("All recorded task-created targets absent")
 PY
 ```
 
-Confirm absence for the full recorded set, including the provisioning tab. `close_tab(target)` uses browser-level `Target.closeTarget` with the exact ID and does not require a live page session. Do not send page-scoped resets after session loss. Daemon shutdown alone does not close every tab it created. After tab cleanup, `browser-use --reload` may stop only this run's recorded, still-owned named daemon. It stops the daemon, not Chrome. Check the same name with the strict diagnostic and confirm `daemon.alive=false`. Do not issue another script that would recreate it. If daemon ownership changed or the connection is unavailable, preserve state and report pending cleanup instead of forcing a restart or broad close.
+`Target.closeTarget` runs at browser level with the exact recorded ID. Use raw `cdp` here because `close_tab()` discards its `success` acknowledgment. A true acknowledgment is not absence. The snippet polls fresh browser-level `Target.getTargets` for the complete recorded set, without `list_tabs()`'s page and provisioning filters.
+
+One five-second monotonic deadline covers all RPCs and polling. Run this script on Python's main thread with POSIX `signal.setitimer` available and no active real-time timer. Otherwise cleanup blocks before CDP calls. Each synchronous call has an interrupting alarm for its remaining budget, including IPC connection and send/receive. The helper's `_response_timeout` alone covers response waiting, not its separate connection timeout. The snippet clears its timer and restores the prior signal handler on success or failure. It leaves no worker that could transmit a late close.
+
+A false acknowledgment is a conflict. An RPC error or deadline expiry leaves cleanup pending; an already-sent close may still finish, so preserve that uncertainty and do not replay it. Confirmed absence in this same call is decisive, including after the last page closes. No later live-page health check or page-session recovery is required.
+
+After tab cleanup, `browser-use --reload` may stop only this run's recorded, still-owned named daemon. It stops the daemon, not Chrome. Check the same name with the strict diagnostic and confirm `daemon.alive=false`. Do not issue another script that would recreate it. If daemon ownership changed or the connection is unavailable, preserve state and report pending cleanup instead of forcing a restart or broad close.
 
 Leave a user-provided browser/profile open. Stop a browser or local server only if this run created its recorded process and cleanup was approved. Preserve concurrent user changes. Record intentionally retained resources and any cleanup failure or blocker. Pending cleanup prevents an overall pass.
