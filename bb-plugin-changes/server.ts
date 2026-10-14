@@ -92,6 +92,7 @@ async function getChanges(
     if (diff.outcome === "unavailable") return { kind: "error", message: diff.failure.message };
     return {
       kind: "ok",
+      environmentId,
       query,
       files: diff.files.map(
         ({ path, previousPath, additions, deletions, binary, loadMode, changeKind, origin }) => ({
