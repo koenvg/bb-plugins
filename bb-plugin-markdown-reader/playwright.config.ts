@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { browserFixtureOrigin } from "../scripts/browser-fixture-runner.mjs";
 
 // Synthetic local SDK fixtures, not installed BB acceptance.
 export default defineConfig({
@@ -16,16 +17,10 @@ export default defineConfig({
     ["html", { open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:4187",
+    baseURL: browserFixtureOrigin(),
     browserName: "chromium",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     serviceWorkers: "block",
-  },
-  webServer: {
-    command: "bun run preview:fixture --port 4187 --strictPort",
-    url: "http://127.0.0.1:4187",
-    reuseExistingServer: false,
-    timeout: 30_000,
   },
 });

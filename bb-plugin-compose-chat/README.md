@@ -80,9 +80,17 @@ bun --bun run playwright install chromium
 bun run test:browser
 ```
 
-The pinned Playwright Test 1.64.0 runner starts its own Chromium browser and a local fixture server on `127.0.0.1:56429`. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `bun --bun run playwright install --with-deps chromium` if browser system libraries are missing.
+The pinned Playwright Test 1.64.0 runner starts its own Chromium browser. It uses a fresh context for each case, never a signed-in profile or an existing browser. No Python, Browser Use, BB CLI, manual server, or daemon variables are needed. On Linux, use `bun --bun run playwright install --with-deps chromium` if browser system libraries are missing.
 
-The server builds `tests/effects-fixture.tsx`, which imports the real `app.tsx` entry and decorator and its CSS with esbuild on every run. It serves these assets in memory at the fixture's existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite an existing BB build in `dist/`. Only fixture assets are served, with caching disabled. An occupied port fails instead of reusing another server. Playwright owns browser, context and server cleanup on success or failure. Assertions, navigation errors, build errors and timeouts fail the command; retries are disabled.
+`bun run test:browser` starts this checkout's fixture before Playwright loads its config. The server binds `127.0.0.1` port `0` once and reports its actual bare origin. The runner retains that listener during the tests. All remaining command arguments go to local Playwright unchanged. Raw `playwright test` calls fail without the runner's handoff.
+
+The server builds `tests/effects-fixture.tsx`, which imports the real `app.tsx` entry, decorator, and CSS with esbuild on every run. It serves assets in memory at the existing `dist/app.js` and `dist/app.css` URLs. It does not overwrite a BB build in `dist/`. Only fixture assets are served, with caching disabled and GET/HEAD access only.
+
+Direct previews also bind port `0` and print the actual URL. Run `bun tests/preview-server.ts`. To request a specific port for direct previews or browser tests, set `COMPOSE_CHAT_PREVIEW_PORT=56429`. Values must be integers from `0` through `65535`. Empty or malformed values fail. An occupied explicit port fails without reusing or replacing the existing listener.
+
+The wrapper owns a fresh temporary parent, even though this fixture builds only in memory. On success, test failure, startup failure, or cancellation, it stops its owned POSIX process groups before removing only that parent. Browser evidence and product `dist/` remain. Assertions, navigation errors, build errors, and timeouts fail the command. Retries stay disabled. SIGKILL of the runner and host crashes cannot run cleanup.
+
+Separate worktrees have separate default evidence paths. Concurrent runs in one checkout or with the same explicit `--output` can overwrite evidence. From the repository root, `bun scripts/verify-concurrent-browser-worktrees.mjs /tmp/bbp-196` verifies concurrent Chromium runs for all three plugins. It checks distinct origins and changed checkout markers, retains evidence, and removes its two owned verification worktrees. It reuses installed locked dependencies without browser setup or suite retries.
 
 `bun run test` still runs Vitest. Its only discovery change excludes `tests/browser/**`, where Playwright's `*.spec.ts` files live. `browser-evidence.test.ts` retains the complete-PNG and backing-pixel safeguards. The Python daemon/session contract tests were removed because the runner no longer connects to user browsers.
 

@@ -127,6 +127,14 @@ describe("public SDK and quota-only boundary", () => {
     expect(
       scan.violations.filter((entry) => {
         // Preview tooling is never shipped as a plugin entry. Keep exceptions file-scoped.
+        if (
+          entry.reason === "outside-package" &&
+          ((entry.file === "playwright.config.ts" &&
+            entry.specifier === "../scripts/browser-fixture-runner.mjs") ||
+            (entry.file === "scripts/preview-server.mjs" &&
+              entry.specifier === "../../scripts/browser-fixture-runner.mjs"))
+        )
+          return false;
         if (entry.reason === "outside-allowlist") {
           if (
             entry.specifier === "@playwright/test" &&

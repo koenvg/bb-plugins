@@ -147,7 +147,15 @@ bun run test:browser presentation.spec.ts --grep 'presentation 760-light$'
 bun run test:browser ui.spec.ts --grep '760-light$'
 ```
 
-Playwright starts and stops Vite on `http://127.0.0.1:4187`, waits for HTTP readiness, and serves the latest local TSX and CSS. That port must be free. It does not reuse an existing server. Each test has a new browser context. Remote images are routed to synthetic PNGs, and unexpected non-local HTTP traffic is blocked and fails the test. There are no live host reads, real native navigation calls, or BB installation steps.
+`bun run test:browser` starts this checkout's Vite fixture before Playwright loads its config. An owned Node HTTP listener binds `127.0.0.1` port `0` once. The runner receives that listener's actual bare origin and retains it during the tests. Vite uses its supported middleware API for local TSX and CSS transforms. HMR shares the same HTTP listener. There is no probe, port fallback, or server reuse. Raw `playwright test` calls fail without the runner's handoff.
+
+Direct previews also default to port `0` and print the actual URL. Run `bun run preview:fixture`. The existing `--port 4187 --strictPort` forms still work. Binding is always strict. `MARKDOWN_READER_PREVIEW_PORT` requests a specific port for direct previews or browser tests. Direct `--port` takes precedence. Values must be integers from `0` through `65535`. Empty or malformed values fail. An occupied explicit port fails without touching the existing listener.
+
+Each preview owns a fresh Vite cache below the runner's fresh temporary parent, or an OS temporary directory for direct use. On success, test failure, startup failure, or cancellation, the runner stops its owned POSIX process groups before removing only its parent. Direct previews close their HTTP and Vite resources before removing only their own cache. Checkout files, shared caches, and browser evidence remain. SIGKILL of the runner and host crashes cannot run cleanup.
+
+Each test has a new browser context. Remote images are routed to synthetic PNGs. Unexpected non-local HTTP traffic is blocked and fails the test. There are no live host reads, native navigation calls, or BB installation steps.
+
+Separate worktrees have separate default evidence paths. Concurrent runs in one checkout or with the same explicit `--output` can overwrite evidence. From the repository root, `bun scripts/verify-concurrent-browser-worktrees.mjs /tmp/bbp-196` verifies concurrent Chromium runs for all three plugins. It checks distinct origins and changed checkout markers, retains evidence, and removes its two owned verification worktrees. It reuses installed locked dependencies without browser setup or suite retries.
 
 `bun run test` remains the primary Vitest suite. Its `tests/**/*.test.{ts,tsx}` include does not collect the browser `tests/browser/*.spec.ts` files. `bun run typecheck` checks both suites.
 

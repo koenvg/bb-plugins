@@ -11,7 +11,7 @@
     "format:check": "bun run --cwd .. format:check bb-plugin-compose-chat",
     "test": "vitest run",
     "typecheck": "bun --bun tsc --noEmit",
-    "test:browser": "bun --bun playwright test",
+    "test:browser": "bun ../scripts/browser-fixture-runner.mjs tests/preview-server.ts 30000",
     "build": "bb plugin build ."
   },
   "engines": {
