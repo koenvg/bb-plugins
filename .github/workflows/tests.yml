@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint and formatting
+    name: Root tests, lint, and formatting
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -31,7 +31,13 @@ jobs:
       - name: Install tooling
         run: bun install --frozen-lockfile
 
-      - name: Check lint and formatting
+      - name: Install browser lifecycle dependencies
+        run: |
+          bun install --cwd bb-plugin-compose-chat --frozen-lockfile
+          bun install --cwd bb-plugin-markdown-reader --frozen-lockfile
+          bun install --cwd bb-plugin-codex-quota --frozen-lockfile
+
+      - name: Check root tests, lint, and formatting
         run: bun run check
 
   test:

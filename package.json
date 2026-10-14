@@ -11,7 +11,7 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "check": "bun run test:setup && bun run lint && bun run format:check"
+    "check": "bun run test:setup && bun run test:browser-lifecycle && bun run lint && bun run format:check"
   },
   "engines": {
     "node": ">=24.15.0 <25",

@@ -53,14 +53,19 @@ Missing or unsupported tools and failed installs stop provisioning with a non-ze
 
 To run it manually from the repository root, use `bash .bb-env-setup.sh`. Bun installs from the committed lockfile without changing it. Test the hook with `bun run test:setup`.
 
-## Formatting and linting
+## Root checks, formatting, and linting
 
-Use [Oxfmt and Oxlint](https://oxc.rs/) for this repository. Install the pinned tools once at the repository root:
+Use [Oxfmt and Oxlint](https://oxc.rs/) for this repository. Before running the root checks, install the root tools and the three browser fixture packages' dependencies:
 
 ```sh
 bun install --frozen-lockfile
+bun install --cwd bb-plugin-compose-chat --frozen-lockfile
+bun install --cwd bb-plugin-markdown-reader --frozen-lockfile
+bun install --cwd bb-plugin-codex-quota --frozen-lockfile
 bun run check
 ```
+
+`bun run check` runs setup tests, browser lifecycle tests, lint, and formatting checks in order. It stops on the first failure. The lifecycle tests exercise local fixture servers and process cleanup without Chromium. After installing these dependencies, run them separately with `bun run test:browser-lifecycle`.
 
 To format files or apply safe lint fixes:
 
@@ -120,6 +125,6 @@ Each plugin has one combined result. After required setup succeeds, both validat
 
 A failed plugin check does not cancel the other plugin checks. New commits cancel superseded runs for the same pull request or branch. Approved fork pull requests run without repository secrets or write permissions; GitHub may require maintainer approval before they start.
 
-This workflow runs tests and typechecks for all plugins and lint for Tasks Plus. A separate job installs the root tools and runs `bun run check` for lint and formatting across the repository. A separate browser matrix installs Chromium with its system dependencies and runs the three Playwright suites. It saves reports, screenshots, and failure traces for seven days. These jobs build local fixture assets, but the workflow does not run plugin release builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
+This workflow runs tests and typechecks for all plugins and lint for Tasks Plus. A separate quality job installs the root tools and the locked dependencies of Compose Chat, Markdown Reader, and Codex Quota. It runs `bun run check` for setup tests, browser lifecycle tests, lint, and formatting across the repository. Any failure fails the job. A separate browser matrix installs Chromium with its system dependencies and runs the three Playwright suites. It saves reports, screenshots, and failure traces for seven days. These jobs build local fixture assets, but the workflow does not run plugin release builds, releases, coverage uploads, or Codex Quota's BB-dependent `test:bundle` command. It does not configure branch protection.
 
 When adding a plugin, give it `bun run test` and `bun run typecheck` scripts and add its directory to the workflow's `matrix.plugin` list. Include any required setup in both validation-step conditions so failed setup cannot start either check.
