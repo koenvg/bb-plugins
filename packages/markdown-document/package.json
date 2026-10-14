@@ -1,0 +1,46 @@
+{
+  "name": "@bb-plugins/markdown-document",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "packageManager": "bun@1.4.3",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && bun build-css.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "bun run --cwd ../.. lint packages/markdown-document",
+    "format:check": "bun run --cwd ../.. format:check packages/markdown-document"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "refractor": "^5.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.1"
+  }
+}
