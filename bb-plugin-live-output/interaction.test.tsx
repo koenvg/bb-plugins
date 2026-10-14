@@ -51,25 +51,63 @@ async function mount() {
   } as DOMRect);
   return { view: page, chart };
 }
-it("dismisses hover with focus outside the chart without consuming the host Escape", async () => {
-  const { view, chart } = await mount();
-  const control = view.getByRole("button", { name: "Bytes/s" });
-  act(() => control.focus());
-  fireEvent.mouseMove(chart, { clientX: 480 });
-  expect(view.getByRole("tooltip")).toBeDefined();
-  const host = vi.fn();
-  window.addEventListener("keydown", host);
-  try {
-    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
-    fireEvent(control, escape);
-    expect(view.queryByRole("tooltip")).toBeNull();
-    expect(document.activeElement).toBe(control);
-    expect(escape.defaultPrevented).toBe(false);
-    expect(host).toHaveBeenCalledOnce();
-  } finally {
-    window.removeEventListener("keydown", host);
-  }
-});
+it.each(["body", "control", "chart"] as const)(
+  "dismisses hover with %s focused without consuming the host Escape",
+  async (focusTarget) => {
+    const { view, chart } = await mount();
+    const target =
+      focusTarget === "body"
+        ? document.body
+        : focusTarget === "control"
+          ? view.getByRole("button", { name: "Bytes/s" })
+          : chart;
+    if (focusTarget !== "body") act(() => target.focus());
+    expect(document.activeElement).toBe(target);
+    const host = vi.fn();
+    window.addEventListener("keydown", host);
+    try {
+      const escape = () =>
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      const inactiveEscape = escape();
+      fireEvent(target, inactiveEscape);
+      expect(view.queryByRole("tooltip")).toBeNull();
+      expect(inactiveEscape.defaultPrevented).toBe(false);
+
+      fireEvent.mouseMove(chart, { clientX: 480 });
+      const tooltip = view.getByRole("tooltip");
+      expect(tooltip.querySelector("time")?.dateTime).toBe("1970-01-01T00:05:00.000Z");
+      const enter = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(target, enter);
+      expect(view.getByRole("tooltip")).toBe(tooltip);
+      expect(enter.defaultPrevented).toBe(false);
+
+      const activeEscape = escape();
+      fireEvent(target, activeEscape);
+      expect(view.queryByRole("tooltip")).toBeNull();
+      expect(activeEscape.defaultPrevented).toBe(false);
+      await act(async () => {});
+      expect(view.queryByRole("tooltip")).toBeNull();
+      expect(document.activeElement).toBe(target);
+
+      const repeatedEscape = escape();
+      fireEvent(target, repeatedEscape);
+      expect(view.queryByRole("tooltip")).toBeNull();
+      expect(repeatedEscape.defaultPrevented).toBe(false);
+      expect(host.mock.calls).toEqual([
+        [inactiveEscape],
+        [enter],
+        [activeEscape],
+        [repeatedEscape],
+      ]);
+    } finally {
+      window.removeEventListener("keydown", host);
+    }
+  },
+);
 it("limits the outside Escape listener to a visible tooltip and removes it on dismissal, leave and unmount", async () => {
   const add = vi.spyOn(document, "addEventListener");
   const remove = vi.spyOn(document, "removeEventListener");
