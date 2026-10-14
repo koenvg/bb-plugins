@@ -1,0 +1,11 @@
+$ vitest run --config vitest.config.ts views/detail/keyboard.test.tsx views/detail/attachment-preview.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  18:35:01
+   Duration  3.29s (transform 393ms, setup 151ms, import 594ms, tests 4.05s, environment 454ms)
+
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit

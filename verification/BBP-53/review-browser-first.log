@@ -1,0 +1,15 @@
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 8 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (968ms)
+  ✓  2 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 1280px (567ms)
+  ✓  3 tests/browser/preview.spec.ts:174:4 › stable empty region at 1280px (538ms)
+  ✓  4 tests/browser/preview.spec.ts:174:4 › stable error region at 1280px (535ms)
+  ✓  5 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (754ms)
+  ✓  6 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 390px (545ms)
+  ✓  7 tests/browser/preview.spec.ts:174:4 › stable empty region at 390px (532ms)
+  ✓  8 tests/browser/preview.spec.ts:174:4 › stable error region at 390px (582ms)
+
+  8 passed (5.8s)

@@ -1,0 +1,12 @@
+$ oxlint packages/markdown-document bb-plugin-tasks-plus "verification/BBP-53/clean-build.mjs"
+bb-plugin-tasks-plus/views/list/list-preference.ts:170:22: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+bb-plugin-tasks-plus/api/index.ts:322:19: warning unicorn(no-new-array): Do not use `new Array(singleArgument)`. help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10: warning eslint(no-unused-vars): Function 'task' is declared but never used. help: Consider removing this declaration.
+bb-plugin-tasks-plus/attachments/index.ts:165:16: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+$ oxfmt --check packages/markdown-document bb-plugin-tasks-plus .github/workflows/tests.yml "verification/BBP-53/clean-build.mjs" "verification/BBP-53/review-closure.md" "verification/BBP-53/review-p1-toolchain.json"
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 303ms on 356 files using 10 threads.
+4a145b1046637677c819e7604e3a98669e59286918e8e42133c28dcab33b53fe  /Users/koen/.bb/pi-subagents-bridge-sessions/subagent-artifacts/fc0b7738-34a8-4c44-9f34-3eb412a460cb_delegate_output.md
+PASS final source syntax, scoped lint/format, diff whitespace, fixed baseline, empty staging, and original review fingerprint

@@ -1,0 +1,40 @@
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [78.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:51:41
+   Duration  627ms (transform 20ms, setup 0ms, import 140ms, tests 80ms, environment 348ms)
+
+$ tsc --noEmit
+bun install v1.4.3 (c6da4a4d3)
+
++ @bb-plugins/markdown-document@../packages/markdown-document
+
+2 packages installed [447.00ms]
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  124 passed (124)
+      Tests  1278 passed (1278)
+   Start at  18:51:43
+   Duration  38.81s (transform 6.24s, setup 21.05s, import 45.25s, tests 211.09s, environment 54.75s)
+
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
+$ bb plugin build
+dist/server.js
+dist/server.js.map
+dist/server.meta.json
+dist/app.js
+dist/app.css
+dist/app.meta.json

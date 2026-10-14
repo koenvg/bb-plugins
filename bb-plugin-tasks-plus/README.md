@@ -14,13 +14,33 @@ Task comments are removed by migration 12. Read [the upgrade and rollback proced
 Use Bun 1.4.3 with the committed lockfiles, and Node `>=24.15.0 <25` for Vitest. Install repository
 lint/format tooling with `bun install --frozen-lockfile` at the root. Then run from this directory:
 
+Build the local shared package before installing Tasks. From the repository root, run:
+
+```sh
+cd packages/markdown-document
+bun install --frozen-lockfile
+bun run build
+bun run test
+bun run typecheck
+cd ../../bb-plugin-tasks-plus
+bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
+```
+
+The Quota dependency supplies the existing Tasks navigation fixture. The shared package is a build-time dependency, not an installed-plugin dependency. Tasks bundles its compiled code and CSS. The approved development workflow uses frozen Bun installs instead of the older plan's npm ci.
+The frozen Tasks install also installs the official `bb-app@0.46.0` build CLI locally. Its lockfile records the npm tarball integrity. This release ships SDK 0.6.37. The [official CI guide](https://github.com/get-bb/bb/blob/4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62/plugins/bb-guide/skills/bb-plugin-authoring/references/quickstart.md) supports `bb plugin build` without a running server. Use the local CLI and a temporary `BB_DATA_DIR` for build-tool downloads, not the desktop application's global CLI or user data. Installing development dependencies does not install or enable the Tasks plugin.
+
 ```sh
 bun install --frozen-lockfile
+export BB_DATA_DIR="$(mktemp -d)"
+test "$(node_modules/.bin/bb --version)" = "0.46.0"
 bun run typecheck --version
 bun run typecheck
 bun run test
 bun run lint
 bun run format:check
+node_modules/.bin/bb plugin types . --check
+bun run build
+bun run test:browser
 ```
 
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
@@ -65,7 +85,7 @@ Only one of the two plugins can be enabled at a time.
 1. Back up the bundled data:
    `cp -R ~/.bb/plugins/tasks ~/.bb/plugins/tasks.backup-$(date +%F)`
 2. From this repository's root, install the fork, then keep it disabled:
-   `cd bb-plugin-tasks-plus && bun install --frozen-lockfile && bb plugin build && bb plugin install . --yes && cd ..`,
+   `cd packages/markdown-document && bun install --frozen-lockfile && bun run build && cd ../../bb-plugin-tasks-plus && bun install --frozen-lockfile && bb plugin build && bb plugin install . --yes && cd ..`,
    then `bb plugin disable tasks-plus`.
 3. Disable the bundled plugin: `bb plugin disable tasks`. Do not use
    `bb plugin remove tasks`.
@@ -118,6 +138,18 @@ choose or create presets under **Manage → Presets**, and type `@` in the bb
 composer to send a task mention to an agent.
 
 Task descriptions hold requirements and current state. Linked work threads hold discussion, outcome reports and questions. There is no task Activity section or notification control.
+
+## Read Markdown task attachments
+
+Activate a saved task file named `.md` or `.markdown` to open a read-only dialog over the same task. Extensions are case-insensitive, even with generic MIME metadata. Images still open the image preview, including misleading Markdown filenames. Other file cards still download.
+
+The dialog starts in **Preview**. Select **Raw** to read the exact loaded source, including frontmatter, BOM, CRLF, blank lines, and code whitespace. Both views use one snapshot. View changes do not fetch or write. **Download** always uses the original saved attachment ID and filename, even if preview fails.
+
+Preview accepts valid UTF-8 through 1 MiB of actual bytes. It rejects larger files, invalid UTF-8, NUL, and binary controls other than TAB, LF, and CR. The separate upload and original-download allowance remains 25 MiB. Empty files have a readable message. Missing, denied, and read failures offer **Retry**. Unsupported text and oversized files direct you to **Download**.
+
+Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task shortcuts pause while it is open. Focus returns to the connected attachment card, or **Attach file** if the card is gone. A newer overlay keeps its focus. Task changes and confirmed removal close the preview and discard pending reads. Opening and view changes do not navigate, remount the editor, or change workflow state.
+
+Markdown and GFM have semantic headings, tables, read-only task lists, and plain code. All document destinations are inactive, including footnotes. Link labels and image alt text remain readable. Attachments have no filesystem root. Raw HTML and MDX do not execute. No standalone reader installation is needed.
 
 ## Delete a Tasks project
 

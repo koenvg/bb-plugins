@@ -1,0 +1,79 @@
+$ git clone --no-hardlinks --quiet /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins /var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout [/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins]
+Fresh checkout /var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout]
+bun install v1.4.3 (c6da4a4d3)
+
++ oxfmt@0.71.0
++ oxlint@1.86.0
+
+5 packages installed [3.00ms]
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout/packages/markdown-document]
+bun install v1.4.3 (c6da4a4d3)
+
++ @testing-library/react@16.3.3
++ @types/node@24.19.2
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ jsdom@29.1.1
++ react@19.3.0
++ react-dom@19.3.0
++ typescript@5.9.3
++ vitest@4.1.11
++ react-markdown@10.1.0
++ refractor@5.0.0
++ remark-gfm@4.0.1
+
+210 packages installed [127.00ms]
+$ bun run build [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout/packages/markdown-document]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ bun run test [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout/packages/markdown-document]
+$ vitest run
+
+ RUN  v4.1.11 /private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-SCM2gh/checkout/packages/markdown-document
+
+ ❯ test/public.test.tsx (4 tests | 1 failed) 75ms
+     × renders semantic GFM and plain code with inert destinations including footnotes 58ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/public.test.tsx > compiled public document interface > renders semantic GFM and plain code with inert destinations including footnotes
+AssertionError: expected 'const x = "fulfilled";\nline;\n' to be '  const x = "fulfilled";\n\tline  \n' // Object.is equality
+
+- Expected
++ Received
+
+-   const x = "fulfilled";
++ const x = "fulfilled";
+- 	line  
++ line;
+
+
+ ❯ test/public.test.tsx:24:57
+     22|     expect(screen.getByRole("checkbox").hasAttribute("disabled")).toBe…
+     23|     expect(container.querySelector("del")?.textContent).toBe("old");
+     24|     expect(container.querySelector("pre")?.textContent).toBe(
+       |                                                         ^
+     25|       '  const x = "fulfilled";\n\tline  \n',
+     26|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  18:40:26
+   Duration  658ms (transform 16ms, setup 0ms, import 142ms, tests 75ms, environment 370ms)
+
+error: script "test" exited with code 1
+file:///Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/verification/BBP-53/clean-build.mjs:12
+  if (result.status !== 0) throw new Error(`${command} exited ${result.status}`);
+                                 ^
+
+Error: bun exited 1
+    at run (file:///Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/verification/BBP-53/clean-build.mjs:12:34)
+    at file:///Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/verification/BBP-53/clean-build.mjs:39:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0

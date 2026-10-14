@@ -164,11 +164,15 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-export function hasOpenOverlay(): boolean {
-  return (
-    document.querySelector(
+export function hasOpenOverlay(exclude: HTMLElement | null = null): boolean {
+  return Array.from(
+    document.querySelectorAll(
       '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
-    ) !== null
+    ),
+  ).some(
+    (overlay) =>
+      !(exclude && (overlay.contains(exclude) || exclude.contains(overlay))) &&
+      overlay.closest('[hidden], [inert], [aria-hidden="true"]') === null,
   );
 }
 

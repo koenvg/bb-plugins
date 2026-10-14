@@ -1,0 +1,20 @@
+$ vitest run --config vitest.config.ts shell/shortcuts.test.ts views/detail/keyboard.test.tsx views/detail/attachment-preview.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  3 passed (3)
+      Tests  70 passed (70)
+   Start at  18:46:33
+   Duration  4.80s (transform 732ms, setup 363ms, import 1.22s, tests 5.94s, environment 1.61s)
+
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 2 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (598ms)
+  ✓  2 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (506ms)
+
+  2 passed (1.8s)

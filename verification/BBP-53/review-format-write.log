@@ -1,0 +1,2 @@
+$ oxfmt --write bb-plugin-tasks-plus/shell/shortcuts.ts bb-plugin-tasks-plus/shell/shortcuts.test.ts bb-plugin-tasks-plus/views/detail/attachment-preview.tsx bb-plugin-tasks-plus/views/detail/attachment-preview.test.tsx bb-plugin-tasks-plus/tests/preview.tsx bb-plugin-tasks-plus/tests/browser/preview.spec.ts bb-plugin-tasks-plus/package.json bb-plugin-tasks-plus/README.md .github/workflows/tests.yml "verification/BBP-53/clean-build.mjs"
+Finished in 106ms on 10 files using 10 threads.

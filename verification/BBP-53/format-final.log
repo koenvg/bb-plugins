@@ -1,0 +1,2 @@
+$ oxfmt --write bb-plugin-tasks-plus/shared/attachments.ts bb-plugin-tasks-plus/attachments/index.ts bb-plugin-tasks-plus/views/detail/attachment-preview.tsx bb-plugin-tasks-plus/views/detail/attachment-preview.test.tsx packages/markdown-document/test/public.test.tsx "verification/BBP-53/clean-build.mjs" "verification/BBP-53/early-1280.json" "verification/BBP-53/early-390.json" "verification/BBP-53/final-1280.json" "verification/BBP-53/final-390.json" "verification/BBP-53/impeccable-detector.json"
+Finished in 7ms on 11 files using 10 threads.

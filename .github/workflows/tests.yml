@@ -78,13 +78,23 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Install SQLite CLI
+      - name: Install Tasks native build prerequisites
         id: install_sqlite
         if: matrix.plugin == 'bb-plugin-tasks-plus'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes sqlite3
+          sudo apt-get install --yes sqlite3 build-essential python3
           sqlite3 --version
+
+      - name: Verify and build shared Markdown for Tasks
+        id: shared_markdown
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        working-directory: packages/markdown-document
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          bun run test
+          bun run typecheck
 
       - name: Install dependencies
         id: install_dependencies
@@ -154,6 +164,18 @@ jobs:
             steps.install_dependencies.outcome == 'success'
           }}
         run: bun run build
+      - name: Verify Tasks official build tooling
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        env:
+          BB_DATA_DIR: ${{ runner.temp }}/bbp53-build-data
+        run: |
+          test "$(node_modules/.bin/bb --version)" = "0.46.0"
+          node_modules/.bin/bb plugin types . --check
+      - name: Build Tasks plugin
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        env:
+          BB_DATA_DIR: ${{ runner.temp }}/bbp53-build-data
+        run: bun run build
 
   browser:
     name: Browser test ${{ matrix.plugin }}
@@ -166,6 +188,7 @@ jobs:
           - bb-plugin-compose-chat
           - bb-plugin-markdown-reader
           - bb-plugin-codex-quota
+          - bb-plugin-tasks-plus
     defaults:
       run:
         shell: bash
@@ -180,6 +203,21 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
+
+      - name: Set up Node.js for shared Markdown checks
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ">=24.15.0 <25"
+
+      - name: Verify and build shared Markdown for Tasks
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        working-directory: packages/markdown-document
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          bun run test
+          bun run typecheck
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

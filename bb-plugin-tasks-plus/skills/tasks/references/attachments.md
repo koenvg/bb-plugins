@@ -24,3 +24,13 @@ The invoking machine owns `--file`, `--attach`, `--out` and `--description-file`
 
 Outside a thread, these paths use the server machine. Use
 `--machine <id-or-name>` for another enrolled machine.
+
+## Read Markdown in Tasks
+
+Saved task cards with case-insensitive `.md` or `.markdown` filenames open a read-only dialog. Image preview takes priority. Generic MIME metadata does not prevent a valid Markdown preview.
+
+Select **Preview** or **Raw** without a new read or write. Raw retains the exact source, including BOM and CRLF. Preview supports baseline Markdown and GFM with plain code. All document links, images, and generated footnotes remain inactive. Attachments have no filesystem root. Raw HTML and MDX do not execute.
+
+Preview reads the saved ID through local authentication and accepts valid UTF-8 through 1 MiB of actual bytes. Invalid encoding and binary controls are unsupported. TAB, LF, and CR are allowed. **Download** keeps the original bytes and filename and remains available on failure. The original upload and download allowance remains 25 MiB. Empty, missing, denied, unsupported, and failed reads have messages; recoverable failures offer **Retry**.
+
+Close or Escape returns focus to the card or the stable **Attach file** control, unless a newer overlay owns focus. Task shortcuts pause while open. Reading does not change the task route, editor, draft, or workflow. Task changes and confirmed active removal close the dialog. CLI attachment operations are unchanged.

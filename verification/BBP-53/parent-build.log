@@ -1,0 +1,16 @@
+Isolated build data: /tmp/bbp53-parent-build-2evNu1
+0.46.0
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
+$ bb plugin build
+Downloading the plugin build toolchain (one time)…
+  esbuild@0.28.1, @tailwindcss/node@4.3.0, @tailwindcss/oxide@4.3.0, tailwindcss@4.3.0
+Toolchain ready (2.0s)
+dist/server.js
+dist/server.js.map
+dist/server.meta.json
+dist/app.js
+dist/app.css
+dist/app.meta.json
+app 0.6.37 0.46.0
+server 0.6.37 0.46.0

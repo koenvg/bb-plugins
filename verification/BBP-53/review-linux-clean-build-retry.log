@@ -1,0 +1,51 @@
+Snapshot /Users/koen/Library/Caches/bbp53-linux-source-JccSMY
+debconf: delaying package configuration, since apt-utils is not installed
+Linux a8c3ed3b25da 6.18.36-0-virt #1-Alpine SMP PREEMPT_DYNAMIC 2026-06-20 16:50:52 aarch64 aarch64 aarch64 GNU/Linux
+v24.21.0
+1.4.3
+3.45.1 2024-01-30 16:01:20 e876e51a0ed5c5b3126f52e532044363a014bc594cfefa87ffb5b82257ccalt1 (64-bit)
+PASS minimal PATH has no desktop/global BB; isolated temporary BB_DATA_DIR
+$ git clone --no-hardlinks --quiet /source /tmp/bbp53-clean-7VEjbt/checkout [/source]
+Fresh checkout /tmp/bbp53-clean-7VEjbt/checkout
+$ bun install --frozen-lockfile [/tmp/bbp53-clean-7VEjbt/checkout]
+bun install v1.4.3 (c6da4a4d3)
+
++ oxfmt@0.71.0
++ oxlint@1.86.0
+
+7 packages installed [9.28s]
+$ bun install --frozen-lockfile [/tmp/bbp53-clean-7VEjbt/checkout/packages/markdown-document]
+bun install v1.4.3 (c6da4a4d3)
+
++ @testing-library/react@16.3.3
++ @types/node@24.19.2
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ jsdom@29.1.1
++ react@19.3.0
++ react-dom@19.3.0
++ typescript@5.9.3
++ vitest@4.1.11
++ react-markdown@10.1.0
++ refractor@5.0.0
++ remark-gfm@4.0.1
+
+211 packages installed [142.16s]
+$ bun run build [/tmp/bbp53-clean-7VEjbt/checkout/packages/markdown-document]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ bun run test [/tmp/bbp53-clean-7VEjbt/checkout/packages/markdown-document]
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/tmp/bbp53-clean-7VEjbt/checkout/packages/markdown-document[39m
+
+ [32m✓[39m test/public.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 17:27:42
+[2m   Duration [22m 424ms[2m (transform 16ms, setup 0ms, import 87ms, tests 86ms, environment 205ms)[22m
+
+$ bun run typecheck [/tmp/bbp53-clean-7VEjbt/checkout/packages/markdown-document]
+$ tsc --noEmit
+$ bun install --frozen-lockfile [/tmp/bbp53-clean-7VEjbt/checkout/bb-plugin-codex-quota]
+bun install v1.4.3 (c6da4a4d3)

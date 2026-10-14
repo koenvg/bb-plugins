@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-14T16:36:31.076Z",
+  "fixtureOnly": true,
+  "geometry": {
+    "pageOverflow": false,
+    "panelWidth": 388,
+    "proseWidth": 356,
+    "codeLocal": true,
+    "fontSize": "16px",
+    "lineHeight": "28px",
+    "bodyOverflow": "auto",
+    "reads": "1",
+    "controlsFit": true,
+    "focusInside": true,
+    "focusOutline": "2px"
+  }
+}

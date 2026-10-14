@@ -1,0 +1,43 @@
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 2 tests using 1 worker
+
+  ✘  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (0ms)
+  ✘  2 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (0ms)
+
+
+  1) tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px ────────────────────────────
+
+    Error: launch: Executable doesn't exist at /Users/koen/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell
+    ╔════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright was just installed or updated.       ║
+    ║ Please run the following command to download new browsers: ║
+    ║                                                            ║
+    ║     npx playwright install                                 ║
+    ║                                                            ║
+    ║ <3 Playwright Team                                         ║
+    ╚════════════════════════════════════════════════════════════╝
+
+    Error Context: test-results/preview-generic-real-overlay-at-1280px/error-context.md
+
+  2) tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px ─────────────────────────────
+
+    Error: launch: Executable doesn't exist at /Users/koen/Library/Caches/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-mac-arm64/chrome-headless-shell
+    ╔════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright was just installed or updated.       ║
+    ║ Please run the following command to download new browsers: ║
+    ║                                                            ║
+    ║     npx playwright install                                 ║
+    ║                                                            ║
+    ║ <3 Playwright Team                                         ║
+    ╚════════════════════════════════════════════════════════════╝
+
+    Error Context: test-results/preview-generic-real-overlay-at-390px/error-context.md
+
+  2 failed
+    tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px ─────────────────────────────
+    tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px ──────────────────────────────
+error: "playwright" exited with code 1
+error: script "test:browser" exited with code 1

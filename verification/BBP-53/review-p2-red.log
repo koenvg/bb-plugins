@@ -1,0 +1,80 @@
+$ vitest run --config vitest.config.ts views/detail/attachment-preview.test.tsx -t "newer listbox"
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| views/detail/attachment-preview.test.tsx (33 tests | 1 failed | 31 skipped) 427ms
+     × does not steal newer listbox focus during deferred dismissal, compact=true 98ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > does not steal newer listbox focus during deferred dismissal, compact=true
+AssertionError: expected <button type="button" …(3)>…(2)</button> to be <div role="listbox" …(2)>…(1)</div> // Object.is equality
+
+- Expected
++ Received
+
+- <div
+-   aria-label="Newer choices"
+-   role="listbox"
+-   tabindex="0"
++ <button
++   aria-label="NOTES.MARKDOWN"
++   class="flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"
++   title="NOTES.MARKDOWN"
++   type="button"
++ >
++   <span
++     class="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"
++   >
++     <svg
++       class="size-3.5"
++       color="currentColor"
++       data-icon="File"
++       data-icon-pending=""
++       data-icon-root=""
++       fill="none"
++       height="24"
++       viewBox="0 0 24 24"
++       width="24"
++       xmlns="http://www.w3.org/2000/svg"
++     />
++   </span>
++   <span
++     class="min-w-0"
+    >
+-   <div
+-     aria-selected="true"
+-     role="option"
++     <span
++       class="block max-w-48 truncate"
+      >
+-     Selected choice
+-   </div>
+- </div>
++       NOTES.MARKDOWN
++     </span>
++     <span
++       class="block text-2xs text-muted-foreground"
++     >
++       12 B
++     </span>
++   </span>
++ </button>
+
+ ❯ views/detail/attachment-preview.test.tsx:373:38
+    371|       target.focus();
+    372|       await act(async () => {});
+    373|       expect(document.activeElement).toBe(target);
+       |                                      ^
+    374|     },
+    375|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed | 31 skipped (33)
+   Start at  19:13:13
+   Duration  1.58s (transform 243ms, setup 142ms, import 391ms, tests 427ms, environment 505ms)
+
+error: script "test" exited with code 1

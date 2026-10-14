@@ -1,0 +1,13 @@
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 6 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (1.3s)
+  ✓  2 tests/browser/preview.spec.ts:152:4 › stable empty region at 1280px (639ms)
+  ✓  3 tests/browser/preview.spec.ts:152:4 › stable error region at 1280px (642ms)
+  ✓  4 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (1.2s)
+  ✓  5 tests/browser/preview.spec.ts:152:4 › stable empty region at 390px (775ms)
+  ✓  6 tests/browser/preview.spec.ts:152:4 › stable error region at 390px (614ms)
+
+  6 passed (6.0s)

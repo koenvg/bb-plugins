@@ -1,0 +1,54 @@
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [35.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:32:55
+   Duration  839ms (transform 25ms, setup 0ms, import 148ms, tests 122ms, environment 487ms)
+
+$ tsc --noEmit
+bun install v1.4.3 (c6da4a4d3)
+
++ @bb-plugins/markdown-document@../packages/markdown-document
+
+2 packages installed [545.00ms]
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| views/detail/keyboard.test.tsx (12 tests | 1 failed) 8553ms
+     × preserves editor, draft, route, scroll and workflow with isolated keys, compact=false 1969ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/keyboard.test.tsx > Markdown dialog in the full Tasks app > preserves editor, draft, route, scroll and workflow with isolated keys, compact=false
+AssertionError: expected '' to be 'Unfinished task draft' // Object.is equality
+
+- Expected
++ Received
+
+- Unfinished task draft
+
+ ❯ views/detail/keyboard.test.tsx:274:37
+    272|     await waitFor(() => expect(document.activeElement).toBe(trigger));
+    273|     expect(slot.container.querySelector('.tiptap[contenteditable="true…
+    274|     expect(description.textContent).toBe("Unfinished task draft");
+       |                                     ^
+    275|     expect(scroll.scrollTop).toBe(170);
+    276|     expect(slot.navigateCalls).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 123 passed (124)
+      Tests  1 failed | 1271 passed (1272)
+   Start at  18:32:57
+   Duration  75.76s (transform 7.56s, setup 33.06s, import 69.72s, tests 456.36s, environment 93.08s)
+
+error: script "test" exited with code 1

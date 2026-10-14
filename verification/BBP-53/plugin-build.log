@@ -1,0 +1,9 @@
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
+$ bb plugin build
+dist/server.js
+dist/server.js.map
+dist/server.meta.json
+dist/app.js
+dist/app.css
+dist/app.meta.json

@@ -1,0 +1,51 @@
+Parent verification baseline 939bd318cedb00239b73e1fd1c3d5d90c79ada70
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:46:14
+   Duration  586ms (transform 21ms, setup 0ms, import 125ms, tests 76ms, environment 330ms)
+
+$ tsc --noEmit
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  124 passed (124)
+      Tests  1284 passed (1284)
+   Start at  19:46:15
+   Duration  26.76s (transform 5.38s, setup 14.43s, import 35.87s, tests 138.80s, environment 37.25s)
+
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 8 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (1.0s)
+  ✓  2 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 1280px (536ms)
+  ✓  3 tests/browser/preview.spec.ts:175:4 › stable empty region at 1280px (552ms)
+  ✓  4 tests/browser/preview.spec.ts:175:4 › stable error region at 1280px (578ms)
+  ✓  5 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (847ms)
+  ✓  6 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 390px (548ms)
+  ✓  7 tests/browser/preview.spec.ts:175:4 › stable empty region at 390px (614ms)
+  ✓  8 tests/browser/preview.spec.ts:175:4 › stable error region at 390px (593ms)
+
+  8 passed (6.0s)
+$ oxlint packages/markdown-document bb-plugin-tasks-plus
+bb-plugin-tasks-plus/attachments/index.ts:165:16: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-tasks-plus/views/list/list-preference.ts:170:22: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+bb-plugin-tasks-plus/api/index.ts:322:19: warning unicorn(no-new-array): Do not use `new Array(singleArgument)`. help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10: warning eslint(no-unused-vars): Function 'task' is declared but never used. help: Consider removing this declaration.
+$ oxfmt --check packages/markdown-document bb-plugin-tasks-plus .github/workflows/tests.yml
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 247ms on 353 files using 10 threads.
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
