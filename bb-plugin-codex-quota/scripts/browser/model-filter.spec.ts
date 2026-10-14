@@ -93,8 +93,6 @@ for (const width of [375, 1280])
       const fast = series(page, names[2]);
       await fast.focus();
       await expect(restore(page)).toHaveCount(0);
-      const application = await page.getByRole("application").elementHandle();
-      const plot = await page.locator(".recharts-responsive-container").boundingBox();
       for (const name of names) {
         expect(
           await series(page, name).evaluate((node) => {
@@ -125,6 +123,9 @@ for (const width of [375, 1280])
         });
       }
       await capture(page, info, `compact-default-${width}-${theme}`);
+      await settled(page);
+      const application = await page.getByRole("application").elementHandle();
+      const plot = await page.locator(".recharts-responsive-container").boundingBox();
       await page.keyboard.press("Space");
       await expect(fast).toHaveAttribute("aria-pressed", "false");
       await expect(fast).toBeFocused();
