@@ -266,25 +266,25 @@ it.each(["missing", "outside", "projectless", "deleted", "wrong-id"])(
       get.mockResolvedValue(
         makeThreadResponse({
           id: kind === "wrong-id" ? "thr_other" : input.threadId,
-          projectId: kind === "outside" ? "proj_private" : kind === "projectless" ? "" : "proj_a",
+          projectId: kind === "outside" ? "proj_personal" : kind === "projectless" ? "" : "proj_a",
           deletedAt: kind === "deleted" ? 1 : null,
         }),
       );
     const reply = await call(credential);
     unavailable(reply);
-    expect(JSON.stringify(reply)).not.toMatch(/Private|proj_private|thr_other/);
+    expect(JSON.stringify(reply)).not.toMatch(/Private|proj_personal|thr_other/);
     expect(stop).not.toHaveBeenCalled();
   },
 );
 
-it.each(["projects", "control", "owner", "remote", "move", "expiry"])(
+it.each(["mode", "control", "owner", "remote", "move", "expiry"])(
   "rechecks policy and membership immediately before stop: %s",
   async (kind) => {
     const { get, stop, credential } = await setup();
     let reads = 0;
     get.mockImplementation(async () => {
       if (++reads === 2) {
-        if (kind === "projects") f.change({ projects: "" });
+        if (kind === "mode") f.change({ authMode: "cloudflare-access" });
         if (kind === "control") f.change({ controlEnabled: false });
         if (kind === "owner") f.change({ owner: "other" });
         if (kind === "remote") f.change({ remoteEnabled: false });
@@ -304,13 +304,14 @@ it.each(["projects", "control", "owner", "remote", "move", "expiry"])(
   },
 );
 
-it.each(["projects", "control", "owner", "remote", "move", "deleted"])(
+it.each(["personal", "control", "owner", "remote", "move", "deleted"])(
   "cached stops and operation status still require current access: %s",
   async (kind) => {
     const { get, stop, credential } = await setup();
     const reply = await call(credential);
     const operationId = reply.structuredContent.operationId;
-    if (kind === "projects") f.change({ projects: "" });
+    if (kind === "personal")
+      get.mockResolvedValue(makeThreadResponse({ id: input.threadId, projectId: "proj_personal" }));
     if (kind === "control") f.change({ controlEnabled: false });
     if (kind === "owner") f.change({ owner: "other" });
     if (kind === "remote") f.change({ remoteEnabled: false });

@@ -315,25 +315,22 @@ it.each(["bb.read", "bb.control", ""])(
   },
 );
 
-it.each([
-  { controlEnabled: false },
-  { remoteEnabled: false },
-  { owner: "other" },
-  { projects: "" },
-])("denies live local access removal before any BB read: %j", async (change) => {
-  const { send, get, credential } = await setup();
-  f.change(change);
-  const response = await f.rpc(
-    "tools/call",
-    { name: "bb_send_message", arguments: input },
-    credential,
-  );
-  if (change.controlEnabled === false || change.projects === "")
-    unavailable((await response.json()).result);
-  else expect(response.status).toBe(change.remoteEnabled === false ? 503 : 401);
-  expect(send).not.toHaveBeenCalled();
-  expect(get).not.toHaveBeenCalled();
-});
+it.each([{ controlEnabled: false }, { remoteEnabled: false }, { owner: "other" }])(
+  "denies live local access removal before any BB read: %j",
+  async (change) => {
+    const { send, get, credential } = await setup();
+    f.change(change);
+    const response = await f.rpc(
+      "tools/call",
+      { name: "bb_send_message", arguments: input },
+      credential,
+    );
+    if (change.controlEnabled === false) unavailable((await response.json()).result);
+    else expect(response.status).toBe(change.remoteEnabled === false ? 503 : 401);
+    expect(send).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["outside", "missing", "deleted", "projectless"])(
   "direct IDs do not bypass membership: %s",
@@ -344,18 +341,18 @@ it.each(["outside", "missing", "deleted", "projectless"])(
       get.mockResolvedValue(
         makeThreadResponse({
           id: input.threadId,
-          projectId: kind === "outside" ? "proj_private" : kind === "projectless" ? "" : "proj_a",
+          projectId: kind === "outside" ? "proj_personal" : kind === "projectless" ? "" : "proj_a",
           deletedAt: kind === "deleted" ? 1 : null,
         }),
       );
     const result = await call(credential);
     unavailable(result);
-    expect(JSON.stringify(result)).not.toMatch(/Private|proj_private/);
+    expect(JSON.stringify(result)).not.toMatch(/Private|proj_personal/);
     expect(send).not.toHaveBeenCalled();
   },
 );
 
-it.each(["projects", "control", "owner", "expiry", "move"])(
+it.each(["remote", "control", "owner", "expiry", "move"])(
   "rechecks access and membership immediately before dispatch: %s",
   async (kind) => {
     const { get, send, credential } = await setup();
@@ -363,7 +360,7 @@ it.each(["projects", "control", "owner", "expiry", "move"])(
     get.mockImplementation(async () => {
       reads++;
       if (reads === 2) {
-        if (kind === "projects") f.change({ projects: "" });
+        if (kind === "remote") f.change({ remoteEnabled: false });
         if (kind === "control") f.change({ controlEnabled: false });
         if (kind === "owner") f.change({ owner: "other" });
         if (kind === "expiry") vi.spyOn(Date, "now").mockReturnValue(Date.now() + 600000);
@@ -388,7 +385,8 @@ it.each(["project", "control", "move", "deleted"])(
     const { get, send, credential } = await setup();
     const result = await call(credential);
     const operationId = result.structuredContent.operationId;
-    if (kind === "project") f.change({ projects: "" });
+    if (kind === "project")
+      get.mockResolvedValue(makeThreadResponse({ id: input.threadId, projectId: "proj_personal" }));
     if (kind === "control") f.change({ controlEnabled: false });
     if (kind === "move")
       get.mockResolvedValue(
@@ -594,11 +592,11 @@ it("current membership is checked after an awaited cached read and an owner cann
   const { get, send, credential } = await setup();
   const result = await call(credential);
   get.mockImplementation(async () => {
-    f.change({ projects: "" });
+    f.change({ remoteEnabled: false });
     return makeThreadResponse({ id: input.threadId, projectId: "proj_a" });
   });
   unavailable(await poll(result.structuredContent.operationId));
-  f.change({ projects: "proj_a", owner: "other" });
+  f.change({ remoteEnabled: true, owner: "other" });
   unavailable(await poll(result.structuredContent.operationId));
   expect(send).toHaveBeenCalledTimes(1);
 });

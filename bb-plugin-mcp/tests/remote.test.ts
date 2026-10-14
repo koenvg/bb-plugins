@@ -112,7 +112,6 @@ describe("authenticated HTTP boundary", () => {
       secret: "private SDK field",
     }));
     f.list.mockResolvedValue([...records, project("proj_hidden", "Hidden")]);
-    f.change({ projects: records.map((p) => p.id).join("\n") });
     const client = await f.client();
     try {
       const first = (await client.callTool(call)).structuredContent as {
@@ -129,7 +128,6 @@ describe("authenticated HTTP boundary", () => {
       expect(JSON.stringify([first, second])).not.toMatch(/secret|private SDK field/);
       expect(second.projects.at(-1)).toEqual({ id: "proj_hidden", name: "Hidden" });
       f.list.mockResolvedValue([]);
-      f.change({ projects: "" });
       const calls = f.list.mock.calls.length;
       expect((await client.callTool(call)).structuredContent).toEqual({
         projects: [],

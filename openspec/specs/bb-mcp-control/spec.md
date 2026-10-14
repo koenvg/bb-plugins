@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets an authorized remote client discover all project IDs and names and inspect and control allowlisted ordinary BB threads through a small set of MCP tools while preserving BB execution permissions.
+Lets an authorized remote client discover, inspect, and control ordinary BB threads in all standard projects through a small set of MCP tools. BB's built-in Personal project is excluded. BB execution permissions remain unchanged.
 
 ## Requirements
 
@@ -31,19 +31,19 @@ Bearer-jwt mode SHALL retain both bb.read and bb.control scope checks. Cloudflar
 - **THEN** all valid owner/app sessions share that permission and the same duplicate-operation identity
 - **AND** no claim of per-client OAuth scope separation is made
 
-### Requirement: Project discovery is independent of thread access
+### Requirement: Project discovery includes all standard projects
 
-Project listings SHALL include every existing project returned by the supported public SDK, including Personal requested through `projects.list({ includePersonal: true })`. Discovery SHALL NOT filter by the thread-access allowlist or skip its SDK read because that allowlist is empty. New projects SHALL appear on the next listing request without a settings edit. Discovery SHALL retain authentication and read-access checks before and after the SDK read, return only project IDs and names, and preserve non-mutating ID ordering, bounded pagination and request limits.
+Project listings SHALL include all existing standard projects through `projects.list({ includePersonal: false })`. The handler SHALL exclude BB's built-in Personal project even if the SDK adapter returns it. Filtering SHALL occur before sorting, pagination, and projection. New standard projects SHALL appear on the next request without a settings edit. Discovery SHALL retain authentication and read-access checks before and after the SDK read, return only project IDs and names, and preserve bounded pagination and request limits. A standard project named Personal SHALL remain eligible.
 
-#### Scenario: Discovery with populated or empty thread grants
+#### Scenario: Discovery without project grants
 
-- **WHEN** an authenticated client with current read access lists projects with a populated or empty project allowlist
-- **THEN** the paginated results include all existing project IDs and names, including Personal and projects outside the allowlist
+- **WHEN** an authenticated client with current read access lists projects
+- **THEN** the paginated results include all existing standard project IDs and names but not BB's built-in Personal project
 - **AND** no other SDK project fields are returned
 
 #### Scenario: Newly created project
 
-- **WHEN** a project is created after a successful listing and settings remain unchanged
+- **WHEN** a standard project is created after a successful listing and settings remain unchanged
 - **THEN** it is included in the next project listing under the same pagination and ordering rules
 
 #### Scenario: Access changes during discovery
@@ -53,17 +53,24 @@ Project listings SHALL include every existing project returned by the supported 
 
 ### Requirement: Thread and operation scope is enforced for every identifier
 
-Thread and operation access SHALL verify current project membership and the current allowlist even when the caller supplies an identifier directly or discovers its project through a listing. Project discovery SHALL NOT grant thread-content or control access. A thread or operation identifier outside the caller's scope SHALL return no private object data and SHALL be indistinguishable from an unavailable identifier. Only the submitting owner SHALL read an operation record.
+Thread and operation access SHALL verify current project membership and exclude BB's built-in Personal project even when the caller supplies an identifier directly. All standard projects SHALL be eligible without per-project grants, subject to the existing global permissions. A thread or operation identifier outside the caller's scope SHALL return no private object data and SHALL be indistinguishable from an unavailable identifier. Only the submitting owner SHALL read an operation record. Stored Personal operation records SHALL remain durable under existing retention rules and available to local diagnostics, but SHALL NOT be returned through remote status or cached replies.
 
-#### Scenario: Direct access to a disallowed thread
+#### Scenario: Direct access to a Personal thread
 
-- **WHEN** a client supplies a real thread ID whose project is not allowed
+- **WHEN** a client supplies a real thread ID from BB's built-in Personal project
 - **THEN** reading, messaging, and stopping that thread are rejected without revealing its title, output, or project details
+- **AND** no operation claim or BB mutation is submitted
 
 #### Scenario: Scope changes before replay
 
-- **WHEN** a completed operation is retried after its project has been removed from the allowlist
+- **WHEN** a completed operation's thread has moved to BB's built-in Personal project before retry or status lookup
 - **THEN** the caller receives no cached private result and no repeated BB action
+
+#### Scenario: Old Personal operation records
+
+- **WHEN** a client polls or replays an operation recorded for BB's built-in Personal project
+- **THEN** the remote request is denied even when no thread ID is recorded or its thread has moved to a standard project
+- **AND** the record remains available to local diagnostics without redispatch
 
 ### Requirement: Read results are bounded and treated as data
 

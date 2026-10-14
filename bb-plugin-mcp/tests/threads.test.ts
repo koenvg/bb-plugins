@@ -332,10 +332,12 @@ describe("read-only thread protocol", () => {
     expect(outside).toEqual(missing);
     expect(f.output).not.toHaveBeenCalled();
     expect(f.interactions).not.toHaveBeenCalled();
-    f.change({ projects: "" });
     const before = f.get.mock.calls.length;
-    unavailable((await call(f)).body);
-    unavailable((await call(f, list)).body);
+    unavailable(
+      (await call(f, { ...read, arguments: { ...read.arguments, projectId: "proj_personal" } }))
+        .body,
+    );
+    unavailable((await call(f, { ...list, arguments: { projectId: "proj_personal" } })).body);
     expect(f.get).toHaveBeenCalledTimes(before);
     expect(f.listing).not.toHaveBeenCalled();
   });
@@ -350,14 +352,21 @@ describe("read-only thread protocol", () => {
   });
 
   it.each([read, list])(
-    "denies the next $name read with old credentials after access removal",
+    "rejects Personal with old credentials and denies the next $name read after owner change",
     async (tool) => {
       const f = await setup();
       const credential = await f.token();
       expect((await call(f, tool, credential)).body.result.isError).not.toBe(true);
-      f.change({ projects: "" });
-      unavailable((await call(f, tool, credential)).body);
-      f.change({ projects: "proj_a", owner: "new-owner" });
+      unavailable(
+        (
+          await call(
+            f,
+            { ...tool, arguments: { ...tool.arguments, projectId: "proj_personal" } },
+            credential,
+          )
+        ).body,
+      );
+      f.change({ owner: "new-owner" });
       const calls = f.host.harness.inspection.sdk.calls.length;
       expect((await call(f, tool, credential)).status).toBe(401);
       expect(f.host.harness.inspection.sdk.calls).toHaveLength(calls);
@@ -368,12 +377,12 @@ describe("read-only thread protocol", () => {
     const f = await setup();
     if (tool === read)
       f.output.mockImplementationOnce(async () => {
-        f.change({ projects: "" });
+        f.change({ remoteEnabled: false });
         return { output: "private" };
       });
     else
       f.listing.mockImplementationOnce(async () => {
-        f.change({ projects: "" });
+        f.change({ remoteEnabled: false });
         return f.rows;
       });
     unavailable((await call(f, tool)).body);

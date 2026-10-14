@@ -52,14 +52,6 @@ export const settingsDefinition = {
     default: "",
     description: "Exact signed sub claim. Removing it denies access immediately.",
   },
-  projects: {
-    type: "string",
-    label: "Thread access project IDs",
-    default: "",
-    experimental_multiline: true,
-    description:
-      "One ID per line for thread content and control. Project discovery always shows all IDs and names. Allowed content can be sent to ChatGPT.",
-  },
   remoteEnabled: {
     type: "boolean",
     label: "Enable remote reads",
@@ -94,7 +86,6 @@ export const configSchema = z
       .min(1)
       .max(256)
       .refine((value) => value.trim() === value),
-    projects: z.string().max(32768),
     remoteEnabled: z.boolean(),
     controlEnabled: z.boolean(),
   })
@@ -151,22 +142,20 @@ export const configSchema = z
         });
       }
     }
-    const ids = value.projects.split(/\s+/).filter(Boolean);
-    if (ids.length > 1000 || ids.some((id) => !/^proj_[A-Za-z0-9_-]{1,120}$/.test(id))) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["projects"],
-        message: "Use at most 1000 project IDs.",
-      });
-    }
   });
 
 export type Config = z.infer<typeof configSchema>;
 export type Connection = Pick<Config, "publicOrigin" | "port">;
-export function allowedProjects(config: Config): Set<string> {
-  return new Set(config.projects.split(/\s+/).filter(Boolean));
-}
 export function readConfig(raw: unknown): Config | null {
+  if (
+    raw !== null &&
+    typeof raw === "object" &&
+    (Object.getPrototypeOf(raw) === Object.prototype || Object.getPrototypeOf(raw) === null)
+  ) {
+    const settings = { ...raw };
+    Reflect.deleteProperty(settings, "projects");
+    raw = settings;
+  }
   const parsed = configSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }

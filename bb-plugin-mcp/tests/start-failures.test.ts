@@ -119,14 +119,13 @@ describe("authenticated start safety", () => {
     expect(readDefaults).not.toHaveBeenCalled();
   });
 
-  it("denies missing control scope, disabled control, disallowed project and invalid OAuth without a mutation", async () => {
+  it("denies missing control scope, disabled control, Personal project and invalid OAuth without a mutation", async () => {
     const { spawn, readDefaults, credential } = await setup();
     unavailable(await start(await f.token()));
     f.change({ controlEnabled: false });
     unavailable(await start(credential));
-    f.change({ controlEnabled: true, projects: "" });
-    unavailable(await start(credential));
-    f.change({ projects: "proj_a" });
+    f.change({ controlEnabled: true });
+    unavailable(await start(credential, { projectId: "proj_personal" }));
     for (const token of [
       await f.token({ scope: "bb.control" }),
       await f.token({ sub: "stranger" }),
@@ -139,7 +138,7 @@ describe("authenticated start safety", () => {
 
   it.each([
     { controlEnabled: false },
-    { projects: "" },
+    { accessPermission: "read-control" as const, authMode: "cloudflare-access" as const },
     { owner: "another-owner" },
     { remoteEnabled: false },
   ])("rechecks live access immediately before dispatch: %j", async (change) => {
@@ -154,7 +153,12 @@ describe("authenticated start safety", () => {
     ready.resolve(defaults);
     unavailable(await submission);
     expect(spawn).not.toHaveBeenCalled();
-    f.change({ controlEnabled: true, remoteEnabled: true, projects: "proj_a", owner: "owner-1" });
+    f.change({
+      controlEnabled: true,
+      remoteEnabled: true,
+      authMode: "bearer-jwt",
+      owner: "owner-1",
+    });
     expect((await start(credential)).structuredContent.state).toBe("failed");
     expect(spawn).not.toHaveBeenCalled();
   });
@@ -232,14 +236,13 @@ describe("authenticated start safety", () => {
     expect(JSON.stringify(f.logs)).not.toContain(input.prompt);
   });
 
-  it("denies cached results and polls after project removal, thread move, deletion or owner change", async () => {
+  it("denies cached results and polls after movement to Personal, thread move, deletion or owner change", async () => {
     const { get, spawn, credential } = await setup();
     const result = await start(credential);
     const operationId = result.structuredContent.operationId;
-    f.change({ projects: "" });
+    get.mockResolvedValue(makeThreadResponse({ id: "thr_started", projectId: "proj_personal" }));
     unavailable(await poll(operationId));
     unavailable(await start(credential));
-    f.change({ projects: "proj_a" });
     get.mockResolvedValue(makeThreadResponse({ id: "thr_started", projectId: "proj_other" }));
     unavailable(await poll(operationId));
     unavailable(await start(credential));
@@ -259,7 +262,7 @@ describe("authenticated start safety", () => {
     const { get, credential } = await setup();
     const result = await start(credential);
     get.mockImplementation(async () => {
-      f.change({ projects: "" });
+      f.change({ remoteEnabled: false });
       return makeThreadResponse({ id: "thr_started", projectId: "proj_a" });
     });
     unavailable(await poll(result.structuredContent.operationId));

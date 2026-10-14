@@ -8,22 +8,30 @@ Lets the owner connect ChatGPT web and the native ChatGPT mobile app to a restri
 
 ### Requirement: Remote access is explicitly configured
 
-The plugin SHALL start with remote access disabled. Enabling access SHALL require a canonical public HTTPS URL, trusted OAuth issuer, and accepted owner identity. Authenticated read access SHALL permit ID/name discovery for all current and future projects, including Personal. The explicit project allowlist SHALL govern thread content and control, not project discovery. An empty allowlist SHALL deny thread content and control while preserving authenticated project discovery. The plugin SHALL NOT create public exposure, reuse account cookies, or expose BB's main server as a setup side effect.
+The plugin SHALL start with remote access disabled. Enabling access SHALL require a canonical public HTTPS URL, trusted OAuth issuer, and accepted owner identity. Authenticated read access SHALL permit discovery and thread reads for all current and future standard projects without per-project grants. Every remote tool SHALL exclude BB's built-in Personal project, including operation status and cached replies. Writes SHALL still require the mode-specific control permission and the local control switch. The plugin SHALL NOT create public exposure, reuse account cookies, or expose BB's main server as a setup side effect.
 
 #### Scenario: Fresh installation
 
 - **WHEN** the plugin is installed without remote access configuration
 - **THEN** it exposes no usable remote tools and reports the missing setup locally without disclosing credentials
 
-#### Scenario: Empty thread-access allowlist
+#### Scenario: Standard projects need no individual grant
 
-- **WHEN** the owner enables remote access with valid authentication and an empty project allowlist
-- **THEN** an authorized client can discover all existing project IDs and names, including Personal
-- **AND** it cannot read thread content or operate on a project or thread
+- **WHEN** the owner enables remote reads with valid authentication
+- **THEN** an authorized client can discover and read threads in all standard projects without a project allowlist
+- **AND** BB's built-in Personal project is absent from discovery and unavailable to every remote tool
+- **AND** writes still require the existing global control permissions
 
 ### Requirement: The connection is configurable in plugin settings
 
-The owner SHALL be able to set the public HTTPS origin, local listener port, OAuth issuer and owner identity, projects allowed for thread content and control, and read/control access through BB's standard plugin settings. Values SHALL persist across restarts. No specific domain SHALL be hard-coded or required. Public-origin and listener-port changes SHALL take effect after plugin reload, while authentication and access changes SHALL retain their immediate effect. The local status command SHALL show the effective MCP URL and listener state without claiming public reachability from local readiness alone. Invalid origins or ports SHALL prevent the affected configuration from starting remote access.
+The owner SHALL be able to set the public HTTPS origin, local listener port, OAuth issuer and owner identity, and read/control access through BB's standard plugin settings. Values SHALL persist across restarts. No specific domain SHALL be hard-coded or required. Public-origin and listener-port changes SHALL take effect after plugin reload, while authentication and access changes SHALL retain their immediate effect. The local status command SHALL show the effective MCP URL and listener state without claiming public reachability from local readiness alone. Invalid origins or ports SHALL prevent the affected configuration from starting remote access.
+
+#### Scenario: Legacy project settings do not restrict access
+
+- **WHEN** stored settings contain the obsolete `projects` key with any value
+- **THEN** configuration parsing ignores that key without changing the stored settings or the input object
+- **AND** all standard projects remain eligible under the global permissions
+- **AND** unrelated unknown settings and invalid security settings still fail closed
 
 #### Scenario: Owner connects an existing tunnel
 
@@ -113,13 +121,12 @@ In bearer-jwt mode, read tools SHALL require `bb.read`; writes SHALL require bot
 #### Scenario: Read-only connection attempts a mutation
 
 - **WHEN** a connected client has `bb.read` but not `bb.control`, or local control is disabled
-- **THEN** it can discover all project IDs/names and read allowlisted thread data but cannot start, message, or stop a thread
+- **THEN** it can discover standard projects and read their thread data but cannot start, message, or stop a thread
 
 #### Scenario: Access is removed during a connection
 
-- **WHEN** the owner removes a project's access after a client has connected
-- **THEN** subsequent thread-content and operation reads and writes for that project are denied
-- **AND** authenticated project discovery still lists its ID and name
+- **WHEN** the owner disables remote reads after a client has connected
+- **THEN** subsequent project discovery, thread-content reads, operation reads, and writes are denied
 - **AND** previously running BB work is not stopped merely because remote access was removed
 
 ### Requirement: Connection setup follows OAuth discovery
