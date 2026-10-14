@@ -1,0 +1,508 @@
+PASS minimal PATH has no desktop/global BB; isolated temporary BB_DATA_DIR
+$ git clone --no-hardlinks --quiet /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins /var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout [/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins]
+Fresh checkout /var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout]
+bun install v1.4.3 (c6da4a4d3)
+
++ oxfmt@0.71.0
++ oxlint@1.86.0
+
+5 packages installed [5.00ms]
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document]
+bun install v1.4.3 (c6da4a4d3)
+
++ @testing-library/react@16.3.3
++ @types/node@24.19.2
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ jsdom@29.1.1
++ react@19.3.0
++ react-dom@19.3.0
++ typescript@5.9.3
++ vitest@4.1.11
++ react-markdown@10.1.0
++ refractor@5.0.0
++ remark-gfm@4.0.1
+
+210 packages installed [155.00ms]
+$ bun run build [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ bun run test [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document]
+$ vitest run
+
+ RUN  v4.1.11 /private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:20:58
+   Duration  638ms (transform 16ms, setup 0ms, import 141ms, tests 78ms, environment 349ms)
+
+$ bun run typecheck [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document]
+$ tsc --noEmit
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-codex-quota]
+bun install v1.4.3 (c6da4a4d3)
+
++ @get-bb/plugin-sdk@0.6.37
++ @modelcontextprotocol/sdk@1.32.1
++ @pierre/diffs@1.5.1
++ @playwright/test@1.64.0
++ @radix-ui/react-alert-dialog@1.1.23
++ @radix-ui/react-context-menu@2.3.7
++ @radix-ui/react-dialog@1.1.23
++ @radix-ui/react-dropdown-menu@2.1.24
++ @radix-ui/react-hover-card@1.1.23
++ @radix-ui/react-menubar@1.1.24
++ @radix-ui/react-navigation-menu@1.2.22
++ @radix-ui/react-popover@1.1.23
++ @radix-ui/react-select@2.3.7
++ @radix-ui/react-tooltip@1.2.16
++ @tailwindcss/node@4.3.0
++ @tailwindcss/oxide@4.3.0
++ @testing-library/react@16.3.3
++ @types/better-sqlite3@7.6.13
++ @types/node@22.20.4
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ better-sqlite3@12.11.1
++ class-variance-authority@0.7.1
++ clsx@2.1.1
++ cron-parser@5.10.1
++ esbuild@0.28.2
++ jsdom@26.1.0
++ react@19.3.0
++ react-dom@19.3.0
++ sonner@1.7.4
++ tailwind-merge@3.7.0
++ tailwindcss@4.3.0
++ typescript@5.9.3
++ vaul@1.1.2
++ vitest@5.0.2
++ @earendil-works/pi-ai@1.0.1
++ @earendil-works/pi-coding-agent@1.0.1
++ recharts@3.10.1
++ zod@4.6.5
+
+487 packages installed [1157.00ms]
+$ bun install --frozen-lockfile [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+bun install v1.4.3 (c6da4a4d3)
+
++ @get-bb/plugin-sdk@0.6.37
++ @pierre/diffs@1.4.3
++ @playwright/test@1.64.0
++ @radix-ui/react-alert-dialog@1.1.23
++ @radix-ui/react-context-menu@2.3.7
++ @radix-ui/react-dialog@1.1.23
++ @radix-ui/react-dropdown-menu@2.1.24
++ @radix-ui/react-hover-card@1.1.23
++ @radix-ui/react-menubar@1.1.24
++ @radix-ui/react-navigation-menu@1.2.22
++ @radix-ui/react-popover@1.1.23
++ @radix-ui/react-select@2.3.7
++ @radix-ui/react-tooltip@1.2.16
++ @tailwindcss/vite@4.3.3
++ @testing-library/dom@10.4.2
++ @testing-library/react@16.3.3
++ @types/better-sqlite3@7.6.13
++ @types/node@22.20.4
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ bb-app@0.46.0
++ better-sqlite3@12.10.0
++ class-variance-authority@0.7.1
++ clsx@2.1.1
++ cron-parser@5.10.1
++ hono@4.13.13
++ jsdom@29.1.1
++ oxlint@1.86.0
++ react@19.3.0
++ react-dom@19.3.0
++ sonner@1.7.4
++ tailwind-merge@3.7.0
++ tailwindcss@4.3.3
++ typescript@6.0.2
++ typescript-7@7.0.2
++ vaul@1.1.2
++ vite@7.3.7
++ vitest@4.1.11
++ @bb-plugins/markdown-document@../packages/markdown-document
++ @hugeicons/core-free-icons@4.3.5
++ @hugeicons/react@1.1.10
++ @radix-ui/react-slot@1.3.3
++ @radix-ui/react-tabs@1.1.21
++ @tiptap/core@2.27.3
++ @tiptap/extension-bubble-menu@2.27.3
++ @tiptap/extension-image@2.27.3
++ @tiptap/extension-link@2.27.3
++ @tiptap/extension-placeholder@2.27.3
++ @tiptap/extension-table@2.27.3
++ @tiptap/extension-table-cell@2.27.3
++ @tiptap/extension-table-header@2.27.3
++ @tiptap/extension-table-row@2.27.3
++ @tiptap/extension-task-item@2.27.3
++ @tiptap/extension-task-list@2.27.3
++ @tiptap/pm@2.27.3
++ @tiptap/starter-kit@2.27.3
++ @tiptap/suggestion@2.27.3
++ cmdk@1.1.1
++ tiptap-markdown@0.8.10
++ zod@4.6.5
+
+492 packages installed [3.68s]
+$ bun run typecheck [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+$ bun run test attachments/preview.test.ts attachments/attachments.test.ts views/detail/attachment-preview.test.tsx views/detail/keyboard.test.tsx [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+$ vitest run --config vitest.config.ts attachments/preview.test.ts attachments/attachments.test.ts views/detail/attachment-preview.test.tsx views/detail/keyboard.test.tsx
+
+ RUN  v4.1.11 /private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus
+
+
+ Test Files  4 passed (4)
+      Tests  80 passed (80)
+   Start at  19:21:08
+   Duration  3.71s (transform 513ms, setup 367ms, import 906ms, tests 6.93s, environment 840ms)
+
+$ bun run build [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+$ bb plugin build
+Downloading the plugin build toolchain (one time)…
+  esbuild@0.28.1, @tailwindcss/node@4.3.0, @tailwindcss/oxide@4.3.0, tailwindcss@4.3.0
+Toolchain ready (4.3s)
+dist/server.js
+dist/server.js.map
+dist/server.meta.json
+dist/app.js
+dist/app.css
+dist/app.meta.json
+PASS locked local bb-app 0.46.0 bootstrap, without ambient BB
+$ /var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus/node_modules/.bin/bb plugin types . --check [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
+PASS official app/server build metadata BB 0.46.0 / SDK 0.6.37
+PASS consumer-owned React peer; compiled JSX runtime import and no bundled React runtime marker
+PASS independently bundled Markdown code and CSS
+$ bun run test:browser [/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus]
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 8 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (928ms)
+  ✓  2 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 1280px (536ms)
+  ✓  3 tests/browser/preview.spec.ts:175:4 › stable empty region at 1280px (525ms)
+  ✓  4 tests/browser/preview.spec.ts:175:4 › stable error region at 1280px (539ms)
+  ✓  5 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (791ms)
+  ✓  6 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 390px (538ms)
+  ✓  7 tests/browser/preview.spec.ts:175:4 › stable empty region at 390px (563ms)
+  ✓  8 tests/browser/preview.spec.ts:175:4 › stable error region at 390px (562ms)
+
+  8 passed (10.3s)
+$ vitest run --config vitest.config.ts views/detail/keyboard.test.tsx -t "preserves editor"
+
+ RUN  v4.1.11 /private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| views/detail/keyboard.test.tsx (12 tests | 1 failed | 10 skipped) 10096ms
+     × preserves editor, draft, route, scroll and workflow with isolated keys, compact=true 8998ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/keyboard.test.tsx > Markdown dialog in the full Tasks app > preserves editor, draft, route, scroll and workflow with isolated keys, compact=true
+AssertionError: expected <div …(12)>…(2)</div> to be <button type="button" …(3)>…(2)</button> // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mstyle[39m=[32m""[39m
+  [36m>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"contents"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex h-full min-h-0 bg-background text-foreground"[39m
+        [36m>[39m
+          [36m<main[39m
+            [33maria-label[39m=[32m"Tasks"[39m
+            [33mclass[39m=[32m"@container flex min-w-0 flex-1 flex-col"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+          [36m>[39m
+            [36m<header[39m
+              [33mclass[39m=[32m"flex h-12 shrink-0 items-center gap-2 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 overflow-hidden"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex min-w-0 items-center gap-1.5"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-label[39m=[32m"Back (Esc)"[39m
+                    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active size-6 shrink-0 max-md:pointer-coarse:size-9"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"size-4"[39m
+                      [33mcolor[39m=[32m"currentColor"[39m
+                      [33mdata-icon[39m=[32m"ChevronLeft"[39m
+                      [33mdata-icon-root[39m=[32m""[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M15 6C15 6 9.00001 10.4189 9 12C8.99999 13.5812 15 18 15 18"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"1.5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"hidden min-w-0 items-center gap-2 text-muted-foreground hover:text-foreground @md:flex"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"size-3 shrink-0 rounded-sm"[39m
+                      [33mstyle[39m=[32m"background-color: blue;"[39m
+                    [36m/>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"truncate font-medium"[39m
+                    [36m>[39m
+                      [0mTasks Plugin[0m
+                    [36m</span>[39m
+                  [36m</button>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"hidden size-3 shrink-0 text-muted-foreground @md:block"[39m
+                    [33mcolor[39m=[32m"currentColor"[39m
+                    [33mdata-icon[39m=[32m"ChevronRight"[39m
+                    [33mdata-icon-root[39m=[32m""[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M9.00005 6C9.00005 6 15 10.4189 15 12C15 13.5812 9 18 9 18"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"1.5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"min-w-0 truncate font-medium text-muted-foreground"[39m
+                  [36m>[39m
+                    [0mTSK-1[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"hidden shrink-0 items-center gap-0.5 text-xs tabular-nums text-muted-foreground @sm:flex"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"hidden px-1 @md:inline"[39m
+                [36m>[39m
+                  [0m1[0m
+                  [0m / [0m
+                  [0m3[0m
+                [36m</span>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Previous task"[39m
+                  [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active size-6 max-md:pointer-coarse:size-9"[39m
+                  [33mdisabled[39m=[32m""[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"size-3.5"[39m
+                    [33mcolor[39m=[32m"currentColor"[39m
+                    [33mdata-icon[39m=[32m"ChevronUp"[39m
+                    [33mdata-icon-root[39m=[32m""[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mviewBox[39m=[32...
+
+- Expected
++ Received
+
+- <button
+-   aria-label="investigation.MD"
+-   class="flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"
+-   title="investigation.MD"
+-   type="button"
++ <div
++   aria-describedby="_r_2h_"
++   aria-hidden="true"
++   aria-labelledby="_r_2g_"
++   class="fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none"
++   data-bb-plugin-root=""
++   data-bb-portaled-overlay=""
++   data-persistent-drawer-content=""
++   data-state="closed"
++   inert=""
++   role="dialog"
++   style="transform: translate3d(0, 100%, 0); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);"
++   tabindex="-1"
+  >
+-   <span
+-     class="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"
++   <div
++     class="mx-auto flex h-8 w-16 shrink-0 touch-none cursor-grab items-center justify-center active:cursor-grabbing"
++     data-persistent-drawer-handle=""
+    >
+-     <svg
+-       class="size-3.5"
+-       color="currentColor"
+-       data-icon="File"
+-       data-icon-root=""
+-       fill="none"
+-       height="24"
+-       viewBox="0 0 24 24"
+-       width="24"
+-       xmlns="http://www.w3.org/2000/svg"
+-     >
+-       <path
+-         d="M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"
+-         stroke="currentColor"
+-         stroke-linecap="round"
+-         stroke-linejoin="round"
+-         stroke-width="1.5"
++     <div
++       class="h-1 w-10 rounded-full bg-muted-foreground/20"
+      />
+-     </svg>
+-   </span>
+-   <span
+-     class="min-w-0"
++   </div>
++   <div
++     class="grid grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] attachment-preview max-w-none"
+    >
+-     <span
+-       class="block max-w-48 truncate"
++     <header
++       class="attachment-preview-header"
+      >
+-       investigation.MD
+-     </span>
+-     <span
+-       class="block text-2xs text-muted-foreground"
++       <h2
++         class="text-base font-semibold leading-none tracking-tight attachment-preview-title"
++         id="_r_2g_"
++       >
++         Attachment preview
++       </h2>
++       <p
++         class="text-sm text-muted-foreground sr-only"
++         id="_r_2h_"
++       >
++         Read-only Markdown attachment. Download keeps the original file.
++       </p>
++       <div
++         aria-label="Document controls"
++         class="attachment-preview-toolbar"
++       >
++         <div
++           aria-label="Document view"
++           class="attachment-preview-views"
++           role="group"
++         >
++           <button
++             aria-pressed="false"
++             class="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"
++           >
++             Preview
++           </button>
++           <button
++             aria-pressed="false"
++             class="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"
++           >
++             Raw
++           </button>
++         </div>
++         <a
++           class="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"
++           href="/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId="
+          >
+-       14 B
+-     </span>
+-   </span>
++           Download
++         </a>
++         <button
++           class="inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"
++         >
++           Close
+          </button>
++       </div>
++     </header>
++     <section
++       aria-busy="false"
++       aria-label="Document"
++       class="attachment-preview-body"
++     />
++   </div>
++ </div>
+
+ ❯ views/detail/keyboard.test.tsx:317:58
+    315|       fireEvent.keyDown(dialog, { key: "Escape" });
+    316|       await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull(…
+    317|       await waitFor(() => expect(document.activeElement).toBe(trigger)…
+       |                                                          ^
+    318|       expect(slot.container.querySelector('.tiptap[contenteditable="tr…
+    319|       expect(description.textContent).toBe("Unfinished task draft");
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed | 10 skipped (12)
+   Start at  19:21:33
+   Duration  10.86s (transform 291ms, setup 68ms, import 430ms, tests 10.10s, environment 210ms)
+
+error: script "test" exited with code 1
+PASS original safeguard reproduces full-Tasks compact shortcut recovery failure; final safeguard restored
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [25.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /private/var/folders/5f/jlmxmscj0gnb0h9z6j5by_rr0000gn/T/bbp53-clean-E9ZBvr/checkout/packages/markdown-document
+
+ ❯ test/ci-failure.test.ts (1 test | 1 failed) 3ms
+   × CI failure sentinel 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/ci-failure.test.ts > CI failure sentinel
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ test/ci-failure.test.ts:1:80
+      1| import { it, expect } from "vitest"; it("CI failure sentinel", () => e…
+       |                                                                                ^
+      2|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 4 passed (5)
+   Start at  19:21:44
+   Duration  570ms (transform 23ms, setup 0ms, import 123ms, tests 79ms, environment 332ms)
+
+error: script "test" exited with code 1
+PASS shared-test failure blocks subsequent consumer setup; workflow uses these same fail-fast steps without continue-on-error
+Fresh checkout retained for parent inspection. No source or installed-data cleanup ran.

@@ -203,6 +203,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
         <ResponsiveDrawerShell
           open={open}
           onOpenChange={onOpenChange}
+          onCloseAutoFocus={onCloseAutoFocus}
           onAfterCloseAutoFocus={onAfterCloseAutoFocus}
           labelledBy={titleId}
           describedBy={descriptionId}

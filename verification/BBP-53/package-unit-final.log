@@ -1,0 +1,15 @@
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [8.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:17:04
+   Duration  455ms (transform 15ms, setup 0ms, import 95ms, tests 82ms, environment 223ms)
+
+$ tsc --noEmit

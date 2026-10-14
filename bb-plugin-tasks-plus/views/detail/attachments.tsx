@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { attachmentDownloadUrl, TASKS_PLUS_API_BASE } from "../../shared/attachments.js";
+import {
+  attachmentDownloadUrl,
+  isMarkdownPreviewEligible,
+  TASKS_PLUS_API_BASE,
+} from "../../shared/attachments.js";
 import type { Attachment } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { formatFileSize } from "../../shared/attachments.js";
@@ -118,10 +122,12 @@ export function AttachmentsGrid({
   attachments,
   onRemove,
   onError,
+  onPreview,
 }: {
   attachments: Attachment[];
   onRemove: (attachment: Attachment) => Promise<void>;
   onError: (message: string) => void;
+  onPreview?: (attachment: Attachment, trigger: HTMLElement) => void;
 }) {
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   const [confirm, setConfirm] = useState<Attachment | null>(null);
@@ -174,26 +180,43 @@ export function AttachmentsGrid({
     );
   };
 
+  const fileLabel = (attachment: Attachment) => (
+    <>
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground">
+        <Icon name="File" className="size-3.5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block max-w-48 truncate">{attachment.fileName}</span>
+        <span className="block text-2xs text-muted-foreground">
+          {formatFileSize(attachment.sizeBytes)}
+        </span>
+      </span>
+    </>
+  );
   const fileCard = (attachment: Attachment) => (
     <div
       key={attachment.id}
       className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"
     >
-      <a
-        href={attachmentDownloadUrl(attachment.id)}
-        download={attachment.fileName}
-        className="flex min-w-0 items-center gap-2 rounded-sm hover:bg-state-hover"
-      >
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground">
-          <Icon name="File" className="size-3.5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block max-w-48 truncate">{attachment.fileName}</span>
-          <span className="block text-2xs text-muted-foreground">
-            {formatFileSize(attachment.sizeBytes)}
-          </span>
-        </span>
-      </a>
+      {isMarkdownPreviewEligible(attachment) && onPreview ? (
+        <button
+          type="button"
+          title={attachment.fileName}
+          aria-label={attachment.fileName}
+          className="flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"
+          onClick={(event) => onPreview(attachment, event.currentTarget)}
+        >
+          {fileLabel(attachment)}
+        </button>
+      ) : (
+        <a
+          href={attachmentDownloadUrl(attachment.id)}
+          download={attachment.fileName}
+          className="flex min-w-0 items-center gap-2 rounded-sm hover:bg-state-hover"
+        >
+          {fileLabel(attachment)}
+        </a>
+      )}
       {removeButton(attachment, "file")}
     </div>
   );

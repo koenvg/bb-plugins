@@ -1,0 +1,8 @@
+PASS downloaded official bb-app@0.46.0 tarball SHA512 equals registry and Tasks lockfile
+sha512-Pr9vZAIV5FeLvTlYVwodk8Ao2qkJ5j+7WDZbAn6SYnbq8Yv3h3W8ukJ8od6Cuw0QZBHL9sCgVYbF9BclsBF1fg==
+Registry trusted publisher {"name":"GitHub Actions","email":"npm-oidc-no-reply@github.com","trustedPublisher":{"id":"github","oidcConfigId":"4feecfeb-3f6c-4bcc-b200-ffc9b1dbf924"}}
+https://github.com/npm/attestation/tree/main/specs/publish/v0.1 {"name":"bb-app","version":"0.46.0","registry":"https://registry.npmjs.org"}
+https://slsa.dev/provenance/v1 {"buildDefinition":{"buildType":"https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1","externalParameters":{"workflow":{"ref":"refs/heads/main","repository":"https://github.com/get-bb/bb","path":".github/workflows/publish-bb-app.yml"}},"internalParameters":{"github":{"event_name":"workflow_dispatch","repository_id":"1166119443","repository_owner_id":"313143606"}},"resolvedDependencies":[{"uri":"git+https://github.com/get-bb/bb@refs/heads/main","digest":{"gitCommit":"4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62"}}]},"runDetails":{"builder":{"id":"https://github.com/actions/runner/github-hosted"},"metadata":{"invocationId":"https://github.com/get-bb/bb/actions/runs/37999554489/attempts/1"}}}
+PASS official pinned source SDK 0.6.37
+PASS pinned official quickstart documents bb-app devDependency and server-free bb plugin build
+PASS original independent review unchanged SHA256 4a145b1046637677c819e7604e3a98669e59286918e8e42133c28dcab33b53fe

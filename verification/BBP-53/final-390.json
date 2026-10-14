@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-10-14T17:46:47.547Z",
+  "fixtureOnly": true,
+  "geometry": {
+    "pageOverflow": false,
+    "panelWidth": 388,
+    "proseWidth": 356,
+    "codeLocal": true,
+    "fontSize": "16px",
+    "lineHeight": "28px",
+    "bodyOverflow": "auto",
+    "reads": "1",
+    "controlsFit": true,
+    "focusInside": true,
+    "focusOutline": "2px"
+  },
+  "loadingGeometry": {
+    "panel": {
+      "x": 1,
+      "y": 158,
+      "width": 388,
+      "height": 741,
+      "top": 158,
+      "right": 389,
+      "bottom": 899,
+      "left": 1
+    },
+    "toolbar": {
+      "x": 17,
+      "y": 230,
+      "width": 356,
+      "height": 36,
+      "top": 230,
+      "right": 373,
+      "bottom": 266,
+      "left": 17
+    },
+    "body": {
+      "x": 1,
+      "y": 283,
+      "width": 388,
+      "height": 616,
+      "top": 283,
+      "right": 389,
+      "bottom": 899,
+      "left": 1
+    }
+  },
+  "readyGeometry": {
+    "panel": {
+      "x": 1,
+      "y": 158,
+      "width": 388,
+      "height": 741,
+      "top": 158,
+      "right": 389,
+      "bottom": 899,
+      "left": 1
+    },
+    "toolbar": {
+      "x": 17,
+      "y": 230,
+      "width": 356,
+      "height": 36,
+      "top": 230,
+      "right": 373,
+      "bottom": 266,
+      "left": 17
+    },
+    "body": {
+      "x": 1,
+      "y": 283,
+      "width": 388,
+      "height": 616,
+      "top": 283,
+      "right": 389,
+      "bottom": 899,
+      "left": 1
+    }
+  }
+}

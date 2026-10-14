@@ -1,8 +1,14 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Attachment, TasksStore } from "../db";
-import { attachmentDownloadUrl, MAX_ATTACHMENT_SIZE_BYTES } from "../shared/attachments";
+import {
+  attachmentDownloadUrl,
+  MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_ATTACHMENT_PREVIEW_BYTES,
+  isMarkdownPreviewEligible,
+  hasBinaryTextControls,
+} from "../shared/attachments";
 import { errorMessage } from "../shared/errors";
 
 const INLINE_RASTER_MIMES = new Set([
@@ -416,6 +422,54 @@ export function publishAttachmentChanged(
   });
 }
 
+type PreviewErrorCode = "invalid-request" | "missing" | "unsupported" | "too-large" | "failed";
+
+class PreviewReadError extends Error {
+  constructor(readonly code: PreviewErrorCode) {
+    super(code);
+  }
+}
+
+async function readPreview(root: string, attachment: Attachment) {
+  const handle = await open(pathInside(root, attachment.blobPath), "r");
+  try {
+    const before = await handle.stat();
+    if (!before.isFile()) throw new PreviewReadError("unsupported");
+    if (before.size > MAX_ATTACHMENT_PREVIEW_BYTES) throw new PreviewReadError("too-large");
+    const bytes = Buffer.alloc(MAX_ATTACHMENT_PREVIEW_BYTES + 1);
+    let size = 0;
+    while (size < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, size, bytes.length - size, size);
+      if (bytesRead === 0) break;
+      size += bytesRead;
+    }
+    const after = await handle.stat();
+    if (size > MAX_ATTACHMENT_PREVIEW_BYTES || after.size > MAX_ATTACHMENT_PREVIEW_BYTES) {
+      throw new PreviewReadError("too-large");
+    }
+    if (before.size !== after.size || size !== after.size) throw new PreviewReadError("failed");
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+        bytes.subarray(0, size),
+      );
+    } catch {
+      throw new PreviewReadError("unsupported");
+    }
+    if (hasBinaryTextControls(text)) {
+      throw new PreviewReadError("unsupported");
+    }
+    return Object.freeze({
+      attachmentId: attachment.id,
+      fileName: attachment.fileName,
+      byteSize: size,
+      text,
+    });
+  } finally {
+    await handle.close();
+  }
+}
+
 export function registerAttachments(
   bb: BbPluginApi,
   store: TasksStore,
@@ -454,6 +508,49 @@ export function registerAttachments(
       }
     },
     { auth: "token" },
+  );
+
+  bb.http.route(
+    "GET",
+    "/attachments/preview",
+    async (context) => {
+      try {
+        const query = new URL(context.req.raw.url).searchParams;
+        const ids = query.getAll("attachmentId");
+        const id = ids[0];
+        if (
+          ids.length !== 1 ||
+          !id ||
+          !/^[A-Za-z0-9_-]{1,128}$/.test(id) ||
+          [...query.keys()].some((key) => key !== "attachmentId")
+        ) {
+          throw new PreviewReadError("invalid-request");
+        }
+        const attachment = store.getAttachment(id);
+        if (!attachment) throw new PreviewReadError("missing");
+        if (!isMarkdownPreviewEligible(attachment)) throw new PreviewReadError("unsupported");
+        return context.json(await readPreview(root, attachment));
+      } catch (error) {
+        const code =
+          error instanceof PreviewReadError
+            ? error.code
+            : error && typeof error === "object" && "code" in error && error.code === "ENOENT"
+              ? "missing"
+              : "failed";
+        const status =
+          code === "invalid-request"
+            ? 400
+            : code === "missing"
+              ? 404
+              : code === "too-large"
+                ? 413
+                : code === "unsupported"
+                  ? 415
+                  : 500;
+        return context.json({ error: { code } }, status);
+      }
+    },
+    { auth: "local" },
   );
 
   bb.http.route("GET", DOWNLOAD_PATH, async (context) => {

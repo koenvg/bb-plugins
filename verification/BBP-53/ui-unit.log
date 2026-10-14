@@ -1,0 +1,1175 @@
+$ vitest run --config vitest.config.ts views/detail/attachment-preview.test.tsx views/detail/attachments.test.tsx views/detail/keyboard.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| views/detail/attachment-preview.test.tsx (26 tests | 5 failed) 641ms
+     × discards late responses after close, replacement and A to B to A 49ms
+     × Retry keeps its original focus session, compact=true 20ms
+     × closes only on confirmed removal, not undefined loading/error data 11ms
+     × invalidates pending reads on successful deletion, task replacement and unmount 19ms
+     × does not restore obsolete focus into a newer overlay, compact=true 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > discards late responses after close, replacement and A to B to A
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Replace with B"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "NOTES.MARKDOWN":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-_r_j_"[39m
+    [33maria-labelledby[39m=[32m"radix-_r_i_"[39m
+    [33mclass[39m=[32m"fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg attachment-preview"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mid[39m=[32m"radix-_r_h_"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"attachment-preview-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "NOTES.MARKDOWN":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-base font-semibold leading-none tracking-tight attachment-preview-title"[39m
+    [33mid[39m=[32m"radix-_r_i_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-sm text-muted-foreground sr-only"[39m
+    [33mid[39m=[32m"radix-_r_j_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "Document view":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Document view"[39m
+    [33mclass[39m=[32m"attachment-preview-views"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Preview":
+  [36m<button[39m
+    [33maria-pressed[39m=[32m"true"[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  Name "Raw":
+  [36m<button[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Download":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"[39m
+    [33mdownload[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mhref[39m=[32m"/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=attachment-a"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "Document":
+  [36m<section[39m
+    [33maria-busy[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"Document"[39m
+    [33mclass[39m=[32m"attachment-preview-body"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m>[39m
+    [36m<button>[39m
+      [0mTask control[0m
+    [36m</button>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"Draft"[39m
+      [33mvalue[39m=[32m"unfinished"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-pending[39m=[32m""[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m/>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mNOTES.MARKDOWN[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"other.md"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"other.md"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-pending[39m=[32m""[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m/>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mother.md[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove other.md"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.0008...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ views/detail/attachment-preview.test.tsx:62:37
+     60|     await resolve(0, reply(a, "# obsolete"));
+     61|     expect(screen.queryByRole("dialog")).toBeNull();
+     62|     openA(); fireEvent.click(screen.getByRole("button", { name: "Repla…
+       |                                     ^
+     63|     await resolve(3, reply(a, "# current"));
+     64|     await resolve(2, reply(b, "# wrong B")); await resolve(1, reply(a,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > Retry keeps its original focus session, compact=true
+TestingLibraryElementError: Unable to find an accessible element with the role "status"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Task control":
+  [36m<button />[39m
+
+  Name "NOTES.MARKDOWN":
+  [36m<button[39m
+    [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+    [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Remove NOTES.MARKDOWN":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+    [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "other.md":
+  [36m<button[39m
+    [33maria-label[39m=[32m"other.md"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+    [33mtitle[39m=[32m"other.md"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Remove other.md":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Remove other.md"[39m
+    [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Replace with A":
+  [36m<button />[39m
+
+  Name "Replace with B":
+  [36m<button />[39m
+
+  Name "Confirm removed A":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Draft":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Draft"[39m
+    [33mvalue[39m=[32m"unfinished"[39m
+  [36m/>[39m
+
+  --------------------------------------------------dialog:
+
+  Name "":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"_r_11_"[39m
+    [33maria-hidden[39m=[32m"false"[39m
+    [33maria-labelledby[39m=[32m"_r_10_"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-content[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1); will-change: transform;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mTask control[0m
+    [36m</button>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"Draft"[39m
+      [33mvalue[39m=[32m"unfinished"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mNOTES.MARKDOWN[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"other.md"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"other.md"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mother.md[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove other.md"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<button>[39m
+      [0mReplace with A[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mReplace with B[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mConfirm removed A[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-black/40"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-backdrop[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"opacity: 1; pointer-events: auto; transition: opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"_r_11_"[39m
+    [33maria-hidden[39m=[32m"false"[39m
+    [33maria-labelledby[39m=[32m"_r_10_"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-content[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1); will-change: transform;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex h-8 w-16 shrink-0 touch-none cursor-grab items-center justify-center active:cursor-grabbing"[39m
+      [33mdata-persistent-drawer-handle[39m=[32m""[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"h-1 w-10 rounded-full bg-muted-foreground/20"[39m
+      [36m/>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"min-h-32"[39m
+      [33mdata-responsive-drawer-placeholder[39m=[32m""[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ views/detail/attachment-preview.test.tsx:72:19
+     70|     const trigger = screen.getByRole("button", { name: a.fileName, exa…
+     71|     await resolve(0, new Response("", { status: 500 }));
+     72|     expect(screen.getByRole("status").textContent).toContain("The prev…
+       |                   ^
+     73|     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+     74|     expect(pending[0]!.signal.aborted).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > closes only on confirmed removal, not undefined loading/error data
+AssertionError: expected null to be 'true' // Object.is equality
+
+- Expected:
+"true"
+
++ Received:
+null
+
+ ❯ views/detail/attachment-preview.test.tsx:106:67
+    104|     deferredFetch(); const view = mount(); openA();
+    105|     view.rerender(<StrictMode><Fixture confirmed={undefined} /></Stric…
+    106|     expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBe…
+       |                                                                   ^
+    107|     await resolve(0, reply(a, "# Saved"));
+    108|     view.rerender(<StrictMode><Fixture confirmed={[]} /></StrictMode>);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > invalidates pending reads on successful deletion, task replacement and unmount
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Confirm removed A"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "NOTES.MARKDOWN":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-_r_5o_"[39m
+    [33maria-labelledby[39m=[32m"radix-_r_5n_"[39m
+    [33mclass[39m=[32m"fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg attachment-preview"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mid[39m=[32m"radix-_r_5m_"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"attachment-preview-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "NOTES.MARKDOWN":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-base font-semibold leading-none tracking-tight attachment-preview-title"[39m
+    [33mid[39m=[32m"radix-_r_5n_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-sm text-muted-foreground sr-only"[39m
+    [33mid[39m=[32m"radix-_r_5o_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "Document view":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Document view"[39m
+    [33mclass[39m=[32m"attachment-preview-views"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Preview":
+  [36m<button[39m
+    [33maria-pressed[39m=[32m"true"[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  Name "Raw":
+  [36m<button[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Download":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 border border-input bg-transparent hover:bg-state-hover hover:text-foreground h-9 px-4 py-2"[39m
+    [33mdownload[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mhref[39m=[32m"/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=attachment-a"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "Document":
+  [36m<section[39m
+    [33maria-busy[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"Document"[39m
+    [33mclass[39m=[32m"attachment-preview-body"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m>[39m
+    [36m<button>[39m
+      [0mTask control[0m
+    [36m</button>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"Draft"[39m
+      [33mvalue[39m=[32m"unfinished"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mNOTES.MARKDOWN[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"other.md"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"other.md"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[3...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ views/detail/attachment-preview.test.tsx:115:28
+    113|   it("invalidates pending reads on successful deletion, task replaceme…
+    114|     deferredFetch(); const view = mount(); openA();
+    115|     fireEvent.click(screen.getByRole("button", { name: "Confirm remove…
+       |                            ^
+    116|     await resolve(0, reply(a, "# removed")); expect(screen.queryByRole…
+    117|     openA(); view.rerender(<StrictMode><Fixture taskId="task-b" /></St…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  |bb-plugin-tasks| views/detail/attachment-preview.test.tsx > task-scoped attachment owner > does not restore obsolete focus into a newer overlay, compact=true
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Close"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Task control":
+  [36m<button />[39m
+
+  Name "NOTES.MARKDOWN":
+  [36m<button[39m
+    [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+    [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Remove NOTES.MARKDOWN":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+    [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "other.md":
+  [36m<button[39m
+    [33maria-label[39m=[32m"other.md"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+    [33mtitle[39m=[32m"other.md"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Remove other.md":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Remove other.md"[39m
+    [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Replace with A":
+  [36m<button />[39m
+
+  Name "Replace with B":
+  [36m<button />[39m
+
+  Name "Confirm removed A":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Draft":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Draft"[39m
+    [33mvalue[39m=[32m"unfinished"[39m
+  [36m/>[39m
+
+  --------------------------------------------------dialog:
+
+  Name "":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"_r_6b_"[39m
+    [33maria-hidden[39m=[32m"false"[39m
+    [33maria-labelledby[39m=[32m"_r_6a_"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-content[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1); will-change: transform;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mTask control[0m
+    [36m</button>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"Draft"[39m
+      [33mvalue[39m=[32m"unfinished"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"NOTES.MARKDOWN"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mNOTES.MARKDOWN[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove NOTES.MARKDOWN"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"other.md"[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"[39m
+            [33mtitle[39m=[32m"other.md"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"File"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M13 2.5V3C13 5.82843 13 7.24264 13.8787 8.12132C14.7574 9 16.1716 9 19 9H19.5M20 10.6569V14C20 17.7712 20 19.6569 18.8284 20.8284C17.6569 22 15.7712 22 12 22C8.22876 22 6.34315 22 5.17157 20.8284C4 19.6569 4 17.7712 4 14V9.45584C4 6.21082 4 4.58831 4.88607 3.48933C5.06508 3.26731 5.26731 3.06508 5.48933 2.88607C6.58831 2 8.21082 2 11.4558 2C12.1614 2 12.5141 2 12.8372 2.11401C12.9044 2.13772 12.9702 2.165 13.0345 2.19575C13.3436 2.34355 13.593 2.593 14.0919 3.09188L18.8284 7.82843C19.4065 8.40649 19.6955 8.69552 19.8478 9.06306C20 9.4306 20 9.83935 20 10.6569Z"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"1.5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block max-w-48 truncate"[39m
+              [36m>[39m
+                [0mother.md[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-2xs text-muted-foreground"[39m
+              [36m>[39m
+                [0m12 B[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Remove other.md"[39m
+            [33mclass[39m=[32m"shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover hover:text-foreground disabled:opacity-70"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"size-3"[39m
+              [33mcolor[39m=[32m"currentColor"[39m
+              [33mdata-icon[39m=[32m"X"[39m
+              [33mdata-icon-root[39m=[32m""[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6L6.00081 17.9992M17.9992 18L6 6.00085"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<button>[39m
+      [0mReplace with A[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mReplace with B[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mConfirm removed A[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-black/40"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-backdrop[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"opacity: 1; pointer-events: auto; transition: opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"_r_6b_"[39m
+    [33maria-hidden[39m=[32m"false"[39m
+    [33maria-labelledby[39m=[32m"_r_6a_"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none"[39m
+    [33mdata-bb-plugin-root[39m=[32m""[39m
+    [33mdata-bb-portaled-overlay[39m=[32m""[39m
+    [33mdata-persistent-drawer-content[39m=[32m""[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1); will-change: transform;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex h-8 w-16 shrink-0 touch-none cursor-grab items-center justify-center active:cursor-grabbing"[39m
+      [33mdata-persistent-drawer-handle[39m=[32m""[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"h-1 w-10 rounded-full bg-muted-foreground/20"[39m
+      [36m/>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"min-h-32"[39m
+      [33mdata-responsive-drawer-placeholder[39m=[32m""[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ close views/detail/attachment-preview.test.tsx:38:43
+     36| function mount(props: Parameters<typeof Fixture>[0] = {}) { return ren…
+     37| function openA() { fireEvent.click(screen.getByRole("button", { name: …
+     38| function close() { fireEvent.click(screen.getByRole("button", { name: …
+       |                                           ^
+     39|
+     40| describe("task-scoped attachment owner", () => {
+ ❯ views/detail/attachment-preview.test.tsx:125:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  5 failed | 34 passed (39)
+   Start at  18:27:20
+   Duration  1.99s (transform 618ms, setup 356ms, import 1.11s, tests 1.33s, environment 1.41s)
+
+error: script "test" exited with code 1

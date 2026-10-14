@@ -1,0 +1,98 @@
+Baseline 939bd318cedb00239b73e1fd1c3d5d90c79ada70
+v24.15.0
+1.4.3
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [20.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:30:30
+   Duration  649ms (transform 26ms, setup 0ms, import 148ms, tests 77ms, environment 359ms)
+
+$ tsc --noEmit
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 495 installs across 558 packages (no changes) [58.00ms]
+bun install v1.4.3 (c6da4a4d3)
+
++ @bb-plugins/markdown-document@../packages/markdown-document
+
+2 packages installed [306.00ms]
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  124 passed (124)
+      Tests  1284 passed (1284)
+   Start at  19:30:32
+   Duration  29.23s (transform 5.71s, setup 15.88s, import 37.33s, tests 153.86s, environment 40.19s)
+
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+This plugin uses the npm package @get-bb/plugin-sdk; pin is 0.6.37, host is 0.6.37.
+The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.
+$ bb plugin build
+Downloading the plugin build toolchain (one time)…
+  esbuild@0.28.1, @tailwindcss/node@4.3.0, @tailwindcss/oxide@4.3.0, tailwindcss@4.3.0
+Toolchain ready (1.8s)
+dist/server.js
+dist/server.js.map
+dist/server.meta.json
+dist/app.js
+dist/app.css
+dist/app.meta.json
+$ bun --bun playwright test
+[WebServer] $ bun --bun vite --host 127.0.0.1 --port "4193" --strictPort
+
+Running 8 tests using 1 worker
+
+  ✓  1 tests/browser/preview.spec.ts:5:2 › generic real overlay at 1280px (920ms)
+  ✓  2 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 1280px (555ms)
+  ✓  3 tests/browser/preview.spec.ts:175:4 › stable empty region at 1280px (567ms)
+  ✓  4 tests/browser/preview.spec.ts:175:4 › stable error region at 1280px (579ms)
+  ✓  5 tests/browser/preview.spec.ts:5:2 › generic real overlay at 390px (788ms)
+  ✓  6 tests/browser/preview.spec.ts:151:2 › new listbox owns focus after preview dismissal at 390px (540ms)
+  ✓  7 tests/browser/preview.spec.ts:175:4 › stable empty region at 390px (561ms)
+  ✓  8 tests/browser/preview.spec.ts:175:4 › stable error region at 390px (559ms)
+
+  8 passed (5.8s)
+$ bun run --cwd .. lint bb-plugin-tasks-plus
+$ oxlint bb-plugin-tasks-plus
+bb-plugin-tasks-plus/attachments/index.ts:165:16: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-tasks-plus/views/list/list-preference.ts:170:22: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+bb-plugin-tasks-plus/api/index.ts:322:19: warning unicorn(no-new-array): Do not use `new Array(singleArgument)`. help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10: warning eslint(no-unused-vars): Function 'task' is declared but never used. help: Consider removing this declaration.
+$ bun run --cwd .. format:check bb-plugin-tasks-plus
+$ oxfmt --check bb-plugin-tasks-plus
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 254ms on 344 files using 10 threads.
+$ oxlint packages/markdown-document
+$ oxfmt --check packages/markdown-document .github/workflows/tests.yml "verification/BBP-53/clean-build.mjs"
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 60ms on 10 files using 10 threads.
+$ bun test ./scripts/environment-setup.test.mjs
+bun test v1.4.3 (c6da4a4d3)
+
+scripts/environment-setup.test.mjs:
+(pass) pinned Bun installs only locked root tools, including dev tools in production mode [275.02ms]
+(pass) unpinned Bun 1.3.14 fails before installation [140.86ms]
+(pass) unpinned Bun 1.4.2 fails before installation [129.84ms]
+(pass) unpinned Bun 1.4.4 fails before installation [124.06ms]
+(pass) unpinned Bun 1.4.3-canary.1 fails before installation [125.41ms]
+(pass) missing Bun fails with a useful error [6.97ms]
+(pass) a broken Bun executable fails before installation [134.58ms]
+(pass) an install failure is returned without retry or fallback [136.51ms]
+
+ 8 pass
+ 0 fail
+Ran 8 tests across 1 file. [1086.00ms]

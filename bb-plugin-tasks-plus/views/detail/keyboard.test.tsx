@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
-import type { Label, Task } from "../../shared/contract.js";
+import type { Attachment, Label, Task } from "../../shared/contract.js";
 
 if (!window.matchMedia) {
   window.matchMedia = (query: string) => ({
@@ -27,7 +27,11 @@ Element.prototype.scrollIntoView ??= () => {};
 const app = await loadPluginApp(() => import("../../app"));
 
 beforeEach(() => window.localStorage.clear());
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
 const project = {
@@ -79,7 +83,13 @@ const TASKS = [task(1, "todo"), task(2, "todo"), task(3, "in_progress")];
 
 function render(
   taskKey: string,
-  { presets = [preset], calls = [] as string[], delegate = () => ({ ok: true }) as unknown } = {},
+  {
+    presets = [preset],
+    calls = [] as string[],
+    attachments = [] as Attachment[],
+    update = () => ({ ok: true, task: TASKS[0] }) as unknown,
+    delegate = () => ({ ok: true }) as unknown,
+  } = {},
 ) {
   return renderSlot(
     app.navPanels[0]!,
@@ -105,7 +115,11 @@ function render(
           task: TASKS.find((entry) => entry.key === rpcInput(raw).taskKey) ?? null,
         }),
         getTask: () => ({ task: null }),
-        listAttachments: () => ({ attachments: [] }),
+        listAttachments: () => ({ attachments }),
+        updateTask: () => {
+          calls.push("updateTask");
+          return update();
+        },
         listTaskThreads: () => ({ taskThreads: [] }),
         listTaskPullRequests: () => ({
           pullRequests: [],
@@ -240,4 +254,77 @@ describe("task detail comment key", () => {
     fireEvent.keyDown(description, { key: "c" });
     expect(slot.queryByRole("dialog")).toBeNull();
   });
+});
+
+describe("Markdown dialog in the full Tasks app", () => {
+  it.each([false, true])(
+    "preserves editor, draft, route, scroll and workflow with isolated keys, compact=%s",
+    async (compact) => {
+      const nativeMedia = window.matchMedia;
+      vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+        ...nativeMedia(query),
+        matches: compact && query.includes("max-width: 767px"),
+      }));
+      const attachment: Attachment = {
+        id: "attachment-generic",
+        taskId: TASKS[0]!.id,
+        fileName: "investigation.MD",
+        mime: "application/octet-stream",
+        sizeBytes: 14,
+        isImage: false,
+        createdAt: "2026-07-20T00:00:00.000Z",
+      };
+      const fetch = vi.fn(async () =>
+        Response.json({
+          attachmentId: attachment.id,
+          fileName: attachment.fileName,
+          byteSize: 14,
+          text: "# Investigation".slice(0, 14),
+        }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      const calls: string[] = [];
+      const slot = render("TSK-1", {
+        attachments: [attachment],
+        calls,
+        update: () => new Promise(() => {}),
+      });
+      await ready(slot, "1 / 3");
+      const description = slot.container.querySelector<HTMLElement>(
+        '.tiptap[contenteditable="true"]',
+      )!;
+      await act(async () => {
+        description.innerHTML = "<p>Unfinished task draft</p>";
+        fireEvent.input(description);
+      });
+      await waitFor(() => expect(calls).toEqual(["updateTask"]));
+      const scroll = description.closest<HTMLElement>(
+        '[class*="overflow-y-auto"], [class*="overflow-auto"]',
+      )!;
+      if (!scroll) throw new Error("Task scroll region is missing");
+      scroll.scrollTop = 170;
+      const trigger = await slot.findByRole("button", { name: "investigation.MD" });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const dialog = await slot.findByRole("dialog", { name: "investigation.MD" });
+      await slot.findByRole("heading", { name: "Investigatio", level: 1 });
+      for (const key of ["]", "[", "s", "p", "l", "d", "m"]) fireEvent.keyDown(dialog, { key });
+      fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+      expect(slot.getByLabelText("Raw source").textContent).toBe("# Investigatio");
+      fireEvent.click(slot.getByRole("button", { name: "Preview" }));
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+      expect(slot.container.querySelector('.tiptap[contenteditable="true"]')).toBe(description);
+      expect(description.textContent).toBe("Unfinished task draft");
+      expect(scroll.scrollTop).toBe(170);
+      expect(slot.navigateCalls).toEqual([]);
+      expect(calls).toEqual(["updateTask"]);
+      expect(fetch.mock.calls.length).toBe(1);
+      expect(slot.getByText("1 / 3").textContent).toBe("1 / 3");
+      fireEvent.keyDown(window, { key: "s" });
+      const statusOption = await slot.findByText("In Review");
+      expect(statusOption.closest('[hidden], [inert], [aria-hidden="true"]')).toBeNull();
+    },
+  );
 });

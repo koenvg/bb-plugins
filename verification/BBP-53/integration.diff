@@ -1,0 +1,310 @@
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 93fefc8..d7ab360 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -86,6 +86,16 @@ jobs:
+           sudo apt-get install --yes sqlite3
+           sqlite3 --version
+ 
++      - name: Verify and build shared Markdown for Tasks
++        id: shared_markdown
++        if: matrix.plugin == 'bb-plugin-tasks-plus'
++        working-directory: packages/markdown-document
++        run: |
++          bun install --frozen-lockfile
++          bun run build
++          bun run test
++          bun run typecheck
++
+       - name: Install dependencies
+         id: install_dependencies
+         run: |
+@@ -154,6 +164,9 @@ jobs:
+             steps.install_dependencies.outcome == 'success'
+           }}
+         run: bun run build
++      - name: Build Tasks plugin
++        if: matrix.plugin == 'bb-plugin-tasks-plus'
++        run: bun run build
+ 
+   browser:
+     name: Browser test ${{ matrix.plugin }}
+@@ -166,6 +179,7 @@ jobs:
+           - bb-plugin-compose-chat
+           - bb-plugin-markdown-reader
+           - bb-plugin-codex-quota
++          - bb-plugin-tasks-plus
+     defaults:
+       run:
+         shell: bash
+@@ -181,6 +195,21 @@ jobs:
+         with:
+           bun-version-file: .bun-version
+ 
++      - name: Set up Node.js for shared Markdown checks
++        if: matrix.plugin == 'bb-plugin-tasks-plus'
++        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
++        with:
++          node-version: ">=24.15.0 <25"
++
++      - name: Verify and build shared Markdown for Tasks
++        if: matrix.plugin == 'bb-plugin-tasks-plus'
++        working-directory: packages/markdown-document
++        run: |
++          bun install --frozen-lockfile
++          bun run build
++          bun run test
++          bun run typecheck
++
+       - name: Install dependencies
+         run: bun install --frozen-lockfile
+ 
+diff --git a/bb-plugin-tasks-plus/components/ui/dialog.tsx b/bb-plugin-tasks-plus/components/ui/dialog.tsx
+index 14b2fa5..2f4d68e 100644
+--- a/bb-plugin-tasks-plus/components/ui/dialog.tsx
++++ b/bb-plugin-tasks-plus/components/ui/dialog.tsx
+@@ -203,6 +203,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
+         <ResponsiveDrawerShell
+           open={open}
+           onOpenChange={onOpenChange}
++          onCloseAutoFocus={onCloseAutoFocus}
+           onAfterCloseAutoFocus={onAfterCloseAutoFocus}
+           labelledBy={titleId}
+           describedBy={descriptionId}
+diff --git a/bb-plugin-tasks-plus/package.json b/bb-plugin-tasks-plus/package.json
+index d4d501e..51e45ad 100644
+--- a/bb-plugin-tasks-plus/package.json
++++ b/bb-plugin-tasks-plus/package.json
+@@ -38,10 +38,16 @@
+     "format": "bun run --cwd .. format bb-plugin-tasks-plus",
+     "format:check": "bun run --cwd .. format:check bb-plugin-tasks-plus",
+     "build": "bb plugin build",
++    "preview:fixture": "bun --bun vite --host 127.0.0.1",
++    "test:browser": "bun --bun playwright test",
+     "typecheck": "bun ./node_modules/typescript-7/bin/tsc --noEmit",
+     "test": "vitest run --config vitest.config.ts"
+   },
+   "devDependencies": {
++    "@tailwindcss/vite": "^4.3.0",
++    "tailwindcss": "^4.3.0",
++    "@playwright/test": "1.64.0",
++    "vite": "^7.0.0",
+     "@get-bb/plugin-sdk": "0.6.37",
+     "@pierre/diffs": "^1.2.9",
+     "@radix-ui/react-alert-dialog": "^1.1.19",
+@@ -77,6 +83,7 @@
+     "vitest": "^4.1.1"
+   },
+   "dependencies": {
++    "@bb-plugins/markdown-document": "file:../packages/markdown-document",
+     "@hugeicons/core-free-icons": "^4.3.4",
+     "@hugeicons/react": "^1.1.6",
+     "@radix-ui/react-slot": "^1.3.0",
+diff --git a/bb-plugin-tasks-plus/shared/attachments.ts b/bb-plugin-tasks-plus/shared/attachments.ts
+index 40575b4..121f5e2 100644
+--- a/bb-plugin-tasks-plus/shared/attachments.ts
++++ b/bb-plugin-tasks-plus/shared/attachments.ts
+@@ -1,5 +1,32 @@
+ export const TASKS_PLUS_API_BASE = "/api/v1/plugins/tasks-plus";
+ export const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
++export const MAX_ATTACHMENT_PREVIEW_BYTES = 1024 * 1024;
++
++export function isMarkdownPreviewEligible(attachment: {
++  fileName: string;
++  isImage: boolean;
++}): boolean {
++  return !attachment.isImage && /\.(md|markdown)$/i.test(attachment.fileName);
++}
++
++export function attachmentPreviewUrl(attachmentId: string): string {
++  return `${TASKS_PLUS_API_BASE}/http/attachments/preview?attachmentId=${encodeURIComponent(attachmentId)}`;
++}
++
++export function hasBinaryTextControls(text: string): boolean {
++  for (let index = 0; index < text.length; index++) {
++    const code = text.charCodeAt(index);
++    if (
++      code <= 8 ||
++      code === 11 ||
++      code === 12 ||
++      (code >= 14 && code <= 31) ||
++      (code >= 127 && code <= 159)
++    )
++      return true;
++  }
++  return false;
++}
+ 
+ export function attachmentDownloadUrl(attachmentId: string): string {
+   return `${TASKS_PLUS_API_BASE}/http/attachments/download?attachmentId=${encodeURIComponent(attachmentId)}`;
+diff --git a/bb-plugin-tasks-plus/shell/shortcuts.ts b/bb-plugin-tasks-plus/shell/shortcuts.ts
+index 6073b82..9ca4262 100644
+--- a/bb-plugin-tasks-plus/shell/shortcuts.ts
++++ b/bb-plugin-tasks-plus/shell/shortcuts.ts
+@@ -165,11 +165,11 @@ export function isEditableTarget(target: EventTarget | null): boolean {
+ }
+ 
+ export function hasOpenOverlay(): boolean {
+-  return (
+-    document.querySelector(
++  return Array.from(
++    document.querySelectorAll(
+       '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+-    ) !== null
+-  );
++    ),
++  ).some((overlay) => overlay.closest('[hidden], [inert], [aria-hidden="true"]') === null);
+ }
+ 
+ /** Recheck ownership when asynchronous work finishes, not only on keydown.
+diff --git a/bb-plugin-tasks-plus/views/detail/attachments.tsx b/bb-plugin-tasks-plus/views/detail/attachments.tsx
+index 31c678e..64284ac 100644
+--- a/bb-plugin-tasks-plus/views/detail/attachments.tsx
++++ b/bb-plugin-tasks-plus/views/detail/attachments.tsx
+@@ -1,5 +1,9 @@
+ import { useEffect, useState } from "react";
+-import { attachmentDownloadUrl, TASKS_PLUS_API_BASE } from "../../shared/attachments.js";
++import {
++  attachmentDownloadUrl,
++  isMarkdownPreviewEligible,
++  TASKS_PLUS_API_BASE,
++} from "../../shared/attachments.js";
+ import type { Attachment } from "../../shared/contract.js";
+ import { errorMessage } from "../../shared/errors.js";
+ import { formatFileSize } from "../../shared/attachments.js";
+@@ -118,10 +122,12 @@ export function AttachmentsGrid({
+   attachments,
+   onRemove,
+   onError,
++  onPreview,
+ }: {
+   attachments: Attachment[];
+   onRemove: (attachment: Attachment) => Promise<void>;
+   onError: (message: string) => void;
++  onPreview?: (attachment: Attachment, trigger: HTMLElement) => void;
+ }) {
+   const [lightbox, setLightbox] = useState<Attachment | null>(null);
+   const [confirm, setConfirm] = useState<Attachment | null>(null);
+@@ -174,26 +180,43 @@ export function AttachmentsGrid({
+     );
+   };
+ 
++  const fileLabel = (attachment: Attachment) => (
++    <>
++      <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground">
++        <Icon name="File" className="size-3.5" />
++      </span>
++      <span className="min-w-0">
++        <span className="block max-w-48 truncate">{attachment.fileName}</span>
++        <span className="block text-2xs text-muted-foreground">
++          {formatFileSize(attachment.sizeBytes)}
++        </span>
++      </span>
++    </>
++  );
+   const fileCard = (attachment: Attachment) => (
+     <div
+       key={attachment.id}
+       className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-2xs"
+     >
+-      <a
+-        href={attachmentDownloadUrl(attachment.id)}
+-        download={attachment.fileName}
+-        className="flex min-w-0 items-center gap-2 rounded-sm hover:bg-state-hover"
+-      >
+-        <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-secondary text-muted-foreground">
+-          <Icon name="File" className="size-3.5" />
+-        </span>
+-        <span className="min-w-0">
+-          <span className="block max-w-48 truncate">{attachment.fileName}</span>
+-          <span className="block text-2xs text-muted-foreground">
+-            {formatFileSize(attachment.sizeBytes)}
+-          </span>
+-        </span>
+-      </a>
++      {isMarkdownPreviewEligible(attachment) && onPreview ? (
++        <button
++          type="button"
++          title={attachment.fileName}
++          aria-label={attachment.fileName}
++          className="flex min-w-0 items-center gap-2 rounded-sm text-left hover:bg-state-hover focus-visible:outline-2 focus-visible:outline-ring"
++          onClick={(event) => onPreview(attachment, event.currentTarget)}
++        >
++          {fileLabel(attachment)}
++        </button>
++      ) : (
++        <a
++          href={attachmentDownloadUrl(attachment.id)}
++          download={attachment.fileName}
++          className="flex min-w-0 items-center gap-2 rounded-sm hover:bg-state-hover"
++        >
++          {fileLabel(attachment)}
++        </a>
++      )}
+       {removeButton(attachment, "file")}
+     </div>
+   );
+diff --git a/bb-plugin-tasks-plus/views/detail/index.tsx b/bb-plugin-tasks-plus/views/detail/index.tsx
+index 05b6815..37138fd 100644
+--- a/bb-plugin-tasks-plus/views/detail/index.tsx
++++ b/bb-plugin-tasks-plus/views/detail/index.tsx
+@@ -16,6 +16,7 @@ import {
+ import { useTasksNavigation } from "../../shell/routes.js";
+ import { TasksEditor } from "../../editor/tasks-editor.js";
+ import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
++import { useAttachmentPreview } from "./attachment-preview.js";
+ import { createTaskEditSession } from "./edit-session.js";
+ import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
+ import { Button } from "@/components/ui/button";
+@@ -209,6 +210,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
+   const { toasts, push, dismiss } = useDetailToasts();
+   const fileInputRef = useRef<HTMLInputElement>(null);
+   const subtasksRef = useRef<HTMLElement>(null);
++  const previewFallback = useRef<HTMLButtonElement>(null);
+ 
+   const transition = useTasksSession();
+   const rpcRef = useRef(rpc);
+@@ -268,6 +270,12 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
+     ["tasks:changed"],
+     [task.id],
+   );
++  const attachmentPreview = useAttachmentPreview({
++    taskId: task.id,
++    confirmedAttachments:
++      !attachments.isLoading && !attachments.error ? attachments.data : undefined,
++    fallbackRef: previewFallback,
++  });
+   const threads = useTasksQuery(
+     async (query) => (await query.call("listTaskThreads", { taskId: task.id })).taskThreads,
+     ["threads:changed"],
+@@ -478,6 +486,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
+               type="button"
+               title="Attach file"
+               aria-label="Attach file"
++              ref={previewFallback}
+               className="flex size-6.5 items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground"
+               onClick={() => fileInputRef.current?.click()}
+             >
+@@ -497,12 +506,14 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
+ 
+           <AttachmentsGrid
+             attachments={attachments.data ?? []}
++            onPreview={attachmentPreview.open}
+             onRemove={async (attachment) => {
+               const result = await rpc.call("deleteAttachment", {
+                 attachmentId: attachment.id,
+                 removeDescriptionReferences: true,
+               });
+               if (!result.ok) throw new Error(result.error.message);
++              if (result.deleted) attachmentPreview.removed(attachment.id);
+               attachments.refresh();
+             }}
+             onError={(message) => push(message)}
+@@ -555,6 +566,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
+       </div>
+       <DetailToasts toasts={toasts} onDismiss={dismiss} />
+       {blockedWorkDialog}
++      {attachmentPreview.dialog}
+     </div>
+   );
+ }

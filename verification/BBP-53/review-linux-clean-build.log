@@ -1,0 +1,4 @@
+Snapshot /tmp/bbp53-linux-source-KJR748
+docker: Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /tmp/bbp53-linux-source-KJR748/checkout
+
+Run 'docker run --help' for more information

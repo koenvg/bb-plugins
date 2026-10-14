@@ -1,3 +1,5 @@
 dist/
 node_modules/
 public/project-settings-preview/
+test-results/
+playwright-report/

@@ -1,0 +1,71 @@
+.attachment-preview.attachment-preview {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  height: min(860px, calc(100dvh - 48px));
+  max-height: min(860px, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.attachment-preview .attachment-preview-header {
+  flex: none;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.attachment-preview .attachment-preview-title {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.attachment-preview .attachment-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.attachment-preview .attachment-preview-views {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+  background: var(--surface-recessed, var(--muted));
+  border-radius: var(--radius, 6px);
+}
+.attachment-preview .attachment-preview-views [aria-pressed="true"] {
+  background: var(--state-active);
+}
+.attachment-preview .attachment-preview-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 32px;
+  overscroll-behavior: contain;
+}
+.attachment-preview .attachment-preview-body > [role="status"] {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.attachment-preview .attachment-preview-body > [role="status"] p {
+  margin: 0 0 16px;
+}
+.attachment-preview :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .attachment-preview.attachment-preview {
+    width: 100%;
+    max-width: none;
+    height: calc(85dvh - var(--bb-drawer-keyboard-inset, 0px) - 24px);
+    max-height: calc(85dvh - var(--bb-drawer-keyboard-inset, 0px) - 24px);
+  }
+  .attachment-preview .attachment-preview-header {
+    padding: 8px 16px 16px;
+  }
+  .attachment-preview .attachment-preview-body {
+    padding: 24px 16px;
+  }
+}

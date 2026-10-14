@@ -16,6 +16,7 @@ import {
 import { useTasksNavigation } from "../../shell/routes.js";
 import { TasksEditor } from "../../editor/tasks-editor.js";
 import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
+import { useAttachmentPreview } from "./attachment-preview.js";
 import { createTaskEditSession } from "./edit-session.js";
 import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
 import { Button } from "@/components/ui/button";
@@ -209,6 +210,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   const { toasts, push, dismiss } = useDetailToasts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subtasksRef = useRef<HTMLElement>(null);
+  const previewFallback = useRef<HTMLButtonElement>(null);
 
   const transition = useTasksSession();
   const rpcRef = useRef(rpc);
@@ -268,6 +270,12 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     ["tasks:changed"],
     [task.id],
   );
+  const attachmentPreview = useAttachmentPreview({
+    taskId: task.id,
+    confirmedAttachments:
+      !attachments.isLoading && !attachments.error ? attachments.data : undefined,
+    fallbackRef: previewFallback,
+  });
   const threads = useTasksQuery(
     async (query) => (await query.call("listTaskThreads", { taskId: task.id })).taskThreads,
     ["threads:changed"],
@@ -478,6 +486,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
               type="button"
               title="Attach file"
               aria-label="Attach file"
+              ref={previewFallback}
               className="flex size-6.5 items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -497,12 +506,14 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
 
           <AttachmentsGrid
             attachments={attachments.data ?? []}
+            onPreview={attachmentPreview.open}
             onRemove={async (attachment) => {
               const result = await rpc.call("deleteAttachment", {
                 attachmentId: attachment.id,
                 removeDescriptionReferences: true,
               });
               if (!result.ok) throw new Error(result.error.message);
+              if (result.deleted) attachmentPreview.removed(attachment.id);
               attachments.refresh();
             }}
             onError={(message) => push(message)}
@@ -555,6 +566,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
       </div>
       <DetailToasts toasts={toasts} onDismiss={dismiss} />
       {blockedWorkDialog}
+      {attachmentPreview.dialog}
     </div>
   );
 }

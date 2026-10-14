@@ -1,0 +1,2 @@
+$ oxfmt --write "verification/BBP-53/review-closure.md" "verification/BBP-53/review-p1-toolchain.json" .github/workflows/tests.yml
+Finished in 73ms on 3 files using 10 threads.

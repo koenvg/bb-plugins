@@ -1,0 +1,10 @@
+$ vitest run --config vitest.config.ts shell/shortcuts.test.ts views/detail/attachment-preview.test.tsx views/detail/keyboard.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  3 passed (3)
+      Tests  76 passed (76)
+   Start at  19:36:08
+   Duration  3.35s (transform 428ms, setup 261ms, import 663ms, tests 4.39s, environment 829ms)
+

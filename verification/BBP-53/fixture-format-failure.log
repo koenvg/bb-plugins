@@ -1,0 +1,42 @@
+bun install v1.4.3 (c6da4a4d3)
+
+Checked 210 installs across 235 packages (no changes) [41.00ms]
+$ tsc -p tsconfig.build.json && bun build-css.ts
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/packages/markdown-document
+
+ ❯ test/public.test.tsx (4 tests | 1 failed) 76ms
+     × renders semantic GFM and plain code with inert destinations including footnotes 60ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/public.test.tsx > compiled public document interface > renders semantic GFM and plain code with inert destinations including footnotes
+AssertionError: expected 'const x = "fulfilled";\nline;\n' to be '  const x = "fulfilled";\n\tline  \n' // Object.is equality
+
+- Expected
++ Received
+
+-   const x = "fulfilled";
++ const x = "fulfilled";
+- 	line  
++ line;
+
+
+ ❯ test/public.test.tsx:24:57
+     22|     expect(screen.getByRole("checkbox").hasAttribute("disabled")).toBe…
+     23|     expect(container.querySelector("del")?.textContent).toBe("old");
+     24|     expect(container.querySelector("pre")?.textContent).toBe(
+       |                                                         ^
+     25|       '  const x = "fulfilled";\n\tline  \n',
+     26|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  18:40:25
+   Duration  653ms (transform 24ms, setup 0ms, import 165ms, tests 76ms, environment 353ms)
+
+error: script "test" exited with code 1

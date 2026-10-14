@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { SHORTCUTS, shortcutMatches, shouldIgnoreKey, type ShortcutScope } from "./shortcuts.js";
+import {
+  hasOpenOverlay,
+  SHORTCUTS,
+  shortcutMatches,
+  shouldIgnoreKey,
+  type ShortcutScope,
+} from "./shortcuts.js";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -126,14 +132,61 @@ describe("shouldIgnoreKey", () => {
     expect(shouldIgnoreKey(keyEvent({ key: "c", target: field }), root)).toBe(true);
   });
 
-  it.each(["dialog", "menu", "listbox"])("ignores keys while a %s is open", (role) => {
-    const { root, inside } = setup();
-    const overlay = document.createElement("div");
-    overlay.setAttribute("role", role);
-    document.body.append(overlay);
-    expect(shouldIgnoreKey(keyEvent({ key: "j", target: inside }), root)).toBe(true);
-  });
+  it.each(["dialog", "alertdialog", "menu", "listbox"])(
+    "ignores keys while a %s is open",
+    (role) => {
+      const { root, inside } = setup();
+      const overlay = document.createElement("div");
+      overlay.setAttribute("role", role);
+      document.body.append(overlay);
+      expect(shouldIgnoreKey(keyEvent({ key: "j", target: inside }), root)).toBe(true);
+    },
+  );
 
+  it.each(["hidden", "inert", "aria-hidden"])(
+    "recovers after a persistent overlay is inactive through %s ancestors",
+    (attribute) => {
+      const { root, inside } = setup();
+      const parent = document.createElement("div");
+      const overlay = document.createElement("div");
+      overlay.setAttribute("role", "dialog");
+      parent.append(overlay);
+      document.body.append(parent);
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(true);
+      parent.setAttribute(attribute, attribute === "aria-hidden" ? "true" : "");
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(false);
+      const newer = document.createElement("div");
+      newer.setAttribute("role", "alertdialog");
+      document.body.append(newer);
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(true);
+      newer.remove();
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(false);
+    },
+  );
+
+  it.each(["dialog", "alertdialog", "menu", "listbox"])(
+    "excludes only the owner's panel while a newer %s still blocks focus and shortcuts",
+    (role) => {
+      const { root, inside } = setup();
+      const own = document.createElement("div");
+      own.setAttribute("role", "dialog");
+      const panel = document.createElement("div");
+      panel.innerHTML = '<div role="listbox"></div>';
+      own.append(panel);
+      document.body.append(own);
+      expect(hasOpenOverlay(panel)).toBe(false);
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(true);
+      const newer = document.createElement("div");
+      newer.setAttribute("role", role);
+      document.body.append(newer);
+      expect(hasOpenOverlay(panel)).toBe(true);
+      own.setAttribute("hidden", "");
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(true);
+      newer.remove();
+      expect(hasOpenOverlay(panel)).toBe(false);
+      expect(shouldIgnoreKey(keyEvent({ key: "s", target: inside }), root)).toBe(false);
+    },
+  );
   it("ignores keys another handler already handled", () => {
     const { root, inside } = setup();
     const event = keyEvent({ key: "j", target: inside });

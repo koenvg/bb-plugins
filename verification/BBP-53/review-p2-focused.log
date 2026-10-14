@@ -1,0 +1,19 @@
+bun install v1.4.3 (c6da4a4d3)
+Saved lockfile
+
++ bb-app@0.46.0
++ @bb-plugins/markdown-document@../packages/markdown-document
+
+46 packages installed [2.68s]
+
+Blocked 1 postinstall. Run `bun pm untrusted` for details.
+$ vitest run --config vitest.config.ts shell/shortcuts.test.ts views/detail/attachment-preview.test.tsx views/detail/keyboard.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_3r4ynw3avg-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  3 passed (3)
+      Tests  72 passed (72)
+   Start at  19:15:04
+   Duration  5.68s (transform 1.06s, setup 1.12s, import 1.73s, tests 6.60s, environment 2.35s)
+
