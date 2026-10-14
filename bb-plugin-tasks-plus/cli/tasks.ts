@@ -119,7 +119,8 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
         "description-file": {
           type: "string",
           placeholder: "path",
-          description: "Read the description from this UTF-8 file on the invoking machine",
+          description:
+            "Read the description from this regular UTF-8 file on the invoking machine; stdin paths are not supported",
         },
         priority: {
           type: "enum",
@@ -551,7 +552,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           type: "string",
           placeholder: "path",
           description:
-            "Read the replacement description from this UTF-8 file on the invoking machine",
+            "Read the replacement description from this regular UTF-8 file on the invoking machine; stdin paths are not supported",
         },
         due: {
           type: "string",

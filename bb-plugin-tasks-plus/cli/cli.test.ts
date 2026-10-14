@@ -1383,6 +1383,181 @@ describe("bb tasks CLI", () => {
     }
   });
 
+  it.each([
+    ["/dev/stdin", "/"],
+    ["/dev/fd/0", "/"],
+    ["/proc/self/fd/0", "/"],
+    ["/proc/thread-self/fd/0", "/"],
+    ["/proc/12345/fd/0", "/"],
+    ["/proc/987654/fd/0", "/"],
+    ["/dev//./stdin", "/"],
+    ["/dev/fd/1/../0", "/"],
+    ["/proc/self/./fd//0/", "/"],
+    ["/proc/thread-self/fd/../fd/0", "/"],
+    ["/proc/12345/fd/1/../0", "/"],
+    ["./stdin", "/dev"],
+    ["../self/fd/0", "/proc/thread-self"],
+  ])(
+    "rejects process-local stdin description file %s from cwd %s without mutations",
+    async (file, cwd) => {
+      const { bb, harness } = createFakePluginHost({
+        pluginId: "tasks",
+        sdk: {
+          files: {
+            read: async ({ path }: { path: string }) => ({
+              path,
+              content: "",
+              contentEncoding: "utf8",
+              sizeBytes: 0,
+            }),
+          },
+        },
+      });
+      await plugin(bb);
+
+      try {
+        stdout(await harness.runCli(["project", "create", "--name", "Stdin", "--prefix", "STD"]));
+        stdout(
+          await harness.runCli([
+            "create",
+            "--project",
+            "STD",
+            "--title",
+            "Original title",
+            "--description",
+            "Original description",
+          ]),
+        );
+        const expectedError = `could not read ${file}: stdin paths are not supported because the SDK host process does not read the invoking CLI's stdin. Use a regular UTF-8 file or --description.\n`;
+        const created = await harness.runCli(
+          [
+            "create",
+            "--project",
+            "STD",
+            "--title",
+            "Must not be created",
+            "--description-file",
+            file,
+          ],
+          { cwd },
+        );
+        expect.soft(created).toMatchObject({ exitCode: 1, stdout: "", stderr: expectedError });
+
+        const updated = await harness.runCli(
+          [
+            "update",
+            "STD-1",
+            "--title",
+            "Must not be saved",
+            "--priority",
+            "high",
+            "--description-file",
+            file,
+          ],
+          { cwd },
+        );
+        expect.soft(updated).toMatchObject({ exitCode: 1, stdout: "", stderr: expectedError });
+        expect.soft(harness.sdk.callsTo("files.read")).toEqual([]);
+        expect.soft(harness.sdk.callsTo("files.write")).toEqual([]);
+        const listed = JSON.parse(
+          stdout(await harness.runCli(["list", "--project", "STD", "--json"])),
+        );
+        expect.soft(listed.tasks).toEqual([
+          expect.objectContaining({
+            key: "STD-1",
+            title: "Original title",
+            description: "Original description",
+            priority: "none",
+          }),
+        ]);
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  it.each([
+    { name: "relative UTF-8", fileName: "notes.md", content: "# Café\n日本語 ✓\n", relative: true },
+    {
+      name: "absolute UTF-8",
+      fileName: "notes.md",
+      content: "# Café\n日本語 ✓\n",
+      relative: false,
+    },
+    { name: "relative empty", fileName: "empty.md", content: "", relative: true },
+    { name: "absolute empty", fileName: "empty.md", content: "", relative: false },
+    { name: "literal dash", fileName: "-", content: "A regular file named dash\n", relative: true },
+  ])(
+    "reads $name regular description files for create and update",
+    async ({ fileName, content, relative }) => {
+      const directory = await mkdtemp(join(tmpdir(), "bb-tasks-cli-description-"));
+      const path = join(directory, fileName);
+      await writeFile(path, content, "utf8");
+      const { bb, harness } = createFakePluginHost({
+        pluginId: "tasks",
+        sdk: { files: localFilesSdk() },
+      });
+      await plugin(bb);
+
+      try {
+        stdout(await harness.runCli(["project", "create", "--name", "Files", "--prefix", "FILE"]));
+        const file = relative ? fileName : path;
+        const created = JSON.parse(
+          stdout(
+            await harness.runCli(
+              [
+                "create",
+                "--project",
+                "FILE",
+                "--title",
+                "From file",
+                "--description-file",
+                file,
+                "--json",
+              ],
+              { cwd: directory },
+            ),
+          ),
+        );
+        expect(created.task).toMatchObject({
+          key: "FILE-1",
+          title: "From file",
+          description: content,
+        });
+        stdout(
+          await harness.runCli(["update", "FILE-1", "--description", "Replace this description"]),
+        );
+        const updated = JSON.parse(
+          stdout(
+            await harness.runCli(
+              [
+                "update",
+                "FILE-1",
+                "--title",
+                "Updated from file",
+                "--description-file",
+                file,
+                "--json",
+              ],
+              { cwd: directory },
+            ),
+          ),
+        );
+        expect(updated.task).toMatchObject({
+          key: "FILE-1",
+          title: "Updated from file",
+          description: content,
+        });
+        const shown = JSON.parse(stdout(await harness.runCli(["show", "FILE-1", "--json"])));
+        expect(shown.task).toMatchObject({ title: "Updated from file", description: content });
+        expect(harness.sdk.callsTo("files.read")).toEqual([[{ path }], [{ path }]]);
+      } finally {
+        await harness.dispose();
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("routes file flags to the invoking thread's machine and honors --machine", async () => {
     const remoteFiles = new Map<string, Buffer>([
       ["/remote/notes.md", Buffer.from("remote description\n", "utf8")],
