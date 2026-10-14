@@ -216,23 +216,27 @@ it("shares optional detection and settled metadata successes, absence and failur
     prefix: "RCH",
     color: "blue",
   });
-  const tasks = Array.from({ length: 501 }, (_, i) => ({
-    ...store.tasks.createTask({
-      projectId: project.id,
-      title: `Task ${i}`,
-      status: "in_review",
-    }),
-    labelIds: [],
-  }));
-  for (const task of tasks)
-    for (const threadId of ["thr_shared", "thr_error", "thr_none"])
-      store.tasks.upsertTaskThread({
-        taskId: task.id,
-        threadId,
-        title: threadId,
-        presetName: "Worker",
-        liveStatus: "completed",
-      });
+  // Seed in one commit so disk-sync latency does not dominate this refresh test.
+  const tasks = store.transaction(() => {
+    const created = Array.from({ length: 501 }, (_, i) => ({
+      ...store.tasks.createTask({
+        projectId: project.id,
+        title: `Task ${i}`,
+        status: "in_review",
+      }),
+      labelIds: [],
+    }));
+    for (const task of created)
+      for (const threadId of ["thr_shared", "thr_error", "thr_none"])
+        store.tasks.upsertTaskThread({
+          taskId: task.id,
+          threadId,
+          title: threadId,
+          presetName: "Worker",
+          liveStatus: "completed",
+        });
+    return created;
+  });
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
   function Probe() {

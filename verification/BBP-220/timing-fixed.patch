@@ -1,0 +1,56 @@
+--- a/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx
++++ b/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx
+@@ -164,6 +164,13 @@
+ );
+ 
+ it("shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads", async () => {
++  const timingStart = performance.now();
++  let timingPrevious = timingStart;
++  function timing(stage: string) {
++    const now = performance.now();
++    console.warn("BBP220_TIMING", JSON.stringify({ stage, ms: Math.round(now - timingPrevious), totalMs: Math.round(now - timingStart) }));
++    timingPrevious = now;
++  }
+   let phase = 0;
+   const plugins = vi.fn(async () => ({
+     plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+@@ -216,6 +223,7 @@
+     prefix: "RCH",
+     color: "blue",
+   });
++  timing("host-store-project");
+   // Seed in one commit so disk-sync latency does not dominate this refresh test.
+   const tasks = store.transaction(() => {
+     const created = Array.from({ length: 501 }, (_, i) => ({
+@@ -237,6 +245,7 @@
+         });
+     return created;
+   });
++  timing("501-tasks-and-1503-links");
+   registerTasksApi(bb, store);
+   let latest: Map<string, TaskWorkStatus> | undefined;
+   function Probe() {
+@@ -259,6 +268,7 @@
+     },
+   );
+   await waitFor(() => expect(latest?.size).toBe(501));
++  timing("initial-refresh");
+   expect(plugins).toHaveBeenCalledTimes(1);
+   expect(get).toHaveBeenCalledTimes(3);
+   expect(pullRequest).toHaveBeenCalledTimes(1);
+@@ -272,6 +282,7 @@
+         threadIds: expect.arrayContaining(["thr_shared", "thr_error", "thr_none"]),
+       }),
+     ]);
++  timing("501-assertions");
+   phase = 1;
+   fireEvent.click(slot.getByText("Refresh"));
+   await waitFor(() =>
+@@ -280,6 +291,7 @@
+       details: "available",
+     }),
+   );
++  timing("authoritative-refresh");
+   expect(plugins).toHaveBeenCalledTimes(2);
+   expect(get).toHaveBeenCalledTimes(6);
+   expect(pullRequest).toHaveBeenCalledTimes(2);

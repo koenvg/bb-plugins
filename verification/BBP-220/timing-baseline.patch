@@ -1,0 +1,66 @@
+diff --git a/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx b/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx
+index 0fe15be..4553771 100644
+--- a/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx
++++ b/bb-plugin-tasks-plus/views/list/work-status-rich-refresh.test.tsx
+@@ -164,6 +164,13 @@ it.each(["checks", "ready"])(
+ );
+ 
+ it("shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads", async () => {
++  const timingStart = performance.now();
++  let timingPrevious = timingStart;
++  function timing(stage: string) {
++    const now = performance.now();
++    console.warn("BBP220_TIMING", JSON.stringify({ stage, ms: Math.round(now - timingPrevious), totalMs: Math.round(now - timingStart) }));
++    timingPrevious = now;
++  }
+   let phase = 0;
+   const plugins = vi.fn(async () => ({
+     plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+@@ -216,6 +223,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+     prefix: "RCH",
+     color: "blue",
+   });
++  timing("host-store-project");
+   const tasks = Array.from({ length: 501 }, (_, i) => ({
+     ...store.tasks.createTask({
+       projectId: project.id,
+@@ -224,6 +232,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+     }),
+     labelIds: [],
+   }));
++  timing("501-tasks");
+   for (const task of tasks)
+     for (const threadId of ["thr_shared", "thr_error", "thr_none"])
+       store.tasks.upsertTaskThread({
+@@ -233,6 +242,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+         presetName: "Worker",
+         liveStatus: "completed",
+       });
++  timing("1503-links");
+   registerTasksApi(bb, store);
+   let latest: Map<string, TaskWorkStatus> | undefined;
+   function Probe() {
+@@ -255,6 +265,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+     },
+   );
+   await waitFor(() => expect(latest?.size).toBe(501));
++  timing("initial-refresh");
+   expect(plugins).toHaveBeenCalledTimes(1);
+   expect(get).toHaveBeenCalledTimes(3);
+   expect(pullRequest).toHaveBeenCalledTimes(1);
+@@ -268,6 +279,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+         threadIds: expect.arrayContaining(["thr_shared", "thr_error", "thr_none"]),
+       }),
+     ]);
++  timing("501-assertions");
+   phase = 1;
+   fireEvent.click(slot.getByText("Refresh"));
+   await waitFor(() =>
+@@ -276,6 +288,7 @@ it("shares optional detection and settled metadata successes, absence and failur
+       details: "available",
+     }),
+   );
++  timing("authoritative-refresh");
+   expect(plugins).toHaveBeenCalledTimes(2);
+   expect(get).toHaveBeenCalledTimes(6);
+   expect(pullRequest).toHaveBeenCalledTimes(2);

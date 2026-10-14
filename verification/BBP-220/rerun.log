@@ -1,0 +1,13 @@
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:42.7904729Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:54.2300608Z + typescript-7@7.0.2
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:57.0301352Z $ bun run --cwd .. lint bb-plugin-tasks-plus
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:57.0336291Z $ oxlint bb-plugin-tasks-plus
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:57.1238092Z Found 4 warnings and 0 errors.
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:57.1239175Z Finished in 51ms on 298 files with 96 rules using 4 threads.
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:17:57.1483830Z $ vitest run --config vitest.config.ts
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:19:16.5339739Z  ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx (3 tests) 5791ms
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:19:16.5342722Z    ✓ shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads  5472ms
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:20:21.3876466Z  Test Files  122 passed (122)
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:20:21.3885843Z       Tests  1220 passed (1220)
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:20:21.3887930Z    Duration  143.88s (transform 5.11s, setup 23.49s, import 38.74s, tests 279.17s, environment 66.08s)
+Test bb-plugin-tasks-plus	UNKNOWN STEP	2026-10-13T21:20:21.4582140Z $ bun ./node_modules/typescript-7/bin/tsc --noEmit

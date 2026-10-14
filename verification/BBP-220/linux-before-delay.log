@@ -1,0 +1,35 @@
+
+ RUN  v4.1.11 /workspace/bb-plugin-tasks-plus
+
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"host-store-project","ms":68,"totalMs":68}
+BBP220_TIMING {"stage":"501-tasks","ms":8472,"totalMs":8540}
+BBP220_TIMING {"stage":"1503-links","ms":25391,"totalMs":33931}
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 138ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 36ms
+ ×  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 34420ms
+   → Test timed out in 20000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL   bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+Error: Test timed out in 20000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ views/list/work-status-rich-refresh.test.tsx:166:1
+    164| );
+    165|
+    166| it("shares optional detection and settled metadata successes, absence …
+       | ^
+    167|   const timingStart = performance.now();
+    168|   let timingPrevious = timingStart;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  15:50:55
+   Duration  36.95s (transform 882ms, setup 343ms, import 886ms, tests 34.60s, environment 933ms)
+
