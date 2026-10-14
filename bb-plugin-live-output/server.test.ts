@@ -73,7 +73,7 @@ describe("public plugin boundary", () => {
       totalBytes: 6,
       deltas: 1,
       rawBytesPerSecond: 6,
-      smoothBytesPerSecond: 1.2,
+      smoothBytesPerSecond: 0.2,
     });
     expect(snapshotSchema.safeParse(response).success).toBe(true);
     await expect(host.harness.behavior.callRpc("snapshot", { bad: true })).rejects.toMatchObject({
@@ -153,7 +153,7 @@ describe("public plugin boundary", () => {
 
   it("uses only public SDK imports and declared external test dependencies", () => {
     const scan = experimental_scanPublicSdkOnly(fileURLToPath(new URL(".", import.meta.url)), {
-      allow: [/^vitest$/, /^react(?:\/.*)?$/, /^@testing-library\/react$/],
+      allow: [/^vitest$/, /^react(?:-dom)?(?:\/.*)?$/, /^@testing-library\/react$/],
     });
     expect(scan.violations).toEqual([]);
     expect(scan.privateDependencies).toEqual([]);

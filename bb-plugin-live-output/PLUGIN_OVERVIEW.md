@@ -1,6 +1,6 @@
 ## Watch all-thread output
 
-Open Live Output from the native BB navigation rail. A sixty-second graph shows observed output across projects, including hidden and archived threads. Start with the five-second average, or select raw one-second buckets to inspect bursts. Switch between exact UTF-8 delta bytes and estimated output tokens per second.
+Open Live Output from the native BB navigation rail. A ten-minute graph shows observed output across projects, including hidden and archived threads. Start with the thirty-second average, or select raw one-second buckets to inspect bursts. Switch between exact UTF-8 delta bytes and estimated output tokens per second.
 
 Recent contributors show readable thread titles, provider IDs and main or child BB hierarchy. Select a title to open that thread. Starting, live, idle, degraded and disconnected states report collection and connection limits.
 

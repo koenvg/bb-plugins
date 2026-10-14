@@ -98,6 +98,106 @@ async function step(ms = 1000) {
 }
 
 describe("observed output collector", () => {
+  it("keeps ten streams current beside 850 previously observed idle threads without discovery requeues", async () => {
+    const rows = Array.from({ length: 850 }, (_, i) => thread(`idle_${i}`));
+    rows.push(...Array.from({ length: 10 }, (_, i) => thread(`live_${i}`)));
+    const s = setup(rows);
+    await step(3000);
+    for (const row of rows) s.collector.observe(row, 1);
+    await step(90_000);
+    const before = s.fake.harness.callsTo("threads.events.list").length;
+    for (let seq = 1; seq <= 60; seq++) {
+      for (const row of rows.slice(850)) {
+        s.source.events.push(delta(seq, Date.now() + 100, "é🙂", row.id));
+        s.collector.observe(row, seq);
+      }
+      await step();
+      expect(s.collector.snapshot().totalBytes).toBe(seq * 60);
+      expect(s.collector.snapshot().contributors).toHaveLength(10);
+      expect(
+        s.collector.snapshot().contributors.every((row) => row.lastAt === Date.now() - 900),
+      ).toBe(true);
+    }
+    const reads = s.fake.harness.callsTo("threads.events.list").slice(before);
+    expect(
+      reads.filter((call) =>
+        String((call[0] as ThreadEventsListArgs).threadId).startsWith("idle_"),
+      ),
+    ).toHaveLength(0);
+    expect(reads).toHaveLength(600);
+    expect(s.collector.snapshot().failures).toBe(0);
+  });
+  it("revisits members deferred by a recent drained read within the next fixed scan", async () => {
+    const rows = Array.from({ length: 850 }, (_, i) => thread(`idle_${i}`));
+    const s = setup(rows);
+    await step(3000);
+    for (const row of rows) s.collector.observe(row, 1);
+    await step(90_000);
+    s.source.events.push(delta(1, Date.now() + 100, "abcd", "idle_0"));
+    await step(1_110_000);
+    expect(s.collector.snapshot().totalBytes).toBe(4);
+  });
+  it("keeps lifecycle activation received while a short event page is in flight", async () => {
+    const s = setup();
+    await step(2000);
+    s.collector.observe(thread(), 1);
+    await step();
+    let release!: (rows: ThreadEventRow[]) => void;
+    let reads = 0;
+    s.fake.harness.stub("threads.events.list", async () => {
+      if (++reads === 1)
+        return new Promise<ThreadEventRow[]>((resolve) => {
+          release = resolve;
+        });
+      return [delta(1, Date.now() - 100)];
+    });
+    s.collector.observe({ ...thread(), updatedAt: Date.now() });
+    await step();
+    s.collector.observe({ ...thread(), updatedAt: Date.now() });
+    release([]);
+    await step(0);
+    expect(s.collector.snapshot()).toMatchObject({ totalBytes: 4, deltas: 1 });
+  });
+
+  it("does not reactivate unchanged post-start metadata on every discovery sweep", async () => {
+    const s = setup([thread("thr_a", { updatedAt: epoch + 100 })]);
+    await step(3000);
+    expect(s.fake.harness.callsTo("threads.events.list")).toHaveLength(2);
+    await step(90_000);
+    expect(s.fake.harness.callsTo("threads.events.list")).toHaveLength(2);
+  });
+
+  it("reserves one of five eligible starts for background and rotates full live pages", async () => {
+    const rows = [thread("background", { status: "active" }), thread("live_a"), thread("live_b")];
+    const s = setup(rows);
+    await step(2000);
+    const before = s.fake.harness.callsTo("threads.events.list").length;
+    s.source.events.push(
+      ...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 2100, "abcd", "background")),
+      ...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 2100, "abcd", "live_a")),
+      ...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 2100, "abcd", "live_b")),
+    );
+    s.collector.observe(rows[0]!, undefined);
+    s.collector.observe({ ...rows[0]!, updatedAt: epoch + 2100 });
+    s.collector.observe(rows[1]!, 3000);
+    s.collector.observe(rows[2]!, 3000);
+    await step();
+    const reads = s.fake.harness.callsTo("threads.events.list").slice(before);
+    expect(reads).toHaveLength(20);
+    for (let i = 0; i < 20; i += 5)
+      expect(
+        reads
+          .slice(i, i + 5)
+          .some((call) => (call[0] as ThreadEventsListArgs).threadId === "background"),
+      ).toBe(true);
+    expect(
+      reads.filter((call) => (call[0] as ThreadEventsListArgs).threadId === "live_a"),
+    ).toHaveLength(8);
+    expect(
+      reads.filter((call) => (call[0] as ThreadEventsListArgs).threadId === "live_b"),
+    ).toHaveLength(8);
+    expect(s.collector.snapshot().totalBytes).toBe(8000);
+  });
   it("discovers cold threads without reading their history, then excludes the global baseline and duplicate hints", async () => {
     const s = setup([thread()], [delta(1, epoch - 1, "history"), delta(2, epoch + 100, "é🙂")]);
     await step();
@@ -109,7 +209,7 @@ describe("observed output collector", () => {
       totalBytes: 6,
       deltas: 1,
       rawBytesPerSecond: 0,
-      smoothBytesPerSecond: 1.2,
+      smoothBytesPerSecond: 0.2,
       threadsDiscovered: 1,
     });
     s.collector.observe(thread(), 2);
@@ -125,7 +225,7 @@ describe("observed output collector", () => {
     ]);
   });
 
-  it("counts exact complete buckets, five-second rates and idle zeros without notifications", async () => {
+  it("counts complete buckets with thirty-second rates and an independent five-second streaming count", async () => {
     const s = setup(
       [thread("thr_a", { status: "active" })],
       [delta(1, epoch + 100, "12345678"), delta(2, epoch + 1100)],
@@ -133,21 +233,21 @@ describe("observed output collector", () => {
     await step();
     expect(s.collector.snapshot()).toMatchObject({
       rawBytesPerSecond: 8,
-      smoothBytesPerSecond: 1.6,
+      smoothBytesPerSecond: 8 / 30,
       streamingThreads: 1,
     });
     await step();
     expect(s.collector.snapshot()).toMatchObject({
       rawBytesPerSecond: 4,
-      smoothBytesPerSecond: 2.4,
+      smoothBytesPerSecond: 0.4,
     });
     await step(5000);
     expect(s.collector.snapshot()).toMatchObject({
       rawBytesPerSecond: 0,
-      smoothBytesPerSecond: 0,
+      smoothBytesPerSecond: 0.4,
       streamingThreads: 0,
     });
-    await step(60_000);
+    await step(630_000);
     expect(
       s.collector
         .snapshot()
@@ -236,9 +336,11 @@ describe("observed output collector", () => {
       totalBytes: 12,
       deltas: 2,
       rawBytesPerSecond: 0,
-      smoothBytesPerSecond: 1.6,
+      smoothBytesPerSecond: 8 / 30,
     });
-    expect(s.collector.snapshot().samples.reduce((sum, p) => sum + p.rawBytesPerSecond, 0)).toBe(8);
+    expect(s.collector.snapshot().samples.reduce((sum, p) => sum + p.rawBytesPerSecond, 0)).toBe(
+      12,
+    );
   });
 
   it("selects only message and reasoning deltas, not tools, summaries or completed-message replay", async () => {
@@ -380,16 +482,120 @@ describe("observed output collector", () => {
     expect(s.fake.harness.callsTo("threads.get")).toHaveLength(2);
   });
 
-  it("reconciles missed output hints and deleted threads", async () => {
+  it("reports degraded coverage while verification catch-up spans work invocations", async () => {
+    const s = setup();
+    await step(2000);
+    s.source.events.push(...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 100)));
+    await step(598_000);
+    expect(s.collector.snapshot()).toMatchObject({
+      coverage: "degraded",
+      backlog: 1,
+      deltas: 2000,
+    });
+    await step();
+    expect(s.collector.snapshot()).toMatchObject({
+      coverage: "live",
+      backlog: 0,
+      deltas: 3000,
+      totalBytes: 12_000,
+    });
+  });
+
+  it("recovers missed output hints by rolling verification and confirms deleted threads", async () => {
     const s = setup([thread("thr_a", { status: "active" })]);
     await step(2000);
     s.source.events.push(delta(1, epoch + 3100));
     await step(30_000);
+    expect(s.collector.snapshot().totalBytes).toBe(0);
+    await step(571_000);
     expect(s.collector.snapshot().totalBytes).toBe(4);
     s.source.rows = [];
     await step(31_000);
     expect(s.collector.snapshot().threadsDiscovered).toBe(0);
     expect(s.collector.snapshot().contributors).toEqual([]);
+  });
+
+  it("verifies fixed cold members without a failed or deleted member freezing later passes", async () => {
+    const s = setup([thread("failed"), thread("deleted"), thread("healthy")]);
+    await step(3000);
+    expect(s.fake.harness.callsTo("threads.events.list")).toHaveLength(0);
+    s.fake.harness.stub("threads.events.list", async (args: ThreadEventsListArgs) => {
+      if (args.threadId === "failed") throw new Error("offline");
+      return s.source.events.filter(
+        (event) =>
+          event.threadId === args.threadId && (!args.afterSeq || event.seq > Number(args.afterSeq)),
+      );
+    });
+    s.source.events.push(delta(1, epoch + 100, "abcd", "healthy"));
+    await step(597_000);
+    expect(s.collector.snapshot().failures).toBe(1);
+    s.collector.remove("deleted");
+    s.source.rows = s.source.rows.filter((row) => row.id !== "deleted");
+    await step(2000);
+    expect(s.collector.snapshot()).toMatchObject({
+      totalBytes: 4,
+      deltas: 1,
+      threadsDiscovered: 2,
+    });
+    s.source.events.push(delta(2, epoch + 602_100, "12345678", "healthy"));
+    await step(1_201_000);
+    expect(s.collector.snapshot()).toMatchObject({ totalBytes: 12, deltas: 2 });
+    expect(
+      s.fake.harness
+        .callsTo("threads.events.list")
+        .filter((call) => (call[0] as ThreadEventsListArgs).threadId === "healthy"),
+    ).toHaveLength(3);
+  });
+
+  it("bounds a slow work invocation to twenty starts even when calls advance time and hints never stop", async () => {
+    const s = setup();
+    await step(2000);
+    let reads = 0;
+    const starts: number[] = [];
+    s.fake.harness.stub("threads.events.list", async (args: ThreadEventsListArgs) => {
+      reads++;
+      starts.push(Date.now());
+      vi.setSystemTime(Date.now() + 1100);
+      s.collector.observe(thread(), reads + 1);
+      return [delta(Number(args.afterSeq ?? 0) + 1, Date.now() - 100)];
+    });
+    const discoveryBefore = s.fake.harness.callsTo("threads.list").length;
+    s.collector.observe(thread(), 1);
+    await step();
+    expect(reads).toBe(20);
+    expect(s.collector.snapshot().totalBytes).toBe(80);
+    expect(s.collector.snapshot().backlog).toBe(1);
+    expect(s.fake.harness.callsTo("threads.list").length - discoveryBefore).toBeLessThanOrEqual(1);
+    expect(starts.every((at, i) => i === 0 || at - starts[i - 1]! >= 1000)).toBe(true);
+  });
+
+  it("shares a rolling-second start limit across adjacent invocations after a delayed page", async () => {
+    const s = setup([thread("thr_a", { status: "active" })]);
+    await step(2000);
+    s.source.events.push(...Array.from({ length: 5000 }, (_, i) => delta(i + 1, epoch + 2100)));
+    let release!: (rows: ThreadEventRow[]) => void;
+    const starts: number[] = [];
+    s.fake.harness.stub("threads.events.list", (args: ThreadEventsListArgs) => {
+      starts.push(Date.now());
+      const rows = s.source.events.filter((row) => row.seq > Number(args.afterSeq)).slice(0, 100);
+      if (starts.length === 1)
+        return new Promise<ThreadEventRow[]>((resolve) => {
+          release = resolve;
+        });
+      return Promise.resolve(rows);
+    });
+    s.collector.observe(thread(), 5000);
+    await step();
+    await step(900);
+    release(s.source.events.slice(0, 100));
+    await step(0);
+    expect(starts).toHaveLength(20);
+    await step(100);
+    expect(starts).toHaveLength(21);
+    for (const at of starts)
+      expect(starts.filter((start) => start > at - 1000 && start <= at).length).toBeLessThanOrEqual(
+        20,
+      );
   });
 
   it("guards in-flight reads and releases its service timer on disposal", async () => {
@@ -605,19 +811,75 @@ describe("observed output collector", () => {
     ]);
   });
 
-  it("keeps the preceding four buckets when smoothing the first point of the sixty-second graph", async () => {
-    const s = setup([thread("thr_a", { status: "active" })], [delta(1, epoch + 100, "12345678")]);
-    await step(64_000);
-    expect(s.collector.snapshot().samples[0]).toEqual({
-      second: 104,
-      rawBytesPerSecond: 0,
-      smoothBytesPerSecond: 1.6,
-    });
+  it("returns 600 points with fixed-divisor startup and retains 29 preceding buckets for the oldest point", async () => {
+    const s = setup(
+      [thread("thr_a", { status: "active" })],
+      [delta(1, epoch + 100, "x".repeat(30))],
+    );
     await step();
-    expect(s.collector.snapshot().samples[0]).toEqual({
-      second: 105,
+    const first = s.collector.snapshot();
+    expect(first.samples).toHaveLength(600);
+    expect(first.samples[0]).toEqual({
+      second: -499,
       rawBytesPerSecond: 0,
       smoothBytesPerSecond: 0,
     });
+    expect(first.samples[599]).toEqual({
+      second: 100,
+      rawBytesPerSecond: 30,
+      smoothBytesPerSecond: 1,
+    });
+    expect(first.contributors[0]).toMatchObject({ rawBytesPerSecond: 30, smoothBytesPerSecond: 1 });
+    await step(628_000);
+    expect(s.collector.snapshot().samples[0]).toEqual({
+      second: 129,
+      rawBytesPerSecond: 0,
+      smoothBytesPerSecond: 1,
+    });
+    await step();
+    expect(s.collector.snapshot().samples[0]).toEqual({
+      second: 130,
+      rawBytesPerSecond: 0,
+      smoothBytesPerSecond: 0,
+    });
+  });
+
+  it("removes deleted graph contributions but preserves lifetime totals and excludes current/future rate buckets", async () => {
+    const s = setup(
+      [thread("thr_a", { status: "active" }), thread("thr_b", { status: "active" })],
+      [
+        delta(1, epoch + 100, "x".repeat(30)),
+        delta(2, epoch + 1100, "x".repeat(60)),
+        delta(3, epoch + 5000, "x".repeat(90)),
+        delta(1, epoch + 100, "x".repeat(30), "thr_b"),
+      ],
+    );
+    await step();
+    expect(s.collector.snapshot()).toMatchObject({
+      totalBytes: 210,
+      rawBytesPerSecond: 60,
+      smoothBytesPerSecond: 2,
+      streamingThreads: 2,
+    });
+    expect(s.collector.snapshot().contributors.find((row) => row.id === "thr_a")).toMatchObject({
+      rawBytesPerSecond: 30,
+      smoothBytesPerSecond: 1,
+    });
+    s.collector.remove("thr_a");
+    expect(s.collector.snapshot()).toMatchObject({
+      totalBytes: 210,
+      deltas: 4,
+      rawBytesPerSecond: 30,
+      smoothBytesPerSecond: 1,
+      streamingThreads: 1,
+    });
+    await step(5000);
+    expect(s.collector.snapshot()).toMatchObject({ streamingThreads: 0, smoothBytesPerSecond: 1 });
+    expect(s.collector.snapshot().contributors).toHaveLength(1);
+    await step(55_000);
+    expect(s.collector.snapshot().contributors).toHaveLength(0);
+    expect(s.collector.snapshot().samples.some((point) => point.rawBytesPerSecond === 30)).toBe(
+      true,
+    );
   });
 });

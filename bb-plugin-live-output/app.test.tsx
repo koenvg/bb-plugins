@@ -10,6 +10,7 @@ afterEach(() => {
   slot?.lifecycle.unmount();
   slot = undefined;
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 function snapshot(overrides: Partial<OutputSnapshot> = {}): OutputSnapshot {
   return {
@@ -25,7 +26,7 @@ function snapshot(overrides: Partial<OutputSnapshot> = {}): OutputSnapshot {
     capacityLimited: false,
     rawBytesPerSecond: 80,
     smoothBytesPerSecond: 40,
-    samples: Array.from({ length: 60 }, (_, i) => ({
+    samples: Array.from({ length: 600 }, (_, i) => ({
       second: i,
       rawBytesPerSecond: 80,
       smoothBytesPerSecond: 40,
@@ -61,7 +62,7 @@ async function mount(handler: () => OutputSnapshot | Promise<OutputSnapshot>) {
   const captured = await loadPluginApp(app);
   expect(captured.navPanels).toHaveLength(1);
   expect(captured.contentScripts).toEqual([]);
-  expect(captured.appOverlays).toEqual([]);
+  expect(captured.appOverlays).toHaveLength(1);
   slot = renderSlot(
     captured.navPanels[0]!,
     { subPath: "" },
@@ -80,7 +81,7 @@ describe("native Live Output page", () => {
   it("defaults to smoothing and estimates, supports controls and public thread navigation", async () => {
     const view = await mount(() => snapshot());
     expect(
-      view.getByRole("button", { name: "Smooth · 5 seconds" }).getAttribute("aria-pressed"),
+      view.getByRole("button", { name: "Smooth · 30 seconds" }).getAttribute("aria-pressed"),
     ).toBe("true");
     expect(view.getByRole("status").textContent).toBe("Live");
     expect(view.getByLabelText("Current rate").textContent).toBe("10est. tokens/s");
@@ -89,6 +90,13 @@ describe("native Live Output page", () => {
     expect(view.getByText("Child BB thread · parent thr_main · hidden · archived")).toBeDefined();
     expect(view.getByText("pi-subagents")).toBeDefined();
     const smoothPath = view.getByRole("img").querySelectorAll("path")[1]!.getAttribute("d");
+    expect(view.getByRole("img").getAttribute("aria-label")).toBe(
+      "Observed output over the last ten minutes in est. tokens/s",
+    );
+    expect(view.getByText("10 minutes ago")).toBeDefined();
+    expect(view.getByText("Peak est. tokens/s · last 10m")).toBeDefined();
+    expect(smoothPath?.split(" ")).toHaveLength(600);
+    expect(smoothPath).toContain("L960,");
     fireEvent.click(view.getByRole("button", { name: "Raw · 1 second" }));
     expect(view.getByLabelText("Current rate").textContent).toBe("20est. tokens/s");
     expect(view.getByRole("img").querySelectorAll("path")[1]!.getAttribute("d")).not.toBe(
@@ -100,6 +108,191 @@ describe("native Live Output page", () => {
     expect(view.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_child" }]);
     expect(view.getByText(/not billing data/)).toBeDefined();
     expect(view.getByText(/tool-call generation are excluded/)).toBeDefined();
+  });
+
+  it("shows the hovered sample's time and rate in the selected mode and unit", async () => {
+    const data = snapshot({ startedAt: 0 });
+    data.samples[300] = { second: 300, rawBytesPerSecond: 120, smoothBytesPerSecond: 60 };
+    const view = await mount(() => data);
+    const chart = view.getByRole("img");
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 1920,
+      height: 230,
+      right: 2020,
+      bottom: 280,
+      x: 100,
+      y: 50,
+      toJSON() {},
+    });
+    fireEvent.mouseMove(chart, { clientX: 1060 });
+    const tooltip = view.getByRole("tooltip");
+    expect(tooltip.classList.contains("absolute")).toBe(true);
+    expect(tooltip.classList.contains("pointer-events-none")).toBe(true);
+    expect(tooltip.parentElement).toBe(chart.parentElement);
+    // The plot now fills the SVG width rather than using centered aspect-ratio padding.
+    // Sample 300 is 300/599 of 1920px, plus the 12px tooltip offset.
+    expect(tooltip.style.left).toBe("974px");
+    expect(tooltip.style.maxWidth).toBe("calc(100% - 16px)");
+    expect(view.queryByText(/Hover or focus chart/)).toBeNull();
+    expect(view.getByRole("tooltip").textContent).toContain("15 est. tokens/s");
+    expect(view.getByRole("tooltip").textContent).toContain("30-second average");
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:05:00.000Z",
+    );
+    fireEvent.click(view.getByRole("button", { name: "Raw · 1 second" }));
+    expect(view.getByRole("tooltip").textContent).toContain("30 est. tokens/s");
+    fireEvent.click(view.getByRole("button", { name: "Bytes/s" }));
+    expect(view.getByRole("tooltip").textContent).toContain("120 bytes/s");
+    expect(view.getByRole("tooltip").textContent).toContain("Raw 1-second bucket");
+    fireEvent.mouseLeave(chart);
+    expect(view.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("supports keyboard inspection at the edges and keeps the readout while the chart has focus", async () => {
+    const view = await mount(() => snapshot({ startedAt: 0 }));
+    const chart = view.getByRole("img");
+    expect(chart.getAttribute("tabindex")).toBe("0");
+    act(() => chart.focus());
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:59.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:58.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "Home" });
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:00:00.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "End" });
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    fireEvent.mouseLeave(chart);
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:59.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(view.queryByRole("tooltip")).toBeNull();
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    expect(view.getByRole("tooltip")).toBeDefined();
+    fireEvent.blur(chart);
+    expect(view.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("keeps the selected time as snapshots roll, hides stale readings, and expires old points", async () => {
+    vi.useFakeTimers();
+    let next = snapshot({ startedAt: 0 });
+    next.samples[300] = { second: 300, rawBytesPerSecond: 120, smoothBytesPerSecond: 60 };
+    const view = await mount(() => ({ ...next, at: Date.now() }));
+    const chart = view.getByRole("img");
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 600,
+      height: 230,
+      right: 600,
+      bottom: 230,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    fireEvent.mouseMove(chart, { clientX: 300 });
+    next = snapshot({
+      startedAt: 0,
+      samples: next.samples.map((sample) => ({ ...sample, second: sample.second + 1 })),
+    });
+    next.samples[299] = { second: 300, rawBytesPerSecond: 160, smoothBytesPerSecond: 80 };
+    await tick();
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:05:00.000Z",
+    );
+    expect(view.getByRole("tooltip").textContent).toContain("20 est. tokens/s");
+    await view.behavior.setRealtimeConnectionState("reconnecting");
+    expect(view.queryByRole("tooltip")).toBeNull();
+    fireEvent.mouseMove(chart, { clientX: 0 });
+    expect(view.queryByRole("tooltip")).toBeNull();
+    await view.behavior.setRealtimeConnectionState("connected");
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:05:00.000Z",
+    );
+    next = snapshot({
+      startedAt: 0,
+      samples: next.samples.map((sample) => ({ ...sample, second: sample.second + 600 })),
+    });
+    await tick();
+    expect(view.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("does not report startup padding as measured zero and clamps hover to chart endpoints", async () => {
+    const data = snapshot({ startedAt: 1500 });
+    const view = await mount(() => data);
+    const chart = view.getByRole("img");
+    vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 300,
+      height: 230,
+      right: 300,
+      bottom: 230,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    fireEvent.mouseMove(chart, { clientX: -100 });
+    expect(view.getByRole("tooltip").textContent).toContain("Before collection started");
+    expect(view.getByRole("tooltip").textContent).not.toContain("est. tokens/s");
+    fireEvent.mouseMove(chart, { clientX: 300 / 599 });
+    expect(view.getByRole("tooltip").textContent).toContain("10 est. tokens/s");
+    fireEvent.mouseMove(chart, { clientX: 400 });
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:59.000Z",
+    );
+  });
+
+  it("opens keyboard inspection when data arrives after the chart receives focus", async () => {
+    vi.useFakeTimers();
+    let release!: (value: OutputSnapshot) => void;
+    let pending = true;
+    const view = await mount(() =>
+      pending
+        ? new Promise<OutputSnapshot>((resolve) => {
+            release = resolve;
+          })
+        : snapshot({ startedAt: 0 }),
+    );
+    const chart = view.getByRole("img");
+    act(() => chart.focus());
+    expect(view.queryByRole("tooltip")).toBeNull();
+    await act(async () => {
+      pending = false;
+      release(snapshot({ startedAt: 0 }));
+    });
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:59.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "Escape" });
+    await tick();
+    expect(view.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("opens keyboard inspection after reconnect without changing an existing selected time", async () => {
+    const view = await mount(() => snapshot({ startedAt: 0 }));
+    const chart = view.getByRole("img");
+    await view.behavior.setRealtimeConnectionState("reconnecting");
+    act(() => chart.focus());
+    expect(view.queryByRole("tooltip")).toBeNull();
+    await view.behavior.setRealtimeConnectionState("connected");
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:59.000Z",
+    );
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    await view.behavior.setRealtimeConnectionState("reconnecting");
+    await view.behavior.setRealtimeConnectionState("connected");
+    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
+      "1970-01-01T00:09:58.000Z",
+    );
   });
 
   it("keeps controls mounted through starting, degraded, idle, disconnect and reconnect", async () => {
@@ -189,5 +382,40 @@ describe("native Live Output page", () => {
     await tick(6000);
     expect(view.getByRole("status").textContent).toBe("Disconnected");
     expect(view.inspection.rpcCalls).toHaveLength(1);
+  });
+  it("keeps the floating keyboard tooltip inside a narrow chart after resize", async () => {
+    vi.useFakeTimers();
+    let resize = () => {};
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+        observe() {}
+        disconnect = disconnect;
+      },
+    );
+    const view = await mount(() => snapshot());
+    const chart = view.getByRole("img");
+    const geometry = vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 960,
+      height: 230,
+    } as DOMRect);
+    act(() => resize());
+    fireEvent.focus(chart);
+    expect(view.getByRole("tooltip").style.left).toBe("712px");
+    geometry.mockReturnValue({ left: 0, top: 0, width: 200, height: 230 } as DOMRect);
+    act(() => resize());
+    expect(view.getByRole("tooltip").style.left).toBe("8px");
+    expect(view.getByRole("tooltip").style.maxWidth).toBe("calc(100% - 16px)");
+    fireEvent.keyDown(chart, { key: "Home" });
+    expect(view.getByRole("tooltip").style.left).toBe("8px");
+    slot!.lifecycle.unmount();
+    slot = undefined;
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 });

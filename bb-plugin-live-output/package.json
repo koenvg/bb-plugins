@@ -11,9 +11,12 @@
   },
   "bb": {
     "name": "Live Output",
-    "description": "Watch observed output across BB threads in a live sixty-second graph.",
+    "description": "Watch observed output across BB threads in a live ten-minute graph.",
     "branding": {
-      "icon": "Activity"
+      "icon": "./assets/gauge.svg",
+      "experimental_icons": {
+        "gauge": "./assets/gauge.svg"
+      }
     },
     "server": "./server.ts",
     "app": "./app.tsx",

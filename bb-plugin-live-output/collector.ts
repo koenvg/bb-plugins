@@ -1,5 +1,12 @@
 import type { PluginBbSdk } from "@get-bb/plugin-sdk";
 import type { OutputSnapshot } from "./contract";
+import {
+  graphSeconds,
+  smoothSeconds,
+  streamingSeconds,
+  contributorSeconds,
+  retainedSeconds,
+} from "./timing";
 
 type ThreadId = string;
 type ThreadResponse = Awaited<ReturnType<PluginBbSdk["threads"]["get"]>>;
@@ -27,6 +34,13 @@ type ThreadObservation = {
   lastAt: number;
   retryAt: number;
   deleted: boolean;
+  hint: { revision: number; highestSequence: number } | null;
+  hintRevision: number;
+  metadataRevision: number;
+  nextVerifyAt: number;
+  activated: number | null;
+  liveContinuation: boolean;
+  background: Set<"identity" | "continuation" | "verify">;
 };
 type Discovery = { archived: boolean; offset: number; seen: Set<ThreadId>; limited: boolean };
 const types = ["item/agentMessage/delta", "item/reasoning/textDelta"] as const;
@@ -34,13 +48,25 @@ const maxThreads = 10_000;
 const eventPageSize = 100;
 const discoveryPageSize = 500;
 const encoder = new TextEncoder();
+const verificationInterval = 600_000;
+type Verification = {
+  members: ThreadObservation[];
+  index: number;
+  quota: number;
+  nextSeedAt: number;
+};
 
 export class OutputCollector {
   private readonly threads = new Map<ThreadId, ThreadObservation>();
-  private readonly dirty = new Set<ThreadId>();
+  private readonly live = new Set<ThreadId>();
+  private readonly background = new Set<ThreadId>();
   private readonly missing = new Set<ThreadId>();
+  private readonly readStarts: number[] = [];
+  private laneChoice = 0;
   private readonly startedAt = Date.now();
   private readonly controller = new AbortController();
+  private nextVerificationAt = this.startedAt + verificationInterval;
+  private verification: Verification | null = null;
   private discovery: Discovery | null = {
     archived: false,
     offset: 0,
@@ -68,11 +94,24 @@ export class OutputCollector {
 
   observe(metadata: ThreadMetadata, sequence?: number): void {
     if (this.disposed) return;
+    this.mergeMetadata(metadata, sequence);
+  }
+
+  private mergeMetadata(metadata: ThreadMetadata, sequence?: number): void {
     if (metadata.deletedAt !== null) {
       this.remove(metadata.id);
       return;
     }
     let observation = this.threads.get(metadata.id);
+    const previous = observation?.metadata;
+    const activate = !previous
+      ? metadata.status === "active" ||
+        metadata.status === "starting" ||
+        metadata.createdAt >= this.startedAt ||
+        metadata.updatedAt >= this.startedAt
+      : metadata.updatedAt > previous.updatedAt ||
+        (metadata.status !== previous.status &&
+          (metadata.status === "active" || metadata.status === "starting"));
     if (observation?.deleted) return;
     if (!observation) {
       if (this.threads.size >= maxThreads) {
@@ -87,24 +126,35 @@ export class OutputCollector {
         lastAt: 0,
         retryAt: 0,
         deleted: false,
+        hint: null,
+        hintRevision: 0,
+        metadataRevision: 0,
+        nextVerifyAt: this.startedAt + verificationInterval,
+        activated: null,
+        liveContinuation: false,
+        background: new Set(),
       };
       this.threads.set(metadata.id, observation);
     } else if (metadata.updatedAt >= observation.metadata.updatedAt) {
       observation.metadata = this.metadata(metadata);
     }
+    observation.metadataRevision++;
     this.discovery?.seen.add(metadata.id);
     this.missing.delete(metadata.id);
+    observation.background.delete("identity");
     const cursor = observation.cursor;
-    if (sequence !== undefined && (!Number.isSafeInteger(sequence) || sequence < 0)) return;
-    if (sequence !== undefined && cursor.kind === "ready" && sequence <= cursor.after) return;
-    if (
-      sequence !== undefined ||
-      metadata.status === "active" ||
-      metadata.status === "starting" ||
-      metadata.createdAt >= this.startedAt ||
-      metadata.updatedAt >= this.startedAt
-    )
-      this.dirty.add(metadata.id);
+    if (sequence !== undefined) {
+      if (!Number.isSafeInteger(sequence) || sequence < 0) return;
+      if (cursor.kind === "ready" && sequence <= cursor.after) return;
+      observation.hint = {
+        revision: ++observation.hintRevision,
+        highestSequence: Math.max(sequence, observation.hint?.highestSequence ?? 0),
+      };
+    } else if (activate) {
+      observation.activated = observation.metadataRevision;
+      observation.background.add("continuation");
+    }
+    this.enqueue(observation);
   }
 
   remove(id: ThreadId): void {
@@ -115,7 +165,8 @@ export class OutputCollector {
       observation.deleted = true;
       observation.buckets.clear();
     }
-    this.dirty.delete(id);
+    this.live.delete(id);
+    this.background.delete(id);
     this.missing.delete(id);
   }
 
@@ -146,9 +197,12 @@ export class OutputCollector {
     this.controller.abort();
     clearInterval(this.timer);
     this.threads.clear();
-    this.dirty.clear();
+    this.live.clear();
+    this.background.clear();
+    this.readStarts.length = 0;
     this.missing.clear();
     this.discovery = null;
+    this.verification = null;
     this.endService?.();
   }
 
@@ -164,13 +218,15 @@ export class OutputCollector {
       if (observation.deleted) continue;
       threadsDiscovered++;
       let recentBytes = 0;
+      let smoothBytes = 0;
       for (const [second, bytes] of observation.buckets) {
-        if (second < lastSecond - 63 || second > lastSecond + 6) continue;
+        if (second < lastSecond - (retainedSeconds - 1) || second > lastSecond + 6) continue;
         totals.set(second, (totals.get(second) ?? 0) + bytes);
-        if (second > lastSecond - 5 && second <= lastSecond) recentBytes += bytes;
+        if (second > lastSecond - streamingSeconds && second <= lastSecond) recentBytes += bytes;
+        if (second > lastSecond - smoothSeconds && second <= lastSecond) smoothBytes += bytes;
       }
       if (recentBytes > 0) streamingThreads++;
-      if (observation.lastAt >= at - 60_000 && observation.lastAt > 0) {
+      if (observation.lastAt >= at - contributorSeconds * 1000 && observation.lastAt > 0) {
         const metadata = observation.metadata;
         contributors.push({
           id: metadata.id,
@@ -180,24 +236,30 @@ export class OutputCollector {
           hidden: metadata.visibility === "hidden",
           archived: metadata.archivedAt !== null,
           rawBytesPerSecond: observation.buckets.get(lastSecond) ?? 0,
-          smoothBytesPerSecond: recentBytes / 5,
+          smoothBytesPerSecond: smoothBytes / smoothSeconds,
           lastAt: observation.lastAt,
         });
       }
     }
-    const samples = Array.from({ length: 60 }, (_, index) => {
-      const second = lastSecond - 59 + index;
+    const samples = Array.from({ length: graphSeconds }, (_, index) => {
+      const second = lastSecond - (graphSeconds - 1) + index;
       let bytes = 0;
-      for (let i = second - 4; i <= second; i++) bytes += totals.get(i) ?? 0;
+      for (let i = second - (smoothSeconds - 1); i <= second; i++) bytes += totals.get(i) ?? 0;
       return {
         second,
         rawBytesPerSecond: totals.get(second) ?? 0,
-        smoothBytesPerSecond: bytes / 5,
+        smoothBytesPerSecond: bytes / smoothSeconds,
       };
     });
-    const latest = samples[59]!;
+    const latest = samples[graphSeconds - 1]!;
     const backlog =
-      this.dirty.size + (this.readingId !== null && !this.dirty.has(this.readingId) ? 1 : 0);
+      this.live.size +
+      this.background.size +
+      (this.readingId !== null &&
+      !this.live.has(this.readingId) &&
+      !this.background.has(this.readingId)
+        ? 1
+        : 0);
     contributors.sort(
       (a, b) =>
         b.smoothBytesPerSecond - a.smoothBytesPerSecond ||
@@ -245,28 +307,102 @@ export class OutputCollector {
     };
   }
 
+  private enqueue(observation: ThreadObservation): void {
+    if (this.disposed || observation.deleted) return;
+    const id = observation.metadata.id;
+    if (observation.hint || observation.liveContinuation) {
+      this.background.delete(id);
+      this.live.add(id);
+    } else if (observation.background.size > 0) {
+      this.live.delete(id);
+      this.background.add(id);
+    } else {
+      this.live.delete(id);
+      this.background.delete(id);
+    }
+  }
+
+  private takeEligible(lane: Set<ThreadId>): ThreadObservation | undefined {
+    for (const id of lane) {
+      const observation = this.threads.get(id);
+      if (!observation || observation.deleted) {
+        lane.delete(id);
+        continue;
+      }
+      if (observation.retryAt > Date.now()) continue;
+      lane.delete(id);
+      return observation;
+    }
+    return undefined;
+  }
+
+  private seedVerification(): void {
+    const now = Date.now();
+    if (!this.verification && now >= this.nextVerificationAt) {
+      const members: ThreadObservation[] = [];
+      for (const observation of this.threads.values())
+        if (!observation.deleted) members.push(observation);
+      this.nextVerificationAt = now + verificationInterval;
+      this.verification = {
+        members,
+        index: 0,
+        quota: Math.max(1, Math.ceil(members.length / 600)),
+        nextSeedAt: now,
+      };
+    }
+    const pass = this.verification;
+    if (!pass || now < pass.nextSeedAt) return;
+    for (let seeded = 0; seeded < pass.quota && pass.index < pass.members.length; seeded++) {
+      const observation = pass.members[pass.index++]!;
+      if (
+        observation.deleted ||
+        this.threads.get(observation.metadata.id) !== observation ||
+        observation.nextVerifyAt > now
+      )
+        continue;
+      observation.background.add("verify");
+      this.enqueue(observation);
+    }
+    pass.nextSeedAt = now + 1000;
+    if (pass.index === pass.members.length) {
+      // Finish membership seeding, not all retries. A failed member cannot freeze a later pass.
+      this.verification = null;
+    }
+  }
+
   private async work(): Promise<void> {
     if (this.disposed || this.reading) return;
     this.reading = true;
     try {
-      const oldest = Math.floor(Date.now() / 1000) - 64;
+      this.seedVerification();
+      const oldest = Math.floor(Date.now() / 1000) - retainedSeconds;
       for (const observation of this.threads.values())
         for (const second of observation.buckets.keys())
           if (second < oldest) observation.buckets.delete(second);
       if (!this.discovery && Date.now() >= this.nextDiscoveryAt) {
         this.discovery = { archived: false, offset: 0, seen: new Set(), limited: false };
-        for (const [id, observation] of this.threads)
-          if (!observation.deleted && observation.cursor.kind === "ready") this.dirty.add(id);
       }
-      if (this.discovery) await this.discoverPage();
-      for (let pages = 0; pages < 20 && !this.disposed; pages++) {
-        const id = [...this.dirty].find(
-          (key) => (this.threads.get(key)?.retryAt ?? Infinity) <= Date.now(),
-        );
-        if (!id) break;
-        this.dirty.delete(id);
-        const observation = this.threads.get(id);
-        if (!observation || observation.deleted) continue;
+      let discoveryRead = false;
+      for (let starts = 0; starts < 20 && !this.disposed;) {
+        const now = Date.now();
+        while (this.readStarts.length && this.readStarts[0]! <= now - 1000) this.readStarts.shift();
+        if (this.readStarts.length >= 20) break;
+        const preferBackground = this.laneChoice === 4;
+        const observation =
+          this.takeEligible(preferBackground ? this.background : this.live) ??
+          this.takeEligible(preferBackground ? this.live : this.background);
+        if (!observation) {
+          if (!discoveryRead && this.discovery) {
+            discoveryRead = true;
+            await this.discoverPage();
+            continue;
+          }
+          break;
+        }
+        this.laneChoice = (this.laneChoice + 1) % 5;
+        starts++;
+        this.readStarts.push(Date.now());
+        const id = observation.metadata.id;
         this.readingId = id;
         try {
           if (this.missing.has(id)) await this.confirmThread(observation);
@@ -276,11 +412,16 @@ export class OutputCollector {
             continue;
           this.failures++;
           observation.retryAt = Date.now() + 3000;
-          this.dirty.add(id);
+          this.enqueue(observation);
         } finally {
           this.readingId = null;
         }
+        if (starts >= 5 && !discoveryRead && this.discovery && !this.disposed) {
+          discoveryRead = true;
+          await this.discoverPage();
+        }
       }
+      if (!discoveryRead && this.discovery && !this.disposed) await this.discoverPage();
     } catch {
       if (!this.disposed) {
         this.failures++;
@@ -310,7 +451,7 @@ export class OutputCollector {
     }
     if (rows.length > discoveryPageSize) throw new Error("Oversized discovery page");
     for (const row of rows) {
-      this.observe(row);
+      this.mergeMetadata(row);
     }
     if (rows.length === discoveryPageSize) {
       discovery.offset += discoveryPageSize;
@@ -326,10 +467,12 @@ export class OutputCollector {
       if (observation.deleted) {
         this.threads.delete(id);
         this.missing.delete(id);
-        this.dirty.delete(id);
+        this.live.delete(id);
+        this.background.delete(id);
       } else if (!discovery.seen.has(id)) {
         this.missing.add(id);
-        this.dirty.add(id);
+        observation.background.add("identity");
+        this.enqueue(observation);
       }
     }
     this.capacityLimited = discovery.limited;
@@ -341,17 +484,24 @@ export class OutputCollector {
 
   private async confirmThread(observation: ThreadObservation): Promise<void> {
     const id = observation.metadata.id;
+    const revision = observation.metadataRevision;
     const metadata = await this.api().get({ threadId: id, signal: this.requestSignal() });
     if (this.disposed || observation.deleted || this.threads.get(id) !== observation) return;
     if (metadata.id !== id) throw new Error("Unexpected thread identity");
+    if (!this.missing.has(id) || observation.metadataRevision !== revision) {
+      this.enqueue(observation);
+      return;
+    }
     this.missing.delete(id);
+    observation.background.delete("identity");
     if (metadata.deletedAt !== null) {
       this.remove(id);
       this.threads.delete(id);
     } else {
-      this.observe(metadata);
+      this.mergeMetadata(metadata);
       observation.retryAt = 0;
-      this.dirty.add(id);
+      observation.background.add("continuation");
+      this.enqueue(observation);
     }
   }
 
@@ -361,6 +511,9 @@ export class OutputCollector {
 
   private async readPage(observation: ThreadObservation): Promise<void> {
     const cursor = observation.cursor;
+    const hintRevision = observation.hint?.revision;
+    const activationRevision = observation.activated;
+    const liveRead = observation.hint !== null || observation.liveContinuation;
     const rows = await this.api().events.list({
       threadId: observation.metadata.id,
       types,
@@ -397,7 +550,7 @@ export class OutputCollector {
       previous = row.seq;
       return { seq: row.seq, at: row.createdAt, bytes: encoder.encode(row.data.delta).byteLength };
     });
-    const oldest = Math.floor(Date.now() / 1000) - 64;
+    const oldest = Math.floor(Date.now() / 1000) - retainedSeconds;
     for (const second of observation.buckets.keys())
       if (second < oldest) observation.buckets.delete(second);
     for (const event of events) {
@@ -414,11 +567,30 @@ export class OutputCollector {
       if (events.length === eventPageSize && events.some((event) => event.at >= this.startedAt))
         observation.cursor = { kind: "catch-up", highest, before: events.at(-1)!.seq };
       else observation.cursor = { kind: "ready", after: highest };
-      this.dirty.add(observation.metadata.id);
+      if (liveRead) observation.liveContinuation = true;
+      else observation.background.add("continuation");
     } else {
       observation.cursor = { kind: "ready", after: events.at(-1)?.seq ?? cursor.after };
-      if (events.length === eventPageSize) this.dirty.add(observation.metadata.id);
+      const full = events.length === eventPageSize;
+      observation.liveContinuation = full && liveRead;
+      if (full && !liveRead) observation.background.add("continuation");
+      if (!full) {
+        observation.background.delete("verify");
+        if (observation.activated === activationRevision) {
+          observation.background.delete("continuation");
+          observation.activated = null;
+        }
+        observation.nextVerifyAt = Date.now() + verificationInterval;
+      }
+      const hint = observation.hint;
+      if (
+        hint &&
+        (hint.highestSequence <= observation.cursor.after ||
+          (!full && hint.revision === hintRevision))
+      )
+        observation.hint = null;
     }
     observation.retryAt = 0;
+    this.enqueue(observation);
   }
 }

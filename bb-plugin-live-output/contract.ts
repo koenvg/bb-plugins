@@ -1,6 +1,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
+import { graphSeconds } from "./timing";
 const count = z.number().finite().nonnegative();
 const sampleSchema = z
   .object({
@@ -36,7 +37,7 @@ export const snapshotSchema = z
     capacityLimited: z.boolean(),
     rawBytesPerSecond: count,
     smoothBytesPerSecond: count,
-    samples: z.array(sampleSchema).length(60),
+    samples: z.array(sampleSchema).length(graphSeconds),
     contributors: z.array(contributorSchema).max(10),
   })
   .strict();
