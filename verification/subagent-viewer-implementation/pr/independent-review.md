@@ -5,7 +5,9 @@ This is the original review's findings and limits, without private run/session m
 ## Original report excerpt
 
 ## Summary
+
 delegate:
+
 ## Verdict: changes required
 
 One source blocker. Installed acceptance remains separate and pending.
@@ -17,6 +19,7 @@ One source blocker. Installed acceptance remains separate and pending.
 The helper always replaces a failed capture's `capturedAt` with the older event's time. History restoration repeats this for every older event.
 
 Reproduced sequence:
+
 - Capture fails at 3.
 - Capture succeeds at 10.
 - Capture fails at 12, retaining output and capture time 10.

@@ -2,15 +2,27 @@
   "baseCommit": "f272d45d9ff8638ddff81700474959345feaf472",
   "overallInstalledReading": "failed: legacy tool-result prose; BBP-227 deferred by user",
   "source": {
-    "providerTests": 578,
+    "providerTests": 584,
     "themeTests": 10,
-    "providerTestFiles": 56,
+    "providerTestFiles": 57,
     "themeTestFiles": 2,
     "typecheck": "both passed",
     "sdk": "both normal --check passed",
     "build": "both passed",
     "oxc": "affected files passed",
-    "sourceUnchangedDuringInstalledCheck": true
+    "runtimeUiSourceUnchangedSinceInstalledCheck": true
+  },
+  "ciRepair": {
+    "originalRun": 38614671894,
+    "originalFailures": ["formatting in three evidence files", "five bridge speed test timeouts"],
+    "workerBudget": "half available CPU capacity, minimum one and maximum four workers",
+    "workerBudgetRegressionCases": 6,
+    "normalSuitePassed": 584,
+    "singleWorkerSuitePassed": 584,
+    "assertionDeadlinesChanged": false,
+    "rootCheck": "passed with existing unrelated lint warnings",
+    "prototypeHtmlStructureAttributesAndText": "unchanged after normalizing void-element syntax",
+    "prototypeJavaScriptAndCss": "compile identically before and after formatting"
   },
   "providerArtifacts": {
     "js": {

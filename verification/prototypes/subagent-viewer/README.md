@@ -39,6 +39,7 @@ The independent Adapt/Harden review approved this standalone prototype with no b
 The Polish pass keeps the reviewed layout and content unchanged. Reselecting the current run now preserves the transcript reading position and open tool details. Capture, tool, and run disclosures share the correct expanded-arrow treatment. Regression checks cover both fixes and monitor runtime errors during the core interaction path. The retained 40 layout and 64 adaptation cases still pass. No current critique snapshot was available; the helper returned exit 2, so no snapshot was closed.
 
 Captures:
+
 - [Desktop, light](desktop-light.png)
 - [Panel, dark](panel-dark.png)
 - [Narrow, incomplete capture](narrow-incomplete.png)
