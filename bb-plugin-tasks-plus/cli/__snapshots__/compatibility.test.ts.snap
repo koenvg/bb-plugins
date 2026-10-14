@@ -296,7 +296,7 @@ Options:
   --project <prefix-or-id>   Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list
   --title <value>            Task title (required)
   --description <markdown>   Markdown description; use --description-file for long text
-  --description-file <path>  Read the description from this UTF-8 file on the invoking machine
+  --description-file <path>  Read the description from this regular UTF-8 file on the invoking machine; stdin paths are not supported
   --priority <urgent|high|medium|low|none>  Task priority (default: none)
   --label <name>             Existing label name; repeat the flag or pass a comma-separated list (repeatable)
   --due <YYYY-MM-DD>         Due date as a calendar date, YYYY-MM-DD
@@ -1749,7 +1749,7 @@ Options:
   --priority <urgent|high|medium|low|none>  New priority
   --title <value>             New title
   --description <markdown>    Replacement markdown description; use --description-file for long text
-  --description-file <path>   Read the replacement description from this UTF-8 file on the invoking machine
+  --description-file <path>   Read the replacement description from this regular UTF-8 file on the invoking machine; stdin paths are not supported
   --due <YYYY-MM-DD>          New due date as a calendar date, YYYY-MM-DD
   --no-due                    Clear the due date
   --parent <key-or-id>        New parent task key or id; tasks support at most one level of sub-tasks

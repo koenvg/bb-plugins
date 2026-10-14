@@ -85,6 +85,11 @@ async function readTextOption(
 ): Promise<string | undefined> {
   if (file === undefined) return inline;
   const path = resolve(ctx.cwd ?? process.cwd(), file);
+  if (/^\/(?:dev\/(?:stdin|fd\/0)|proc\/(?:self|thread-self|[0-9]+)\/fd\/0)$/.test(path)) {
+    throw new CliError(
+      `could not read ${file}: stdin paths are not supported because the SDK host process does not read the invoking CLI's stdin. Use a regular UTF-8 file or --description.`,
+    );
+  }
   try {
     const { text } = await readClientFile(bb, hostId, path);
     if (text === null) {
