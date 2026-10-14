@@ -40,16 +40,25 @@ accounts.machines = [
 ];
 accounts.accounts[0].machines = ["host_a", "host_b"];
 accounts.accounts[0].quota = quotaFixture(now, 42);
-const emptySnapshot = (query: CalendarQuery) => ({
-  ...calendarEmptySnapshot(
+const emptySnapshot = (query: CalendarQuery) => {
+  const view = calendarEmptySnapshot(
     query,
     ["inactive", "mixed-magnitude"].includes(state) ? "observed-inactivity" : "unknown",
-  ),
-  previous: query.startDate > shiftDate(latestRange, -60),
-  next: query.startDate < latestRange,
-});
+  );
+  view.previous = query.startDate > shiftDate(latestRange, -60);
+  view.next = query.startDate < latestRange;
+  if (state === "filter-edges")
+    view.days[0].coverage = { ...view.days[0].coverage, state: "observed-inactivity", zero: true };
+  return view;
+};
 function snapshot(query: CalendarQuery) {
   if (state === "mixed-magnitude") return calendarMixedMagnitudeSnapshot(query);
+  if (state === "filter-uncertain-only") {
+    const view = emptySnapshot(query);
+    view.days[14].uncertain = { totalTokens: 300, records: 1 };
+    view.summary.uncertain = { totalTokens: 300, records: 1 };
+    return view;
+  }
   if (state === "unknown" || state === "inactive") return emptySnapshot(query);
   const view = calendarSnapshot(query, state === "stale" ? now - 600000 : now);
   if (query.includeUncertain && state === "partial") {
@@ -215,6 +224,22 @@ function snapshot(query: CalendarQuery) {
       total.ultrafast += speedTokens.ultrafast;
     }
     view.summary.speedTokens = total;
+  }
+  if (state === "filter-edges") {
+    const day = view.days[14];
+    day.models = {
+      named: [
+        { model: "Unknown model", totalTokens: 100 },
+        { model: "Other models", totalTokens: 100 },
+        { model: "unknown", totalTokens: 100 },
+        { model: "tiny.[model]", totalTokens: 1 },
+        { model: "long-model." + "x".repeat(117), totalTokens: 199 },
+      ],
+      otherTokens: 50,
+    };
+    day.uncertain = { totalTokens: 300, records: 1 };
+    view.summary.uncertain = { totalTokens: 300, records: 1 };
+    view.days[0].coverage = { ...view.days[0].coverage, state: "observed-inactivity", zero: true };
   }
   return view;
 }

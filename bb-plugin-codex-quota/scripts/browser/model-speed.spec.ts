@@ -16,7 +16,7 @@ for (const width of [375, 1280])
       const daily = await rows(page);
       expect(daily[14].slice(-3)).toEqual(["100", "100", "400"]);
       const colors = await legend
-        .locator("span > span[aria-hidden]")
+        .locator("button > span[aria-hidden]")
         .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
       expect(colors).toHaveLength(3);
       expect(colors[1]).not.toBe(colors[2]);
@@ -45,7 +45,7 @@ for (const width of [375, 1280])
         "Unknown model DefaultUnknown model FastUnknown model Ultrafast",
       );
       const colors = await legend
-        .locator("span > span[aria-hidden]")
+        .locator("button > span[aria-hidden]")
         .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
       expect(new Set(colors).size).toBe(3);
       const fills = await page
