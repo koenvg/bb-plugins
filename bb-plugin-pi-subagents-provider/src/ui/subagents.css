@@ -1,78 +1,301 @@
 .pi-subagents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
   min-width: 0;
-  display: grid;
-  gap: 1rem;
-  font-size: 0.875rem;
+  overflow: auto;
+  padding: 0.75rem;
+  box-sizing: border-box;
   color: var(--foreground);
+  font-size: 0.875rem;
 }
-.pi-subagents h2,
-.pi-subagents h3,
-.pi-subagents h4 {
-  font-weight: 600;
+.pi-subagents .pi-subagents-prose {
+  line-height: 1.65;
+}
+.pi-subagents *,
+.pi-subagents *::before,
+.pi-subagents *::after {
+  box-sizing: border-box;
+}
+.pi-subagents > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.pi-subagents-heading > h2,
+.pi-subagents-heading > h3,
+.pi-subagents-heading > h4,
+.pi-subagents-output > h4 {
   margin: 0;
+  font-weight: 600;
 }
-.pi-subagents p {
+.pi-subagents > p,
+.pi-subagents-identity p,
+.pi-subagents-capture p,
+.pi-subagents-notice {
   margin: 0;
   overflow-wrap: anywhere;
 }
-.pi-subagents header p {
-  margin-top: 0.4rem;
+.pi-subagents-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+}
+.pi-subagents-heading > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pi-subagents-muted,
+.pi-subagents-row-meta,
+.pi-subagents-reference,
+.pi-subagents-metadata {
   color: var(--muted-foreground);
   font-size: 0.75rem;
+}
+.pi-subagents summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-height: 32px;
+  overflow-wrap: anywhere;
+  list-style: none;
+}
+.pi-subagents summary::-webkit-details-marker {
+  display: none;
+}
+.pi-subagents summary::before {
+  content: "";
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-inline-end: 1px solid var(--muted-foreground);
+  border-bottom: 1px solid var(--muted-foreground);
+  transform: rotate(-45deg);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pi-subagents details[open] > summary::before {
+  transform: rotate(45deg);
+}
+.pi-subagents button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+.pi-subagents button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pi-subagents button:focus-visible,
+.pi-subagents summary:focus-visible,
+.pi-subagents-transcript:focus-visible,
+.pi-subagents-output:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.pi-subagents-runs {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
 }
 .pi-subagents nav ul {
   list-style: none;
   margin: 0;
-  padding: 0;
-  max-height: 18rem;
+  padding: 0.25rem;
+  max-height: 8rem;
   overflow-y: auto;
-  display: grid;
-  gap: 0.35rem;
+}
+.pi-subagents nav li {
+  min-width: 0;
 }
 .pi-subagents nav button {
+  position: relative;
   display: block;
   width: 100%;
   min-width: 0;
-  padding: 0.6rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   text-align: start;
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--card);
-  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
 }
-.pi-subagents nav button span {
-  display: block;
-  overflow-wrap: anywhere;
+.pi-subagents nav button::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0.5rem;
+  width: 1px;
+  background: var(--foreground);
+  transform: scaleY(0);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.pi-subagents nav button span + span {
-  margin-top: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
+.pi-subagents nav button:hover {
+  background: var(--state-hover);
 }
 .pi-subagents nav button[aria-pressed="true"] {
-  background: var(--surface-raised);
-  border-color: var(--ring);
+  background: var(--state-active, var(--surface-raised));
 }
-.pi-subagents nav button:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+.pi-subagents nav button[aria-pressed="true"]::before {
+  transform: scaleY(1);
 }
-.pi-subagents article {
+.pi-subagents nav .pi-subagents-heading strong {
+  flex: 1 1 auto;
+}
+.pi-subagents-reference {
+  font-variant-numeric: tabular-nums;
+}
+.pi-subagents-row-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.pi-subagents-row-context,
+.pi-subagents-row-model {
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pi-subagents-row-context {
+  flex: 1;
+}
+.pi-subagents-row-model {
+  max-width: 50%;
+}
+.pi-subagents-state {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.pi-subagents-state[data-state="failed"],
+.pi-subagents-tool-error,
+.pi-subagents [role="alert"] {
+  color: var(--destructive);
+}
+.pi-subagents-state[data-state="complete"] {
+  color: var(--foreground);
+}
+.pi-subagents-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 280px;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
+}
+.pi-subagents-identity {
   display: grid;
-  gap: 0.6rem;
-  padding: 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--card);
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0;
 }
-.pi-subagents pre {
-  margin: 0;
+.pi-subagents-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.pi-subagents-metadata > * {
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pi-subagents-conversation-heading button {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  padding: 0.35rem 0.6rem;
+  min-height: 32px;
+}
+.pi-subagents-conversation-heading button:not(:disabled):hover {
+  background: var(--state-hover);
+}
+.pi-subagents-transcript {
+  flex: 1 1 200px;
+  height: 200px;
+  min-height: 200px;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.25rem 0.5rem 1rem;
+  overflow-wrap: anywhere;
+}
+.pi-subagents-transcript > * + * {
+  margin-top: 1rem;
+}
+.pi-subagents-task > .pi-subagents-heading,
+.pi-subagents-message > .pi-subagents-heading,
+.pi-subagents-output > h4 {
+  margin-bottom: 0.5rem;
+}
+.pi-subagents-task,
+.pi-subagents-message,
+.pi-subagents-output {
+  min-width: 0;
+  max-width: 75ch;
+}
+.pi-subagents-transcript pre {
+  max-width: 100%;
+  overflow: auto;
+}
+.pi-subagents-transcript table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+.pi-subagents-tool {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.pi-subagents-tool pre {
+  margin: 0;
+  padding: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 0.8rem;
 }
-.pi-subagents [role="alert"] {
-  color: var(--destructive);
+.pi-subagents-tool > p {
+  padding: 0.5rem;
+}
+.pi-subagents-notice {
+  padding: 0.75rem;
+  background: var(--surface-raised, var(--card));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.pi-subagents-capture {
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.pi-subagents-capture p {
+  padding: 0.3rem 0.5rem;
+}
+@media (pointer: coarse) {
+  .pi-subagents {
+    font-size: 1rem;
+  }
+  .pi-subagents .pi-subagents-prose {
+    font-size: 1rem;
+  }
+  .pi-subagents button,
+  .pi-subagents summary {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pi-subagents,
+  .pi-subagents button,
+  .pi-subagents summary,
+  .pi-subagents summary::before,
+  .pi-subagents nav button::before,
+  .pi-subagents *,
+  .pi-subagents *::before,
+  .pi-subagents *::after {
+    scroll-behavior: auto;
+    animation: none;
+    transition: none;
+  }
 }

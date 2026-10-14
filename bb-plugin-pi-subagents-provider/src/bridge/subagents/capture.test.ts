@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { createCaptureQueue } from "./capture.js";
+import { createCaptureQueue, normalizeCapture } from "./capture.js";
 const target = (id = "run") => ({
   id,
   asyncId: id,
@@ -78,4 +78,48 @@ it("times out unavailable captures without accepting a late replacement payload"
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("retains supported inspection tool metadata without inferring a background model", () => {
+  const raw = {
+    ...reply(target(), "req"),
+    messages: [
+      { role: "assistant", kind: "toolCall", text: "<script>unsafe</script>", name: "bash" },
+      { role: "toolResult", kind: "toolResult", text: "denied", name: "bash", isError: true },
+    ],
+  };
+  const capture = normalizeCapture(raw, target(), "req", 10);
+  expect(capture.status).toBe("captured");
+  expect(capture.messages).toEqual(raw.messages);
+  expect(capture.resolvedModel).toBeUndefined();
+  expect(normalizeCapture(reply(target(), "req"), target(), "req", 10).status).toBe("captured");
+  for (const foreign of [{ requestId: "foreign" }, { asyncId: "other" }, { childId: "other" }]) {
+    expect(normalizeCapture({ ...raw, ...foreign }, target(), "req", 10).status).toBe("stale");
+  }
+  for (const metadata of [{ name: "x".repeat(161) }, { isError: "true" }]) {
+    expect(
+      normalizeCapture(
+        { ...raw, messages: [{ ...raw.messages[0], ...metadata }] },
+        target(),
+        "req",
+        10,
+      ).status,
+    ).toBe("stale");
+  }
+  expect(
+    normalizeCapture({ ...raw, unknown: "x".repeat(64 * 1024) }, target(), "req", 10).status,
+  ).toBe("unavailable");
+  const bounded = normalizeCapture(
+    {
+      ...raw,
+      messages: Array.from({ length: 25 }, () => raw.messages[1]),
+      truncated: { task: false, finalOutput: false, messages: 3 },
+    },
+    target(),
+    "req",
+    10,
+  );
+  expect(bounded.messages).toHaveLength(20);
+  expect(bounded.messages!.every((m) => m.name === "bash" && m.isError)).toBe(true);
+  expect(bounded.truncated!.messages).toBe(8);
 });

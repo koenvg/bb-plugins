@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(new URL("./themes/codex-inspired.css", import.meta.url), "utf8");
 
 function declaration(selector: string): string {
-  const start = css.indexOf(selector);
+  const normalized = css.replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")");
+  const start = normalized.indexOf(selector.replace(/\s+/g, " "));
   expect(start, selector).toBeGreaterThanOrEqual(0);
-  return css.slice(start, css.indexOf("}", start) + 1);
+  return normalized.slice(start, normalized.indexOf("}", start) + 1);
 }
 
 describe("Libron reading typography", () => {
@@ -53,13 +54,21 @@ describe("Libron reading typography", () => {
   it("keeps controls sans and code monospaced inside reading surfaces", () => {
     expect(
       declaration(
-        ":is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose)\n  :is(button",
+        ":is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose, .pi-subagents .pi-subagents-prose)\n  :is(button",
       ),
     ).toContain("font-family: var(--font-sans);");
     expect(
       declaration(
-        ":is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose)\n  :is(code",
+        ":is([data-message-column] [data-markdown-preview], .markdown-reader .mr-prose, .pi-subagents .pi-subagents-prose)\n  :is(code",
       ),
     ).toContain("font-family: var(--font-mono);");
+  });
+  it("shares chat reading typography with the subagent prose surface", () => {
+    const size = declaration(".pi-subagents .pi-subagents-prose,");
+    expect(size).toContain("font-size: 1rem;");
+    expect(size).toContain("line-height: 1.65;");
+    const face = declaration("[data-message-column] [data-markdown-preview],");
+    expect(face).toContain(".pi-subagents .pi-subagents-prose");
+    expect(face).toContain('font-family: "Libron", Georgia, "Times New Roman", serif;');
   });
 });

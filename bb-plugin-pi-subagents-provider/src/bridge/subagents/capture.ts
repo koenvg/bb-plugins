@@ -25,6 +25,8 @@ const replySchema = z.object({
         role: z.string().max(80),
         kind: z.enum(["text", "toolCall", "toolResult"]),
         text: z.string().max(1000),
+        name: z.string().min(1).max(160).optional(),
+        isError: z.boolean().optional(),
       }),
     )
     .max(200)

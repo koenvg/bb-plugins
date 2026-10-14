@@ -20,6 +20,13 @@ export const captureSchema = z.object({
   task: z.string().max(2000).optional(),
   attemptedAt: count.optional(),
   finalOutput: z.string().max(8000).optional(),
+  resolvedModel: z
+    .object({
+      provider: z.string().min(1).max(160),
+      model: z.string().min(1).max(256),
+      capturedAt: count,
+    })
+    .optional(),
   messages: z
     .array(
       z.object({
@@ -27,6 +34,8 @@ export const captureSchema = z.object({
         kind: z.enum(["text", "toolCall", "toolResult"]),
         text: z.string().max(1000),
         textTruncated: z.boolean().optional(),
+        name: z.string().min(1).max(160).optional(),
+        isError: z.boolean().optional(),
       }),
     )
     .max(20)

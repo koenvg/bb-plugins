@@ -38,6 +38,23 @@ bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirecto
 
 These commands are examples, not actions taken by this task. A thread worktree can expire; use a stable source for retained installations. New fork-provider threads require a user-installed Pi CLI on their host. The inherited provider reports whether Pi is missing or older than 0.84.0. Sign-in happens through Pi on that host. This package does not install Pi or subagents as an install hook.
 
+### Read captured conversations
+
+The run list stays above the selected conversation. Choose a run with the pointer, Enter, Space, ArrowUp, ArrowDown, Home, or End.
+
+Run rows show the agent label, a short distinguishing reference, captured task context and a model name only when captured. Full run IDs stay in Capture details. Selected-run state, duration and model provenance appear once above the reader. Control feedback and disclosure chevrons use short transitions; reduced motion makes them immediate. Conversation content does not animate on refresh.
+Task, prose, and final output use BB's public Markdown renderer. Tool calls and results start collapsed; expand a tool to read escaped input or output.
+The renderer's `pi-subagents-prose` class is the reading-style hook for task, text messages, and final output only. Codex Inspired uses it to share normal chat's Libron reading typography. Coarse-pointer prose uses 16px primary text; labels, metadata, and escaped tool payloads stay outside that hook.
+The final-output button scrolls to and focuses captured output. It is disabled when output is absent.
+Selecting the same run or receiving a metadata-only refresh preserves reading position and open tools.
+
+Each run shows execution state, known total duration or elapsed time at observation, and the captured child model/provider when supported.
+Model values come only from attributed foreground assistant records. Background, workflow-container, and old captures without evidence show Model unavailable.
+These values are captured observations, not a live model feed or clock.
+
+Expand Capture details inside the conversation for observation, capture, model-capture, and failed-attempt times, full IDs, missing-model/task/transcript notices, activity, omissions, and clipped-text notices.
+Capture failures retain accepted results and do not change the execution outcome.
+The viewer has no execution controls and does not submit a parent turn. View, Data, and theme switches from the prototype are not production controls.
 Select **Pi with subagents** for a new thread. Existing bundled-provider threads keep provider `pi` and their session files. This plugin does not change the default provider. It reads Pi's native skill roots as the inherited provider does, without editing Pi settings. Open **Subagents** from the thread panel actions. Missing capabilities show explicit unavailable states. See [capture limits](SUBAGENTS.md).
 
 ## OpenAI Codex speed

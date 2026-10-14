@@ -1,3 +1,4 @@
+import { retainCapture } from "../../capture-history.js";
 import { isDeepStrictEqual } from "node:util";
 import {
   VIEW_KIND,
@@ -88,7 +89,7 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
     for (const row of projected) {
       const previous = rows.get(row.id);
       if (previous && terminal(previous.state) && !terminal(row.state)) continue;
-      put({ ...row, capture: row.capture ?? previous?.capture });
+      put({ ...row, capture: retainCapture(row.capture, previous?.capture) });
     }
   }
   return {
@@ -180,15 +181,7 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
       const row = rows.get(id);
       if (!row) return;
       // Failure records availability without deleting an earlier accepted output.
-      row.capture =
-        capture.status === "captured"
-          ? { ...row.capture, ...capture }
-          : {
-              ...row.capture,
-              ...capture,
-              capturedAt: row.capture?.capturedAt ?? capture.capturedAt,
-              attemptedAt: capture.capturedAt,
-            };
+      row.capture = retainCapture(capture, row.capture);
       emit();
     },
     dispose(owner: ViewOwner, disposalReason: string) {

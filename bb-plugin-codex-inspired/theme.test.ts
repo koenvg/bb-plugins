@@ -5,7 +5,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 const root = new URL("./", import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
-const approvedHash = "b7c7c7c1bcfba16904fb10b44944185e128446b90273080f9a8e6d46765cd750";
+const approvedHash = "24aaea6fd54e4484b8a7c293f9ae81ca809eca956fcd96671e3608e9d0d8691a";
 
 describe("Codex Inspired package", () => {
   it("keeps the installed plugin and theme identities and compatibility floors", () => {

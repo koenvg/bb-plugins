@@ -32,6 +32,21 @@ A materialized workflow can hide its canonical ID behind a local step ID. The tr
 
 Foreground detail comes from structured `subagent` partial/final Details, not rendered text. Published numeric result indices identify reordered parallel rows. Activity/timing use the matching published index; background launch receipts and management results do not create foreground children or a second background task. Payloads above 128 KiB are rejected, with unavailable detail rather than invented output. Accepted detail is clipped to the same task/message/output limits.
 
+Capture version 1 also accepts optional `resolvedModel: { provider, model, capturedAt }`.
+Provider IDs are limited to 160 characters, model IDs to 256, and capture time uses the existing nonnegative timestamp bound.
+Only the latest actual provider/model pair in an attributed foreground child's assistant records supplies this value.
+Requested model options, parent selections, siblings, and workflow containers are not model sources.
+The metadata has its own capture time, retained if newer captures lack model evidence. It is captured information, not a certified live model feed.
+Current background snapshots and inspection v1 replies publish no resolved model. Background and legacy model information stays unavailable.
+
+Transcript entries can retain optional `name` up to 160 characters and boolean `isError` from inspection.
+Foreground text, tool-call arguments, and tool results stay separate in source order. Tool results keep their supported tool name and error flag.
+A tool error does not change execution outcome; no call/result pairing or tool timing is inferred.
+The 20-entry limit applies after foreground block expansion. Entries omitted by this limit and clipped text remain disclosed.
+Old captures without these fields still parse. For example, an entry with `role: "toolResult", kind: "toolResult", text: "denied"`
+can additionally carry `name: "bash", isError: true`; both forms are accepted.
+No schema version, row/byte budget, capture queue, or session/request correlation boundary changes.
+
 ## Persistence and recovery
 
 The bridge emits public `extension.state`, qualified as `pi-subagents-provider/pi-subagents-view`, with a declared Zod schema. State version 1 has at most 128 rows and 256 KiB. IDs carry session identity, owning path, and published run/child identity. Repeated local step IDs under different parents stay distinct. No UI object or arbitrary artifact path is stored.

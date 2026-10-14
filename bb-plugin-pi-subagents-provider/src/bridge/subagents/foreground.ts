@@ -61,28 +61,55 @@ export function foregroundRows(
     const progress = ownProgress ? record(ownProgress) : summary;
     const state = executionState(r, progress, final);
     const messages: NonNullable<ViewRow["capture"]>["messages"] = [];
+    let resolvedModel: NonNullable<ViewRow["capture"]>["resolvedModel"];
     const rawMessages = Array.isArray(r.messages) ? r.messages : [];
-    for (const message of rawMessages.slice(-20)) {
+    const name = (value: unknown) => text(value, 160) || undefined;
+    for (const message of rawMessages) {
       const m = record(message);
-      const content =
+      if (
+        m.role === "assistant" &&
+        typeof m.provider === "string" &&
+        m.provider.length &&
+        m.provider.length <= 160 &&
+        typeof m.model === "string" &&
+        m.model.length &&
+        m.model.length <= 256
+      ) {
+        resolvedModel = { provider: m.provider, model: m.model, capturedAt: now };
+      }
+      const role = text(m.role, 80) ?? "unknown";
+      const parts =
         typeof m.content === "string"
-          ? m.content
+          ? [{ type: "text", text: m.content }]
           : Array.isArray(m.content)
             ? m.content
-                .map((part) => {
-                  const p = record(part);
-                  return p.type === "text" ? p.text : p.type === "toolCall" ? p.name : "";
-                })
-                .filter((x) => typeof x === "string")
-                .join("\n")
-            : "";
-      if (content)
-        messages.push({
-          role: text(m.role, 80) ?? "unknown",
-          kind: m.role === "toolResult" ? "toolResult" : "text",
-          text: content.slice(0, 1000),
-          textTruncated: content.length > 1000,
-        });
+            : [];
+      for (const part of parts) {
+        const p = record(part);
+        if (p.type === "toolCall") {
+          const input = p.arguments === undefined ? "" : JSON.stringify(p.arguments);
+          messages.push({
+            role,
+            kind: "toolCall",
+            name: name(p.name),
+            text: input.slice(0, 1000),
+            textTruncated: input.length > 1000,
+          });
+        } else if (p.type === "text" && typeof p.text === "string" && p.text.length) {
+          messages.push({
+            role,
+            kind: m.role === "toolResult" ? "toolResult" : "text",
+            text: p.text.slice(0, 1000),
+            textTruncated: p.text.length > 1000 || p.textTruncated === true,
+            ...(m.role === "toolResult"
+              ? {
+                  name: name(m.toolName),
+                  ...(typeof m.isError === "boolean" ? { isError: m.isError } : {}),
+                }
+              : {}),
+          });
+        }
+      }
     }
     const output = text(r.finalOutput, 8000);
     const task = text(r.task, 2000);
@@ -117,13 +144,14 @@ export function foregroundRows(
         capturedAt: now,
         task,
         finalOutput: output,
-        messages,
+        messages: messages.slice(-20),
+        resolvedModel,
         truncated: {
           task: typeof r.task === "string" && r.task.length > 2000,
           finalOutput: typeof r.finalOutput === "string" && r.finalOutput.length > 8000,
           messages: usedRecent
             ? Math.max(0, recent.length - 10)
-            : Math.max(0, rawMessages.length - 20),
+            : Math.max(0, messages.length - 20),
         },
       },
     };
