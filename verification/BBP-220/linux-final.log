@@ -1,0 +1,20 @@
+$ vitest run --config vitest.config.ts views/list/work-status-rich-refresh.test.tsx "--reporter=verbose"
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 157ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 34ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 365ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Duration  1.63s (transform 300ms, setup 162ms, import 356ms, tests 557ms, environment 422ms)
+$ vitest run --config vitest.config.ts "--reporter=verbose"
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 99ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 16ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 279ms
+ Test Files  122 passed (122)
+      Tests  1220 passed (1220)
+   Duration  173.37s (transform 2.28s, setup 9.45s, import 16.23s, tests 112.92s, environment 26.80s)
+$ bun run --cwd .. lint bb-plugin-tasks-plus
+$ oxlint bb-plugin-tasks-plus
+Found 4 warnings and 0 errors.
+Finished in 28ms on 298 files with 96 rules using 2 threads.
+$ bun ./node_modules/typescript-7/bin/tsc --noEmit
+EXIT_CODE=0

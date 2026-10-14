@@ -1,0 +1,13 @@
+
+ RUN  v4.1.11 /workspace/bb-plugin-tasks-plus
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 170ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 37ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 2692ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:59:27
+   Duration  6.14s (transform 1.19s, setup 603ms, import 1.25s, tests 2.90s, environment 1.20s)
+
+EXIT_CODE=0

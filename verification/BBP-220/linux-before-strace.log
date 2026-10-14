@@ -1,0 +1,54 @@
+strace: Process 277 attached
+strace: Process 278 attached
+strace: Process 279 attached
+strace: Process 280 attached
+strace: Process 281 attached
+strace: Process 282 attached
+strace: Process 283 attached
+strace: Process 284 attached
+strace: Process 285 attached
+strace: Process 286 attached
+strace: Process 287 attached
+strace: Process 288 attached
+strace: Process 289 attached
+strace: Process 290 attached
+strace: Process 291 attached
+strace: Process 292 attached
+strace: Process 293 attached
+
+ RUN  v4.1.11 /workspace/bb-plugin-tasks-plus
+
+strace: Process 294 attached
+strace: Process 295 attached
+strace: Process 296 attached
+strace: Process 297 attached
+strace: Process 298 attached
+strace: Process 299 attached
+strace: Process 300 attached
+strace: Process 301 attached
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"host-store-project","ms":66,"totalMs":66}
+BBP220_TIMING {"stage":"501-tasks","ms":2778,"totalMs":2845}
+BBP220_TIMING {"stage":"1503-links","ms":5908,"totalMs":8753}
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 167ms
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 37ms
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"initial-refresh","ms":542,"totalMs":9294}
+BBP220_TIMING {"stage":"501-assertions","ms":14,"totalMs":9308}
+
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"authoritative-refresh","ms":419,"totalMs":9727}
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 9730ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:50:34
+   Duration  12.05s (transform 988ms, setup 297ms, import 874ms, tests 9.93s, environment 795ms)
+
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.112944          14      8028           fsync
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.112944          14      8028           total

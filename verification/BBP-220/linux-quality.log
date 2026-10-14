@@ -1,0 +1,208 @@
+$ bun run test:setup && bun run lint && bun run format:check
+$ bun test ./scripts/environment-setup.test.mjs
+bun test v1.4.3 (c6da4a4d3)
+
+scripts/environment-setup.test.mjs:
+(pass) pinned Bun installs only locked root tools, including dev tools in production mode [4.88ms]
+(pass) unpinned Bun 1.3.14 fails before installation [2.63ms]
+(pass) unpinned Bun 1.4.2 fails before installation [2.23ms]
+(pass) unpinned Bun 1.4.4 fails before installation [1.69ms]
+(pass) unpinned Bun 1.4.3-canary.1 fails before installation [1.75ms]
+(pass) missing Bun fails with a useful error [1.06ms]
+(pass) a broken Bun executable fails before installation [1.50ms]
+(pass) an install failure is returned without retry or fallback [2.67ms]
+
+ 8 pass
+ 0 fail
+Ran 8 tests across 1 file. [44.00ms]
+$ oxlint
+
+  ! eslint(no-unused-vars): Parameter '_' is declared but never used.
+     ,-[bb-plugin-github-insight/core/summary.ts:106:35]
+ 105 | 
+ 106 | function withoutTime({ updatedAt: _, ...rest }: PrSummary): string {
+     :                                   |
+     :                                   `-- '_' is declared here
+ 107 |   return JSON.stringify(rest);
+     `----
+  help: Consider removing this parameter.
+
+  ! eslint(no-unused-vars): Parameter '_' is declared but never used.
+    ,-[bb-plugin-github-insight/core/review-list.ts:62:35]
+ 61 | export function reviewCommentEntries(drafts: readonly ListedCommentDraft[]): ReviewCommentEntry[] {
+ 62 |   return drafts.map(({ updatedAt: _, source: __, ...entry }) => entry);
+    :                                   |
+    :                                   `-- '_' is declared here
+ 63 | }
+    `----
+  help: Consider removing this parameter.
+
+  ! eslint(no-unused-vars): Parameter '_' is declared but never used.
+     ,-[bb-plugin-github-insight/queue/review-queue-service.ts:120:34]
+ 119 |   return [...view.needsReview, ...view.reviewed].flatMap((group) =>
+ 120 |     group.prs.map(({ projectIds: _, review: __, newActivity: ___, thread: ____, ...row }) => row),
+     :                                  |
+     :                                  `-- '_' is declared here
+ 121 |   );
+     `----
+  help: Consider removing this parameter.
+
+  ! eslint(no-control-regex): Unexpected control characters
+     ,-[bb-plugin-tasks-plus/attachments/index.ts:159:16]
+ 158 |   let sanitized = (baseName ?? "")
+ 159 |     .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, "_")
+     :                ^^^|^^ ^^^|^^
+     :                   |      `-- 'U+001F' is a control character.
+     :                   `-- 'U+0000' is a control character.
+ 160 |     .replace(BIDI_CONTROL_PATTERN, "_")
+     `----
+  help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+
+  ! eslint(no-unused-vars): Function 'task' is declared but never used.
+    ,-[bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10]
+ 43 | 
+ 44 | function task(key: string, status: Task["status"], position: number): Task {
+    :          ^^|^
+    :            `-- 'task' is declared here
+ 45 |   return makeTask({
+    `----
+  help: Consider removing this declaration.
+
+  ! unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary
+     ,-[bb-plugin-tasks-plus/views/list/list-preference.ts:170:22]
+ 169 |     }
+ 170 |     const scopes = { ...(existing?.scopes ?? {}) };
+     :                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 171 |     scopes[scope] = sanitized;
+     `----
+  help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.
+
+  ! unicorn(no-new-array): Do not use `new Array(singleArgument)`.
+     ,-[bb-plugin-tasks-plus/api/index.ts:322:19]
+ 321 | ): Promise<R[]> {
+ 322 |   const results = new Array<R>(items.length);
+     :                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 323 |   let nextIndex = 0;
+     `----
+  help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+
+  ! eslint(no-control-regex): Unexpected control characters
+     ,-[bb-plugin-markdown-reader/source.ts:117:45]
+ 116 |   const { path, source } = target;
+ 117 |   if (!/\.(md|markdown)$/i.test(path) || /[%\x00-\x1f\x7f]/.test(path)) return false;
+     :                                             ^^|^ ^^|^
+     :                                               |    `-- 'U+001F' is a control character.
+     :                                               `-- 'U+0000' is a control character.
+ 118 |   if (source.kind !== "host") {
+     `----
+  help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+
+  ! eslint(no-control-regex): Unexpected control characters
+     ,-[bb-plugin-markdown-reader/source.ts:286:15]
+ 285 |         }
+ 286 |         if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(file.content))
+     :               ^^|^ ^^|^^^|^^^|^^^|^ ^^|^
+     :                 |    |   |   |   |    `-- 'U+001F' is a control character.
+     :                 |    |   |   |   `-- 'U+000E' is a control character.
+     :                 |    |   |   `-- 'U+000C' is a control character.
+     :                 |    |   `-- 'U+000B' is a control character.
+     :                 |    `-- 'U+0008' is a control character.
+     :                 `-- 'U+0000' is a control character.
+ 287 |           return {
+     `----
+  help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+
+  ! eslint(no-useless-escape): Unnecessary escape character '"'
+     ,-[bb-plugin-markdown-reader/tests/reader.test.tsx:212:241]
+ 211 |     const text =
+ 212 |       '# Plain **document**\n\n## Section\n\n`fulfilled` and ~~removed~~.\n\n> A quote\n\n1. First\n2. Second\n\n- [x] Done\n- [ ] Pending\n\n| Key | Value |\n| --- | --- |\n| real | inconclusive |\n\n```unknown\n  <script>bad()</script>\n{\"compact\":true}  \n```\n\n[sibling](next.md) [external](https://example.com) [unsafe](javascript:alert(1))\n\n![Local alt](image.png) ![Remote alt](https://example.com/image.png)\n\n<script>window.bad = true</script>\n<iframe src="https://example.com"></iframe>\n<img src="x" onerror="bad()">\n';
+     :                                                                                                                                                                                                                                                 ^^
+ 213 |     const { slot } = await mount(() => ready(text));
+     `----
+  help: Replace `\"` with `"`.
+
+  ! eslint(no-useless-escape): Unnecessary escape character '"'
+     ,-[bb-plugin-markdown-reader/tests/reader.test.tsx:212:250]
+ 211 |     const text =
+ 212 |       '# Plain **document**\n\n## Section\n\n`fulfilled` and ~~removed~~.\n\n> A quote\n\n1. First\n2. Second\n\n- [x] Done\n- [ ] Pending\n\n| Key | Value |\n| --- | --- |\n| real | inconclusive |\n\n```unknown\n  <script>bad()</script>\n{\"compact\":true}  \n```\n\n[sibling](next.md) [external](https://example.com) [unsafe](javascript:alert(1))\n\n![Local alt](image.png) ![Remote alt](https://example.com/image.png)\n\n<script>window.bad = true</script>\n<iframe src="https://example.com"></iframe>\n<img src="x" onerror="bad()">\n';
+     :                                                                                                                                                                                                                                                          ^^
+ 213 |     const { slot } = await mount(() => ready(text));
+     `----
+  help: Replace `\"` with `"`.
+
+  ! eslint(no-useless-escape): Unnecessary escape character '"'
+     ,-[bb-plugin-markdown-reader/tests/reader.test.tsx:224:35]
+ 223 |     expect(slot.container.querySelector("pre code")?.textContent).toBe(
+ 224 |       '  <script>bad()</script>\n{\"compact\":true}  \n',
+     :                                   ^^
+ 225 |     );
+     `----
+  help: Replace `\"` with `"`.
+
+  ! eslint(no-useless-escape): Unnecessary escape character '"'
+     ,-[bb-plugin-markdown-reader/tests/reader.test.tsx:224:44]
+ 223 |     expect(slot.container.querySelector("pre code")?.textContent).toBe(
+ 224 |       '  <script>bad()</script>\n{\"compact\":true}  \n',
+     :                                            ^^
+ 225 |     );
+     `----
+  help: Replace `\"` with `"`.
+
+  ! eslint(no-control-regex): Unexpected control character
+    ,-[bb-plugin-markdown-reader/destinations.ts:32:39]
+ 31 | function resolve(location: DocumentLocation, { url, image }: DestinationRequest): Resolved {
+ 32 |   if (!url || url.trim() !== url || /[\x00-\x20\x7f\\]/.test(url)) return rejected();
+    :                                       ^^|^
+    :                                         `-- 'U+0000' is a control character.
+ 33 |   let decoded: string;
+    `----
+  help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+
+  ! eslint(no-control-regex): Unexpected control characters
+    ,-[bb-plugin-markdown-reader/destinations.ts:39:9]
+ 38 |   }
+ 39 |   if (/[\x00-\x1f\x7f\\]/.test(decoded) || /[\ud800-\udfff]/u.test(decoded)) return rejected();
+    :         ^^|^ ^^|^
+    :           |    `-- 'U+001F' is a control character.
+    :           `-- 'U+0000' is a control character.
+ 40 |   if (/^https?:\/\//i.test(url)) {
+    `----
+  help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+
+  ! eslint(no-unused-vars): Type 'PluginSidebarThreadRowStatus' is imported but never used.
+    ,-[bb-plugin-pr-thread-list/app.test.tsx:10:3]
+  9 | import type {
+ 10 |   PluginSidebarThreadRowStatus,
+    :   ^^^^^^^^^^^^^^|^^^^^^^^^^^^^
+    :                 `-- 'PluginSidebarThreadRowStatus' is imported here
+ 11 |   PluginSidebarThreadShortcut,
+    `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Type 'PluginSidebarThreadShortcut' is imported but never used.
+    ,-[bb-plugin-pr-thread-list/app.test.tsx:11:3]
+ 10 |   PluginSidebarThreadRowStatus,
+ 11 |   PluginSidebarThreadShortcut,
+    :   ^^^^^^^^^^^^^|^^^^^^^^^^^^^
+    :                `-- 'PluginSidebarThreadShortcut' is imported here
+ 12 |   PluginThreadListProps,
+    `----
+  help: Consider removing this import.
+
+  ! unicorn(no-useless-spread): Using a spread operator here creates a new array unnecessarily.
+    ,-[bb-plugin-github-insight/ui/draft-saves.ts:50:26]
+ 49 |     return () => {
+ 50 |       for (const key of [...pending.keys()]) void flush(key);
+    :                          ^^^
+ 51 |     };
+    `----
+  help: `for…of` can iterate over iterable, it's unnecessary to convert to an array.
+
+Found 18 warnings and 0 errors.
+Finished in 203ms on 1191 files with 96 rules using 2 threads.
+$ oxfmt --check
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 2939ms on 1506 files using 2 threads.
+EXIT_CODE=0

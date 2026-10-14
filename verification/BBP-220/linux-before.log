@@ -1,0 +1,25 @@
+$ vitest run --config vitest.config.ts views/list/work-status-rich-refresh.test.tsx "--silent=false" "--reporter=verbose"
+
+ RUN  v4.1.11 /workspace/bb-plugin-tasks-plus
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained checks details during a slow mounted refresh and still marks them old after that request fails 84ms
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"host-store-project","ms":22,"totalMs":22}
+BBP220_TIMING {"stage":"501-tasks","ms":635,"totalMs":657}
+BBP220_TIMING {"stage":"1503-links","ms":1783,"totalMs":2440}
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > expires retained ready details during a slow mounted refresh and still marks them old after that request fails 19ms
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"initial-refresh","ms":119,"totalMs":2559}
+BBP220_TIMING {"stage":"501-assertions","ms":7,"totalMs":2566}
+
+stderr | views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads
+BBP220_TIMING {"stage":"authoritative-refresh","ms":64,"totalMs":2630}
+
+ ✓  bb-plugin-tasks  views/list/work-status-rich-refresh.test.tsx > shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads 2631ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:50:21
+   Duration  3.43s (transform 199ms, setup 69ms, import 239ms, tests 2.73s, environment 316ms)
+
