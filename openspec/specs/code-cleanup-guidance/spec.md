@@ -8,17 +8,27 @@ Give agents project-selected guidance to report substantial cleanup discovered b
 
 ### Requirement: Project-scoped guidance
 
-The Code Cleanup plugin SHALL contribute cleanup instructions only to newly constructed agent sessions for standard BB projects explicitly enabled for this plugin. It SHALL contribute nothing for other projects, personal or projectless contexts, or side chats. Enabling one project SHALL NOT enable another.
+The Code Cleanup plugin SHALL contribute cleanup instructions only to newly constructed agent sessions for standard BB projects whose effective enabled state is true. An explicit project choice SHALL take precedence over the saved default; projects without an explicit choice SHALL follow that default. The default SHALL initially be disabled. The plugin SHALL contribute nothing for personal or projectless contexts or side chats. Changing one project's explicit choice SHALL NOT change another project's saved choice or prompt.
 
 #### Scenario: Enabled project
 
-- **WHEN** a fresh agent session starts for a standard project with Code Cleanup enabled
+- **WHEN** a fresh agent session starts for a standard project with Code Cleanup effectively enabled
 - **THEN** that session receives the project's cleanup guidance exactly once
 
 #### Scenario: Other project or side chat
 
-- **WHEN** a fresh agent session starts for an unconfigured or disabled project, a personal or projectless context, or a side chat
+- **WHEN** a fresh agent session starts for an effectively disabled project, a personal or projectless context, or a side chat
 - **THEN** it receives no Code Cleanup guidance
+
+#### Scenario: New project follows enabled default
+
+- **WHEN** the saved default is enabled and a fresh session starts for a new standard project without an explicit choice
+- **THEN** that session receives the factory guidance unless the project has a custom prompt
+
+#### Scenario: Explicit disable takes precedence
+
+- **WHEN** the saved default is enabled but a standard project is explicitly disabled
+- **THEN** a fresh session for that project receives no Code Cleanup guidance
 
 ### Requirement: Agent-judged follow-ups
 
@@ -68,12 +78,13 @@ The default guidance SHALL direct the agent to record a worthwhile follow-up thr
 
 ### Requirement: Project configuration and overrides
 
-A user SHALL be able to enable or disable Code Cleanup separately for each standard project, view its effective state, replace its default guidance with a nonblank project-specific instruction, and restore the default. Project choices and overrides SHALL persist across plugin reloads and global disable/re-enable without affecting other projects. Invalid or oversized custom instructions SHALL be rejected without changing the saved value.
+A user SHALL be able to enable or disable Code Cleanup separately for each standard project, return a project to the saved default, view its effective state and source, replace its factory guidance with a nonblank project-specific instruction, and restore the factory prompt. Prompt reset SHALL NOT reset enablement, and enablement reset SHALL NOT remove custom text. Project choices and overrides SHALL persist across plugin reloads and global disable/re-enable without changing another project's saved choices. Invalid custom instructions, including whitespace-only text and text longer than 4,096 characters, SHALL be rejected without changing the saved value. Valid custom text SHALL be preserved exactly and SHALL replace, not append to, the factory prompt.
 
 #### Scenario: Independent project choices
 
 - **WHEN** the user enables a project and customizes its guidance
-- **THEN** only that project uses the custom guidance, while unconfigured projects remain disabled
+- **THEN** only that project uses the custom guidance
+- **AND** other projects retain their saved explicit choices or continue to follow the default
 
 #### Scenario: Disable and re-enable a project
 
@@ -82,8 +93,19 @@ A user SHALL be able to enable or disable Code Cleanup separately for each stand
 
 #### Scenario: Invalid replacement
 
-- **WHEN** the user submits an empty or over-limit custom instruction
+- **WHEN** the user submits an empty, whitespace-only, or over-limit custom instruction
 - **THEN** the change is rejected and the previous project configuration remains effective
+
+#### Scenario: Prompt-only edit on an inherited project
+
+- **WHEN** a project follows the default and the user saves or resets its custom prompt
+- **THEN** it continues to follow the default and no explicit enablement choice is introduced
+
+#### Scenario: Return to the default
+
+- **WHEN** the user removes a project's explicit enablement choice
+- **THEN** that project immediately follows the current saved default
+- **AND** its custom prompt remains unchanged
 
 ### Requirement: Plugin lifecycle boundaries
 
@@ -179,6 +201,25 @@ The factory guidance SHALL direct agents to link detailed reports through availa
 - **WHEN** the agent cannot provide a retrievable evidence attachment or reference
 - **THEN** the guidance directs it to state that limit and retain the necessary verified facts
 - **AND** it does not claim an attachment or source exists when it has not been confirmed
+
+### Requirement: Preserve saved configuration on upgrade
+
+Upgrading Code Cleanup SHALL preserve each existing project's effective enablement and exact custom prompt. Existing enabled and disabled states SHALL become explicit choices, including disabled rows that were created by saving a prompt. The new default SHALL initially be disabled. Migration SHALL be repeat-safe and SHALL NOT rewrite saved custom text to the new factory task-creation guidance.
+
+#### Scenario: Existing configured project
+
+- **WHEN** a project with a saved enabled state and multiline custom prompt is upgraded
+- **THEN** it remains explicitly enabled and its exact prompt text is unchanged
+
+#### Scenario: Existing disabled project
+
+- **WHEN** a project with saved disabled state or a prompt-only disabled row is upgraded and the user later enables the default
+- **THEN** that project remains explicitly disabled and retains its custom text
+
+#### Scenario: Repeated plugin reload
+
+- **WHEN** the upgraded plugin reloads more than once
+- **THEN** saved explicit choices, inherited states, and prompt text are not migrated again or changed
 
 ### Requirement: Compact cleanup examples demonstrate the format
 
