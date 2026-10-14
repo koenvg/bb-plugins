@@ -20,7 +20,6 @@ async function stored() {
     port: await freePort(),
     issuer: "https://login.example.net/realm",
     owner: "owner",
-    projects: "proj_one\nproj_two",
     remoteEnabled: true,
     controlEnabled: false,
   };
@@ -93,7 +92,7 @@ describe("BB settings and listener lifecycle", () => {
     { issuer: "https://LOGIN.example.net/" },
     { issuer: "https://login.example.net:443/" },
     { issuer: "https://login.example.net/realm/../" },
-    { projects: "arbitrary,path" },
+    { owner: " owner" },
   ])("invalid saved configuration prevents listener startup: %j", async (invalid) => {
     const values = { ...(await stored()), ...invalid };
     expect(readConfig(values)).toBeNull();
@@ -118,7 +117,6 @@ describe("BB settings and listener lifecycle", () => {
       publicOrigin: "https://another.example.com",
       port: nextPort,
       controlEnabled: true,
-      projects: "proj_two",
     });
     expect(await status()).toMatchObject({
       url: values.publicOrigin + "/mcp",
@@ -142,7 +140,6 @@ describe("BB settings and listener lifecycle", () => {
       publicOrigin: "https://another.example.com",
       port: nextPort,
       controlEnabled: true,
-      projects: "proj_two",
     });
     host = await host.harness.lifecycle.reload(plugin);
     await start();

@@ -224,7 +224,10 @@ it.each(["project", "owner", "issuer", "remote", "moved", "deleted", "missing"])
     expect((await poll(operationId)).structuredContent.state).toBe("accepted");
     f.change({ controlEnabled: true });
     const token = await f.token();
-    if (loss === "project") f.change({ projects: "" });
+    if (loss === "project")
+      f.host.harness.sdk.stub("threads.get", async () =>
+        makeThreadResponse({ id: "thr_target", projectId: "proj_personal" }),
+      );
     if (loss === "owner") f.change({ owner: "other-owner" });
     if (loss === "issuer") f.change({ issuer: "https://other-issuer.example.org" });
     if (loss === "remote") f.change({ remoteEnabled: false });

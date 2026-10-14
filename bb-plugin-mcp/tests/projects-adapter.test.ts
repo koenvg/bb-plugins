@@ -49,7 +49,12 @@ async function setup(authMode: "bearer-jwt" | "cloudflare-access", projects: str
   });
   host = createFakePluginHost({ settings });
   const list = vi.fn<typeof host.bb.sdk.projects.list>(async (args) => {
-    const records = [personal, project("proj_hidden", "Hidden"), ordinary];
+    const records = [
+      personal,
+      project("proj_hidden", "Hidden"),
+      ordinary,
+      project("proj_z", "Personal"),
+    ];
     return args?.includePersonal ? records : records.filter((p) => p.kind !== "personal");
   });
   host.harness.sdk.stub("projects.list", list);
@@ -96,7 +101,7 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
     const discovered = [
       { id: "proj_a", name: "Ordinary" },
       { id: "proj_hidden", name: "Hidden" },
-      { id: "proj_personal", name: "Personal" },
+      { id: "proj_z", name: "Personal" },
     ];
 
     it.each([
@@ -105,18 +110,15 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
       "proj_personal",
       "proj_a\nproj_personal_other",
       "",
-    ])(
-      "discovers every project regardless of the thread-access allowlist: %j",
-      async (projects) => {
-        const f = await setup(mode, projects);
-        expect((await f.client.callTool(call)).structuredContent).toEqual({
-          projects: discovered,
-          nextCursor: null,
-        });
-        expect(f.list.mock.calls).toEqual([[{ includePersonal: true }]]);
-        expect(host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual(["projects.list"]);
-      },
-    );
+    ])("discovers standard projects regardless of obsolete grants: %j", async (projects) => {
+      const f = await setup(mode, projects);
+      expect((await f.client.callTool(call)).structuredContent).toEqual({
+        projects: discovered,
+        nextCursor: null,
+      });
+      expect(f.list.mock.calls).toEqual([[{ includePersonal: false }]]);
+      expect(host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual(["projects.list"]);
+    });
 
     it("preserves pagination, ID order and project-only fields", async () => {
       const f = await setup(mode, "");
@@ -127,7 +129,10 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
         (await f.client.callTool({ name: call.name, arguments: { limit: 2, cursor: "2" } }))
           .structuredContent,
       ).toEqual({ projects: discovered.slice(2), nextCursor: null });
-      expect(f.list.mock.calls).toEqual([[{ includePersonal: true }], [{ includePersonal: true }]]);
+      expect(f.list.mock.calls).toEqual([
+        [{ includePersonal: false }],
+        [{ includePersonal: false }],
+      ]);
     });
 
     it("discovers newly created projects on the next request without a settings edit", async () => {
@@ -141,23 +146,18 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
         projects: [
           { id: "proj_a", name: "Ordinary" },
           { id: "proj_future", name: "Future" },
-          { id: "proj_personal", name: "Personal" },
         ],
         nextCursor: null,
       });
     });
 
-    it("keeps discovery independent of project grants without granting thread-content or control access", async () => {
+    it("ignores obsolete grants while excluding Personal from discovery and controls", async () => {
       const f = await setup(mode, "proj_personal\nproj_a");
       f.list.mockImplementationOnce(async () => {
-        await host.harness.behavior.setSettings({ projects: "" });
         return [personal, ordinary];
       });
       expect((await f.client.callTool(call)).structuredContent).toEqual({
-        projects: [
-          { id: "proj_a", name: "Ordinary" },
-          { id: "proj_personal", name: "Personal" },
-        ],
+        projects: [{ id: "proj_a", name: "Ordinary" }],
         nextCursor: null,
       });
       const threads = await f.client.callTool({
@@ -186,7 +186,7 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
       const result = await f.client.callTool(call);
       expect(result.isError).toBe(true);
       expect(JSON.stringify(result)).not.toContain("Personal");
-      expect(f.list.mock.calls).toEqual([[{ includePersonal: true }]]);
+      expect(f.list.mock.calls).toEqual([[{ includePersonal: false }]]);
     });
   },
 );

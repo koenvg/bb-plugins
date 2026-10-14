@@ -25,7 +25,6 @@ function policy(issuer: string): Config {
     accessPermission: "read",
     accessOAuthIssuer: "",
     owner: "owner-1",
-    projects: "proj_a",
     remoteEnabled: true,
     controlEnabled: false,
   };

@@ -324,7 +324,6 @@ it.each([
   { authMode: "bearer-jwt" as const },
   { owner: "other-owner" },
   { issuer: "https://other.example.net" },
-  { projects: "" },
   { remoteEnabled: false },
 ])("rechecks current policy after awaited defaults before dispatch: %j", async (loss) => {
   await setup();
@@ -374,7 +373,7 @@ it.each([
   { accessAudience: "other-app" },
   { authMode: "bearer-jwt" as const },
   { owner: "other-owner" },
-  { projects: "" },
+  { issuer: "https://other.example.net" },
 ])("rechecks policy after awaited membership before a cached mutation reply: %j", async (loss) => {
   await setup();
   f.change({ accessPermission: "read-control", controlEnabled: true });
@@ -432,7 +431,6 @@ it("rejects forwarded Host/Origin and BB routes while allowing authenticated pro
   expect(
     (await f.request("/api/v1/projects", { headers: { "cf-access-jwt-assertion": token } })).status,
   ).toBe(404);
-  f.change({ projects: "" });
   expect((await call("bb_list_projects", {}, token)).structuredContent).toEqual({
     projects: [
       { id: "proj_a", name: "Allowed" },

@@ -14,7 +14,6 @@ async function values() {
     port: await freePort(),
     issuer: "https://access.example.net",
     owner: "verified-owner",
-    projects: "proj_test",
     remoteEnabled: true,
     controlEnabled: false,
     authMode: "cloudflare-access",

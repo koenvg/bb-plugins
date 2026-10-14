@@ -88,7 +88,6 @@ export async function fixture(
     accessPermission: "read",
     accessOAuthIssuer: authMode === "cloudflare-access" ? "https://oauth.example.net" : "",
     owner: "owner-1",
-    projects: "proj_a",
     remoteEnabled: true,
     controlEnabled: false,
   };

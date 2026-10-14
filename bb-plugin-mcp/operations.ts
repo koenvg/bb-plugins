@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { allowedProjects, type Config } from "./config.js";
+import type { Config } from "./config.js";
+import { isRemoteProject } from "./project-access.js";
 import { hasAccess, hasControl } from "./control.js";
 import type { Identity } from "./auth.js";
 
@@ -160,8 +161,7 @@ export function operationControl(options: {
       !active ||
       closed ||
       !hasAccess(config, identity) ||
-      !allowedProjects(config).size ||
-      (project !== undefined && !allowedProjects(config).has(project)) ||
+      (project !== undefined && !isRemoteProject(project)) ||
       (write && !hasControl(config, identity))
     )
       throw new Error("OPERATION_UNAVAILABLE");
@@ -603,7 +603,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_start_thread",
         {
-          description: `Start an ordinary visible BB thread using project defaults. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
+          description: `Start an ordinary visible BB thread in a standard project using project defaults. BB's built-in Personal project is excluded. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
           inputSchema: startSchema,
           annotations: {
             readOnlyHint: false,
@@ -629,7 +629,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_send_message",
         {
-          description: `Send follow-up instructions to an allowed BB thread with normal idle/active auto behavior. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Accepted or queued is not completed work. Keep the same key after a lost reply; unknown requires BB inspection. Pending approvals remain in BB.`,
+          description: `Send follow-up instructions to a BB thread in a standard project, excluding BB's built-in Personal project, with normal idle/active auto behavior. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Accepted or queued is not completed work. Keep the same key after a lost reply; unknown requires BB inspection. Pending approvals remain in BB.`,
           inputSchema: sendSchema,
           annotations: {
             readOnlyHint: false,
@@ -663,7 +663,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_stop_thread",
         {
-          description: `Request an ordinary stop of an allowed BB thread, preserving its history. ${controlRequirement} This write does not delete queued input or approve pending permissions. Acknowledgement is not confirmed stop completion. Keep the same key after a lost reply; unknown requires BB inspection.`,
+          description: `Request an ordinary stop of a BB thread in a standard project, excluding BB's built-in Personal project, preserving its history. ${controlRequirement} This write does not delete queued input or approve pending permissions. Acknowledgement is not confirmed stop completion. Keep the same key after a lost reply; unknown requires BB inspection.`,
           inputSchema: stopSchema,
           annotations: {
             readOnlyHint: false,
@@ -698,7 +698,7 @@ export function operationControl(options: {
         "bb_get_operation",
         {
           description:
-            "Read the owner's persisted submission outcome without repeating an action. Accepted is not completed agent work. Unknown outcomes require inspection in BB before a new key.",
+            "Read the owner's persisted submission outcome in a standard project without repeating an action. BB's built-in Personal project is excluded, including old records. Accepted is not completed agent work. Unknown outcomes require inspection in BB before a new key.",
           inputSchema: z.strictObject({ operationId: id }),
           annotations: {
             readOnlyHint: true,
