@@ -359,9 +359,12 @@ it("rejects symlink escapes and oversized lines with visible incomplete work", a
   expect(view.days[14].coverage.state).toBe("incomplete");
 });
 it("bounds discovery/lines, eventually revisits files, and gives native identity only to the matching provider and host", async () => {
-  const f = await fixture([header(), turn(), usage("base")], { lines: 3 });
+  const f = await fixture([header(), turn(), usage("base")], { lines: 12 });
   for (let i = 0; i < 135; i++)
     await writeFile(join(f.sessions, `${i}.jsonl`), text([header(), turn(), usage(`file${i}`)]));
+  const first = await f.history.prepare!(f.context);
+  expect(first).toMatchObject({ state: "available", ingestionPending: true });
+  expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(480);
   await f.prepare();
   expect((await f.report()).summary.totalTokens).toBe(136 * 120);
   f.context.identities = {
