@@ -25,10 +25,10 @@
     "format": "bun run --cwd .. format bb-plugin-markdown-reader",
     "format:check": "bun run --cwd .. format:check bb-plugin-markdown-reader",
     "test": "vitest run",
-    "test:browser": "bun --bun playwright test",
+    "test:browser": "bun ../scripts/browser-fixture-runner.mjs tests/preview-server.ts 30000",
     "typecheck": "bun --bun tsc --noEmit",
     "build": "bb plugin build",
-    "preview:fixture": "bun --bun vite --host 127.0.0.1"
+    "preview:fixture": "bun tests/preview-server.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.0",

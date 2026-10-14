@@ -160,7 +160,23 @@ describe("public server RPC", () => {
         /^@playwright\/test$/,
       ],
     });
-    expect(result.violations).toEqual([]);
+    expect(
+      result.violations.filter((entry) => {
+        if (
+          entry.reason === "outside-package" &&
+          ((entry.file === "playwright.config.ts" &&
+            entry.specifier === "../scripts/browser-fixture-runner.mjs") ||
+            (entry.file === "tests/preview-server.ts" &&
+              entry.specifier === "../../scripts/browser-fixture-runner.mjs"))
+        )
+          return false;
+        return !(
+          entry.reason === "outside-allowlist" &&
+          entry.file === "tests/preview-server.ts" &&
+          entry.specifier === "vite"
+        );
+      }),
+    ).toEqual([]);
     expect(result.privateDependencies).toEqual([]);
   });
 });

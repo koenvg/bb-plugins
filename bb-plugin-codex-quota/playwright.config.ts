@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { browserFixtureOrigin } from "../scripts/browser-fixture-runner.mjs";
 
 export default defineConfig({
   testDir: "./scripts/browser",
@@ -10,7 +11,7 @@ export default defineConfig({
   outputDir: "test-results",
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:38716",
+    baseURL: browserFixtureOrigin(),
     browserName: "chromium",
     viewport: { width: 1280, height: 1100 },
     timezoneId: "UTC",
@@ -18,13 +19,5 @@ export default defineConfig({
     serviceWorkers: "block",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-  },
-  webServer: {
-    command: "bun scripts/preview-server.mjs",
-    env: { CODEX_QUOTA_PREVIEW_PORT: "38716" },
-    url: "http://127.0.0.1:38716",
-    reuseExistingServer: false,
-    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
-    timeout: 60_000,
   },
 });

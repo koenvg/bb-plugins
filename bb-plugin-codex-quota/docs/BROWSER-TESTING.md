@@ -16,9 +16,17 @@ No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for 
 
 ## Ownership and local resources
 
-Playwright launches its own Chromium, creates fresh test contexts, and closes them. No existing browser profile, login, tab or daemon is used. The Bun preview builds the existing TSX/HTML fixtures and scoped Tailwind utilities into a fresh `codex-quota-preview-*` directory under the OS temporary directory. Playwright sends SIGTERM and waits up to five seconds for server cleanup. The server removes that directory on normal shutdown. It never builds into `dist/` or writes product/source-root data.
+Playwright launches its own Chromium, creates fresh test contexts, and closes them. No existing browser profile, login, tab, or daemon is used. `bun run test:browser` starts this checkout's preview before Playwright loads its config. The preview binds `127.0.0.1` port `0` once and reports its actual bare origin. The runner retains that listener for the tests. Raw `playwright test` calls have no fixture handoff and fail.
 
-The preview listens only on `127.0.0.1:38716`. An occupied port fails; an existing server is never reused or replaced. It serves only the six fixture HTML/JavaScript pairs and generated CSS, not the checkout. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
+The preview builds fixtures into a fresh `codex-quota-preview-*` directory below the runner's fresh temporary parent. On success, test failure, startup failure, or cancellation, the runner stops its owned process groups before removing only that parent. Browser reports and historical receipts remain. Direct previews own and remove their own fresh temporary directory. Nothing builds into product `dist/`.
+
+Direct previews also default to port `0` and print the actual URL. To request a specific port, use `CODEX_QUOTA_PREVIEW_PORT=38716 bun scripts/preview-server.mjs`. The same override applies to `bun run test:browser`. Values must be integers from `0` through `65535`. Empty or malformed values fail. An occupied explicit port fails without reusing or replacing the existing server.
+
+Only the six fixture HTML/JavaScript pairs and generated CSS are served. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
+
+Separate worktrees have separate default browser evidence paths. Concurrent runs in one checkout, or runs with the same explicit `--output`, can still overwrite evidence. POSIX process groups are required. SIGKILL of the runner and host crashes cannot run cleanup.
+
+From the repository root, `bun scripts/verify-concurrent-browser-worktrees.mjs /tmp/bbp-196` creates two owned verification worktrees. It runs concurrent Chromium cases for all three plugins, checks each changed checkout marker and actual origin, retains evidence, and removes only those worktrees. It reuses installed locked dependencies. It does not install browsers or retry suites.
 
 The CSS compiler uses the BB Tailwind 4.3 theme/utility layer pattern without preflight, fixture theme aliases and the existing HTML dark theme. This is synthetic fixture CSS, not acceptance of BB's packaged CSS build or installed theme. The public SDK calendar renderer needs React's development build for `act`. All hosts, RPCs, clocks and datasets are synthetic.
 

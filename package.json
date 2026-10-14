@@ -5,6 +5,7 @@
   "packageManager": "bun@1.4.3",
   "scripts": {
     "test:setup": "bun test ./scripts/environment-setup.test.mjs",
+    "test:browser-lifecycle": "bun test scripts/browser-fixture-runner.test.mjs scripts/browser-preview-servers.test.mjs",
     "test:browser": "bun run --cwd bb-plugin-compose-chat test:browser && bun run --cwd bb-plugin-markdown-reader test:browser && bun run --cwd bb-plugin-codex-quota test:browser",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
