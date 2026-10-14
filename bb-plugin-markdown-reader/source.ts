@@ -211,26 +211,40 @@ async function documentLocation(
     throw new Error("The document is outside the source root.");
   return { target, hostId, rootPath, documentPath, ...identity };
 }
-async function readOrFindByName(adapter: SourceAdapter, target: ReaderTarget) {
+async function readAt(adapter: SourceAdapter, target: ReaderTarget) {
   const location = await documentLocation(adapter, target);
-  const { hostId, rootPath } = location;
-  const read = ({ documentPath }: DocumentLocation) =>
-    adapter.read({ hostId, rootPath, path: documentPath });
+  const { hostId, rootPath, documentPath } = location;
+  return { location, file: await adapter.read({ hostId, rootPath, path: documentPath }) };
+}
+function isMissingFile(cause: unknown) {
+  return (cause as { status?: unknown } | null)?.status === 404;
+}
+function storageTarget(target: ReaderTarget): ReaderTarget | null {
+  if (target.source.kind !== "workspace" || !target.source.threadId) return null;
+  return { ...target, source: { ...target.source, kind: "thread-storage" } };
+}
+async function readFromSources(adapter: SourceAdapter, target: ReaderTarget) {
   try {
-    return { location, file: await read(location) };
+    return await readAt(adapter, target);
   } catch (cause) {
-    if (target.source.kind === "host" || target.path.includes("/")) throw cause;
-    const matches = await adapter
-      .findByName({ hostId, rootPath, name: target.path })
-      .catch((): string[] => []);
-    if (matches.length === 0 || matches.includes(target.path)) throw cause;
-    if (matches.length > 1)
-      throw new Error(
-        `${target.path} is not at the source root. Matching files: ${matches.join(", ")}`,
-      );
-    const found = await documentLocation(adapter, { ...target, path: matches[0]! });
-    return { location: found, file: await read(found) };
+    const storage = isMissingFile(cause) ? storageTarget(target) : null;
+    const fromStorage = storage && (await readAt(adapter, storage).catch(() => null));
+    if (fromStorage) return fromStorage;
+    return await findByName(adapter, target, cause);
   }
+}
+async function findByName(adapter: SourceAdapter, target: ReaderTarget, cause: unknown) {
+  if (target.source.kind === "host" || target.path.includes("/")) throw cause;
+  const { hostId, rootPath } = await documentLocation(adapter, target);
+  const matches = await adapter
+    .findByName({ hostId, rootPath, name: target.path })
+    .catch((): string[] => []);
+  if (matches.length === 0 || matches.includes(target.path)) throw cause;
+  if (matches.length > 1)
+    throw new Error(
+      `${target.path} is not at the source root. Matching files: ${matches.join(", ")}`,
+    );
+  return await readAt(adapter, { ...target, path: matches[0]! });
 }
 
 export function createSourceReader(adapter: SourceAdapter): SourceReader {
@@ -247,7 +261,7 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
       try {
         // The SDK enforces root confinement, including symlinks, on this explicit host.
         // It has no stat or max-byte read option. Oversized content can reach this server.
-        const { location, file } = await readOrFindByName(adapter, parsed.data);
+        const { location, file } = await readFromSources(adapter, parsed.data);
         const { target, hostId, rootPath, documentPath } = location;
         const paths = hostPaths(rootPath);
         if (file.sizeBytes > MAX_DOCUMENT_BYTES)

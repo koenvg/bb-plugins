@@ -469,3 +469,92 @@ describe("bare file names missing at the source root", () => {
     expect(findByName).not.toHaveBeenCalled();
   });
 });
+
+describe("workspace paths missing from the workspace", () => {
+  const workspace = targets[0]!;
+  const missing = Object.assign(new Error("HTTP 404: Path does not exist: /work/reports/note.md"), {
+    status: 404,
+  });
+  const storageRoot = "/host-data/thread-storage/thread";
+
+  it("opens the same path from the thread's storage", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing);
+    expect(await reader.read(workspace)).toMatchObject({
+      kind: "ready",
+      snapshot: {
+        target: { path: "reports/note.md", source: { kind: "thread-storage", threadId: "thread" } },
+        rootPath: storageRoot,
+        documentPath: `${storageRoot}/reports/note.md`,
+      },
+    });
+    expect(adapter.read).toHaveBeenLastCalledWith({
+      hostId: "remote",
+      rootPath: storageRoot,
+      path: `${storageRoot}/reports/note.md`,
+    });
+  });
+
+  it("prefers the exact storage path over a workspace file found by name", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing);
+    vi.mocked(adapter.findByName).mockResolvedValue(["docs/note.md"]);
+    const bare = { ...workspace, path: "note.md" };
+    expect(await reader.read(bare)).toMatchObject({
+      kind: "ready",
+      snapshot: { documentPath: `${storageRoot}/note.md` },
+    });
+    expect(adapter.findByName).not.toHaveBeenCalled();
+  });
+
+  it("searches the workspace by name when storage also misses", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing).mockRejectedValueOnce(missing);
+    vi.mocked(adapter.findByName).mockResolvedValue(["docs/note.md"]);
+    expect(await reader.read({ ...workspace, path: "note.md" })).toMatchObject({
+      kind: "ready",
+      snapshot: { documentPath: "/work/docs/note.md" },
+    });
+  });
+
+  it("keeps the workspace error when thread storage also misses", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing).mockRejectedValueOnce(missing);
+    expect(await reader.read(workspace)).toEqual({ kind: "error", message: missing.message });
+  });
+
+  it("does not look in thread storage for errors other than a missing file", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(
+      Object.assign(new Error("Access denied"), { status: 403 }),
+    );
+    expect(await reader.read(workspace)).toEqual({ kind: "error", message: "Access denied" });
+    expect(adapter.storageLocation).not.toHaveBeenCalled();
+  });
+
+  it("does not look in thread storage without a thread", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing);
+    const target = {
+      path: "reports/note.md",
+      source: { kind: "workspace", threadId: null, environmentId: "env", projectId: null },
+    };
+    expect(await reader.read(target)).toEqual({ kind: "error", message: missing.message });
+    expect(adapter.storageLocation).not.toHaveBeenCalled();
+  });
+
+  it("does not open thread storage on another host than the one requested", async () => {
+    const { adapter, reader } = setup();
+    vi.mocked(adapter.read).mockRejectedValueOnce(missing);
+    vi.mocked(adapter.storageLocation).mockResolvedValue({
+      hostId: "other",
+      storageRootPath: storageRoot,
+    });
+    const target = {
+      ...workspace,
+      source: { ...workspace.source, experimental_hostId: "remote" },
+    };
+    expect(await reader.read(target)).toEqual({ kind: "error", message: missing.message });
+    expect(adapter.read).toHaveBeenCalledOnce();
+  });
+});
