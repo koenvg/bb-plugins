@@ -73,14 +73,14 @@ type ActivityNode = z.infer<typeof trackedPrNodeSchema>;
 const searchSchema = z.object({ issueCount: z.number(), nodes: z.array(prNodeSchema) });
 type Search = z.infer<typeof searchSchema>;
 
-const reviewQueueResponseSchema = z.object({
-  data: z
-    .object({
-      viewer: z.object({ login: z.string() }),
-      reviewRequests: searchSchema,
-    })
-    .catchall(z.unknown()),
-});
+const batchResponsesSchema = z.array(z.object({ data: z.record(z.string(), z.unknown()) }));
+
+const reviewQueueDataSchema = z
+  .object({
+    viewer: z.object({ login: z.string() }),
+    reviewRequests: searchSchema,
+  })
+  .catchall(z.unknown());
 
 const trackedNodeSchema = z
   .object({ pullRequest: trackedPrNodeSchema.nullable() })
@@ -141,10 +141,13 @@ export interface FetchedQueue {
 }
 
 export function parseReviewQueue(
-  response: unknown,
+  batchResponses: unknown,
   trackedRefs: readonly PullRequestRef[],
 ): FetchedQueue {
-  const { data } = reviewQueueResponseSchema.parse(response);
+  const batches = batchResponsesSchema.parse(batchResponses);
+  const data = reviewQueueDataSchema.parse(
+    Object.assign({}, ...batches.map((batch) => batch.data)),
+  );
   const viewer = data.viewer.login;
   const tracked: QueuePr[] = [];
   const gone: PullRequestRef[] = [];

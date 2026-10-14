@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyGhFailure, ghFailureText, parseGraphqlRateLimitReset } from "./gh-failure";
+import {
+  classifyGhFailure,
+  ghFailureText,
+  isGithubTimeout,
+  parseGraphqlRateLimitReset,
+} from "./gh-failure";
 
 describe("classifyGhFailure", () => {
   it("reports gh not installed when the binary is missing", () => {
@@ -93,5 +98,16 @@ describe("parseGraphqlRateLimitReset", () => {
 
   it("gives null for a response without a GraphQL reset time", () => {
     expect(parseGraphqlRateLimitReset({ message: "Not Found" })).toBeNull();
+  });
+});
+
+describe("isGithubTimeout", () => {
+  it.each(["gh: HTTP 504", "unexpected end of JSON input"])("is true for %s", (message) => {
+    expect(isGithubTimeout({ kind: "failed", message })).toBe(true);
+  });
+
+  it("is false for other failures", () => {
+    expect(isGithubTimeout({ kind: "failed", message: "gh: HTTP 502" })).toBe(false);
+    expect(isGithubTimeout({ kind: "gh_logged_out" })).toBe(false);
   });
 });

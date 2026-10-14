@@ -17,9 +17,14 @@ export interface GhProcessError {
 const EXIT_AUTH_REQUIRED = 4;
 const LOGGED_OUT = /gh auth login|Bad credentials|HTTP 401/;
 const RATE_LIMITED = /rate limit/i;
+const GITHUB_TIMEOUT = /HTTP 504|unexpected end of JSON input/i;
 
 export function isRateLimitMessage(message: string): boolean {
   return RATE_LIMITED.test(message);
+}
+
+export function isGithubTimeout(failure: GhFailure): boolean {
+  return failure.kind === "failed" && GITHUB_TIMEOUT.test(failure.message);
 }
 
 export function classifyGhFailure(error: GhProcessError): GhFailure {

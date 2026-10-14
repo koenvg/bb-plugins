@@ -11,6 +11,7 @@ import { checkRunDetailsArgs } from "./github/check-run-details-query";
 import { addCommentArgs } from "./github/comment-mutation";
 import {
   classifyGhFailure,
+  isGithubTimeout,
   parseGraphqlRateLimitReset,
   RATE_LIMIT_ARGS,
   type GhProcessError,
@@ -20,7 +21,7 @@ import { readNotFoundPartial } from "./github/not-found-partial";
 import { overviewPageArgs } from "./github/overview-query";
 import { fitPrFilesPage, prFilesPageArgs } from "./github/pr-files-query";
 import { prHeadArgs } from "./github/pr-head-query";
-import { reviewQueueArgs } from "./github/review-queue-query";
+import { reviewQueueBatchArgs } from "./github/review-queue-query";
 import { ADD_REVIEW_ARGS, addPullRequestReviewInput } from "./github/review-mutations";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
@@ -51,7 +52,7 @@ export default experimental_defineHostEntry({
     setThreadResolved: (request, context) =>
       runGhJson(setThreadResolvedArgs(request), context.signal),
     fetchReviewQueue: ({ tracked }, context) =>
-      runGhJsonAllowingNotFound(reviewQueueArgs(tracked), context.signal),
+      fetchReviewQueue(reviewQueueBatchArgs(tracked), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>
@@ -78,6 +79,21 @@ async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<
   run.child.stdin?.end(stdin);
   const { stdout } = await run;
   return JSON.parse(stdout) as unknown;
+}
+
+async function fetchReviewQueue(batches: string[][], signal: AbortSignal): Promise<GhResult> {
+  const results = await Promise.all(batches.map((args) => runGhJsonRetryingTimeout(args, signal)));
+  const failures = results.filter((result) => !result.ok);
+  const failure = failures.find(({ failure }) => failure.kind !== "failed") ?? failures[0];
+  if (failure !== undefined) return failure;
+  return { ok: true, data: results.filter((result) => result.ok).map(({ data }) => data) };
+}
+
+async function runGhJsonRetryingTimeout(args: string[], signal: AbortSignal): Promise<GhResult> {
+  const result = await runGhJsonAllowingNotFound(args, signal);
+  return !result.ok && isGithubTimeout(result.failure)
+    ? runGhJsonAllowingNotFound(args, signal)
+    : result;
 }
 
 // gh exits non-zero when GitHub returns data with errors, e.g. a tracked PR that no longer exists.
