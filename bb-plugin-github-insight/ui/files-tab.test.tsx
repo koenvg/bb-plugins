@@ -472,7 +472,7 @@ describe("Files tab viewed files", () => {
     const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
 
     expect(await slot.findByText("1/2 viewed")).toBeTruthy();
-    fireEvent.click(checkbox(slot, PR_REF));
+    fireEvent.click(await slot.findByRole("checkbox", { name: `Viewed ${PR_REF}` }));
     expect(slot.getByText("2/2 viewed")).toBeTruthy();
   });
 
