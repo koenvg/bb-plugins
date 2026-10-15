@@ -217,94 +217,125 @@ for (const theme of ["light", "dark"] as const)
         });
 
 for (const portalMode of ["popover", "fallback"] as const) {
-  test(`keyboard tall content ${portalMode}`, async ({ page }, info) => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    if (portalMode === "fallback")
-      await page.addInitScript(() => {
-        Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
+  for (const textSize of ["default", "larger"] as const) {
+    test(`keyboard tall content ${portalMode} ${textSize}`, async ({ page }, info) => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      if (portalMode === "fallback")
+        await page.addInitScript(() => {
+          Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
+        });
+      await page.goto("/calendar.html?state=tooltip-max");
+      await chart(page);
+      if (textSize === "larger")
+        await page.addStyleTag({
+          content: '.calendar-tooltip [role="tooltip"] { font-size:14px; line-height:1.8; }',
+        });
+      await page.evaluate(() => {
+        const shell = document.createElement("div");
+        shell.id = "scrolling-shell";
+        shell.style.cssText = "position:fixed;inset:0;overflow:auto;transform:translateZ(0)";
+        const spacer = document.createElement("div");
+        spacer.style.height = "900px";
+        document.body.append(shell);
+        shell.append(spacer, document.getElementById("root")!);
+        shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 532;
       });
-    await page.goto("/calendar.html?state=tooltip-max");
-    await chart(page);
-    await page.evaluate(() => {
-      const shell = document.createElement("div");
-      shell.id = "scrolling-shell";
-      shell.style.cssText = "position:fixed;inset:0;overflow:auto;transform:translateZ(0)";
-      const spacer = document.createElement("div");
-      spacer.style.height = "900px";
-      document.body.append(shell);
-      shell.append(spacer, document.getElementById("root")!);
-      shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 532;
+      const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
+      await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
+      await surface.focus();
+      await page.keyboard.press("Home");
+      for (let index = 0; index < 14; index++) {
+        await page.evaluate(() => new Promise(requestAnimationFrame));
+        await page.keyboard.press("ArrowRight");
+      }
+      const native = page.locator(".calendar-tooltip");
+      const card = native.locator('[role="tooltip"]');
+      await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
+      await expect(surface).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(native).toHaveAttribute("data-sticky", "true");
+      await expect(native).toHaveAttribute("data-ts-chart-tooltip-portal", portalMode);
+      const trace = [];
+      for (let tabs = 0; tabs < 70; tabs++) {
+        if (await card.evaluate((element) => element === document.activeElement)) break;
+        await page.keyboard.press("Tab");
+        trace.push(
+          await page.evaluate(() => ({
+            focus: document.activeElement?.tagName,
+            text: document.activeElement?.textContent?.slice(0, 140),
+            hidden: document.querySelector(".calendar-tooltip")?.hasAttribute("hidden"),
+          })),
+        );
+      }
+      await jsonEvidence(info, "keyboard-entry.json", trace);
+      await expect(card).toBeFocused();
+      await expect(native).toBeVisible();
+      const detail = card.getByLabel("Tokens by model and speed").locator("li");
+      await expect(detail).toHaveCount(30);
+      await expect(detail.locator("span.tabular-nums")).toHaveText(Array(30).fill("100"));
+      await expect(card.locator("dd").first()).toHaveAttribute("title", "3,000 tokens");
+      const scroll = [];
+      for (let pages = 0; pages < 32; pages++) {
+        const before = await card.evaluate((element) => ({
+          top: element.scrollTop,
+          remaining: element.scrollHeight - element.clientHeight - element.scrollTop,
+        }));
+        if (before.remaining <= 1) break;
+        await page.keyboard.press("PageDown");
+        await expect
+          .poll(() => card.evaluate((element) => element.scrollTop))
+          .toBeGreaterThan(before.top);
+        await expect
+          .poll(() =>
+            card.evaluate(async (element) => {
+              const top = element.scrollTop;
+              await new Promise(requestAnimationFrame);
+              await new Promise(requestAnimationFrame);
+              return element.scrollTop === top;
+            }),
+          )
+          .toBe(true);
+        scroll.push(await card.evaluate((element) => element.scrollTop));
+      }
+      expect(scroll.length).toBeGreaterThan(0);
+      await expect
+        .poll(() =>
+          card.evaluate(
+            (element) => element.scrollHeight - element.clientHeight - element.scrollTop,
+          ),
+        )
+        .toBeLessThanOrEqual(1);
+      await jsonEvidence(info, "keyboard-scroll.json", scroll);
+      await expect(detail.last()).toHaveText("Unknown model Ultrafast100");
+      await expect(detail.last()).toBeInViewport({ ratio: 1 });
+      await expect(detail.last().locator("span.tabular-nums")).toBeInViewport({ ratio: 1 });
+      await expect(native).toHaveAttribute("data-sticky", "true");
+      await expect(surface).toBeInViewport({ ratio: 1 });
+      const bounds = (await card.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(8);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(804);
+      await page.screenshot({ path: info.outputPath("keyboard-final-row.png") });
+      await page.keyboard.press("Escape");
+      await expect(native).toBeHidden();
+      await expect(surface).toBeFocused();
+      await page.keyboard.press("Home");
+      for (let index = 0; index < 14; index++) {
+        await page.evaluate(() => new Promise(requestAnimationFrame));
+        await page.keyboard.press("ArrowRight");
+      }
+      await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      await page.keyboard.press("ArrowLeft");
+      await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-15");
+      await page.keyboard.press("ArrowRight");
+      await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
+      await page.keyboard.press("Space");
+      await expect(native).toHaveAttribute("data-sticky", "true");
+      await page.keyboard.press("Escape");
+      await expect(native).toBeHidden();
+      await expect(surface).toBeFocused();
     });
-    const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
-    await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
-    await surface.focus();
-    await page.keyboard.press("Home");
-    for (let index = 0; index < 14; index++) {
-      await page.evaluate(() => new Promise(requestAnimationFrame));
-      await page.keyboard.press("ArrowRight");
-    }
-    const native = page.locator(".calendar-tooltip");
-    const card = native.locator('[role="tooltip"]');
-    await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
-    await expect(surface).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(native).toHaveAttribute("data-sticky", "true");
-    await expect(native).toHaveAttribute("data-ts-chart-tooltip-portal", portalMode);
-    const trace = [];
-    for (let tabs = 0; tabs < 70; tabs++) {
-      if (await card.evaluate((element) => element === document.activeElement)) break;
-      await page.keyboard.press("Tab");
-      trace.push(
-        await page.evaluate(() => ({
-          focus: document.activeElement?.tagName,
-          text: document.activeElement?.textContent?.slice(0, 140),
-          hidden: document.querySelector(".calendar-tooltip")?.hasAttribute("hidden"),
-        })),
-      );
-    }
-    await jsonEvidence(info, "keyboard-entry.json", trace);
-    await expect(card).toBeFocused();
-    await expect(native).toBeVisible();
-    const detail = card.getByLabel("Tokens by model and speed").locator("li");
-    await expect(detail).toHaveCount(30);
-    await expect(detail.locator("span.tabular-nums")).toHaveText(Array(30).fill("100"));
-    await expect(card.locator("dd").first()).toHaveAttribute("title", "3,000 tokens");
-    const scroll = [];
-    for (let index = 0; index < 4; index++) {
-      await page.keyboard.press("PageDown");
-      await page.waitForTimeout(300);
-      scroll.push(await card.evaluate((element) => element.scrollTop));
-    }
-    await jsonEvidence(info, "keyboard-scroll.json", scroll);
-    await expect(detail.last()).toHaveText("Unknown model Ultrafast100");
-    await expect(detail.last()).toBeInViewport({ ratio: 1 });
-    await expect(detail.last().locator("span.tabular-nums")).toBeInViewport({ ratio: 1 });
-    await expect(native).toHaveAttribute("data-sticky", "true");
-    await expect(surface).toBeInViewport({ ratio: 1 });
-    const bounds = (await card.boundingBox())!;
-    expect(bounds.y).toBeGreaterThanOrEqual(8);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(804);
-    await page.screenshot({ path: info.outputPath("keyboard-final-row.png") });
-    await page.keyboard.press("Escape");
-    await expect(native).toBeHidden();
-    await expect(surface).toBeFocused();
-    await page.keyboard.press("Home");
-    for (let index = 0; index < 14; index++) {
-      await page.evaluate(() => new Promise(requestAnimationFrame));
-      await page.keyboard.press("ArrowRight");
-    }
-    await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
-    await page.evaluate(() => new Promise(requestAnimationFrame));
-    await page.keyboard.press("ArrowLeft");
-    await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-15");
-    await page.keyboard.press("ArrowRight");
-    await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
-    await page.keyboard.press("Space");
-    await expect(native).toHaveAttribute("data-sticky", "true");
-    await page.keyboard.press("Escape");
-    await expect(native).toBeHidden();
-    await expect(surface).toBeFocused();
-  });
+  }
 
   test(`transient hover preserves external focus ${portalMode}`, async ({ page }) => {
     if (portalMode === "fallback")
