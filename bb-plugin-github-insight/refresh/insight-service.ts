@@ -279,7 +279,10 @@ export function createInsightService(deps: InsightServiceDeps) {
       [...threadsByEnvironment].map(async ([environmentId, threadIds]) => {
         const resolution = await deps.resolveEnvironmentPr(environmentId);
         if (resolution.kind === "no_pr") threadIdsWithoutPr.push(...threadIds);
-        if (resolution.kind === "error") everyPrResolved = false;
+        if (resolution.kind === "error") {
+          everyPrResolved = false;
+          deps.warn(`PR lookup for environment ${environmentId} failed: ${resolution.message}`);
+        }
         if (resolution.kind !== "pr") return;
         const key = prKey(resolution.target.ref);
         const group = groups.get(key) ?? { target: resolution.target, threadIds: new Set() };

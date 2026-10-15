@@ -61,10 +61,17 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
   }
 
   async function lookUp(environmentId: string): Promise<PrResolution> {
-    const [linked, environment] = await Promise.all([
-      sdk.environments.pullRequest({ environmentId }),
-      sdk.environments.get({ environmentId }),
-    ]);
+    let linked: Awaited<ReturnType<typeof sdk.environments.pullRequest>>;
+    let environment: Awaited<ReturnType<typeof sdk.environments.get>>;
+    try {
+      [linked, environment] = await Promise.all([
+        sdk.environments.pullRequest({ environmentId }),
+        sdk.environments.get({ environmentId }),
+      ]);
+    } catch (error) {
+      stored.delete(environmentId);
+      return { kind: "error", message: error instanceof Error ? error.message : String(error) };
+    }
     if (linked.outcome === "absent") return store(environmentId, { kind: "no_pr" }, NO_PR_TTL_MS);
     if (linked.outcome === "unavailable") {
       if (linked.message.includes("no git remotes found")) {
