@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { definePluginApp, useBbNavigate } from "@get-bb/plugin-sdk/app";
-import type { OutputSnapshot } from "./contract";
-
-import { graphSeconds, smoothSeconds } from "./timing";
+import { projectOutputRates } from "./output-rate";
+import { OutputRateChart } from "./output-rate-chart";
+import { smoothSeconds } from "./timing";
 import { createOutputSnapshotHook, type OutputSnapshotHook } from "./use-output-snapshot";
 import { createOutputFooter } from "./footer";
 type WindowSize = 1 | typeof smoothSeconds;
@@ -16,31 +16,6 @@ function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
   const { snapshot, disconnected } = useSnapshot();
   const [windowSize, setWindowSize] = useState<WindowSize>(smoothSeconds);
   const [unit, setUnit] = useState<Unit>("tokens");
-  const [selectedSecond, setSelectedSecond] = useState<number | "latest" | null>(null);
-  const readoutId = useId();
-  const chartRef = useRef<SVGSVGElement>(null);
-  const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    const resize = () => {
-      const { width, height } = chart.getBoundingClientRect();
-      setChartSize((current) =>
-        current.width === width && current.height === height ? current : { width, height },
-      );
-    };
-    resize();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(resize);
-    observer.observe(chart);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSecond === "latest" && snapshot && !disconnected) {
-      setSelectedSecond(snapshot.samples.at(-1)!.second);
-    }
-  }, [selectedSecond, snapshot, disconnected]);
   const status = disconnected
     ? "Disconnected"
     : !snapshot || snapshot.coverage === "starting"
@@ -50,42 +25,15 @@ function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
         : snapshot.streamingThreads === 0
           ? "Idle"
           : "Live";
-  const divisor = unit === "tokens" ? 4 : 1;
-  const rate = (value: Pick<OutputSnapshot, "rawBytesPerSecond" | "smoothBytesPerSecond">) =>
-    (windowSize === 1 ? value.rawBytesPerSecond : value.smoothBytesPerSecond) / divisor;
-  const values = snapshot?.samples.map(rate) ?? Array<number>(graphSeconds).fill(0);
-  const peak = Math.max(...values, 0);
-  const maximum = Math.max(peak * 1.2, unit === "tokens" ? 20 : 80);
-  const y = (value: number) => 190 - (value / maximum) * 160;
-  const line = values
-    .map((value, index) => `${index ? "L" : "M"}${(index * 960) / (graphSeconds - 1)},${y(value)}`)
-    .join(" ");
-  const unitLabel = unit === "tokens" ? "est. tokens/s" : "bytes/s";
-  const selectedIndex =
-    snapshot?.samples.findIndex((sample) => sample.second === selectedSecond) ?? -1;
-  const selected =
-    !disconnected && selectedIndex >= 0 ? snapshot?.samples[selectedIndex] : undefined;
-  // Observe Escape only while a readout exists; leave host keyboard actions untouched.
-  const tooltipVisible = Boolean(selected);
-  useEffect(() => {
-    if (!tooltipVisible) return;
-    const document = chartRef.current?.ownerDocument;
-    if (!document) return;
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedSecond(null);
-    };
-    document.addEventListener("keydown", dismiss, true);
-    return () => document.removeEventListener("keydown", dismiss, true);
-  }, [tooltipVisible]);
-  const selectedX = (selectedIndex * 960) / (graphSeconds - 1);
-  const tooltipX = (selectedX / 960) * chartSize.width;
-  const tooltipWidth = Math.max(0, Math.min(240, chartSize.width - 16));
-  const tooltipLeft = Math.max(
-    8,
-    Math.min(Math.round(tooltipX + 12), chartSize.width - tooltipWidth - 8),
+  const view = useMemo(
+    () =>
+      projectOutputRates(
+        snapshot ? { startedAt: snapshot.startedAt, samples: snapshot.samples } : null,
+        { window: windowSize, unit },
+      ),
+    [snapshot, windowSize, unit],
   );
-  const tooltipY = ((selected ? y(rate(selected)) : 0) / 230) * chartSize.height;
-  const tooltipAbove = tooltipY > chartSize.height / 2;
+  const { rate, peak, unitLabel } = view;
   const notice = disconnected
     ? "Live updates stopped. The last graph is stale and incomplete."
     : status === "Starting"
@@ -164,159 +112,7 @@ function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
               {windowSize === 1 ? "Raw 1-second buckets" : "30-second average"}
             </p>
           </div>
-          <div className="relative mt-4">
-            <svg
-              className="h-60 w-full text-primary focus-visible:outline-2 focus-visible:outline-ring"
-              ref={chartRef}
-              viewBox="0 0 960 230"
-              preserveAspectRatio="none"
-              role="img"
-              aria-label={`Observed output over the last ten minutes in ${unitLabel}`}
-              tabIndex={0}
-              aria-describedby={`${readoutId}-help${selected ? ` ${readoutId}` : ""}`}
-              onFocus={() => {
-                setSelectedSecond(
-                  snapshot && !disconnected ? snapshot.samples.at(-1)!.second : "latest",
-                );
-              }}
-              onBlur={() => setSelectedSecond(null)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setSelectedSecond(null);
-                  return;
-                }
-                if (!snapshot || disconnected) return;
-                const current = selectedIndex >= 0 ? selectedIndex : graphSeconds - 1;
-                const target = new Map([
-                  ["ArrowLeft", current - 1],
-                  ["ArrowRight", current + 1],
-                  ["Home", 0],
-                  ["End", graphSeconds - 1],
-                ]).get(event.key);
-                if (target === undefined) return;
-                event.preventDefault();
-                setSelectedSecond(
-                  snapshot.samples[Math.max(0, Math.min(graphSeconds - 1, target))]!.second,
-                );
-              }}
-              onMouseMove={(event) => {
-                if (!snapshot || disconnected) return;
-                const bounds = event.currentTarget.getBoundingClientRect();
-                setChartSize((current) =>
-                  current.width === bounds.width && current.height === bounds.height
-                    ? current
-                    : { width: bounds.width, height: bounds.height },
-                );
-                if (bounds.width <= 0) return;
-                const fraction = Math.max(
-                  0,
-                  Math.min(1, (event.clientX - bounds.left) / bounds.width),
-                );
-                setSelectedSecond(
-                  snapshot.samples[Math.round(fraction * (graphSeconds - 1))]!.second,
-                );
-              }}
-              onMouseLeave={(event) => {
-                if (event.currentTarget.ownerDocument.activeElement !== event.currentTarget)
-                  setSelectedSecond(null);
-              }}
-            >
-              {[0, 0.5, 1].map((fraction) => (
-                <g key={fraction} className="text-muted-foreground">
-                  <line
-                    x1="0"
-                    x2="960"
-                    y1={y(maximum * fraction)}
-                    y2={y(maximum * fraction)}
-                    stroke="currentColor"
-                    opacity="0.2"
-                  />
-                </g>
-              ))}
-              <path d={`${line} L960,190 L0,190 Z`} fill="currentColor" opacity="0.12" />
-              <path
-                d={line}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-              {selected && (
-                <g aria-hidden="true" className="pointer-events-none">
-                  <line
-                    x1={selectedX}
-                    x2={selectedX}
-                    y1="30"
-                    y2="190"
-                    stroke="currentColor"
-                    strokeDasharray="4 4"
-                  />
-                  <circle cx={selectedX} cy={y(rate(selected))} r="4" fill="currentColor" />
-                </g>
-              )}
-            </svg>
-            <div
-              data-output-axes=""
-              className="pointer-events-none absolute inset-0 text-muted-foreground tabular-nums"
-              style={{ fontSize: "0.875rem", lineHeight: 1.25 }}
-            >
-              {[0, 0.5, 1].map((fraction) => (
-                <span
-                  key={fraction}
-                  className="absolute left-0"
-                  style={{
-                    top: `${(y(maximum * fraction) / 230) * 100}%`,
-                    transform: "translateY(calc(-100% - 6px))",
-                  }}
-                >
-                  {format(maximum * fraction)}
-                </span>
-              ))}
-              <div className="absolute inset-x-0 bottom-0 flex justify-between gap-2">
-                <span>10 minutes ago</span>
-                <span className="text-right">Last complete second</span>
-              </div>
-            </div>
-            <span id={`${readoutId}-help`} className="sr-only">
-              Use Left/Right to step through samples, Home/End for the edges, and Escape to dismiss
-              the tooltip.
-            </span>
-            {selected && (
-              <div
-                id={readoutId}
-                role="tooltip"
-                className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover p-2 text-xs text-popover-foreground shadow-lg"
-                style={{
-                  left: tooltipLeft,
-                  width: 240,
-                  top: `${Math.round(tooltipY + (tooltipAbove ? -12 : 12))}px`,
-                  transform: tooltipAbove ? "translateY(-100%)" : undefined,
-                  maxWidth: "calc(100% - 16px)",
-                }}
-              >
-                <time
-                  className="block truncate text-muted-foreground"
-                  dateTime={new Date(selected.second * 1000).toISOString()}
-                >
-                  {new Date(selected.second * 1000).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}
-                </time>
-                <span className="block truncate font-medium tabular-nums">
-                  {snapshot && (selected.second + 1) * 1000 <= snapshot.startedAt
-                    ? "Before collection started"
-                    : `${format(rate(selected))} ${unitLabel}`}
-                </span>
-                <span className="block text-muted-foreground">
-                  {windowSize === 1 ? "Raw 1-second bucket" : "30-second average"}
-                </span>
-              </div>
-            )}
-          </div>
+          <OutputRateChart view={view} availability={disconnected ? "stale" : "connected"} />
           <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-4">
             <Stat
               label="Threads streaming · last 5s"
@@ -330,7 +126,10 @@ function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
               label="Bytes observed since start"
               value={snapshot ? format(snapshot.totalBytes) : "—"}
             />
-            <Stat label={`Peak ${unitLabel} · last 10m`} value={snapshot ? format(peak) : "—"} />
+            <Stat
+              label={`Peak ${unitLabel} · last 10m`}
+              value={peak !== null ? format(peak) : "—"}
+            />
           </dl>
           <p className="mt-4 min-h-10 text-xs text-muted-foreground">
             {notice}
