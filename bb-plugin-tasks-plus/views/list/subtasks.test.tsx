@@ -470,6 +470,9 @@ describe("thread summary list parity", () => {
         fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of ABC-1" }));
         await waitFor(() => expect(slot.queryByText("ABC-3")).toBeNull());
       }
+      const requestsBeforeExpansion = slot.inspection.rpcCalls.filter(
+        (call) => call.method === "listTaskWorkStatus",
+      ).length;
       fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of ABC-1" }));
       await slot.findByRole("button", {
         name: /Threads for ABC-3: 1 Failed, 1 Running/,
@@ -508,8 +511,11 @@ describe("thread summary list parity", () => {
         .filter((c) => c.method === "listTaskWorkStatus")
         .at(-1)!;
       expect(new Set(rpcInput(after.input).taskIds as string[])).toEqual(
-        new Set([parent.id, plain.id, doneChild.id, urgentChild.id]),
+        new Set([doneChild.id, urgentChild.id]),
       );
+      expect(
+        slot.inspection.rpcCalls.filter((call) => call.method === "listTaskWorkStatus"),
+      ).toHaveLength(requestsBeforeExpansion + 1);
       expect(
         slot.inspection.rpcCalls.filter(
           (c) => c.method === "listComments" || c.method === "listAttachments",

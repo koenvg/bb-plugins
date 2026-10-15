@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
@@ -219,4 +219,170 @@ describe("task detail pull request pills", () => {
       ).toBeTruthy();
     });
   });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+type RefreshObservation = {
+  stage: string;
+  methods: string[];
+  retainedNodes: boolean[];
+  removedNodes: string[];
+};
+
+describe("task status changes retain thread and pull request data", () => {
+  for (const surface of ["standalone", "native Ticket"] as const) {
+    for (const order of ["event before save reply", "save reply before event"] as const) {
+      it(`${surface}, ${order}: does not reload or remount thread cards`, async () => {
+        const save = deferred<unknown>();
+        const read = deferred<{ task: typeof task }>();
+        let current = task;
+        let delayReads = false;
+        const updated = {
+          ...task,
+          status: "in_progress" as const,
+          updatedAt: "2026-10-02T12:00:00.000Z",
+        };
+        const subPath = surface === "standalone" ? "task/TSK-5" : "all?task=TSK-5";
+        const page = renderSlot(
+          app.navPanels[0]!,
+          { subPath },
+          {
+            experimental_openFixedTab: () => true,
+            rpc: detailRpc({
+              getTaskByKey: () => (delayReads ? read.promise : { task: current }),
+              listTasks: (input: unknown) => ({
+                tasks: rpcInput(input).parentTaskId ? [] : [current],
+              }),
+              listTaskWorkStatus: () => ({ byTaskId: {} }),
+              updateTask: () => save.promise,
+              listTaskPullRequests: () => ({
+                pullRequests: [
+                  {
+                    url: "https://github.com/acme/bb/pull/12",
+                    number: 12,
+                    title: "Ship the PR pill",
+                    state: "merged",
+                    updatedAt: "2026-07-16T10:00:00.000Z",
+                    threadIds: ["thr_worker000"],
+                  },
+                ],
+                unavailableThreadIds: [],
+              }),
+            }),
+          },
+        );
+        const ticket =
+          surface === "native Ticket"
+            ? renderSlot(app.navPanels[0]!.fixedTabs![0]!, { subPath })
+            : null;
+        const root = ticket?.container ?? page.container;
+        const ui = within(root);
+        const title = await ui.findByRole("textbox", { name: "Task title" });
+        const worker = await ui.findByText("Worker");
+        const pr = await ui.findByRole("link", {
+          name: "Pull request #12: Ship the PR pill (Merged)",
+        });
+        const editor = root.querySelector<HTMLElement>(".tiptap")!;
+        expect(title.textContent).toBe("Ship the PR pill");
+        expect(worker.textContent).toBe("Worker");
+        expect(pr.textContent).toBe("#12");
+        expect(editor.getAttribute("contenteditable")).toBe("true");
+        const nodes = { title, editor, worker, pr };
+        const removed = new Set<string>();
+        const observer = new MutationObserver((records) => {
+          for (const record of records) {
+            for (const detached of record.removedNodes) {
+              for (const [name, node] of Object.entries(nodes)) {
+                if (detached === node || detached.contains(node)) removed.add(name);
+              }
+            }
+          }
+        });
+        observer.observe(root, { childList: true, subtree: true });
+        const observations: RefreshObservation[] = [];
+        let offset = 0;
+        const record = (stage: string) => {
+          observations.push({
+            stage,
+            methods: page.rpcCalls.slice(offset).map((call) => call.method),
+            retainedNodes: [
+              ui.queryByRole("textbox", { name: "Task title" }) === title,
+              root.querySelector(".tiptap") === editor,
+              ui.queryByText("Worker") === worker,
+              ui.queryByRole("link", { name: "Pull request #12: Ship the PR pill (Merged)" }) ===
+                pr,
+            ],
+            removedNodes: [...removed],
+          });
+          offset = page.rpcCalls.length;
+        };
+        try {
+          await act(async () => {});
+          record("initial");
+          delayReads = true;
+          const status = ui.getAllByRole("button", { name: "Todo" })[0]!;
+          status.focus();
+          fireEvent.keyDown(status, { key: "Enter" });
+          fireEvent.click(await page.findByRole("menuitem", { name: "In Progress" }));
+          await waitFor(() =>
+            expect(page.rpcCalls).toContainEqual({
+              method: "updateTask",
+              input: { taskId: TASK_ID, status: "in_progress" },
+            }),
+          );
+          record("save pending");
+          current = updated;
+          if (order === "event before save reply") {
+            await page.behavior.emitRealtime("tasks:changed", { taskId: TASK_ID });
+            record("event, read pending");
+            await act(async () => read.resolve({ task: current }));
+            record("read resolved, save pending");
+            await act(async () => save.resolve({ ok: true, task: current }));
+          } else {
+            await act(async () => save.resolve({ ok: true, task: current }));
+            record("save resolved, read pending");
+            await page.behavior.emitRealtime("tasks:changed", { taskId: TASK_ID });
+            record("event, read pending");
+            await act(async () => read.resolve({ task: current }));
+          }
+          await act(async () => {});
+          record("settled");
+          expect(ui.getAllByRole("button", { name: "In Progress" })).toHaveLength(2);
+          expect(
+            observations[0]!.methods.filter((method) =>
+              ["listTaskThreads", "listTaskPullRequests"].includes(method),
+            ),
+          ).toEqual(["listTaskThreads", "listTaskPullRequests"]);
+          expect(
+            observations
+              .slice(1)
+              .flatMap((entry) => entry.methods)
+              .filter((method) => ["listTaskThreads", "listTaskPullRequests"].includes(method)),
+          ).toEqual([]);
+          expect(observations.map((entry) => entry.retainedNodes)).toEqual(
+            observations.map(() => [true, true, true, true]),
+          );
+          expect([...removed]).toEqual([]);
+          await page.behavior.emitRealtime("threads:changed", { taskId: TASK_ID });
+          record("threads event control");
+          expect(
+            observations
+              .at(-1)!
+              .methods.filter((method) =>
+                ["listTaskThreads", "listTaskPullRequests"].includes(method),
+              ),
+          ).toEqual(["listTaskThreads", "listTaskPullRequests"]);
+        } finally {
+          observer.disconnect();
+        }
+      });
+    }
+  }
 });
