@@ -21,6 +21,12 @@ bun verification/build-viewer-preview.mjs
 
 The final integrated test run passed 606 tests in 57 files. Typecheck, production and preview builds, scoped Oxc lint and formatting, and whitespace checks passed.
 
+## CI fixture isolation
+
+The bridge lifecycle fixture stages its generated extension beside the installed package dependencies. Its working directory and agent state remain in an isolated temporary directory. Bun auto-install and inherited NODE_PATH lookup are disabled.
+
+A direct Bun import check reproduced a missing Pi package before this placement change and passed after it. All four lifecycle cases passed on macOS ARM64 and Linux ARM64 with Node 24.15.0 and Bun 1.4.3. Existing session-replacement, reload and bridge-channel assertions and deadlines remain unchanged.
+
 ## Recorded browser checks
 
 Before integration with the latest `main`, controlled source fixtures reproduced a 50px reading jump on desktop and mobile and a 113px jump in a narrow panel. The repair reduced each jump to 0px without hiding the notice. Unfocused reading and native bottom clamping also retained the anchor.

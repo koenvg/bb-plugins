@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -40,7 +40,11 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   const agentDir = join(root, "agent");
   mkdirSync(agentDir);
   writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ defaultTools: [] }));
-  const extension = join(root, "bb-extension.mjs");
+  const extensionRoot = mkdtempSync(
+    fileURLToPath(new URL("../../node_modules/.bb-pi-context-extension-", import.meta.url)),
+  );
+  roots.push(extensionRoot);
+  const extension = join(extensionRoot, "bb-extension.mjs");
   writeFileSync(extension, BB_PI_EXTENSION_SOURCE);
   const controls = join(root, "controls.mjs");
   writeFileSync(
@@ -56,9 +60,16 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
     mkdirSync(join(root, ".pi", "extensions"));
     writeFileSync(join(root, ".pi", "extensions", "project.mjs"), "export default function() {}");
   }
+  const env = {
+    ...process.env,
+    NODE_PATH: "",
+    PI_CODING_AGENT_DIR: agentDir,
+    PI_BB_TOOLS_FILE: "",
+  };
   const child = spawn(
     runtime,
     [
+      ...(runtime === "bun" ? ["--no-install"] : []),
       cli,
       "--mode",
       "rpc",
@@ -71,7 +82,7 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
     ],
     {
       cwd: root,
-      env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_BB_TOOLS_FILE: "" },
+      env,
       stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
     },
   );
@@ -143,7 +154,7 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
       .map((entry) => JSON.stringify(entry))
       .join("\n") + "\n",
   );
-  return { rpc, channel, sessionPath };
+  return { rpc, channel, sessionPath, root, extension, env };
 }
 
 it("reads the active context after project-trust resource replacement", async () => {
@@ -170,6 +181,14 @@ it("keeps the bridge channel usable after session replacement and reload", async
 
 it("keeps the Bun channel usable after session replacement and reload", async () => {
   const pi = await startPi(false, "bun");
+  const load = spawnSync("bun", ["--no-install", pi.extension], {
+    cwd: pi.root,
+    env: pi.env,
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+  expect(load.error).toBeUndefined();
+  expect(load.status, load.stderr).toBe(0);
   await pi.rpc("new_session");
   expect(await pi.channel("leaf")).toHaveProperty("leafId");
   await pi.rpc("prompt", { message: "/bb-test-reload" });
