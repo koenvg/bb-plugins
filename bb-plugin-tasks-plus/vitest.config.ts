@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
+    dedupe: ["react", "react-dom"],
     tsconfigPaths: true,
     alias: {
       "tippy.js": "tippy.js/dist/tippy.esm.js",
