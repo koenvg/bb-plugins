@@ -24,11 +24,10 @@ it("marks each tiny positive day once without changing model, category, or fallb
   expect(data.rows[16].modelFacts).toEqual({ m0: 0, m1: 0, unknown: 1 });
   expect(data.rows[16].height).toBe(1e-9);
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  const markers = page.container.querySelectorAll("[data-positive-usage]");
-  expect(Array.from(markers, (node) => node.getAttribute("data-positive-usage"))).toEqual([
-    view.days[15].date,
-    view.days[16].date,
-  ]);
+  const markers = page.container.querySelectorAll(".calendar-positive-usage");
+  expect(
+    Array.from(markers, (node) => node.getAttribute("data-ts-key")?.replace("positive:", "")),
+  ).toEqual([view.days[15].date, view.days[16].date]);
   for (const marker of Array.from(markers)) expect(marker.getAttribute("height")).toBe("2");
   const rows = screen
     .getByRole("table", { name: "Daily recorded usage" })
@@ -73,4 +72,39 @@ it.each([15, 16])("keeps exact tooltip facts for small day %s", (index) => {
       within(tip).getByText("Token breakdown").parentElement?.querySelector("dd")?.textContent,
     ).toBe("Unavailable");
   }
+});
+
+it("marks an original positive cost even when its drawing ratio underflows", () => {
+  const view = calendarMixedMagnitudeSnapshot(query);
+  view.days[14].money = {
+    state: "available",
+    capturedCost: Number.MAX_SAFE_INTEGER,
+    pricedRecords: 1,
+    records: 1,
+    pricedEntities: 1,
+    reason: "ok",
+  };
+  view.days[15].money = {
+    state: "available",
+    capturedCost: Number.MIN_VALUE,
+    pricedRecords: 1,
+    records: 1,
+    pricedEntities: 1,
+    reason: "ok",
+  };
+  const data = chartData(view.days, "cost");
+  expect(data.rows[15].height).toBe(0);
+  expect(data.rows[15].value).toBe(5e-324);
+  const page = render(<CalendarValues view={view} metric="cost" />);
+  const marker = page.container.querySelector(".calendar-positive-usage")!;
+  expect(marker.getAttribute("data-ts-key")).toBe(`positive:${view.days[15].date}`);
+  expect(marker.getAttribute("width")).toBe("6");
+  expect(marker.getAttribute("height")).toBe("2");
+  expect(marker.getAttribute("aria-hidden")).toBe("true");
+  expect(page.container.querySelectorAll(".calendar-positive-usage")).toHaveLength(1);
+  const rows = screen
+    .getByRole("table", { name: "Daily recorded usage" })
+    .querySelectorAll("tbody tr");
+  expect(rows[14].children[1].textContent).toBe("$9,007,199,254,740,991");
+  expect(rows[15].children[1].textContent).toBe("$5e-324");
 });

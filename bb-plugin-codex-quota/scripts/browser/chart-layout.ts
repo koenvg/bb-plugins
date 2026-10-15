@@ -18,15 +18,15 @@ export type Layout = {
 };
 export function layout(page: Page): Promise<Layout> {
   return page.evaluate(`(() => {
-    const s = document.querySelector('.recharts-surface');
-    const y = [...document.querySelectorAll('.recharts-yAxis-tick-labels text')].map(e => e.textContent);
-    const x = [...document.querySelectorAll('.recharts-xAxis-tick-labels text')].map(e => e.textContent);
-    const label = document.querySelector('.recharts-label')?.getBoundingClientRect();
-    const ticks = [...document.querySelectorAll('.recharts-yAxis-tick-labels text')].map(e => e.getBoundingClientRect());
+    const s = document.querySelector('.ts-chart');
+    const y = [...document.querySelectorAll('[data-ts-key^="y-tick-label:"]')].map(e => e.textContent);
+    const x = [...document.querySelectorAll('[data-ts-key^="x-tick-label:"]')].map(e => e.textContent);
+    const label = document.querySelector('[data-ts-key="y-label"]')?.getBoundingClientRect();
+    const ticks = [...document.querySelectorAll('[data-ts-key^="y-tick-label:"]')].map(e => e.getBoundingClientRect());
     const bounds = s?.getBoundingClientRect();
-    const tip = document.querySelector('.recharts-tooltip-wrapper [role=tooltip]')?.getBoundingClientRect();
-    const tooltipContained = tip && bounds ? tip.left >= bounds.left && tip.right <= bounds.right && tip.top >= 0 && tip.bottom <= innerHeight : false;
-    const tooltip = document.querySelector('.recharts-tooltip-wrapper [role=tooltip]');
+    const tip = document.querySelector('.calendar-tooltip [role=tooltip]')?.getBoundingClientRect();
+    const tooltipContained = tip ? tip.left >= 8 && tip.right <= innerWidth - 8 && tip.top >= 8 && tip.bottom <= innerHeight - 8 : false;
+    const tooltip = document.querySelector('.calendar-tooltip [role=tooltip]');
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 1;
     const context = canvas.getContext('2d', {willReadFrequently: true});

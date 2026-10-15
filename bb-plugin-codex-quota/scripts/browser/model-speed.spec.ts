@@ -49,7 +49,7 @@ for (const width of [375, 1280])
         .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
       expect(new Set(colors).size).toBe(3);
       const fills = await page
-        .locator(".recharts-bar-rectangle path")
+        .locator(".ts-chart__bar rect")
         .evaluateAll((nodes) =>
           nodes
             .filter((node) => node.getBoundingClientRect().height > 0)

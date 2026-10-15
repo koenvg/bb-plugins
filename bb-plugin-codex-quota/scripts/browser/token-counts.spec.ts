@@ -42,9 +42,9 @@ for (const width of [375, 1280]) {
     );
     expect(rankingBoxes.every((box) => box.x >= 0 && box.right <= width)).toBe(true);
 
-    const surface = page.locator('.recharts-surface[role="application"]');
+    const surface = page.locator('.ts-chart[role="img"]');
     await surface.focus();
-    const date = page.locator(".recharts-tooltip-wrapper time");
+    const date = page.locator(".calendar-tooltip time");
     for (let step = 0; step < 30; step++) {
       if ((await date.count()) && (await date.getAttribute("datetime")) === "2026-09-26") break;
       await page.keyboard.press("ArrowRight");

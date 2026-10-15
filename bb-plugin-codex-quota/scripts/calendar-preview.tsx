@@ -68,7 +68,7 @@ function snapshot(query: CalendarQuery) {
   const amount =
     state === "tiny"
       ? Number.MIN_VALUE
-      : state === "huge"
+      : state === "huge" || state === "cost-underflow"
         ? Number.MAX_SAFE_INTEGER
         : state === "partial"
           ? 287.24
@@ -83,6 +83,15 @@ function snapshot(query: CalendarQuery) {
       reason: "missing-prices",
     };
     view.summary.money = { ...view.days[14].money };
+  }
+  if (state === "cost-underflow") {
+    view.days[15] = {
+      ...view.days[14],
+      date: view.days[15].date,
+      money: { ...view.days[14].money, capturedCost: Number.MIN_VALUE },
+    };
+    view.summary.totalTokens = 1200;
+    view.summary.money = { ...view.summary.money, records: 120, pricedRecords: 2 };
   }
   if (state === "expired") view.days[14].classes = { state: "unavailable" };
   if (state === "huge")
@@ -240,6 +249,23 @@ function snapshot(query: CalendarQuery) {
     day.uncertain = { totalTokens: 300, records: 1 };
     view.summary.uncertain = { totalTokens: 300, records: 1 };
     view.days[0].coverage = { ...view.days[0].coverage, state: "observed-inactivity", zero: true };
+  }
+  if (state === "tooltip-max") {
+    const day = view.days[14];
+    day.totalTokens = view.summary.totalTokens = 3000;
+    day.speedTokens = { normal: 1000, fast: 1000, ultrafast: 1000 };
+    day.models = {
+      named: Array.from({ length: 8 }, (_, index) => ({
+        model: `model-${index}-` + "x".repeat(120),
+        totalTokens: 300,
+        speedTokens: { normal: 100, fast: 100, ultrafast: 100 },
+      })),
+      otherTokens: 300,
+      otherSpeedTokens: { normal: 100, fast: 100, ultrafast: 100 },
+    };
+    day.uncertain = { totalTokens: 300, records: 1 };
+    view.summary.speedTokens = { ...day.speedTokens };
+    view.summary.uncertain = { ...day.uncertain };
   }
   return view;
 }

@@ -9,7 +9,7 @@ for (const width of [375, 1280]) {
       await page.goto("/calendar.html?state=mixed-magnitude");
       await chart(page);
       const daily = await rows(page);
-      const markers = page.locator("[data-positive-usage]");
+      const markers = page.locator(".calendar-positive-usage");
       const legend = page.getByRole("group", { name: "Models", exact: true });
       await expect(markers).toHaveCount(2);
       const markerGeometry = await markers.evaluateAll((nodes) =>
@@ -27,7 +27,7 @@ for (const width of [375, 1280]) {
       await expect(markers).toHaveCount(2);
       await legend.getByRole("button", { name: "gpt-5.4 Default", exact: true }).click();
       await expect(markers).toHaveCount(1);
-      await expect(markers).toHaveAttribute("data-positive-usage", daily[16][0]);
+      await expect(markers).toHaveAttribute("data-ts-key", `positive:${daily[16][0]}`);
       await legend.getByRole("button", { name: "Unknown model Default", exact: true }).click();
       await expect(markers).toHaveCount(0);
       expect(await rows(page)).toEqual(daily);
@@ -42,7 +42,7 @@ for (const width of [375, 1280]) {
           })),
         ),
       ).toEqual(markerGeometry);
-      await expect(page.getByRole("application")).toHaveAttribute(
+      await expect(page.getByRole("img")).toHaveAttribute(
         "aria-label",
         "Daily usage chart: Tokens",
       );
