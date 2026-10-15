@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 CONTRACT = (
     Path(__file__).resolve().parents[1]
-    / ".pi/skills/verify/references/browser-contract.md"
+    / ".pi/skills/verify-bb-plugins/references/browser-contract.md"
 )
 IDENTITY = {
     "name": "verify-owned-run",
