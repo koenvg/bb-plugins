@@ -30,10 +30,12 @@
   "dependencies": {
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "refractor": "^5.0.0"
+    "refractor": "^5.0.0",
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
+    "@types/hast": "^3.0.4",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

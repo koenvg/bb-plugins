@@ -85,7 +85,7 @@
 
     "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
 
-    "@bb-plugins/markdown-document": ["@bb-plugins/markdown-document@file:../packages/markdown-document", { "dependencies": { "react-markdown": "^10.1.0", "refractor": "^5.0.0", "remark-gfm": "^4.0.1" }, "devDependencies": { "@testing-library/react": "^16.3.2", "@types/node": "^24.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "jsdom": "^29.0.1", "react": "^19.0.0", "react-dom": "^19.0.0", "typescript": "^5.9.3", "vitest": "^4.1.1" }, "peerDependencies": { "react": "^19.0.0" } }],
+    "@bb-plugins/markdown-document": ["@bb-plugins/markdown-document@file:../packages/markdown-document", { "dependencies": { "react-markdown": "^10.1.0", "refractor": "^5.0.0", "remark-gfm": "^4.0.1", "unist-util-visit": "^5.1.0" }, "devDependencies": { "@testing-library/react": "^16.3.2", "@types/hast": "^3.0.4", "@types/node": "^24.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "jsdom": "^29.0.1", "react": "^19.0.0", "react-dom": "^19.0.0", "typescript": "^5.9.3", "vitest": "^4.1.1" }, "peerDependencies": { "react": "^19.0.0" } }],
 
     "@bramus/specificity": ["@bramus/specificity@2.4.2", "", { "dependencies": { "css-tree": "^3.0.0" }, "bin": { "specificity": "bin/cli.js" } }, "sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw=="],
 
