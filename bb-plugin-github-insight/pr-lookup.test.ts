@@ -10,11 +10,12 @@ function setup(initial: PullRequestResult = linkedPr(7)) {
   let answer: () => Promise<PullRequestResult> = async () => initial;
   const pullRequest = vi.fn((_request: { environmentId: string }) => answer());
   const readRateLimitReset = vi.fn(async (_hostId: string): Promise<number | null> => null);
+  const get = vi.fn(async (_request: { environmentId: string }) => ({ hostId: "host-1" }));
   const pause = createRateLimitPause();
   const lookup = createPrLookup({
     sdk: {
       threads: { get: async () => ({ environmentId: "env_1" }) },
-      environments: { pullRequest, get: async () => ({ hostId: "host-1" }) },
+      environments: { pullRequest, get },
     } as unknown as Parameters<typeof createPrLookup>[0]["sdk"],
     pause,
     readRateLimitReset,
@@ -23,6 +24,7 @@ function setup(initial: PullRequestResult = linkedPr(7)) {
     ...lookup,
     pause,
     pullRequest,
+    get,
     readRateLimitReset,
     answer(next: PullRequestResult | (() => Promise<PullRequestResult>)) {
       answer = typeof next === "function" ? next : async () => next;
@@ -102,6 +104,42 @@ describe("createPrLookup", () => {
     await lookup.resolveEnvironmentPr("env_1");
     expect(lookup.pullRequest).toHaveBeenCalledTimes(2);
   });
+
+  it.each(["pullRequest", "get"] as const)(
+    "returns an error for rejected environments.%s reads and retries without reusing stale results",
+    async (method) => {
+      const lookup = setup(linkedPr(7, "merged"));
+      lookup[method].mockRejectedValueOnce(new Error("HTTP 409: Environment unavailable"));
+
+      expect(await lookup.resolveEnvironmentPr("env_1")).toEqual({
+        kind: "error",
+        message: "HTTP 409: Environment unavailable",
+      });
+      expect(await lookup.resolveEnvironmentPr("env_1")).toEqual({
+        kind: "pr",
+        target: {
+          ref: { owner: "collibra", repo: "frontend", number: 7 },
+          hostId: "host-1",
+          openOnBb: false,
+        },
+      });
+
+      lookup[method].mockRejectedValueOnce(new Error("HTTP 409: Environment unavailable"));
+      expect(await lookup.resolveEnvironmentPr("env_1", { fresh: true })).toEqual({
+        kind: "error",
+        message: "HTTP 409: Environment unavailable",
+      });
+      lookup.answer(linkedPr(15));
+      expect(await lookup.resolveEnvironmentPr("env_1")).toEqual({
+        kind: "pr",
+        target: {
+          ref: { owner: "collibra", repo: "frontend", number: 15 },
+          hostId: "host-1",
+          openOnBb: true,
+        },
+      });
+    },
+  );
 
   it("forgets the stored result when a later lookup fails", async () => {
     const lookup = setup(linkedPr(7, "merged"));
