@@ -118,6 +118,31 @@ Readiness reports fixed unavailable states for missing runtime support, unsuppor
 
 Live installation, existing-session restart, billed turns, live host/account changes and installed plugin source/enabled-state changes remain approval-blocked. All evidence for this slice uses isolated synthetic fixtures. This is not live installed acceptance.
 
+## Host-scoped collector maintenance
+
+The `collectorMaintenance` RPC targets one explicit `hostId` without reading or changing dashboard selection. It does not list, select, enroll, or restore hosts. The invoking automation must already hold approval for that exact host. Runtime enrollment checks do not establish human approval.
+
+The strict request accepts only these fields:
+
+```json
+{ "hostId": "host_example", "operation": "readiness" }
+```
+
+`operation` is either `readiness` or `repair-existing`. Readiness returns `{ kind: "checked", readiness }`, including unavailable readiness views. It keeps normal mutable reconciliation, recovery, retention, previously authorized legacy work, and bounded public identity delivery. It does not install or repair a collector.
+
+`repair-existing` needs no earlier readiness call. One host queue turn runs mutable readiness, checks current eligibility, replaces an eligible incompatible asset, publishes control, and reads back storage, asset, and capture metadata. Verification does not repeat ingestion or retention. Repair does not discover identities or read native sources, credentials, or transcripts.
+
+Repair results are discriminated by `kind`:
+
+- `unchanged` has `reason: "collector-compatible"` and established `readiness`. It does not rewrite the asset or control. Normal readiness maintenance can still change history files.
+- `repaired` has `readiness` and `preserved` containing the unchanged `enabled`, `firstObservedAt`, and `pauseCount` values. Paused capture stays paused. This is not proof that existing sessions loaded the writer.
+- `refused` has a fixed `reason` and `readiness`. Missing, unsafe, unreadable, oversized, or unsupported collectors are not installed. Storage and collection metadata must already be compatible and valid.
+- `unavailable` has a fixed `reason` and `hostWork`, either `not-started` or `may-have-run`. Cancellation, failed verification, or partial publication never reports repair success. An unavailable result is not a rollback receipt or permission to retry automatically.
+
+Both operations require the exact persistent, active, connected host before dispatch and publication. They invalidate only that host's machine summary cache before work and in `finally`. Disposal and a 12-second deadline settle callers without releasing the actual host queue early. Asset and control writes are separate. Path checks do not provide compare-and-swap isolation against arbitrary external filesystem changes.
+
+The selected-host dashboard handlers and manual controls retain their existing guards and broader explicit installation consent. Local source and packaged fixtures exercise maintenance without installed plugin activation or live collector operations. They do not establish installed acceptance.
+
 ## Explicit historical import
 
 Open **Historical import**. Enter the selected host's actual BB Pi source root, optional ordinary Pi session directories and known workspace paths, then use **Save import sources**. No root is guessed or read from private BB configuration. These are configured sources, not independently discovered effective roots or proof of complete coverage. Custom BB roots must be entered explicitly. Configuration and status do not discover or read transcripts.

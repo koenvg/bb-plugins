@@ -39,7 +39,7 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 
 ## History
 
-`src/history/history-host.ts` owns one database-operation queue and the import cancellation epochs. Its interface is `read`, `report`, `prepare`, `control`, `controlImport`, and `dispose`.
+`src/history/history-host.ts` owns one database-operation queue and the import cancellation epochs. Its interface is `read`, `report`, `prepare`, `control`, `repairExisting`, `controlImport`, and `dispose`.
 
 - `report` is explicitly read-only. It returns a calendar report directly, not a fake readiness result containing a calendar field.
 - `prepare` loads bounded existing Pi logs and supported native Codex requests, accepts provider-qualified identity evidence and reconciles identity. Both source backlogs prevent settlement, but native backlog cannot block Pi ingestion. Native preparation may create a collector-disabled index, migrate supported storage and perform bounded physical retention. It does not change collector controls, assets, Pi import consent or recovery.
@@ -52,11 +52,25 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 
 Schema 5 stores source/speed metadata outside unchanged Pi v1 proofs. Reports remain read-only, and schema-4 reports decode absent speed as Normal. The changed collector asset requires explicit repair after future deployment. Pi prices, retention dates and import controls remain. See [SPEED.md](SPEED.md) for native identity, alias and speed rules.
 
+## Collector maintenance
+
+`src/history/collector-maintenance-contract.ts` derives `MaintenanceRequest`, `MaintenanceResult`, and `RepairResult` from strict schemas. The request names one host and either `readiness` or `repair-existing`. Checked results contain bounded readiness. Repair success requires compatible storage, compatible collector bytes, valid collection metadata, and the preserved capture values.
+
+`src/history/collector-maintenance-routing.ts` owns exact persistent, active, connected-host checks, deadlines, lifecycle cancellation, output validation, and target cache invalidation. Its dependencies have no host-list or selection operation. The server registers this route separately from the unchanged selected-host handlers. Enrollment is runtime authorization, not evidence of human approval.
+
+Readiness reuses `createIdentityHistoryCall`. An optional per-call `beforeDispatch` guard runs after identity discovery, outside discovery's fallback catch. Maintenance uses it to recheck authorization and cancellation and to record actual dispatch. Existing callers retain their behavior. Repair uses a narrow host command with no identity batch or caller paths.
+
+`history-maintenance.ts` owns existing-only eligibility inside the existing `HostHistory` queue. It runs one mutable preflight and bounded read-back verification, without a second ingestion, retention, or legacy-maintenance pass. `collector-compatibility.ts` classifies safe existing mismatched assets separately from missing, unsafe, and unsupported states, then derives the old coarse compatibility view.
+
+`collector-control.ts` stages replacement without creating directories, rechecks existing asset and control safety at publication, and preserves capture intent. The new command does not invoke generic manual repair or its recovery fallback. Explicit asset and control completion plus verified capture metadata are required for `repaired`. Failures after publication attempts are unavailable with `may-have-run`. There is no rollback or retry loop. The queue excludes competing plugin history work, not arbitrary external filesystem writers.
+
 ## Tests
 
 The main seams are server RPC, host RPC, and the history module's interface. Tests cover host/account switches, unavailable hosts, malformed results, cancellation, disposal, serialized storage work, and worker leases. Packaged checks use temporary SQLite files and synthetic credentials. They do not prove live collection or billed charges.
 
 `src/selection/selected-host.test.ts` runs the same public RPC guard matrix for quota, activity, readiness, collector controls, calendar reports, and import status. It checks malformed input and output, foreign hosts, enrollment loss, and offline hosts before dispatch and before publication. It also holds each request stage while switching, clearing or restoring selection, or disposing the server. Callers must settle before the held adapter returns, with the feed's own unavailable result.
+
+`src/history/collector-maintenance-routing.test.ts` calls the registered public RPC with null, other, and changing dashboard selection. It verifies host authorization, identity-discovery revocation, fixed results, hostile input and output, target cache effects, and disposal. `collector-maintenance.test.ts` calls `HostHistory.repairExisting` against temporary SQLite, asset, and control fixtures. It checks paused preservation, no-op and refusal effects, bounded preflight, publication failure, and actual queue lifetime. `scripts/check-bundled-history.mjs` repeats missing refusal, paused repair, and compatible no-op through the isolated built host entry. None of these checks establishes installed acceptance.
 
 New and changed request/lifetime tests are included in the TypeScript check. Other historical gaps remain tracked in BBP-93. The shared selected-host guard and its cross-feed checks cover BBP-94. Footer work remains separate in BBP-61.
 
