@@ -80,6 +80,7 @@ Local raster images support PNG, JPEG, GIF, WebP, AVIF, BMP, and ICO. SVG, HTML,
 ## Code presentation
 
 Fences with an explicit supported language receive lightweight highlighting up to 20 KiB of rendered UTF-8 code, including its final newline. The byte guard runs before tokenization. Unknown or missing languages, larger fences, and tokenizer failures stay plain readable code. There is no auto-detection, JSON parsing, pretty printing, or source reconstruction. Preview preserves the Markdown parser's rendered code text; Raw always preserves the complete exact original, including CRLF.
+The shared highlighter also limits passive token output to 16,384 nodes and depth 64. Exceeding either budget keeps the original code plain. Both consumers use the same guarded implementation.
 
 | Bundled language | Accepted labels         |
 | ---------------- | ----------------------- |

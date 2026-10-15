@@ -22,7 +22,8 @@ Create one model for an immutable loaded snapshot and use a mount-unique namespa
 
 `MarkdownDocument` accepts `model`, controlled `view`, optional `destinations`, `outline`, `lineRange`, `annotateSourceLines` and `navigation`. `view` is `preview` or `raw`. The root exports these public types and the source-neutral heading, request, grant and link-reference types. Internal subpaths are not exported.
 
-Preview hides leading YAML frontmatter without changing heading source positions. It renders GFM, disabled task checkboxes and passive syntax tokens. Known fences up to 20 KiB receive highlighting. Unknown languages, larger fences and tokenizer failures remain plain code. Raw preserves the complete source, including BOM, frontmatter, mixed line endings and whitespace. HTML and MDX do not execute.
+Preview hides leading YAML frontmatter without changing heading source positions. It renders GFM, disabled task checkboxes and passive syntax tokens. Known fences up to 20 KiB receive highlighting. Unknown languages, larger fences, token-budget failures and tokenizer failures remain plain code. Raw preserves the complete source, including BOM, frontmatter, mixed line endings and whitespace. HTML and MDX do not execute.
+Tokenizer output is limited to 16,384 passive nodes and depth 64. These existing BBP-56 safeguards remain unchanged in the shared implementation.
 
 `outline` defaults to false. When enabled, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
 

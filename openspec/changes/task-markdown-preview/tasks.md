@@ -53,11 +53,11 @@ Complete delivery 1 before delivery 4.
 
 Delivery 5 requires delivery 1 and a working production file reader with Preview and Raw views.
 
-- [ ] 5.1 Confirm the actual markdown-reader source is available and coordinate common-module ownership before changing it; record integration scope or leave this delivery blocked without a substitute full reader or unapproved changes to the other plan.
-- [ ] 5.2 Connect the production reader to the same package, stylesheet and destination-policy interface; verify its existing source-root/host confinement, source-safe destinations, refresh, line-range, exact Raw and bound Original fallback tests.
-- [ ] 5.3 Run the same report through both production consumers at equivalent themes/content widths; verify common semantics/computed styles, consumer-local headings, intentional relative-link differences and independent operation without the other plugin installed, leaving this task open if the real reader is absent.
-- [ ] 5.4 Add reader lockfile and affected CI dependency setup when its package exists; verify clean installs, typechecks and independently bundled common code/CSS with no sibling-checkout/runtime-plugin dependency or extra React runtime.
-- [ ] 5.5 Document reader build order and source-policy ownership; verify examples preserve existing opener-selection, fallback, installation and preference limits without claiming missing later reader behavior complete.
+- [x] 5.1 Confirm the actual markdown-reader source is available and coordinate common-module ownership before changing it; record integration scope or leave this delivery blocked without a substitute full reader or unapproved changes to the other plan.
+- [x] 5.2 Connect the production reader to the same package, stylesheet and destination-policy interface; verify its existing source-root/host confinement, source-safe destinations, refresh, line-range, exact Raw and bound Original fallback tests.
+- [x] 5.3 Run the same report through both production consumers at equivalent themes/content widths; verify common semantics/computed styles, consumer-local headings, intentional relative-link differences and independent operation without the other plugin installed, leaving this task open if the real reader is absent.
+- [x] 5.4 Add reader lockfile and affected CI dependency setup when its package exists; verify clean installs, typechecks and independently bundled common code/CSS with no sibling-checkout/runtime-plugin dependency or extra React runtime.
+- [x] 5.5 Document reader build order and source-policy ownership; verify examples preserve existing opener-selection, fallback, installation and preference limits without claiming missing later reader behavior complete.
 
 ## 6. Verify the complete attachment and file-reader experience
 

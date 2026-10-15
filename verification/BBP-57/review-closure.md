@@ -26,3 +26,7 @@ Five public cases cover relative, root-relative, malformed-encoding, malformed-H
 - Final type, lint, fresh-build and affected Tasks checks are recorded in [the validation report](report.md).
 
 Retained logs are `parent-validation/review-findings-red.log`, `review-findings-green.log`, `reader-after-findings.log`, and the browser after-findings directories in thread `thr_dfv3azhs3e`. Original review artifact hashes and exact copies were retained before rebuild under `review-original-artifacts/`. No reviewer report was rewritten and no additional review pass was launched.
+
+## Post-rebase verification
+
+After integration with merged BBP-56, all 92 shared, 235 Reader and 1,323 Tasks unit cases pass. All 69 Reader and 22 Tasks browser cases pass, including the upstream technical-report cases. Shared highlighting guards are byte-for-byte unchanged from `e6484c6`. Parent reran matched production-consumer styles/theme checks, types, root checks and fresh isolated SDK/build checks. See `rebase-validation/` in thread storage. Hosted CI and installed acceptance were not run. This remains owner verification of the two fixes, not a new independent verdict.

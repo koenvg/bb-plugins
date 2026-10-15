@@ -7,6 +7,7 @@ import {
   readFileSync,
   writeFileSync,
   symlinkSync,
+  rmSync,
 } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -94,6 +95,8 @@ for (const leaf of ["bb-plugin-markdown-reader", "bb-plugin-tasks-plus"]) {
     shared,
     env,
   );
+  cpSync(join(shared, "dist"), join(evidence, `${leaf}-shared-compiled`), { recursive: true });
+  rmSync(join(shared, "dist"), { recursive: true });
   if (leaf === "bb-plugin-tasks-plus")
     run(
       `${leaf}-quota-fixture-install`,
@@ -110,6 +113,11 @@ for (const leaf of ["bb-plugin-markdown-reader", "bb-plugin-tasks-plus"]) {
     throw new Error("Unexpected local build CLI");
   run(`${leaf}-sdk`, bb, ["plugin", "types", ".", "--check"], consumer, env);
   run(`${leaf}-build`, "bun", ["run", "build"], consumer, env);
+  if (
+    existsSync(join(shared, "dist")) ||
+    existsSync(join(consumer, "node_modules/@bb-plugins/markdown-document/dist"))
+  )
+    throw new Error("Consumer build unexpectedly requires shared dist");
   const app = readFileSync(join(consumer, "dist/app.js"), "utf8");
   const css = readFileSync(join(consumer, "dist/app.css"), "utf8");
   if (!app.includes("md-document") || !app.includes("mr-prose") || !css.includes(".md-document"))
@@ -133,7 +141,7 @@ for (const leaf of ["bb-plugin-markdown-reader", "bb-plugin-tasks-plus"]) {
   }));
   writeFileSync(
     join(evidence, `${leaf}-artifacts.json`),
-    JSON.stringify({ oppositeSourceAbsent: true, artifacts }, null, 2),
+    JSON.stringify({ oppositeSourceAbsent: true, sharedDistAbsent: true, artifacts }, null, 2),
   );
   console.log(
     `PASS ${leaf} bundles shared presentation without ${opposite} source or installed state`,
