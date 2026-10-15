@@ -27,9 +27,11 @@ import { prepareHostReport } from "./report-preparation-host.js";
 import { hostPreparationSchema } from "./report-preparation-contract.js";
 import type { z } from "zod";
 export type { HistoryReadContext } from "./history-maintenance.js";
+import { maintenanceUnavailable, type RepairResult } from "./collector-maintenance-contract.js";
 
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
+  repairExisting(context: HistoryReadContext): Promise<RepairResult>;
   report(query: CalendarQuery, context: HistoryReadContext): Promise<CalendarReport>;
   prepare?(context: HistoryReadContext): Promise<z.infer<typeof hostPreparationSchema>>;
   control(
@@ -82,6 +84,15 @@ export function createHostHistory(deps: HistoryDependencies = {}): HostHistory {
       } as const),
     read: (context) =>
       serialize(context, (scoped) => maintenance(scoped), historyUnavailable("selection-changed")),
+    repairExisting: (context) =>
+      serialize(
+        context,
+        (scoped) => maintenance.repairExisting(scoped),
+        maintenanceUnavailable(
+          "canceled",
+          context.signal.aborted || lifecycle.signal.aborted ? "not-started" : "may-have-run",
+        ),
+      ),
     report: (query, context) =>
       serialize(
         context,

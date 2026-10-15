@@ -71,6 +71,11 @@ export function createQuotaHostEntry(deps: Dependencies) {
           identities: input?.identities,
           signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
         }),
+      collectorMaintenance: (_input, context) =>
+        history.repairExisting({
+          dataDir: context.experimental_paths.dataDir,
+          signal: AbortSignal.any([context.signal, context.lifecycle.signal]),
+        }),
       collectorControl: async ({ action, confirmation }, context) =>
         history.control(
           action,
