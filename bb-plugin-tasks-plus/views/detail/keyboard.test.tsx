@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { makeTask, rpcInput } from "../../test-fixtures.js";
+import { makeAttachment, makeTask, rpcInput } from "../../test-fixtures.js";
 import type { Attachment, Label, Task } from "../../shared/contract.js";
 
 if (!window.matchMedia) {
@@ -87,8 +87,10 @@ function render(
     presets = [preset],
     calls = [] as string[],
     attachments = [] as Attachment[],
-    update = () => ({ ok: true, task: TASKS[0] }) as unknown,
+    update = (_input: Record<string, unknown>) => ({ ok: true, task: TASKS[0] }) as unknown,
     delegate = () => ({ ok: true }) as unknown,
+    remove = (_input: Record<string, unknown>) => ({ ok: true, deleted: true }) as unknown,
+    lookup = (key: unknown) => TASKS.find((entry) => entry.key === key) ?? null,
   } = {},
 ) {
   return renderSlot(
@@ -112,14 +114,15 @@ function render(
           };
         },
         getTaskByKey: (raw) => ({
-          task: TASKS.find((entry) => entry.key === rpcInput(raw).taskKey) ?? null,
+          task: lookup(rpcInput(raw).taskKey),
         }),
         getTask: () => ({ task: null }),
         listAttachments: () => ({ attachments }),
-        updateTask: () => {
+        updateTask: (raw) => {
           calls.push("updateTask");
-          return update();
+          return update(rpcInput(raw));
         },
+        deleteAttachment: (raw) => remove(rpcInput(raw)),
         listTaskThreads: () => ({ taskThreads: [] }),
         listTaskPullRequests: () => ({
           pullRequests: [],
@@ -258,7 +261,7 @@ describe("task detail comment key", () => {
 
 describe("Markdown dialog in the full Tasks app", () => {
   it.each([false, true])(
-    "preserves editor, draft, route, scroll and workflow with isolated keys, compact=%s",
+    "preserves editor, title and description edits, route, scroll and workflow with isolated keys, compact=%s",
     async (compact) => {
       const nativeMedia = window.matchMedia;
       vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
@@ -284,47 +287,207 @@ describe("Markdown dialog in the full Tasks app", () => {
       );
       vi.stubGlobal("fetch", fetch);
       const calls: string[] = [];
+      const updates: Record<string, unknown>[] = [];
+      let saved = { ...TASKS[0]! };
+      let finishSave!: () => void;
+      const saveGate = new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
       const slot = render("TSK-1", {
         attachments: [attachment],
         calls,
-        update: () => new Promise(() => {}),
+        lookup: () => saved,
+        update: async (input) => {
+          updates.push(input);
+          await saveGate;
+          saved = { ...saved, ...input };
+          return { ok: true, task: saved };
+        },
       });
       await ready(slot, "1 / 3");
       const description = slot.container.querySelector<HTMLElement>(
         '.tiptap[contenteditable="true"]',
       )!;
+      const title = slot.getByRole("textbox", { name: "Task title" });
+      const status = slot.getAllByRole("button", { name: "Todo" });
+      const priority = slot.getAllByRole("button", { name: "No priority" });
+      title.textContent = "Edited investigation title";
+      fireEvent.input(title);
       await act(async () => {
         description.innerHTML = "<p>Unfinished task draft</p>";
         fireEvent.input(description);
       });
-      await waitFor(() => expect(calls).toEqual(["updateTask"]));
+      await waitFor(() => {
+        expect(updates).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ taskId: TASKS[0]!.id, title: "Edited investigation title" }),
+            expect.objectContaining({ taskId: TASKS[0]!.id, description: "Unfinished task draft" }),
+          ]),
+        );
+      });
       const scroll = description.closest<HTMLElement>(
         '[class*="overflow-y-auto"], [class*="overflow-auto"]',
       )!;
       if (!scroll) throw new Error("Task scroll region is missing");
       scroll.scrollTop = 170;
+      const expectTaskUnchanged = () => {
+        expect(slot.container.querySelector('.tiptap[contenteditable="true"]')).toBe(description);
+        expect(slot.container.querySelector('[aria-label="Task title"]')).toBe(title);
+        expect(title.textContent).toBe("Edited investigation title");
+        expect(description.textContent).toBe("Unfinished task draft");
+        expect(status.map((control) => control.textContent)).toEqual(["Todo", "Todo"]);
+        expect(priority.map((control) => control.textContent)).toEqual([
+          "No priority",
+          "No priority",
+        ]);
+        expect(scroll.scrollTop).toBe(170);
+        expect(slot.navigateCalls).toEqual([]);
+        expect(calls.every((method) => method === "updateTask")).toBe(true);
+        expect(
+          updates.every((input) =>
+            Object.keys(input).every((key) => ["taskId", "title", "description"].includes(key)),
+          ),
+        ).toBe(true);
+        expect(slot.getByText("1 / 3").textContent).toBe("1 / 3");
+      };
       const trigger = await slot.findByRole("button", { name: "investigation.MD" });
+      for (const dismissal of ["Close", "Escape"]) {
+        trigger.focus();
+        fireEvent.click(trigger);
+        const dialog = await slot.findByRole("dialog", { name: "investigation.MD" });
+        await slot.findByRole("heading", { name: "Investigatio", level: 1 });
+        expectTaskUnchanged();
+        for (const key of ["]", "[", "s", "p", "l", "d", "m"]) fireEvent.keyDown(dialog, { key });
+        fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+        expect(slot.getByLabelText("Raw source").textContent).toBe("# Investigatio");
+        expectTaskUnchanged();
+        fireEvent.click(slot.getByRole("button", { name: "Preview" }));
+        expectTaskUnchanged();
+        if (dismissal === "Close") fireEvent.click(slot.getByRole("button", { name: "Close" }));
+        else fireEvent.keyDown(dialog, { key: "Escape" });
+        await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+        expectTaskUnchanged();
+      }
+      expect(fetch.mock.calls.length).toBe(2);
+      await act(async () => finishSave());
+      expectTaskUnchanged();
+      await act(async () => {
+        description.innerHTML = "<p>Continued task draft</p>";
+        fireEvent.input(description);
+      });
+      await waitFor(() =>
+        expect(updates).toContainEqual({
+          taskId: TASKS[0]!.id,
+          description: "Continued task draft",
+        }),
+      );
+      expect(description.textContent).toBe("Continued task draft");
+      expect(title.textContent).toBe("Edited investigation title");
       trigger.focus();
-      fireEvent.click(trigger);
-      const dialog = await slot.findByRole("dialog", { name: "investigation.MD" });
-      await slot.findByRole("heading", { name: "Investigatio", level: 1 });
-      for (const key of ["]", "[", "s", "p", "l", "d", "m"]) fireEvent.keyDown(dialog, { key });
-      fireEvent.click(slot.getByRole("button", { name: "Raw" }));
-      expect(slot.getByLabelText("Raw source").textContent).toBe("# Investigatio");
-      fireEvent.click(slot.getByRole("button", { name: "Preview" }));
-      fireEvent.keyDown(dialog, { key: "Escape" });
-      await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-      await waitFor(() => expect(document.activeElement).toBe(trigger));
-      expect(slot.container.querySelector('.tiptap[contenteditable="true"]')).toBe(description);
-      expect(description.textContent).toBe("Unfinished task draft");
-      expect(scroll.scrollTop).toBe(170);
-      expect(slot.navigateCalls).toEqual([]);
-      expect(calls).toEqual(["updateTask"]);
-      expect(fetch.mock.calls.length).toBe(1);
-      expect(slot.getByText("1 / 3").textContent).toBe("1 / 3");
       fireEvent.keyDown(window, { key: "s" });
       const statusOption = await slot.findByText("In Review");
       expect(statusOption.closest('[hidden], [inert], [aria-hidden="true"]')).toBeNull();
+    },
+  );
+  it.each([true, false])(
+    "settles asynchronous removal before closing a concurrently opened preview, success=%s",
+    async (success) => {
+      const attachment: Attachment = {
+        ...makeAttachment(TASKS[0]!.id, "pending.md"),
+        mime: "application/octet-stream",
+      };
+      const attachments = [attachment];
+      let finishRemoval!: (result: unknown) => void;
+      let finishPreview!: (response: Response) => void;
+      let signal!: AbortSignal;
+      const removals: Record<string, unknown>[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_url, options) => {
+          signal = options.signal;
+          return new Promise<Response>((resolve) => {
+            finishPreview = resolve;
+          });
+        }),
+      );
+      const slot = render("TSK-1", {
+        attachments,
+        remove: (input) => {
+          removals.push(input);
+          return new Promise((resolve) => {
+            finishRemoval = resolve;
+          });
+        },
+      });
+      await ready(slot, "1 / 3");
+      fireEvent.click(await slot.findByLabelText("Remove pending.md"));
+      fireEvent.click(await slot.findByRole("button", { name: "Remove" }));
+      await waitFor(() =>
+        expect(removals).toEqual([
+          {
+            attachmentId: attachment.id,
+            removeDescriptionReferences: true,
+          },
+        ]),
+      );
+      fireEvent.click(slot.getByRole("button", { name: "pending.md" }));
+      expect((await slot.findByRole("dialog", { name: "pending.md" })).textContent).toContain(
+        "Loading Markdown preview…",
+      );
+      expect(signal.aborted).toBe(false);
+      await act(async () => {
+        if (success) attachments.splice(0);
+        finishRemoval(
+          success
+            ? { ok: true, deleted: true }
+            : { ok: false, error: { code: "internal", message: "Disk is read-only" } },
+        );
+      });
+      if (success) {
+        await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
+        expect(signal.aborted).toBe(true);
+        await waitFor(() => expect(slot.queryByRole("button", { name: "pending.md" })).toBeNull());
+        await waitFor(() =>
+          expect(document.activeElement).toBe(slot.getByRole("button", { name: "Attach file" })),
+        );
+      } else {
+        expect((await slot.findByText("Disk is read-only")).textContent).toBe("Disk is read-only");
+        expect(slot.getByRole("dialog", { name: "pending.md" }).textContent).toContain(
+          "Loading Markdown preview…",
+        );
+        expect(signal.aborted).toBe(false);
+      }
+      await act(async () =>
+        finishPreview(
+          Response.json({
+            attachmentId: attachment.id,
+            fileName: "pending.md",
+            byteSize: 14,
+            text: "# Still usable",
+          }),
+        ),
+      );
+      if (success) {
+        expect(slot.queryByRole("dialog")).toBeNull();
+        expect(slot.queryByRole("heading", { name: "Still usable" })).toBeNull();
+        expect(document.activeElement).toBe(slot.getByRole("button", { name: "Attach file" }));
+      } else {
+        expect(
+          (await slot.findByRole("heading", { name: "Still usable", level: 1 })).textContent,
+        ).toBe("Still usable");
+        expect(slot.getByRole("link", { name: "Download" }).getAttribute("href")).toBe(
+          `/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=${attachment.id}`,
+        );
+        fireEvent.click(slot.getByRole("button", { name: "Close" }));
+        expect(slot.getByRole("button", { name: "pending.md" }).textContent).toContain(
+          "pending.md",
+        );
+        expect((slot.getByLabelText("Remove pending.md") as HTMLButtonElement).disabled).toBe(
+          false,
+        );
+      }
+      expect(slot.navigateCalls).toEqual([]);
     },
   );
 });

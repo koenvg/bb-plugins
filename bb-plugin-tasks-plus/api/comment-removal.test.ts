@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from ".";
 import { registerTasksCli } from "../cli";
 import { registerAttachments, saveAttachmentFromBytes } from "../attachments";
@@ -123,44 +123,105 @@ describe("removed comment operations", () => {
       await harness.dispose();
     }
   });
-  it("keeps legacy comment files downloadable through their original fork URLs", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks-plus" });
-    const db = bb.storage.database();
-    const schema = await readFile(
-      new URL("../test-fixtures/pre-comment-removal.sql", import.meta.url),
-      "utf8",
-    );
-    db.exec(schema);
-    const taskId = "01HZZZZZZZZZZZZZZZZZZZZZT1";
-    const fileId = "01HZZZZZZZZZZZZZZZZZZZZZA1";
-    db.exec(`INSERT INTO projects (id, name, prefix, color, created_at)
-      VALUES ('01HZZZZZZZZZZZZZZZZZZZZZP1', 'Legacy', 'LEG', 'blue', 'created');
-      INSERT INTO tasks (id, project_id, number, title, status, priority, position, created_at, updated_at)
-      VALUES ('${taskId}', '01HZZZZZZZZZZZZZZZZZZZZZP1', 1, 'Retained', 'todo', 'none', 0, 'created', 'updated');
-      INSERT INTO comments (id, task_id, kind, author_name, body, created_at)
-      VALUES ('comment', '${taskId}', 'user', 'Operator', 'Removed body', 'created');
-      INSERT INTO attachments VALUES
-      ('${fileId}', NULL, 'comment', 'legacy.txt', 'text/plain', 6, 'legacy.txt', 0, 'created');`);
-    const database = db
-      .prepare<[], { name: string; file: string }>("PRAGMA database_list")
-      .all()
-      .find((entry) => entry.name === "main")!;
-    await writeFile(join(dirname(database.file), "legacy.txt"), "legacy");
-    try {
-      const url = attachmentDownloadUrl(fileId).split("/http")[1]!;
-      const store = createStore(bb);
-      registerTasksApi(bb, store);
-      registerAttachments(bb, store.tasks);
-      const response = await harness.fetchHttp("GET", url);
-      expect(response.status).toBe(200);
-      expect(await response.text()).toBe("legacy");
-      const list = await harness.callRpc("listAttachments", { taskId });
-      expect(list).toMatchObject({ attachments: [{ id: fileId, taskId, fileName: "legacy.txt" }] });
-      expect(store.tasks.getAttachment(fileId)).not.toHaveProperty("commentId");
-      expect(harness.sdk.callsTo("threads.send")).toEqual([]);
-      expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
-    } finally {
-      await harness.dispose();
-    }
-  });
+  it.each(["legacy.md", "LEGACY.MD", "legacy.MarkDown", "LEGACY.MARKDOWN"])(
+    "keeps migrated comment file %s readable and downloadable by its original saved ID",
+    async (fileName) => {
+      const { bb, harness } = createFakePluginHost({ pluginId: "tasks-plus" });
+      const db = bb.storage.database();
+      const schema = await readFile(
+        new URL("../test-fixtures/pre-comment-removal.sql", import.meta.url),
+        "utf8",
+      );
+      db.exec(schema);
+      const taskId = "01HZZZZZZZZZZZZZZZZZZZZZT1";
+      const fileId = "01HZZZZZZZZZZZZZZZZZZZZZA1";
+      const text =
+        "\uFEFF---\r\ntitle: legacy\r\n---\r\n\r\n# Legacy\r\n\r\n```text\r\n\tcode  \r\n```\r\n";
+      const bytes = Buffer.from(text);
+      db.exec(`INSERT INTO projects (id, name, prefix, color, created_at)
+        VALUES ('01HZZZZZZZZZZZZZZZZZZZZZP1', 'Legacy', 'LEG', 'blue', 'created');
+        INSERT INTO tasks (id, project_id, number, title, status, priority, position, created_at, updated_at)
+        VALUES ('${taskId}', '01HZZZZZZZZZZZZZZZZZZZZZP1', 1, 'Retained', 'todo', 'none', 0, 'created', 'updated');
+        INSERT INTO comments (id, task_id, kind, author_name, body, created_at)
+        VALUES ('comment', '${taskId}', 'user', 'Operator', 'Removed body', 'created');
+        INSERT INTO attachments VALUES
+        ('${fileId}', NULL, 'comment', '${fileName}', 'application/octet-stream', ${bytes.length}, 'legacy.blob', 0, 'created');`);
+      const database = db
+        .prepare<[], { name: string; file: string }>("PRAGMA database_list")
+        .all()
+        .find((entry) => entry.name === "main")!;
+      await writeFile(join(dirname(database.file), "legacy.blob"), bytes);
+      try {
+        const url = attachmentDownloadUrl(fileId).split("/http")[1]!;
+        const store = createStore(bb);
+        registerTasksApi(bb, store);
+        const route = vi.spyOn(bb.http, "route");
+        registerAttachments(bb, store.tasks);
+        expect(route.mock.calls.find((call) => call[1] === "/attachments/preview")?.[3]).toEqual({
+          auth: "local",
+        });
+        expect(db.prepare("SELECT version FROM schema_version WHERE version = 12").get()).toEqual({
+          version: 12,
+        });
+        expect(
+          db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%comment%'").all(),
+        ).toEqual([]);
+        expect(
+          db
+            .prepare<[], { name: string }>("PRAGMA table_info(attachments)")
+            .all()
+            .map((column) => column.name),
+        ).not.toContain("comment_id");
+        expect(db.prepare("SELECT * FROM attachments").get()).toEqual({
+          id: fileId,
+          task_id: taskId,
+          file_name: fileName,
+          mime: "application/octet-stream",
+          size_bytes: bytes.length,
+          blob_path: "legacy.blob",
+          is_image: 0,
+          created_at: "created",
+        });
+        const list = await harness.callRpc("listAttachments", { taskId });
+        expect(list).toEqual({
+          attachments: [
+            {
+              id: fileId,
+              taskId,
+              fileName,
+              mime: "application/octet-stream",
+              sizeBytes: bytes.length,
+              isImage: false,
+              createdAt: "created",
+            },
+          ],
+        });
+        expect(store.tasks.getAttachment(fileId)).not.toHaveProperty("commentId");
+        const preview = await harness.fetchHttp(
+          "GET",
+          `/attachments/preview?attachmentId=${fileId}`,
+        );
+        expect(preview.status).toBe(200);
+        expect(await preview.json()).toEqual({
+          attachmentId: fileId,
+          fileName,
+          byteSize: bytes.length,
+          text,
+        });
+        const response = await harness.fetchHttp("GET", url);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("application/octet-stream");
+        expect(response.headers.get("content-disposition")).toBe(
+          `attachment; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+        );
+        expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+        expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
+        expect(harness.sdk.callsTo("threads.send")).toEqual([]);
+        expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
+      } finally {
+        vi.restoreAllMocks();
+        await harness.dispose();
+      }
+    },
+  );
 });
