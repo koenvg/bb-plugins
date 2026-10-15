@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useId, useMemo, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import {
   MarkdownDocument,
+  createDocumentModel,
   denyDestinations,
   type DocumentView,
 } from "@bb-plugins/markdown-document";
@@ -136,6 +137,11 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
   }
 }
 
+function AttachmentDocument({ snapshot, view }: { snapshot: PreviewSnapshot; view: DocumentView }) {
+  const namespace = useId();
+  const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
+  return <MarkdownDocument model={model} view={view} destinations={denyDestinations} />;
+}
 function usable(element: HTMLElement | null): element is HTMLElement {
   if (
     element === null ||
@@ -345,12 +351,7 @@ export function useAttachmentPreview({
               active.resource.snapshot.text === "" && active.view === "preview" ? (
                 <p role="status">This file is empty. Download keeps the original file.</p>
               ) : (
-                <MarkdownDocument
-                  text={active.resource.snapshot.text}
-                  view={active.view}
-                  namespace={`task-${taskId}-${active.subject.id}`}
-                  destinations={denyDestinations}
-                />
+                <AttachmentDocument snapshot={active.resource.snapshot} view={active.view} />
               )
             ) : null}
           </section>

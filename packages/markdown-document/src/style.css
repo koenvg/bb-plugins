@@ -1,204 +1,317 @@
 .md-document {
+  container: markdown-document / inline-size;
   min-width: 0;
   color: var(--foreground);
-  container: md-document / inline-size;
-  font-size: 16px;
-  line-height: 1.75;
-  scrollbar-color: var(--border) transparent;
+  font-family: inherit;
 }
-.md-document .md-document-prose {
-  min-width: 0;
-  max-width: 720px;
-  margin-inline: auto;
-  overflow-wrap: anywhere;
-}
-.md-document p,
-.md-document ul,
-.md-document ol,
-.md-document blockquote,
-.md-document pre,
-.md-document .md-document-table {
-  margin-block: 0 18px;
-}
-.md-document h1,
-.md-document h2,
-.md-document h3,
-.md-document h4,
-.md-document h5,
-.md-document h6 {
-  line-height: 1.4;
-  font-weight: 650;
-  text-wrap: balance;
-}
-.md-document h1 {
-  font-size: 39px;
-  line-height: 1.2;
-  font-weight: 680;
-  letter-spacing: -0.035em;
-  margin-block: 54px 24px;
-}
-.md-document h2 {
-  font-size: 21px;
-  letter-spacing: -0.015em;
-  margin-block: 46px 14px;
-}
-.md-document h3 {
-  font-size: 18px;
-  line-height: 1.5;
-  margin-block: 34px 12px;
-}
-.md-document h4 {
-  font-size: 16px;
-  margin-block: 28px 10px;
-}
-.md-document h5 {
-  font-size: 15px;
-  margin-block: 24px 8px;
-}
-.md-document h6 {
-  font-size: 14px;
-  margin-block: 24px 8px;
-}
-.md-document .md-document-prose > :first-child {
-  margin-top: 0;
-}
-.md-document ul,
-.md-document ol {
-  padding-left: 24px;
-  margin-block: 16px 24px;
-}
-.md-document ul {
-  list-style: disc;
-}
-.md-document ol {
-  list-style: decimal;
-}
-.md-document li {
-  padding-left: 4px;
-  margin-block: 8px;
-}
-.md-document .contains-task-list {
-  list-style: none;
-  padding-left: 0;
-}
-.md-document input[type="checkbox"] {
-  accent-color: var(--foreground);
-  margin-right: 8px;
-}
-.md-document blockquote {
-  border-left: 1px solid var(--border);
-  padding-left: 22px;
-  color: var(--muted-foreground);
-}
-.md-document code,
-.md-document pre {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 13px;
-}
-.md-document code {
-  background: var(--surface-recessed, var(--muted));
-  padding: 2px 5px;
-  border-radius: calc(var(--radius, 6px) / 2);
-}
-.md-document pre {
-  max-width: 100%;
-  overflow: auto;
-  padding: 16px 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 6px);
-  background: var(--surface-recessed, var(--muted));
-  line-height: 1.9;
-  tab-size: 2;
-  white-space: pre;
-  overflow-wrap: normal;
-}
-.md-document pre code {
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-  font-size: inherit;
-}
-.md-document pre .token {
-  color: var(--foreground);
-}
-.md-document pre .token.comment,
-.md-document pre .token.prolog {
-  color: var(--muted-foreground);
-  font-style: italic;
-}
-.md-document pre .token.keyword,
-.md-document pre .token.boolean,
-.md-document pre .token.property {
-  font-weight: 650;
-}
-.md-document pre .token.string {
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 3px;
-}
-.md-document .md-document-raw {
-  margin: 0;
-}
-.md-document .md-document-table {
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 6px);
-}
-.md-document table {
-  width: max-content;
-  min-width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  line-height: 1.65;
-  font-variant-numeric: tabular-nums;
-}
-.md-document th,
-.md-document td {
-  padding: 12px 16px;
-  min-width: 120px;
-  text-align: left;
-  vertical-align: top;
-}
-.md-document tr + tr td,
-.md-document tbody tr:first-child td {
-  border-top: 1px solid var(--border);
-}
-.md-document th {
-  background: var(--surface-recessed, var(--muted));
-  color: var(--muted-foreground);
-  font-weight: 550;
-}
-.md-document hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin-block: 36px;
+.md-document,
+.md-document * {
+  box-sizing: border-box;
 }
 .md-document :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
-.md-document ::selection {
-  background: var(--state-active);
+.md-document button:hover {
+  background: var(--state-hover);
   color: var(--foreground);
 }
-@container md-document (max-width: 900px) {
-  .md-document h1 {
+.md-document .mr-prose,
+.md-document .mr-raw {
+  max-width: 720px;
+  min-width: 0;
+  margin: 0 auto;
+}
+.md-document .mr-prose {
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.md-document .mr-prose h1 {
+  font-size: 39px;
+  line-height: 1.2;
+  font-weight: 680;
+  letter-spacing: -0.035em;
+  margin: 0 0 24px;
+}
+.md-document .mr-prose h1:not(:first-child) {
+  margin-top: 54px;
+}
+.md-document .mr-prose h2 {
+  font-size: 21px;
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 46px 0 14px;
+}
+.md-document .mr-prose h3 {
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 34px 0 12px;
+}
+.md-document .mr-prose h4 {
+  font-size: 16px;
+  margin: 28px 0 10px;
+}
+.md-document .mr-prose h5 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+}
+.md-document .mr-prose h6 {
+  font-size: 14px;
+  margin: 24px 0 8px;
+}
+.md-document .mr-prose p {
+  margin: 0 0 18px;
+}
+.md-document .mr-prose strong {
+  font-weight: 620;
+}
+.md-document .mr-prose ul,
+.md-document .mr-prose ol {
+  padding-left: 24px;
+  margin: 16px 0 24px;
+}
+.md-document .mr-prose ul {
+  list-style: disc outside;
+}
+.md-document .mr-prose ol {
+  list-style: decimal outside;
+}
+.md-document .mr-prose li ul {
+  list-style-type: circle;
+}
+.md-document .mr-prose li {
+  padding-left: 4px;
+  margin: 8px 0;
+}
+.md-document .mr-prose .task-list-item {
+  list-style-type: none;
+}
+.md-document .mr-prose input[type="checkbox"] {
+  accent-color: var(--foreground);
+  margin-left: -20px;
+  margin-right: 8px;
+}
+.md-document .mr-prose blockquote {
+  margin: 22px 0;
+  padding: 4px 0 4px 22px;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+}
+.md-document .mr-prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+.md-document .mr-prose code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.82em;
+  background: var(--surface-recessed);
+  padding: 2px 5px;
+  border-radius: calc(var(--radius, 8px) / 2);
+}
+.md-document .mr-prose pre,
+.md-document .mr-raw {
+  background: var(--surface-recessed);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  padding: 16px 18px 20px;
+  overflow-x: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.9;
+  tab-size: 2;
+}
+.md-document .mr-prose pre {
+  margin: 22px 0;
+}
+.md-document .mr-prose pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  border-radius: 0;
+}
+.md-document .mr-prose pre .token {
+  color: var(--foreground);
+}
+.md-document .mr-prose pre .token.comment,
+.md-document .mr-prose pre .token.prolog {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.md-document .mr-prose pre .token.keyword,
+.md-document .mr-prose pre .token.boolean,
+.md-document .mr-prose pre .token.property {
+  font-weight: 650;
+}
+.md-document .mr-prose pre .token.string {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.md-document .mr-table-scroll {
+  overflow-x: auto;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+}
+.md-document .mr-prose table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.65;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.md-document .mr-prose th {
+  background: var(--surface-recessed);
+  font-weight: 550;
+  color: var(--muted-foreground);
+}
+.md-document .mr-prose th,
+.md-document .mr-prose td {
+  padding: 12px 16px;
+  vertical-align: top;
+  min-width: 120px;
+}
+.md-document .mr-prose tr + tr td,
+.md-document .mr-prose tbody tr:first-child td {
+  border-top: 1px solid var(--border);
+}
+.md-document .mr-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 36px 0;
+}
+.md-document .mr-inert-link {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 4px;
+}
+.md-document .mr-image-placeholder {
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+}
+.md-document .mr-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 22px 0;
+}
+.md-document .mr-image-error {
+  font-size: 12px;
+}
+.md-document .mr-document-layout {
+  max-width: 720px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.md-document .mr-document-layout[data-outline="aside"] {
+  max-width: 944px;
+  display: grid;
+  grid-template-columns: minmax(0, 720px) 164px;
+  gap: 60px;
+}
+.md-document .mr-document-layout .mr-prose {
+  width: 100%;
+}
+.md-document .mr-outline-aside {
+  align-self: start;
+  position: sticky;
+  top: 92px;
+  max-height: calc(100cqh - 116px);
+  overflow-y: auto;
+}
+.md-document .mr-outline-aside,
+.md-document .mr-outline-inline {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  min-width: 0;
+}
+.md-document .mr-outline-aside p {
+  margin: 0 0 15px;
+  font-weight: 550;
+}
+.md-document .mr-outline-inline {
+  margin: 0 0 34px;
+}
+.md-document .mr-outline-inline summary {
+  cursor: pointer;
+  padding: 8px 0;
+  min-height: 36px;
+}
+.md-document .mr-outline-aside button,
+.md-document .mr-outline-inline button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  padding: 8px 4px;
+  min-height: 36px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.md-document .mr-prose a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+.md-document .mr-raw {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md-document .mr-source-line {
+  display: block;
+  min-height: 1lh;
+}
+.md-document .mr-source-line[data-highlighted="true"] {
+  background: var(--state-active);
+  box-shadow: inset 3px 0 var(--ring);
+}
+.md-document .mr-prose [data-footnotes] > .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.md-document .mr-prose h3,
+.md-document .mr-prose h4,
+.md-document .mr-prose h5,
+.md-document .mr-prose h6 {
+  font-weight: 700;
+}
+.md-document .mr-prose a {
+  text-decoration-line: underline;
+}
+@container markdown-document (max-width: 1080px) {
+  .md-document .mr-prose h1 {
     font-size: 34px;
   }
 }
-@container md-document (max-width: 600px) {
-  .md-document .md-document-prose {
+@container markdown-document (max-width: 600px) {
+  .md-document .mr-prose {
     font-size: 15px;
     line-height: 1.8;
   }
-  .md-document h1 {
+  .md-document .mr-prose h1 {
     font-size: 30px;
   }
-  .md-document h2 {
+  .md-document .mr-prose h2 {
     font-size: 20px;
   }
-  .md-document pre {
-    padding: 12px;
+  .md-document .mr-prose th,
+  .md-document .mr-prose td {
+    padding: 11px 12px;
   }
 }

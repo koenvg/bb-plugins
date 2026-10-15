@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
-import type { LineRequest } from "../source-lines";
+import type { LineRequest } from "@bb-plugins/markdown-document";
 import { createRoot } from "react-dom/client";
 import { Reader } from "../reader";
 import type { ReaderTarget, ReadResult } from "../source";

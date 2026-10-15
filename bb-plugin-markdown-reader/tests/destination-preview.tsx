@@ -91,7 +91,7 @@ const slot = renderSlot(
               return {
                 kind: "image",
                 remote: false,
-                url: `/api/v1/plugins/markdown-reader/http/image?asset=fixture-${generation}-${request.url}`,
+                url: `/api/v1/plugins/markdown-reader/http/image?asset=fixture-${generation}-${request.url.replace(".", "_")}`,
               };
             return { kind: "rejected", reason: "Unsafe or unsupported fixture destination" };
           }),

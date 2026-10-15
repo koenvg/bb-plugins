@@ -1,40 +1,58 @@
 # Markdown document interface
 
-This private package renders baseline Markdown and GFM in Preview, and the exact supplied string in Raw. It has no loader, authorization, file identity, toolbar, or writes. Consumers supply React 19 as a peer. The compiled ESM imports React rather than bundling a runtime.
+This private build-time package provides the document presentation used by Tasks and Markdown Reader. It owns parsing, headings, Raw, bounded highlighting, outline and scoped CSS. Consumers own source loading, authorization, snapshot lifetime, controls and writes. Either plugin works without the other installed.
 
-## Public exports
+## Public interface
 
-The root exports `MarkdownDocument`, `MarkdownDocumentProps`, `DocumentView`, `DestinationPolicy`, and `denyDestinations`. `style.css` exports the scoped stylesheet. No source paths or wildcard exports are public.
+```tsx
+import { useId, useMemo } from "react";
+import {
+  createDocumentModel,
+  MarkdownDocument,
+  denyDestinations,
+} from "@bb-plugins/markdown-document";
+import "@bb-plugins/markdown-document/style.css";
 
-`MarkdownDocument` accepts immutable `text`, `view`, `namespace`, and optional `destinations`. Views are `preview` and `raw`. The namespace identifies a consumer-local document. The only current policy is `{ kind: "deny" }`. Missing policy also denies every destination, including generated footnotes. Link labels and image alt text remain readable. The package does not infer a source root or fetch assets.
+const namespace = useId();
+const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
+return <MarkdownDocument model={model} view={view} destinations={denyDestinations} />;
+```
 
-Preview uses semantic headings, GFM tables, disabled task checkboxes, and bounded fence highlighting. It skips raw HTML and MDX. Raw uses the original source string in a text node, including BOM, CRLF, frontmatter, and whitespace. No heading navigation, outline, active links, or images are implemented.
+Create one model for an immutable loaded snapshot and use a mount-unique namespace. Reuse the model across Preview/Raw switches and line requests. The factory derives headings, fragments, destination requests and exact source lines from the supplied string. Model fields are read-only presentation data, never source authority.
 
-## Fence highlighting
+`MarkdownDocument` accepts `model`, controlled `view`, optional `destinations`, `outline`, `lineRange`, `annotateSourceLines` and `navigation`. `view` is `preview` or `raw`. The root exports these public types and the source-neutral heading, request, grant and link-reference types. Internal subpaths are not exported.
 
-Explicit labels select JSON, JavaScript, TypeScript, Bash, Python, markup, or CSS. Aliases are `js`, `ts`, `sh`, `shell`, `py`, `html`, and `xml`. Labels are case-insensitive. There is no language detection or all-language import.
+Preview hides leading YAML frontmatter without changing heading source positions. It renders GFM, disabled task checkboxes and passive syntax tokens. Known fences up to 20 KiB receive highlighting. Unknown languages, larger fences and tokenizer failures remain plain code. Raw preserves the complete source, including BOM, frontmatter, mixed line endings and whitespace. HTML and MDX do not execute.
 
-The inclusive limit is 20,480 UTF-8 bytes per rendered fence, including the parser-added final LF for nonempty code. Missing or unknown labels, larger fences, tokenizer failures, and invalid or lossy token output stay plain. The renderer reconstructs only text and passive spans with filtered classes. Token validation stops above 64 nesting levels or 16,384 nodes. These bounds do not guarantee tokenizer execution time or bound aggregate work across many fences.
+`outline` defaults to false. When enabled, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
 
-Preview follows Markdown parser newline rules. Raw does not reconstruct source from Preview and remains exact. Highlighted JSON values, tabs, and trailing spaces stay text, not inferred status fields.
+Default Raw uses one text node, including newline-dense files up to the consumer's 1 MiB limit. A valid range request or explicit `annotateSourceLines` enables per-line targets. Reader opts in for source selection and range navigation. Tasks does not. Both paths preserve exactly the same source. Reader's inherited annotation cost is tracked separately in [BBP-249](bbtask://BBP-249).
 
-## Reading layout
+An optional `navigation` supplies a container ref and `reveal(target)` callback. Markdown Reader uses its toolbar-aware panel reveal. Without that callback, the presenter scrolls only its own root when that root is a scroller, and focuses the target without scrolling ancestors. `.mr-prose`, `.mr-raw` and `[data-source-line]` are retained content hooks for the reader's selection action.
 
-All styles stay beneath `.md-document`. A named document container controls responsiveness independently of the viewport. Prose has a 720 px maximum width and 16 px text with 1.75 line height. Containers at most 600 px use 15 px text with 1.8 line height. H1 sizes are 39 px above 900 px, 34 px through 900 px, and 30 px through 600 px. H2 uses 21 px or compact 20 px, with 46 px above and 14 px below each section. H3 uses 18 px. Code uses the host `--font-mono` with a monospace fallback, 13 px text, and 1.9 line height.
+## Destination policies
 
-Code and tables scroll locally and accept keyboard focus. Focus outlines use `--ring`. Prose, syntax emphasis, borders, selection, and quiet code surfaces use active host tokens. The package has no palette or theme state. Comments use `--muted-foreground`; keywords, booleans, and properties have extra weight; strings have a subdued underline. Custom theme contrast remains the host theme's responsibility.
+- Missing policy or `denyDestinations` denies all destinations, including local fragments. Labels and image alt text remain readable.
+- `localDestinations` enables only targets in the current model.
+- A `delegated` policy resolves checked requests to rejected, fragment, bound-link or image grants. Consumers bind SDK links outside this package. Link/image grant mismatches remain inert.
 
-The Tasks production-overlay fixture covers light, dark, custom tokens, and a narrow document inside a desktop viewport. It measures composited contrast, local overflow, semantic hierarchy, keyboard focus, exact source, one load, live view preservation, and adjacent editor/chat sentinels. File-reader adoption, optional outline integration, matched production-reader parity, and installed acceptance remain separate work.
+The package rejects malformed encodings, active schemes, credentials, encoded separators/traversal and unsupported absolute paths before consumer dispatch. It bounds collected requests to 128, URLs to 4096 characters and images to 32. It never derives a filesystem root, host or attachment relationship.
+
+Image grants distinguish `remote` from `source`. Remote grants must match the requested HTTP(S) URL and cannot target the current BB origin. They use anonymous CORS and no referrer, so cross-origin credentials are omitted. A remote host must permit CORS; otherwise readable alt/error text remains. Source-image URLs are explicit consumer-issued local capabilities, not document-provided BB endpoints. The reader validates its opaque image route and keeps host/root confinement outside this package.
+
+Tasks supplies deny-all in this delivery. Markdown Reader supplies only currently verified grants and falls back to local-only while loading or stale. Refresh and fallback revoke source-backed links and image sources without discarding readable stale text.
 
 ## Build and verify
 
-From this directory, run these commands in order:
+Use Bun 1.4.3 and Node 24.15 or newer within Node 24:
 
 ```sh
 bun install --frozen-lockfile
 bun run build
-bun run test
+bun run test --maxWorkers=1
 bun run typecheck
 ```
 
-Build this package before installing or checking a consumer's local file dependency. Tasks bundles the compiled code and stylesheet into its own plugin. Markdown Reader adoption is outside this delivery. The approved package-manager exception uses frozen Bun installs rather than the plan's npm ci.
+The root and CSS exports intentionally resolve to source ESM/TSX and CSS. BB compiles them into each consumer bundle. This preserves clean plugin builds because BB has no shared-package pre-build hook. `bun run build` separately verifies emitted ESM, declarations and CSS under `dist`; it does not change package exports. React is a consumer-owned peer, not a bundled runtime.
+
+For fresh independent consumer setup and production-bundle checks, run [the BBP-57 clean verifier](../../verification/BBP-57/clean-build.mjs) from the repository root. [The BBP-57 report](../../verification/BBP-57/report.md) separates fixture evidence, build evidence and required installed acceptance.

@@ -9,6 +9,10 @@
   padding: 0;
   overflow: hidden;
 }
+.attachment-preview.attachment-preview,
+.attachment-preview .attachment-preview-toolbar :is(button, a) {
+  transition-property: transform, opacity;
+}
 .attachment-preview .attachment-preview-header {
   flex: none;
   padding: 20px 24px 16px;

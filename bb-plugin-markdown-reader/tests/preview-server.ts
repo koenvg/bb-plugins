@@ -35,6 +35,7 @@ try {
     root: fileURLToPath(new URL("../", import.meta.url)),
     configFile: false,
     cacheDir: cache,
+    resolve: { dedupe: ["react", "react-dom"] },
     server: {
       host: "127.0.0.1",
       middlewareMode: { server: http },

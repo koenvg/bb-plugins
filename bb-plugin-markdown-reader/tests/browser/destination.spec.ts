@@ -13,9 +13,15 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
       const requests: { url: string; headers: Record<string, string> }[] = [];
       const imageRoute = async (route: Route) => {
         requests.push({ url: route.request().url(), headers: route.request().headers() });
-        if (route.request().url().includes("escape.png"))
+        if (route.request().url().includes("escape_png"))
           await route.fulfill({ status: 403, body: "Confined fixture denial" });
-        else await route.fulfill({ status: 200, contentType: "image/png", body: png });
+        else
+          await route.fulfill({
+            status: 200,
+            contentType: "image/png",
+            headers: { "access-control-allow-origin": "*" },
+            body: png,
+          });
       };
       await page.route("**/api/v1/plugins/markdown-reader/http/image?asset=*", imageRoute);
       await page.route("https://images.test/**", imageRoute);

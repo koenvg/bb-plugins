@@ -5,32 +5,33 @@ import GithubSlugger from "github-slugger";
 import { visit } from "unist-util-visit";
 import type { Element as HastElement, Root, RootContent } from "hast";
 import type { ReactNode } from "react";
-import { createSourceLines, type SourceLines } from "./source-lines";
-import { DestinationLink, DestinationImage } from "./destination-view";
+import { createSourceLines, type SourceLines } from "./source-lines.js";
+import { DestinationLink, DestinationImage } from "./destinations.js";
 import {
   MAX_DESTINATIONS,
-  MAX_DESTINATION_URL_LENGTH,
+  MAX_IMAGES,
+  checkedDestination,
   destinationKey,
   type DestinationRequest,
-} from "./destination-types";
-import { boundedCode } from "./code";
+} from "./destinations.js";
+import { boundedCode } from "./code.js";
 
 export interface DocumentHeading {
-  level: number;
-  text: string;
-  fragment: string;
-  id: string;
-  line: number;
+  readonly level: number;
+  readonly text: string;
+  readonly fragment: string;
+  readonly id: string;
+  readonly line: number;
 }
 export interface DocumentModel {
-  content: ReactNode;
-  headings: readonly DocumentHeading[];
-  sourceLines: SourceLines;
-  requests: DestinationRequest[];
-  fragmentTarget(fragment: string): string | null;
+  readonly content: ReactNode;
+  readonly namespace: string;
+  readonly headings: readonly DocumentHeading[];
+  readonly sourceLines: SourceLines;
+  readonly requests: readonly DestinationRequest[];
+  readonly fragmentTarget: (fragment: string) => string | null;
 }
 
-// Match visible heading text, including the inert image placeholder. Raw HTML is skipped.
 function headingText(node: RootContent): string {
   if (node.type === "text") return node.value;
   if (node.type !== "element") return "";
@@ -62,8 +63,6 @@ function scopeGeneratedIds(tree: Root, namespace: string) {
   return ids;
 }
 
-/** React-markdown's synchronous renderer parses once. The rehype transform records
- * targets on that exact rendered tree, not on a second heading parser. */
 export function createDocumentModel(text: string, namespace: string): DocumentModel {
   const headings: DocumentHeading[] = [];
   const fragments = new Map<string, string>();
@@ -119,12 +118,16 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
               : null;
         if (
           typeof url === "string" &&
-          url.length <= MAX_DESTINATION_URL_LENGTH &&
-          !url.startsWith("#")
+          !url.startsWith("#") &&
+          checkedDestination(url, node.tagName === "img")
         ) {
-          const request = { url, image: node.tagName === "img" };
+          const request = Object.freeze({ url, image: node.tagName === "img" });
           const key = destinationKey(request);
-          if (!requested.has(key) && requests.length < MAX_DESTINATIONS) {
+          if (
+            !requested.has(key) &&
+            requests.length < MAX_DESTINATIONS &&
+            (!request.image || requests.filter((r) => r.image).length < MAX_IMAGES)
+          ) {
             requested.add(key);
             requests.push(request);
           }
@@ -156,30 +159,12 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
     skipHtml: true,
     urlTransform: (url) => url,
   });
-  return { content, headings, requests, fragmentTarget, sourceLines: createSourceLines(text) };
-}
-
-export function MarkdownDocument({
-  model,
-  navigate,
-}: {
-  model: DocumentModel;
-  navigate: (id: string) => void;
-}) {
-  const activate = (event: React.MouseEvent<HTMLElement>) => {
-    const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
-    if (!anchor) return;
-    event.preventDefault();
-    if (event.button < 2) navigate(anchor.getAttribute("data-heading-target")!);
-  };
-  return (
-    <article
-      className="mr-prose"
-      aria-label="Markdown preview"
-      onClick={activate}
-      onAuxClick={activate}
-    >
-      {model.content}
-    </article>
-  );
+  return Object.freeze({
+    namespace,
+    content,
+    headings: Object.freeze(headings.map((h) => Object.freeze(h))),
+    requests: Object.freeze(requests),
+    fragmentTarget,
+    sourceLines: createSourceLines(text),
+  });
 }

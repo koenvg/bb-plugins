@@ -1,6 +1,7 @@
-import type { PluginFileOpenerProps } from "@get-bb/plugin-sdk/app";
-
-export type LineRequest = PluginFileOpenerProps["experimental_lineRange"];
+export type LineRequest =
+  | Readonly<{ startLineNumber: number; endLineNumber: number }>
+  | null
+  | undefined;
 export interface LineTarget {
   start: number;
   end: number;
@@ -10,7 +11,6 @@ export interface SourceLines {
   target(request: unknown): LineTarget | null;
 }
 
-/** Keep each original terminator, including CRLF and the final empty source line. */
 export function createSourceLines(text: string): SourceLines {
   const lines: string[] = [];
   const pattern = /([^\r\n]*)(\r\n|\r|\n|$)/g;
@@ -19,9 +19,9 @@ export function createSourceLines(text: string): SourceLines {
     lines.push(match[0]);
     if (!match[2]) break;
   }
-  return {
-    lines,
-    target(request) {
+  return Object.freeze({
+    lines: Object.freeze(lines),
+    target(request: unknown) {
       if (!text || !request || typeof request !== "object") return null;
       const { startLineNumber: start, endLineNumber: end } = request as Record<string, unknown>;
       if (
@@ -34,5 +34,5 @@ export function createSourceLines(text: string): SourceLines {
       const clamp = (line: number) => Math.max(1, Math.min(lines.length, line));
       return { start: clamp(Math.min(start, end)), end: clamp(Math.max(start, end)) };
     },
-  };
+  });
 }

@@ -130,7 +130,7 @@ describe("task-scoped attachment owner", () => {
       "true",
     );
     fireEvent.click(screen.getByRole("button", { name: "Raw" }));
-    expect(screen.getByLabelText("Raw source").textContent).toBe(text);
+    expect(screen.getByLabelText("Raw Markdown").textContent).toBe(text);
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(pending.map(({ url }) => url)).toEqual([
       "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
@@ -205,7 +205,7 @@ describe("task-scoped attachment owner", () => {
       expect(screen.queryByText("Obsolete retry A")).toBeNull();
       expect(document.activeElement).toBe(target);
       fireEvent.click(target);
-      expect(screen.getByLabelText("Raw source").textContent).toBe("# Current B");
+      expect(screen.getByLabelText("Raw Markdown").textContent).toBe("# Current B");
       expect(pending.map(({ url }) => url)).toEqual([
         "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
         "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
@@ -248,7 +248,7 @@ describe("task-scoped attachment owner", () => {
       "This file is empty. Download keeps the original file.",
     );
     fireEvent.click(screen.getByRole("button", { name: "Raw" }));
-    expect(screen.getByLabelText("Raw source").textContent).toBe("");
+    expect(screen.getByLabelText("Raw Markdown").textContent).toBe("");
   });
   it.each([
     { attachmentId: "other" },
@@ -290,7 +290,7 @@ describe("task-scoped attachment owner", () => {
     const text = "\t".repeat(1024 * 1024);
     await resolve(0, reply(a, text));
     fireEvent.click(screen.getByRole("button", { name: "Raw" }));
-    expect(screen.getByLabelText("Raw source").textContent).toBe(text);
+    expect(screen.getByLabelText("Raw Markdown").textContent).toBe(text);
     close();
     openA();
     const cancel = vi.fn();

@@ -1,7 +1,6 @@
 import { useEffect, useState, type RefObject } from "react";
-import type { DocumentModel } from "./document";
+import type { DocumentModel } from "./model.js";
 
-/** Observe the reader slot, never the desktop viewport. */
 export function useWidePanel(root: RefObject<HTMLElement | null>, enabled = true) {
   const [wide, setWide] = useState(false);
   useEffect(() => {

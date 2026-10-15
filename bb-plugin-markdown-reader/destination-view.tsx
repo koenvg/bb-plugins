@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { experimental_FileLink as FileLink, UrlLink } from "@get-bb/plugin-sdk/app";
+import { localDestinations, type DestinationPolicy } from "@bb-plugins/markdown-document";
 import type { TextSnapshot } from "./source";
 import {
   destinationKey,
@@ -12,7 +13,6 @@ export type ResolveDocumentDestinations = (
   target: TextSnapshot["target"],
   requests: DestinationRequest[],
 ) => Promise<DestinationResult>;
-const Context = createContext<ReadonlyMap<string, Destination>>(new Map());
 
 /** One resolution per loaded snapshot. View changes reuse its image URLs. */
 export function DestinationProvider({
@@ -23,10 +23,10 @@ export function DestinationProvider({
   children,
 }: {
   snapshot: TextSnapshot | null;
-  requests: DestinationRequest[];
+  requests: readonly DestinationRequest[];
   resolve?: ResolveDocumentDestinations;
   enabled: boolean;
-  children: ReactNode;
+  children: (policy: DestinationPolicy) => ReactNode;
 }) {
   const [state, setState] = useState<{
     snapshot: TextSnapshot;
@@ -35,7 +35,10 @@ export function DestinationProvider({
   useEffect(() => {
     if (!snapshot || !resolve || !requests.length || !enabled) return;
     let current = true;
-    void resolve(snapshot.target, requests).then(
+    void resolve(
+      snapshot.target,
+      requests.map((request) => ({ ...request })),
+    ).then(
       (result) => {
         if (!current) return;
         const identity = result.identity;
@@ -65,105 +68,34 @@ export function DestinationProvider({
       current = false;
     };
   }, [snapshot, requests, resolve, enabled]);
-  return (
-    <Context.Provider value={enabled && state?.snapshot === snapshot ? state.results : new Map()}>
-      {children}
-    </Context.Provider>
-  );
-}
-
-export function DestinationLink({
-  url,
-  fragmentTarget,
-  children,
-  ...references
-}: {
-  url: string;
-  fragmentTarget: (fragment: string) => string | null;
-  children: ReactNode;
-  id?: string;
-  "aria-describedby"?: string;
-  "aria-label"?: string;
-}) {
-  const result = useContext(Context).get(destinationKey({ url, image: false }));
-  const fragment = url.startsWith("#") ? url : result?.kind === "fragment" ? result.fragment : "";
-  const target = fragmentTarget(fragment);
-  if (target)
-    return (
-      <a {...references} href={`#${target}`} data-heading-target={target}>
-        {children}
-      </a>
-    );
-  if (result?.kind === "external-url")
-    return (
-      <UrlLink {...references} href={result.url}>
-        {children}
-      </UrlLink>
-    );
-  if (result?.kind === "local-file")
-    return (
-      <FileLink {...references} target={result.target} data-source-host={result.hostId}>
-        {children}
-      </FileLink>
-    );
-  return (
-    <span
-      {...references}
-      className="mr-inert-link"
-      title={result?.kind === "rejected" ? result.reason : undefined}
-    >
-      {children}
-    </span>
-  );
-}
-
-function LoadedImage({
-  destination,
-  alt,
-  title,
-}: {
-  destination: Extract<Destination, { kind: "image" }>;
-  alt: string;
-  title?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed)
-    return (
-      <span className="mr-image-placeholder">
-        {alt || "Image"}
-        <span className="mr-image-error"> Image unavailable. Refresh to retry.</span>
-      </span>
-    );
-  return (
-    <img
-      src={destination.url}
-      alt={alt}
-      title={title}
-      referrerPolicy="no-referrer"
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-export function DestinationImage({
-  url,
-  alt = "",
-  title,
-}: {
-  url: string;
-  alt?: string;
-  title?: string;
-}) {
-  const result = useContext(Context).get(destinationKey({ url, image: true }));
-  return result?.kind === "image" ? (
-    <LoadedImage key={result.url} destination={result} alt={alt} title={title} />
-  ) : (
-    <span
-      className="mr-image-placeholder"
-      title={result?.kind === "rejected" ? result.reason : undefined}
-    >
-      {alt || "Image"}
-    </span>
-  );
+  if (!enabled || state?.snapshot !== snapshot) return children(localDestinations);
+  const policy: DestinationPolicy = {
+    kind: "delegated",
+    resolve(request) {
+      const result = state.results.get(destinationKey(request));
+      if (!result) return undefined;
+      if (result.kind === "rejected") return result;
+      if (request.image) {
+        if (result.kind !== "image") return undefined;
+        if (
+          !result.remote &&
+          !/^\/api\/v1\/plugins\/markdown-reader\/http\/image\?asset=[a-z\d_-]+$/i.test(result.url)
+        )
+          return undefined;
+        return { kind: "image", url: result.url, source: result.remote ? "remote" : "source" };
+      }
+      if (result.kind === "fragment") return result;
+      if (result.kind === "external-url")
+        return { kind: "bound-link", render: (props) => <UrlLink {...props} href={result.url} /> };
+      if (result.kind === "local-file")
+        return {
+          kind: "bound-link",
+          render: (props) => (
+            <FileLink {...props} target={result.target} data-source-host={result.hostId} />
+          ),
+        };
+      return undefined;
+    },
+  };
+  return children(policy);
 }

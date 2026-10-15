@@ -14,7 +14,7 @@ Task comments are removed by migration 12. Read [the upgrade and rollback proced
 Use Bun 1.4.3 with the committed lockfiles, and Node `>=24.15.0 <25` for Vitest. Install repository
 lint/format tooling with `bun install --frozen-lockfile` at the root. Then run from this directory:
 
-Build the local shared package before installing Tasks. From the repository root, run:
+Verify the local shared package before consumer checks. From the repository root, run:
 
 ```sh
 cd packages/markdown-document
@@ -27,6 +27,7 @@ bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
 ```
 
 The Quota dependency supplies the existing Tasks navigation fixture. The shared package is a build-time dependency, not an installed-plugin dependency. Tasks bundles its compiled code and CSS. The approved development workflow uses frozen Bun installs instead of the older plan's npm ci.
+The dependency exports source ESM/TSX and CSS so BB can compile it on a clean checkout without a pre-build hook. Its separate build verifies emitted ESM, declarations and CSS. Both production consumers use that source, but keep independent loading and destination policies. See [BBP-57 validation](../verification/BBP-57/report.md) for fresh independent build and matched report checks.
 The frozen Tasks install also installs the official `bb-app@0.46.0` build CLI locally. Its lockfile records the npm tarball integrity. This release ships SDK 0.6.37. The [official CI guide](https://github.com/get-bb/bb/blob/4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62/plugins/bb-guide/skills/bb-plugin-authoring/references/quickstart.md) supports `bb plugin build` without a running server. Use the local CLI and a temporary `BB_DATA_DIR` for build-tool downloads, not the desktop application's global CLI or user data. Installing development dependencies does not install or enable the Tasks plugin.
 
 ```sh
@@ -153,13 +154,7 @@ Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task sho
 
 Close, replacement, Retry, task changes, unmount, and confirmed removal invalidate older reads. A late response cannot reopen or replace the current preview or take focus. Removal closes a concurrently opened preview only after successful deletion. A failed deletion reports its error and keeps the file usable.
 
-Markdown and GFM have semantic headings, tables, read-only task lists, and bounded fence highlighting. All document destinations are inactive, including footnotes. Link labels and image alt text remain readable. Attachments have no filesystem root. Raw HTML and MDX do not execute. No standalone reader installation is needed.
-
-The document uses host theme tokens, a 720 px prose maximum, and container-based type sizes. Wide prose uses 16 px text at 1.75 line height. Containers through 600 px use 15 px at 1.8. Code uses the host monospace font at 13 px with 1.9 line height. Wide tables and code scroll locally and have visible keyboard focus. Live host token changes retain the loaded source and selected view. No plugin theme switch or palette is added.
-
-Fences support explicit JSON, JavaScript, TypeScript, Bash, Python, markup, and CSS labels, plus `js`, `ts`, `sh`, `shell`, `py`, `html`, and `xml` aliases. Highlighting accepts at most 20,480 UTF-8 bytes of rendered code, including the parser-added final LF. Unknown or missing labels, larger fences, and failed or invalid tokenization remain plain. There is no language detection or HTML-string insertion. The input and token-validation bounds do not guarantee tokenizer execution time. Raw remains the exact original snapshot.
-
-`tests/browser/reading-report.spec.ts` exercises the real production overlay with a generic report at 390 px and 1280 px, Default light/dark token snapshots, custom tokens, and a narrow document inside a wide desktop viewport. It captures the open overlay and structured geometry/contrast in Playwright's private output. It checks local overflow, heading hierarchy, focus, Escape/restoration, one load across live token changes, and unchanged adjacent editor/chat sentinels. Token fixture provenance is in `tests/fixtures/report-theme-tokens.md`. This is not installed acceptance or production-file-reader parity. Optional outline construction belongs to BBP-55 and is absent here.
+Preview uses the same private document package and scoped stylesheet as Markdown Reader. Leading YAML frontmatter is hidden only in Preview. GFM headings, tables, read-only tasks and bounded known-language highlighting use the common presentation. Unknown languages and fences above 20 KiB stay plain. Raw retains the complete source. All document destinations remain inactive in this delivery, including footnotes. Labels and image alt text remain readable. Attachments have no filesystem root. Raw HTML and MDX do not execute. No standalone reader installation is needed.
 
 The BBP-54 browser checks in `tests/browser/preview.spec.ts` use the production card and dialog with local fixture transport. The recoverable scenario fails the first preview read, then succeeds after **Retry**. Its Download check clicks the production dialog link and receives a real response from the local Vite fixture server at the production-shaped download path. It checks the exact saved-ID URL, suggested filename, successful completion, and original bytes. The fixture serves only the saved fixture identity and rejects missing, unknown, or duplicate IDs. This is fixture-only transport proof, not installed-server acceptance. The migration API test separately checks real saved-ID routes and blob bytes. Use the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) with `BBP53_CAPTURE_PHASE=none`, its private Playwright config, and fresh private output. Historical BBP-53 captures must remain unchanged.
 
