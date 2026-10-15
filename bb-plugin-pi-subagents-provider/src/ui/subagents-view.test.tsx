@@ -4,6 +4,7 @@ import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SubagentsView } from "./subagents-view.js";
 import { type ViewState } from "../subagents-contract.js";
+import { restoreViewHistory } from "../view-history.js";
 installTestPluginRuntime();
 beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -155,6 +156,129 @@ it("exposes captured prose to host reading styles without including labels or to
       (node) => node.closest(".pi-subagents-prose") === null,
     ),
   ).toBe(true);
+});
+it("renders accepted legacy tool-result text as collapsed escaped output without guessing metadata", () => {
+  const text = "<script>unsafe</script>\n**not Markdown**\n  <img src=x onerror=unsafe()> & output";
+  const legacy: ViewState = {
+    ...state,
+    rows: [
+      {
+        ...state.rows[0]!,
+        capture: {
+          status: "captured",
+          capturedAt: 1,
+          task: "Task prose",
+          finalOutput: "Answer prose",
+          truncated: { task: false, finalOutput: false, messages: 2 },
+          messages: [
+            { role: "user", kind: "text", text: "User prose" },
+            { role: "toolResult", kind: "text", text },
+            { role: "assistant", kind: "text", text: "Assistant prose" },
+            {
+              role: "toolResult",
+              kind: "text",
+              name: "read",
+              isError: true,
+              text: "x".repeat(1000),
+              textTruncated: true,
+            },
+            { role: "custom", kind: "text", text: "Custom prose" },
+          ],
+        },
+      },
+    ],
+  };
+  const restored = restoreViewHistory([JSON.parse(JSON.stringify(legacy))]);
+  expect(restored).toEqual(legacy);
+  const view = render(<SubagentsView state={restored} />);
+  expect(view.getAllByTestId("bb-markdown").map((node) => node.textContent)).toEqual([
+    "Task prose",
+    "User prose",
+    "Assistant prose",
+    "Custom prose",
+    "Answer prose",
+  ]);
+  const transcript = view.getByRole("region", { name: "Captured conversation" });
+  const tools = transcript.querySelectorAll<HTMLDetailsElement>(".pi-subagents-tool");
+  expect(tools).toHaveLength(2);
+  expect(Array.from(tools).map((tool) => tool.open)).toEqual([false, false]);
+  expect(Array.from(tools).map((tool) => tool.querySelector("summary")!.textContent)).toEqual([
+    "Tool resultResult · toolResult",
+    "readResult · toolResultError",
+  ]);
+  expect(tools[0]!.querySelector("pre")!.textContent).toBe(text);
+  expect(tools[1]!.querySelector("pre")!.textContent).toBe("x".repeat(1000));
+  for (const tool of Array.from(tools)) {
+    expect(tool.querySelector(".pi-subagents-prose, script, img")).toBeNull();
+    expect(tool.closest(".pi-subagents-prose")).toBeNull();
+  }
+  expect(within(tools[1]!).getByText("Tool text was truncated.")).toBeDefined();
+  expect(view.getByText("Transcript text was truncated.")).toBeDefined();
+  expect(view.getByText("2 transcript entries omitted.")).toBeDefined();
+  expect(view.getByText("Model unavailable")).toBeDefined();
+  expect(
+    transcript.querySelector(".pi-subagents-message[aria-label='toolResult message']"),
+  ).toBeNull();
+  expect(
+    Array.from(transcript.children)
+      .slice(0, 6)
+      .map((node) => node.className),
+  ).toEqual([
+    "pi-subagents-task",
+    "pi-subagents-message",
+    "pi-subagents-tool",
+    "pi-subagents-message",
+    "pi-subagents-tool",
+    "pi-subagents-message",
+  ]);
+  const tool = tools[0]!;
+  const summary = tool.querySelector("summary")!;
+  tool.open = true;
+  summary.focus();
+  transcript.scrollTop = 120;
+  view.rerender(
+    <SubagentsView
+      state={{
+        ...legacy,
+        updatedAt: 20,
+        rows: [
+          {
+            ...legacy.rows[0]!,
+            observedAt: 20,
+            capture: {
+              ...legacy.rows[0]!.capture!,
+              status: "timeout",
+              attemptedAt: 20,
+              reason: "No reply",
+              messages: legacy.rows[0]!.capture!.messages!.slice(1),
+            },
+          },
+        ],
+      }}
+    />,
+  );
+  expect(transcript.querySelector(".pi-subagents-tool")).toBe(tool);
+  expect(tool.open).toBe(true);
+  expect(document.activeElement).toBe(summary);
+  expect(transcript.scrollTop).toBe(120);
+  expect(view.getByText("Answer prose")).toBeDefined();
+  view.rerender(
+    <SubagentsView
+      state={{
+        ...legacy,
+        rows: [
+          {
+            ...legacy.rows[0]!,
+            capture: {
+              ...legacy.rows[0]!.capture!,
+              messages: [{ role: "toolResult", kind: "text", text: "different result" }],
+            },
+          },
+        ],
+      }}
+    />,
+  );
+  expect(transcript.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!.open).toBe(false);
 });
 it("keeps keyboard selection without execution controls and reveals observation-based timing", () => {
   const view = render(<SubagentsView state={state} />);
