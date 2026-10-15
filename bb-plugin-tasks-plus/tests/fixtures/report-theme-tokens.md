@@ -1,0 +1,11 @@
+# Report token fixture provenance
+
+`tests/preview.css` uses the Default built-in token snapshot documented in [the reader fixture provenance](../../../bb-plugin-markdown-reader/tests/fixtures/theme-tokens.md) and `bb-plugin-markdown-reader/tests/preview.css`. That snapshot came from BB's served `index-C5-8cYca.css`, SHA-256 `4679becb97e823c6fe046f59935b42b28abc08e1bd73286a4c884f4b8a895c36`. No theme was activated for this task.
+
+Default light uses `oklch(100% 0 0)` canvas, `oklch(32.11% 0 0)` ink, and `oklch(44% 0 0)` muted foreground. Dark uses `oklch(19.5% 0 0)`, `oklch(81% 0 0)`, and `oklch(78% 0 0)`. Recessed surfaces mix ink at 6% with transparency in OKLab. Ring, border, hover, active, and radius values match the reader fixture. The custom fixture uses its warm canvas, blue-black ink, purple ring, and 12 px radius. These are test values, not a production palette. The explicit Courier New fixture font proves inheritance of `--font-mono`, not installed-host font parity.
+
+`tests/browser/report-measures.ts` rasterizes computed CSS colors to sRGB. It composites every ancestor background, including transparent document roots and translucent code surfaces, before measuring body and token contrast. Compact `.attachment-preview` is a transparent inner div. The outer dialog paints its background. Tests wait for the existing dialog background transition to settle before measuring live theme changes.
+
+`reading-report.spec.ts` records open-overlay screenshots and `reading-measures.json` through `testInfo.outputPath`. The six scenarios cover 390 px and 1280 px light and dark, custom tokens, and a 390 px document container at a 1280 px viewport. The same report has a 720 px prose measure on desktop and 390 px inside the narrowed desktop container. This demonstrates document-container responsiveness, not matched production-reader parity.
+
+The fixture substitutes the saved-ID preview transport and uses production Tasks cards, preview ownership, and dialog components. It creates no live Tasks records and changes no installed source, enabled state, or host theme preference. Browser evidence does not certify every built-in or third-party theme. Production-file-reader adoption and optional outline integration remain outside this delivery.

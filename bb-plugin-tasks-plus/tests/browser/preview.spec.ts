@@ -108,8 +108,8 @@ for (const width of [1280, 390]) {
     expect(geometry.pageOverflow).toBe(false);
     expect(geometry.proseWidth).toBeLessThanOrEqual(720);
     expect(geometry.codeLocal).toBe(true);
-    expect(geometry.fontSize).toBe("16px");
-    expect(geometry.lineHeight).toBe("28px");
+    expect(geometry.fontSize).toBe(width === 390 ? "15px" : "16px");
+    expect(geometry.lineHeight).toBe(width === 390 ? "27px" : "28px");
     expect(geometry.reads).toBe("1");
     expect(geometry.controlsFit).toBe(true);
     expect(geometry.focusInside).toBe(true);

@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { boundedCode } from "./code.js";
 
 export type DocumentView = "preview" | "raw";
 export type DestinationPolicy = Readonly<{ kind: "deny" }>;
@@ -24,6 +25,7 @@ export function MarkdownDocument({ text, view, namespace }: MarkdownDocumentProp
         <article className="md-document-prose">
           <Markdown
             remarkPlugins={[remarkGfm]}
+            rehypePlugins={[boundedCode]}
             skipHtml
             components={{
               a: ({ children }) => <span>{children}</span>,

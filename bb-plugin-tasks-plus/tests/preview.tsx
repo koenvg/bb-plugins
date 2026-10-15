@@ -5,10 +5,13 @@ import { AttachmentsGrid } from "../views/detail/attachments";
 import { useAttachmentPreview } from "../views/detail/attachment-preview";
 import { ShortcutProvider, useShortcuts } from "../shell/shortcut-provider";
 import type { Attachment } from "../shared/contract";
-import { previewDocument } from "./preview-document";
+import { previewDocument, readingReport } from "./preview-document";
 import "./preview.css";
 
-const { fileName: name, source: text } = previewDocument;
+const params = new URLSearchParams(location.search);
+const documentFixture = params.has("report") ? readingReport : previewDocument;
+const { fileName: name, source: text } = documentFixture;
+document.documentElement.dataset.documentWidth = params.get("documentWidth") || "auto";
 const attachment: Attachment = {
   id: previewDocument.id,
   taskId: "fixture-task",
@@ -81,6 +84,25 @@ function TaskFixture() {
       <p>
         Workflow remains todo. <output aria-label="Task shortcut count">{shortcuts}</output>
       </p>
+      <section className="fixture-editor" aria-label="Editor sentinel">
+        <h2>Editor heading</h2>
+        <p>
+          Editor text with <code className="token keyword">const editor</code>.
+        </p>
+      </section>
+      <section className="fixture-chat" aria-label="Chat sentinel">
+        <h2>Chat heading</h2>
+        <pre>
+          <code className="token comment">Chat code</code>
+        </pre>
+        <table>
+          <tbody>
+            <tr>
+              <td>Chat table</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
       <button ref={fallback}>Attach file</button>
       <AttachmentsGrid
         attachments={attachments}
