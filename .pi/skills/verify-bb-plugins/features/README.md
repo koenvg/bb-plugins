@@ -28,7 +28,7 @@ Set `PLUGIN` to the package suffix below; the installed plugin ID matches unless
 | [mcp](mcp.md) | Controlled transport/token/SDK tests | Authenticated MCP tools and bb mcp status; existing issuer/tunnel/client consent |
 | [pi-subagents-provider](pi-subagents-provider.md) | Public bridge/scripted Pi regression tests | Plugin pi-subagents-provider, provider pi-subagents, Subagents panel and approved lifecycle |
 | [pr-thread-list](pr-thread-list.md) | SDK/UI tests; no standalone browser suite | Appearance Sidebar, tabs, rows and badge; GitHub Insight dependency |
-| [tasks-plus](tasks-plus.md) | Fixed-port Playwright overlay fixture plus SDK tests | Tasks panel, details, CLI and workers; SQLite, built local Markdown package, Quota dependencies, pinned TypeScript 7, migration/competing-plugin safeguards |
+| [tasks-plus](tasks-plus.md) | Fixed-port Playwright overlay/navigation/image fixtures plus SDK tests | Tasks panel, details, CLI and workers; SQLite, built local Markdown package, Quota dependencies, pinned TypeScript 7, migration/competing-plugin safeguards |
 
 The index deliberately records missing harnesses. Do not invent a preview URL or a browser launch command for a package that has none. Follow its real installed entry instead and report blocked prerequisites.
 
