@@ -1,8 +1,34 @@
 import { defineConfig } from "vite";
 import tailwind from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
+import { previewDocument } from "./tests/preview-document";
 export default defineConfig({
-  plugins: [tailwind()],
+  plugins: [
+    tailwind(),
+    {
+      name: "preview-document-download",
+      apply: "serve",
+      configureServer(server) {
+        server.middlewares.use((request, response, next) => {
+          const url = new URL(request.url || "/", "http://127.0.0.1");
+          if (url.pathname !== "/api/v1/plugins/tasks-plus/http/attachments/download")
+            return next();
+          const ids = url.searchParams.getAll("attachmentId");
+          if (request.method !== "GET" || ids.length !== 1 || ids[0] !== previewDocument.id) {
+            response.statusCode = 404;
+            response.end();
+            return;
+          }
+          response.setHeader("Content-Type", previewDocument.mime);
+          response.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${previewDocument.fileName}"`,
+          );
+          response.end(Buffer.from(previewDocument.source, "utf8"));
+        });
+      },
+    },
+  ],
   resolve: {
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
     dedupe: ["react", "react-dom"],

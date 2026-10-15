@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 const filename = "investigation-with-a-long-filename-and-important-observations.MARKDOWN";
+const source =
+  "\uFEFF---\r\ntitle: Investigation\r\n---\r\n\r\n# Investigation\r\n\r\nA generic task report. Read the findings without changing the task.\r\n\r\n## Findings\r\n\r\n- [x] Keep downloads unchanged\r\n- [ ] Check the next step\r\n\r\n[external](https://example.org) ![chart](./chart.png)\r\n\r\n| Observation | Value | Notes |\r\n| --- | --- | --- |\r\n| attachment-identity | fulfilled | " +
+  "wide-value-".repeat(15) +
+  ' |\r\n\r\n```typescript\r\n\tconst text = "' +
+  "long-code-".repeat(25) +
+  '";  \r\n```\r\n';
 for (const width of [1280, 390]) {
   test(`generic real overlay at ${width}px`, async ({ page, context }) => {
     const errors: string[] = [];
@@ -63,7 +69,7 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("]");
     await page.keyboard.press("s");
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
-    expect(await dialog.getByLabel("Raw source").textContent()).toContain("\uFEFF---\r\n");
+    expect(await dialog.getByLabel("Raw source").textContent()).toBe(source);
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     await page.keyboard.press("Tab");
     await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
@@ -171,6 +177,48 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("]");
     await expect(page.getByLabel("Task shortcut count")).toHaveText("0");
   });
+  test(`Retry recovers and Download uses local HTTP fixture at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/tests/preview.html?state=recoverable");
+    const trigger = page.getByRole("button", { name: filename, exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: filename });
+    await expect(dialog.getByRole("status").getByRole("paragraph")).toHaveText(
+      "The preview could not load. Try again or use Download.",
+    );
+    expect(await page.locator("html").getAttribute("data-reads")).toBe("1");
+    await dialog.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(dialog.getByRole("heading", { name: "Investigation", exact: true })).toBeVisible();
+    expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
+    for (let index = 0; index < 2; index++) {
+      await dialog.getByRole("button", { name: "Raw", exact: true }).click();
+      expect(await dialog.getByLabel("Raw source").textContent()).toBe(source);
+      await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+      await expect(
+        dialog.getByRole("heading", { name: "Investigation", exact: true }),
+      ).toBeVisible();
+    }
+    expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
+    const link = dialog.getByRole("link", { name: "Download", exact: true });
+    await expect(link).toHaveAttribute("download", filename);
+    const downloadEvent = page.waitForEvent("download");
+    await link.click();
+    const download = await downloadEvent;
+    expect(download.url()).toBe(
+      "http://127.0.0.1:4193/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=fixture-a",
+    );
+    expect(download.suggestedFilename()).toBe(filename);
+    expect(await download.failure()).toBeNull();
+    const saved = testInfo.outputPath("fixture-transport-download.MARKDOWN");
+    await download.saveAs(saved);
+    expect(await readFile(saved)).toEqual(Buffer.from(source, "utf8"));
+    await expect(dialog.getByRole("heading", { name: "Investigation", exact: true })).toBeVisible();
+    expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(trigger).toBeFocused();
+  });
   for (const mode of ["empty", "error"]) {
     test(`stable ${mode} region at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -193,3 +241,26 @@ for (const width of [1280, 390]) {
     });
   }
 }
+
+test("local HTTP download rejects missing, unknown, and duplicate attachment identities", async ({
+  request,
+}) => {
+  const saved = await request.get(
+    "/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=fixture-a",
+  );
+  expect(saved.status()).toBe(200);
+  expect(saved.headers()["content-type"]).toBe("application/octet-stream");
+  expect(saved.headers()["content-disposition"]).toBe(`attachment; filename="${filename}"`);
+  expect(await saved.body()).toEqual(Buffer.from(source, "utf8"));
+  for (const query of [
+    "",
+    "?attachmentId=unknown",
+    "?attachmentId=fixture-a&attachmentId=unknown",
+  ]) {
+    const response = await request.get(
+      `/api/v1/plugins/tasks-plus/http/attachments/download${query}`,
+    );
+    expect(response.status()).toBe(404);
+    expect(await response.text()).toBe("");
+  }
+});

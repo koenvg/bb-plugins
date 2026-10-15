@@ -18,6 +18,16 @@ Confirm migration 12 is recorded, the comments table and attachment `comment_id`
 
 Old `bb tasks comment`, comment/activity RPCs and comment-owner upload/list/delete calls fail without mutation or notification. Existing custom presets and already delivered worker prompts are not rewritten. Update those presets manually if needed. New worker guidance reports outcomes and questions in the existing linked work thread, with the same status/review gates.
 
+## Read migrated files
+
+Former comment files appear in their task's attachment grid, not on comment cards. Their saved IDs, filenames, metadata, and existing downloads remain unchanged. No comment draft or composer is restored. Unsaved staged files have no saved-ID preview until task creation and successful upload.
+
+Saved `.md` and `.markdown` files use the existing read-only task dialog, with case-insensitive filenames and generic MIME support. **Preview** and exact **Raw** share one loaded snapshot. **Download** uses the same saved ID and original bytes, even after a preview failure. Recoverable failures offer **Retry**.
+
+The task keeps its current title and description edits, editor instance, route, scroll, status, and priority while the dialog opens, switches views, and closes. Normal autosaves continue. **Close** and Escape return focus to the connected file card or **Attach file**. A newer overlay keeps focus. Close, replacement, Retry, task changes, unmount, and confirmed deletion invalidate older reads. Deletion pending or failure alone does not close a concurrently opened preview. Failed deletion reports an error and keeps the file usable.
+
+BBP-54 verifies this task-file behavior under the approved replacement scope. Its browser Download check clicks the production dialog link and receives original fixture bytes from the local Vite HTTP fixture. This is not installed acceptance. The API migration test checks the real saved-ID preview and download routes against a disposable legacy database and original blob bytes.
+
 ## Import bundled data
 
 Use `scripts/import-bundled-data.sh` while the fork is disabled. It backs up the source database to a temporary copy, rewrites retained description download links and applies the same forward migration before publishing the imported database. It copies blobs without changing the bundled source and refuses a populated target. Node 24.15 or newer, package dependencies and SQLite CLI are required.

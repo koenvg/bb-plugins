@@ -5,24 +5,19 @@ import { AttachmentsGrid } from "../views/detail/attachments";
 import { useAttachmentPreview } from "../views/detail/attachment-preview";
 import { ShortcutProvider, useShortcuts } from "../shell/shortcut-provider";
 import type { Attachment } from "../shared/contract";
+import { previewDocument } from "./preview-document";
 import "./preview.css";
 
-const name = "investigation-with-a-long-filename-and-important-observations.MARKDOWN";
+const { fileName: name, source: text } = previewDocument;
 const attachment: Attachment = {
-  id: "fixture-a",
+  id: previewDocument.id,
   taskId: "fixture-task",
   fileName: name,
-  mime: "application/octet-stream",
+  mime: previewDocument.mime,
   sizeBytes: 100,
   isImage: false,
   createdAt: "2026-07-20T00:00:00.000Z",
 };
-const text =
-  "\uFEFF---\r\ntitle: Investigation\r\n---\r\n\r\n# Investigation\r\n\r\nA generic task report. Read the findings without changing the task.\r\n\r\n## Findings\r\n\r\n- [x] Keep downloads unchanged\r\n- [ ] Check the next step\r\n\r\n[external](https://example.org) ![chart](./chart.png)\r\n\r\n| Observation | Value | Notes |\r\n| --- | --- | --- |\r\n| attachment-identity | fulfilled | " +
-  "wide-value-".repeat(15) +
-  ' |\r\n\r\n```typescript\r\n\tconst text = "' +
-  "long-code-".repeat(25) +
-  '";  \r\n```\r\n';
 const mode = new URLSearchParams(location.search).get("state") || "ready";
 const originalFetch = window.fetch;
 window.fetch = async (input, init) => {
@@ -34,7 +29,11 @@ window.fetch = async (input, init) => {
       await new Promise<void>((resolve) =>
         window.addEventListener("fixture-ready", () => resolve(), { once: true }),
       );
-    if (mode === "error") return new Response("", { status: 500 });
+    if (
+      mode === "error" ||
+      (mode === "recoverable" && document.documentElement.dataset.reads === "1")
+    )
+      return new Response("", { status: 500 });
     const source = mode === "empty" ? "" : text;
     return Response.json({
       attachmentId: attachment.id,

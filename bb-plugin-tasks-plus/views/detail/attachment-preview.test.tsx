@@ -177,6 +177,42 @@ describe("task-scoped attachment owner", () => {
     close();
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
+  it.each(["close", "replacement"])(
+    "rejects a deferred Retry response after %s without replacing content or focus",
+    async (invalidation) => {
+      deferredFetch();
+      mount();
+      const trigger = screen.getByRole("button", { name: a.fileName });
+      trigger.focus();
+      openA();
+      await resolve(0, new Response("", { status: 500 }));
+      expect(screen.getByRole("status").textContent).toContain("The preview could not load.");
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      expect(screen.getByRole("status").textContent).toBe("Loading Markdown preview…");
+      if (invalidation === "close") {
+        close();
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+      }
+      fireEvent.click(screen.getByText("Replace with B"));
+      expect(pending[1]!.signal.aborted).toBe(true);
+      await resolve(2, reply(b, "# Current B"));
+      const dialog = screen.getByRole("dialog", { name: b.fileName });
+      const target = within(dialog).getByRole("button", { name: "Raw" });
+      target.focus();
+      await resolve(1, reply(a, "# Obsolete retry A"));
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Current B");
+      expect(screen.getByRole("dialog", { name: b.fileName })).toBe(dialog);
+      expect(screen.queryByText("Obsolete retry A")).toBeNull();
+      expect(document.activeElement).toBe(target);
+      fireEvent.click(target);
+      expect(screen.getByLabelText("Raw source").textContent).toBe("# Current B");
+      expect(pending.map(({ url }) => url)).toEqual([
+        "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
+        "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
+        "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-b",
+      ]);
+    },
+  );
   it.each([401, 403, 404, 413, 415, 500])(
     "shows bounded %s failure and keeps original ID Download",
     async (status) => {

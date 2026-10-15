@@ -143,13 +143,19 @@ Task descriptions hold requirements and current state. Linked work threads hold 
 
 Activate a saved task file named `.md` or `.markdown` to open a read-only dialog over the same task. Extensions are case-insensitive, even with generic MIME metadata. Images still open the image preview, including misleading Markdown filenames. Other file cards still download.
 
+Files migrated from removed comments now appear as ordinary task files. They keep the same saved ID, metadata, bytes, and download URL. There are no comment cards, comment composers, or comment drafts. Unsaved files staged in **New task** stay outside preview scope until the task is created and the upload succeeds.
+
 The dialog starts in **Preview**. Select **Raw** to read the exact loaded source, including frontmatter, BOM, CRLF, blank lines, and code whitespace. Both views use one snapshot. View changes do not fetch or write. **Download** always uses the original saved attachment ID and filename, even if preview fails.
 
 Preview accepts valid UTF-8 through 1 MiB of actual bytes. It rejects larger files, invalid UTF-8, NUL, and binary controls other than TAB, LF, and CR. The separate upload and original-download allowance remains 25 MiB. Empty files have a readable message. Missing, denied, and read failures offer **Retry**. Unsupported text and oversized files direct you to **Download**.
 
-Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task shortcuts pause while it is open. Focus returns to the connected attachment card, or **Attach file** if the card is gone. A newer overlay keeps its focus. Task changes and confirmed removal close the preview and discard pending reads. Opening and view changes do not navigate, remount the editor, or change workflow state.
+Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task shortcuts pause while it is open. Focus returns to the connected attachment card, or **Attach file** if the card is gone. A newer overlay keeps its focus. Opening, switching views, and closing preserve the task route, scroll, title and description edits, editor instance, status, and priority. Normal editor autosaves still run.
+
+Close, replacement, Retry, task changes, unmount, and confirmed removal invalidate older reads. A late response cannot reopen or replace the current preview or take focus. Removal closes a concurrently opened preview only after successful deletion. A failed deletion reports its error and keeps the file usable.
 
 Markdown and GFM have semantic headings, tables, read-only task lists, and plain code. All document destinations are inactive, including footnotes. Link labels and image alt text remain readable. Attachments have no filesystem root. Raw HTML and MDX do not execute. No standalone reader installation is needed.
+
+The BBP-54 browser checks in `tests/browser/preview.spec.ts` use the production card and dialog with local fixture transport. The recoverable scenario fails the first preview read, then succeeds after **Retry**. Its Download check clicks the production dialog link and receives a real response from the local Vite fixture server at the production-shaped download path. It checks the exact saved-ID URL, suggested filename, successful completion, and original bytes. The fixture serves only the saved fixture identity and rejects missing, unknown, or duplicate IDs. This is fixture-only transport proof, not installed-server acceptance. The migration API test separately checks real saved-ID routes and blob bytes. Use the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) with `BBP53_CAPTURE_PHASE=none`, its private Playwright config, and fresh private output. Historical BBP-53 captures must remain unchanged.
 
 ## Delete a Tasks project
 

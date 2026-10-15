@@ -24,6 +24,10 @@ describe("NewTaskDialog attachments", () => {
           status: 200,
         });
       }
+      if (url.includes("/attachments/preview")) {
+        fetchCalls.push(url);
+        return new Response("", { status: 404 });
+      }
       if (url.includes("/attachments/upload")) {
         fetchCalls.push(url);
         const query = new URL(url, "http://bb.test").searchParams;
@@ -96,6 +100,42 @@ describe("NewTaskDialog attachments", () => {
     const query = new URL(fetchCalls[0]!, "http://bb.test").searchParams;
     expect(query.get("taskId")).toBe(TASK_ID);
     expect(query.get("fileName")).toBe("shot.png");
+  });
+
+  it("keeps generic-MIME Markdown staged without a saved-ID preview until task creation", async () => {
+    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const titleInput = await openDialogWithTitle(slot, "Staged Markdown");
+    pasteFile(
+      titleInput,
+      new File(["# Unsaved source"], "notes.MARKDOWN", { type: "application/octet-stream" }),
+    );
+    const chip = await slot.findByText("notes.MARKDOWN");
+    fireEvent.click(chip);
+    fireEvent.keyDown(chip, { key: "Enter" });
+    expect(slot.getByText("notes.MARKDOWN")).toBe(chip);
+    expect(
+      (slot.getByRole("button", { name: "Remove notes.MARKDOWN" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(slot.queryByRole("dialog", { name: "notes.MARKDOWN" })).toBeNull();
+    expect(slot.queryByRole("link", { name: "Download" })).toBeNull();
+    expect(fetchCalls).toEqual([]);
+    expect(slot.navigateCalls).toEqual([]);
+    fireEvent.click(slot.getByRole("button", { name: "Create task" }));
+    await waitFor(() =>
+      expect(slot.navigateCalls).toContainEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "task/TSK-5" },
+      }),
+    );
+    expect(fetchCalls).toHaveLength(1);
+    const upload = new URL(fetchCalls[0]!, "http://bb.test");
+    expect(upload.pathname).toBe("/api/v1/plugins/tasks-plus/http/attachments/upload");
+    expect(Object.fromEntries(upload.searchParams)).toEqual({
+      taskId: TASK_ID,
+      fileName: "notes.MARKDOWN",
+      mime: "application/octet-stream",
+    });
   });
 
   it("recovers from a failed upload with a retryable chip bound to the created task", async () => {
