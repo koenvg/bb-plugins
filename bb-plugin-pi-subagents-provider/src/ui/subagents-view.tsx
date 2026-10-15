@@ -97,7 +97,7 @@ function CapturedConversation({ row }: { row: ViewRow }) {
               const occurrence = occurrences.get(identity) ?? 0;
               occurrences.set(identity, occurrence + 1);
               const key = `${identity}:${occurrence}`;
-              return message.kind === "text" ? (
+              return message.kind === "text" && message.role !== "toolResult" ? (
                 <section
                   key={key}
                   className="pi-subagents-message"
