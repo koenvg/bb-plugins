@@ -62,4 +62,4 @@ Model-free source tests and an owned browser preview exercise bounded state, fin
 
 The current package targets BB 0.46.0 / SDK 0.6.37. See [source and installed compatibility](COMPATIBILITY.md#sdk-packaging-on-bb-0460). Passing source checks does not complete installed lifecycle acceptance.
 
-The historical BB 0.44.0 / SDK 0.5.29 checker result remains failed, exit 1. Its [provider-only exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) stays limited to that exact diagnostic and version pair. Replacement checks are not a checker pass. The exception does not apply to the current source or the installed build's BB 0.45 incompatibility.
+The historical BB 0.44.0 / SDK 0.5.29 checker result remains failed, exit 1. Its [provider-only exception](../.pi/skills/verify-bb-plugins/references/pi-subagents-sdk-exception.md) stays limited to that exact diagnostic and version pair. Replacement checks are not a checker pass. The exception does not apply to the current source or the installed build's BB 0.45 incompatibility.

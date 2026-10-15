@@ -42,7 +42,7 @@ Moving only the canonical SDK to development dependencies is insufficient. BB 0.
 
 This historical exception covers only BB 0.44.0 / SDK 0.5.29. It does not apply to the current 0.46.0 source or its production runtime alias.
 
-Run `bb plugin types . --check` and retain its true exit code and complete output. The operator approved a [provider-only diagnostic exception](../.pi/skills/verify/references/pi-subagents-sdk-exception.md) for the verified case. That reference is authoritative for scope, conditions, replacement evidence, and report rules. That historical source keeps the required SDK in runtime dependencies; the checker remains failed, not fixed or passed.
+Run `bb plugin types . --check` and retain its true exit code and complete output. The operator approved a [provider-only diagnostic exception](../.pi/skills/verify-bb-plugins/references/pi-subagents-sdk-exception.md) for the verified case. That reference is authoritative for scope, conditions, replacement evidence, and report rules. That historical source keeps the required SDK in runtime dependencies; the checker remains failed, not fixed or passed.
 
 When every exception condition and replacement check passes, this one accepted diagnostic no longer blocks the next verification step. Installation and live agent tests still need separate approval. At the time of that exception, server activation, installed acceptance, and the actual GitHub CI run were unverified.
 
@@ -50,6 +50,6 @@ When every exception condition and replacement check passes, this one accepted d
 
 On 2026-10-06, [BBP-164](bbtask://BBP-164) records the installed historical `69b1dc9` build as incompatible with BB 0.45.0. This installed build is separate from the passing source above. The BB 0.44.0 / SDK 0.5.29 exception does not cover this incompatibility. Installed acceptance remains incomplete.
 
-No live installed acceptance is claimed by this baseline. Follow the repository [verify skill](../.pi/skills/verify/SKILL.md) before installation, source switches, reloads, or live model tests. Approval must name the target instance and exact source, the final installation state, bounded test threads and paid usage, and cleanup of owned records. Standalone Pi configuration, bundled Pi, defaults, existing sessions, and unrelated records stay unchanged.
+No live installed acceptance is claimed by this baseline. Follow the repository [verify skill](../.pi/skills/verify-bb-plugins/SKILL.md) before installation, source switches, reloads, or live model tests. Approval must name the target instance and exact source, the final installation state, bounded test threads and paid usage, and cleanup of owned records. Standalone Pi configuration, bundled Pi, defaults, existing sessions, and unrelated records stay unchanged.
 
 The later lifecycle acceptance must establish the actual idle-cleanup deadline and prove that a child outlives it after the parent becomes idle, then delivers its result to that parent. Fixtures, badges, and short runs do not meet that gate.
