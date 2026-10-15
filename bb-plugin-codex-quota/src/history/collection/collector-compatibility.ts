@@ -23,36 +23,57 @@ export function packagedCollectorAsset(dataDir: string): string {
   );
 }
 
-export async function readCollectorCompatibility(
+export async function inspectCollectorAsset(
   agentDir: string,
   dataDir: string,
   runtimeSupported: boolean,
-): Promise<HistoryReadiness["collector"]> {
-  if (!runtimeSupported || !validHostDataDir(agentDir) || !validHostDataDir(dataDir))
-    return "incompatible";
+): Promise<"compatible" | "repairable-existing" | "missing" | "unsafe" | "runtime-unsupported"> {
+  if (!runtimeSupported) return "runtime-unsupported";
+  if (!validHostDataDir(agentDir) || !validHostDataDir(dataDir)) return "unsafe";
   const directory = join(agentDir, "extensions", COLLECTOR_NAME);
   try {
+    const root = await lstat(agentDir);
+    if (!root.isDirectory() || root.isSymbolicLink()) return "unsafe";
     const parent = await lstat(join(agentDir, "extensions"));
-    if (!parent.isDirectory() || parent.isSymbolicLink()) return "incompatible";
+    if (!parent.isDirectory() || parent.isSymbolicLink()) return "unsafe";
     const folder = await lstat(directory);
-    if (!folder.isDirectory() || folder.isSymbolicLink()) return "incompatible";
-    const file = await open(join(directory, "index.js"), constants.O_RDONLY | constants.O_NOFOLLOW);
+    if (!folder.isDirectory() || folder.isSymbolicLink()) return "unsafe";
+    const existing = await lstat(join(directory, "index.js"));
+    if (!existing.isFile() || existing.isSymbolicLink() || existing.size > MAX_ASSET_BYTES)
+      return "unsafe";
+    const file = await open(
+      join(directory, "index.js"),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
     try {
       const stat = await file.stat();
-      if (!stat.isFile() || stat.size > MAX_ASSET_BYTES) return "incompatible";
+      if (!stat.isFile() || stat.size > MAX_ASSET_BYTES) return "unsafe";
       const bytes = Buffer.alloc(MAX_ASSET_BYTES + 1);
       const { bytesRead } = await file.read(bytes, 0, bytes.length, 0);
-      if (bytesRead > MAX_ASSET_BYTES) return "incompatible";
+      if (bytesRead > MAX_ASSET_BYTES) return "unsafe";
       const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
       return hash(bytes.subarray(0, bytesRead)) === hash(packagedCollectorAsset(dataDir))
-        ? "compatible-v1"
-        : "incompatible";
+        ? "compatible"
+        : "repairable-existing";
     } finally {
       await file.close();
     }
   } catch (error) {
     return error && typeof error === "object" && "code" in error && error.code === "ENOENT"
       ? "missing"
-      : "incompatible";
+      : "unsafe";
   }
+}
+
+export async function readCollectorCompatibility(
+  agentDir: string,
+  dataDir: string,
+  runtimeSupported: boolean,
+): Promise<HistoryReadiness["collector"]> {
+  const asset = await inspectCollectorAsset(agentDir, dataDir, runtimeSupported);
+  return asset === "compatible"
+    ? "compatible-v1"
+    : asset === "missing"
+      ? "missing"
+      : "incompatible";
 }

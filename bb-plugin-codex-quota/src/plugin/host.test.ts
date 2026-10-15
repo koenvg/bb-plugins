@@ -3,6 +3,7 @@ import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/
 import hostEntry from "./host.js";
 import { createQuotaHostEntry } from "./host.js";
 import type { QuotaSnapshot } from "../quota/quota.js";
+import type { HostHistory } from "../history/history-host.js";
 
 describe("Codex Quota host entry", () => {
   it("answers a validated RPC without exposing host data", async () => {
@@ -197,5 +198,35 @@ describe("Codex Quota host entry", () => {
     });
     expect(calls).toBe(2);
     await second.experimental_dispose();
+  });
+  it("adapts narrow maintenance to host-owned paths and lifecycle without account access", async () => {
+    const unexpected = async (): Promise<never> => {
+      throw Error("Unrelated host operation");
+    };
+    let captured: { dataDir: string; signal: AbortSignal } | undefined;
+    const history: HostHistory = {
+      read: unexpected,
+      report: unexpected,
+      control: unexpected,
+      controlImport: unexpected,
+      repairExisting: async (context) => {
+        captured = context;
+        return { kind: "unavailable", reason: "canceled", hostWork: "not-started" };
+      },
+      dispose() {},
+    };
+    const h = experimental_createHostEntryHarness(
+      createQuotaHostEntry({ history, auth: unexpected, read: unexpected }),
+      {
+        experimental_paths: { dataDir: "/owned-fixture/data", tempDir: "/owned-fixture/temp" },
+      },
+    );
+    expect(
+      await h.experimental_call("collectorMaintenance", { operation: "repair-existing" }),
+    ).toEqual({ kind: "unavailable", reason: "canceled", hostWork: "not-started" });
+    expect(captured?.dataDir).toBe("/owned-fixture/data");
+    expect(captured?.signal.aborted).toBe(false);
+    await h.experimental_dispose();
+    expect(captured?.signal.aborted).toBe(true);
   });
 });

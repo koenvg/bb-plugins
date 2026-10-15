@@ -50,6 +50,14 @@ try {
   assert.deepEqual(readdirSync(dataDir), []);
   assert.deepEqual(readdirSync(agentDir), []);
 
+  const unconfiguredMaintenance = await bundled.default.handlers.collectorMaintenance(
+    { operation: "repair-existing" },
+    context,
+  );
+  assert.equal(unconfiguredMaintenance.kind, "refused");
+  assert.equal(unconfiguredMaintenance.reason, "storage-ineligible");
+  assert.deepEqual(readdirSync(dataDir), []);
+  assert.deepEqual(readdirSync(agentDir), []);
   mkdirSync(join(dataDir, "history"));
   const path = join(dataDir, "history/usage-v1.sqlite");
   let db = await bundled.openHistoryDatabase(path);
@@ -133,6 +141,45 @@ try {
   const repaired = await bundled.default.handlers.historyReadiness(null, context);
   assert.equal(repaired.collection.firstObservedAt, firstBoundary);
   assert.equal(repaired.collection.enabled, false);
+  const maintenanceControlPath = join(dataDir, "history/collector-control-v1.json");
+  const maintenanceAssetPath = join(extension, "index.js");
+  const beforeMaintenanceControl = readFileSync(maintenanceControlPath);
+  rmSync(maintenanceAssetPath);
+  const missingMaintenance = await bundled.default.handlers.collectorMaintenance(
+    { operation: "repair-existing" },
+    context,
+  );
+  assert.equal(missingMaintenance.kind, "refused");
+  assert.equal(missingMaintenance.reason, "collector-missing");
+  assert.deepEqual(readdirSync(extension), []);
+  assert.deepEqual(readFileSync(maintenanceControlPath), beforeMaintenanceControl);
+  writeFileSync(maintenanceAssetPath, "ordinary incompatible fixture");
+  const maintained = await bundled.default.handlers.collectorMaintenance(
+    { operation: "repair-existing" },
+    context,
+  );
+  assert.equal(maintained.kind, "repaired");
+  assert.deepEqual(maintained.preserved, {
+    enabled: false,
+    firstObservedAt: firstBoundary,
+    pauseCount: 0,
+  });
+  assert.equal(maintained.readiness.collector, "compatible-v1");
+  assert.equal(maintained.readiness.collection.workspaces[0].totalTokens, 9);
+  assert.equal(readFileSync(maintenanceAssetPath, "utf8"), bundled.packagedCollectorAsset(dataDir));
+  const maintainedControl = readFileSync(maintenanceControlPath);
+  const maintainedAsset = readFileSync(maintenanceAssetPath);
+  const unchangedMaintenance = await bundled.default.handlers.collectorMaintenance(
+    { operation: "repair-existing" },
+    context,
+  );
+  assert.equal(unchangedMaintenance.kind, "unchanged");
+  assert.equal(unchangedMaintenance.reason, "collector-compatible");
+  assert.deepEqual(readFileSync(maintenanceControlPath), maintainedControl);
+  assert.deepEqual(readFileSync(maintenanceAssetPath), maintainedAsset);
+  console.log(
+    "Packaged collector maintenance: missing refusal, paused preservation, retained totals, and compatible no-op passed. Synthetic only.",
+  );
   // Lower UUID replay keeps the first owner. Conflicting values are excluded, not selected by UUID.
   const eventLog = join(
     dataDir,

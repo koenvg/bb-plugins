@@ -2,6 +2,8 @@ import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import {
+  collectionSchema,
+  historyReadinessSchema,
   historyUnavailable,
   type HistoryReadiness,
   type CollectorAction,
@@ -13,10 +15,13 @@ import {
   type HistoryDatabaseFactory,
 } from "./storage/history-storage.js";
 import {
+  inspectCollectorAsset,
   readCollectorCompatibility,
   validHostDataDir,
 } from "./collection/collector-compatibility.js";
 import {
+  replaceExistingCollector,
+  readControlRecord,
   controlCollector,
   readControl,
   readHistoryControl,
@@ -40,6 +45,11 @@ import {
   identityView,
 } from "./identity/identity-storage.js";
 
+import {
+  maintenanceUnavailable,
+  repairResultSchema,
+  type RepairResult,
+} from "./collector-maintenance-contract.js";
 export type HistoryReadContext = {
   signal: AbortSignal;
   dataDir: string;
@@ -309,9 +319,118 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
         : { ...historyUnavailable("storage-unavailable"), storage: "unavailable" };
     }
   }
-  return (
-    context: HistoryReadContext,
-    action?: CollectorAction,
-    confirmation?: LegacyConfirmation,
-  ) => perform(context, action, false, confirmation);
+  async function repairExisting(context: HistoryReadContext): Promise<RepairResult> {
+    const { dataDir, signal } = context;
+    const unavailable = () =>
+      maintenanceUnavailable(signal.aborted ? "canceled" : "verification-failed", "may-have-run");
+    const preflight = await perform(context);
+    if (signal.aborted) return unavailable();
+    const parsed = historyReadinessSchema.safeParse(preflight);
+    const readiness = parsed.success ? parsed.data : historyUnavailable("unsupported");
+    const refuse = (
+      reason: Extract<RepairResult, { kind: "refused" }>["reason"],
+    ): RepairResult => ({ kind: "refused", reason, readiness });
+    if (!parsed.success) return refuse("collection-invalid");
+    if (readiness.storage !== "compatible") return refuse("storage-ineligible");
+    const agentDir = agent();
+    const asset = await inspectCollectorAsset(
+      agentDir,
+      dataDir,
+      Number(process.versions.node.split(".")[0]) >= 22,
+    );
+    if (signal.aborted) return unavailable();
+    if (asset === "missing") return refuse("collector-missing");
+    if (asset === "unsafe") return refuse("unsafe-collector");
+    if (asset === "runtime-unsupported") return refuse("runtime-unsupported");
+    if (!readiness.collection) return refuse("collection-invalid");
+    if (asset === "compatible") {
+      const result = repairResultSchema.safeParse({
+        kind: "unchanged",
+        reason: "collector-compatible",
+        readiness,
+      });
+      return result.success ? result.data : refuse("readiness-ineligible");
+    }
+    if (
+      readiness.state !== "unavailable" ||
+      readiness.reason !== "collector-incompatible" ||
+      readiness.collector !== "incompatible"
+    )
+      return refuse("readiness-ineligible");
+    const { enabled, firstObservedAt, pauseCount } = readiness.collection;
+    const preserved = { enabled, firstObservedAt, pauseCount };
+    const directory = join(dataDir, "history"),
+      path = join(directory, "usage-v1.sqlite");
+    try {
+      const factory = await (deps.storage ?? loadHistoryStorage)();
+      if (!factory) return refuse("storage-ineligible");
+      for (const target of [dataDir, directory]) {
+        const stat = await lstat(target);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) return refuse("storage-ineligible");
+      }
+      const file = await lstat(path);
+      if (
+        !file.isFile() ||
+        file.isSymbolicLink() ||
+        (await inspectHistoryStorage(factory, path)) !== "compatible"
+      )
+        return refuse("storage-ineligible");
+      const db = factory(path, true);
+      try {
+        const currentEnabled = await readHistoryControl(db, directory);
+        if (currentEnabled === null) return refuse("collection-invalid");
+        const current = collectionView(db, currentEnabled, readiness.collection.backlog);
+        if (
+          !collectionSchema.safeParse(current).success ||
+          current.enabled !== enabled ||
+          current.firstObservedAt !== firstObservedAt ||
+          current.pauseCount !== pauseCount
+        )
+          return refuse("collection-invalid");
+      } finally {
+        db.close();
+      }
+      signal.throwIfAborted();
+      // Asset and control publication are separate durable writes. Never recover or retry this command.
+      const published = await replaceExistingCollector(dataDir, agentDir, enabled, signal);
+      signal.throwIfAborted();
+      if (
+        (await inspectHistoryStorage(factory, path)) !== "compatible" ||
+        (await inspectCollectorAsset(agentDir, dataDir, true)) !== "compatible" ||
+        JSON.stringify(await readControlRecord(directory)) !== JSON.stringify(published)
+      )
+        return unavailable();
+      const verified = factory(path, true);
+      try {
+        const actualEnabled = await readHistoryControl(verified, directory);
+        if (actualEnabled === null) return unavailable();
+        const collection = collectionView(verified, actualEnabled, readiness.collection.backlog);
+        const result = repairResultSchema.safeParse({
+          kind: "repaired",
+          preserved,
+          readiness: {
+            ...readiness,
+            state: "available",
+            reason: "ok",
+            collector: "compatible-v1",
+            collection: {
+              ...collection,
+              attribution: readiness.collection.attribution,
+            },
+          },
+        });
+        signal.throwIfAborted();
+        return result.success ? result.data : unavailable();
+      } finally {
+        verified.close();
+      }
+    } catch {
+      return unavailable();
+    }
+  }
+  return Object.assign(
+    (context: HistoryReadContext, action?: CollectorAction, confirmation?: LegacyConfirmation) =>
+      perform(context, action, false, confirmation),
+    { repairExisting },
+  );
 }

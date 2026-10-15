@@ -1,6 +1,10 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
+import {
+  maintenanceCommandSchema,
+  repairResultSchema,
+} from "../history/collector-maintenance-contract.js";
 import { historyReadinessSchema, collectorCommandSchema } from "../history/history-contract.js";
 import { activityViewSchema } from "../activity/activity-contract.js";
 import { hostPreparationSchema } from "../history/report-preparation-contract.js";
@@ -110,6 +114,7 @@ export const hostContract = defineRpcContract({
   },
   calendarReport: { input: calendarQuerySchema, output: calendarReportSchema },
   collectorControl: { input: collectorCommandSchema, output: historyReadinessSchema },
+  collectorMaintenance: { input: maintenanceCommandSchema, output: repairResultSchema },
   historicalImport: {
     input: z
       .object({

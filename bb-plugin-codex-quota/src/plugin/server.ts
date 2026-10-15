@@ -2,6 +2,11 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, quotaViewSchema } from "../quota/contract.js";
 import { activityViewSchema, emptyActivity } from "../activity/activity-contract.js";
+import {
+  maintenanceRequestSchema,
+  maintenanceResultSchema,
+} from "../history/collector-maintenance-contract.js";
+import { createCollectorMaintenance } from "../history/collector-maintenance-routing.js";
 
 import {
   historyReadinessSchema,
@@ -63,6 +68,7 @@ export const rpcContract = defineRpcContract({
     output: quotaViewSchema,
   },
   historyReadiness: { input: historyRequestSchema, output: historyReadinessSchema },
+  collectorMaintenance: { input: maintenanceRequestSchema, output: maintenanceResultSchema },
   reportPreparation: { input: preparationRequestSchema, output: preparationSchema },
   calendarReport: {
     input: historyRequestSchema.extend({ query: calendarQuerySchema }),
@@ -129,6 +135,14 @@ export default function plugin(bb: BbPluginApi) {
     report: (hostId, input, signal) => hostClient.call("calendarReport", input, { hostId, signal }),
   });
   bb.onDispose(() => machines.dispose());
+  const maintenance = createCollectorMaintenance({
+    get: (hostId) => bb.sdk.hosts.get({ hostId }),
+    readiness: historyCall,
+    repair: (hostId, signal) =>
+      hostClient.call("collectorMaintenance", { operation: "repair-existing" }, { hostId, signal }),
+    mutate: (hostId, work) => machines.mutate(hostId, work),
+  });
+  bb.onDispose(() => maintenance.dispose());
   const readHistory = (input: import("../history/history-contract.js").HistoryRequest) =>
     session.request(input, {
       schema: historyReadinessSchema,
@@ -136,6 +150,7 @@ export default function plugin(bb: BbPluginApi) {
       call: (signal) => historyCall(input.hostId, signal),
     });
   bb.rpc.register(rpcContract, {
+    collectorMaintenance: (input) => maintenance.run(input),
     machineAccounts: (input) => machines.accounts(input),
     machineReports: (input) => machines.reports(input),
     machinePreparation: ({ refresh }) => machines.preparation(refresh),

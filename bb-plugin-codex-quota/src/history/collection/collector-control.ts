@@ -3,6 +3,7 @@ import { lstat, mkdir, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
+  inspectCollectorAsset,
   packagedCollectorAsset,
   COLLECTOR_NAME,
   validHostDataDir,
@@ -24,7 +25,7 @@ export async function readControlRecord(directory: string): Promise<CollectorCon
   try {
     file = await open(
       join(directory, "collector-control-v1.json"),
-      constants.O_RDONLY | constants.O_NOFOLLOW,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") return null;
@@ -68,7 +69,12 @@ export async function publishControl(directory: string, enabled: boolean, signal
   await atomicWrite(join(directory, "collector-control-v1.json"), JSON.stringify(control), signal);
   return control;
 }
-export async function atomicWrite(path: string, value: string, signal: AbortSignal) {
+export async function atomicWrite(
+  path: string,
+  value: string,
+  signal: AbortSignal,
+  beforeReplace?: () => Promise<void>,
+) {
   signal.throwIfAborted();
   try {
     const stat = await lstat(path);
@@ -89,6 +95,7 @@ export async function atomicWrite(path: string, value: string, signal: AbortSign
     } finally {
       await file.close();
     }
+    await beforeReplace?.();
     signal.throwIfAborted();
     await rename(temporary, path);
   } finally {
@@ -127,4 +134,42 @@ export async function controlCollector(
   await publishControl(directory, enabled, signal);
   if (enabled && current === false)
     db.prepare("UPDATE collector_pauses SET ended=? WHERE ended IS NULL").run(now);
+}
+
+export async function replaceExistingCollector(
+  dataDir: string,
+  agentDir: string,
+  enabled: boolean,
+  signal: AbortSignal,
+): Promise<CollectorControl> {
+  const directory = join(dataDir, "history");
+  const current = await readControlRecord(directory);
+  if (!current || current.enabled !== enabled) throw Error("Collector control unavailable");
+  const check = async (asset: "repairable-existing" | "compatible") => {
+    signal.throwIfAborted();
+    for (const path of [dataDir, directory, agentDir]) {
+      const stat = await lstat(path);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error("Collector path unavailable");
+    }
+    if (
+      (await inspectCollectorAsset(agentDir, dataDir, true)) !== asset ||
+      JSON.stringify(await readControlRecord(directory)) !== JSON.stringify(current)
+    )
+      throw Error("Collector control unavailable");
+  };
+  await check("repairable-existing");
+  await atomicWrite(
+    join(agentDir, "extensions", COLLECTOR_NAME, "index.js"),
+    packagedCollectorAsset(dataDir),
+    signal,
+    () => check("repairable-existing"),
+  );
+  const control = { protocol: 2 as const, enabled, revision: randomUUID() };
+  await atomicWrite(
+    join(directory, "collector-control-v1.json"),
+    JSON.stringify(control),
+    signal,
+    () => check("compatible"),
+  );
+  return control;
 }

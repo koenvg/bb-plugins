@@ -32,7 +32,11 @@ export function createIdentityHistoryCall(
       close: () => {},
     };
   });
-  const read = async (hostId: string, signal: AbortSignal) => {
+  const read = async (
+    hostId: string,
+    signal: AbortSignal,
+    beforeDispatch?: () => Promise<void>,
+  ) => {
     let batch: IdentityBatch | undefined;
     try {
       batch = await discovery.next(hostId, AbortSignal.any([signal, AbortSignal.timeout(8_000)]));
@@ -40,6 +44,7 @@ export function createIdentityHistoryCall(
       signal.throwIfAborted();
       bb.log.warn("Identity discovery unavailable");
     }
+    await beforeDispatch?.();
     signal.throwIfAborted(); // Required immediately before host dispatch.
     const result = await call(hostId, signal, batch ? { identities: batch } : null);
     signal.throwIfAborted();
