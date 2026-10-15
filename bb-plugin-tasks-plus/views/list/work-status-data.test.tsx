@@ -210,7 +210,7 @@ describe("visible work status loading", () => {
     );
   });
 
-  it.each(["scope change", "unmount"])(
+  it.each(["scope change", "membership change", "unmount"])(
     "finishes an interrupted chunk session after %s without reading hidden rows",
     async (reason) => {
       const ids = Array.from({ length: 501 }, (_, i) => `01H${String(i).padStart(23, "0")}`);
@@ -237,6 +237,8 @@ describe("visible work status loading", () => {
       const session = calls[0]!.refresh as { id: string; step: string };
       expect(session.step).toBe("start");
       if (reason === "unmount") slot.lifecycle.unmount();
+      else if (reason === "membership change")
+        slot.lifecycle.rerender(<Root ids={[OTHER]} scope="all" />);
       else slot.lifecycle.rerender(<Root ids={[OTHER]} scope="project" />);
       await act(async () => release(result(ids.slice(0, 500), "failed")));
       expect(calls[1]).toEqual({

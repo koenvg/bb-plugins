@@ -466,7 +466,7 @@ it("keeps work metadata stable after a status edit and refreshes it for a thread
   await slot.findByRole("button", { name: new RegExp(`Threads for ${task.key}: 1 Idle`) });
 });
 
-it("loads work metadata for the remaining visible IDs when a status filter removes an edited task", async () => {
+it("keeps remaining work metadata without rereads when a status filter removes an edited task", async () => {
   window.localStorage.clear();
   const threadStatus = new Map([
     ["thr_removed", "active" as const],
@@ -543,6 +543,8 @@ it("loads work metadata for the remaining visible IDs when a status filter remov
   fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: /Todo/ }));
   await waitFor(() => expect(workStatusInputs.at(-1)).toEqual([removed.id, remaining.id].sort()));
 
+  const metadataReadsBeforeEdit = workStatusInputs.length;
+  const threadReadsBeforeEdit = get.mock.calls.length;
   const removedRow = () =>
     slot.container.querySelector<HTMLElement>(`[data-task-key="${removed.key}"]`)!;
   const removedStatus = removedRow().querySelector<HTMLButtonElement>(
@@ -554,7 +556,9 @@ it("loads work metadata for the remaining visible IDs when a status filter remov
     expect(slot.queryByRole("button", { name: `Open ${removed.key}: Move out` })).toBeNull(),
   );
   await replaySignals();
-  await waitFor(() => expect(workStatusInputs.at(-1)).toEqual([remaining.id]));
+  expect(workStatusInputs).toHaveLength(metadataReadsBeforeEdit);
+  expect(get).toHaveBeenCalledTimes(threadReadsBeforeEdit);
+  expect(slot.queryByText("Threads loading")).toBeNull();
   expect(slot.getByRole("button", { name: `Open ${remaining.key}: Stay visible` })).toBeTruthy();
   expect(
     slot.getByRole("button", { name: new RegExp(`Threads for ${remaining.key}: 1 Idle`) }),
