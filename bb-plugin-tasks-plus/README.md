@@ -55,6 +55,8 @@ The TypeScript 6 alias remains until its removal is approved. Its transitive
 keeps that shared binary name from changing this check's compiler. Compiler
 selection does not change typecheck coverage or CI wiring.
 
+The browser config uses `channel: "chromium"` for full Chromium's headless mode instead of Playwright's default headless shell. The optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` override remains available. CI's existing Chromium install supplies this binary. See the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) for private output and historical-capture protection.
+
 ## Orchestrator removal
 
 BB Orchestrator is no longer available. Its commands, RPCs, report tools,
