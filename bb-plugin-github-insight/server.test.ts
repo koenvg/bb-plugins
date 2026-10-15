@@ -534,6 +534,117 @@ describe("pr-poller", () => {
     run.controller.abort();
   });
 
+  it.each(["pullRequest", "get"] as const)(
+    "refreshes healthy PRs during rejected environments.%s reads and recovers before pruning",
+    async (method) => {
+      let state: "OPEN" | "MERGED" = "OPEN";
+      let unavailable = true;
+      const pullRequests = { env_1: linkedPr(25337), env_2: linkedPr(25338) };
+      const harness = await setup({
+        threads: [
+          { id: "thr_1", environmentId: "env_1" },
+          { id: "thr_2", environmentId: "env_2" },
+        ],
+        pullRequests,
+        host: (call) => {
+          if (call.method !== "fetchOverviewPage") return pages()(call);
+          const { number } = call.input as { number: number };
+          return pages({
+            ...pageOne,
+            data: {
+              repository: {
+                ...pageOne.data.repository,
+                pullRequest: {
+                  ...pageOne.data.repository.pullRequest,
+                  number,
+                  url: `https://github.com/collibra/frontend/pull/${number}`,
+                  state,
+                },
+              },
+            },
+          })(call);
+        },
+      });
+      await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+      await harness.behavior.callRpc("getInsight", { threadId: "thr_2" });
+      const unresolvedReading = await harness.kv.get("insight:collibra/frontend#25338");
+      const unresolvedSummary = metadataUpdates(harness).find(
+        (update) => update.threadId === "thr_2",
+      );
+      expect(unresolvedReading).toMatchObject({
+        reading: { insight: { pr: { number: 25338, state: "open" } } },
+      });
+      expect(unresolvedSummary).toMatchObject({
+        set: { prSummary: { pr: { number: 25338, state: "open" }, error: null } },
+      });
+      await harness.kv.set("insight:orphan/repo#1", unresolvedReading);
+      harness.sdk.stub(
+        `environments.${method}`,
+        async ({ environmentId }: { environmentId: string }) => {
+          if (environmentId === "env_2" && unavailable) {
+            throw new Error("HTTP 409: Environment unavailable");
+          }
+          return method === "pullRequest"
+            ? pullRequests[environmentId as keyof typeof pullRequests]
+            : { hostId: "host-1" };
+        },
+      );
+      state = "MERGED";
+      vi.advanceTimersByTime(60_000);
+      const updatesBefore = metadataUpdates(harness).length;
+      const signalsBefore = harness.realtimeSignals.length;
+      const run = harness.behavior.runService("pr-poller");
+      try {
+        await settle();
+        expect.soft(metadataUpdates(harness).slice(updatesBefore)).toEqual([
+          {
+            threadId: "thr_1",
+            pluginId: "github-insight",
+            set: {
+              prSummary: expect.objectContaining({
+                pr: {
+                  number: 25337,
+                  url: "https://github.com/collibra/frontend/pull/25337",
+                  state: "merged",
+                },
+                error: null,
+              }),
+            },
+          },
+        ]);
+        expect
+          .soft(harness.realtimeSignals.slice(signalsBefore))
+          .toEqual([{ channel: "insight.updated", payload: { threadIds: ["thr_1"] } }]);
+        expect(await harness.kv.get("insight:collibra/frontend#25338")).toEqual(unresolvedReading);
+        expect(metadataUpdates(harness).filter((update) => update.threadId === "thr_2")).toEqual([
+          unresolvedSummary,
+        ]);
+        expect(await harness.kv.list("insight:")).toEqual([
+          "insight:collibra/frontend#25337",
+          "insight:collibra/frontend#25338",
+          "insight:orphan/repo#1",
+        ]);
+
+        unavailable = false;
+        await advance(60_000);
+        expect(metadataUpdates(harness).at(-1)).toMatchObject({
+          threadId: "thr_2",
+          set: { prSummary: { pr: { number: 25338, state: "merged" }, error: null } },
+        });
+        expect(await harness.kv.get("insight:collibra/frontend#25338")).toMatchObject({
+          reading: { insight: { pr: { number: 25338, state: "merged" } } },
+        });
+        expect(await harness.kv.list("insight:")).toEqual([
+          "insight:collibra/frontend#25337",
+          "insight:collibra/frontend#25338",
+        ]);
+      } finally {
+        run.controller.abort();
+        await run.done;
+      }
+    },
+  );
+
   it("refreshes the PR of a hidden thread", async () => {
     const harness = await setup({
       threads: [{ id: "thr_1", environmentId: "env_1", visibility: "hidden" }],
@@ -698,6 +809,71 @@ describe("pr-poller", () => {
     expect(lookups).toEqual(["env_1", "env_1"]);
     expect(overviewRefreshes(harness)).toHaveLength(1);
     run.controller.abort();
+  });
+
+  it("keeps the global pause for a mixed unavailable, rate-limited and healthy inventory", async () => {
+    const pullRequests: Record<string, PullRequestResult> = {
+      env_2: { outcome: "unavailable", message: HOST_RATE_LIMIT_MESSAGE },
+      env_3: linkedPr(25337),
+    };
+    const resetAt = Date.now() + 12 * 60_000;
+    let state: "OPEN" | "MERGED" = "OPEN";
+    const harness = await setup({
+      threads: [
+        { id: "thr_1", environmentId: "env_1" },
+        { id: "thr_2", environmentId: "env_2" },
+        { id: "thr_3", environmentId: "env_3" },
+      ],
+      pullRequests,
+      host: (call) =>
+        call.method === "readRateLimitReset" ? { resetAt } : pages(withPrState(state))(call),
+    });
+    expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_3" })).toMatchObject({
+      kind: "ok",
+      insight: { pr: { number: 25337, state: "open" } },
+      error: null,
+    });
+    harness.sdk.stub("environments.get", async ({ environmentId }: { environmentId: string }) => {
+      if (environmentId === "env_1") throw new Error("HTTP 409: Environment unavailable");
+      return { hostId: "host-1" };
+    });
+    vi.advanceTimersByTime(60_000);
+    state = "MERGED";
+    const run = harness.behavior.runService("pr-poller");
+    try {
+      await settle();
+      expect(await harness.behavior.callRpc("getInsight", { threadId: "thr_3" })).toMatchObject({
+        kind: "ok",
+        insight: { pr: { number: 25337, state: "open" } },
+        error: "rate limited",
+      });
+      await advance(resetAt - Date.now() - 1);
+      expect(overviewRefreshes(harness)).toHaveLength(1);
+      expect(metadataUpdates(harness)).toHaveLength(1);
+
+      pullRequests.env_2 = { outcome: "absent" };
+      await advance(1);
+      expect(metadataUpdates(harness)).toContainEqual({
+        threadId: "thr_3",
+        pluginId: "github-insight",
+        set: {
+          prSummary: expect.objectContaining({
+            pr: {
+              number: 25337,
+              url: "https://github.com/collibra/frontend/pull/25337",
+              state: "merged",
+            },
+            error: null,
+          }),
+        },
+      });
+      expect(await harness.kv.get("insight:collibra/frontend#25337")).toMatchObject({
+        reading: { insight: { pr: { number: 25337, state: "merged" } } },
+      });
+    } finally {
+      run.controller.abort();
+      await run.done;
+    }
   });
 
   it("waits until the reset time after a rate limit", async () => {
