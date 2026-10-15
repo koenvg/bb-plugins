@@ -17,8 +17,8 @@ if (!result.success) {
 await Bun.write(
   `${outdir}/index.html`,
   `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subagent viewer source preview</title><link rel="stylesheet" href="viewer-preview.css"><style>
-:root { --foreground:#222; --background:#fff; --card:#f8f8f8; --surface-raised:#f3f3f3; --muted-foreground:#595959; --border:#d0d0d0; --ring:#555; --destructive:#b42318; --state-hover:#eee; --state-active:#e5e5e5; --radius:6px; }
-:root[data-theme=dark] { --foreground:#eee; --background:#212121; --card:#262626; --surface-raised:#2a2a2a; --muted-foreground:#b6b6b6; --border:#424242; --ring:#aaa; --destructive:#ff9189; --state-hover:#2c2c2c; --state-active:#343434; }
+:root { --foreground:#222; --background:#fff; --card:#f8f8f8; --surface-raised:#f3f3f3; --muted-foreground:#595959; --border:#d0d0d0; --ring:#555; --timeline-accent:#2563eb; --success:#287a43; --attention:#956000; --warning-text:#956000; --destructive:#b42318; --state-hover:#eee; --state-active:#e5e5e5; --radius:6px; }
+:root[data-theme=dark] { --foreground:#eee; --background:#212121; --card:#262626; --surface-raised:#2a2a2a; --muted-foreground:#b6b6b6; --border:#424242; --ring:#aaa; --timeline-accent:#8ab4f8; --success:#8bc99d; --attention:#e5b866; --warning-text:#e5b866; --destructive:#ff9189; --state-hover:#2c2c2c; --state-active:#343434; }
 html,body { margin:0; height:100%; background:var(--background); color:var(--foreground); font-family:system-ui; }
 body { display:flex; flex-direction:column; }
 #preview-limit { margin:0; padding:8px 12px; font-size:12px; color:var(--muted-foreground); flex-shrink:0; }
