@@ -68,13 +68,15 @@ const enriched: ViewState = {
     },
   ],
 };
-it("keeps full IDs in capture details, with readable compact run navigation", () => {
+it("keeps full IDs in capture details, with snapshot-local Entry navigation", () => {
   const runId = "e0957e6e-9a8b-4ab5-b2d8-6b0d97e1df80";
   const view = render(<SubagentsView state={{ ...state, rows: [{ ...state.rows[0]!, runId }] }} />);
   const nav = view.getByRole("navigation");
   expect(nav.textContent).not.toContain(runId);
   expect(nav.textContent).toContain("Root");
-  expect(nav.textContent).toContain("e1df80");
+  expect(nav.textContent).toContain("Entry 1");
+  expect(within(nav).getByRole("button").querySelector("strong")!.textContent).toBe("first second");
+  expect(nav.textContent).not.toContain("e1df80");
   expect(nav.textContent).not.toContain("Model unavailable");
   expect(nav.textContent).not.toContain("Total 42s");
   const details = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-capture")!;
@@ -83,14 +85,383 @@ it("keeps full IDs in capture details, with readable compact run navigation", ()
   expect(details.textContent).toContain(runId);
   expect(details.textContent).toContain("Model unavailable");
 });
+const accountingReason =
+  "Native accounting requires an observed parent turn at an idle boundary in this bridge generation";
 
-it("shows captured task context or actual model in the navigator without guessing missing values", () => {
+it("keeps the reading anchor when an availability notice appears and clears", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const task = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
+  const conversation = view.container.querySelector<HTMLDetailsElement>(
+    ".pi-subagents-conversation",
+  )!;
+  const tool = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  task.open = conversation.open = tool.open = true;
+  const summary = tool.querySelector("summary")!;
+  summary.focus();
+  reader.scrollTop = 1772;
+  const rect = reader.getBoundingClientRect();
+  vi.spyOn(reader, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: 294 + (view.container.textContent!.includes(accountingReason) ? 50 : 0),
+    bottom: 760,
+    width: 400,
+  }));
+  vi.spyOn(summary, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top:
+      508 +
+      (view.container.textContent!.includes(accountingReason) ? 50 : 0) -
+      (reader.scrollTop - 1772),
+  }));
+
+  view.rerender(
+    <SubagentsView
+      state={{ ...available, availability: "unavailable", reason: accountingReason }}
+    />,
+  );
+  expect(view.getByText(accountingReason).getAttribute("role")).toBe("status");
+  expect(reader.scrollTop).toBe(1822);
+  expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
+  expect(view.container.querySelector(".pi-subagents-tool")).toBe(tool);
+  expect(task.open && conversation.open && tool.open).toBe(true);
+  expect(document.activeElement).toBe(summary);
+
+  view.rerender(<SubagentsView state={available} />);
+  expect(reader.scrollTop).toBe(1772);
+  expect(document.activeElement).toBe(summary);
+});
+
+it("measures the current position after manual outer scrolling, not an earlier render", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const root = view.container.querySelector<HTMLElement>(".pi-subagents")!;
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const rect = reader.getBoundingClientRect();
+  const summary = reader.querySelector("summary")!;
+  summary.focus();
+  vi.spyOn(reader, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: 294 - root.scrollTop + (view.container.textContent!.includes(accountingReason) ? 50 : 0),
+    bottom: 760 - root.scrollTop,
+    width: 400,
+  }));
+  vi.spyOn(summary, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top:
+      508 -
+      root.scrollTop +
+      (view.container.textContent!.includes(accountingReason) ? 50 : 0) -
+      (reader.scrollTop - 400),
+  }));
+  root.scrollTop = 80;
+  reader.scrollTop = 400;
+  view.rerender(
+    <SubagentsView
+      state={{ ...available, availability: "unavailable", reason: accountingReason }}
+    />,
+  );
+  expect(reader.scrollTop).toBe(450);
+  expect(root.scrollTop).toBe(80);
+});
+
+it("does not compensate twice when viewport growth already clamps a reader at the end", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const summary = reader.querySelector("summary")!;
+  summary.focus();
+  let position = 1000;
+  const hasNotice = () => view.container.textContent!.includes(accountingReason);
+  Object.defineProperty(reader, "scrollTop", {
+    get: () => Math.min(position, hasNotice() ? 1050 : 1000),
+    set: (next: number) => {
+      position = next;
+    },
+  });
+  const rect = reader.getBoundingClientRect();
+  vi.spyOn(reader, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: 294 + (hasNotice() ? 50 : 0),
+    bottom: 760,
+    width: 400,
+  }));
+  vi.spyOn(summary, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: 508 + (hasNotice() ? 50 : 0) - (reader.scrollTop - 1000),
+  }));
+  view.rerender(
+    <SubagentsView
+      state={{ ...available, availability: "unavailable", reason: accountingReason }}
+    />,
+  );
+  expect(reader.scrollTop).toBe(1050);
+  view.rerender(<SubagentsView state={available} />);
+  expect(reader.scrollTop).toBe(1000);
+});
+
+it("preserves the visible reading anchor without requiring focus on a tool", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const anchor = reader.querySelector(".pi-subagents-message")!;
+  reader.scrollTop = 300;
+  const rect = reader.getBoundingClientRect();
+  vi.spyOn(reader, "getBoundingClientRect").mockReturnValue({
+    ...rect,
+    top: 200,
+    bottom: 666,
+    width: 400,
+  });
+  vi.spyOn(anchor, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top:
+      400 +
+      (view.container.textContent!.includes(accountingReason) ? 50 : 0) -
+      (reader.scrollTop - 300),
+  }));
+  const original = Object.getOwnPropertyDescriptor(document, "elementFromPoint");
+  const point = vi.fn(() => anchor);
+  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: point });
+  try {
+    view.rerender(
+      <SubagentsView
+        state={{ ...available, availability: "unavailable", reason: accountingReason }}
+      />,
+    );
+    expect(point).toHaveBeenCalledWith(200, 433);
+    expect(reader.scrollTop).toBe(350);
+  } finally {
+    if (original) Object.defineProperty(document, "elementFromPoint", original);
+    else Reflect.deleteProperty(document, "elementFromPoint");
+  }
+});
+
+it("does not undo native anchoring to visible text when the focused control is offscreen", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const summary = reader.querySelector("summary")!;
+  const anchor = reader.querySelector(".pi-subagents-message")!;
+  summary.focus();
+  let adjustment = 0;
+  const nativePosition = () => (view.container.textContent!.includes("expanded task") ? 333 : 300);
+  Object.defineProperty(reader, "scrollTop", {
+    get: () => nativePosition() + adjustment,
+    set: (value: number) => {
+      adjustment = value - nativePosition();
+    },
+  });
+  const rect = reader.getBoundingClientRect();
+  vi.spyOn(reader, "getBoundingClientRect").mockReturnValue({
+    ...rect,
+    top: 200,
+    bottom: 666,
+    width: 400,
+  });
+  vi.spyOn(summary, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: 50 - (reader.scrollTop - 300),
+  }));
+  vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue({ ...rect, top: 400 });
+  const original = Object.getOwnPropertyDescriptor(document, "elementFromPoint");
+  const point = vi.fn(() => anchor);
+  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: point });
+  try {
+    view.rerender(
+      <SubagentsView
+        state={{
+          ...available,
+          rows: [
+            {
+              ...available.rows[0]!,
+              capture: { ...available.rows[0]!.capture!, task: "expanded task" },
+            },
+          ],
+        }}
+      />,
+    );
+    expect(point).toHaveBeenCalled();
+    expect(reader.scrollTop).toBe(333);
+    expect(adjustment).toBe(0);
+  } finally {
+    if (original) Object.defineProperty(document, "elementFromPoint", original);
+    else Reflect.deleteProperty(document, "elementFromPoint");
+  }
+});
+
+it("leaves an unscrolled reader at the beginning when a notice arrives", () => {
+  const available = { ...enriched, omitted: 0 };
+  const view = render(<SubagentsView state={available} />);
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  const rect = reader.getBoundingClientRect();
+  vi.spyOn(reader, "getBoundingClientRect").mockImplementation(() => ({
+    ...rect,
+    top: view.container.textContent!.includes(accountingReason) ? 344 : 294,
+  }));
+  view.rerender(
+    <SubagentsView
+      state={{ ...available, availability: "unavailable", reason: accountingReason }}
+    />,
+  );
+  expect(reader.scrollTop).toBe(0);
+  expect(view.getByText(accountingReason).getAttribute("role")).toBe("status");
+});
+
+it("leads with captured purpose and keeps the actual model only in collapsed capture details", () => {
   const view = render(<SubagentsView state={enriched} />);
   const nav = view.getByRole("navigation");
-  expect(nav.textContent).toContain("first");
-  expect(nav.textContent).toContain("child-model");
+  expect(within(nav).getByRole("button").querySelector("strong")!.textContent).toBe("first second");
+  expect(within(view.getByRole("article")).getByRole("heading", { level: 3 }).textContent).toBe(
+    "first second",
+  );
+  expect(nav.textContent).not.toContain("child-model");
   expect(nav.textContent).not.toContain("child-provider");
+  const identity = view.container.querySelector(".pi-subagents-identity")!;
+  expect(identity.textContent).toContain("Root");
+  expect(identity.textContent).toContain("Entry 1");
+  expect(identity.textContent).toContain("Captured observation, not a live feed.");
+  expect(identity.textContent).not.toContain("child-model");
+  const details = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-capture")!;
+  expect(details.open).toBe(false);
+  expect(
+    within(details).getByText("Captured model: child-model · child-provider").textContent,
+  ).toBe("Captured model: child-model · child-provider");
   expect(view.getAllByText("Captured model: child-model · child-provider")).toHaveLength(1);
+});
+it.each([
+  { task: "  **Inspect**\n\tthe   panel  ", purpose: "**Inspect** the panel" },
+  {
+    task: "Read a " + "long task ".repeat(100) + "to the end",
+    purpose: "Read a " + "long task ".repeat(100) + "to the end",
+  },
+  { task: "", purpose: "Foreground workflow · task unavailable" },
+  { task: " \n\t ", purpose: "Foreground workflow · task unavailable" },
+  { task: undefined, purpose: "Foreground workflow · task unavailable" },
+])(
+  "shows truthful plain-text purpose for task case %# without changing the original attribution",
+  ({ task, purpose }) => {
+    const view = render(
+      <SubagentsView
+        state={{
+          ...state,
+          rows: [
+            {
+              ...state.rows[0]!,
+              source: "foreground",
+              kind: "workflow",
+              label: "  Original  agent  ",
+              activity: "Not a title",
+              capture: {
+                status: "captured",
+                capturedAt: 1,
+                task,
+                finalOutput: "Not a title either",
+              },
+            },
+          ],
+        }}
+      />,
+    );
+    const button = within(view.getByRole("navigation")).getByRole("button", {
+      name: `${purpose} Original agent Entry 1 complete`,
+    });
+    expect(button.querySelector("strong")!.textContent).toBe(purpose);
+    expect(
+      within(view.getByRole("article")).getByRole("heading", { level: 3, name: purpose })
+        .textContent,
+    ).toBe(purpose);
+    const labels = view.container.querySelectorAll(".pi-subagents-label");
+    expect(Array.from(labels, (label) => label.textContent)).toEqual([
+      "  Original  agent  ",
+      "  Original  agent  ",
+    ]);
+    const taskSection = view.queryByRole("group", { name: "Captured task" });
+    if (task !== undefined) {
+      expect(within(taskSection!).getByTestId("bb-markdown").textContent).toBe(task);
+      expect(view.queryByText("Task attribution not captured.")).toBeNull();
+    } else {
+      expect(taskSection).toBeNull();
+      expect(view.getByText("Task attribution not captured.").textContent).toBe(
+        "Task attribution not captured.",
+      );
+    }
+  },
+);
+it("uses truthful source/kind fallback and Label unavailable for absent capture and blank labels", () => {
+  const view = render(
+    <SubagentsView
+      state={{ ...state, rows: [{ ...state.rows[0]!, label: " \t ", capture: undefined }] }}
+    />,
+  );
+  expect(
+    within(view.getByRole("navigation")).getByRole("button").querySelector("strong")!.textContent,
+  ).toBe("Background subagent · task unavailable");
+  expect(view.getAllByText("Label unavailable").map((label) => label.textContent)).toEqual([
+    "Label unavailable",
+    "Label unavailable",
+  ]);
+  expect(within(view.getByRole("article")).getByRole("status").textContent).toContain(
+    "Capture not-captured",
+  );
+});
+it("keeps duplicate tasks, labels and Child 1 roots uniquely selectable by Entry", () => {
+  const view = render(
+    <SubagentsView
+      state={{
+        ...state,
+        rows: [
+          { ...state.rows[0]!, id: "one", runId: "private-run-one", index: 0, label: "Same" },
+          { ...state.rows[0]!, id: "two", runId: "private-run-two", index: 0, label: "Same" },
+        ],
+      }}
+    />,
+  );
+  const nav = within(view.getByRole("navigation"));
+  const first = nav.getByRole("button", { name: "first second Same Entry 1 Child 1 complete" });
+  const second = nav.getByRole("button", { name: "first second Same Entry 2 Child 1 complete" });
+  expect(first.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(second);
+  expect(second.getAttribute("aria-pressed")).toBe("true");
+  expect(first.getAttribute("aria-pressed")).toBe("false");
+  expect(view.getByRole("article").textContent).toContain("private-run-two");
+  expect(view.getByRole("navigation").textContent).not.toContain("private-run");
+});
+it("retains selected ID, open tool, summary focus and reading scroll when task arrives and Entry changes", () => {
+  const initial = {
+    ...enriched,
+    rows: [{ ...enriched.rows[0]!, capture: { ...enriched.rows[0]!.capture!, task: undefined } }],
+  };
+  const view = render(<SubagentsView state={initial} />);
+  fireEvent.click(within(view.getByRole("navigation")).getByRole("button"));
+  const transcript = view.getByRole("region", { name: "Captured conversation" });
+  const tool = transcript.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  const summary = tool.querySelector("summary")!;
+  const runs = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-runs")!;
+  tool.open = true;
+  runs.open = false;
+  transcript.scrollTop = 120;
+  summary.focus();
+  view.rerender(
+    <SubagentsView
+      state={{
+        ...enriched,
+        rows: [{ ...state.rows[0]!, id: "earlier", capture: undefined }, ...enriched.rows],
+      }}
+    />,
+  );
+  expect(view.getByRole("region", { name: "Captured conversation" })).toBe(transcript);
+  expect(transcript.querySelector(".pi-subagents-tool")).toBe(tool);
+  expect(tool.open).toBe(true);
+  expect(runs.open).toBe(false);
+  expect(document.activeElement).toBe(summary);
+  expect(transcript.scrollTop).toBe(120);
+  expect(within(view.getByRole("article")).getByRole("heading", { level: 3 }).textContent).toBe(
+    "first second",
+  );
+  expect(view.container.querySelector(".pi-subagents-identity")!.textContent).toContain("Entry 2");
+  expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
 });
 it("keeps missing-content notices in capture details rather than ahead of available output", () => {
   const view = render(
@@ -123,7 +494,10 @@ it("uses public SDK Markdown for task, prose and output, with ordered escaped to
     "answer",
   ]);
   const transcript = view.getByRole("region", { name: "Captured conversation" });
-  expect(Array.from(transcript.children).map((n) => n.textContent)).toEqual([
+  const content = Array.from(transcript.children).flatMap((node) =>
+    node.matches(".pi-subagents-conversation") ? Array.from(node.children).slice(1) : [node],
+  );
+  expect(content.map((n) => n.textContent)).toEqual([
     expect.stringContaining("first\nsecond"),
     expect.stringContaining("**before**"),
     expect.stringContaining("<script>unsafe</script>"),
@@ -221,10 +595,14 @@ it("renders accepted legacy tool-result text as collapsed escaped output without
   ).toBeNull();
   expect(
     Array.from(transcript.children)
-      .slice(0, 6)
+      .slice(0, 3)
+      .map((node) => node.className),
+  ).toEqual(["pi-subagents-task", "pi-subagents-conversation", "pi-subagents-output"]);
+  expect(
+    Array.from(transcript.querySelector(".pi-subagents-conversation")!.children)
+      .slice(1)
       .map((node) => node.className),
   ).toEqual([
-    "pi-subagents-task",
     "pi-subagents-message",
     "pi-subagents-tool",
     "pi-subagents-message",
@@ -445,3 +823,95 @@ it("shows unavailable models and durations for legacy/container captures with ge
     within(view.getByRole("article")).getByLabelText("Execution state: complete"),
   ).toBeDefined();
 });
+
+it("starts completed detail with its result and secondary content disclosed on demand", () => {
+  const view = render(<SubagentsView state={enriched} />);
+  expect(view.container.querySelector<HTMLDetailsElement>(".pi-subagents-runs")!.open).toBe(false);
+  const task = view.container.querySelector<HTMLDetailsElement>("details.pi-subagents-task");
+  const conversation = view.container.querySelector<HTMLDetailsElement>(
+    ".pi-subagents-conversation",
+  );
+  expect(task).not.toBeNull();
+  expect(conversation).not.toBeNull();
+  expect(task!.open).toBe(false);
+  expect(conversation!.open).toBe(false);
+  expect(conversation!.querySelector("summary")!.textContent).toContain("4 entries");
+  expect(view.container.querySelector(".pi-subagents-output")!.closest("details")).toBeNull();
+  expect(
+    view.container.querySelector(".pi-subagents-message")!.closest(".pi-subagents-conversation"),
+  ).toBe(conversation);
+  expect(
+    within(view.getByRole("region", { name: "Final output" })).getByTestId("bb-markdown")
+      .textContent,
+  ).toBe("answer");
+});
+
+it("keeps overview navigation open until a run is chosen without stealing its focus", () => {
+  const view = render(<SubagentsView state={state} overview />);
+  const runs = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-runs")!;
+  expect(runs.open).toBe(true);
+  const button = within(view.getByRole("navigation")).getAllByRole("button")[0]!;
+  button.focus();
+  fireEvent.click(button);
+  expect(runs.open).toBe(true);
+  expect(document.activeElement).toBe(button);
+  expect(view.getByRole("region", { name: "Final output" })).toBeDefined();
+});
+
+it("retains opened task and conversation disclosures with tool focus during refresh", () => {
+  const view = render(<SubagentsView state={enriched} />);
+  const task = view.container.querySelector<HTMLDetailsElement>("details.pi-subagents-task")!;
+  const conversation = view.container.querySelector<HTMLDetailsElement>(
+    ".pi-subagents-conversation",
+  )!;
+  expect(task).not.toBeNull();
+  expect(conversation).not.toBeNull();
+  fireEvent.click(task.querySelector("summary")!);
+  fireEvent.click(conversation.querySelector("summary")!);
+  expect(task.open).toBe(true);
+  expect(conversation.open).toBe(true);
+  const tool = conversation.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  tool.open = true;
+  const summary = tool.querySelector("summary")!;
+  summary.focus();
+  const reader = view.getByRole("region", { name: "Captured conversation" });
+  reader.scrollTop = 90;
+  view.rerender(<SubagentsView state={{ ...enriched, updatedAt: 200 }} />);
+  expect(view.container.querySelector(".pi-subagents-task")).toBe(task);
+  expect(view.container.querySelector(".pi-subagents-conversation")).toBe(conversation);
+  expect(task.open && conversation.open && tool.open).toBe(true);
+  expect(document.activeElement).toBe(summary);
+  expect(reader.scrollTop).toBe(90);
+});
+
+it.each([true, false])(
+  "preserves conversation disclosure choice %s when final output arrives",
+  (keepOpen) => {
+    const row = enriched.rows[0]!;
+    const initial = {
+      ...enriched,
+      rows: [{ ...row, capture: { ...row.capture!, finalOutput: undefined } }],
+    };
+    const view = render(<SubagentsView state={initial} />);
+    const conversation = view.container.querySelector<HTMLDetailsElement>(
+      ".pi-subagents-conversation",
+    )!;
+    expect(conversation).not.toBeNull();
+    expect(conversation.open).toBe(true);
+    if (!keepOpen) fireEvent.click(conversation.querySelector("summary")!);
+    const tool = conversation.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+    tool.open = true;
+    const summary = keepOpen
+      ? tool.querySelector("summary")!
+      : conversation.querySelector("summary")!;
+    summary.focus();
+    const reader = view.getByRole("region", { name: "Captured conversation" });
+    reader.scrollTop = 110;
+    view.rerender(<SubagentsView state={enriched} />);
+    expect(view.container.querySelector(".pi-subagents-conversation")).toBe(conversation);
+    expect(conversation.open).toBe(keepOpen);
+    expect(tool.open).toBe(true);
+    expect(document.activeElement).toBe(summary);
+    expect(reader.scrollTop).toBe(110);
+  },
+);
