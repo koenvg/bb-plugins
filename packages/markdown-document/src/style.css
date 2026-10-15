@@ -178,6 +178,42 @@
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
+.md-document .md-document-outline {
+  max-width: 720px;
+  margin: 0 auto 1.5em;
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  font-size: 0.875rem;
+}
+.md-document .md-document-outline summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.md-document .md-document-outline ol {
+  margin: 0.5em 0 0;
+  padding-left: 1.25em;
+}
+.md-document a {
+  color: var(--link, var(--foreground));
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+.md-document img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.md-document [role="status"] {
+  color: var(--muted-foreground);
+  margin-inline-start: 0.5em;
+}
+@container (max-width: 480px) {
+  .md-document .md-document-outline {
+    padding: 0.5em;
+  }
+}
 .md-document ::selection {
   background: var(--state-active);
   color: var(--foreground);
