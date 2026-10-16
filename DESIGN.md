@@ -1,6 +1,6 @@
 ---
 name: BB plugins
-description: Plugin UI that reads as part of BB, with color reserved for state.
+description: Plugin UI that reads as part of BB, with color for state and chart identity.
 colors:
   canvas: "oklch(100% 0 0)"
   ink: "oklch(32.11% 0 0)"
@@ -26,6 +26,17 @@ colors:
   merged-violet: "#7c3aed"
   compose-surface: "color-mix(in oklab, oklch(32.11% 0 0) 2%, oklch(100% 0 0))"
   compose-message: "color-mix(in oklab, oklch(32.11% 0 0) 7%, oklch(100% 0 0))"
+  compose-fast-dark: "#c8a260"
+  compose-ultrafast-dark: "#e4ba6d"
+  compose-glow-dark: "#d6ad68"
+  compose-fast-light: "#7fc9df"
+  compose-ultrafast-light: "#96d3e5"
+  quota-series-blue: "light-dark(#42689c, #92b4e2)"
+  quota-series-teal: "light-dark(#2c8b7d, #6ac3b0)"
+  quota-series-gold: "light-dark(#ab8b54, #d8b978)"
+  quota-series-violet: "light-dark(#8b6599, #bd97cb)"
+  quota-series-clay: "light-dark(#a66b5b, #d99b89)"
+  quota-series-olive: "light-dark(#678346, #a4c180)"
 typography:
   title:
     fontFamily: "Inter Variable, Inter, sans-serif"
@@ -165,39 +176,42 @@ components:
 
 **Creative North Star: "The Quiet Instrument"**
 
-Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps, not from color. Color appears only when it carries state: a check passed, a task is in progress, a PR is blocked. When nothing needs the user, the plugin is quiet.
+Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps. Plugin-added color reports state or distinguishes chart data. When nothing needs the user, the plugin is quiet.
 
-The plugins do not own a palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The neutral and status colors in the frontmatter retain the recorded BB v0.43.x light-theme snapshot. They are a documentation baseline, not a fresh measurement of BB 0.45 or the active theme. Compose Chat's derived surfaces and the scoped reading roles come from current source. Runtime code references host tokens, not the recorded color literals. Host themes may supply a colored primary; inherit it rather than forcing grayscale.
+The plugins do not own the host palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The neutral and status colors in the frontmatter retain the recorded BB v0.43.x light-theme snapshot. They are a documentation baseline, not a fresh measurement of BB 0.46 or the active theme. Compose Chat's surfaces and speed colors, Quota series colors, and scoped reading roles come from current source. Runtime controls bind to live host tokens; only the documented data/speed palettes use their own scoped colors. Host themes may supply a colored primary; inherit it rather than forcing grayscale.
 
 Each plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.
 
 **Key Characteristics:**
 
-- Grayscale in the baseline theme; plugin-added color carries state.
+- Grayscale in the baseline theme; plugin-added color carries state or chart identity.
 - Host tokens through Tailwind utilities or CSS custom properties.
 - Flat panels by default; Compose Chat has a scoped soft writing-frame shadow.
 - Small host sans-serif controls, theme-scoped Libron reading text, tabular counts, and larger quota-summary type in full panels.
 - Host SDK icons or the vendored `Icon` component; quota uses a current-color battery SVG.
 
-This record covers Tasks Plus, GitHub Insight, Threads with PRs, Codex Quota, Compose Chat, Changes, Markdown Reader, Code Cleanup settings, and the optional Codex-inspired theme. Committed PR-state evidence includes fixture screenshots and cropped host captures in light, dark, normal, and compact layouts. The acceptance report ties those captures to BB 0.44 and an earlier implementation; they support the compact status treatment, not a current palette measurement. The recorded palette has not been remeasured in the live BB app or checked for contrast across all host themes.
+This record covers shared controls and the distinct UI of Tasks Plus, GitHub Insight, Threads with PRs, Codex Quota, Compose Chat, Changes, Markdown Reader, Code Cleanup, Live Output, Browser Annotate, Pi Subagents, and the optional Codex-inspired theme. MCP has no custom frontend design system to extract. Current source defines the documented behavior. The committed PR-state screenshots show historical light/dark, normal/compact treatments; their acceptance report ties them to BB 0.44 and an earlier implementation, not the current palette or cascade. This documentation refresh does not establish new live acceptance or cross-theme contrast results.
 
-| Evidence                                                                                     | Current visual pattern                                   |
-| -------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `bb-plugin-tasks-plus/components/ui/button.tsx`, `input.tsx`, `coarse-pointer-sizing.ts`     | Host control variants and compact touch sizing           |
-| `bb-plugin-github-insight/ui/overview-tab.tsx`, `review-queue-list.tsx`                      | Status-first PR detail and grouped review lists          |
-| `bb-plugin-pr-thread-list/app.tsx`, `running-glyph.css`                                      | Two-line sidebar rows and a running-state lattice        |
-| `bb-plugin-codex-quota/src/quota/quota-summary.tsx`, `quota-view.tsx`                        | Allowance summary and battery                            |
-| `bb-plugin-codex-quota/src/history/calendar/calendar-view.tsx`                               | Daily usage bars, axes, and tooltip                      |
-| `bb-plugin-compose-chat/app.css`, `motion.css`                                               | Writing frame, pressed feedback, and activity lattice    |
-| `bb-plugin-changes/ui/changes-tab.tsx`, `file-outline.tsx`, `review-ui/review-file-diff.tsx` | Review toolbar, file navigation, and themed diffs        |
-| `bb-plugin-markdown-reader/app.css`, `outline.tsx`                                           | Reading column and panel-width-aware navigation          |
-| `bb-plugin-code-cleanup/app.css`                                                             | Settings form and prompt editor                          |
-| `bb-plugin-codex-inspired/themes/codex-inspired.css`                                         | Optional paired light/dark theme and font overrides      |
-| `openspec/changes/pr-state-parity/acceptance.md`, `evidence/*.jpg`                           | Historical light/dark PR-state fixture and host captures |
+| Evidence                                                                                                                                              | Visual pattern                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `bb-plugin-tasks-plus/components/ui/button.tsx`, `bb-plugin-tasks-plus/components/ui/input.tsx`                                                       | Host control variants                                     |
+| `bb-plugin-github-insight/ui/overview-tab.tsx`, `bb-plugin-github-insight/ui/review-queue-list.tsx`                                                   | Status-first PR detail and grouped review lists           |
+| `bb-plugin-pr-thread-list/app.tsx`, `bb-plugin-pr-thread-list/running-glyph.css`                                                                      | Two-line sidebar rows and running-state lattice           |
+| `bb-plugin-codex-quota/src/quota/quota-summary.tsx`, `bb-plugin-codex-quota/src/quota/quota-view.tsx`                                                 | Allowance summary and battery                             |
+| `bb-plugin-codex-quota/src/history/calendar/calendar-tanstack.tsx`, `bb-plugin-codex-quota/src/history/calendar/calendar-models.ts`                   | Usage bars, model/speed palette, axes, and inspection     |
+| `bb-plugin-compose-chat/app.css`, `bb-plugin-compose-chat/motion.css`, `bb-plugin-compose-chat/speed-settings.ts`, `bb-plugin-compose-chat/speed.css` | Writing frame, activity lattice, and scoped speed borders |
+| `bb-plugin-changes/ui/changes-tab.tsx`, `review-ui/review-file-diff.tsx`                                                                              | Review toolbar and themed diffs                           |
+| `bb-plugin-markdown-reader/app.css`, `bb-plugin-markdown-reader/app.tsx`                                                                              | Reading column and panel-width-aware navigation           |
+| `bb-plugin-code-cleanup/app.css`                                                                                                                      | Settings form and prompt editor                           |
+| `bb-plugin-live-output/app.tsx`, `bb-plugin-live-output/output-rate-chart.tsx`                                                                        | Full-panel rate summary and line/area chart               |
+| `bb-plugin-browser-annotate/lib/theme.ts`                                                                                                             | Host-token bridge into page annotations                   |
+| `bb-plugin-pi-subagents-provider/src/ui/subagents.css`                                                                                                | Subagent navigation and transcript styling                |
+| `bb-plugin-codex-inspired/themes/codex-inspired.css`                                                                                                  | Optional paired light/dark theme and font overrides       |
+| `openspec/changes/archive/2026-10-07-pr-state-parity/acceptance.md` and its `evidence/` directory                                                     | Historical PR-state fixture and host captures             |
 
 ## Colors
 
-A host ink-and-canvas ramp supplies neutral structure. Semantic hues carry state; action colors follow the active host theme.
+A host ink-and-canvas ramp supplies neutral structure. Semantic hues carry state; chart hues distinguish data series. Action colors follow the active host theme.
 
 ### Primary
 
@@ -216,6 +230,12 @@ A host ink-and-canvas ramp supplies neutral structure. Semantic hues carry state
 - Hover Veil, `state-hover`, and Active Veil, `state-active`, are transparent overlays for interaction feedback.
 - Compose Surface, `compose-surface`, and Compose Message, `compose-message`, are derived from live ink and canvas in Compose Chat alone. They are not general panel backgrounds.
 
+### Scoped data and speed colors
+
+- Quota's six `quota-series-*` colors identify model series, not success or failure. Each has an explicit light/dark pair. A stable model-name hash chooses the base hue; collisions are possible, so labels remain authoritative. Fast mixes 78% of the base with host foreground; Ultrafast uses 56%. Default uses the base unchanged.
+- Compose Chat's `compose-fast-dark`, `compose-ultrafast-dark`, and `compose-glow-dark` are gold speed-state colors. Light surfaces use cyan `compose-fast-light` and `compose-ultrafast-light`; the light glow reuses `compose-fast-light`. These approved presets belong only to the native composer border, not buttons, panels, or unrelated status marks.
+- The sidecar's tonal ramps are generated swatch aids, not new runtime scales. Its component previews continue to inherit live host tokens.
+
 ### Optional theme
 
 Codex-inspired is a theme plugin, not the shared palette. Its source defines paired light/dark canvas, ink, sidebar, action, border, and status tokens. It uses a warm neutral sidebar, system sans-serif for controls and the composer, Inter inside the sidebar, and Libron for chat Markdown and Markdown Reader document text. It also defines file, diff, and merged-PR colors. These affect controls that reference the corresponding host token; they do not recolor explicit utility hues.
@@ -233,7 +253,7 @@ Codex-inspired is a theme plugin, not the shared palette. Its source defines pai
 
 ### Named rules
 
-**The Color Is State Rule.** Plugin-added hues report state. Decoration and hierarchy use weight and the neutral ramp. Host-supplied action colors remain authoritative, even when the active theme makes them chromatic.
+**The Color Is State Rule.** Plugin-added hues report state or distinguish labeled chart data. Decoration and hierarchy use weight and the neutral ramp. Host-supplied action colors remain authoritative, even when the active theme makes them chromatic.
 
 **The Missing Token Rule.** Use a raw Tailwind hue only for a status without a host token, and supply a dark-theme pair. GitHub Insight now uses `attention` and `success` for running and passed checks; its earlier amber and emerald exceptions are gone.
 
@@ -252,6 +272,7 @@ Use the host's sans-serif family and system monospace stack. The frontmatter rec
 - Compose Chat keeps host font sizes and raises timeline paragraph line-height to 1.65 for reading.
 - Markdown Reader has a separate reading scale. Its body and title roles in the frontmatter do not replace compact plugin text. Reader section headings use 21px and 18px sizes. Code uses the host monospace family at 13px with a 1.9 line-height.
 - Markdown Reader reduces body text to 15px with a 1.8 line-height at a panel width of 600px or less. Its title steps to 34px at 1080px and 30px at 600px. These changes follow panel width, not desktop viewport width.
+- Live Output uses a full-panel `text-5xl` semibold, tabular current-rate value and smaller unit text. This is a separate dashboard role, not a compact control size.
 - Code Cleanup settings use the `settings-body` role; the editable prompt and code preview use 13px monospace with a 1.6 line-height.
 - Codex-inspired uses the `codex-chat-body` role for chat Markdown and `codex-reader-body` for Markdown Reader prose. It keeps native system sans for controls and the composer, Inter for the sidebar, and monospace for code and Raw view. Sidebar thread titles stay at 14px, with unread weight 500. These are theme overrides, not new requirements for other plugins.
 
@@ -271,7 +292,7 @@ The Libron update was checked in synthetic light and dark browser fixtures at 12
 
 **The Reading Font Boundary Rule.** Keep Libron in the optional Codex-inspired theme's chat Markdown and Markdown Reader prose selectors. Do not apply it to the app font token, navigation, the composer, tool logs, Raw view, or code.
 
-**The Weight Not Size Rule.** In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve the quota dashboard's large number for its full-panel summary.
+**The Weight Not Size Rule.** In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve large quota and live-output numbers for their full-panel summaries.
 
 ## Layout
 
@@ -284,6 +305,7 @@ The Libron update was checked in synthetic light and dark browser fixtures at 12
 - Code Cleanup settings wrap selectors and action groups. At 480px or less, enablement fills the width and final actions stack.
 - Tasks Plus's native-style rows use `--bb-sidebar-row-height` and its coarse variant. Threads with PRs instead owns a virtualized two-line list with 48px thread rows, 36px group rows, and 24px child indentation.
 - Tasks Plus converts responsive overlays to compact drawers and respects `--bb-drawer-keyboard-inset`.
+- Live Output centers a `max-w-5xl` column, uses 16px padding that grows to 24px, and reserves a 240px-high chart. Its metric grid changes from two to four columns at the medium breakpoint.
 - Compose Chat retains BB's composer/footer structure, compact-footer hiding, and split-send geometry. Its standalone action targets grow on coarse pointers; the compound send control stays native.
 
 ### Named rules
@@ -353,11 +375,15 @@ The virtualized sidebar row has a narrow icon column, a truncating content colum
 
 ### Codex Quota battery and dashboard
 
-The footer battery is a current-color SVG with a proportional fill, no threshold hue, and an adjacent tabular percentage. Only fresh quota data fills the battery; stale or unavailable states keep the outline without an asserted percentage. The full panel puts the allowance summary and host selector above usage reports. Daily usage uses a 280px-tall bar chart, host-primary bars with rounded top corners, muted axes, faint horizontal grid lines, and a host-popover tooltip. Chart animation is disabled. Coverage and pricing limits remain visible as text; unknown values must not look like recorded zero usage.
+The footer battery is a current-color SVG with a proportional fill, no threshold hue, and an adjacent tabular percentage. Only fresh quota data fills the battery; stale or unavailable states keep the outline without an asserted percentage. The full panel puts the allowance summary and host selector above usage reports. Daily usage uses a 280px-high TanStack chart. Token bars stack labeled model/speed series with square corners; money bars use host primary with 3px end rounding. Optional uncertain tokens use muted fill and a dashed stroke. Bars are at most 28px wide. Muted axes, faint horizontal grid lines, and a host-popover inspection tooltip keep chart structure neutral. Legend filters affect bars only; totals and the accessible table retain all recorded series. Coverage and pricing limits remain visible as text; unknown values must not look like recorded zero usage.
 
 ### Compose Chat writing frame
 
 A content-script theme treatment, not a replacement editor. It adds a faint surface, hairline border, derived corners, and soft shadow while keeping native editors and controls. The writing field has no new focus outline; action buttons retain a visible 2px host-ring outline. Fine-pointer hover changes fill; standalone actions scale to 0.96 when pressed with a 120ms transition. Reduced motion disables transitions and the pressed scale. Native send-menu segments, footer hiding, and picker behavior remain owned by BB. Its DOM hooks are a compatibility boundary, not a public renderer API.
+
+### Compose Chat speed border
+
+Glow is the default; Electric and Off are explicit settings. Borders mark Fast or Ultrafast only. The decoration is an `aria-hidden`, pointer-inert overlay that follows the native frame's bounds, clipping, radius, visibility, and surface theme. It never paints over BB-owned content or replaces a native control. Ultrafast Glow uses opposite-corner highlights; Fast uses the quieter 75% intensity mapping. Glow schedules pointer-driven updates without a continuous idle loop. Electric is capped at 15 fps and pauses for hidden targets, reduced motion, or the user's animation setting. These mode colors and effects remain scoped to this border.
 
 ### Markdown Reader document and navigation
 
@@ -373,12 +399,24 @@ The toolbar uses compact target selection, a bordered unified/split toggle, tabu
 
 A wrapping settings form with a host-colored enablement switch, Preview/Edit tabs, and a full-width resizable prompt textarea. Controls have a 40px minimum height; icon actions are 44px squares. The selected switch pairs foreground fill with background text. Selected tabs use the active veil. Focus uses a 2px host ring with 3px offset. Keep these settings dimensions separate from compact list controls.
 
+### Live Output dashboard
+
+The rate summary sits in a flat bordered card above recent contributors. Host primary colors the line and its 12% area fill; a status line marks disconnection. The chart supports keyboard inspection with a 2px host-ring outline. Its popover readout uses tabular 12px text, an 8px inset, and a host floating shadow. Keep estimated tokens and bytes labeled as different units; missing/disconnected rates are not recorded zeroes.
+
+### Browser Annotate
+
+The toolbar toggle is a 28px host-styled icon control with hover, pressed, and keyboard-focus states. Page annotation UI receives current host popover, text, border, primary, ring, destructive, and font values through `lib/theme.ts`. Preserve this bridge instead of adding a fixed page-overlay palette.
+
+### Pi Subagents panel
+
+The panel inherits host foreground and radius, with a timeline-accent/ring-derived selection color. It uses 14px text, 12px metadata, and a 1.65 transcript line-height. Navigation and transcript controls keep 32px minimum targets; prose is bounded to 75ch. Host tokens distinguish pending, completed, and error states. Reading styles stay within the subagent transcript rather than changing BB's main conversation.
+
 ## Do's and Don'ts
 
 ### Do:
 
 - **Do** use host tokens through Tailwind utilities or CSS custom properties, including host action colors. Check light, dark, and third-party themes when changing UI; this refresh does not establish a new theme-verification pass.
-- **Do** keep plugin-added color for state.
+- **Do** keep plugin-added color for state and labeled chart identity.
 - **Do** use `tabular-nums` on numbers that update.
 - **Do** use `state-hover` and `state-active` for new interaction feedback.
 - **Do** truncate narrow status labels and let reading text and errors wrap.
@@ -391,5 +429,5 @@ A wrapping settings form with a host-colored enablement switch, Preview/Edit tab
 - **Don't** use a raw Tailwind hue when BB has a token for that state.
 - **Don't** put a rest shadow on a new ordinary panel surface. Compose Chat's writing frame and Codex-inspired's native prompt form are scoped exceptions.
 - **Don't** add a plugin brand color, logo mark, or custom font to feature UI. Keep provider, project, and file identities intact. Theme plugins may define a scoped palette and font treatment.
-- **Don't** copy the quota dashboard's large summary type into narrow slots.
+- **Don't** copy the dashboards' large summary type into narrow slots.
 - **Don't** treat a recorded light-theme sample or a synthetic acceptance measurement as proof of contrast in every host theme.

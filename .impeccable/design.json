@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-15T20:44:16.000Z",
+  "generatedAt": "2026-10-16T11:46:56.427Z",
   "title": "Design System: BB plugins",
   "extensions": {
     "colorMeta": {
@@ -339,6 +339,160 @@
           "oklch(85% 0 0)",
           "oklch(95% 0 0)"
         ]
+      },
+      "compose-fast-dark": {
+        "role": "tertiary",
+        "displayName": "Gold Fast, dark surface",
+        "tonalRamp": [
+          "oklch(15% 0.09555 80.21)",
+          "oklch(25% 0.09555 80.21)",
+          "oklch(35% 0.09555 80.21)",
+          "oklch(45% 0.09555 80.21)",
+          "oklch(55% 0.09555 80.21)",
+          "oklch(70% 0.09555 80.21)",
+          "oklch(85% 0.09555 80.21)",
+          "oklch(95% 0.09555 80.21)"
+        ]
+      },
+      "compose-ultrafast-dark": {
+        "role": "tertiary",
+        "displayName": "Gold Ultrafast, dark surface",
+        "tonalRamp": [
+          "oklch(15% 0.10713 81.46)",
+          "oklch(25% 0.10713 81.46)",
+          "oklch(35% 0.10713 81.46)",
+          "oklch(45% 0.10713 81.46)",
+          "oklch(55% 0.10713 81.46)",
+          "oklch(70% 0.10713 81.46)",
+          "oklch(85% 0.10713 81.46)",
+          "oklch(95% 0.10713 81.46)"
+        ]
+      },
+      "compose-glow-dark": {
+        "role": "tertiary",
+        "displayName": "Gold glow, dark surface",
+        "tonalRamp": [
+          "oklch(15% 0.09956 79.47)",
+          "oklch(25% 0.09956 79.47)",
+          "oklch(35% 0.09956 79.47)",
+          "oklch(45% 0.09956 79.47)",
+          "oklch(55% 0.09956 79.47)",
+          "oklch(70% 0.09956 79.47)",
+          "oklch(85% 0.09956 79.47)",
+          "oklch(95% 0.09956 79.47)"
+        ]
+      },
+      "compose-fast-light": {
+        "role": "tertiary",
+        "displayName": "Cyan Fast and glow, light surface",
+        "tonalRamp": [
+          "oklch(15% 0.07984 218.75)",
+          "oklch(25% 0.07984 218.75)",
+          "oklch(35% 0.07984 218.75)",
+          "oklch(45% 0.07984 218.75)",
+          "oklch(55% 0.07984 218.75)",
+          "oklch(70% 0.07984 218.75)",
+          "oklch(85% 0.07984 218.75)",
+          "oklch(95% 0.07984 218.75)"
+        ]
+      },
+      "compose-ultrafast-light": {
+        "role": "tertiary",
+        "displayName": "Cyan Ultrafast, light surface",
+        "tonalRamp": [
+          "oklch(15% 0.06694 218.10)",
+          "oklch(25% 0.06694 218.10)",
+          "oklch(35% 0.06694 218.10)",
+          "oklch(45% 0.06694 218.10)",
+          "oklch(55% 0.06694 218.10)",
+          "oklch(70% 0.06694 218.10)",
+          "oklch(85% 0.06694 218.10)",
+          "oklch(95% 0.06694 218.10)"
+        ]
+      },
+      "quota-series-blue": {
+        "role": "tertiary",
+        "displayName": "Quota series blue",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.09378 256.53), oklch(15% 0.07619 256.08))",
+          "light-dark(oklch(25% 0.09378 256.53), oklch(25% 0.07619 256.08))",
+          "light-dark(oklch(35% 0.09378 256.53), oklch(35% 0.07619 256.08))",
+          "light-dark(oklch(45% 0.09378 256.53), oklch(45% 0.07619 256.08))",
+          "light-dark(oklch(55% 0.09378 256.53), oklch(55% 0.07619 256.08))",
+          "light-dark(oklch(70% 0.09378 256.53), oklch(70% 0.07619 256.08))",
+          "light-dark(oklch(85% 0.09378 256.53), oklch(85% 0.07619 256.08))",
+          "light-dark(oklch(95% 0.09378 256.53), oklch(95% 0.07619 256.08))"
+        ]
+      },
+      "quota-series-teal": {
+        "role": "tertiary",
+        "displayName": "Quota series teal",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.08978 181.27), oklch(15% 0.09084 178.20))",
+          "light-dark(oklch(25% 0.08978 181.27), oklch(25% 0.09084 178.20))",
+          "light-dark(oklch(35% 0.08978 181.27), oklch(35% 0.09084 178.20))",
+          "light-dark(oklch(45% 0.08978 181.27), oklch(45% 0.09084 178.20))",
+          "light-dark(oklch(55% 0.08978 181.27), oklch(55% 0.09084 178.20))",
+          "light-dark(oklch(70% 0.08978 181.27), oklch(70% 0.09084 178.20))",
+          "light-dark(oklch(85% 0.08978 181.27), oklch(85% 0.09084 178.20))",
+          "light-dark(oklch(95% 0.08978 181.27), oklch(95% 0.09084 178.20))"
+        ]
+      },
+      "quota-series-gold": {
+        "role": "tertiary",
+        "displayName": "Quota series gold",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.08255 80.09), oklch(15% 0.09061 84.96))",
+          "light-dark(oklch(25% 0.08255 80.09), oklch(25% 0.09061 84.96))",
+          "light-dark(oklch(35% 0.08255 80.09), oklch(35% 0.09061 84.96))",
+          "light-dark(oklch(45% 0.08255 80.09), oklch(45% 0.09061 84.96))",
+          "light-dark(oklch(55% 0.08255 80.09), oklch(55% 0.09061 84.96))",
+          "light-dark(oklch(70% 0.08255 80.09), oklch(70% 0.09061 84.96))",
+          "light-dark(oklch(85% 0.08255 80.09), oklch(85% 0.09061 84.96))",
+          "light-dark(oklch(95% 0.08255 80.09), oklch(95% 0.09061 84.96))"
+        ]
+      },
+      "quota-series-violet": {
+        "role": "tertiary",
+        "displayName": "Quota series violet",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.08945 316.70), oklch(15% 0.08465 316.82))",
+          "light-dark(oklch(25% 0.08945 316.70), oklch(25% 0.08465 316.82))",
+          "light-dark(oklch(35% 0.08945 316.70), oklch(35% 0.08465 316.82))",
+          "light-dark(oklch(45% 0.08945 316.70), oklch(45% 0.08465 316.82))",
+          "light-dark(oklch(55% 0.08945 316.70), oklch(55% 0.08465 316.82))",
+          "light-dark(oklch(70% 0.08945 316.70), oklch(70% 0.08465 316.82))",
+          "light-dark(oklch(85% 0.08945 316.70), oklch(85% 0.08465 316.82))",
+          "light-dark(oklch(95% 0.08945 316.70), oklch(95% 0.08465 316.82))"
+        ]
+      },
+      "quota-series-clay": {
+        "role": "tertiary",
+        "displayName": "Quota series clay",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.08002 35.89), oklch(15% 0.07923 36.85))",
+          "light-dark(oklch(25% 0.08002 35.89), oklch(25% 0.07923 36.85))",
+          "light-dark(oklch(35% 0.08002 35.89), oklch(35% 0.07923 36.85))",
+          "light-dark(oklch(45% 0.08002 35.89), oklch(45% 0.07923 36.85))",
+          "light-dark(oklch(55% 0.08002 35.89), oklch(55% 0.07923 36.85))",
+          "light-dark(oklch(70% 0.08002 35.89), oklch(70% 0.07923 36.85))",
+          "light-dark(oklch(85% 0.08002 35.89), oklch(85% 0.07923 36.85))",
+          "light-dark(oklch(95% 0.08002 35.89), oklch(95% 0.07923 36.85))"
+        ]
+      },
+      "quota-series-olive": {
+        "role": "tertiary",
+        "displayName": "Quota series olive",
+        "tonalRamp": [
+          "light-dark(oklch(15% 0.09261 129.14), oklch(15% 0.09345 127.97))",
+          "light-dark(oklch(25% 0.09261 129.14), oklch(25% 0.09345 127.97))",
+          "light-dark(oklch(35% 0.09261 129.14), oklch(35% 0.09345 127.97))",
+          "light-dark(oklch(45% 0.09261 129.14), oklch(45% 0.09345 127.97))",
+          "light-dark(oklch(55% 0.09261 129.14), oklch(55% 0.09345 127.97))",
+          "light-dark(oklch(70% 0.09261 129.14), oklch(70% 0.09345 127.97))",
+          "light-dark(oklch(85% 0.09261 129.14), oklch(85% 0.09345 127.97))",
+          "light-dark(oklch(95% 0.09261 129.14), oklch(95% 0.09345 127.97))"
+        ]
       }
     },
     "typographyMeta": {
@@ -466,9 +620,14 @@
         "purpose": "Sidebar running glyph, with 108ms stagger. Static 0.7 opacity under reduced motion."
       },
       {
-        "name": "usage-chart",
-        "value": "none",
-        "purpose": "Daily usage bars render without animation."
+        "name": "compose-speed-glow",
+        "value": "pointer-driven requestAnimationFrame; no continuous idle loop",
+        "purpose": "Default Glow speed border. Fast uses a 75% intensity mapping; Ultrafast uses opposite-corner highlights."
+      },
+      {
+        "name": "compose-speed-electric",
+        "value": "15 fps maximum",
+        "purpose": "Opt-in Electric speed border only. Pauses when hidden, under reduced motion, or when the user disables Electric animation."
       }
     ],
     "breakpoints": [
@@ -567,7 +726,7 @@
       "name": "Compose Chat Frame",
       "kind": "custom",
       "refersTo": "compose-frame",
-      "description": "Expanded writing-frame treatment only. Native editor, split-send control, pickers, and footer behavior are not recreated by this preview.",
+      "description": "Base writing-frame treatment, without the separate speed-border overlay. Native editor, split-send control, pickers, and footer behavior are not recreated by this preview.",
       "html": "<div class=\"ds-compose\"><textarea class=\"ds-compose-editor\" aria-label=\"Draft\" placeholder=\"Write a follow-up\"></textarea><div class=\"ds-compose-actions\"><button type=\"button\" class=\"ds-compose-send\">Send</button></div></div>",
       "css": ".ds-compose{border:1px solid var(--border-hairline,var(--border));border-radius:calc(var(--radius,8px) + 6px);background:color-mix(in oklab,var(--ink) 2%,var(--canvas));box-shadow:0 4px 16px -6px var(--shadow-color,color-mix(in oklab,var(--ink) 6%,transparent));transition:border-color 150ms ease-out;}.ds-compose-editor{display:block;width:calc(100% - 24px);min-height:72px;margin:12px;border:0;background:transparent;color:var(--foreground);caret-color:var(--foreground);font:inherit;resize:vertical;outline:none;}.ds-compose-editor::placeholder{color:var(--muted-foreground);}.ds-compose-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;border-top:1px solid var(--border-hairline,var(--border));}.ds-compose-send{min-height:32px;min-width:32px;border:0;border-radius:var(--radius,8px);background:var(--foreground);color:var(--background);padding:0 12px;font:inherit;cursor:pointer;transition:background-color 150ms ease-out,color 150ms ease-out,scale 120ms cubic-bezier(0.16,1,0.3,1);}.ds-compose-send:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}.ds-compose-send:disabled{background:var(--secondary);color:var(--muted-foreground);}@media(hover:hover) and (pointer:fine){.ds-compose-send:hover:not(:disabled){background:color-mix(in oklab,var(--foreground) 90%,var(--background));}}@media(pointer:coarse){.ds-compose-send{min-height:44px;min-width:44px;}}@media(prefers-reduced-motion:reduce){.ds-compose,.ds-compose-send{transition:none;}}.ds-compose-send:active:not(:disabled){scale:.96;}@media(prefers-reduced-motion:reduce){.ds-compose-send:active:not(:disabled){scale:1;}}"
     },
@@ -590,9 +749,9 @@
   ],
   "narrative": {
     "northStar": "The Quiet Instrument",
-    "overview": "Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps, not from color. Color appears only when it carries state: a check passed, a task is in progress, a PR is blocked. When nothing needs the user, the plugin is quiet.\n\nThe plugins do not own a palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The neutral and status colors in the frontmatter retain the recorded BB v0.43.x light-theme snapshot. They are a documentation baseline, not a fresh measurement of BB 0.45 or the active theme. Compose Chat's derived surfaces and the scoped reading roles come from current source. Runtime code references host tokens, not the recorded color literals. Host themes may supply a colored primary; inherit it rather than forcing grayscale.\n\nEach plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.",
+    "overview": "Plugin UI is a grayscale instrument panel that lives inside BB. Ink on canvas does almost all the work. Hierarchy comes from weight, size, and the muted/subtle foreground steps. Plugin-added color reports state or distinguishes chart data. When nothing needs the user, the plugin is quiet.\n\nThe plugins do not own the host palette. Use BB's CSS custom properties and host Tailwind utilities for colors, fonts, radii, and floating-layer shadows. The neutral and status colors in the frontmatter retain the recorded BB v0.43.x light-theme snapshot. They are a documentation baseline, not a fresh measurement of BB 0.46 or the active theme. Compose Chat's surfaces and speed colors, Quota series colors, and scoped reading roles come from current source. Runtime controls bind to live host tokens; only the documented data/speed palettes use their own scoped colors. Host themes may supply a colored primary; inherit it rather than forcing grayscale.\n\nEach plugin may add a small accent of its own: status marks, count pills, a signature row or card shape, or small motion. These accents sit on top of the native structure and must not replace it. Direction for new controls is calm and roomy: generous padding and comfortable hit areas, inside BB's type scale.",
     "keyCharacteristics": [
-      "Grayscale in the baseline theme; plugin-added color carries state.",
+      "Grayscale in the baseline theme; plugin-added color carries state or chart identity.",
       "Host tokens through Tailwind utilities or CSS custom properties.",
       "Flat panels by default; Compose Chat has a scoped soft writing-frame shadow.",
       "Small host sans-serif controls, theme-scoped Libron reading text, tabular counts, and larger quota-summary type in full panels.",
@@ -606,7 +765,7 @@
       },
       {
         "name": "The Color Is State Rule",
-        "body": "Plugin-added hues report state. Decoration and hierarchy use weight and the neutral ramp. Host-supplied action colors remain authoritative, even when the active theme makes them chromatic.",
+        "body": "Plugin-added hues report state or distinguish labeled chart data. Decoration and hierarchy use weight and the neutral ramp. Host-supplied action colors remain authoritative, even when the active theme makes them chromatic.",
         "section": "colors"
       },
       {
@@ -626,7 +785,7 @@
       },
       {
         "name": "The Weight Not Size Rule",
-        "body": "In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve the quota dashboard's large number for its full-panel summary.",
+        "body": "In narrow slots, establish headings with medium or semibold weight before increasing size. Reserve large quota and live-output numbers for their full-panel summaries.",
         "section": "typography"
       },
       {
@@ -642,7 +801,7 @@
     ],
     "dos": [
       "**Do** use host tokens through Tailwind utilities or CSS custom properties, including host action colors. Check light, dark, and third-party themes when changing UI; this refresh does not establish a new theme-verification pass.",
-      "**Do** keep plugin-added color for state.",
+      "**Do** keep plugin-added color for state and labeled chart identity.",
       "**Do** use `tabular-nums` on numbers that update.",
       "**Do** use `state-hover` and `state-active` for new interaction feedback.",
       "**Do** truncate narrow status labels and let reading text and errors wrap.",
@@ -654,7 +813,7 @@
       "**Don't** use a raw Tailwind hue when BB has a token for that state.",
       "**Don't** put a rest shadow on a new ordinary panel surface. Compose Chat's writing frame and Codex-inspired's native prompt form are scoped exceptions.",
       "**Don't** add a plugin brand color, logo mark, or custom font to feature UI. Keep provider, project, and file identities intact. Theme plugins may define a scoped palette and font treatment.",
-      "**Don't** copy the quota dashboard's large summary type into narrow slots.",
+      "**Don't** copy the dashboards' large summary type into narrow slots.",
       "**Don't** treat a recorded light-theme sample or a synthetic acceptance measurement as proof of contrast in every host theme."
     ]
   }
