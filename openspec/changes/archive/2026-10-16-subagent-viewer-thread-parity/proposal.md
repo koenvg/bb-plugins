@@ -6,7 +6,7 @@ The current Subagents panel shows captured messages as raw monospace blocks, whi
 
 ## What Changes
 
-- Implement the [approved prototype](../../../verification/prototypes/subagent-viewer/index.html) in the existing Pi with subagents right-hand panel. Keep the run list above the selected conversation, including nested and foreground children.
+- Implement the approved prototype in the existing Pi with subagents right-hand panel. Keep the run list above the selected conversation, including nested and foreground children.
 - Reuse the public SDK `Markdown` component for task, assistant text, and final output. Keep tool calls and results collapsed by default, with readable, escaped detail. Do not create BB child threads to use `ThreadChat`.
 - Make model, execution state, and elapsed or total duration easy to scan. Capture the resolved model from attributed child assistant messages where available. Show unavailable values explicitly; never infer a child model from the parent or treat missing time as zero.
 - Preserve inspection-provided tool names and error flags that the current capture adapter drops. Do not invent tool durations or pair records without a supported identity.

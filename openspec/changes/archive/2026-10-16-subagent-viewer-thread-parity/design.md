@@ -10,12 +10,7 @@ The current contract permits 128 rows and 256 KiB of persisted version-1 state. 
 
 ### Approved visual reference
 
-- [Interactive prototype](../../../verification/prototypes/subagent-viewer/index.html)
-- [Desktop, light](../../../verification/prototypes/subagent-viewer/desktop-light.png)
-- [Panel, dark](../../../verification/prototypes/subagent-viewer/panel-dark.png)
-- [Coarse-pointer layout](../../../verification/prototypes/subagent-viewer/touch-targets.png)
-- [Expanded capture details](../../../verification/prototypes/subagent-viewer/capture-details.png)
-- [Additional states and evidence](../../../verification/prototypes/subagent-viewer/README.md)
+Temporary prototype visuals were removed at archive. The approved hierarchy, layout, accessibility decisions, and original approval are retained below.
 
 Koen approved this polished prototype on 2026-10-12 in `bbthread://thr_tyvtiyrnpp`: "Looks amazing go and impliment this". The independent Polish reviewer approved the standalone prototype without findings. Its evidence records 161 assertions, 40 original layout cases, and 64 adaptation cases. That approval does not establish installed functionality or approval of the eventual working panel. Keep the reviewed visual artifacts with the change for cross-machine review; do not ship the illustrative data or prototype controls in the plugin.
 
