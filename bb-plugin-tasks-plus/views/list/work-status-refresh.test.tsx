@@ -10,6 +10,7 @@ import type { Task, TaskWorkStatus } from "../../shared/contract.js";
 import { rpcInput } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
 import { ListView } from "./index.js";
+import { registerLifecycle } from "../../lifecycle/index.js";
 
 import { ThreadSummary } from "./thread-summary.js";
 const disposers: (() => Promise<void>)[] = [];
@@ -40,6 +41,81 @@ afterEach(async () => {
   window.localStorage.clear();
   for (const dispose of disposers.splice(0)) await dispose();
   vi.useRealTimers();
+});
+
+it("renders Idle to Running to Idle from background-only lifecycle publications and the real API reader", async () => {
+  let activeBackgroundAgentCount = 0;
+  const snapshot = () =>
+    makeThreadResponse({ id: "thr_background", status: "idle", activeBackgroundAgentCount });
+  const get = vi.fn(async () => snapshot());
+  const { bb, harness } = createFakePluginHost({ pluginId: "tasks", sdk: { threads: { get } } });
+  disposers.push(() => harness.lifecycle.dispose());
+  const store = createStore(bb);
+  const project = store.tasks.createProject({ name: "Background", prefix: "BKG", color: "blue" });
+  const task = {
+    ...store.tasks.createTask({
+      projectId: project.id,
+      title: "Background badge",
+      status: "in_review",
+    }),
+    labelIds: [],
+  };
+  store.tasks.upsertTaskThread({
+    taskId: task.id,
+    threadId: "thr_background",
+    title: "Worker",
+    presetName: "Worker",
+    liveStatus: "idle",
+  });
+  registerTasksApi(bb, store);
+  await registerLifecycle(bb, store);
+  function Probe() {
+    const query = useTaskListMeta([task], "all");
+    return <ThreadSummary taskKey={task.key} meta={query.data?.get(task.id)} />;
+  }
+  const slot = renderSlot(
+    {
+      component: () => (
+        <TasksRefreshProvider>
+          <Probe />
+        </TasksRefreshProvider>
+      ),
+    },
+    {},
+    {
+      rpc: {
+        listTaskWorkStatus: (input) => harness.behavior.callRpc("listTaskWorkStatus", input),
+      },
+    },
+  );
+  const badge = (label: string) =>
+    slot.findByRole("button", { name: new RegExp(`Threads for ${task.key}: ${label}`) });
+  expect((await badge("1 Idle")).textContent).toContain("1 Idle");
+  let signalIndex = 0;
+  for (const [count, label, status] of [
+    [1, "1 Running", "working"],
+    [0, "1 Idle", "idle"],
+  ] as const) {
+    activeBackgroundAgentCount = count;
+    await harness.behavior.emitThreadEvent("experimental_thread.events", {
+      thread: snapshot(),
+      sequence: 12,
+    });
+    const signals = harness.realtimeSignals.slice(signalIndex);
+    signalIndex = harness.realtimeSignals.length;
+    expect(signals).toEqual([{ channel: "threads:changed", payload: { taskId: task.id } }]);
+    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    expect((await badge(label)).textContent).toContain(label);
+    expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.liveStatus)).toEqual([
+      status,
+    ]);
+    expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
+  }
+  expect(get).toHaveBeenCalledTimes(4);
+  expect(harness.realtimeSignals).toEqual([
+    { channel: "threads:changed", payload: { taskId: task.id } },
+    { channel: "threads:changed", payload: { taskId: task.id } },
+  ]);
 });
 
 it("shares thread reads across sequential visible chunks, retains every association and reads fresh execution on the next refresh", async () => {

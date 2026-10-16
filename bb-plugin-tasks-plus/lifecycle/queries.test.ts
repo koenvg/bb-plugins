@@ -92,6 +92,10 @@ async function emitAllEvents(f: ReturnType<typeof fixture>, threadId: string) {
   });
   await f.harness.emitThreadEvent("thread.failed", { thread, error: "failed" });
   await f.harness.emitThreadEvent("thread.deleted", { thread });
+  await f.harness.emitThreadEvent("experimental_thread.events", {
+    thread: makeThreadResponse({ id: threadId, status: "idle", activeBackgroundAgentCount: 1 }),
+    sequence: 1,
+  });
 }
 
 describe("lifecycle SQL scope", () => {
@@ -109,19 +113,21 @@ describe("lifecycle SQL scope", () => {
       try {
         await registerLifecycle(f.bb, f.store);
         f.queries.length = 0;
+        const readsBefore = f.harness.sdk.callsTo("threads.get").length;
         await emitAllEvents(f, "thr_unrelated");
         console.log(
           JSON.stringify({
             tasks,
             mappings,
-            events: 5,
+            events: 6,
             statements: f.queries.length,
             sql: [...new Set(f.queries.map((q) => q.sql))],
           }),
         );
         expect(f.harness.realtimeSignals).toEqual([]);
-        expect(f.queries).toHaveLength(5);
+        expect(f.queries).toHaveLength(6);
         expect(f.queries.every((q) => q.sql.includes("WHERE thread_id = ?"))).toBe(true);
+        expect(f.harness.sdk.callsTo("threads.get")).toHaveLength(readsBefore);
       } finally {
         await f.dispose();
       }
@@ -144,7 +150,7 @@ describe("lifecycle SQL scope", () => {
         }
         await registerLifecycle(f.bb, f.store);
         const transition = async (
-          status: "active" | "idle" | "error" | "deleted",
+          status: "active" | "idle" | "error" | "deleted" | number,
           expected: string,
           statementsPerMapping: number,
         ) => {
@@ -152,9 +158,13 @@ describe("lifecycle SQL scope", () => {
           const signalsBefore = f.harness.realtimeSignals.length;
           const thread = makeThreadResponse({
             id: "thr_shared",
-            status: status === "deleted" ? "idle" : status,
+            status: typeof status === "number" || status === "deleted" ? "idle" : status,
+            activeBackgroundAgentCount: typeof status === "number" ? status : 0,
           });
-          if (status === "active") await f.harness.emitThreadEvent("thread.active", { thread });
+          if (typeof status === "number")
+            await f.harness.emitThreadEvent("experimental_thread.events", { thread, sequence: 1 });
+          else if (status === "active")
+            await f.harness.emitThreadEvent("thread.active", { thread });
           else if (status === "idle")
             await f.harness.emitThreadEvent("thread.idle", {
               thread,
@@ -202,6 +212,11 @@ describe("lifecycle SQL scope", () => {
         await transition("error", "failed", 3);
         await transition("error", "failed", 0);
         await transition("active", "working", 3);
+        await transition(0, "idle", 3);
+        await transition(1, "working", 3);
+        await transition(2, "working", 0);
+        await transition(1, "working", 0);
+        await transition(0, "idle", 3);
         await transition("deleted", "completed", 3);
         await transition("active", "completed", 0);
         await transition("deleted", "completed", 0);
@@ -283,7 +298,7 @@ describe("lifecycle SQL scope", () => {
       await registerLifecycle(f.bb, f.store);
       f.queries.length = 0;
       await emitAllEvents(f, "thr_worker_0");
-      expect(f.queries).toHaveLength(5);
+      expect(f.queries).toHaveLength(6);
       expect(f.harness.realtimeSignals).toEqual([]);
     } finally {
       await f.dispose();
