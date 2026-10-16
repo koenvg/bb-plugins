@@ -38,6 +38,37 @@ function setup(
 }
 
 describe("read-only task work status", () => {
+  it.each(["future-status", "constructor"])(
+    "keeps unknown parent status %s unavailable even with background activity",
+    async (status) => {
+      const get = vi.fn(async ({ threadId }: { threadId: string }) => {
+        const thread = makeThreadResponse({ id: threadId, activeBackgroundAgentCount: 1 });
+        Reflect.set(thread, "status", status);
+        return thread;
+      });
+      const { harness, store, task, attach } = setup(get);
+      try {
+        attach("thr_unknown");
+        const before = store.tasks.listTaskThreads(task.id);
+        expect(
+          await harness.behavior.callRpc("listTaskWorkStatus", { taskIds: [task.id] }),
+        ).toMatchObject({
+          byTaskId: {
+            [task.id]: {
+              threads: [
+                { threadId: "thr_unknown", execution: "unavailable", archive: "unarchived" },
+              ],
+            },
+          },
+        });
+        expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
+        expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
+        expect(harness.realtimeSignals).toEqual([]);
+      } finally {
+        await harness.lifecycle.dispose();
+      }
+    },
+  );
   it("normalizes all execution states and isolates unreadable items without trusting completed cache", async () => {
     const statuses = {
       pending: "starting",

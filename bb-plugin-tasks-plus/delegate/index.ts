@@ -10,6 +10,7 @@ import {
 } from "../shared/contract";
 import { errorMessage } from "../shared/errors";
 import { truncateToWidth } from "../shared/text-measure";
+import { projectThreadActivity } from "../shared/thread-activity";
 import { delegationRpcContract } from "./contract";
 
 const MAX_DELEGATED_THREAD_TITLE_WIDTH = 120;
@@ -202,18 +203,7 @@ type SdkThread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
 
 function taskThreadLiveStatus(thread: SdkThread): TaskThreadLiveStatus {
   if (thread.deletedAt != null) return "completed";
-  switch (thread.status) {
-    case "pending":
-    case "starting":
-      return "starting";
-    case "active":
-    case "stopping":
-      return "working";
-    case "idle":
-      return "idle";
-    case "error":
-      return "failed";
-  }
+  return projectThreadActivity(thread);
 }
 
 export function handlers(
@@ -254,8 +244,12 @@ export function handlers(
       try {
         const currentThread = await bb.sdk.threads.get({ threadId: thread.id });
         const currentLiveStatus = taskThreadLiveStatus(currentThread);
-        if (currentLiveStatus !== taskThread.liveStatus) {
-          store.tasks.updateTaskThreadStatus(taskThread.id, currentLiveStatus);
+        const currentAttachment = store.tasks.getTaskThread(taskThread.id);
+        if (
+          currentAttachment?.liveStatus === "starting" &&
+          currentLiveStatus !== currentAttachment.liveStatus
+        ) {
+          store.tasks.updateTaskThreadStatus(currentAttachment.id, currentLiveStatus);
         }
       } catch (error) {
         bb.log.warn(

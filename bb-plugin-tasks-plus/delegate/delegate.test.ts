@@ -4,6 +4,7 @@ import { createStore, registerTasksApi } from "../api";
 import { tasksRpcContract } from "../shared/contract";
 import type { Project, Task } from "../db";
 import { displayWidth } from "../shared/text-measure";
+import { registerLifecycle } from "../lifecycle";
 import { delegationRpcContract } from "./contract";
 import { buildSeedPrompt, registerDelegation } from ".";
 import { expectReportingRules, expectTaskLinkRules } from "../reporting-test-support";
@@ -39,6 +40,89 @@ function createTestPreset(
 }
 
 describe("task delegation", () => {
+  it.each(["working", "completed", "replacement"] as const)(
+    "preserves %s observed during post-delegate initialization",
+    async (outcome) => {
+      let release!: (thread: ReturnType<typeof makeThreadResponse>) => void;
+      let started!: () => void;
+      const readStarted = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const pending = new Promise<ReturnType<typeof makeThreadResponse>>((resolve) => {
+        release = resolve;
+      });
+      const { bb, harness } = createFakePluginHost({
+        pluginId: "tasks",
+        sdk: {
+          threads: {
+            spawn: async () => ({ id: "thr_worker" }),
+            get: async () => {
+              started();
+              return pending;
+            },
+          },
+        },
+      });
+      try {
+        const store = createStore(bb);
+        const project = store.tasks.createProject({
+          name: "Initialization",
+          prefix: "INI",
+          color: "blue",
+          linkedBbProjectId: "proj_bb",
+        });
+        const task = store.tasks.createTask({
+          projectId: project.id,
+          title: "Preserve newer work",
+          status: "in_review",
+        });
+        registerDelegation(bb, store);
+        registerTasksApi(bb, store);
+        await registerLifecycle(bb, store);
+        const preset = createTestPreset(store);
+        const delegation = harness.behavior.callRpc("delegate", {
+          taskId: task.id,
+          presetId: preset.id,
+        });
+        await readStarted;
+        if (outcome === "replacement") {
+          await harness.behavior.callRpc("taskThreadsDetach", {
+            taskId: task.id,
+            threadId: "thr_worker",
+          });
+          store.tasks.upsertTaskThread({
+            taskId: task.id,
+            threadId: "thr_worker",
+            title: "Replacement",
+            presetName: "Attached",
+            liveStatus: "starting",
+          });
+        } else if (outcome === "completed") {
+          await harness.behavior.emitThreadEvent("thread.deleted", {
+            thread: makeThreadResponse({ id: "thr_worker", deletedAt: 1 }),
+          });
+        } else {
+          await harness.behavior.emitThreadEvent("thread.active", {
+            thread: makeThreadResponse({ id: "thr_worker", status: "active" }),
+          });
+        }
+        release(makeThreadResponse({ id: "thr_worker", status: "idle" }));
+        expect(await delegation).toEqual({ threadId: "thr_worker" });
+        const result = tasksRpcContract.listTaskThreads.output.parse(
+          await harness.behavior.callRpc("listTaskThreads", { taskId: task.id }),
+        );
+        expect(result.taskThreads).toEqual([
+          expect.objectContaining({
+            threadId: "thr_worker",
+            liveStatus: outcome === "replacement" ? "starting" : outcome,
+          }),
+        ]);
+        expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
+      } finally {
+        await harness.lifecycle.dispose();
+      }
+    },
+  );
   it("keeps assigned requirements and old comment attachments without automatic history", async () => {
     const fixture = createAgentContextFixture();
     const {
