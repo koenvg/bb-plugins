@@ -1,9 +1,6 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
-import {
-  MarkdownDocument,
-  denyDestinations,
-  type DocumentView,
-} from "@bb-plugins/markdown-document";
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { MarkdownDocument, type DocumentView } from "@bb-plugins/markdown-document";
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import "@bb-plugins/markdown-document/style.css";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
@@ -164,6 +161,16 @@ export function useAttachmentPreview({
   confirmedAttachments: readonly Attachment[] | undefined;
   fallbackRef: RefObject<HTMLElement | null>;
 }) {
+  const navigate = useBbNavigate();
+  const destinations = useMemo(
+    () => ({
+      kind: "attachment" as const,
+      localFragments: true,
+      openExternal: navigate.openUrl,
+      remoteImages: true,
+    }),
+    [navigate.openUrl],
+  );
   const [state, setState] = useState<PreviewState>({ kind: "closed" });
   const runtime = useRef({
     mounted: false,
@@ -349,7 +356,7 @@ export function useAttachmentPreview({
                   text={active.resource.snapshot.text}
                   view={active.view}
                   namespace={`task-${taskId}-${active.subject.id}`}
-                  destinations={denyDestinations}
+                  destinations={destinations}
                 />
               )
             ) : null}

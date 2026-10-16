@@ -1,11 +1,11 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { flushSync } from "react-dom";
 import { AttachmentsGrid } from "../views/detail/attachments";
 import { useAttachmentPreview } from "../views/detail/attachment-preview";
 import { ShortcutProvider, useShortcuts } from "../shell/shortcut-provider";
 import type { Attachment } from "../shared/contract";
-import { previewDocument, readingReport } from "./preview-document";
+import { previewDocument, readingReport, navigationDocument } from "./preview-document";
 import "./preview.css";
 
 const params = new URLSearchParams(location.search);
@@ -37,7 +37,7 @@ window.fetch = async (input, init) => {
       (mode === "recoverable" && document.documentElement.dataset.reads === "1")
     )
       return new Response("", { status: 500 });
-    const source = mode === "empty" ? "" : text;
+    const source = mode === "empty" ? "" : mode === "navigation" ? navigationDocument : text;
     return Response.json({
       attachmentId: attachment.id,
       fileName: name,
@@ -134,8 +134,22 @@ function Fixture() {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Fixture />
-  </StrictMode>,
+renderSlot(
+  {
+    component: () => (
+      <StrictMode>
+        <Fixture />
+      </StrictMode>
+    ),
+  },
+  {},
+  {
+    openUrl: (url) => {
+      document.documentElement.dataset.openedUrl = url;
+      document.documentElement.dataset.urlOpens = String(
+        Number(document.documentElement.dataset.urlOpens || 0) + 1,
+      );
+      return new URLSearchParams(location.search).get("open") !== "fail";
+    },
+  },
 );
