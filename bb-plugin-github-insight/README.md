@@ -181,13 +181,16 @@ The agent saves its own review of the PR as drafts. The user can add comment dra
 ```bash
 bb github-insight review comment <path> --line <n> --body <text>
 bb github-insight review comment <path> --line <n> --start-line <n> --side LEFT --body-file <path>
+bb github-insight review comment edit <draft-id> --body-file <path>
+bb github-insight review comment delete <draft-id>
 bb github-insight review summary --body <text>
 bb github-insight review summary --body-file <path>
 ```
 
 - `review comment` saves a comment draft on a line, or on a range with `--start-line`. `--side` is `RIGHT` (new file, the default) or `LEFT` (old file). It prints the new draft id.
+- Each `review comment` call adds a new draft, also on a line that has one. `review comment edit` replaces the text of a draft, keeps its path, lines, side, and commit, and sets `source: "agent"`. `review comment delete` deletes a draft. Both work on any comment draft, also one the user wrote, and on a draft at an older commit. An unknown draft id fails. They read no PR data from GitHub. The Files sub-tab shows the new text, unless the user has typed in that draft's box.
 - It fails, and saves nothing, when the path is not a file of the PR, when a line of the range is not in the file's diff on that side (the message names the diff ranges), when the start line is after the line, or when the body is empty.
-- Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` and `createCommentDraft` fail and name both commits: submit or delete the old drafts first.
+- Each draft keeps the PR head commit at save time. All comment drafts of a PR have the same commit. When the head moved after the first draft, `review comment` and `createCommentDraft` fail and name both commits: submit or delete the old drafts first (Files sub-tab or `review comment delete`).
 - `createCommentDraft({ threadId, path, side, line })` is the Files sub-tab's way to start a comment draft. It runs the same file, diff, and commit checks as `review comment`, saves an empty body with `source: "user"`, and publishes `review.drafts-updated`. It checks against the PR files and head of the last full load of that PR (`getReview`, `review list`, or a CLI write), kept in server memory. It loads the PR from GitHub only when the server has not loaded it since it started.
 - Draft writes (`createCommentDraft`, `deleteCommentDraft`, `discardDraft`, and the CLI commands) publish `review.drafts-updated`, not `review.updated`. The Files sub-tab then calls `getDrafts`, which reads the drafts from plugin kv only and makes no GitHub call. Reply drafts are filtered by the review threads of the last full load. If `getDrafts` fails, the tab loads the whole review.
 - `review summary` saves the review body. A new summary replaces the old one.

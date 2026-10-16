@@ -567,6 +567,7 @@ describe("review CLI", () => {
         "2 comment drafts are at commit abc123, but the PR head is def456",
       );
       expect(result.stderr).toContain("Submit or delete those drafts first");
+      expect(result.stderr).toContain("bb github-insight review comment delete <draft-id>");
       expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["One", "Two"]);
     });
 
@@ -578,6 +579,178 @@ describe("review CLI", () => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Not running in a bb thread");
       expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+    });
+  });
+
+  describe("review comment edit and delete", () => {
+    const FILE = "apps/shell/e2e/utils/elements/createTreeGrid.ts";
+
+    async function saveComment(harness: Awaited<ReturnType<typeof setup>>, body: string) {
+      const saved = await harness.behavior.runCli(
+        ["review", "comment", FILE, "--start-line", "2", "--line", "3", "--body", body],
+        { threadId: "thr_1" },
+      );
+      return saved.stdout.trim().split(" ").at(-1)!;
+    }
+
+    it("lists edit and delete in the review help", async () => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(["review", "--help"]);
+
+      expect(result.stdout).toContain("review comment edit");
+      expect(result.stdout).toContain("review comment delete");
+    });
+
+    it("replaces the body of a comment draft, keeps its line and commit, and tells the open tab", async () => {
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T10:00:00Z") });
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Wrong");
+      const [before] = await commentDraftsOf(harness);
+      vi.setSystemTime(new Date("2026-09-25T10:00:00Z"));
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--body", "Right"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result).toMatchObject({ exitCode: 0, stdout: `Updated comment draft ${draftId}\n` });
+      expect(await commentDraftsOf(harness)).toEqual([
+        {
+          ...before,
+          body: "Right",
+          updatedAt: Date.parse("2026-09-25T10:00:00Z"),
+          source: "agent",
+        },
+      ]);
+      expect(harness.realtimeSignals).toHaveLength(2);
+    });
+
+    it("edits a draft that the user wrote", async () => {
+      const harness = await setupWithPr();
+      const created = (await harness.behavior.callRpc("createCommentDraft", {
+        threadId: "thr_1",
+        path: FILE,
+        side: "RIGHT",
+        line: 3,
+      })) as { kind: "created"; draftId: string };
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", created.draftId, "--body", "Agent text"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(await commentDraftsOf(harness)).toEqual([
+        expect.objectContaining({ id: created.draftId, body: "Agent text", source: "agent" }),
+      ]);
+    });
+
+    it("reads the new body from --body-file", async () => {
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Wrong");
+
+      await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--body-file", "notes.md"],
+        { threadId: "thr_1", cwd: "/work/repo" },
+      );
+
+      expect(await commentDraftsOf(harness)).toEqual([
+        expect.objectContaining({ body: "From file" }),
+      ]);
+    });
+
+    it("refuses an empty body and keeps the old one", async () => {
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Old");
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--body", " \n"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Comment is empty");
+      expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["Old"]);
+    });
+
+    it("deletes a comment draft and tells the open tab", async () => {
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Wrong");
+
+      const result = await harness.behavior.runCli(["review", "comment", "delete", draftId], {
+        threadId: "thr_1",
+      });
+
+      expect(result).toMatchObject({ exitCode: 0, stdout: `Deleted comment draft ${draftId}\n` });
+      expect(await commentDraftsOf(harness)).toEqual([]);
+      expect(harness.realtimeSignals).toHaveLength(2);
+    });
+
+    it("lets a new comment be saved after deleting the drafts of an older commit", async () => {
+      let headOid = "abc123";
+      const harness = await setupWithPr(reviewHost({ headOid: () => headOid }));
+      const draftId = await saveComment(harness, "Old");
+      headOid = "def456";
+
+      await harness.behavior.runCli(["review", "comment", "delete", draftId], {
+        threadId: "thr_1",
+      });
+      const result = await harness.behavior.runCli(
+        ["review", "comment", FILE, "--line", "3", "--body", "New"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(await commentDraftsOf(harness)).toEqual([
+        expect.objectContaining({ body: "New", commitOid: "def456" }),
+      ]);
+    });
+
+    it.each([["edit", "--body", "Hm"], ["delete"]])(
+      "fails for an unknown draft id: %s",
+      async (command, ...args) => {
+        const harness = await setupWithPr();
+        await saveComment(harness, "Keep");
+
+        const result = await harness.behavior.runCli(
+          ["review", "comment", command!, "nope1234", ...args],
+          { threadId: "thr_1" },
+        );
+
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stderr).toContain("Unknown comment draft: nope1234");
+        expect(result.stderr).toContain("bb github-insight review list");
+        expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["Keep"]);
+        expect(harness.realtimeSignals).toHaveLength(1);
+      },
+    );
+
+    it.each([
+      ["edit", "abc", "--body", "Hm"],
+      ["delete", "abc"],
+    ])("fails outside a bb thread: %s", async (...args) => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(["review", "comment", ...args], {});
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Not running in a bb thread");
+      expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+    });
+
+    it.each([
+      ["edit", "abc", "--body", "Hm"],
+      ["delete", "abc"],
+    ])("fails for a thread without a PR: %s", async (...args) => {
+      const harness = await setup({ threads: [{ id: "thr_1", environmentId: "env_1" }] });
+
+      const result = await harness.behavior.runCli(["review", "comment", ...args], {
+        threadId: "thr_1",
+      });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("No pull request for this thread");
     });
   });
 

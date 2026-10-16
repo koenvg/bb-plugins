@@ -29,6 +29,11 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("bb github-insight review summary --body-file <file>");
   });
 
+  it("names the commands that fix or remove a draft", () => {
+    expect(prompt).toContain("bb github-insight review comment edit <draft-id> --body-file <file>");
+    expect(prompt).toContain("bb github-insight review comment delete <draft-id>");
+  });
+
   it("saves findings as drafts, not as a chat report", () => {
     expect(prompt).not.toContain("Report your findings here");
   });

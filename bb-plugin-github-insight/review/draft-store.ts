@@ -13,6 +13,7 @@ import {
 import type { CollectedReviewThreads } from "../core/review-threads";
 
 export type DraftStore = ReturnType<typeof createDraftStore>;
+export type CommentEdit = Pick<CommentDraft, "body" | "updatedAt" | "source">;
 
 function prefixOf(pr: PullRequestRef): string {
   return `draft:${prKey(pr)}:`;
@@ -79,6 +80,14 @@ export function createDraftStore(kv: PluginKvStorage) {
 
     comment: async (pr: PullRequestRef, draftId: string) =>
       readCommentDraft(await kv.get(commentPrefixOf(pr) + draftId)),
+
+    async editComment(pr: PullRequestRef, draftId: string, edit: CommentEdit): Promise<boolean> {
+      const key = commentPrefixOf(pr) + draftId;
+      const draft = readCommentDraft(await kv.get(key));
+      if (draft === null) return false;
+      await kv.set(key, commentDraftEntry({ ...draft, ...edit }));
+      return true;
+    },
 
     deleteComment: (pr: PullRequestRef, draftId: string) =>
       kv.delete(commentPrefixOf(pr) + draftId),

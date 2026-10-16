@@ -12,7 +12,7 @@ import {
 } from "../core/review-list";
 import { MAX_THREAD_PAGES, type ReviewThread } from "../core/review-threads";
 import type { ThreadPlacement } from "../core/thread-placement";
-import type { ReviewService } from "./review-service";
+import type { PrLoad, ReviewService } from "./review-service";
 
 interface ReviewCliDeps {
   review: ReviewService;
@@ -30,17 +30,36 @@ const bodyOptions = {
   },
 } as const;
 
+const draftIdPositional = {
+  name: "draft-id",
+  description: "Comment draft id from `review list`",
+  required: true,
+} as const;
+
 export function createReviewCli(deps: ReviewCliDeps) {
-  async function loadReview(ctx: PluginCliContext) {
+  function threadIdOf(ctx: PluginCliContext): string {
     if (ctx.threadId === undefined) {
       throw new PluginCliError("Not running in a bb thread", {
         hint: "Run this command from an agent in a bb thread.",
       });
     }
-    const load = await deps.review.load(ctx.threadId);
+    return ctx.threadId;
+  }
+
+  function loaded<T>(load: PrLoad<T>, threadId: string) {
     if (load.kind === "no_pr") throw new PluginCliError("No pull request for this thread");
     if (load.kind === "error") throw new PluginCliError(load.message);
-    return { ...load, threadId: ctx.threadId };
+    return { ...load, threadId };
+  }
+
+  async function loadReview(ctx: PluginCliContext) {
+    const threadId = threadIdOf(ctx);
+    return loaded(await deps.review.load(threadId), threadId);
+  }
+
+  async function loadTarget(ctx: PluginCliContext) {
+    const threadId = threadIdOf(ctx);
+    return loaded(await deps.review.loadTarget(threadId), threadId);
   }
 
   async function readBody(
@@ -114,6 +133,8 @@ export function createReviewCli(deps: ReviewCliDeps) {
       }),
       "review comment": cliCommand({
         summary: "Save a comment draft on a line of this thread's PR. Never posts to GitHub.",
+        description:
+          "Each call adds a new draft. Change or remove a draft with `review comment edit <draft-id>` or `review comment delete <draft-id>`.",
         positionals: [{ name: "path", description: "File path in the PR", required: true }],
         options: {
           line: {
@@ -162,6 +183,37 @@ export function createReviewCli(deps: ReviewCliDeps) {
           return { exitCode: 0, stdout: `Saved comment draft ${draftId}\n` };
         },
       }),
+      "review comment edit": cliCommand({
+        summary:
+          "Replace the text of a comment draft. Keeps its line and commit. Never posts to GitHub.",
+        positionals: [draftIdPositional],
+        options: bodyOptions,
+        constraints: [{ kind: "exactly-one", options: ["body", "body-file"] }],
+        run: async ({ positionals, options }, ctx) => {
+          const draftId = positionals["draft-id"];
+          const { threadId, target } = await loadTarget(ctx);
+          const body = await readBody(target.hostId, options, ctx);
+          if (body.trim() === "") throw new PluginCliError("Comment is empty");
+          const edited = await deps.review.editCommentDraft(threadId, target.ref, draftId, {
+            body,
+            updatedAt: deps.now(),
+            source: "agent",
+          });
+          if (!edited) throw unknownCommentDraft(draftId);
+          return { exitCode: 0, stdout: `Updated comment draft ${draftId}\n` };
+        },
+      }),
+      "review comment delete": cliCommand({
+        summary: "Delete a comment draft. Never posts to GitHub.",
+        positionals: [draftIdPositional],
+        run: async ({ positionals }, ctx) => {
+          const draftId = positionals["draft-id"];
+          const { threadId, target } = await loadTarget(ctx);
+          const deleted = await deps.review.deleteCommentDraft(threadId, target.ref, draftId);
+          if (!deleted) throw unknownCommentDraft(draftId);
+          return { exitCode: 0, stdout: `Deleted comment draft ${draftId}\n` };
+        },
+      }),
       "review summary": cliCommand({
         summary:
           "Save the review summary draft of this thread's PR. Replaces the old one. Never posts to GitHub.",
@@ -187,7 +239,13 @@ function assertOneCommit(drafts: readonly ListedCommentDraft[], head: PrHead) {
   const check = checkOneCommit(drafts, head.oid);
   if (check.ok) return;
   throw new PluginCliError(check.message, {
-    hint: "Submit or delete those drafts first, in the Files sub-tab of the PR tab.",
+    hint: "Submit or delete those drafts first: in the Files sub-tab of the PR tab, or with `bb github-insight review comment delete <draft-id>`.",
+  });
+}
+
+function unknownCommentDraft(draftId: string) {
+  return new PluginCliError(`Unknown comment draft: ${draftId}`, {
+    hint: "Run `bb github-insight review list` for the draft ids.",
   });
 }
 

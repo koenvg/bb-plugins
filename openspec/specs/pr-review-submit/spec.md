@@ -25,6 +25,25 @@ The command `bb github-insight review comment <path> --line <n>` SHALL save a co
 - **WHEN** the command runs outside a bb thread
 - **THEN** it fails with "Not running in a bb thread"
 
+### Requirement: Edit and delete a comment draft from the CLI
+
+The command `bb github-insight review comment edit <draft-id>` SHALL replace the body of a comment draft of the PR of the calling thread, from `--body` or `--body-file`, and keep its path, side, lines, and commit. The command `bb github-insight review comment delete <draft-id>` SHALL delete a comment draft. Both SHALL work on any comment draft of the PR, also one at an older commit or one the user wrote. Both SHALL fail, and change nothing, for an unknown draft id. Neither SHALL write to GitHub.
+
+#### Scenario: Replace a wrong draft
+
+- **WHEN** the agent runs `review comment edit 1a2b3c4d --body "Right"` and draft `1a2b3c4d` exists
+- **THEN** the draft body is "Right", its line and commit do not change, and the command exits 0
+
+#### Scenario: Delete a duplicate draft
+
+- **WHEN** the agent runs `review comment delete 1a2b3c4d` and draft `1a2b3c4d` exists
+- **THEN** the draft is gone and the command exits 0
+
+#### Scenario: Unknown draft id
+
+- **WHEN** the agent runs `review comment delete nope1234` and the PR has no such draft
+- **THEN** the command fails with "Unknown comment draft: nope1234"
+
 ### Requirement: Reject a comment that GitHub cannot place
 
 The `review comment` command SHALL fail, and save nothing, when the path is not a file of the PR, when the line or range is not in that file's diff on the given side, when the start line is after the line, or when the body is empty.

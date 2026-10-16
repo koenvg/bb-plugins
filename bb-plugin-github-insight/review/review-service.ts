@@ -23,7 +23,7 @@ import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-
 import type { ViewedMarks } from "../core/viewed-marks";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
 import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
-import type { DraftStore } from "./draft-store";
+import type { CommentEdit, DraftStore } from "./draft-store";
 import type { ViewedMarksStore } from "./viewed-marks-store";
 
 export interface PrReview extends ReviewDrafts {
@@ -40,7 +40,7 @@ export interface ReviewBasis {
   commentDrafts: ListedCommentDraft[];
 }
 
-type PrLoad<T> =
+export type PrLoad<T> =
   | { kind: "no_pr" }
   | { kind: "error"; message: string }
   | ({ kind: "ok"; target: PrTarget } & T);
@@ -48,6 +48,7 @@ type PrLoad<T> =
 export type ReviewLoad = PrLoad<{ allThreadsRead: boolean; review: PrReview }>;
 export type DraftsLoad = PrLoad<{ drafts: ReviewDrafts }>;
 export type BasisLoad = PrLoad<{ basis: ReviewBasis }>;
+export type TargetLoad = PrLoad<object>;
 
 interface LoadedPr {
   head: PrHead;
@@ -191,6 +192,32 @@ export function createReviewService(deps: ReviewServiceDeps) {
     deps.publishDrafts({ threadId });
   }
 
+  function loadTarget(threadId: string): Promise<TargetLoad> {
+    return withPr(threadId, async () => ({}));
+  }
+
+  async function editCommentDraft(
+    threadId: string,
+    pr: PullRequestRef,
+    draftId: string,
+    edit: CommentEdit,
+  ): Promise<boolean> {
+    const edited = await deps.drafts.editComment(pr, draftId, edit);
+    if (edited) deps.publishDrafts({ threadId });
+    return edited;
+  }
+
+  async function deleteCommentDraft(
+    threadId: string,
+    pr: PullRequestRef,
+    draftId: string,
+  ): Promise<boolean> {
+    if ((await deps.drafts.comment(pr, draftId)) === null) return false;
+    await deps.drafts.deleteComment(pr, draftId);
+    deps.publishDrafts({ threadId });
+    return true;
+  }
+
   async function saveSummaryDraft(threadId: string, pr: PullRequestRef, draft: SummaryDraft) {
     await deps.drafts.saveSummary(pr, draft);
     deps.publishDrafts({ threadId });
@@ -246,8 +273,11 @@ export function createReviewService(deps: ReviewServiceDeps) {
     loadForDisplay,
     loadDrafts,
     loadBasis,
+    loadTarget,
     saveDraft,
     saveCommentDraft,
+    editCommentDraft,
+    deleteCommentDraft,
     saveSummaryDraft,
     sendToAgent,
     updateViewed,
