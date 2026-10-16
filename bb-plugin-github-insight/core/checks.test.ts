@@ -81,6 +81,15 @@ function buildChecks(nodes: readonly CheckNode[]) {
   return latestCheckCandidates(nodes).map((candidate) => toCheck(candidate, new Map()));
 }
 
+const threeNodeOrders = [
+  [0, 1, 2],
+  [0, 2, 1],
+  [1, 0, 2],
+  [1, 2, 0],
+  [2, 0, 1],
+  [2, 1, 0],
+] as const;
+
 describe("latestCheckCandidates", () => {
   it("shows a check re-run after a cancel once, as passed", () => {
     const checks = buildChecks([
@@ -129,6 +138,150 @@ describe("latestCheckCandidates", () => {
     ]);
 
     expect(checks.map((check) => check.status)).toEqual(["running"]);
+  });
+
+  describe.each([
+    { queuedId: 1, completedId: 2, runId: "completed", status: "passed", required: true },
+    { queuedId: 2, completedId: 1, runId: "queued", status: "running", required: false },
+  ] as const)("queued attempt $queuedId versus completed attempt $completedId", (expected) => {
+    it.each([false, true])("selects the newest attempt with reversed input %s", (reverse) => {
+      const nodes = [
+        checkRun({
+          id: "queued",
+          databaseId: expected.queuedId,
+          name: "Tests",
+          status: "QUEUED",
+          conclusion: null,
+          startedAt: null,
+          detailsUrl: "https://github.com/o/r/actions/runs/queued",
+        }),
+        checkRun({
+          id: "completed",
+          databaseId: expected.completedId,
+          name: "Tests",
+          startedAt: "2026-10-15T12:00:00Z",
+          detailsUrl: "https://github.com/o/r/actions/runs/completed",
+          isRequired: true,
+        }),
+      ];
+      const candidates = latestCheckCandidates(reverse ? nodes.slice().reverse() : nodes);
+
+      expect(candidates.map((candidate) => candidate.runId)).toEqual([expected.runId]);
+      expect(candidates.map((candidate) => toCheck(candidate, new Map()))).toEqual([
+        {
+          name: "Tests",
+          status: expected.status,
+          url: `https://github.com/o/r/actions/runs/${expected.runId}`,
+          required: expected.required,
+          failure: null,
+        },
+      ]);
+    });
+  });
+
+  it.each(threeNodeOrders)(
+    "selects the latest failure regardless of execution order in permutation %s %s %s",
+    (first, second, third) => {
+      const attempts = [
+        checkRun({
+          id: "old-cancelled",
+          databaseId: 1,
+          conclusion: "CANCELLED",
+          startedAt: "2026-10-15T12:10:00Z",
+        }),
+        checkRun({
+          id: "queued",
+          databaseId: 2,
+          status: "QUEUED",
+          conclusion: null,
+          startedAt: null,
+        }),
+        checkRun({
+          id: "latest-failed",
+          databaseId: 3,
+          conclusion: "FAILURE",
+          startedAt: "2026-10-15T12:00:00Z",
+          detailsUrl: "https://github.com/o/r/actions/runs/3/job/3",
+          isRequired: true,
+        }),
+      ];
+      const candidates = latestCheckCandidates([
+        attempts[first]!,
+        attempts[second]!,
+        attempts[third]!,
+      ]);
+      const annotations = new Map([
+        ["old-cancelled", [{ path: "old.ts", line: 1, message: "old failure" }]],
+        ["latest-failed", [{ path: "latest.ts", line: 3, message: "latest failure" }]],
+      ]);
+
+      expect(candidates.map((candidate) => candidate.runId)).toEqual(["latest-failed"]);
+      expect(failingCheckRunIds(candidates)).toEqual(["latest-failed"]);
+      expect(candidates.map((candidate) => toCheck(candidate, annotations))).toEqual([
+        {
+          name: "build",
+          status: "failed",
+          url: "https://github.com/o/r/actions/runs/3/job/3",
+          required: true,
+          failure: {
+            reason: "latest failure",
+            annotations: [{ path: "latest.ts", line: 3, message: "latest failure" }],
+            annotationCount: 1,
+          },
+        },
+      ]);
+    },
+  );
+
+  describe.each([
+    { queuedId: 1, completedId: 2, runId: null, status: "failed", required: true },
+    { queuedId: 2, completedId: 1, runId: "queued", status: "running", required: false },
+  ] as const)("same-name status context with queued attempt $queuedId", (expected) => {
+    it.each(threeNodeOrders)(
+      "compares source winners by recency in permutation %s %s %s",
+      (first, second, third) => {
+        const nodes = [
+          checkRun({
+            id: "queued",
+            databaseId: expected.queuedId,
+            status: "QUEUED",
+            conclusion: null,
+            startedAt: null,
+            detailsUrl: "https://github.com/o/r/actions/runs/queued",
+          }),
+          checkRun({
+            id: "completed",
+            databaseId: expected.completedId,
+            startedAt: "2026-10-15T12:00:00Z",
+          }),
+          statusContext({
+            context: "build",
+            state: "FAILURE",
+            createdAt: "2026-10-15T13:00:00Z",
+            description: "status failure",
+            isRequired: true,
+          }),
+        ];
+        const candidates = latestCheckCandidates([nodes[first]!, nodes[second]!, nodes[third]!]);
+
+        expect(candidates.map((candidate) => candidate.runId)).toEqual([expected.runId]);
+        expect(candidates.map((candidate) => toCheck(candidate, new Map()))).toEqual([
+          {
+            name: "build",
+            status: expected.status,
+            url:
+              expected.runId === null
+                ? "https://example.com/storybook"
+                : "https://github.com/o/r/actions/runs/queued",
+            required: expected.required,
+            failure:
+              expected.runId === null
+                ? { reason: "status failure", annotations: [], annotationCount: 0 }
+                : null,
+          },
+        ]);
+      },
+    );
   });
 
   it("keeps the newest status context by createdAt", () => {
