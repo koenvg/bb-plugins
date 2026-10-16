@@ -4,6 +4,7 @@ import { act, fireEvent } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
+import { readout, queryReadout, move, leave } from "./chart-test-support";
 
 let slot: RenderedSlot | undefined;
 afterEach(() => {
@@ -95,7 +96,7 @@ describe("native Live Output page", () => {
     );
     expect(view.getByText("10 minutes ago")).toBeDefined();
     expect(view.getByText("Peak est. tokens/s · last 10m")).toBeDefined();
-    expect(smoothPath?.split(" ")).toHaveLength(600);
+    expect(smoothPath?.match(/[ML]/g)).toHaveLength(600);
     expect(smoothPath).toContain("L960,");
     fireEvent.click(view.getByRole("button", { name: "Raw · 1 second" }));
     expect(view.getByLabelText("Current rate").textContent).toBe("20est. tokens/s");
@@ -126,28 +127,22 @@ describe("native Live Output page", () => {
       y: 50,
       toJSON() {},
     });
-    fireEvent.mouseMove(chart, { clientX: 1060 });
-    const tooltip = view.getByRole("tooltip");
-    expect(tooltip.classList.contains("absolute")).toBe(true);
-    expect(tooltip.classList.contains("pointer-events-none")).toBe(true);
-    expect(tooltip.parentElement).toBe(chart.parentElement);
-    // The plot now fills the SVG width rather than using centered aspect-ratio padding.
-    // Sample 300 is 300/599 of 1920px, plus the 12px tooltip offset.
-    expect(tooltip.style.left).toBe("974px");
-    expect(tooltip.style.maxWidth).toBe("calc(100% - 16px)");
+    move(chart, { clientX: 100 + (1920 * 300) / 599 });
+    const tooltip = readout();
+    expect(tooltip.getAttribute("role")).toBe("status");
+    expect(tooltip.style.pointerEvents).toBe("none");
+    expect(tooltip.querySelector('[data-bb-plugin="live-output"]')).not.toBeNull();
     expect(view.queryByText(/Hover or focus chart/)).toBeNull();
-    expect(view.getByRole("tooltip").textContent).toContain("15 est. tokens/s");
-    expect(view.getByRole("tooltip").textContent).toContain("30-second average");
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:05:00.000Z",
-    );
+    expect(readout().textContent).toContain("15 est. tokens/s");
+    expect(readout().textContent).toContain("30-second average");
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:05:00.000Z");
     fireEvent.click(view.getByRole("button", { name: "Raw · 1 second" }));
-    expect(view.getByRole("tooltip").textContent).toContain("30 est. tokens/s");
+    expect(readout().textContent).toContain("30 est. tokens/s");
     fireEvent.click(view.getByRole("button", { name: "Bytes/s" }));
-    expect(view.getByRole("tooltip").textContent).toContain("120 bytes/s");
-    expect(view.getByRole("tooltip").textContent).toContain("Raw 1-second bucket");
-    fireEvent.mouseLeave(chart);
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(readout().textContent).toContain("120 bytes/s");
+    expect(readout().textContent).toContain("Raw 1-second bucket");
+    leave(chart);
+    expect(queryReadout()).toBeNull();
   });
 
   it("supports keyboard inspection at the edges and keeps the readout while the chart has focus", async () => {
@@ -155,30 +150,22 @@ describe("native Live Output page", () => {
     const chart = view.getByRole("img");
     expect(chart.getAttribute("tabindex")).toBe("0");
     act(() => chart.focus());
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:59.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:58.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:58.000Z");
     fireEvent.keyDown(chart, { key: "Home" });
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:00:00.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:00:00.000Z");
     fireEvent.keyDown(chart, { key: "End" });
     fireEvent.keyDown(chart, { key: "ArrowRight" });
-    fireEvent.mouseLeave(chart);
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:59.000Z",
-    );
+    leave(chart);
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "Escape" });
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
-    expect(view.getByRole("tooltip")).toBeDefined();
+    expect(readout()).toBeDefined();
     fireEvent.blur(chart);
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
   });
 
   it("keeps the selected time as snapshots roll, hides stale readings, and expires old points", async () => {
@@ -198,31 +185,27 @@ describe("native Live Output page", () => {
       y: 0,
       toJSON() {},
     });
-    fireEvent.mouseMove(chart, { clientX: 300 });
+    move(chart, { clientX: (600 * 300) / 599 });
     next = snapshot({
       startedAt: 0,
       samples: next.samples.map((sample) => ({ ...sample, second: sample.second + 1 })),
     });
     next.samples[299] = { second: 300, rawBytesPerSecond: 160, smoothBytesPerSecond: 80 };
     await tick();
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:05:00.000Z",
-    );
-    expect(view.getByRole("tooltip").textContent).toContain("20 est. tokens/s");
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:05:00.000Z");
+    expect(readout().textContent).toContain("20 est. tokens/s");
     await view.behavior.setRealtimeConnectionState("reconnecting");
-    expect(view.queryByRole("tooltip")).toBeNull();
-    fireEvent.mouseMove(chart, { clientX: 0 });
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
+    move(chart, { clientX: 0 });
+    expect(queryReadout()).toBeNull();
     await view.behavior.setRealtimeConnectionState("connected");
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:05:00.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:05:00.000Z");
     next = snapshot({
       startedAt: 0,
       samples: next.samples.map((sample) => ({ ...sample, second: sample.second + 600 })),
     });
     await tick();
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
   });
 
   it("does not report startup padding as measured zero and clamps hover to chart endpoints", async () => {
@@ -240,15 +223,13 @@ describe("native Live Output page", () => {
       y: 0,
       toJSON() {},
     });
-    fireEvent.mouseMove(chart, { clientX: -100 });
-    expect(view.getByRole("tooltip").textContent).toContain("Before collection started");
-    expect(view.getByRole("tooltip").textContent).not.toContain("est. tokens/s");
-    fireEvent.mouseMove(chart, { clientX: 300 / 599 });
-    expect(view.getByRole("tooltip").textContent).toContain("10 est. tokens/s");
-    fireEvent.mouseMove(chart, { clientX: 400 });
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:59.000Z",
-    );
+    move(chart, { clientX: -100 });
+    expect(readout().textContent).toContain("Before collection started");
+    expect(readout().textContent).not.toContain("est. tokens/s");
+    move(chart, { clientX: 300 / 599 });
+    expect(readout().textContent).toContain("10 est. tokens/s");
+    move(chart, { clientX: 400 });
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
   });
 
   it("opens keyboard inspection when data arrives after the chart receives focus", async () => {
@@ -264,17 +245,15 @@ describe("native Live Output page", () => {
     );
     const chart = view.getByRole("img");
     act(() => chart.focus());
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
     await act(async () => {
       pending = false;
       release(snapshot({ startedAt: 0 }));
     });
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:59.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "Escape" });
     await tick();
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
   });
 
   it("opens keyboard inspection after reconnect without changing an existing selected time", async () => {
@@ -282,17 +261,13 @@ describe("native Live Output page", () => {
     const chart = view.getByRole("img");
     await view.behavior.setRealtimeConnectionState("reconnecting");
     act(() => chart.focus());
-    expect(view.queryByRole("tooltip")).toBeNull();
+    expect(queryReadout()).toBeNull();
     await view.behavior.setRealtimeConnectionState("connected");
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:59.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
     await view.behavior.setRealtimeConnectionState("reconnecting");
     await view.behavior.setRealtimeConnectionState("connected");
-    expect(view.getByRole("tooltip").querySelector("time")?.dateTime).toBe(
-      "1970-01-01T00:09:58.000Z",
-    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:58.000Z");
   });
 
   it("keeps controls mounted through starting, degraded, idle, disconnect and reconnect", async () => {
@@ -383,39 +358,45 @@ describe("native Live Output page", () => {
     expect(view.getByRole("status").textContent).toBe("Disconnected");
     expect(view.inspection.rpcCalls).toHaveLength(1);
   });
-  it("keeps the floating keyboard tooltip inside a narrow chart after resize", async () => {
-    vi.useFakeTimers();
-    let resize = () => {};
-    const disconnect = vi.fn();
+  it("keeps native resize ownership and the keyboard readout across a narrow resize, then cleans observers", async () => {
+    const callbacks: ResizeObserverCallback[] = [];
+    const observers: ResizeObserver[] = [];
     vi.stubGlobal(
       "ResizeObserver",
       class {
-        constructor(callback: () => void) {
-          resize = callback;
+        disconnect = vi.fn();
+        observe = vi.fn();
+        unobserve = vi.fn();
+        constructor(callback: ResizeObserverCallback) {
+          callbacks.push(callback);
+          observers.push(this);
         }
-        observe() {}
-        disconnect = disconnect;
       },
     );
-    const view = await mount(() => snapshot());
+    const view = await mount(() => snapshot({ startedAt: 0 }));
     const chart = view.getByRole("img");
-    const geometry = vi.spyOn(chart, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      top: 0,
-      width: 960,
-      height: 230,
-    } as DOMRect);
-    act(() => resize());
-    fireEvent.focus(chart);
-    expect(view.getByRole("tooltip").style.left).toBe("712px");
-    geometry.mockReturnValue({ left: 0, top: 0, width: 200, height: 230 } as DOMRect);
-    act(() => resize());
-    expect(view.getByRole("tooltip").style.left).toBe("8px");
-    expect(view.getByRole("tooltip").style.maxWidth).toBe("calc(100% - 16px)");
+    act(() => chart.focus());
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
+    act(() =>
+      callbacks[0]!(
+        [
+          {
+            target: chart.parentElement!,
+            contentRect: new DOMRect(0, 0, 200, 240),
+            borderBoxSize: [{ inlineSize: 200, blockSize: 240 }],
+            contentBoxSize: [{ inlineSize: 200, blockSize: 240 }],
+            devicePixelContentBoxSize: [{ inlineSize: 200, blockSize: 240 }],
+          },
+        ],
+        observers[0]!,
+      ),
+    );
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "Home" });
-    expect(view.getByRole("tooltip").style.left).toBe("8px");
+    expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:00:00.000Z");
     slot!.lifecycle.unmount();
     slot = undefined;
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(observers.length).toBeGreaterThanOrEqual(2);
+    for (const observer of observers) expect(observer.disconnect).toHaveBeenCalledOnce();
   });
 });

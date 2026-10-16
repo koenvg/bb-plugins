@@ -66,7 +66,7 @@ for (const [suite, states] of Object.entries(matrices))
               { exact: false },
             ),
           ).toBeVisible();
-          await expect(page.locator(".recharts-surface")).toHaveCount(0);
+          await expect(page.locator(".ts-chart")).toHaveCount(0);
         } else await chart(page);
         await expect(
           page.getByRole("group", { name: "Usage grouping" }).getByRole("button"),
@@ -158,8 +158,8 @@ for (const [suite, states] of Object.entries(matrices))
             expect(theme.textContrast.every((text) => text.ratio >= 4.5)).toBe(true);
             if (!["Unavailable", "0"].includes(expected))
               expect(measurements.y.length).toBeGreaterThanOrEqual(2);
-            await expect(page.locator(".recharts-yAxis")).toHaveCount(1);
-            expect(await page.locator(".recharts-label").allTextContents()).toContain(
+            await expect(page.locator("[data-ts-key='y-label']")).toHaveCount(1);
+            expect(await page.locator("[data-ts-key='y-label']").allTextContents()).toContain(
               metric === "cost" ? "USD estimate" : "Tokens",
             );
             await expect(
@@ -183,7 +183,7 @@ for (const [suite, states] of Object.entries(matrices))
             ).toBe(true);
             expect((await rows(page))[14][8]).toBe("300");
             expect(
-              await page.locator(".recharts-bar-rectangle path[stroke-dasharray]").count(),
+              await page.locator(".ts-chart__bar rect[stroke-dasharray='3 2']").count(),
             ).toBeGreaterThan(0);
           }
           await noOverflow(page);

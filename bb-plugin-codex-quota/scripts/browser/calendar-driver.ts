@@ -23,18 +23,16 @@ export const rows = (page: Page): Promise<string[][]> =>
       elements.map((row) => Array.from(row.children, (cell) => cell.textContent ?? "")),
     );
 export async function chart(page: Page) {
-  await expect(page.locator('.recharts-surface[role="application"]')).toBeVisible();
+  await expect(page.locator('.ts-chart[role="img"]')).toBeVisible();
   await page.waitForFunction(() => {
-    const container = document
-      .querySelector(".recharts-responsive-container")!
-      .getBoundingClientRect();
-    const surface = document.querySelector(".recharts-surface")!.getBoundingClientRect();
+    const container = document.querySelector(".ts-chart-host")!.getBoundingClientRect();
+    const surface = document.querySelector(".ts-chart")!.getBoundingClientRect();
     return container.width > 250 && Math.abs(container.width - surface.width) < 1;
   });
 }
 async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?: string | null) {
   const definitions = await page
-    .locator(".recharts-tooltip-wrapper dl > div")
+    .locator(".calendar-tooltip dl > div")
     .evaluateAll((elements) =>
       elements.map((e) => [
         e.querySelector("dt")!.textContent!,
@@ -43,18 +41,50 @@ async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?
     );
   const lines = await page
     .locator(
-      '.recharts-tooltip-wrapper [role="tooltip"] > div:not([aria-label="Tokens by model and speed"]) p',
+      '.calendar-tooltip [role="tooltip"] > div:not([aria-label="Tokens by model and speed"]) p',
     )
     .allTextContents();
-  const date = await page.locator(".recharts-tooltip-wrapper time").getAttribute("datetime");
+  const date = await page.locator(".calendar-tooltip time").getAttribute("datetime");
   verifyTooltip(row, metric, date, definitions, lines, fromDate);
   return {
     row,
-    tooltip: await page.locator(".recharts-tooltip-wrapper").textContent(),
+    tooltip: await page.locator(".calendar-tooltip").textContent(),
     lines,
     definitions,
     ...(fromDate === undefined ? {} : { fromDate }),
   };
+}
+export async function pointAtDate(
+  page: Page,
+  index: number,
+  position: "top" | "baseline" = "baseline",
+) {
+  const point = await page.locator(".ts-chart").evaluate(
+    (surface, { index, position }) => {
+      const bounds = surface.getBoundingClientRect();
+      const grid = surface.querySelector<SVGLineElement>("[data-ts-key^='y-grid:']")!;
+      const left = grid.x1.baseVal.value;
+      const right = grid.x2.baseVal.value;
+      const lines = Array.from(
+        surface.querySelectorAll<SVGLineElement>("[data-ts-key^='y-grid:']"),
+      );
+      const top = Math.min(...lines.map((line) => line.y1.baseVal.value));
+      const baseline = Math.max(...lines.map((line) => line.y1.baseVal.value));
+      const plotWidth = right - left;
+      const step = plotWidth / 30.2;
+      return {
+        x: bounds.left + left + step * (index + 0.6),
+        y: bounds.top + (position === "top" ? top + 2 : baseline - 2),
+      };
+    },
+    { index, position },
+  );
+  const viewport = page.viewportSize()!;
+  expect(point.x).toBeGreaterThan(0);
+  expect(point.x).toBeLessThan(viewport.width);
+  expect(point.y).toBeGreaterThan(0);
+  expect(point.y).toBeLessThan(viewport.height);
+  await page.mouse.move(point.x, point.y);
 }
 async function renderedInputFrames(page: Page) {
   await page.evaluate(
@@ -65,53 +95,27 @@ async function renderedInputFrames(page: Page) {
   );
 }
 export async function tooltip(page: Page, metric: Metric, dailyRows: string[][]) {
-  const surface = page.locator('.recharts-surface[role="application"]');
-  // Clear pointer selection in the chart margin, then drain its queued frame before keyboard input.
-  await surface.hover({ position: { x: 1, y: 1 } });
-  await renderedInputFrames(page);
+  const surface = page.locator('.ts-chart[role="img"]');
   await page.mouse.move(0, 0);
   await surface.focus();
-  await page.keyboard.press("ArrowRight");
-  // A retained tooltip can already match the target date before this input is rendered.
   await renderedInputFrames(page);
-  const date = page.locator(".recharts-tooltip-wrapper time");
-  await expect(date).toHaveAttribute("datetime", /2026-/);
-  for (let step = 0; step < 30; step++) {
-    const currentDate = await date.getAttribute("datetime");
-    const index = dailyRows.findIndex((row) => row[0] === currentDate);
-    expect(index).toBeGreaterThanOrEqual(0);
-    if (index === 14) break;
-    await page.keyboard.press(index > 14 ? "ArrowLeft" : "ArrowRight");
-    await expect(date).not.toHaveAttribute("datetime", currentDate!);
+  await page.keyboard.press("Home");
+  const date = page.locator(".calendar-tooltip time");
+  await expect(date).toHaveAttribute("datetime", dailyRows[0][0]);
+  for (let step = 0; step < 14; step++) {
+    await renderedInputFrames(page);
+    await page.keyboard.press("ArrowRight");
+    await expect(date).toHaveAttribute("datetime", dailyRows[step + 1][0]);
   }
-  await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
   const keyboard = await tooltipFacts(page, metric, dailyRows[14]);
-  const bar = page.locator(".recharts-bar-rectangle path").filter({ visible: true }).first();
-  let pointer = null;
-  if (await bar.count()) {
-    await page.keyboard.press("ArrowLeft");
-    await expect(date).not.toHaveAttribute("datetime", dailyRows[14][0]);
-    const fromDate = await date.getAttribute("datetime");
-    expect(dailyRows.map((row) => row[0])).toContain(fromDate);
-    // Status banners can move the chart during keyboard input. Resolve its current position.
-    // Locator.hover can auto-scroll SVG paths out of view in Chromium. Use real pointer input
-    // at the current visible bar instead, without changing the viewport for this proof.
-    // Metric changes can detach the path between reads. Wait for visible geometry.
-    let box: Awaited<ReturnType<typeof bar.boundingBox>> = null;
-    await expect
-      .poll(async () => (box = await bar.boundingBox()), { timeout: 5_000 })
-      .not.toBeNull();
-    const readyBox = box!;
-    const point = { x: readyBox.x + readyBox.width / 2, y: readyBox.y + readyBox.height / 2 };
-    const viewport = page.viewportSize()!;
-    expect(point.x).toBeGreaterThan(0);
-    expect(point.x).toBeLessThan(viewport.width);
-    expect(point.y).toBeGreaterThan(0);
-    expect(point.y).toBeLessThan(viewport.height);
-    await page.mouse.move(point.x, point.y);
-    await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
-    pointer = await tooltipFacts(page, metric, dailyRows[14], fromDate);
-  }
+  await renderedInputFrames(page);
+  await page.keyboard.press("ArrowLeft");
+  await expect(date).toHaveAttribute("datetime", dailyRows[13][0]);
+  const fromDate = await date.getAttribute("datetime");
+  await renderedInputFrames(page);
+  await pointAtDate(page, 14);
+  await expect(date).toHaveAttribute("datetime", dailyRows[14][0]);
+  const pointer = await tooltipFacts(page, metric, dailyRows[14], fromDate);
   return { ...keyboard, pointer };
 }
 export async function axFacts(page: Page, dailyRows: string[][], metric: Metric) {

@@ -153,7 +153,21 @@ describe("public plugin boundary", () => {
 
   it("uses only public SDK imports and declared external test dependencies", () => {
     const scan = experimental_scanPublicSdkOnly(fileURLToPath(new URL(".", import.meta.url)), {
-      allow: [/^vitest$/, /^react(?:-dom)?(?:\/.*)?$/, /^@testing-library\/react$/],
+      allow: [
+        /^vitest$/,
+        /^react(?:-dom)?(?:\/.*)?$/,
+        /^@testing-library\/react$/,
+        /^@tanstack\/charts$/,
+        /^@tanstack\/charts\/cursor$/,
+        /^@tanstack\/charts\/mark\/decorative$/,
+        /^@tanstack\/charts\/renderer$/,
+        /^@tanstack\/charts\/scales\/linear$/,
+        /^@tanstack\/charts\/svg\/renderer$/,
+        /^@tanstack\/charts\/tooltip$/,
+        /^@tanstack\/charts\/tooltip\/portal$/,
+        /^@playwright\/test$/,
+        /^vitest\/config$/,
+      ],
     });
     expect(scan.violations).toEqual([]);
     expect(scan.privateDependencies).toEqual([]);

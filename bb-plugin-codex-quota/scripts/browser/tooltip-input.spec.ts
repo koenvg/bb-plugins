@@ -75,7 +75,7 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
       frames.delete(id);
     };
   });
-  await page.locator(".recharts-bar-rectangle path").filter({ visible: true }).first().hover();
+  await page.locator(".ts-chart__bar :is(rect,path)").filter({ visible: true }).first().hover();
 
   const facts = await tooltip(page, "cost", dailyRows);
   const keyboardFrames = await page.evaluate(() => window.tooltipFrameCounts);
@@ -109,11 +109,10 @@ for (const metric of ["tokens", "cost"] as const) {
       const shift = (event: KeyboardEvent) => {
         if (
           event.key !== "ArrowLeft" ||
-          document.querySelector(".recharts-tooltip-wrapper time")?.getAttribute("datetime") !==
-            targetDate
+          document.querySelector(".calendar-tooltip time")?.getAttribute("datetime") !== targetDate
         )
           return;
-        const container = document.querySelector<HTMLElement>(".recharts-responsive-container")!;
+        const container = document.querySelector<HTMLElement>(".ts-chart-host")!;
         const before = container.getBoundingClientRect().top;
         container.parentElement!.style.paddingTop = "60px";
         window.tooltipLayoutShift = {
@@ -133,7 +132,7 @@ for (const metric of ["tokens", "cost"] as const) {
     expect(shift!.trusted).toBe(true);
     expect(facts.pointer).not.toBeNull();
     expect(facts.pointer!.fromDate).toBe(dailyRows[13][0]);
-    await expect(page.locator(".recharts-tooltip-wrapper time")).toHaveAttribute(
+    await expect(page.locator(".calendar-tooltip time")).toHaveAttribute(
       "datetime",
       dailyRows[14][0],
     );

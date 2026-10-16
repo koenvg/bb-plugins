@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Live Output synthetic native renderer fixture</title>
+    <style>
+      :root {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        color-scheme: light;
+        --background: #fff;
+        --foreground: #171717;
+        --primary: #171717;
+        --muted-foreground: #595959;
+        --border: #d4d4d4;
+        --card: #fff;
+        --popover: #fff;
+        --popover-foreground: #171717;
+        --muted: #f5f5f5;
+        --ring: #737373;
+      }
+      :root.dark {
+        color-scheme: dark;
+        --background: #171717;
+        --foreground: #fafafa;
+        --primary: #fafafa;
+        --muted-foreground: #b5b5b5;
+        --border: #525252;
+        --card: #171717;
+        --popover: #262626;
+        --popover-foreground: #fafafa;
+        --muted: #262626;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--ring);
+      }
+      table {
+        border-collapse: collapse;
+      }
+      p {
+        margin: 0;
+      }
+      dl,
+      dd {
+        margin: 0;
+      }
+      h2 {
+        margin: 0;
+      }
+      main {
+        padding: 16px;
+      }
+      section {
+        margin: 20px 0;
+      }
+      section[aria-label="Live output rate"] {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      button[aria-pressed="true"] {
+        background: var(--muted);
+        color: var(--foreground);
+      }
+      [role="group"] {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 4px;
+      }
+      .flex {
+        display: flex;
+      }
+      .flex-wrap {
+        flex-wrap: wrap;
+      }
+      .justify-between {
+        justify-content: space-between;
+      }
+      .items-center {
+        align-items: center;
+      }
+      .items-end {
+        align-items: flex-end;
+      }
+      .gap-2 {
+        gap: 8px;
+      }
+      .gap-3 {
+        gap: 12px;
+      }
+      .gap-4 {
+        gap: 16px;
+      }
+      .text-xs {
+        font-size: 12px;
+      }
+      .text-sm {
+        font-size: 14px;
+      }
+      .text-lg {
+        font-size: 18px;
+      }
+      .text-5xl {
+        font-size: 48px;
+      }
+      .text-muted-foreground {
+        color: var(--muted-foreground);
+      }
+      .font-medium {
+        font-weight: 500;
+      }
+      .font-semibold {
+        font-weight: 600;
+      }
+      .tabular-nums {
+        font-variant-numeric: tabular-nums;
+      }
+      .text-right {
+        text-align: right;
+      }
+      .text-left {
+        text-align: left;
+      }
+      .mt-1 {
+        margin-top: 4px;
+      }
+      .mt-4 {
+        margin-top: 16px;
+      }
+      .mt-5 {
+        margin-top: 20px;
+      }
+      .ml-2 {
+        margin-left: 8px;
+      }
+      .p-3 {
+        padding: 12px;
+      }
+      .p-4 {
+        padding: 16px;
+      }
+      .px-3 {
+        padding-inline: 12px;
+      }
+      .py-2 {
+        padding-block: 8px;
+      }
+      .pt-4 {
+        padding-top: 16px;
+      }
+      .border-t {
+        border-top: 1px solid var(--border);
+      }
+      .grid {
+        display: grid;
+      }
+      .grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .w-full {
+        width: 100%;
+      }
+      .max-w-5xl {
+        max-width: 1024px;
+      }
+      .mx-auto {
+        margin-inline: auto;
+      }
+      .overflow-x-auto {
+        overflow-x: auto;
+      }
+      .rounded-md {
+        border-radius: 6px;
+      }
+      .min-h-20 {
+        min-height: 80px;
+      }
+      .min-h-10 {
+        min-height: 40px;
+      }
+      #host-footer {
+        padding: 12px;
+        border-top: 1px solid var(--border);
+      }
+      @media (min-width: 768px) {
+        main {
+          padding: 24px;
+        }
+        section[aria-label="Live output rate"] {
+          padding: 24px;
+        }
+        .md\:grid-cols-4 {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="host-footer" data-footer-item="plugin:live-output/rate">
+      <button data-sidebar="menu-button">Gauge</button>
+    </div>
+    <script type="module" src="/browser-fixture.js"></script>
+  </body>
+</html>
