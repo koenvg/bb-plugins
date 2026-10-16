@@ -127,6 +127,53 @@ describe("observed output collector", () => {
     expect(reads).toHaveLength(600);
     expect(s.collector.snapshot().failures).toBe(0);
   });
+  it("keeps ten streams current while rolling verification recovers an unhinted idle delta", async () => {
+    const idle = Array.from({ length: 850 }, (_, i) => thread(`idle_${i}`));
+    const live = Array.from({ length: 10 }, (_, i) => thread(`live_${i}`));
+    const s = setup([...idle, ...live]);
+    await step(3000);
+    for (const row of [...idle, ...live]) s.collector.observe(row, 1);
+    await step(590_000);
+    expect(s.collector.snapshot()).toMatchObject({ totalBytes: 0, backlog: 0, coverage: "live" });
+    s.source.events.push(delta(1, Date.now() + 100, "abcd", "idle_849"));
+
+    let previousReads = s.fake.harness.callsTo("threads.events.list").length;
+    const verified = new Set<string>();
+    for (let seq = 1; seq <= 600; seq++) {
+      for (const row of live) {
+        s.source.events.push(delta(seq, Date.now() + 100, "é🙂", row.id));
+        s.collector.observe(row, seq);
+      }
+      await step();
+      const calls = s.fake.harness.callsTo("threads.events.list");
+      const reads = calls.slice(previousReads);
+      previousReads = calls.length;
+      expect(reads.length).toBeLessThanOrEqual(20);
+      for (const call of reads) {
+        const id = (call[0] as ThreadEventsListArgs).threadId;
+        if (id.startsWith("idle_")) verified.add(id);
+      }
+      const snapshot = s.collector.snapshot();
+      const recoveredBytes = verified.has("idle_849") ? 4 : 0;
+      expect(snapshot).toMatchObject({
+        totalBytes: seq * 60 + recoveredBytes,
+        deltas: seq * 10 + recoveredBytes / 4,
+        streamingThreads: 10,
+        backlog: 0,
+        coverage: "live",
+        failures: 0,
+      });
+      expect(snapshot.contributors.filter((row) => row.id.startsWith("live_"))).toHaveLength(10);
+      expect(
+        snapshot.contributors
+          .filter((row) => row.id.startsWith("live_"))
+          .every((row) => row.lastAt === Date.now() - 900),
+      ).toBe(true);
+    }
+    expect(verified.has("idle_849")).toBe(true);
+    expect(s.collector.snapshot()).toMatchObject({ totalBytes: 36_004, deltas: 6001 });
+    expect(s.fake.harness.callsTo("threads.get")).toHaveLength(0);
+  });
   it("revisits members deferred by a recent drained read within the next fixed scan", async () => {
     const rows = Array.from({ length: 850 }, (_, i) => thread(`idle_${i}`));
     const s = setup(rows);
