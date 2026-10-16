@@ -39,6 +39,9 @@ function headingText(node: RootContent): string {
   return node.children.map(headingText).join("");
 }
 
+function containsImage(node: RootContent): boolean {
+  return node.type === "element" && (node.tagName === "img" || node.children.some(containsImage));
+}
 /** Namespace parser-generated IDs and their references before source heading IDs
  * are assigned. Passive footnotes retain reader-local accessibility descriptions. */
 function scopeGeneratedIds(tree: Root, namespace: string) {
@@ -87,24 +90,37 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
   };
   const components: Components = {
     a: ({
+      node,
       href = "",
       children,
       id,
       title,
       "aria-describedby": description,
       "aria-label": label,
-    }) => (
-      <DestinationLink
-        url={href}
-        fragmentTarget={fragmentTarget}
-        id={id}
-        title={title}
-        aria-describedby={description}
-        aria-label={label}
-      >
-        {children}
-      </DestinationLink>
-    ),
+    }) => {
+      const imageLink = node && containsImage(node);
+      const destinationLink = (
+        <DestinationLink
+          url={href}
+          fragmentTarget={fragmentTarget}
+          id={imageLink ? undefined : id}
+          title={title}
+          aria-describedby={description}
+          aria-label={imageLink ? undefined : label}
+        >
+          {imageLink
+            ? `Open linked destination: ${headingText(node).replace(/\s+/gu, " ").trim() || "Image"}`
+            : children}
+        </DestinationLink>
+      );
+      return imageLink ? (
+        <span id={id} className="mr-image-link">
+          {children} {destinationLink}
+        </span>
+      ) : (
+        destinationLink
+      );
+    },
     img: ({ src = "", alt, title }) => <DestinationImage url={src} alt={alt} title={title} />,
     table: ({ children }) => (
       <div className="mr-table-scroll" tabIndex={0} role="region" aria-label="Markdown table">

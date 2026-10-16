@@ -39,6 +39,46 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         await local.evaluate((e) => e.clientWidth <= e.closest(".mr-prose")!.clientWidth),
       ).toBe(true);
       await page.getByText("Confined symlink alt", { exact: false }).waitFor();
+      const enlarge = page.getByRole("button", {
+        name: "Enlarge image: Local picture",
+        exact: true,
+      });
+      await expect(enlarge).toBeEnabled();
+      await expect(page.locator("a button, button a")).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "Open linked destination: Local picture", exact: true }),
+      ).toBeVisible();
+      const approvedSrc = await local.getAttribute("src");
+      await enlarge.focus();
+      await page.keyboard.press("Space");
+      const viewer = page.getByRole("dialog", {
+        name: "Image preview: Local picture",
+        exact: true,
+      });
+      await expect(viewer).toBeVisible();
+      await expect(viewer.getByRole("img")).toHaveAttribute("src", approvedSrc!);
+      await expect(viewer.getByRole("img")).toHaveAttribute("referrerpolicy", "no-referrer");
+      const close = viewer.getByRole("button", { name: "Close image preview" });
+      await expect(close).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(close).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(close).toBeFocused();
+      const imageBounds = await viewer.getByRole("img").boundingBox();
+      expect(imageBounds!.width).toBeLessThanOrEqual(1200);
+      expect(imageBounds!.height / imageBounds!.width).toBeCloseTo(220 / 1200, 2);
+      await capture(page, info, `image-preview-${source}-${width}-${theme}`);
+      await page.keyboard.press("Escape");
+      await expect(viewer).toHaveCount(0);
+      await expect(enlarge).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(viewer).toBeVisible();
+      await close.click();
+      await expect(enlarge).toBeFocused();
+      await expect(page.locator("html")).toHaveAttribute("data-fixture-resolutions", "1");
+      expect(await page.evaluate("window.destinationFixture.inspection.navigateCalls.length")).toBe(
+        0,
+      );
       await expect(page.getByRole("img", { name: "Confined symlink alt" })).toHaveCount(0);
       await page.getByText("Rejected SVG alt", { exact: true }).waitFor();
       const imageRequests = requests.length;
@@ -79,6 +119,15 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         2,
       );
       await expect(page.locator("html")).toHaveAttribute("data-fixture-reads", "1");
+      await page
+        .getByRole("link", { name: "Open linked destination: Local picture", exact: true })
+        .click();
+      expect(await page.evaluate("window.destinationFixture.inspection.navigateCalls.length")).toBe(
+        3,
+      );
+      expect(await page.evaluate("window.destinationFixture.inspection.navigateCalls[2]")).toEqual(
+        calls[0],
+      );
       const oldSrc = await local.getAttribute("src");
       await page.getByRole("button", { name: "Raw", exact: true }).click();
       expect(await page.getByLabel("Raw Markdown", { exact: true }).textContent()).toBe(
@@ -103,8 +152,22 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         false,
       );
       const screenshot = await capture(page, info, `${source}-${width}-${theme}`);
+      await page
+        .getByRole("button", { name: "Enlarge image: Remote picture", exact: true })
+        .click();
+      const remoteViewer = page.getByRole("dialog", {
+        name: "Image preview: Remote picture",
+        exact: true,
+      });
+      await expect(remoteViewer.getByRole("img")).toHaveAttribute("crossorigin", "anonymous");
+      await expect(remoteViewer.getByRole("img")).toHaveAttribute(
+        "src",
+        "https://images.test/picture.png",
+      );
+      await expect(page.locator("html")).toHaveAttribute("data-fixture-resolutions", "2");
       await page.evaluate("window.destinationFixture.unmount()");
       await expect(page.locator(".markdown-reader")).toHaveCount(0);
+      await expect(page.locator("dialog[open]")).toHaveCount(0);
       await results(info, {
         source,
         width,
@@ -123,4 +186,133 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
       });
     });
   }
+}
+for (const [width, theme] of [
+  [1440, "light"],
+  [390, "dark"],
+] as const) {
+  test(`small and tall image previews scroll within ${width}px with reduced motion`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.route("**/api/v1/plugins/markdown-reader/http/image?asset=*", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        body: raster(30, 15, [96, 132, 152]),
+      }),
+    );
+    await page.route("https://images.test/**", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        headers: { "access-control-allow-origin": "*" },
+        body: raster(1200, 2400, [96, 132, 152]),
+      }),
+    );
+    await page.goto(`/tests/destination-preview.html?panel=viewport&width=${width}&theme=${theme}`);
+    const small = page.getByRole("button", { name: "Enlarge image: Local picture", exact: true });
+    await expect(small).toBeEnabled();
+    const triggerBounds = await small.boundingBox();
+    expect(triggerBounds!.width).toBeGreaterThanOrEqual(44);
+    expect(triggerBounds!.height).toBeGreaterThanOrEqual(44);
+    await small.click();
+    const smallDialog = page.getByRole("dialog", {
+      name: "Image preview: Local picture",
+      exact: true,
+    });
+    await expect(smallDialog.getByRole("img")).toHaveJSProperty("naturalWidth", 30);
+    const smallBounds = await smallDialog.getByRole("img").boundingBox();
+    expect(smallBounds!.width).toBe(30);
+    expect(smallBounds!.height).toBe(15);
+    await page.keyboard.press("Escape");
+    const tall = page.getByRole("button", { name: "Enlarge image: Remote picture", exact: true });
+    await expect(tall).toBeEnabled();
+    await tall.scrollIntoViewIfNeeded();
+    const inlineBounds = await tall.getByRole("img").boundingBox();
+    const background = () =>
+      page.evaluate(() => ({
+        window: scrollY,
+        reader: document.querySelector(".markdown-reader")!.scrollTop,
+      }));
+    const before = await background();
+    await capture(page, info, `tall-image-inline-${width}-${theme}`);
+    await tall.click();
+    const tallDialog = page.getByRole("dialog", {
+      name: "Image preview: Remote picture",
+      exact: true,
+    });
+    const image = tallDialog.getByRole("img");
+    const close = tallDialog.getByRole("button", { name: "Close image preview" });
+    await expect(image).toHaveJSProperty("naturalWidth", 1200);
+    await expect(image).toHaveJSProperty("naturalHeight", 2400);
+    await page.setViewportSize({ width, height: 500 });
+    const bounds = await image.boundingBox();
+    const dialogBounds = await tallDialog.boundingBox();
+    expect(bounds!.width).toBe(width === 1440 ? 1200 : 324);
+    expect(bounds!.width).toBeLessThanOrEqual(1200);
+    if (width === 1440) expect(bounds!.width).toBeGreaterThan(inlineBounds!.width);
+    expect(bounds!.height / bounds!.width).toBeCloseTo(2, 2);
+    expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(500);
+    const scroll = () =>
+      tallDialog.evaluate((element) => ({
+        top: element.scrollTop,
+        height: element.scrollHeight,
+        client: element.clientHeight,
+      }));
+    const scrollEnd = () =>
+      page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            document
+              .querySelector(".mr-image-dialog")!
+              .addEventListener("scrollend", () => resolve(), {
+                once: true,
+              }),
+          ),
+      );
+    const initial = await scroll();
+    expect(initial.height).toBeGreaterThan(initial.client);
+    expect(initial.top).toBe(0);
+    const closeBounds = await close.boundingBox();
+    await capture(page, info, `tall-image-resize-${width}-${theme}`);
+    await Promise.all([scrollEnd(), page.keyboard.press("PageDown")]);
+    expect((await scroll()).top).toBeGreaterThan(100);
+    const afterPage = await scroll();
+    await Promise.all([scrollEnd(), page.keyboard.press("PageUp")]);
+    expect((await scroll()).top).toBe(0);
+    await page.mouse.move(bounds!.x + bounds!.width / 2, 350);
+    await Promise.all([scrollEnd(), page.mouse.wheel(0, 10000)]);
+    await expect
+      .poll(async () => {
+        const current = await scroll();
+        return current.height - current.client - current.top;
+      })
+      .toBeLessThanOrEqual(1);
+    expect((await scroll()).top).toBeGreaterThan(100);
+    const bottom = await image.boundingBox();
+    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(dialogBounds!.y + dialogBounds!.height);
+    expect(bottom!.y + bottom!.height).toBeGreaterThan(400);
+    await expect(close).toBeInViewport({ ratio: 1 });
+    expect((await close.boundingBox())!.y).toBeCloseTo(closeBounds!.y, 0);
+    await capture(page, info, `tall-image-bottom-${width}-${theme}`);
+    expect(await background()).toEqual(before);
+    const stickyClose = (await close.boundingBox())!;
+    await page.mouse.click(
+      stickyClose.x + stickyClose.width / 2,
+      stickyClose.y + stickyClose.height / 2,
+    );
+    await expect(tallDialog).toHaveCount(0);
+    await expect(tall).toBeFocused();
+    expect(await background()).toEqual(before);
+    await page.keyboard.press("Enter");
+    await expect(tallDialog).toBeVisible();
+    await page.keyboard.press("PageDown");
+    await expect.poll(async () => (await scroll()).top).toBeGreaterThan(100);
+    await page.keyboard.press("Escape");
+    await expect(tallDialog).toHaveCount(0);
+    await expect(tall).toBeFocused();
+    expect(await background()).toEqual(before);
+    await results(info, { inlineBounds, bounds, initial, afterPage, background: before });
+  });
 }

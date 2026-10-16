@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { ImagePresentation } from "./image-preview.js";
 import {
   destination,
   type Destination,
@@ -245,14 +246,12 @@ function LoadedImage({
       </span>
     );
   return (
-    <img
-      src={result.url}
+    <ImagePresentation
+      key={result.url}
+      source={{ kind: "delegated", src: result.url, source: result.source }}
       alt={alt}
       title={title}
-      crossOrigin={result.source === "remote" ? "anonymous" : undefined}
-      referrerPolicy="no-referrer"
-      loading="lazy"
-      onError={() => setFailed(true)}
+      onInlineError={() => setFailed(true)}
     />
   );
 }

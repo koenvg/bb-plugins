@@ -36,7 +36,7 @@ const identity = {
   documentPath: `${rootPath}/${source === "host" ? "" : "reports/"}note.md`,
 };
 const text =
-  "# Destinations\n\n[sibling](next.md) [web](https://example.com/guide) [here](#destinations)\n\nUnsafe: [script](javascript:alert(1)) [escape](../../outside.md)\n\n![Local picture](picture.png)\n\n![Confined symlink alt](escape.png)\n\n![Remote picture](https://images.test/picture.png)\n\n![Rejected SVG alt](active.svg)\n\nFootnote[^1].\n\n[^1]: Local note.\n";
+  "# Destinations\n\n[sibling](next.md) [web](https://example.com/guide) [here](#destinations)\n\nUnsafe: [script](javascript:alert(1)) [escape](../../outside.md)\n\n[![Local picture](picture.png)](next.md)\n\n![Confined symlink alt](escape.png)\n\n![Remote picture](https://images.test/picture.png)\n\n![Rejected SVG alt](active.svg)\n\nFootnote[^1].\n\n[^1]: Local note.\n";
 let reads = 0,
   resolutions = 0;
 document.documentElement.dataset.theme = params.get("theme") ?? "light";
@@ -102,6 +102,10 @@ const slot = renderSlot(
     openFilePreview: () => true,
   },
 );
+if (params.get("panel") === "viewport") {
+  document.getElementById("root")!.style.height = "100dvh";
+  slot.container.style.height = "100%";
+}
 document.getElementById("root")!.append(slot.container);
 Object.assign(window, {
   destinationFixture: {

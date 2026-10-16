@@ -1,5 +1,79 @@
 import { test, expect } from "@playwright/test";
 
+for (const width of [1280, 390]) {
+  test(`enlarged image stays inside attachment focus session at ${width}px`, async ({
+    page,
+  }, info) => {
+    const imageRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url() === "http://localhost:4193/tests/assets/image.png")
+        imageRequests.push(request.url());
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/tests/preview.html?state=navigation");
+    const attachment = page.getByRole("button", {
+      name: "investigation-with-a-long-filename-and-important-observations.MARKDOWN",
+      exact: true,
+    });
+    await attachment.click();
+    const outer = page.getByRole("dialog", {
+      name: "investigation-with-a-long-filename-and-important-observations.MARKDOWN",
+    });
+    const trigger = outer.getByRole("button", { name: "Enlarge image: Remote chart", exact: true });
+    await expect(trigger).toBeEnabled();
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const viewer = page.getByRole("dialog", { name: "Image preview: Remote chart", exact: true });
+    await expect(viewer).toBeVisible();
+    expect(await viewer.evaluate((element) => !!element.closest(".attachment-preview-body"))).toBe(
+      true,
+    );
+    const close = viewer.getByRole("button", { name: "Close image preview" });
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Tab");
+    expect(await viewer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press("Shift+Tab");
+    await expect(close).toBeFocused();
+    await viewer.getByRole("img").click();
+    await expect(viewer).toBeVisible();
+    const imageBounds = await viewer.getByRole("img").boundingBox();
+    expect(imageBounds!.width).toBeLessThanOrEqual(800);
+    expect(imageBounds!.height / imageBounds!.width).toBeCloseTo(0.5, 2);
+    expect(imageBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(imageBounds!.x + imageBounds!.width).toBeLessThanOrEqual(width);
+    await page.mouse.move(imageBounds!.x + 10, imageBounds!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(2, 2);
+    await page.mouse.up();
+    await expect(viewer).toBeVisible();
+    await page.mouse.click(2, 2, { button: "right" });
+    await expect(viewer).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`image-preview-${width}.png`) });
+    await page.keyboard.press("Escape");
+    await expect(viewer).toHaveCount(0);
+    await expect(outer).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(viewer).toBeVisible();
+    await close.click();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await viewer.click({ position: { x: -10, y: -10 }, force: true });
+    await expect(viewer).toHaveCount(0);
+    await expect(outer).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(outer).toHaveCount(0);
+    await expect(attachment).toBeFocused();
+    expect(imageRequests).toEqual(["http://localhost:4193/tests/assets/image.png"]);
+    await attachment.click();
+    await expect(trigger).toBeEnabled();
+    await trigger.click();
+    await expect(viewer).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new Event("fixture-remove")));
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Attach file", exact: true })).toBeFocused();
+  });
+}
 const filename = "investigation-with-a-long-filename-and-important-observations.MARKDOWN";
 for (const width of [1280, 390]) {
   test(`document navigation and credential-free images at ${width}px`, async ({

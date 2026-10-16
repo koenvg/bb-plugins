@@ -48,6 +48,16 @@ Image grants distinguish `remote` from `source`. Remote grants must match the re
 
 Tasks explicitly enables document-local fragments, BB-preference external opening and bounded remote raster images, preserving merged BBP-55. Relative filesystem links remain inert because attachments have no binding. Markdown Reader supplies only currently verified delegated grants and falls back to local-only while loading or stale. Refresh and fallback revoke source-backed links and images without discarding readable stale text.
 
+## Enlarge images
+
+Click a loaded image, or focus its **Enlarge image** button and press Enter or Space, to open a viewport-sized preview. **Close**, Escape or a primary click on the backdrop closes only the image preview. The attachment or reader stays open. Loading, denied and failed images cannot open a preview.
+
+Images keep their intrinsic size up to the available viewport width, without upscaling small images. Tall images scroll vertically inside the preview instead of shrinking to its height. The Close toolbar stays visible while scrolling.
+
+Image-bearing Markdown links show their original content followed by a separate **Open linked destination** link. The image opens the preview; the separate link follows the original destination under the existing policy. Text-only links are unchanged.
+
+The preview borrows the approved inline source and request mode. It does not resolve another grant, allocate a preview capability or fetch another remote blob. A delegated direct URL can cause another authorized image GET. Closing the preview does not release the inline image. Raw, model, policy-object or source replacement and unmount invalidate the preview. Even an equivalent policy-object replacement closes it without resetting the loader budget.
+
 ## Build and verify
 
 Use Bun 1.4.3 and Node 24.15 or newer within Node 24:
@@ -59,6 +69,6 @@ bun run test --maxWorkers=1
 bun run typecheck
 ```
 
-The root and CSS exports intentionally resolve to source ESM/TSX and CSS. BB compiles them into each consumer bundle. This preserves clean plugin builds because BB has no shared-package pre-build hook. `bun run build` separately verifies emitted ESM, declarations and CSS under `dist`; it does not change package exports. React is a consumer-owned peer, not a bundled runtime.
+The root and CSS exports intentionally resolve to source ESM/TSX and CSS. BB compiles them into each consumer bundle. This preserves clean plugin builds because BB has no shared-package pre-build hook. `bun run build` separately verifies emitted ESM, declarations and CSS under `dist`; it does not change package exports. React and React DOM are consumer-owned peers, not a bundled runtime.
 
 For fresh independent consumer setup and production-bundle checks, run [the BBP-57 clean verifier](../../verification/BBP-57/clean-build.mjs) from the repository root. [The BBP-57 report](../../verification/BBP-57/report.md) separates fixture evidence, build evidence and required installed acceptance.

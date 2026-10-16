@@ -25,7 +25,8 @@
     "format:check": "bun run --cwd ../.. format:check packages/markdown-document"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "dependencies": {
     "react-markdown": "^10.1.0",

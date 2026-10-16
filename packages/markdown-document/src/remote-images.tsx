@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ImagePresentation } from "./image-preview.js";
 
 type Asset = Readonly<{ src: string; release: () => void }>;
 const imageLimit = 4 * 1024 * 1024;
@@ -135,11 +136,11 @@ export function RemoteImage({
   }, [url, resources]);
   const label = alt || "Image";
   return asset && !broken ? (
-    <img
-      src={asset.src}
+    <ImagePresentation
+      key={asset.src}
+      source={{ kind: "owned-blob", src: asset.src }}
       alt={label}
-      referrerPolicy="no-referrer"
-      onError={() => {
+      onInlineError={() => {
         asset.release();
         setBroken(true);
       }}
