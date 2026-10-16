@@ -9,7 +9,7 @@
         "zod": "^4.6.5",
       },
       "devDependencies": {
-        "@get-bb/plugin-sdk": "0.6.37",
+        "@get-bb/plugin-sdk": "0.6.49",
         "@playwright/test": "1.64.0",
         "@testing-library/react": "^16.3.3",
         "@types/better-sqlite3": "^7.6.12",
@@ -46,7 +46,7 @@
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@3.0.4", "", {}, "sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw=="],
 
-    "@get-bb/plugin-sdk": ["@get-bb/plugin-sdk@0.6.37", "", { "dependencies": { "cross-spawn": "^7.0.6", "zod": "^4.6.5" }, "peerDependencies": { "@testing-library/react": "^16.3.2", "@types/better-sqlite3": "^7.6.12", "@types/react": "^19.0.0", "better-sqlite3": ">=12", "cron-parser": "^5.5.0", "hono": "^4.11.9", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@testing-library/react", "@types/better-sqlite3", "@types/react", "better-sqlite3", "cron-parser", "hono", "react", "react-dom"] }, "sha512-fltzoFz2DTSDo35tSMaDR/nlQeTE/WFO1BLUMD0LoJ+dbKsJBCloaK+Kl1BYXP+lABPBH7dgAAfKKKSIgCBzHA=="],
+    "@get-bb/plugin-sdk": ["@get-bb/plugin-sdk@0.6.49", "", { "dependencies": { "cross-spawn": "^7.0.6", "zod": "^4.6.5" }, "peerDependencies": { "@testing-library/react": "^16.3.2", "@types/better-sqlite3": "^7.6.12", "@types/react": "^19.0.0", "better-sqlite3": ">=12", "cron-parser": "^5.5.0", "hono": "^4.11.9", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@testing-library/react", "@types/better-sqlite3", "@types/react", "better-sqlite3", "cron-parser", "hono", "react", "react-dom"] }, "sha512-0YCOJm+iKWbmEaUF7JsrxRSWFz5OdOwVxM1KPuek8r55dYCPSgyA9NEdyq8OVlbhXSstF2wGlHXZ2Q9wwdMJzQ=="],
 
     "@jridgewell/resolve-uri": ["@jridgewell/resolve-uri@3.1.2", "", {}, "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw=="],
 
