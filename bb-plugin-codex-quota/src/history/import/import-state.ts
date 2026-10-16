@@ -131,9 +131,13 @@ export function diagnostic(db: HistoryDatabase, g: Generation, code: ImportDiagn
   );
 }
 export function omit(db: HistoryDatabase, g: Generation, c: Candidate, code: ImportDiagnostic) {
-  diagnostic(db, g, code);
-  db.prepare("UPDATE import_candidates SET state='omitted' WHERE generation=? AND path=?").run(
-    g.id,
-    c.path,
-  );
+  // Keep omission evidence and candidate progress in one durable commit. Do not
+  // hold this transaction across source I/O or the cycle's cancellation yield.
+  db.transaction(() => {
+    diagnostic(db, g, code);
+    db.prepare("UPDATE import_candidates SET state='omitted' WHERE generation=? AND path=?").run(
+      g.id,
+      c.path,
+    );
+  });
 }

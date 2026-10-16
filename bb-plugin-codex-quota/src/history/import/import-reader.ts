@@ -33,6 +33,7 @@ export async function header(
   o: ImportOptions,
 ) {
   let source: Awaited<ReturnType<typeof confinedFile>> | undefined;
+  const previousBytes = g.bytes;
   try {
     o.signal.throwIfAborted();
     source = await confinedFile(f.roots[c.root], c.name);
@@ -127,7 +128,8 @@ export async function header(
     omit(db, g, c, source ? "source-changed" : "missing-source");
   } finally {
     if (source) await source.file.close();
-    db.prepare("UPDATE import_generations SET bytes=? WHERE id=?").run(g.bytes, g.id);
+    if (g.bytes !== previousBytes)
+      db.prepare("UPDATE import_generations SET bytes=? WHERE id=?").run(g.bytes, g.id);
   }
 }
 type Entry = { parent_entry: string | null; event_id: string | null };
