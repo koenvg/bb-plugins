@@ -11,6 +11,7 @@ import { PiSessionInputs } from "./session-inputs.js";
 import { spawnPiSessionChild } from "./session-launch.js";
 import { createInspectionChannel } from "./subagents/inspection-channel.js";
 import { type CaptureTarget } from "./subagents/capture.js";
+import { createSessionModelReader } from "./subagents/session-model.js";
 
 export interface PiRpcSessionOptions {
   cwd: string;
@@ -21,6 +22,7 @@ export interface PiRpcSessionOptions {
   shellEnvOverrides?: Record<string, string>;
   dynamicTools?: readonly DynamicToolDefinition[];
   sessionFilePath: string;
+  generation?: number;
   sessionDir: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
@@ -29,7 +31,7 @@ export interface PiRpcSessionOptions {
   recordThreadId: string;
   noSession?: boolean;
   onExtensionUiRequest?: (request: Record<string, unknown>) => void;
-  onSubagentHint?: () => void;
+  onSubagentHint?: (readyRunId?: string) => void;
   onProcessExit?: () => void;
 }
 
@@ -106,6 +108,8 @@ export interface PiRpcSessionState {
 
 export class PiRpcSession {
   private child: PiRpcChild | undefined;
+  private modelChild: PiRpcChild | undefined;
+  private readonly sessionModels: ReturnType<typeof createSessionModelReader>;
   private isProcessing = false;
   private processingGeneration = 0;
   private isCompacting = false;
@@ -135,7 +139,8 @@ export class PiRpcSession {
   private readonly inspections = createInspectionChannel({
     context: () => this.channelRequest({ method: "subagent-inspection-context" }, 1500),
     command: (message) => this.requireChild().requestOk({ type: "prompt", message }, 2500),
-    current: () => !this.closed && !!this.child,
+    current: () => !this.closed && !!this.child && !this.child.exited,
+    epoch: () => this.child,
   });
 
   constructor(
@@ -145,6 +150,17 @@ export class PiRpcSession {
     private readonly onDone: PiSessionDoneHandler,
   ) {
     this.serviceTier = options.serviceTier ?? "default";
+    this.sessionModels = createSessionModelReader({
+      parentFile: options.sessionFilePath,
+      env: process.env,
+      generation: options.generation ?? -1,
+      current: () =>
+        !this.closed &&
+        !!this.modelChild &&
+        this.child === this.modelChild &&
+        !this.modelChild.exited,
+      context: () => this.channelRequest({ method: "subagent-inspection-context" }, 250),
+    });
   }
 
   getIsCompacting(): boolean {
@@ -154,8 +170,25 @@ export class PiRpcSession {
   readSubagentStatus(): Promise<unknown> {
     return this.channelRequest({ method: "subagent-status" }, 3000);
   }
-  inspectSubagent(target: CaptureTarget, requestId: string): Promise<unknown> {
-    return this.inspections.inspect(target, requestId);
+  subagentCurrent(target: CaptureTarget): boolean {
+    return (
+      !this.closed &&
+      !!this.child &&
+      !this.child.exited &&
+      target.sessionFile === this.options.sessionFilePath &&
+      (this.options.generation === undefined || target.generation === this.options.generation)
+    );
+  }
+  async inspectSubagent(target: CaptureTarget, requestId: string): Promise<unknown> {
+    const child = this.child;
+    if (!this.subagentCurrent(target)) throw new Error("Inspection session replaced");
+    const result = await this.inspections.inspect(target, requestId);
+    if (child !== this.child || !this.subagentCurrent(target))
+      throw new Error("Inspection session replaced");
+    return result;
+  }
+  resolveSubagentModel(target: CaptureTarget, signal: AbortSignal) {
+    return this.sessionModels.resolve(target, signal);
   }
 
   respondToExtensionUi(id: string | number, fields: Record<string, unknown>): void {
@@ -232,6 +265,7 @@ export class PiRpcSession {
         ),
       };
     }
+    this.modelChild ??= child;
     return { ok: true };
   }
 
@@ -397,6 +431,7 @@ export class PiRpcSession {
 
   async closeGracefully(timeoutMs: number): Promise<string | undefined> {
     this.inspections.dispose();
+    this.sessionModels.dispose();
     const child = this.child;
     this.inputs.rejectPending("Pi session closed before input was consumed");
     this.closed = true;
@@ -417,6 +452,7 @@ export class PiRpcSession {
   kill(): void {
     this.closed = true;
     this.inspections.dispose();
+    this.sessionModels.dispose();
     this.child?.kill();
   }
 
@@ -595,6 +631,10 @@ export class PiRpcSession {
   private handleChannelMessage(message: Record<string, unknown>): void {
     if (message.kind === "subagent-hint") {
       this.options.onSubagentHint?.();
+      void this.sessionModels.observe(message.evidence).then((readyRunId) => {
+        if (readyRunId && !this.closed && this.child === this.modelChild && !this.child?.exited)
+          this.options.onSubagentHint?.(readyRunId);
+      });
       return;
     }
     const child = this.child;
@@ -643,6 +683,7 @@ export class PiRpcSession {
 
   private handleExit(info: PiRpcChildExitInfo): void {
     this.inspections.dispose();
+    this.sessionModels.dispose();
     this.options.onProcessExit?.();
     this.channel.dispose(new PiRpcChildExitedError(info));
     this.inputs.rejectPending("Pi exited before input was consumed");

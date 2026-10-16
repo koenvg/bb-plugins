@@ -39,7 +39,7 @@ it("builds and loads the public provider artifacts without development dependenc
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
       return result.stdout;
     };
-    expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe("0.46.0");
+    expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe("0.46.1");
     run("bun", [
       "install",
       "--frozen-lockfile",
@@ -66,8 +66,8 @@ it("builds and loads the public provider artifacts without development dependenc
         pluginId: "pi-subagents-provider",
         pluginVersion: "0.1.0",
         artifactFormatVersion: 1,
-        sdkVersion: "0.6.37",
-        builtWith: { bbVersion: "0.46.0", pluginSdkVersion: "0.6.37" },
+        sdkVersion: "0.6.49",
+        builtWith: { bbVersion: "0.46.1", pluginSdkVersion: "0.6.49" },
       });
     }
     const output = run(process.execPath, [

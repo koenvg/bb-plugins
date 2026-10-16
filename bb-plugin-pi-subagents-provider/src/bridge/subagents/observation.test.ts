@@ -546,3 +546,45 @@ describe("native single-run observation", () => {
     observation.dispose("release");
   });
 });
+
+it("recaptures an unchanged terminal exact run once when its file route becomes ready", async () => {
+  vi.useFakeTimers();
+  try {
+    const view = createViewStore(() => {});
+    const inspect = vi.fn(async (target: CaptureTarget, requestId: string) => ({
+      kind: "pi-subagents.inspect-reply",
+      version: 1,
+      requestId,
+      asyncId: target.asyncId,
+      finalOutput: "answer",
+    }));
+    const resolveModel = vi.fn(async () => undefined);
+    const observation = createSubagentObservation({
+      sessionFile,
+      generation: 1,
+      reconcile: async () => receipt([root("complete")]),
+      emit() {},
+      view,
+      inspect,
+      resolveModel,
+    });
+    await observation.refresh();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(inspect).toHaveBeenCalledTimes(1);
+    expect(view.snapshot().rows[0]!.capture).toMatchObject({
+      status: "captured",
+      finalOutput: "answer",
+    });
+    observation.hint("run-1");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(inspect).toHaveBeenCalledTimes(2);
+    await observation.refresh();
+    observation.hint();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(inspect).toHaveBeenCalledTimes(2);
+    expect(inspect.mock.calls.every(([target]) => target.asyncId === "run-1")).toBe(true);
+    observation.dispose("release");
+  } finally {
+    vi.useRealTimers();
+  }
+});

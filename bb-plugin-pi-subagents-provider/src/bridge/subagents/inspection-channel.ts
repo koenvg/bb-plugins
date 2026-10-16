@@ -5,6 +5,7 @@ export function createInspectionChannel(options: {
   context(): Promise<unknown>;
   command(message: string): Promise<unknown>;
   current(): boolean;
+  epoch?(): unknown;
 }) {
   let closed = false;
   let active = false;
@@ -28,7 +29,9 @@ export function createInspectionChannel(options: {
   }
   return {
     async inspect(target: CaptureTarget, requestId: string): Promise<unknown> {
-      if (closed || active || !options.current()) throw new Error("Inspection session unavailable");
+      const epoch = options.epoch?.();
+      const current = () => options.current() && options.epoch?.() === epoch;
+      if (closed || active || !current()) throw new Error("Inspection session unavailable");
       active = true;
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -41,7 +44,7 @@ export function createInspectionChannel(options: {
           throw new Error("Invalid inspection identity");
         if (!contextMatches(await options.context(), target))
           throw new Error("Inspection command capability unavailable or foreign session");
-        if (closed || !options.current()) throw new Error("Inspection session replaced");
+        if (closed || !current()) throw new Error("Inspection session replaced");
         const reply = new Promise<unknown>((resolve, reject) => {
           pending = { requestId, resolve, reject };
           timer = setTimeout(() => reject(new Error("Inspection widget timed out")), 2500);
@@ -54,8 +57,9 @@ export function createInspectionChannel(options: {
         if ((response as { disposition?: unknown })?.disposition !== "handled")
           throw new Error("Inspection command was not confirmed handled");
         const value = await reply;
-        if (closed || !options.current() || !contextMatches(await options.context(), target))
+        if (closed || !current() || !contextMatches(await options.context(), target))
           throw new Error("Inspection session replaced during capture");
+        if (closed || !current()) throw new Error("Inspection session replaced during capture");
         return value;
       } finally {
         clearTimeout(timer);

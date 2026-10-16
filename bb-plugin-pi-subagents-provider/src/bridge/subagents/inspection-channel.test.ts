@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import { createInspectionChannel, INSPECTION_PREFIX } from "./inspection-channel.js";
 const target = {
   id: "row",
+  kind: "subagent" as const,
   asyncId: "owned-run",
   sessionId: "pi",
   sessionFile: "/owned/session",
@@ -98,4 +99,21 @@ it("bounds timeout and concurrent preflights, and cancels an awaiting widget on 
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("does not dispatch a private command after a child epoch changes during context lookup", async () => {
+  let epoch = {};
+  const command = vi.fn();
+  const channel = createInspectionChannel({
+    current: () => true,
+    epoch: () => epoch,
+    context: async () => {
+      epoch = {};
+      return context;
+    },
+    command,
+  });
+  await expect(channel.inspect(target, "req")).rejects.toThrow("replaced");
+  expect(command).not.toHaveBeenCalled();
+  channel.dispose();
 });

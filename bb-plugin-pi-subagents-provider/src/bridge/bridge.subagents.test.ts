@@ -6,7 +6,7 @@ import {
   FULL_PERMISSION_OPTIONS,
   type FakePiBridgeHarness,
 } from "./test-support.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseViewState,
@@ -28,6 +28,9 @@ async function start(hold = false) {
     prefix: "bb-pi-subagent-",
     initialize: true,
     processLog: true,
+    ...(process.env.FAKE_PI_SESSION_MODEL === "1"
+      ? { sessionDir: (path: string) => join(realpathSync(path), "sessions") }
+      : {}),
   });
   const response = await harness.startThread("thr_owned");
   const providerThreadId = (response.result as { providerThreadId: string }).providerThreadId;
@@ -272,3 +275,42 @@ it.each(["FAKE_PI_INSPECTION_MISSING", "FAKE_PI_INSPECTION_UNSUPPORTED"])(
   },
   15000,
 );
+
+it("enriches an already-captured terminal child through the scripted Pi channel without another parent turn", async () => {
+  vi.stubEnv("FAKE_PI_SESSION_MODEL", "1");
+  const { harness: h } = await start();
+  const rowFrom = (d: Record<string, unknown>) =>
+    d.kind === "extension.state" && d.extensionKind === VIEW_EXTENSION_KIND
+      ? parseViewState(d.payload)?.rows.find(
+          (r) => r.runId === "11111111-1111-4111-8111-111111111111",
+        )
+      : undefined;
+  await h.waitForDelta(
+    "thr_owned",
+    (d) =>
+      rowFrom(d)?.state === "complete" &&
+      rowFrom(d)?.capture?.finalOutput === "Owned final answer" &&
+      !rowFrom(d)?.capture?.resolvedModel,
+  );
+  await h.waitForDelta(
+    "thr_owned",
+    (d) => rowFrom(d)?.capture?.resolvedModel?.model === "scripted-child-actual",
+  );
+  const captured = h
+    .deltasOf("thr_owned")
+    .map(rowFrom)
+    .filter((r) => r?.capture?.resolvedModel)
+    .at(-1)!;
+  expect(captured.capture).toMatchObject({
+    status: "captured",
+    finalOutput: "Owned final answer",
+    resolvedModel: {
+      provider: "scripted-child-provider",
+      model: "scripted-child-actual",
+      capturedAt: expect.any(Number),
+    },
+  });
+  expect(assembled(h).events.filter((e) => e.type === "turn/started")).toHaveLength(1);
+  expect(assembled(h).items.filter((i) => i.status === "completed")).toHaveLength(1);
+  expect(h.readProcessLog().spawned).toHaveLength(1);
+}, 15000);

@@ -38,7 +38,22 @@ function installSubagentStatusChannel(pi, getContext, hint) {
   }
   if (pi.events?.on) {
     for (const event of ["subagents:rpc:v1:ready", "subagent:async-started", "subagent:async-complete", "subagent:child-status", "subagent:process-terminal"]) {
-      const unsubscribe = pi.events.on(event, () => { if (!closed) hint(); });
+      const unsubscribe = pi.events.on(event, (raw) => {
+        if (closed) return;
+        if (event !== "subagent:async-started" && event !== "subagent:async-complete") return hint();
+        const text = (v) => typeof v === "string" && v.length <= 4096 ? v : undefined;
+        const unsupported = (v) => !v || typeof v !== "object" || ["parentWorkflowRunId", "workflowKey", "workflowGraph", "nestedSelf", "isNested", "nestedChildren", "runner", "externalProcess", "externalJob", "machine", "placement", "revivalLease", "revivalLeaseToken", "children", "error", "interrupted", "timedOut", "stopped", "skipped", "processSignal"].some((key) => v[key] !== undefined && v[key] !== false && v[key] !== null);
+        const route = raw?.nestedRoute;
+        const routeValid = route !== null && typeof route === "object" && !Array.isArray(route) && ["rootRunId", "eventSink", "controlInbox", "capabilityToken"].every((key) => typeof route[key] === "string" && route[key].length > 0 && route[key].length <= 4096);
+        const child = Array.isArray(raw?.results) && raw.results.length === 1 ? raw.results[0] : undefined;
+        const evidence = { ...session(), event, id: text(event === "subagent:async-started" ? raw?.id : raw?.runId), owner: text(raw?.sessionId), mode: text(raw?.mode), unsupported: unsupported(raw) || (route !== undefined && !routeValid) || (event === "subagent:async-complete" && (unsupported(child) || child?.nestedRoute !== undefined)), sessionRoot: text(raw?.sessionRoot), routeRootId: routeValid ? text(route.rootRunId) : undefined };
+        if (event === "subagent:async-complete") Object.assign(evidence, {
+          success: raw?.success === true, state: text(raw?.state), timestamp: Number.isSafeInteger(raw?.timestamp) ? raw.timestamp : undefined, durationMs: Number.isSafeInteger(raw?.durationMs) ? raw.durationMs : undefined,
+          count: Array.isArray(raw?.results) ? raw.results.length : undefined,
+          child: child ? { index: child.index === 0 ? 0 : undefined, context: text(child.context), success: child.success === true, sessionFile: text(child.sessionFile), sessionPath: text(child.sessionPath) } : undefined,
+        });
+        hint(evidence);
+      });
       if (typeof unsubscribe === "function") unsubscribes.push(unsubscribe);
     }
   }

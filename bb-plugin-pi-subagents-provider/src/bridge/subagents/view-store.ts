@@ -25,6 +25,7 @@ export interface ViewAssessment {
 interface ViewObservationOptions extends Partial<ViewAssessment> {
   settledRoots?: ReadonlySet<string>;
   foreground?: readonly { details: unknown; final: boolean }[];
+  recaptureRuns?: ReadonlySet<string>;
 }
 const terminal = (state: string) => !["running", "queued", "unknown", "detached"].includes(state);
 export function createViewStore(publish: (state: ViewState) => void, now = Date.now) {
@@ -148,12 +149,16 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
         const changed = put(row);
         if (
           owningRun &&
-          (changed || (parentId === undefined && options.settledRoots?.has(node.id)))
+          (changed ||
+            (options.recaptureRuns?.has(owningRun) &&
+              (node.kind === "subagent" || (node.kind === "step" && node.id === "step:0"))) ||
+            (parentId === undefined && options.settledRoots?.has(node.id)))
         )
           targets.push({
             ...owner,
             id,
             asyncId: owningRun,
+            kind: node.kind,
             childId: canonical ? undefined : node.id,
             terminal: terminal(node.state),
           });
@@ -175,6 +180,20 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
       availability = assessment.availability;
       reason = assessment.reason;
       putForeground(owner, details, final);
+      emit();
+    },
+    captureIfCurrent(target: CaptureTarget, capture: Capture) {
+      const row = rows.get(target.id);
+      if (
+        !row ||
+        row.generation !== target.generation ||
+        row.sessionId !== target.sessionId ||
+        row.kind !== target.kind ||
+        row.runId !== (target.childId ?? target.asyncId) ||
+        (target.childId !== undefined && rows.get(row.parentId ?? "")?.runId !== target.asyncId)
+      )
+        return;
+      row.capture = retainCapture(capture, row.capture);
       emit();
     },
     capture(id: string, capture: Capture) {

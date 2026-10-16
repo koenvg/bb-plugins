@@ -4,6 +4,7 @@ import { boundedValue, type Capture } from "../../subagents-contract.js";
 
 export interface CaptureTarget {
   id: string;
+  kind: "subagent" | "workflow" | "step" | "host-step";
   asyncId: string;
   childId?: string;
   sessionId: string;
@@ -83,7 +84,9 @@ export function normalizeCapture(
 }
 export function createCaptureQueue(options: {
   inspect(target: CaptureTarget, requestId: string): Promise<unknown>;
-  accept(id: string, capture: Capture): void;
+  resolveModel?(target: CaptureTarget, signal: AbortSignal): Promise<Capture["resolvedModel"]>;
+  current?(target: CaptureTarget): boolean;
+  accept(id: string, capture: Capture, target: CaptureTarget): void;
   now?: () => number;
   rateMs?: number;
   timeoutMs?: number;
@@ -106,6 +109,8 @@ export function createCaptureQueue(options: {
   let disposed = false;
   let inFlight: Promise<void> | undefined;
   const waiting = new Set<() => void>();
+  let activeAbort: AbortController | undefined;
+  const current = (target: CaptureTarget) => !disposed && options.current?.(target) !== false;
   async function run() {
     while (!disposed && queue.size) {
       const remaining = nextReadAt - now();
@@ -114,6 +119,10 @@ export function createCaptureQueue(options: {
       nextReadAt = now() + (options.rateMs ?? 750);
       const target = [...queue.values()].find((t) => t.terminal) ?? queue.values().next().value!;
       queue.delete(target.id);
+      if (!current(target)) continue;
+      const startedAt = performance.now();
+      const controller = new AbortController();
+      activeAbort = controller;
       const requestId = randomUUID();
       let timeout: ReturnType<typeof setTimeout> | undefined;
       let capture: Capture;
@@ -129,6 +138,39 @@ export function createCaptureQueue(options: {
           }),
         ]);
         capture = normalizeCapture(raw, target, requestId, now());
+        if (capture.status === "captured" && options.resolveModel && current(target)) {
+          const budget = Math.min(
+            250,
+            (options.timeoutMs ?? 5000) - (performance.now() - startedAt),
+          );
+          if (budget > 0) {
+            const optionalDeadline = performance.now() + budget;
+            let optionalTimer: ReturnType<typeof setTimeout> | undefined;
+            try {
+              const model = await Promise.race([
+                options.resolveModel(target, controller.signal),
+                new Promise<undefined>((resolve) => {
+                  optionalTimer = setTimeout(() => {
+                    controller.abort();
+                    resolve(undefined);
+                  }, budget);
+                  optionalTimer.unref?.();
+                }),
+              ]);
+              if (
+                model &&
+                current(target) &&
+                !controller.signal.aborted &&
+                performance.now() <= optionalDeadline
+              )
+                capture = { ...capture, resolvedModel: model };
+            } catch {
+              /* Optional evidence cannot discard a normalized inspection. */
+            } finally {
+              clearTimeout(optionalTimer);
+            }
+          }
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Inspection unavailable";
         capture = {
@@ -142,38 +184,52 @@ export function createCaptureQueue(options: {
         };
       } finally {
         clearTimeout(timeout);
+        controller.abort();
+        activeAbort = undefined;
       }
       if (disposed) break;
-      options.accept(target.id, capture);
+      if (current(target)) options.accept(target.id, capture, target);
     }
   }
   return {
     enqueue(target: CaptureTarget) {
-      if (disposed) return;
+      if (!current(target)) return;
       if (queue.size >= 8 && !queue.has(target.id)) {
         if (!target.terminal) {
-          options.accept(target.id, {
-            status: "not-captured",
-            capturedAt: now(),
-            reason: "Inspection queue limit reached",
-          });
+          options.accept(
+            target.id,
+            {
+              status: "not-captured",
+              capturedAt: now(),
+              reason: "Inspection queue limit reached",
+            },
+            target,
+          );
           return;
         }
         const optional = [...queue.values()].find((t) => !t.terminal);
         if (!optional) {
-          options.accept(target.id, {
-            status: "not-captured",
-            capturedAt: now(),
-            reason: "Inspection queue limit reached",
-          });
+          options.accept(
+            target.id,
+            {
+              status: "not-captured",
+              capturedAt: now(),
+              reason: "Inspection queue limit reached",
+            },
+            target,
+          );
           return;
         }
         queue.delete(optional.id);
-        options.accept(optional.id, {
-          status: "not-captured",
-          capturedAt: now(),
-          reason: "Terminal inspection took priority",
-        });
+        options.accept(
+          optional.id,
+          {
+            status: "not-captured",
+            capturedAt: now(),
+            reason: "Terminal inspection took priority",
+          },
+          optional,
+        );
       }
       queue.set(target.id, target);
       if (!inFlight) {
@@ -189,6 +245,7 @@ export function createCaptureQueue(options: {
     },
     dispose() {
       disposed = true;
+      activeAbort?.abort();
       queue.clear();
       for (const finish of waiting) finish();
     },

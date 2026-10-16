@@ -2,7 +2,7 @@
 
 This package imports `get-bb/bb`'s committed `plugins/provider-pi` tree at the exact revision in [UPSTREAM.json](UPSTREAM.json). The tracked branch is `main`. The source came from GitHub's commit archive, not a local checkout. Before adaptation, a recursive comparison found no differences in the provider tree. Only the copied root MIT [LICENSE](LICENSE) was additional. No uncommitted upstream changes were imported.
 
-The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0.84.0. The initial standalone package pinned SDK 0.5.29 and build CLI 0.44.0. The current package pins SDK 0.6.37 and build CLI 0.46.0; see [compatibility and runtime packaging](COMPATIBILITY.md). The lockfile records npm package integrity. These are deliberate pins, not an automatic update policy.
+The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0.84.0. The initial standalone package pinned SDK 0.5.29 and build CLI 0.44.0. The current package pins SDK 0.6.49 and build CLI 0.46.1; see [compatibility and runtime packaging](COMPATIBILITY.md). The lockfile records npm package integrity. These are deliberate pins, not an automatic update policy.
 
 ## Local adaptations
 

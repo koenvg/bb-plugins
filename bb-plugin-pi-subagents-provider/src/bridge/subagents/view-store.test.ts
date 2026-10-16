@@ -171,3 +171,39 @@ it("preserves foreground enrichment when newer detail lacks it, and isolates ses
     v.snapshot().rows.find((r) => r.sessionId === "other")!.capture!.resolvedModel,
   ).toBeUndefined();
 });
+
+it("rejects late captures for the same row ID in a newer generation and retains original model times", () => {
+  const view = createViewStore(
+    () => {},
+    () => 20,
+  );
+  const node = {
+    id: "run",
+    kind: "subagent" as const,
+    label: "reader",
+    state: "complete" as const,
+  };
+  const old = view.background(owner, [node], false)[0]!;
+  view.background({ ...owner, generation: 2 }, [node], false);
+  view.captureIfCurrent(old, {
+    status: "captured",
+    capturedAt: 1,
+    resolvedModel: { provider: "old", model: "old", capturedAt: 1 },
+  });
+  expect(view.snapshot().rows[0]!.capture).toBeUndefined();
+  const target = { ...old, generation: 2 };
+  const model = { provider: "new", model: "new", capturedAt: 8 };
+  view.captureIfCurrent(target, {
+    status: "captured",
+    capturedAt: 10,
+    resolvedModel: model,
+    finalOutput: "answer",
+  });
+  view.captureIfCurrent(target, { status: "timeout", capturedAt: 20 });
+  expect(view.snapshot().rows[0]!.capture).toMatchObject({
+    resolvedModel: model,
+    capturedAt: 10,
+    attemptedAt: 20,
+    finalOutput: "answer",
+  });
+});

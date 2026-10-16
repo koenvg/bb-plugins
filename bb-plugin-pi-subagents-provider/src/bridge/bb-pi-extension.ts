@@ -221,8 +221,8 @@ export default function bbExtension(pi) {
   let sessionContext = null;
   let detachBridgeChannel = () => {};
   let speed = null;
-  const readSubagentStatus = installSubagentStatusChannel(pi, () => sessionContext, () => {
-    writeLine(CHILD_TO_BRIDGE_FD, { kind: "subagent-hint" });
+  const readSubagentStatus = installSubagentStatusChannel(pi, () => sessionContext, (evidence) => {
+    writeLine(CHILD_TO_BRIDGE_FD, { kind: "subagent-hint", evidence });
   });
 
   const onBridgeLine = (line) => {

@@ -16,7 +16,7 @@ bun run typecheck
 bun run build
 ```
 
-`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.46.0` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.37, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0460).
+`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.46.1` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.49, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0460).
 
 Also run the read-only `bb plugin types . --check` and retain its actual exit code and complete output. The normal current-host gate must pass before building. When updating BB compatibility, synchronize the canonical SDK with `bb plugin types`, update the runtime alias to the same exact version, and rerun all checks. The historical BB 0.44.0 / SDK 0.5.29 exception does not apply. Local checks do not authorize installation or paid tests.
 
@@ -49,8 +49,10 @@ The final-output button scrolls to and focuses captured output. It is disabled w
 Selecting the same run or receiving a metadata-only refresh preserves reading position and open tools.
 
 Each run shows execution state, known total duration or elapsed time at observation, and the captured child model/provider when supported.
-Model values come only from attributed foreground assistant records. Background, workflow-container, and old captures without evidence show Model unavailable.
+Model values come from attributed foreground assistant records or the restricted completion-time session reader described in [capture limits](SUBAGENTS.md#restricted-background-model-evidence). Workflow containers, old captures without evidence, and unsupported background cases show Model unavailable.
 These values are captured observations, not a live model feed or clock.
+
+The temporary BBP-225 reader for upstream issue #2922 covers only successful direct fresh local single async children observed in the current Pi process generation. It requires distinct executor/run UUIDs, a pre-completion absence probe, and exact indexed completion paths under the host bridge root. Reads are bounded to one 512 KiB session and at most 250 ms within the existing capture deadline. There is no historical backfill. Workflow, nested, external/remote, fork, revival, reused-file, missed-event, unsafe-path, and unsupported-file cases remain unavailable. Source fixtures do not prove installed acceptance or live coverage.
 
 Expand Capture details inside the conversation for observation, capture, model-capture, and failed-attempt times, full IDs, missing-model/task/transcript notices, activity, omissions, and clipped-text notices.
 Capture failures retain accepted results and do not change the execution outcome.
