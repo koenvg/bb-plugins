@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { reportsSchema } from "./machines-contract.js";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../plugin/server.js";
 import { createReportCache } from "./report-cache.js";
@@ -169,4 +170,40 @@ it("merges model IDs across machines while retaining an older report remainder",
     otherTokens: 100,
     otherSpeedTokens: { normal: 100, fast: 0, ultrafast: 0 },
   });
+});
+
+it("exposes a strict saved-only report RPC without host dispatch", async () => {
+  const call = vi.fn(async ({ input }: { input: unknown }) =>
+    recordedFixture(input as CalendarQuery, Date.now()),
+  );
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "codex-quota",
+    sdk: {
+      hosts: {
+        list: async () => [
+          makeHostResponse({ id: "host_one", status: "connected" }),
+          makeHostResponse({ id: "host_two", status: "connected" }),
+        ],
+        get: async ({ hostId }) => makeHostResponse({ id: hostId, status: "connected" }),
+      },
+    },
+    experimental_callHostRpc: call,
+  });
+  await plugin(bb);
+  const q = { ...query, startDate: latestStart(Date.now(), "UTC") };
+  try {
+    await harness.behavior.callRpc("machineReports", { query: q, prepare: false, refresh: false });
+    call.mockClear();
+    const saved = await harness.behavior.callRpc("machineReportSnapshot", { query: q });
+    expect(combineReports(reportsSchema.parse(saved), q)?.summary).toMatchObject({
+      totalTokens: 1200,
+      capturedCost: 6,
+    });
+    expect(call.mock.calls).toEqual([]);
+    await expect(
+      harness.behavior.callRpc("machineReportSnapshot", { query: q, prepare: true }),
+    ).rejects.toThrow();
+  } finally {
+    await harness.lifecycle.dispose();
+  }
 });

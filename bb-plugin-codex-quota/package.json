@@ -38,7 +38,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.6.37",
+    "@get-bb/plugin-sdk": "0.6.49",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@pierre/diffs": "^1.2.9",
     "@playwright/test": "1.64.0",

@@ -5,8 +5,10 @@ import { abortable } from "../activity/activity-cancellation.js";
 import { emptyActivity } from "../activity/activity-contract.js";
 import {
   calendarReportSchema,
+  calendarQuerySchema,
   calendarUnavailable,
   type CalendarQuery,
+  type CalendarReport,
 } from "../history/calendar/calendar-contract.js";
 import {
   preparationSchema,
@@ -49,6 +51,14 @@ export function createMachineCoordinator(deps: Dependencies) {
   const aliases = new Map<string, string>();
   const labels = new Map<string, string>();
   const revisions = new Map<string, number>();
+  const mutations = new Map<string, number>();
+  const blocked = new Set<string>();
+  const revisionOf = (id: string) => revisions.get(id) ?? 0;
+  const usable = (id: string, revision: number) =>
+    !lifetime.signal.aborted &&
+    revisionOf(id) === revision &&
+    !mutations.has(id) &&
+    !blocked.has(id);
   const verified = (id: string, deadline?: AbortSignal) => {
     const signal = AbortSignal.any([
       lifetime.signal,
@@ -82,7 +92,7 @@ export function createMachineCoordinator(deps: Dependencies) {
     if (!labels.has(proof)) labels.set(proof, `account-${randomUUID()}`);
     return labels.get(proof)!;
   };
-  const catalog = async () => {
+  const catalog = async (savedOnly = false) => {
     lifetime.signal.throwIfAborted();
     const all = await abortable(
       deps.list(),
@@ -92,21 +102,26 @@ export function createMachineCoordinator(deps: Dependencies) {
     if (!all) throw new Error("Machine catalog unavailable");
     lifetime.signal.throwIfAborted();
     const machines = all.slice(0, MAX_MACHINES);
+    let persistence = true;
     // Removed enrollment must not survive in the summary cache or account associations.
     if (all.length <= MAX_MACHINES) {
       const ids = new Set(machines.map((machine) => machine.id));
-      await cache.pruneMachines(ids).catch(() => undefined);
-      for (const id of aliases.keys()) if (!ids.has(id)) aliases.delete(id);
-      try {
-        for (const key of await deps.storage.list(aliasPrefix)) {
-          if (key !== aliasPrefix + "challenge" && !ids.has(key.slice(aliasPrefix.length)))
-            await deps.storage.delete(key);
+      await cache.pruneMachines(ids).catch(() => {
+        persistence = false;
+      });
+      if (!savedOnly) {
+        for (const id of aliases.keys()) if (!ids.has(id)) aliases.delete(id);
+        try {
+          for (const key of await deps.storage.list(aliasPrefix)) {
+            if (key !== aliasPrefix + "challenge" && !ids.has(key.slice(aliasPrefix.length)))
+              await deps.storage.delete(key);
+          }
+        } catch {
+          /* Reads remain usable; report persistence is checked separately. */
         }
-      } catch {
-        /* Reads remain usable; report persistence is checked separately. */
       }
     }
-    return { machines, truncated: all.length > MAX_MACHINES };
+    return { machines, truncated: all.length > MAX_MACHINES, persistence };
   };
   async function onMachine<T>(
     machine: Machine,
@@ -156,19 +171,72 @@ export function createMachineCoordinator(deps: Dependencies) {
     return results;
   }
   const invalidate = async (hostId: string) => {
-    revisions.set(hostId, (revisions.get(hostId) ?? 0) + 1);
+    revisions.set(hostId, revisionOf(hostId) + 1);
+    blocked.add(hostId);
     await cache.remove(hostId);
+    blocked.delete(hostId);
   };
   return {
     dispose: () => lifetime.abort(),
     invalidate,
     async mutate<T>(hostId: string, work: () => Promise<T>): Promise<T> {
-      await invalidate(hostId);
+      mutations.set(hostId, (mutations.get(hostId) ?? 0) + 1);
       try {
-        return await work();
-      } finally {
         await invalidate(hostId);
+        try {
+          return await work();
+        } finally {
+          await invalidate(hostId);
+        }
+      } finally {
+        const remaining = mutations.get(hostId)! - 1;
+        if (remaining) mutations.set(hostId, remaining);
+        else mutations.delete(hostId);
       }
+    },
+    async lastKnown(query: CalendarQuery): Promise<MachineReports> {
+      const before = new Map(revisions);
+      const { machines, truncated, persistence: retained } = await catalog(true);
+      let persistence = retained;
+      const rows = await batch(machines, async (machine) => {
+        const revision = before.get(machine.id) ?? 0;
+        let report: CalendarReport = calendarUnavailable("host-offline");
+        let cached = false;
+        if (blocked.has(machine.id)) persistence = false;
+        if (usable(machine.id, revision)) {
+          try {
+            const previous = await cache.read(machine.id, query);
+            if (previous) {
+              report = previous;
+              cached = true;
+            }
+          } catch {
+            persistence = false;
+          }
+        }
+        const current = await verified(machine.id);
+        if (blocked.has(machine.id)) persistence = false;
+        if (!usable(machine.id, revision)) {
+          report = calendarUnavailable("selection-changed");
+          cached = false;
+        }
+        return current
+          ? { machine: current, report, cached, preparation: preparationUnavailable("unsupported") }
+          : null;
+      });
+      for (const row of rows) {
+        if (!row) continue;
+        if (blocked.has(row.machine.id)) persistence = false;
+        if (!usable(row.machine.id, before.get(row.machine.id) ?? 0)) {
+          row.report = calendarUnavailable("selection-changed");
+          row.cached = false;
+        }
+      }
+      return {
+        machines: rows.filter((row) => row !== null),
+        truncated: truncated || rows.some((row) => !row),
+        cache: persistence ? "saved" : "unavailable",
+      };
     },
     async preparation(refresh: boolean) {
       const { machines } = await catalog();
@@ -278,8 +346,11 @@ export function createMachineCoordinator(deps: Dependencies) {
       const { machines, truncated } = await catalog();
       let persistence = true;
       const deadline = AbortSignal.timeout(25_000);
+      const reportRevisions = new Map<string, number>();
       const rows = await batch(machines, async (machine) => {
-        const revision = revisions.get(machine.id) ?? 0;
+        let revision = revisionOf(machine.id);
+        if (blocked.has(machine.id)) persistence = false;
+        const admit = () => usable(machine.id, revision);
         const preparation = input.prepare
           ? ((await onMachine(
               machine,
@@ -297,23 +368,29 @@ export function createMachineCoordinator(deps: Dependencies) {
           )) ??
           calendarUnavailable(machine.status === "connected" ? "unsupported" : "host-offline");
         let cached = false;
-        if ((revisions.get(machine.id) ?? 0) !== revision)
-          report = calendarUnavailable("selection-changed");
+        if (!admit()) report = calendarUnavailable("selection-changed");
         else if (report.state !== "unavailable") {
-          if (JSON.stringify(report.query) !== JSON.stringify(input.query))
+          if (
+            JSON.stringify(report.query) !== JSON.stringify(calendarQuerySchema.parse(input.query))
+          )
             report = calendarUnavailable("unsupported");
           else
-            await cache.save(machine.id, report).catch(() => {
+            await cache.save(machine.id, report, admit).catch(() => {
               persistence = false;
             });
-        } else if (["not-configured", "storage-incompatible"].includes(report.reason)) {
-          await cache.remove(machine.id).catch(() => {
+        } else if (
+          ["not-configured", "storage-incompatible", "range-unavailable"].includes(report.reason)
+        ) {
+          revision += 1;
+          revisions.set(machine.id, revision);
+          try {
+            if (report.reason === "range-unavailable")
+              await cache.removeQuery(machine.id, input.query, admit);
+            else await cache.remove(machine.id, admit);
+          } catch {
             persistence = false;
-          });
-        } else if (report.reason === "range-unavailable") {
-          await cache.removeQuery(machine.id, input.query).catch(() => {
-            persistence = false;
-          });
+            blocked.add(machine.id);
+          }
         } else {
           try {
             const previous = await cache.read(machine.id, input.query);
@@ -326,12 +403,29 @@ export function createMachineCoordinator(deps: Dependencies) {
           }
         }
         const current = await verified(machine.id, deadline);
-        if ((revisions.get(machine.id) ?? 0) !== revision) {
+        if (blocked.has(machine.id)) persistence = false;
+        if (
+          revisionOf(machine.id) !== revision ||
+          mutations.has(machine.id) ||
+          (blocked.has(machine.id) && report.state !== "unavailable")
+        ) {
           report = calendarUnavailable("selection-changed");
           cached = false;
         }
+        reportRevisions.set(machine.id, revision);
         return current ? { machine: current, preparation, report, cached } : null;
       });
+      for (const row of rows) {
+        if (!row) continue;
+        if (blocked.has(row.machine.id)) persistence = false;
+        if (
+          !usable(row.machine.id, reportRevisions.get(row.machine.id) ?? -1) &&
+          row.report.state !== "unavailable"
+        ) {
+          row.report = calendarUnavailable("selection-changed");
+          row.cached = false;
+        }
+      }
       return {
         machines: rows.filter((row) => row !== null),
         truncated: truncated || rows.some((row) => !row),

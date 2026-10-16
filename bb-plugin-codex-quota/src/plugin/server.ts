@@ -44,6 +44,10 @@ const selectionSchema = z
 export const rpcContract = defineRpcContract({
   machineAccounts: { input: accountsRequestSchema, output: accountsSchema },
   machineReports: { input: reportsRequestSchema, output: reportsSchema },
+  machineReportSnapshot: {
+    input: z.object({ query: calendarQuerySchema }).strict(),
+    output: reportsSchema,
+  },
   machinePreparation: {
     input: z.object({ refresh: z.boolean() }).strict(),
     output: preparationSchema,
@@ -153,6 +157,7 @@ export default function plugin(bb: BbPluginApi) {
     collectorMaintenance: (input) => maintenance.run(input),
     machineAccounts: (input) => machines.accounts(input),
     machineReports: (input) => machines.reports(input),
+    machineReportSnapshot: ({ query }) => machines.lastKnown(query),
     machinePreparation: ({ refresh }) => machines.preparation(refresh),
     selection: async () => session.selection(),
     selectHost: ({ hostId }) => session.select(hostId),
