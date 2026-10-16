@@ -702,13 +702,14 @@ async function buildSessionOptions(args: {
     scratchDir: requireScratchDir(),
     extensionPath: requireExtensionPath(),
     recordThreadId: args.threadId,
+    generation: args.sessionSerial,
     onExtensionUiRequest: createOnExtensionUiRequest({
       sessionSerial: args.sessionSerial,
       threadId: args.threadId,
     }),
-    onSubagentHint: () => {
+    onSubagentHint: (readyRunId) => {
       const current = getCurrentThreadSession(args);
-      if (current?.observationReady) current.observation.hint();
+      if (current?.observationReady) current.observation.hint(readyRunId);
     },
     onProcessExit: () => {
       const current = getCurrentThreadSession(args);
@@ -758,6 +759,10 @@ async function constructPiThreadSession(
       reconcile: () => session.readSubagentStatus(),
       view,
       inspect: (target, requestId) => session.inspectSubagent(target, requestId),
+      resolveModel: (target, signal) => session.resolveSubagentModel(target, signal),
+      current: (target) =>
+        getCurrentThreadSession({ threadId, sessionSerial })?.session === session &&
+        session.subagentCurrent(target),
       emit: (deltas) => sendThreadDeltas(threadId, deltas),
     }),
     observationReady: false,

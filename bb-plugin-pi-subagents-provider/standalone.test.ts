@@ -32,7 +32,7 @@ describe("standalone packaging", () => {
           !(
             (violation.file === "src/bridge/fake-pi-rpc.mjs" &&
               violation.reason === "dynamic-specifier" &&
-              violation.specifier === "pathToFileURL(loadPath") ||
+              violation.specifier === "pathToFileURL(loadPath).href") ||
             (violation.file === "src/bridge/codex-speed-source.test.ts" &&
               ((violation.reason === "outside-allowlist" &&
                 violation.specifier === "@koenvg/pi-openai-codex-speed") ||
@@ -45,10 +45,10 @@ describe("standalone packaging", () => {
   });
 
   it("keeps the provider SDK available when development packages are omitted", () => {
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.6.37");
+    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.6.49");
     expect(manifest.dependencies["@get-bb/plugin-sdk"]).toBeUndefined();
     expect(manifest.dependencies["@get-bb/plugin-sdk-runtime"]).toBe(
-      "npm:@get-bb/plugin-sdk@0.6.37",
+      "npm:@get-bb/plugin-sdk@0.6.49",
     );
     expect(manifest.bb.server).toBe("./server.ts");
     expect(manifest.bb.host).toBe("./src/host.ts");

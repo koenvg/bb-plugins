@@ -1,4 +1,6 @@
 import { EventEmitter } from "node:events";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 /** Owned, model-free fixture for the Pi 1.0.0 widget wire and pi-subagents 0.75.0 public RPC v1. */
 export function fakePackageRpc(session, sendWidget) {
@@ -12,6 +14,8 @@ export function fakePackageRpc(session, sendWidget) {
       bus.emit(name, value);
     },
   };
+  const modelFixture = process.env.FAKE_PI_SESSION_MODEL === "1";
+  const runId = modelFixture ? "11111111-1111-4111-8111-111111111111" : "owned-run-1";
   let runs = [];
   let started = false;
   const capabilities = {
@@ -90,7 +94,7 @@ export function fakePackageRpc(session, sendWidget) {
       const start = Date.now();
       runs = [
         {
-          id: "owned-run-1",
+          id: runId,
           kind: "subagent",
           label: "owned fake reviewer",
           state: "running",
@@ -99,7 +103,26 @@ export function fakePackageRpc(session, sendWidget) {
           activity: { currentTool: "read" },
         },
       ];
-      events.emit("subagent:async-started", { asyncId: "owned-run-1" });
+      const root =
+        session().sessionFile.replace(/\.jsonl$/, "") + "/22222222-2222-4222-8222-222222222222";
+      if (modelFixture) mkdirSync(root, { recursive: true, mode: 0o700 });
+      events.emit(
+        "subagent:async-started",
+        modelFixture
+          ? {
+              id: runId,
+              sessionId: session().sessionFile,
+              mode: "single",
+              sessionRoot: root,
+              nestedRoute: {
+                rootRunId: "22222222-2222-4222-8222-222222222222",
+                eventSink: "/owned-route/events",
+                controlInbox: "/owned-route/controls",
+                capabilityToken: "33333333-3333-4333-8333-333333333333",
+              },
+            }
+          : { asyncId: runId },
+      );
       sendWidget({
         type: "extension_ui_request",
         method: "setWidget",
@@ -110,8 +133,76 @@ export function fakePackageRpc(session, sendWidget) {
         setTimeout(
           () => {
             runs = [{ ...runs[0], state: "complete", endedAt: Date.now(), updatedAt: Date.now() }];
-            events.emit("subagent:async-complete", { asyncId: "owned-run-1" });
-            events.emit("subagent:async-complete", { asyncId: "owned-run-1" });
+            if (modelFixture) {
+              events.emit("subagent:child-status", {});
+              setTimeout(() => {
+                const file = join(root, "run-0", "session.jsonl");
+                mkdirSync(join(root, "run-0"), { mode: 0o700 });
+                const timestamp = new Date(start).toISOString();
+                const entries = [
+                  {
+                    type: "session",
+                    version: 3,
+                    id: "scripted-child",
+                    timestamp,
+                    cwd: root,
+                    parentSession: session().sessionFile,
+                  },
+                  {
+                    type: "message",
+                    id: "assistant",
+                    parentId: null,
+                    timestamp,
+                    message: {
+                      role: "assistant",
+                      content: [{ type: "text", text: "Owned fixture output" }],
+                      api: "fixture-api",
+                      provider: "scripted-child-provider",
+                      model: "scripted-child-actual",
+                      stopReason: "stop",
+                      timestamp: start,
+                      usage: {
+                        input: 0,
+                        output: 1,
+                        cacheRead: 0,
+                        cacheWrite: 0,
+                        totalTokens: 1,
+                        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+                      },
+                    },
+                  },
+                ];
+                writeFileSync(
+                  file,
+                  entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+                  { mode: 0o600 },
+                );
+                const now = Date.now();
+                const completion = {
+                  runId,
+                  sessionId: session().sessionFile,
+                  mode: "single",
+                  success: true,
+                  state: "complete",
+                  timestamp: now,
+                  durationMs: now - start,
+                  results: [
+                    {
+                      index: 0,
+                      context: "fresh",
+                      success: true,
+                      sessionFile: file,
+                      sessionPath: file,
+                    },
+                  ],
+                };
+                events.emit("subagent:async-complete", completion);
+                events.emit("subagent:async-complete", completion);
+              }, 1600);
+            } else {
+              events.emit("subagent:async-complete", { asyncId: runId });
+              events.emit("subagent:async-complete", { asyncId: runId });
+            }
           },
           process.env.FAKE_PI_STREAM_SUBAGENT_INTERLEAVE === "1" ? 1600 : 800,
         );

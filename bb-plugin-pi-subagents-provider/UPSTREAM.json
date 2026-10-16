@@ -35,8 +35,8 @@
   ],
   "standaloneTestMatrix": {
     "node": "24.15.0",
-    "bbBuildTool": "0.46.0",
-    "pluginSdk": "0.6.37",
+    "bbBuildTool": "0.46.1",
+    "pluginSdk": "0.6.49",
     "piFixturesAndTypes": "0.84.0",
     "liveBbAcceptance": "not run",
     "subagents": "not required or loaded; observation unavailable"

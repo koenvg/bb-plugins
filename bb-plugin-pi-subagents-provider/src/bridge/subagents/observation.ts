@@ -7,6 +7,7 @@ import { parseStatusReceipt, SNAPSHOT_PREFIX, boundedJson, type RunNode } from "
 import { reconcileRunTrees, type RetainedRun } from "./run-reconciliation.js";
 import { createCaptureQueue, type CaptureTarget } from "./capture.js";
 import { createViewStore } from "./view-store.js";
+import type { Capture } from "../../subagents-contract.js";
 
 export interface ObservationOptions {
   sessionFile: string;
@@ -16,6 +17,8 @@ export interface ObservationOptions {
   canAttachNativeItem?(): boolean;
   view?: ReturnType<typeof createViewStore>;
   inspect?(target: CaptureTarget, requestId: string): Promise<unknown>;
+  resolveModel?(target: CaptureTarget, signal: AbortSignal): Promise<Capture["resolvedModel"]>;
+  current?(target: CaptureTarget): boolean;
   now?: () => number;
   schedule?: (callback: () => void, delayMs: number) => () => void;
 }
@@ -49,7 +52,9 @@ export function createSubagentObservation(options: ObservationOptions) {
     view && options.inspect
       ? createCaptureQueue({
           inspect: options.inspect,
-          accept: (id, capture) => view.capture(id, capture),
+          resolveModel: options.resolveModel,
+          current: options.current,
+          accept: (_id, capture, target) => view.captureIfCurrent(target, capture),
           now,
         })
       : undefined;
@@ -59,6 +64,7 @@ export function createSubagentObservation(options: ObservationOptions) {
     generation: options.generation,
   });
   const pendingForeground = new Map<string, { details: unknown; final: boolean }>();
+  const recaptureRuns = new Set<string>();
   let sessionId: string | undefined;
   let availability: "unavailable" | "available" = "unavailable";
   let reason = "No compatible package status received";
@@ -176,10 +182,19 @@ export function createSubagentObservation(options: ObservationOptions) {
                 snap.omitted.runs > 0 ||
                 snap.omitted.children > 0 ||
                 snap.omitted.byteLimitExceeded,
-              { settledRoots, availability, reason, foreground: [...pendingForeground.values()] },
+              {
+                settledRoots,
+                recaptureRuns,
+                availability,
+                reason,
+                foreground: [...pendingForeground.values()],
+              },
             ) ?? [];
           viewCommitted = true;
-          for (const target of targets) captures?.enqueue(target);
+          for (const target of targets) {
+            captures?.enqueue(target);
+            recaptureRuns.delete(target.asyncId);
+          }
         } catch {
           /* A failed view must not suppress native accounting. */
         }
@@ -206,9 +221,10 @@ export function createSubagentObservation(options: ObservationOptions) {
       }
     }
   }
-  function hint() {
+  function hint(readyRunId?: string) {
     // Coalesce repeated hints. The bounded read timer is not a foreground keepalive.
     if (disposed) return;
+    if (readyRunId && recaptureRuns.size < 64) recaptureRuns.add(readyRunId);
     if (pending) {
       hintedDuringRead = true;
       return;
@@ -298,6 +314,7 @@ export function createSubagentObservation(options: ObservationOptions) {
       if (disposed) return;
       disposed = true;
       captures?.dispose();
+      recaptureRuns.clear();
       pendingForeground.clear();
       cancelRead?.();
       cancelRead = undefined;
