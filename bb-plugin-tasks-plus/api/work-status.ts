@@ -2,6 +2,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { TasksStore } from "../db/index.js";
 import type { TaskWorkStatus, ThreadExecution, WorkStatusRefresh } from "../shared/contract.js";
 import { normalizeHostPr, taskPullRequests, type PrObservation } from "./work-status-pr.js";
+import { projectThreadActivity } from "../shared/thread-activity.js";
 
 import {
   normalizeRichMetadata,
@@ -120,22 +121,7 @@ export function createWorkStatusReader({
               archive: "unknown",
             };
           if (thread.deletedAt !== null) return null;
-          const execution: ThreadExecution = (() => {
-            switch (thread.status) {
-              case "pending":
-              case "starting":
-                return "starting";
-              case "active":
-              case "stopping":
-                return "working";
-              case "idle":
-                return "idle";
-              case "error":
-                return "failed";
-              default:
-                return "unavailable";
-            }
-          })();
+          const execution = projectThreadActivity(thread) ?? "unavailable";
           return {
             title: thread.title,
             execution,
