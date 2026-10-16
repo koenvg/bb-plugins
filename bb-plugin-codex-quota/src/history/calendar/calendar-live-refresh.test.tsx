@@ -70,7 +70,11 @@ it("ages the last report while preparation is stopped, supports manual reread, a
   expect(q.getByText(/History preparation stopped/)).toBeTruthy();
   expect(q.getByRole("group", { name: "Daily recorded values" })).toBeTruthy();
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(301_000);
+    vi.advanceTimersByTime(300_000);
+  });
+  expect(q.queryByText(/Recorded values are out of date/)).toBeNull();
+  await act(async () => {
+    vi.advanceTimersByTime(1_000);
   });
   expect(q.getByText(/Recorded values are out of date/)).toBeTruthy();
   fireEvent.click(q.getByRole("button", { name: "Refresh chart" }));
@@ -91,7 +95,7 @@ it("ages the last report while preparation is stopped, supports manual reread, a
   page.lifecycle.unmount();
   const calls = page.inspection.rpcCalls.length;
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(300_000);
+    vi.advanceTimersByTime(300_000);
   });
   fireEvent(document, new Event("visibilitychange"));
   fireEvent(window, new Event("focus"));
