@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
+import { ImagePreviewBoundary } from "./image-preview.js";
 import { Outline, useWidePanel } from "./outline.js";
 import { RawDocument } from "./raw.js";
 import { RemoteImages } from "./remote-images.js";
@@ -101,25 +102,27 @@ export function MarkdownDocument({
       onAuxClick={activate}
     >
       <DestinationContext.Provider value={scope}>
-        {view === "raw" ? (
-          <RawDocument
-            sourceLines={model.sourceLines}
-            request={lineRange}
-            annotations={annotateSourceLines}
-            reveal={reveal}
-          />
-        ) : (
-          <div
-            className="mr-document-layout"
-            data-outline={showOutline ? (wide ? "aside" : "inline") : "hidden"}
-          >
-            {showOutline && !wide && <Outline model={model} wide={false} />}
-            <article className="mr-prose" aria-label="Markdown preview">
-              {model.content}
-            </article>
-            {showOutline && wide && <Outline model={model} wide />}
-          </div>
-        )}
+        <ImagePreviewBoundary model={model} policy={destinations} view={view}>
+          {view === "raw" ? (
+            <RawDocument
+              sourceLines={model.sourceLines}
+              request={lineRange}
+              annotations={annotateSourceLines}
+              reveal={reveal}
+            />
+          ) : (
+            <div
+              className="mr-document-layout"
+              data-outline={showOutline ? (wide ? "aside" : "inline") : "hidden"}
+            >
+              {showOutline && !wide && <Outline model={model} wide={false} />}
+              <article className="mr-prose" aria-label="Markdown preview">
+                {model.content}
+              </article>
+              {showOutline && wide && <Outline model={model} wide />}
+            </div>
+          )}
+        </ImagePreviewBoundary>
       </DestinationContext.Provider>
     </div>
   );
