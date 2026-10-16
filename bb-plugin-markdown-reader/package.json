@@ -36,8 +36,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.6.37",
-    "bb-app": "0.46.0",
+    "@get-bb/plugin-sdk": "0.6.49",
+    "bb-app": "0.46.1",
     "@playwright/test": "1.64.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

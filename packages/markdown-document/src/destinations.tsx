@@ -183,10 +183,8 @@ export function DestinationLink({
   const native = policy.kind === "attachment" || policy.kind === "bound-source" ? policy : null;
   const parsed =
     native &&
-    url.length <= MAX_DESTINATION_URL_LENGTH &&
-    (url.startsWith("#") ||
-      native.kind === "bound-source" ||
-      scope.requests.has(destinationKey({ url, image: false })))
+    checkedDestination(url, false) &&
+    (url.startsWith("#") || scope.requests.has(destinationKey({ url, image: false })))
       ? destination(url, native)
       : null;
   const result = grant(scope, url, false);

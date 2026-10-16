@@ -44,7 +44,7 @@ Historical default-shell runs failed three native-tab checks on macOS and Linux.
 
 The config owns strict port 4193 and refuses server reuse. Require that port free and serialize runs. The fixture exercises the production Markdown overlay with SDK/transport substitutes. Installed Doctor requires tasks-plus enabled, bundled tasks disabled and the intended tracker identity. Read-only `bb tasks project list --json` proves catalog access, not a mutation. For an approved owned tracker/task, drive a title/status edit and reread through CLI or a reopened panel; inspect Markdown attachments and draft preservation. Starting workers requires separate approval and proof of exactly one linked thread and resulting task state.
 
-For shared document changes, also follow [shared Markdown verification](../references/shared-markdown.md). It compares this production attachment owner with the real Reader and checks immediate theme coherence. Tasks continues to deny destinations in this integration; source-aware Reader links do not grant attachment filesystem access.
+For shared document changes, also follow [shared Markdown verification](../references/shared-markdown.md). It compares this production attachment owner with the real Reader and checks immediate theme coherence. Tasks permits local fragments, BB-preference HTTP(S) links and bounded credential-free remote raster images, but denies relative filesystem destinations; source-aware Reader links do not grant attachment filesystem access.
 ## Gotchas
 
 - Only one of bundled tasks and tasks-plus can be enabled; switching or data import is not harmless setup.

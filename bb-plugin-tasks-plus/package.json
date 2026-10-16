@@ -44,12 +44,12 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "bb-app": "0.46.0",
+    "bb-app": "0.46.1",
     "@tailwindcss/vite": "^4.3.0",
     "tailwindcss": "^4.3.0",
     "@playwright/test": "1.64.0",
     "vite": "^7.0.0",
-    "@get-bb/plugin-sdk": "0.6.37",
+    "@get-bb/plugin-sdk": "0.6.49",
     "@pierre/diffs": "^1.2.9",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-context-menu": "^2.3.3",

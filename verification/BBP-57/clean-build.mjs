@@ -110,7 +110,7 @@ for (const leaf of ["bb-plugin-markdown-reader", "bb-plugin-tasks-plus"]) {
   run(`${leaf}-install`, "bun", ["install", "--frozen-lockfile"], consumer, env);
   run(`${leaf}-types`, "bun", ["run", "typecheck"], consumer, env);
   const bb = join(consumer, "node_modules/.bin/bb");
-  if (execFileSync(bb, ["--version"], { cwd: consumer, env, encoding: "utf8" }).trim() !== "0.46.0")
+  if (execFileSync(bb, ["--version"], { cwd: consumer, env, encoding: "utf8" }).trim() !== "0.46.1")
     throw new Error("Unexpected local build CLI");
   run(`${leaf}-sdk`, bb, ["plugin", "types", ".", "--check"], consumer, env);
   run(`${leaf}-build`, "bun", ["run", "build"], consumer, env);
