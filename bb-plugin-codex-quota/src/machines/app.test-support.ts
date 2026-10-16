@@ -66,6 +66,11 @@ export async function dashboardFixture() {
   const machineReports = vi.fn(async (input: unknown): Promise<unknown> =>
     reportsFixture((input as { query: CalendarQuery }).query),
   );
+  const machineReportSnapshot = vi.fn(async (_input: unknown): Promise<unknown> => ({
+    machines: [],
+    truncated: false,
+    cache: "saved",
+  }));
   const machinePreparation = vi.fn(async (_input: unknown): Promise<unknown> => ({
     state: "settled",
     progress: "ready",
@@ -84,6 +89,7 @@ export async function dashboardFixture() {
     rpc: {
       machineAccounts,
       machineReports,
+      machineReportSnapshot,
       machinePreparation,
       selectHost,
       historyReadiness,

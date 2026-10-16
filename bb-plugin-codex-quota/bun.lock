@@ -11,7 +11,7 @@
         "zod": "^4.3.6",
       },
       "devDependencies": {
-        "@get-bb/plugin-sdk": "0.6.37",
+        "@get-bb/plugin-sdk": "0.6.49",
         "@modelcontextprotocol/sdk": "^1.31.0",
         "@pierre/diffs": "^1.2.9",
         "@playwright/test": "1.64.0",
@@ -184,7 +184,7 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
-    "@get-bb/plugin-sdk": ["@get-bb/plugin-sdk@0.6.37", "", { "dependencies": { "cross-spawn": "^7.0.6", "zod": "^4.6.5" }, "peerDependencies": { "@testing-library/react": "^16.3.2", "@types/better-sqlite3": "^7.6.12", "@types/react": "^19.0.0", "better-sqlite3": ">=12", "cron-parser": "^5.5.0", "hono": "^4.11.9", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@testing-library/react", "@types/better-sqlite3", "@types/react", "better-sqlite3", "cron-parser", "hono", "react", "react-dom"] }, "sha512-fltzoFz2DTSDo35tSMaDR/nlQeTE/WFO1BLUMD0LoJ+dbKsJBCloaK+Kl1BYXP+lABPBH7dgAAfKKKSIgCBzHA=="],
+    "@get-bb/plugin-sdk": ["@get-bb/plugin-sdk@0.6.49", "", { "dependencies": { "cross-spawn": "^7.0.6", "zod": "^4.6.5" }, "peerDependencies": { "@testing-library/react": "^16.3.2", "@types/better-sqlite3": "^7.6.12", "@types/react": "^19.0.0", "better-sqlite3": ">=12", "cron-parser": "^5.5.0", "hono": "^4.11.9", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@testing-library/react", "@types/better-sqlite3", "@types/react", "better-sqlite3", "cron-parser", "hono", "react", "react-dom"] }, "sha512-0YCOJm+iKWbmEaUF7JsrxRSWFz5OdOwVxM1KPuek8r55dYCPSgyA9NEdyq8OVlbhXSstF2wGlHXZ2Q9wwdMJzQ=="],
 
     "@google/genai": ["@google/genai@2.21.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-+PDtco2/Z0ONdzCGekCoCT+O1VJS9xJQNN4XzQpXG/t3El/SWWMkCWlFRO1KmivOHPa4Q0VjUYu1HBKCZ/v33Q=="],
 

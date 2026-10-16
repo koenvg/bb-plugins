@@ -104,6 +104,7 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
       actual.group !== query.group ||
       actual.timezone !== query.timezone ||
       actual.includeUncertain !== query.includeUncertain ||
+      !!actual.comparison !== !!query.comparison ||
       JSON.stringify(actual.scope) !== JSON.stringify(query.scope) ||
       (!row.cached && actual.startDate !== query.startDate)
     )

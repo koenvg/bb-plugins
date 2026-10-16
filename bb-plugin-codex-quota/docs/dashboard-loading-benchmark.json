@@ -1,0 +1,141 @@
+{
+  "scope": "Synthetic public coordinator warm load after restart, not installed dashboard latency",
+  "limiter": "One host report has an explicit 800 ms delay at the host transport boundary",
+  "delayMs": 800,
+  "summary": {
+    "before": {
+      "medianMs": 812.2483340000001,
+      "minMs": 808.2895830000002,
+      "maxMs": 823.654708,
+      "runs": 5
+    },
+    "after": {
+      "medianMs": 11.366958000000068,
+      "minMs": 7.27737500000012,
+      "maxMs": 23.725124999999935,
+      "runs": 5
+    }
+  },
+  "samples": [
+    {
+      "side": "before",
+      "run": 0,
+      "elapsedMs": 809.9932500000001,
+      "path": "live report",
+      "calls": 2,
+      "completed": 2,
+      "revalidationCalls": 2,
+      "cached": [false, false],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "after",
+      "run": 0,
+      "elapsedMs": 11.366958000000068,
+      "path": "saved snapshot",
+      "calls": 0,
+      "completed": 0,
+      "revalidationCalls": 2,
+      "cached": [true, true],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "after",
+      "run": 1,
+      "elapsedMs": 9.472708000000011,
+      "path": "saved snapshot",
+      "calls": 0,
+      "completed": 0,
+      "revalidationCalls": 2,
+      "cached": [true, true],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "before",
+      "run": 1,
+      "elapsedMs": 812.2483340000001,
+      "path": "live report",
+      "calls": 2,
+      "completed": 2,
+      "revalidationCalls": 2,
+      "cached": [false, false],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "before",
+      "run": 2,
+      "elapsedMs": 808.2895830000002,
+      "path": "live report",
+      "calls": 2,
+      "completed": 2,
+      "revalidationCalls": 2,
+      "cached": [false, false],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "after",
+      "run": 2,
+      "elapsedMs": 7.27737500000012,
+      "path": "saved snapshot",
+      "calls": 0,
+      "completed": 0,
+      "revalidationCalls": 2,
+      "cached": [true, true],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "after",
+      "run": 3,
+      "elapsedMs": 14.395582999999988,
+      "path": "saved snapshot",
+      "calls": 0,
+      "completed": 0,
+      "revalidationCalls": 2,
+      "cached": [true, true],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "before",
+      "run": 3,
+      "elapsedMs": 823.654708,
+      "path": "live report",
+      "calls": 2,
+      "completed": 2,
+      "revalidationCalls": 2,
+      "cached": [false, false],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "before",
+      "run": 4,
+      "elapsedMs": 813.384458,
+      "path": "live report",
+      "calls": 2,
+      "completed": 2,
+      "revalidationCalls": 2,
+      "cached": [false, false],
+      "errors": 0,
+      "totalTokens": 1200
+    },
+    {
+      "side": "after",
+      "run": 4,
+      "elapsedMs": 23.725124999999935,
+      "path": "saved snapshot",
+      "calls": 0,
+      "completed": 0,
+      "revalidationCalls": 2,
+      "cached": [true, true],
+      "errors": 0,
+      "totalTokens": 1200
+    }
+  ]
+}

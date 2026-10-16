@@ -315,6 +315,10 @@ const options = {
       record("machinePreparation", input);
       return preparation;
     },
+    machineReportSnapshot: async (input: unknown): Promise<MachineReports> => {
+      record("machineReportSnapshot", input);
+      return { machines: [], truncated: false, cache: "saved" };
+    },
     machineReports: async (input: unknown): Promise<MachineReports> => {
       record("machineReports", input);
       const { query } = input as { query: CalendarQuery };

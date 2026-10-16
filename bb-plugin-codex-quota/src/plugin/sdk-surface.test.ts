@@ -90,36 +90,111 @@ describe("public SDK and quota-only boundary", () => {
       ],
     });
     expect(scan.privateDependencies).toEqual([]);
-    // The scanner cannot prove expression imports. These test-only expressions are confined
-    // to serialized collector text, copied artifacts, and an owned sibling source FIFO probe.
-    const testSeams = new Map([
+    // The scanner cannot resolve owned runtime artifacts. Exceptions match complete expressions.
+    const testSeams = new Map<string, readonly string[]>([
       [
         "src/history/collection/collector-compatibility.test.ts",
-        "/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root",
+        [
+          '/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root)).toString("base64")}`',
+        ],
       ],
       [
         "src/history/collection/collector-entry.test.ts",
-        "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`",
+        [
+          "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`",
+        ],
       ],
       [
         "src/history/collection/history-legacy.test.ts",
-        "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`",
+        [
+          "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`)}`",
+        ],
       ],
-      ["scripts/check-bundled-history.mjs", "pathToFileURL(artifact"],
-      ["scripts/check-bundled-identity.mjs", "pathToFileURL(artifact"],
-      ["scripts/check-bundled-import.mjs", "pathToFileURL(artifact"],
-      ["scripts/check-prior-schema3.mjs", "pathToFileURL(path"], // Exact hash-verified pre-integration artifact.
-      ["scripts/check-storage-integration.mjs", "pathToFileURL(artifact"], // Owned copy of the actual packaged host.
-      ["scripts/check-bundled-calendar.mjs", "pathToFileURL(artifact"], // Owned copies, persistent reopen and import-only packaged report.
-      ["scripts/check-bundled-live-refresh.mjs", "pathToFileURL(artifact"], // Owned copied host artifact and temporary collector logs. No live source.
-      ["scripts/check-bundled-money.mjs", "pathToFileURL(artifact"], // Owned copied host artifact, real SQLite and original import prices.
-      ["scripts/check-bundled-speed.mjs", "pathToFileURL(artifact"], // Owned actual host copy and isolated native/Pi fixture sources.
-      ["scripts/preview-server.mjs", "pathToFileURL(fixtureArtifact"], // Locally built fixture generator in a fresh temporary directory; never served.
       [
-        "src/history/import/import-source.test.ts",
-        '${JSON.stringify(new URL("./import-source.ts", import.meta.url',
-      ], // Owned sibling source in a hard-deadline child process.
+        "scripts/check-bundled-history.mjs",
+        [
+          "pathToFileURL(artifact).href",
+          'pathToFileURL(artifact).href + "?reload=1"',
+          'pathToFileURL(artifact).href + "?legacy-reload=1"',
+        ],
+      ],
+      [
+        "scripts/check-bundled-identity.mjs",
+        ["pathToFileURL(artifact).href", 'pathToFileURL(artifact).href + "?reload=1"'],
+      ],
+      [
+        "scripts/check-bundled-import.mjs",
+        [
+          "pathToFileURL(artifact).href",
+          'pathToFileURL(artifact).href + "?reload=1"',
+          'pathToFileURL(artifact).href + "?reload=" + pass',
+        ],
+      ],
+      ["scripts/check-prior-schema3.mjs", ["pathToFileURL(path).href"]],
+      ["scripts/check-storage-integration.mjs", ["pathToFileURL(artifact).href"]],
+      [
+        "scripts/check-bundled-calendar.mjs",
+        ["pathToFileURL(artifact).href", 'pathToFileURL(artifact).href + "?reload=1"'],
+      ],
+      [
+        "scripts/check-bundled-live-refresh.mjs",
+        ["pathToFileURL(artifact).href", 'pathToFileURL(artifact).href + "?reload=1"'],
+      ],
+      [
+        "scripts/check-bundled-money.mjs",
+        ["pathToFileURL(artifact).href", 'pathToFileURL(artifact).href + "?reopen=1"'],
+      ],
+      ["scripts/check-bundled-speed.mjs", ["pathToFileURL(artifact).href"]],
+      ["scripts/preview-server.mjs", ["pathToFileURL(fixtureArtifact).href"]],
     ]);
+    const probeRoot = mkdtempSync(join(tmpdir(), "quota-sdk-expressions-"));
+    const knownExpression = "pathToFileURL(artifact).href";
+    const foreignExpression = "pathToFileURL(foreignArtifact).href";
+    const changedExpression = 'pathToFileURL(artifact).href + "?unexpected"';
+    try {
+      writeFileSync(join(probeRoot, "package.json"), "{}");
+      mkdirSync(join(probeRoot, "scripts"));
+      const importKeyword = "im" + "port";
+      writeFileSync(
+        join(probeRoot, "scripts/check-bundled-history.mjs"),
+        [knownExpression, foreignExpression, changedExpression]
+          .map((expression) => `${importKeyword}(${expression});`)
+          .join("\n"),
+      );
+      writeFileSync(
+        join(probeRoot, "scripts/unexpected.mjs"),
+        `${importKeyword}(${knownExpression});`,
+      );
+      const probe = scanPluginSources(probeRoot);
+      expect(probe.violations).toHaveLength(4);
+      const unexpected = probe.violations.filter(
+        (entry) =>
+          entry.reason !== "dynamic-specifier" ||
+          !testSeams.get(entry.file)?.includes(entry.specifier),
+      );
+      expect(unexpected).toHaveLength(3);
+      expect(unexpected).toEqual(
+        expect.arrayContaining([
+          {
+            file: "scripts/check-bundled-history.mjs",
+            specifier: foreignExpression,
+            reason: "dynamic-specifier",
+          },
+          {
+            file: "scripts/check-bundled-history.mjs",
+            specifier: changedExpression,
+            reason: "dynamic-specifier",
+          },
+          {
+            file: "scripts/unexpected.mjs",
+            specifier: knownExpression,
+            reason: "dynamic-specifier",
+          },
+        ]),
+      );
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
     const hostHarnessProbes = new Set([
       "scripts/check-bundled-oauth.mjs",
       "scripts/check-bundled-activity.mjs",
@@ -159,7 +234,11 @@ describe("public SDK and quota-only boundary", () => {
         if (
           entry.reason === "outside-allowlist" &&
           entry.specifier === "@get-bb/plugin-sdk/testing/app" &&
-          ["scripts/calendar-preview.tsx", "src/machines/app.test-support.ts"].includes(entry.file)
+          [
+            "scripts/calendar-preview.tsx",
+            "scripts/saved-preview.tsx",
+            "src/machines/app.test-support.ts",
+          ].includes(entry.file)
         )
           return false; // Public SDK React fixture. Never shipped as the plugin app.
         // CI-only guard imports exact file URLs resolved through the installed Pi graph.
@@ -170,7 +249,8 @@ describe("public SDK and quota-only boundary", () => {
         )
           return false;
         return (
-          entry.reason !== "dynamic-specifier" || testSeams.get(entry.file) !== entry.specifier
+          entry.reason !== "dynamic-specifier" ||
+          !testSeams.get(entry.file)?.includes(entry.specifier)
         );
       }),
     ).toEqual([]);

@@ -169,6 +169,9 @@ function QuotaPage() {
   const read = useRef((input: Parameters<typeof rpc.call<"machineReports">>[1]) =>
     reference.current.call("machineReports", input),
   );
+  const snapshot = useRef((input: Parameters<typeof rpc.call<"machineReportSnapshot">>[1]) =>
+    reference.current.call("machineReportSnapshot", input),
+  );
   const prepare = useRef((input: { refresh: boolean }) =>
     reference.current.call("machinePreparation", { refresh: input.refresh }),
   );
@@ -198,7 +201,12 @@ function QuotaPage() {
             Refresh allowance
           </button>
         </header>
-        <MachineReportPanel now={state.now} read={read.current} prepare={prepare.current} />
+        <MachineReportPanel
+          now={state.now}
+          snapshot={snapshot.current}
+          read={read.current}
+          prepare={prepare.current}
+        />
         <AccountsOverview data={state.data} now={state.now} loading={state.loading} />
         <MachineManagement machines={machines} />
       </div>

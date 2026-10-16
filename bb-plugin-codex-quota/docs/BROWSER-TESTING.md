@@ -22,7 +22,7 @@ The preview builds fixtures into a fresh `codex-quota-preview-*` directory below
 
 Direct previews also default to port `0` and print the actual URL. To request a specific port, use `CODEX_QUOTA_PREVIEW_PORT=38716 bun scripts/preview-server.mjs`. The same override applies to `bun run test:browser`. Values must be integers from `0` through `65535`. Empty or malformed values fail. An occupied explicit port fails without reusing or replacing the existing server.
 
-Only the six fixture HTML/JavaScript pairs and generated CSS are served. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
+Only the fixture HTML/JavaScript pairs and generated CSS are served. The server CSP blocks external connections. Each test context also blocks and fails any non-local browser request. The official usage link is inspected and focused, never followed.
 
 Separate worktrees have separate default browser evidence paths. Concurrent runs in one checkout, or runs with the same explicit `--output`, can still overwrite evidence. POSIX process groups are required. SIGKILL of the runner and host crashes cannot run cleanup.
 

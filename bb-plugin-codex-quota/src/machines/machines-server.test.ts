@@ -13,6 +13,7 @@ import { emptyActivity } from "../activity/activity-contract.js";
 import { calendarUnavailable, type CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { latestStart, shiftDate } from "../history/calendar/calendar-time.js";
 import { preparationUnavailable } from "../history/report-preparation-contract.js";
+import { comparisonReasons } from "../history/calendar/calendar-comparison.js";
 
 const now = Date.UTC(2026, 9, 1, 12);
 const query: CalendarQuery = {
@@ -135,13 +136,13 @@ describe("all-machine public reports", () => {
       machineFixture("host_two", "disconnected"),
     ]);
     const next = f.create(),
-      shifted = { ...query, startDate: shiftDate(query.startDate, 1) };
+      shifted = { ...query, startDate: shiftDate(query.startDate, -1) };
     const result = combineReports(
       await next.reports({ query: shifted, prepare: false, refresh: false }),
       shifted,
     )!;
     expect(result.summary.totalTokens).toBe(1200);
-    expect(result.days[13]?.totalTokens).toBe(1200);
+    expect(result.days[15]?.totalTokens).toBe(1200);
     expect(result.days[14]?.totalTokens).toBe(0);
     expect(result.days[29]?.coverage.zero).toBe(false);
     expect(result.ranking).toHaveLength(0);
@@ -245,4 +246,389 @@ describe("all-machine public reports", () => {
     input.machines[0]!.report.days[14]!.totalTokens = Number.MAX_SAFE_INTEGER;
     expect(() => combineReports(input, query)).toThrow();
   });
+});
+
+describe("saved machine observations", () => {
+  it("opens durable 1200 tokens and cost 6 after restart without dispatching any host work", async () => {
+    const f = fixture(),
+      first = f.create();
+    expect(
+      combineReports(await first.reports({ query, prepare: false, refresh: false }), query)
+        ?.summary,
+    ).toMatchObject({ totalTokens: 1200, capturedCost: 6 });
+    first.dispose();
+    f.report.mockClear().mockImplementation(() => new Promise(() => {}));
+    f.prepare.mockClear().mockImplementation(() => new Promise(() => {}));
+    f.observe.mockClear().mockImplementation(() => new Promise(() => {}));
+    const restarted = f.create();
+    const saved = reportsSchema.parse(await restarted.lastKnown(query));
+    expect(combineReports(saved, query)?.summary).toMatchObject({
+      totalTokens: 1200,
+      capturedCost: 6,
+    });
+    expect(
+      saved.machines.map((row) => [
+        row.cached,
+        row.report.state !== "unavailable" && row.report.observedAt,
+      ]),
+    ).toEqual([
+      [true, "2026-10-01T12:00:00.000Z"],
+      [true, "2026-10-01T12:00:00.000Z"],
+    ]);
+    expect([
+      f.report.mock.calls.length,
+      f.prepare.mock.calls.length,
+      f.observe.mock.calls.length,
+    ]).toEqual([0, 0, 0]);
+    restarted.dispose();
+  });
+
+  it("keeps a cold machine unknown and excludes removed enrollment", async () => {
+    const f = fixture(),
+      service = f.create();
+    const cold = await service.lastKnown(query);
+    expect(cold.machines.map((row) => row.report)).toEqual([
+      { state: "unavailable", reason: "host-offline" },
+      { state: "unavailable", reason: "host-offline" },
+    ]);
+    await service.reports({ query, prepare: false, refresh: false });
+    f.setMachines([machineFixture("host_two"), machineFixture("host_cold")]);
+    const saved = await service.lastKnown(query);
+    expect(saved.machines.map((row) => row.machine.id)).toEqual(["host_two", "host_cold"]);
+    expect(saved.machines[1]?.report).toEqual({ state: "unavailable", reason: "host-offline" });
+    expect(combineReports(saved, query)?.summary).toMatchObject({
+      totalTokens: 600,
+      capturedCost: 3,
+    });
+    service.dispose();
+  });
+
+  it("enforces requested retention, future dates and every non-date query dimension", async () => {
+    const f = fixture(),
+      service = f.create();
+    await service.reports({ query, prepare: false, refresh: false });
+    for (const changed of [
+      { ...query, startDate: shiftDate(query.startDate, 1) },
+      { ...query, startDate: "2020-01-01" },
+      { ...query, timezone: "Europe/Brussels" },
+      { ...query, group: "thread" as const, includeUncertain: false },
+      { ...query, includeUncertain: false },
+      { ...query, includeUncertain: false, comparison: true },
+      { ...query, scope: { kind: "workspace" as const, workspace: "/other" } },
+    ])
+      expect(combineReports(await service.lastKnown(changed), changed)).toBeNull();
+    const overlapping = { ...query, startDate: shiftDate(query.startDate, -1) };
+    expect(
+      combineReports(await service.lastKnown(overlapping), overlapping)?.summary.totalTokens,
+    ).toBe(1200);
+    service.dispose();
+  });
+
+  it("fails closed during overlapping mutations and does not dispatch after failed initial invalidation", async () => {
+    const f = fixture(),
+      service = f.create();
+    await service.reports({ query, prepare: false, refresh: false });
+    let finishOne!: () => void, finishTwo!: () => void;
+    const one = service.mutate(
+      "host_one",
+      () =>
+        new Promise<void>((done) => {
+          finishOne = done;
+        }),
+    );
+    const two = service.mutate(
+      "host_one",
+      () =>
+        new Promise<void>((done) => {
+          finishTwo = done;
+        }),
+    );
+    await vi.waitFor(() =>
+      expect([typeof finishOne, typeof finishTwo]).toEqual(["function", "function"]),
+    );
+    finishOne();
+    await one;
+    const during = await service.reports({ query, prepare: false, refresh: false });
+    expect(during.machines[0]?.report).toEqual({
+      state: "unavailable",
+      reason: "selection-changed",
+    });
+    expect(combineReports(await service.lastKnown(query), query)?.summary.totalTokens).toBe(600);
+    finishTwo();
+    await two;
+    const set = f.storage.set;
+    f.storage.set = async (key, value) => {
+      if (key.startsWith("machine-summary-v1/host_one/")) throw Error("write failure");
+      await set(key, value);
+    };
+    const work = vi.fn(async () => 1);
+    await expect(service.mutate("host_one", work)).rejects.toThrow();
+    expect(work).not.toHaveBeenCalled();
+    const blocked = await service.lastKnown(query);
+    expect(blocked.cache).toBe("unavailable");
+    expect(combineReports(blocked, query)?.summary.totalTokens).toBe(600);
+    f.storage.set = set;
+    service.dispose();
+  });
+
+  it.each(["storage-incompatible", "range-unavailable"] as const)(
+    "durably excludes %s summaries before failed payload deletion",
+    async (reason) => {
+      const f = fixture(),
+        service = f.create();
+      await service.reports({ query, prepare: false, refresh: false });
+      const overlap = { ...query, startDate: shiftDate(query.startDate, -1) };
+      await service.reports({ query: overlap, prepare: false, refresh: false });
+      const remove = f.storage.delete;
+      f.storage.delete = async (key) => {
+        if (key.startsWith("machine-summary-v1/host_one/")) throw Error("delete failure");
+        await remove(key);
+      };
+      f.report.mockImplementation(async (id, q) =>
+        id === "host_one" ? calendarUnavailable(reason) : recordedFixture(q, now),
+      );
+      const invalid = await service.reports({ query, prepare: false, refresh: false });
+      expect(invalid.cache).toBe("unavailable");
+      expect(invalid.machines[0]?.report).toEqual({ state: "unavailable", reason });
+      expect(combineReports(invalid, query)?.summary.totalTokens).toBe(600);
+      service.dispose();
+      const restarted = f.create();
+      const saved = await restarted.lastKnown(query);
+      expect(saved.machines[0]?.cached).toBe(false);
+      expect(combineReports(saved, query)?.summary).toMatchObject({
+        totalTokens: 600,
+        capturedCost: 3,
+      });
+      restarted.dispose();
+    },
+  );
+
+  it("reports corruption and storage failure as unknown, never zero", async () => {
+    const f = fixture(),
+      service = f.create();
+    await service.reports({ query, prepare: false, refresh: false });
+    await f.storage.set("machine-summary-v1/host_one/index", ["not-a-digest"]);
+    const corrupt = await service.lastKnown(query);
+    expect(corrupt.cache).toBe("unavailable");
+    expect(combineReports(corrupt, query)?.summary.totalTokens).toBe(600);
+    f.storage.get = async () => {
+      throw Error("read failure");
+    };
+    const failed = await service.lastKnown(query);
+    expect(failed.cache).toBe("unavailable");
+    expect(failed.machines.map((row) => row.report.state)).toEqual(["unavailable", "unavailable"]);
+    service.dispose();
+  });
+  it.each([false, true])(
+    "retires saved results when invalidation arrives during final enrollment verification, failure=%s",
+    async (failure) => {
+      const f = fixture(),
+        service = f.create();
+      await service.reports({ query, prepare: false, refresh: false });
+      let finish!: () => void;
+      const get = f.deps.get;
+      f.deps.get = async (id) => {
+        if (id === "host_one")
+          await new Promise<void>((done) => {
+            finish = done;
+          });
+        return get(id);
+      };
+      const pending = service.lastKnown(query);
+      await vi.waitFor(() => expect(typeof finish).toBe("function"));
+      if (failure) {
+        const set = f.storage.set;
+        f.storage.set = async (key, value) => {
+          if (key.startsWith("machine-summary-v1/host_one/")) throw Error("write failure");
+          await set(key, value);
+        };
+        await expect(service.invalidate("host_one")).rejects.toThrow("write failure");
+      } else await service.invalidate("host_one");
+      finish();
+      const saved = await pending;
+      expect(saved.cache).toBe(failure ? "unavailable" : "saved");
+      expect(saved.machines[0]?.report).toEqual({
+        state: "unavailable",
+        reason: "selection-changed",
+      });
+      expect(combineReports(saved, query)?.summary).toMatchObject({
+        totalTokens: 600,
+        capturedCost: 3,
+      });
+      service.dispose();
+    },
+  );
+
+  it("fences an already-started cache save before management host work can begin", async () => {
+    const f = fixture(),
+      service = f.create();
+    await service.reports({ query, prepare: false, refresh: false });
+    const get = f.storage.get;
+    let hold = false,
+      entered!: () => void,
+      release!: () => void;
+    const waiting = new Promise<void>((done) => {
+      entered = done;
+    });
+    f.report.mockImplementation(async (_id, q) => {
+      hold = true;
+      return recordedFixture(q, now);
+    });
+    f.storage.get = async <T>(key: string) => {
+      if (hold && key === "machine-summary-v1/host_one/index") {
+        hold = false;
+        entered();
+        await new Promise<void>((done) => {
+          release = done;
+        });
+      }
+      return get<T>(key);
+    };
+    const pending = service.reports({ query, prepare: false, refresh: false });
+    await waiting;
+    const work = vi.fn(async () => 7);
+    const mutation = service.mutate("host_one", work);
+    expect(work).not.toHaveBeenCalled();
+    release();
+    expect(await mutation).toBe(7);
+    const retired = await pending;
+    expect(retired.machines[0]?.report).toEqual({
+      state: "unavailable",
+      reason: "selection-changed",
+    });
+    expect(combineReports(retired, query)?.summary.totalTokens).toBe(600);
+    f.storage.get = get;
+    expect(combineReports(await service.lastKnown(query), query)?.summary.totalTokens).toBe(600);
+    service.dispose();
+  });
+
+  it("keeps current comparison totals when prior is unavailable, but rejects starts before snapshot retention", async () => {
+    const f = fixture(),
+      service = f.create();
+    const comparison = { ...query, includeUncertain: false, comparison: true };
+    f.report.mockImplementation(async (_id, q) => {
+      const value = recordedFixture(q, now);
+      value.compactFrom = q.startDate + "T00:00:00.000Z";
+      if (value.comparison) {
+        value.comparison.prior = { state: "unavailable", reason: "range-unavailable" };
+        value.comparison.reasons = comparisonReasons(value, value.comparison.prior);
+      }
+      return value;
+    });
+    await service.reports({ query: comparison, prepare: false, refresh: false });
+    const saved = await service.lastKnown(comparison);
+    expect(combineReports(saved, comparison)?.summary).toMatchObject({
+      totalTokens: 1200,
+      capturedCost: 6,
+    });
+    expect(
+      saved.machines[0]?.report.state !== "unavailable" &&
+        saved.machines[0]?.report.comparison?.prior,
+    ).toEqual({ state: "unavailable", reason: "range-unavailable" });
+    const earlier = { ...comparison, startDate: shiftDate(comparison.startDate, -1) };
+    expect(combineReports(await service.lastKnown(earlier), earlier)).toBeNull();
+    service.dispose();
+  });
+  it("retires an in-flight observation after another response definitively rejects its history", async () => {
+    const f = fixture(),
+      service = f.create();
+    await service.reports({ query, prepare: false, refresh: false });
+    let finish!: (value: unknown) => void;
+    f.report.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          finish = done;
+        }),
+    );
+    const old = service.reports({ query, prepare: false, refresh: false });
+    await vi.waitFor(() => expect(typeof finish).toBe("function"));
+    f.report.mockImplementation(async (id, q) =>
+      id === "host_one" ? calendarUnavailable("storage-incompatible") : recordedFixture(q, now),
+    );
+    const authoritative = await service.reports({ query, prepare: false, refresh: false });
+    expect(authoritative.machines[0]?.report).toEqual({
+      state: "unavailable",
+      reason: "storage-incompatible",
+    });
+    expect(combineReports(authoritative, query)?.summary.totalTokens).toBe(600);
+    finish(recordedFixture(query, now));
+    const retired = await old;
+    expect(retired.machines[0]?.report).toEqual({
+      state: "unavailable",
+      reason: "selection-changed",
+    });
+    expect(combineReports(await service.lastKnown(query), query)?.summary).toMatchObject({
+      totalTokens: 600,
+      capturedCost: 3,
+    });
+    service.dispose();
+  });
+  it.each([
+    ["saved", false],
+    ["saved", true],
+    ["live", false],
+    ["live", true],
+  ] as const)(
+    "retires completed %s rows when another host delays publication, invalidation failure=%s",
+    async (mode, failure) => {
+      const f = fixture(),
+        service = f.create();
+      await service.reports({ query, prepare: false, refresh: false });
+      let entered!: () => void,
+        finish!: () => void,
+        firstHostChecks = 0;
+      const waiting = new Promise<void>((done) => {
+        entered = done;
+      });
+      const held = new Promise<void>((done) => {
+        finish = done;
+      });
+      const get = f.deps.get;
+      f.deps.get = async (id) => {
+        if (id === "host_two") {
+          entered();
+          await held;
+        } else firstHostChecks++;
+        return get(id);
+      };
+      try {
+        const pending =
+          mode === "saved"
+            ? service.lastKnown(query)
+            : service.reports({ query, prepare: false, refresh: false });
+        await waiting;
+        await vi.waitFor(() => expect(firstHostChecks).toBe(mode === "saved" ? 1 : 3));
+        await new Promise<void>((done) => setTimeout(done, 0));
+        const set = f.storage.set;
+        if (failure)
+          f.storage.set = async (key, value) => {
+            if (key === "machine-summary-v1/host_one/index")
+              throw Error("invalidation unavailable");
+            return set(key, value);
+          };
+        if (failure)
+          await expect(service.invalidate("host_one")).rejects.toThrow("invalidation unavailable");
+        else await service.invalidate("host_one");
+        f.storage.set = set;
+        f.deps.get = get;
+        finish();
+        const result = await pending;
+        expect(combineReports(result, query)?.summary).toMatchObject({
+          totalTokens: 600,
+          capturedCost: 3,
+        });
+        expect(result.machines.find((row) => row.machine.id === "host_one")).toMatchObject({
+          cached: false,
+          report: { state: "unavailable", reason: "selection-changed" },
+        });
+        expect(result.cache).toBe(failure ? "unavailable" : "saved");
+        expect(combineReports(await service.lastKnown(query), query)?.summary.totalTokens).toBe(
+          600,
+        );
+      } finally {
+        finish();
+        service.dispose();
+      }
+    },
+  );
 });
