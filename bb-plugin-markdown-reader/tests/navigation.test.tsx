@@ -55,7 +55,7 @@ describe("local heading navigation", () => {
     await user.keyboard("{Enter}");
     // jsdom does not implement native details keyboard default. Browser checks do.
     fireEvent.click(summary);
-    const entries = within(disclosure).getAllByRole("button", { name: "日本語 code link" });
+    const entries = within(disclosure).getAllByRole("link", { name: "日本語 code link" });
     entries[1]!.focus();
     await user.keyboard("{Enter}");
     expect(document.activeElement).toBe(
@@ -321,7 +321,7 @@ describe("local heading navigation", () => {
         fireEvent.click(within(disclosure).getByText("On this page"));
         expect(
           within(disclosure)
-            .getAllByRole("button")
+            .getAllByRole("link")
             .map((e) => e.textContent),
         ).toEqual(["Actual"]);
       } else {

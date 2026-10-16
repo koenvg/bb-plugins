@@ -57,32 +57,48 @@ function scopeGeneratedIds(tree: Root, namespace: string) {
       properties.ariaDescribedBy = references.map((id) => ids.get(String(id)) ?? id);
     }
     const href = properties.href;
-    if (typeof href === "string" && href.startsWith("#") && ids.has(href.slice(1)))
+    if (
+      typeof href === "string" &&
+      href.startsWith("#") &&
+      ids.has(href.slice(1)) &&
+      (properties.dataFootnoteRef !== undefined || properties.dataFootnoteBackref !== undefined)
+    )
       properties.href = `#${ids.get(href.slice(1))}`;
   });
   return ids;
 }
 
+let modelSequence = 0;
 export function createDocumentModel(text: string, namespace: string): DocumentModel {
   const headings: DocumentHeading[] = [];
   const fragments = new Map<string, string>();
-  const slugger = new GithubSlugger();
+  const used = new Map<string, number>();
+  const legacySlugger = new GithubSlugger();
+  const scope = `${namespace.replace(/[^\w-]/g, "-")}-${++modelSequence}`;
   const requests: DestinationRequest[] = [];
   const requested = new Set<string>();
   const fragmentTarget = (fragment: string) => {
     if (!fragment.startsWith("#")) return null;
     try {
-      return fragments.get(decodeURIComponent(fragment.slice(1))) ?? null;
+      return fragments.get(decodeURIComponent(fragment.slice(1)).normalize("NFC")) ?? null;
     } catch {
       return null;
     }
   };
   const components: Components = {
-    a: ({ href = "", children, id, "aria-describedby": description, "aria-label": label }) => (
+    a: ({
+      href = "",
+      children,
+      id,
+      title,
+      "aria-describedby": description,
+      "aria-label": label,
+    }) => (
       <DestinationLink
         url={href}
         fragmentTarget={fragmentTarget}
         id={id}
+        title={title}
         aria-describedby={description}
         aria-label={label}
       >
@@ -103,7 +119,7 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
   };
   function collectHeadings() {
     return (tree: Root) => {
-      const generated = scopeGeneratedIds(tree, namespace);
+      const generated = scopeGeneratedIds(tree, scope);
       for (const [original, id] of generated) {
         fragments.set(original, id);
         fragments.set(id, id);
@@ -135,12 +151,23 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
         // Only source-backed headings belong in the document outline. The parser
         // also emits a positionless accessibility label for used footnotes.
         if (!/^h[1-6]$/.test(node.tagName) || !node.position) return;
-        const label = headingText(node);
-        const fragment = slugger.slug(label);
-        const id = `${namespace}-heading-${headings.length}`;
+        const label = headingText(node).normalize("NFC").replace(/\s+/gu, " ").trim();
+        const base =
+          label
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\p{M}_\s-]/gu, "")
+            .replace(/\s+/gu, "-") || "section";
+        let fragment = base;
+        let suffix = used.get(base) ?? 1;
+        while (used.has(fragment)) fragment = `${base}-${suffix++}`;
+        used.set(base, suffix);
+        used.set(fragment, 1);
+        const id = `${scope}-heading-${fragment}`;
         node.properties.id = id;
         node.properties.tabIndex = -1;
         fragments.set(fragment, id);
+        const legacy = legacySlugger.slug(headingText(node)).normalize("NFC");
+        if (!fragments.has(legacy)) fragments.set(legacy, id);
         headings.push({
           level: Number(node.tagName[1]),
           text: label,
@@ -151,14 +178,16 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
       });
     };
   }
-  const content = Markdown({
-    children: text,
-    remarkPlugins: [remarkGfm, remarkFrontmatter],
-    rehypePlugins: [collectHeadings, boundedCode],
-    components,
-    skipHtml: true,
-    urlTransform: (url) => url,
-  });
+  const content = /^(?:\uFEFF)?[ \t\r\n]*$/u.test(text)
+    ? null
+    : Markdown({
+        children: text,
+        remarkPlugins: [remarkGfm, remarkFrontmatter],
+        rehypePlugins: [collectHeadings, boundedCode],
+        components,
+        skipHtml: true,
+        urlTransform: (url) => url,
+      });
   return Object.freeze({
     namespace,
     content,

@@ -16,13 +16,13 @@ const query = {
 afterEach(cleanup);
 it("renders the real library's axes and keyboard-accessible chart", () => {
   const page = render(<CalendarValues view={calendarSnapshot(query)} metric="tokens" />);
-  expect(screen.getByRole("application")).toBeTruthy();
-  expect(page.container.querySelector(".recharts-xAxis")).toBeTruthy();
-  expect(page.container.querySelector(".recharts-yAxis")).toBeTruthy();
-  expect(
-    page.container.querySelectorAll(".recharts-xAxis-tick-labels tspan").length,
-  ).toBeGreaterThan(0);
-  expect(page.container.querySelector(".recharts-xAxis-tick-labels tspan")?.textContent).toMatch(
+  expect(screen.getByRole("img")).toBeTruthy();
+  expect(page.container.querySelector("[data-ts-key='x-axis']")).toBeTruthy();
+  expect(page.container.querySelector("[data-ts-key^='y-tick-label:']")).toBeTruthy();
+  expect(page.container.querySelectorAll("[data-ts-key^='x-tick-label:']").length).toBeGreaterThan(
+    0,
+  );
+  expect(page.container.querySelector("[data-ts-key^='x-tick-label:']")?.textContent).toMatch(
     /Mon|Tue|Wed|Thu|Fri|Sat|Sun/,
   );
   expect(
@@ -33,12 +33,12 @@ it("renders the real library's axes and keyboard-accessible chart", () => {
 it("names the focusable chart for the current metric without replacing it", () => {
   const view = calendarSnapshot(query);
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  const chart = screen.getByRole("application", { name: "Daily usage chart: Tokens" });
+  const chart = screen.getByRole("img", { name: "Daily usage chart: Tokens" });
   expect(chart.tagName.toLowerCase()).toBe("svg");
   expect(chart.getAttribute("tabindex")).toBe("0");
   page.rerender(<CalendarValues view={view} metric="cost" />);
-  expect(screen.getByRole("application", { name: "Daily usage chart: USD estimate" })).toBe(chart);
-  expect(screen.queryByRole("application", { name: "Daily usage chart: Tokens" })).toBeNull();
+  expect(screen.getByRole("img", { name: "Daily usage chart: USD estimate" })).toBe(chart);
+  expect(screen.queryByRole("img", { name: "Daily usage chart: Tokens" })).toBeNull();
   expect(
     screen.getByRole("table", { name: "Daily recorded usage" }).querySelectorAll("tbody tr"),
   ).toHaveLength(30);
@@ -276,7 +276,7 @@ it.each([
   expect(data.maximum).toBe(value);
   expect(data.rows[14].height).toBe(1);
   render(<CalendarValues view={view} metric="cost" />);
-  expect(screen.getByRole("application")).toBeTruthy();
+  expect(screen.getByRole("img")).toBeTruthy();
   const captured = screen
     .getByRole("table", { name: "Daily recorded usage" })
     .querySelectorAll("tbody tr")[14].textContent;

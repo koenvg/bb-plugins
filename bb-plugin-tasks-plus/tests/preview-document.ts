@@ -19,3 +19,35 @@ export const readingReport = {
     "long-code-".repeat(25) +
     '";\r\n```\r\n\r\n```json\r\n{"status":"fulfilled","result":"inconclusive","count":42,"ready":true,"empty":null}\r\n```\r\n',
 } as const;
+
+export const navigationDocument = `# Investigation
+
+[Local findings](#findings) [External guide](https://example.org/guide) [Native guide](http://localhost:4193/tests/native-destination.html) [Relative file](../notes.md) [Malformed](https://example.org/%ZZ)
+
+![Remote chart](http://localhost:4193/tests/assets/image.png)
+![BB private](http://127.0.0.1:4193/api/private-image)
+![Relative chart](./chart.png)
+![CORS chart](http://localhost:4193/tests/assets/cors.png)
+![Redirect chart](http://localhost:4193/tests/assets/redirect.png)
+![Broken chart](http://localhost:4193/tests/assets/broken.png)
+
+## Café **bold** \`code\`
+
+${"A generic report paragraph for local scrolling.\n\n".repeat(25)}
+
+## Findings
+
+The document target is local.
+
+## Findings
+
+Duplicate heading.
+
+## Findings-1
+
+Literal suffix collision.
+
+A note[^1].
+
+[^1]: A local footnote.
+`;

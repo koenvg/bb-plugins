@@ -4,6 +4,8 @@ Open **Live Output** in BB's navigation rail to watch observed output across thr
 
 Hover over the chart to see the local date, time and rate for a complete-second point. The floating tooltip follows the selected raw or thirty-second average and token or byte unit. Escape clears a visible tooltip without moving the pointer or focus. Focus the chart and use Left/Right to step or Home/End to reach the edges. Axis labels keep their text size when the plot changes width. Selected times stay fixed as updates arrive. Startup padding is not measured output, and inspection is unavailable while disconnected.
 
+The renderer uses pinned TanStack Charts 1.1.0 with one native cursor keyed by absolute second. Touch taps inspect a nearby sample. Initial keyboard focus inspects the latest complete second, not a moving latest-point selection. While a point is inspected, native Enter and Space prevent their default action on the chart and still reach host listeners. They do not pin this display-only readout. Body/control keys and inactive-chart Enter/Space are not consumed. Native nearest-x resolves an exact equal-distance tie to the earlier sample; nearby positions select their nearest sample normally.
+
 The gauge button in the sidebar footer shows the current thirty-second average in estimated tokens/s. Select it to open Live Output. A dash means the rate is not yet available or the connection is stale. The label and accessible description state that these are estimates. The footer uses the same public snapshot RPC as the page, with one shared, bounded one-second poll per app window while the page or an attached footer is mounted. The last consumer stops polling and clears the cached snapshot.
 
 ## What it counts
@@ -38,8 +40,12 @@ bun run test
 bun run typecheck
 bun run lint
 bun run format:check
+bun run test:browser
+bb plugin types --check
 bun run build
 bb plugin install .
 ```
 
 Install the root repository tools before lint or formatting checks. Local installation runs trusted plugin code. The build needs the BB CLI but no running server. Tests use the public SDK backend and frontend harnesses. They do not prove installed navigation layout, live provider timing, theme rendering or reconnect behavior in the real app. Check those after installation.
+
+`test:browser` bundles a synthetic SDK-harness page and uses fresh Playwright contexts against loopback only. It uses the explicit cached Chromium 153 executable in `scripts/playwright.config.mjs`; it never downloads a browser or connects to BB. Set `LIVE_OUTPUT_EVIDENCE` to an external directory to retain fixture bundles, JSON results, traces and screenshots. The fixture's host utility styles and theme tokens are synthetic, not proof of every installed theme. The long-date cases expand real Intl formatting in the fixture only. Browser fixtures are excluded from Vitest; all original unit/backend suites remain included. `LICENSE.tanstack-charts` matches the pinned package's MIT license.

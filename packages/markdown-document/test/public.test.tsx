@@ -254,8 +254,8 @@ describe("public document interface", () => {
         navigation={navigation}
       />,
     );
-    fireEvent.click(screen.getAllByRole("button", { name: "日本語" })[1]!);
-    expect(document.activeElement?.id).toBe("local-heading-1");
+    fireEvent.click(screen.getAllByRole("link", { name: "日本語" })[1]!);
+    expect(document.activeElement).toBe(document.getElementById(model.headings[1]!.id));
     expect(model.headings.map((h) => [h.fragment, h.line])).toEqual([
       ["日本語", 1],
       ["日本語-1", 3],
@@ -282,10 +282,10 @@ describe("public document interface", () => {
     });
     try {
       fireEvent.click(screen.getByRole("link", { name: "Jump" }));
-      expect(document.activeElement?.id).toBe("owned-navigation-heading-0");
+      expect(document.activeElement).toBe(document.getElementById(model.headings[0]!.id));
       expect(outside.scrollTop).toBe(64);
       expect(document.documentElement.scrollTop).toBe(240);
-      fireEvent.click(screen.getByRole("button", { name: "Target" }));
+      fireEvent.click(screen.getByRole("link", { name: "Target" }));
       expect(outside.scrollTop).toBe(64);
       expect(document.documentElement.scrollTop).toBe(240);
     } finally {
@@ -294,4 +294,57 @@ describe("public document interface", () => {
       document.documentElement.scrollTop = pageScroll;
     }
   });
+  it("preserves the rendered title on an approved external link", () => {
+    const model = createDocumentModel(
+      '[report](https://example.org/report "Source report")',
+      "title",
+    );
+    render(
+      <MarkdownDocument
+        model={model}
+        view="preview"
+        destinations={{ kind: "attachment", openExternal: () => true }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "report" }).getAttribute("title")).toBe(
+      "Source report",
+    );
+  });
+  it("renders plain Raw without requesting a source-line index", () => {
+    const source = "\uFEFF\r\n\t  \n";
+    const model = createDocumentModel(source, "lazy-lines");
+    const sourceLines = {
+      text: source,
+      get lines(): readonly string[] {
+        throw new Error("Unexpected source-line index");
+      },
+      target: () => null,
+    };
+    render(<MarkdownDocument model={{ ...model, sourceLines }} view="raw" />);
+    expect(screen.getByLabelText("Raw Markdown").textContent).toBe(source);
+  });
+  it.each(["\u00a0", "\u2003"])("preserves non-ASCII paragraph whitespace %j", (source) => {
+    const model = createDocumentModel(source, "unicode-space");
+    const { container } = render(<MarkdownDocument model={model} view="preview" />);
+    expect(container.querySelector("p")?.textContent).toBe(source);
+  });
+  it.each([
+    denyDestinations,
+    { kind: "attachment", localFragments: false },
+    {
+      kind: "bound-source",
+      localFragments: false,
+      binding: { root: "/docs", host: "host", documentPath: "/docs/current.md" },
+      activateSource: () => true,
+    },
+  ] satisfies DestinationPolicy[])(
+    "keeps disabled local navigation inert with an explicit outline for $kind",
+    (policy) => {
+      const model = createDocumentModel("# Target\n\n[jump](#target)", "outline-permission");
+      render(<MarkdownDocument model={model} view="preview" destinations={policy} outline />);
+      expect(screen.queryByRole("navigation")).toBeNull();
+      expect(screen.getByText("jump").tagName).toBe("SPAN");
+      expect(screen.getByRole("heading", { name: "Target" }).id).toBe(model.headings[0]!.id);
+    },
+  );
 });

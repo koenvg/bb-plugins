@@ -154,7 +154,13 @@ Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task sho
 
 Close, replacement, Retry, task changes, unmount, and confirmed removal invalidate older reads. A late response cannot reopen or replace the current preview or take focus. Removal closes a concurrently opened preview only after successful deletion. A failed deletion reports its error and keeps the file usable.
 
-Preview uses the same private document package and scoped stylesheet as Markdown Reader. Leading YAML frontmatter is hidden only in Preview. GFM headings, tables, read-only tasks and bounded known-language highlighting use the common presentation. Unknown languages and fences above 20 KiB stay plain. Raw retains the complete source. All document destinations remain inactive in this delivery, including footnotes. Labels and image alt text remain readable. Attachments have no filesystem root. Raw HTML and MDX do not execute. No standalone reader installation is needed.
+Preview uses the same private document package and scoped stylesheet as Markdown Reader. Leading YAML frontmatter is hidden only in Preview. GFM headings, tables, read-only tasks and bounded known-language highlighting use the common presentation. Unknown languages and fences above 20 KiB stay plain. Raw retains the complete source.
+
+Document-local headings, footnotes and **On this page** stay within the dialog. Ordinary HTTP(S) links use BB preferences. Native modifier intent remains available. Relative filesystem links remain inert because attachments have no filesystem root.
+
+Remote raster images require credential-free CORS. They reject the current BB origin, redirects and unsupported MIME types. Limits are 4 MiB per image, 16 MiB retained per document, four concurrent requests and 32 total requests. Raw, replacement, revocation and close release owned requests and blob URLs. Failed images retain their labels.
+
+Raw HTML and MDX do not execute. No standalone reader installation is needed.
 
 The BBP-54 browser checks in `tests/browser/preview.spec.ts` use the production card and dialog with local fixture transport. The recoverable scenario fails the first preview read, then succeeds after **Retry**. Its Download check clicks the production dialog link and receives a real response from the local Vite fixture server at the production-shaped download path. It checks the exact saved-ID URL, suggested filename, successful completion, and original bytes. The fixture serves only the saved fixture identity and rejects missing, unknown, or duplicate IDs. This is fixture-only transport proof, not installed-server acceptance. The migration API test separately checks real saved-ID routes and blob bytes. Use the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) with `BBP53_CAPTURE_PHASE=none`, its private Playwright config, and fresh private output. Historical BBP-53 captures must remain unchanged.
 

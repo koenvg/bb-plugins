@@ -1,13 +1,47 @@
 // @vitest-environment jsdom
 import { StrictMode, useRef } from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
+const openUrl = vi.fn(() => true);
+function TestTree({ children }: { children: React.ReactNode }) {
+  return children;
+}
+function render(ui: React.ReactNode) {
+  const slot = renderSlot({ component: TestTree }, { children: ui }, { openUrl });
+  return {
+    ...slot,
+    rerender: (next: React.ReactNode) => slot.rerender(<TestTree>{next}</TestTree>),
+  };
+}
 import { useAttachmentPreview } from "./attachment-preview";
 import { AttachmentsGrid } from "./attachments";
 import type { Attachment } from "../../shared/contract";
 import { CompactViewportOverrideProvider } from "../../components/ui/hooks/use-compact-viewport";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 
+it("uses BB URL preferences once and local heading focus without another saved-ID read", async () => {
+  deferredFetch();
+  mount();
+  openA();
+  await resolve(
+    0,
+    reply(
+      a,
+      "# Target\n\n[jump](#target) [external](https://example.org/report) [relative](../secret.md) ![alt](./secret.png)",
+    ),
+  );
+  const dialog = screen.getByRole("dialog", { name: a.fileName });
+  fireEvent.click(within(dialog).getByRole("link", { name: "external" }));
+  expect(openUrl.mock.calls).toEqual([["https://example.org/report"]]);
+  fireEvent.click(within(dialog).getByRole("link", { name: "jump" }), { ctrlKey: true });
+  expect(document.activeElement).toBe(within(dialog).getByRole("heading", { name: "Target" }));
+  expect(within(dialog).getByText("relative").tagName).toBe("SPAN");
+  expect(within(dialog).getByRole("img", { name: "alt" }).textContent).toBe("alt");
+  expect(pending.map((request) => request.url)).toEqual([
+    "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
+  ]);
+});
 const a: Attachment = {
   id: "attachment-a",
   taskId: "task-a",
@@ -46,6 +80,7 @@ async function resolve(index: number, response: Response) {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  openUrl.mockClear();
 });
 
 function Fixture({

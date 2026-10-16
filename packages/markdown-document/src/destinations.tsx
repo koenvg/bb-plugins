@@ -1,4 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  destination,
+  type Destination,
+  type DestinationPolicy as NativePolicy,
+} from "./destination-policy.js";
+import { RemoteImage, type RemoteImages } from "./remote-images.js";
 
 export const MAX_DESTINATIONS = 128;
 export const MAX_IMAGES = 32;
@@ -8,6 +14,7 @@ export const destinationKey = ({ url, image }: DestinationRequest) => JSON.strin
 export type LinkReferences = Readonly<{
   children: ReactNode;
   id?: string;
+  title?: string;
   "aria-describedby"?: string;
   "aria-label"?: string;
 }>;
@@ -17,7 +24,7 @@ export type DestinationGrant =
   | Readonly<{ kind: "bound-link"; render: (props: LinkReferences) => ReactNode }>
   | Readonly<{ kind: "image"; url: string; source: "remote" | "source" }>;
 export type DestinationPolicy =
-  | Readonly<{ kind: "deny" }>
+  | NativePolicy
   | Readonly<{ kind: "local-only" }>
   | Readonly<{
       kind: "delegated";
@@ -25,7 +32,16 @@ export type DestinationPolicy =
     }>;
 export const denyDestinations: DestinationPolicy = Object.freeze({ kind: "deny" });
 export const localDestinations: DestinationPolicy = Object.freeze({ kind: "local-only" });
-export const DestinationContext = createContext<DestinationPolicy>(denyDestinations);
+type DestinationScope = Readonly<{
+  policy: DestinationPolicy;
+  requests: ReadonlySet<string>;
+  resources: RemoteImages | null;
+}>;
+export const DestinationContext = createContext<DestinationScope>({
+  policy: denyDestinations,
+  requests: new Set(),
+  resources: null,
+});
 
 export function checkedDestination(url: string, image: boolean): boolean {
   if (
@@ -81,9 +97,76 @@ export function checkedDestination(url: string, image: boolean): boolean {
   }
 }
 
-function grant(policy: DestinationPolicy, url: string, image: boolean) {
-  if (!checkedDestination(url, image) || policy.kind !== "delegated") return undefined;
-  return policy.resolve(Object.freeze({ url, image }));
+function grant(scope: DestinationScope, url: string, image: boolean) {
+  if (
+    !checkedDestination(url, image) ||
+    scope.policy.kind !== "delegated" ||
+    !scope.requests.has(destinationKey({ url, image }))
+  )
+    return undefined;
+  return scope.policy.resolve(Object.freeze({ url, image }));
+}
+
+function NativeLink({
+  parsed,
+  policy,
+  children,
+  ...references
+}: LinkReferences & {
+  parsed: Exclude<Destination, { kind: "fragment" }>;
+  policy: NativePolicy;
+}) {
+  const [failed, setFailed] = useState(false);
+  const open =
+    parsed.kind === "external" && policy.kind !== "deny" ? policy.openExternal : undefined;
+  const source =
+    parsed.kind === "source" && policy.kind === "bound-source" ? policy.activateSource : undefined;
+  if ((!open || parsed.kind !== "external") && (!source || parsed.kind !== "source"))
+    return (
+      <span {...references} className="mr-inert-link">
+        {children}
+      </span>
+    );
+  const activate = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (
+      parsed.kind === "external" &&
+      (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
+    )
+      return;
+    event.preventDefault();
+    try {
+      const result =
+        parsed.kind === "external"
+          ? await open!(parsed.url)
+          : parsed.kind === "source"
+            ? await source!(parsed.destination)
+            : false;
+      setFailed(!result);
+    } catch {
+      setFailed(true);
+    }
+  };
+  return (
+    <>
+      <a
+        {...references}
+        href={parsed.kind === "external" ? parsed.url : undefined}
+        role={parsed.kind === "source" ? "link" : undefined}
+        tabIndex={parsed.kind === "source" ? 0 : undefined}
+        onClick={activate}
+        onAuxClick={parsed.kind === "source" ? activate : undefined}
+        onKeyDown={(event) => {
+          if (parsed.kind === "source" && event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.click();
+          }
+        }}
+      >
+        {children}
+      </a>
+      {failed ? <span role="status">Link could not be opened.</span> : null}
+    </>
+  );
 }
 
 export function DestinationLink({
@@ -95,20 +178,44 @@ export function DestinationLink({
   url: string;
   fragmentTarget: (fragment: string) => string | null;
 }) {
-  const policy = useContext(DestinationContext);
-  const result = grant(policy, url, false);
-  const fragment =
-    policy.kind !== "deny" && checkedDestination(url, false) && url.startsWith("#")
-      ? url
-      : result?.kind === "fragment"
-        ? result.fragment
-        : "";
+  const scope = useContext(DestinationContext);
+  const { policy } = scope;
+  const native = policy.kind === "attachment" || policy.kind === "bound-source" ? policy : null;
+  const parsed =
+    native &&
+    url.length <= MAX_DESTINATION_URL_LENGTH &&
+    (url.startsWith("#") ||
+      native.kind === "bound-source" ||
+      scope.requests.has(destinationKey({ url, image: false })))
+      ? destination(url, native)
+      : null;
+  const result = grant(scope, url, false);
+  const local = native
+    ? parsed?.kind === "fragment"
+    : policy.kind !== "deny" && checkedDestination(url, false) && url.startsWith("#");
+  const fragment = local
+    ? parsed?.kind === "fragment"
+      ? `#${encodeURIComponent(parsed.fragment)}`
+      : url
+    : result?.kind === "fragment"
+      ? result.fragment
+      : "";
   const target = fragmentTarget(fragment);
   if (target)
     return (
       <a {...references} href={`#${target}`} data-heading-target={target}>
         {children}
       </a>
+    );
+  if (native)
+    return (
+      <NativeLink
+        {...references}
+        policy={native}
+        parsed={parsed?.kind === "fragment" ? { kind: "denied" } : parsed || { kind: "denied" }}
+      >
+        {children}
+      </NativeLink>
     );
   if (result?.kind === "bound-link") return result.render({ ...references, children });
   return (
@@ -161,7 +268,22 @@ export function DestinationImage({
   alt?: string;
   title?: string;
 }) {
-  const result = grant(useContext(DestinationContext), url, true);
+  const scope = useContext(DestinationContext);
+  const { policy, resources } = scope;
+  if (policy.kind === "attachment" || policy.kind === "bound-source") {
+    const parsed = url.length <= MAX_DESTINATION_URL_LENGTH ? destination(url, policy) : null;
+    const eligible = policy.remoteImages && parsed?.kind === "external";
+    const issued = scope.requests.has(destinationKey({ url, image: true }));
+    return eligible && resources && issued && parsed?.kind === "external" ? (
+      <RemoteImage key={parsed.url} url={parsed.url} alt={alt} resources={resources} />
+    ) : (
+      <span role="img" aria-label={alt || "Image"}>
+        {alt || "Image"}
+        {eligible && !issued ? " (image unavailable)" : ""}
+      </span>
+    );
+  }
+  const result = grant(scope, url, true);
   let allowed = false;
   if (result?.kind === "image") {
     if (

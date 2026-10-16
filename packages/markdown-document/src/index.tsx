@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Outline, useWidePanel } from "./outline.js";
 import { RawDocument } from "./raw.js";
+import { RemoteImages } from "./remote-images.js";
 import {
   DestinationContext,
   denyDestinations,
@@ -18,6 +19,7 @@ export {
   type DestinationGrant,
   type LinkReferences,
 } from "./destinations.js";
+export type { SourceDestination } from "./destination-policy.js";
 export type { LineRequest } from "./source-lines.js";
 export type DocumentView = "preview" | "raw";
 export type DocumentNavigation = Readonly<{
@@ -45,14 +47,27 @@ export function MarkdownDocument({
 }: MarkdownDocumentProps) {
   const root = useRef<HTMLDivElement>(null);
   const wide = useWidePanel(navigation?.container ?? root);
+  const imagePermission =
+    (destinations.kind === "attachment" || destinations.kind === "bound-source") &&
+    destinations.remoteImages === true;
+  const resources = useMemo(() => new RemoteImages(), [model, imagePermission, view]);
+  useEffect(() => () => resources.dispose(), [resources]);
+  const scope = useMemo(
+    () => ({
+      policy: destinations,
+      resources,
+      requests: new Set(model.requests.map(destinationKey)),
+    }),
+    [model, destinations, resources],
+  );
   const reveal = useCallback(
     (target: HTMLElement) => {
       if (navigation) navigation.reveal(target);
       else {
-        const document = root.current;
-        if (document && /^(auto|scroll)$/.test(getComputedStyle(document).overflowY)) {
-          document.scrollTop +=
-            target.getBoundingClientRect().top - document.getBoundingClientRect().top;
+        const container = root.current;
+        if (container && /^(auto|scroll)$/.test(getComputedStyle(container).overflowY)) {
+          container.scrollTop +=
+            target.getBoundingClientRect().top - container.getBoundingClientRect().top;
         }
         target.focus({ preventScroll: true });
       }
@@ -65,27 +80,27 @@ export function MarkdownDocument({
     ).find((node) => node.id === id);
     if (target) reveal(target);
   };
-  const policy = useMemo<DestinationPolicy>(() => {
-    if (destinations.kind !== "delegated") return destinations;
-    const requests = new Map(model.requests.map((request) => [destinationKey(request), request]));
-    return {
-      kind: "delegated",
-      resolve: (request) => {
-        const issued = requests.get(destinationKey(request));
-        return issued ? destinations.resolve(issued) : undefined;
-      },
-    };
-  }, [model, destinations]);
   const activate = (event: React.MouseEvent<HTMLElement>) => {
     const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
     if (!anchor) return;
     event.preventDefault();
     if (event.button < 2) navigate(anchor.getAttribute("data-heading-target")!);
   };
-  const showOutline = outline && model.headings.length > 0;
+  const showOutline =
+    outline &&
+    model.headings.length > 0 &&
+    destinations.kind !== "deny" &&
+    ((destinations.kind !== "attachment" && destinations.kind !== "bound-source") ||
+      destinations.localFragments === true);
   return (
-    <div ref={root} className="md-document" data-document-namespace={model.namespace}>
-      <DestinationContext.Provider value={policy}>
+    <div
+      ref={root}
+      className="md-document"
+      data-document-namespace={model.namespace}
+      onClick={activate}
+      onAuxClick={activate}
+    >
+      <DestinationContext.Provider value={scope}>
         {view === "raw" ? (
           <RawDocument
             sourceLines={model.sourceLines}
@@ -98,16 +113,11 @@ export function MarkdownDocument({
             className="mr-document-layout"
             data-outline={showOutline ? (wide ? "aside" : "inline") : "hidden"}
           >
-            {showOutline && !wide && <Outline model={model} wide={false} navigate={navigate} />}
-            <article
-              className="mr-prose"
-              aria-label="Markdown preview"
-              onClick={activate}
-              onAuxClick={activate}
-            >
+            {showOutline && !wide && <Outline model={model} wide={false} />}
+            <article className="mr-prose" aria-label="Markdown preview">
               {model.content}
             </article>
-            {showOutline && wide && <Outline model={model} wide navigate={navigate} />}
+            {showOutline && wide && <Outline model={model} wide />}
           </div>
         )}
       </DestinationContext.Provider>

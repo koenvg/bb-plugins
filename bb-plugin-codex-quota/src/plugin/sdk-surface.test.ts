@@ -82,7 +82,7 @@ describe("public SDK and quota-only boundary", () => {
         /^react(\/.*)?$/,
         /^react-dom$/,
         /^react-dom\/client$/, // Isolated synthetic preview entry.
-        /^recharts$/, // Declared MIT chart dependency, bundled locally for the primary view.
+        /^@tanstack\/charts(?:\/.*)?$/, // Declared MIT chart dependency, bundled locally for the primary view.
         /^@testing-library\/react$/,
         /^vitest$/,
         // Existing dev dependency used to exercise BB's real native tooltip.

@@ -18,8 +18,8 @@ for (const width of [320, 375, 430, 1280]) {
           previous: rect('[aria-label="Previous 30 days"]'),
           next: rect('[aria-label="Next 30 days"]'),
           latest: rect('[aria-label="Previous 30 days"] + button + button'),
-          chart: rect(".recharts-surface"),
-          plot: rect(".recharts-cartesian-grid"),
+          chart: rect(".ts-chart"),
+          plot: rect(".ts-chart__grid"),
         };
       });
       expect(boxes.next.y).toBeCloseTo(boxes.previous.y, 0);
@@ -37,7 +37,7 @@ for (const width of [320, 375, 430, 1280]) {
         element.style.width = "375px";
       });
       await expect
-        .poll(async () => (await page.locator(".recharts-surface").boundingBox())!.width)
+        .poll(async () => (await page.locator(".ts-chart").boundingBox())!.width)
         .toBe(311);
       await check();
     }

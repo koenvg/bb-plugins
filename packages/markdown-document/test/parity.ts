@@ -15,6 +15,7 @@ export function measureDocument() {
     "ul",
     "ol",
     "li",
+    ".mr-image-placeholder, .mr-prose [role='img']",
   ];
   const properties = [
     "font-family",

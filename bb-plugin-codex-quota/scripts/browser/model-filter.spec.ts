@@ -9,20 +9,43 @@ const series = (page: Page, name: string) =>
 const restore = (page: Page) =>
   page.getByRole("button", { name: "Restore all series", exact: true });
 const bars = (page: Page) =>
-  page.locator(".recharts-bar").evaluateAll((groups) =>
-    groups
-      .map((group) =>
-        Array.from(group.querySelectorAll(".recharts-bar-rectangle path"), (node) => ({
-          height: Number(node.getAttribute("height")),
-          y: Number(node.getAttribute("y")),
-          fill: getComputedStyle(node).fill,
-          uncertain: node.hasAttribute("stroke-dasharray"),
-        })).filter((bar) => bar.height > 0),
-      )
-      .filter((group) => group.length)
-      .sort((left, right) => right[0].y - left[0].y),
-  );
-const axis = (page: Page) => page.locator(".recharts-yAxis-tick-labels text").allTextContents();
+  page.locator(".ts-chart__bar :is(rect,path)").evaluateAll((nodes) => {
+    const groups = new Map<
+      string,
+      { height: number; y: number; fill: string; uncertain: boolean }[]
+    >();
+    for (const node of nodes) {
+      const height = Number(node.getAttribute("height"));
+      if (height <= 0) continue;
+      const key = node.getAttribute("data-ts-key")!;
+      const identity = JSON.parse(key.slice(key.indexOf("[")))[1];
+      const group = groups.get(identity) ?? [];
+      group.push({
+        height,
+        y: Number(node.getAttribute("y")),
+        fill: getComputedStyle(node).fill,
+        uncertain: node.getAttribute("stroke-dasharray") === "3 2",
+      });
+      groups.set(identity, group);
+    }
+    return [...groups.values()].sort((left, right) => right[0].y - left[0].y);
+  });
+const axis = (page: Page) => page.locator("[data-ts-key^='y-tick-label:']").allTextContents();
+async function expectedStack(page: Page, values: number[], maximum: number) {
+  const bounds = await page.locator(".ts-chart__grid line").evaluateAll((lines) => {
+    const positions = lines.map((line) => Number(line.getAttribute("y1")));
+    return { top: Math.min(...positions), bottom: Math.max(...positions) };
+  });
+  let cumulative = 0;
+  const paint = (value: number) => Math.round(value * 100) / 100;
+  return values.map((value) => {
+    cumulative += value;
+    return {
+      height: paint(((bounds.bottom - bounds.top) * value) / maximum),
+      y: paint(bounds.bottom - ((bounds.bottom - bounds.top) * cumulative) / maximum),
+    };
+  });
+}
 async function settled(page: Page) {
   await chart(page);
   await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
@@ -58,11 +81,11 @@ for (const width of [375, 1280])
       const daily = await rows(page);
       expect(daily[14].slice(-3)).toEqual(["100", "100", "400"]);
       const initial = await bars(page);
-      const initialBarBox = (await page
-        .locator(".recharts-bar-rectangle path")
-        .first()
-        .boundingBox())!;
+      const initialBarBox = (await page.locator(".ts-chart__bar rect").first().boundingBox())!;
       expect(initial.map((group) => group.length)).toEqual([1, 1, 1]);
+      expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(
+        await expectedStack(page, [100, 100, 400], 600),
+      );
       const ticks = await axis(page);
       expect(ticks).toEqual(["0", "150", "300", "450", "600"]);
       const fullTip = await tooltip(page, "tokens", daily);
@@ -79,7 +102,7 @@ for (const width of [375, 1280])
         })),
       ).toEqual({ column: "16px", row: "4px", margin: "0px" });
       for (const node of [
-        page.getByRole("group", { name: "Daily recorded values" }).getByRole("status"),
+        page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
         page.locator(`[id="${await legend.getAttribute("aria-describedby")}"]`),
       ]) {
         expect(
@@ -124,8 +147,8 @@ for (const width of [375, 1280])
       }
       await capture(page, info, `compact-default-${width}-${theme}`);
       await settled(page);
-      const application = await page.getByRole("application").elementHandle();
-      const plot = await page.locator(".recharts-responsive-container").boundingBox();
+      const application = await page.getByRole("img").elementHandle();
+      const plot = await page.locator(".ts-chart-host").boundingBox();
       await page.keyboard.press("Space");
       await expect(fast).toHaveAttribute("aria-pressed", "false");
       await expect(fast).toBeFocused();
@@ -137,11 +160,9 @@ for (const width of [375, 1280])
           .evaluate((node) => getComputedStyle(node).textDecorationLine),
       ).toBe("line-through");
       expect(
-        await application!.evaluate(
-          (node) => node === document.querySelector('[role="application"]'),
-        ),
+        await application!.evaluate((node) => node === document.querySelector('[role="img"]')),
       ).toBe(true);
-      expect(await page.locator(".recharts-responsive-container").boundingBox()).toEqual(plot);
+      expect(await page.locator(".ts-chart-host").boundingBox()).toEqual(plot);
       expect(
         await fast.evaluate((node) => ({
           visible: node.matches(":focus-visible"),
@@ -167,19 +188,19 @@ for (const width of [375, 1280])
         expect(remaining.map((group) => group.map(({ y: _y, ...bar }) => bar))).toEqual(
           expected.map((group) => group.map(({ y: _y, ...bar }) => bar)),
         );
+        const endpoints = await expectedStack(
+          page,
+          [100, 100, 400].filter((_value, index) => index !== hiddenIndex),
+          600,
+        );
         for (let index = 0; index < remaining.length; index++)
-          expect(remaining[index][0].y).toBeCloseTo(
-            expected[index][0].y + (index >= hiddenIndex ? initial[hiddenIndex][0].height : 0),
-            3,
-          );
+          expect(remaining[index][0].y).toBeCloseTo(endpoints[index].y, 3);
         expect(await axis(page)).toEqual(ticks);
-        expect(await page.locator(".recharts-responsive-container").boundingBox()).toEqual(plot);
+        expect(await page.locator(".ts-chart-host").boundingBox()).toEqual(plot);
         await restore(page).click();
         expect(await bars(page)).toEqual(initial);
         expect(
-          await application!.evaluate(
-            (node) => node === document.querySelector('[role="application"]'),
-          ),
+          await application!.evaluate((node) => node === document.querySelector('[role="img"]')),
         ).toBe(true);
       }
       await fast.focus();
@@ -213,7 +234,7 @@ for (const width of [375, 1280])
       for (let cycle = 0; cycle < 2; cycle++) {
         for (const name of names) await series(page, name).click();
         await expect(
-          page.getByRole("group", { name: "Daily recorded values" }).getByRole("status"),
+          page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
         ).toHaveText("All model/speed series hidden. Recorded usage is not zero.");
         expect(await bars(page)).toEqual([]);
         expect(await rows(page)).toEqual(daily);
@@ -269,10 +290,15 @@ test("uncertainty restacks unfiltered on the unchanged full scale", async ({ pag
   const ticks = await axis(page);
   expect(ticks).toEqual(["0", "225", "450", "675", "900"]);
   const uncertainty = initial[1][0];
-  expect(initial[0][0].height / uncertainty.height).toBeCloseTo(2, 5);
+  const endpoints = await expectedStack(page, [600, 300], 900);
+  expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(endpoints);
+  expect(initial[0][0].height / uncertainty.height).toBeCloseTo(
+    endpoints[0].height / endpoints[1].height,
+    5,
+  );
   await series(page, "Unknown model Default").click();
   const filtered = await bars(page);
-  expect(filtered).toEqual([[{ ...uncertainty, y: uncertainty.y + initial[0][0].height }]]);
+  expect(filtered).toEqual([[{ ...uncertainty, y: (await expectedStack(page, [300], 900))[0].y }]]);
   expect(await axis(page)).toEqual(ticks);
   expect(await rows(page)).toEqual(daily);
   await tooltip(page, "tokens", daily);
@@ -292,7 +318,7 @@ test("unknown speed filters keep independent complete attribution", async ({ pag
   await series(page, "Unknown model Fast").click();
   expect(await bars(page)).toEqual([
     initial[0],
-    [{ ...initial[2][0], y: initial[2][0].y + initial[1][0].height }],
+    [{ ...initial[2][0], y: (await expectedStack(page, [100, 300], 600))[1].y }],
   ]);
   await expect(series(page, "Unknown model Default")).toHaveAttribute("aria-pressed", "true");
   await expect(series(page, "Unknown model Ultrafast")).toHaveAttribute("aria-pressed", "true");
@@ -347,7 +373,14 @@ for (const width of [375, 1280])
       expect(daily[14][10]).toBe("2 excluded tokens");
       const initial = await bars(page);
       expect(initial.map((group) => group.length)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
-      expect(initial[3][0].height / initial[7][0].height).toBeCloseTo(1 / 300, 5);
+      const endpoints = await expectedStack(page, [100, 100, 199, 1, 100, 50, 50, 300], 900);
+      expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(
+        endpoints,
+      );
+      expect(initial[3][0].height / initial[7][0].height).toBeCloseTo(
+        endpoints[3].height / endpoints[7].height,
+        5,
+      );
       expect(initial[3][0].height).toBeLessThan(1);
       const long = series(page, names[2]);
       const box = (await long.boundingBox())!;
@@ -404,7 +437,7 @@ for (const state of ["unknown", "inactive", "filter-uncertain-only"])
       page.getByRole("group", { name: "Models", exact: true }).getByRole("button"),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("group", { name: "Daily recorded values" }).getByRole("status"),
+      page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
     ).toHaveText("No recorded model/speed series.");
     await expect(restore(page)).toHaveCount(0);
     expect(await rows(page)).toEqual(daily);

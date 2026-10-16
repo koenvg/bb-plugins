@@ -35,10 +35,12 @@ Complete delivery 1 before delivery 2.
 
 Complete delivery 1 before delivery 3.
 
-- [ ] 3.1 Derive local heading IDs and optional outline from rendered headings, including duplicates, non-ASCII and inline formatting; verify public/rendered activation tests isolate concurrent readers and underlying task headings, omit empty outlines and support hiding or compact disclosure.
-- [ ] 3.2 Dispatch destinations only through explicit file-root/host or rootless-attachment policies; verify malformed encodings, unsafe schemes, relative/absolute attachment paths and absent permissions cause no read, navigation or asset request while retaining readable labels/alt text.
-- [ ] 3.3 Support local fragments, external HTTP(S) links through BB URL preferences and credential-free remote images; verify accessible anchor/modifier behavior, local navigation, image fit/alt/aspect ratio, readable broken-image content, no referrer or authenticated proxy and blocking of same-origin authenticated BB resources.
-- [ ] 3.4 Document allowed links/images, inactive attachment-relative assets, source-policy separation and remote-image network behavior; verify every restriction maps to public-interface or rendered activation tests.
+Delivery 3 evidence is in [the BBP-55 report](../../../verification/BBP-55/report.md). Tasks 3.1 through 3.4 are accepted. The user explicitly accepted headed-browser evidence for task 3.3 and finalization of BBP-55, without installation or publication. The full headed suite passes 17 checks; the default headless suite still fails three native-tab checks, including the plain-anchor diagnostic. Headless investigation is recorded as BBP-245.
+
+- [x] 3.1 Derive local heading IDs and optional outline from rendered headings, including duplicates, non-ASCII and inline formatting; verify public/rendered activation tests isolate concurrent readers and underlying task headings, omit empty outlines and support hiding or compact disclosure.
+- [x] 3.2 Dispatch destinations only through explicit file-root/host or rootless-attachment policies; verify malformed encodings, unsafe schemes, relative/absolute attachment paths and absent permissions cause no read, navigation or asset request while retaining readable labels/alt text.
+- [x] 3.3 Support local fragments, external HTTP(S) links through BB URL preferences and credential-free remote images; verify accessible anchor/modifier behavior, local navigation, image fit/alt/aspect ratio, readable broken-image content, no referrer or authenticated proxy and blocking of same-origin authenticated BB resources.
+- [x] 3.4 Document allowed links/images, inactive attachment-relative assets, source-policy separation and remote-image network behavior; verify every restriction maps to public-interface or rendered activation tests.
 
 ## 4. Read technical reports at compact and desktop widths
 

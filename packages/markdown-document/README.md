@@ -19,15 +19,17 @@ return <MarkdownDocument model={model} view={view} destinations={denyDestination
 ```
 
 Create one model for an immutable loaded snapshot and use a mount-unique namespace. Reuse the model across Preview/Raw switches and line requests. The factory derives headings, fragments, destination requests and exact source lines from the supplied string. Model fields are read-only presentation data, never source authority.
+The factory scopes model IDs even when namespace labels repeat. Canonical heading fragments follow BBP-55's normalized visible labels and collision suffixes. Legacy Reader fragments remain aliases. Generated footnotes do not capture an explicit heading with the same fragment.
 
 `MarkdownDocument` accepts `model`, controlled `view`, optional `destinations`, `outline`, `lineRange`, `annotateSourceLines` and `navigation`. `view` is `preview` or `raw`. The root exports these public types and the source-neutral heading, request, grant and link-reference types. Internal subpaths are not exported.
 
 Preview hides leading YAML frontmatter without changing heading source positions. It renders GFM, disabled task checkboxes and passive syntax tokens. Known fences up to 20 KiB receive highlighting. Unknown languages, larger fences, token-budget failures and tokenizer failures remain plain code. Raw preserves the complete source, including BOM, frontmatter, mixed line endings and whitespace. HTML and MDX do not execute.
 Tokenizer output is limited to 16,384 passive nodes and depth 64. These existing BBP-56 safeguards remain unchanged in the shared implementation.
 
-`outline` defaults to false. When enabled, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
+`outline` defaults to false. When enabled and local navigation is permitted, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
 
 Default Raw uses one text node, including newline-dense files up to the consumer's 1 MiB limit. A valid range request or explicit `annotateSourceLines` enables per-line targets. Reader opts in for source selection and range navigation. Tasks does not. Both paths preserve exactly the same source. Reader's inherited annotation cost is tracked separately in [BBP-249](bbtask://BBP-249).
+Unannotated Raw reads the stored string without a source-line index. The line array is frozen and cached only when annotation or a valid range needs it. Blank ASCII Markdown avoids a parser pass; non-ASCII paragraph whitespace still uses the parser.
 
 An optional `navigation` supplies a container ref and `reveal(target)` callback. Markdown Reader uses its toolbar-aware panel reveal. Without that callback, the presenter scrolls only its own root when that root is a scroller, and focuses the target without scrolling ancestors. `.mr-prose`, `.mr-raw` and `[data-source-line]` are retained content hooks for the reader's selection action.
 
@@ -36,12 +38,15 @@ An optional `navigation` supplies a container ref and `reveal(target)` callback.
 - Missing policy or `denyDestinations` denies all destinations, including local fragments. Labels and image alt text remain readable.
 - `localDestinations` enables only targets in the current model.
 - A `delegated` policy resolves checked requests to rejected, fragment, bound-link or image grants. Consumers bind SDK links outside this package. Link/image grant mismatches remain inert.
+- An `attachment` policy may explicitly enable `localFragments`, `openExternal` and `remoteImages`. It cannot supply a filesystem binding.
+- A `bound-source` policy requires an explicit root, host, document path and source activation callback. The shared lexical check proposes confined paths only. The consumer must verify current source authority, physical confinement and opener preferences before activation.
 
 The package rejects malformed encodings, active schemes, credentials, encoded separators/traversal and unsupported absolute paths before consumer dispatch. It bounds collected requests to 128, URLs to 4096 characters and images to 32. It never derives a filesystem root, host or attachment relationship.
 
+Attachment remote images use the preserved BBP-55 loader: CORS with credentials omitted, no referrer, redirects rejected, raster MIME validation, 4 MiB per image, 16 MiB retained per document, four concurrent requests and 32 total requests. Raw, replacement, permission revocation and unmount cancel owned requests and release blob URLs. Denied or failed images retain readable labels.
 Image grants distinguish `remote` from `source`. Remote grants must match the requested HTTP(S) URL and cannot target the current BB origin. They use anonymous CORS and no referrer, so cross-origin credentials are omitted. A remote host must permit CORS; otherwise readable alt/error text remains. Source-image URLs are explicit consumer-issued local capabilities, not document-provided BB endpoints. The reader validates its opaque image route and keeps host/root confinement outside this package.
 
-Tasks supplies deny-all in this delivery. Markdown Reader supplies only currently verified grants and falls back to local-only while loading or stale. Refresh and fallback revoke source-backed links and image sources without discarding readable stale text.
+Tasks explicitly enables document-local fragments, BB-preference external opening and bounded remote raster images, preserving merged BBP-55. Relative filesystem links remain inert because attachments have no binding. Markdown Reader supplies only currently verified delegated grants and falls back to local-only while loading or stale. Refresh and fallback revoke source-backed links and images without discarding readable stale text.
 
 ## Build and verify
 

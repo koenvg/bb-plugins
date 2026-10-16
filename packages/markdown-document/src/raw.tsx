@@ -34,7 +34,7 @@ export function RawDocument({
               {text}
             </span>
           ))
-        : sourceLines.lines.join("")}
+        : sourceLines.text}
     </pre>
   );
 }

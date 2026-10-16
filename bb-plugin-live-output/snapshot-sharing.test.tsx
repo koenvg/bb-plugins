@@ -4,6 +4,7 @@ import { act, fireEvent } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
+import "./chart-test-support";
 
 let slots: RenderedSlot[] = [];
 let fixture: HTMLElement;

@@ -201,7 +201,7 @@ for (const { width, theme, viewport, name } of cases) {
       }
       const finalEntry = page
         .getByRole("navigation", { name: "Document sections" })
-        .getByRole("button", { name: "Final section", exact: true });
+        .getByRole("link", { name: "Final section", exact: true });
       await finalEntry.focus();
       await page.keyboard.press("Enter");
       const heading = page.getByRole("heading", { name: "Final section", exact: true });

@@ -2,9 +2,10 @@ import { useId, useMemo, useLayoutEffect, useRef, useState, type RefObject } fro
 import {
   MarkdownDocument,
   createDocumentModel,
-  denyDestinations,
   type DocumentView,
+  type DestinationPolicy,
 } from "@bb-plugins/markdown-document";
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import "@bb-plugins/markdown-document/style.css";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
@@ -137,10 +138,41 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
   }
 }
 
-function AttachmentDocument({ snapshot, view }: { snapshot: PreviewSnapshot; view: DocumentView }) {
+function AttachmentDocument({
+  snapshot,
+  view,
+  destinations,
+  body,
+}: {
+  snapshot: PreviewSnapshot;
+  view: DocumentView;
+  destinations: DestinationPolicy;
+  body: RefObject<HTMLElement | null>;
+}) {
   const namespace = useId();
   const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
-  return <MarkdownDocument model={model} view={view} destinations={denyDestinations} />;
+  const navigation = useMemo(
+    () => ({
+      container: body,
+      reveal(target: HTMLElement) {
+        const container = body.current;
+        if (!container) return;
+        container.scrollTop +=
+          target.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
+        target.focus({ preventScroll: true });
+      },
+    }),
+    [body],
+  );
+  return (
+    <MarkdownDocument
+      model={model}
+      view={view}
+      destinations={destinations}
+      navigation={navigation}
+      outline
+    />
+  );
 }
 function usable(element: HTMLElement | null): element is HTMLElement {
   if (
@@ -170,6 +202,16 @@ export function useAttachmentPreview({
   confirmedAttachments: readonly Attachment[] | undefined;
   fallbackRef: RefObject<HTMLElement | null>;
 }) {
+  const navigate = useBbNavigate();
+  const destinations = useMemo(
+    () => ({
+      kind: "attachment" as const,
+      localFragments: true,
+      openExternal: navigate.openUrl,
+      remoteImages: true,
+    }),
+    [navigate.openUrl],
+  );
   const [state, setState] = useState<PreviewState>({ kind: "closed" });
   const runtime = useRef({
     mounted: false,
@@ -181,6 +223,7 @@ export function useAttachmentPreview({
     closedSession: null as FocusSession | null,
   });
   const panel = useRef<HTMLDivElement>(null);
+  const documentBody = useRef<HTMLElement>(null);
   const invalidate = () => {
     const owner = runtime.current;
     const previous = owner.ticket;
@@ -331,6 +374,7 @@ export function useAttachmentPreview({
           </header>
           <section
             className="attachment-preview-body"
+            ref={documentBody}
             aria-label="Document"
             aria-busy={active?.resource.kind === "loading"}
           >
@@ -351,7 +395,12 @@ export function useAttachmentPreview({
               active.resource.snapshot.text === "" && active.view === "preview" ? (
                 <p role="status">This file is empty. Download keeps the original file.</p>
               ) : (
-                <AttachmentDocument snapshot={active.resource.snapshot} view={active.view} />
+                <AttachmentDocument
+                  snapshot={active.resource.snapshot}
+                  view={active.view}
+                  destinations={destinations}
+                  body={documentBody}
+                />
               )
             ) : null}
           </section>

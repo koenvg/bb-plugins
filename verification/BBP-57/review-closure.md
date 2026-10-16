@@ -30,3 +30,13 @@ Retained logs are `parent-validation/review-findings-red.log`, `review-findings-
 ## Post-rebase verification
 
 After integration with merged BBP-56, all 92 shared, 235 Reader and 1,323 Tasks unit cases pass. All 69 Reader and 22 Tasks browser cases pass, including the upstream technical-report cases. Shared highlighting guards are byte-for-byte unchanged from `e6484c6`. Parent reran matched production-consumer styles/theme checks, types, root checks and fresh isolated SDK/build checks. See `rebase-validation/` in thread storage. Hosted CI and installed acceptance were not run. This remains owner verification of the two fixes, not a new independent verdict.
+
+## BBP-55 reconciliation
+
+The operator approved preservation of merged Tasks navigation, links and remote images. The current shared suite passes 110 cases; Reader passes 235 unit and 69 browser cases; Tasks passes 1,324 unit and 28 browser cases. Fresh isolated type, SDK, compiled ESM and consumer builds pass against pinned tooling, with the opposite source and shared dist absent.
+
+Raw's existing 1 MiB regression exposed eager parsing/indexing cost under load. Default Raw now reads the exact string; line indexing is lazy and blank ASCII input skips parsing. No timeout changed. New coverage retains Unicode paragraph whitespace and proves default Raw does not access the line index. Annotated Reader DOM remains BBP-249.
+
+The preserved upstream remote loader and highlighting guards are unchanged. New red/green cases retain link titles and prevent outline navigation under denied local permissions. Owner also fixed the literal-heading/footnote collision without relaxing upstream assertions. This is owner verification of reconciliation, not another whole-change independent verdict.
+
+Current-host SDK checks report 0.6.49 versus the consumers' 0.6.37 pins. BBP-252 records that separate migration prerequisite. The clean verifier now isolates ambient BB environment variables and checks the declared BB 0.46.0 toolchain; it does not certify current-host acceptance. No migration or activation occurred.

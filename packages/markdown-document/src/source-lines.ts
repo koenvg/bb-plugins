@@ -7,20 +7,30 @@ export interface LineTarget {
   end: number;
 }
 export interface SourceLines {
-  lines: readonly string[];
+  readonly text: string;
+  readonly lines: readonly string[];
   target(request: unknown): LineTarget | null;
 }
 
 export function createSourceLines(text: string): SourceLines {
-  const lines: string[] = [];
-  const pattern = /([^\r\n]*)(\r\n|\r|\n|$)/g;
-  for (;;) {
-    const match = pattern.exec(text)!;
-    lines.push(match[0]);
-    if (!match[2]) break;
+  let indexed: readonly string[] | undefined;
+  function lines(): readonly string[] {
+    if (indexed) return indexed;
+    const result: string[] = [];
+    const pattern = /([^\r\n]*)(\r\n|\r|\n|$)/g;
+    for (;;) {
+      const match = pattern.exec(text)!;
+      result.push(match[0]);
+      if (!match[2]) break;
+    }
+    indexed = Object.freeze(result);
+    return indexed;
   }
   return Object.freeze({
-    lines: Object.freeze(lines),
+    text,
+    get lines() {
+      return lines();
+    },
     target(request: unknown) {
       if (!text || !request || typeof request !== "object") return null;
       const { startLineNumber: start, endLineNumber: end } = request as Record<string, unknown>;
@@ -31,7 +41,8 @@ export function createSourceLines(text: string): SourceLines {
         !Number.isSafeInteger(end)
       )
         return null;
-      const clamp = (line: number) => Math.max(1, Math.min(lines.length, line));
+      const count = lines().length;
+      const clamp = (line: number) => Math.max(1, Math.min(count, line));
       return { start: clamp(Math.min(start, end)), end: clamp(Math.max(start, end)) };
     },
   });

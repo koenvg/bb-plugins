@@ -12,4 +12,4 @@ Counts stay in memory and reset when the plugin reloads. No transcript bodies or
 
 ## Requirements
 
-Requires BB 0.46 and Plugin SDK 0.6.37 with the public experimental thread-event hook. No account, external service, chart package or agent tool is needed.
+Requires BB 0.46 and Plugin SDK 0.6.37 with the public experimental thread-event hook. No account, external service or agent tool is needed.

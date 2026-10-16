@@ -16,39 +16,29 @@ export function useWidePanel(root: RefObject<HTMLElement | null>, enabled = true
   return wide;
 }
 
-export function Outline({
-  model,
-  wide,
-  navigate,
-}: {
-  model: DocumentModel;
-  wide: boolean;
-  navigate: (id: string) => void;
-}) {
-  const entries = (
-    <nav aria-label="Document sections">
-      {model.headings.map((heading) => (
-        <button
-          type="button"
-          key={heading.id}
-          style={{ paddingInlineStart: 12 + (heading.level - 1) * 8 }}
-          aria-label={heading.text || "Empty heading"}
-          onClick={() => navigate(heading.id)}
-        >
-          {heading.text}
-        </button>
-      ))}
-    </nav>
-  );
+export function Outline({ model, wide }: { model: DocumentModel; wide: boolean }) {
+  const entries = model.headings.map((heading) => (
+    <a
+      key={heading.id}
+      href={`#${heading.id}`}
+      data-heading-target={heading.id}
+      style={{ paddingInlineStart: 12 + (heading.level - 1) * 8 }}
+      aria-label={heading.text || "Empty heading"}
+    >
+      {heading.text}
+    </a>
+  ));
   return wide ? (
     <aside className="mr-outline-aside" aria-label="On this page">
       <p>On this page</p>
-      {entries}
+      <nav aria-label="Document sections">{entries}</nav>
     </aside>
   ) : (
-    <details className="mr-outline-inline">
-      <summary>On this page</summary>
-      {entries}
-    </details>
+    <nav aria-label="Document sections">
+      <details className="mr-outline-inline">
+        <summary>On this page</summary>
+        {entries}
+      </details>
+    </nav>
   );
 }

@@ -38,7 +38,16 @@ for (const width of [390, 960])
         ["H3", "Detail"],
       ]);
       expect(snapshot.overflow).toEqual({ page: false, code: true, table: "auto" });
-      expect(await dialog.locator(".mr-prose a,.mr-prose img").count()).toBe(0);
+      await expect(dialog.locator(".mr-prose img")).toHaveCount(0);
+      await expect(
+        dialog.getByRole("link", { name: "Local heading", exact: true }),
+      ).toHaveAttribute("href", /^#/);
+      await expect(
+        dialog.getByRole("link", { name: "External reference", exact: true }),
+      ).toHaveAttribute("href", "https://example.org/report");
+      expect(
+        await dialog.getByText("Relative note", { exact: true }).evaluate((node) => node.tagName),
+      ).toBe("SPAN");
       await expect(dialog.getByText("Relative note", { exact: true })).toBeVisible();
       await expect(dialog.getByText("Relative chart", { exact: true })).toBeVisible();
       const ids = await dialog

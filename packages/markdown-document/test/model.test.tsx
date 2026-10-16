@@ -163,11 +163,13 @@ describe("document navigation model", () => {
       "foo",
       "foo-1",
       "foo-2",
-      "alt-bold-gone--x",
+      "alt-bold-gone-x",
       "level-five",
       "level-six",
-      "",
+      "section",
     ]);
+    expect(model.fragmentTarget("#alt-bold-gone--x")).toBe(model.headings[3]!.id);
+    expect(model.fragmentTarget("#")).toBe(model.headings[6]!.id);
     expect(model.headings.map((h) => h.level)).toEqual([1, 2, 3, 4, 5, 6, 1]);
     const ui = render(
       <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
