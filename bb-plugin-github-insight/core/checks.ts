@@ -144,14 +144,25 @@ function isNewer(candidate: CheckCandidate, current: CheckCandidate): boolean {
 }
 
 export function latestCheckCandidates(nodes: readonly CheckNode[]): CheckCandidate[] {
-  const newestByName = new Map<string, CheckCandidate>();
+  const newestByName = new Map<string, Map<CheckCandidate["source"], CheckCandidate>>();
   for (const candidate of nodes.map(toCandidate)) {
-    const current = newestByName.get(candidate.name);
-    if (current === undefined || isNewer(candidate, current)) {
-      newestByName.set(candidate.name, candidate);
-    }
+    const newestBySource =
+      newestByName.get(candidate.name) ?? new Map<CheckCandidate["source"], CheckCandidate>();
+    const current = newestBySource.get(candidate.source);
+    // A newer attempt can start before an older one, or not have started yet.
+    const newer =
+      current === undefined ||
+      (candidate.source === "check_run"
+        ? candidate.recency[1] > current.recency[1]
+        : isNewer(candidate, current));
+    if (newer) newestBySource.set(candidate.source, candidate);
+    newestByName.set(candidate.name, newestBySource);
   }
-  return [...newestByName.values()];
+  return [...newestByName.values()].map((newestBySource) =>
+    [...newestBySource.values()].reduce((current, candidate) =>
+      isNewer(candidate, current) ? candidate : current,
+    ),
+  );
 }
 
 export const QUIET_STATUS_MS = 3 * 60_000;
