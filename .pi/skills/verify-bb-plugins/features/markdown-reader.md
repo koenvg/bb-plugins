@@ -24,6 +24,7 @@ Preconditions:
 
 Read the maintained subfeature maps: [document views](document-views.md), [navigation](navigation.md), [refresh](refresh.md), and [selection](selection.md). After setup, `"$SKILL/scripts/verify.sh" "$EVIDENCE/markdown-smoke"` proves one complete local Preview → Raw → Preview path. `"$SKILL/scripts/browser.sh" markdown-reader "$EVIDENCE/browser"` runs its existing browser suites with retained traces and isolated output. The smoke Doctor checks actual PID, listener and checkout; exact Raw source, read count and unchanged fixture hash are observed. Installed opening/source/line requests and live composer checks still require the installed workflow and owned records.
 
+For common-renderer or two-consumer changes, also follow [shared Markdown verification](../references/shared-markdown.md). It provides fresh independent builds and a matched-width report comparison without installing either plugin.
 ## Gotchas
 
 - Use the subfeature maps instead of inferring all entries from the root fixture.

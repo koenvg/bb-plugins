@@ -7,11 +7,15 @@ import { ShortcutProvider, useShortcuts } from "../shell/shortcut-provider";
 import type { Attachment } from "../shared/contract";
 import { previewDocument, readingReport, navigationDocument } from "./preview-document";
 import "./preview.css";
+import parityReport from "../../packages/markdown-document/test/fixtures/parity-report.md?raw";
+import "../../packages/markdown-document/test/fixtures/parity.css";
 
 const params = new URLSearchParams(location.search);
 const documentFixture = params.has("report") ? readingReport : previewDocument;
 const { fileName: name, source: text } = documentFixture;
 document.documentElement.dataset.documentWidth = params.get("documentWidth") || "auto";
+const parity = params.has("parity");
+if (parity) document.documentElement.dataset.documentParity = "true";
 const attachment: Attachment = {
   id: previewDocument.id,
   taskId: "fixture-task",
@@ -37,7 +41,16 @@ window.fetch = async (input, init) => {
       (mode === "recoverable" && document.documentElement.dataset.reads === "1")
     )
       return new Response("", { status: 500 });
-    const source = mode === "empty" ? "" : mode === "navigation" ? navigationDocument : text;
+    const source =
+      mode === "empty"
+        ? ""
+        : mode === "dense-raw"
+          ? "\n".repeat(30_000)
+          : mode === "navigation"
+            ? navigationDocument
+            : parity
+              ? parityReport
+              : text;
     return Response.json({
       attachmentId: attachment.id,
       fileName: name,

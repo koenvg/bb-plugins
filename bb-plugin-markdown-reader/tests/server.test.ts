@@ -151,7 +151,7 @@ describe("public server RPC", () => {
         /^class-variance-authority$/,
         /^clsx$/,
         /^tailwind-merge$/,
-        /^refractor\/(core|markup|css|javascript|typescript|json|bash|python)$/,
+        /^@bb-plugins\/markdown-document(?:\/style\.css)?$/,
         // Public frontend test runtime, used only by the browser fixture entry.
         /^@get-bb\/plugin-sdk\/testing\/app$/,
         /^@get-bb\/plugin-sdk\/testing\/host$/,
@@ -162,6 +162,20 @@ describe("public server RPC", () => {
     });
     expect(
       result.violations.filter((entry) => {
+        if (
+          entry.reason === "outside-package" &&
+          entry.file === "tests/browser/shared-parity.spec.ts" &&
+          entry.specifier === "../../../packages/markdown-document/test/parity"
+        )
+          return false;
+        if (
+          entry.reason === "outside-package" &&
+          entry.file === "tests/presentation-preview.tsx" &&
+          /^\.\.\/\.\.\/packages\/markdown-document\/test\/fixtures\/parity(?:-report\.md\?raw|\.css)$/.test(
+            entry.specifier,
+          )
+        )
+          return false;
         if (
           entry.reason === "outside-package" &&
           ((entry.file === "playwright.config.ts" &&

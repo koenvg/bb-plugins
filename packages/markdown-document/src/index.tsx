@@ -1,270 +1,126 @@
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
+import { Outline, useWidePanel } from "./outline.js";
+import { RawDocument } from "./raw.js";
+import { RemoteImages } from "./remote-images.js";
 import {
-  createContext,
-  createElement,
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
-} from "react";
-import Markdown, { type Components, type ExtraProps } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { boundedCode } from "./code.js";
-import { denyDestinations, type Destination, type DestinationPolicy } from "./destinations.js";
-import { renderedDocument, type DocumentData, type RenderedDocument } from "./rendered-document.js";
-import { RemoteImage, RemoteImages } from "./remote-images.js";
-
-export { denyDestinations } from "./destinations.js";
-export type { DestinationPolicy, SourceDestination } from "./destinations.js";
+  DestinationContext,
+  denyDestinations,
+  destinationKey,
+  type DestinationPolicy,
+} from "./destinations.js";
+import type { DocumentModel } from "./model.js";
+import type { LineRequest } from "./source-lines.js";
+export { createDocumentModel, type DocumentModel, type DocumentHeading } from "./model.js";
+export {
+  denyDestinations,
+  localDestinations,
+  type DestinationPolicy,
+  type DestinationRequest,
+  type DestinationGrant,
+  type LinkReferences,
+} from "./destinations.js";
+export type { SourceDestination } from "./destination-policy.js";
+export type { LineRequest } from "./source-lines.js";
 export type DocumentView = "preview" | "raw";
+export type DocumentNavigation = Readonly<{
+  container?: RefObject<HTMLElement | null>;
+  reveal: (target: HTMLElement) => void;
+}>;
 export type MarkdownDocumentProps = Readonly<{
-  text: string;
+  model: DocumentModel;
   view: DocumentView;
-  namespace: string;
   destinations?: DestinationPolicy;
   outline?: boolean;
+  lineRange?: LineRequest;
+  annotateSourceLines?: boolean;
+  navigation?: DocumentNavigation;
 }>;
-type Scope = {
-  policy: DestinationPolicy;
-  outline: boolean;
-  resources: RemoteImages;
-  targets: Map<string, HTMLElement>;
-  document: RenderedDocument;
-};
-const ScopeContext = createContext<Scope | null>(null);
-function useScope(): Scope {
-  const scope = useContext(ScopeContext);
-  if (!scope) throw new Error("Missing document scope");
-  return scope;
-}
-function data(node: ExtraProps["node"]): DocumentData {
-  return node?.data || {};
-}
-function activateLocal(scope: Scope, id: string) {
-  const target = scope.targets.get(id);
-  if (!target) return;
-  target.focus({ preventScroll: true });
-  const scroller = target.closest(".md-document")?.parentElement;
-  if (!scroller) return;
-  let container: HTMLElement | null = scroller;
-  while (container && container !== document.body) {
-    if (/(auto|scroll)/.test(getComputedStyle(container).overflowY)) {
-      container.scrollTop +=
-        target.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
-      return;
-    }
-    container = container.parentElement;
-  }
-}
-function localHandlers(scope: Scope, id: string) {
-  const activate = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    if (event.type !== "auxclick" || event.button === 1) activateLocal(scope, id);
-  };
-  return { onClick: activate, onAuxClick: activate };
-}
-function DocumentLink({
-  node,
-  children,
-  id,
-  ...attributes
-}: React.ComponentProps<"a"> & ExtraProps) {
-  const scope = useScope();
-  const [failed, setFailed] = useState(false);
-  const parsed: Destination = data(node).destination || { kind: "denied" };
-  const target =
-    parsed.kind === "fragment" ? scope.document.fragments.get(parsed.fragment) : undefined;
-  const ref = (element: HTMLAnchorElement | null) => {
-    if (id && element) scope.targets.set(id, element);
-    else if (id) scope.targets.delete(id);
-  };
-  if (target)
-    return (
-      <a {...attributes} id={id} ref={ref} href={`#${target}`} {...localHandlers(scope, target)}>
-        {children}
-      </a>
-    );
-  const open =
-    parsed.kind === "external" && scope.policy.kind !== "deny"
-      ? scope.policy.openExternal
-      : undefined;
-  const source =
-    parsed.kind === "source" && scope.policy.kind === "bound-source"
-      ? scope.policy.activateSource
-      : undefined;
-  if ((!open || parsed.kind !== "external") && (!source || parsed.kind !== "source"))
-    return <span id={id}>{children}</span>;
-  const activate = async (event: MouseEvent<HTMLAnchorElement>) => {
-    if (
-      parsed.kind === "external" &&
-      (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)
-    )
-      return;
-    event.preventDefault();
-    try {
-      const result =
-        parsed.kind === "external"
-          ? await open!(parsed.url)
-          : parsed.kind === "source"
-            ? await source!(parsed.destination)
-            : false;
-      setFailed(!result);
-    } catch {
-      setFailed(true);
-    }
-  };
-  return (
-    <>
-      <a
-        {...attributes}
-        id={id}
-        ref={ref}
-        href={parsed.kind === "external" ? parsed.url : undefined}
-        role={parsed.kind === "source" ? "link" : undefined}
-        tabIndex={parsed.kind === "source" ? 0 : undefined}
-        onClick={activate}
-        onAuxClick={parsed.kind === "source" ? activate : undefined}
-        onKeyDown={(event) => {
-          if (parsed.kind === "source" && event.key === "Enter") {
-            event.preventDefault();
-            event.currentTarget.click();
-          }
-        }}
-      >
-        {children}
-      </a>
-      {failed ? <span role="status">Link could not be opened.</span> : null}
-    </>
-  );
-}
-function DocumentImage({ node, alt }: React.ComponentProps<"img"> & ExtraProps) {
-  const scope = useScope();
-  const parsed = data(node).destination;
-  if (scope.policy.kind !== "deny" && scope.policy.remoteImages && parsed?.kind === "external")
-    return (
-      <RemoteImage
-        key={parsed.url}
-        url={parsed.url}
-        alt={alt || "Image"}
-        resources={scope.resources}
-      />
-    );
-  return (
-    <span role="img" aria-label={alt || "Image"}>
-      {alt || "Image"}
-    </span>
-  );
-}
-function OwnedTarget({ node, children, ...props }: React.HTMLAttributes<HTMLElement> & ExtraProps) {
-  const scope = useScope();
-  const id = props.id;
-  return createElement(
-    node!.tagName,
-    {
-      ...props,
-      tabIndex: id ? -1 : undefined,
-      ref: (element: HTMLElement | null) => {
-        if (id && element) scope.targets.set(id, element);
-        else if (id) scope.targets.delete(id);
-      },
-    },
-    children,
-  );
-}
-function Content({ node, children }: { children?: ReactNode } & ExtraProps) {
-  const inherited = useScope();
-  const model = data(node).document;
-  if (!model) return <div>{children}</div>;
-  const scope = { ...inherited, document: model };
-  return (
-    <ScopeContext.Provider value={scope}>
-      {scope.outline &&
-      scope.policy.kind !== "deny" &&
-      scope.policy.localFragments &&
-      model.headings.length ? (
-        <nav className="md-document-outline" aria-label="Document outline">
-          <details>
-            <summary>On this page</summary>
-            <ol>
-              {model.headings.map((heading) => (
-                <li key={heading.id} data-level={heading.level}>
-                  <a href={`#${heading.id}`} {...localHandlers(scope, heading.id)}>
-                    {heading.label}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </details>
-        </nav>
-      ) : null}
-      <article className="md-document-prose">{children}</article>
-    </ScopeContext.Provider>
-  );
-}
-const components: Components = {
-  div: Content,
-  a: DocumentLink,
-  img: DocumentImage,
-  h1: OwnedTarget,
-  h2: OwnedTarget,
-  h3: OwnedTarget,
-  h4: OwnedTarget,
-  h5: OwnedTarget,
-  h6: OwnedTarget,
-  li: OwnedTarget,
-  table: ({ children }) => (
-    <div className="md-document-table" tabIndex={0} role="region" aria-label="Table">
-      <table>{children}</table>
-    </div>
-  ),
-  pre: ({ children }) => <pre tabIndex={0}>{children}</pre>,
-};
-function Preview({
-  text,
+
+export function MarkdownDocument({
+  model,
+  view,
   destinations = denyDestinations,
-  outline = true,
-  prefix,
-}: MarkdownDocumentProps & { prefix: string }) {
-  const targets = useRef(new Map<string, HTMLElement>());
-  const imagePermission = destinations.kind !== "deny" && destinations.remoteImages === true;
-  const resources = useMemo(() => new RemoteImages(), [text, imagePermission]);
+  outline = false,
+  lineRange,
+  annotateSourceLines = false,
+  navigation,
+}: MarkdownDocumentProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const wide = useWidePanel(navigation?.container ?? root);
+  const imagePermission =
+    (destinations.kind === "attachment" || destinations.kind === "bound-source") &&
+    destinations.remoteImages === true;
+  const resources = useMemo(() => new RemoteImages(), [model, imagePermission, view]);
   useEffect(() => () => resources.dispose(), [resources]);
-  const scope = {
-    policy: destinations,
-    outline,
-    resources,
-    targets: targets.current,
-    document: { headings: [], fragments: new Map() },
-  };
-  return (
-    <ScopeContext.Provider value={scope}>
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[boundedCode, [renderedDocument, { prefix, policy: destinations }]]}
-        skipHtml
-        components={components}
-      >
-        {text}
-      </Markdown>
-    </ScopeContext.Provider>
+  const scope = useMemo(
+    () => ({
+      policy: destinations,
+      resources,
+      requests: new Set(model.requests.map(destinationKey)),
+    }),
+    [model, destinations, resources],
   );
-}
-export function MarkdownDocument(props: MarkdownDocumentProps): ReactElement {
-  const identity = useId();
-  const prefix = `md-${encodeURIComponent(props.namespace)}-${identity}`;
+  const reveal = useCallback(
+    (target: HTMLElement) => {
+      if (navigation) navigation.reveal(target);
+      else {
+        const container = root.current;
+        if (container && /^(auto|scroll)$/.test(getComputedStyle(container).overflowY)) {
+          container.scrollTop +=
+            target.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        }
+        target.focus({ preventScroll: true });
+      }
+    },
+    [navigation],
+  );
+  const navigate = (id: string) => {
+    const target = Array.from(
+      root.current?.querySelectorAll<HTMLElement>(".mr-prose [id]") ?? [],
+    ).find((node) => node.id === id);
+    if (target) reveal(target);
+  };
+  const activate = (event: React.MouseEvent<HTMLElement>) => {
+    const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
+    if (!anchor) return;
+    event.preventDefault();
+    if (event.button < 2) navigate(anchor.getAttribute("data-heading-target")!);
+  };
+  const showOutline =
+    outline &&
+    model.headings.length > 0 &&
+    destinations.kind !== "deny" &&
+    ((destinations.kind !== "attachment" && destinations.kind !== "bound-source") ||
+      destinations.localFragments === true);
   return (
-    <div className="md-document" data-document-namespace={props.namespace}>
-      {props.view === "raw" ? (
-        <pre className="md-document-raw" aria-label="Raw source" tabIndex={0}>
-          {props.text}
-        </pre>
-      ) : (
-        <Preview {...props} prefix={prefix} />
-      )}
+    <div
+      ref={root}
+      className="md-document"
+      data-document-namespace={model.namespace}
+      onClick={activate}
+      onAuxClick={activate}
+    >
+      <DestinationContext.Provider value={scope}>
+        {view === "raw" ? (
+          <RawDocument
+            sourceLines={model.sourceLines}
+            request={lineRange}
+            annotations={annotateSourceLines}
+            reveal={reveal}
+          />
+        ) : (
+          <div
+            className="mr-document-layout"
+            data-outline={showOutline ? (wide ? "aside" : "inline") : "hidden"}
+          >
+            {showOutline && !wide && <Outline model={model} wide={false} />}
+            <article className="mr-prose" aria-label="Markdown preview">
+              {model.content}
+            </article>
+            {showOutline && wide && <Outline model={model} wide />}
+          </div>
+        )}
+      </DestinationContext.Provider>
     </div>
   );
 }

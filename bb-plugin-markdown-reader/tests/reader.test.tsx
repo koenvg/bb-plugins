@@ -224,7 +224,9 @@ describe("rendered reader", () => {
       '  <script>bad()</script>\n{\"compact\":true}  \n',
     );
     expect(
-      slot.container.querySelectorAll("a[href], img, script, iframe, .status, .document-meta"),
+      slot.container.querySelectorAll(
+        ".mr-prose a[href], img, script, iframe, .status, .document-meta",
+      ),
     ).toHaveLength(0);
     expect(slot.getByText("Local alt")).toBeTruthy();
     expect(slot.getByText("Remote alt")).toBeTruthy();

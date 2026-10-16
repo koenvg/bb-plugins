@@ -73,13 +73,14 @@ Safe relative file links use BB's public source-aware FileLink. Siblings and lit
 
 Native local-file navigation uses normal BB opening behavior. It has **no extra plugin guarantee that a final symlink target stays inside the reader root**. Reader reads and local-image content requests do retain SDK root and symlink confinement on the actual source host. A confined read may be attempted before host-side asset validation rejects it. Outside-root content must not be delivered by the SDK.
 
-External HTTP(S) links use BB's opening preferences through UrlLink. Remote images are ordinary browser network images, not authenticated BB proxies. They send no referrer, but the remote site can see the request and may receive its own browser cookies. No data/file/javascript/mail links are activated. Raw document HTML, MDX, scripts, and embedded widgets do not execute. Task checkboxes remain disabled. No report-specific metadata is inferred.
+External HTTP(S) links use BB's opening preferences through UrlLink. Remote images are direct browser requests with anonymous CORS and no referrer, not authenticated BB proxies. They omit cross-origin credentials and require the remote host to permit CORS. Same-origin BB image URLs are blocked from that remote path. A failed image retains readable alt/error text. No data/file/javascript/mail links are activated. Raw document HTML, MDX, scripts, and embedded widgets do not execute. Task checkboxes remain disabled. No report-specific metadata is inferred.
 
 Local raster images support PNG, JPEG, GIF, WebP, AVIF, BMP, and ICO. SVG, HTML, PDF, and TIFF image destinations are inert. Each local image uses an opaque URL bound to that one file, behind BB's normal frontend route access checks. It does not grant folder access and has no expiry timer. Every GET uses a read-only SDK request with the original host/root and symlink confinement. The URL hides the host/root/path and cannot be edited to select another file. Plugin reload or server restart invalidates old URLs; Refresh creates new ones. At most 128 distinct destination requests and 32 distinct images are resolved per snapshot. URLs longer than 4096 characters stay individually inert; other valid destinations still work. Encoded path separators and nested path encodings are rejected for both local and external destinations. A failed image request leaves readable alt/error text. Refresh creates fresh image URLs even when text and hash do not change. View changes reuse the existing URLs. Refresh, source switching, Original, and unmount remove stale image sources and discard late results. No folder-preview leases are allocated.
 
 ## Code presentation
 
 Fences with an explicit supported language receive lightweight highlighting up to 20 KiB of rendered UTF-8 code, including its final newline. The byte guard runs before tokenization. Unknown or missing languages, larger fences, and tokenizer failures stay plain readable code. There is no auto-detection, JSON parsing, pretty printing, or source reconstruction. Preview preserves the Markdown parser's rendered code text; Raw always preserves the complete exact original, including CRLF.
+The shared highlighter also limits passive token output to 16,384 nodes and depth 64. Exceeding either budget keeps the original code plain. Both consumers use the same guarded implementation.
 
 | Bundled language | Accepted labels         |
 | ---------------- | ----------------------- |
@@ -97,19 +98,32 @@ The small Refractor core bundle imports only these grammars and their required s
 
 The toolbar, reading column, and optional outline respond to the actual reader width. Wide code and tables scroll locally. Images retain their aspect ratio. Live host token changes preserve Preview/Raw and outline state without another read or remount. Git snapshots, deleted-file previews, chat messages, diffs, and unrelated extensions stay with BB. BBP-32 separates fixture results, installed local-host evidence, and pending native checks.
 
+## Shared document ownership
+
+Reader and Tasks use the same private [Markdown document package](../packages/markdown-document/README.md), compiled into each plugin with the same scoped stylesheet. Neither needs the other installed or enabled. Reader still owns source authorization, host/root confinement, snapshots, Refresh, source-bound SDK links/images, selection and bound Original fallback. The shared module owns parsing and presentation, not filesystem access.
+
+The Tasks adapter has no filesystem root and supplies deny-all in this delivery. The same relative link can therefore be active in an authorized Reader and inactive in a Tasks attachment. Matched-theme/content-width checks compare both real consumers rather than a substitute reader. See [BBP-57 validation](../verification/BBP-57/report.md) for fixture/build evidence and separate installed limits.
+
 ## Compatibility and local build
 
-The package targets BB **>=0.45** and Plugin SDK **>=0.6.15 <0.7**, with declarations pinned to **0.6.37**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
+The package targets BB **>=0.46** and Plugin SDK **>=0.6.37 <0.7**, with declarations pinned to **0.6.37**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
-From this package directory, with Bun 1.4.3 and a compatible `bb` CLI. Vitest also needs Node 24.15 or newer within Node 24:
+From this package directory, use Bun 1.4.3 and Node 24.15 or newer within Node 24. Verify the shared package first, then the consumer. Package exports intentionally resolve to source, so a clean BB build can compile them without a pre-build hook.
 
 ```sh
+bun install --cwd ../packages/markdown-document --frozen-lockfile
+bun run --cwd ../packages/markdown-document build
+bun run --cwd ../packages/markdown-document test --maxWorkers=1
 bun install --frozen-lockfile
-bun run test
+bun run test --maxWorkers=1
 bun run typecheck
-bb plugin types . --check
-bb plugin build
+export BB_DATA_DIR="$(mktemp -d)"
+test "$(node_modules/.bin/bb --version)" = "0.46.0"
+node_modules/.bin/bb plugin types . --check
+bun run build
 ```
+
+The frozen install supplies the package's own pinned official build CLI. The temporary `BB_DATA_DIR` isolates build-tool data from the desktop application. These commands build files but do not install or activate the plugin. From the repository root, `node verification/BBP-57/clean-build.mjs NEW_EVIDENCE_DIRECTORY` verifies fresh independent setup with the opposite plugin source absent.
 
 Local installation requires operator approval. Install only this leaf package after its checks pass:
 

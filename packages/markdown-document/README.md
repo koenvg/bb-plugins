@@ -1,93 +1,64 @@
 # Markdown document interface
 
-This private package renders Markdown and GFM in Preview, and the exact supplied string in Raw. It has no loader, authorization, file identity, toolbar, or writes. Consumers supply React 19 as a peer and bundle the document code and scoped stylesheet themselves.
+This private build-time package provides the document presentation used by Tasks and Markdown Reader. It owns parsing, headings, Raw, bounded highlighting, outline and scoped CSS. Consumers own source loading, authorization, snapshot lifetime, controls and writes. Either plugin works without the other installed.
 
-## Public exports
+## Public interface
 
-The root exports `MarkdownDocument`, `MarkdownDocumentProps`, `DocumentView`, `DestinationPolicy`, `SourceDestination`, and `denyDestinations`. `style.css` exports the scoped stylesheet. No parser or source transport is public.
+```tsx
+import { useId, useMemo } from "react";
+import {
+  createDocumentModel,
+  MarkdownDocument,
+  denyDestinations,
+} from "@bb-plugins/markdown-document";
+import "@bb-plugins/markdown-document/style.css";
 
-`MarkdownDocument` accepts immutable `text`, `view`, `namespace`, optional `destinations`, and optional `outline`. Views are `preview` and `raw`. `outline` defaults to true. Raw preserves the supplied string, including BOM, CRLF, frontmatter, and whitespace. Raw HTML and MDX do not execute. GFM tables, disabled task checkboxes, footnotes, and plain code retain their semantics. Code fences use bounded explicit-language highlighting.
+const namespace = useId();
+const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
+return <MarkdownDocument model={model} view={view} destinations={denyDestinations} />;
+```
 
-## Fence highlighting
+Create one model for an immutable loaded snapshot and use a mount-unique namespace. Reuse the model across Preview/Raw switches and line requests. The factory derives headings, fragments, destination requests and exact source lines from the supplied string. Model fields are read-only presentation data, never source authority.
+The factory scopes model IDs even when namespace labels repeat. Canonical heading fragments follow BBP-55's normalized visible labels and collision suffixes. Legacy Reader fragments remain aliases. Generated footnotes do not capture an explicit heading with the same fragment.
 
-Explicit labels select JSON, JavaScript, TypeScript, Bash, Python, markup, or CSS. Aliases are `js`, `ts`, `sh`, `shell`, `py`, `html`, and `xml`. Labels are case-insensitive. There is no language detection or all-language import.
+`MarkdownDocument` accepts `model`, controlled `view`, optional `destinations`, `outline`, `lineRange`, `annotateSourceLines` and `navigation`. `view` is `preview` or `raw`. The root exports these public types and the source-neutral heading, request, grant and link-reference types. Internal subpaths are not exported.
 
-The inclusive limit is 20,480 UTF-8 bytes per rendered fence, including the parser-added final LF for nonempty code. Missing or unknown labels, larger fences, tokenizer failures, and invalid or lossy token output stay plain. The renderer reconstructs only text and passive spans with filtered classes. Token validation stops above 64 nesting levels or 16,384 nodes. These bounds do not guarantee tokenizer execution time or bound aggregate work across many fences.
+Preview hides leading YAML frontmatter without changing heading source positions. It renders GFM, disabled task checkboxes and passive syntax tokens. Known fences up to 20 KiB receive highlighting. Unknown languages, larger fences, token-budget failures and tokenizer failures remain plain code. Raw preserves the complete source, including BOM, frontmatter, mixed line endings and whitespace. HTML and MDX do not execute.
+Tokenizer output is limited to 16,384 passive nodes and depth 64. These existing BBP-56 safeguards remain unchanged in the shared implementation.
 
-Preview follows Markdown parser newline rules. Raw does not reconstruct source from Preview and remains exact. Highlighted JSON values, tabs, and trailing spaces stay text, not inferred status fields.
+`outline` defaults to false. When enabled and local navigation is permitted, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
 
-## Reading layout
+Default Raw uses one text node, including newline-dense files up to the consumer's 1 MiB limit. A valid range request or explicit `annotateSourceLines` enables per-line targets. Reader opts in for source selection and range navigation. Tasks does not. Both paths preserve exactly the same source. Reader's inherited annotation cost is tracked separately in [BBP-249](bbtask://BBP-249).
+Unannotated Raw reads the stored string without a source-line index. The line array is frozen and cached only when annotation or a valid range needs it. Blank ASCII Markdown avoids a parser pass; non-ASCII paragraph whitespace still uses the parser.
 
-All styles stay beneath `.md-document`. A named document container controls responsiveness independently of the viewport. Prose has a 720 px maximum width and 16 px text with 1.75 line height. Containers at most 600 px use 15 px text with 1.8 line height. H1 sizes are 39 px above 900 px, 34 px through 900 px, and 30 px through 600 px. H2 uses 21 px or compact 20 px, with 46 px above and 14 px below each section. H3 uses 18 px. Code uses the host `--font-mono` with a monospace fallback, 13 px text, and 1.9 line height.
-
-Code and tables scroll locally and accept keyboard focus. Focus outlines use `--ring`. Prose, syntax emphasis, borders, selection, and quiet code surfaces use active host tokens. The package has no palette or theme state. Comments use `--muted-foreground`; keywords, booleans, and properties have extra weight; strings have a subdued underline. Custom theme contrast remains the host theme's responsibility.
-
-The Tasks production-overlay fixture covers light, dark, custom tokens, and a narrow document inside a desktop viewport. It measures composited contrast, local overflow, semantic hierarchy, keyboard focus, exact source, one load, live view preservation, and adjacent editor/chat sentinels. File-reader adoption, matched production-reader parity, and installed acceptance remain separate work.
-
-## Heading navigation
-
-Preview derives heading targets and outline labels from the same ReactMarkdown/GFM HAST tree. Labels include inline text, code, link labels, and image alt text, but exclude skipped raw nodes. Labels use NFC Unicode normalization and collapsed whitespace. Fragments use lowercase letters, numbers, combining marks, underscores, and hyphens. Punctuation is removed. An empty slug becomes `section`. Collisions receive the next unused numeric suffix, including collisions with literal suffixed headings.
-
-The consumer namespace and React mount identity prefix every target. Repeated consumer namespaces stay isolated. Generated footnote IDs and their ID references are scoped too. Fragments decode once and target owned elements. Unknown or malformed fragments stay inert. Activation focuses the target and scrolls only a containing scroll region, not the host page or location hash.
-
-**On this page** is a native keyboard-operable disclosure. Its spacing responds to the document container. It appears only with headings and explicit local-fragment permission. `outline={false}` hides the chrome without removing targets. Raw and heading-free documents have no outline.
+An optional `navigation` supplies a container ref and `reveal(target)` callback. Markdown Reader uses its toolbar-aware panel reveal. Without that callback, the presenter scrolls only its own root when that root is a scroller, and focuses the target without scrolling ancestors. `.mr-prose`, `.mr-raw` and `[data-source-line]` are retained content hooks for the reader's selection action.
 
 ## Destination policies
 
-Missing policy and `{ kind: "deny" }` deny every destination. Rejected links retain their labels without a native `href`. Rejected images retain accessible alt text. Permissions are independent and default to absent.
+- Missing policy or `denyDestinations` denies all destinations, including local fragments. Labels and image alt text remain readable.
+- `localDestinations` enables only targets in the current model.
+- A `delegated` policy resolves checked requests to rejected, fragment, bound-link or image grants. Consumers bind SDK links outside this package. Link/image grant mismatches remain inert.
+- An `attachment` policy may explicitly enable `localFragments`, `openExternal` and `remoteImages`. It cannot supply a filesystem binding.
+- A `bound-source` policy requires an explicit root, host, document path and source activation callback. The shared lexical check proposes confined paths only. The consumer must verify current source authority, physical confinement and opener preferences before activation.
 
-```tsx
-<MarkdownDocument
-  text={snapshot.text}
-  view="preview"
-  namespace="task-report"
-  destinations={{
-    kind: "attachment",
-    localFragments: true,
-    openExternal: navigate.openUrl,
-    remoteImages: true,
-  }}
-/>
-```
+The package rejects malformed encodings, active schemes, credentials, encoded separators/traversal and unsupported absolute paths before consumer dispatch. It bounds collected requests to 128, URLs to 4096 characters and images to 32. It never derives a filesystem root, host or attachment relationship.
 
-`attachment` has no root, source binding, or source callback. Relative paths, absolute filesystem paths, protocol-relative URLs, executable schemes, unsupported internal schemes, and file-source images stay inactive. The package does not infer sibling attachments or a storage root.
+Attachment remote images use the preserved BBP-55 loader: CORS with credentials omitted, no referrer, redirects rejected, raster MIME validation, 4 MiB per image, 16 MiB retained per document, four concurrent requests and 32 total requests. Raw, replacement, permission revocation and unmount cancel owned requests and release blob URLs. Denied or failed images retain readable labels.
+Image grants distinguish `remote` from `source`. Remote grants must match the requested HTTP(S) URL and cannot target the current BB origin. They use anonymous CORS and no referrer, so cross-origin credentials are omitted. A remote host must permit CORS; otherwise readable alt/error text remains. Source-image URLs are explicit consumer-issued local capabilities, not document-provided BB endpoints. The reader validates its opaque image route and keeps host/root confinement outside this package.
 
-`bound-source` requires `binding` with trusted `root`, `host`, and absolute `documentPath`, plus a required `activateSource` callback. The shared gate decodes once, resolves against the containing document, normalizes dot segments, checks lexical root containment, and preserves the bound host. It rejects malformed encoding, controls, backslashes, userinfo, ambiguous URL forms, encoded path delimiters, and unsupported schemes before dispatch or active URL attributes. The callback receives `{ host, path, fragment? }`, never a document-chosen host. It owns operation-time authorization and confinement, including filesystem or symlink checks. The public fixture proves this interface, not production Markdown Reader adoption. No file-source image transport is provided.
-
-External HTTP(S) links require `openExternal`. Ordinary primary clicks and Enter prevent browser fallback and call it once. False results or exceptions show `Link could not be opened.` and stay in the document. This deliberately fails closed rather than falling back to browser navigation. Safe external anchors retain real canonical hrefs for copy, context menus, modified activation, and middle clicks. They have no universal `_blank` target. Local fragments remain local even with modifiers or middle activation.
-
-## Remote-image network behavior
-
-`remoteImages: true` permits remote HTTP(S) raster images. This causes requests to the image host. Canonical URLs on the mounted application's origin are rejected before networking, including BB authenticated resources. Relative and file-source images are not fetched.
-
-The package uses CORS fetch with `credentials: "omit"`, `referrerPolicy: "no-referrer"`, and `redirect: "error"`. It never uses an authenticated proxy or retries with a direct image URL. The host must permit CORS. Redirects, CORS failures, HTTP errors, unsupported media types, and decoding failures show readable alt fallback. Supported response types are PNG, JPEG, GIF, WebP, and AVIF. SVG is not loaded.
-
-Each image is limited to 4 MiB of streamed response bytes. Each mounted document permits at most 32 request attempts, four concurrent requests, and 16 MiB of retained or in-flight response bytes. Content-Length can reject early but cannot bypass the streamed limit. Equivalent policy objects preserve image resources and budgets. Replacement, Raw, and unmount abort pending requests and revoke owned blob URLs. Broken images release their blobs. Images fit the prose width and preserve their intrinsic aspect ratio.
-
-Byte limits do not bound decoded-pixel memory. Actual installed BB CSP support for `blob:` images remains unverified. Remote hosts still observe network metadata such as IP addresses. Credential omission does not make remote loading private.
-
-## Behavior evidence
-
-| Contract                                                                                                                                   | Public or rendered check                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| GFM, exact Raw, raw HTML rejection, absent permissions                                                                                     | `test/public.test.tsx`                                               |
-| Unicode, formatting, duplicates, literal suffixes, repeated namespaces, local and footnote activation, hidden and empty outlines           | `test/navigation.test.tsx`                                           |
-| Pre-dispatch validation, permissive confined source fixture, inert attachment paths and source assets, external failures and modifiers     | `test/navigation.test.tsx`                                           |
-| Explicit remote permission, same-origin denial, request options, streams, byte budgets, concurrency, request count, abort and blob release | `test/images.test.tsx`                                               |
-| Real CORS and redirect failures, omitted cookies and referrers, image fit and ratio, keyboard disclosure, dialog-local focus and scroll    | Tasks `tests/browser/navigation.spec.ts`                             |
-| Native new-tab completion, with a plain-anchor diagnostic for runner failures                                                              | Tasks `tests/browser/navigation.spec.ts` and `native-anchor.spec.ts` |
-
-A check's presence is not a pass. See the delivery evidence for results. Browser fixtures substitute SDK and attachment transport. They do not prove installed BB preference routing, CSP, authentication, or production file-reader adoption.
+Tasks explicitly enables document-local fragments, BB-preference external opening and bounded remote raster images, preserving merged BBP-55. Relative filesystem links remain inert because attachments have no binding. Markdown Reader supplies only currently verified delegated grants and falls back to local-only while loading or stale. Refresh and fallback revoke source-backed links and images without discarding readable stale text.
 
 ## Build and verify
 
-From this directory, run these commands in order:
+Use Bun 1.4.3 and Node 24.15 or newer within Node 24:
 
 ```sh
 bun install --frozen-lockfile
 bun run build
-bun run test
+bun run test --maxWorkers=1
 bun run typecheck
 ```
 
-Build this package before installing or checking a consumer's local file dependency. Tasks bundles the common code and CSS. Its Vitest and browser fixtures deduplicate the consumer-owned React runtime. Markdown Reader adoption is outside this delivery. The approved package-manager exception uses frozen Bun installs rather than the plan's npm ci.
+The root and CSS exports intentionally resolve to source ESM/TSX and CSS. BB compiles them into each consumer bundle. This preserves clean plugin builds because BB has no shared-package pre-build hook. `bun run build` separately verifies emitted ESM, declarations and CSS under `dist`; it does not change package exports. React is a consumer-owned peer, not a bundled runtime.
+
+For fresh independent consumer setup and production-bundle checks, run [the BBP-57 clean verifier](../../verification/BBP-57/clean-build.mjs) from the repository root. [The BBP-57 report](../../verification/BBP-57/report.md) separates fixture evidence, build evidence and required installed acceptance.

@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
-import { createDocumentModel } from "../document";
+import { createDocumentModel, MarkdownDocument } from "@bb-plugins/markdown-document";
 import { refractor } from "refractor/core";
 
 afterEach(() => {
@@ -10,7 +11,7 @@ afterEach(() => {
 function documentCode(code: string, language = "json") {
   const source = `\`\`\`${language}\n${code}\`\`\`\n`;
   const model = createDocumentModel(source, "code-reader");
-  const ui = render(<article>{model.content}</article>);
+  const ui = render(<MarkdownDocument model={model} view="preview" />);
   return { block: ui.container.querySelector("pre code")!, model, source };
 }
 describe("rendered fenced code", () => {
@@ -87,7 +88,7 @@ describe("rendered fenced code", () => {
   it("does not tokenize inline code or an indented block without a language", () => {
     const tokenize = vi.spyOn(refractor, "highlight");
     const model = createDocumentModel("`const x = true;`\n\n    const y = true;\n", "unlabelled");
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(<MarkdownDocument model={model} view="preview" />);
     expect(ui.container.querySelectorAll("code")).toHaveLength(2);
     expect(ui.container.querySelector(".token")).toBeNull();
     expect(tokenize).not.toHaveBeenCalled();
@@ -126,7 +127,7 @@ describe("rendered fenced code", () => {
   it("preserves parser-rendered text at an unclosed EOF fence and exact original Raw", () => {
     const source = '```json\r\n{"value":true}  ';
     const model = createDocumentModel(source, "eof-code");
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(<MarkdownDocument model={model} view="preview" />);
     const block = ui.container.querySelector("pre code")!;
     expect(block.textContent).toBe('{"value":true}  \n');
     expect(block.querySelector(".token")).not.toBeNull();

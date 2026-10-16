@@ -2,7 +2,7 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { refractor } from "refractor/core";
-import { MarkdownDocument } from "@bb-plugins/markdown-document";
+import { MarkdownDocument, createDocumentModel } from "@bb-plugins/markdown-document";
 
 afterEach(() => {
   cleanup();
@@ -12,9 +12,8 @@ afterEach(() => {
 function fence(label: string, body: string, closed = true) {
   return render(
     <MarkdownDocument
-      text={`\`\`\`${label}\n${body}${closed ? "\n```" : ""}`}
+      model={createDocumentModel(`\`\`\`${label}\n${body}${closed ? "\n```" : ""}`, "highlight")}
       view="preview"
-      namespace="highlight"
     />,
   ).container.querySelector("pre code")!;
 }
@@ -89,7 +88,10 @@ describe("public fence highlighting", () => {
     expect(code.querySelector(".token.number")?.textContent).toBe("12");
     expect(code.querySelector(".token.null")?.textContent).toBe("null");
     const { container } = render(
-      <MarkdownDocument text={"Inline `const x = true`."} view="preview" namespace="inline" />,
+      <MarkdownDocument
+        model={createDocumentModel("Inline `const x = true`.", "inline")}
+        view="preview"
+      />,
     );
     expect(container.querySelector("p")?.textContent).toBe("Inline const x = true.");
     expect(container.querySelectorAll("code span")).toHaveLength(0);
@@ -104,12 +106,11 @@ describe("public fence highlighting", () => {
 
   it("keeps exact BOM/CRLF source in Raw even after highlighting", () => {
     const text = '\uFEFF```json\r\n\t{"ok":true}  \r\n```\r\n';
-    const { container, rerender } = render(
-      <MarkdownDocument text={text} view="preview" namespace="raw" />,
-    );
+    const model = createDocumentModel(text, "raw");
+    const { container, rerender } = render(<MarkdownDocument model={model} view="preview" />);
     expect(container.querySelector("code")?.textContent).toBe('\t{"ok":true}  \n');
     expect(container.querySelector(".token.boolean")?.textContent).toBe("true");
-    rerender(<MarkdownDocument text={text} view="raw" namespace="raw" />);
+    rerender(<MarkdownDocument model={model} view="raw" />);
     expect(container.querySelector("pre")?.textContent).toBe(text);
   });
 
@@ -163,9 +164,11 @@ describe("public fence highlighting", () => {
       });
       const { container } = render(
         <MarkdownDocument
-          text={"```js\nconst bad = true;\n```\n\n```js\nconst good = true;\n```"}
+          model={createDocumentModel(
+            "```js\nconst bad = true;\n```\n\n```js\nconst good = true;\n```",
+            "failure",
+          )}
           view="preview"
-          namespace="failure"
         />,
       );
       const [bad, good] = Array.from(container.querySelectorAll("pre code"));

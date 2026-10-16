@@ -179,7 +179,7 @@ test("rejects whitespace, outline, controls and cross-document selections", asyn
   await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await page.locator(".mr-outline-inline summary").click();
-  await selectVisible(page.locator(".mr-outline-inline nav"));
+  await selectVisible(page.locator(".mr-outline-inline"));
   await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
   await page.evaluate(() => {
     const range = document.createRange();

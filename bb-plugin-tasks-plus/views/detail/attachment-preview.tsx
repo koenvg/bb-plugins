@@ -1,5 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { MarkdownDocument, type DocumentView } from "@bb-plugins/markdown-document";
+import { useId, useMemo, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  MarkdownDocument,
+  createDocumentModel,
+  type DocumentView,
+  type DestinationPolicy,
+} from "@bb-plugins/markdown-document";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import "@bb-plugins/markdown-document/style.css";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../components/ui/dialog";
@@ -133,6 +138,42 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
   }
 }
 
+function AttachmentDocument({
+  snapshot,
+  view,
+  destinations,
+  body,
+}: {
+  snapshot: PreviewSnapshot;
+  view: DocumentView;
+  destinations: DestinationPolicy;
+  body: RefObject<HTMLElement | null>;
+}) {
+  const namespace = useId();
+  const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
+  const navigation = useMemo(
+    () => ({
+      container: body,
+      reveal(target: HTMLElement) {
+        const container = body.current;
+        if (!container) return;
+        container.scrollTop +=
+          target.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
+        target.focus({ preventScroll: true });
+      },
+    }),
+    [body],
+  );
+  return (
+    <MarkdownDocument
+      model={model}
+      view={view}
+      destinations={destinations}
+      navigation={navigation}
+      outline
+    />
+  );
+}
 function usable(element: HTMLElement | null): element is HTMLElement {
   if (
     element === null ||
@@ -182,6 +223,7 @@ export function useAttachmentPreview({
     closedSession: null as FocusSession | null,
   });
   const panel = useRef<HTMLDivElement>(null);
+  const documentBody = useRef<HTMLElement>(null);
   const invalidate = () => {
     const owner = runtime.current;
     const previous = owner.ticket;
@@ -332,6 +374,7 @@ export function useAttachmentPreview({
           </header>
           <section
             className="attachment-preview-body"
+            ref={documentBody}
             aria-label="Document"
             aria-busy={active?.resource.kind === "loading"}
           >
@@ -352,11 +395,11 @@ export function useAttachmentPreview({
               active.resource.snapshot.text === "" && active.view === "preview" ? (
                 <p role="status">This file is empty. Download keeps the original file.</p>
               ) : (
-                <MarkdownDocument
-                  text={active.resource.snapshot.text}
+                <AttachmentDocument
+                  snapshot={active.resource.snapshot}
                   view={active.view}
-                  namespace={`task-${taskId}-${active.subject.id}`}
                   destinations={destinations}
+                  body={documentBody}
                 />
               )
             ) : null}

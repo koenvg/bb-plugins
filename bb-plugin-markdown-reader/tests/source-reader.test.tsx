@@ -5,7 +5,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import pluginApp from "../app";
 import pluginServer from "../server";
 import { readResultSchema, type ReaderTarget } from "../source";
-import type { LineRequest } from "../source-lines";
+import type { LineRequest } from "@bb-plugins/markdown-document";
 
 const targets: ReaderTarget[] = [
   {

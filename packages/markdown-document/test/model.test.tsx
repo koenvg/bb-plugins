@@ -1,6 +1,11 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, within } from "@testing-library/react";
-import { createDocumentModel } from "../document";
+import {
+  createDocumentModel,
+  MarkdownDocument,
+  localDestinations,
+} from "@bb-plugins/markdown-document";
 
 afterEach(cleanup);
 describe("document navigation model", () => {
@@ -23,7 +28,9 @@ describe("document navigation model", () => {
       "",
     ].join("\n");
     const model = createDocumentModel(text, "frontmatter");
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(
+      <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+    );
     expect(ui.container.textContent).not.toContain("name:");
     expect(ui.container.textContent).not.toContain("oklch");
     expect(ui.container.textContent).toContain("Body text.");
@@ -48,7 +55,9 @@ describe("document navigation model", () => {
     (newline) => {
       const text = "\ufeff" + ["---", "title: é", "---", "# 日本語", ""].join(newline);
       const model = createDocumentModel(text, "bom-frontmatter");
-      const ui = render(<article>{model.content}</article>);
+      const ui = render(
+        <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+      );
       expect(ui.container.textContent).not.toContain("title:");
       expect(
         within(ui.container)
@@ -61,7 +70,9 @@ describe("document navigation model", () => {
   );
   it("does not create preview content or headings for a metadata-only document", () => {
     const model = createDocumentModel("---\ntitle: Metadata only\n---\n", "metadata-only");
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(
+      <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+    );
     expect(ui.container.textContent).toBe("");
     expect(model.headings).toEqual([]);
   });
@@ -70,7 +81,9 @@ describe("document navigation model", () => {
     ["# Body\n\n---\nOrdinary section\n---\n", ["Body", "Ordinary section"], 1],
   ])("keeps ordinary separators and unclosed headers visible in %j", (text, labels, rules) => {
     const model = createDocumentModel(text, "ordinary-markdown");
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(
+      <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+    );
     expect(
       within(ui.container)
         .getAllByRole("heading")
@@ -91,7 +104,9 @@ describe("document navigation model", () => {
       [2, "Setext title", "setext-title", 9],
       [4, "Quoted", "quoted", 12],
     ]);
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(
+      <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+    );
     const headings = within(ui.container).getAllByRole("heading");
     expect(headings.map((h) => h.id)).toEqual(model.headings.map((h) => h.id));
     expect(headings.map((h) => h.textContent)).toEqual(model.headings.map((h) => h.text));
@@ -148,13 +163,17 @@ describe("document navigation model", () => {
       "foo",
       "foo-1",
       "foo-2",
-      "alt-bold-gone--x",
+      "alt-bold-gone-x",
       "level-five",
       "level-six",
-      "",
+      "section",
     ]);
+    expect(model.fragmentTarget("#alt-bold-gone--x")).toBe(model.headings[3]!.id);
+    expect(model.fragmentTarget("#")).toBe(model.headings[6]!.id);
     expect(model.headings.map((h) => h.level)).toEqual([1, 2, 3, 4, 5, 6, 1]);
-    const ui = render(<article>{model.content}</article>);
+    const ui = render(
+      <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
+    );
     expect(
       within(ui.container)
         .getAllByRole("heading")
@@ -174,13 +193,17 @@ describe("document navigation model", () => {
       expect(first.sourceLines.lines.join("")).toBe(text);
       const ui = render(
         <>
-          <article data-reader="first">{first.content}</article>
-          <article data-reader="second">{second.content}</article>
+          <article data-reader="first">
+            <MarkdownDocument model={first} view="preview" destinations={localDestinations} />
+          </article>
+          <article data-reader="second">
+            <MarkdownDocument model={second} view="preview" destinations={localDestinations} />
+          </article>
         </>,
       );
       const ids = Array.from(ui.container.querySelectorAll("[id]"), (e) => e.id);
       expect(new Set(ids).size).toBe(ids.length);
-      for (const reader of Array.from(ui.container.querySelectorAll("article"))) {
+      for (const reader of Array.from(ui.container.querySelectorAll("article[data-reader]"))) {
         expect(reader.textContent).toContain("Note é.");
         expect(reader.querySelectorAll("a[href]")).toHaveLength(4);
         for (const anchor of Array.from(reader.querySelectorAll<HTMLAnchorElement>("a[href]"))) {

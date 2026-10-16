@@ -125,7 +125,7 @@ for (const width of [1280, 390]) {
     const disclosure = dialog.locator("summary");
     await disclosure.focus();
     await page.keyboard.press("Enter");
-    const outline = dialog.getByRole("navigation", { name: "Document outline" });
+    const outline = dialog.getByRole("navigation", { name: "Document sections" });
     await expect(outline.getByRole("link", { name: "Café bold code" })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`navigation-images-${width}.png`) });
     const target = dialog.getByRole("heading", { name: "Findings", exact: true }).first();

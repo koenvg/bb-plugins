@@ -7,8 +7,11 @@ import report from "./fixtures/presentation.md?raw";
 import lists from "./fixtures/lists.md?raw";
 import "../app.css";
 import "./preview.css";
+import parityReport from "../../packages/markdown-document/test/fixtures/parity-report.md?raw";
+import "../../packages/markdown-document/test/fixtures/parity.css";
 
 const params = new URLSearchParams(location.search);
+if (params.has("parity")) document.documentElement.dataset.documentParity = "true";
 const target: ReaderTarget = {
   path: params.get("path") ?? "reports/" + "long-document-title-".repeat(12) + ".md",
   source: {
@@ -19,8 +22,9 @@ const target: ReaderTarget = {
     experimental_hostId: "fixture-host",
   },
 };
-const text =
-  params.get("headings") === "none"
+const text = params.has("parity")
+  ? parityReport
+  : params.get("headings") === "none"
     ? 'Plain text without headings.\n\n```json\n{"plain":true}\n```\n'
     : params.get("document") === "lists"
       ? lists
@@ -74,9 +78,15 @@ const slot = renderSlot(
         return {
           identity,
           destinations: requests.map((request) =>
-            request.image && request.url === "https://fixture.invalid/diagram.png"
-              ? { kind: "image", remote: true, url: request.url }
-              : { kind: "rejected", reason: "Unsupported fixture destination" },
+            params.has("parity") && !request.image && request.url === "notes.md"
+              ? {
+                  kind: "local-file",
+                  hostId: identity.hostId,
+                  target: { kind: "workspace", environmentId: "fixture", path: "reports/notes.md" },
+                }
+              : request.image && request.url === "https://fixture.invalid/diagram.png"
+                ? { kind: "image", remote: true, url: request.url }
+                : { kind: "rejected", reason: "Unsupported fixture destination" },
           ),
         };
       },

@@ -14,7 +14,7 @@ Task comments are removed by migration 12. Read [the upgrade and rollback proced
 Use Bun 1.4.3 with the committed lockfiles, and Node `>=24.15.0 <25` for Vitest. Install repository
 lint/format tooling with `bun install --frozen-lockfile` at the root. Then run from this directory:
 
-Build the local shared package before installing Tasks. From the repository root, run:
+Verify the local shared package before consumer checks. From the repository root, run:
 
 ```sh
 cd packages/markdown-document
@@ -27,6 +27,7 @@ bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
 ```
 
 The Quota dependency supplies the existing Tasks navigation fixture. The shared package is a build-time dependency, not an installed-plugin dependency. Tasks bundles its compiled code and CSS. The approved development workflow uses frozen Bun installs instead of the older plan's npm ci.
+The dependency exports source ESM/TSX and CSS so BB can compile it on a clean checkout without a pre-build hook. Its separate build verifies emitted ESM, declarations and CSS. Both production consumers use that source, but keep independent loading and destination policies. See [BBP-57 validation](../verification/BBP-57/report.md) for fresh independent build and matched report checks.
 The frozen Tasks install also installs the official `bb-app@0.46.0` build CLI locally. Its lockfile records the npm tarball integrity. This release ships SDK 0.6.37. The [official CI guide](https://github.com/get-bb/bb/blob/4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62/plugins/bb-guide/skills/bb-plugin-authoring/references/quickstart.md) supports `bb plugin build` without a running server. Use the local CLI and a temporary `BB_DATA_DIR` for build-tool downloads, not the desktop application's global CLI or user data. Installing development dependencies does not install or enable the Tasks plugin.
 
 ```sh
@@ -54,8 +55,6 @@ The TypeScript 6 alias remains until its removal is approved. Its transitive
 `@typescript/old` dependency and TypeScript 7 both export `tsc`. The explicit path
 keeps that shared binary name from changing this check's compiler. Compiler
 selection does not change typecheck coverage or CI wiring.
-
-The browser config uses `channel: "chromium"` for full Chromium's headless mode instead of Playwright's default headless shell. The optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` override remains available. CI's existing Chromium install supplies this binary. See the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) for private output and historical-capture protection.
 
 ## Orchestrator removal
 
@@ -147,7 +146,7 @@ Activate a saved task file named `.md` or `.markdown` to open a read-only dialog
 
 Files migrated from removed comments now appear as ordinary task files. They keep the same saved ID, metadata, bytes, and download URL. There are no comment cards, comment composers, or comment drafts. Unsaved files staged in **New task** stay outside preview scope until the task is created and the upload succeeds.
 
-The dialog starts in **Preview**. Select **Raw** to read the exact loaded source, including frontmatter, BOM, CRLF, blank lines, and code whitespace. Both views use one snapshot. View changes do not reread or write the saved Markdown. **Download** always uses the original saved attachment ID and filename, even if preview fails.
+The dialog starts in **Preview**. Select **Raw** to read the exact loaded source, including frontmatter, BOM, CRLF, blank lines, and code whitespace. Both views use one snapshot. View changes do not fetch or write. **Download** always uses the original saved attachment ID and filename, even if preview fails.
 
 Preview accepts valid UTF-8 through 1 MiB of actual bytes. It rejects larger files, invalid UTF-8, NUL, and binary controls other than TAB, LF, and CR. The separate upload and original-download allowance remains 25 MiB. Empty files have a readable message. Missing, denied, and read failures offer **Retry**. Unsupported text and oversized files direct you to **Download**.
 
@@ -155,21 +154,15 @@ Use **Close** or Escape to dismiss. Keyboard focus stays in the dialog. Task sho
 
 Close, replacement, Retry, task changes, unmount, and confirmed removal invalidate older reads. A late response cannot reopen or replace the current preview or take focus. Removal closes a concurrently opened preview only after successful deletion. A failed deletion reports its error and keeps the file usable.
 
-The document uses host theme tokens, a 720 px prose maximum, and container-based type sizes. Wide prose uses 16 px text at 1.75 line height. Containers through 600 px use 15 px at 1.8. Code uses the host monospace font at 13 px with 1.9 line height. Wide tables and code scroll locally and have visible keyboard focus. Live host token changes retain the loaded source and selected view. No plugin theme switch or palette is added.
+Preview uses the same private document package and scoped stylesheet as Markdown Reader. Leading YAML frontmatter is hidden only in Preview. GFM headings, tables, read-only tasks and bounded known-language highlighting use the common presentation. Unknown languages and fences above 20 KiB stay plain. Raw retains the complete source.
 
-Fences support explicit JSON, JavaScript, TypeScript, Bash, Python, markup, and CSS labels, plus `js`, `ts`, `sh`, `shell`, `py`, `html`, and `xml` aliases. Highlighting accepts at most 20,480 UTF-8 bytes of rendered code, including the parser-added final LF. Unknown or missing labels, larger fences, and failed or invalid tokenization remain plain. There is no language detection or HTML-string insertion. The input and token-validation bounds do not guarantee tokenizer execution time. Raw remains the exact original snapshot.
+Document-local headings, footnotes and **On this page** stay within the dialog. Ordinary HTTP(S) links use BB preferences. Native modifier intent remains available. Relative filesystem links remain inert because attachments have no filesystem root.
 
-`tests/browser/reading-report.spec.ts` exercises the real production overlay with a generic report at 390 px and 1280 px, Default light/dark token snapshots, custom tokens, and a narrow document inside a wide desktop viewport. It captures the open overlay and structured geometry/contrast in Playwright's private output. It checks local overflow, heading hierarchy, focus, Escape/restoration, one load across live token changes, and unchanged adjacent editor/chat sentinels. Token fixture provenance is in `tests/fixtures/report-theme-tokens.md`. This is not installed acceptance or production-file-reader parity.
+Remote raster images require credential-free CORS. They reject the current BB origin, redirects and unsupported MIME types. Limits are 4 MiB per image, 16 MiB retained per document, four concurrent requests and 32 total requests. Raw, replacement, revocation and close release owned requests and blob URLs. Failed images retain their labels.
 
-Markdown and GFM have semantic headings, tables, read-only task lists, footnotes, and bounded fence highlighting. **On this page** opens a keyboard-operable heading outline. Local fragments focus and scroll only this document, including modified activation. Ordinary HTTP(S) link activation uses BB's URL preference through `useBbNavigate().openUrl`. Failed opening shows a readable message without browser fallback. Safe links retain native modified and middle activation, copy, and context menus. Raw HTML and MDX do not execute. No standalone reader installation is needed.
-
-Attachments have no filesystem root. Relative file links, relative images, absolute filesystem paths, malformed encoding, controls, executable schemes, unsupported internal schemes, and URLs with userinfo stay inactive while labels and alt text remain readable. Heading and generated footnote targets are isolated from other readers and the task.
-
-Remote HTTP(S) raster images make credential-free CORS requests directly to their host with no referrer and no redirects. Same-origin BB URLs are rejected before requests. There is no authenticated proxy or direct-image retry. CORS denial, redirects, broken images, and limits show accessible alt fallback. Each image is capped at 4 MiB of streamed bytes. A document permits at most 32 attempts, four concurrent requests, and 16 MiB of retained or in-flight response bytes. Raw, replacement, and close release image resources. Images fit the document width and retain their aspect ratio. Decoded-pixel memory is not bounded by these byte caps. Installed BB CSP support for blob images is not established by the local fixture. See the [shared policy and evidence reference](../packages/markdown-document/README.md).
+Raw HTML and MDX do not execute. No standalone reader installation is needed.
 
 The BBP-54 browser checks in `tests/browser/preview.spec.ts` use the production card and dialog with local fixture transport. The recoverable scenario fails the first preview read, then succeeds after **Retry**. Its Download check clicks the production dialog link and receives a real response from the local Vite fixture server at the production-shaped download path. It checks the exact saved-ID URL, suggested filename, successful completion, and original bytes. The fixture serves only the saved fixture identity and rejects missing, unknown, or duplicate IDs. This is fixture-only transport proof, not installed-server acceptance. The migration API test separately checks real saved-ID routes and blob bytes. Use the [Tasks verification recipe](../.pi/skills/verify-bb-plugins/features/tasks-plus.md) with `BBP53_CAPTURE_PHASE=none`, its private Playwright config, and fresh private output. Historical BBP-53 captures must remain unchanged.
-
-The BBP-55 rendered adapter check covers explicit BB URL dispatch and local heading focus without another saved-ID read. `tests/browser/navigation.spec.ts` uses the production overlay and SDK test provider with local cross-origin image responses. It checks network headers, CORS and redirect failures, blob cleanup, keyboard outline activation, image geometry, and task focus, scroll, and draft preservation. Native new-tab completion remains a separate assertion. `native-anchor.spec.ts` is a plain-anchor diagnostic, not a substitute product pass. Report any runner failure separately and retain its trace.
 
 ## Delete a Tasks project
 

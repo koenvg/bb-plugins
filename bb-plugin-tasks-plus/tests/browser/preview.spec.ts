@@ -69,14 +69,14 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("]");
     await page.keyboard.press("s");
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
-    expect(await dialog.getByLabel("Raw source").textContent()).toBe(source);
+    expect(await dialog.getByLabel("Raw Markdown").textContent()).toBe(source);
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     await page.keyboard.press("Tab");
     await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
     const geometry = await page.evaluate(() => {
       const panel = document.querySelector(".attachment-preview")!;
       const body = panel.querySelector(".attachment-preview-body")!;
-      const prose = panel.querySelector(".md-document-prose")!;
+      const prose = panel.querySelector(".mr-prose")!;
       const code = panel.querySelector("pre")!;
       return {
         pageOverflow: document.documentElement.scrollWidth > innerWidth,
@@ -108,8 +108,8 @@ for (const width of [1280, 390]) {
     expect(geometry.pageOverflow).toBe(false);
     expect(geometry.proseWidth).toBeLessThanOrEqual(720);
     expect(geometry.codeLocal).toBe(true);
-    expect(geometry.fontSize).toBe(width === 390 ? "15px" : "16px");
-    expect(geometry.lineHeight).toBe(width === 390 ? "27px" : "28px");
+    expect(geometry.fontSize).toBe(width <= 600 ? "15px" : "16px");
+    expect(geometry.lineHeight).toBe(width <= 600 ? "27px" : "28px");
     expect(geometry.reads).toBe("1");
     expect(geometry.controlsFit).toBe(true);
     expect(geometry.focusInside).toBe(true);
@@ -194,7 +194,7 @@ for (const width of [1280, 390]) {
     expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
     for (let index = 0; index < 2; index++) {
       await dialog.getByRole("button", { name: "Raw", exact: true }).click();
-      expect(await dialog.getByLabel("Raw source").textContent()).toBe(source);
+      expect(await dialog.getByLabel("Raw Markdown").textContent()).toBe(source);
       await dialog.getByRole("button", { name: "Preview", exact: true }).click();
       await expect(
         dialog.getByRole("heading", { name: "Investigation", exact: true }),

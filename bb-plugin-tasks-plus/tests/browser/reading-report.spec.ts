@@ -52,7 +52,7 @@ for (const scenario of [
     await trigger.focus();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: readingReport.fileName });
-    const prose = dialog.locator(".md-document-prose");
+    const prose = dialog.locator(".mr-prose");
     await expect(
       dialog.getByRole("heading", { level: 1, name: "Technical reading report" }),
     ).toBeVisible();
@@ -162,7 +162,7 @@ for (const scenario of [
     expect(themes.custom!.bodyContrast.color).toBe("rgb(48, 51, 78)");
     expect(themes.custom!.radius).toBe("12px");
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
-    const raw = dialog.getByLabel("Raw source");
+    const raw = dialog.getByLabel("Raw Markdown");
     const originalRaw = await raw.elementHandle();
     for (const theme of ["dark", "light", "custom", scenario.theme]) {
       await page.evaluate((value) => {
@@ -191,7 +191,7 @@ for (const scenario of [
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     expect(await prose.textContent()).toBe(text);
     await page.keyboard.press("Tab");
-    const table = dialog.getByRole("region", { name: "Table", exact: true });
+    const table = dialog.getByRole("region", { name: "Markdown table", exact: true });
     await table.focus();
     await expect(table).toBeFocused();
     expect(await table.evaluate((element) => getComputedStyle(element).outlineWidth)).toBe("2px");

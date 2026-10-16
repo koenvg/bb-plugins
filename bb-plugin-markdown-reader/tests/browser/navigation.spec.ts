@@ -43,7 +43,7 @@ for (const [width, theme] of [
       ).toBe(true);
     }
     const screenshots = [await capture(page, info, `outline-${width}-${theme}`)];
-    await outline.getByRole("button", { name: "日本語 code link", exact: true }).nth(1).focus();
+    await outline.getByRole("link", { name: "日本語 code link", exact: true }).nth(1).focus();
     await page.keyboard.press("Enter");
     const target = panel.getByRole("heading", { name: "日本語 code link", exact: true }).nth(1);
     expect(await target.evaluate((e) => e === document.activeElement)).toBe(true);

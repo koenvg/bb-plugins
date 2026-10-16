@@ -359,7 +359,7 @@ describe("Markdown dialog in the full Tasks app", () => {
         expectTaskUnchanged();
         for (const key of ["]", "[", "s", "p", "l", "d", "m"]) fireEvent.keyDown(dialog, { key });
         fireEvent.click(slot.getByRole("button", { name: "Raw" }));
-        expect(slot.getByLabelText("Raw source").textContent).toBe("# Investigatio");
+        expect(slot.getByLabelText("Raw Markdown").textContent).toBe("# Investigatio");
         expectTaskUnchanged();
         fireEvent.click(slot.getByRole("button", { name: "Preview" }));
         expectTaskUnchanged();

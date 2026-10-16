@@ -1,6 +1,6 @@
 export function reportMeasures() {
   const root = document.querySelector<HTMLElement>(".md-document")!;
-  const prose = root.querySelector<HTMLElement>(".md-document-prose")!;
+  const prose = root.querySelector<HTMLElement>(".mr-prose")!;
   const panel = root.closest(".attachment-preview")!;
   const body = panel.querySelector<HTMLElement>(".attachment-preview-body")!;
   const styles = getComputedStyle(prose);
@@ -74,7 +74,7 @@ export function reportMeasures() {
       };
     }),
     code: Array.from(prose.querySelectorAll("pre")).map(local),
-    tables: Array.from(prose.querySelectorAll(".md-document-table")).map(local),
+    tables: Array.from(prose.querySelectorAll(".mr-table-scroll")).map(local),
     codeFont: getComputedStyle(prose.querySelector("pre")!).fontFamily,
     codeSize: getComputedStyle(prose.querySelector("pre")!).fontSize,
     codeLineHeight: getComputedStyle(prose.querySelector("pre")!).lineHeight,

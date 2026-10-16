@@ -40,6 +40,7 @@ Keep these detailed maps for the previously proved reader path:
 - [Heading and line navigation](navigation.md)
 - [Refresh and recovery](refresh.md)
 - [Add selection to chat](selection.md)
+- [Shared Markdown consumer builds and parity](../references/shared-markdown.md)
 
 The root fixture proves only component handling, not native BB routing or the live composer. Use [the local reader recipe](../references/markdown-reader-local.md) for its launch, Doctor and evidence details.
 

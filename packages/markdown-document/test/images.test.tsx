@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { MarkdownDocument, type DestinationPolicy } from "@bb-plugins/markdown-document";
+import { type DestinationPolicy } from "@bb-plugins/markdown-document";
+import { ModelDocument as MarkdownDocument } from "./consumer.js";
 
 const policy: DestinationPolicy = { kind: "attachment", remoteImages: true };
 afterEach(() => {
@@ -47,7 +48,7 @@ it("fetches explicit remote permission without credentials, referrer or redirect
   expect(screen.getByRole("img", { name: "relative" }).textContent).toBe("relative");
   expect(create.mock.calls.length).toBe(1);
   rerender(<MarkdownDocument namespace="images" view="raw" destinations={policy} text={text} />);
-  expect(screen.getByLabelText("Raw source").textContent).toBe(text);
+  expect(screen.getByLabelText("Raw Markdown").textContent).toBe(text);
   expect(revoke.mock.calls).toEqual([["blob:owned-1"]]);
   rerender(
     <MarkdownDocument

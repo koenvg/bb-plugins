@@ -2,7 +2,8 @@
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { MarkdownDocument, type DestinationPolicy } from "@bb-plugins/markdown-document";
+import { type DestinationPolicy } from "@bb-plugins/markdown-document";
+import { ModelDocument as MarkdownDocument } from "./consumer.js";
 
 afterEach(() => {
   cleanup();
@@ -119,7 +120,7 @@ it("hides outline chrome without removing targets and omits empty and Raw outlin
   expect(screen.getByText("Plain content").tagName).toBe("P");
   expect(screen.queryByRole("navigation")).toBeNull();
   rerender(<MarkdownDocument namespace="hidden" view="raw" destinations={local} text="# Raw" />);
-  expect(screen.getByLabelText("Raw source").textContent).toBe("# Raw");
+  expect(screen.getByLabelText("Raw Markdown").textContent).toBe("# Raw");
   expect(screen.queryByRole("navigation")).toBeNull();
 });
 it("retains safe hrefs and native modifiers but suppresses ordinary fallback on false and thrown opens", async () => {
