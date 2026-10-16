@@ -78,6 +78,17 @@ describe("savePresetDraft", () => {
     return { calls, rpc: rpc as never };
   }
 
+  it.each([null, presetRow() as never])(
+    "rejects unsupported picker reasoning before create/update RPC, editing=%s",
+    async (editing) => {
+      const { calls, rpc } = captureRpc();
+      await expect(
+        savePresetDraft(rpc, editing, { ...draft, reasoningLevel: "provider-specific" }),
+      ).rejects.toThrow();
+      expect(calls).toEqual([]);
+    },
+  );
+
   it("sends trimmed worktree targets on create", async () => {
     const { calls, rpc } = captureRpc();
     await savePresetDraft(rpc, null, draft);

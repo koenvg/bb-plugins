@@ -5,7 +5,7 @@ import {
   type ExperimentalProviderModelPickerValue,
 } from "@get-bb/plugin-sdk/app";
 import type { Preset, PresetPermissionMode } from "../../shared/contract.js";
-import { PRESET_ENVIRONMENT_KINDS } from "../../shared/contract.js";
+import { PRESET_ENVIRONMENT_KINDS, presetReasoningLevelSchema } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import type { TasksRpc } from "../../shell/data.js";
 import { useTasksQuery } from "../../shell/data.js";
@@ -116,7 +116,7 @@ export async function savePresetDraft(
     name: draft.name.trim(),
     providerId: draft.providerId.trim(),
     modelId: draft.modelId.trim(),
-    reasoningLevel: draft.reasoningLevel,
+    reasoningLevel: presetReasoningLevelSchema.parse(draft.reasoningLevel),
     serviceTier: draft.serviceTier ?? null,
     permissionMode: draft.permissionMode,
     environmentKind: draft.environmentKind,

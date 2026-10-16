@@ -181,7 +181,7 @@ jobs:
         env:
           BB_DATA_DIR: ${{ runner.temp }}/bbp57-${{ matrix.plugin }}-build-data
         run: |
-          test "$(node_modules/.bin/bb --version)" = "0.46.0"
+          test "$(node_modules/.bin/bb --version)" = "0.46.1"
           node_modules/.bin/bb plugin types . --check
       - name: Build document consumer plugin
         if: (matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader') && steps.shared_markdown.outcome == 'success' && steps.tests.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.document_sdk.outcome == 'success'

@@ -25,6 +25,6 @@ The route uses the existing confined blob lookup. Confinement is lexical, not a 
 
 Fatal UTF-8 decoding preserves BOM and CRLF. NUL and binary controls are unsupported except TAB, LF, and CR. Success returns a readonly `{ attachmentId, fileName, byteSize, text }` snapshot. Bounded error bodies have `{ error: { code } }` with `invalid-request`, `missing`, `unsupported`, `too-large`, or `failed`. Host auth failures remain distinct. No error contains filesystem paths.
 
-The browser bounds the JSON response with an escaping allowance, then validates identity, filename, UTF-8 byte count, and text controls before passing it to the shared document interface. Tasks owns this source policy. The module denies every destination and never treats attachment storage as a document root.
+The browser bounds the JSON response with an escaping allowance, then validates identity, filename, UTF-8 byte count, and text controls before passing it to the shared document interface. Tasks owns this source policy. Tasks explicitly permits document-local fragments, BB-preference HTTP(S) links, and bounded credential-free remote raster images. Relative file links and images stay inert because attachment storage is not a document root.
 
 Preview does not change upload, removal, CLI reads, or original download bytes, headers, and filename. Original downloads above the preview cap remain available within the unchanged 25 MiB allowance. Fake-host registered-route tests bypass authentication. They verify registration but do not prove real-host denial.

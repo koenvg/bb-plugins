@@ -102,11 +102,11 @@ The toolbar, reading column, and optional outline respond to the actual reader w
 
 Reader and Tasks use the same private [Markdown document package](../packages/markdown-document/README.md), compiled into each plugin with the same scoped stylesheet. Neither needs the other installed or enabled. Reader still owns source authorization, host/root confinement, snapshots, Refresh, source-bound SDK links/images, selection and bound Original fallback. The shared module owns parsing and presentation, not filesystem access.
 
-The Tasks adapter has no filesystem root and supplies deny-all in this delivery. The same relative link can therefore be active in an authorized Reader and inactive in a Tasks attachment. Matched-theme/content-width checks compare both real consumers rather than a substitute reader. See [BBP-57 validation](../verification/BBP-57/report.md) for fixture/build evidence and separate installed limits.
+The Tasks adapter has no filesystem root and explicitly permits only document-local fragments, BB-preference HTTP(S) links, and bounded credential-free remote raster images. The same relative link can therefore be active in an authorized Reader and inactive in a Tasks attachment. Matched-theme/content-width checks compare both real consumers rather than a substitute reader. See [BBP-57 validation](../verification/BBP-57/report.md) for fixture/build evidence and separate installed limits.
 
 ## Compatibility and local build
 
-The package targets BB **>=0.46** and Plugin SDK **>=0.6.37 <0.7**, with declarations pinned to **0.6.37**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
+The package targets BB **>=0.46** and Plugin SDK **>=0.6.37 <0.7**, with declarations pinned to **0.6.49**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
 From this package directory, use Bun 1.4.3 and Node 24.15 or newer within Node 24. Verify the shared package first, then the consumer. Package exports intentionally resolve to source, so a clean BB build can compile them without a pre-build hook.
 
@@ -118,7 +118,7 @@ bun install --frozen-lockfile
 bun run test --maxWorkers=1
 bun run typecheck
 export BB_DATA_DIR="$(mktemp -d)"
-test "$(node_modules/.bin/bb --version)" = "0.46.0"
+test "$(node_modules/.bin/bb --version)" = "0.46.1"
 node_modules/.bin/bb plugin types . --check
 bun run build
 ```

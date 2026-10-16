@@ -5,7 +5,7 @@ agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
 subtasks, attachments, agent presets, and a full CLI.
 
-The package targets BB 0.45 and SDK 0.6.15. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
+The package targets BB >=0.46 and SDK >=0.6.37 <0.7, with development declarations pinned to 0.6.49. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
 
 Task comments are removed by migration 12. Read [the upgrade and rollback procedure](COMMENT-REMOVAL-UPGRADE.md) before enabling this build against existing data.
 
@@ -28,12 +28,12 @@ bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
 
 The Quota dependency supplies the existing Tasks navigation fixture. The shared package is a build-time dependency, not an installed-plugin dependency. Tasks bundles its compiled code and CSS. The approved development workflow uses frozen Bun installs instead of the older plan's npm ci.
 The dependency exports source ESM/TSX and CSS so BB can compile it on a clean checkout without a pre-build hook. Its separate build verifies emitted ESM, declarations and CSS. Both production consumers use that source, but keep independent loading and destination policies. See [BBP-57 validation](../verification/BBP-57/report.md) for fresh independent build and matched report checks.
-The frozen Tasks install also installs the official `bb-app@0.46.0` build CLI locally. Its lockfile records the npm tarball integrity. This release ships SDK 0.6.37. The [official CI guide](https://github.com/get-bb/bb/blob/4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62/plugins/bb-guide/skills/bb-plugin-authoring/references/quickstart.md) supports `bb plugin build` without a running server. Use the local CLI and a temporary `BB_DATA_DIR` for build-tool downloads, not the desktop application's global CLI or user data. Installing development dependencies does not install or enable the Tasks plugin.
+The frozen Tasks install also installs the official `bb-app@0.46.1` build CLI locally. Its lockfile records the npm tarball integrity. This release ships SDK 0.6.49. The [official CI guide](https://github.com/get-bb/bb/blob/4c87fdec7b7effc022ff2ee31ec95c0a09c9ee62/plugins/bb-guide/skills/bb-plugin-authoring/references/quickstart.md) supports `bb plugin build` without a running server. Use the local CLI and a temporary `BB_DATA_DIR` for build-tool downloads, not the desktop application's global CLI or user data. Installing development dependencies does not install or enable the Tasks plugin.
 
 ```sh
 bun install --frozen-lockfile
 export BB_DATA_DIR="$(mktemp -d)"
-test "$(node_modules/.bin/bb --version)" = "0.46.0"
+test "$(node_modules/.bin/bb --version)" = "0.46.1"
 bun run typecheck --version
 bun run typecheck
 bun run test
@@ -41,7 +41,10 @@ bun run lint
 bun run format:check
 node_modules/.bin/bb plugin types . --check
 bun run build
-bun run test:browser
+EVIDENCE="$(mktemp -d "${TMPDIR:-/tmp}/tasks-browser.XXXXXX")"
+BBP53_CAPTURE_PHASE=none bun run test:browser \
+  --config ../.pi/skills/verify-bb-plugins/references/tasks-playwright.config.ts \
+  --trace on --output "$EVIDENCE/results"
 ```
 
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
