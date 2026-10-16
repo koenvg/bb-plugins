@@ -198,15 +198,12 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
   }: SaveCommentDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
     if (!target.ok) return { kind: "error", message: target.message };
-    const draft = await deps.drafts.comment(target.value.ref, draftId);
-    if (draft === null) return { kind: "error", message: `Comment draft ${draftId} is gone` };
-    await deps.drafts.saveComment(target.value.ref, draftId, {
-      ...draft,
+    const edited = await deps.drafts.editComment(target.value.ref, draftId, {
       body,
       updatedAt: deps.now(),
       source: "user",
     });
-    return { kind: "ok" };
+    return edited ? { kind: "ok" } : { kind: "error", message: `Comment draft ${draftId} is gone` };
   }
 
   async function deleteCommentDraft({
