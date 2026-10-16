@@ -198,6 +198,7 @@ for (const [suite, states] of Object.entries(matrices))
               "machineAccounts",
               "machinePreparation",
               "machineReports",
+              "machineReportSnapshot",
               "selection",
               "selectHost",
               "historyReadiness",
@@ -205,9 +206,14 @@ for (const [suite, states] of Object.entries(matrices))
             ].includes(call.method),
           ),
         ).toBe(true);
-        for (const call of requests.filter((call) => call.method === "machineReports")) {
+        expect(requests.some((call) => call.method === "machineReportSnapshot")).toBe(true);
+        for (const call of requests.filter((call) =>
+          ["machineReports", "machineReportSnapshot"].includes(call.method),
+        )) {
           expect(call.input.query!.includeUncertain).toBe(call.input.query!.group === "workspace");
-          expect(call.input).toMatchObject({ prepare: false, refresh: false });
+          if (call.method === "machineReports")
+            expect(call.input).toMatchObject({ prepare: false, refresh: false });
+          else expect(call.input).toEqual({ query: call.input.query });
           expect(call.input.query!.scope).toEqual({ kind: "host" });
           expect(call.input.query!.comparison).toBeFalsy();
         }
