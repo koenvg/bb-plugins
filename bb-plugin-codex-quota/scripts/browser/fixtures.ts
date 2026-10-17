@@ -95,11 +95,78 @@ export async function decodedPng(page: Page, data: Buffer) {
   expect(facts.nonSolid, "Decoded screenshot must contain visible content").toBe(true);
   return { ...facts, sha256: createHash("sha256").update(data).digest("hex") };
 }
+type CaptureTile = { x: number; y: number; data: string };
+
 export async function capture(page: Page, info: TestInfo, name: string, fullPage = true) {
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => window.scrollTo({ left: 0, top: 0, behavior: "instant" }));
   const path = info.outputPath(`${name}.png`);
-  const data = await page.screenshot({ path, fullPage });
-  const facts = { file: `${name}.png`, ...(await decodedPng(page, data)) };
+  const viewport = page.viewportSize()!;
+  const content = await page.evaluate(() => ({
+    width: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth, innerWidth),
+    height: Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+      innerHeight,
+    ),
+  }));
+  if (fullPage)
+    expect(content.width, "Full-page evidence must not clip horizontal content").toBe(
+      viewport.width,
+    );
+  const tiled = fullPage && content.height > viewport.height;
+  const tiles: CaptureTile[] = [];
+  let data: Buffer;
+  if (tiled) {
+    try {
+      for (let top = 0; ; top = Math.min(top + viewport.height, content.height - viewport.height)) {
+        const position = await page.evaluate(async (top) => {
+          window.scrollTo({ left: 0, top, behavior: "instant" });
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          );
+          return { x: scrollX, y: scrollY };
+        }, top);
+        expect(position, "Each tile must cover the requested document offset").toEqual({
+          x: 0,
+          y: top,
+        });
+        const tile = await page.screenshot({ fullPage: false, scale: "css" });
+        tiles.push({ ...position, data: tile.toString("base64") });
+        if (top + viewport.height >= content.height) break;
+      }
+      const base64 = await page.evaluate(
+        async ({ tiles, width, height }) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d")!;
+          for (const tile of tiles) {
+            const image = new Image();
+            image.src = `data:image/png;base64,${tile.data}`;
+            await image.decode();
+            context.drawImage(image, tile.x, tile.y);
+          }
+          return canvas.toDataURL("image/png").split(",")[1];
+        },
+        { tiles, width: viewport.width, height: content.height },
+      );
+      data = Buffer.from(base64, "base64");
+    } finally {
+      await page.evaluate(() => window.scrollTo({ left: 0, top: 0, behavior: "instant" }));
+    }
+    await writeFile(path, data);
+  } else {
+    data = await page.screenshot({ path, fullPage: false, scale: "css" });
+  }
+  const coverage = {
+    mode: tiled ? "viewport-tiles" : "viewport",
+    document: content,
+    tiles: tiled ? tiles.map(({ x, y }) => ({ x, y, ...viewport })) : [{ x: 0, y: 0, ...viewport }],
+    limitations: tiled
+      ? ["Scroll-composited evidence. Fixed and sticky content can repeat at tile boundaries."]
+      : [],
+  };
+  const facts = { file: `${name}.png`, ...(await decodedPng(page, data)), coverage };
   expect(facts.width).toBe(page.viewportSize()!.width);
   await info.attach(name, { path, contentType: "image/png" });
   await jsonEvidence(info, `${name}.json`, facts);
