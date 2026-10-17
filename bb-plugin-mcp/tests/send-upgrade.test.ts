@@ -56,6 +56,24 @@ it("upgrades the BBP-81 ledger without replaying accepted or unresolved starts",
       operationId: "legacy-" + state,
     });
     expect(result.result.structuredContent).not.toHaveProperty("delivery");
+    for (const workspace of ["project-folder", "worktree"]) {
+      const conflict = await (
+        await f.rpc(
+          "tools/call",
+          {
+            name: "bb_start_thread",
+            arguments: {
+              ...input,
+              operationKey: state === "accepted" ? "legacy" : "unresolved",
+              workspace,
+            },
+          },
+          credential,
+        )
+      ).json();
+      expect(conflict.result.content).toEqual([{ type: "text", text: "OPERATION_CONFLICT" }]);
+    }
   }
   expect(f.host.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  expect(f.host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual(["threads.get"]);
 });

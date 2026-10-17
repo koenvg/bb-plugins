@@ -164,6 +164,18 @@ jobs:
           fi
           bun run typecheck
 
+      - name: Check MCP SDK alignment
+        if: >-
+          ${{
+            !cancelled() &&
+            matrix.plugin == 'bb-plugin-mcp' &&
+            steps.checkout.outcome == 'success' &&
+            steps.setup_bun.outcome == 'success' &&
+            steps.setup_node.outcome == 'success' &&
+            steps.install_dependencies.outcome == 'success'
+          }}
+        run: bun run check:sdk
+
       - name: Build MCP package
         if: >-
           ${{

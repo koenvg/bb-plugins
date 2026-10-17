@@ -10,6 +10,7 @@ import type { Identity } from "./auth.js";
 export type StartSource = {
   defaults: BbPluginApi["sdk"]["projects"]["defaultExecutionOptions"];
   listProviders: BbPluginApi["sdk"]["providers"]["list"];
+  systemConfig: BbPluginApi["sdk"]["system"]["config"];
   spawn: BbPluginApi["sdk"]["threads"]["spawn"];
   get: BbPluginApi["sdk"]["threads"]["get"];
   send: BbPluginApi["sdk"]["threads"]["send"];
@@ -64,6 +65,7 @@ const startSchema = z.strictObject({
   prompt: text,
   title: z.string().trim().min(1).max(200).optional(),
   providerId: id.optional(),
+  workspace: z.enum(["project-folder", "worktree"]).optional(),
   operationKey: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
 });
 type StartInput = z.infer<typeof startSchema>;
@@ -114,9 +116,13 @@ export function operationControl(options: {
         .update(
           JSON.stringify(
             isStart
-              ? input.providerId === undefined
-                ? [input.projectId, input.prompt, input.title ?? null]
-                : [input.projectId, input.prompt, input.title ?? null, input.providerId]
+              ? [
+                  input.projectId,
+                  input.prompt,
+                  input.title ?? null,
+                  ...(input.providerId === undefined ? [] : [input.providerId]),
+                  ...(input.workspace === undefined ? [] : [["workspace-v1", input.workspace]]),
+                ]
               : "message" in input
                 ? [input.threadId, input.message]
                 : [input.threadId],
@@ -328,6 +334,21 @@ export function operationControl(options: {
       signal.removeEventListener("abort", abort);
     }
   }
+  async function resolveEnvironment(
+    workspace: StartInput["workspace"],
+    signal: AbortSignal,
+  ): Promise<Parameters<StartSource["spawn"]>[0]["environment"]> {
+    if (workspace === undefined) return { type: "project-default" };
+    const config = await source.systemConfig({ signal });
+    const hostId = id.parse(config?.primaryHostId);
+    return workspace === "project-folder"
+      ? { type: "host", hostId, workspace: { type: "unmanaged", path: null } }
+      : {
+          type: "host",
+          hostId,
+          workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
+        };
+  }
   async function submit(
     identity: Identity,
     input: StartInput | SendInput | StopInput,
@@ -414,6 +435,10 @@ export function operationControl(options: {
             await lookupThread(identity, input.threadId, project, true, readSignal());
           }
           checkDispatch();
+          const environment = isStart
+            ? await resolveEnvironment(input.workspace, readSignal())
+            : null;
+          checkDispatch();
           dispatched = true;
           if (isStart) {
             const thread = await source.spawn({
@@ -421,7 +446,7 @@ export function operationControl(options: {
               projectId: project,
               prompt: input.prompt,
               ...(input.title === undefined ? {} : { title: input.title }),
-              environment: { type: "project-default" },
+              environment: environment!,
               visibility: "visible",
               pluginMetadata: { operationId: row.id },
             });
@@ -634,7 +659,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_start_thread",
         {
-          description: `Start an ordinary visible BB thread in a standard project using project defaults with optional providerId selection. Explicit selection requires an available provider supporting the saved permission mode. A different provider uses its catalog defaults for model, reasoning and service tier. BB's built-in Personal project is excluded. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
+          description: `Start an ordinary visible BB thread in a standard project using project defaults with optional independent providerId and workspace selections. Explicit provider selection requires an available provider supporting the saved permission mode. A different provider uses its catalog defaults for model, reasoning and service tier. Omit workspace for unchanged project-default behavior. Choose project-folder for the configured source folder on BB's primary host, shared without a branch change, or worktree for a new worktree from BB's default base branch. Host, path and branch choices are not supported. BB's built-in Personal project is excluded. Execution permissions stay unchanged. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operationKey and exact input, including both selections or their omission, to recover a lost reply; changed input conflicts. Submission acceptance is not agent completion. Unknown outcomes must not be retried under a new key.`,
           inputSchema: startSchema,
           annotations: {
             readOnlyHint: false,
