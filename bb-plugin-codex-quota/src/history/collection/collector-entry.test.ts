@@ -142,9 +142,15 @@ it("bounds confirmation traversal, does not match equal message values, and reso
   const message = f.message();
   await f.handlers.get("message_end")!({ message }, f.ctx);
   f.persist({ ...message }, "not-same-object");
+  await f.handlers.get("agent_end")!({}, f.ctx);
+  expect(f.reads()).toBe(1);
+  await expect(
+    readFile(join(f.root, "history/confirmations-v1-2009-02-13.jsonl")),
+  ).rejects.toMatchObject({ code: "ENOENT" });
+  const readsBeforeBoundedScan = f.reads();
   for (let i = 0; i < 200; i++) f.persist({}, `ancestor-${i}`);
   await f.handlers.get("agent_end")!({}, f.ctx);
-  expect(f.reads()).toBe(128);
+  expect(f.reads() - readsBeforeBoundedScan).toBe(128);
   await expect(
     readFile(join(f.root, "history/confirmations-v1-2009-02-13.jsonl")),
   ).rejects.toThrow();

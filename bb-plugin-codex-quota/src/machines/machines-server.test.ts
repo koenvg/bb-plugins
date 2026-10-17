@@ -219,11 +219,20 @@ describe("all-machine public reports", () => {
       access_token: "secret-token",
     });
     const service = f.create();
-    expect(
-      (await service.accounts({ refresh: false, includeActivity: false })).accounts.every(
-        (row) => row.quota.snapshot === null && row.identity === "unknown",
-      ),
-    ).toBe(true);
+    const accounts = await service.accounts({ refresh: false, includeActivity: false });
+    expect(accounts.accounts).toMatchObject([
+      {
+        machines: ["host_one"],
+        identity: "unknown",
+        quota: { state: "unavailable", reason: "unsupported", snapshot: null },
+      },
+      {
+        machines: ["host_two"],
+        identity: "unknown",
+        quota: { state: "unavailable", reason: "unsupported", snapshot: null },
+      },
+    ]);
+    expect(JSON.stringify(accounts)).not.toContain("secret-token");
     f.storage.set = async () => {
       throw new Error("storage unavailable");
     };
