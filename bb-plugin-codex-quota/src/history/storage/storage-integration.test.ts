@@ -717,52 +717,50 @@ it("expires import-only storage on status and readiness checks without capture c
   }
 });
 
-test.each([2, 3, 4])(
-  "protects required compact tables and singleton state for version %s",
-  async (version) => {
-    for (const damage of [
+test.each(
+  [2, 3, 4].flatMap((version) =>
+    [
       "compact",
       "owner-table",
       "owner-row",
       "retention-row",
       "counter-row",
-      "identity-table",
-      "import-table",
-    ]) {
-      if (version < 4 && ["identity-table", "import-table"].includes(damage)) continue;
-      const f = await fixture();
-      initializeHistory(f.db, "2026-09-01T00:00:00.000Z");
-      projectImportedUsage(f.db, record(1, "imported"), "entry-one");
-      if (damage === "compact") f.db.exec("DROP TABLE usage_compact");
-      if (damage === "owner-table") f.db.exec("DROP TABLE history_owner");
-      if (damage === "owner-row") f.db.exec("DELETE FROM history_owner");
-      if (damage === "retention-row") f.db.exec("DELETE FROM history_retention");
-      if (damage === "counter-row") f.db.exec("DELETE FROM history_counters");
-      if (damage === "identity-table") f.db.exec("DROP TABLE identity_edges");
-      if (damage === "import-table") f.db.exec("DROP TABLE import_generations");
-      f.db.exec(`PRAGMA user_version=${version}`);
-      f.db.close();
-      const { readFile, readdir } = await import("node:fs/promises"),
-        before = await readFile(f.path),
-        files = await readdir(f.directory),
-        control = await readFile(join(f.directory, "collector-control-v1.json"));
-      expect((await f.make().read(f.context)).storage, damage).toBe("incompatible");
-      expect(
-        (
-          await f.make().controlImport!(
-            { action: "status" },
-            { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
-          )
-        ).reason,
-        damage,
-      ).toBe("storage-incompatible");
-      // Compare every SQLite byte without deep object equality's Buffer overhead.
-      expect((await readFile(f.path)).equals(before), damage).toBe(true);
-      expect(await readdir(f.directory), damage).toEqual(files);
-      expect(await readFile(join(f.directory, "collector-control-v1.json")), damage).toEqual(
-        control,
-      );
-    }
+      ...(version === 4 ? ["identity-table", "import-table"] : []),
+    ].map((damage) => ({ version, damage })),
+  ),
+)(
+  "protects required compact tables and singleton state for version $version with $damage damage",
+  async ({ version, damage }) => {
+    const f = await fixture();
+    initializeHistory(f.db, "2026-09-01T00:00:00.000Z");
+    projectImportedUsage(f.db, record(1, "imported"), "entry-one");
+    if (damage === "compact") f.db.exec("DROP TABLE usage_compact");
+    if (damage === "owner-table") f.db.exec("DROP TABLE history_owner");
+    if (damage === "owner-row") f.db.exec("DELETE FROM history_owner");
+    if (damage === "retention-row") f.db.exec("DELETE FROM history_retention");
+    if (damage === "counter-row") f.db.exec("DELETE FROM history_counters");
+    if (damage === "identity-table") f.db.exec("DROP TABLE identity_edges");
+    if (damage === "import-table") f.db.exec("DROP TABLE import_generations");
+    f.db.exec(`PRAGMA user_version=${version}`);
+    f.db.close();
+    const { readFile, readdir } = await import("node:fs/promises"),
+      before = await readFile(f.path),
+      files = await readdir(f.directory),
+      control = await readFile(join(f.directory, "collector-control-v1.json"));
+    expect((await f.make().read(f.context)).storage, damage).toBe("incompatible");
+    expect(
+      (
+        await f.make().controlImport!(
+          { action: "status" },
+          { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
+        )
+      ).reason,
+      damage,
+    ).toBe("storage-incompatible");
+    // Compare every SQLite byte without deep object equality's Buffer overhead.
+    expect((await readFile(f.path)).equals(before), damage).toBe(true);
+    expect(await readdir(f.directory), damage).toEqual(files);
+    expect(await readFile(join(f.directory, "collector-control-v1.json")), damage).toEqual(control);
   },
 );
 
