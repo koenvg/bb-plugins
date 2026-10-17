@@ -49,29 +49,41 @@ On any connection failure, retain safe failure evidence, mark dependent checks b
 
 Inspect `current_tab()` and `list_tabs()` without retaining unrelated page titles or content. Reuse only a target recorded as created by this run, or an existing tab explicitly selected by the user. Keep that distinction in the ledger. A matching URL is not ownership.
 
-Reuse the recorded provisioning tab as the task tab, or create an additional tab with `new_tab()` without a URL. Record every returned ID before navigation. Keep all task-created IDs, including the provisioning tab, in the ledger. Export their JSON array as `task_created_targets` for cleanup. User-selected existing tabs do not belong in that array.
+Select a recorded task-owned target, not automatically the daemon's provisioning tab. Named daemons create that tab in the background; `new_tab()` does not establish visibility either. When this run launched a fresh owned browser, prefer its recorded initial tab. Record that ID from the approved browser launch before daemon provisioning. The first tab in a user-provided browser is not thereby owned. Set `approved_task_target` to the selected recorded ID.
 
-After saving the initial target ID and confirming strict health:
+Keep every task-created ID, including the initial and provisioning tabs, in the ledger. Export their JSON array as `task_created_targets` for cleanup. User-selected existing tabs do not belong in that array. If the selected target is hidden, stop and ask for activation approval. Do not activate it, switch targets, or borrow an unowned visible tab automatically.
+
+Native-input preflight requires `document.visibilityState == "visible"` and `document.hidden == false` through the selected public session. `document.hasFocus()` is insufficient. In BBP-246 with Chromium 153 and Harness 0.1.13, a hidden provisioning tab accepted mouse input but its first touchStart had no Chromium reply within 30 seconds; the reply arrived only during cleanup. Other browser requests remained responsive. The visible initial tab passed the matched input sequence and installed chart checks. This identifies the reproduced hidden-tab completion stall, not the exact cause of the earlier five-second mouse timeout. Evidence: [BBP-246 investigation](bbthread://thr_mawquzi5yr).
+
+The example sets a 30-second IPC response wait. That wait is not a total operation deadline or cancellation. BBP-246's reviewed driver also used an interrupting 35-second total caller deadline. Do not raise waits or replay input to recover from a hidden target. The separate five-second cleanup budget remains unchanged.
+
+After recording the selected task target and confirming strict health:
 
 ```sh
-export task_target="$provisioning_target"
+export task_target="$approved_task_target"
 export bb_url
 browser-use <<'PY'
 import os, time
 target = os.environ["task_target"]
 if target not in {tab["targetId"] for tab in list_tabs()}:
     raise RuntimeError("Recorded target is missing")
-session_id = cdp("Target.attachToTarget", targetId=target, flatten=True)["sessionId"]
+session_id = cdp("Target.attachToTarget", targetId=target, flatten=True, _response_timeout=30)["sessionId"]
 if not session_id:
     raise RuntimeError("No session for the recorded target")
 def bound(method, **params):
-    return cdp(method, session_id=session_id, **params)
+    return cdp(method, session_id=session_id, _response_timeout=30, **params)
+def require_visible():
+    state = bound("Runtime.evaluate", expression="({visibility:document.visibilityState,hidden:document.hidden})", returnByValue=True)["result"]["value"]
+    if state["visibility"] != "visible" or state["hidden"] is not False:
+        raise RuntimeError("Recorded target is not visible; stop and ask for activation approval")
+require_visible()
 bound("Page.navigate", url=os.environ["bb_url"])
 deadline = time.monotonic() + 15
 while bound("Runtime.evaluate", expression="document.readyState", returnByValue=True)["result"]["value"] != "complete":
     if time.monotonic() >= deadline:
         raise RuntimeError("Page load timed out")
     time.sleep(0.3)
+require_visible()
 print(bound("Runtime.evaluate", expression="location.href", returnByValue=True)["result"]["value"])
 PY
 ```
@@ -82,7 +94,7 @@ At a login wall, keep required checks blocked and ask the user to sign in to thi
 
 ## Interact and retain evidence
 
-Bind a public session as shown above. Use bounded `Runtime.evaluate` polling for the expected element's visible state. Read a filtered accessibility tree with `bound("Accessibility.getFullAXTree")`. Get a fresh `backendDOMNodeId` and box with `bound("DOM.getBoxModel", backendNodeId=node_id)`. Check that its center is inside the viewport, then send `Input.dispatchMouseEvent` for mousePressed and mouseReleased through the same bound session. Reinspect after navigation, scrolling, or a rerender. The installed CDP reference describes node and coordinate checks, but its default-session helper examples do not enforce this ownership contract.
+Bind a public session as shown above. Call `require_visible()` immediately before each native mouse or touch batch, and recheck after navigation or viewport changes. Use bounded `Runtime.evaluate` polling for the expected element's visible state. Read a filtered accessibility tree with `bound("Accessibility.getFullAXTree")`. Get a fresh `backendDOMNodeId` and box with `bound("DOM.getBoxModel", backendNodeId=node_id)`. Check that its center is inside the viewport, then send `Input.dispatchMouseEvent` for mousePressed and mouseReleased through the same bound session. Reinspect after navigation, scrolling, or a rerender. The installed CDP reference describes node and coordinate checks, but its default-session helper examples do not enforce this ownership contract.
 
 Verify the expected result through session-bound DOM reads, persistence checks, or installed runtime observations. A URL or page title alone does not establish success. For visual evidence, call `bound("Page.captureScreenshot", format="png")`, decode its base64 `data`, and write it to an explicit local PNG path. Inspect the frame before sharing it. Withhold secrets or unrelated private content and report the evidence gap. Never inject passing results or replace application responses in a live check. Default-session helpers such as `goto_url`, `js`, `wait_for_element`, `click_at_xy`, and `capture_screenshot` cannot bind this session and must not replace these calls.
 
