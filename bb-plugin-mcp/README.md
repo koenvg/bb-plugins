@@ -321,9 +321,29 @@ For cleanup, preserve the plugin database while unresolved records exist. Comple
 
 ## Local checks and release limits
 
-Use Bun 1.4.3. Run `bun install --frozen-lockfile`, then `bun run test`, `bun run typecheck`, and `bun run build`. These scripts use Node 24.15 or later within Node 24 for Vitest and the BB host build. Also run `bb plugin types --check` against the supported BB version and repository `bun run check`. CI includes this package and its standalone build.
+Use Bun 1.4.3 and Node 24.15 or later within Node 24. From `bb-plugin-mcp`, run:
+
+```sh
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
+bun run check:sdk
+bun run build
+```
+
+Also run repository `bun run check`. CI keeps tests and typecheck independent and runs the same MCP SDK check and build.
+
+`check:sdk` and `build` use the exact locked development pair, SDK `0.6.49` and `bb-app` `0.46.1`. The package-local runner validates installed versions, resolves the builder's declared npm binary, and runs the official `plugin types --check`. Build starts only after that check passes. The runner ignores inherited `BB_CLI`, `BB_CLI_DIR`, `BB_CLI_REEXEC`, and `BB_APP_VERSION`, uses temporary `BB_DATA_DIR` data for the SDK check, and removes that data afterward. It does not run a dependency installer or fall back to a global BB command. Missing or stale dependencies require an explicit frozen install.
+
+The build subprocess uses package-owned `node_modules/.cache/mcp-local-bb` as `BB_DATA_DIR`, never your live BB data. On a cache miss, the official builder downloads its pinned compiler toolchain. Later builds reuse that version-keyed cache. The runner intentionally retains the cache, including after build failures. To remove it, delete `node_modules/.cache/mcp-local-bb`. The next build downloads the toolchain again.
+
+Normal global BB app upgrades do not change this locked development validation. Raw global `bb plugin types . --check` remains an intentional exact SDK freshness check. After a later app upgrade, a pin mismatch can fail that command without proving runtime incompatibility. This workflow does not update or reload a live plugin.
+
+The runtime declarations remain `engines.bb >=0.46` and `engines.bbPluginSdk >=0.6.37 <0.7`. BB checks `engines.bb` with semver. The inspected runtime treats the SDK declaration as a same-major API floor, so `<0.7` is not an enforced runtime ceiling. Local checks do not certify arbitrary future releases or live-host compatibility.
+
+For a deliberate toolchain upgrade, update both exact development pins and regenerate `bun.lock`. Then run the frozen install, tests, typecheck, SDK check, and build above. Verify that `dist/server.meta.json` records the selected SDK and BB versions. Investigate real declaration or behavior failures. Do not suppress them or raise the runtime floor merely to satisfy a freshness check.
 
 The development builder's npm bundle still has dependency advisories. See [the standalone dependency review](VERIFICATION-BBP173.md) for the exact npm override, installed-version evidence, audit limits and bounded build use. A zero lockfile audit alone does not prove that npm's bundled files are patched.
 
-See [the current BB 0.46 compatibility checkpoint](VERIFICATION-BBP85-BB046.md) for current SDK/build results and remaining setup gates. The [earlier Cloudflare checkpoint](VERIFICATION-BBP85-CLOUDFLARE.md) preserves the BB 0.45 evidence at commit `6be6aa30fd4fe7e9e7c6887b5380a6cb7df68b7f`; use that revision for BB 0.45. Neither checkpoint is deployment or native acceptance evidence.
+See [the historical BB 0.46 compatibility checkpoint](VERIFICATION-BBP85-BB046.md) for historical SDK/build results and remaining setup gates. The [earlier Cloudflare checkpoint](VERIFICATION-BBP85-CLOUDFLARE.md) preserves the BB 0.45 evidence at commit `6be6aa30fd4fe7e9e7c6887b5380a6cb7df68b7f`; use that revision for BB 0.45. Neither checkpoint is deployment or native acceptance evidence.
 See [the BBP-84 local resolution checkpoint](VERIFICATION-BBP84.md), [the BBP-83 stop checkpoint](VERIFICATION-BBP83.md), [the BBP-82 follow-up checkpoint](VERIFICATION-BBP82.md), [the BBP-81 safe-start checkpoint](VERIFICATION-BBP81.md) for fixture-only control evidence and [the BBP-80 checkpoint](VERIFICATION-BBP80-CORRECTION.md) for thread-read evidence and limits, and [VERIFICATION.md](VERIFICATION.md) for the BBP-79 connection checks. No plugin installation, live OAuth account, public tunnel access, or ChatGPT web/mobile test is part of the local test run. These remain unverified. Read-only local MCP results do not establish native mobile support or later control-task acceptance.
