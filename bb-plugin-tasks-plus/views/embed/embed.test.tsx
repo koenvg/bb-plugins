@@ -593,29 +593,121 @@ describe("Task embed panel", () => {
         },
       );
       const title = await slot.findByRole("textbox", { name: "Task title" });
-      title.textContent = "Unsaved explicit edit";
-      fireEvent.input(title);
-      await act(async () => slot.lifecycle.rerender(<Panel threadId="thr_1" params={null} />));
-      await slot.findByRole("status", { name: "Loading linked task" });
-      expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-      expect(title.textContent).toBe("Unsaved explicit edit");
-      slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
-      if (outcome === "same task") {
-        await act(async () => finishLookup({ tasks: [task] }));
-      } else if (outcome === "no linked task") {
-        await act(async () => finishLookup({ tasks: [] }));
-        await slot.findByText("No task is linked to this thread.");
-        expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
-        expect(updateTask).toHaveBeenCalledOnce();
-        return;
-      } else {
-        await act(async () => failLookup(new Error("Offline")));
-        await slot.findByRole("alert");
-        slot.getByRole("button", { name: "Retry" });
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        title.textContent = "Unsaved explicit edit";
+        fireEvent.input(title);
+        await act(async () => slot.lifecycle.rerender(<Panel threadId="thr_1" params={null} />));
+        slot.getByRole("status", { name: "Loading linked task" });
+        expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
+        expect(title.textContent).toBe("Unsaved explicit edit");
+        slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
+        if (outcome === "same task") {
+          await act(async () => finishLookup({ tasks: [task] }));
+        } else if (outcome === "no linked task") {
+          await act(async () => finishLookup({ tasks: [] }));
+          slot.getByText("No task is linked to this thread.");
+          expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
+          expect(updateTask).toHaveBeenCalledOnce();
+          return;
+        } else {
+          await act(async () => failLookup(new Error("Offline")));
+          slot.getByRole("alert");
+          slot.getByRole("button", { name: "Retry" });
+        }
+        expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
+        expect(title.textContent).toBe("Unsaved explicit edit");
+        expect(updateTask).not.toHaveBeenCalled();
+      } finally {
+        try {
+          cleanup();
+        } finally {
+          vi.useRealTimers();
+        }
       }
-      expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-      expect(title.textContent).toBe("Unsaved explicit edit");
-      expect(updateTask).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["same task", "lookup failure", "no linked task"])(
+    "autosaves the retained editor while default lookup is delayed, then returns %s",
+    async (outcome) => {
+      const Panel = app.threadPanelActions[0]!.component;
+      let savedTask = task;
+      let finishLookup!: (result: { tasks: (typeof task)[] }) => void;
+      let failLookup!: (error: Error) => void;
+      const updateTask = vi.fn((raw: unknown) => {
+        savedTask = { ...savedTask, title: rpcInput(raw).title as string };
+        return { ok: true, task: savedTask };
+      });
+      const slot = renderSlot(
+        app.threadPanelActions[0]!,
+        { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+        {
+          rpc: {
+            ...taskDetailRpc(() => ({ task: savedTask })),
+            getTasksForThread: () =>
+              new Promise((resolve, reject) => {
+                finishLookup = resolve;
+                failLookup = reject;
+              }),
+            updateTask,
+          },
+        },
+      );
+      const title = await slot.findByRole("textbox", { name: "Task title" });
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        title.textContent = "Autosaved explicit edit";
+        fireEvent.input(title);
+        await act(async () => slot.lifecycle.rerender(<Panel threadId="thr_1" params={null} />));
+        slot.getByRole("status", { name: "Loading linked task" });
+        expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
+        expect(title.textContent).toBe("Autosaved explicit edit");
+        expect(updateTask).not.toHaveBeenCalled();
+
+        await act(async () => vi.advanceTimersByTimeAsync(799));
+        expect(updateTask).not.toHaveBeenCalled();
+        await act(async () => vi.advanceTimersByTimeAsync(1));
+        expect(updateTask).toHaveBeenCalledOnce();
+        expect(slot.rpcCalls.filter(({ method }) => method === "updateTask")).toEqual([
+          {
+            method: "updateTask",
+            input: { taskId: TASK_ID, title: "Autosaved explicit edit" },
+          },
+        ]);
+        slot.getByRole("status", { name: "Loading linked task" });
+        expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
+        expect(title.textContent).toBe("Autosaved explicit edit");
+        slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
+
+        if (outcome === "same task") {
+          await act(async () => finishLookup({ tasks: [savedTask] }));
+        } else if (outcome === "no linked task") {
+          await act(async () => finishLookup({ tasks: [] }));
+          slot.getByText("No task is linked to this thread.");
+          expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
+          expect(slot.queryByRole("button", { name: "Open TSK-4 in Tasks" })).toBeNull();
+        } else {
+          await act(async () => failLookup(new Error("Offline")));
+          expect(slot.getByRole("alert").textContent).toContain("Couldn't load the linked task.");
+          slot.getByRole("button", { name: "Retry" });
+        }
+        expect(slot.queryByRole("status", { name: "Loading linked task" })).toBeNull();
+        if (outcome !== "no linked task") {
+          expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
+          expect(title.textContent).toBe("Autosaved explicit edit");
+          slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
+          expect(slot.queryByText("No task is linked to this thread.")).toBeNull();
+        }
+        await act(async () => vi.advanceTimersByTimeAsync(800));
+        expect(updateTask).toHaveBeenCalledOnce();
+      } finally {
+        try {
+          cleanup();
+        } finally {
+          vi.useRealTimers();
+        }
+      }
     },
   );
 });
