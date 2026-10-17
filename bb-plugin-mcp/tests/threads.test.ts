@@ -124,6 +124,51 @@ describe("read-only thread protocol", () => {
     }
   });
 
+  it.each([list, read])("shows idle parents with recorded background agents as active in $name", async (tool) => {
+    const f = await setup();
+    const thread = makeThreadResponse({
+      id: "thr_a",
+      projectId: "proj_a",
+      title: "Allowed",
+      status: "idle",
+      activeBackgroundAgentCount: 2,
+    });
+    const summary = row("thr_a", {
+      ...thread,
+      activity: { ...row("thr_a").activity, activeBackgroundAgentCount: 2 },
+    });
+    f.get.mockResolvedValue(thread);
+    f.rows.splice(0, f.rows.length, summary);
+    const client = await f.client();
+    try {
+      const result = await client.callTool(tool);
+      expect(result.isError).not.toBe(true);
+      const expected = {
+        id: "thr_a",
+        title: "Allowed",
+        status: "idle",
+        displayStatus: "active",
+        subagentsRunning: true,
+        pendingInteraction: false,
+      };
+      expect(result.structuredContent).toEqual(
+        tool === list
+          ? { threads: [expected], nextCursor: null }
+          : {
+              ...expected,
+              actionRequired: null,
+              assistantOutput: {
+                text: "Recent assistant output",
+                truncated: false,
+                trust: "untrusted_project_data",
+              },
+            },
+      );
+    } finally {
+      await client.close();
+    }
+  });
+
   it("pages visible summaries with 50 records, continuation and no private fields", async () => {
     const f = await setup();
     f.rows.push(row("hidden", { visibility: "hidden" }), row("other", { projectId: "proj_other" }));
