@@ -1,20 +1,40 @@
 import { build } from "esbuild";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const artifact = join(root, "vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz");
-const hash = createHash("sha256").update(readFileSync(artifact)).digest("hex");
+const archive = readFileSync(artifact);
+const hash = createHash("sha256").update(archive).digest("hex");
 if (hash !== "1642307063bd2867eb26e94853fd6906bc135c33161243de953012864b4718ff") {
   throw new Error(
     "Pinned Codex speed artifact hash mismatch. Do not regenerate from an unreviewed package.",
   );
 }
-const entry = fileURLToPath(import.meta.resolve("@koenvg/pi-openai-codex-speed"));
-const capabilityModule = join(dirname(entry), "capabilities.js");
-const capabilitySource = readFileSync(capabilityModule, "utf8");
+const installed = join(root, "node_modules/@koenvg/pi-openai-codex-speed");
+const verifiedFiles = new Map();
+for (const path of [
+  "package.json",
+  "dist/index.js",
+  "dist/capabilities.js",
+  "dist/controller.js",
+  "dist/pi.js",
+  "dist/extension.js",
+]) {
+  const contents = execFileSync("tar", ["-xzOf", "-", `package/${path}`], {
+    input: archive,
+  });
+  if (!contents.equals(readFileSync(join(installed, path)))) {
+    throw new Error(`Pinned Codex speed installed input mismatch: ${path}`);
+  }
+  verifiedFiles.set(path, contents.toString("utf8"));
+}
+const entry = "dist/index.js";
+const capabilityModule = "dist/capabilities.js";
+const capabilitySource = verifiedFiles.get(capabilityModule);
 const standaloneMessage =
   "super(`Speed: ${category}. Select /speed default or use /speed refresh.`);";
 const managedMessage =
@@ -38,14 +58,34 @@ const bundled = (
       {
         name: "bb-speed-profile",
         setup(builder) {
-          builder.onLoad({ filter: /capabilities\.js$/ }, ({ path }) =>
-            path === capabilityModule
-              ? { contents: managedCapabilitySource, loader: "js" }
-              : undefined,
-          );
+          builder.onResolve({ filter: /.*/ }, ({ path, importer, namespace, kind }) => {
+            if (kind === "entry-point" && path === entry) {
+              return { path: entry, namespace: "bb-speed" };
+            }
+            if (namespace === "bb-speed") {
+              if (path === "node:crypto") return { path, external: true };
+              const resolved = posix.join(posix.dirname(importer), path);
+              if (path.startsWith(".") && resolved.endsWith(".js") && verifiedFiles.has(resolved)) {
+                return { path: resolved, namespace: "bb-speed" };
+              }
+            }
+            throw new Error("Unverified Codex speed import rejected.");
+          });
+          builder.onLoad({ filter: /.*/, namespace: "bb-speed" }, ({ path }) => {
+            if (!path.endsWith(".js") || !verifiedFiles.has(path)) {
+              throw new Error("Unverified Codex speed source rejected.");
+            }
+            return {
+              contents:
+                path === capabilityModule ? managedCapabilitySource : verifiedFiles.get(path),
+              loader: "js",
+            };
+          });
         },
       },
     ],
+    tsconfigRaw: {},
+    logLevel: "silent",
     bundle: true,
     platform: "node",
     target: "node24",
