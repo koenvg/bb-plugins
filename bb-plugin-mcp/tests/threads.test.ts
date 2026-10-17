@@ -81,6 +81,7 @@ describe("read-only thread protocol", () => {
       const catalog = await client.listTools();
       expect(catalog.tools.map((t) => t.name)).toEqual([
         "bb_list_projects",
+        "bb_list_providers",
         "bb_list_threads",
         "bb_get_thread",
         "bb_start_thread",

@@ -75,6 +75,7 @@ describe("authenticated start safety", () => {
       const tools = (await client.listTools()).tools;
       expect(tools.map((t) => t.name)).toEqual([
         "bb_list_projects",
+        "bb_list_providers",
         "bb_list_threads",
         "bb_get_thread",
         "bb_start_thread",
@@ -82,13 +83,13 @@ describe("authenticated start safety", () => {
         "bb_stop_thread",
         "bb_get_operation",
       ]);
-      expect(tools[3].annotations).toMatchObject({
+      expect(tools[4].annotations).toMatchObject({
         readOnlyHint: false,
         destructiveHint: true,
         openWorldHint: true,
         idempotentHint: true,
       });
-      expect(tools[3].description).toMatch(/external actions.*provider costs/);
+      expect(tools[4].description).toMatch(/external actions.*provider costs/);
       expect(
         tools.find((tool) => tool.name === "bb_get_operation")!.annotations?.readOnlyHint,
       ).toBe(true);
@@ -106,7 +107,7 @@ describe("authenticated start safety", () => {
     { title: " " },
     { permissionMode: "full" },
     { environment: { type: "host" } },
-    { providerId: "override" },
+    { model: "override" },
     { credentials: "secret" },
     { machineId: "host_private" },
     { parentThreadId: "thr_private" },

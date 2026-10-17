@@ -28,6 +28,7 @@ export default async function plugin(bb: BbPluginApi) {
     policy: () => readConfig(saved),
     source: {
       defaults: (args) => bb.sdk.projects.defaultExecutionOptions(args),
+      listProviders: (args) => bb.sdk.providers.list(args),
       spawn: (args) => bb.sdk.threads.spawn(args),
       get: (args) => bb.sdk.threads.get(args),
       send: (args) => bb.sdk.threads.send(args),
@@ -42,6 +43,7 @@ export default async function plugin(bb: BbPluginApi) {
         connection,
         policy: () => readConfig(saved),
         projects: { list: () => bb.sdk.projects.list({ includePersonal: false }) },
+        providers: { list: (args) => bb.sdk.providers.list(args) },
         threads: {
           list: (args) => bb.sdk.threads.list(args),
           get: (args) => bb.sdk.threads.get(args),
