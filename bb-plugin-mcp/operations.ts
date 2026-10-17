@@ -439,8 +439,8 @@ export function operationControl(options: {
             ? await resolveEnvironment(input.workspace, readSignal())
             : null;
           checkDispatch();
+          dispatched = true;
           if (isStart) {
-            dispatched = true;
             const thread = await source.spawn({
               ...execution!,
               projectId: project,
@@ -459,7 +459,6 @@ export function operationControl(options: {
               throw new Error();
             finish(row.id, "accepted", null, thread.id);
           } else if ("message" in input) {
-            dispatched = true;
             const sent = await source.send({
               threadId: input.threadId,
               mode: "auto",
@@ -476,7 +475,6 @@ export function operationControl(options: {
               throw new Error();
             finish(row.id, "accepted", null, input.threadId, sent.delivery, waitingOn);
           } else {
-            dispatched = true;
             const stopped = await source.stop({ threadId: input.threadId });
             if (!stopped || stopped.ok !== true) throw new Error();
             finish(row.id, "accepted", null, input.threadId);
