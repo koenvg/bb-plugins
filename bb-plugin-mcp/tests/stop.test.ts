@@ -206,6 +206,7 @@ it("exposes only the planned tools and marks stop as a write", async () => {
       "bb_get_operation",
       "bb_get_thread",
       "bb_list_projects",
+      "bb_list_providers",
       "bb_list_threads",
       "bb_send_message",
       "bb_start_thread",

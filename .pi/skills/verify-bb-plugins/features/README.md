@@ -25,7 +25,7 @@ Set `PLUGIN` to the package suffix below; the installed plugin ID matches unless
 | [github-insight](github-insight.md) | SDK/GitHub fixtures; no standalone browser suite | PR Overview/Files, badge/banner, Pull Requests and CLI; signed-in gh on actual host, linked PR, sibling pr-thread-list install |
 | [live-output](live-output.md) | SDK tests; no standalone browser suite | Navigation page, footer gauge, chart and contributor; existing approved stream |
 | [markdown-reader](markdown-reader.md) | Owned smoke proof and ephemeral-port Playwright runner | Open with/File openers, workspace/host/storage, line opening and live draft |
-| [mcp](mcp.md) | Controlled transport/token/SDK tests | Authenticated MCP tools and bb mcp status; existing issuer/tunnel/client consent |
+| [mcp](mcp.md) | Controlled transport/token/SDK tests, provider discovery and explicit selection through the production adapter | Authenticated MCP tools and bb mcp status; existing issuer/tunnel/client consent |
 | [pi-subagents-provider](pi-subagents-provider.md) | Public bridge/scripted Pi regression tests | Plugin pi-subagents-provider, provider pi-subagents, Subagents panel and approved lifecycle |
 | [pr-thread-list](pr-thread-list.md) | SDK/UI tests; no standalone browser suite | Appearance Sidebar, tabs, rows and badge; GitHub Insight dependency |
 | [tasks-plus](tasks-plus.md) | Fixed-port Playwright overlay/navigation/image fixtures plus SDK tests | Tasks panel, details, CLI and workers; SQLite, built local Markdown package, Quota dependencies, pinned TypeScript 7, migration/competing-plugin safeguards |

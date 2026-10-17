@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import plugin from "../server.js";
-import { freePort, loopbackFetch, project } from "./fixtures.js";
+import { freePort, loopbackFetch, project, provider } from "./fixtures.js";
 
 let host: ReturnType<typeof createFakePluginHost>;
 let client: Client | undefined;
@@ -21,7 +21,11 @@ const call = { name: "bb_list_projects", arguments: {} };
 
 // Load the production plugin, not a copy of its SDK adapter. Only the issuer
 // fetch and BB data are fixtures; MCP requests use the real loopback listener.
-async function setup(authMode: "bearer-jwt" | "cloudflare-access", projects: string) {
+async function setup(
+  authMode: "bearer-jwt" | "cloudflare-access",
+  projects: string,
+  control = false,
+) {
   const settings = {
     publicOrigin: "https://mcp.example.org",
     port: await freePort(),
@@ -32,7 +36,7 @@ async function setup(authMode: "bearer-jwt" | "cloudflare-access", projects: str
     controlEnabled: true,
     authMode,
     accessAudience: "dedicated-app",
-    accessPermission: "read",
+    accessPermission: control ? "read-control" : "read",
     accessOAuthIssuer: "https://oauth.example.org",
   };
   const pair = await generateKeyPair("RS256");
@@ -72,7 +76,7 @@ async function setup(authMode: "bearer-jwt" | "cloudflare-access", projects: str
     sub: settings.owner,
     aud:
       authMode === "cloudflare-access" ? settings.accessAudience : settings.publicOrigin + "/mcp",
-    scope: "bb.read",
+    scope: control ? "bb.read bb.control" : "bb.read",
     type: "app",
     exp: Math.floor(Date.now() / 1000) + 900,
   })
@@ -103,6 +107,110 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
       { id: "proj_hidden", name: "Hidden" },
       { id: "proj_z", name: "Personal" },
     ];
+
+    it("discovers providers through the production primary-host adapter with read-only access", async () => {
+      const f = await setup(mode, "");
+      const providers = vi.fn<typeof host.bb.sdk.providers.list>(async () => [
+        provider("pi", ["full"]),
+      ]);
+      host.harness.sdk.stub("providers.list", providers);
+      const result = await f.client.callTool({
+        name: "bb_list_providers",
+        arguments: { projectId: "proj_a" },
+      });
+      const data = {
+        providers: [
+          { id: "pi", displayName: "Name pi", available: true, permissionModes: ["full"] },
+        ],
+      };
+      expect(result).toEqual({
+        content: [{ type: "text", text: JSON.stringify(data) }],
+        structuredContent: data,
+      });
+      expect(f.list.mock.calls).toEqual([[{ includePersonal: false }]]);
+      expect(providers.mock.calls).toEqual([[{ signal: expect.any(AbortSignal) }]]);
+    });
+
+    it("sanitizes provider and project failures and denies Personal and nonexistent projects", async () => {
+      const f = await setup(mode, "");
+      const providers = vi.fn<typeof host.bb.sdk.providers.list>(async () => {
+        throw new Error("private provider data");
+      });
+      host.harness.sdk.stub("providers.list", providers);
+      const denied = { isError: true, content: [{ type: "text", text: "PROVIDERS_UNAVAILABLE" }] };
+      for (const projectId of ["proj_personal", "proj_missing", "proj_a"])
+        expect(
+          await f.client.callTool({ name: "bb_list_providers", arguments: { projectId } }),
+        ).toEqual(denied);
+      expect(providers).toHaveBeenCalledTimes(1);
+      f.list.mockRejectedValue(new Error("private project data"));
+      expect(
+        await f.client.callTool({ name: "bb_list_providers", arguments: { projectId: "proj_a" } }),
+      ).toEqual(denied);
+      expect(providers).toHaveBeenCalledTimes(1);
+    });
+
+    it("wires explicit and omitted starts through the production SDK adapter", async () => {
+      const f = await setup(mode, "", true);
+      const defaults = {
+        providerId: "saved",
+        model: "saved-model",
+        permissionMode: "full" as const,
+        reasoningLevel: "medium" as const,
+        serviceTier: "saved-tier",
+      };
+      const providers = vi.fn<typeof host.bb.sdk.providers.list>(async () => [
+        provider("saved", ["full"]),
+        provider("pi", ["full"]),
+      ]);
+      const readDefaults = vi.fn<typeof host.bb.sdk.projects.defaultExecutionOptions>(
+        async () => defaults,
+      );
+      const spawn = vi.fn<typeof host.bb.sdk.threads.spawn>(async () =>
+        makeThreadResponse({ id: "thr_adapter", projectId: "proj_a" }),
+      );
+      host.harness.sdk.stub("providers.list", providers);
+      host.harness.sdk.stub("projects.defaultExecutionOptions", readDefaults);
+      host.harness.sdk.stub("threads.spawn", spawn);
+      host.harness.sdk.stub("threads.get", async () =>
+        makeThreadResponse({ id: "thr_adapter", projectId: "proj_a" }),
+      );
+      for (const providerId of [undefined, "saved", "pi"]) {
+        const result = await f.client.callTool({
+          name: "bb_start_thread",
+          arguments: {
+            projectId: "proj_a",
+            prompt: "Synthetic adapter",
+            operationKey: `adapter-${providerId ?? "omitted"}`,
+            ...(providerId === undefined ? {} : { providerId }),
+          },
+        });
+        expect(result.structuredContent).toMatchObject({
+          state: "accepted",
+          threadId: "thr_adapter",
+        });
+        expect(spawn.mock.calls.at(-1)?.[0]).toEqual({
+          ...(providerId === "pi" ? { providerId: "pi", permissionMode: "full" } : defaults),
+          projectId: "proj_a",
+          prompt: "Synthetic adapter",
+          environment: { type: "project-default" },
+          visibility: "visible",
+          pluginMetadata: {
+            operationId: (result.structuredContent as { operationId: string }).operationId,
+          },
+          origin: "plugin",
+          originPluginId: "test-plugin",
+        });
+      }
+      expect(providers.mock.calls).toEqual([
+        [{ signal: expect.any(AbortSignal) }],
+        [{ signal: expect.any(AbortSignal) }],
+      ]);
+      expect(readDefaults.mock.calls).toEqual(
+        Array.from({ length: 3 }, () => [{ projectId: "proj_a", signal: expect.any(AbortSignal) }]),
+      );
+      expect(f.list).not.toHaveBeenCalled();
+    });
 
     it.each([
       "proj_a",

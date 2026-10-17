@@ -4,11 +4,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Config } from "./config.js";
 import { isRemoteProject } from "./project-access.js";
-import { hasAccess, hasControl } from "./control.js";
+import { hasAccess, hasControl, providerSummarySchema } from "./control.js";
 import type { Identity } from "./auth.js";
 
 export type StartSource = {
   defaults: BbPluginApi["sdk"]["projects"]["defaultExecutionOptions"];
+  listProviders: BbPluginApi["sdk"]["providers"]["list"];
   spawn: BbPluginApi["sdk"]["threads"]["spawn"];
   get: BbPluginApi["sdk"]["threads"]["get"];
   send: BbPluginApi["sdk"]["threads"]["send"];
@@ -62,6 +63,7 @@ const startSchema = z.strictObject({
   projectId: id,
   prompt: text,
   title: z.string().trim().min(1).max(200).optional(),
+  providerId: id.optional(),
   operationKey: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
 });
 type StartInput = z.infer<typeof startSchema>;
@@ -73,6 +75,14 @@ const sendSchema = z.strictObject({
 type SendInput = z.infer<typeof sendSchema>;
 const stopSchema = z.strictObject({ threadId: id, operationKey: startSchema.shape.operationKey });
 type StopInput = z.infer<typeof stopSchema>;
+type Defaults = NonNullable<Awaited<ReturnType<StartSource["defaults"]>>>;
+type Execution =
+  | Defaults
+  | (Pick<Defaults, "providerId" | "permissionMode"> & {
+      model?: never;
+      reasoningLevel?: never;
+      serviceTier?: never;
+    });
 
 // One generation owns dispatches. Request transports only observe them.
 export function operationControl(options: {
@@ -104,7 +114,9 @@ export function operationControl(options: {
         .update(
           JSON.stringify(
             isStart
-              ? [input.projectId, input.prompt, input.title ?? null]
+              ? input.providerId === undefined
+                ? [input.projectId, input.prompt, input.title ?? null]
+                : [input.projectId, input.prompt, input.title ?? null, input.providerId]
               : "message" in input
                 ? [input.threadId, input.message]
                 : [input.threadId],
@@ -356,37 +368,56 @@ export function operationControl(options: {
         }
       };
       signal.addEventListener("abort", disconnected, { once: true });
+      const checkDispatch = () => {
+        requireAccess(identity, project, true);
+        if (deadline || signal.aborted || Date.now() >= sdkDeadline)
+          throw new Error("PRE_DISPATCH_ABORTED");
+        const current = read(row.id);
+        if (current?.generation !== generation || current.state !== "pending")
+          throw new Error("STALE_DISPATCH");
+      };
+      const readSignal = () =>
+        AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, sdkDeadline - Date.now()))]);
       const done = Promise.resolve().then(async () => {
         try {
-          // Read only server-owned defaults for start; send/stop retain thread execution settings.
+          checkDispatch();
           const defaults = isStart
-            ? await source.defaults({
-                projectId: project,
-                signal: AbortSignal.timeout(limits.sdkDeadlineMs),
-              })
+            ? await source.defaults({ projectId: project, signal: readSignal() })
             : null;
-          if (isStart && !defaults) throw new Error("DEFAULTS_UNAVAILABLE");
-          if (!isStart)
-            await lookupThread(
-              identity,
-              input.threadId,
-              project,
-              true,
-              AbortSignal.any([signal, AbortSignal.timeout(limits.sdkDeadlineMs)]),
-            );
-          if (deadline || signal.aborted) throw new Error("PRE_DISPATCH_ABORTED");
-          requireAccess(identity, project, true);
-          const current = read(row.id);
-          if (current?.generation !== generation || current.state !== "pending")
-            throw new Error("STALE_DISPATCH");
+          let execution: Execution | undefined;
+          if (isStart) {
+            checkDispatch();
+            if (!defaults) throw new Error("DEFAULTS_UNAVAILABLE");
+            execution = {
+              providerId: defaults.providerId,
+              model: defaults.model,
+              permissionMode: defaults.permissionMode,
+              reasoningLevel: defaults.reasoningLevel,
+              serviceTier: defaults.serviceTier,
+            };
+            if (input.providerId !== undefined) {
+              const listed = await source.listProviders({ signal: readSignal() });
+              checkDispatch();
+              const selected = providerSummarySchema
+                .array()
+                .parse(listed)
+                .find(({ id }) => id === input.providerId);
+              if (
+                !selected?.available ||
+                !selected.permissionModes.includes(defaults.permissionMode)
+              )
+                throw new Error("PROVIDER_UNAVAILABLE");
+              if (selected.id !== defaults.providerId)
+                execution = { providerId: selected.id, permissionMode: defaults.permissionMode };
+            }
+          } else {
+            await lookupThread(identity, input.threadId, project, true, readSignal());
+          }
+          checkDispatch();
           dispatched = true;
           if (isStart) {
             const thread = await source.spawn({
-              providerId: defaults!.providerId,
-              model: defaults!.model,
-              permissionMode: defaults!.permissionMode,
-              reasoningLevel: defaults!.reasoningLevel,
-              serviceTier: defaults!.serviceTier,
+              ...execution!,
               projectId: project,
               prompt: input.prompt,
               ...(input.title === undefined ? {} : { title: input.title }),
@@ -603,7 +634,7 @@ export function operationControl(options: {
       server.registerTool(
         "bb_start_thread",
         {
-          description: `Start an ordinary visible BB thread in a standard project using project defaults. BB's built-in Personal project is excluded. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
+          description: `Start an ordinary visible BB thread in a standard project using project defaults with optional providerId selection. Explicit selection requires an available provider supporting the saved permission mode. A different provider uses its catalog defaults for model, reasoning and service tier. BB's built-in Personal project is excluded. ${controlRequirement} Agents can change code, take external actions and incur provider costs under existing permissions. Use the same operation key after a lost reply. Accepted is not completed work; unknown requires BB inspection.`,
           inputSchema: startSchema,
           annotations: {
             readOnlyHint: false,

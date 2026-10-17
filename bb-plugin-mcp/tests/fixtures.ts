@@ -13,8 +13,36 @@ import {
   operationStopMigration,
   operationResolutionMigration,
 } from "../operations.js";
-
 import { localOperationCommand, localOperationCommands } from "../local-operations.js";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
+
+type Provider = Awaited<ReturnType<BbPluginApi["sdk"]["providers"]["list"]>>[number];
+export function provider(
+  id: string,
+  modes: Provider["capabilities"]["permissionModes"] = ["auto", "accept-edits", "full"],
+): Provider {
+  return {
+    id,
+    displayName: `Name ${id}`,
+    available: true,
+    capabilities: {
+      permissionModes: modes,
+      modelCatalogScope: "host",
+      supportsFork: false,
+      supportsNativeUserQuestion: false,
+      supportsServiceTier: false,
+      supportsSessionRewind: false,
+      supportsThreadArchive: false,
+      supportsThreadRename: false,
+    },
+    completedTurnDisplay: "flat",
+    composerActions: [],
+    logoUrl: null,
+    maintenance: { health: false, installation: false, usage: false },
+    pluginId: "secret-plugin",
+  };
+}
+
 // Node's built-in fetch does not preserve a supplied Host header. This test
 // bridge uses a real TCP connection and keeps the tunnel's public Host.
 export const loopbackFetch: typeof fetch = async (input, init) => {
@@ -143,6 +171,7 @@ export async function fixture(
       ...operationOptions,
       source: {
         defaults: (args) => host.bb.sdk.projects.defaultExecutionOptions(args),
+        listProviders: (args) => host.bb.sdk.providers.list(args),
         spawn: (args) => host.bb.sdk.threads.spawn(args),
         get: (args) => host.bb.sdk.threads.get(args),
         send: (args) => host.bb.sdk.threads.send(args),
@@ -161,6 +190,7 @@ export async function fixture(
       connection: config,
       policy: () => config,
       projects: host.bb.sdk.projects,
+      providers: host.bb.sdk.providers,
       threads: host.bb.sdk.threads,
       operations,
       fetch: fetchIssuer,

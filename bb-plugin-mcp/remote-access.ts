@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { authenticator } from "./auth.js";
 import { type Config, type Connection } from "./config.js";
-import { hasAccess, projectServer, type ProjectSource } from "./control.js";
+import { hasAccess, projectServer, type ProjectSource, type ProviderSource } from "./control.js";
 import type { ThreadSource, ThreadTool } from "./thread-tools.js";
 import type { Operations, OperationTool } from "./operations.js";
 
@@ -23,12 +23,13 @@ export function remoteAccess(options: {
   connection: Connection;
   policy: () => Config | null;
   projects: ProjectSource;
+  providers: ProviderSource;
   threads: ThreadSource;
   operations?: Operations;
   log: (event: {
     request: string;
     code: string;
-    tool?: "bb_list_projects" | ThreadTool | OperationTool;
+    tool?: "bb_list_projects" | "bb_list_providers" | ThreadTool | OperationTool;
   }) => void;
   fetch?: typeof fetch;
   limits?: Partial<typeof limits>;
@@ -51,6 +52,7 @@ export function remoteAccess(options: {
     }
   }
   const projects: ProjectSource = { list: () => read(() => options.projects.list()) };
+  const providers: ProviderSource = { list: (args) => read(() => options.providers.list(args)) };
   const threads: ThreadSource = {
     list: (args) => read(() => options.threads.list(args)),
     get: (args) => read(() => options.threads.get(args)),
@@ -201,6 +203,7 @@ export function remoteAccess(options: {
       server = projectServer(
         projects,
         threads,
+        providers,
         options.policy,
         identity,
         controller.signal,
@@ -210,9 +213,11 @@ export function remoteAccess(options: {
             code:
               tool === "bb_list_projects"
                 ? "PROJECTS_UNAVAILABLE"
-                : tool === "bb_start_thread" || tool === "bb_get_operation"
-                  ? "OPERATION_UNAVAILABLE"
-                  : "THREAD_UNAVAILABLE",
+                : tool === "bb_list_providers"
+                  ? "PROVIDERS_UNAVAILABLE"
+                  : tool === "bb_start_thread" || tool === "bb_get_operation"
+                    ? "OPERATION_UNAVAILABLE"
+                    : "THREAD_UNAVAILABLE",
             tool,
           }),
         options.operations,
