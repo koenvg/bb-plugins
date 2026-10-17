@@ -33,6 +33,8 @@ export type QuotaRead =
   | { status: "ok"; snapshot: QuotaSnapshot }
   | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null };
 
+// Reserve 150s for the 60s poll and two RPCs with an 8s catalog + 25s accounts budget each.
+const RENEW_AFTER_MS = FRESH_MS - 150_000;
 const RETRY_MS = 30_000;
 const empty = (reason: QuotaReason): QuotaView => ({
   state: "unavailable",
@@ -90,7 +92,12 @@ export class QuotaCache {
     const current = this.peek(identity);
     if (signal?.aborted) return empty("selection-changed");
     if (this.pending) return this.pending;
-    if (!force && current.state === "fresh") return current;
+    if (
+      !force &&
+      current.state === "fresh" &&
+      this.now() - Date.parse(current.snapshot!.observedAt) < RENEW_AFTER_MS
+    )
+      return current;
     if (this.now() - this.lastAttempt < RETRY_MS) return current;
     this.lastAttempt = this.now();
     const generation = this.generation;
