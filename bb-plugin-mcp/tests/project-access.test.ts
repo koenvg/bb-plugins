@@ -86,7 +86,18 @@ describe.each(modes)("%s project access", (mode) => {
         nextCursor: null,
       });
       const thread = makeThreadResponse({ id: "thr_fixture", projectId });
-      f.host.harness.sdk.stub("threads.list", async () => [thread]);
+      f.host.harness.sdk.stub("threads.list", async () => [
+        {
+          ...thread,
+          activity: {
+            activeBackgroundAgentCount: 0,
+            activeBackgroundCommandCount: 0,
+            activeGoalCount: 0,
+            activePlanModeCount: 0,
+            activeWorkflowCount: 0,
+          },
+        },
+      ]);
       f.host.harness.sdk.stub("threads.get", async () => thread);
       f.host.harness.sdk.stub("threads.output", async () => ({ output: "Fixture output" }));
       f.host.harness.sdk.stub("threads.interactions.list", async () => []);
