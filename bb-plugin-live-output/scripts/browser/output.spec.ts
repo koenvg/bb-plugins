@@ -283,7 +283,7 @@ for (const width of [283, 403, 960, 1920])
     await expect(time(page)).toHaveAttribute("datetime", stamp(599));
   });
 
-for (const width of [375, 1280])
+for (const width of [360, 375, 480, 1280])
   for (const theme of ["light", "dark"])
     for (const mode of ["popover", "fallback"]) {
       test(`viewport axes and scoped tooltip ${width} ${theme} ${mode}`, async ({ page }, info) => {
@@ -358,11 +358,16 @@ for (const width of [375, 1280])
         const axes = await page.locator("[data-output-axes]").evaluate((element) => ({
           font: getComputedStyle(element).fontSize,
           bounds: element.getBoundingClientRect().toJSON(),
-          labels: Array.from(element.querySelectorAll("span"), (span) => ({
-            text: span.textContent,
-            box: span.getBoundingClientRect().toJSON(),
-            font: getComputedStyle(span).fontSize,
-          })),
+          labels: Array.from(element.querySelectorAll("span"), (span) => {
+            const range = document.createRange();
+            range.selectNodeContents(span);
+            return {
+              text: span.textContent,
+              box: span.getBoundingClientRect().toJSON(),
+              font: getComputedStyle(span).fontSize,
+              lineHeights: Array.from(range.getClientRects(), (line) => line.height),
+            };
+          }),
         }));
         expect(axes.font).toBe("14px");
         expect(axes.labels.map((label) => label.text)).toEqual([
@@ -373,6 +378,10 @@ for (const width of [375, 1280])
           "Last complete second",
         ]);
         expect(axes.labels.every((label) => label.font === "14px")).toBe(true);
+        for (const label of axes.labels) {
+          expect(label.lineHeights.length).toBeGreaterThan(0);
+          for (const height of label.lineHeights) expect(height).toBeGreaterThanOrEqual(14);
+        }
         expect(axes.labels[3]!.box.right).toBeLessThanOrEqual(axes.labels[4]!.box.left);
         expect(
           axes.labels.every(
