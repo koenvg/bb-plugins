@@ -124,7 +124,7 @@ describe("read-only thread protocol", () => {
     }
   });
 
-  it.each([list, read])("shows idle parents with recorded background agents as active in $name", async (tool) => {
+  it.each([list, read])("promotes idle parents with recorded agents in $name", async (tool) => {
     const f = await setup();
     const thread = makeThreadResponse({
       id: "thr_a",
@@ -169,6 +169,143 @@ describe("read-only thread protocol", () => {
     }
   });
 
+  it.each<{
+    status: Row["status"];
+    displayStatus: Row["runtime"]["displayStatus"];
+    workerDisplayStatus: Row["runtime"]["displayStatus"];
+  }>([
+    { status: "idle", displayStatus: "idle", workerDisplayStatus: "active" },
+    { status: "active", displayStatus: "active", workerDisplayStatus: "active" },
+    { status: "error", displayStatus: "error", workerDisplayStatus: "error" },
+    { status: "pending", displayStatus: "pending", workerDisplayStatus: "pending" },
+    { status: "idle", displayStatus: "waiting-for-host", workerDisplayStatus: "waiting-for-host" },
+    { status: "starting", displayStatus: "provisioning", workerDisplayStatus: "provisioning" },
+    { status: "starting", displayStatus: "starting", workerDisplayStatus: "starting" },
+    { status: "stopping", displayStatus: "stopping", workerDisplayStatus: "stopping" },
+  ])("projects $displayStatus without changing stored status or SDK objects", async (state) => {
+    const f = await setup();
+    const client = await f.client();
+    try {
+      for (const { count, subagentsRunning } of [
+        { count: 0, subagentsRunning: false },
+        { count: 1, subagentsRunning: true },
+        { count: 3, subagentsRunning: true },
+      ]) {
+        const base = makeThreadResponse();
+        const thread = makeThreadResponse({
+          id: "thr_a",
+          projectId: "proj_a",
+          title: "Allowed",
+          status: state.status,
+          runtime: { ...base.runtime, displayStatus: state.displayStatus },
+          activeBackgroundAgentCount: count,
+        });
+        const summary = row("thr_a", {
+          ...thread,
+          activity: {
+            activeBackgroundAgentCount: count,
+            activeBackgroundCommandCount: 7,
+            activeGoalCount: 7,
+            activePlanModeCount: 7,
+            activeWorkflowCount: 7,
+          },
+        });
+        const originalThread = structuredClone(thread);
+        const originalSummary = structuredClone(summary);
+        f.get.mockResolvedValue(thread);
+        f.rows.splice(0, f.rows.length, summary);
+        const listed = await client.callTool(list);
+        const got = await client.callTool(read);
+        const expected = {
+          id: "thr_a",
+          title: "Allowed",
+          status: state.status,
+          displayStatus: subagentsRunning ? state.workerDisplayStatus : state.displayStatus,
+          subagentsRunning,
+          pendingInteraction: false,
+        };
+        expect(listed.structuredContent).toEqual({ threads: [expected], nextCursor: null });
+        expect(got.structuredContent).toEqual({
+          ...expected,
+          actionRequired: null,
+          assistantOutput: {
+            text: "Recent assistant output",
+            truncated: false,
+            trust: "untrusted_project_data",
+          },
+        });
+        expect(JSON.stringify([listed.structuredContent, got.structuredContent])).not.toMatch(
+          /activity|activeBackground|activeWorkflow|activeGoal|activePlan|environment|provider|workspace|private/,
+        );
+        expect(thread).toEqual(originalThread);
+        expect(summary).toEqual(originalSummary);
+      }
+    } finally {
+      await client.close();
+    }
+  });
+
+  it.each<{
+    initialCount: number;
+    finalCount: number;
+    initialDisplayStatus: Row["runtime"]["displayStatus"];
+    finalDisplayStatus: Row["runtime"]["displayStatus"];
+    subagentsRunning: boolean;
+    displayStatus: Row["runtime"]["displayStatus"];
+  }>([
+    {
+      initialCount: 0,
+      finalCount: 2,
+      initialDisplayStatus: "error",
+      finalDisplayStatus: "idle",
+      subagentsRunning: true,
+      displayStatus: "active",
+    },
+    {
+      initialCount: 3,
+      finalCount: 0,
+      initialDisplayStatus: "idle",
+      finalDisplayStatus: "waiting-for-host",
+      subagentsRunning: false,
+      displayStatus: "waiting-for-host",
+    },
+  ])("uses final get counts from $initialCount to $finalCount", async (state) => {
+    const f = await setup();
+    const base = makeThreadResponse();
+    const initial = makeThreadResponse({
+      id: "thr_a",
+      projectId: "proj_a",
+      title: "Allowed",
+      status: "idle",
+      runtime: { ...base.runtime, displayStatus: state.initialDisplayStatus },
+      activeBackgroundAgentCount: state.initialCount,
+    });
+    const final = {
+      ...initial,
+      runtime: { ...base.runtime, displayStatus: state.finalDisplayStatus },
+      activeBackgroundAgentCount: state.finalCount,
+    };
+    const originals = structuredClone([initial, final]);
+    f.get.mockResolvedValueOnce(initial).mockResolvedValueOnce(final);
+    const result = (await call(f)).body.result;
+    expect(result.structuredContent).toEqual({
+      id: "thr_a",
+      title: "Allowed",
+      status: "idle",
+      displayStatus: state.displayStatus,
+      subagentsRunning: state.subagentsRunning,
+      pendingInteraction: false,
+      actionRequired: null,
+      assistantOutput: {
+        text: "Recent assistant output",
+        truncated: false,
+        trust: "untrusted_project_data",
+      },
+    });
+    expect(f.get).toHaveBeenCalledTimes(2);
+    expect([initial, final]).toEqual(originals);
+  });
+
   it("pages visible summaries with 50 records, continuation and no private fields", async () => {
     const f = await setup();
     f.rows.push(row("hidden", { visibility: "hidden" }), row("other", { projectId: "proj_other" }));
@@ -182,6 +319,7 @@ describe("read-only thread protocol", () => {
         title: "thr_0",
         status: "idle",
         displayStatus: "idle",
+        subagentsRunning: false,
         pendingInteraction: false,
       });
       const second = (
@@ -279,6 +417,7 @@ describe("read-only thread protocol", () => {
       title: "Allowed",
       status: "active",
       displayStatus: "idle",
+      subagentsRunning: false,
       pendingInteraction: false,
       actionRequired: null,
       assistantOutput: {
@@ -301,48 +440,83 @@ describe("read-only thread protocol", () => {
     });
   });
 
-  it("reports blocked permissions as requiring action in BB without revealing request payloads", async () => {
-    const f = await setup();
-    f.interactions.mockResolvedValue([
-      {
-        createdAt: 1,
-        expiresAt: null,
-        id: "permission",
-        origin: undefined,
-        payload: {
-          kind: "approval",
-          availableDecisions: ["allow_once", "deny"],
-          reason: "private",
-          subject: {
-            kind: "permission_grant",
-            itemId: "secret",
-            permissions: { fileSystem: { read: ["/private/secret"], write: [] }, network: null },
-            toolName: "secret tool",
+  it.each<"pending" | "resolving">(["pending", "resolving"])(
+    "reports %s permissions alongside workers as requiring action in BB without revealing request payloads",
+    async (status) => {
+      const f = await setup();
+      f.get.mockResolvedValue(
+        makeThreadResponse({
+          id: "thr_a",
+          projectId: "proj_a",
+          status: "idle",
+          activeBackgroundAgentCount: 2,
+        }),
+      );
+      f.rows.splice(
+        0,
+        f.rows.length,
+        row("thr_a", {
+          hasPendingInteraction: true,
+          activity: { ...row("thr_a").activity, activeBackgroundAgentCount: 2 },
+        }),
+      );
+      f.interactions.mockResolvedValue([
+        {
+          createdAt: 1,
+          expiresAt: null,
+          id: "permission",
+          origin: undefined,
+          payload: {
+            kind: "approval",
+            availableDecisions: ["allow_once", "deny"],
+            reason: "private",
+            subject: {
+              kind: "permission_grant",
+              itemId: "secret",
+              permissions: { fileSystem: { read: ["/private/secret"], write: [] }, network: null },
+              toolName: "secret tool",
+            },
           },
+          providerId: "private",
+          providerRequestId: "private",
+          providerThreadId: "private",
+          resolution: null,
+          resolvedAt: null,
+          status,
+          statusReason: null,
+          threadId: "thr_a",
+          turnId: "private",
         },
-        providerId: "private",
-        providerRequestId: "private",
-        providerThreadId: "private",
-        resolution: null,
-        resolvedAt: null,
-        status: "pending",
-        statusReason: null,
-        threadId: "thr_a",
-        turnId: "private",
-      },
-    ]);
-    const result = (await call(f)).body.result;
-    expect(result.structuredContent).toMatchObject({
-      pendingInteraction: true,
-      actionRequired: "Action required in BB",
-    });
-    expect(JSON.stringify(result)).not.toMatch(/secret|permission|\/private\/|providerRequest/);
-    expect(
-      f.host.harness.inspection.sdk.calls.every((c) =>
-        ["threads.get", "threads.output", "threads.interactions.list"].includes(c.path),
-      ),
-    ).toBe(true);
-  });
+      ]);
+      const result = (await call(f)).body.result;
+      expect(result.structuredContent).toMatchObject({
+        status: "idle",
+        displayStatus: "active",
+        subagentsRunning: true,
+        pendingInteraction: true,
+        actionRequired: "Action required in BB",
+      });
+      expect(JSON.stringify(result)).not.toMatch(/secret|permission|\/private\/|providerRequest/);
+      expect(
+        f.host.harness.inspection.sdk.calls.every((c) =>
+          ["threads.get", "threads.output", "threads.interactions.list"].includes(c.path),
+        ),
+      ).toBe(true);
+      expect((await call(f, list)).body.result.structuredContent).toEqual({
+        threads: [
+          {
+            id: "thr_a",
+            title: "thr_a",
+            status: "idle",
+            displayStatus: "active",
+            subagentsRunning: true,
+            pendingInteraction: true,
+          },
+        ],
+        nextCursor: null,
+      });
+    },
+  );
 
   it.each(["\u{1f600}", "\u754c", "\u00e9"])(
     "keeps the recent UTF-8 tail within 8 KiB for %s",

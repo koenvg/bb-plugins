@@ -9,6 +9,21 @@ export type ThreadSource = Pick<BbPluginApi["sdk"]["threads"], "list" | "get" | 
 };
 export type ThreadTool = "bb_list_threads" | "bb_get_thread";
 
+function projectThreadStatus(
+  thread: Pick<Awaited<ReturnType<ThreadSource["get"]>>, "status" | "runtime">,
+  activeBackgroundAgentCount: number,
+) {
+  const subagentsRunning = activeBackgroundAgentCount > 0;
+  return {
+    status: thread.status,
+    displayStatus:
+      thread.runtime.displayStatus === "idle" && subagentsRunning
+        ? "active"
+        : thread.runtime.displayStatus,
+    subagentsRunning,
+  };
+}
+
 // Keep the newest UTF-8 text without splitting a code point.
 function recentOutput(text: string | null) {
   if (text === null) return { text, truncated: false, trust: "untrusted_project_data" };
@@ -93,8 +108,7 @@ export function registerThreadTools(
           .map((row) => ({
             id: row.id,
             title: row.title ?? row.titleFallback,
-            status: row.status,
-            displayStatus: row.runtime.displayStatus,
+            ...projectThreadStatus(row, row.activity.activeBackgroundAgentCount),
             pendingInteraction: row.hasPendingInteraction,
           }));
         return result({ threads, nextCursor: rows.length > limit ? String(offset + limit) : null });
@@ -141,8 +155,7 @@ export function registerThreadTools(
         return result({
           id: current.id,
           title: current.title ?? current.titleFallback,
-          status: current.status,
-          displayStatus: current.runtime.displayStatus,
+          ...projectThreadStatus(current, current.activeBackgroundAgentCount),
           pendingInteraction,
           actionRequired: pendingInteraction ? "Action required in BB" : null,
           assistantOutput: recentOutput(output.output),
