@@ -87,7 +87,7 @@ it("inspects legacy storage without mutation, preserves all recorded data on app
   expect(await upgradeRetainedIdentityStorage({ ...f, signal: signal() })).toEqual({
     state: "ready",
   });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
   const source = await readFile(join(f.directory, "events-v1-2026-10-01.jsonl"));
   const control = await readFile(join(f.directory, "collector-control-v1.json"));
   let db = (await openHistoryDatabase(f.path, true))!;
@@ -113,7 +113,7 @@ it("inspects legacy storage without mutation, preserves all recorded data on app
   expect(await upgradeRetainedIdentityStorage({ ...f, signal: signal(), apply: true })).toEqual({
     state: "current",
   });
-  expect(await readFile(f.path)).toEqual(current);
+  expect((await readFile(f.path)).equals(current)).toBe(true);
   expect(await readFile(join(f.directory, "events-v1-2026-10-01.jsonl"))).toEqual(source);
   expect(await readFile(join(f.directory, "collector-control-v1.json"))).toEqual(control);
 });
@@ -185,7 +185,7 @@ for (const problem of [
     expect(
       (await upgradeRetainedIdentityStorage({ ...f, signal: signal(), apply: true })).state,
     ).toBe("unavailable");
-    expect(await readFile(f.path)).toEqual(before);
+    expect((await readFile(f.path)).equals(before)).toBe(true);
     expect(await readdir(f.directory)).toEqual(files);
   });
 }
@@ -211,7 +211,7 @@ it("stops before opening storage when already cancelled", async () => {
   expect(
     await upgradeRetainedIdentityStorage({ ...f, signal: controller.signal, apply: true }),
   ).toEqual({ state: "unavailable", reason: "selection-changed" });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
 });
 
 it("rolls back the complete upgrade when cancellation follows DDL", async () => {
@@ -235,5 +235,5 @@ it("rolls back the complete upgrade when cancellation follows DDL", async () => 
     },
   );
   expect(result).toEqual({ state: "unavailable", reason: "selection-changed" });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
 });

@@ -451,7 +451,7 @@ it("keeps unsupported headers and WAL databases untouched and no-query readiness
       scope: { kind: "host" },
     }),
   ).toEqual({ state: "unavailable", reason: "storage-incompatible" });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
   const repaired = (await openHistoryDatabase(f.path))!;
   repaired.exec("PRAGMA user_version=4; PRAGMA journal_mode=WAL");
   repaired.close();
@@ -464,7 +464,7 @@ it("keeps unsupported headers and WAL databases untouched and no-query readiness
       scope: { kind: "host" },
     }),
   ).toEqual({ state: "unavailable", reason: "storage-unavailable" });
-  expect(await readFile(f.path)).toEqual(walBefore);
+  expect((await readFile(f.path)).equals(walBefore)).toBe(true);
   await f.harness.experimental_dispose();
 });
 it("does not aggregate calendar data on a no-query readiness read", async () => {
@@ -625,7 +625,7 @@ it.each(["missing", "malformed", "symlink", "oversized"] as const)(
         scope: { kind: "host" },
       }),
     ).toEqual({ state: "unavailable", reason: "storage-unavailable" });
-    expect(await readFile(f.path)).toEqual(database);
+    expect((await readFile(f.path)).equals(database)).toBe(true);
     if (mode === "missing")
       await expect(lstat(controlPath)).rejects.toMatchObject({ code: "ENOENT" });
     else expect(await readFile(controlPath)).toEqual(before);
@@ -694,7 +694,7 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
     compactFrom: "2026-10-23T00:00:00.000Z",
     previous: false,
   });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
   const db = (await openHistoryDatabase(f.path, true))!;
   expect(db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 1 });
   db.close();
@@ -740,7 +740,7 @@ it("keeps comparison on the explicit read-only history report interface without 
       reasons: { tokens: "collection-unproved" },
     },
   });
-  expect(await readFile(f.path)).toEqual(before);
+  expect((await readFile(f.path)).equals(before)).toBe(true);
   expect(
     await f.history.report(query, { dataDir: f.dataDir, signal: AbortSignal.abort() }),
   ).toEqual({ state: "unavailable", reason: "selection-changed" });
