@@ -172,6 +172,7 @@ export async function fixture(
       source: {
         defaults: (args) => host.bb.sdk.projects.defaultExecutionOptions(args),
         listProviders: (args) => host.bb.sdk.providers.list(args),
+        systemConfig: (args) => host.bb.sdk.system.config(args),
         spawn: (args) => host.bb.sdk.threads.spawn(args),
         get: (args) => host.bb.sdk.threads.get(args),
         send: (args) => host.bb.sdk.threads.send(args),

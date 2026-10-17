@@ -212,6 +212,110 @@ describe.each(["bearer-jwt", "cloudflare-access"] as const)(
       expect(f.list).not.toHaveBeenCalled();
     });
 
+    it.each([undefined, "project-folder", "worktree"] as const)(
+      "forwards the production %s workspace selection and config signal",
+      async (workspace) => {
+        const f = await setup(mode, "", true);
+        const readConfig = vi.fn<typeof host.bb.sdk.system.config>(
+          async () =>
+            ({ primaryHostId: "host_adapter" }) as Awaited<
+              ReturnType<typeof host.bb.sdk.system.config>
+            >,
+        );
+        const readDefaults = vi.fn<typeof host.bb.sdk.projects.defaultExecutionOptions>(
+          async () => ({
+            providerId: "adapter-provider",
+            model: "adapter-model",
+            permissionMode: "auto",
+            reasoningLevel: "high",
+            serviceTier: "priority",
+          }),
+        );
+        const spawn = vi.fn<typeof host.bb.sdk.threads.spawn>(async () =>
+          makeThreadResponse({ id: "thr_adapter", projectId: "proj_a" }),
+        );
+        host.harness.sdk.stub("system.config", readConfig);
+        host.harness.sdk.stub("projects.defaultExecutionOptions", readDefaults);
+        host.harness.sdk.stub("threads.spawn", spawn);
+        host.harness.sdk.stub("threads.get", async () =>
+          makeThreadResponse({ id: "thr_adapter", projectId: "proj_a" }),
+        );
+        const result = await f.client.callTool({
+          name: "bb_start_thread",
+          arguments: {
+            projectId: "proj_a",
+            prompt: "Adapter fixture",
+            operationKey: "adapter-workspace",
+            ...(workspace ? { workspace } : {}),
+          },
+        });
+        expect(result.structuredContent).toMatchObject({
+          state: "accepted",
+          threadId: "thr_adapter",
+          code: null,
+        });
+        expect(spawn.mock.calls).toEqual([
+          [
+            {
+              providerId: "adapter-provider",
+              model: "adapter-model",
+              permissionMode: "auto",
+              reasoningLevel: "high",
+              serviceTier: "priority",
+              projectId: "proj_a",
+              prompt: "Adapter fixture",
+              visibility: "visible",
+              environment:
+                workspace === undefined
+                  ? { type: "project-default" }
+                  : workspace === "project-folder"
+                    ? {
+                        type: "host",
+                        hostId: "host_adapter",
+                        workspace: { type: "unmanaged", path: null },
+                      }
+                    : {
+                        type: "host",
+                        hostId: "host_adapter",
+                        workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
+                      },
+              pluginMetadata: {
+                operationId: (result.structuredContent as Record<string, unknown>).operationId,
+              },
+              origin: "plugin",
+              originPluginId: "test-plugin",
+            },
+          ],
+        ]);
+        expect(readConfig.mock.calls).toEqual(
+          workspace ? [[{ signal: expect.any(AbortSignal) }]] : [],
+        );
+        expect(host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual([
+          "projects.defaultExecutionOptions",
+          ...(workspace ? ["system.config"] : []),
+          "threads.spawn",
+          "threads.get",
+        ]);
+      },
+    );
+
+    it("denies production read-only workspace starts before defaults or config", async () => {
+      const f = await setup(mode, "");
+      const result = await f.client.callTool({
+        name: "bb_start_thread",
+        arguments: {
+          projectId: "proj_a",
+          prompt: "Adapter fixture",
+          operationKey: "denied-workspace",
+          workspace: "worktree",
+        },
+      });
+      expect(result).toMatchObject({
+        isError: true,
+        content: [{ type: "text", text: "OPERATION_UNAVAILABLE" }],
+      });
+      expect(host.harness.inspection.sdk.calls.map((c) => c.path)).toEqual([]);
+    });
     it.each([
       "proj_a",
       "proj_personal\nproj_a",

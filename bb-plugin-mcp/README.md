@@ -144,15 +144,53 @@ Routine rejection logs contain only a generated request ID and fixed safe error 
 
 ## Thread starts and operation status
 
-`bb_start_thread` requires `projectId`, a nonblank text `prompt` of at most 32 KiB UTF-8, and an `operationKey`. It accepts an optional nonblank `title` and an optional `providerId`, each at most 200 characters. Keys contain 1 to 128 ASCII letters, digits, `_`, `.`, `:`, or `-`. Extra fields are refused. IDs and title are trimmed. Prompt text is preserved exactly. Normalized input differences, including prompt whitespace or title changes, conflict under the same key.
+`bb_start_thread` requires `projectId`, a nonblank text `prompt` of at most 32 KiB UTF-8, and an `operationKey`. It accepts an optional nonblank `title` and an optional `providerId`, each at most 200 characters, plus optional `workspace` of `"project-folder"` or `"worktree"`. Keys contain 1 to 128 ASCII letters, digits, `_`, `.`, `:`, or `-`. Extra fields are refused. IDs and title are trimmed. Prompt text is preserved exactly. Normalized input differences, including prompt whitespace or title changes, conflict under the same key.
 
 Bearer tokens need both `bb.read` and `bb.control`. Cloudflare mode needs the explicit local `read-control` app permission. Local remote access and control must be enabled. The target must be a standard project, not BB's built-in Personal project. Every fresh start requires non-null `projects.defaultExecutionOptions`. Without `providerId`, the plugin sends the saved provider, model, permission mode, reasoning level, and service tier unchanged, without reading the provider list.
 
 With `providerId`, the plugin reads the provider list again, including when the selected ID equals the saved provider. The selected provider must exist, be available, and advertise support for the saved permission mode. Unknown, unavailable, or incompatible selections and malformed capabilities fail before dispatch with `START_NOT_DISPATCHED`. The plugin never enables providers, escalates permissions, or falls back. Selecting the saved provider retains all saved execution fields. Selecting a different provider sends only its ID and the saved permission mode. BB resolves that provider's model, reasoning level, and service tier from its catalog defaults. Project defaults remain unchanged.
 
-The environment remains `project-default`, visibility remains `visible`, and plugin attribution and operation metadata remain intact. The plugin rechecks control, token expiry, cancellation, the absolute SDK deadline, and operation ownership after each read and immediately before dispatch. Provider discovery uses the remaining SDK deadline, not a new budget. Other execution overrides, task-board actions, permission responses, and agent-completion waits are not supported.
+Without `workspace`, the environment remains `project-default`. Visibility remains `visible`, and plugin attribution and operation metadata remain intact. The plugin rechecks control, token expiry, cancellation, the absolute SDK deadline, and operation ownership after each read and immediately before dispatch. Provider discovery uses the remaining SDK deadline, not a new budget. Other execution overrides, task-board actions, permission responses, and agent-completion waits are not supported.
 
 Omitted and explicit provider selection are distinct requests, even for the saved provider. Changing or removing `providerId` conflicts under the same key. Matching replays do not reread project defaults or providers and do not spawn again. Existing omitted-provider keys retain their original input hash and need no ledger migration.
+
+| `workspace`        | Submitted selection                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Omitted            | Unchanged `project-default`. BB chooses the environment. This can create a worktree. MCP does not read system config. |
+| `"project-folder"` | The project's configured source folder on BB's primary host. No new worktree or branch change is requested.           |
+| `"worktree"`       | A new managed worktree on BB's primary host, using BB's default base branch and generated worktree branch name.       |
+
+Explicit modes read `system.config` once for `primaryHostId`, after execution defaults, within the original SDK deadline and request cancellation. BB resolves the project's configured source on that host and validates connectivity, source eligibility and provisioning. The folder is not the MCP process directory or an arbitrary filesystem path. A missing, disconnected or source-less primary host does not select another host. A project configured only on a secondary host cannot use these explicit modes.
+
+The project folder can be shared by other threads or local work. Agents can modify that shared folder under unchanged execution permissions. Folder selection is neither read-only nor isolated. Worktree selection requires a suitable Git source and an available worktree provider. MCP does not accept host IDs, paths, branch names, existing-worktree adoption or environment reuse. Unsupported input is rejected. A BB rejection after spawn remains `unknown`, with no substituted workspace or retry.
+
+With separately approved control, these authenticated client requests select the folder or a new worktree:
+
+```ts
+await client.callTool({
+  name: "bb_start_thread",
+  arguments: {
+    projectId: "proj_allowed",
+    prompt: "Inspect the existing project folder and report the agreed findings.",
+    workspace: "project-folder",
+    operationKey: "folder-inspection-1",
+  },
+});
+```
+
+```ts
+await client.callTool({
+  name: "bb_start_thread",
+  arguments: {
+    projectId: "proj_allowed",
+    prompt: "Implement the agreed change in a new worktree.",
+    workspace: "worktree",
+    operationKey: "worktree-change-1",
+  },
+});
+```
+
+Both optional selections can be combined independently. Keep both original selections when recovering a lost reply, including omission. Changing, adding or removing either selection under the same key returns `OPERATION_CONFLICT`. Replay observes the original operation without resolving the host, source, providers or execution defaults again, even if configuration changed. Legacy omitted-selection, provider-only and workspace-only keys keep their original hashes without a database migration.
 
 The start result has `operationId`, `state`, `threadId`, `code`, and `meaning`. Start waits up to three seconds for submission, with a total four-second tool-response budget including current thread access checks. Authentication and HTTP processing still have the existing five-second request deadline. A slow access check returns `OPERATION_UNAVAILABLE`; retain the original input/key and inspect BB. `bb_get_operation` takes only `operationId`, requires the selected mode's read permission, and never repeats an action. Status remains available when local control is disabled. Status reads and cached start replies recheck the submitting owner, project eligibility, and current thread membership when a thread ID is known. Missing and disallowed records use the same safe unavailable error.
 

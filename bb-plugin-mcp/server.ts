@@ -29,6 +29,7 @@ export default async function plugin(bb: BbPluginApi) {
     source: {
       defaults: (args) => bb.sdk.projects.defaultExecutionOptions(args),
       listProviders: (args) => bb.sdk.providers.list(args),
+      systemConfig: (args) => bb.sdk.system.config(args),
       spawn: (args) => bb.sdk.threads.spawn(args),
       get: (args) => bb.sdk.threads.get(args),
       send: (args) => bb.sdk.threads.send(args),
