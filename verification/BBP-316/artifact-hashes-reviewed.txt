@@ -1,0 +1,3 @@
+f9e74be2d435764c75d534515c06676a99a4bf27118128fa2f4613e20efb4b07  bb-plugin-tasks-plus/dist/server.js
+8f21509d7bb3e54f85e987586595c9017a3cb3cd679b528c46ba019fea9447d9  bb-plugin-tasks-plus/dist/app.js
+83939cf6bc93f0c2fae84b408440157402428b5779a9ff500237c9902ef435aa  bb-plugin-tasks-plus/dist/app.css

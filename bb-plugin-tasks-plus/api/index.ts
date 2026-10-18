@@ -1,7 +1,9 @@
 import type { BbPluginApi, PluginRpcHandlers } from "@get-bb/plugin-sdk";
+import { createCreatorThreadTracker } from "../creator-threads";
 import {
   createTasksStore,
   TaskDependencyError,
+  TaskCreatorThreadError,
   type Attachment as StoredAttachment,
   type Task as StoredTask,
   type TasksStore,
@@ -48,6 +50,7 @@ const MAX_THREAD_SEARCH_RESULTS = 10;
 export interface TasksApiStore {
   readonly tasks: TasksStore;
   transaction<T>(operation: () => T): T;
+  readonly creatorThreads: ReturnType<typeof createCreatorThreadTracker>;
   taskLabelIds(taskIds: readonly string[]): Map<string, string[]>;
   projectTaskCount(projectId: string): number;
   projectPrefixExists(prefix: string, excludingProjectId: string): boolean;
@@ -58,6 +61,12 @@ export interface TasksApiStore {
 export function createStore(bb: BbPluginApi): TasksApiStore {
   const database = bb.storage.database();
   const tasks = createTasksStore(database, {
+    onCreatorBackfill(report) {
+      if (report.backfilled > 0 || report.skipped.length > 0)
+        bb.log.info(`Creator-thread backfill: ${report.backfilled} tasks updated`);
+      for (const skip of report.skipped)
+        bb.log.warn(`Creator-thread backfill skipped ${skip.taskId}: ${skip.reason}`);
+    },
     onTasksUnblocked(taskIds) {
       for (const taskId of taskIds) {
         const task = tasks.getTask(taskId);
@@ -68,6 +77,7 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
 
   return {
     tasks,
+    creatorThreads: createCreatorThreadTracker(bb, tasks),
     transaction<T>(operation: () => T): T {
       return database.transaction(operation)();
     },
@@ -197,10 +207,12 @@ function apiTasks(store: TasksApiStore, tasks: StoredTask[]): Task[] {
   const dependencies = store.tasks.dependencyState(taskIds);
   return tasks.map((task) => {
     const state = dependencies.get(task.id);
-    const openBlockerCount = state?.openBlockerIds.length ?? 0;
+    const creatorThreadBlocked = store.tasks.creatorThreadBlockerId(task) !== null;
+    const openBlockerCount = (state?.openBlockerIds.length ?? 0) + Number(creatorThreadBlocked);
     return {
       ...task,
       labelIds: labelsByTask.get(task.id) ?? [],
+      creatorThreadBlocked,
       blockedBy: state?.blockedBy ?? [],
       blocks: state?.blocks ?? [],
       openBlockerCount,
@@ -210,7 +222,7 @@ function apiTasks(store: TasksApiStore, tasks: StoredTask[]): Task[] {
   });
 }
 
-function dependencyFailure(error: TaskDependencyError) {
+function dependencyFailure(error: TaskDependencyError | TaskCreatorThreadError) {
   return {
     ok: false as const,
     error: { code: error.code, message: error.message },
@@ -520,8 +532,9 @@ export function registerHandlers(
     listProjects(input) {
       return { projects: store.tasks.listProjects(input.folderId) };
     },
-    createTask(input) {
+    async createTask(input) {
       try {
+        if (input.createdByThreadId) await store.creatorThreads.refresh([input.createdByThreadId]);
         validateTaskParent(store, input.projectId, input.parentTaskId);
         validateTaskLabels(store, input.projectId, input.labelIds);
         const task = store.transaction(() => {
@@ -533,6 +546,7 @@ export function registerHandlers(
             priority: input.priority,
             dueDate: input.dueDate,
             parentTaskId: input.parentTaskId,
+            createdByThreadId: input.createdByThreadId,
           });
           replaceTaskLabels(store, created.id, input.labelIds);
           return apiTask(store, created);
@@ -542,6 +556,7 @@ export function registerHandlers(
         return { ok: true, task };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TaskCreatorThreadError) return dependencyFailure(error);
         throw error;
       }
     },
@@ -558,10 +573,13 @@ export function registerHandlers(
         tasks: apiTasks(store, store.tasks.listTasksForThread(input.threadId)),
       };
     },
-    updateTask(input) {
+    async updateTask(input) {
       try {
         const current = store.tasks.getTask(input.taskId);
         if (!current) throw new Error(`Task not found: ${input.taskId}`);
+        if (input.status === "todo" && current.createdByThreadId) {
+          await store.creatorThreads.refresh([current.createdByThreadId]);
+        }
         const parentTaskId =
           input.parentTaskId === undefined ? current.parentTaskId : input.parentTaskId;
         validateTaskParent(store, current.projectId, parentTaskId, current.id);
@@ -601,6 +619,7 @@ export function registerHandlers(
           : { ok: true, task: result.task, changeId };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TaskCreatorThreadError) return dependencyFailure(error);
         if (error instanceof TaskDependencyError) {
           return dependencyFailure(error);
         }
@@ -665,19 +684,27 @@ export function registerHandlers(
       }
       return { removed };
     },
-    boardMove(input) {
-      const current = store.tasks.getTask(input.taskId);
-      if (!current) throw new Error(`Task not found: ${input.taskId}`);
-      const result = store.transaction(() => {
-        const moved = store.tasks.updatePosition(current.id, {
-          status: input.status,
-          beforeTaskId: input.beforeTaskId,
-          afterTaskId: input.afterTaskId,
+    async boardMove(input) {
+      try {
+        const current = store.tasks.getTask(input.taskId);
+        if (!current) throw new Error(`Task not found: ${input.taskId}`);
+        if (input.status === "todo" && current.createdByThreadId) {
+          await store.creatorThreads.refresh([current.createdByThreadId]);
+        }
+        const result = store.transaction(() => {
+          const moved = store.tasks.updatePosition(current.id, {
+            status: input.status,
+            beforeTaskId: input.beforeTaskId,
+            afterTaskId: input.afterTaskId,
+          });
+          return { task: apiTask(store, moved) };
         });
-        return { task: apiTask(store, moved) };
-      });
-      publishTasksChanged(bb, result.task.id, result.task.projectId);
-      return { ok: true, task: result.task };
+        publishTasksChanged(bb, result.task.id, result.task.projectId);
+        return { ok: true, task: result.task };
+      } catch (error) {
+        if (error instanceof TaskCreatorThreadError) return dependencyFailure(error);
+        throw error;
+      }
     },
     createLabel(input) {
       const label = store.tasks.createLabel(input);

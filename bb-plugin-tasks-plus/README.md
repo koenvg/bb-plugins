@@ -475,6 +475,36 @@ bb tasks list --blocked                        # tasks with an open blocker
   becomes ready without a comment or replacement history entry. No thread is notified.
 - The worker prompt of a dispatched task has a "Blocked by" section.
 
+### Creator-thread blockers
+
+Each task records a nullable `createdByThreadId`. The CLI copies the invoking
+thread context supplied by BB from `BB_THREAD_ID`. Human UI creation leaves it
+null. Both JSON task reads include the field. Task details show the creator ID
+and link to the thread.
+
+An unarchived creator contributes one open blocker, separate from task-to-task
+dependencies. `--blocked`, `--ready`, `openBlockerCount`, and `blocked` include it.
+CLI status updates, detail edits, and board moves to `todo` refuse the write with
+`creator_thread_open` and the creator ID. The transaction saves no other edits.
+The server rechecks the creator before a todo write. An unavailable thread lookup
+keeps the task blocked. Only an archived, deleted, or confirmed missing thread
+clears this blocker.
+
+Archive, unarchive, and deletion events refresh the board immediately. Startup
+and periodic reconciliation recover missed events. Unarchiving restores the
+blocker but does not rewrite the task's existing workflow status. A failed detail
+save keeps the unsaved draft and offers Retry, as other save failures do.
+
+Migration 13 backfills the field once from standalone `Source bbthread://thr_…`
+or `Source discussion: bbthread://thr_…` lines. Multiple distinct IDs, malformed
+references, and missing sources are skipped. Duplicate references to the same ID
+are unambiguous. Descriptions and timestamps stay unchanged. Plugin logs report
+the updated count and each skipped task ID and reason. The offline import
+migration also prints the report as JSON. Do not activate this migration against
+existing data without a consistent backup and separate operator approval.
+
+MCP task tools and remote-access policy are unchanged. MCP support is deferred
+to BBP-319 by Koen's approval.
 Task lists default to 100 rows and accept `--limit 1-500`. JSON output is
 `{ tasks, nextCursor, limit }`; human output prints the continuation option
 when another page exists. The cursor is opaque and tied to the filters, sort,

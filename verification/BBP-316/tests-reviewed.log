@@ -1,0 +1,9 @@
+$ vitest run --config vitest.config.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_9e6riv42k5-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  132 passed (132)
+      Tests  1479 passed (1479)
+   Start at  18:21:13
+   Duration  35.16s (transform 8.66s, setup 20.02s, import 45.54s, tests 183.81s, environment 49.80s)

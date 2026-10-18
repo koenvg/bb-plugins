@@ -1,0 +1,97 @@
+$ vitest run --config vitest.config.ts creator-threads.test.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_9e6riv42k5-1/bb-plugins/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| creator-threads.test.ts (4 tests | 4 failed) 47ms
+     × records CLI context, leaves human creation null and exposes show/list metadata 27ms
+     × refuses todo atomically through CLI, detail updates and board moves 6ms
+     × updates counts, filters and realtime on archive/unarchive without changing task blockers 7ms
+     × clears a deleted creator but retains its identity 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| creator-threads.test.ts > creator-thread blockers through CLI and UI RPC > records CLI context, leaves human creation null and exposes show/list metadata
+AssertionError: expected undefined to be 'thr_creator' // Object.is equality
+
+- Expected:
+"thr_creator"
+
++ Received:
+undefined
+
+ ❯ creator-threads.test.ts:46:37
+     44|     const agent = await f.create(true);
+     45|     const human = await f.create(false);
+     46|     expect(agent.createdByThreadId).toBe("thr_creator");
+       |                                     ^
+     47|     expect(human.createdByThreadId).toBeNull();
+     48|     expect(await f.list("--blocked")).toMatchObject([{ id: agent.id, o…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  |bb-plugin-tasks| creator-threads.test.ts > creator-thread blockers through CLI and UI RPC > refuses todo atomically through CLI, detail updates and board moves
+AssertionError: expected +0 not to be +0 // Object.is equality
+ ❯ creator-threads.test.ts:58:33
+     56|     const task = await f.create(true);
+     57|     const result = await f.cli(["update", task.key, "--status", "todo"…
+     58|     expect(result.exitCode).not.toBe(0);
+       |                                 ^
+     59|     expect(result.stderr).toContain("thr_creator");
+     60|     for (const method of ["updateTask", "boardMove"] as const) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  |bb-plugin-tasks| creator-threads.test.ts > creator-thread blockers through CLI and UI RPC > updates counts, filters and realtime on archive/unarchive without changing task blockers
+AssertionError: expected { …(21) } to match object { openBlockerCount: 2 }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "openBlockerCount": 2,
++   "openBlockerCount": 1,
+  }
+
+ ❯ creator-threads.test.ts:72:87
+     70|     const blocker = f.store.tasks.createTask({ projectId: f.project.id…
+     71|     f.store.tasks.addTaskDependency(blocker.id, task.id);
+     72|     expect((await f.list("--blocked")).find((t: { id: string }) => t.i…
+       |                                                                                       ^
+     73|     await f.lifecycle(true);
+     74|     expect(f.harness.realtimeSignals).toContainEqual({ channel: "tasks…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  |bb-plugin-tasks| creator-threads.test.ts > creator-thread blockers through CLI and UI RPC > clears a deleted creator but retains its identity
+AssertionError: expected { task: { …(19) } } to match object { task: { …(3) } }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "task": {
+      "blocked": false,
+-     "createdByThreadId": "thr_creator",
+      "openBlockerCount": 0,
+    },
+  }
+
+ ❯ creator-threads.test.ts:90:22
+     88|     await f.harness.behavior.emitThreadEvent("thread.deleted", { threa…
+     89|     const response = await f.harness.callRpc("getTask", { taskId: task…
+     90|     expect(response).toMatchObject({ task: { createdByThreadId: "thr_c…
+       |                      ^
+     91|   });
+     92| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  18:07:56
+   Duration  343ms (transform 100ms, setup 98ms, import 137ms, tests 47ms, environment 0ms)
+
+error: script "test" exited with code 1

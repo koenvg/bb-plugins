@@ -105,6 +105,10 @@ describe("comment-removal forward migration", () => {
     const db = legacyDatabase();
     try {
       const before = snapshot(db);
+      before.tasks = before.tasks!.map((row) => ({
+        ...(row as Record<string, unknown>),
+        created_by_thread_id: null,
+      }));
       const versions = db.prepare("SELECT * FROM schema_version ORDER BY version").all();
       const files = db.prepare("SELECT * FROM attachments ORDER BY id").all() as Array<
         Record<string, unknown>
@@ -140,7 +144,7 @@ describe("comment-removal forward migration", () => {
       initializeTasksSchema(db);
       expectCommentFree(db);
       expect(db.prepare("SELECT COUNT(*) AS count FROM schema_version").get()).toEqual({
-        count: 12,
+        count: 13,
       });
       expect(() =>
         db.exec(`INSERT INTO attachments VALUES

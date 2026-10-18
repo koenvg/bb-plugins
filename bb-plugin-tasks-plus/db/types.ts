@@ -44,6 +44,7 @@ export interface Task {
   priority: TaskPriority;
   dueDate: string | null;
   parentTaskId: string | null;
+  createdByThreadId: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -142,6 +143,7 @@ export interface CreateTaskInput {
   priority?: TaskPriority;
   dueDate?: string | null;
   parentTaskId?: string | null;
+  createdByThreadId?: string | null;
 }
 
 export interface UpdateTaskInput {

@@ -72,7 +72,7 @@ it.skipIf(spawnSync("sqlite3", ["--version"]).status !== 0)(
         });
         expect(
           imported.prepare("SELECT MAX(version) AS version FROM schema_version").get(),
-        ).toEqual({ version: 12 });
+        ).toEqual({ version: 13 });
         expect(imported.pragma("foreign_key_check")).toEqual([]);
         expect(imported.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
       } finally {

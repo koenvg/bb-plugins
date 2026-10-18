@@ -135,4 +135,19 @@ describe("dispatch target rail control", () => {
       linkedBbProjectId: null,
     });
   });
+  it("shows creator metadata only for tasks with a creator", async () => {
+    const props = railProps(null);
+    const slot = renderSlot(
+      { component: RailHarness },
+      {
+        ...props,
+        task: makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: true }),
+      },
+      { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
+    );
+    expect(slot.getByRole("button", { name: /^thr_creator$/ })).toBeTruthy();
+    expect(slot.getByText("Blocked until this thread is archived.")).toBeTruthy();
+    slot.lifecycle.rerender(<RailHarness {...props} />);
+    expect(slot.queryByText("Created by thread")).toBeNull();
+  });
 });

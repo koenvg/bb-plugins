@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { DelayedLoading } from "@/components/ui/delayed-loading";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { errorMessage } from "../../shared/errors.js";
 import { cn } from "@/lib/utils";
 
 const DRAG_THRESHOLD_PX = 5;
@@ -260,6 +261,7 @@ export function BoardView({ projectId }: BoardViewProps) {
 
   const [drag, setDrag] = useState<DragState | null>(null);
   const [quickAddStatus, setQuickAddStatus] = useState<TaskStatus | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef(new Map<TaskStatus, HTMLDivElement>());
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
@@ -323,6 +325,7 @@ export function BoardView({ projectId }: BoardViewProps) {
       taskId,
       dropIndex,
     );
+    setMoveError(null);
     setColumns(applyBoardMove(current, taskId, toStatus, dropIndex));
     void rpc
       .call("boardMove", {
@@ -333,9 +336,15 @@ export function BoardView({ projectId }: BoardViewProps) {
       })
       .then(
         (result) => {
-          if (!result.ok) board.refresh();
+          if (!result.ok) {
+            setMoveError(result.error.message);
+            board.refresh();
+          }
         },
-        () => board.refresh(),
+        (error) => {
+          setMoveError(errorMessage(error));
+          board.refresh();
+        },
       );
   };
 
@@ -531,6 +540,11 @@ export function BoardView({ projectId }: BoardViewProps) {
       <div className="flex items-center gap-1.5 px-4 pt-3">
         <DependencyChip value={dependency} onChange={setDependency} />
       </div>
+      {moveError ? (
+        <p role="alert" className="px-4 pt-3 text-sm text-warning">
+          {moveError}
+        </p>
+      ) : null}
       <div
         ref={boardRef}
         className={cn(

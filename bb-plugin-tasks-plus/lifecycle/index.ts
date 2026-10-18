@@ -132,6 +132,9 @@ export async function registerLifecycle(bb: BbPluginApi, store: TasksApiStore): 
     pendingReads.delete(thread.id);
     transitionTrackedThread(bb, store, thread.id, liveStatus);
   };
+  bb.events.on("thread.archived", ({ thread }) => store.creatorThreads.observe(thread));
+  bb.events.on("thread.unarchived", ({ thread }) => store.creatorThreads.observe(thread));
+  bb.events.on("thread.deleted", ({ thread }) => store.creatorThreads.observe(thread, true));
   bb.events.on("thread.created", ({ thread }) => applyEvent(thread));
   bb.events.on("thread.active", ({ thread }) => applyEvent(thread));
   bb.events.on("thread.idle", ({ thread }) => applyEvent(thread));
@@ -142,16 +145,21 @@ export async function registerLifecycle(bb: BbPluginApi, store: TasksApiStore): 
   bb.background.service("thread-status-reconcile", {
     async start(signal) {
       while (!signal.aborted) {
-        if (!hasNonTerminalTrackedThreads(store)) {
+        if (
+          !hasNonTerminalTrackedThreads(store) &&
+          store.tasks.listCreatorThreadIds().length === 0
+        ) {
           await waitForNextReconciliation(signal, THREAD_STATUS_IDLE_INTERVAL_MS);
           continue;
         }
         await waitForNextReconciliation(signal, THREAD_STATUS_RECONCILE_INTERVAL_MS);
         if (signal.aborted) break;
         await reconcileTrackedThreads();
+        await store.creatorThreads.refresh();
       }
     },
   });
 
   await reconcileTrackedThreads();
+  await store.creatorThreads.refresh();
 }

@@ -60,9 +60,12 @@ function dependencyTable(refs: readonly TaskDependencyRef[]): string {
 }
 
 function openBlockerKeys(task: Task): string[] {
-  return (task.blockedBy ?? [])
-    .filter((ref) => ref.status !== "done" && ref.status !== "canceled")
-    .map((ref) => ref.key);
+  return [
+    ...(task.blockedBy ?? [])
+      .filter((ref) => ref.status !== "done" && ref.status !== "canceled")
+      .map((ref) => ref.key),
+    ...(task.creatorThreadBlocked && task.createdByThreadId ? [task.createdByThreadId] : []),
+  ];
 }
 
 async function listAllTasks(domain: TasksDomain, input: ListTasksInput): Promise<Task[]> {
@@ -193,6 +196,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           const created = tasksRpcContract.createTask.input.parse({
             projectId: project.id,
             title: input.options.title,
+            createdByThreadId: ctx.threadId ?? null,
             description:
               (await readTextOption(
                 bb,
@@ -466,6 +470,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
               ["Priority", task.priority],
               ["Due", task.dueDate ?? "-"],
               ["Parent", task.parentTaskId ?? "-"],
+              ["Created by thread", task.createdByThreadId ?? "-"],
               ["Labels", labels.map((label) => label.name).join(", ") || "-"],
               ["Created", task.createdAt],
               ["Updated", task.updatedAt],

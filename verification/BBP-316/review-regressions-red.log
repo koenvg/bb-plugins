@@ -1,0 +1,335 @@
+$ vitest run --config vitest.config.ts creator-threads.test.ts db/creator-backfill.test.ts views/board/keyboard.test.tsx
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_9e6riv42k5-1/bb-plugins/bb-plugin-tasks-plus
+
+ ❯ |bb-plugin-tasks| db/creator-backfill.test.ts (14 tests | 3 failed) 18ms
+     × parses "Source bbthread://thr_one\nSource BBTHREAD://thr_two" conservatively 2ms
+     × parses "Source bbthread://thr_one\nSource bbthread:/thr_two" conservatively 0ms
+     × parses "Source bbthread://thr_one bbthread:/thr_two" conservatively 0ms
+ ❯ |bb-plugin-tasks| creator-threads.test.ts (7 tests | 1 failed) 63ms
+     × never lets overlapping creator lookups authorize todo from an old clear cache 9ms
+ ❯ |bb-plugin-tasks| views/board/keyboard.test.tsx (8 tests | 1 failed) 8356ms
+     × names the blocking creator when the board refuses a keyboard status move 8053ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |bb-plugin-tasks| creator-threads.test.ts > creator-thread blockers through CLI and UI RPC > never lets overlapping creator lookups authorize todo from an old clear cache
+AssertionError: expected { ok: true, task: { …(21) } } to match object { ok: false, …(1) }
+(22 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "error": {
+-     "code": "creator_thread_open",
+-   },
+-   "ok": false,
++   "ok": true,
+  }
+
+ ❯ creator-threads.test.ts:194:27
+    192|     firstReply(makeThreadResponse({ id: "thr_creator" }));
+    193|     try {
+    194|       expect(await first).toMatchObject({ ok: false, error: { code: "c…
+       |                           ^
+    195|       expect(await second).toMatchObject({ ok: false, error: { code: "…
+    196|       expect(store.tasks.getTask(created.task.id)).toMatchObject({ sta…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  |bb-plugin-tasks| db/creator-backfill.test.ts > creator source parsing > parses "Source bbthread://thr_one\nSource BBTHREAD://thr_two" conservatively
+AssertionError: expected { threadId: 'thr_one' } to deeply equal { reason: 'ambiguous' }
+
+- Expected
++ Received
+
+  {
+-   "reason": "ambiguous",
++   "threadId": "thr_one",
+  }
+
+ ❯ db/creator-backfill.test.ts:23:45
+     21|     ["Source bbthread://thr_one/path", { reason: "malformed" }],
+     22|   ])("parses %j conservatively", (description, expected) => {
+     23|     expect(parseCreatorSource(description)).toEqual(expected);
+       |                                             ^
+     24|   });
+     25|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  |bb-plugin-tasks| db/creator-backfill.test.ts > creator source parsing > parses "Source bbthread://thr_one\nSource bbthread:/thr_two" conservatively
+ FAIL  |bb-plugin-tasks| db/creator-backfill.test.ts > creator source parsing > parses "Source bbthread://thr_one bbthread:/thr_two" conservatively
+AssertionError: expected { threadId: 'thr_one' } to deeply equal { reason: 'malformed' }
+
+- Expected
++ Received
+
+  {
+-   "reason": "malformed",
++   "threadId": "thr_one",
+  }
+
+ ❯ db/creator-backfill.test.ts:23:45
+     21|     ["Source bbthread://thr_one/path", { reason: "malformed" }],
+     22|   ])("parses %j conservatively", (description, expected) => {
+     23|     expect(parseCreatorSource(description)).toEqual(expected);
+       |                                             ^
+     24|   });
+     25|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  |bb-plugin-tasks| views/board/keyboard.test.tsx > board card menus from the keyboard > names the blocking creator when the board refuses a keyboard status move
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"contents"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative flex h-full min-h-0 bg-background text-foreground"[39m
+      [36m>[39m
+        [36m<main[39m
+          [33maria-label[39m=[32m"Tasks"[39m
+          [33mclass[39m=[32m"@container flex min-w-0 flex-1 flex-col"[39m
+          [33mtabindex[39m=[32m"-1"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"flex h-12 shrink-0 items-center gap-2 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 overflow-hidden"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-0"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-expanded[39m=[32m"false"[39m
+                    [33maria-haspopup[39m=[32m"menu"[39m
+                    [33maria-label[39m=[32m"Project: Tasks Plugin"[39m
+                    [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active py-2 select-none h-9 max-w-full gap-2 px-3"[39m
+                    [33mdata-state[39m=[32m"closed"[39m
+                    [33mid[39m=[32m"radix-_r_5u_"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"size-3 shrink-0 rounded-sm"[39m
+                      [33mstyle[39m=[32m"background-color: blue;"[39m
+                    [36m/>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"min-w-0 truncate font-semibold"[39m
+                      [33mtitle[39m=[32m"Tasks Plugin"[39m
+                    [36m>[39m
+                      [0mTasks Plugin[0m
+                    [36m</span>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"size-4 shrink-0 text-muted-foreground"[39m
+                      [33mcolor[39m=[32m"currentColor"[39m
+                      [33mdata-icon[39m=[32m"ChevronDown"[39m
+                      [33mdata-icon-root[39m=[32m""[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"1.5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"hidden @md:block"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center rounded-md bg-muted p-0.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-pressed[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"min-h-8 rounded-sm px-3 text-xs text-muted-foreground hover:text-foreground"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mList[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33maria-pressed[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"min-h-8 rounded-sm px-3 text-xs bg-background text-foreground"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mBoard[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</span>[39m
+            [36m<button[39m
+              [33maria-busy[39m=[32m"false"[39m
+              [33maria-label[39m=[32m"Refresh tasks"[39m
+              [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active size-9 shrink-0 text-muted-foreground hover:text-foreground active:bg-state-active active:text-foreground"[39m
+              [33mdata-state[39m=[32m"closed"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"size-3.5"[39m
+                [33mcolor[39m=[32m"currentColor"[39m
+                [33mdata-icon[39m=[32m"RotateCcw"[39m
+                [33mdata-icon-root[39m=[32m""[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20.4879 15C19.2524 18.4956 15.9187 21 12 21C7.02943 21 3 16.9706 3 12C3 7.02943 7.02943 3 12 3C15.7292 3 18.9286 5.26806 20.2941 8.5"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"...
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mstyle[39m=[32m""[39m
+  [36m>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"contents"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex h-full min-h-0 bg-background text-foreground"[39m
+        [36m>[39m
+          [36m<main[39m
+            [33maria-label[39m=[32m"Tasks"[39m
+            [33mclass[39m=[32m"@container flex min-w-0 flex-1 flex-col"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+          [36m>[39m
+            [36m<header[39m
+              [33mclass[39m=[32m"flex h-12 shrink-0 items-center gap-2 border-b border-border-hairline bg-background px-3.5 text-sm max-md:h-12 max-md:pl-12 max-md:pointer-coarse:pl-14"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 overflow-hidden"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"min-w-0"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"false"[39m
+                      [33maria-haspopup[39m=[32m"menu"[39m
+                      [33maria-label[39m=[32m"Project: Tasks Plugin"[39m
+                      [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active py-2 select-none h-9 max-w-full gap-2 px-3"[39m
+                      [33mdata-state[39m=[32m"closed"[39m
+                      [33mid[39m=[32m"radix-_r_5u_"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"size-3 shrink-0 rounded-sm"[39m
+                        [33mstyle[39m=[32m"background-color: blue;"[39m
+                      [36m/>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"min-w-0 truncate font-semibold"[39m
+                        [33mtitle[39m=[32m"Tasks Plugin"[39m
+                      [36m>[39m
+                        [0mTasks Plugin[0m
+                      [36m</span>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"size-4 shrink-0 text-muted-foreground"[39m
+                        [33mcolor[39m=[32m"currentColor"[39m
+                        [33mdata-icon[39m=[32m"ChevronDown"[39m
+                        [33mdata-icon-root[39m=[32m""[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"24"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"24"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9"[39m
+                          [33mstroke[39m=[32m"currentColor"[39m
+                          [33mstroke-linecap[39m=[32m"round"[39m
+                          [33mstroke-linejoin[39m=[32m"round"[39m
+                          [33mstroke-width[39m=[32m"1.5"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"hidden @md:block"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center rounded-md bg-muted p-0.5"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33maria-pressed[39m=[32m"false"[39m
+                    [33mclass[39m=[32m"min-h-8 rounded-sm px-3 text-xs text-muted-foreground hover:text-foreground"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [0mList[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33maria-pressed[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"min-h-8 rounded-sm px-3 text-xs bg-background text-foreground"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [0mBoard[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</span>[39m
+              [36m<button[39m
+                [33maria-busy[39m=[32m"false"[39m
+                [33maria-label[39m=[32m"Refresh tasks"[39m
+                [33mclass[39m=[32m"inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0 hover:bg-state-hover aria-pressed:bg-state-active aria-pressed:text-foreground aria-pressed:hover:bg-state-active data-[state=open]:bg-state-active data-[state=open]:text-foreground data-[state=open]:hover:bg-state-active size-9 shrink-0 text-muted-foreground hover:text-foreground active:bg-state-active active:text-foreground"[39m
+                [33mdata-state[39m=[32m"closed"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33mclass[39m=[32m"size-3.5"[39m
+                  [33mcolor[39m=[32m"currentColor"[39m
+                  [33mdata-icon[39m=[32m"RotateCcw"[39m
+                  [33mdata-icon-root[39m=[32m""[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ views/board/keyboard.test.tsx:193:11
+    191|     press("s");
+    192|     fireEvent.click(await slot.findByRole("menuitem", { name: "Todo" }…
+    193|     await waitFor(() => expect(slot.getByRole("alert").textContent).to…
+       |           ^
+    194|     await waitFor(() => expect(slot.getByRole("button", { name: "Open …
+    195|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+
+ Test Files  3 failed | 1 passed (4)
+      Tests  5 failed | 28 passed (33)
+   Start at  18:19:40
+   Duration  9.10s (transform 479ms, setup 278ms, import 706ms, tests 8.46s, environment 228ms)
+
+error: script "test" exited with code 1

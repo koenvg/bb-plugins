@@ -115,6 +115,8 @@ const taskSchema = z
     priority: taskPrioritySchema,
     dueDate: dueDateSchema.nullable(),
     parentTaskId: idSchema.nullable(),
+    createdByThreadId: z.string().startsWith("thr_").nullable().default(null),
+    creatorThreadBlocked: z.boolean().optional(),
     position: z.number(),
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -316,6 +318,7 @@ const tasksDomainErrorSchema = z
       "attachment_referenced",
       "dependency_self",
       "dependency_cycle",
+      "creator_thread_open",
     ]),
     message: z.string(),
   })
@@ -547,6 +550,7 @@ export const tasksRpcContract = defineRpcContract({
         priority: taskPrioritySchema.default("none"),
         dueDate: dueDateSchema.nullable().default(null),
         parentTaskId: idSchema.nullable().default(null),
+        createdByThreadId: z.string().startsWith("thr_").nullable().default(null),
         labelIds: taskLabelsSchema.default([]),
       })
       .strict(),

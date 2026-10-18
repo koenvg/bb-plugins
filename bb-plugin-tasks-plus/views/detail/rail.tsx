@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type {
   Label,
   Project,
@@ -105,6 +106,24 @@ function LabelChip({ label }: { label: Label }) {
       />
       {label.name}
     </span>
+  );
+}
+
+function CreatorThreadProperty({ task }: { task: Task }) {
+  const navigate = useBbNavigate();
+  if (!task.createdByThreadId) return null;
+  return (
+    <div className="basis-full py-2 text-2xs text-muted-foreground">
+      <div>Created by thread</div>
+      <button
+        type="button"
+        className="max-w-full truncate text-left text-foreground underline underline-offset-2"
+        onClick={() => navigate.toThread(task.createdByThreadId!)}
+      >
+        {task.createdByThreadId}
+      </button>
+      {task.creatorThreadBlocked ? <p>Blocked until this thread is archived.</p> : null}
+    </div>
   );
 }
 
@@ -424,6 +443,7 @@ export function PropertiesRail({
         {...menuProps(control, "dueDate")}
       />
 
+      <CreatorThreadProperty task={task} />
       <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Labels</div>
       <div className="flex flex-wrap items-center gap-1 py-0.5">
         {taskLabels.map((label) => (
@@ -544,6 +564,7 @@ export function InlineProperties({
         triggerClassName={CHIP_CLASS}
         {...menuProps(control, "dueDate")}
       />
+      <CreatorThreadProperty task={task} />
       {taskLabels.map((label) => (
         <LabelChip key={label.id} label={label} />
       ))}
