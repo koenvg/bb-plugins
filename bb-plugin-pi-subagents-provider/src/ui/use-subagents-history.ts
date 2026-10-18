@@ -34,14 +34,23 @@ export function useSubagentsHistory(threadId: string | undefined) {
             ? [event.data.payload]
             : [],
         );
-        const state = restoreViewHistory(values);
         const error =
           values.length && !parseViewState(values[0])
             ? "Latest stored child state is unsupported or malformed."
             : undefined;
         const warning =
           events.length === 64 ? "Older history may be outside this bounded window." : undefined;
-        if (!closed) setData({ threadId, state, loading: false, error, warning });
+        if (!closed)
+          setData((previous) => ({
+            threadId,
+            state: restoreViewHistory(
+              values,
+              previous.threadId === threadId ? previous.state : undefined,
+            ),
+            loading: false,
+            error,
+            warning,
+          }));
       } catch {
         if (!closed)
           setData((previous) => ({

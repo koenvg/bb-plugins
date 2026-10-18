@@ -218,7 +218,10 @@ it("retains task attribution when its event leaves the window without replacing 
       event("pi-subagents-provider/pi-subagents-view", { ...state, rows });
     const latest = payload([current]);
     const older = payload([
-      { ...current, capture: { ...current.capture, capturedAt: 1, task: "Original task attribution" } },
+      {
+        ...current,
+        capture: { ...current.capture, capturedAt: 1, task: "Original task attribution" },
+      },
     ]);
     h.list
       .mockResolvedValueOnce([...Array.from({ length: 63 }, () => latest), older])
@@ -230,7 +233,9 @@ it("retains task attribution when its event leaves the window without replacing 
     const selected = view.getByRole("button", { name: /Original task attribution/ });
     const reader = view.getByRole("region", { name: "Captured conversation" });
     const task = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
-    const conversation = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-conversation")!;
+    const conversation = view.container.querySelector<HTMLDetailsElement>(
+      ".pi-subagents-conversation",
+    )!;
     const tool = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
     fireEvent.click(task.querySelector("summary")!);
     fireEvent.click(tool.querySelector("summary")!);
@@ -259,6 +264,61 @@ it("retains task attribution when its event leaves the window without replacing 
     });
     expect(reopened.queryByRole("heading", { name: "Original task attribution" })).toBeNull();
     expect(reopened.getByText("Task attribution not captured.")).toBeDefined();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("clears retained attribution on thread changes and ignores a late reply from the previous thread", async () => {
+  vi.useFakeTimers();
+  try {
+    const payload = (task?: string) => [
+      event("pi-subagents-provider/pi-subagents-view", {
+        ...state,
+        rows: [
+          {
+            ...background,
+            capture: { status: "captured", capturedAt: 1, ...(task ? { task } : {}) },
+          },
+        ],
+      }),
+    ];
+    let finishOld!: (events: ReturnType<typeof payload>) => void;
+    h.list
+      .mockResolvedValueOnce(payload("Thread A task"))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          }),
+      )
+      .mockResolvedValue(payload());
+    const view = render(<SubagentsPanel threadId="thread-a" params={{}} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(view.getByRole("heading", { name: "Thread A task" })).toBeDefined();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    const oldSignal = h.list.mock.calls[1]![0].signal as AbortSignal;
+    view.rerender(<SubagentsPanel threadId="thread-b" params={{}} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(oldSignal.aborted).toBe(true);
+    expect(view.queryByRole("heading", { name: "Thread A task" })).toBeNull();
+    expect(view.getByText("Task attribution not captured.")).toBeDefined();
+    await act(async () => {
+      finishOld(payload("Late thread A task"));
+    });
+    expect(view.queryByText("Late thread A task")).toBeNull();
+    expect(view.getByText("Task attribution not captured.")).toBeDefined();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(h.list).toHaveBeenCalledTimes(4);
+    expect(h.list.mock.calls[3]![0].threadId).toBe("thread-b");
   } finally {
     vi.useRealTimers();
   }

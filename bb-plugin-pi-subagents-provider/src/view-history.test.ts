@@ -154,3 +154,115 @@ it.each(["timeout", "captured"] as const)(
     });
   },
 );
+
+it("keeps only task text and its clipping flag from the previous reader snapshot", () => {
+  const previous = restoreViewHistory([
+    state([
+      {
+        ...row,
+        capture: {
+          status: "captured",
+          capturedAt: 1,
+          task: "Previously captured task",
+          finalOutput: "Old output",
+          resolvedModel: { provider: "old", model: "old", capturedAt: 1 },
+          messages: [{ role: "assistant", kind: "text", text: "Old transcript" }],
+          truncated: { task: true, finalOutput: true, messages: 5 },
+        },
+      },
+    ]),
+  ])!;
+  const current = state([
+    {
+      ...row,
+      observedAt: 20,
+      state: "failed",
+      capture: {
+        status: "timeout",
+        capturedAt: 10,
+        attemptedAt: 20,
+        reason: "No reply",
+        truncated: { task: false, finalOutput: false, messages: 2 },
+      },
+    },
+  ]);
+  const result = restoreViewHistory([current], previous)!;
+  expect(result.rows[0]).toMatchObject({ state: "failed", observedAt: 20 });
+  expect(result.rows[0]!.capture).toEqual({
+    status: "timeout",
+    capturedAt: 10,
+    attemptedAt: 20,
+    reason: "No reply",
+    task: "Previously captured task",
+    truncated: { task: true, finalOutput: false, messages: 2 },
+  });
+  expect(restoreViewHistory([state([{ ...row }])], previous)!.rows[0]!.capture).toEqual({
+    status: "not-captured",
+    capturedAt: 1,
+    task: "Previously captured task",
+    truncated: { task: true, finalOutput: false, messages: 0 },
+  });
+  for (const task of ["New task", ""]) {
+    const next = state([{ ...row, capture: { status: "captured", capturedAt: 30, task } }]);
+    expect(restoreViewHistory([next], result)!.rows[0]!.capture).toEqual({
+      status: "captured",
+      capturedAt: 30,
+      task,
+    });
+  }
+});
+
+it("drops absent rows and does not attribute repeated local step IDs to another run or session", () => {
+  const previous = restoreViewHistory([
+    state([{ ...row, capture: { status: "captured", capturedAt: 1, task: "Original task" } }]),
+  ])!;
+  expect(restoreViewHistory([state([])], previous)!.rows).toEqual([]);
+  expect(restoreViewHistory([], previous)).toBeUndefined();
+  expect(restoreViewHistory([{ ...state([]), version: 2 }], previous)).toBeUndefined();
+  for (const identity of [
+    { id: "other-run/step:0" },
+    { sessionId: "other-session" },
+    { runId: "other-run" },
+  ]) {
+    const result = restoreViewHistory([state([{ ...row, ...identity }])], previous)!;
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.capture).toBeUndefined();
+  }
+  const removed = restoreViewHistory([state([])], previous)!;
+  expect(restoreViewHistory([state([row])], removed)!.rows[0]!.capture).toBeUndefined();
+});
+
+it("applies the existing row and byte budgets after retaining attribution", () => {
+  const rows = Array.from({ length: 64 }, (_, index) => ({ ...row, id: `row-${index}` }));
+  const previous = restoreViewHistory([
+    state(
+      rows.map((item) => ({
+        ...item,
+        capture: { status: "captured", capturedAt: 1, task: "t".repeat(2000) },
+      })),
+    ),
+  ])!;
+  const current = state(
+    rows.map((item) => ({
+      ...item,
+      capture: { status: "captured", capturedAt: 2, finalOutput: "o".repeat(3000) },
+    })),
+  );
+  expect(previous.rows).toHaveLength(64);
+  expect(restoreViewHistory([current])!.rows).toHaveLength(64);
+  const retained = restoreViewHistory([current], previous)!;
+  expect(retained.rows.length).toBeGreaterThan(0);
+  expect(retained.rows.length).toBeLessThan(64);
+  expect(retained.omitted).toBe(64 - retained.rows.length);
+  expect(Buffer.byteLength(JSON.stringify(retained))).toBeLessThanOrEqual(256 * 1024);
+  expect(retained.rows[0]!.capture?.task).toBe("t".repeat(2000));
+  const large = restoreViewHistory(
+    [
+      state(Array.from({ length: 128 }, (_, index) => ({ ...row, id: `new-${index}` }))),
+      state([row]),
+    ],
+    previous,
+  )!;
+  expect(large.rows).toHaveLength(128);
+  expect(large.omitted).toBe(1);
+});
