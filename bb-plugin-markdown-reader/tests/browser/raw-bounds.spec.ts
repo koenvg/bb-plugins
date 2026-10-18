@@ -3,7 +3,7 @@ import { test, expect, capture, results } from "./fixture";
 test.use({ launchOptions: { args: ["--blink-settings=caretBrowsingEnabled=true"] } });
 declare global {
   interface Window {
-    revealSelectionLines: (start: number, end: number) => void;
+    revealSelectionLines: (start: number | null, end: number | null) => void;
   }
 }
 
@@ -53,6 +53,20 @@ test("newline-dense Raw keeps bounded DOM, exact text, inclusive reveal and repe
     ...bounds,
   });
   await capture(page, info, "dense-raw-range");
+  const scrollBeforeClear = await raw.evaluate((element) => ({
+    reader: element.closest(".markdown-reader")!.scrollTop,
+    page: window.scrollY,
+  }));
+  await page.evaluate(() => window.revealSelectionLines(null, null));
+  await expect(raw).toBeFocused();
+  await expect(raw.locator('[data-highlighted="true"]')).toHaveCount(0);
+  expect(
+    await raw.evaluate((element) => ({
+      reader: element.closest(".markdown-reader")!.scrollTop,
+      page: window.scrollY,
+    })),
+  ).toEqual(scrollBeforeClear);
+  expect(await raw.textContent()).toBe(source);
 });
 
 for (const requested of [false, true]) {
@@ -62,7 +76,16 @@ for (const requested of [false, true]) {
     await page.goto("/tests/selection-preview.html?document=dense");
     await page.getByRole("heading", { name: "Dense", exact: true }).waitFor();
     await page.getByRole("button", { name: "Raw", exact: true }).click();
-    if (requested) await page.evaluate(() => window.revealSelectionLines(30_002, 30_003));
+    if (requested) {
+      await page.evaluate(() => window.revealSelectionLines(30_002, 30_003));
+      await expect(page.locator('[data-source-line="30002"]')).toBeFocused();
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          }),
+      );
+    }
     const raw = page.getByLabel("Raw Markdown");
     await raw.evaluate((root) => {
       const text = root.textContent!;
@@ -145,5 +168,43 @@ for (const activation of ["Enter", "Space"] as const) {
     expect(
       await page.evaluate(() => window.selectionFixture.inspection.composer.submits.length),
     ).toBe(0);
+  });
+}
+
+for (const ending of ["lf", "crlf"] as const) {
+  test(`${ending} source rows remain stable through range splits and clearing`, async ({
+    page,
+  }, info) => {
+    await page.goto(`/tests/selection-preview.html?document=rows&ending=${ending}`);
+    await page.getByRole("heading", { name: "Rows", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Raw", exact: true }).click();
+    const raw = page.getByLabel("Raw Markdown");
+    const source = ["# Rows", ...Array.from({ length: 300 }, (_, i) => `line ${i + 1}`), ""].join(
+      ending === "crlf" ? "\r\n" : "\n",
+    );
+    const rows = () =>
+      raw.evaluate((element) => {
+        element.style.lineHeight = "20px";
+        const style = getComputedStyle(element);
+        const edges = [
+          style.paddingTop,
+          style.paddingBottom,
+          style.borderTopWidth,
+          style.borderBottomWidth,
+        ].reduce((sum, value) => sum + parseFloat(value), 0);
+        return (element.getBoundingClientRect().height - edges) / 20;
+      });
+    expect(await raw.textContent()).toBe(source);
+    expect(await rows()).toBe(302);
+    expect(await raw.locator("*").count()).toBeLessThanOrEqual(132);
+    await page.evaluate(() => window.revealSelectionLines(2, 4));
+    await expect(raw.locator('[data-source-line="2"]')).toBeFocused();
+    expect(await rows()).toBe(302);
+    expect(await raw.textContent()).toBe(source);
+    await page.evaluate(() => window.revealSelectionLines(null, null));
+    await expect(raw).toBeFocused();
+    expect(await rows()).toBe(302);
+    expect(await raw.textContent()).toBe(source);
+    await results(info, { ending, rows: await rows(), exactSource: true, focusRetained: true });
   });
 }

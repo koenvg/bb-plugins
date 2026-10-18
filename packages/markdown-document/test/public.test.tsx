@@ -98,9 +98,34 @@ describe("public document interface", () => {
       rerender(<MarkdownDocument model={model} view="raw" annotateSourceLines />);
       expect(raw.textContent).toBe(text);
       expect(raw.querySelectorAll('[data-highlighted="true"]').length).toBe(0);
+      expect(document.activeElement).toBe(raw);
       expect(raw.querySelectorAll("*").length).toBeLessThanOrEqual(132);
     },
   );
+  it("does not reclaim external focus when a grouped Raw range is cleared", () => {
+    const model = createDocumentModel("line\n".repeat(1000), "external-focus");
+    const { rerender } = render(
+      <>
+        <button>Outside</button>
+        <MarkdownDocument
+          model={model}
+          view="raw"
+          annotateSourceLines
+          lineRange={{ startLineNumber: 7, endLineNumber: 7 }}
+        />
+      </>,
+    );
+    const outside = screen.getByRole("button", { name: "Outside" });
+    outside.focus();
+    rerender(
+      <>
+        <button>Outside</button>
+        <MarkdownDocument model={model} view="raw" annotateSourceLines />
+      </>,
+    );
+    expect(document.activeElement).toBe(outside);
+    expect(screen.getByLabelText("Raw Markdown").textContent).toBe("line\n".repeat(1000));
+  });
   it.each(["relative.png", "/api/private", "%ZZ", "https://", "javascript:alert(1)"])(
     "keeps invalid remote grant %j inert instead of throwing",
     (url) => {

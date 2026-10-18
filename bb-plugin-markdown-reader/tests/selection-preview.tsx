@@ -17,12 +17,17 @@ const target: ReaderTarget = {
 };
 const denseText =
   "\uFEFF# Dense\r\n" + "\n".repeat(30_000) + "  alpha **one**\r\n\r\n  beta `two`\r\n";
+const rowText = ["# Rows", ...Array.from({ length: 300 }, (_, i) => `line ${i + 1}`), ""].join(
+  params.get("ending") === "crlf" ? "\r\n" : "\n",
+);
+const documents: Record<string, string> = {
+  dense: denseText,
+  rows: rowText,
+  raw: "# Heading\n\n  alpha **one**\n\n  beta `two`\n",
+};
 const text =
-  params.get("document") === "dense"
-    ? denseText
-    : params.get("document") === "raw"
-      ? "# Heading\n\n  alpha **one**\n\n  beta `two`\n"
-      : "# Heading\n\nSelected prose.\n\n| Left | Right |\n| --- | --- |\n| Table cell | value |\n\n```ts\nconst answer = 42;\n```\n";
+  documents[params.get("document") ?? ""] ??
+  "# Heading\n\nSelected prose.\n\n| Left | Right |\n| --- | --- |\n| Table cell | value |\n\n```ts\nconst answer = 42;\n```\n";
 const app = await loadPluginApp(pluginApp);
 let reads = 0;
 const panel = document.getElementById("root")!;
@@ -70,12 +75,16 @@ slot.container.style.height = "100%";
 panel.append(slot.container);
 Object.assign(window, {
   selectionFixture: slot,
-  revealSelectionLines: (startLineNumber: number, endLineNumber: number) => {
+  revealSelectionLines: (startLineNumber: number | null, endLineNumber: number | null) => {
     const Opener = app.fileOpeners[0]!.component;
     slot.lifecycle.rerender(
       <Opener
         {...target}
-        experimental_lineRange={{ startLineNumber, endLineNumber }}
+        experimental_lineRange={
+          startLineNumber === null || endLineNumber === null
+            ? null
+            : { startLineNumber, endLineNumber }
+        }
         Original={() => <p>Original fixture</p>}
       />,
     );
