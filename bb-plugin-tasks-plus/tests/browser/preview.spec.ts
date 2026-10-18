@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { origin } from "./fixture-origin";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 const filename = "investigation-with-a-long-filename-and-important-observations.MARKDOWN";
 const source =
@@ -14,7 +15,7 @@ for (const width of [1280, 390]) {
     const external: string[] = [];
     await context.route("**/*", (route) => {
       const url = new URL(route.request().url());
-      if (url.origin !== "http://127.0.0.1:4193") {
+      if (url.origin !== origin) {
         external.push(url.href);
         return route.abort();
       }
@@ -207,7 +208,7 @@ for (const width of [1280, 390]) {
     await link.click();
     const download = await downloadEvent;
     expect(download.url()).toBe(
-      "http://127.0.0.1:4193/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=fixture-a",
+      `${origin}/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=fixture-a`,
     );
     expect(download.suggestedFilename()).toBe(filename);
     expect(await download.failure()).toBeNull();

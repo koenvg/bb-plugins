@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { origin } from "./fixture-origin";
 import { writeFile } from "node:fs/promises";
 import { readingReport } from "../preview-document";
 import { reportMeasures, sentinelMeasures } from "./report-measures";
@@ -19,7 +20,7 @@ for (const scenario of [
     const external: string[] = [];
     page.on("pageerror", (error) => errors.push(String(error)));
     await context.route("**/*", (route) => {
-      if (new URL(route.request().url()).origin !== "http://127.0.0.1:4193") {
+      if (new URL(route.request().url()).origin !== origin) {
         external.push(route.request().url());
         return route.abort();
       }

@@ -31,6 +31,13 @@ const previews = [
     path: "/",
     marker: "/tests/preview.tsx",
   },
+  {
+    name: "tasks-plus",
+    entry: "tests/preview-server.ts",
+    key: "BB_FIXTURE_PORT",
+    path: "/tests/preview.html",
+    marker: "./preview.tsx",
+  },
 ];
 function start(preview, parent, port, args = [], preload) {
   const env = { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent };
@@ -78,7 +85,17 @@ function start(preview, parent, port, args = [], preload) {
     async stop() {
       if (child.exitCode === null && child.signalCode === null) {
         child.kill("SIGTERM");
-        await exited;
+        let timedOut = false;
+        const watchdog = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGKILL");
+        }, 5000);
+        try {
+          await exited;
+          assert.equal(timedOut, false, output);
+        } finally {
+          clearTimeout(watchdog);
+        }
       }
     },
   };
@@ -168,7 +185,7 @@ for (const preview of previews) {
       }
       assert.equal(
         (await fetch(origin + "/../package.json")).status,
-        preview.name === "markdown-reader" ? 200 : 404,
+        ["markdown-reader", "tasks-plus"].includes(preview.name) ? 200 : 404,
       );
       const conflict =
         preview.name === "markdown-reader"
@@ -182,6 +199,9 @@ for (const preview of previews) {
       owners.push(invalid);
       assert.notEqual((await invalid.exited)[0], 0);
       assert.match(invalid.output(), /Invalid .*port|Invalid .*PORT/);
+      await first.stop();
+      await assert.rejects(fetch(origin + preview.path));
+      assert.equal((await fetch(secondOrigin + preview.path)).status, 200);
       await Promise.all(owners.map((owner) => owner.stop()));
       assert.deepEqual(await readdir(parent), ["historical.png"]);
       assert.equal(await readFile(join(parent, "historical.png"), "utf8"), "keep");
@@ -221,14 +241,66 @@ for (const preview of previews) {
   }
 }
 
-for (const crawlEnded of [false, true]) {
-  test(`markdown-reader drains writers (crawl ended ${crawlEnded})`, async () => {
+for (const mode of ["failure", "cancellation"]) {
+  test(`tasks-plus runner ${mode} removes only its listener and cache`, async () => {
+    const parent = await mkdtemp(join(tmpdir(), "tasks-runner-contract-"));
+    const preview = previews.find((preview) => preview.name === "tasks-plus");
+    const peer = start(preview, parent);
+    let owner;
+    try {
+      const heldConfig = join(parent, "held-playwright.config.mjs");
+      await writeFile(
+        heldConfig,
+        'console.log("TASKS_PLAYWRIGHT_HELD"); await new Promise(() => setInterval(() => {}, 1000)); export default {};',
+      );
+      const peerOrigin = await peer.ready();
+      const before = await readdir(parent);
+      owner = start(
+        { ...preview, entry: "../scripts/browser-fixture-runner.mjs" },
+        parent,
+        undefined,
+        [
+          preview.entry,
+          "30000",
+          ...(mode === "failure"
+            ? ["--unknown-fixture-option"]
+            : ["--list", "--config", heldConfig]),
+        ],
+      );
+      const origin = await owner.ready();
+      assert.notEqual(origin, peerOrigin);
+      if (mode === "cancellation") {
+        const deadline = Date.now() + 10000;
+        while (!owner.output().includes("TASKS_PLAYWRIGHT_HELD") && Date.now() < deadline)
+          await delay(20);
+        assert.ok(owner.output().includes("TASKS_PLAYWRIGHT_HELD"), owner.output());
+        owner.child.kill("SIGTERM");
+      }
+      assert.equal((await owner.exited)[0], mode === "cancellation" ? 143 : 1, owner.output());
+      await assert.rejects(fetch(origin + preview.path));
+      assert.equal((await fetch(peerOrigin + preview.path)).status, 200);
+      assert.deepEqual(await readdir(parent), before);
+    } finally {
+      await owner?.stop();
+      await peer.stop();
+      await rm(parent, { recursive: true, force: true });
+    }
+  }, 30000);
+}
+
+for (const [previewName, crawlEnded] of [
+  ["markdown-reader", false],
+  ["markdown-reader", true],
+  ["tasks-plus", false],
+  ["tasks-plus", true],
+]) {
+  test(`${previewName} drains writers (crawl ended ${crawlEnded})`, async () => {
     const parent = await mkdtemp(join(tmpdir(), "preview-optimizer-contract-"));
-    const preview = previews.find((preview) => preview.name === "markdown-reader");
+    const preview = previews.find((preview) => preview.name === previewName);
     const preload = fileURLToPath(
       new URL("./fixtures/markdown-optimizer-preload.mjs", import.meta.url),
     );
-    const dist = join(repository, "bb-plugin-markdown-reader/dist");
+    const dist = join(repository, `bb-plugin-${previewName}/dist`);
     const readDist = () =>
       readdir(dist).catch((error) => {
         if (error.code === "ENOENT") return null;
@@ -283,6 +355,11 @@ for (const crawlEnded of [false, true]) {
         command("crawl");
         await wait("crawl-ended");
       }
+      if (previewName === "tasks-plus") {
+        const html = await fetch(origin + "/tests/preview.html");
+        assert.equal(html.status, 200);
+        await html.text();
+      }
       owner.child.kill("SIGTERM");
       await wait("shutdown-scan-read");
       command("scan");
@@ -297,7 +374,7 @@ for (const crawlEnded of [false, true]) {
       assert.equal(process.kill(other.child.pid, 0), true);
       const response = await fetch(otherOrigin + "/package.json");
       assert.equal(response.status, 200);
-      assert.equal((await response.json()).name, "bb-plugin-markdown-reader");
+      assert.equal((await response.json()).name, `bb-plugin-${previewName}`);
       assert.deepEqual(
         (await readdir(parent)).sort(),
         ["historical.png", basename(otherCache)].sort(),
@@ -421,3 +498,65 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
     }
   }, 20000);
 }
+
+test("tasks-plus drains a pending transform before closing its watcher", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "tasks-transform-contract-"));
+  const moduleDirectory = await mkdtemp(join(repository, "packages/tasks-watch-contract-"));
+  await writeFile(
+    join(moduleDirectory, "tsconfig.json"),
+    '{"compilerOptions":{"target":"ES2022"}}',
+  );
+  await writeFile(
+    join(moduleDirectory, "entry.ts"),
+    'export const marker: string = "owned transform";',
+  );
+  const loader = join(repository, "bb-plugin-tasks-plus/tests", basename(moduleDirectory) + ".ts");
+  await writeFile(
+    loader,
+    "export { marker } from " + JSON.stringify(join(moduleDirectory, "entry.ts")) + ";",
+  );
+  const preview = previews.find((preview) => preview.name === "tasks-plus");
+  const preload = fileURLToPath(new URL("./fixtures/tasks-transform-preload.mjs", import.meta.url));
+  const owner = start(preview, parent, "0", [], preload);
+  const watchdog = setTimeout(() => owner.child.kill("SIGKILL"), 15000);
+  let request;
+  const wait = async (event) => {
+    const marker = JSON.stringify({ event });
+    const deadline = Date.now() + 10000;
+    while (!owner.output().includes(marker) && Date.now() < deadline) await delay(10);
+    assert.ok(owner.output().includes(marker), owner.output());
+  };
+  try {
+    const origin = await owner.ready();
+    await wait("optimizer-ready");
+    request = fetch(origin + "/tests/" + basename(loader)).catch(() => null);
+    await wait("tsconfig-held");
+    owner.child.kill("SIGTERM");
+    await wait("environment-close-started");
+    owner.child.stdin.end("release\n");
+    assert.deepEqual(await owner.exited, [0, null], owner.output());
+    const events = owner
+      .output()
+      .split("\n")
+      .filter((line) => line.startsWith("TRANSFORM "))
+      .map((line) => JSON.parse(line.slice("TRANSFORM ".length)).event);
+    console.log("Transform shutdown trace: " + events.join(", "));
+    assert.equal(events.includes("late-watch-add"), false, owner.output());
+    const environmentFinished = events.indexOf("environment-close-finished");
+    assert.ok(
+      environmentFinished >= 0 && environmentFinished < events.indexOf("watcher-close-started"),
+      owner.output(),
+    );
+    assert.deepEqual(await readdir(parent), []);
+    await assert.rejects(fetch(origin + preview.path));
+  } finally {
+    clearTimeout(watchdog);
+    if (owner.child.exitCode === null && owner.child.signalCode === null)
+      owner.child.stdin.end("release\n");
+    await owner.stop();
+    await request;
+    await rm(parent, { recursive: true, force: true });
+    await rm(loader, { force: true });
+    await rm(moduleDirectory, { recursive: true, force: true });
+  }
+}, 25000);

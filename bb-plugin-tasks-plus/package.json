@@ -38,8 +38,8 @@
     "format": "bun run --cwd .. format bb-plugin-tasks-plus",
     "format:check": "bun run --cwd .. format:check bb-plugin-tasks-plus",
     "build": "bb plugin build",
-    "preview:fixture": "bun --bun vite --host 127.0.0.1",
-    "test:browser": "bun --bun playwright test",
+    "preview:fixture": "bun tests/preview-server.ts",
+    "test:browser": "bun ../scripts/browser-fixture-runner.mjs tests/preview-server.ts 30000",
     "typecheck": "bun ./node_modules/typescript-7/bin/tsc --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },

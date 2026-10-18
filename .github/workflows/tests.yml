@@ -247,10 +247,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check Tasks fixture ownership and shutdown
+        if: matrix.plugin == 'bb-plugin-tasks-plus'
+        working-directory: .
+        env:
+          BBP53_CAPTURE_PHASE: none
+        run: bun test scripts/browser-fixture-runner.test.mjs scripts/browser-preview-servers.test.mjs --test-name-pattern 'tasks-plus|runner|config accepts|package command'
+
       - name: Install Chromium and system dependencies
         run: bun --bun run playwright install --with-deps chromium
 
       - name: Run browser tests
+        env:
+          BBP53_CAPTURE_PHASE: none
         run: bun run test:browser
 
       - name: Save browser reports and failure evidence

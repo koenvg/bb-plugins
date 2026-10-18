@@ -45,7 +45,21 @@ const plugins = [
     tests: "tests/browser",
     path: "/",
   },
-];
+  {
+    name: "tasks-plus",
+    entry: "tests/preview-server.ts",
+    deadline: "30000",
+    html: "tests/preview.html",
+    tests: "tests/browser",
+    path: "/tests/preview.html",
+  },
+].filter((plugin) => !process.argv[3] || plugin.name === process.argv[3]);
+if (!plugins.length) throw new Error("Unknown browser fixture package");
+const dependencies = new Set(plugins.map((plugin) => `bb-plugin-${plugin.name}`));
+if (plugins.some((plugin) => plugin.name === "tasks-plus")) {
+  dependencies.add("packages/markdown-document");
+  dependencies.add("bb-plugin-codex-quota");
+}
 const git = (args) => execFileSync("git", args, { cwd: repository, encoding: "utf8" });
 try {
   cancellation.signal.throwIfAborted();
@@ -53,7 +67,7 @@ try {
     ...git(["diff", "--name-only", "HEAD"]).trim().split("\n"),
     ...git(["ls-files", "--others", "--exclude-standard"]).trim().split("\n"),
   ].filter((path) =>
-    /^(scripts\/browser-|scripts\/verify-concurrent-browser-worktrees\.mjs$|bb-plugin-(codex-quota|compose-chat|markdown-reader)\/)/.test(
+    /^(scripts\/browser-|scripts\/verify-concurrent-browser-worktrees\.mjs$|bb-plugin-(codex-quota|compose-chat|markdown-reader|tasks-plus)\/)/.test(
       path,
     ),
   );
@@ -64,10 +78,10 @@ try {
     worktrees.push(tree);
     for (const path of changed)
       await cp(join(repository, path), join(tree, path), { recursive: true });
-    for (const plugin of plugins)
+    for (const dependency of dependencies)
       await symlink(
-        join(repository, `bb-plugin-${plugin.name}/node_modules`),
-        join(tree, `bb-plugin-${plugin.name}/node_modules`),
+        join(repository, dependency, "node_modules"),
+        join(tree, dependency, "node_modules"),
         "dir",
       );
   }
@@ -154,7 +168,9 @@ test('own changed checkout on simultaneous browser runs',async({page,context,bas
       runs.map(async (run) => {
         const [code, signal] = await run.exited;
         await writeFile(join(run.output, "run.log"), run.log());
-        for (const path of ["test-results", "playwright-report"])
+        for (const path of plugin.name === "tasks-plus"
+          ? ["test-results"]
+          : ["test-results", "playwright-report"])
           await cp(join(run.checkout, path), join(run.output, path), { recursive: true });
         assert.equal(code, 0, `${plugin.name}: ${signal}\n${run.log()}`);
         const facts = JSON.parse(await readFile(run.facts, "utf8"));

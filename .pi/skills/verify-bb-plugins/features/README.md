@@ -28,7 +28,7 @@ Set `PLUGIN` to the package suffix below; the installed plugin ID matches unless
 | [mcp](mcp.md) | Controlled transport/token/SDK tests, provider discovery and explicit selection through the production adapter | Authenticated MCP tools and bb mcp status; existing issuer/tunnel/client consent |
 | [pi-subagents-provider](pi-subagents-provider.md) | Public bridge/scripted Pi regression tests | Plugin pi-subagents-provider, provider pi-subagents, Subagents panel and approved lifecycle |
 | [pr-thread-list](pr-thread-list.md) | SDK/UI tests; no standalone browser suite | Appearance Sidebar, tabs, rows and badge; GitHub Insight dependency |
-| [tasks-plus](tasks-plus.md) | Fixed-port Playwright overlay/navigation/image fixtures plus SDK tests and owned loopback webhook receivers | Tasks panel, details, CLI, webhooks and workers; SQLite, built local Markdown package, Quota dependencies, pinned TypeScript 7, migration/competing-plugin safeguards |
+| [tasks-plus](tasks-plus.md) | Owned ephemeral-port Playwright overlay/navigation/image fixtures plus SDK tests and owned loopback webhook receivers | Tasks panel, details, CLI, webhooks and workers; SQLite, built local Markdown package, Quota dependencies, pinned TypeScript 7, migration/competing-plugin safeguards |
 
 The index deliberately records missing harnesses. Do not invent a preview URL or a browser launch command for a package that has none. Follow its real installed entry instead and report blocked prerequisites.
 
@@ -51,7 +51,7 @@ The root fixture proves only component handling, not native BB routing or the li
 - Capture actions and resulting state, plus a second read of any side effect. Preserve failures and retry semantics. A read-only proof observes no sends/writes, rather than trusting a label.
 - Classify every requested entry as passed, failed, blocked or not run. Keep fixture, build/activation, installed behavior and cleanup results separate. No local run implicitly verifies all 13 installed plugins.
 
-For direct existing Markdown Reader suite commands in the subfeature maps, set a new `SUITE_EVIDENCE` and export `PLAYWRIGHT_HTML_OUTPUT_DIR="$SUITE_EVIDENCE/html"` and `PLAYWRIGHT_JSON_OUTPUT_FILE="$SUITE_EVIDENCE/results.json"` before invocation. The shared `scripts/browser.sh` sets these automatically and forces ephemeral ports for its three supported packages. Tasks Plus's 4193 and Code Cleanup's chosen port are serialized and never reused.
+For direct existing Markdown Reader suite commands in the subfeature maps, set a new `SUITE_EVIDENCE` and export `PLAYWRIGHT_HTML_OUTPUT_DIR="$SUITE_EVIDENCE/html"` and `PLAYWRIGHT_JSON_OUTPUT_FILE="$SUITE_EVIDENCE/results.json"` before invocation. The shared `scripts/browser.sh` sets these automatically and forces ephemeral ports for its three supported packages. Tasks Plus uses its package runner with a separate ephemeral origin and private-capture config. Code Cleanup's chosen port must be free. Neither reuses a listener.
 
 ## Maintenance
 

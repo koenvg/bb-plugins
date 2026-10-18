@@ -15,7 +15,7 @@ export default defineConfig({
           if (url.pathname.startsWith("/tests/assets/")) {
             if (url.pathname.endsWith("redirect.png")) {
               response.writeHead(302, {
-                Location: "http://127.0.0.1:4193/api/redirect-private-image",
+                Location: `http://127.0.0.1:${request.socket.localPort}/api/redirect-private-image`,
                 "Access-Control-Allow-Origin": "*",
               });
               response.end();

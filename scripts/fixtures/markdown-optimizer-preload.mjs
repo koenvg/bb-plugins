@@ -3,9 +3,7 @@ import { createRequire } from "node:module";
 import { createInterface } from "node:readline";
 import { mock } from "bun:test";
 
-const require = createRequire(
-  new URL("../../bb-plugin-markdown-reader/package.json", import.meta.url),
-);
+const require = createRequire(`${process.cwd()}/package.json`);
 const esbuild = require("esbuild");
 const vitePath = require.resolve("vite");
 const gates = {
@@ -134,7 +132,7 @@ mock.module(vitePath, () => ({
 
 const originalRm = fsp.rm;
 const observedRm = async (path, options) => {
-  const owned = /\/markdown-reader-preview-[^/]+$/.test(String(path));
+  const owned = /\/(?:markdown-reader|tasks)-preview-[^/]+$/.test(String(path));
   if (owned) report("cache-removing");
   await originalRm(path, options);
   if (owned) report("cache-removed");

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { remoteOrigin } from "./fixture-origin";
 
 for (const width of [1280, 390]) {
   test(`enlarged image stays inside attachment focus session at ${width}px`, async ({
@@ -6,7 +7,7 @@ for (const width of [1280, 390]) {
   }, info) => {
     const imageRequests: string[] = [];
     page.on("request", (request) => {
-      if (request.url() === "http://localhost:4193/tests/assets/image.png")
+      if (request.url() === `${remoteOrigin}/tests/assets/image.png`)
         imageRequests.push(request.url());
     });
     await page.setViewportSize({ width, height: 900 });
@@ -64,7 +65,7 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("Escape");
     await expect(outer).toHaveCount(0);
     await expect(attachment).toBeFocused();
-    expect(imageRequests).toEqual(["http://localhost:4193/tests/assets/image.png"]);
+    expect(imageRequests).toEqual([`${remoteOrigin}/tests/assets/image.png`]);
     await attachment.click();
     await expect(trigger).toBeEnabled();
     await trigger.click();
@@ -102,11 +103,11 @@ for (const width of [1280, 390]) {
         sameSite: "None",
       },
     ]);
-    expect((await context.cookies("http://localhost:4193")).map((cookie) => cookie.name)).toEqual([
+    expect((await context.cookies(remoteOrigin)).map((cookie) => cookie.name)).toEqual([
       "fixture-auth",
     ]);
     const controlPage = await context.newPage();
-    const controlUrl = "http://localhost:4193/tests/assets/cookie-control.png";
+    const controlUrl = `${remoteOrigin}/tests/assets/cookie-control.png`;
     const controlRequest = controlPage.waitForRequest(controlUrl);
     await controlPage.goto(controlUrl);
     const controlHeaders = await (await controlRequest).allHeaders();
@@ -255,7 +256,7 @@ for (const activation of ["modifier", "middle"])
     page,
     context,
   }) => {
-    const destination = "http://localhost:4193/tests/native-destination.html";
+    const destination = `${remoteOrigin}/tests/native-destination.html`;
     await page.goto("/tests/preview.html?state=navigation");
     await page.getByRole("button", { name: filename, exact: true }).click();
     await page.evaluate(() => {
