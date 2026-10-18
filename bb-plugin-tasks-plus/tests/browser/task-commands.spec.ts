@@ -45,7 +45,8 @@ for (const width of [1200, 650]) {
     await palette(page, "Set due date");
     await expect(input).toBeFocused();
     await expect(input).toHaveValue("2026-07-16");
-    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Alt+ArrowDown");
+    await page.keyboard.press("ArrowRight");
     await expect(updates).toHaveText(
       JSON.stringify([
         { taskId: "task-1", dueDate: "2026-07-16" },

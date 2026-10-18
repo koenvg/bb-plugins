@@ -84,3 +84,7 @@ No merge, deployment, settings change, credential or secret access, or productio
 ## Fixture screenshots
 
 [Wide picker](wide-due-date.png) and [narrow picker](narrow-due-date.png) show initial keyboard focus before any date choice.
+
+## CI follow-up
+
+PR 317 exposed a native date-segment assumption on Linux after this initial macOS verification. The [CI correction and Linux reproduction](ci-follow-up.md) preserve every assertion and expected date while using explicit native-calendar keyboard navigation. That follow-up supersedes the ArrowUp-specific test procedure above. Installed acceptance remains blocked.
