@@ -1,0 +1,17 @@
+{"time":1792344618310,"event":"watcher-ready"}
+{"time":1792344618312,"event":"server-created"}
+{"time":1792344618313,"event":"ready","origin":"http://127.0.0.1:54854"}
+{"time":1792344618392,"event":"module-created"}
+{"time":1792344618394,"event":"transform","id":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts","code":"export const marker = \"before\";\nif (import.meta.hot) import.meta.hot.accept();\n"}
+{"time":1792344618394,"event":"module-fetched"}
+{"time":1792344618396,"event":"ws-message","value":{"type":"connected"}}
+{"time":1792344618396,"event":"writing"}
+{"time":1792344618396,"event":"written"}
+{"time":1792344618415,"event":"watch","kind":"addDir","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi"}
+{"time":1792344618415,"event":"raw","kind":"created","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi"}
+{"time":1792344618415,"event":"watch","kind":"add","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts"}
+{"time":1792344618415,"event":"raw","kind":"created","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts"}
+{"time":1792344618416,"event":"hot-update","type":"create","environment":"client","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts","modules":[{"url":"/tests/browser-hmr-contract-nHijFi/live.ts","accepted":true},{"url":"/@fs/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/packages/markdown-document/src/model.tsx","accepted":false},{"url":"/@fs/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/packages/markdown-document/src/code.ts","accepted":false}]}
+{"time":1792344618416,"event":"hot-update","type":"create","environment":"ssr","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts","modules":[]}
+{"time":1792344618416,"event":"hot-send","args":[{"type":"full-reload","triggeredBy":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts","path":"*"}]}
+{"time":1792344618416,"event":"ws-message","value":{"type":"full-reload","triggeredBy":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-nHijFi/live.ts","path":"*"}}

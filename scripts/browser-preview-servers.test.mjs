@@ -112,6 +112,15 @@ for (const preview of previews) {
       throw error;
     });
     try {
+      if (preview.name === "markdown-reader") {
+        moduleDirectory = await mkdtemp(
+          join(repository, "bb-plugin-markdown-reader/tests/browser-hmr-contract-"),
+        );
+        await writeFile(
+          join(moduleDirectory, "live.ts"),
+          'export const marker = "before"; if (import.meta.hot) import.meta.hot.accept();',
+        );
+      }
       const first = start(preview, parent);
       owners.push(first);
       const origin = await first.ready();
@@ -139,16 +148,11 @@ for (const preview of previews) {
       }
       if (preview.name === "markdown-reader") {
         assert.equal((await fetch(origin + "/tests/preview.tsx")).status, 200);
-        moduleDirectory = await mkdtemp(
-          join(repository, "bb-plugin-markdown-reader/tests/browser-hmr-contract-"),
-        );
         const modulePath = `/tests/${moduleDirectory.split("/").at(-1)}/live.ts`;
         const moduleFile = join(moduleDirectory, "live.ts");
-        await writeFile(
-          moduleFile,
-          'export const marker = "before"; if (import.meta.hot) import.meta.hot.accept();',
-        );
-        assert.equal((await fetch(origin + modulePath)).status, 200);
+        const initialModule = await fetch(origin + modulePath);
+        assert.equal(initialModule.status, 200);
+        assert.ok((await initialModule.text()).includes('marker = "before"'));
         const ws = new WebSocket(origin.replace("http:", "ws:") + "/", "vite-hmr");
         const message = (type) =>
           new Promise((resolve, reject) => {
@@ -179,6 +183,11 @@ for (const preview of previews) {
           assert.equal(receipt.type, "update");
           assert.equal(receipt.updates[0].path, modulePath);
           assert.equal(receipt.updates[0].acceptedPath, modulePath);
+          const updatedModule = await fetch(
+            origin + modulePath + `?t=${receipt.updates[0].timestamp}`,
+          );
+          assert.equal(updatedModule.status, 200);
+          assert.ok((await updatedModule.text()).includes('marker = "after"'));
         } finally {
           ws.close();
         }
