@@ -67,8 +67,20 @@ try {
         )
       : Promise.resolve();
     http.closeAllConnections();
-    await vite?.close();
-    await closed;
+    try {
+      // Vite can start a writer after close snapshots its optimizer cancellation targets.
+      const optimizer = vite?.environments.client.depsOptimizer;
+      await Promise.allSettled([optimizer?.scanProcessing]);
+      await Promise.allSettled(
+        Object.values(optimizer?.metadata.discovered ?? {}).map((info) => info.processing),
+      );
+    } finally {
+      try {
+        await vite?.close();
+      } finally {
+        await closed;
+      }
+    }
   } finally {
     if (cache) await rm(cache, { recursive: true, force: true });
     process.off("SIGINT", cancel);
