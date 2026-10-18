@@ -6,14 +6,14 @@ See proposal.md for motivation and specs/task-detail-commands/spec.md for the be
 
 Observed in this checkout:
 
-- `app.tsx` registers `TASKS_COMMANDS`. `shell/commands.ts` contains five global Tasks commands with no default bindings.
-- `shell/command-bridge.ts` bridges static SDK callbacks to mounted navigators and queues only New task or Help intents. Its navigator availability does not identify an open task.
-- The SDK's command callbacks receive thread/project context, not a task key or Tasks route. `isAvailable` is synchronous and is checked for listing and keyboard invocation. Commands appear in Settings > Keyboard even without defaults. Package SDK 0.5.9 already supports these contracts.
+- `app.tsx` registers `TASKS_COMMANDS`. `shell/commands.ts` contains six global Tasks commands with no default bindings.
+- `shell/command-bridge.ts` bridges static SDK callbacks to mounted navigators and queues only New task, Help or Switch project intents. Its navigator availability does not identify an open task.
+- The SDK's command callbacks receive thread/project context, not a task key or Tasks route. `isAvailable` is synchronous and is checked for listing and keyboard invocation. Commands appear in Settings > Keyboard even without defaults. Package SDK 0.6.49 already supports these contracts.
 - `ShortcutProvider` and `useShortcuts` register live handler maps. Shell, pager and task detail own different actions. The single-key guards deliberately ignore typing and open overlays.
 - `TaskDetail` owns controlled status, priority, labels and dispatch menu state and uses `shownPropertiesLayout` to select the rendered layout. Inline properties and the rail both remain mounted; CSS hides one.
 - `DueDateMenu` and `DispatchTargetMenu` own local open state. The linked-project control exists only in the rail and calls `updateProject` with `linkedBbProjectId`.
 - `DispatchControl` owns its busy state and disables its menu when dispatching or no current preset exists. Selecting a preset invokes the existing delegation path. The parent currently checks only whether presets exist for the `d` shortcut.
-- `TaskPager` owns the sibling query and ordering, even when CSS hides its buttons. The shell owns Back and its All fallback. Task detail owns the Tiptap comment-editor ref.
+- `TaskPager` owns the sibling query and ordering, even when CSS hides its buttons. The shell owns Back and its All fallback.
 - Existing SDK-rendered tests in `shell/commands.test.tsx`, `views/detail/keyboard.test.tsx` and `views/detail/rail.test.tsx` cover the nearby contracts. No code or configuration changes are part of this planning change.
 
 ## Goals / Non-Goals
@@ -29,7 +29,7 @@ Observed in this checkout:
 - Turning the shortcut dispatcher into a generic command framework or changing the existing panel-intent queue.
 - Using DOM clicks, synthetic keyboard events or task lookup RPCs to execute commands.
 - Inferring a task from a BB thread/project, persisting a selected task, or adding SDK capabilities.
-- Broad accessibility or layout changes unrelated to these ten actions.
+- Broad accessibility or layout changes unrelated to these nine actions.
 
 ## Decisions
 
@@ -45,12 +45,13 @@ Add a typed table alongside the existing command definitions and append its regi
 | `task-edit-labels`              | Tasks: Edit labels              |
 | `task-change-linked-bb-project` | Tasks: Change linked BB project |
 | `task-dispatch`                 | Tasks: Dispatch task...         |
-| `task-write-comment`            | Tasks: Write a comment          |
 | `task-previous`                 | Tasks: Previous task            |
 | `task-next`                     | Tasks: Next task                |
 | `task-back`                     | Tasks: Back                     |
 
 No registration supplies `defaultShortcut`. Existing global command IDs are unchanged. The task-detail definitions map to semantic actions, not to keyboard events. Do not add bare-key shortcuts for due date or linked project in this change.
+
+Write a comment is excluded under the comment-free Tasks contract. BBP-44 registers these nine definitions but supplies handlers only for status, priority and labels. The remaining commands stay unavailable until their own deliveries.
 
 Alternative: expose every entry in `SHORTCUTS` automatically. Rejected because list/board keys are out of scope, two requested actions have no bare key, and command availability is different from key-event filtering.
 
@@ -72,12 +73,12 @@ Keep the existing action ownership:
 
 - Shell: Back using `backFromTask`.
 - `TaskPager`: Previous and Next using the existing computed keys; missing destinations register as unavailable. Do not introduce a second pager query or alter its current ordering/filter semantics.
-- `TaskDetail`: property menu openers and comment focus. Reuse the same callbacks in `useShortcuts` and task-command registration. The comment handler is available only when its editor is ready.
+- `TaskDetail`: property menu openers. Reuse the same callbacks in `useShortcuts` and task-command registration.
 - `DispatchControl`: expose actual menu readiness, including busy state, to the detail owner through a small readiness callback. Track the shown layout's readiness so the hidden duplicate control cannot make a busy visible control appear available. Both the command availability and invocation opener check this readiness.
 
 Keep registration/lifecycle mechanics inside the command module, not repeated across these callers. Do not move delegation or property persistence into the bridge.
 
-Alternative: centralize all handlers in `app-shell.tsx`. Rejected because it would require moving or duplicating detail/editor/dispatch state and the pager query solely for palette access.
+Alternative: centralize all handlers in `app-shell.tsx`. Rejected because it would require moving or duplicating detail/dispatch state and the pager query solely for palette access.
 
 ### 4. Make the missing pickers controlled and available in both layouts
 
@@ -95,15 +96,15 @@ Do not call `shouldIgnoreKey` for palette availability or command execution. It 
 
 Use the existing Radix controls for focus placement and Escape dismissal, but verify actual palette-close ordering. If BB invokes `run` before restoring palette focus, defer only the UI activation until that handoff completes. Any deferred activation must recheck the task session and action availability, and be cancelled when the target changes or unmounts. It must not create a persistent pending task intent.
 
-For popovers, set initial focus to the relevant interactive control and restore it to the visible trigger on close. For comments, focus the existing editor at the end of its draft after palette closure. Commands open controls only; saving a property, selecting a dispatch preset and submitting a comment remain the existing user actions.
+For popovers, set initial focus to the relevant interactive control and restore it to the visible trigger on close. Commands open controls only; saving a property, selecting a dispatch preset remain the existing user actions.
 
-Alternative: synthesize `s`, `p`, `d` or `m`. Rejected because the palette's dialog/focus triggers the bare-key guards, and the dispatcher's scope is wider than the task-command contract.
+Alternative: synthesize `s`, `p`, `d`. Rejected because the palette's dialog/focus triggers the bare-key guards, and the dispatcher's scope is wider than the task-command contract.
 
 ### 6. Verify through command execution and rendered controls
 
 Test static command registration and execution through the exported command registrations and SDK-rendered Tasks panel. Add small command-module lifecycle tests only where needed for hidden session and ambiguous session cases, rather than testing private registry storage.
 
-Extend existing tests for actual property selection, dispatch cancellation/selection/busy state, comment draft focus, pager ends, Back, and both layouts. Simulate visibility in jsdom explicitly because it does not calculate layout. Run a live BB keyboard-only check for palette focus restoration, personal bindings, hidden retained panels and the narrow layout; direct `run()` tests cannot prove host palette timing.
+Extend existing tests for actual property selection, dispatch cancellation/selection/busy state, pager ends, Back, and both layouts. Simulate visibility in jsdom explicitly because it does not calculate layout. Run a live BB keyboard-only check for palette focus restoration, personal bindings, hidden retained panels and the narrow layout; direct `run()` tests cannot prove host palette timing.
 
 ## Risks / Trade-offs
 
@@ -117,6 +118,6 @@ Extend existing tests for actual property selection, dispatch cancellation/selec
 
 ## Migration Plan
 
-This is a frontend-only additive change with no data migration. Build and reload the plugin after tests, typecheck and lint pass. Confirm the ten commands appear in Settings > Keyboard and the applicable palette rows appear only on an open task. Assign a temporary free binding for verification, then remove it.
+This is a frontend-only additive change with no data migration. Build and reload the plugin after tests, typecheck and lint pass. Confirm the nine commands appear in Settings > Keyboard and the applicable palette rows appear only on an open task. Assign a temporary free binding for verification, then remove it.
 
 Rollback reverts the frontend and documentation changes. Existing task data, project links and delegated threads remain unchanged. Stable command IDs must be retained in future releases so personal bindings continue to work.

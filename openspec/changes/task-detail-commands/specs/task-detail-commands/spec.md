@@ -8,7 +8,7 @@ Lets users run actions on the open task through BB's command palette and assign 
 
 ### Requirement: Task detail commands are discoverable and bindable
 
-The plugin SHALL register these commands with stable IDs and no default shortcut: Tasks: Change status, Tasks: Set priority, Tasks: Set due date, Tasks: Edit labels, Tasks: Change linked BB project, Tasks: Dispatch task..., Tasks: Write a comment, Tasks: Previous task, Tasks: Next task and Tasks: Back. They SHALL support BB's command palette and Settings > Keyboard bindings. Existing Tasks commands and single-letter shortcuts SHALL retain their behavior.
+The plugin SHALL register these commands with stable IDs and no default shortcut: Tasks: Change status, Tasks: Set priority, Tasks: Set due date, Tasks: Edit labels, Tasks: Change linked BB project, Tasks: Dispatch task..., Tasks: Previous task, Tasks: Next task and Tasks: Back. They SHALL support BB's command palette and Settings > Keyboard bindings. Existing Tasks commands and single-letter shortcuts SHALL retain their behavior.
 
 #### Scenario: Discover commands on an open task
 
@@ -126,15 +126,6 @@ Tasks: Dispatch task... SHALL open the existing dispatch preset menu for the ope
 
 - **WHEN** presets are loading, the task has no available preset or delegation is in progress
 - **THEN** the dispatch command is unavailable and invoking its saved binding does not queue another dispatch
-
-### Requirement: Comment command focuses the existing editor
-
-Tasks: Write a comment SHALL focus the open task's comment editor at the end of its current draft without changing the draft, posting a comment or changing agent-notification settings. It SHALL be unavailable while the comment editor is not ready. Focus SHALL remain in the editor after the command palette closes.
-
-#### Scenario: Continue a draft
-
-- **WHEN** the user has an unsent comment draft and runs Tasks: Write a comment
-- **THEN** focus moves to the end of the same draft and nothing is posted
 
 ### Requirement: Navigation commands follow the existing task pager and back action
 

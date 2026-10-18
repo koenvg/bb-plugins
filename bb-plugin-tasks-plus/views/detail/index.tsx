@@ -29,6 +29,10 @@ import {
   type TaskPropertyUpdate,
 } from "./rail.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
+import {
+  useTaskCommandActions,
+  useTaskCommandReadiness,
+} from "../../shell/task-detail-commands.js";
 import { DependencyBadges, useBlockedWorkConfirm } from "../dependencies.js";
 import { DependencySections } from "./dependencies.js";
 import { ThreadsSection } from "./threads.js";
@@ -313,13 +317,19 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     onOpenMenuChange: (menu: DetailMenu | null) =>
       setOpenMenu(menu === null ? null : { menu, layout }),
   });
-  const openFromShortcut = (menu: DetailMenu) => () =>
+  const openPropertyMenu = (menu: DetailMenu) => () =>
     setOpenMenu({ menu, layout: shownPropertiesLayout(detailRef.current) });
+  const propertyActions = {
+    status: openPropertyMenu("status"),
+    priority: openPropertyMenu("priority"),
+    labels: openPropertyMenu("labels"),
+  };
+  useTaskCommandActions(task.key, propertyActions);
   useShortcuts({
-    "detail.status": openFromShortcut("status"),
-    "detail.priority": openFromShortcut("priority"),
-    "detail.labels": openFromShortcut("labels"),
-    "detail.dispatch": presets.data?.length ? openFromShortcut("dispatch") : null,
+    "detail.status": propertyActions.status,
+    "detail.priority": propertyActions.priority,
+    "detail.labels": propertyActions.labels,
+    "detail.dispatch": presets.data?.length ? openPropertyMenu("dispatch") : null,
   });
 
   const updateTask = async (
@@ -591,6 +601,10 @@ function SessionDetailView({ taskKey, onMissing, reconcileRevision, onReady }: D
 }
 function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
   const query = useTaskPreview(taskKey);
+  useTaskCommandReadiness(
+    taskKey,
+    query.current && !query.isLoading && query.error === null && query.data?.key === taskKey,
+  );
 
   useEffect(() => {
     if (!query.isLoading && (query.data || query.error)) onReady?.(taskKey);

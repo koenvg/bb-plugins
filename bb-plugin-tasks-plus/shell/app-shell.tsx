@@ -26,6 +26,7 @@ import { ShortcutProvider, useShortcuts } from "./shortcut-provider.js";
 import { ShortcutHelpDialog } from "./shortcut-help-dialog.js";
 import { ProjectSwitcher } from "./project-switcher.js";
 import { useCommandNavigator, usePanelIntents, type PanelIntent } from "./command-bridge.js";
+import { TaskCommandProvider } from "./task-detail-commands.js";
 
 const BOARD_MIN_WIDTH = 448;
 
@@ -145,71 +146,73 @@ function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps
   });
 
   return (
-    <div className="relative flex h-full min-h-0 bg-background text-foreground">
-      <main
-        ref={mainRef}
-        tabIndex={-1}
-        aria-label="Tasks"
-        className="@container flex min-w-0 flex-1 flex-col"
-      >
-        <TasksTopbar
-          route={route}
-          projects={projects}
-          pagerScope={
-            lastBrowseRouteRef.current === null
-              ? null
-              : {
-                  projectId:
-                    lastBrowseRouteRef.current.kind === "project"
-                      ? lastBrowseRouteRef.current.projectId
-                      : null,
+    <TaskCommandProvider taskKey={route.kind === "task" ? route.taskKey : null} rootRef={mainRef}>
+      <div className="relative flex h-full min-h-0 bg-background text-foreground">
+        <main
+          ref={mainRef}
+          tabIndex={-1}
+          aria-label="Tasks"
+          className="@container flex min-w-0 flex-1 flex-col"
+        >
+          <TasksTopbar
+            route={route}
+            projects={projects}
+            pagerScope={
+              lastBrowseRouteRef.current === null
+                ? null
+                : {
+                    projectId:
+                      lastBrowseRouteRef.current.kind === "project"
+                        ? lastBrowseRouteRef.current.projectId
+                        : null,
+                  }
+            }
+            onNavigate={navigation.go}
+            onNewTask={() => setNewTaskOpen(true)}
+            onNewProject={() => setNewProjectOpen(true)}
+            onBack={backFromTask}
+          />
+          <div className="min-h-0 flex-1 overflow-auto">
+            {route.kind === "entry" ? (
+              <BrowseEntryState projects={projects} />
+            ) : noProjects &&
+              !hasBrowseSelection &&
+              route.kind !== "task" &&
+              route.kind !== "manage" ? (
+              <EmptyState
+                icon="ListTodo"
+                title="No projects yet"
+                description="Create a project to start tracking tasks and dispatching work to agents."
+                action={
+                  <Button size="sm" onClick={() => setNewProjectOpen(true)}>
+                    <Icon name="Plus" className="size-3.5" />
+                    New project
+                  </Button>
                 }
-          }
-          onNavigate={navigation.go}
-          onNewTask={() => setNewTaskOpen(true)}
-          onNewProject={() => setNewProjectOpen(true)}
-          onBack={backFromTask}
+              />
+            ) : (
+              <RouteOutlet route={route} boardUsable={boardUsable} noProjects={noProjects} />
+            )}
+          </div>
+        </main>
+        {newTaskOpen ? (
+          <NewTaskDialog open onOpenChange={setNewTaskOpen} projectId={newTaskProjectId} />
+        ) : null}
+        {newProjectOpen ? <NewProjectDialog open onOpenChange={setNewProjectOpen} /> : null}
+        <ProjectSwitcher
+          open={projectSwitcherOpen}
+          onOpenChange={setProjectSwitcherOpen}
+          inventory={projects}
+          currentProjectId={newTaskProjectId}
+          focusReturnRef={mainRef}
+          onSelect={(projectId) => {
+            navigation.go({ kind: "project", projectId, view: null });
+            setProjectSwitcherOpen(false);
+          }}
         />
-        <div className="min-h-0 flex-1 overflow-auto">
-          {route.kind === "entry" ? (
-            <BrowseEntryState projects={projects} />
-          ) : noProjects &&
-            !hasBrowseSelection &&
-            route.kind !== "task" &&
-            route.kind !== "manage" ? (
-            <EmptyState
-              icon="ListTodo"
-              title="No projects yet"
-              description="Create a project to start tracking tasks and dispatching work to agents."
-              action={
-                <Button size="sm" onClick={() => setNewProjectOpen(true)}>
-                  <Icon name="Plus" className="size-3.5" />
-                  New project
-                </Button>
-              }
-            />
-          ) : (
-            <RouteOutlet route={route} boardUsable={boardUsable} noProjects={noProjects} />
-          )}
-        </div>
-      </main>
-      {newTaskOpen ? (
-        <NewTaskDialog open onOpenChange={setNewTaskOpen} projectId={newTaskProjectId} />
-      ) : null}
-      {newProjectOpen ? <NewProjectDialog open onOpenChange={setNewProjectOpen} /> : null}
-      <ProjectSwitcher
-        open={projectSwitcherOpen}
-        onOpenChange={setProjectSwitcherOpen}
-        inventory={projects}
-        currentProjectId={newTaskProjectId}
-        focusReturnRef={mainRef}
-        onSelect={(projectId) => {
-          navigation.go({ kind: "project", projectId, view: null });
-          setProjectSwitcherOpen(false);
-        }}
-      />
-      <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
-    </div>
+        <ShortcutHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      </div>
+    </TaskCommandProvider>
   );
 }
 

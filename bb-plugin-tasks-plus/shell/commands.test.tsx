@@ -67,7 +67,12 @@ function run(id: string) {
 
 describe("tasks palette commands", () => {
   it("registers the six commands without default keys", () => {
-    expect(TASKS_COMMANDS.map((entry) => entry.title)).toEqual([
+    expect(
+      TASKS_COMMANDS.filter((entry) => !entry.id.startsWith("task-")).map((entry) => entry.id),
+    ).toEqual(["new-task", "go-all", "go-active", "go-manage", "show-shortcuts", "switch-project"]);
+    expect(
+      TASKS_COMMANDS.filter((entry) => !entry.id.startsWith("task-")).map((entry) => entry.title),
+    ).toEqual([
       "Tasks: New task",
       "Tasks: Go to All tasks",
       "Tasks: Go to Active tasks",

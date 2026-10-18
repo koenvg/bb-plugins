@@ -681,6 +681,21 @@ Manage**, **Tasks: Show keyboard shortcuts**, and **Tasks: Switch project**.
 They have no default keys;
 bind your own in bb.
 
+### Change the open task's properties
+
+Open a loaded task through its task route in the Tasks panel. Press Cmd+Shift+P,
+then choose **Tasks: Change status**, **Tasks: Set priority**, or **Tasks: Edit labels**.
+You can assign personal bindings in **Settings > Keyboard**. The plugin supplies no default bindings.
+
+Each command opens the existing picker for the visible layout and places keyboard focus inside it.
+Choose a value to save. Escape closes the picker without choosing a value and returns focus to its visible trigger.
+Entering In progress still requires the existing confirmation if the task is blocked.
+Commands do not target focused list rows, board cards, embedded views or hidden retained panels.
+Loading, missing and failed task lookups are unavailable.
+
+Nine detail commands are registered. Due date, linked BB project, dispatch, Previous, Next and Back
+remain unavailable until their follow-up deliveries. Write a comment is not registered because task comments were removed.
+
 ### Switch Tasks projects
 
 1. Open BB's command palette.

@@ -119,6 +119,7 @@ const DropdownMenuContent = React.forwardRef<
       <ResponsiveDrawerShell
         open={open}
         onOpenChange={onOpenChange}
+        onCloseAutoFocus={onCloseAutoFocus}
         srLabel={mobileTitle ?? "Menu"}
       >
         <div

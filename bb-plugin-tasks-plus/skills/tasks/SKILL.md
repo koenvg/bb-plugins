@@ -25,6 +25,7 @@ Keep task-to-thread links through all work changes. Detach only on explicit user
 
 Read only the reference for the requested operation:
 
+- Open-task property commands: [Keyboard commands](references/property-commands.md).
 - Creation, listing, dependencies or link repair: [Task records](references/task-records.md).
 - Dispatch or preset edits: [Delegation](references/delegation.md).
 - File operations: [Attachments](references/attachments.md).
