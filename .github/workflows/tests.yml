@@ -37,6 +37,7 @@ jobs:
           bun install --cwd bb-plugin-compose-chat --frozen-lockfile
           bun install --cwd bb-plugin-markdown-reader --frozen-lockfile
           bun install --cwd bb-plugin-codex-quota --frozen-lockfile
+          bun install --cwd bb-plugin-tasks-plus --frozen-lockfile
 
       - name: Check root tests, lint, and formatting
         run: bun run check
