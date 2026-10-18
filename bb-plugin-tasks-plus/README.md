@@ -686,7 +686,7 @@ bind your own in bb.
 ### Change the open task's properties
 
 Open a loaded task through its task route in the Tasks panel. Press Cmd+Shift+P,
-then choose **Tasks: Change status**, **Tasks: Set priority**, or **Tasks: Edit labels**.
+then choose **Tasks: Change status**, **Tasks: Set priority**, **Tasks: Set due date**, or **Tasks: Edit labels**.
 You can assign personal bindings in **Settings > Keyboard**. The plugin supplies no default bindings.
 
 Each command opens the existing picker for the visible layout and places keyboard focus inside it.
@@ -695,8 +695,12 @@ Entering In progress still requires the existing confirmation if the task is blo
 Commands do not target focused list rows, board cards, embedded views or hidden retained panels.
 Loading, missing and failed task lookups are unavailable.
 
-Nine detail commands are registered. Due date, linked BB project, dispatch, Previous, Next and Back
-remain unavailable until their follow-up deliveries. Write a comment is not registered because task comments were removed.
+**Tasks: Set due date** offers Today, Tomorrow, Next week, and a native custom date input.
+Choose a preset or select a non-empty custom date to save it. If a date is set, choose **Remove due date** to clear it.
+Opening the picker or pressing Escape without a choice does not change the task. There is no bare-key due-date shortcut.
+
+Nine detail commands are registered. Linked BB project, dispatch, Previous, Next and Back are currently unavailable.
+Write a comment is not registered because task comments were removed.
 
 ### Switch Tasks projects
 

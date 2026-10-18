@@ -323,6 +323,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     status: openPropertyMenu("status"),
     priority: openPropertyMenu("priority"),
     labels: openPropertyMenu("labels"),
+    dueDate: openPropertyMenu("dueDate"),
   };
   useTaskCommandActions(task.key, propertyActions);
   useShortcuts({
