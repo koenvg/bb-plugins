@@ -35,6 +35,7 @@ describe("task reporting skill", () => {
       "references/task-records.md",
       "references/delegation.md",
       "references/attachments.md",
+      "references/webhooks.md",
       "references/reporting.md",
     ]);
     for (const reference of references) {

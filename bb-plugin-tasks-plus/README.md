@@ -143,6 +143,73 @@ composer to send a task mention to an agent.
 
 Task descriptions hold requirements and current state. Linked work threads hold discussion, outcome reports and questions. There is no task Activity section or notification control.
 
+## Task-created webhooks
+
+`bb tasks webhook create --config-file <file>` registers a global endpoint. Add
+`--project PROD` to limit it to a tracker prefix or ID. Thread and BB project
+context never narrow the default. Global endpoints and matching tracker endpoints
+both receive each successful task creation from CLI, UI, RPC, and demo seeding.
+Updates and failed or rolled-back creations do not emit events.
+
+Create a private regular UTF-8 JSON file, preferably with mode `0600`:
+
+```json
+{
+  "url": "https://receiver.example/tasks",
+  "authorization": "Bearer replace-in-your-private-file"
+}
+```
+
+`authorization` is optional and is sent exactly as configured. Keep both URL
+query tokens and Authorization out of shell arguments and source control. Relative
+file paths use the invoking CLI's working directory. `--machine` selects the
+machine that owns the file, following the existing file-command convention.
+Stdin and process-device paths are not supported.
+
+```sh
+bb tasks webhook create --config-file "$HOME/task-webhook.json" --json
+bb tasks webhook create --config-file "$HOME/task-webhook.json" --project PROD --json
+bb tasks webhook list --json
+bb tasks webhook test wh_replace_with_listed_id --json
+bb tasks webhook delete wh_replace_with_listed_id --json
+```
+
+Management results contain only endpoint IDs, scopes, and `hasAuthorization`.
+Delivery results add controlled outcome codes, attempt counts, and HTTP status
+when available. They never contain URLs, credentials, receiver bodies, or raw
+errors. `test` sends a synthetic `WEBHOOK-0` event with `test: true` and title
+`Webhook test sample`. It creates no task. A completed test command exits zero;
+check `outcome.code` for `delivered` or a safe failure code.
+
+Creation POST bodies contain `event: "task.created"`, `key`, `project`, `title`,
+and `createdAt`. `project` is the tracker prefix at creation, not its ID.
+Receivers must tolerate retries of the same event. Redirects are never followed.
+HTTP and HTTPS are accepted, including loopback for testing. Use HTTPS for remote
+receivers, especially with Authorization. Endpoint management grants outbound
+access from the BB server, including its private network. Configure only trusted
+receivers.
+
+The plugin stores one versioned endpoint document in an SDK secret string setting,
+not SQLite. It serializes configuration mutations within one plugin load. There
+is no cross-process compare-and-swap guarantee. Invalid stored configuration
+blocks management and disables new deliveries without exposing its contents.
+Configuration changes affect newly admitted jobs, not jobs already queued.
+
+Limits are 32 endpoints, 64 KiB for the stored document, 8 KiB per input file,
+2,048 URL bytes, and 4,096 printable ASCII Authorization characters without edge
+whitespace. URLs cannot contain userinfo, fragments, whitespace, or controls.
+Unknown input fields are rejected.
+
+Delivery is best effort and never awaited by task creation. At most 128 jobs and
+512 KiB of payload plus endpoint bytes can be pending, including active jobs.
+Four requests run concurrently. Each attempt times out after two seconds. Network
+errors, timeouts, HTTP 408, 429, and 5xx retry twice after 100 and 300 milliseconds.
+Other HTTP failures do not retry. Every job expires eight seconds after admission,
+including queue time. Overflow drops the new delivery and logs a safe failure.
+Unload aborts requests, cancels timers, and drops jobs without draining. Restarts
+can lose jobs, and retries can duplicate delivery. There is no durable outbox or
+exactly-once guarantee.
+
 ## Read Markdown task attachments
 
 Activate a saved task file named `.md` or `.markdown` to open a read-only dialog over the same task. Extensions are case-insensitive, even with generic MIME metadata. Images still open the image preview, including misleading Markdown filenames. Other file cards still download.

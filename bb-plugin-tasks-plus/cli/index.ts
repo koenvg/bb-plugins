@@ -9,13 +9,16 @@ import { presetCommands } from "./presets";
 import { projectCommands } from "./projects";
 import { taskCommands } from "./tasks";
 import { workspaceCommands } from "./workspace";
+import type { Webhooks } from "../webhooks";
+import { webhookCommands } from "./webhooks";
 
 export function registerTasksCli(
   bb: BbPluginApi,
   store: TasksApiStore,
   status: PluginStatus,
+  webhooks?: Webhooks,
 ): void {
-  const domain = registerHandlers(bb, store);
+  const domain = registerHandlers(bb, store, webhooks);
   const workspace = workspaceCommands(domain, status);
   bb.cli.register(
     defineCli({
@@ -31,6 +34,7 @@ export function registerTasksCli(
         ...attachmentCommands(bb, store, domain),
         ...presetCommands(domain),
         ...delegationCommands(bb, store, domain),
+        ...(webhooks ? webhookCommands(bb, domain, webhooks) : {}),
         "seed-demo": workspace["seed-demo"],
       },
     }),

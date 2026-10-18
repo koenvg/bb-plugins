@@ -28,6 +28,7 @@ Read only the reference for the requested operation:
 - Creation, listing, dependencies or link repair: [Task records](references/task-records.md).
 - Dispatch or preset edits: [Delegation](references/delegation.md).
 - File operations: [Attachments](references/attachments.md).
+- Webhook configuration or sample delivery: [Task webhooks](references/webhooks.md).
 - Outcome reports: [Reporting](references/reporting.md).
 
 ## Chat links
