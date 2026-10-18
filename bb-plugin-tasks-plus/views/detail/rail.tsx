@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type {
   Label,
   Project,
@@ -27,6 +27,35 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { isLastInputKeyboard } from "@/components/ui/overlay-trigger";
+
+function usePropertyMenuFocus(open: boolean) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const focusFrame = useRef<number | null>(null);
+  const contentRef = useCallback(
+    (content: HTMLDivElement | null) => {
+      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
+      focusFrame.current = null;
+      if (content && open && isLastInputKeyboard()) {
+        focusFrame.current = requestAnimationFrame(() => {
+          focusFrame.current = null;
+          content.querySelector<HTMLElement>('input, [role="menuitem"]')?.focus();
+        });
+      }
+    },
+    [open],
+  );
+  const onOpenAutoFocus = (event: Event) => {
+    if (isLastInputKeyboard()) event.preventDefault();
+  };
+  const onCloseAutoFocus = (event: Event) => {
+    if (!isLastInputKeyboard()) return;
+    event.preventDefault();
+    const trigger = triggerRef.current;
+    if (trigger?.isConnected && trigger.getClientRects().length) trigger.focus();
+  };
+  return { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus };
+}
 
 export type DetailMenu = "status" | "priority" | "labels" | "dispatch";
 
@@ -83,15 +112,16 @@ function StatusMenu({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { triggerRef, contentRef, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger ref={triggerRef} asChild>
         <button type="button" className={triggerClassName}>
           <StatusIcon status={task.status} />
           {STATUS_LABELS[task.status]}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent ref={contentRef} onCloseAutoFocus={onCloseAutoFocus} align="start">
         {TASK_STATUSES.map((status) => (
           <DropdownMenuItem key={status} onSelect={() => onUpdate({ status })}>
             <StatusIcon status={status} />
@@ -117,15 +147,16 @@ function PriorityMenu({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { triggerRef, contentRef, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger ref={triggerRef} asChild>
         <button type="button" className={triggerClassName}>
           <PriorityIcon priority={task.priority} />
           {PRIORITY_LABELS[task.priority]}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent ref={contentRef} onCloseAutoFocus={onCloseAutoFocus} align="start">
         {TASK_PRIORITIES.map((priority) => (
           <DropdownMenuItem key={priority} onSelect={() => onUpdate({ priority })}>
             <PriorityIcon priority={priority} />
@@ -215,10 +246,19 @@ function LabelsMenu({
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="start">
+      <PopoverTrigger ref={triggerRef} asChild>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent
+        ref={contentRef}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="w-56 p-0"
+        align="start"
+      >
         <LabelsPicker task={task} labels={labels} onChange={(labelIds) => onUpdate({ labelIds })} />
       </PopoverContent>
     </Popover>

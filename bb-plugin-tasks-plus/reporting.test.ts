@@ -32,6 +32,7 @@ describe("task reporting skill", () => {
     expect(body).toMatch(/fetch relevant attachments before relying/i);
     const references = [...body.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1]);
     expect(references).toEqual([
+      "references/property-commands.md",
       "references/task-records.md",
       "references/delegation.md",
       "references/attachments.md",
