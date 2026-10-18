@@ -91,6 +91,14 @@ export function buildPiChildEnv(overrides: Record<string, string>): NodeJS.Proce
   };
 }
 
+const liveChildren = new Set<PiRpcChild>();
+
+export async function experimental_closeAllPiRpcChildrenForTests(): Promise<void> {
+  const children = [...liveChildren];
+  for (const child of children) child.kill();
+  await Promise.all(children.map((child) => child.waitForExit()));
+}
+
 export class PiRpcChild {
   readonly child: ChildProcess;
   private readonly pending = new Map<string, PendingRequest>();
@@ -115,6 +123,7 @@ export class PiRpcChild {
       env: args.env,
       stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
     });
+    liveChildren.add(this);
     experimental_recordProviderChildIo(this.child, {
       threadId: args.recordThreadId,
     });
@@ -164,6 +173,7 @@ export class PiRpcChild {
         stderrTail: this.stderrTail,
       };
       this.exitInfo = info;
+      liveChildren.delete(this);
       resolveSettledExit(info);
       for (const [, pending] of this.pending) {
         if (pending.timer !== null) clearTimeout(pending.timer);

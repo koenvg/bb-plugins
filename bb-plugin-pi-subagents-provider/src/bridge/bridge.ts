@@ -62,6 +62,7 @@ import {
   getPiCatalog,
   peekPiCatalog,
 } from "./catalog.js";
+import { experimental_closeAllPiRpcChildrenForTests } from "./rpc-child.js";
 import { PiRpcSession, type PiRpcSessionOptions, type ToolCallForwarder } from "./rpc-session.js";
 import { resolvePiBridgeSessionDir, resolvePiSessionFilePath } from "./session-paths.js";
 import { extractPiPromptInput, extractPrivateSpeedCommand } from "./turn-input.js";
@@ -1206,6 +1207,7 @@ export function experimental_scratchDirForTests(): string {
 export async function experimental_closeAllForTests(): Promise<void> {
   await closeThreadSessionsGracefully("Pi bridge test teardown");
   await closeAllPiCatalogs();
+  await experimental_closeAllPiRpcChildrenForTests();
   resetPiInstallGateForTests();
   if (scratchDir !== null && scratchDirIsPrivate) {
     rmSync(scratchDir, { recursive: true, force: true });

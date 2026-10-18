@@ -82,21 +82,26 @@ export async function startFakePiBridge(
     vi.stubEnv("FAKE_PI_PROCESS_LOG", processLogPath);
   }
   const harness = createBridgeJsonRpcTestHarness(handleLine);
+  const pendingRequests = new Set<Promise<BridgeJsonRpcOutputMessage>>();
   let nextHarnessRequestId = FIRST_HARNESS_REQUEST_ID;
   const bridge: FakePiBridgeHarness = {
     workspaceDir,
     sessionDir,
     messages: harness.messages,
     takeMessages: harness.takeMessages,
-    async request(id, method, params) {
-      harness.sendRequest(id, method, params);
-      const deadline = Date.now() + RESPONSE_DEADLINE_MS;
-      while (Date.now() < deadline) {
-        const response = harness.messages.find((message) => message.id === id);
-        if (response !== undefined) return response;
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-      throw new Error(`no response to ${method}`);
+    request(id, method, params) {
+      const pending = (async () => {
+        harness.sendRequest(id, method, params);
+        const deadline = Date.now() + RESPONSE_DEADLINE_MS;
+        while (Date.now() < deadline) {
+          const response = harness.messages.find((message) => message.id === id);
+          if (response !== undefined) return response;
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        throw new Error(`no response to ${method}`);
+      })();
+      pendingRequests.add(pending);
+      return pending.finally(() => pendingRequests.delete(pending));
     },
     startThread(threadId, extra = {}) {
       nextHarnessRequestId += 1;
@@ -160,6 +165,7 @@ export async function startFakePiBridge(
     },
     async teardown() {
       await experimental_closeAllForTests();
+      await Promise.allSettled(pendingRequests);
       harness.restore();
       vi.unstubAllEnvs();
       rmSync(workspaceDir, { recursive: true, force: true });
