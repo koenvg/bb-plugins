@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { LineRequest, SourceLines } from "./source-lines.js";
 
 export function RawDocument({
@@ -13,6 +13,13 @@ export function RawDocument({
   reveal: (target: HTMLElement) => void;
 }) {
   const raw = useRef<HTMLPreElement>(null);
+  const retainFocus = useCallback((element: HTMLSpanElement | null) => {
+    if (!element) return;
+    return () => {
+      if (element === element.ownerDocument.activeElement)
+        raw.current?.focus({ preventScroll: true });
+    };
+  }, []);
   const range = sourceLines.target(request);
   const groups = useMemo(() => {
     if (!annotations && !range) return null;
@@ -44,6 +51,7 @@ export function RawDocument({
       {groups
         ? groups.map((group) => (
             <span
+              ref={retainFocus}
               key={group.start}
               className="mr-source-line"
               data-source-line={group.start}
