@@ -33,6 +33,7 @@ jobs:
 
       - name: Install browser lifecycle dependencies
         run: |
+          bun install --cwd packages/markdown-document --frozen-lockfile
           bun install --cwd bb-plugin-compose-chat --frozen-lockfile
           bun install --cwd bb-plugin-markdown-reader --frozen-lockfile
           bun install --cwd bb-plugin-codex-quota --frozen-lockfile
