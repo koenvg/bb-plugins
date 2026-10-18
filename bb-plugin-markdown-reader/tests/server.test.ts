@@ -1,11 +1,65 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { createFakePluginHost, experimental_scanPublicSdkOnly } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose();
+});
+
+function isPluginSourceFile(_file: string) {
+  return true;
+}
+
+describe("public SDK import audit scope", () => {
+  it("excludes generated browser output without hiding source violations or private dependencies", () => {
+    const root = mkdtempSync(join(tmpdir(), "markdown-reader-import-audit-"));
+    try {
+      writeFileSync(
+        join(root, "package.json"),
+        JSON.stringify({ dependencies: { "@bb/private": "1.0.0" } }),
+      );
+      const files = [
+        "playwright-report/trace/assets/view.js",
+        "test-results/trace/view.js",
+        "app.tsx",
+        "host.ts",
+        "server.ts",
+        "tests/fixture.ts",
+        "src/playwright-report/keep.ts",
+        "src/test-results/keep.ts",
+        "playwright-report-source/keep.ts",
+        "test-results-source/keep.ts",
+        "playwright-report.ts",
+        "test-results.ts",
+      ];
+      for (const file of files) {
+        const path = join(root, file);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(
+          path,
+          'import "@bb/private"; import "../../../../outside.ts"; import(moduleName);',
+        );
+      }
+      const result = experimental_scanPublicSdkOnly(root);
+      const violations = result.violations.filter((entry) => isPluginSourceFile(entry.file));
+      expect(violations).toHaveLength(30);
+      for (const file of files.slice(2)) {
+        expect(violations.filter((entry) => entry.file === file)).toEqual([
+          { file, specifier: "@bb/private", reason: "private-package" },
+          { file, specifier: "../../../../outside.ts", reason: "outside-package" },
+          { file, specifier: "moduleName", reason: "dynamic-specifier" },
+        ]);
+      }
+      expect(result.privateDependencies).toEqual(["@bb/private"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("public server RPC", () => {
@@ -162,6 +216,7 @@ describe("public server RPC", () => {
     });
     expect(
       result.violations.filter((entry) => {
+        if (!isPluginSourceFile(entry.file)) return false;
         if (
           entry.reason === "outside-package" &&
           entry.file === "tests/browser/shared-parity.spec.ts" &&
