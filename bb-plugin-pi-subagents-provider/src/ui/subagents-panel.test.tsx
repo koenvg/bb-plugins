@@ -199,3 +199,67 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
     vi.useRealTimers();
   }
 });
+
+it("retains task attribution when its event leaves the window without replacing the open reader", async () => {
+  vi.useFakeTimers();
+  try {
+    const current = {
+      ...background,
+      id: '["pi","background","bg","step:0"]',
+      runId: "step:0",
+      kind: "step",
+      capture: {
+        status: "captured",
+        capturedAt: 2,
+        messages: [{ role: "assistant", kind: "toolCall", name: "read", text: "synthetic input" }],
+      },
+    };
+    const payload = (rows: unknown[]) =>
+      event("pi-subagents-provider/pi-subagents-view", { ...state, rows });
+    const latest = payload([current]);
+    const older = payload([
+      { ...current, capture: { ...current.capture, capturedAt: 1, task: "Original task attribution" } },
+    ]);
+    h.list
+      .mockResolvedValueOnce([...Array.from({ length: 63 }, () => latest), older])
+      .mockResolvedValue(Array.from({ length: 64 }, () => latest));
+    const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const selected = view.getByRole("button", { name: /Original task attribution/ });
+    const reader = view.getByRole("region", { name: "Captured conversation" });
+    const task = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
+    const conversation = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-conversation")!;
+    const tool = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+    fireEvent.click(task.querySelector("summary")!);
+    fireEvent.click(tool.querySelector("summary")!);
+    tool.querySelector("summary")!.focus();
+    expect(task.open).toBe(true);
+    expect(tool.open).toBe(true);
+    const focused = document.activeElement;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(h.list).toHaveBeenCalledTimes(2);
+    expect(view.getByRole("heading", { name: "Original task attribution" })).toBeDefined();
+    expect(view.getByRole("button", { name: /Original task attribution/ })).toBe(selected);
+    expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
+    expect(view.container.querySelector(".pi-subagents-task")).toBe(task);
+    expect(view.container.querySelector(".pi-subagents-conversation")).toBe(conversation);
+    expect(view.container.querySelector(".pi-subagents-tool")).toBe(tool);
+    expect(task.open && conversation.open && tool.open).toBe(true);
+    expect(document.activeElement).toBe(focused);
+    expect(view.queryByText("Task attribution not captured.")).toBeNull();
+    expect(view.getByRole("status").textContent).toContain("bounded window");
+    view.unmount();
+    const reopened = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(reopened.queryByRole("heading", { name: "Original task attribution" })).toBeNull();
+    expect(reopened.getByText("Task attribution not captured.")).toBeDefined();
+  } finally {
+    vi.useRealTimers();
+  }
+});
