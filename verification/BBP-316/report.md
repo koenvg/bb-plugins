@@ -16,7 +16,7 @@ No production backfill, plugin activation, deployment, settings change, merge, o
 - [x] Connect CLI context, shared write guards, lifecycle refresh and task details.
 - [x] Run package checks, isolated browser checks and a disposable-data build.
 - [x] Complete independent review and inspect each finding's resolution.
-- [ ] Commit, push and open a PR. Leave it open.
+- [x] Commit, push and open a PR. Leave it open.
 
 Model the Domain kept creator lifecycle separate from task-to-task dependencies. A nullable creator ID identifies the source thread. Creator lifecycle contributes one additional open blocker without pretending that a thread is a task. Prove It Works led to isolated SQLite checks, SDK-boundary lifecycle tests, and real production UI components driven in Chromium.
 
@@ -65,6 +65,12 @@ The complete raw run directories and intermediate failure logs remain in `/Users
 | Browser profiles and records            | Owned ephemeral Chromium contexts only, no sign-in or installed records |
 | Historical BBP-53 evidence              | Unchanged by SHA-256 comparison                                         |
 | BBP-319                                 | Intentionally retained backlog task, blocked by BBP-316                 |
-| BBP-316                                 | Linked to this work thread, awaiting review and PR publication          |
+| BBP-316                                 | In review, linked to this work thread and open PR #313                  |
 
 Migration 13 is code only until a separately approved activation. A consistent backup and explicit deployment approval are required before running it against existing data. MCP policy and tools are unchanged.
+
+## Publication
+
+[PR #313](https://github.com/koenvg/bb-plugins/pull/313) is open and is not a draft. BB Tasks independently returned the same PR link for BBP-316. The implementation and executable evidence were committed as `6f167fec2c8878c3e06d8a29165b5a5e1883b11e`. The final publication update changes this report only.
+
+GitHub CI was queued or running at the publication check. No CI pass is claimed. Auto-merge was null. The PR remains open for human review. GitHub CLI was used because no built-in PR tool or Origin executable was available.
