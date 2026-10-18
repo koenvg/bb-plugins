@@ -6,8 +6,11 @@ import {
   type ViewState,
   type ViewRow,
 } from "./subagents-contract.js";
-/** Newest first. Restore accepted captures from the bounded published event window. */
-export function restoreViewHistory(values: readonly unknown[]): ViewState | undefined {
+/** Newest first. Previous attribution is local to one mounted thread reader. */
+export function restoreViewHistory(
+  values: readonly unknown[],
+  previous?: ViewState,
+): ViewState | undefined {
   const states = values
     .slice(0, 64)
     .map(parseViewState)
@@ -37,6 +40,30 @@ export function restoreViewHistory(values: readonly unknown[]): ViewState | unde
       const row = rows.get(original.id)!;
       row.capture = retainCapture(original.capture, row.capture);
     }
+  const previousRows = new Map(previous?.rows.map((row) => [row.id, row]));
+  for (const row of rows.values()) {
+    const prior = previousRows.get(row.id);
+    if (
+      row.capture?.task !== undefined ||
+      prior?.capture?.task === undefined ||
+      prior.sessionId !== row.sessionId ||
+      prior.runId !== row.runId
+    )
+      continue;
+    row.capture = {
+      ...(row.capture ?? { status: "not-captured", capturedAt: prior.capture.capturedAt }),
+      task: prior.capture.task,
+      ...(row.capture?.truncated || prior.capture.truncated
+        ? {
+            truncated: {
+              task: prior.capture.truncated?.task ?? false,
+              finalOutput: row.capture?.truncated?.finalOutput ?? false,
+              messages: row.capture?.truncated?.messages ?? 0,
+            },
+          }
+        : {}),
+    };
+  }
   const result = { ...latest, rows: [...rows.values()], omitted: latest.omitted };
   while (result.rows.length > 128 || !boundedValue(result, VIEW_BYTES)) {
     result.rows.pop();
