@@ -4,6 +4,35 @@ import { QuotaOtherLimits } from "../quota/quota-view.js";
 import { ActivityPanel } from "../activity/activity-view.js";
 import { footerAllowance } from "./accounts-store.js";
 import type { MachineAccounts } from "./machines-contract.js";
+import type { QuotaStatus } from "../quota/contract.js";
+
+const quotaReasonText: Record<QuotaStatus["reason"], string | null> = {
+  ok: null,
+  aged: "Observation at least 5 minutes old",
+  expired: "Observation expired",
+  unavailable: "Allowance unavailable",
+  "identity-changed": "Account sign-in changed",
+  "identity-unavailable": "Account identity unavailable",
+  "auth-required": "Pi Codex sign-in required",
+  "auth-no-token": "Pi Codex sign-in unavailable",
+  "credential-store-failed": "Pi Codex sign-in could not be read",
+  "oauth-refresh-failed": "Pi Codex sign-in refresh failed",
+  "auth-derivation-failed": "Pi Codex account could not be checked",
+  "oauth-short-lived": "Pi Codex sign-in expires too soon",
+  "oauth-resolution-failed": "Pi Codex sign-in unavailable",
+  "auth-runtime-failed": "Pi Codex sign-in check failed",
+  "auth-unavailable": "Pi Codex sign-in unavailable",
+  "auth-expired": "Pi Codex sign-in expired",
+  "auth-check-failed": "Pi Codex sign-in check failed",
+  "runtime-unavailable": "Pi runtime unavailable",
+  network: "Allowance refresh failed",
+  service: "Codex service unavailable",
+  unsupported: "Allowance response unsupported",
+  "no-selection": "No machine selected",
+  "selection-changed": "Machine selection changed",
+  "host-offline": "Machine offline",
+  "foreign-host": "Machine unavailable",
+};
 
 export function accountDetails(data: MachineAccounts | null, now: number) {
   if (!data) return ["Account allowance unavailable"];
@@ -15,7 +44,7 @@ export function accountDetails(data: MachineAccounts | null, now: number) {
     const machines = account.machines
       .map((id) => data.machines.find((machine) => machine.id === id)?.name ?? "Machine")
       .join(", ");
-    return `${data.accounts.length === 1 && account.identity === "verified" ? "Shared account" : `Account ${index + 1}`}; ${machines}; ${view.state}; ${view.snapshot?.bindingRemainingPercent ?? "unknown"}% remaining; ${binding?.name ?? "window unknown"}; ${resetCountdown(binding?.resetAt ?? null, now)}; ${view.snapshot ? `observed ${new Date(view.snapshot.observedAt).toLocaleString()}` : "no observation"}${account.identity === "unknown" ? "; account identity unverified" : ""}`;
+    return `${data.accounts.length === 1 && account.identity === "verified" ? "Shared account" : `Account ${index + 1}`}; ${machines}; ${view.state}${quotaReasonText[view.reason] ? `; ${quotaReasonText[view.reason]}` : ""}; ${view.snapshot?.bindingRemainingPercent ?? "unknown"}% remaining; ${binding?.name ?? "window unknown"}; ${resetCountdown(binding?.resetAt ?? null, now)}; ${view.snapshot ? `observed ${new Date(view.snapshot.observedAt).toLocaleString()}` : "no observation"}${account.identity === "unknown" ? "; account identity unverified" : ""}`;
   });
 }
 export function AccountsTooltip({ data, now }: { data: MachineAccounts | null; now: number }) {
@@ -55,13 +84,16 @@ export function AccountsTooltip({ data, now }: { data: MachineAccounts | null; n
                   .join(" · ")}
               </p>
             </div>
-            <div className="text-right">
+            <div className="min-w-0 max-w-[60%] text-right [overflow-wrap:anywhere]">
               <p className="font-semibold tabular-nums">
                 {view.snapshot?.bindingRemainingPercent == null
                   ? "Unavailable"
                   : `${view.snapshot.bindingRemainingPercent}%`}
               </p>
-              <p className="text-muted-foreground">{view.state}</p>
+              <p className="text-muted-foreground">
+                {view.state}
+                {quotaReasonText[view.reason] ? ` · ${quotaReasonText[view.reason]}` : ""}
+              </p>
               <p className="mt-1 text-muted-foreground">{binding?.name ?? "Window unknown"}</p>
               <p className="text-muted-foreground tabular-nums">
                 {resetCountdown(binding?.resetAt ?? null, now)}

@@ -237,6 +237,7 @@ describe("public SDK and quota-only boundary", () => {
           [
             "scripts/calendar-preview.tsx",
             "scripts/saved-preview.tsx",
+            "scripts/footer-preview.tsx",
             "src/machines/app.test-support.ts",
           ].includes(entry.file)
         )
