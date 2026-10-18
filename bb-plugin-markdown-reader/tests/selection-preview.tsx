@@ -15,10 +15,14 @@ const target: ReaderTarget = {
     projectId: null,
   },
 };
+const denseText =
+  "\uFEFF# Dense\r\n" + "\n".repeat(30_000) + "  alpha **one**\r\n\r\n  beta `two`\r\n";
 const text =
-  params.get("document") === "raw"
-    ? "# Heading\n\n  alpha **one**\n\n  beta `two`\n"
-    : "# Heading\n\nSelected prose.\n\n| Left | Right |\n| --- | --- |\n| Table cell | value |\n\n```ts\nconst answer = 42;\n```\n";
+  params.get("document") === "dense"
+    ? denseText
+    : params.get("document") === "raw"
+      ? "# Heading\n\n  alpha **one**\n\n  beta `two`\n"
+      : "# Heading\n\nSelected prose.\n\n| Left | Right |\n| --- | --- |\n| Table cell | value |\n\n```ts\nconst answer = 42;\n```\n";
 const app = await loadPluginApp(pluginApp);
 let reads = 0;
 const panel = document.getElementById("root")!;
@@ -66,6 +70,16 @@ slot.container.style.height = "100%";
 panel.append(slot.container);
 Object.assign(window, {
   selectionFixture: slot,
+  revealSelectionLines: (startLineNumber: number, endLineNumber: number) => {
+    const Opener = app.fileOpeners[0]!.component;
+    slot.lifecycle.rerender(
+      <Opener
+        {...target}
+        experimental_lineRange={{ startLineNumber, endLineNumber }}
+        Original={() => <p>Original fixture</p>}
+      />,
+    );
+  },
   changeSelectionFile: () => {
     const Opener = app.fileOpeners[0]!.component;
     slot.lifecycle.rerender(
