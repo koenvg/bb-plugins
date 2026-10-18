@@ -10,6 +10,7 @@ import {
 import { footerFixture } from "./footer-fixture.test-support.js";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { accountsFixture } from "../machines/machines.test-support.js";
+import type { QuotaStatus } from "../quota/contract.js";
 
 const app = await loadPluginApp(() => import("../plugin/app.js"));
 const disposers: (() => void | Promise<void>)[] = [];
@@ -48,7 +49,7 @@ const fresh = (remainingPercent: number) => ({
   },
 });
 
-function accountResult(quota: ReturnType<typeof fresh>) {
+function accountResult(quota: QuotaStatus) {
   const data = accountsFixture(Date.now());
   data.machines = [{ id: host.id, name: host.name, status: "connected" }];
   data.accounts[0]!.machines = [host.id];
@@ -132,6 +133,102 @@ describe("Codex quota footer integration", () => {
       expect(within(document.body).queryByRole("tooltip")).toBeNull();
     },
   );
+  it.each([
+    ["network", "stale", "verified", "Allowance refresh failed"],
+    ["auth-required", "unavailable", "unknown", "Pi Codex sign-in required"],
+    ["host-offline", "unavailable", "verified", "Machine offline"],
+    ["identity-changed", "unavailable", "unknown", "Account sign-in changed"],
+    ["identity-unavailable", "unavailable", "unknown", "Account identity unavailable"],
+  ] as const)(
+    "explains %s in the focused footer and its accessible description",
+    async (reason, state, identity, explanation) => {
+      const { button, sidebar } = footerFixture();
+      const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
+      disposers.push(() => scripts.lifecycle.dispose());
+      const data = accountResult({
+        state,
+        reason,
+        snapshot: state === "stale" ? fresh(72).snapshot : null,
+      });
+      data.accounts[0]!.identity = identity;
+      if (reason === "host-offline") data.machines[0]!.status = "disconnected";
+      const config = { rpc: { machineAccounts: async () => data } };
+      mountRefresh(config);
+      renderSlot(footerSlot, {}, config);
+      await waitFor(() =>
+        expect(
+          within(sidebar).getByRole("button", {
+            name: "Codex quota",
+            description: new RegExp(`${state}; ${explanation};`),
+          }),
+        ).toBe(button),
+      );
+      expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
+      if (identity === "unknown") {
+        expect(
+          within(sidebar).getByRole("button", {
+            name: "Codex quota",
+            description: /account identity unverified/,
+          }),
+        ).toBe(button);
+      }
+      await act(async () => button.focus());
+      const tooltip = within(document.body).getByRole("tooltip");
+      expect(within(tooltip).getByText(`${state} · ${explanation}`).textContent).toBe(
+        `${state} · ${explanation}`,
+      );
+      expect(within(tooltip).getByText(state === "stale" ? "72%" : "Unavailable").textContent).toBe(
+        state === "stale" ? "72%" : "Unavailable",
+      );
+    },
+  );
+  it("rejects an unknown RPC reason without exposing its raw text or retaining a current allowance", async () => {
+    const { button, sidebar } = footerFixture();
+    const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
+    disposers.push(() => scripts.lifecycle.dispose());
+    const initial = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(initial);
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce(accountResult(fresh(72)))
+      .mockResolvedValueOnce({
+        ...accountResult(fresh(72)),
+        accounts: [
+          {
+            ...accountResult(fresh(72)).accounts[0],
+            quota: {
+              state: "unavailable",
+              reason: "private-error-secret-sentinel",
+              snapshot: null,
+            },
+          },
+        ],
+      });
+    const config = { rpc: { machineAccounts: api } };
+    mountRefresh(config);
+    renderSlot(footerSlot, {}, config);
+    await waitFor(() =>
+      expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("72%"),
+    );
+    clock.mockReturnValue(initial + 61_000);
+    fireEvent.focus(window);
+    await waitFor(() =>
+      expect(
+        within(sidebar).getByRole("button", {
+          name: "Codex quota",
+          description: /stale; Allowance refresh failed;/,
+        }),
+      ).toBe(button),
+    );
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
+    await act(async () => button.focus());
+    expect(within(document.body).getByRole("tooltip").textContent).toContain(
+      "stale · Allowance refresh failed",
+    );
+    expect(document.body.textContent).not.toContain("private-error-secret-sentinel");
+    expect(button.innerHTML).not.toContain("private-error-secret-sentinel");
+  });
   it("shares pending reads and freshness clock across footer, icon, and dashboard", async () => {
     const { button } = footerFixture();
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
@@ -157,6 +254,16 @@ describe("Codex quota footer integration", () => {
       resolve(accountResult(fresh(72)));
     });
     expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("72%");
+    await act(async () => button.focus());
+    let tooltip = within(document.body).getByRole("tooltip");
+    expect(within(tooltip).getByText("fresh").textContent).toBe("fresh");
+    expect(tooltip.textContent).not.toMatch(/\bok\b|refresh failed|sign-in required|Observation/);
+    expect(
+      within(document.body).getByRole("button", {
+        name: "Codex quota",
+        description: /My Mac; fresh; 72% remaining; 5 hours;.*observed/,
+      }),
+    ).toBe(button);
     expect(
       icon.container.querySelector("[data-battery-fill]")?.getAttribute("data-battery-fill"),
     ).toBe("72");
@@ -168,6 +275,31 @@ describe("Codex quota footer integration", () => {
     });
     expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
     expect(icon.container.querySelector("[data-battery-fill]")).toBeNull();
+    tooltip = within(document.body).getByRole("tooltip");
+    expect(
+      within(tooltip).getByText("stale · Observation at least 5 minutes old").textContent,
+    ).toBe("stale · Observation at least 5 minutes old");
+    expect(within(tooltip).getByText("72%").textContent).toBe("72%");
+    expect(
+      within(document.body).getByRole("button", {
+        name: "Codex quota",
+        description: /stale; Observation at least 5 minutes old; 72% remaining;.*observed/,
+      }),
+    ).toBe(button);
+    clock.mockReturnValue(initial + 86_400_001);
+    act(() => (clocks[0]![0] as () => void)());
+    expect(within(tooltip).getByText("unavailable · Observation expired").textContent).toBe(
+      "unavailable · Observation expired",
+    );
+    expect(within(tooltip).getByText("Unavailable").textContent).toBe("Unavailable");
+    expect(tooltip.textContent).not.toContain("72%");
+    expect(
+      within(document.body).getByRole("button", {
+        name: "Codex quota",
+        description: /unavailable; Observation expired; unknown% remaining;.*no observation/,
+      }),
+    ).toBe(button);
+    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
     expect(api).toHaveBeenCalledTimes(1);
   });
   it("ignores an old owner's late account result after a new owner starts", async () => {

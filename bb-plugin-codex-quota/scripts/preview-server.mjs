@@ -14,7 +14,16 @@ const requested = process.env.CODEX_QUOTA_PREVIEW_PORT ?? process.env.BB_FIXTURE
 if (!/^\d+$/.test(requested) || Number(requested) > 65535)
   throw new Error("Invalid CODEX_QUOTA_PREVIEW_PORT (expected 0 through 65535)");
 const port = Number(requested);
-const suites = ["activity", "collector", "identity", `import`, "calendar", "speed", "saved"];
+const suites = [
+  "activity",
+  "collector",
+  "identity",
+  `import`,
+  "calendar",
+  "speed",
+  "saved",
+  "footer",
+];
 let root;
 let server;
 const cancellation = new AbortController();
