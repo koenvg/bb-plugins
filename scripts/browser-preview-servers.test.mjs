@@ -324,3 +324,100 @@ for (const crawlEnded of [false, true]) {
     }
   }, 20000);
 }
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  test(`markdown-reader immediate HTML shutdown with pending warmup (${signal})`, async () => {
+    const parent = await mkdtemp(join(tmpdir(), "preview-html-shutdown-"));
+    const preview = previews.find((preview) => preview.name === "markdown-reader");
+    const preload = fileURLToPath(
+      new URL("./fixtures/markdown-html-shutdown-preload.mjs", import.meta.url),
+    );
+    const dist = join(repository, "bb-plugin-markdown-reader/dist");
+    const readDist = () =>
+      readdir(dist).catch((error) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      });
+    const before = await readDist();
+    const owner = start(preview, parent, "0", [], preload);
+    const other = start(preview, parent, "0");
+    const events = [];
+    const waiters = new Map();
+    let buffer = "";
+    let released = false;
+    owner.child.stderr.on("data", (data) => {
+      buffer += data.toString();
+      let newline;
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        if (!line.startsWith("HTML_SHUTDOWN ")) continue;
+        const event = line.slice(14);
+        events.push(event);
+        waiters.get(event)?.();
+        // The old close path must release the real build too, so a timeout proves a Vite stall.
+        if (!released && (event === "shutdown-processing-read" || event === "optimizer-close")) {
+          released = true;
+          owner.child.stdin.write("writer\n");
+        }
+      }
+    });
+    const wait = (event) =>
+      Promise.race([
+        events.includes(event)
+          ? Promise.resolve()
+          : new Promise((resolve) => waiters.set(event, resolve)),
+        owner.exited.then(() => {
+          throw new Error(`Exited before ${event}: ${owner.output()}`);
+        }),
+      ]);
+    const watchdog = setTimeout(() => {
+      for (const child of [owner.child, other.child]) {
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      }
+    }, 15000);
+    try {
+      await writeFile(join(parent, "historical.png"), "keep");
+      const origin = await owner.ready();
+      const otherOrigin = await other.ready();
+      const otherCache = other.output().match(/Synthetic preview ready at .* \((.+)\)/)[1];
+      const response = await fetch(origin + "/");
+      assert.equal(response.status, 200);
+      assert.ok((await response.text()).includes("/tests/preview.tsx"));
+      await wait("writer-held");
+      await wait("optimized-load-pending");
+      owner.child.kill(signal);
+      const status = await owner.exited;
+      console.log(
+        `HTML shutdown trace (${signal}): ${events.join(", ")}; exit ${JSON.stringify(status)}`,
+      );
+      assert.deepEqual(status, [0, null], owner.output());
+      assert.ok(events.includes("writer-released"), owner.output());
+      assert.ok(events.includes("writer-settled"), owner.output());
+      assert.throws(() => process.kill(owner.child.pid, 0), { code: "ESRCH" });
+      await assert.rejects(fetch(origin + "/"));
+      assert.equal(await readFile(join(parent, "historical.png"), "utf8"), "keep");
+      assert.deepEqual(
+        (await readdir(parent)).sort(),
+        ["historical.png", basename(otherCache)].sort(),
+      );
+      assert.equal(process.kill(other.child.pid, 0), true);
+      const otherResponse = await fetch(otherOrigin + "/");
+      assert.equal(otherResponse.status, 200);
+      assert.ok((await otherResponse.text()).includes("/tests/preview.tsx"));
+      other.child.kill(signal);
+      assert.deepEqual(await other.exited, [0, null], other.output());
+      assert.throws(() => process.kill(other.child.pid, 0), { code: "ESRCH" });
+      await assert.rejects(fetch(otherOrigin + "/"));
+      assert.deepEqual(await readdir(parent), ["historical.png"]);
+      assert.deepEqual(await readDist(), before);
+    } finally {
+      clearTimeout(watchdog);
+      for (const child of [owner.child, other.child]) {
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      }
+      await Promise.all([owner.exited, other.exited]);
+      await rm(parent, { recursive: true, force: true });
+    }
+  }, 20000);
+}
