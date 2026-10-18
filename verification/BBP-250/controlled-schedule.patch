@@ -1,0 +1,88 @@
+diff --git a/bb-plugin-github-insight/ui/timeline.test.tsx b/bb-plugin-github-insight/ui/timeline.test.tsx
+index 5564883..f42b7ee 100644
+--- a/bb-plugin-github-insight/ui/timeline.test.tsx
++++ b/bb-plugin-github-insight/ui/timeline.test.tsx
+@@ -1,11 +1,21 @@
+ // @vitest-environment jsdom
+ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+-import { act, cleanup, fireEvent, within } from "@testing-library/react";
+-import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
++import { createRequire } from "node:module";
++const require = createRequire(import.meta.url);
++const realScheduler = require("scheduler");
++const originalScheduler = { ...realScheduler };
++const scheduler = require("scheduler/unstable_mock");
++let controlled = false;
++for (const method of ["unstable_scheduleCallback", "unstable_cancelCallback", "unstable_shouldYield", "unstable_requestPaint"]) {
++  realScheduler[method] = (...args: unknown[]) =>
++    (controlled ? scheduler : originalScheduler)[method](...args);
++}
++const { act, cleanup, fireEvent, within } = await import("@testing-library/react");
++const { renderSlot } = await import("@get-bb/plugin-sdk/testing/app");
+ import type { ActionResult, rpcContract, TimelineResult } from "../contract";
+ import { parseTimelinePage, type TimelineEvent } from "../core/timeline";
+ import timelines from "../test/fixtures/pr-timelines.json";
+-import { TimelineSections } from "./timeline";
++const { TimelineSections } = await import("./timeline");
+ 
+ class Unobserved {
+   observe() {}
+@@ -14,7 +24,16 @@ class Unobserved {
+ 
+ beforeAll(() => vi.stubGlobal("ResizeObserver", Unobserved));
+ 
+-afterEach(cleanup);
++afterEach(() => {
++  console.error("BBP250 outer cleanup start", expect.getState().currentTestName, typeof IntersectionObserver);
++  try {
++    cleanup();
++    console.error("BBP250 outer cleanup end", expect.getState().currentTestName);
++  } finally {
++    if (controlled) scheduler.unstable_flushAllWithoutAsserting();
++    controlled = false;
++  }
++});
+ 
+ type LoadedTimeline = Extract<TimelineResult, { kind: "ok" }>;
+ 
+@@ -81,6 +100,11 @@ function events(slot: Slot) {
+ }
+ 
+ async function loaded(slot: Slot) {
++  for (let attempt = 0; controlled && attempt < 20 && events(slot).length === 0; attempt++) {
++    await Promise.resolve();
++    scheduler.unstable_flushUntilNextPaint();
++  }
++  console.error("BBP250 held after paint", expect.getState().currentTestName, events(slot).length);
+   await vi.waitFor(() => expect(events(slot).length).toBeGreaterThan(0));
+ }
+ 
+@@ -353,6 +377,7 @@ describe("new conversation comments", () => {
+     constructor(private readonly callback: IntersectionObserverCallback) {}
+     observe(target: Element) {
+       watched.set(target, this.callback);
++      console.error("BBP250 observe", target.getAttribute("data-timeline-comment-id"), expect.getState().currentTestName);
+     }
+     disconnect() {}
+   }
+@@ -375,6 +400,7 @@ describe("new conversation comments", () => {
+   });
+ 
+   afterEach(() => {
++    console.error("BBP250 inner teardown", expect.getState().currentTestName, watched.size);
+     vi.unstubAllGlobals();
+     vi.stubGlobal("ResizeObserver", Unobserved);
+     vi.restoreAllMocks();
+@@ -411,10 +437,12 @@ describe("new conversation comments", () => {
+   }
+ 
+   it("glows only the new comment", async () => {
++    controlled = true;
+     const slot = renderTimeline(
+       withEvents([comment("1", "Old"), comment("2", "Old too"), comment("3", "New")], null, ["3"]),
+     );
+     await loaded(slot);
++    console.error("BBP250 glow body end", watched.size);
+ 
+     expect(cardOf(slot, "3")!.classList).toContain("review-comment-new");
+     expect(cardOf(slot, "1")!.classList).not.toContain("review-comment-new");
