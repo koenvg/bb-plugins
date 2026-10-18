@@ -479,8 +479,8 @@ bb tasks list --blocked                        # tasks with an open blocker
 
 Each task records a nullable `createdByThreadId`. The CLI copies the invoking
 thread context supplied by BB from `BB_THREAD_ID`. Human UI creation leaves it
-null. Both JSON task reads include the field. Task details show the creator ID
-and link to the thread.
+null. Both JSON task reads include the field. In task details, an info icon reveals
+the creator ID and blocker status in a tooltip on hover, keyboard focus, or tap.
 
 An unarchived creator contributes one open blocker, separate from task-to-task
 dependencies. `--blocked`, `--ready`, `openBlockerCount`, and `blocked` include it.

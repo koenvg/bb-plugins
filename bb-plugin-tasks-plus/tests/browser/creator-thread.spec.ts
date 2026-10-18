@@ -1,5 +1,33 @@
 import { test, expect } from "@playwright/test";
 
+test("creator information opens on touch without navigating away", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto("/tests/creator-thread.html");
+    const info = page
+      .getByRole("button", { name: "Creator thread information", exact: true })
+      .filter({ visible: true });
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await info.tap();
+    await expect(page.getByRole("tooltip")).toContainText("thr_creator");
+    await expect(page.getByRole("tooltip")).toContainText("Blocked until this thread is archived.");
+    await expect(page).toHaveURL(/creator-thread\.html$/);
+    await page.screenshot({
+      path: test.info().outputPath("creator-info-touch.png"),
+      fullPage: true,
+    });
+    await page.getByRole("textbox", { name: "Task title" }).tap();
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
 for (const width of [1280, 390]) {
   test(`creator metadata and todo refusal at ${width}px`, async ({ page }) => {
     const errors: string[] = [];
@@ -10,12 +38,26 @@ for (const width of [1280, 390]) {
       "Creator-thread follow-up",
     );
     const creator = page
-      .getByRole("button", { name: "thr_creator", exact: true })
+      .getByRole("button", { name: "Creator thread information", exact: true })
       .filter({ visible: true });
     await expect(creator).toBeVisible();
-    await expect(
-      page.getByText("Blocked until this thread is archived.").filter({ visible: true }),
-    ).toBeVisible();
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await creator.hover();
+    await expect(page.getByRole("tooltip")).toContainText("thr_creator");
+    await expect(page.getByRole("tooltip")).toContainText("Blocked until this thread is archived.");
+    await expect(page.locator("[data-side][data-state]").filter({ visible: true })).not.toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    await page.screenshot({ path: test.info().outputPath("creator-info.png"), fullPage: true });
+    await page.mouse.move(0, 0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await page.keyboard.press("Tab");
+    await creator.focus();
+    await expect(page.getByRole("tooltip")).toContainText("thr_creator");
+    await page.keyboard.press("Escape");
+    await expect(creator).toBeFocused();
     await page
       .getByRole("button", { name: "Backlog", exact: true })
       .filter({ visible: true })
@@ -32,15 +74,15 @@ for (const width of [1280, 390]) {
     await expect(page.getByRole("menuitem", { name: "Todo", exact: true })).toBeHidden();
     await page.screenshot({ path: test.info().outputPath("refusal.png"), fullPage: true });
     await page.getByRole("button", { name: "Archive creator", exact: true }).click();
-    await expect(
-      page.getByText("Blocked until this thread is archived.").filter({ visible: true }),
-    ).toHaveCount(0);
+    await creator.click();
+    await expect(page.getByRole("tooltip")).toContainText("thr_creator");
+    await expect(page.getByRole("tooltip")).not.toContainText("Blocked until");
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Retry save", exact: true }).click();
     await expect(page.getByLabel("Stored task status")).toHaveText("todo");
     await page.getByRole("button", { name: "Unarchive creator", exact: true }).click();
-    await expect(
-      page.getByText("Blocked until this thread is archived.").filter({ visible: true }),
-    ).toBeVisible();
+    await creator.click();
+    await expect(page.getByRole("tooltip")).toContainText("Blocked until this thread is archived.");
     await expect(creator).toBeVisible();
     expect(errors).toEqual([]);
   });

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type {
   Label,
   Project,
@@ -19,6 +18,7 @@ import { LabelsPicker } from "../labels-picker.js";
 import { BbProjectLinkPicker } from "../manage/bb-project-link.js";
 import type { BbProjectOption } from "../../shared/contract.js";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,20 +110,32 @@ function LabelChip({ label }: { label: Label }) {
 }
 
 function CreatorThreadProperty({ task }: { task: Task }) {
-  const navigate = useBbNavigate();
+  const [open, setOpen] = useState(false);
   if (!task.createdByThreadId) return null;
   return (
-    <div className="basis-full py-2 text-2xs text-muted-foreground">
-      <div>Created by thread</div>
-      <button
-        type="button"
-        className="max-w-full truncate text-left text-foreground underline underline-offset-2"
-        onClick={() => navigate.toThread(task.createdByThreadId!)}
-      >
-        {task.createdByThreadId}
-      </button>
-      {task.creatorThreadBlocked ? <p>Blocked until this thread is archived.</p> : null}
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground"
+            aria-label="Creator thread information"
+            onClick={(event) => {
+              event.preventDefault();
+              setOpen(true);
+            }}
+          >
+            <Icon name="Info" className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="bg-foreground text-background">
+          <p>Created by thread {task.createdByThreadId}</p>
+          {task.creatorThreadBlocked ? <p>Blocked until this thread is archived.</p> : null}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -423,7 +435,10 @@ export function PropertiesRail({
   const active = threads.filter(isActiveThread);
   return (
     <aside data-properties-layout="rail" className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}>
-      <h2 className="mb-1.5 text-xs font-semibold text-muted-foreground">Properties</h2>
+      <div className="mb-1.5 flex items-center justify-between">
+        <h2 className="text-xs font-semibold text-muted-foreground">Properties</h2>
+        <CreatorThreadProperty task={task} />
+      </div>
       <StatusMenu
         task={task}
         onUpdate={onUpdate}
@@ -443,7 +458,6 @@ export function PropertiesRail({
         {...menuProps(control, "dueDate")}
       />
 
-      <CreatorThreadProperty task={task} />
       <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Labels</div>
       <div className="flex flex-wrap items-center gap-1 py-0.5">
         {taskLabels.map((label) => (
