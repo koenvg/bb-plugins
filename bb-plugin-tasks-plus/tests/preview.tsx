@@ -47,7 +47,7 @@ window.fetch = async (input, init) => {
         : mode === "dense-raw"
           ? "\n".repeat(30_000)
           : mode === "navigation"
-            ? navigationDocument
+            ? navigationDocument(location.origin)
             : parity
               ? parityReport
               : text;

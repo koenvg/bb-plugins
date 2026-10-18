@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { origin } from "./fixture-origin";
 import { readFile } from "node:fs/promises";
 import { measureDocument } from "../../../packages/markdown-document/test/parity";
 
@@ -11,7 +12,7 @@ for (const width of [390, 960])
       page.on("pageerror", (error) => errors.push(String(error)));
       await page.route("**/*", async (route) => {
         const url = new URL(route.request().url());
-        if (url.origin === "http://127.0.0.1:4193") await route.continue();
+        if (url.origin === origin) await route.continue();
         else {
           external.push(url.href);
           await route.abort();

@@ -7,7 +7,7 @@ description: Verify this repository's BB plugins with package checks, owned brow
 
 Invoke `/skill:verify-bb-plugins` with a plugin directory, commit, or OpenSpec change. Read [the feature index](features/README.md), then every affected plugin map. Resolve target packages from changed manifests/source; ask if the request cannot establish scope. This verifies and reports. Plugin repairs, SDK migrations, publishing and delegation require separate instructions.
 
-BB is the real application. This checkout contains 13 plugin packages, not BB's server. Most user interactions need an installed desktop/web BB instance. Three packages have independently owned ephemeral-port browser runners; Tasks Plus has a fixed-port browser fixture, and Code Cleanup has an isolated Settings preview. Unit and SDK-harness tests are not user-path or installed acceptance.
+BB is the real application. This checkout contains 13 plugin packages, not BB's server. Most user interactions need an installed desktop/web BB instance. Four packages have independently owned ephemeral-port browser runners; Code Cleanup has an isolated Settings preview. Unit and SDK-harness tests are not user-path or installed acceptance.
 
 ## Launch
 
@@ -48,7 +48,7 @@ For Compose Chat, Codex Quota or Markdown Reader, install the package's pinned C
 "$SKILL/scripts/browser.sh" "$PLUGIN" "$EVIDENCE/browser"
 ```
 
-Browser setup may download binaries and remove obsolete Playwright cache versions. The runner starts the current checkout at a fresh `127.0.0.1` port `0`, waits for `BB_FIXTURE_READY`, launches owned Chromium contexts and cleans its process groups/cache. Each package compiles its own fixture source, with no sign-in or installed BB. Do not invoke raw Playwright for these packages because it lacks the required origin handoff. For Tasks Plus and Code Cleanup, use their maps' launch/isolation rules instead.
+Browser setup may download binaries and remove obsolete Playwright cache versions. The runner starts the current checkout at a fresh `127.0.0.1` port `0`, waits for `BB_FIXTURE_READY`, launches owned Chromium contexts and cleans its process groups/cache. Each package compiles its own fixture source, with no sign-in or installed BB. Do not invoke raw Playwright for these packages because it lacks the required origin handoff. For Tasks Plus, use its map's package runner and private-capture config with the same origin handoff. For Code Cleanup, use its map's preview isolation rules.
 
 For installed behavior, read and follow [the preserved installed workflow](references/installed-workflow.md) in full. It owns SDK checks, exact-source build/install/reload, state ledger, approval gates and restoration. Do not start another BB server or replace a user's plugin source as a fixture setup step. Read the package's deployment/migration guidance before activating it.
 
@@ -84,7 +84,7 @@ Capture both the action and result. Verify side effects through a second read of
 
 Read [the installed workflow](references/installed-workflow.md) and [browser contract](references/browser-contract.md) before live actions. Restore only approved settings/source selections that still equal what this run wrote. Preserve concurrent user changes. Delete only owned records within the agreed cleanup scope. Installing a separate browser does not isolate BB's shared database.
 
-Local runners tear down only their owned processes/contexts and temporary directories on success, failure or cancellation. Never kill by process name or reuse another listener. Tasks Plus's fixed port must be free, and its runner forbids reuse. A Code Cleanup preview must have its recorded PID and its own chosen port. SIGKILL/host crashes bypass ordinary teardown; verify recorded ownership before manual recovery.
+Local runners tear down only their owned processes/contexts and temporary directories on success, failure or cancellation. Never kill by process name or reuse another listener. Tasks Plus also binds an OS-assigned loopback port and forbids reuse. A Code Cleanup preview must have its recorded PID and its own chosen port. SIGKILL/host crashes bypass ordinary teardown; verify recorded ownership before manual recovery.
 
 Proof artifacts survive cleanup. Confirm the owned PID/listener/cache is gone where observable, the command exited correctly, and expected logs, screenshots, traces/results still exist. Failed or pending cleanup prevents an overall pass. Do not remove evidence or reset unrelated source changes.
 

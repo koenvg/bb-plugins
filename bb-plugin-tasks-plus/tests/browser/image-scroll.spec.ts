@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { remoteOrigin } from "./fixture-origin";
 import { crc32, deflateSync } from "node:zlib";
 
 const chunk = (kind: string, data: Buffer) => {
@@ -30,7 +31,7 @@ const png = Buffer.concat([
 
 for (const width of [1280, 390]) {
   test(`tall image scroll stays inside attachment at ${width}px`, async ({ page }, info) => {
-    await page.route("http://localhost:4193/tests/assets/image.png", (route) =>
+    await page.route(`${remoteOrigin}/tests/assets/image.png`, (route) =>
       route.fulfill({
         contentType: "image/png",
         headers: { "access-control-allow-origin": "*" },

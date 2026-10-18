@@ -47,6 +47,8 @@ BBP53_CAPTURE_PHASE=none bun run test:browser \
   --trace on --output "$EVIDENCE/results"
 ```
 
+The browser script starts this checkout on an OS-assigned loopback port with a private Vite cache. Playwright requires the runner's origin handoff and does not reuse another listener. Cross-origin fixture URLs use `localhost` on that same owned port. Teardown stops only the run's process groups. Keep `BBP53_CAPTURE_PHASE=none` and the private-capture config to preserve historical captures.
+
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
 The `typescript-7` dependency is pinned to `npm:typescript@7.0.2`. The script runs
 its published executable through Node at `./node_modules/typescript-7/bin/tsc`.

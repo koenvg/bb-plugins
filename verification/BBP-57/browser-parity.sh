@@ -22,9 +22,5 @@ for width in 390 960; do
     test -s "$evidence/parity/reader-$width-$theme.json"
   done
 done
-if lsof -nP -iTCP:4193 -sTCP:LISTEN > "$evidence/tasks-port-before.txt"; then
-  echo 'Tasks port 4193 is occupied. Existing listeners were not reused or stopped.' >&2
-  exit 2
-fi
 BBP53_CAPTURE_PHASE=none BBP57_PARITY_DIR="$evidence/parity" bun run --cwd bb-plugin-tasks-plus test:browser --config "$root/.pi/skills/verify-bb-plugins/references/tasks-playwright.config.ts" shared-parity.spec.ts --trace on --output "$evidence/tasks" > "$evidence/tasks.log" 2>&1
 printf 'PASS production-consumer parity, live theme, keyboard/focus, source-policy difference and unchanged historical captures\n'

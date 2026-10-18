@@ -20,16 +20,18 @@ export const readingReport = {
     '";\r\n```\r\n\r\n```json\r\n{"status":"fulfilled","result":"inconclusive","count":42,"ready":true,"empty":null}\r\n```\r\n',
 } as const;
 
-export const navigationDocument = `# Investigation
+export function navigationDocument(origin: string) {
+  const remoteOrigin = origin.replace("127.0.0.1", "localhost");
+  return `# Investigation
 
-[Local findings](#findings) [External guide](https://example.org/guide) [Native guide](http://localhost:4193/tests/native-destination.html) [Relative file](../notes.md) [Malformed](https://example.org/%ZZ)
+[Local findings](#findings) [External guide](https://example.org/guide) [Native guide](${remoteOrigin}/tests/native-destination.html) [Relative file](../notes.md) [Malformed](https://example.org/%ZZ)
 
-![Remote chart](http://localhost:4193/tests/assets/image.png)
-![BB private](http://127.0.0.1:4193/api/private-image)
+![Remote chart](${remoteOrigin}/tests/assets/image.png)
+![BB private](${origin}/api/private-image)
 ![Relative chart](./chart.png)
-![CORS chart](http://localhost:4193/tests/assets/cors.png)
-![Redirect chart](http://localhost:4193/tests/assets/redirect.png)
-![Broken chart](http://localhost:4193/tests/assets/broken.png)
+![CORS chart](${remoteOrigin}/tests/assets/cors.png)
+![Redirect chart](${remoteOrigin}/tests/assets/redirect.png)
+![Broken chart](${remoteOrigin}/tests/assets/broken.png)
 
 ## Café **bold** \`code\`
 
@@ -51,3 +53,4 @@ A note[^1].
 
 [^1]: A local footnote.
 `;
+}

@@ -13,7 +13,7 @@ The clean verifier copies current tracked and untracked source without installed
 
 The parity runner uses the production Reader opener through its SDK fixture and the actual Tasks attachment owner/Dialog. It compares one generic report at matched compact/desktop content widths in light/dark. It checks content, headings, Raw, lists, tokens, computed styles and immediate post-toggle colors, IDs, one read, draft and focus return. Both consumers support local navigation. Reader-authorized relative links remain active; Tasks has no filesystem binding. Inspect screenshots and traces.
 
-Reader owns an ephemeral origin. Tasks requires free strict port 4193. Neither runner reuses or stops another listener. A Reader failure blocks comparison with missing JSON. Historical BBP-53 captures are hashed before and after. Each runner refuses an existing evidence directory.
+Reader and Tasks each own an ephemeral loopback origin. Neither runner reuses or stops another listener. A Reader failure blocks comparison with missing JSON. Historical BBP-53 captures are hashed before and after. Each runner refuses an existing evidence directory.
 
 Run complete package tests and browser suites separately. Parity does not replace source/host confinement, refresh, ranges, selection, native modifiers, image lifecycle or original-download regressions.
 
