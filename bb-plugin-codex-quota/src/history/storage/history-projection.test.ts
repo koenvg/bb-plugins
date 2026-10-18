@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { openHistoryDatabase, type HistoryDatabase } from "./history-storage.js";
+import { recordHistoryExecutions, explainHistoryExecution } from "../history-sql.test-support.js";
 import { initializeHistory, projectCompactRecord, collectionView } from "./history-projection.js";
 import { parseCompact } from "../collection/usage-record.js";
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
@@ -86,18 +87,29 @@ it("bounds ranking with a persistent index and no grouping or detailed-event sca
   db.transaction(() => {
     for (let n = 1; n <= 80; n++) projectCompactRecord(db, compact(record(n, `/workspace-${n}`)));
   });
-  const view = collectionView(db, true, false);
+  const capture = recordHistoryExecutions(db);
+  const view = collectionView(capture.db, true, false);
   expect(view.workspaces).toHaveLength(50);
   expect(view.truncated).toBe(true);
   expect(view.unconfirmedEvents).toBe(80);
-  const plan = JSON.stringify(
-    db
-      .prepare(
-        "EXPLAIN QUERY PLAN SELECT workspace,total_tokens,events FROM workspace_totals ORDER BY total_tokens DESC,workspace LIMIT 51",
-      )
-      .all(),
+  expect(view.workspaces[0]).toMatchObject({
+    workspace: "/workspace-1",
+    totalTokens: 3,
+    events: 1,
+  });
+  expect(view.workspaces[49]).toMatchObject({
+    workspace: "/workspace-54",
+    totalTokens: 3,
+    events: 1,
+  });
+  const rankings = capture.executed.filter((execution) =>
+    /\bFROM workspace_totals\b/i.test(execution.sql),
   );
-  expect(plan).toContain("workspace_ranking");
+  expect(rankings).toHaveLength(1);
+  expect(rankings[0].method).toBe("all");
+  expect(rankings[0].sql).toMatch(/\bORDER BY total_tokens DESC,\s*workspace\s+LIMIT 51\b/i);
+  const plan = explainHistoryExecution(db, rankings[0]).join("\n");
+  expect(plan).toMatch(/\bUSING (?:COVERING )?INDEX workspace_ranking\b/);
   expect(plan).not.toContain("TEMP B-TREE");
-  expect(plan).not.toContain("usage_events");
+  expect(plan).not.toMatch(/\b(?:usage_events|usage_compact)\b/);
 });
