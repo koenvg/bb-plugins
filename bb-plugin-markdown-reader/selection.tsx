@@ -16,37 +16,21 @@ interface Capture {
   revision: number;
   lines?: { start: number; end: number };
 }
-// Positive overlap excludes a boundary at the next source line's start.
-function selectedLines(root: Element, range: Range) {
-  const start = range.cloneRange();
-  start.collapse(true);
-  const end = range.cloneRange();
-  end.collapse(false);
-  const touched = Array.from(root.querySelectorAll<HTMLElement>("[data-source-line]")).filter(
-    (line) => {
-      const contents = range.cloneRange();
-      contents.selectNodeContents(line);
-      const lineStart = contents.cloneRange();
-      lineStart.collapse(true);
-      const lineEnd = contents.cloneRange();
-      lineEnd.collapse(false);
-      if (
-        lineEnd.compareBoundaryPoints(Range.START_TO_START, start) <= 0 ||
-        lineStart.compareBoundaryPoints(Range.START_TO_START, end) >= 0
-      )
-        return false;
-      if (start.compareBoundaryPoints(Range.START_TO_START, lineStart) > 0)
-        contents.setStart(range.startContainer, range.startOffset);
-      if (end.compareBoundaryPoints(Range.START_TO_START, lineEnd) < 0)
-        contents.setEnd(range.endContainer, range.endOffset);
-      return contents.toString().length > 0;
-    },
-  );
-  if (!touched.length) return undefined;
-  return {
-    start: Number(touched[0]!.dataset.sourceLine),
-    end: Number(touched.at(-1)!.dataset.sourceLine),
-  };
+function selectedLines(root: Element, range: Range, text: string) {
+  const prefix = range.cloneRange();
+  prefix.selectNodeContents(root);
+  prefix.setEnd(range.startContainer, range.startOffset);
+  const startOffset = prefix.toString().length;
+  const endOffset = startOffset + range.toString().length;
+  let start = 1;
+  let end = 1;
+  for (const match of text.matchAll(/\r\n|\r|\n/g)) {
+    const nextLineOffset = match.index + match[0].length;
+    if (nextLineOffset <= startOffset) start++;
+    if (nextLineOffset < endOffset) end++;
+    else break;
+  }
+  return { start, end };
 }
 function quote(capture: Capture) {
   const { snapshot, text } = capture;
@@ -150,7 +134,7 @@ export function SelectionAction({
         view,
         destination,
         revision,
-        lines: view === "raw" ? selectedLines(root, range) : undefined,
+        lines: view === "raw" ? selectedLines(root, range, snapshot.text) : undefined,
       };
       pending.current = next;
       setFeedback(null);
