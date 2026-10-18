@@ -31,4 +31,4 @@ For common-renderer or two-consumer changes, also follow [shared Markdown verifi
 - Simulated host reads and SDK composer are existing external boundaries, not installed acceptance.
 - Do not change a persistent opener default for a one-off reading proof.
 - The local smoke is not a test of any other plugin.
-- A previous package-local playwright-report can make the SDK import audit scan generated trace modules and fail. This was reproduced and recorded as [BBP-233](bbtask://BBP-233). Keep the original failure; only move a report out of source after establishing ownership, preserve it as evidence, and restore it without overwriting concurrent output. Do not suppress real import violations. The shared browser wrapper writes new reports outside the package.
+- The SDK import audit excludes violations only under the package-root `playwright-report/` and `test-results/` output directories. Source imports, nested same-name directories, lookalike names and manifest private dependencies remain checked. Keep browser evidence outside the package with the shared wrapper to avoid fixture reloads from generated HTML.

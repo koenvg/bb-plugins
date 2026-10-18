@@ -11,8 +11,8 @@ afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose();
 });
 
-function isPluginSourceFile(_file: string) {
-  return true;
+function isPluginSourceFile(file: string) {
+  return !/^(?:playwright-report|test-results)[\\/]/.test(file);
 }
 
 describe("public SDK import audit scope", () => {
