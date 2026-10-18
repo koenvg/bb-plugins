@@ -71,6 +71,36 @@ describe("public document interface", () => {
       expect(raw.querySelectorAll("[data-source-line]").length).toBe(0);
     },
   );
+  it.each([30_000, 1024 * 1024])(
+    "bounds annotated Raw DOM for %i newline bytes with exact inclusive range text",
+    (size) => {
+      const text = "\n".repeat(size);
+      const model = createDocumentModel(text, "annotated-dense-raw");
+      const { rerender } = render(
+        <MarkdownDocument model={model} view="raw" annotateSourceLines />,
+      );
+      const raw = screen.getByLabelText("Raw Markdown");
+      expect(raw.textContent).toBe(text);
+      expect(raw.querySelectorAll("*").length).toBeLessThanOrEqual(132);
+      expect(raw.querySelector(`[data-source-line="${size + 1}"]`)?.textContent).toBe("");
+      const request = { startLineNumber: size - 10, endLineNumber: 3 };
+      rerender(
+        <MarkdownDocument model={model} view="raw" lineRange={request} annotateSourceLines />,
+      );
+      expect(raw.textContent).toBe(text);
+      expect(raw.querySelectorAll("*").length).toBeLessThanOrEqual(132);
+      expect(document.activeElement).toBe(raw.querySelector('[data-source-line="3"]'));
+      expect(
+        Array.from(raw.querySelectorAll('[data-highlighted="true"]'))
+          .map((line) => line.textContent)
+          .join(""),
+      ).toBe("\n".repeat(size - 12));
+      rerender(<MarkdownDocument model={model} view="raw" annotateSourceLines />);
+      expect(raw.textContent).toBe(text);
+      expect(raw.querySelectorAll('[data-highlighted="true"]').length).toBe(0);
+      expect(raw.querySelectorAll("*").length).toBeLessThanOrEqual(132);
+    },
+  );
   it.each(["relative.png", "/api/private", "%ZZ", "https://", "javascript:alert(1)"])(
     "keeps invalid remote grant %j inert instead of throwing",
     (url) => {

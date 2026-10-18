@@ -28,10 +28,10 @@ Tokenizer output is limited to 16,384 passive nodes and depth 64. These existing
 
 `outline` defaults to false. When enabled and local navigation is permitted, it uses document-local heading and footnote targets and adapts to the supplied container. `lineRange` has inclusive one-based `startLineNumber` and `endLineNumber` bounds. Valid integers are ordered and clamped. Raw reveals repeated request objects even when their values match. Invalid ranges do not highlight content.
 
-Default Raw uses one text node, including newline-dense files up to the consumer's 1 MiB limit. A valid range request or explicit `annotateSourceLines` enables per-line targets. Reader opts in for source selection and range navigation. Tasks does not. Both paths preserve exactly the same source. Reader's inherited annotation cost is tracked separately in [BBP-249](bbtask://BBP-249).
+Default Raw uses one text node, including newline-dense files up to the consumer's 1 MiB limit. A valid range request or explicit `annotateSourceLines` enables at most 132 contiguous source-line groups. `data-source-line` and `data-source-line-end` identify each group's inclusive bounds. Requested highlights split at both range edges, and the first requested line remains an exact focus target. The trailing empty source line keeps its own target. Reader opts in; Tasks does not. Both paths preserve the complete source without virtualization or truncation.
 Unannotated Raw reads the stored string without a source-line index. The line array is frozen and cached only when annotation or a valid range needs it. Blank ASCII Markdown avoids a parser pass; non-ASCII paragraph whitespace still uses the parser.
 
-An optional `navigation` supplies a container ref and `reveal(target)` callback. Markdown Reader uses its toolbar-aware panel reveal. Without that callback, the presenter scrolls only its own root when that root is a scroller, and focuses the target without scrolling ancestors. `.mr-prose`, `.mr-raw` and `[data-source-line]` are retained content hooks for the reader's selection action.
+An optional `navigation` supplies a container ref and `reveal(target)` callback. Markdown Reader uses its toolbar-aware panel reveal. Without that callback, the presenter scrolls only its own root when that root is a scroller, and focuses the target without scrolling ancestors. `.mr-prose` and `.mr-raw` identify selectable content. Reader derives Raw selection references from exact text offsets rather than element counts.
 
 ## Destination policies
 

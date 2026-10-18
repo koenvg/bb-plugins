@@ -146,6 +146,62 @@ it.each([
     expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(1);
   },
 );
+it.each([
+  {
+    label: "inside a multi-line group with BOM, Unicode, CRLF and lone CR",
+    content: "\uFEFF# Heading\r\n" + "\n".repeat(300) + "  é😀 one\r\n\r  beta\nlast",
+    from: "é😀 one",
+    to: "  beta",
+    expected: "> note.md:302-303\n> workspace · host remote\n> é😀 one\n> \n> \n",
+  },
+  {
+    label: "across group boundaries with a next-line start endpoint",
+    content: "# Heading\r\n" + Array.from({ length: 1000 }, (_, i) => `line ${i + 1}\r\n`).join(""),
+    from: "line 7\r\n",
+    to: "line 10\r\n",
+    expected: "> note.md:8-10\n> workspace · host remote\n> line 7\n> line 8\n> line 9\n> \n",
+  },
+])("cites source lines $label", async ({ content, from, to, expected }) => {
+  const { slot } = await mount(target, content, "");
+  fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+  const raw = slot.getByLabelText("Raw Markdown");
+  const boundary = (offset: number): [Node, number] => {
+    const walker = document.createTreeWalker(raw, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (offset <= node.textContent!.length) return [node, offset];
+      offset -= node.textContent!.length;
+      node = walker.nextNode();
+    }
+    throw new Error("Selection offset outside source");
+  };
+  const range = document.createRange();
+  range.setStart(...boundary(content.indexOf(from)));
+  range.setEnd(...boundary(content.indexOf(to)));
+  window.getSelection()!.removeAllRanges();
+  window.getSelection()!.addRange(range);
+  fireEvent(document, new Event("selectionchange"));
+  fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
+  expect(slot.inspection.composer.text).toBe(expected);
+  expect(slot.inspection.composer.submits).toEqual([]);
+  expect(slot.inspection.composer.focusCount).toBe(1);
+});
+
+it("cites an element-boundary selection in grouped Raw", async () => {
+  const { slot } = await mount(target, "# Heading\r\n" + "\n".repeat(300), "");
+  fireEvent.click(slot.getByRole("button", { name: "Raw" }));
+  const raw = slot.getByLabelText("Raw Markdown");
+  const range = document.createRange();
+  range.setStart(raw, 0);
+  range.setEnd(raw, 1);
+  window.getSelection()!.removeAllRanges();
+  window.getSelection()!.addRange(range);
+  fireEvent(document, new Event("selectionchange"));
+  fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
+  expect(slot.inspection.composer.text).toBe(
+    "> note.md:1-3\n> workspace · host remote\n> # Heading\n> \n> \n> \n",
+  );
+});
 
 it("keeps storage ownership separate from the recipient and preserves a selected draft range", async () => {
   const { slot, api } = await mount({
