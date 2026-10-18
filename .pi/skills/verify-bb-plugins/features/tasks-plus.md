@@ -10,6 +10,7 @@ Users organize tracker projects and tasks, edit task state, attach Markdown file
 - document-images: explicit credential-free CORS raster images, same-origin BB denial, redirect rejection, bounded streams and blob cleanup.
 - tasks-cli: bb tasks reads and approved owned task mutations.
 - tasks-worker: explicit worker starts and linked work-thread reporting.
+- tasks-webhooks: global and tracker-scoped task-created POST delivery and redacted CLI management.
 
 ## How to get to it (user POV)
 
@@ -45,6 +46,11 @@ Historical default-shell runs failed three native-tab checks on macOS and Linux.
 The config owns strict port 4193 and refuses server reuse. Require that port free and serialize runs. The fixture exercises the production Markdown overlay with SDK/transport substitutes. Installed Doctor requires tasks-plus enabled, bundled tasks disabled and the intended tracker identity. Read-only `bb tasks project list --json` proves catalog access, not a mutation. For an approved owned tracker/task, drive a title/status edit and reread through CLI or a reopened panel; inspect Markdown attachments and draft preservation. Starting workers requires separate approval and proof of exactly one linked thread and resulting task state.
 
 For shared document changes, also follow [shared Markdown verification](../references/shared-markdown.md). It compares this production attachment owner with the real Reader and checks immediate theme coherence. Tasks permits local fragments, BB-preference HTTP(S) links and bounded credential-free remote raster images, but denies relative filesystem destinations; source-aware Reader links do not grant attachment filesystem access.
+
+Webhook verification uses `bun run --cwd bb-plugin-tasks-plus test cli/webhooks.test.ts webhooks/index.test.ts`, with a new private log file under `$EVIDENCE`. These public CLI/RPC tests use owned ephemeral loopback HTTP receivers. Deterministic stalled-request cases substitute only external fetch and timers. They cover exact payload and Authorization, global-plus-tracker routing, rollback silence, retries, redaction, concurrent settings mutations, reload, queue bounds, and disposal. Run the pinned package typecheck separately. SDK fake-host evidence is not installed acceptance.
+
+For installed webhook acceptance, first obtain exact-source activation approval and an owned tracker, receiver, and cleanup ledger. Existing global endpoints receive every task creation, including verification tasks. Do not inspect or copy their secrets. If unintended delivery cannot be excluded, block the mutation check. Use a private regular UTF-8 config file and inspect installed `bb tasks webhook --help`. Create a global endpoint and an explicitly scoped tracker endpoint. List their redacted IDs, run `webhook test <id> --json`, then create one approved owned task through CLI and one through UI or RPC. Observe exact receiver payloads and Authorization without retaining tokens. Check successful task creation while the owned receiver fails or stalls. Delete only the endpoints this run owns and confirm absence through a second list. Record receiver shutdown and approved task cleanup separately. Missing activation, network-send, tracker-mutation, or cleanup approval blocks this recipe; it does not permit another BB server or a silent source switch.
+
 ## Gotchas
 
 - Only one of bundled tasks and tasks-plus can be enabled; switching or data import is not harmless setup.

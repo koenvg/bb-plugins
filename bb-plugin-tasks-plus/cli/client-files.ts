@@ -102,10 +102,39 @@ async function readTextOption(
   }
 }
 
+async function readWebhookConfigFile(
+  bb: BbPluginApi,
+  domain: TasksDomain,
+  ctx: PluginCliContext,
+  file: string,
+  machine: string | undefined,
+): Promise<string> {
+  try {
+    const path = resolve(ctx.cwd ?? process.cwd(), file);
+    if (/^\/(?:dev|proc)(?:\/|$)/.test(path)) throw new Error();
+    const hostId = await resolveClientHostId(bb, domain, machine, ctx);
+    const result = await bb.sdk.files.read({
+      ...(hostId ? { hostId } : {}),
+      path,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (
+      result.contentEncoding !== "utf8" ||
+      result.sizeBytes > 8192 ||
+      Buffer.byteLength(result.content) > 8192
+    )
+      throw new Error();
+    return result.content;
+  } catch {
+    throw new CliError("Could not read webhook config file", { code: "webhook_file_error" });
+  }
+}
+
 export {
   resolveClientHostId,
   readAttachmentSource,
   writeClientFile,
   attachmentFileName,
   readTextOption,
+  readWebhookConfigFile,
 };

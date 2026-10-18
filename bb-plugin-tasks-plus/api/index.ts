@@ -21,6 +21,7 @@ import {
   type TasksChangedEvent,
   type TasksDomainError,
 } from "../shared/contract";
+import type { Webhooks } from "../webhooks";
 
 import { createWorkStatusReader } from "./work-status.js";
 interface TaskLabelIdRow {
@@ -423,6 +424,7 @@ async function listTaskPullRequests(
 export function registerHandlers(
   bb: BbPluginApi,
   store: TasksApiStore,
+  webhooks?: Pick<Webhooks, "taskCreated">,
 ): PluginRpcHandlers<typeof tasksRpcContract> {
   const readWorkStatus = createWorkStatusReader({
     store: store.tasks,
@@ -530,6 +532,7 @@ export function registerHandlers(
           replaceTaskLabels(store, created.id, input.labelIds);
           return apiTask(store, created);
         });
+        webhooks?.taskCreated(task, store.tasks.getProject(task.projectId)!.prefix);
         publishTasksChanged(bb, task.id, task.projectId);
         return { ok: true, task };
       } catch (error) {
@@ -817,6 +820,6 @@ export function registerHandlers(
   };
 }
 
-export function registerTasksApi(bb: BbPluginApi, store: TasksApiStore): void {
-  bb.rpc.register(tasksRpcContract, registerHandlers(bb, store));
+export function registerTasksApi(bb: BbPluginApi, store: TasksApiStore, webhooks?: Webhooks): void {
+  bb.rpc.register(tasksRpcContract, registerHandlers(bb, store, webhooks));
 }

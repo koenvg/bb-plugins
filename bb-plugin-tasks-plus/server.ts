@@ -7,6 +7,7 @@ import { registerTasksCli } from "./cli";
 import { registerDelegation } from "./delegate";
 import { registerLifecycle } from "./lifecycle";
 import { registerMentions } from "./mentions";
+import { createWebhooks } from "./webhooks";
 const TASKS_PLUGIN_NAME = "Tasks";
 export const TASKS_PLUGIN_VERSION = "0.1.2";
 
@@ -29,9 +30,11 @@ export async function registerTasks(bb: BbPluginApi) {
   bb.log.info(`${TASKS_PLUGIN_NAME} ${TASKS_PLUGIN_VERSION} loaded`);
 
   const store = createStore(bb);
-  registerTasksApi(bb, store);
+  const webhooks = await createWebhooks(bb);
+  bb.onDispose(webhooks.dispose);
+  registerTasksApi(bb, store, webhooks);
   registerAttachments(bb, store.tasks);
-  registerTasksCli(bb, store, statusPayload());
+  registerTasksCli(bb, store, statusPayload(), webhooks);
   registerDelegation(bb, store);
   registerMentions(bb, store);
   await registerLifecycle(bb, store);
