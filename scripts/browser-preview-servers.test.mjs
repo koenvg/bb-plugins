@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "bun:test";
@@ -32,17 +32,22 @@ const previews = [
     marker: "/tests/preview.tsx",
   },
 ];
-function start(preview, parent, port, args = []) {
+function start(preview, parent, port, args = [], preload) {
   const env = { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent };
   delete env.BB_FIXTURE_RUN_DIR;
   delete env.BB_FIXTURE_PORT;
   delete env[preview.key];
   if (port !== undefined) env[preview.key] = port;
-  const child = spawn(process.execPath, [preview.entry, ...args], {
-    cwd: join(repository, `bb-plugin-${preview.name}`),
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  if (preload) env.DEBUG = "vite:deps";
+  const child = spawn(
+    process.execPath,
+    [...(preload ? ["--preload", preload] : []), preview.entry, ...args],
+    {
+      cwd: join(repository, `bb-plugin-${preview.name}`),
+      env,
+      stdio: [preload ? "pipe" : "ignore", "pipe", "pipe"],
+    },
+  );
   const exited = once(child, "exit");
   let output = "";
   let ready;
@@ -214,4 +219,108 @@ for (const preview of previews) {
       }
     }, 20000);
   }
+}
+
+for (const crawlEnded of [false, true]) {
+  test(`markdown-reader drains writers (crawl ended ${crawlEnded})`, async () => {
+    const parent = await mkdtemp(join(tmpdir(), "preview-optimizer-contract-"));
+    const preview = previews.find((preview) => preview.name === "markdown-reader");
+    const preload = fileURLToPath(
+      new URL("./fixtures/markdown-optimizer-preload.mjs", import.meta.url),
+    );
+    const dist = join(repository, "bb-plugin-markdown-reader/dist");
+    const readDist = () =>
+      readdir(dist).catch((error) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      });
+    const before = await readDist();
+    const owner = start(preview, parent, "0", [], preload);
+    const other = start(preview, parent, "0");
+    const events = [];
+    const waiters = new Map();
+    const released = new Set();
+    const command = (gate) => {
+      if (released.has(gate)) return;
+      released.add(gate);
+      owner.child.stdin.write(`${gate}\n`);
+    };
+    const record = (event) => {
+      events.push(event);
+      waiters.get(event)?.();
+      // Draining releases the real writer before removal. The fallback exposes the unfixed leak.
+      if (event === "processing-read" || event === "cache-removed") command("writer");
+    };
+    let stderr = "";
+    owner.child.stderr.on("data", (data) => {
+      stderr += data.toString();
+      let newline;
+      while ((newline = stderr.indexOf("\n")) !== -1) {
+        const line = stderr.slice(0, newline);
+        stderr = stderr.slice(newline + 1);
+        if (line.startsWith("OPTIMIZER ")) record(JSON.parse(line.slice(10)).event);
+        if (line.includes("static imports crawl ended")) record("crawl-ended");
+      }
+    });
+    const wait = (event) =>
+      Promise.race([
+        events.includes(event)
+          ? Promise.resolve()
+          : new Promise((resolve) => waiters.set(event, resolve)),
+        owner.exited.then(() => {
+          throw new Error(`Exited before ${event}: ${owner.output()}`);
+        }),
+      ]);
+    const watchdog = setTimeout(() => owner.child.kill("SIGKILL"), 15000);
+    try {
+      await writeFile(join(parent, "historical.png"), "keep");
+      const origin = await owner.ready();
+      const otherOrigin = await other.ready();
+      const otherCache = other.output().match(/Synthetic preview ready at .* \((.+)\)/)[1];
+      await wait("scan-held");
+      if (crawlEnded) {
+        await wait("crawl-held");
+        command("crawl");
+        await wait("crawl-ended");
+      }
+      owner.child.kill("SIGTERM");
+      await wait("shutdown-scan-read");
+      command("scan");
+      if (!crawlEnded) command("crawl");
+      await wait("writer-held");
+      const status = await owner.exited;
+      console.log(`Optimizer boundary trace (crawl ended ${crawlEnded}): ${events.join(", ")}`);
+      assert.deepEqual(status, [0, null], owner.output());
+      assert.throws(() => process.kill(owner.child.pid, 0), { code: "ESRCH" });
+      await assert.rejects(fetch(origin + "/"));
+      assert.equal(await readFile(join(parent, "historical.png"), "utf8"), "keep");
+      assert.equal(process.kill(other.child.pid, 0), true);
+      const response = await fetch(otherOrigin + "/package.json");
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).name, "bb-plugin-markdown-reader");
+      assert.deepEqual(
+        (await readdir(parent)).sort(),
+        ["historical.png", basename(otherCache)].sort(),
+      );
+      assert.deepEqual(await readDist(), before);
+      assert.ok(events.includes("writer-finished"), owner.output());
+      assert.ok(
+        events.indexOf("writer-finished") < events.indexOf("cache-removing"),
+        owner.output(),
+      );
+      await other.stop();
+      assert.deepEqual(await other.exited, [0, null], other.output());
+      assert.throws(() => process.kill(other.child.pid, 0), { code: "ESRCH" });
+      await assert.rejects(fetch(otherOrigin + "/package.json"));
+      assert.deepEqual(await readdir(parent), ["historical.png"]);
+    } finally {
+      clearTimeout(watchdog);
+      if (owner.child.exitCode === null && owner.child.signalCode === null) {
+        owner.child.kill("SIGKILL");
+      }
+      await owner.exited;
+      await other.stop();
+      await rm(parent, { recursive: true, force: true });
+    }
+  }, 20000);
 }
