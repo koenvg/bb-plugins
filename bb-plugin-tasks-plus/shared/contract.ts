@@ -327,6 +327,7 @@ const taskMutationResultSchema = z.discriminatedUnion("ok", [
       ok: z.literal(true),
       task: taskSchema,
       warnings: z.array(z.string()).optional(),
+      changeId: z.string().optional(),
     })
     .strict(),
   z.object({ ok: z.literal(false), error: tasksDomainErrorSchema }).strict(),
@@ -817,6 +818,7 @@ export interface TasksChangedEvent {
   taskId: string;
   projectId: string;
   resource?: "attachments";
+  changeId?: string;
 }
 
 export interface ProjectsChangedEvent {

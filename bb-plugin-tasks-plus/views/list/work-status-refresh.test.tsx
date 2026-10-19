@@ -522,7 +522,7 @@ it("keeps work metadata stable after a status edit and refreshes it for a thread
     expect.arrayContaining([
       expect.objectContaining({
         channel: "tasks:changed",
-        payload: { taskId: task.id, projectId: project.id },
+        payload: { taskId: task.id, projectId: project.id, changeId: expect.any(String) },
       }),
     ]),
   );

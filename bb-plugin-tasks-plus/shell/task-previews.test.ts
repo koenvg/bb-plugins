@@ -13,6 +13,87 @@ function deferred<T>() {
 }
 
 describe("session task previews", () => {
+  it.each(["pending", "settled"])(
+    "shares an identified save revalidation while its read is %s",
+    async (timing) => {
+      const pending = deferred<ReturnType<typeof task>>();
+      const fetch = vi.fn().mockResolvedValueOnce(task(1)).mockReturnValueOnce(pending.promise);
+      const previews = createTaskPreviews(fetch);
+      const release = previews.subscribe("TSK-1", () => {});
+      await previews.load("TSK-1");
+      previews.invalidateTask("task-1", "save-1");
+      const read = previews.load("TSK-1");
+      await Promise.resolve();
+      if (timing === "settled") {
+        pending.resolve(task(1, "Saved"));
+        await read;
+      }
+      previews.invalidateReuse("TSK-1", "save-1");
+      previews.invalidate("TSK-1", "save-1");
+      const shared = previews.load("TSK-1");
+      pending.resolve(task(1, "Saved"));
+      await read;
+      await shared;
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(previews.read("TSK-1")).toMatchObject({
+        current: true,
+        data: { description: "Saved" },
+      });
+      release();
+    },
+  );
+
+  it("coalesces the saved key but still revalidates dependencies and later external edits", async () => {
+    let description = "Initial";
+    const blocker = task(1);
+    const linked = {
+      ...task(2),
+      blockedBy: [
+        { id: blocker.id, key: blocker.key, title: blocker.title, status: blocker.status },
+      ],
+    };
+    const fetch = vi.fn(async (key: string) => ({
+      ...(key === blocker.key ? blocker : linked),
+      description,
+    }));
+    const previews = createTaskPreviews(fetch);
+    await previews.load("TSK-1");
+    await previews.load("TSK-2");
+    previews.invalidateReuse("TSK-1", "save-1");
+    previews.invalidate("TSK-1", "save-1");
+    description = "Saved";
+    await previews.load("TSK-1");
+    previews.invalidateTask("task-1", "save-1");
+    await previews.load("TSK-1");
+    await previews.load("TSK-2");
+    expect(fetch.mock.calls).toEqual([["TSK-1"], ["TSK-2"], ["TSK-1"], ["TSK-2"]]);
+    const obsolete = deferred<ReturnType<typeof task>>();
+    fetch.mockImplementationOnce(() => obsolete.promise);
+    previews.invalidateTask("task-1", "external-1");
+    const old = previews.load("TSK-1");
+    await Promise.resolve();
+    description = "Latest external edit";
+    previews.invalidateTask("task-1");
+    await previews.load("TSK-1");
+    obsolete.resolve(task(1, "Obsolete external edit"));
+    await old;
+    expect(previews.read("TSK-1")).toMatchObject({ current: true, data: { description } });
+  });
+
+  it("bounds change history and permits a safe extra read after eviction", async () => {
+    const fetch = vi.fn(async () => task(1));
+    const previews = createTaskPreviews(fetch);
+    await previews.load("TSK-1");
+    for (let n = 0; n <= TASK_PREVIEW_ENTRIES; n++) {
+      previews.invalidate("TSK-1", `save-${n}`);
+      await previews.load("TSK-1");
+    }
+    const before = fetch.mock.calls.length;
+    previews.invalidate("TSK-1", "save-0");
+    await previews.load("TSK-1");
+    expect(fetch).toHaveBeenCalledTimes(before + 1);
+  });
+
   it("normalizes keys, shares in-flight reads and reuses matching current data", async () => {
     const pending = deferred<ReturnType<typeof task> | null>();
     const fetch = vi.fn(() => pending.promise);

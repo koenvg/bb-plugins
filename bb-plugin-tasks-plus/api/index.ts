@@ -172,8 +172,13 @@ function taskFailure(error: TasksDomainFailure) {
   return { ok: false as const, error: error.detail };
 }
 
-export function publishTasksChanged(bb: BbPluginApi, taskId: string, projectId: string): void {
-  const payload: TasksChangedEvent = { taskId, projectId };
+export function publishTasksChanged(
+  bb: BbPluginApi,
+  taskId: string,
+  projectId: string,
+  changeId?: string,
+): void {
+  const payload: TasksChangedEvent = { taskId, projectId, ...(changeId ? { changeId } : {}) };
   bb.realtime.publish("tasks:changed", payload);
 }
 
@@ -584,15 +589,16 @@ export function registerHandlers(
           };
         });
 
-        publishTasksChanged(bb, result.task.id, result.task.projectId);
+        const changeId = crypto.randomUUID();
+        publishTasksChanged(bb, result.task.id, result.task.projectId, changeId);
         for (const taskId of result.linkedTaskIds) {
           const linked = store.tasks.getTask(taskId);
           if (linked) publishTasksChanged(bb, linked.id, linked.projectId);
         }
         const warnings = input.status === "in_progress" ? blockedWorkWarnings(result.task) : [];
         return warnings.length > 0
-          ? { ok: true, task: result.task, warnings }
-          : { ok: true, task: result.task };
+          ? { ok: true, task: result.task, changeId, warnings }
+          : { ok: true, task: result.task, changeId };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
         if (error instanceof TaskDependencyError) {

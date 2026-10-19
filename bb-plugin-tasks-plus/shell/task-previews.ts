@@ -37,6 +37,7 @@ export function createTaskPreviews(
   const active = new Map<string, TaskPreviewSnapshot>();
   const listeners = new Map<string, Set<() => void>>();
   const requests = new Map<string, Request>();
+  const invalidatedChanges = new Map<string, Set<string>>();
   // Issued transports keep their slots even if invalidation revokes publication.
   const speculative = new Set<Request>();
   let queued: string[] = [];
@@ -79,9 +80,19 @@ export function createTaskPreviews(
     }
     notify(key);
   }
-  function invalidateKeys(keys: Iterable<string>, emit = true) {
+  function invalidateKeys(keys: Iterable<string>, emit = true, changeId?: string) {
+    let invalidated = changeId ? invalidatedChanges.get(changeId) : undefined;
+    if (changeId && !invalidated) {
+      invalidated = new Set();
+      invalidatedChanges.set(changeId, invalidated);
+      // Eviction permits an extra read for an unusually late duplicate, never stale reuse.
+      if (invalidatedChanges.size > TASK_PREVIEW_ENTRIES)
+        invalidatedChanges.delete(invalidatedChanges.keys().next().value!);
+    }
     queued = [];
     for (const key of keys) {
+      if (invalidated?.has(key)) continue;
+      invalidated?.add(key);
       requests.delete(key); // Revoke publication rights, not transport cancellation.
       const previous = active.get(key) ?? retained.get(key)?.snapshot ?? empty;
       const snapshot = { ...previous, current: false, isLoading: true, error: null };
@@ -101,12 +112,12 @@ export function createTaskPreviews(
     // External generations also guard reuse when no subscriber has rendered yet.
     invalidateKeys(allKeys(), false);
   }
-  function invalidate(key?: string) {
+  function invalidate(key?: string, changeId?: string) {
     if (disposed) return;
     synchronize();
-    invalidateKeys(key === undefined ? allKeys() : [normalizeTaskKey(key)]);
+    invalidateKeys(key === undefined ? allKeys() : [normalizeTaskKey(key)], true, changeId);
   }
-  function invalidateTask(taskId: string) {
+  function invalidateTask(taskId: string, changeId?: string) {
     if (disposed) return;
     synchronize();
     const keys = [...allKeys()].filter((key) => {
@@ -120,7 +131,7 @@ export function createTaskPreviews(
         data.blocks?.some((task) => task.id === taskId)
       );
     });
-    invalidateKeys(keys);
+    invalidateKeys(keys, true, changeId);
   }
   function load(rawKey: string, speculate = false): Promise<void> {
     if (disposed) return Promise.resolve();
@@ -197,10 +208,11 @@ export function createTaskPreviews(
     invalidateTask,
     /** Revoke reuse during a write without triggering a second route barrier
      * before the originating edit session has finished its save drain. */
-    invalidateReuse(rawKey: string) {
+    invalidateReuse(rawKey: string, changeId?: string) {
       if (disposed) return;
       queued = [];
       const key = normalizeTaskKey(rawKey);
+      if (changeId && invalidatedChanges.get(changeId)?.has(key)) return;
       drop(key);
       requests.delete(key);
     },
@@ -226,6 +238,7 @@ export function createTaskPreviews(
       retained.clear();
       active.clear();
       requests.clear();
+      invalidatedChanges.clear();
       speculative.clear();
       listeners.clear();
       bytes = 0;

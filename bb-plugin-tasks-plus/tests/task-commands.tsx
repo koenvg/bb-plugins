@@ -36,6 +36,18 @@ const bbProjects = [
   { id: "proj_first", name: "First workspace" },
   { id: "proj_second", name: "Second workspace" },
 ];
+const refreshOrder = new URLSearchParams(window.location.search).get("refreshOrder");
+let previewReads = 0;
+let deliveredEvents = 0;
+const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 60));
+async function deliverChange(changeId?: string) {
+  await slot.behavior.emitRealtime("tasks:changed", {
+    taskId: "task-1",
+    ...(changeId ? { changeId } : {}),
+  });
+  deliveredEvents++;
+  window.dispatchEvent(new Event("fixture-update"));
+}
 const label = {
   id: "label-1",
   projectId: project.id,
@@ -93,6 +105,24 @@ function Fixture() {
       <output aria-label="Fixture updates">{JSON.stringify(updates)}</output>
       <output aria-label="Fixture project updates">{JSON.stringify(projectUpdates)}</output>
       <output aria-label="Fixture delegations">{JSON.stringify(delegations)}</output>
+      {refreshOrder && (
+        <>
+          <output aria-label="Preview reads">{previewReads}</output>
+          <output aria-label="Delivered events">{deliveredEvents}</output>
+          <button
+            onClick={() => {
+              tasks[0] = {
+                ...tasks[0]!,
+                title: "External edit",
+                updatedAt: "2026-10-20T00:00:00Z",
+              };
+              void deliverChange();
+            }}
+          >
+            External task edit
+          </button>
+        </>
+      )}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay style={{ position: "fixed", inset: 0, background: "#0004" }} />
@@ -148,9 +178,14 @@ const slot = renderSlot(
         tasks: rpcInput(raw).parentTaskId ? [] : tasks,
         nextCursor: null,
       }),
-      getTaskByKey: (raw) => ({
-        task: tasks.find((task) => task.key === rpcInput(raw).taskKey) ?? null,
-      }),
+      getTaskByKey: async (raw) => {
+        if (refreshOrder) {
+          previewReads++;
+          window.dispatchEvent(new Event("fixture-update"));
+          await pause();
+        }
+        return { task: tasks.find((task) => task.key === rpcInput(raw).taskKey) ?? null };
+      },
       getTask: () => ({ task: null }),
       listAttachments: () => ({ attachments: [] }),
       listTaskThreads: () => ({ taskThreads: [] }),
@@ -169,12 +204,22 @@ const slot = renderSlot(
         throw new Error("Delegation is outside this fixture");
       },
       listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),
-      updateTask: (raw) => {
+      updateTask: async (raw) => {
         const input = rpcInput(raw);
         updates.push(input);
         const task = tasks.find((entry) => entry.id === input.taskId)!;
         Object.assign(task, input);
         window.dispatchEvent(new Event("fixture-update"));
+        if (refreshOrder) {
+          const changeId = `fixture-save-${updates.length}`;
+          if (refreshOrder === "event-first") {
+            await deliverChange(changeId);
+            await pause();
+          } else {
+            void pause().then(() => deliverChange(changeId));
+          }
+          return { ok: true, task: { ...task }, changeId };
+        }
         return { ok: true, task: { ...task } };
       },
     },

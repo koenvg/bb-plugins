@@ -8,6 +8,43 @@ import { tasksRpcContract } from "../shared/contract";
 import { createStore, registerTasksApi } from ".";
 
 describe("Tasks RPC domain API", () => {
+  it("correlates each successful update reply with its event and does not publish failures", async () => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(bb);
+    registerTasksApi(bb, store);
+    const project = store.tasks.createProject({
+      name: "Correlation",
+      prefix: "COR",
+      color: "blue",
+    });
+    const task = store.tasks.createTask({
+      projectId: project.id,
+      title: "Correlated",
+      status: "todo",
+    });
+    const ids = new Set<string>();
+    for (const status of ["in_progress", "done"] as const) {
+      const result = tasksRpcContract.updateTask.output.parse(
+        await harness.callRpc("updateTask", { taskId: task.id, status }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("Update failed");
+      expect(result.changeId).toEqual(expect.any(String));
+      ids.add(result.changeId!);
+      expect(harness.realtimeSignals.at(-1)).toEqual({
+        channel: "tasks:changed",
+        payload: { taskId: task.id, projectId: project.id, changeId: result.changeId },
+      });
+    }
+    expect(ids.size).toBe(2);
+    const signals = harness.realtimeSignals.length;
+    await expect(
+      harness.callRpc("updateTask", { taskId: task.id, parentTaskId: task.id }),
+    ).resolves.toMatchObject({ ok: false });
+    expect(harness.realtimeSignals).toHaveLength(signals);
+    await harness.lifecycle.dispose();
+  });
+
   it("counts unfinished top-level tasks once across projects", async () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     const store = createStore(bb);
@@ -170,7 +207,11 @@ describe("Tasks RPC domain API", () => {
         ).resolves.toMatchObject({ tasks: [{ id: task.id, status }] });
         expect(harness.inspection.realtimeSignals.slice(signalsBefore)).toContainEqual({
           channel: "tasks:changed",
-          payload: { taskId: task.id, projectId: project.id },
+          payload: {
+            taskId: task.id,
+            projectId: project.id,
+            ...(method === "updateTask" ? { changeId: expect.any(String) } : {}),
+          },
         });
       }
       await harness.lifecycle.dispose();
