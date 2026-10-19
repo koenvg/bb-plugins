@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
+import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
@@ -23,9 +24,10 @@ const { PropertiesRail } = await import("./rail");
 const { TasksRefreshProvider } = await import("../../shell/refresh");
 
 function RailHarness(props: ComponentProps<typeof PropertiesRail>) {
+  const [openMenu, setOpenMenu] = useState<ComponentProps<typeof PropertiesRail>["openMenu"]>(null);
   return (
     <TasksRefreshProvider>
-      <PropertiesRail {...props} />
+      <PropertiesRail {...props} openMenu={openMenu} onOpenMenuChange={setOpenMenu} />
     </TasksRefreshProvider>
   );
 }
@@ -61,6 +63,7 @@ function railProps(linkedBbProjectId: string | null) {
   return {
     task,
     project: projectRow(linkedBbProjectId),
+    bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
     labels: [],
     threads: [],
     presets: [],

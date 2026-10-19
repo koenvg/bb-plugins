@@ -29,6 +29,8 @@ BBP-45's [local verification](../../../verification/BBP-45/report.md) covers the
 
 ## 3. Change the linked BB project through a task command
 
+BBP-46 implements the controlled shared-scope picker and its command. Local evidence is recorded in [its verification report](../../../verification/BBP-46/report.md). Installed-BB palette and personal-binding acceptance remain blocked by the no-deployment and no-settings restrictions, so delivery 3 checkboxes remain open.
+
 - [ ] 3.1 Connect Change linked BB project to a controlled picker with a compact inline trigger and shared loaded tracker/BB-project options; verify the command is unavailable before the tracker project loads and opens only the visible picker in both layouts.
 - [ ] 3.2 Identify the tracker project and explain that its link affects all its tasks; verify selection initialization, dismissal without saving, save/unlink through updateProject, retained errors, and no task move, thread move or delegation call.
 - [ ] 3.3 Apply visible-control focus, Escape return and cancellable palette-close handoff to the linked-project picker; verify keyboard tests in both layouts never focus a hidden duplicate.

@@ -12,6 +12,86 @@ async function palette(page: Page, title: string) {
 }
 
 for (const width of [1200, 650]) {
+  test(`linked-project command shared scope and explicit saves at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/tests/task-commands.html");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+    await page.keyboard.press("Tab");
+    const layout = page.locator(`[data-properties-layout="${width === 1200 ? "rail" : "inline"}"]`);
+    const trigger = layout.getByRole("button", { name: "Edit dispatch target" });
+    const select = page.getByRole("combobox", { name: "Linked bb project" });
+    const updates = page.getByLabel("Fixture project updates");
+    await palette(page, "Change linked BB project");
+    await expect(select).toHaveCount(1);
+    await expect(select).toBeFocused();
+    await expect(select).toHaveText("First workspace");
+    await expect(page.getByText("Tracker project: Command fixture")).toBeVisible();
+    await expect(
+      page.getByText("This link applies to all tasks in Command fixture."),
+    ).toBeVisible();
+    await expect(updates).toHaveText("[]");
+    await page.screenshot({ path: testInfo.outputPath("Linked-project.png") });
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("option", { name: "First workspace" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("option", { name: "Second workspace" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(select).toHaveText("Second workspace");
+    await expect(select).toBeFocused();
+    await expect(updates).toHaveText("[]");
+    await page.keyboard.press("Escape");
+    await expect(select).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(updates).toHaveText("[]");
+
+    await palette(page, "Change linked BB project");
+    await expect(select).toBeFocused();
+    await expect(select).toHaveText("First workspace");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("option", { name: "First workspace" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("option", { name: "Second workspace" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(select).toHaveText("Second workspace");
+    await expect(select).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Unlink", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    const saved = [{ projectId: "project-1", linkedBbProjectId: "proj_second" }];
+    await expect(updates).toHaveText(JSON.stringify(saved));
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toHaveText("Second workspace");
+
+    await page.keyboard.press("Alt+2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await palette(page, "Change linked BB project");
+    await expect(select).toBeFocused();
+    await expect(select).toHaveText("Second workspace");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Unlink", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(updates).toHaveText(
+      JSON.stringify([...saved, { projectId: "project-1", linkedBbProjectId: null }]),
+    );
+    await expect(select).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toHaveText("Link a bb project…");
+    await palette(page, "Change linked BB project");
+    await expect(select).toBeFocused();
+    await expect(select).toHaveText("Not linked");
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await expect(page.getByLabel("Fixture updates", { exact: true })).toHaveText("[]");
+    await expect(page.getByLabel("Fixture delegations")).toHaveText("[]");
+    await page.keyboard.press("Alt+0");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
+    await expect(page.getByText("Tasks: Change linked BB project", { exact: true })).toBeHidden();
+    await page.keyboard.press("Escape");
+  });
   test(`due-date command explicit choices and focus at ${width}px`, async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date("2026-07-15T12:00:00"));
     await page.setViewportSize({ width, height: 900 });

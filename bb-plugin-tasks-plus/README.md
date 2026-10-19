@@ -686,7 +686,7 @@ bind your own in bb.
 ### Change the open task's properties
 
 Open a loaded task through its task route in the Tasks panel. Press Cmd+Shift+P,
-then choose **Tasks: Change status**, **Tasks: Set priority**, **Tasks: Set due date**, or **Tasks: Edit labels**.
+then choose **Tasks: Change status**, **Tasks: Set priority**, **Tasks: Set due date**, **Tasks: Edit labels**, or **Tasks: Change linked BB project**.
 You can assign personal bindings in **Settings > Keyboard**. The plugin supplies no default bindings.
 
 Each command opens the existing picker for the visible layout and places keyboard focus inside it.
@@ -699,7 +699,14 @@ Loading, missing and failed task lookups are unavailable.
 Choose a preset or select a non-empty custom date to save it. If a date is set, choose **Remove due date** to clear it.
 Opening the picker or pressing Escape without a choice does not change the task. There is no bare-key due-date shortcut.
 
-Nine detail commands are registered. Linked BB project, dispatch, Previous, Next and Back are currently unavailable.
+**Tasks: Change linked BB project** opens the visible linked-project picker once the task's tracker project has loaded.
+The picker names that tracker project and explains that the link applies to all its tasks.
+Select a BB project, then choose **Save**, or choose **Unlink** to remove the current link.
+Opening, changing the unsaved selection, or pressing Escape does not save. Failed saves retain the selection and report the error.
+This changes the shared tracker-project link only. It does not move tasks or existing threads, or start an agent.
+There is no bare-key linked-project shortcut.
+
+Nine detail commands are registered. Dispatch, Previous, Next and Back are currently unavailable.
 Write a comment is not registered because task comments were removed.
 
 ### Switch Tasks projects

@@ -15,7 +15,7 @@ const project = {
   nextTaskNumber: 3,
   color: "blue",
   folderId: null,
-  linkedBbProjectId: null,
+  linkedBbProjectId: "proj_first" as string | null,
   createdAt: "2026-07-15T00:00:00.000Z",
 };
 const tasks = [1, 2].map((number) =>
@@ -30,6 +30,12 @@ const tasks = [1, 2].map((number) =>
   }),
 );
 const updates: Record<string, unknown>[] = [];
+const projectUpdates: Record<string, unknown>[] = [];
+const delegations: Record<string, unknown>[] = [];
+const bbProjects = [
+  { id: "proj_first", name: "First workspace" },
+  { id: "proj_second", name: "Second workspace" },
+];
 const label = {
   id: "label-1",
   projectId: project.id,
@@ -85,6 +91,8 @@ function Fixture() {
         <TasksAppShell subPath={subPath} />
       </div>
       <output aria-label="Fixture updates">{JSON.stringify(updates)}</output>
+      <output aria-label="Fixture project updates">{JSON.stringify(projectUpdates)}</output>
+      <output aria-label="Fixture delegations">{JSON.stringify(delegations)}</output>
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay style={{ position: "fixed", inset: 0, background: "#0004" }} />
@@ -126,12 +134,12 @@ function Fixture() {
     </>
   );
 }
-renderSlot(
+const slot = renderSlot(
   { component: Fixture },
   {},
   {
     rpc: {
-      listProjects: () => ({ projects: [project] }),
+      listProjects: () => ({ projects: [{ ...project }] }),
       listFolders: () => ({ folders: [] }),
       listLabels: () => ({ labels: [label] }),
       listPresets: () => ({ presets: [] }),
@@ -146,7 +154,20 @@ renderSlot(
       getTask: () => ({ task: null }),
       listAttachments: () => ({ attachments: [] }),
       listTaskThreads: () => ({ taskThreads: [] }),
-      listBbProjects: () => ({ bbProjects: [] }),
+      listBbProjects: () => ({ bbProjects }),
+      updateProject: (raw) => {
+        const input = rpcInput(raw);
+        projectUpdates.push(input);
+        Object.assign(project, input);
+        window.dispatchEvent(new Event("fixture-update"));
+        queueMicrotask(() => slot.emitRealtime("projects:changed", {}));
+        return { project: { ...project } };
+      },
+      delegate: (raw) => {
+        delegations.push(rpcInput(raw));
+        window.dispatchEvent(new Event("fixture-update"));
+        throw new Error("Delegation is outside this fixture");
+      },
       listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),
       updateTask: (raw) => {
         const input = rpcInput(raw);

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Label,
   Project,
@@ -10,7 +10,7 @@ import type {
 import { TASK_PRIORITIES, TASK_STATUSES } from "../../shared/contract.js";
 import type { Preset } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
-import { useTasksQuery, useTasksRpc } from "../../shell/data.js";
+import { useTasksRpc } from "../../shell/data.js";
 import { PriorityIcon, StatusIcon, formatDueDate, isActiveThread } from "./meta.js";
 import { DUE_DATE_PRESETS, localIsoDate, PRIORITY_LABELS, STATUS_LABELS } from "../list/lib.js";
 import { DispatchControl } from "./threads.js";
@@ -39,7 +39,9 @@ function usePropertyMenuFocus(open: boolean) {
       if (content && open && isLastInputKeyboard()) {
         focusFrame.current = requestAnimationFrame(() => {
           focusFrame.current = null;
-          content.querySelector<HTMLElement>('input, [role="menuitem"]')?.focus();
+          content
+            .querySelector<HTMLElement>('input, [role="menuitem"], [role="combobox"]')
+            ?.focus();
         });
       }
     },
@@ -57,7 +59,13 @@ function usePropertyMenuFocus(open: boolean) {
   return { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus };
 }
 
-export type DetailMenu = "status" | "priority" | "labels" | "dueDate" | "dispatch";
+export type DetailMenu =
+  | "status"
+  | "priority"
+  | "labels"
+  | "dueDate"
+  | "linkedProject"
+  | "dispatch";
 
 interface MenuControl {
   openMenu: DetailMenu | null;
@@ -81,6 +89,7 @@ export interface TaskPropertyUpdate {
 interface TaskPropertiesProps {
   task: Task;
   project: Project | undefined;
+  bbProjects: readonly BbProjectOption[];
   labels: Label[] | undefined;
   threads: TaskThread[];
   onUpdate: (update: TaskPropertyUpdate) => void;
@@ -280,18 +289,25 @@ function DispatchTargetMenu({
   bbProjects,
   onError,
   triggerClassName,
+  open,
+  onOpenChange,
 }: {
   project: Project;
   bbProjects: readonly BbProjectOption[];
   onError: (message: string) => void;
   triggerClassName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const rpc = useTasksRpc();
-  const [open, setOpen] = useState(false);
+  const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   const [selection, setSelection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const linkedBbProjectId = project.linkedBbProjectId;
   const linkedName = bbProjects.find((candidate) => candidate.id === linkedBbProjectId)?.name;
+  useEffect(() => {
+    if (open) setSelection(linkedBbProjectId);
+  }, [open, linkedBbProjectId]);
 
   const save = async (linkedId: string | null) => {
     if (saving) return;
@@ -301,7 +317,7 @@ function DispatchTargetMenu({
         projectId: project.id,
         linkedBbProjectId: linkedId,
       });
-      setOpen(false);
+      onOpenChange(false);
     } catch (saveError) {
       onError(errorMessage(saveError));
     } finally {
@@ -310,14 +326,8 @@ function DispatchTargetMenu({
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setSelection(linkedBbProjectId);
-        setOpen(next);
-      }}
-    >
-      <PopoverTrigger asChild>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger ref={triggerRef} asChild>
         <button type="button" aria-label="Edit dispatch target" className={triggerClassName}>
           <Icon name="ArrowUpRight" className="size-3.5 shrink-0" />
           {linkedBbProjectId !== null ? (
@@ -329,7 +339,17 @@ function DispatchTargetMenu({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-3">
+      <PopoverContent
+        ref={contentRef}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+        align="start"
+        className="w-64 p-3"
+      >
+        <div className="mb-1 text-xs font-medium">Tracker project: {project.name}</div>
+        <p className="mb-2.5 text-xs text-muted-foreground">
+          This link applies to all tasks in {project.name}.
+        </p>
         <BbProjectLinkPicker
           value={selection}
           onChange={setSelection}
@@ -366,6 +386,7 @@ const RAIL_ROW_CLASS =
 export function PropertiesRail({
   task,
   project,
+  bbProjects,
   labels,
   threads,
   presets,
@@ -381,10 +402,6 @@ export function PropertiesRail({
   }) {
   const taskLabels = (labels ?? []).filter((label) => task.labelIds.includes(label.id));
   const active = threads.filter(isActiveThread);
-  const bbProjects = useTasksQuery(
-    async (query) => (await query.call("listBbProjects")).bbProjects,
-    ["projects:changed"],
-  );
   return (
     <aside data-properties-layout="rail" className={cn("w-56 shrink-0 py-10 pl-2 pr-6", className)}>
       <h2 className="mb-1.5 text-xs font-semibold text-muted-foreground">Properties</h2>
@@ -442,9 +459,10 @@ export function PropertiesRail({
       {project !== undefined ? (
         <DispatchTargetMenu
           project={project}
-          bbProjects={bbProjects.data ?? []}
+          bbProjects={bbProjects}
           onError={onError}
           triggerClassName={RAIL_ROW_CLASS}
+          {...menuProps(control, "linkedProject")}
         />
       ) : (
         <div className="py-0.5 text-sm text-muted-foreground">…</div>
@@ -488,13 +506,15 @@ const CHIP_CLASS =
 
 export function InlineProperties({
   task,
+  project,
+  bbProjects,
   labels,
   presets,
   onUpdate,
   onError,
   className,
   ...control
-}: Omit<TaskPropertiesProps, "project" | "threads"> &
+}: Omit<TaskPropertiesProps, "threads"> &
   MenuControl & {
     presets: Preset[] | undefined;
     onError: (message: string) => void;
@@ -536,6 +556,15 @@ export function InlineProperties({
           <Icon name="Plus" className="size-3" />
         </button>
       </LabelsMenu>
+      {project !== undefined ? (
+        <DispatchTargetMenu
+          project={project}
+          bbProjects={bbProjects}
+          onError={onError}
+          triggerClassName={cn(CHIP_CLASS, "max-w-56")}
+          {...menuProps(control, "linkedProject")}
+        />
+      ) : null}
       <DispatchControl
         task={task}
         presets={presets}
