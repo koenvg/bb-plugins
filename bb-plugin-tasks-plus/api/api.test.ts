@@ -166,6 +166,9 @@ describe("Tasks RPC domain API", () => {
     "refreshes summary counts after completing, canceling, and reopening through %s",
     async (method) => {
       const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+      harness.sdk.stub("threads.get", async ({ threadId }) =>
+        makeThreadResponse({ id: threadId, environmentId: null }),
+      );
       const store = createStore(bb);
       registerTasksApi(bb, store);
       const project = store.tasks.createProject({

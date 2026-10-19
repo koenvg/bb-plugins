@@ -47,7 +47,7 @@ const ACTIVE_THREAD_STATUSES = new Set(["starting", "working"]);
 type ListTasksInput = Parameters<TasksDomain["listTasks"]>[0];
 
 function unwrapTask(result: TaskMutationResult): Task {
-  if (!result.ok) throw new CliError(result.error.message);
+  if (!result.ok) throw new CliError(result.error.message, { code: result.error.code });
   return result.task;
 }
 
@@ -535,7 +535,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           values: TASK_STATUSES,
           aliases: ["state"],
           description:
-            "New workflow status; in_review when implementation needs review, done when the criteria are met",
+            "New workflow status; use in_review while a linked PR is open or draft; done checks linked PRs and requires all criteria met",
         },
         priority: {
           type: "enum",

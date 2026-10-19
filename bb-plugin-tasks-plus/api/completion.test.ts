@@ -4,6 +4,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createStore } from ".";
 import plugin from "../server";
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 const disposers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (disposers.length) await disposers.pop()!();
@@ -134,8 +142,8 @@ describe("task completion PR gate", () => {
   it("rejects CLI done in text and JSON, without saving labels, blockers, or fields", async () => {
     const { harness, store, task, project } = await setup();
     const label = store.tasks.createLabel({ projectId: project.id, name: "Guard", color: "blue" });
-    const downstream = store.tasks.createTask({ projectId: project.id, title: "Downstream" });
-    store.tasks.addTaskDependency(task.id, downstream.id);
+    const blocker = store.tasks.createTask({ projectId: project.id, title: "Blocker" });
+    store.tasks.addTaskDependency(blocker.id, task.id);
     const before = store.tasks.getTask(task.id);
     for (const json of [false, true]) {
       const result = await harness.behavior.runCli([
@@ -148,14 +156,14 @@ describe("task completion PR gate", () => {
         "--add-label",
         label.name,
         "--unblocked-by",
-        downstream.key,
+        blocker.key,
         ...(json ? ["--json"] : []),
       ]);
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(openError.message);
       if (json) expect(JSON.parse(result.stdout)).toEqual({ ok: false, error: openError });
       expect(store.tasks.getTask(task.id)).toEqual(before);
-      expect(store.tasks.listBlockedTasks(task.id).map((t) => t.key)).toEqual([downstream.key]);
+      expect(store.tasks.listBlockers(task.id).map((t) => t.key)).toEqual([blocker.key]);
       expect(store.taskLabelIds([task.id]).get(task.id)).toEqual([]);
     }
     expect(
@@ -261,4 +269,67 @@ describe("task completion PR gate", () => {
     expect(store.tasks.getTask(task.id)?.title).toBe("Edited");
     expect(harness.sdk.calls.slice(callsBefore)).toEqual([]);
   });
+
+  for (const method of ["updateTask", "boardMove"] as const) {
+    it.each(["attach", "detach"] as const)(
+      `rejects a concurrent %s during ${method} completion`,
+      async (change) => {
+        const { harness, store, task } = await setup({ outcome: "absent" });
+        const lookupStarted = deferred<void>();
+        const lookup = deferred<Lookup>();
+        harness.sdk.stub("environments.pullRequest", async ({ environmentId }) => {
+          if (environmentId === "env_open") return pullRequest("open");
+          lookupStarted.resolve();
+          return lookup.promise;
+        });
+        harness.sdk.stub("threads.get", async ({ threadId }) =>
+          makeThreadResponse({
+            id: threadId,
+            environmentId: threadId === "thr_new" ? "env_open" : "env_work",
+          }),
+        );
+        const before = store.tasks.getTask(task.id);
+        const pending = harness.behavior.callRpc(method, { taskId: task.id, status: "done" });
+        await lookupStarted.promise;
+        if (change === "attach") {
+          await harness.behavior.callRpc("taskThreadsAttach", {
+            taskId: task.id,
+            threadId: "thr_new",
+          });
+        } else {
+          await harness.behavior.callRpc("taskThreadsDetach", {
+            taskId: task.id,
+            threadId: "thr_work",
+          });
+        }
+        const signalsBeforeCommit = harness.inspection.realtimeSignals.length;
+        lookup.resolve({ outcome: "absent" });
+        expect(await pending).toEqual({
+          ok: false,
+          error: {
+            code: "task_pr_unavailable",
+            message:
+              "Attached threads changed while checking CMP-1. Retry completion or use in_review.",
+          },
+        });
+        expect(store.tasks.getTask(task.id)).toEqual(before);
+        expect(harness.inspection.realtimeSignals.slice(signalsBeforeCommit)).toEqual([]);
+        if (change === "attach") {
+          expect(
+            await harness.behavior.callRpc(method, { taskId: task.id, status: "done" }),
+          ).toEqual({
+            ok: false,
+            error: openError,
+          });
+        } else {
+          expect(
+            await harness.behavior.callRpc(method, { taskId: task.id, status: "done" }),
+          ).toMatchObject({
+            ok: true,
+            task: { status: "done" },
+          });
+        }
+      },
+    );
+  }
 });

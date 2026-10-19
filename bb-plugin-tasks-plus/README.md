@@ -454,6 +454,13 @@ machine; pass `--machine <id-or-name>` to target another enrolled machine.
 Statuses are `backlog`, `todo`, `in_progress`, `in_review`, `done`, and
 `canceled`. Priorities are `urgent`, `high`, `medium`, `low`, and `none`.
 
+Setting `done` checks the PRs of every attached thread, including archived or completed
+threads. An open or draft PR rejects the whole update and directs the caller to
+`in_review`. A failed lookup also rejects completion until retry. Confirmed absence,
+merged PRs, and closed PRs permit completion if the task's other criteria are met.
+The same guard applies to board moves. Other edits and statuses do not check PRs.
+Tasks do not automatically become done when a PR merges.
+
 ### Task dependencies
 
 A task can be blocked by other tasks, in any project. A task is blocked while
