@@ -39,19 +39,19 @@ const label = {
   color: "blue",
   createdAt: project.createdAt,
 };
+const bbProjects = [
+  { id: "proj_first", name: "First workspace" },
+  { id: "proj_second", name: "Second workspace" },
+];
+const linkedProjectCommand = "task-change-linked-bb-project";
 const propertyIds = [
   "task-change-status",
   "task-set-priority",
   "task-edit-labels",
   "task-set-due-date",
+  linkedProjectCommand,
 ];
-const deferredIds = [
-  "task-change-linked-bb-project",
-  "task-dispatch",
-  "task-previous",
-  "task-next",
-  "task-back",
-];
+const deferredIds = ["task-dispatch", "task-previous", "task-next", "task-back"];
 
 function command(id: string) {
   const entry = TASKS_COMMANDS.find((item) => item.id === id);
@@ -66,11 +66,19 @@ function run(id: string) {
     void command(id).run(context);
   });
 }
-function fixture({ lookup }: { lookup?: (key: unknown) => unknown } = {}) {
+function fixture({
+  lookup,
+  projectLookup,
+}: {
+  lookup?: (key: unknown) => unknown;
+  projectLookup?: () => unknown;
+} = {}) {
   const records = tasks.map((task) => ({ ...task }));
+  const tracker = { ...project, linkedBbProjectId: "proj_first" as string | null };
+  const projectUpdates: Record<string, unknown>[] = [];
   const updates: Record<string, unknown>[] = [];
   const rpc = {
-    listProjects: () => ({ projects: [project] }),
+    listProjects: () => (projectLookup ? projectLookup() : { projects: [{ ...tracker }] }),
     listFolders: () => ({ folders: [] }),
     listLabels: () => ({ labels: [label] }),
     listPresets: () => ({ presets: [] }),
@@ -89,7 +97,14 @@ function fixture({ lookup }: { lookup?: (key: unknown) => unknown } = {}) {
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
     listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),
-    listBbProjects: () => ({ bbProjects: [] }),
+    listBbProjects: vi.fn(() => ({ bbProjects })),
+    updateProject: vi.fn((raw: unknown) => {
+      const input = rpcInput(raw);
+      projectUpdates.push(input);
+      Object.assign(tracker, input);
+      return { project: { ...tracker } };
+    }),
+    delegate: vi.fn(),
     updateTask: (raw: unknown) => {
       const input = rpcInput(raw);
       updates.push(input);
@@ -99,7 +114,7 @@ function fixture({ lookup }: { lookup?: (key: unknown) => unknown } = {}) {
     },
   };
   const render = (subPath = "task/TSK-1") => renderSlot(app.navPanels[0]!, { subPath }, { rpc });
-  return { render, rpc, updates };
+  return { render, rpc, updates, projectUpdates, tracker };
 }
 
 beforeEach(() => {
@@ -323,6 +338,143 @@ describe("task-detail command registration and targeting", () => {
   });
 });
 
+describe("linked BB project command", () => {
+  it.each(["pending", "missing", "error"])("rejects a %s tracker project", async (state) => {
+    const { render, projectUpdates } = fixture({
+      projectLookup: () => {
+        if (state === "pending") return new Promise(() => {});
+        if (state === "error") throw new Error("Tracker unavailable");
+        return { projects: [] };
+      },
+    });
+    const slot = render();
+    await ready(slot);
+    expect(available(linkedProjectCommand)).toBe(false);
+    run(linkedProjectCommand);
+    await act(async () => {});
+    expect(slot.queryByLabelText("Linked bb project")).toBeNull();
+    expect(projectUpdates).toEqual([]);
+  });
+
+  it("becomes available after the tracker loads without replaying an earlier invocation", async () => {
+    let resolve!: (value: unknown) => void;
+    const pending = new Promise((done) => {
+      resolve = done;
+    });
+    const { render, projectUpdates } = fixture({ projectLookup: () => pending });
+    const slot = render();
+    await ready(slot);
+    expect(available(linkedProjectCommand)).toBe(false);
+    run(linkedProjectCommand);
+    await act(async () => resolve({ projects: [project] }));
+    await waitFor(() => expect(available(linkedProjectCommand)).toBe(true));
+    expect(slot.queryByLabelText("Linked bb project")).toBeNull();
+    expect(projectUpdates).toEqual([]);
+    run(linkedProjectCommand);
+    expect((await slot.findByLabelText("Linked bb project")).textContent).toBe("Not linked");
+  });
+
+  it("retargets a listed command to the newly shown task's tracker", async () => {
+    const otherProject = { ...project, id: "other-tracker", name: "Other tracker" };
+    const { render, projectUpdates, updates, rpc } = fixture({
+      lookup: (key) => (key === "TSK-2" ? { ...tasks[1], projectId: otherProject.id } : tasks[0]),
+      projectLookup: () => ({ projects: [project, otherProject] }),
+    });
+    const slot = render();
+    await ready(slot);
+    const listed = command(linkedProjectCommand);
+    expect(listed.isAvailable?.(context)).toBe(true);
+    slot.rerender(<Panel subPath="task/TSK-2" />);
+    await ready(slot, "TSK-2");
+    act(() => void listed.run(context));
+    const select = await slot.findByLabelText("Linked bb project");
+    expect(slot.getByText("Tracker project: Other tracker")).toBeDefined();
+    fireEvent.click(select);
+    fireEvent.click(await slot.findByRole("option", { name: "First workspace" }));
+    fireEvent.click(slot.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(projectUpdates).toEqual([
+        { projectId: "other-tracker", linkedBbProjectId: "proj_first" },
+      ]),
+    );
+    expect(updates).toEqual([]);
+    expect(rpc.delegate).not.toHaveBeenCalled();
+    expect(slot.navigateCalls).toEqual([]);
+  });
+
+  it.each(["inline", "rail"])("edits only the shared tracker link in %s", async (layout) => {
+    vi.mocked(HTMLElement.prototype.getClientRects).mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const owner = this.closest<HTMLElement>("[data-properties-layout]");
+      return (owner && owner.dataset.propertiesLayout !== layout
+        ? []
+        : [{ width: 900, height: 600 }]) as unknown as DOMRectList;
+    });
+    const { render, rpc, updates, projectUpdates, tracker } = fixture();
+    const slot = render();
+    await ready(slot);
+    await waitFor(() => expect(available(linkedProjectCommand)).toBe(true));
+    const properties = slot.container.querySelector<HTMLElement>(
+      `[data-properties-layout="${layout}"]`,
+    )!;
+    const trigger = within(properties).getByRole("button", { name: "Edit dispatch target" });
+    fireEvent.keyDown(document, { key: "F9" });
+    run(linkedProjectCommand);
+    const select = await slot.findByRole("combobox", { name: "Linked bb project" });
+    expect(slot.getAllByRole("combobox", { name: "Linked bb project" })).toHaveLength(1);
+    await waitFor(() => expect(document.activeElement).toBe(select));
+    expect(select.textContent).toBe("First workspace");
+    expect(slot.getByText("Tracker project: Command fixture")).toBeDefined();
+    expect(slot.getByText("This link applies to all tasks in Command fixture.")).toBeDefined();
+    expect(projectUpdates).toEqual([]);
+    fireEvent.click(select);
+    fireEvent.click(await slot.findByRole("option", { name: "Second workspace" }));
+    fireEvent.keyDown(select, { key: "Escape" });
+    await waitFor(() => expect(slot.queryByLabelText("Linked bb project")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(projectUpdates).toEqual([]);
+    run(linkedProjectCommand);
+    const reopened = await slot.findByLabelText("Linked bb project");
+    expect(reopened.textContent).toBe("First workspace");
+    fireEvent.click(reopened);
+    fireEvent.click(await slot.findByRole("option", { name: "Second workspace" }));
+    rpc.updateProject.mockImplementationOnce(() => {
+      throw new Error("Link save failed");
+    });
+    fireEvent.click(slot.getByRole("button", { name: "Save" }));
+    await slot.findByText("Link save failed");
+    expect(slot.getByLabelText("Linked bb project").textContent).toBe("Second workspace");
+    expect(projectUpdates).toEqual([]);
+    fireEvent.click(slot.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(projectUpdates).toEqual([{ projectId: project.id, linkedBbProjectId: "proj_second" }]),
+    );
+    await waitFor(() => expect(slot.queryByLabelText("Linked bb project")).toBeNull());
+    expect(tracker.linkedBbProjectId).toBe("proj_second");
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    slot.unmount();
+    const reloaded = render("task/TSK-2");
+    await ready(reloaded, "TSK-2");
+    run(linkedProjectCommand);
+    expect((await reloaded.findByLabelText("Linked bb project")).textContent).toBe(
+      "Second workspace",
+    );
+    fireEvent.click(reloaded.getByRole("button", { name: "Unlink" }));
+    await waitFor(() =>
+      expect(projectUpdates).toEqual([
+        { projectId: project.id, linkedBbProjectId: "proj_second" },
+        { projectId: project.id, linkedBbProjectId: null },
+      ]),
+    );
+    expect(tracker.linkedBbProjectId).toBeNull();
+    expect(rpc.listBbProjects).toHaveBeenCalledTimes(2);
+    expect(updates).toEqual([]);
+    expect(rpc.delegate).not.toHaveBeenCalled();
+    expect(reloaded.navigateCalls).toEqual([]);
+  });
+});
+
 describe("property command keyboard workflow", () => {
   it.each(["inline", "rail"])(
     "opens the visible %s due-date picker and saves only explicit date choices",
@@ -416,7 +568,7 @@ describe("property command keyboard workflow", () => {
 
   it.each(
     ["route", "unmount", "hidden"].flatMap((change) =>
-      ["task-change-status", "task-set-due-date"].flatMap((id) =>
+      ["task-change-status", "task-set-due-date", linkedProjectCommand].flatMap((id) =>
         [false, true].map((afterFirstFrame) => ({ change, id, afterFirstFrame })),
       ),
     ),
@@ -445,6 +597,7 @@ describe("property command keyboard workflow", () => {
       });
       expect(document.querySelector('[role="menu"]')).toBeNull();
       expect(document.querySelector('input[aria-label="Due date"]')).toBeNull();
+      expect(document.querySelector('[aria-label="Linked bb project"]')).toBeNull();
       expect(updates).toEqual([]);
       expect(slot.navigateCalls).toEqual([]);
     },

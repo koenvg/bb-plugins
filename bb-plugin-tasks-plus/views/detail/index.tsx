@@ -256,6 +256,10 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
 
   const projects = useSessionProjects();
   const project = projects.data?.find((entry) => entry.id === task.projectId);
+  const bbProjects = useTasksQuery(
+    async (query) => (await query.call("listBbProjects")).bbProjects,
+    ["projects:changed"],
+  );
 
   const parent = useTasksQuery(
     async (query) =>
@@ -324,6 +328,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     priority: openPropertyMenu("priority"),
     labels: openPropertyMenu("labels"),
     dueDate: openPropertyMenu("dueDate"),
+    linkedProject:
+      project && !projects.isLoading && !projects.error ? openPropertyMenu("linkedProject") : null,
   };
   useTaskCommandActions(task.key, propertyActions);
   useShortcuts({
@@ -464,6 +470,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
 
           <InlineProperties
             task={task}
+            project={project}
+            bbProjects={bbProjects.data ?? []}
             labels={labels.data}
             presets={presets.data}
             onUpdate={(update) => void updateTask(update)}
@@ -566,6 +574,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
         <PropertiesRail
           task={task}
           project={project}
+          bbProjects={bbProjects.data ?? []}
           labels={labels.data}
           threads={threads.data ?? []}
           presets={presets.data}
