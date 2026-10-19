@@ -3,6 +3,7 @@ import type { Project } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";
 import { ProjectsSection } from "../../views/manage/projects-section.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
+import { querySnapshotStorageKey } from "../../shell/query-snapshot.js";
 
 function ProductionTablePreview() {
   return (
@@ -229,7 +230,9 @@ control("empty", () => {
   void slot.emitRealtime("projects:changed", {});
 });
 control("reset", () => {
-  localStorage.clear();
+  for (const name of ["projects", "folders", "sidebar-summary"]) {
+    localStorage.removeItem(querySnapshotStorageKey(name));
+  }
   location.reload();
 });
 showEvidence();

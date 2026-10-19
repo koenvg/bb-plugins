@@ -28,6 +28,8 @@ Early-gate, round-swatch feedback and final delivery evidence are stored with th
 
 No live plugin, host endpoint or live project data is used. RPC handlers keep fixture projects in browser memory. Failure buttons, removal, empty inventory and Reset affect only these fixtures. The separate integration test uses the actual Tasks RPC and temporary SQLite through the SDK fake host.
 
+Reset removes only the `projects`, `folders`, and `sidebar-summary` query snapshots, using `querySnapshotStorageKey`, then reloads the page. Reload restores both original projects, fixture counters, failure controls, and the default theme. Reset leaves other localStorage entries alone, including Tasks preferences and current-version query snapshots. Normal Tasks cache initialization still prunes obsolete snapshot versions after reload. Cached snapshots are not a backing store for fixture RPC data.
+
 ## Open the preview
 
 - Production table: `http://127.0.0.1:4179/project-settings-preview/table.html`

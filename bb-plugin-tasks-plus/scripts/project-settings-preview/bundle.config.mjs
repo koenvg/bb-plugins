@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   root: fileURLToPath(new URL("../../", import.meta.url)),
   publicDir: false,
-  resolve: { tsconfigPaths: true },
+  resolve: { alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) } },
   plugins: [
     {
       name: "fixture-preview-html",
@@ -35,6 +35,6 @@ export default defineConfig({
       fileName: () => "preview.js",
       cssFileName: "preview",
     },
-    rolldownOptions: { output: { codeSplitting: false } },
+    rollupOptions: { output: { inlineDynamicImports: true } },
   },
 });
