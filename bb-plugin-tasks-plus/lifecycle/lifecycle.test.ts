@@ -179,14 +179,15 @@ describe("task thread lifecycle", () => {
       "thread.active": 1,
       "thread.idle": 1,
       "thread.failed": 1,
-      "thread.deleted": 1,
+      "thread.deleted": 2,
       "experimental_thread.events": 1,
       "interaction.pending": 0,
       "message.queued": 0,
       "message.dispatched": 0,
       "turn.failed": 0,
       "message.cancelled": 0,
-      "thread.unarchived": 0,
+      "thread.archived": 1,
+      "thread.unarchived": 1,
     });
     expect(host.harness.sdk.callsTo("threads.get")).toHaveLength(1);
     expect(store.tasks.getTaskThread(tracked.id)?.liveStatus).toBe("starting");

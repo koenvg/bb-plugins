@@ -1,0 +1,10 @@
+$ vitest run
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_9e6riv42k5-1/bb-plugins/packages/markdown-document
+
+Not implemented: navigation to another Document
+
+ Test Files  8 passed (8)
+      Tests  129 passed (129)
+   Start at  18:14:59
+   Duration  2.59s (transform 335ms, setup 0ms, import 2.24s, tests 7.72s, environment 5.57s)

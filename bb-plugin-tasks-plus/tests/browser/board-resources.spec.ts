@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { makeTask, makeAttachment } from "../../test-fixtures";
-import type { Task, TaskThread } from "../../shared/contract";
+import { tasksRpcContract, type Task, type TaskThread } from "../../shared/contract";
 
 interface RequestRecord {
   method: string;
@@ -93,7 +93,10 @@ async function setup(page: Page) {
         break;
       case "boardMove": {
         if (state.failMove) {
-          result = { ok: false };
+          result = tasksRpcContract.boardMove.output.parse({
+            ok: false,
+            error: { code: "creator_thread_open", message: "Fixture move refused" },
+          });
           break;
         }
         const task = tasks.find((task) => task.id === input.taskId)!;
@@ -271,6 +274,7 @@ test("drag ordering survives task refresh and failed moves restore the card", as
   await second.focus();
   await page.keyboard.press("s");
   await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Fixture move refused");
   await expect(todo.getByRole("button", { name: "Open TSK-2: Second card" })).toBeVisible();
   await page.waitForTimeout(600);
   expect(fixture.counts()).toEqual({ ...before, tasks: before.tasks + 1 });

@@ -819,6 +819,7 @@ describe("delegation seed prompt", () => {
       priority: "high",
       dueDate: null,
       parentTaskId: null,
+      createdByThreadId: null,
       position: 1_024,
       createdAt: "2026-07-15T17:01:00.000Z",
       updatedAt: "2026-07-15T17:01:00.000Z",

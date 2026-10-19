@@ -1,0 +1,9 @@
+$ vitest run --config vitest.config.ts creator-threads.test.ts db/creator-backfill.test.ts views/board/keyboard.test.tsx lifecycle/creator-threads.test.ts
+
+ RUN  v4.1.11 /Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_9e6riv42k5-1/bb-plugins/bb-plugin-tasks-plus
+
+
+ Test Files  4 passed (4)
+      Tests  33 passed (33)
+   Start at  18:20:08
+   Duration  1.09s (transform 470ms, setup 275ms, import 705ms, tests 444ms, environment 227ms)

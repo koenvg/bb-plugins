@@ -1,0 +1,6 @@
+$ bun run --cwd .. format:check bb-plugin-tasks-plus
+$ oxfmt --check bb-plugin-tasks-plus
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 455ms on 368 files using 10 threads.

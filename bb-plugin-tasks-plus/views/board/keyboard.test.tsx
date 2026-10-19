@@ -50,7 +50,10 @@ function task(number: number, status: Task["status"]): Task {
 
 const TASKS = [task(1, "todo"), task(2, "todo"), task(3, "in_progress"), task(5, "done")];
 
-function render(calls: { method: string; input: unknown }[] = []) {
+function render(
+  calls: { method: string; input: unknown }[] = [],
+  overrides: Record<string, (input: unknown) => unknown> = {},
+) {
   return renderSlot(
     app.navPanels[0]!,
     { subPath: `${PROJECT_ID}?view=board` },
@@ -75,6 +78,7 @@ function render(calls: { method: string; input: unknown }[] = []) {
           calls.push({ method: "updateTask", input });
           return { ok: true, task: TASKS[0] };
         },
+        ...overrides,
       },
     },
   );
@@ -179,6 +183,28 @@ describe("board card menus from the keyboard", () => {
     );
     expect(slot.navigateCalls).toEqual([]);
     await waitFor(() => expect(focusedCard()).toBe("Open TSK-1: Title 1"));
+  });
+
+  it("names the blocking creator when the board refuses a keyboard status move", async () => {
+    const slot = render([], {
+      boardMove: () => ({
+        ok: false,
+        error: { code: "creator_thread_open", message: "Creator thread thr_creator blocks todo" },
+      }),
+    });
+    const card = await slot.findByRole("button", { name: "Open TSK-3: Title 3" });
+    card.focus();
+    press("s");
+    fireEvent.click(await slot.findByRole("menuitem", { name: "Todo" }));
+    await waitFor(() => expect(slot.getByRole("alert").textContent).toContain("thr_creator"));
+    await waitFor(() =>
+      expect(
+        slot
+          .getByRole("button", { name: "Open TSK-3: Title 3" })
+          .closest("[data-board-column]")
+          ?.getAttribute("data-board-column"),
+      ).toBe("in_progress"),
+    );
   });
 
   it("sets priority from the p menu and returns focus to the card", async () => {

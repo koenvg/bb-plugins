@@ -1,6 +1,52 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;
+export type CreatorSource =
+  | { threadId: string }
+  | { reason: "missing" | "ambiguous" | "malformed" };
+export interface CreatorBackfillReport {
+  backfilled: number;
+  skipped: Array<{ taskId: string; reason: string }>;
+}
+
+export function parseCreatorSource(description: string): CreatorSource {
+  const sources = description
+    .split(/\r?\n/)
+    .filter((line) => /^\s*Source(?: discussion)?:?\s+/i.test(line));
+  if (sources.length === 0) return { reason: "missing" };
+  const ids = new Set<string>();
+  for (const source of sources) {
+    const references = [...source.matchAll(/\bbbthread[^\s)\]<>]*/gi)];
+    if (references.length === 0) return { reason: "malformed" };
+    for (const reference of references) {
+      const id = reference[0]!.replace(/^bbthread:\/\//i, "").replace(/[.,;]$/, "");
+      if (!/^thr_[a-zA-Z0-9_]+$/.test(id)) return { reason: "malformed" };
+      ids.add(id);
+    }
+  }
+  return ids.size === 1 ? { threadId: [...ids][0]! } : { reason: "ambiguous" };
+}
+
+function backfillCreatorThreads(db: PluginDatabase): CreatorBackfillReport {
+  const report: CreatorBackfillReport = { backfilled: 0, skipped: [] };
+  const update = db.prepare<[string, string]>(
+    "UPDATE tasks SET created_by_thread_id = ? WHERE id = ?",
+  );
+  for (const row of db
+    .prepare<[], { id: string; description: string }>(
+      "SELECT id, description FROM tasks WHERE created_by_thread_id IS NULL ORDER BY id",
+    )
+    .all()) {
+    const source = parseCreatorSource(row.description);
+    if ("threadId" in source) {
+      update.run(source.threadId, row.id);
+      report.backfilled++;
+    } else {
+      report.skipped.push({ taskId: row.id, reason: source.reason });
+    }
+  }
+  return report;
+}
 
 const MIGRATIONS = [
   `
@@ -382,9 +428,25 @@ const MIGRATIONS = [
     CREATE INDEX idx_attachments_task ON attachments(task_id);
     DROP TABLE comments;
   `,
+  `
+    ALTER TABLE tasks ADD COLUMN created_by_thread_id TEXT;
+    CREATE INDEX idx_tasks_creator_thread ON tasks(created_by_thread_id);
+    CREATE TABLE task_creator_threads (
+      thread_id TEXT PRIMARY KEY,
+      blocked INTEGER NOT NULL CHECK (blocked IN (0, 1))
+    );
+    CREATE TRIGGER task_list_revision_creator_insert
+    AFTER INSERT ON task_creator_threads BEGIN
+      UPDATE task_list_revision SET revision = revision + 1 WHERE id = 1;
+    END;
+    CREATE TRIGGER task_list_revision_creator_update
+    AFTER UPDATE ON task_creator_threads WHEN OLD.blocked <> NEW.blocked BEGIN
+      UPDATE task_list_revision SET revision = revision + 1 WHERE id = 1;
+    END;
+  `,
 ] as const;
 
-export function initializeTasksSchema(db: PluginDatabase): void {
+export function initializeTasksSchema(db: PluginDatabase): CreatorBackfillReport | undefined {
   db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_version (
@@ -400,14 +462,17 @@ export function initializeTasksSchema(db: PluginDatabase): void {
     "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
   );
 
+  let backfill: CreatorBackfillReport | undefined;
   const migrate = db.transaction(() => {
     for (const [index, sql] of MIGRATIONS.entries()) {
       const version = index + 1;
       if (hasVersion.get(version)) continue;
       db.exec(sql);
+      if (version === 13) backfill = backfillCreatorThreads(db);
       recordVersion.run(version, new Date().toISOString());
     }
   });
 
   migrate();
+  return backfill;
 }

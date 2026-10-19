@@ -1,0 +1,6 @@
+$ bun run --cwd .. lint bb-plugin-tasks-plus
+$ oxlint bb-plugin-tasks-plus
+bb-plugin-tasks-plus/shell/keyboard.test.tsx:44:10: warning eslint(no-unused-vars): Function 'task' is declared but never used. help: Consider removing this declaration.
+bb-plugin-tasks-plus/attachments/index.ts:165:16: warning eslint(no-control-regex): Unexpected control characters help: Avoid matching control characters in regular expressions. If intentional, disable this rule for the expression.
+bb-plugin-tasks-plus/api/index.ts:335:19: warning unicorn(no-new-array): Do not use `new Array(singleArgument)`. help: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+bb-plugin-tasks-plus/views/list/list-preference.ts:170:22: warning unicorn(no-useless-fallback-in-spread): Empty fallbacks in spreads are unnecessary help: Spreading falsy values in object literals won't add any unexpected properties, so it's unnecessary to add an empty object as fallback.

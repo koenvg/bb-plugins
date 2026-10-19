@@ -135,4 +135,34 @@ describe("dispatch target rail control", () => {
       linkedBbProjectId: null,
     });
   });
+  it("shows creator metadata only for tasks with a creator", async () => {
+    const props = railProps(null);
+    const slot = renderSlot(
+      { component: RailHarness },
+      {
+        ...props,
+        task: makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: true }),
+      },
+      { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
+    );
+    const info = slot.getByRole("button", { name: "Creator thread information" });
+    expect(slot.queryByRole("tooltip")).toBeNull();
+    fireEvent.keyDown(document, { key: "Tab" });
+    fireEvent.focus(info);
+    const tooltip = await slot.findByRole("tooltip");
+    expect(tooltip.textContent).toContain("thr_creator");
+    expect(tooltip.textContent).toContain("Blocked until this thread is archived.");
+    slot.lifecycle.rerender(
+      <RailHarness
+        {...props}
+        task={makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: false })}
+      />,
+    );
+    await waitFor(() =>
+      expect(slot.getByRole("tooltip").textContent).not.toContain("Blocked until"),
+    );
+    slot.lifecycle.rerender(<RailHarness {...props} />);
+    expect(slot.queryByRole("button", { name: "Creator thread information" })).toBeNull();
+    expect(slot.queryByRole("tooltip")).toBeNull();
+  });
 });

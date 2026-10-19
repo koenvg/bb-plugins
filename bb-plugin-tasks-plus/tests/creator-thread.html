@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Creator-thread task fixture</title>
+  </head>
+  <body>
+    <header>
+      <p>Isolated UI fixture. Task RPC and creator lifecycle use transport substitutes.</p>
+      <button id="archive-creator" type="button">Archive creator</button>
+      <button id="unarchive-creator" type="button">Unarchive creator</button>
+      <output id="stored-status" aria-label="Stored task status">backlog</output>
+    </header>
+    <script type="module" src="./creator-thread.tsx"></script>
+  </body>
+</html>
