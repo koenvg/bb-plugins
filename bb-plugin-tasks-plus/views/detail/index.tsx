@@ -221,7 +221,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   rpcRef.current = rpc;
   const savedTaskRef = useRef(savedTask);
   savedTaskRef.current = savedTask;
-  const confirmedTask = useRef<{ task: Task; querySnapshot: Task } | null>(null);
+  const confirmedTask = useRef<{ task: Task; querySnapshot: Task; changeId?: string } | null>(null);
   const [edits] = useState(() =>
     createTaskEditSession(savedTask.id, {
       save: async (taskId, patch) => {
@@ -231,8 +231,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
           ...patch,
         });
         if (result.ok) {
-          confirmedTask.current = { task: result.task, querySnapshot };
-          previewsRef.current.invalidateReuse(result.task.key);
+          confirmedTask.current = { task: result.task, querySnapshot, changeId: result.changeId };
+          previewsRef.current.invalidateReuse(result.task.key, result.changeId);
         }
         return result.ok ? { ok: true } : { ok: false, errorMessage: result.error.message };
       },
@@ -240,7 +240,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   );
   const editState = useSyncExternalStore(edits.subscribe, edits.getSnapshot);
   useEffect(() => {
-    if (!editState.pending && confirmedTask.current) previews.invalidate(savedTask.key);
+    if (!editState.pending && confirmedTask.current)
+      previews.invalidate(savedTask.key, confirmedTask.current.changeId);
   }, [editState.pending, previews, savedTask.key]);
   const confirmed = confirmedTask.current;
   // A save reply may arrive after a newer realtime query. Timestamp wins;
