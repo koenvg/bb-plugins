@@ -11,6 +11,7 @@
     "format:check": "bun run --cwd .. format:check bb-plugin-changes",
     "test": "vitest run",
     "typecheck": "bun --bun tsc --noEmit",
+    "test:bb-renderer": "bb plugin types . --check && bb plugin build . && bun tests/bb-renderer/run.ts",
     "build": "bb plugin build"
   },
   "engines": {
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.49",
     "@pierre/diffs": "^1.2.9",
+    "@playwright/test": "1.64.0",
     "@radix-ui/react-dialog": "^1.1.19",
     "@testing-library/react": "^16.3.3",
     "@types/better-sqlite3": "^7.6.13",
