@@ -8,7 +8,7 @@ import reviewThreads from "./test/fixtures/pr-25259-review-threads.json";
 import reviewQueue from "./test/fixtures/review-queue.json";
 import { reviewThreadsWithAttachment, SIGNED_ATTACHMENT_URL } from "./test/attachment";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
-import type { LoadedReviewQueue, ReviewResult } from "./contract";
+import type { CreateCommentDraftResult, LoadedReviewQueue, ReviewResult } from "./contract";
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
@@ -2473,22 +2473,49 @@ describe("createCommentDraft", () => {
     expect((await commentDraftsOf(harness)).map(({ line }) => line)).toEqual([3, 3]);
   });
 
-  it("refuses a new comment on a merged pull request", async () => {
-    const harness = await setupWithPr({}, (call) =>
-      call.method === "fetchPrHead"
-        ? ok(prHeadResponse({ state: "MERGED" }))
-        : recordedReviewHost(call),
-    );
+  it.each([
+    ["CLOSED", "Pull request is closed"],
+    ["MERGED", "Pull request is merged"],
+  ] as const)(
+    "rejects user creation on a %s PR before checking the anchor or older drafts",
+    async (state, message) => {
+      const older = commentDraftRow("abc123", 10);
+      const harness = await setupWithPr({ "comment:collibra/frontend#25259:d1": older }, (call) =>
+        call.method === "fetchPrHead" ? ok(prHeadResponse({ state })) : recordedReviewHost(call),
+      );
+
+      const result = await harness.behavior.callRpc("createCommentDraft", {
+        threadId: "thr_1",
+        path: DRAFT_FILE,
+        side: "RIGHT",
+        line: 300,
+      });
+
+      expect(result).toEqual({ kind: "error", message });
+      expect(await harness.kv.get("comment:collibra/frontend#25259:d1")).toEqual(older);
+      expect(harness.realtimeSignals).toEqual([]);
+    },
+  );
+
+  it("checks the anchor before older drafts and retains them on failure", async () => {
+    const older = commentDraftRow("abc123", 10);
+    const harness = await setupWithPr({
+      "comment:collibra/frontend#25259:d1": older,
+    });
 
     const result = await harness.behavior.callRpc("createCommentDraft", {
       threadId: "thr_1",
       path: DRAFT_FILE,
       side: "RIGHT",
-      line: 3,
+      line: 300,
     });
 
-    expect(result).toEqual({ kind: "error", message: "Pull request is merged" });
-    expect(await commentDraftsOf(harness)).toEqual([]);
+    expect(result).toEqual({
+      kind: "error",
+      message: `Line 300 is not in the diff of ${DRAFT_FILE} on the RIGHT side. Diff ranges: 1-5, 146-154`,
+    });
+    expect(await harness.kv.get("comment:collibra/frontend#25259:d1")).toEqual(older);
+    expect(harness.realtimeSignals).toEqual([]);
   });
 
   it("checks against the last loaded PR without a GitHub call", async () => {
@@ -2496,15 +2523,30 @@ describe("createCommentDraft", () => {
     await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
     const reads = harness.experimental_hostRpcCalls.length;
 
-    const result = await harness.behavior.callRpc("createCommentDraft", {
+    const result = (await harness.behavior.callRpc("createCommentDraft", {
       threadId: "thr_1",
       path: DRAFT_FILE,
       side: "RIGHT",
       line: 3,
-    });
+    })) as CreateCommentDraftResult;
 
-    expect(result).toMatchObject({ kind: "created" });
+    expect(result).toEqual({ kind: "created", draftId: expect.stringMatching(/^[a-z0-9]{8}$/) });
+    if (result.kind !== "created") throw new Error("expected a created draft");
+    expect(await harness.kv.get(`comment:collibra/frontend#25259:${result.draftId}`)).toEqual({
+      v: 1,
+      path: DRAFT_FILE,
+      side: "RIGHT",
+      line: 3,
+      startLine: null,
+      body: "",
+      commitOid: "def456",
+      updatedAt: 1_700_000_000_000,
+      source: "user",
+    });
     expect(harness.experimental_hostRpcCalls).toHaveLength(reads);
+    expect(harness.realtimeSignals).toEqual([
+      { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
+    ]);
   });
 
   it("loads the PR from GitHub once when no load has run yet", async () => {

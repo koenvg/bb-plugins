@@ -1,9 +1,5 @@
 import { cliCommand, defineCli, PluginCliError, type PluginCliContext } from "@get-bb/plugin-sdk";
 import type { ReadTextFileRequest, ReadTextFileResult } from "../contract";
-import { checkOneCommit } from "../core/draft-commits";
-import { checkAnchor } from "../core/diff-lines";
-import type { PrHead } from "../core/pr-head";
-import type { ListedCommentDraft } from "../core/review-drafts";
 import {
   formatReviewDrafts,
   formatReviewList,
@@ -18,7 +14,6 @@ interface ReviewCliDeps {
   review: ReviewService;
   readTextFile(hostId: string, request: ReadTextFileRequest): Promise<ReadTextFileResult>;
   now(): number;
-  newDraftId(): string;
 }
 
 const bodyOptions = {
@@ -167,20 +162,20 @@ export function createReviewCli(deps: ReviewCliDeps) {
             line: options.line,
             startLine: options["start-line"] ?? null,
           } as const;
-          const check = checkAnchor(review.files, anchor);
-          if (!check.ok) throw new PluginCliError(check.reason);
-          assertOneCommit(review.commentDrafts, review.head);
-          const body = await readBody(target.hostId, options, ctx);
-          if (body.trim() === "") throw new PluginCliError("Comment is empty");
-          const draftId = deps.newDraftId();
-          await deps.review.saveCommentDraft(threadId, target.ref, draftId, {
-            ...anchor,
-            body,
-            commitOid: review.head.oid,
-            updatedAt: deps.now(),
+          const created = await deps.review.createCommentDraft(threadId, target.ref, review, {
+            anchor,
             source: "agent",
+            readBody: () => readBody(target.hostId, options, ctx),
           });
-          return { exitCode: 0, stdout: `Saved comment draft ${draftId}\n` };
+          if (created.kind === "error") {
+            throw new PluginCliError(created.message, {
+              hint:
+                created.reason === "commit"
+                  ? "Submit or delete those drafts first: in the Files sub-tab of the PR tab, or with `bb github-insight review comment delete <draft-id>`."
+                  : undefined,
+            });
+          }
+          return { exitCode: 0, stdout: `Saved comment draft ${created.draftId}\n` };
         },
       }),
       "review comment edit": cliCommand({
@@ -232,14 +227,6 @@ export function createReviewCli(deps: ReviewCliDeps) {
         },
       }),
     },
-  });
-}
-
-function assertOneCommit(drafts: readonly ListedCommentDraft[], head: PrHead) {
-  const check = checkOneCommit(drafts, head.oid);
-  if (check.ok) return;
-  throw new PluginCliError(check.message, {
-    hint: "Submit or delete those drafts first: in the Files sub-tab of the PR tab, or with `bb github-insight review comment delete <draft-id>`.",
   });
 }
 

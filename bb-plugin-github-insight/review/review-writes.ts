@@ -14,8 +14,7 @@ import type {
   SubmitReviewRequest,
   SubmitReviewResult,
 } from "../contract";
-import { checkOneCommit, draftsCommit } from "../core/draft-commits";
-import { checkAnchor } from "../core/diff-lines";
+import { draftsCommit } from "../core/draft-commits";
 import { pullRequestUrl, type PullRequestRef } from "../core/pr-ref";
 import { hasText } from "../core/review-drafts";
 import { closedReason, submitRules, type ReviewEvent } from "../core/review-submit";
@@ -25,7 +24,7 @@ import { submitReviewError } from "../github/review-mutations";
 import { isPendingReply } from "../github/review-thread-mutations";
 import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
-import type { BasisLoad, PrReview, ReviewLoad } from "./review-service";
+import type { BasisLoad, PrReview, ReviewLoad, ReviewService } from "./review-service";
 
 interface ReviewWritesDeps {
   resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
@@ -40,7 +39,7 @@ interface ReviewWritesDeps {
   refreshAfterWrite(threadId: string): Promise<void>;
   markReviewed(ref: PullRequestRef, commitOid: string): Promise<ActionResult>;
   now(): number;
-  newDraftId(): string;
+  createLocalCommentDraft: ReviewService["createCommentDraft"];
   warn(message: string): void;
 }
 
@@ -174,21 +173,11 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     const { basis, target } = loaded;
     const closed = closedReason(basis.head.state);
     if (closed !== null) return { kind: "error", message: closed };
-    const anchor = { path, side, line, startLine: null };
-    const placed = checkAnchor(basis.files, anchor);
-    if (!placed.ok) return { kind: "error", message: placed.reason };
-    const oneCommit = checkOneCommit(basis.commentDrafts, basis.head.oid);
-    if (!oneCommit.ok) return { kind: "error", message: oneCommit.message };
-    const draftId = deps.newDraftId();
-    await deps.drafts.saveComment(target.ref, draftId, {
-      ...anchor,
-      body: "",
-      commitOid: basis.head.oid,
-      updatedAt: deps.now(),
+    const created = await deps.createLocalCommentDraft(threadId, target.ref, basis, {
+      anchor: { path, side, line, startLine: null },
       source: "user",
     });
-    deps.publishDrafts({ threadId });
-    return { kind: "created", draftId };
+    return created.kind === "error" ? { kind: "error", message: created.message } : created;
   }
 
   async function saveCommentDraft({

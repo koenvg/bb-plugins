@@ -42,12 +42,18 @@ describe("review CLI", () => {
   }
 
   function reviewHost(
-    options: { threads?: () => unknown; file?: unknown; headOid?: () => string } = {},
+    options: {
+      threads?: () => unknown;
+      file?: unknown;
+      headOid?: () => string;
+      state?: "OPEN" | "CLOSED" | "MERGED";
+    } = {},
   ) {
     return ({ method }: HostCall) => {
       if (method === "fetchPrFiles") return ok(prFiles[0]);
       if (method === "fetchReviewThreads") return ok(options.threads?.() ?? reviewThreads);
-      if (method === "fetchPrHead") return ok(prHeadResponse({ oid: options.headOid?.() }));
+      if (method === "fetchPrHead")
+        return ok(prHeadResponse({ oid: options.headOid?.(), state: options.state }));
       if (method === "readTextFile") return options.file ?? { ok: true, text: "From file" };
       throw new Error(`unexpected host call ${method}`);
     };
@@ -459,6 +465,70 @@ describe("review CLI", () => {
         { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
       ]);
     });
+
+    it.each(["CLOSED", "MERGED"] as const)(
+      "allows an agent's local comment on a %s PR without a GitHub write",
+      async (state) => {
+        const harness = await setupWithPr(reviewHost({ state }));
+
+        const result = await harness.behavior.runCli(
+          comment("--line", "3", "--body", "Keep locally"),
+          {
+            threadId: "thr_1",
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        expect(await commentDraftsOf(harness)).toEqual([
+          expect.objectContaining({ body: "Keep locally", commitOid: "def456", source: "agent" }),
+        ]);
+        expect(harness.experimental_hostRpcCalls.map(({ method }) => method)).toEqual([
+          "fetchPrFiles",
+          "fetchReviewThreads",
+          "fetchPrHead",
+          "fetchPrFiles",
+          "fetchReviewThreads",
+          "fetchPrHead",
+        ]);
+      },
+    );
+
+    it.each([
+      [
+        "300",
+        `Line 300 is not in the diff of ${FILE} on the RIGHT side. Diff ranges: 1-5, 146-154`,
+      ],
+      ["3", "1 comment draft is at commit abc123, but the PR head is def456"],
+    ])(
+      "checks line %s before reading the body file, and keeps older drafts",
+      async (line, message) => {
+        let headOid = "abc123";
+        const harness = await setupWithPr(reviewHost({ headOid: () => headOid }));
+        const saved = await harness.behavior.runCli(comment("--line", "3", "--body", "Keep"), {
+          threadId: "thr_1",
+        });
+        expect(saved.exitCode).toBe(0);
+        const before = await commentDraftsOf(harness);
+        headOid = "def456";
+
+        const result = await harness.behavior.runCli(
+          comment("--line", line, "--body-file", "notes.md"),
+          {
+            threadId: "thr_1",
+          },
+        );
+
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stderr).toContain(message);
+        expect(await commentDraftsOf(harness)).toEqual(before);
+        expect(
+          harness.experimental_hostRpcCalls.filter(({ method }) => method === "readTextFile"),
+        ).toEqual([]);
+        expect(harness.realtimeSignals).toEqual([
+          { channel: "review.drafts-updated", payload: { threadId: "thr_1" } },
+        ]);
+      },
+    );
 
     it("saves a range on the old side", async () => {
       const harness = await setupWithPr();

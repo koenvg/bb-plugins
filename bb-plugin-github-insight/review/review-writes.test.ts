@@ -53,7 +53,7 @@ function writesWith(overrides: Partial<Deps> = {}) {
       return { kind: "ok" };
     },
     now: () => 1,
-    newDraftId: () => "n1",
+    createLocalCommentDraft: async () => ({ kind: "created", draftId: "n1" }),
     warn: () => {},
     ...overrides,
   });

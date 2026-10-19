@@ -91,6 +91,8 @@ export default async function plugin(bb: BbPluginApi) {
   const review = createReviewService({
     resolvePr,
     signMedia,
+    now: Date.now,
+    newDraftId: newCommentDraftId,
     fetchPrFilesPage: async ({ ref, hostId }, page) =>
       unwrap(await host.call("fetchPrFiles", { ...ref, page }, { hostId })),
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
@@ -128,7 +130,7 @@ export default async function plugin(bb: BbPluginApi) {
     markReviewed: ({ owner, repo, number }, headOid) =>
       reviewQueue.markReviewed({ repo: `${owner}/${repo}`, number, headOid }),
     now: Date.now,
-    newDraftId: newCommentDraftId,
+    createLocalCommentDraft: review.createCommentDraft,
     warn: (message) => bb.log.warn(message),
   });
 
@@ -249,7 +251,6 @@ export default async function plugin(bb: BbPluginApi) {
       review,
       readTextFile: (hostId, request) => host.call("readTextFile", request, { hostId }),
       now: Date.now,
-      newDraftId: newCommentDraftId,
     }),
   );
 
