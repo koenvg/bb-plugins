@@ -21,6 +21,8 @@ BBP-44's [local verification](../../../verification/BBP-44/report.md) covers the
 
 ## 2. Set due dates through a task command
 
+BBP-45's [local verification](../../../verification/BBP-45/report.md) covers the controlled due-date picker, both layouts, explicit choices, and stale-activation checks. Installed-BB palette timing and personal-binding checks remain blocked by the no-deployment and no-settings restrictions. Delivery 2 checkboxes stay open pending acceptance evidence.
+
 - [ ] 2.1 Connect Set due date to a controlled due-date picker using the existing detail menu state; verify keyboard preset selection, custom date input, removal and Escape leave data unchanged until a choice is made.
 - [ ] 2.2 Apply the established shown-layout and palette-close focus behavior to due dates; verify only the visible picker opens in either layout and Escape returns to its visible trigger without stale activation, with existing mouse behavior intact.
 - [ ] 2.3 Document Set due date and its explicit choice/removal behavior in the README; verify the instructions match the rendered picker tests and keyboard-only checks.

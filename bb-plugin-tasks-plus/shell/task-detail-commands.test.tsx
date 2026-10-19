@@ -39,9 +39,13 @@ const label = {
   color: "blue",
   createdAt: project.createdAt,
 };
-const propertyIds = ["task-change-status", "task-set-priority", "task-edit-labels"];
-const deferredIds = [
+const propertyIds = [
+  "task-change-status",
+  "task-set-priority",
+  "task-edit-labels",
   "task-set-due-date",
+];
+const deferredIds = [
   "task-change-linked-bb-project",
   "task-dispatch",
   "task-previous",
@@ -62,9 +66,8 @@ function run(id: string) {
     void command(id).run(context);
   });
 }
-function fixture({
-  lookup = (key: unknown): unknown => tasks.find((task) => task.key === key) ?? null,
-} = {}) {
+function fixture({ lookup }: { lookup?: (key: unknown) => unknown } = {}) {
+  const records = tasks.map((task) => ({ ...task }));
   const updates: Record<string, unknown>[] = [];
   const rpc = {
     listProjects: () => ({ projects: [project] }),
@@ -73,10 +76,15 @@ function fixture({
     listPresets: () => ({ presets: [] }),
     sidebarSummary: () => ({ projects: [] }),
     listTasks: (raw: unknown) => ({
-      tasks: rpcInput(raw).parentTaskId ? [] : tasks,
+      tasks: rpcInput(raw).parentTaskId ? [] : records,
       nextCursor: null,
     }),
-    getTaskByKey: async (raw: unknown) => ({ task: await lookup(rpcInput(raw).taskKey) }),
+    getTaskByKey: async (raw: unknown) => {
+      const key = rpcInput(raw).taskKey;
+      return {
+        task: lookup ? await lookup(key) : (records.find((task) => task.key === key) ?? null),
+      };
+    },
     getTask: () => ({ task: null }),
     listAttachments: () => ({ attachments: [] }),
     listTaskThreads: () => ({ taskThreads: [] }),
@@ -85,7 +93,9 @@ function fixture({
     updateTask: (raw: unknown) => {
       const input = rpcInput(raw);
       updates.push(input);
-      return { ok: true, task: { ...tasks.find((task) => task.id === input.taskId)!, ...input } };
+      const task = records.find((task) => task.id === input.taskId)!;
+      Object.assign(task, input);
+      return { ok: true, task: { ...task } };
     },
   };
   const render = (subPath = "task/TSK-1") => renderSlot(app.navPanels[0]!, { subPath }, { rpc });
@@ -125,6 +135,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 async function ready(slot: ReturnType<ReturnType<typeof fixture>["render"]>, key = "TSK-1") {
@@ -245,7 +256,7 @@ describe("task-detail command registration and targeting", () => {
       expect(slot.queryByRole("menu")).toBeNull();
     },
   );
-  it("ignores palette inert/aria-hidden and editable focus, but fails closed on two shown sessions", async () => {
+  it("ignores palette and editable focus, but rejects two shown sessions", async () => {
     const { render } = fixture();
     const first = render();
     await ready(first);
@@ -263,7 +274,33 @@ describe("task-detail command registration and targeting", () => {
     second.unmount();
     expect(available("task-change-status")).toBe(true);
   });
-  it("resolves the new task after listing, removes old actions on route changes, and remounts cleanly", async () => {
+  it("targets the fresh task and persists its chosen due date", async () => {
+    const { render, updates } = fixture();
+    const slot = render();
+    await ready(slot);
+    const listed = command("task-set-due-date");
+    expect(listed.isAvailable?.(context)).toBe(true);
+    slot.rerender(<Panel subPath="task/TSK-2" />);
+    await ready(slot, "TSK-2");
+    fireEvent.keyDown(document, { key: "F9" });
+    act(() => void listed.run(context));
+    const input = await slot.findByLabelText("Due date");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: "2026-08-09" } });
+    await waitFor(() => expect(updates).toEqual([{ taskId: tasks[1]!.id, dueDate: "2026-08-09" }]));
+    slot.rerender(<Panel subPath="all" />);
+    expect(available("task-set-due-date")).toBe(false);
+    run("task-set-due-date");
+    slot.unmount();
+    const reloaded = render("task/TSK-2");
+    await ready(reloaded, "TSK-2");
+    run("task-set-due-date");
+    const persisted = await reloaded.findByLabelText("Due date");
+    expect((persisted as HTMLInputElement).value).toBe("2026-08-09");
+    expect(updates).toEqual([{ taskId: tasks[1]!.id, dueDate: "2026-08-09" }]);
+    expect(slot.navigateCalls).toEqual([]);
+  });
+  it("retargets listed commands and cleans up route changes and remounts", async () => {
     const { render, updates } = fixture();
     const slot = render();
     await ready(slot);
@@ -287,6 +324,78 @@ describe("task-detail command registration and targeting", () => {
 });
 
 describe("property command keyboard workflow", () => {
+  it.each(["inline", "rail"])(
+    "opens the visible %s due-date picker and saves only explicit date choices",
+    async (layout) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2026, 6, 15, 12));
+      vi.mocked(HTMLElement.prototype.getClientRects).mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const owner = this.closest<HTMLElement>("[data-properties-layout]");
+        return (owner && owner.dataset.propertiesLayout !== layout
+          ? []
+          : [{ width: 900, height: 600 }]) as unknown as DOMRectList;
+      });
+      const { render, updates } = fixture();
+      const slot = render();
+      await ready(slot);
+      const properties = slot.container.querySelector<HTMLElement>(
+        `[data-properties-layout="${layout}"]`,
+      )!;
+      const trigger = within(properties).getByRole("button", { name: "Set due date" });
+      fireEvent.keyDown(document, { key: "F9" });
+      run("task-set-due-date");
+      const input = await slot.findByLabelText("Due date");
+      expect(slot.getAllByLabelText("Due date")).toHaveLength(1);
+      await waitFor(() => expect(document.activeElement).toBe(input));
+      expect(updates).toEqual([]);
+      fireEvent.keyDown(input, { key: "Escape" });
+      await waitFor(() => expect(slot.queryByLabelText("Due date")).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+      expect(updates).toEqual([]);
+      for (const [name, dueDate] of [
+        ["Today", "2026-07-15"],
+        ["Tomorrow", "2026-07-16"],
+        ["Next week", "2026-07-22"],
+      ] as const) {
+        run("task-set-due-date");
+        const dateInput = await slot.findByLabelText("Due date");
+        await waitFor(() => expect(document.activeElement).toBe(dateInput));
+        const preset = slot.getByRole("button", { name: new RegExp(`^${name}`) });
+        preset.focus();
+        fireEvent.click(preset, { detail: 0 });
+        await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate }]));
+        updates.splice(0);
+      }
+      run("task-set-due-date");
+      const customInput = await slot.findByLabelText("Due date");
+      await waitFor(() => expect(document.activeElement).toBe(customInput));
+      fireEvent.change(customInput, { target: { value: "" } });
+      expect(updates).toEqual([]);
+      fireEvent.change(customInput, { target: { value: "2026-08-09" } });
+      await waitFor(() =>
+        expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: "2026-08-09" }]),
+      );
+      updates.splice(0);
+      run("task-set-due-date");
+      await slot.findByLabelText("Due date");
+      const remove = slot.getByRole("button", { name: "Remove due date" });
+      remove.focus();
+      fireEvent.click(remove, { detail: 0 });
+      await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: null }]));
+      updates.splice(0);
+      fireEvent.pointerDown(trigger);
+      fireEvent.click(trigger);
+      await slot.findByLabelText("Due date");
+      fireEvent.click(slot.getByRole("button", { name: /^Tomorrow/ }));
+      await waitFor(() =>
+        expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: "2026-07-16" }]),
+      );
+      expect(slot.navigateCalls).toEqual([]);
+    },
+  );
+
   it("keeps the blocked-work confirmation before entering In progress", async () => {
     const blocker = { id: tasks[1]!.id, key: "TSK-2", title: "Task 2", status: "todo" as const };
     const blocked = { ...tasks[0]!, blockedBy: [blocker], openBlockerCount: 1, blocked: true };
@@ -305,9 +414,15 @@ describe("property command keyboard workflow", () => {
     await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, status: "in_progress" }]));
   });
 
-  it.each(["route", "unmount", "hidden"])(
-    "cancels palette activation after %s changes",
-    async (change) => {
+  it.each(
+    ["route", "unmount", "hidden"].flatMap((change) =>
+      ["task-change-status", "task-set-due-date"].flatMap((id) =>
+        [false, true].map((afterFirstFrame) => ({ change, id, afterFirstFrame })),
+      ),
+    ),
+  )(
+    "cancels $id palette activation after $change changes with first frame run=$afterFirstFrame",
+    async ({ change, id, afterFirstFrame }) => {
       const { render, updates } = fixture();
       const slot = render();
       await ready(slot);
@@ -317,17 +432,19 @@ describe("property command keyboard workflow", () => {
         return frames.length;
       });
       const cancel = vi.spyOn(window, "cancelAnimationFrame");
-      run("task-change-status");
+      run(id);
       expect(frames).toHaveLength(1);
+      if (afterFirstFrame) act(() => frames[0]!(0));
       if (change === "route") slot.rerender(<Panel subPath="task/TSK-2" />);
       else if (change === "unmount") slot.unmount();
       else slot.container.hidden = true;
       if (change !== "hidden") expect(cancel).toHaveBeenCalled();
       act(() => {
-        frames[0]!(0);
+        if (!afterFirstFrame) frames[0]!(0);
         frames[1]!(16);
       });
       expect(document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.querySelector('input[aria-label="Due date"]')).toBeNull();
       expect(updates).toEqual([]);
       expect(slot.navigateCalls).toEqual([]);
     },

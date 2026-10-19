@@ -57,7 +57,7 @@ function usePropertyMenuFocus(open: boolean) {
   return { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus };
 }
 
-export type DetailMenu = "status" | "priority" | "labels" | "dispatch";
+export type DetailMenu = "status" | "priority" | "labels" | "dueDate" | "dispatch";
 
 interface MenuControl {
   openMenu: DetailMenu | null;
@@ -173,25 +173,35 @@ function DueDateMenu({
   task,
   onUpdate,
   triggerClassName,
+  open,
+  onOpenChange,
 }: {
   task: Task;
   onUpdate: (update: TaskPropertyUpdate) => void;
   triggerClassName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   const pick = (dueDate: string | null) => {
     onUpdate({ dueDate });
-    setOpen(false);
+    onOpenChange(false);
   };
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger ref={triggerRef} asChild>
         <button type="button" className={triggerClassName}>
           <Icon name="Clock" className="size-3.5 shrink-0" />
           {task.dueDate ? formatDueDate(task.dueDate) : "Set due date"}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-52 p-2">
+      <PopoverContent
+        ref={contentRef}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+        align="start"
+        className="w-52 p-2"
+      >
         <div className="flex flex-col">
           {DUE_DATE_PRESETS.map(([label, days]) => (
             <button
@@ -390,7 +400,12 @@ export function PropertiesRail({
         triggerClassName={RAIL_ROW_CLASS}
         {...menuProps(control, "priority")}
       />
-      <DueDateMenu task={task} onUpdate={onUpdate} triggerClassName={RAIL_ROW_CLASS} />
+      <DueDateMenu
+        task={task}
+        onUpdate={onUpdate}
+        triggerClassName={RAIL_ROW_CLASS}
+        {...menuProps(control, "dueDate")}
+      />
 
       <div className="mb-1 mt-3 text-2xs font-semibold text-muted-foreground">Labels</div>
       <div className="flex flex-wrap items-center gap-1 py-0.5">
@@ -503,7 +518,12 @@ export function InlineProperties({
         triggerClassName={CHIP_CLASS}
         {...menuProps(control, "priority")}
       />
-      <DueDateMenu task={task} onUpdate={onUpdate} triggerClassName={CHIP_CLASS} />
+      <DueDateMenu
+        task={task}
+        onUpdate={onUpdate}
+        triggerClassName={CHIP_CLASS}
+        {...menuProps(control, "dueDate")}
+      />
       {taskLabels.map((label) => (
         <LabelChip key={label.id} label={label} />
       ))}
