@@ -375,6 +375,8 @@ describe("new conversation comments", () => {
   });
 
   afterEach(() => {
+    // Unmount before restoring observers because cleanup can flush pending effects.
+    cleanup();
     vi.unstubAllGlobals();
     vi.stubGlobal("ResizeObserver", Unobserved);
     vi.restoreAllMocks();
