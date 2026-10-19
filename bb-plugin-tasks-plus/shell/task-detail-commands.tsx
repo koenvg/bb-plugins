@@ -17,7 +17,8 @@ export type TaskDetailAction =
   | "previous"
   | "next"
   | "back";
-type Actions = Partial<Record<TaskDetailAction, (() => void) | null>>;
+type Action = (() => void) | { run: () => void; isAvailable: () => boolean };
+type Actions = Partial<Record<TaskDetailAction, Action | null>>;
 type Registration = { taskKey: string; actions: Actions };
 type Session = {
   taskKey: string;
@@ -54,7 +55,12 @@ function resolve(action: TaskDetailAction): { session: Session; handler: () => v
   const session = eligible[0]!;
   const handlers = [...session.registrations]
     .filter((entry) => entry.taskKey === session.taskKey)
-    .flatMap((entry) => (entry.actions[action] ? [entry.actions[action]!] : []));
+    .flatMap((entry) => {
+      const handler = entry.actions[action];
+      if (!handler) return [];
+      if (typeof handler === "function") return [handler];
+      return handler.isAvailable() ? [handler.run] : [];
+    });
   return handlers.length === 1 ? { session, handler: handlers[0]! } : null;
 }
 

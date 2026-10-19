@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   Label,
   Project,
@@ -27,38 +27,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { isLastInputKeyboard } from "@/components/ui/overlay-trigger";
-
-function usePropertyMenuFocus(open: boolean) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const focusFrame = useRef<number | null>(null);
-  const contentRef = useCallback(
-    (content: HTMLDivElement | null) => {
-      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
-      focusFrame.current = null;
-      if (content && open && isLastInputKeyboard()) {
-        focusFrame.current = requestAnimationFrame(() => {
-          focusFrame.current = null;
-          content
-            .querySelector<HTMLElement>('input, [role="menuitem"], [role="combobox"]')
-            ?.focus();
-        });
-      }
-    },
-    [open],
-  );
-  const onOpenAutoFocus = (event: Event) => {
-    if (isLastInputKeyboard()) event.preventDefault();
-  };
-  const onCloseAutoFocus = (event: Event) => {
-    if (!isLastInputKeyboard()) return;
-    event.preventDefault();
-    const trigger = triggerRef.current;
-    if (trigger?.isConnected && trigger.getClientRects().length) trigger.focus();
-  };
-  return { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus };
-}
-
+import { usePropertyMenuFocus } from "./property-menu-focus.js";
 export type DetailMenu =
   | "status"
   | "priority"
@@ -390,6 +359,7 @@ export function PropertiesRail({
   labels,
   threads,
   presets,
+  onDispatchReadinessChange,
   onUpdate,
   onError,
   className,
@@ -397,6 +367,7 @@ export function PropertiesRail({
 }: TaskPropertiesProps &
   MenuControl & {
     presets: Preset[] | undefined;
+    onDispatchReadinessChange?: (ready: boolean) => void;
     onError: (message: string) => void;
     className?: string;
   }) {
@@ -473,6 +444,7 @@ export function PropertiesRail({
           task={task}
           presets={presets}
           onError={onError}
+          onMenuReadinessChange={onDispatchReadinessChange}
           align="start"
           className="w-full"
           {...menuProps(control, "dispatch")}
@@ -510,6 +482,7 @@ export function InlineProperties({
   bbProjects,
   labels,
   presets,
+  onDispatchReadinessChange,
   onUpdate,
   onError,
   className,
@@ -517,6 +490,7 @@ export function InlineProperties({
 }: Omit<TaskPropertiesProps, "threads"> &
   MenuControl & {
     presets: Preset[] | undefined;
+    onDispatchReadinessChange?: (ready: boolean) => void;
     onError: (message: string) => void;
     className?: string;
   }) {
@@ -569,6 +543,7 @@ export function InlineProperties({
         task={task}
         presets={presets}
         onError={onError}
+        onMenuReadinessChange={onDispatchReadinessChange}
         className="ml-auto max-w-56"
         {...menuProps(control, "dispatch")}
       />

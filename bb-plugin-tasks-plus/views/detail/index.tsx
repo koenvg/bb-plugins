@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
 import type { Task } from "../../shared/contract.js";
@@ -312,6 +319,20 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
   const detailRef = useRef<HTMLDivElement>(null);
+  const dispatchReadiness = useRef<Record<PropertiesLayout, boolean>>({
+    inline: false,
+    rail: false,
+  });
+  const inlineDispatchReadiness = useCallback((ready: boolean) => {
+    dispatchReadiness.current.inline = ready;
+  }, []);
+  const railDispatchReadiness = useCallback((ready: boolean) => {
+    dispatchReadiness.current.rail = ready;
+  }, []);
+  const canOpenDispatch = () => dispatchReadiness.current[shownPropertiesLayout(detailRef.current)];
+  const openDispatchMenu = () => {
+    if (canOpenDispatch()) openPropertyMenu("dispatch")();
+  };
   const [openMenu, setOpenMenu] = useState<{
     menu: DetailMenu;
     layout: PropertiesLayout;
@@ -327,6 +348,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     status: openPropertyMenu("status"),
     priority: openPropertyMenu("priority"),
     labels: openPropertyMenu("labels"),
+    dispatch: { run: openDispatchMenu, isAvailable: canOpenDispatch },
     dueDate: openPropertyMenu("dueDate"),
     linkedProject:
       project && !projects.isLoading && !projects.error ? openPropertyMenu("linkedProject") : null,
@@ -336,7 +358,7 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
     "detail.status": propertyActions.status,
     "detail.priority": propertyActions.priority,
     "detail.labels": propertyActions.labels,
-    "detail.dispatch": presets.data?.length ? openPropertyMenu("dispatch") : null,
+    "detail.dispatch": openDispatchMenu,
   });
 
   const updateTask = async (
@@ -473,7 +495,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
             project={project}
             bbProjects={bbProjects.data ?? []}
             labels={labels.data}
-            presets={presets.data}
+            presets={!presets.isLoading && !presets.error ? presets.data : undefined}
+            onDispatchReadinessChange={inlineDispatchReadiness}
             onUpdate={(update) => void updateTask(update)}
             onError={(message) => push(message)}
             className="mb-4 @[45rem]:hidden"
@@ -577,7 +600,8 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
           bbProjects={bbProjects.data ?? []}
           labels={labels.data}
           threads={threads.data ?? []}
-          presets={presets.data}
+          presets={!presets.isLoading && !presets.error ? presets.data : undefined}
+          onDispatchReadinessChange={railDispatchReadiness}
           onUpdate={(update) => void updateTask(update)}
           onError={(message) => push(message)}
           className="hidden @[45rem]:block"

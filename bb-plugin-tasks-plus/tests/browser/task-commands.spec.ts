@@ -12,6 +12,53 @@ async function palette(page: Page, title: string) {
 }
 
 for (const width of [1200, 650]) {
+  test(`dispatch command opens, cancels and delegates only an explicit preset at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/tests/task-commands.html");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+    await page.keyboard.press("Tab");
+    const layout = page.locator(`[data-properties-layout="${width === 1200 ? "rail" : "inline"}"]`);
+    const trigger = layout.getByRole("button", { name: "Choose dispatch preset" });
+    const worker = page.getByRole("menuitem", { name: /^Worker/ });
+    const delegations = page.getByLabel("Fixture delegations");
+    await palette(page, "Dispatch task...");
+    await expect(worker).toHaveCount(1);
+    await expect(worker).toBeFocused();
+    await expect(delegations).toHaveText("[]");
+    await page.screenshot({ path: testInfo.outputPath("Dispatch-preset.png") });
+    await page.keyboard.press("Escape");
+    await expect(worker).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(delegations).toHaveText("[]");
+    await page.keyboard.press("d");
+    await expect(worker).toBeFocused();
+    await expect(delegations).toHaveText("[]");
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press("Alt+2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await palette(page, "Dispatch task...");
+    await expect(worker).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(delegations).toHaveText(
+      JSON.stringify([{ taskId: "task-2", presetId: "worker" }]),
+    );
+    await expect(layout.getByRole("button", { name: "Dispatching…", exact: true })).toBeDisabled();
+    await page.keyboard.press("ControlOrMeta+Shift+P");
+    await expect(page.getByRole("textbox", { name: "Find command" })).toBeFocused();
+    await expect(page.getByText("Tasks: Dispatch task...", { exact: true })).toBeHidden();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Alt+9");
+    await expect(layout.getByRole("button", { name: "Worker", exact: true })).toBeEnabled();
+    await expect(worker).toHaveCount(0);
+    await expect(delegations).toHaveText(
+      JSON.stringify([{ taskId: "task-2", presetId: "worker" }]),
+    );
+    await expect(page.getByLabel("Fixture updates", { exact: true })).toHaveText("[]");
+    await expect(page.getByLabel("Fixture project updates")).toHaveText("[]");
+  });
   test(`linked-project command shared scope and explicit saves at ${width}px`, async ({
     page,
   }, testInfo) => {

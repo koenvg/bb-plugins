@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { UrlLink, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import type { Preset, Task, TaskPullRequest, TaskThread } from "../../shared/contract.js";
@@ -8,6 +8,7 @@ import { PresetDialog, savePresetDraft } from "../manage/preset-dialog.js";
 import { ConfirmDialog } from "../../components/confirm-dialog.js";
 import { useBlockedWorkConfirm } from "../dependencies.js";
 import { useTasksRpc } from "../../shell/data.js";
+import { usePropertyMenuFocus } from "./property-menu-focus.js";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -130,6 +131,7 @@ interface DispatchControlProps {
   className?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMenuReadinessChange?: (ready: boolean) => void;
 }
 
 export function DispatchControl({
@@ -140,6 +142,7 @@ export function DispatchControl({
   className,
   open,
   onOpenChange,
+  onMenuReadinessChange,
 }: DispatchControlProps) {
   const rpc = useRpc<DelegationRpcContract>();
   const tasksRpc = useTasksRpc();
@@ -148,15 +151,27 @@ export function DispatchControl({
   const [createDialogKey, setCreateDialogKey] = useState<number | null>(null);
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const dispatch = async (presetId: string) => {
-    if (!(await confirmBlockedWork(task))) return;
+    if (busy.current || !presets?.some((preset) => preset.id === presetId)) return;
+    busy.current = true;
+    onMenuReadinessChange?.(false);
     setDispatching(true);
     try {
+      if (!(await confirmBlockedWork(task)) || !mounted.current) return;
       await rpc.call("delegate", { taskId: task.id, presetId });
     } catch (error) {
-      onError(errorMessage(error));
+      if (mounted.current) onError(errorMessage(error));
     } finally {
-      setDispatching(false);
+      busy.current = false;
+      if (mounted.current) setDispatching(false);
     }
   };
 
@@ -173,6 +188,11 @@ export function DispatchControl({
     (presets ? [...presets].sort((a, b) => a.name.localeCompare(b.name))[0] : undefined);
 
   const menuAvailable = !dispatching && current !== undefined;
+  const { triggerRef, contentRef, onCloseAutoFocus } = usePropertyMenuFocus(open && menuAvailable);
+  useLayoutEffect(() => {
+    onMenuReadinessChange?.(menuAvailable);
+    return () => onMenuReadinessChange?.(false);
+  }, [menuAvailable, onMenuReadinessChange]);
   useEffect(() => {
     if (open && !menuAvailable) onOpenChange(false);
   }, [open, menuAvailable, onOpenChange]);
@@ -219,7 +239,7 @@ export function DispatchControl({
           </span>
         </Button>
         <DropdownMenu open={open && menuAvailable} onOpenChange={onOpenChange}>
-          <DropdownMenuTrigger asChild disabled={dispatching || !current}>
+          <DropdownMenuTrigger ref={triggerRef} asChild disabled={dispatching || !current}>
             <Button
               size="sm"
               aria-label="Choose dispatch preset"
@@ -231,7 +251,7 @@ export function DispatchControl({
               <Icon name="ChevronDown" className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align={align}>
+          <DropdownMenuContent ref={contentRef} onCloseAutoFocus={onCloseAutoFocus} align={align}>
             <DropdownMenuLabel>Dispatch with preset</DropdownMenuLabel>
             {(presets ?? []).map((preset) => (
               <DropdownMenuItem key={preset.id} onSelect={() => pickPreset(preset)}>

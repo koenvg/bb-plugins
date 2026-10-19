@@ -706,7 +706,12 @@ Opening, changing the unsaved selection, or pressing Escape does not save. Faile
 This changes the shared tracker-project link only. It does not move tasks or existing threads, or start an agent.
 There is no bare-key linked-project shortcut.
 
-Nine detail commands are registered. Dispatch, Previous, Next and Back are currently unavailable.
+**Tasks: Dispatch task...** opens the visible preset menu, as does `d`. Opening it or pressing Escape starts no agent.
+Only selecting a preset starts an agent for the open task. Blocked-work confirmation and delegation errors still apply.
+The command is unavailable while presets load, fail to load, are missing, or the shown control awaits confirmation or delegation.
+The mouse primary button still dispatches with the last preset.
+
+Nine detail commands are registered. Previous, Next and Back are currently unavailable.
 Write a comment is not registered because task comments were removed.
 
 ### Switch Tasks projects
