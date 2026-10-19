@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { openHistoryDatabase, type HistoryDatabase } from "./storage/history-storage.js";
+import { recordHistoryExecutions, explainHistoryExecution } from "./history-sql.test-support.js";
 import {
   initializeHistory,
   projectCompactRecord,
@@ -136,27 +137,47 @@ it("late conflicting replay after detail expiry excludes totals without replacin
     event_id: event(1).eventId,
   });
 });
-it("regroups repeated DST instants and uses only an indexed compact date query", async () => {
+it("regroups repeated DST instants and indexes executed compact aggregate and model reads", async () => {
   const f = await fixture();
   for (const [i, at] of ["2026-11-01T08:30:00Z", "2026-11-01T09:30:00Z"].entries())
     f.db.transaction(() =>
       projectCompactRecord(f.db, parseCompact(JSON.stringify(event(i + 1, at)), false)!),
     );
-  const view = readCalendarTotals(f.db, {
+  const capture = recordHistoryExecutions(f.db);
+  const view = readCalendarTotals(capture.db, {
     workspace: "/original",
     start: "2026-11-01T00:00:00.000Z",
     end: "2026-11-02T12:00:00.000Z",
     timezone: "America/Los_Angeles",
   });
   expect(view.days).toMatchObject([{ date: "2026-11-01", totalTokens: 10, events: 2 }]);
-  const plan = JSON.stringify(
-    f.db
-      .prepare(
-        "EXPLAIN QUERY PLAN SELECT total FROM usage_compact WHERE workspace=? AND occurred_at>=? AND occurred_at<? ORDER BY occurred_at,event_id LIMIT 10001",
-      )
-      .all("/original", "2026-11-01", "2026-11-02"),
+  const compactReads = capture.executed.filter((execution) =>
+    /\bFROM usage_compact\b/i.test(execution.sql),
   );
-  expect(plan).toContain("compact_workspace_date");
-  expect(plan).not.toContain("usage_events");
-  expect(plan).not.toContain("TEMP B-TREE");
+  expect(compactReads.length).toBeGreaterThan(0);
+  const aggregates = compactReads.filter(
+    (execution) => execution.method === "get" && execution.sql.includes("sum(c.total)"),
+  );
+  const models = compactReads.filter(
+    (execution) => execution.method === "all" && execution.sql.includes("GROUP BY model"),
+  );
+  expect(aggregates).toHaveLength(3);
+  expect(models).toHaveLength(3);
+  expect(aggregates[1].values.slice(-3)).toEqual([
+    "/original",
+    "2026-11-01T07:00:00.000Z",
+    "2026-11-02T08:00:00.000Z",
+  ]);
+  expect(models[1].values[0]).toBe("/original");
+  expect(models[1].values.slice(-2)).toEqual([
+    "2026-11-01T07:00:00.000Z",
+    "2026-11-02T08:00:00.000Z",
+  ]);
+  for (const execution of compactReads) {
+    const plan = explainHistoryExecution(f.db, execution).join("\n");
+    expect(plan, execution.sql).toMatch(
+      /\bSEARCH (?:c|usage_compact) USING (?:COVERING )?INDEX \S+ \([^\n)]*occurred_at>\? AND occurred_at<\?\)/,
+    );
+    expect(plan, execution.sql).not.toMatch(/\bSCAN (?:c|usage_compact|e|usage_events)\b/);
+  }
 });
