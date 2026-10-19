@@ -816,6 +816,7 @@ export type SidebarProjectSummary = z.infer<
 export interface TasksChangedEvent {
   taskId: string;
   projectId: string;
+  resource?: "attachments";
 }
 
 export interface ProjectsChangedEvent {

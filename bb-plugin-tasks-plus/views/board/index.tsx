@@ -6,7 +6,8 @@ import {
   type ReactNode,
 } from "react";
 import { type Label, type Task, type TaskStatus, type TaskThread } from "../../shared/contract.js";
-import { listAllTasks, useTasksQuery, useTasksRpc, type TasksRpc } from "../../shell/data.js";
+import { useTasksRpc } from "../../shell/data.js";
+import { useBoardData, type BoardCardMeta } from "./data.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { PriorityEditor, StatusEditor, type EditFn } from "../list/property-menus.js";
 import {
@@ -24,7 +25,6 @@ import {
   visibleBoardStatuses,
 } from "./drop-position.js";
 import { PriorityIcon, StatusIcon } from "./icons.js";
-import { isActiveThread } from "../detail/meta.js";
 import { STATUS_LABELS } from "../list/lib.js";
 import { DependencyChip, type DependencyFilter } from "../list/filter-bar.js";
 import { DependencyBadges, useBlockedWorkConfirm } from "../dependencies.js";
@@ -36,88 +36,12 @@ import { cn } from "@/lib/utils";
 
 const DRAG_THRESHOLD_PX = 5;
 
-interface BoardCardMeta {
-  workingThreads: TaskThread[];
-  attachmentCount: number;
-  subDone: number;
-  subTotal: number;
-}
-
-interface BoardData {
-  tasks: Task[];
-  labelsById: Map<string, Label>;
-  metaByTaskId: Map<string, BoardCardMeta>;
-}
-
 const EMPTY_META: BoardCardMeta = {
   workingThreads: [],
   attachmentCount: 0,
   subDone: 0,
   subTotal: 0,
 };
-
-async function fetchBoard(rpc: TasksRpc, projectId: string): Promise<BoardData> {
-  const tasks = await listAllTasks(rpc, { projectId });
-  const topLevel = tasks.filter((task) => task.parentTaskId === null);
-
-  const labels = await rpc.call("listLabels", { projectId }).then(
-    (result) => result.labels,
-    () => [],
-  );
-  const subProgress = new Map<string, { done: number; total: number }>();
-  for (const task of tasks) {
-    if (task.parentTaskId === null) continue;
-    const entry = subProgress.get(task.parentTaskId) ?? { done: 0, total: 0 };
-    entry.total += 1;
-    if (task.status === "done") entry.done += 1;
-    subProgress.set(task.parentTaskId, entry);
-  }
-  const activeTaskIds = await listAllTasks(rpc, {
-    projectId,
-    activeOnly: true,
-  }).then(
-    (result) => new Set(result.map((task) => task.id)),
-    () => new Set<string>(),
-  );
-  const workingByTaskId = new Map<string, TaskThread[]>();
-  await Promise.all(
-    topLevel
-      .filter((task) => activeTaskIds.has(task.id))
-      .map(async (task) => {
-        const threads = await rpc.call("listTaskThreads", { taskId: task.id }).then(
-          (result) => result.taskThreads,
-          () => [],
-        );
-        workingByTaskId.set(task.id, threads.filter(isActiveThread));
-      }),
-  );
-  const attachmentCounts = new Map<string, number>();
-  await Promise.all(
-    topLevel.map(async (task) => {
-      const count = await rpc.call("listAttachments", { taskId: task.id }).then(
-        (result) => result.attachments.length,
-        () => 0,
-      );
-      attachmentCounts.set(task.id, count);
-    }),
-  );
-
-  return {
-    tasks: topLevel,
-    labelsById: new Map(labels.map((label) => [label.id, label])),
-    metaByTaskId: new Map(
-      topLevel.map((task) => [
-        task.id,
-        {
-          workingThreads: workingByTaskId.get(task.id) ?? [],
-          attachmentCount: attachmentCounts.get(task.id) ?? 0,
-          subDone: subProgress.get(task.id)?.done ?? 0,
-          subTotal: subProgress.get(task.id)?.total ?? 0,
-        },
-      ]),
-    ),
-  };
-}
 
 type ColumnMap = Record<TaskStatus, Task[]>;
 
@@ -316,11 +240,7 @@ interface BoardViewProps {
 export function BoardView({ projectId }: BoardViewProps) {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
-  const board = useTasksQuery(
-    (queryRpc) => fetchBoard(queryRpc, projectId),
-    ["tasks:changed", "projects:changed", "threads:changed"],
-    [projectId],
-  );
+  const board = useBoardData(projectId);
 
   const [dependency, setDependency] = useState<DependencyFilter | undefined>();
   const [columns, setColumns] = useState<ColumnMap | undefined>(undefined);
@@ -328,13 +248,13 @@ export function BoardView({ projectId }: BoardViewProps) {
     setColumns(undefined);
   }, [projectId]);
   useEffect(() => {
-    if (!board.data) return;
+    if (!board.tasks) return;
     const shown =
       dependency === undefined
-        ? board.data.tasks
-        : board.data.tasks.filter((task) => (task.blocked === true) === (dependency === "blocked"));
+        ? board.tasks
+        : board.tasks.filter((task) => (task.blocked === true) === (dependency === "blocked"));
     setColumns(groupColumns(shown));
-  }, [board.data, dependency]);
+  }, [board.tasks, dependency]);
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
 
@@ -526,8 +446,7 @@ export function BoardView({ projectId }: BoardViewProps) {
     return <BoardSkeleton />;
   }
 
-  const labelsById = board.data?.labelsById ?? new Map<string, Label>();
-  const metaByTaskId = board.data?.metaByTaskId ?? new Map<string, BoardCardMeta>();
+  const { labelsById, metaByTaskId } = board;
   const ghostTask = drag
     ? Object.values(columns)
         .flat()

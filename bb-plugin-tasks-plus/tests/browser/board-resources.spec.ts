@@ -17,6 +17,7 @@ declare global {
 
 async function setup(page: Page) {
   const requests: RequestRecord[] = [];
+  const state = { failMove: false };
   const tasks = [
     makeTask({ id: "task-1", projectId: "project-1", title: "First card", labelIds: ["label-1"] }),
     makeTask({
@@ -91,8 +92,16 @@ async function setup(page: Page) {
         result = { projects: [] };
         break;
       case "boardMove": {
+        if (state.failMove) {
+          result = { ok: false };
+          break;
+        }
         const task = tasks.find((task) => task.id === input.taskId)!;
         task.status = input.status as Task["status"];
+        tasks.splice(tasks.indexOf(task), 1);
+        const after = tasks.findIndex((task) => task.id === input.afterTaskId);
+        const before = tasks.findIndex((task) => task.id === input.beforeTaskId);
+        tasks.splice(after >= 0 ? after : before >= 0 ? before + 1 : 0, 0, task);
         result = { ok: true, task };
         break;
       }
@@ -100,12 +109,14 @@ async function setup(page: Page) {
         throw new Error(`Unexpected fixture RPC ${method}`);
     }
     await route.fulfill({ json: result });
-    if (method === "boardMove")
-      await page.evaluate(() =>
-        window.boardFixture.emitRealtime("tasks:changed", {
-          taskId: "task-1",
-          projectId: "project-1",
-        }),
+    if (method === "boardMove" && !state.failMove)
+      await page.evaluate(
+        (taskId) =>
+          window.boardFixture.emitRealtime("tasks:changed", {
+            taskId,
+            projectId: "project-1",
+          }),
+        input.taskId,
       );
   });
   await page.goto("/tests/board-resources.html");
@@ -127,7 +138,7 @@ async function setup(page: Page) {
     threads: count("listTaskThreads"),
     attachments: count("listAttachments"),
   });
-  return { requests, tasks, threads, attachments, labels, counts };
+  return { state, requests, tasks, threads, attachments, labels, counts };
 }
 
 async function emit(page: Page, channel: string, payload: unknown) {
@@ -223,4 +234,46 @@ test("real resource events, refresh, reconnect and tracker switches update the b
   await expect(card).toHaveCount(0);
   await page.getByRole("button", { name: "Switch tracker" }).click();
   await expect(card).toContainText("reconnect");
+});
+
+test("drag ordering survives task refresh and failed moves restore the card", async ({ page }) => {
+  const fixture = await setup(page);
+  const todo = page.locator('[data-board-column="todo"]');
+  const first = page.getByRole("button", { name: "Open TSK-1: First card" });
+  const second = page.getByRole("button", { name: "Open TSK-2: Second card" });
+  const inventoryRefreshed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/__board_rpc/listTasks") &&
+      !response.request().postDataJSON().activeOnly,
+  );
+  const cardOrder = () =>
+    todo
+      .locator("[data-task-key]")
+      .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-task-key")));
+  const start = (await second.boundingBox())!;
+  const target = (await first.boundingBox())!;
+  await page.mouse.move(start.x + 40, start.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(target.x + 40, target.y + 2, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(cardOrder).toEqual(["TSK-2", "TSK-1"]);
+  await (await inventoryRefreshed).finished();
+  await page.waitForTimeout(600);
+  await expect.poll(cardOrder).toEqual(["TSK-2", "TSK-1"]);
+  expect(fixture.requests.find((request) => request.method === "boardMove")?.input).toEqual({
+    taskId: "task-2",
+    status: "todo",
+    beforeTaskId: null,
+    afterTaskId: "task-1",
+  });
+  const before = fixture.counts();
+  fixture.state.failMove = true;
+  await second.focus();
+  await page.keyboard.press("s");
+  await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+  await expect(todo.getByRole("button", { name: "Open TSK-2: Second card" })).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(fixture.counts()).toEqual({ ...before, tasks: before.tasks + 1 });
+  await expect(first).toContainText("Fixture agent");
+  await expect(first.getByLabel("1 attachments")).toBeVisible();
 });
