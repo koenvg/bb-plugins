@@ -1,0 +1,16 @@
+{"time":1792344623441,"event":"module-created"}
+{"time":1792344623499,"event":"watcher-ready"}
+{"time":1792344623501,"event":"server-created"}
+{"time":1792344623502,"event":"ready","origin":"http://127.0.0.1:54874"}
+{"time":1792344623547,"event":"transform","id":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-m9rDkn/live.ts","code":"export const marker = \"before\";\nif (import.meta.hot) import.meta.hot.accept();\n"}
+{"time":1792344623547,"event":"module-fetched"}
+{"time":1792344623549,"event":"ws-message","value":{"type":"connected"}}
+{"time":1792344623549,"event":"writing"}
+{"time":1792344623549,"event":"written"}
+{"time":1792344623605,"event":"watch","kind":"change","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-m9rDkn/live.ts"}
+{"time":1792344623605,"event":"raw","kind":"created","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-m9rDkn/live.ts"}
+{"time":1792344623606,"event":"hot-update","type":"update","environment":"client","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-m9rDkn/live.ts","modules":[{"url":"/tests/browser-hmr-contract-m9rDkn/live.ts","accepted":true}]}
+{"time":1792344623606,"event":"hot-update","type":"update","environment":"ssr","file":"/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/bb-plugin-markdown-reader/tests/browser-hmr-contract-m9rDkn/live.ts","modules":[]}
+{"time":1792344623606,"event":"hot-send","args":[{"type":"update","updates":[{"type":"js-update","timestamp":1792344623606,"path":"/tests/browser-hmr-contract-m9rDkn/live.ts","acceptedPath":"/tests/browser-hmr-contract-m9rDkn/live.ts","explicitImportRequired":false,"isWithinCircularImport":false}]}]}
+{"time":1792344623606,"event":"ws-message","value":{"type":"update","updates":[{"type":"js-update","timestamp":1792344623606,"path":"/tests/browser-hmr-contract-m9rDkn/live.ts","acceptedPath":"/tests/browser-hmr-contract-m9rDkn/live.ts","explicitImportRequired":false,"isWithinCircularImport":false}]}}
+{"time":1792344623606,"event":"passed"}

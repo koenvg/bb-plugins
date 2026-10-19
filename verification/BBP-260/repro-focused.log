@@ -1,0 +1,18 @@
+bun test v1.4.3 (c6da4a4d3)
+
+scripts/browser-preview-servers.test.mjs:
+151 |         assert.equal((await fetch(origin + modulePath)).status, 200);
+152 |         const ws = new WebSocket(origin.replace("http:", "ws:") + "/", "vite-hmr");
+153 |         const message = (type) =>
+154 |           new Promise((resolve, reject) => {
+155 |             const timer = setTimeout(
+156 |               () => reject(new Error(`Missing HMR ${type} on owned listener`)),
+                                     ^
+error: Missing HMR update on owned listener
+      at <anonymous> (/Users/koen/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_qczfdtmcek-1/bb-plugins/scripts/browser-preview-servers.test.mjs:156:32)
+(fail) markdown-reader real ephemeral bind, strict refusal and owned cleanup [5481.20ms]
+
+ 0 pass
+ 15 filtered out
+ 1 fail
+Ran 1 test across 1 file. [5.50s]
