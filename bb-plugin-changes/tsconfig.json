@@ -20,5 +20,5 @@
     "skipLibCheck": false,
     "resolveJsonModule": true
   },
-  "include": ["*.ts", "*.tsx", "core", "ui", "components", "lib", "hooks", "../review-ui"]
+  "include": ["*.ts", "*.tsx", "core", "ui", "components", "lib", "hooks", "../review-ui", "tests"]
 }

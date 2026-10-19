@@ -104,3 +104,5 @@ bb plugin build
 ```
 
 The diff, comment form, and comment card come from [`../review-ui`](../review-ui).
+
+Run [`test:bb-renderer`](tests/bb-renderer/README.md) to check filename controls against running BB without installing the candidate plugin. This separate acceptance check uses BB's renderer and native file viewer. It requires an owned local thread; CI's fixture tests do not replace it.
