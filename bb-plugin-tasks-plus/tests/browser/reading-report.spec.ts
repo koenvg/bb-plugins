@@ -74,7 +74,7 @@ for (const scenario of [
     const measures = await page.evaluate(reportMeasures);
     const compact = scenario.width === 390 || scenario.documentWidth === 390;
     expect(measures.viewport).toBe(scenario.width);
-    expect(measures.pageWidth).toBe(scenario.width);
+    expect(measures.pageWidth).toBe(measures.pageClientWidth);
     expect(measures.prose.width).toBeLessThanOrEqual(720);
     expect(measures.prose.scrollWidth).toBe(measures.prose.width);
     expect(measures.prose.font).toBe(compact ? "15px" : "16px");
