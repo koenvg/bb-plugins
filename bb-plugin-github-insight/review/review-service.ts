@@ -7,11 +7,13 @@ import type {
 } from "../contract";
 import { buildAgentPrompt } from "../core/agent-prompt";
 import type { Draft, Drafts } from "../core/drafts";
+import { checkAnchor, type Anchor } from "../core/diff-lines";
+import { checkOneCommit } from "../core/draft-commits";
 import { newCommentIds } from "../core/new-comments";
 import { collectPrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
-import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
+import { hasText, type ListedCommentDraft, type SummaryDraft } from "../core/review-drafts";
 import {
   collectReviewThreads,
   type CollectedReviewThreads,
@@ -39,6 +41,15 @@ export interface ReviewBasis {
   files: ReviewFile[];
   commentDrafts: ListedCommentDraft[];
 }
+
+type NewCommentDraft = { anchor: Anchor } & (
+  | { source: "agent"; readBody(): Promise<string> }
+  | { source: "user" }
+);
+
+type CommentDraftCreation =
+  | { kind: "created"; draftId: string }
+  | { kind: "error"; reason: "anchor" | "commit" | "empty"; message: string };
 
 export type PrLoad<T> =
   | { kind: "no_pr" }
@@ -68,6 +79,8 @@ interface ReviewServiceDeps {
   publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
   signMedia: SignMedia;
+  now(): number;
+  newDraftId(): string;
 }
 
 export type ReviewService = ReturnType<typeof createReviewService>;
@@ -182,14 +195,30 @@ export function createReviewService(deps: ReviewServiceDeps) {
     deps.publishDrafts({ threadId });
   }
 
-  async function saveCommentDraft(
+  async function createCommentDraft(
     threadId: string,
     pr: PullRequestRef,
-    draftId: string,
-    draft: CommentDraft,
-  ) {
-    await deps.drafts.saveComment(pr, draftId, draft);
+    basis: ReviewBasis,
+    input: NewCommentDraft,
+  ): Promise<CommentDraftCreation> {
+    const placed = checkAnchor(basis.files, input.anchor);
+    if (!placed.ok) return { kind: "error", reason: "anchor", message: placed.reason };
+    const oneCommit = checkOneCommit(basis.commentDrafts, basis.head.oid);
+    if (!oneCommit.ok) return { kind: "error", reason: "commit", message: oneCommit.message };
+    const body = input.source === "agent" ? await input.readBody() : "";
+    if (input.source === "agent" && !hasText(body)) {
+      return { kind: "error", reason: "empty", message: "Comment is empty" };
+    }
+    const draftId = deps.newDraftId();
+    await deps.drafts.saveComment(pr, draftId, {
+      ...input.anchor,
+      body,
+      commitOid: basis.head.oid,
+      updatedAt: deps.now(),
+      source: input.source,
+    });
     deps.publishDrafts({ threadId });
+    return { kind: "created", draftId };
   }
 
   function loadTarget(threadId: string): Promise<TargetLoad> {
@@ -275,7 +304,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     loadBasis,
     loadTarget,
     saveDraft,
-    saveCommentDraft,
+    createCommentDraft,
     editCommentDraft,
     deleteCommentDraft,
     saveSummaryDraft,
