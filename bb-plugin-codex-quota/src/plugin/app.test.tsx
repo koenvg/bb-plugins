@@ -23,11 +23,12 @@ function fixture(multiple = false) {
     hostId: (input as { hostId: string }).hostId,
     generation: 1,
   }));
+  const machinePreparation = vi.fn(async () => ({ state: "settled", progress: "ready" }));
   const options = {
     rpc: {
       machineAccounts,
       machineReports,
-      machinePreparation: async () => ({ state: "settled", progress: "ready" }),
+      machinePreparation,
       selectHost,
     },
   };
@@ -37,7 +38,17 @@ function fixture(multiple = false) {
   };
   const accessory = () =>
     renderSlot({ component: panel.experimental_sidebarAccessory! }, {}, options);
-  return { now, data, machineAccounts, machineReports, selectHost, options, dashboard, accessory };
+  return {
+    now,
+    data,
+    machineAccounts,
+    machineReports,
+    machinePreparation,
+    selectHost,
+    options,
+    dashboard,
+    accessory,
+  };
 }
 describe("all-machine Codex slots", () => {
   it("shares one refresh owner across panes and passive accessories, without a machine picker", async () => {
@@ -80,11 +91,37 @@ describe("all-machine Codex slots", () => {
     );
     expect(page.getByLabelText("Captured cost subtotal").textContent).toMatch(/^\$6/);
     const metric = page.getByRole("button", { name: "Estimated cost" });
+    const tokens = page.getByRole("button", { name: "Tokens" });
+    expect(tokens.getAttribute("aria-pressed")).toBe("true");
+    expect(metric.getAttribute("aria-pressed")).toBe("false");
     const before = f.machineReports.mock.calls.length;
+    const preparations = f.machinePreparation.mock.calls.length;
     await act(async () => {
       fireEvent.click(metric);
     });
+    expect(metric.getAttribute("aria-pressed")).toBe("true");
+    expect(tokens.getAttribute("aria-pressed")).toBe("false");
+    const costTable = within(page.getByRole("table", { name: "Daily recorded usage" }));
+    expect(costTable.getByRole("columnheader", { name: "USD estimate" }).textContent).toBe(
+      "USD estimate",
+    );
+    expect(costTable.getByRole("cell", { name: "$6" }).textContent).toBe("$6");
+    expect(costTable.queryByRole("columnheader", { name: "Tokens" })).toBeNull();
     expect(f.machineReports).toHaveBeenCalledTimes(before);
+    expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);
+    await act(async () => {
+      fireEvent.click(tokens);
+    });
+    expect(tokens.getAttribute("aria-pressed")).toBe("true");
+    expect(metric.getAttribute("aria-pressed")).toBe("false");
+    const tokenTable = within(page.getByRole("table", { name: "Daily recorded usage" }));
+    expect(tokenTable.getByRole("columnheader", { name: "Tokens" }).textContent).toBe("Tokens");
+    expect(within(tokenTable.getAllByRole("row")[15]).getAllByRole("cell")[0].textContent).toBe(
+      "1,200",
+    );
+    expect(tokenTable.queryByRole("columnheader", { name: "USD estimate" })).toBeNull();
+    expect(f.machineReports).toHaveBeenCalledTimes(before);
+    expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);
     expect(page.queryByText("Daily values")).toBeNull();
     expect(page.getAllByRole("heading", { name: /Account [12]/ })).toHaveLength(2);
     await act(async () => {
