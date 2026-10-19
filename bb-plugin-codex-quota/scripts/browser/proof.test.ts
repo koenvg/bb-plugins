@@ -103,18 +103,33 @@ for (const metric of ["tokens", "cost"] as const) {
   });
   test(`${metric} independent hover exact receipt`, () => {
     const row = table(metric).rows[14];
-    expect(() =>
-      verifyTooltip(row, metric, row[0], tooltipDefinitions(row, metric), [], "2026-09-14"),
-    ).not.toThrow();
-    expect(() =>
-      verifyTooltip(row, metric, "2026-09-14", tooltipDefinitions(row, metric), [], "2026-09-14"),
-    ).toThrow(/restore the target date/);
+    const definitions =
+      metric === "cost"
+        ? [
+            ["USD estimate", "$0.39813160000000003"],
+            ["Excluded tokens", "2"],
+          ]
+        : [
+            ["Recorded tokens", "600"],
+            ["Input (uncached) tokens", "40"],
+            ["Output tokens", "340"],
+            ["Cache read tokens", "200"],
+            ["Cache write tokens", "20"],
+            ["Reasoning tokens (in output)", "100"],
+            ["Uncertain estimate", "350 tokens"],
+            ["Excluded tokens", "2"],
+          ];
+    expect(tooltipDefinitions(row, metric)).toEqual(definitions);
+    expect(() => verifyTooltip(row, metric, row[0], definitions, [], "2026-09-14")).not.toThrow();
+    expect(() => verifyTooltip(row, metric, "2026-09-14", definitions, [], "2026-09-14")).toThrow(
+      /restore the target date/,
+    );
     expect(() =>
       verifyTooltip(row, metric, row[0], [["USD estimate", "Unavailable"]], [], "2026-09-14"),
     ).toThrow();
-    expect(() =>
-      verifyTooltip(row, metric, row[0], tooltipDefinitions(row, metric), [], row[0]),
-    ).toThrow(/different keyboard date/);
+    expect(() => verifyTooltip(row, metric, row[0], definitions, [], row[0])).toThrow(
+      /different keyboard date/,
+    );
   });
 }
 test("unrelated AX names cannot supply a table caption or facts", () => {

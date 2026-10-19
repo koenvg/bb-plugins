@@ -122,9 +122,32 @@ it("carries actual captured per-model tiers from public preparation into the gra
     (value) => value.query.startDate === "2026-09-02" && value.query.group === "workspace",
   )!;
   const graph = projectTokenModels(report.days);
-  expect(graph.series.some((item) => item.label.endsWith(" Fast") && item.model)).toBe(true);
-  expect(graph.series.some((item) => item.label.endsWith(" Ultrafast") && item.model)).toBe(true);
-  expect(graph.series.some((item) => item.label.endsWith(" Default") && item.model)).toBe(true);
+  expect(report.summary.totalTokens).toBe(450);
+  expect(report.summary.speedTokens).toEqual({ normal: 150, fast: 180, ultrafast: 120 });
+  expect(report.days.filter((day) => day.totalTokens > 0).map((day) => day.date)).toEqual([
+    "2026-09-15",
+  ]);
+  const day = report.days.find((day) => day.date === "2026-09-15")!;
+  expect(day.models?.named).toEqual([
+    {
+      model: "synthetic",
+      totalTokens: 450,
+      speedTokens: { normal: 150, fast: 180, ultrafast: 120 },
+    },
+  ]);
+  expect(day.models?.otherTokens).toBe(0);
+  expect(
+    graph.series.map((series) => ({
+      model: series.model,
+      speed: series.speed,
+      label: series.label,
+      totalTokens: graph.facts.reduce((sum, values) => sum + (values[series.key] ?? 0), 0),
+    })),
+  ).toEqual([
+    { model: "synthetic", speed: "normal", label: "synthetic Default", totalTokens: 150 },
+    { model: "synthetic", speed: "fast", label: "synthetic Fast", totalTokens: 180 },
+    { model: "synthetic", speed: "ultrafast", label: "synthetic Ultrafast", totalTokens: 120 },
+  ]);
   expect(
     graph.facts.reduce(
       (sum, values) =>
