@@ -25,5 +25,10 @@ its link applies to all its tasks. Changing the selection does not save. Choose 
 This changes the tracker-project link, not task membership or existing threads, and starts no agent.
 There is no bare-key linked-project shortcut.
 
-Nine detail commands are registered. Dispatch task..., Previous task, Next task and Back are currently unavailable.
+**Tasks: Dispatch task...** and `d` open the visible preset menu without starting an agent or selecting the last preset.
+Escape closes the menu and returns focus to its trigger. Only selecting a preset starts an agent for the open task.
+Blocked-work confirmation and delegation errors still apply. The command is unavailable while presets load, fail to load,
+are missing, or the shown control awaits confirmation or delegation. The mouse primary button still uses the last preset.
+
+Nine detail commands are registered. Previous task, Next task and Back are currently unavailable.
 There is no Write a comment command under the comment-free Tasks contract.

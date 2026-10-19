@@ -38,6 +38,8 @@ BBP-46 implements the controlled shared-scope picker and its command. Local evid
 
 ## 4. Dispatch the open task through a preset picker
 
+BBP-47 connects the existing dispatch picker to its command and shares actual shown-control readiness with `d`. [Local verification](../../../verification/BBP-47/report.md) covers explicit selection, cancellation, busy state and both layouts. Installed-BB palette and personal-binding acceptance remain blocked by the no-deployment restriction, so delivery 4 checkboxes remain open.
+
 - [ ] 4.1 Expose the shown DispatchControl's actual preset and busy readiness; verify listing and execution reject loading, missing presets and outstanding delegation, even when a hidden layout duplicate is idle, and repeated invocation queues no dispatch.
 - [ ] 4.2 Reuse the existing preset-menu opener without selecting the last preset; verify open/Escape makes no delegation call, explicit keyboard selection delegates once for the current task, and existing blocked-work confirmation and error handling remain intact.
 - [ ] 4.3 Apply shown-layout and palette-close focus handoff to dispatch; verify focus enters the visible menu, Escape returns to its trigger, and stale deferred activation is canceled on task change or unmount.

@@ -56,6 +56,23 @@ const label = {
   createdAt: project.createdAt,
 };
 
+const presets = [
+  {
+    id: "worker",
+    name: "Worker",
+    providerId: "fixture-provider",
+    modelId: "fixture-model",
+    reasoningLevel: null,
+    serviceTier: null,
+    permissionMode: "accept-edits",
+    environmentKind: "project-default",
+    baseBranch: null,
+    machineId: null,
+    instructions: "",
+    builtin: false,
+    createdAt: project.createdAt,
+  },
+];
 function Fixture() {
   const [subPath, setSubPath] = useState("task/TSK-1");
   const [open, setOpen] = useState(false);
@@ -77,6 +94,10 @@ function Fixture() {
       if (event.altKey && event.key === "0") {
         event.preventDefault();
         setSubPath("all");
+      }
+      if (event.altKey && event.key === "9") {
+        event.preventDefault();
+        window.dispatchEvent(new Event("fixture-finish-delegation"));
       }
     };
     const updated = () => refresh((value) => value + 1);
@@ -172,7 +193,7 @@ const slot = renderSlot(
       listProjects: () => ({ projects: [{ ...project }] }),
       listFolders: () => ({ folders: [] }),
       listLabels: () => ({ labels: [label] }),
-      listPresets: () => ({ presets: [] }),
+      listPresets: () => ({ presets }),
       sidebarSummary: () => ({ projects: [] }),
       listTasks: (raw: unknown) => ({
         tasks: rpcInput(raw).parentTaskId ? [] : tasks,
@@ -198,10 +219,13 @@ const slot = renderSlot(
         queueMicrotask(() => slot.emitRealtime("projects:changed", {}));
         return { project: { ...project } };
       },
-      delegate: (raw) => {
+      delegate: async (raw) => {
         delegations.push(rpcInput(raw));
         window.dispatchEvent(new Event("fixture-update"));
-        throw new Error("Delegation is outside this fixture");
+        await new Promise<void>((resolve) => {
+          window.addEventListener("fixture-finish-delegation", () => resolve(), { once: true });
+        });
+        return { ok: true };
       },
       listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),
       updateTask: async (raw) => {

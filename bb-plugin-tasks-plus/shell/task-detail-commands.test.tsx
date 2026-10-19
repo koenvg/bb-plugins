@@ -51,7 +51,7 @@ const propertyIds = [
   "task-set-due-date",
   linkedProjectCommand,
 ];
-const deferredIds = ["task-dispatch", "task-previous", "task-next", "task-back"];
+const deferredIds = ["task-previous", "task-next", "task-back"];
 
 function command(id: string) {
   const entry = TASKS_COMMANDS.find((item) => item.id === id);
