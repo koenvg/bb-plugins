@@ -18,6 +18,11 @@ import {
 import { maintainHistory } from "./history-retention.js";
 import { readCoverage } from "../collection/history-coverage.js";
 import { createRetentionSchema, insertCompact, retentionCutoffs } from "./history-retention.js";
+import { legacyUsage } from "./fixtures/legacy-usage.js";
+import type { z } from "zod";
+import type { usageRecordSchema } from "../collection/usage-record.js";
+
+type UsageRecord = z.infer<typeof usageRecordSchema>;
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -43,7 +48,7 @@ const record = (n = 1, provenance: "observed" | "imported" = "observed") => ({
   totalTokens: 5,
   capturedCost: 0.25,
 });
-function seedCollectorV1(db: HistoryDatabase) {
+function seedCollectorV1(db: HistoryDatabase, r: UsageRecord = record()) {
   // Seed the same persisted v1 state with one commit, not one disk sync per statement.
   db.transaction(() => {
     db.exec(`CREATE TABLE collector_meta (id INTEGER PRIMARY KEY,first_observed TEXT NOT NULL);
@@ -58,7 +63,6 @@ function seedCollectorV1(db: HistoryDatabase) {
     PRAGMA user_version=1;`);
     db.prepare("INSERT INTO collector_meta VALUES (1,?)").run("2026-09-01T00:00:00.000Z");
     db.prepare("INSERT INTO history_counters VALUES (1,1,0,0,0,0)").run();
-    const r = record();
     db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,1)").run(
       r.eventId,
       r.sessionId,
@@ -438,31 +442,46 @@ it("resolves late verified attribution for compact-only rows and removes numeric
   }
 });
 
-test.each([2, 3])(
-  "matches original version-%s opaque entry and UUID proofs after detail expiry without changing the first owner",
-  async (version) => {
+test.each(
+  [2, 3].flatMap((version) =>
+    ["current serializer", "frozen legacy fixture"].map((proofSource) => ({
+      version,
+      proofSource,
+    })),
+  ),
+)(
+  "matches version-$version opaque entry and UUID proofs from $proofSource after detail expiry without changing the first owner",
+  async ({ version, proofSource }) => {
     const f = await fixture();
-    seedCollectorV1(f.db);
+    const original =
+      proofSource === "frozen legacy fixture"
+        ? (JSON.parse(legacyUsage.payload) as UsageRecord)
+        : {
+            ...record(),
+            occurredAt: "2026-08-01T00:00:00.000Z",
+            providerSessionKey: "original-provider.jsonl",
+          };
+    seedCollectorV1(f.db, original);
     initializeHistory(f.db, "2026-08-01T00:00:00.000Z", false);
-    const original = {
-      ...record(),
-      occurredAt: "2026-08-01T00:00:00.000Z",
-      providerSessionKey: "original-provider.jsonl",
-    };
     insertCompact(f.db, JSON.stringify(original), 1, 1);
-    const { createHash } = await import("node:crypto");
-    const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-    const normalized = (await import("../collection/usage-record.js")).usageRecordSchema.parse(
-      original,
-    );
-    const {
-      eventId: _id,
-      providerSessionKey: _key,
-      claimedThreadId: _claim,
-      ...values
-    } = normalized;
-    const evidence = hash(JSON.stringify(values)),
+    let evidence: string, uuidProof: string;
+    if (proofSource === "frozen legacy fixture") {
+      ({ evidence, uuidProof } = legacyUsage);
+    } else {
+      const { createHash } = await import("node:crypto");
+      const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+      const normalized = (await import("../collection/usage-record.js")).usageRecordSchema.parse(
+        original,
+      );
+      const {
+        eventId: _id,
+        providerSessionKey: _key,
+        claimedThreadId: _claim,
+        ...values
+      } = normalized;
+      evidence = hash(JSON.stringify(values));
       uuidProof = hash(JSON.stringify(normalized));
+    }
     f.db
       .prepare("UPDATE usage_compact SET digest=?,evidence=?,detail_available=0")
       .run(uuidProof, evidence);
@@ -489,13 +508,14 @@ test.each([2, 3])(
       expect(
         db
           .prepare(
-            "SELECT digest,provenance,provider_key,detail_available FROM usage_compact WHERE event_id=?",
+            "SELECT digest,provenance,provider_key,claimed_thread,detail_available FROM usage_compact WHERE event_id=?",
           )
           .get(original.eventId),
       ).toEqual({
         digest: uuidProof,
         provenance: "observed",
-        provider_key: "original-provider.jsonl",
+        provider_key: original.providerSessionKey,
+        claimed_thread: original.claimedThreadId,
         detail_available: 0,
       });
       expect(
@@ -508,8 +528,11 @@ test.each([2, 3])(
           end: "2026-08-02T00:00:00Z",
           workspace: "/original",
           timezone: "UTC",
-        }).days,
-      ).toMatchObject([{ totalTokens: 5, events: 1 }]);
+        }),
+      ).toMatchObject({
+        detail: "unavailable",
+        days: [{ totalTokens: 5, capturedCost: original.capturedCost, events: 1 }],
+      });
       expect(db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 0 });
     } finally {
       db.close();
