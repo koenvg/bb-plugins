@@ -19,6 +19,7 @@ function saveLabelFilter(scope: "all" | "active") {
   storeListPreference(scope, {
     filters: { statuses: [], priorities: [], labelNames: ["frontend"] },
     sort: "manual",
+    collapsedStatuses: [],
   });
 }
 const label = {

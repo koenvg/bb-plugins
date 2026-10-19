@@ -190,10 +190,12 @@ describe("inline Tasks navigation", () => {
     storeListPreference(`project:${project.id}`, {
       filters: { statuses: [], priorities: [], labelNames: [] },
       sort: "priority",
+      collapsedStatuses: [],
     });
     storeListPreference(`project:${other.id}`, {
       filters: { statuses: ["todo"], priorities: [], labelNames: [] },
       sort: "due",
+      collapsedStatuses: [],
     });
     const tenet = makeTask({
       key: "TEN-1",

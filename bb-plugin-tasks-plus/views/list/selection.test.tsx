@@ -41,6 +41,7 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
   storeListPreference("all", {
     filters: { statuses: ["todo"], priorities: [], labelNames: [] },
     sort: "priority",
+    collapsedStatuses: [],
   });
   const report = vi.fn<(order: VisibleTaskOrder) => void>();
   const select = vi.fn();

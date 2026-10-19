@@ -157,10 +157,7 @@ export function loadListPreference(scope: ListPreferenceScope): ListPreference {
   return sanitizeListPreference(document.scopes[scope]);
 }
 
-export function storeListPreference(
-  scope: ListPreferenceScope,
-  preference: ListPreference | Omit<ListPreference, "collapsedStatuses">,
-): void {
+export function storeListPreference(scope: ListPreferenceScope, preference: ListPreference): void {
   const sanitized = sanitizeListPreference(preference);
   try {
     const existing = readStorage();
