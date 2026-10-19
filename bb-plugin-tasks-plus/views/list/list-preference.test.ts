@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   DEFAULT_LIST_PREFERENCE,
   LIST_PREFERENCE_STORAGE_KEY,
   LIST_PREFERENCE_VERSION,
+  type ListPreference,
   listPreferenceScope,
   loadListPreference,
   sanitizeListPreference,
@@ -92,6 +93,13 @@ describe("sanitizeListPreference", () => {
 });
 
 describe("loadListPreference / storeListPreference", () => {
+  it("requires complete preferences at the write boundary", () => {
+    expectTypeOf<Parameters<typeof storeListPreference>[1]>().toEqualTypeOf<ListPreference>();
+    expectTypeOf<Omit<ListPreference, "collapsedStatuses">>().not.toExtend<
+      Parameters<typeof storeListPreference>[1]
+    >();
+  });
+
   it("defaults when storage is empty", () => {
     expect(loadListPreference("all")).toEqual({
       filters: { ...DEFAULT_LIST_PREFERENCE.filters },
@@ -108,6 +116,7 @@ describe("loadListPreference / storeListPreference", () => {
         labelNames: ["Bug"],
       },
       sort: "priority",
+      collapsedStatuses: ["todo", "backlog"],
     });
     storeListPreference("project:p1", {
       filters: {
@@ -116,6 +125,7 @@ describe("loadListPreference / storeListPreference", () => {
         labelNames: [],
       },
       sort: "due",
+      collapsedStatuses: ["done"],
     });
 
     expect(loadListPreference("all")).toEqual({
@@ -125,7 +135,7 @@ describe("loadListPreference / storeListPreference", () => {
         labelNames: ["Bug"],
       },
       sort: "priority",
-      collapsedStatuses: [],
+      collapsedStatuses: ["todo", "backlog"],
     });
     expect(loadListPreference("project:p1")).toEqual({
       filters: {
@@ -134,7 +144,7 @@ describe("loadListPreference / storeListPreference", () => {
         labelNames: [],
       },
       sort: "due",
-      collapsedStatuses: [],
+      collapsedStatuses: ["done"],
     });
     expect(loadListPreference("active")).toEqual({
       filters: { statuses: [], priorities: [], labelNames: [] },
@@ -151,15 +161,17 @@ describe("loadListPreference / storeListPreference", () => {
     storeListPreference("all", {
       filters: { statuses: ["todo"], priorities: [], labelNames: [] },
       sort: "priority",
+      collapsedStatuses: ["done"],
     });
     storeListPreference("all", {
       filters: { statuses: [], priorities: [], labelNames: [] },
       sort: "manual",
+      collapsedStatuses: ["done"],
     });
     expect(loadListPreference("all")).toEqual({
       filters: { statuses: [], priorities: [], labelNames: [] },
       sort: "manual",
-      collapsedStatuses: [],
+      collapsedStatuses: ["done"],
     });
   });
 
@@ -212,6 +224,7 @@ describe("loadListPreference / storeListPreference", () => {
     storeListPreference("all", {
       filters: { statuses: ["done"], priorities: [], labelNames: [] },
       sort: "manual",
+      collapsedStatuses: [],
     });
     expect(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)).toBe(future);
   });
@@ -224,6 +237,7 @@ describe("loadListPreference / storeListPreference", () => {
       storeListPreference("all", {
         filters: { statuses: ["todo"], priorities: [], labelNames: [] },
         sort: "manual",
+        collapsedStatuses: [],
       }),
     ).not.toThrow();
   });
@@ -268,7 +282,7 @@ describe("section preference recovery", () => {
     },
   );
 
-  it("sanitizes additive version 1 section choices at load and store without changing other scopes", () => {
+  it("loads additive section choices and preserves a legacy scope during a complete write", () => {
     const raw = {
       ...legacy,
       collapsedStatuses: ["todo", "unknown", "todo", null, "backlog", "done", "done"],
@@ -280,8 +294,7 @@ describe("section preference recovery", () => {
       JSON.stringify({ version: 1, scopes: { all: raw, active: legacy } }),
     );
     expect(loadListPreference("all")).toEqual(expected);
-    // Storage input can be malformed even when typed callers normally cannot produce it.
-    storeListPreference("all", raw as unknown as Parameters<typeof storeListPreference>[1]);
+    storeListPreference("all", loadListPreference("all"));
     expect(loadListPreference("all")).toEqual(expected);
     expect(loadListPreference("active")).toEqual({ ...legacy, collapsedStatuses: [] });
     expect(JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!).version).toBe(1);

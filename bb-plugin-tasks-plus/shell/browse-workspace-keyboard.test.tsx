@@ -62,6 +62,7 @@ describe("browse keyboard selection", () => {
     storeListPreference(`project:${project.id}`, {
       filters: { statuses: ["todo"], priorities: [], labelNames: [] },
       sort: "priority",
+      collapsedStatuses: [],
     });
     const records = [
       { ...tasks[0]!, status: "done", priority: "urgent" },

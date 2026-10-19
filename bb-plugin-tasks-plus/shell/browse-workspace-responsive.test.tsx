@@ -57,6 +57,7 @@ describe("host-controlled Ticket presentation", () => {
     storeListPreference(`project:${project.id}`, {
       filters: { statuses: ["todo"], priorities: [], labelNames: [] },
       sort: "priority",
+      collapsedStatuses: [],
     });
     const child = { ...tasks[2]!, parentTaskId: tasks[0]!.id };
     const path = `${project.id}?view=list&task=TSK-3`;

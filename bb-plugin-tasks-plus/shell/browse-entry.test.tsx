@@ -299,6 +299,7 @@ describe("remembered Tasks entry", () => {
     storeListPreference(`project:${project.id}`, {
       filters: { statuses: ["todo"], priorities: [], labelNames: [] },
       sort: "priority",
+      collapsedStatuses: [],
     });
     const before = window.localStorage.getItem("bb-tasks:list-preferences");
     const slot = open("", {

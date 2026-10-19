@@ -38,6 +38,7 @@ function statusFilter() {
   storeListPreference("all", {
     filters: { statuses: ["todo"], priorities: [], labelNames: [] },
     sort: "priority",
+    collapsedStatuses: [],
   });
 }
 const parent = { ...tasks[0]!, status: "done" as const };
