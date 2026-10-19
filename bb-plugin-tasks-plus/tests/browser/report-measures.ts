@@ -51,6 +51,7 @@ export function reportMeasures() {
   return {
     viewport: innerWidth,
     documentWidth: root.clientWidth,
+    pageClientWidth: document.documentElement.clientWidth,
     pageWidth: document.documentElement.scrollWidth,
     prose: {
       width: prose.clientWidth,
