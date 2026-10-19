@@ -79,7 +79,7 @@ describe("task attachments", () => {
       expect(harness.realtimeSignals).toEqual([
         {
           channel: "tasks:changed",
-          payload: { taskId: task.id, projectId: task.projectId },
+          payload: { taskId: task.id, projectId: task.projectId, resource: "attachments" },
         },
       ]);
     } finally {
@@ -308,11 +308,11 @@ describe("task attachments", () => {
       expect(harness.realtimeSignals).toEqual([
         {
           channel: "tasks:changed",
-          payload: { taskId: task.id, projectId: task.projectId },
+          payload: { taskId: task.id, projectId: task.projectId, resource: "attachments" },
         },
         {
           channel: "tasks:changed",
-          payload: { taskId: task.id, projectId: task.projectId },
+          payload: { taskId: task.id, projectId: task.projectId, resource: "attachments" },
         },
       ]);
     } finally {

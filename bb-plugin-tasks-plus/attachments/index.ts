@@ -419,6 +419,7 @@ export function publishAttachmentChanged(
   bb.realtime.publish("tasks:changed", {
     taskId: task.id,
     projectId: task.projectId,
+    resource: "attachments",
   });
 }
 

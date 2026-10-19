@@ -233,7 +233,7 @@ describe("Tasks RPC domain API", () => {
     expect(store.tasks.getTask(task.id)?.description).toBe("");
     expect(harness.realtimeSignals.at(-1)).toEqual({
       channel: "tasks:changed",
-      payload: { taskId: task.id, projectId: project.id },
+      payload: { taskId: task.id, projectId: project.id, resource: "attachments" },
     });
 
     await expect(harness.callRpc("deleteAttachment", { attachmentId })).resolves.toEqual({

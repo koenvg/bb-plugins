@@ -1309,6 +1309,7 @@ describe("bb tasks CLI", () => {
           payload: {
             taskId: pngAttachment.taskId,
             projectId: expect.any(String),
+            resource: "attachments",
           },
         },
       ]);
