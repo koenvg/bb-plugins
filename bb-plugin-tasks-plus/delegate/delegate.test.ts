@@ -241,7 +241,9 @@ describe("task delegation", () => {
         mode === "dispatch" ? 1 : 0,
       );
       expect(harness.inspection.sdk.calls.map((call) => call.path)).toEqual(
-        mode === "dispatch" ? ["threads.spawn", "threads.get"] : ["threads.get"],
+        mode === "dispatch"
+          ? ["threads.spawn", "threads.get", "threads.get"]
+          : ["threads.get", "threads.get"],
       );
     } finally {
       await harness.lifecycle.dispose();

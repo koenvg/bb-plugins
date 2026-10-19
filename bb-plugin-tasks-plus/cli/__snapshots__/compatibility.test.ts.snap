@@ -1745,7 +1745,7 @@ Arguments:
   <key-or-id>  Task key such as ABC-12 (case-insensitive) or its ULID (required)
 
 Options:
-  --status <backlog|todo|in_progress|in_review|done|canceled>  New workflow status; in_review when implementation needs review, done when the criteria are met
+  --status <backlog|todo|in_progress|in_review|done|canceled>  New workflow status; use in_review while a linked PR is open or draft; done checks linked PRs and requires all criteria met
   --priority <urgent|high|medium|low|none>  New priority
   --title <value>             New title
   --description <markdown>    Replacement markdown description; use --description-file for long text

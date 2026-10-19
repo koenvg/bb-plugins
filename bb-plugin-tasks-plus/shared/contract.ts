@@ -319,6 +319,8 @@ const tasksDomainErrorSchema = z
       "dependency_self",
       "dependency_cycle",
       "creator_thread_open",
+      "task_pr_open",
+      "task_pr_unavailable",
     ]),
     message: z.string(),
   })

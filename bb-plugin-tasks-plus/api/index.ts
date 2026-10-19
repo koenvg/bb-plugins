@@ -438,6 +438,38 @@ async function listTaskPullRequests(
   };
 }
 
+async function prepareTaskCompletion(bb: BbPluginApi, store: TasksApiStore, task: StoredTask) {
+  const inspectedThreadIds = new Set(
+    store.tasks.listTaskThreads(task.id).map((link) => link.threadId),
+  );
+  const result = await listTaskPullRequests(bb, store, task.id);
+  const open = result.pullRequests.filter((pr) => pr.state === "open" || pr.state === "draft");
+  if (open.length) {
+    fail(
+      "task_pr_open",
+      `${task.key} has an open or draft pull request: ${open.map((pr) => pr.url).join(", ")}. Use in_review until it is merged or closed.`,
+    );
+  }
+  if (result.unavailableThreadIds.length) {
+    fail(
+      "task_pr_unavailable",
+      `Cannot verify pull requests for ${task.key}. Retry the lookup or use in_review; done requires a successful lookup for every attached thread.`,
+    );
+  }
+  return () => {
+    const currentThreads = store.tasks.listTaskThreads(task.id);
+    if (
+      currentThreads.length !== inspectedThreadIds.size ||
+      currentThreads.some((link) => !inspectedThreadIds.has(link.threadId))
+    ) {
+      fail(
+        "task_pr_unavailable",
+        `Attached threads changed while checking ${task.key}. Retry completion or use in_review.`,
+      );
+    }
+  };
+}
+
 export function registerHandlers(
   bb: BbPluginApi,
   store: TasksApiStore,
@@ -580,6 +612,8 @@ export function registerHandlers(
         if (input.status === "todo" && current.createdByThreadId) {
           await store.creatorThreads.refresh([current.createdByThreadId]);
         }
+        const assertAttachmentsUnchanged =
+          input.status === "done" ? await prepareTaskCompletion(bb, store, current) : undefined;
         const parentTaskId =
           input.parentTaskId === undefined ? current.parentTaskId : input.parentTaskId;
         validateTaskParent(store, current.projectId, parentTaskId, current.id);
@@ -588,6 +622,7 @@ export function registerHandlers(
         }
 
         const result = store.transaction(() => {
+          assertAttachmentsUnchanged?.();
           store.tasks.updateTask(current.id, {
             title: input.title,
             description: input.description,
@@ -691,7 +726,10 @@ export function registerHandlers(
         if (input.status === "todo" && current.createdByThreadId) {
           await store.creatorThreads.refresh([current.createdByThreadId]);
         }
+        const assertAttachmentsUnchanged =
+          input.status === "done" ? await prepareTaskCompletion(bb, store, current) : undefined;
         const result = store.transaction(() => {
+          assertAttachmentsUnchanged?.();
           const moved = store.tasks.updatePosition(current.id, {
             status: input.status,
             beforeTaskId: input.beforeTaskId,
@@ -703,6 +741,7 @@ export function registerHandlers(
         return { ok: true, task: result.task };
       } catch (error) {
         if (error instanceof TaskCreatorThreadError) return dependencyFailure(error);
+        if (error instanceof TasksDomainFailure) return taskFailure(error);
         throw error;
       }
     },

@@ -533,7 +533,7 @@ it("keeps work metadata stable after a status edit and refreshes it for a thread
   ).toBeTruthy();
   expect(workStatusInputs).toHaveLength(readsAfterInitialLoad);
   expect(workStatusInputs.at(-1)).toEqual([task.id]);
-  expect(get).toHaveBeenCalledTimes(threadReadsAfterInitialLoad);
+  expect(get).toHaveBeenCalledTimes(threadReadsAfterInitialLoad + 1);
 
   threadStatus = "idle";
   await slot.behavior.emitRealtime("threads:changed", { taskId: task.id });
@@ -633,7 +633,7 @@ it("keeps remaining work metadata without rereads when a status filter removes a
   );
   await replaySignals();
   expect(workStatusInputs).toHaveLength(metadataReadsBeforeEdit);
-  expect(get).toHaveBeenCalledTimes(threadReadsBeforeEdit);
+  expect(get).toHaveBeenCalledTimes(threadReadsBeforeEdit + 1);
   expect(slot.queryByText("Threads loading")).toBeNull();
   expect(slot.getByRole("button", { name: `Open ${remaining.key}: Stay visible` })).toBeTruthy();
   expect(
