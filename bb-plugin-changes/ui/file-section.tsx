@@ -1,3 +1,9 @@
+import { useCallback } from "react";
+import { useRpc } from "@get-bb/plugin-sdk/app";
+import type { rpcContract } from "../contract";
+import type { ChangesBasis } from "../core/changes";
+import { isRasterPath } from "../core/image-content";
+import { ReviewImageDiff, imageBlobResult, type ImageSide } from "../../review-ui/image-diff";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
@@ -19,6 +25,9 @@ type Annotation = { kind: "comment"; comment: PendingComment } | { kind: "form";
 interface FileSectionProps {
   threadId: string;
   environmentId: string;
+  imageBasis?: ChangesBasis | null;
+  imagesActive?: boolean;
+  imageGeneration?: number;
   file: ChangedFile;
   patch: PatchState;
   lines: DiffLines | null;
@@ -32,6 +41,9 @@ interface FileSectionProps {
 export function FileSection({
   threadId,
   environmentId,
+  imageBasis,
+  imagesActive = true,
+  imageGeneration = 0,
   file,
   patch,
   lines,
@@ -55,7 +67,16 @@ export function FileSection({
       data-path={file.path}
       className="min-h-10 border-b border-border"
     >
-      {!showsDiff ? (
+      {isRasterPath(file.path) || isRasterPath(file.previousPath ?? "") ? (
+        <ChangesImage
+          generation={imageGeneration}
+          threadId={threadId}
+          file={file}
+          basis={imageBasis ?? null}
+          active={imagesActive}
+          openFileButton={openFileButton}
+        />
+      ) : !showsDiff ? (
         <FileNotice file={file} openFileButton={openFileButton}>
           {file.binary ? "Binary file" : "Diff too large"}
         </FileNotice>
@@ -81,6 +102,85 @@ export function FileSection({
         />
       )}
     </section>
+  );
+}
+
+function ChangesImage({
+  threadId,
+  file,
+  basis,
+  active,
+  generation,
+  openFileButton,
+}: {
+  threadId: string;
+  file: ChangedFile;
+  basis: ChangesBasis | null;
+  active: boolean;
+  generation: number;
+  openFileButton: ReactNode;
+}) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [collapsed, setCollapsed] = useState(false);
+  const load = useCallback(
+    async (side: ImageSide, signal: AbortSignal) => {
+      if (!basis)
+        return {
+          kind: "error" as const,
+          code: "stale" as const,
+          message: "Image revision unavailable. Refresh changes.",
+        };
+      const result = await rpc.call("getImage", { threadId, basis, file, side });
+      signal.throwIfAborted();
+      return imageBlobResult(result);
+    },
+    [rpc, threadId, basis, file],
+  );
+  const target = basis?.target;
+  const beforeRevision =
+    target?.kind === "commit"
+      ? `${target.sha} first parent`
+      : target?.kind === "uncommitted"
+        ? basis?.headSha
+        : basis?.mergeBaseRef;
+  const afterRevision =
+    target?.kind === "all" || target?.kind === "uncommitted"
+      ? "Live working tree (at read time)"
+      : target?.kind === "commit"
+        ? target.sha
+        : basis?.headSha;
+  return (
+    <>
+      <div className="flex items-center pl-3">
+        <CollapseButton
+          path={file.path}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          icons={CHEVRONS}
+        />
+        <FileHeaderRow file={file} openFileButton={openFileButton} />
+      </div>
+      {!collapsed && (
+        <ReviewImageDiff
+          key={JSON.stringify([threadId, basis, generation, file.path, file.previousPath])}
+          active={active}
+          before={
+            ["added", "untracked"].includes(file.status)
+              ? null
+              : {
+                  path: file.previousPath ?? file.path,
+                  revision: beforeRevision ?? "Revision unavailable",
+                }
+          }
+          after={
+            file.status === "deleted"
+              ? null
+              : { path: file.path, revision: afterRevision ?? "Revision unavailable" }
+          }
+          load={load}
+        />
+      )}
+    </>
   );
 }
 

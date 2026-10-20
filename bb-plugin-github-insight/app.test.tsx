@@ -68,6 +68,7 @@ const emptyInsight: PrInsight = {
 };
 
 const unusedReviewRpc = {
+  getPrImage: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getReview: () => ({ kind: "no_pr" as const }),
   getDrafts: () => ({ kind: "no_pr" as const }),
   getTimeline: () => ({ kind: "no_pr" as const }),

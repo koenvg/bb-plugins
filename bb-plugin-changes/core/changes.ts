@@ -43,11 +43,20 @@ export const branchCommitSchema = z.object({
 });
 export type BranchCommit = z.infer<typeof branchCommitSchema>;
 
+export const changesBasisSchema = z.object({
+  environmentId: z.string().min(1),
+  headSha: z.string(),
+  mergeBaseRef: z.string().nullable(),
+  target: diffTargetSchema,
+});
+export type ChangesBasis = z.infer<typeof changesBasisSchema>;
+
 export const changesResultSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("ok"),
     environmentId: z.string().min(1),
     query: diffQuerySchema,
+    imageBasis: changesBasisSchema.nullable().default(null),
     files: z.array(changedFileSchema),
     patches: z.record(z.string(), z.string()),
     commits: z.array(branchCommitSchema),

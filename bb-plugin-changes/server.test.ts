@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import plugin from "./server";
@@ -8,6 +8,14 @@ type StatusResult = Awaited<ReturnType<Environments["status"]>>;
 type DiffFilesResult = Awaited<ReturnType<Environments["diffFiles"]>>;
 type DiffPatchResult = Awaited<ReturnType<Environments["diffPatch"]>>;
 type SendResult = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["send"]>>;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 function status(
   mergeBase: { sha: string; shortSha: string; subject: string }[] | null,
@@ -95,9 +103,12 @@ afterEach(async () => {
 async function setup(
   options: {
     environmentId?: string | null;
-    status?: (args: { mergeBaseBranch?: string }) => StatusResult;
-    diffFiles?: DiffFilesResult | Error;
+    status?: (args: { mergeBaseBranch?: string }) => StatusResult | Promise<StatusResult>;
+    diffFiles?: DiffFilesResult | Error | (() => Promise<DiffFilesResult>);
     diffPatch?: DiffPatchResult;
+    diffFile?: (
+      args: unknown,
+    ) => Promise<{ content: string; contentEncoding: "base64"; sizeBytes: number }>;
     send?: SendResult | Error;
     remoteBranches?: string[];
     kv?: Record<string, unknown>;
@@ -120,6 +131,13 @@ async function setup(
         },
       },
       environments: {
+        diffFile:
+          options.diffFile ??
+          (async () => ({
+            content: "iVBORw0KGgoAAAAA",
+            contentEncoding: "base64" as const,
+            sizeBytes: 12,
+          })),
         status: async (args) => {
           calls.status.push(args);
           return (
@@ -137,6 +155,7 @@ async function setup(
         diffFiles: async (args) => {
           calls.diffFiles.push(args);
           if (options.diffFiles instanceof Error) throw options.diffFiles;
+          if (typeof options.diffFiles === "function") return options.diffFiles();
           return options.diffFiles ?? AVAILABLE_FILES;
         },
         diffPatch: async (args) => {
@@ -156,8 +175,284 @@ async function setup(
   dispose = () => harness.dispose();
   return { harness, calls, kv: bb.storage.kv };
 }
+describe("getImage", () => {
+  const file = {
+    path: "new.png",
+    previousPath: "old.png",
+    status: "renamed",
+    binary: true,
+    additions: 0,
+    deletions: 0,
+    loadMode: "auto",
+  };
+  const headSha = "1111111111111111111111111111111111111111";
+  const mergeBaseRef = "2222222222222222222222222222222222222222";
+  it.each([
+    ["all", "before", { target: "commit", sha: mergeBaseRef, side: "new", path: "old.png" }],
+    ["all", "after", { target: "uncommitted", side: "new", path: "new.png" }],
+    ["uncommitted", "before", { target: "commit", sha: headSha, side: "new", path: "old.png" }],
+    ["branch_committed", "after", { target: "commit", sha: headSha, side: "new", path: "new.png" }],
+    ["commit", "before", { target: "commit", sha: mergeBaseRef, side: "old", path: "old.png" }],
+    ["uncommitted", "after", { target: "uncommitted", side: "new", path: "new.png" }],
+    [
+      "branch_committed",
+      "before",
+      { target: "commit", sha: mergeBaseRef, side: "new", path: "old.png" },
+    ],
+    ["commit", "after", { target: "commit", sha: mergeBaseRef, side: "new", path: "new.png" }],
+  ])("pins %s %s", async (kind, side, expected) => {
+    const calls: unknown[] = [];
+    const { harness } = await setup({
+      diffFile: async (args) => {
+        calls.push(args);
+        return { content: "iVBORw0KGgoAAAAA", contentEncoding: "base64", sizeBytes: 12 };
+      },
+    });
+    const result = await harness.callRpc("getImage", {
+      threadId: "thr_1",
+      basis: {
+        environmentId: "env-1",
+        headSha,
+        mergeBaseRef,
+        target: kind === "commit" ? { kind, sha: mergeBaseRef } : { kind },
+      },
+      file,
+      side,
+    });
+    expect(result).toEqual({
+      kind: "ready",
+      content: "iVBORw0KGgoAAAAA",
+      mime: "image/png",
+      sizeBytes: 12,
+    });
+    expect(calls).toEqual([{ environmentId: "env-1", ...expected }]);
+  });
+  it.each([
+    ["added", "before"],
+    ["untracked", "before"],
+    ["deleted", "after"],
+  ])("does not read absent %s %s", async (status, side) => {
+    const calls: unknown[] = [];
+    const { harness } = await setup({
+      diffFile: async (args) => {
+        calls.push(args);
+        throw Error("not called");
+      },
+    });
+    expect(
+      await harness.callRpc("getImage", {
+        threadId: "thr_1",
+        basis: { environmentId: "env-1", headSha, mergeBaseRef, target: { kind: "all" } },
+        file: { ...file, status },
+        side,
+      }),
+    ).toEqual({ kind: "absent" });
+    expect(calls).toEqual([]);
+  });
+  it("rejects environment mismatches", async () => {
+    const { harness } = await setup();
+    expect(
+      await harness.callRpc("getImage", {
+        threadId: "thr_1",
+        basis: { environmentId: "other", headSha, mergeBaseRef, target: { kind: "all" } },
+        file,
+        side: "after",
+      }),
+    ).toMatchObject({ kind: "error", code: "stale" });
+  });
+  it("reads a copied image from its previous path", async () => {
+    const calls: unknown[] = [];
+    const { harness } = await setup({
+      diffFile: async (args) => {
+        calls.push(args);
+        return { content: "iVBORw0KGgoAAAAA", contentEncoding: "base64", sizeBytes: 12 };
+      },
+    });
+    await harness.callRpc("getImage", {
+      threadId: "thr_1",
+      basis: { environmentId: "env-1", headSha, mergeBaseRef, target: { kind: "all" } },
+      file: { ...file, status: "copied" },
+      side: "before",
+    });
+    expect(calls).toEqual([
+      { environmentId: "env-1", path: "old.png", target: "commit", sha: mergeBaseRef, side: "new" },
+    ]);
+  });
+  it.each(["../secret.png", "/absolute.png", "dir/../secret.png", "dir\\secret.png"])(
+    "rejects unsafe paths without an SDK content read: %s",
+    async (path) => {
+      const calls: unknown[] = [];
+      const { harness } = await setup({
+        diffFile: async (args) => {
+          calls.push(args);
+          throw Error("not called");
+        },
+      });
+      expect(
+        await harness.callRpc("getImage", {
+          threadId: "thr_1",
+          basis: { environmentId: "env-1", headSha, mergeBaseRef, target: { kind: "all" } },
+          file: { ...file, path },
+          side: "after",
+        }),
+      ).toMatchObject({ kind: "error", code: "read" });
+      expect(calls).toEqual([]);
+    },
+  );
+});
 
 describe("getChanges", () => {
+  it("runs branch commits alongside the sequential checkout/file-list bracket", async () => {
+    const commits = deferred<StatusResult>();
+    const files = deferred<DiffFilesResult>();
+    const events: string[] = [];
+    let statusReads = 0;
+    const { harness } = await setup({
+      status: ({ mergeBaseBranch }) => {
+        if (mergeBaseBranch !== undefined) {
+          events.push("commits");
+          return commits.promise;
+        }
+        if (++statusReads > 1) events.push("head");
+        return {
+          ...status(null),
+          workspace: {
+            branch: { currentBranch: "feature", defaultBranch: "main" },
+            checkout: {
+              kind: "branch",
+              branchName: "feature",
+              headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            },
+            mergeBase: null,
+          },
+        } as StatusResult;
+      },
+      diffFiles: () => {
+        events.push("files");
+        return files.promise;
+      },
+    });
+    const loading = harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+    try {
+      await vi.waitFor(() => expect(events).toEqual(["commits", "head", "files"]));
+      files.resolve({
+        ...AVAILABLE_FILES,
+        mergeBaseRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      } as DiffFilesResult);
+      await vi.waitFor(() => expect(events).toEqual(["commits", "head", "files", "head"]));
+    } finally {
+      files.resolve(AVAILABLE_FILES);
+      commits.resolve(status([COMMIT]));
+      await loading;
+    }
+    expect(await loading).toMatchObject({
+      kind: "ok",
+      imageBasis: {
+        environmentId: "env-1",
+        headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        mergeBaseRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        target: { kind: "all" },
+      },
+      patches: { "src/a.ts": "@@ -1 +1 @@\n-a\n+b\n" },
+      commits: [{ sha: "abc1234def", shortSha: "abc1234", subject: "feat: add a" }],
+    });
+  });
+
+  it("returns a bracket failure while branch commits are pending and handles their later failure", async () => {
+    const commits = deferred<StatusResult>();
+    let commitsStarted = false;
+    const { harness } = await setup({
+      status: ({ mergeBaseBranch }) => {
+        if (mergeBaseBranch !== undefined) {
+          commitsStarted = true;
+          return commits.promise.then(() => {
+            throw Error("commits unavailable");
+          });
+        }
+        return status(null);
+      },
+      diffFiles: Error("files unavailable"),
+    });
+    let result: unknown = null;
+    const loading = harness
+      .callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } })
+      .then((value) => {
+        result = value;
+        return value;
+      });
+    try {
+      await vi.waitFor(() =>
+        expect(result).toEqual({ kind: "error", message: "files unavailable" }),
+      );
+      expect(commitsStarted).toBe(true);
+    } finally {
+      commits.resolve(status(null));
+      await loading;
+    }
+  });
+
+  it("brackets moving checkout heads, retries once and retains the actual merge base", async () => {
+    let read = 0;
+    const { harness, calls } = await setup({
+      status: ({ mergeBaseBranch }) => {
+        const sha =
+          mergeBaseBranch === undefined && ++read >= 3
+            ? "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const base = status(null);
+        return {
+          ...base,
+          workspace: {
+            branch: { currentBranch: "feature", defaultBranch: "main" },
+            checkout: { kind: "branch", branchName: "feature", headSha: sha },
+            mergeBase: null,
+          },
+        } as StatusResult;
+      },
+      diffFiles: {
+        ...AVAILABLE_FILES,
+        mergeBaseRef: "cccccccccccccccccccccccccccccccccccccccc",
+      } as DiffFilesResult,
+    });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "branch_committed" },
+    });
+    expect(result).toMatchObject({
+      kind: "ok",
+      imageBasis: {
+        environmentId: "env-1",
+        headSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        mergeBaseRef: "cccccccccccccccccccccccccccccccccccccccc",
+        target: { kind: "branch_committed" },
+      },
+    });
+    expect(calls.diffFiles).toEqual([
+      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+    ]);
+  });
+  it("keeps text available but disables images if checkout keeps moving", async () => {
+    let read = 0;
+    const { harness } = await setup({
+      status: () =>
+        ({
+          outcome: "available",
+          workspace: {
+            branch: { currentBranch: "feature", defaultBranch: "main" },
+            checkout: { kind: "detached", headSha: String(++read).padStart(40, "0") },
+            mergeBase: null,
+          },
+        }) as StatusResult,
+    });
+    expect(
+      await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } }),
+    ).toMatchObject({
+      kind: "ok",
+      imageBasis: null,
+      patches: { "src/a.ts": "@@ -1 +1 @@\n-a\n+b\n" },
+    });
+  });
   it.each([
     [{ kind: "all" }, { environmentId: "env-1", target: "all", mergeBaseBranch: "origin/main" }],
     [{ kind: "uncommitted" }, { environmentId: "env-1", target: "uncommitted" }],
@@ -204,6 +499,7 @@ describe("getChanges", () => {
       kind: "ok",
       environmentId: "env-1",
       query: { target: "all", mergeBaseBranch: "origin/main" },
+      imageBasis: null,
       files: [
         {
           path: "src/a.ts",
@@ -255,6 +551,8 @@ describe("getChanges", () => {
     expect(calls.status).toEqual([
       { environmentId: "env-1" },
       { environmentId: "env-1", mergeBaseBranch: "origin/main" },
+      { environmentId: "env-1" },
+      { environmentId: "env-1" },
     ]);
   });
 

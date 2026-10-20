@@ -1,3 +1,12 @@
+import {
+  imageError,
+  imagePath,
+  imageShaSchema,
+  imageWire,
+  type ImageSide,
+  type ImageWireResult,
+} from "./core/image-content";
+import type { ChangesBasis, ChangedFile } from "./core/changes";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./contract";
 import {
@@ -74,6 +83,57 @@ function failure(error: unknown): { kind: "no_git" } | { kind: "error"; message:
   return { kind: "error", message: messageOf(error) };
 }
 
+async function checkoutHead(sdk: Sdk, environmentId: string): Promise<string | null> {
+  try {
+    const status = await sdk.environments.status({ environmentId });
+    return status.outcome === "available" && "headSha" in status.workspace.checkout
+      ? status.workspace.checkout.headSha
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getImage(
+  sdk: Sdk,
+  threadId: string,
+  basis: ChangesBasis,
+  file: ChangedFile,
+  side: ImageSide,
+): Promise<ImageWireResult> {
+  try {
+    if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId)
+      return imageError("stale", "Environment changed. Refresh changes.");
+    const path = imagePath(file, side);
+    if (path === null) return { kind: "absent" };
+    const target = basis.target;
+    const live = side === "after" && (target.kind === "all" || target.kind === "uncommitted");
+    const sha =
+      target.kind === "commit"
+        ? target.sha
+        : side === "before" && target.kind !== "uncommitted"
+          ? basis.mergeBaseRef
+          : basis.headSha;
+    if (!live && !imageShaSchema.safeParse(sha).success)
+      return imageError("stale", "Image revision unavailable. Refresh changes.");
+    const result = await sdk.environments.diffFile({
+      environmentId: basis.environmentId,
+      path,
+      ...(live
+        ? { target: "uncommitted" as const, side: "new" as const }
+        : {
+            target: "commit" as const,
+            sha: sha!,
+            side:
+              target.kind === "commit" && side === "before" ? ("old" as const) : ("new" as const),
+          }),
+    });
+    return imageWire(result);
+  } catch {
+    return imageError("read", "Could not read image at this revision");
+  }
+}
+
 async function getChanges(
   sdk: Sdk,
   warn: (message: string) => void,
@@ -84,9 +144,19 @@ async function getChanges(
     const environmentId = await environmentIdOf(sdk, threadId);
     const baseBranch = await baseBranchOf(sdk, environmentId);
     const query = diffQuery(target, baseBranch);
-    const [commits, diff] = await Promise.all([
+    const [commits, { diff, headSha, stable }] = await Promise.all([
       branchCommits(sdk, environmentId, baseBranch, warn),
-      sdk.environments.diffFiles({ environmentId, ...query }),
+      (async () => {
+        let headSha = await checkoutHead(sdk, environmentId);
+        let diff = await sdk.environments.diffFiles({ environmentId, ...query });
+        let endHead = await checkoutHead(sdk, environmentId);
+        if (headSha !== endHead) {
+          headSha = endHead;
+          diff = await sdk.environments.diffFiles({ environmentId, ...query });
+          endHead = await checkoutHead(sdk, environmentId);
+        }
+        return { diff, headSha, stable: headSha !== null && headSha === endHead };
+      })(),
     ]);
     if (diff.outcome === "not_applicable") return { kind: "no_git" };
     if (diff.outcome === "unavailable") return { kind: "error", message: diff.failure.message };
@@ -94,6 +164,9 @@ async function getChanges(
       kind: "ok",
       environmentId,
       query,
+      imageBasis: stable
+        ? { environmentId, headSha: headSha!, mergeBaseRef: diff.mergeBaseRef ?? null, target }
+        : null,
       files: diff.files.map(
         ({ path, previousPath, additions, deletions, binary, loadMode, changeKind, origin }) => ({
           path,
@@ -201,6 +274,7 @@ function createViewedMarksKv(kv: Kv) {
 export default async function plugin(bb: BbPluginApi) {
   const viewed = createViewedMarksKv(bb.storage.kv);
   bb.rpc.register(rpcContract, {
+    getImage: ({ threadId, basis, file, side }) => getImage(bb.sdk, threadId, basis, file, side),
     getChanges: ({ threadId, target }) =>
       getChanges(bb.sdk, (message) => bb.log.warn(message), threadId, target),
     getPatches: ({ threadId, query, paths }) => getPatches(bb.sdk, threadId, query, paths),

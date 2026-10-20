@@ -1,3 +1,4 @@
+import { canMark } from "../core/viewed-files";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
@@ -32,7 +33,7 @@ const ALL_CHANGES: DiffTarget = { kind: "all" };
 function ChangesTabContent({ threadId }: { threadId: string }) {
   const [target, setTarget] = useState<DiffTarget>(ALL_CHANGES);
   const [view, setView] = useState<DiffView>("unified");
-  const { result, loading, refresh } = useChanges(threadId, target);
+  const { result, loading, generation, refresh } = useChanges(threadId, target);
   const review = usePendingReview(threadId);
   const feedback = useSendFeedback(threadId);
   const loaded = result?.kind === "ok" ? result : null;
@@ -113,6 +114,12 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
               <FileList
                 threadId={threadId}
                 changes={sorted ?? result}
+                imageGeneration={generation}
+                imagesActive={
+                  !loading &&
+                  (!loaded?.imageBasis ||
+                    JSON.stringify(loaded.imageBasis.target) === JSON.stringify(target))
+                }
                 patches={patches}
                 viewed={viewed}
                 comments={review.comments}
@@ -139,6 +146,8 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
 interface FileListProps {
   threadId: string;
   changes: LoadedChanges;
+  imagesActive: boolean;
+  imageGeneration: number;
   patches: Patches;
   viewed: Viewed;
   comments: readonly PendingComment[];
@@ -149,6 +158,8 @@ interface FileListProps {
 function FileList({
   threadId,
   changes,
+  imagesActive,
+  imageGeneration,
   patches,
   viewed,
   comments,
@@ -202,6 +213,9 @@ function FileList({
             key={file.path}
             threadId={threadId}
             environmentId={changes.environmentId}
+            imageBasis={changes.imageBasis}
+            imagesActive={imagesActive}
+            imageGeneration={imageGeneration}
             file={file}
             patch={patches.stateOf(file.path)}
             lines={lines === undefined || typeof lines === "string" ? null : lines}
@@ -232,7 +246,7 @@ function byPath(a: ChangedFile, b: ChangedFile): number {
 }
 
 function fileLines(file: ChangedFile, state: PatchState): FileLines {
-  if (file.binary || file.loadMode === "too_large") return "absent";
+  if (!canMark(file)) return "absent";
   if (state.kind === "loaded") return diffLines(state.patch);
   return state.kind === "loading" ? "pending" : "absent";
 }

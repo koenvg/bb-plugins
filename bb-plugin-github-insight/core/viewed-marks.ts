@@ -1,3 +1,4 @@
+import { isRasterPath } from "./image-content";
 import { z } from "zod";
 import { patchIdentity } from "./patch-identity";
 import { gitPatch, type ReviewFile } from "./pr-files";
@@ -8,6 +9,7 @@ export type ViewedMarks = Readonly<z.infer<typeof viewedMarksSchema>>;
 export const storedViewedSchema = z.object({ v: z.literal(1), marks: viewedMarksSchema });
 
 export function fileIdentity(file: ReviewFile): string | null {
+  if (isRasterPath(file.path) || isRasterPath(file.previousPath ?? "")) return null;
   const patch = gitPatch(file);
   return patch === null ? null : patchIdentity(patch);
 }

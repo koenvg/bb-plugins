@@ -1,3 +1,4 @@
+import type { PrImageBasis } from "../core/pr-image-basis";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
@@ -144,8 +145,16 @@ export function FilesTab({ threadId, jump }: FilesTabProps) {
 }
 
 function FilesTabContent({ threadId, jump }: FilesTabProps) {
-  const { result, refreshing, refresh, reload, reloadDrafts, removeCommentDraft } =
-    useReview(threadId);
+  const {
+    result,
+    refreshing,
+    revalidating,
+    generation,
+    refresh,
+    reload,
+    reloadDrafts,
+    removeCommentDraft,
+  } = useReview(threadId);
   const requests = useReviewCommands(threadId, result);
   if (result === null)
     return (
@@ -190,6 +199,9 @@ function FilesTabContent({ threadId, jump }: FilesTabProps) {
           files={result.files}
           threads={result.threads}
           head={result.head}
+          imageBasis={result.imageBasis ?? null}
+          imagesActive={!refreshing && !revalidating}
+          imageGeneration={generation}
           commentDrafts={result.commentDrafts}
           summaryDraft={result.summaryDraft}
           viewedMarks={result.viewedMarks}
@@ -210,6 +222,9 @@ interface ReviewContentProps {
   files: readonly ReviewFile[];
   threads: ThreadPlacement;
   head: PrHead;
+  imageBasis: PrImageBasis | null;
+  imagesActive: boolean;
+  imageGeneration: number;
   commentDrafts: readonly ListedCommentDraft[];
   summaryDraft: SummaryDraft | null;
   viewedMarks: ViewedMarks;
@@ -226,6 +241,9 @@ function ReviewContent({
   files,
   threads,
   head,
+  imageBasis,
+  imagesActive,
+  imageGeneration,
   commentDrafts,
   summaryDraft,
   viewedMarks,
@@ -362,6 +380,12 @@ function ReviewContent({
                   <PrFileDiff
                     key={file.path}
                     file={file}
+                    image={{
+                      threadId,
+                      basis: imageBasis,
+                      active: imagesActive,
+                      generation: imageGeneration,
+                    }}
                     threads={placedByPath.get(file.path) ?? NO_THREADS}
                     commentDrafts={draftsByPath.get(file.path) ?? NO_COMMENT_DRAFTS}
                     onAddComment={canAddComment ? (...args) => void create(...args) : undefined}

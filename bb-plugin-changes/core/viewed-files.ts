@@ -1,3 +1,4 @@
+import { isRasterPath } from "./image-content";
 import { z } from "zod";
 import { patchIdentity } from "./patch-identity";
 import type { ChangedFile } from "./changes";
@@ -20,7 +21,12 @@ export const updateViewedResultSchema = z.discriminatedUnion("kind", [
 export type UpdateViewedResult = z.infer<typeof updateViewedResultSchema>;
 
 export function canMark(file: ChangedFile): boolean {
-  return !file.binary && file.loadMode !== "too_large";
+  return (
+    !isRasterPath(file.path) &&
+    !isRasterPath(file.previousPath ?? "") &&
+    !file.binary &&
+    file.loadMode !== "too_large"
+  );
 }
 
 export interface ViewedSummary {

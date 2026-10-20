@@ -2,6 +2,8 @@
 
 Review UI parts that more than one plugin in this repo uses: the diff with a gutter **+** and inline cards, the inline comment form, the pending comment card, the "Viewed" checkbox and collapse button, the diff stat, the hunk line helper, and `pinToTop`, which keeps an element at the top of a scroll area while content above it loads.
 
+`ReviewImageDiff` presents independent before/after raster sides through injected async callbacks. It owns visibility, loading/error/retry state and Blob URL cleanup. Plugin loaders own revisions, credentials and byte policy. SVG stays on the text review route.
+
 Rules:
 
 - Only `ui/` code and type-only imports may use this folder. bb rejects a server source import outside the plugin directory when it reloads the plugin (`bb plugin build` does not check this). Server code that two plugins need goes in a copy in each plugin, like `core/patch-identity.ts`.

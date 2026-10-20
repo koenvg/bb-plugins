@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -156,6 +157,8 @@ const threaded = {
 } satisfies ReviewResult;
 
 interface RpcHandlers {
+  getReview?: () => ReviewResult | Promise<ReviewResult>;
+  getPrImage?: () => ImageWireResult | Promise<ImageWireResult>;
   getDrafts?: () => DraftsResult | Promise<DraftsResult>;
   sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
   reply?: () => ReplyResult | Promise<ReplyResult>;
@@ -219,12 +222,14 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
     { threadId, jump: null },
     {
       rpc: {
-        getReview,
+        getReview: handlers.getReview ?? getReview,
         getDrafts: handlers.getDrafts ?? getDrafts,
         getTimeline: () => ({ kind: "no_pr" }),
         addPrComment: () => ({ kind: "error", message: "unused" }),
         sendToAgent:
           handlers.sendToAgent ?? (() => ({ kind: "sent", delivery: "sent", threadCount: 1 })),
+        getPrImage:
+          handlers.getPrImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getInsight: () => ({ kind: "no_pr" }),
         refresh: () => ({ kind: "no_pr" }),
         reply:
@@ -256,6 +261,103 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
     },
   );
 }
+describe("PR raster review", () => {
+  const imageBasis = {
+    baseRepo: { owner: "base", repo: "private" },
+    headRepo: { owner: "fork", repo: "private" },
+    baseSha: "1111111111111111111111111111111111111111",
+    headSha: "2222222222222222222222222222222222222222",
+    mergeBaseSha: "3333333333333333333333333333333333333333",
+    hostId: "host-1",
+  };
+  it("loads images without viewed controls and keeps draft-only refresh from reloading bytes", async () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pr");
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const value: ReviewResult = {
+      ...recorded,
+      imageBasis,
+      files: [{ path: "logo.png", previousPath: null, status: "added", patch: null }],
+    };
+    const slot = renderTabWith(
+      {
+        getPrImage: () => ({
+          kind: "ready",
+          content: "iVBORw0KGgoAAAAA",
+          mime: "image/png",
+          sizeBytes: 12,
+        }),
+      },
+      value,
+    );
+    await slot.findByRole("img", {
+      name: "After: logo.png (2222222222222222222222222222222222222222)",
+    });
+    expect(slot.getByText("Not present")).toBeTruthy();
+    expect(callsTo(slot, "getPrImage")).toHaveLength(1);
+    expect(slot.queryByRole("checkbox", { name: "Viewed logo.png" })).toBeNull();
+    await act(async () => {
+      await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
+    });
+    expect(callsTo(slot, "getPrImage")).toHaveLength(1);
+    fireEvent.click(slot.getByRole("button", { name: "Collapse logo.png" }));
+    expect(slot.queryByRole("img", { name: /^After:/ })).toBeNull();
+    expect(revoke).toHaveBeenCalledWith("blob:pr");
+    create.mockRestore();
+    revoke.mockRestore();
+  });
+  it("releases images at reload start and ignores a delayed old completion", async () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:late");
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    let finishImage: ((value: ImageWireResult) => void) | undefined;
+    let finishReview: ((value: ReviewResult) => void) | undefined;
+    let count = 0;
+    const value: ReviewResult = {
+      ...recorded,
+      imageBasis,
+      files: [{ path: "logo.png", previousPath: null, status: "added", patch: null }],
+    };
+    const slot = renderTabWith(
+      {
+        getReview: () =>
+          ++count === 1
+            ? value
+            : new Promise((resolve) => {
+                finishReview = resolve;
+              }),
+        getPrImage: () =>
+          new Promise((resolve) => {
+            finishImage = resolve;
+          }),
+      },
+      value,
+    );
+    await waitFor(() => expect(callsTo(slot, "getPrImage")).toHaveLength(1));
+    await act(async () => {
+      await slot.behavior.emitRealtime("review.updated", { threadId: "thr_1" });
+    });
+    await act(async () =>
+      finishImage?.({
+        kind: "ready",
+        content: "iVBORw0KGgoAAAAA",
+        mime: "image/png",
+        sizeBytes: 12,
+      }),
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(slot.queryByRole("img", { name: /^After:/ })).toBeNull();
+    await act(async () => finishReview?.(value));
+    await waitFor(() => expect(callsTo(slot, "getPrImage")).toHaveLength(2));
+    create.mockRestore();
+    revoke.mockRestore();
+  });
+  it("keeps SVG patches reviewable as text", async () => {
+    const source = recorded.files.find((file) => file.patch !== null)!;
+    const slot = renderTab({ ...recorded, imageBasis, files: [{ ...source, path: "icon.svg" }] });
+    await slot.findByTestId("file-diff");
+    expect(callsTo(slot, "getPrImage")).toEqual([]);
+    expect(slot.getByRole("checkbox", { name: "Viewed icon.svg" })).toBeTruthy();
+  });
+});
 
 function methods(slot: ReturnType<typeof renderTab>) {
   return slot.inspection.rpcCalls.map((call) => call.method);

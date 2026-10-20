@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -149,6 +150,7 @@ function changes(
   return {
     kind: "ok",
     environmentId: "env-1",
+    imageBasis: null,
     query: ALL_QUERY,
     files,
     patches: {},
@@ -162,6 +164,7 @@ const A_ONLY = changes([file("src/a.ts", { additions: 34, deletions: 5 })]);
 let nextThread = 0;
 
 interface Handlers {
+  getImage?: (input: { side: "before" | "after" }) => ImageWireResult | Promise<ImageWireResult>;
   getChanges?: (input: unknown) => ChangesResult | Promise<ChangesResult>;
   getPatches?: (input: { paths: string[] }) => PatchesResult | Promise<PatchesResult>;
   sendFeedback?: (input: { text: string }) => SendFeedbackResult | Promise<SendFeedbackResult>;
@@ -177,6 +180,8 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
     {
       openFilePreview: handlers.openFilePreview ?? (() => true),
       rpc: {
+        getImage:
+          handlers.getImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getChanges: handlers.getChanges ?? (() => A_ONLY),
         getPatches:
           handlers.getPatches ??
@@ -194,6 +199,61 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
   );
   return Object.assign(slot, { threadId });
 }
+
+describe("Changes raster review", () => {
+  const imageBasis = {
+    environmentId: "env-1",
+    headSha: "1111111111111111111111111111111111111111",
+    mergeBaseRef: "2222222222222222222222222222222222222222",
+    target: { kind: "all" as const },
+  };
+  it("shows added image absence, preserves open-file navigation and releases at refresh start", async () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:changes");
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    let finish: ((result: ChangesResult) => void) | undefined;
+    let count = 0;
+    const value = changes([file("logo.png", { binary: true, status: "added" })], { imageBasis });
+    const slot = renderTab({
+      getChanges: () =>
+        ++count === 1
+          ? value
+          : new Promise((resolve) => {
+              finish = resolve;
+            }),
+      getImage: () => ({
+        kind: "ready",
+        content: "iVBORw0KGgoAAAAA",
+        mime: "image/png",
+        sizeBytes: 12,
+      }),
+    });
+    await slot.findByRole("img", { name: "After: logo.png (Live working tree (at read time))" });
+    expect(slot.getByText("Not present")).toBeTruthy();
+    expect(callsTo(slot, "getImage")).toHaveLength(1);
+    expect(callsTo(slot, "getPatches")).toEqual([]);
+    expect(slot.queryByRole("checkbox")).toBeNull();
+    fireEvent.click(slot.getByRole("button", { name: "Open logo.png in file viewer" }));
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    expect(slot.queryByRole("img", { name: /^After:/ })).toBeNull();
+    expect(revoke).toHaveBeenCalledWith("blob:changes");
+    await act(async () => finish?.(value));
+    await slot.findByRole("img", { name: "After: logo.png (Live working tree (at read time))" });
+    fireEvent.click(slot.getByRole("button", { name: "Collapse logo.png" }));
+    expect(slot.queryByRole("img", { name: /^After:/ })).toBeNull();
+    expect(callsTo(slot, "getImage")).toHaveLength(2);
+    create.mockRestore();
+    revoke.mockRestore();
+  });
+  it("keeps SVG on the text diff route", async () => {
+    const patch = PATCH_A.replaceAll("src/a.ts", "icon.svg");
+    const slot = renderTab({
+      getChanges: () => changes([file("icon.svg")], { patches: { "icon.svg": patch }, imageBasis }),
+    });
+    await slot.findByTestId("file-diff");
+    expect(callsTo(slot, "getImage")).toEqual([]);
+    expect(slot.getByRole("checkbox", { name: "Viewed icon.svg" })).toBeTruthy();
+  });
+});
 
 type Slot = ReturnType<typeof renderTab>;
 
@@ -261,7 +321,10 @@ describe("Changes tab", () => {
   it("shows Binary file and Diff too large instead of a diff", async () => {
     const slot = renderTab({
       getChanges: () =>
-        changes([file("logo.png", { binary: true }), file("big.json", { loadMode: "too_large" })]),
+        changes([
+          file("archive.bin", { binary: true }),
+          file("big.json", { loadMode: "too_large" }),
+        ]),
     });
 
     expect(await slot.findByText("Binary file")).toBeTruthy();
@@ -1081,7 +1144,10 @@ describe("Viewed files", () => {
   it("has no Viewed checkbox and no counter for binary and too large files", async () => {
     const slot = renderTab({
       getChanges: () =>
-        changes([file("logo.png", { binary: true }), file("big.json", { loadMode: "too_large" })]),
+        changes([
+          file("archive.bin", { binary: true }),
+          file("big.json", { loadMode: "too_large" }),
+        ]),
     });
 
     await slot.findByText("Binary file");

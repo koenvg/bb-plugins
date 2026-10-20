@@ -1,3 +1,9 @@
+import { useCallback } from "react";
+import { useRpc } from "@get-bb/plugin-sdk/app";
+import type { rpcContract } from "../contract";
+import { isRasterPath } from "../core/image-content";
+import { imageBasisKey, type PrImageBasis } from "../core/pr-image-basis";
+import { ReviewImageDiff, imageBlobResult, type ImageSide } from "../../review-ui/image-diff";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
@@ -39,8 +45,18 @@ export function PrFileDiff({
   commentDrafts,
   onAddComment,
   viewed,
-}: ThreadsProps & { file: ReviewFile; onAddComment?: AddComment; viewed?: FileViewedState }) {
+  image,
+}: ThreadsProps & {
+  file: ReviewFile;
+  onAddComment?: AddComment;
+  viewed?: FileViewedState;
+  image?: { threadId: string; basis: PrImageBasis | null; active: boolean; generation: number };
+}) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
+  if (isRasterPath(file.path) || isRasterPath(file.previousPath ?? ""))
+    return (
+      <PrImageFile file={file} image={image} threads={threads} commentDrafts={commentDrafts} />
+    );
   if (fileDiff === null)
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
   return (
@@ -54,6 +70,88 @@ export function PrFileDiff({
         onAddComment && ((side, line) => onAddComment(file.path, fromPierreSide(side), line))
       }
     />
+  );
+}
+
+function PrImageFile({
+  file,
+  image,
+  threads,
+  commentDrafts,
+}: ThreadsProps & {
+  file: ReviewFile;
+  image?: { threadId: string; basis: PrImageBasis | null; active: boolean; generation: number };
+}) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [collapsed, setCollapsed] = useState(false);
+  const basis = image?.basis;
+  const threadId = image?.threadId;
+  const load = useCallback(
+    async (side: ImageSide, signal: AbortSignal) => {
+      if (!basis || !threadId)
+        return {
+          kind: "error" as const,
+          code: "stale" as const,
+          message: "Image revision unavailable. Refresh the review.",
+        };
+      const result = await rpc.call("getPrImage", {
+        threadId,
+        expectedBasisKey: imageBasisKey(basis),
+        path: file.path,
+        side,
+      });
+      signal.throwIfAborted();
+      return imageBlobResult(result);
+    },
+    [rpc, basis, threadId, file.path],
+  );
+  return (
+    <section data-path={file.path} className="border-b border-border">
+      <div className="flex min-h-11 items-center gap-2 px-3 text-xs">
+        <CollapseButton
+          path={file.path}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          icons={CHEVRONS}
+        />
+        <span className="min-w-0 break-all font-mono">
+          {file.previousPath ? `${file.previousPath} → ${file.path}` : file.path}
+        </span>
+        <ThreadCount count={threads.length} />
+      </div>
+      {!collapsed && (
+        <ReviewImageDiff
+          key={JSON.stringify([
+            image?.threadId,
+            image?.generation,
+            basis,
+            file.path,
+            file.previousPath,
+          ])}
+          active={image?.active ?? true}
+          before={
+            file.status === "added"
+              ? null
+              : {
+                  path: file.previousPath ?? file.path,
+                  revision: basis?.mergeBaseSha ?? "Revision unavailable",
+                }
+          }
+          after={
+            file.status === "removed"
+              ? null
+              : { path: file.path, revision: basis?.headSha ?? "Revision unavailable" }
+          }
+          load={load}
+        />
+      )}
+      {threads.map(({ thread }) => (
+        <ReviewThreadCard key={thread.id} thread={thread} />
+      ))}
+      {commentDrafts.map((draft) => (
+        <CommentDraftCard key={draft.id} draft={draft} />
+      ))}
+    </section>
   );
 }
 

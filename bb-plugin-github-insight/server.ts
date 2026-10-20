@@ -98,6 +98,9 @@ export default async function plugin(bb: BbPluginApi) {
     fetchReviewThreadsPage: async ({ ref, hostId }, after) =>
       unwrap(await host.call("fetchReviewThreads", { ...ref, after }, { hostId })),
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
+    fetchImageMergeBase: async ({ hostId }, refs) =>
+      unwrap(await host.call("fetchImageMergeBase", refs, { hostId })),
+    readPrImage: async ({ hostId }, request) => host.call("readPrImage", request, { hostId }),
     drafts,
     publishDrafts: publishDraftsUpdate,
     viewed: createViewedMarksStore(bb.storage.kv),
@@ -213,6 +216,8 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
+    getPrImage: ({ threadId, expectedBasisKey, path, side }) =>
+      review.getPrImage(threadId, expectedBasisKey, path, side),
     getInsight: ({ threadId }) => service.getInsight(threadId),
     refresh: ({ threadId }) => service.refresh(threadId),
     getReview: ({ threadId }) => getReview(threadId),
