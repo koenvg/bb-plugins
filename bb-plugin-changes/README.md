@@ -23,6 +23,12 @@ Open **Changes** from the new-tab list in a thread's right panel.
 
 Image previews accept up to 4 MiB per side. They load only near the visible area while expanded and release content when collapsed or scrolled away. Each failed side has its own Retry. Committed previews use pinned revisions. **All changes** and **Uncommitted** show live working-tree content on the after side, read separately from the file list. Refresh invalidates previews immediately. The SDK can allocate its larger upstream read before the plugin enforces the 4 MiB acceptance limit. SVG previews are deferred; SVG keeps its text diff, comments and viewed marks. Image previews have no line comments or viewed marks.
 
+Video previews support MP4 and WebM containers, up to 8 MiB per side. Choose **Load before video** or **Load after video**, then use the native Play control. Videos do not autoplay. Collapse, refresh, or **Unload** releases the loaded content. Unsupported containers, codecs, and larger files show a fallback message. H.264/AAC in MP4 and VP8/VP9 with Opus in WebM pass the local Chromium playback fixture; other browsers can differ.
+
+Git LFS pointer files remain text diffs, with their comments, drafts and Viewed controls. Video previews do not fetch LFS objects.
+
+Video reads run on the environment's host. Historical sides use pinned Git blobs and the first parent for a single-commit comparison. Live sides read only the working tree. The host checks sizes before reading, caps output, and permits at most two concurrent video reads. SDK 0.6.49 has no range option on revision file reads or binary host-RPC transport, so previews use bounded whole-file RPC after an explicit click.
+
 ## Viewed files
 
 - Check **Viewed** in a file header to mark the file as viewed. The file collapses to its header.
@@ -108,3 +114,5 @@ bb plugin build
 The diff, comment form, and comment card come from [`../review-ui`](../review-ui).
 
 Run [`test:bb-renderer`](tests/bb-renderer/README.md) to check filename controls against running BB without installing the candidate plugin. This separate acceptance check uses BB's renderer and native file viewer. It requires an owned local thread; CI's fixture tests do not replace it.
+
+Run [`test:video-browser`](tests/video-browser/README.md) for an unauthenticated, owned local component fixture. This proves native video playback and responsive layout, not installed BB playback or GitHub authentication.

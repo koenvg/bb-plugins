@@ -66,6 +66,7 @@ export function ok(queueView: ReviewQueueView): LoadedReviewQueue {
 export const unusedRpc = {
   getInsight: () => ({ kind: "no_pr" as const }),
   refresh: () => ({ kind: "no_pr" as const }),
+  getPrVideo: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getPrImage: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getReview: () => ({ kind: "no_pr" as const }),
   getDrafts: () => ({ kind: "no_pr" as const }),

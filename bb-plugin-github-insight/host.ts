@@ -1,3 +1,4 @@
+import { readPrVideo } from "./github/pr-video-content";
 import { imageMergeBaseArgs, readPrImage } from "./github/pr-image-content";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -35,6 +36,7 @@ const execFileAsync = promisify(execFile);
 export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
+    readPrVideo: (request, context) => readPrVideo(request, context.signal),
     readPrImage: (request, context) => readPrImage(request, context.signal),
     fetchImageMergeBase: (request, context) =>
       runGhJson(imageMergeBaseArgs(request), context.signal),

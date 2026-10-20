@@ -100,6 +100,8 @@ export default async function plugin(bb: BbPluginApi) {
     fetchPrHead: async ({ ref, hostId }) => unwrap(await host.call("fetchPrHead", ref, { hostId })),
     fetchImageMergeBase: async ({ hostId }, refs) =>
       unwrap(await host.call("fetchImageMergeBase", refs, { hostId })),
+    readPrVideo: async ({ hostId }, request) =>
+      host.call("readPrVideo", request, { hostId, timeoutMs: 45_000 }),
     readPrImage: async ({ hostId }, request) => host.call("readPrImage", request, { hostId }),
     drafts,
     publishDrafts: publishDraftsUpdate,
@@ -216,6 +218,8 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
+    getPrVideo: ({ threadId, expectedBasisKey, path, side }) =>
+      review.getPrVideo(threadId, expectedBasisKey, path, side),
     getPrImage: ({ threadId, expectedBasisKey, path, side }) =>
       review.getPrImage(threadId, expectedBasisKey, path, side),
     getInsight: ({ threadId }) => service.getInsight(threadId),

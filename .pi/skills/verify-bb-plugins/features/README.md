@@ -17,7 +17,7 @@ Set `PLUGIN` to the package suffix below; the installed plugin ID matches unless
 | Package / map | Local user-path recipe | Live entries and additional prerequisites |
 | --- | --- | --- |
 | [browser-annotate](browser-annotate.md) | SDK tests; no standalone browser suite | Desktop Browser toolbar, pins and composer pills; conflicts with bundled agent-annotations |
-| [changes](changes.md) | SDK/UI tests; BB-backed filename-control check with page-local fixtures | Changes right-panel tab, diff target, Viewed and review; owned Git diff, sibling review-ui |
+| [changes](changes.md) | SDK/UI tests; owned local video playback runner; BB-backed filename-control check with page-local fixtures | Changes right-panel tab, diff target, Viewed and review; owned Git diff, sibling review-ui |
 | [code-cleanup](code-cleanup.md) | Actual Settings preview on an owned port, temporary SQLite | Settings project overview/dialog and bb code-cleanup; project/setting ledger |
 | [codex-inspired](codex-inspired.md) | Theme/font integrity tests; no frontend bundle | Appearance and bb theme; theme selection affects other clients |
 | [codex-quota](codex-quota.md) | Owned ephemeral-port Playwright runner; maintenance RPC and packaged temporary-host fixtures | Dashboard/sidebar, selected enrolled host, Pi OAuth, activity/history/import |

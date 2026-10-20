@@ -1,3 +1,4 @@
+import { videoError, isVideoPath, type VideoWireResult } from "./core/video-content";
 import {
   imageError,
   imagePath,
@@ -8,7 +9,7 @@ import {
 } from "./core/image-content";
 import type { ChangesBasis, ChangedFile } from "./core/changes";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { rpcContract } from "./contract";
+import { rpcContract, hostContract } from "./contract";
 import {
   diffQuery,
   messageOf,
@@ -273,7 +274,53 @@ function createViewedMarksKv(kv: Kv) {
 
 export default async function plugin(bb: BbPluginApi) {
   const viewed = createViewedMarksKv(bb.storage.kv);
+  const host = bb.hosts.experimental_client({ contract: hostContract });
   bb.rpc.register(rpcContract, {
+    getVideo: async ({ threadId, basis, file, side }): Promise<VideoWireResult> => {
+      try {
+        if ((await environmentIdOf(bb.sdk, threadId)) !== basis.environmentId)
+          return videoError("stale", "Environment changed. Refresh changes.");
+        const path = imagePath(file, side);
+        if (path === null) return { kind: "absent" };
+        if (!isVideoPath(file.path) && !isVideoPath(file.previousPath ?? ""))
+          return videoError("unsupported", "This file is not an MP4 or WebM video");
+        const environment = await bb.sdk.environments.get({ environmentId: basis.environmentId });
+        if (!environment.path) return videoError("read", "Workspace path unavailable");
+        const target = basis.target;
+        const live = side === "after" && (target.kind === "all" || target.kind === "uncommitted");
+        const sha =
+          target.kind === "commit"
+            ? target.sha
+            : side === "before" && target.kind !== "uncommitted"
+              ? basis.mergeBaseRef
+              : basis.headSha;
+        if (!live && !imageShaSchema.safeParse(sha).success)
+          return videoError("stale", "Video revision unavailable. Refresh changes.");
+        const result = await host.call(
+          "readVideo",
+          {
+            root: environment.path,
+            path,
+            revision: live
+              ? { kind: "working-tree" }
+              : {
+                  kind: "commit",
+                  sha: sha!,
+                  firstParent: target.kind === "commit" && side === "before",
+                },
+          },
+          { hostId: environment.hostId, timeoutMs: 25_000 },
+        );
+        return (await environmentIdOf(bb.sdk, threadId)) === basis.environmentId
+          ? result
+          : videoError("stale", "Environment changed. Refresh changes.");
+      } catch {
+        return videoError(
+          "read",
+          "Could not read video at this revision. Refresh changes or use a local player.",
+        );
+      }
+    },
     getImage: ({ threadId, basis, file, side }) => getImage(bb.sdk, threadId, basis, file, side),
     getChanges: ({ threadId, target }) =>
       getChanges(bb.sdk, (message) => bb.log.warn(message), threadId, target),

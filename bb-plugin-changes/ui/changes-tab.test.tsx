@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pendingReviews } from "../core/pending-review";
 import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
@@ -60,6 +61,7 @@ vi.mock("@pierre/diffs/react", () => ({
       }}
       data-testid="file-diff"
       data-path={fileDiff.name}
+      data-additions={fileDiff.additionLines.join("")}
       data-diff-style={options.diffStyle}
       data-collapsed={String(options.collapsed ?? false)}
       data-sticky={String(options.stickyHeader)}
@@ -164,6 +166,9 @@ const A_ONLY = changes([file("src/a.ts", { additions: 34, deletions: 5 })]);
 let nextThread = 0;
 
 interface Handlers {
+  getVideo?: () =>
+    | import("../core/video-content").VideoWireResult
+    | Promise<import("../core/video-content").VideoWireResult>;
   getImage?: (input: { side: "before" | "after" }) => ImageWireResult | Promise<ImageWireResult>;
   getChanges?: (input: unknown) => ChangesResult | Promise<ChangesResult>;
   getPatches?: (input: { paths: string[] }) => PatchesResult | Promise<PatchesResult>;
@@ -180,6 +185,8 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
     {
       openFilePreview: handlers.openFilePreview ?? (() => true),
       rpc: {
+        getVideo:
+          handlers.getVideo ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getImage:
           handlers.getImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getChanges: handlers.getChanges ?? (() => A_ONLY),
@@ -207,6 +214,78 @@ describe("Changes raster review", () => {
     mergeBaseRef: "2222222222222222222222222222222222222222",
     target: { kind: "all" as const },
   };
+  it.each(["mp4", "webm"])(
+    "keeps an LFS %s pointer on the text review route with existing comments and Viewed",
+    async (extension) => {
+      const path = `clip.${extension}`;
+      const threadId = `thr_lfs_${extension}`;
+      const patch = `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1,3 +1,3 @@\n version https://git-lfs.github.com/spec/v1\n-oid sha256:${"1".repeat(64)}\n+oid sha256:${"2".repeat(64)}\n-size 10000000\n+size 10000001\n`;
+      pendingReviews.addComment(
+        threadId,
+        { path, side: "additions", line: 2 },
+        "Keep the LFS object tracked",
+      );
+      const slot = renderTab(
+        {
+          getChanges: () => changes([file(path)], { patches: { [path]: patch }, imageBasis }),
+        },
+        threadId,
+      );
+      const diff = await slot.findByTestId("file-diff");
+      expect(diff.getAttribute("data-additions")).toContain(
+        "version https://git-lfs.github.com/spec/v1",
+      );
+      expect(diff.getAttribute("data-additions")).toContain("size 10000001");
+      const card = slot.getByRole("article", { name: "Pending comment" });
+      expect(within(card).getByText("Keep the LFS object tracked")).toBeTruthy();
+      expect(card.closest("[data-testid=line-annotation]")?.getAttribute("data-line")).toBe("2");
+      expect(slot.queryByRole("button", { name: /Load (before|after) video/ })).toBeNull();
+      expect(callsTo(slot, "getVideo")).toEqual([]);
+      const viewed = slot.getByRole("checkbox", { name: `Viewed ${path}` }) as HTMLInputElement;
+      fireEvent.click(viewed);
+      await waitFor(() => expect(viewed.checked).toBe(true));
+    },
+  );
+  it("loads video only on request, preserves navigation and unloads at refresh", async () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:changes-video");
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const play = vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("probably");
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const slot = renderTab({
+      getChanges: () =>
+        changes([file("clip.mp4", { binary: true, status: "added" })], { imageBasis }),
+      getVideo: () => ({
+        kind: "ready",
+        content: "AAAAAGZ0eXBpc29t",
+        mime: "video/mp4",
+        sizeBytes: 12,
+      }),
+    });
+    await slot.findByRole("button", { name: "Load after video" });
+    expect(slot.getByText("Not present")).toBeTruthy();
+    expect(callsTo(slot, "getVideo")).toEqual([]);
+    expect(callsTo(slot, "getImage")).toEqual([]);
+    expect(callsTo(slot, "getPatches")).toEqual([]);
+    fireEvent.click(slot.getByRole("button", { name: "Load after video" }));
+    const video = (await slot.findByLabelText(
+      "After: clip.mp4 (Live working tree (at read time))",
+    )) as HTMLVideoElement;
+    expect(video.controls).toBe(true);
+    expect(video.autoplay).toBe(false);
+    expect(callsTo(slot, "getVideo")).toMatchObject([
+      { side: "after", file: { path: "clip.mp4" }, basis: imageBasis },
+    ]);
+    fireEvent.click(slot.getByRole("button", { name: "Open clip.mp4 in file viewer" }));
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await slot.findByRole("button", { name: "Load after video" });
+    expect(revoke).toHaveBeenCalledWith("blob:changes-video");
+    expect(pause).toHaveBeenCalled();
+    expect(callsTo(slot, "getVideo")).toHaveLength(1);
+    create.mockRestore();
+    revoke.mockRestore();
+    play.mockRestore();
+    pause.mockRestore();
+  });
   it("shows added image absence, preserves open-file navigation and releases at refresh start", async () => {
     const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:changes");
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});

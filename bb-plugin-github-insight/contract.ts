@@ -1,3 +1,4 @@
+import { videoResultSchema } from "./core/video-content";
 import {
   imagePathSchema,
   imageShaSchema,
@@ -148,6 +149,7 @@ const addPullRequestReviewRequestSchema = z
 export type AddPullRequestReviewRequest = z.infer<typeof addPullRequestReviewRequestSchema>;
 
 export const hostContract = defineRpcContract({
+  readPrVideo: { input: prImageRequestSchema, output: videoResultSchema },
   readPrImage: { input: prImageRequestSchema, output: imageResultSchema },
   fetchImageMergeBase: { input: prImageRefsSchema, output: ghResultSchema },
   fetchOverviewPage: {
@@ -464,6 +466,17 @@ const runPrActionRequestSchema = z
 export type RunPrActionRequest = z.infer<typeof runPrActionRequestSchema>;
 
 export const rpcContract = defineRpcContract({
+  getPrVideo: {
+    input: z
+      .object({
+        threadId: z.string().min(1),
+        expectedBasisKey: z.string(),
+        path: imagePathSchema,
+        side: imageSideSchema,
+      })
+      .strict(),
+    output: videoResultSchema,
+  },
   getPrImage: {
     input: z
       .object({

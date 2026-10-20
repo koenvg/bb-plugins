@@ -1,3 +1,19 @@
+import { videoResultSchema } from "./core/video-content";
+import { imagePathSchema, imageShaSchema } from "./core/image-content";
+
+export const workspaceVideoRequestSchema = z
+  .object({
+    root: z.string().min(1),
+    path: imagePathSchema,
+    revision: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("working-tree") }),
+      z.object({ kind: z.literal("commit"), sha: imageShaSchema, firstParent: z.boolean() }),
+    ]),
+  })
+  .strict();
+export const hostContract = defineRpcContract({
+  readVideo: { input: workspaceVideoRequestSchema, output: videoResultSchema },
+});
 import { imageResultSchema, imageSideSchema } from "./core/image-content";
 import { changedFileSchema, changesBasisSchema } from "./core/changes";
 import { defineRpcContract } from "@get-bb/plugin-sdk";
@@ -16,6 +32,17 @@ import {
 } from "./core/viewed-files";
 
 export const rpcContract = defineRpcContract({
+  getVideo: {
+    input: z
+      .object({
+        threadId: z.string().min(1),
+        basis: changesBasisSchema,
+        file: changedFileSchema,
+        side: imageSideSchema,
+      })
+      .strict(),
+    output: videoResultSchema,
+  },
   getImage: {
     input: z
       .object({

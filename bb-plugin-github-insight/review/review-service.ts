@@ -1,3 +1,4 @@
+import { isVideoPath, type VideoWireResult } from "../core/video-content";
 import { z } from "zod";
 import {
   imageBasisKey,
@@ -91,6 +92,10 @@ interface ReviewServiceDeps {
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
   fetchImageMergeBase?(target: PrTarget, refs: PrImageRefs): Promise<unknown>;
+  readPrVideo?(
+    target: PrTarget,
+    request: { owner: string; repo: string; sha: string; path: string },
+  ): Promise<VideoWireResult>;
   readPrImage?(
     target: PrTarget,
     request: { owner: string; repo: string; sha: string; path: string },
@@ -138,7 +143,13 @@ export function createReviewService(deps: ReviewServiceDeps) {
         let imageBasis: PrImageBasis | null = null;
         for (let attempt = 0; attempt < 2 && refs !== null; attempt++) {
           if (
-            !files.some((file) => isRasterPath(file.path) || isRasterPath(file.previousPath ?? ""))
+            !files.some(
+              (file) =>
+                isRasterPath(file.path) ||
+                isRasterPath(file.previousPath ?? "") ||
+                isVideoPath(file.path) ||
+                isVideoPath(file.previousPath ?? ""),
+            )
           )
             break;
           const nextRaw = await deps.fetchPrHead(target).catch(() => null);
@@ -357,12 +368,27 @@ export function createReviewService(deps: ReviewServiceDeps) {
     return { kind: "sent", delivery, threadCount: threads.length };
   }
 
-  async function getPrImage(
+  function getPrContent(
+    kind: "image",
     threadId: string,
     expectedBasisKey: string,
     path: string,
     side: ImageSide,
-  ): Promise<ImageWireResult> {
+  ): Promise<ImageWireResult>;
+  function getPrContent(
+    kind: "video",
+    threadId: string,
+    expectedBasisKey: string,
+    path: string,
+    side: ImageSide,
+  ): Promise<VideoWireResult>;
+  async function getPrContent(
+    kind: "image" | "video",
+    threadId: string,
+    expectedBasisKey: string,
+    path: string,
+    side: ImageSide,
+  ): Promise<ImageWireResult | VideoWireResult> {
     const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
     if (resolution.kind !== "pr")
       return imageError("stale", "Pull request changed. Refresh the review.");
@@ -377,7 +403,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
       basis.baseRepo.owner.toLowerCase() !== target.ref.owner.toLowerCase() ||
       basis.baseRepo.repo.toLowerCase() !== target.ref.repo.toLowerCase()
     )
-      return imageError("stale", "Image revisions changed. Refresh the review.");
+      return imageError("stale", "Preview revisions changed. Refresh the review.");
     const file = loaded.files.find((file) => file.path === path);
     if (!file) return imageError("stale", "File changed. Refresh the review.");
     try {
@@ -385,19 +411,25 @@ export function createReviewService(deps: ReviewServiceDeps) {
       if (sidePath === null) return { kind: "absent" };
       const repo = side === "before" ? basis.baseRepo : basis.headRepo;
       const sha = side === "before" ? basis.mergeBaseSha : basis.headSha;
+      if (kind === "video" && !isVideoPath(file.path) && !isVideoPath(file.previousPath ?? ""))
+        return imageError("unsupported", "This side is not an MP4 or WebM video");
+      const reader = kind === "video" ? deps.readPrVideo : deps.readPrImage;
       const result =
-        (await deps.readPrImage?.(target, { ...repo, sha, path: sidePath })) ??
-        imageError("read", "Image reader unavailable");
+        (await reader?.(target, { ...repo, sha, path: sidePath })) ??
+        imageError("read", "Preview reader unavailable");
       return loadedPrs.get(prKey(target.ref)) === slot
         ? result
-        : imageError("stale", "Review refreshed. Retry the image.");
+        : imageError("stale", "Review refreshed. Retry the preview.");
     } catch {
-      return imageError("read", "Could not read image at this revision");
+      return imageError("read", "Could not read preview at this revision");
     }
   }
 
   return {
-    getPrImage,
+    getPrImage: (threadId: string, key: string, path: string, side: ImageSide) =>
+      getPrContent("image", threadId, key, path, side),
+    getPrVideo: (threadId: string, key: string, path: string, side: ImageSide) =>
+      getPrContent("video", threadId, key, path, side),
     load,
     loadForDisplay,
     loadDrafts,

@@ -62,6 +62,7 @@ vi.mock("@pierre/diffs/react", () => ({
       }}
       data-testid="file-diff"
       data-path={fileDiff.name}
+      data-additions={fileDiff.additionLines.join("")}
       data-type={fileDiff.type}
       data-diff-style={options?.diffStyle}
       data-gutter-utility={String(options?.enableGutterUtility ?? false)}
@@ -158,6 +159,9 @@ const threaded = {
 
 interface RpcHandlers {
   getReview?: () => ReviewResult | Promise<ReviewResult>;
+  getPrVideo?: () =>
+    | import("../core/video-content").VideoWireResult
+    | Promise<import("../core/video-content").VideoWireResult>;
   getPrImage?: () => ImageWireResult | Promise<ImageWireResult>;
   getDrafts?: () => DraftsResult | Promise<DraftsResult>;
   sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
@@ -228,6 +232,8 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
         addPrComment: () => ({ kind: "error", message: "unused" }),
         sendToAgent:
           handlers.sendToAgent ?? (() => ({ kind: "sent", delivery: "sent", threadCount: 1 })),
+        getPrVideo:
+          handlers.getPrVideo ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getPrImage:
           handlers.getPrImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getInsight: () => ({ kind: "no_pr" }),
@@ -270,6 +276,85 @@ describe("PR raster review", () => {
     mergeBaseSha: "3333333333333333333333333333333333333333",
     hostId: "host-1",
   };
+  it.each(["mp4", "webm"])(
+    "keeps an LFS %s pointer patch, inline draft and Viewed in PR Files",
+    async (extension) => {
+      const path = `clip.${extension}`;
+      const patch = `@@ -1,3 +1,3 @@\n version https://git-lfs.github.com/spec/v1\n-oid sha256:${"1".repeat(64)}\n+oid sha256:${"2".repeat(64)}\n-size 10000000\n+size 10000001`;
+      const slot = renderTabWith(
+        {},
+        {
+          ...recorded,
+          imageBasis,
+          files: [{ path, previousPath: null, status: "modified", patch }],
+          commentDrafts: [
+            commentDraft(`lfs-${extension}`, {
+              path,
+              line: 2,
+              body: "Keep the LFS object tracked",
+            }),
+          ],
+        },
+      );
+      const diff = await slot.findByTestId("file-diff");
+      expect(diff.getAttribute("data-additions")).toContain(
+        "version https://git-lfs.github.com/spec/v1",
+      );
+      expect(diff.getAttribute("data-additions")).toContain("size 10000001");
+      const draft = slot.getByRole("region", { name: "Pending comment" });
+      expect(
+        (within(draft).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value,
+      ).toBe("Keep the LFS object tracked");
+      expect(draft.closest("[data-testid=line-annotation]")?.getAttribute("data-line")).toBe("2");
+      expect(slot.queryByRole("button", { name: /Load (before|after) video/ })).toBeNull();
+      expect(callsTo(slot, "getPrVideo")).toEqual([]);
+      const viewed = slot.getByRole("checkbox", { name: `Viewed ${path}` }) as HTMLInputElement;
+      fireEvent.click(viewed);
+      await waitFor(() => expect(viewed.checked).toBe(true));
+    },
+  );
+  it("loads video in production PR Files only on request and preserves it across draft refresh", async () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pr-video");
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const play = vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("probably");
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const slot = renderTabWith(
+      {
+        getPrVideo: () => ({
+          kind: "ready",
+          content: "AAAAAGZ0eXBpc29t",
+          mime: "video/mp4",
+          sizeBytes: 12,
+        }),
+      },
+      {
+        ...recorded,
+        imageBasis,
+        files: [{ path: "clip.mp4", previousPath: "old.mp4", status: "renamed", patch: null }],
+      },
+    );
+    await slot.findByRole("button", { name: "Load before video" });
+    expect(callsTo(slot, "getPrVideo")).toEqual([]);
+    expect(callsTo(slot, "getPrImage")).toEqual([]);
+    fireEvent.click(slot.getByRole("button", { name: "Load before video" }));
+    const video = (await slot.findByLabelText(
+      "Before: old.mp4 (3333333333333333333333333333333333333333)",
+    )) as HTMLVideoElement;
+    expect(video.controls).toBe(true);
+    expect(video.autoplay).toBe(false);
+    expect(callsTo(slot, "getPrVideo")).toMatchObject([{ side: "before", path: "clip.mp4" }]);
+    await act(async () => {
+      await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
+    });
+    expect(callsTo(slot, "getPrVideo")).toHaveLength(1);
+    fireEvent.click(slot.getByRole("button", { name: "Collapse clip.mp4" }));
+    expect(revoke).toHaveBeenCalledWith("blob:pr-video");
+    expect(pause).toHaveBeenCalled();
+    create.mockRestore();
+    revoke.mockRestore();
+    play.mockRestore();
+    pause.mockRestore();
+  });
   it("loads images without viewed controls and keeps draft-only refresh from reloading bytes", async () => {
     const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pr");
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
