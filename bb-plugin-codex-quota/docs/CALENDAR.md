@@ -2,11 +2,15 @@
 
 ## Use the chart
 
-Select an enrolled host on the Codex Quota page. The allowance summary comes first. The TanStack Charts bar chart shows 30 local calendar dates through today in the viewer's IANA timezone. Previous 30 days and Next 30 days move the range. Next is disabled at the latest range. Previous stops at retained bounds.
+Open Codex Quota from the navigation sidebar. The Codex dashboard shows All machines and combines recorded usage across machines without a host selector. The chart and Top 10 ranking come before Account allowance. The Refresh allowance button remains in the page header.
+
+The TanStack Charts bar chart shows 30 local calendar dates through today in the viewer's IANA timezone. Previous and Next move the range by 30 days. Next is disabled at the latest range. Previous stops at retained bounds. Latest returns to the current range.
 
 Today's values include only recorded events before the report's observation time. Future instants are excluded. Today cannot prove a full-day zero. The chart has no current-day progress banner. Historical date ranges keep their existing coverage rules.
 
-The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, ranking, grouping, entity-inspection or comparison controls on this page. The report uses workspace grouping and host scope.
+The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, entity-inspection or comparison controls on this page.
+
+Below the chart, Top 10 threads is the default ranking. Select Workspaces to show Top 10 workspaces, or Threads to return to verified threads. The ranking follows the selected metric and date range. Changing the ranking group does not change the chart's workspace-based totals. Verified threads are a subset of workspace usage, not extra tokens to add. Shared paths on different machines remain separate.
 
 The token chart divides each recorded daily total by model. Colors stay tied to model IDs as dates and rankings change. Up to eight named models are shown; remaining known attribution is Other models. Unknown model is the recorded remainder without retained model detail, including expired detail and older machine reports. The tooltip and accessible table keep exact model counts and token-category facts. Reasoning remains part of output and is not counted twice. Missing detail on one machine does not suppress another machine's known model usage.
 
@@ -15,6 +19,12 @@ Tokens includes retained uncertain counts by default as a separate dashed chart 
 The chart reads the index only. To recover earlier omissions, start a new manual import from the configured roots in Historical import. The UI enables uncertain recovery automatically. Resume preserves the frozen import mode. See [Historical import](IMPORT.md) for source limits and duplicate rules.
 
 Hover over a date or use the chart's keyboard navigation to inspect its tooltip. The tooltip shows the date and exact source values, with separate uncertain token estimates when present. It has no lower coverage, pricing or billing-note section. Recorded attribution exclusions appear when nonzero. A screen-reader table has the same daily value, coverage, pricing and exclusion facts, plus timezone and the cost limit in its caption. There are 30 table rows, not 30 native day buttons.
+
+## Selected-host chart component
+
+The separate `CalendarReportPanel` uses workspace grouping and host scope. It has no daily-detail, ranking, grouping, entity-inspection or comparison controls. It is not mounted in the current Codex Quota navigation page or Usage collection settings. The local `speed.html` preview's Host fixture button exercises this component; that button is a fixture control, not installed BB navigation.
+
+Selected-host loading, selection and recovery behavior below describes this component. It does not provide a route from the all-machine dashboard to a selected-host chart.
 
 ## Drawing and interaction policy
 
@@ -42,7 +52,7 @@ Host selection hides earlier values before selection completes. Late responses c
 
 ## Read captured values correctly
 
-Each accepted record belongs to its original host and full recorded workspace path. Shared workspace usage counts once. Current path metadata is not independently verified by the report. Exact-thread and comparison capabilities remain backend contracts, not primary-page controls. Unknown or ambiguous workspace shares are not allocated to threads.
+Each accepted record belongs to its original host and full recorded workspace path. Shared workspace usage counts once. Current path metadata is not independently verified by the report. Exact-thread scope and comparison capabilities remain backend contracts, not primary-page inspection controls. Unknown or ambiguous workspace shares are not allocated to threads.
 
 The recorded token total is authoritative. Reasoning can overlap output, and cache classes are not extra tokens to add. Expired or incomplete class detail is not zero and does not hide retained token or cost subtotals. The primary chart does not expose token-class detail or per-entity averages.
 
@@ -54,7 +64,7 @@ Records, writer activity, configured roots, settled imports and complete identit
 
 ## Open collection settings
 
-Collection management is in the public SDK Usage collection settings section, not below the primary chart. Account activity and extra allowance windows are also in settings. Account activity is independent of selected-host Pi usage.
+Expand Machine status and collection settings below Account allowance, then select Manage history for a connected machine. The same disclosure is available in the public SDK Usage collection settings section. Account activity and extra allowance windows are in settings. Account activity is independent of selected-host Pi usage.
 
 Collection and history management starts closed. Its panels mount only while open. Opening requests bounded readiness and import status for the selected host. Reopening refreshes both. Closing or unmounting suppresses queued UI requests and late UI results. It cannot undo host work already dispatched. Collector and import commands remain separate from read-only chart navigation.
 
@@ -76,11 +86,11 @@ Quota, its footer, countdown, host selection, refresh and the official usage lin
 
 The 30-day chart supports pointer tooltips and keyboard date navigation. The separate date inspector is removed. Tooltips show recorded values, nonzero exclusions and separate uncertain token estimates. Coverage and pricing details remain in the accessible table. Unknown history stays unavailable; recorded inactivity stays zero.
 
-For compact control sizes, refresh behaviour and touch navigation checks, run `bun run test:browser mobile-layout.spec.ts` after the setup below. The suite checks 32px date-arrow visuals with 44px coarse-pointer hit areas and a background-free refresh icon after the allowance heading. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
+For compact layout, refresh behaviour and touch navigation checks, run `bun run test:browser mobile-layout.spec.ts` after the setup below. The suite checks chart axes and control layout from 320 to 1280 CSS pixels, 44px coarse-pointer hit areas, and touch activation of Refresh allowance and date navigation. Chromium emulated touch is not a physical-device check or installed acceptance. See [browser verification](BROWSER-TESTING.md) for the coverage mapping and evidence limits.
 
 ## Storage and interfaces
 
-Schema 5 adds source/speed metadata without changing immutable Pi scalar facts. Supported schema-4 read-only reports remain all Normal. Internal `readCalendarTotals` uses indexed storage-side aggregation over accepted records in the bounded UTC interval. Real IANA boundaries assign local dates, including 23-hour and 25-hour dates. Logical cutoffs use the later of the current retention policy and saved monotonic cutoff. Dormant reads cannot expose expired ranges or classes while physical cleanup waits. No individual event array or accepted-record cap crosses the report boundary. The DTO has exactly 30 dates and at most 50 ranked entities; the primary chart does not render the ranking.
+Schema 5 adds source/speed metadata without changing immutable Pi scalar facts. Supported schema-4 read-only reports remain all Normal. Internal `readCalendarTotals` uses indexed storage-side aggregation over accepted records in the bounded UTC interval. Real IANA boundaries assign local dates, including 23-hour and 25-hour dates. Logical cutoffs use the later of the current retention policy and saved monotonic cutoff. Dormant reads cannot expose expired ranges or classes while physical cleanup waits. No individual event array or accepted-record cap crosses the report boundary. The DTO has exactly 30 dates and at most 50 ranked entities; the selected-host chart component does not render the ranking.
 
 `HostHistory` keeps read, control and controlImport. Its optional calendar query/result uses the existing read context and snapshot without refreshing collector readiness. `calendarReport` validates dates, timezone, grouping, scope and echoed query identity. Server routing rechecks selected enrollment and cancellation before dispatch and after return. No-query readiness calls do not aggregate calendar data.
 
