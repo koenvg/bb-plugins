@@ -16,6 +16,9 @@ import {
 import { localOperationCommand, localOperationCommands } from "../local-operations.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
+const pair = await generateKeyPair("RS256");
+const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
+
 type Provider = Awaited<ReturnType<BbPluginApi["sdk"]["providers"]["list"]>>[number];
 export function provider(
   id: string,
@@ -105,8 +108,6 @@ export async function fixture(
   seedStorage?: (host: ReturnType<typeof createFakePluginHost>) => void,
   authMode: Config["authMode"] = "bearer-jwt",
 ) {
-  const pair = await generateKeyPair("RS256");
-  const jwk = { ...(await exportJWK(pair.publicKey)), kid: "fixture", alg: "RS256", use: "sig" };
   let config: Config = {
     publicOrigin: "https://mcp.example.org",
     port: 0,
@@ -119,7 +120,7 @@ export async function fixture(
     remoteEnabled: true,
     controlEnabled: false,
   };
-  const issuerKeys = { keys: [jwk] };
+  const issuerKeys = { keys: [{ ...jwk }] };
   const issuerCalls: string[] = [];
   const issuer = createServer((req, res) => {
     issuerCalls.push(req.url ?? "");

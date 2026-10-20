@@ -1,5 +1,25 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { fixture } from "./fixtures.js";
+
+it("starts an authenticated fixture without per-test RSA key generation", async () => {
+  const generate = vi
+    .spyOn(crypto.subtle, "generateKey")
+    .mockRejectedValue(new Error("Key generation unavailable"));
+  let f: Awaited<ReturnType<typeof fixture>> | undefined;
+  try {
+    f = await fixture();
+    const reply = await f.rpc("tools/call", { name: "bb_list_projects", arguments: {} });
+    expect(reply.status).toBe(200);
+    expect((await reply.json()).result.structuredContent.projects).toEqual([
+      { id: "proj_a", name: "Allowed" },
+      { id: "proj_hidden", name: "Private" },
+    ]);
+    expect(generate).not.toHaveBeenCalled();
+  } finally {
+    generate.mockRestore();
+    await f?.close();
+  }
+});
 
 it("holds distinct OS-assigned listener ports for concurrent fixtures", async () => {
   const fixtures = await Promise.all(Array.from({ length: 8 }, () => fixture()));
@@ -15,6 +35,23 @@ it("holds distinct OS-assigned listener ports for concurrent fixtures", async ()
     }
   } finally {
     await Promise.all(fixtures.map((f) => f.close()));
+  }
+});
+
+it("keeps issuer key changes local to each fixture", async () => {
+  const [changed, unchanged] = await Promise.all([fixture(), fixture()]);
+  try {
+    changed.issuerKeys.keys[0].kid = "rotated";
+    const request = { name: "bb_list_projects", arguments: {} };
+    expect((await changed.rpc("tools/call", request)).status).toBe(401);
+    const reply = await unchanged.rpc("tools/call", request);
+    expect(reply.status).toBe(200);
+    expect((await reply.json()).result.structuredContent.projects).toEqual([
+      { id: "proj_a", name: "Allowed" },
+      { id: "proj_hidden", name: "Private" },
+    ]);
+  } finally {
+    await Promise.all([changed.close(), unchanged.close()]);
   }
 });
 
