@@ -1,6 +1,10 @@
 # Dedicated Chrome browser contract
 
-Use this reference before browser setup, after a connection failure, at a login wall, and during cleanup. It also applies to the Compose synthetic fixture runner. Browser Use 0.13.10 accepts Python scripts on stdin. Browser Harness 0.1.13 provides the helpers and named daemons. Legacy sessions do not migrate. Leave their processes and files unchanged.
+Use this reference for installed BB checks through Browser Use, including connection failures, login walls, and cleanup. Browser Use 0.13.10 accepts Python scripts on stdin. Browser Harness 0.1.13 provides the helpers and named daemons. Legacy sessions do not migrate. Leave their processes and files unchanged.
+
+Owned Playwright fixtures, including Compose Chat's synthetic runner, use the package's documented prerequisites and `bun run test:browser` command instead. They do not require Browser Use, Browser Harness, or a separately provisioned browser or profile. The runner starts this checkout on an owned loopback port, hands its origin to Playwright, and cleans only its own processes and temporary resources. Follow the package's evidence and cleanup rules. A fixture pass does not establish installed acceptance.
+
+The remaining sections apply only to the installed Browser Use route.
 
 ## Browser policy and approval
 
