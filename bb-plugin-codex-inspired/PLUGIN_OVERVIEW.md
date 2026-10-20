@@ -12,4 +12,4 @@ The plugin does not replace navigation or the thread list, alter Fonts plugin se
 
 ## Requirements
 
-BB 0.45 or newer and Plugin SDK 0.6.15 or newer, below 0.7. The sidebar typography rules depend on current BB and Threads with PRs markup. Theme and thread-list upgrades should be checked together. No external service or account is required.
+BB `>=0.46` and Plugin SDK `>=0.6.37 <0.7`. The sidebar typography rules depend on current BB and Threads with PRs markup. Theme and thread-list upgrades should be checked together. No external service or account is required.

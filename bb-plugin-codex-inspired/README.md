@@ -2,7 +2,7 @@
 
 A selectable BB theme with a neutral light and dark palette, Libron for chat messages and Markdown Reader document text, native system sans for app controls and the composer, and Inter for the sidebar. Messages and the composer use 16px text. Thread titles use 14px regular text, unread emphasis uses weight 500, and group headings use 14px at weight 500. Code and Raw view stay monospaced.
 
-Version `0.1.2` requires BB `>=0.45` and Plugin SDK `>=0.6.15 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Libron regular and bold are embedded in the theme under the SIL Open Font License 1.1; browsers synthesize italic styling. No system font installation is needed. Compose Chat is not required.
+Version `0.1.2` requires BB `>=0.46` and Plugin SDK `>=0.6.37 <0.7`. There is no frontend bundle, runtime dependency, account, font download, or thread-list replacement. Inter comes from BB. Libron regular and bold are embedded in the theme under the SIL Open Font License 1.1; browsers synthesize italic styling. No system font installation is needed. Compose Chat is not required.
 
 ## Install from Git
 
