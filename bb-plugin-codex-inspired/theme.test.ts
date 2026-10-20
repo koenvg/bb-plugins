@@ -8,6 +8,16 @@ const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"))
 const approvedHash = "24aaea6fd54e4484b8a7c293f9ae81ca809eca956fcd96671e3608e9d0d8691a";
 
 describe("Codex Inspired package", () => {
+  it.each(["README.md", "PLUGIN_OVERVIEW.md"])(
+    "%s states the manifest's BB and SDK compatibility bounds",
+    (file) => {
+      const documentation = readFileSync(new URL(file, root), "utf8");
+      expect(documentation).toContain(
+        `BB \`${manifest.engines.bb}\` and Plugin SDK \`${manifest.engines.bbPluginSdk}\``,
+      );
+    },
+  );
+
   it("keeps the installed plugin and theme identities and compatibility floors", () => {
     expect(manifest.name).toBe("bb-plugin-codex-inspired");
     expect(manifest.version).toBe("0.1.2");
