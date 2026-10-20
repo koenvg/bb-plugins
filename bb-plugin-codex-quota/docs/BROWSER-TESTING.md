@@ -12,7 +12,7 @@ bun run typecheck
 
 `@playwright/test` is locked to 1.64.0. `bun run test` remains Vitest. Its default exclusions are retained, with only `scripts/browser/**/*.spec.ts` added. `proof.test.ts` remains in Vitest.
 
-No Python, Pillow, Browser Use, Bun, BB CLI or prebuilt `dist/` is required for browser checks. The `.mjs` bundle checks remain separate backend verification. `test:bundle` also runs the actual built-entry speed/native proof.
+No Python, Pillow, Browser Use, Browser Harness, BB CLI or prebuilt `dist/` is required for browser checks. The `.mjs` bundle checks remain separate backend verification. `test:bundle` also runs the actual built-entry speed/native proof.
 
 ## Ownership and local resources
 
@@ -65,7 +65,7 @@ bun run test scripts/browser/proof.test.ts
 bun --bun run playwright show-report
 ```
 
-The full run has 121 browser tests. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
+Use `bun run test:browser --list` to discover the current suite without launching Chromium. Run `bun run test:browser` without filters to execute the full suite. `test-results/` holds screenshots with original scenario names, decoded PNG dimensions/hashes, per-calendar-case `checks.json` and `result.json` with capture hashes and evidence limits, and activity `early-layout.json`. The HTML report has their attachments. Failures retain traces, screenshots and locator/AX context. A later run clears these output directories; copy them to a separate evidence directory before rerunning if receipts must remain. Historical `/tmp/bbp*-evidence` outputs are not changed.
 
 ## Evidence limits
 

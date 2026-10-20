@@ -51,7 +51,7 @@ The browser script starts this checkout on an OS-assigned loopback port with a p
 
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
 The `typescript-7` dependency is pinned to `npm:typescript@7.0.2`. The script runs
-its published executable through Node at `./node_modules/typescript-7/bin/tsc`.
+its published executable through Bun at `./node_modules/typescript-7/bin/tsc`.
 It does not use `node_modules/.bin/tsc`, a global compiler, or a downloaded fallback.
 The package selects its native compiler for the host platform. Keep optional
 dependencies enabled during `bun install --frozen-lockfile` so that compiler is installed.
