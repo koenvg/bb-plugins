@@ -49,7 +49,7 @@ Use the same plugin identity; do not uninstall first. Confirm the source path, e
 
 ## Selector contract
 
-`themes/codex-inspired.css` contains the approved stylesheet, SHA256 `b7c7c7c1bcfba16904fb10b44944185e128446b90273080f9a8e6d46765cd750`. Intentional future appearance changes require approval, an updated checksum, and a new version.
+`themes/codex-inspired.css` contains the approved stylesheet, SHA256 `24aaea6fd54e4484b8a7c293f9ae81ca809eca956fcd96671e3608e9d0d8691a`. Intentional future appearance changes require approval, an updated checksum, and a new version.
 
 The selectors depend on current BB and Threads with PRs markup, not a stable SDK styling API:
 
