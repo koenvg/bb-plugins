@@ -38,6 +38,23 @@ it("holds distinct OS-assigned listener ports for concurrent fixtures", async ()
   }
 });
 
+it("keeps issuer key changes local to each fixture", async () => {
+  const [changed, unchanged] = await Promise.all([fixture(), fixture()]);
+  try {
+    changed.issuerKeys.keys[0].kid = "rotated";
+    const request = { name: "bb_list_projects", arguments: {} };
+    expect((await changed.rpc("tools/call", request)).status).toBe(401);
+    const reply = await unchanged.rpc("tools/call", request);
+    expect(reply.status).toBe(200);
+    expect((await reply.json()).result.structuredContent.projects).toEqual([
+      { id: "proj_a", name: "Allowed" },
+      { id: "proj_hidden", name: "Private" },
+    ]);
+  } finally {
+    await Promise.all([changed.close(), unchanged.close()]);
+  }
+});
+
 it("retains the fixture connection port across restart", async () => {
   const f = await fixture();
   try {
