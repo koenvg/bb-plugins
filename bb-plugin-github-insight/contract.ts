@@ -1,3 +1,13 @@
+import {
+  imagePathSchema,
+  imageShaSchema,
+  imageSideSchema,
+  imageResultSchema,
+} from "./core/image-content";
+import { imageRepoSchema, prImageRefsSchema, prImageBasisSchema } from "./core/pr-image-basis";
+export const prImageRequestSchema = imageRepoSchema
+  .extend({ sha: imageShaSchema, path: imagePathSchema })
+  .strict();
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
@@ -138,6 +148,8 @@ const addPullRequestReviewRequestSchema = z
 export type AddPullRequestReviewRequest = z.infer<typeof addPullRequestReviewRequestSchema>;
 
 export const hostContract = defineRpcContract({
+  readPrImage: { input: prImageRequestSchema, output: imageResultSchema },
+  fetchImageMergeBase: { input: prImageRefsSchema, output: ghResultSchema },
   fetchOverviewPage: {
     input: prPageRequestSchema,
     output: ghResultSchema,
@@ -241,6 +253,7 @@ export const reviewResultSchema = z.discriminatedUnion("kind", [
   reviewDraftsSchema.extend({
     kind: z.literal("ok"),
     head: prHeadSchema,
+    imageBasis: prImageBasisSchema.nullable().optional(),
     files: z.array(reviewFileSchema),
     threads: threadPlacementSchema,
     viewedMarks: viewedMarksSchema,
@@ -451,6 +464,17 @@ const runPrActionRequestSchema = z
 export type RunPrActionRequest = z.infer<typeof runPrActionRequestSchema>;
 
 export const rpcContract = defineRpcContract({
+  getPrImage: {
+    input: z
+      .object({
+        threadId: z.string().min(1),
+        expectedBasisKey: z.string(),
+        path: imagePathSchema,
+        side: imageSideSchema,
+      })
+      .strict(),
+    output: imageResultSchema,
+  },
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
   getReview: { input: threadRequestSchema, output: reviewResultSchema },

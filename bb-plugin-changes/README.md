@@ -18,8 +18,10 @@ Open **Changes** from the new-tab list in a thread's right panel.
 - Branch diffs compare with `origin/<default branch>` when that remote branch exists, else with the local default branch.
 - The top shows the file count and the added lines (green) and deleted lines (red), for example `2 files +34 -5`.
 - **Unified view** and **Split view** are the two icon buttons next to Refresh.
-- Each file has its own section. Sections show folders first, then files, by name, at each folder level: `src/ui/a.ts`, then `src/b.ts`, then `README.md`. A binary file shows "Binary file". A file that is too large shows "Diff too large". A diff loads when its section comes near the visible area.
+- Each file has its own section. Sections show folders first, then files, by name, at each folder level: `src/ui/a.ts`, then `src/b.ts`, then `README.md`. PNG, JPEG, GIF and WebP files show before/after previews. Other binary files show "Binary file". A file that is too large shows "Diff too large". A diff loads when its section comes near the visible area.
 - **Refresh** (the arrow icon) loads the diff again. The last diff stays visible while it loads.
+
+Image previews accept up to 4 MiB per side. They load only near the visible area while expanded and release content when collapsed or scrolled away. Each failed side has its own Retry. Committed previews use pinned revisions. **All changes** and **Uncommitted** show live working-tree content on the after side, read separately from the file list. Refresh invalidates previews immediately. The SDK can allocate its larger upstream read before the plugin enforces the 4 MiB acceptance limit. SVG previews are deferred; SVG keeps its text diff, comments and viewed marks. Image previews have no line comments or viewed marks.
 
 ## Viewed files
 

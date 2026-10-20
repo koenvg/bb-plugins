@@ -1,3 +1,4 @@
+import { imageMergeBaseArgs, readPrImage } from "./github/pr-image-content";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
@@ -34,6 +35,9 @@ const execFileAsync = promisify(execFile);
 export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
+    readPrImage: (request, context) => readPrImage(request, context.signal),
+    fetchImageMergeBase: (request, context) =>
+      runGhJson(imageMergeBaseArgs(request), context.signal),
     fetchOverviewPage: (request, context) => runGhJson(overviewPageArgs(request), context.signal),
     fetchCheckRunDetails: (request, context) =>
       runGhJson(checkRunDetailsArgs(request), context.signal),

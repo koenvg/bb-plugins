@@ -1,3 +1,18 @@
+import { z } from "zod";
+import {
+  imageBasisKey,
+  parseImageRefs,
+  type PrImageBasis,
+  type PrImageRefs,
+} from "../core/pr-image-basis";
+import {
+  imageError,
+  imagePath,
+  isRasterPath,
+  imageShaSchema,
+  type ImageSide,
+  type ImageWireResult,
+} from "../core/image-content";
 import type {
   ActionResult,
   MarkCommentsSeenRequest,
@@ -30,6 +45,7 @@ import type { ViewedMarksStore } from "./viewed-marks-store";
 
 export interface PrReview extends ReviewDrafts {
   head: PrHead;
+  imageBasis?: PrImageBasis | null;
   files: ReviewFile[];
   threads: ThreadPlacement;
   viewedMarks: ViewedMarks;
@@ -63,6 +79,8 @@ export type TargetLoad = PrLoad<object>;
 
 interface LoadedPr {
   head: PrHead;
+  imageBasis: PrImageBasis | null;
+  hostId: string;
   files: ReviewFile[];
   collected: CollectedReviewThreads;
 }
@@ -72,6 +90,11 @@ interface ReviewServiceDeps {
   fetchPrFilesPage(target: PrTarget, page: number): Promise<unknown>;
   fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
   fetchPrHead(target: PrTarget): Promise<unknown>;
+  fetchImageMergeBase?(target: PrTarget, refs: PrImageRefs): Promise<unknown>;
+  readPrImage?(
+    target: PrTarget,
+    request: { owner: string; repo: string; sha: string; path: string },
+  ): Promise<ImageWireResult>;
   drafts: DraftStore;
   viewed: ViewedMarksStore;
   newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
@@ -86,7 +109,7 @@ interface ReviewServiceDeps {
 export type ReviewService = ReturnType<typeof createReviewService>;
 
 export function createReviewService(deps: ReviewServiceDeps) {
-  const loadedPrs = new Map<string, LoadedPr>();
+  const loadedPrs = new Map<string, { value: LoadedPr | null }>();
 
   async function withPr<T>(
     threadId: string,
@@ -105,18 +128,55 @@ export function createReviewService(deps: ReviewServiceDeps) {
   }
 
   async function fetchPr(target: PrTarget): Promise<LoadedPr> {
-    const [files, collected, head] = await Promise.all([
-      collectPrFiles((page) => deps.fetchPrFilesPage(target, page)),
+    const slot: { value: LoadedPr | null } = { value: null };
+    loadedPrs.set(prKey(target.ref), slot);
+    const [{ head, files, imageBasis }, collected] = await Promise.all([
+      (async () => {
+        let rawHead = await deps.fetchPrHead(target);
+        let refs = parseImageRefs(rawHead);
+        let files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
+        let imageBasis: PrImageBasis | null = null;
+        for (let attempt = 0; attempt < 2 && refs !== null; attempt++) {
+          if (
+            !files.some((file) => isRasterPath(file.path) || isRasterPath(file.previousPath ?? ""))
+          )
+            break;
+          const nextRaw = await deps.fetchPrHead(target).catch(() => null);
+          const nextRefs = parseImageRefs(nextRaw);
+          if (JSON.stringify(refs) === JSON.stringify(nextRefs)) {
+            try {
+              const compared = await deps.fetchImageMergeBase?.(target, refs);
+              const { merge_base_commit } = z
+                .object({ merge_base_commit: z.object({ sha: imageShaSchema }) })
+                .parse(compared);
+              imageBasis = { ...refs, mergeBaseSha: merge_base_commit.sha, hostId: target.hostId };
+            } catch {
+              /* Text review remains available when image revisions cannot be resolved. */
+            }
+            break;
+          }
+          if (attempt === 1 || nextRefs === null) break;
+          rawHead = nextRaw;
+          refs = nextRefs;
+          files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
+        }
+        return { head: parsePrHead(rawHead), files, imageBasis };
+      })(),
       collectReviewThreads((after) => deps.fetchReviewThreadsPage(target, after)),
-      deps.fetchPrHead(target).then(parsePrHead),
     ]);
-    const loaded = { head, files, collected };
-    loadedPrs.set(prKey(target.ref), loaded);
+    const loaded = {
+      head,
+      files,
+      collected,
+      imageBasis,
+      hostId: target.hostId,
+    };
+    if (loadedPrs.get(prKey(target.ref)) === slot) slot.value = loaded;
     return loaded;
   }
 
   async function loadedPr(target: PrTarget): Promise<LoadedPr> {
-    return loadedPrs.get(prKey(target.ref)) ?? fetchPr(target);
+    return loadedPrs.get(prKey(target.ref))?.value ?? fetchPr(target);
   }
 
   async function readDrafts(pr: PullRequestRef, replyDrafts: Promise<Drafts>) {
@@ -151,7 +211,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     threadsOf: (collected: CollectedReviewThreads) => ReviewThread[],
   ): Promise<ReviewLoad> {
     return withPr(threadId, async (target) => {
-      const { head, files, collected } = await fetchPr(target);
+      const { head, files, collected, imageBasis } = await fetchPr(target);
       const [drafts, viewedMarks, { markedAt, seen }] = await Promise.all([
         readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected)),
         deps.viewed.get(target.ref),
@@ -161,7 +221,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
       const newIds = newCommentIds(collected.othersComments, markedAt, seen);
       return {
         allThreadsRead: collected.complete,
-        review: { head, files, threads, viewedMarks, newCommentIds: newIds, ...drafts },
+        review: { head, files, imageBasis, threads, viewedMarks, newCommentIds: newIds, ...drafts },
       };
     });
   }
@@ -297,7 +357,47 @@ export function createReviewService(deps: ReviewServiceDeps) {
     return { kind: "sent", delivery, threadCount: threads.length };
   }
 
+  async function getPrImage(
+    threadId: string,
+    expectedBasisKey: string,
+    path: string,
+    side: ImageSide,
+  ): Promise<ImageWireResult> {
+    const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
+    if (resolution.kind !== "pr")
+      return imageError("stale", "Pull request changed. Refresh the review.");
+    const target = resolution.target;
+    const slot = loadedPrs.get(prKey(target.ref));
+    const loaded = slot?.value;
+    const basis = loaded?.imageBasis;
+    if (
+      !basis ||
+      basis.hostId !== target.hostId ||
+      imageBasisKey(basis) !== expectedBasisKey ||
+      basis.baseRepo.owner.toLowerCase() !== target.ref.owner.toLowerCase() ||
+      basis.baseRepo.repo.toLowerCase() !== target.ref.repo.toLowerCase()
+    )
+      return imageError("stale", "Image revisions changed. Refresh the review.");
+    const file = loaded.files.find((file) => file.path === path);
+    if (!file) return imageError("stale", "File changed. Refresh the review.");
+    try {
+      const sidePath = imagePath(file, side);
+      if (sidePath === null) return { kind: "absent" };
+      const repo = side === "before" ? basis.baseRepo : basis.headRepo;
+      const sha = side === "before" ? basis.mergeBaseSha : basis.headSha;
+      const result =
+        (await deps.readPrImage?.(target, { ...repo, sha, path: sidePath })) ??
+        imageError("read", "Image reader unavailable");
+      return loadedPrs.get(prKey(target.ref)) === slot
+        ? result
+        : imageError("stale", "Review refreshed. Retry the image.");
+    } catch {
+      return imageError("read", "Could not read image at this revision");
+    }
+  }
+
   return {
+    getPrImage,
     load,
     loadForDisplay,
     loadDrafts,

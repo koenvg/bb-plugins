@@ -10,6 +10,9 @@ query ($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       id headRefOid state viewerDidAuthor
+      baseRefOid
+      baseRepository { name owner { login } }
+      headRepository { name owner { login } }
       viewerLatestReview { state submittedAt commit { oid } }
     }
   }

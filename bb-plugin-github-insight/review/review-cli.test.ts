@@ -483,12 +483,12 @@ describe("review CLI", () => {
           expect.objectContaining({ body: "Keep locally", commitOid: "def456", source: "agent" }),
         ]);
         expect(harness.experimental_hostRpcCalls.map(({ method }) => method)).toEqual([
-          "fetchPrFiles",
-          "fetchReviewThreads",
           "fetchPrHead",
-          "fetchPrFiles",
           "fetchReviewThreads",
+          "fetchPrFiles",
           "fetchPrHead",
+          "fetchReviewThreads",
+          "fetchPrFiles",
         ]);
       },
     );

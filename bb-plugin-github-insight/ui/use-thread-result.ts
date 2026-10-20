@@ -10,6 +10,7 @@ interface ErrorResult {
 export interface ThreadResultState<R> {
   result: R | ErrorResult | null;
   refreshing: boolean;
+  generation: number;
   revalidating: boolean;
   reload: () => void;
   refresh: () => Promise<R | ErrorResult | null>;
@@ -93,6 +94,7 @@ export function useThreadResult<R>(
   const result = loaded?.threadId === threadId ? loaded.result : (snapshot?.(threadId) ?? null);
   return {
     result,
+    generation: latestRequest.current,
     refreshing: refreshingThreadId === threadId,
     revalidating: loadingThreadId === threadId && result !== null,
     reload,
