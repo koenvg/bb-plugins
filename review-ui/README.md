@@ -4,6 +4,7 @@ Review UI parts that more than one plugin in this repo uses: the diff with a gut
 
 `ReviewImageDiff` presents independent before/after raster sides through injected async callbacks. It owns visibility, loading/error/retry state and Blob URL cleanup. Plugin loaders own revisions, credentials and byte policy. SVG stays on the text review route.
 
+`ReviewVideoDiff` uses the same injected side-loader shape. It requires an explicit click per side, uses native playback controls without autoplay, and owns cancellation, decode fallback, pause-on-removal and Blob URL cleanup. Plugin host readers enforce the 8 MiB limit before returning bytes.
 Rules:
 
 - Only `ui/` code and type-only imports may use this folder. bb rejects a server source import outside the plugin directory when it reloads the plugin (`bb plugin build` does not check this). Server code that two plugins need goes in a copy in each plugin, like `core/patch-identity.ts`.

@@ -227,6 +227,14 @@ submitReview --> server: load the review again (files, threads, head, drafts fro
 
 PNG, JPEG, GIF and WebP previews load near the viewport while expanded, with a 4 MiB decoded-byte limit per side. The before side uses the pinned true merge base; the after side uses the pinned PR head and its repository, including forks. Reads use the thread host's authenticated `gh` credentials, including private repositories. Missing access, oversized content and decode failures stay local to the failing side, with Retry. Refresh invalidates image content immediately; draft-only updates do not reload it. Collapsing or scrolling away releases previews. Images have no line-comment creation or viewed marks. SVG preview is deferred and SVG source diffs keep existing review behavior. Historical comment snippets remain text.
 
+### Video comparisons
+
+MP4 and WebM previews load only after **Load before video** or **Load after video**, with an 8 MiB limit per side. Native controls do not autoplay. Collapse, refresh, and **Unload** release content. Failed sides offer Retry and a local-player fallback. MP4 with H.264/AAC and WebM with VP8/VP9/Opus pass the local Chromium fixture; codec support depends on the browser.
+
+Git LFS pointer files remain text diffs, with their comments, drafts and Viewed controls. Video previews do not fetch LFS objects.
+
+Video reads use the same pinned true merge base, fork head repository, listed-file checks, and actual thread host as image reads. Authenticated `gh` stays on that host. Size metadata is checked before bounded raw output. Each command has a 20-second deadline and at most two video reads run concurrently. The current SDK has no binary streaming host-RPC path. Content is returned only for an explicitly requested side, never in the PR file list.
+
 ### Viewed files
 
 Each text file in the Files sub-tab that has a patch shows a collapse button and a "Viewed" checkbox in its header. It works like the Changes tab.

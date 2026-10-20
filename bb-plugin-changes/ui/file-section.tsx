@@ -1,3 +1,5 @@
+import { isVideoPath } from "../core/video-content";
+import { ReviewVideoDiff } from "../../review-ui/video-diff";
 import { useCallback } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
@@ -67,8 +69,10 @@ export function FileSection({
       data-path={file.path}
       className="min-h-10 border-b border-border"
     >
-      {isRasterPath(file.path) || isRasterPath(file.previousPath ?? "") ? (
-        <ChangesImage
+      {isRasterPath(file.path) ||
+      isRasterPath(file.previousPath ?? "") ||
+      (file.binary && (isVideoPath(file.path) || isVideoPath(file.previousPath ?? ""))) ? (
+        <ChangesPreview
           generation={imageGeneration}
           threadId={threadId}
           file={file}
@@ -105,7 +109,7 @@ export function FileSection({
   );
 }
 
-function ChangesImage({
+function ChangesPreview({
   threadId,
   file,
   basis,
@@ -122,19 +126,26 @@ function ChangesImage({
 }) {
   const rpc = useRpc<typeof rpcContract>();
   const [collapsed, setCollapsed] = useState(false);
+  const video = isVideoPath(file.path) || isVideoPath(file.previousPath ?? "");
+  const Preview = video ? ReviewVideoDiff : ReviewImageDiff;
   const load = useCallback(
     async (side: ImageSide, signal: AbortSignal) => {
       if (!basis)
         return {
           kind: "error" as const,
           code: "stale" as const,
-          message: "Image revision unavailable. Refresh changes.",
+          message: "Preview revision unavailable. Refresh changes.",
         };
-      const result = await rpc.call("getImage", { threadId, basis, file, side });
+      const result = await rpc.call(video ? "getVideo" : "getImage", {
+        threadId,
+        basis,
+        file,
+        side,
+      });
       signal.throwIfAborted();
       return imageBlobResult(result);
     },
-    [rpc, threadId, basis, file],
+    [rpc, threadId, basis, file, video],
   );
   const target = basis?.target;
   const beforeRevision =
@@ -161,7 +172,7 @@ function ChangesImage({
         <FileHeaderRow file={file} openFileButton={openFileButton} />
       </div>
       {!collapsed && (
-        <ReviewImageDiff
+        <Preview
           key={JSON.stringify([threadId, basis, generation, file.path, file.previousPath])}
           active={active}
           before={

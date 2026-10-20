@@ -1,3 +1,5 @@
+import { isVideoPath } from "../core/video-content";
+import { ReviewVideoDiff } from "../../review-ui/video-diff";
 import { useCallback } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
@@ -53,9 +55,13 @@ export function PrFileDiff({
   image?: { threadId: string; basis: PrImageBasis | null; active: boolean; generation: number };
 }) {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
-  if (isRasterPath(file.path) || isRasterPath(file.previousPath ?? ""))
+  if (
+    isRasterPath(file.path) ||
+    isRasterPath(file.previousPath ?? "") ||
+    (file.patch === null && (isVideoPath(file.path) || isVideoPath(file.previousPath ?? "")))
+  )
     return (
-      <PrImageFile file={file} image={image} threads={threads} commentDrafts={commentDrafts} />
+      <PrPreviewFile file={file} image={image} threads={threads} commentDrafts={commentDrafts} />
     );
   if (fileDiff === null)
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
@@ -73,7 +79,7 @@ export function PrFileDiff({
   );
 }
 
-function PrImageFile({
+function PrPreviewFile({
   file,
   image,
   threads,
@@ -84,6 +90,8 @@ function PrImageFile({
 }) {
   const rpc = useRpc<typeof rpcContract>();
   const [collapsed, setCollapsed] = useState(false);
+  const video = isVideoPath(file.path) || isVideoPath(file.previousPath ?? "");
+  const Preview = video ? ReviewVideoDiff : ReviewImageDiff;
   const basis = image?.basis;
   const threadId = image?.threadId;
   const load = useCallback(
@@ -92,9 +100,9 @@ function PrImageFile({
         return {
           kind: "error" as const,
           code: "stale" as const,
-          message: "Image revision unavailable. Refresh the review.",
+          message: "Preview revision unavailable. Refresh the review.",
         };
-      const result = await rpc.call("getPrImage", {
+      const result = await rpc.call(video ? "getPrVideo" : "getPrImage", {
         threadId,
         expectedBasisKey: imageBasisKey(basis),
         path: file.path,
@@ -103,7 +111,7 @@ function PrImageFile({
       signal.throwIfAborted();
       return imageBlobResult(result);
     },
-    [rpc, basis, threadId, file.path],
+    [rpc, basis, threadId, file.path, video],
   );
   return (
     <section data-path={file.path} className="border-b border-border">
@@ -120,7 +128,7 @@ function PrImageFile({
         <ThreadCount count={threads.length} />
       </div>
       {!collapsed && (
-        <ReviewImageDiff
+        <Preview
           key={JSON.stringify([
             image?.threadId,
             image?.generation,

@@ -61,6 +61,7 @@ function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
     { threadId, params: null },
     {
       rpc: {
+        getPrVideo: () => ({ kind: "error", code: "read", message: "unavailable" }),
         getPrImage: () => ({ kind: "error", code: "read", message: "unavailable" }),
         getInsight: handlers.getInsight ?? (() => ({ kind: "no_pr" })),
         refresh: () => ({ kind: "no_pr" }),

@@ -6,6 +6,7 @@ Users inspect a thread's PR, review its files/conversation, and manage review dr
 
 - github-overview: blockers, reviewers, checks, conversation and description.
 - github-files: diffs, outdated/resolved threads and local pending comment drafts.
+- github-video: Explicit per-side MP4/WebM loading at the true merge base and fork head through authenticated host reads.
 - github-queue: Pull Requests panel, Needs review/Reviewed and linked hidden review threads.
 - github-write: external comments, reviews, merge/enqueue, branch updates and auto-merge.
 
@@ -23,6 +24,8 @@ Preconditions:
 - Installed actions follow [the installed workflow](../references/installed-workflow.md), with exact-checkout identity, needed permissions and an owned record/state ledger. Missing prerequisites remain blockers.
 
 Before local checks install this package and its sibling with `bun install --cwd bb-plugin-pr-thread-list --frozen-lockfile` from the root. There is no standalone owned Chromium recipe here; tests use controlled SDK/GitHub boundaries. For installed Doctor require an exact linked PR and signed-in gh on the thread's actual host, not only the local machine. Follow the installed workflow, open Overview from each requested badge/banner entry, then Files, and verify correct PR/head identity and state preservation across sub-tab switches. Capture the action and resulting diff/thread placements. Read-only CLI list must agree with the visible thread list. Creating a draft writes plugin storage; replies, Post + resolve, review submission, merge/enqueue, update-branch and auto-merge change GitHub or Git refs and each need separate bounded approval. Verify external results by a second read and retain failures without automatic replay.
+
+The [Changes-owned local video fixture](../../../../bb-plugin-changes/tests/video-browser/README.md) tests the shared playback component only. PR public-loader and Files-tab tests cover revision, host, lazy loading and refresh behavior through controlled SDK/GitHub boundaries. Neither proves installed PR playback or private/fork credentials. Those require the approved installed workflow with a real linked PR.
 
 ## Gotchas
 
