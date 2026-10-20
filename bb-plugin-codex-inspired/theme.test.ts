@@ -38,6 +38,11 @@ describe("Codex Inspired package", () => {
     expect(createHash("sha256").update(css).digest("hex")).toBe(approvedHash);
   });
 
+  it("documents the approved stylesheet checksum in the README", () => {
+    const readme = readFileSync(new URL("README.md", root), "utf8");
+    expect(readme).toContain(`SHA256 \`${approvedHash}\``);
+  });
+
   it("gives enabled buttons a separated keyboard-only focus outline", () => {
     const css = readFileSync(new URL(manifest.bb.themes[0].css, root), "utf8");
     expect(css).toContain(
