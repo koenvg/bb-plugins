@@ -10,11 +10,13 @@ Users review a thread's diff, mark viewed files, write line comments and send a 
 - changes-feedback: pending comments, out-of-diff comments and approved Send feedback.
 - changes-filename-controls: Open workspace files with mouse, Enter, and Space through BB's runtime diff renderer.
 - changes-video: Explicit per-side MP4/WebM loading, bounded host reads, native playback and unload.
+- changes-context: Load revision-bound text, then expand unchanged lines above or below changes with the native controls.
 
 ## How to get to it (user POV)
 
 - Open Changes from the thread right-panel new-tab list.
 - Choose a diff target and Unified view or Split view; select a file in the outline.
+- Choose Load context in an eligible file header, then expand the unchanged lines above or below a change.
 - Choose + in a line gutter, then Add to review; choose Send feedback to inspect the pending review.
 
 ## Driving it with BB and package harnesses
@@ -26,7 +28,9 @@ Preconditions:
 
 Require an owned Git workspace with known text changes and no commit/push operations during the proof. In the installed Changes tab, switch targets, navigate a file, add a uniquely identified comment with Add to review, then open Send feedback and Cancel. Capture both line activation and the retained pending review; observe zero agent messages. Toggle Viewed, reopen the panel, and prove persistence; after an approved owned patch edit and Refresh, prove invalidation. Send to agent requires separate approval and proof of one resulting message/queue entry, not only an empty review. Run `bun run --cwd bb-plugin-changes test` and `typecheck` locally; its shared review-ui dependency requires the sibling layout.
 
-For filename controls, run the [BB-backed renderer check](../../../../bb-plugin-changes/tests/bb-renderer/README.md). It uses the owned thread's real BB renderer and native file viewer, with per-page frontend, RPC, and panel-tab fixtures. It never installs or reloads a plugin. Keep this result separate from the full installed workflow above and from CI's fixture boundary tests. Its report records positive and unsupported-slot candidates, native content, unchanged installation and saved tabs, and browser cleanup.
+For filename controls and context expansion, run the [BB-backed renderer check](../../../../bb-plugin-changes/tests/bb-renderer/README.md). It uses the owned thread's real BB renderer and native file viewer, with per-page frontend, RPC, and panel-tab fixtures. It never installs or reloads a plugin. Keep this result separate from the full installed workflow above and from CI's fixture boundary tests. Its report records positive and unsupported-slot candidates, native content, unchanged installation and saved tabs, and browser cleanup.
+
+The context checks must show above and below expansion in both layouts, keyboard activation, retry, stale-response rejection, and unchanged original comments. The browser harness fixtures the context RPC. For installed acceptance, also load context from the candidate backend in an owned Git workspace. Verify the revealed text against both revisions and retain the partial diff after an owned file edit makes the context stale.
 
 For video playback, follow the [owned local fixture recipe](../../../../bb-plugin-changes/tests/video-browser/README.md). It compiles the production shared component, binds an ephemeral loopback port, generates owned clips with ffmpeg, and verifies decoded MP4 H.264/AAC and WebM VP8/VP9/Opus frames at wide and narrow widths. It does not use BB authentication or change installed sources. Keep it separate from installed Changes playback and the BB-backed filename renderer check.
 

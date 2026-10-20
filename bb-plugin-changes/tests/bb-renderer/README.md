@@ -1,4 +1,4 @@
-# Check filename controls against running BB
+# Check diff controls against running BB
 
 Run this check from an owned BB thread whose environment is this checkout. Keep the existing local BB server and Changes plugin running. The command does not install or reload a plugin.
 
@@ -29,9 +29,11 @@ The command checks the SDK pin, builds this checkout with BB's official compiler
 
 ## Read the result
 
-A pass prints `Passed 11 BB renderer checks.` The evidence directory contains `report.json`, `filename-controls.png`, and `native-file-content.png`. The report identifies the checkout, candidate bundle SHA256, Chromium version, native workspace-read URLs, RPC observations, and before/after installation and saved-tab state.
+A pass prints `Passed N BB renderer checks.` with the observed check count. The evidence directory contains `report.json`, `filename-controls.png`, and `native-file-content.png`. The report identifies the checkout, candidate bundle SHA256, Chromium version, native workspace-read URLs, RPC observations, and before/after installation and saved-tab state.
 
 The check uses BB's own React and `@pierre/diffs` runtime shims. It opens the real Changes action and native file viewer through browser input. Mouse, Enter, and Space must each load a known workspace file. Its content differs from the fixture's historical patch. Viewed, filename collapse, deleted files, current rename paths, and historical-target navigation have separate assertions.
+
+The context checks activate **Load context**, then the native above and below controls in Unified and Split views. They cover Enter and Space, read-error retry, refresh during an in-flight request, stale-context fallback, retained original comments, and refusal to comment on revealed lines. Context responses are page-local fixtures. These checks do not verify the candidate backend's file reads.
 
 A second, concurrently open browser context receives an in-memory copy of the same bundle with `renderCustomHeader` changed to `renderHeaderFilenameSuffix`. The same visibility assertion must reject that copy while the positive candidate stays usable. The negative context must still render BB's default filename header. If a future BB supports that slot, reassess this historical negative control instead of suppressing the assertion.
 

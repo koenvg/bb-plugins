@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
 import { pendingReviews } from "../core/pending-review";
+import {
+  textContextResultSchema,
+  textRevisions,
+  type Snapshot,
+  type TextContextResult,
+} from "../core/text-context";
 import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
@@ -69,6 +75,7 @@ vi.mock("@pierre/diffs/react", () => ({
       data-header-mode={renderCustomHeader === undefined ? "default" : "custom"}
       data-prefix-renderer={String(renderHeaderPrefix !== undefined)}
       data-metadata-renderer={String(renderHeaderMetadata !== undefined)}
+      data-partial={String(fileDiff.isPartial)}
     >
       {renderCustomHeader !== undefined ? (
         renderCustomHeader()
@@ -80,6 +87,7 @@ vi.mock("@pierre/diffs/react", () => ({
           {renderHeaderMetadata?.()}
         </>
       )}
+      <pre aria-label="After contents">{fileDiff.additionLines.join("")}</pre>
       {(["additions", "deletions"] as const).flatMap((side) =>
         [1, 2, 3].map((line) => (
           <button
@@ -170,6 +178,9 @@ interface Handlers {
     | import("../core/video-content").VideoWireResult
     | Promise<import("../core/video-content").VideoWireResult>;
   getImage?: (input: { side: "before" | "after" }) => ImageWireResult | Promise<ImageWireResult>;
+  getTextContext?: (
+    input: Omit<Snapshot, "generation">,
+  ) => TextContextResult | Promise<TextContextResult>;
   getChanges?: (input: unknown) => ChangesResult | Promise<ChangesResult>;
   getPatches?: (input: { paths: string[] }) => PatchesResult | Promise<PatchesResult>;
   sendFeedback?: (input: { text: string }) => SendFeedbackResult | Promise<SendFeedbackResult>;
@@ -187,6 +198,9 @@ function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
       rpc: {
         getVideo:
           handlers.getVideo ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
+        getTextContext:
+          handlers.getTextContext ??
+          (() => ({ kind: "error", code: "read", message: "Could not load context. Retry." })),
         getImage:
           handlers.getImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getChanges: handlers.getChanges ?? (() => A_ONLY),
@@ -548,7 +562,7 @@ describe("shared diff header", () => {
     );
     const diff = screen.getByTestId("file-diff");
     expect(diff.textContent).toBe(
-      "Changes-owned header+ additions 1+ additions 2+ additions 3+ deletions 1+ deletions 2+ deletions 3",
+      "Changes-owned headerkeep\nnew\nkeep\n+ additions 1+ additions 2+ additions 3+ deletions 1+ deletions 2+ deletions 3",
     );
     expect(diff.dataset).toMatchObject({
       headerMode: "custom",
@@ -1920,5 +1934,127 @@ describe("file outline", () => {
       expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(row(slot, "d.ts"));
       expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
     });
+  });
+});
+
+describe("Changes text context", () => {
+  const imageBasis = {
+    environmentId: "env-1",
+    headSha: "a".repeat(40),
+    mergeBaseRef: "b".repeat(40),
+    target: { kind: "all" as const },
+  };
+  const patch =
+    "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -2 +2 @@\n-old\n+new\n";
+  const value = changes([file("src/a.ts")], { imageBasis, patches: { "src/a.ts": patch } });
+  function ready(input: Omit<Snapshot, "generation">) {
+    const revisions = textRevisions(input.basis, input.file);
+    return textContextResultSchema.parse({
+      kind: "ready",
+      old: {
+        kind: "text",
+        revision: revisions.old,
+        contents: "prefix\nold\nsuffix\n",
+        sizeBytes: 18,
+      },
+      new: {
+        kind: "text",
+        revision: revisions.new,
+        contents: "prefix\nnew\nsuffix\n",
+        sizeBytes: 18,
+      },
+    });
+  }
+  it("loads on demand, preserves drafts and refuses revealed-line comments", async () => {
+    const slot = renderTab({ getChanges: () => value, getTextContext: ready });
+    const button = await slot.findByRole("button", { name: "Load context" });
+    expect(callsTo(slot, "getTextContext")).toEqual([]);
+    fireEvent.click(slot.getByRole("button", { name: "+ additions 2" }));
+    fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), {
+      target: { value: "Keep this draft" },
+    });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(slot.getByLabelText("After contents").textContent).toBe("prefix\nnew\nsuffix\n"),
+    );
+    expect(slot.getByTestId("file-diff").getAttribute("data-partial")).toBe("false");
+    expect((slot.getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value).toBe(
+      "Keep this draft",
+    );
+    fireEvent.click(slot.getByRole("button", { name: "+ additions 1" }));
+    expect(slot.getByRole("status").textContent).toBe(
+      "Revealed context is read-only. Comment on a line in the original diff.",
+    );
+    expect((slot.getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement).value).toBe(
+      "Keep this draft",
+    );
+    fireEvent.click(slot.getByRole("button", { name: "Add to review" }));
+    expect(slot.getByText("Keep this draft").textContent).toBe("Keep this draft");
+    expect(slot.getByRole("button", { name: "Send feedback (1)" }).textContent).toBe(
+      "Send feedback (1)",
+    );
+    fireEvent.click(slot.getByRole("button", { name: "+ deletions 2" }));
+    expect(slot.getByRole("textbox", { name: "Comment" }).getAttribute("placeholder")).toBe(
+      "Leave a comment",
+    );
+  });
+  it("keeps the partial diff after failure, then retries", async () => {
+    let attempts = 0;
+    const slot = renderTab({
+      getChanges: () => value,
+      getTextContext: (input) =>
+        ++attempts === 1
+          ? { kind: "error", code: "read", message: "Could not load context. Retry." }
+          : ready(input),
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Load context" }));
+    await slot.findByRole("button", { name: "Retry context" });
+    expect(slot.getByLabelText("After contents").textContent).toBe("new\n");
+    expect(slot.getByRole("status").textContent).toBe("Could not load context. Retry.");
+    fireEvent.click(slot.getByRole("button", { name: "Retry context" }));
+    await waitFor(() =>
+      expect(slot.getByLabelText("After contents").textContent).toBe("prefix\nnew\nsuffix\n"),
+    );
+  });
+  it("invalidates at refresh start and blocks retained previous-generation patches", async () => {
+    let loads = 0;
+    let patchLoads = 0;
+    let finishChanges!: (result: ChangesResult) => void;
+    let finishPatch!: (result: PatchesResult) => void;
+    let finishContext!: (result: TextContextResult) => void;
+    let captured!: Omit<Snapshot, "generation">;
+    const slot = renderTab({
+      getChanges: () =>
+        ++loads === 1
+          ? changes([file("src/a.ts")], { imageBasis })
+          : new Promise((resolve) => {
+              finishChanges = resolve;
+            }),
+      getPatches: () =>
+        ++patchLoads === 1
+          ? { kind: "ok", patches: { "src/a.ts": patch } }
+          : new Promise((resolve) => {
+              finishPatch = resolve;
+            }),
+      getTextContext: (input) => {
+        captured = input;
+        return new Promise((resolve) => {
+          finishContext = resolve;
+        });
+      },
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Load context" }));
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    expect(slot.queryByRole("button", { name: "Loading context…" })).toBeNull();
+    await act(async () => finishContext(ready(captured)));
+    expect(slot.getByLabelText("After contents").textContent).toBe("new\n");
+    await act(async () => finishChanges(changes([file("src/a.ts")], { imageBasis })));
+    expect(slot.queryByRole("button", { name: "Load context" })).toBeNull();
+    expect(slot.getByLabelText("After contents").textContent).toBe("new\n");
+    await act(async () => finishPatch({ kind: "ok", patches: { "src/a.ts": patch } }));
+    expect((await slot.findByRole("button", { name: "Load context" })).textContent).toBe(
+      "Load context",
+    );
+    expect(slot.getByLabelText("After contents").textContent).toBe("new\n");
   });
 });

@@ -216,6 +216,7 @@ function FileList({
             imageBasis={changes.imageBasis}
             imagesActive={imagesActive}
             imageGeneration={imageGeneration}
+            contextCurrent={patches.currentPatch(file.path) !== null}
             file={file}
             patch={patches.stateOf(file.path)}
             lines={lines === undefined || typeof lines === "string" ? null : lines}

@@ -22,6 +22,7 @@ export interface ReviewFileDiffProps<T> {
   headerMetadata?: ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  onPostRender?: (node: HTMLElement) => void;
 }
 
 export function ReviewFileDiff<T>({
@@ -36,6 +37,7 @@ export function ReviewFileDiff<T>({
   headerMetadata,
   collapsed = false,
   onToggleCollapsed,
+  onPostRender,
 }: ReviewFileDiffProps<T>) {
   const renderCustomHeader = useCallback(() => customHeader, [customHeader]);
   const hasCustomHeader = customHeader != null;
@@ -77,6 +79,7 @@ export function ReviewFileDiff<T>({
               filename.setAttribute("aria-expanded", String(!collapsed));
             }
           });
+          onPostRender?.(node);
         },
         diffStyle: view,
         enableGutterUtility: onAddComment !== undefined,

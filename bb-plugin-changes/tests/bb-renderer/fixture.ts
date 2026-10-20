@@ -1,3 +1,4 @@
+import { textRevisions, type ContextFailure, type Snapshot } from "../../core/text-context";
 import { diffQuery, type ChangedFile, type DiffTarget } from "../../core/changes";
 
 export const WORKSPACE_PATH = "bb-plugin-changes/tests/bb-renderer/files/workspace.txt";
@@ -6,6 +7,14 @@ export const DELETED_PATH = "bb-plugin-changes/tests/bb-renderer/files/deleted.t
 export const WORKSPACE_TEXT = "BBP-215 live workspace content, not historical diff content.";
 export const RENAMED_TEXT = "BBP-215 current renamed file, not the previous path.";
 
+export const CONTEXT_PATH = "context.txt";
+export const CONTEXT_OLD =
+  Array.from({ length: 400 }, (_, index) =>
+    index === 199 ? "old value" : `unchanged line ${index + 1}`,
+  ).join("\n") + "\n";
+export const CONTEXT_NEW = CONTEXT_OLD.replace("old value", "new value");
+export const CONTEXT_PATCH =
+  "diff --git a/context.txt b/context.txt\n--- a/context.txt\n+++ b/context.txt\n@@ -199,3 +199,3 @@\n unchanged line 199\n-old value\n+new value\n unchanged line 201\n";
 export function loopbackOrigin(input: string): string {
   const url = new URL(input);
   if (
@@ -53,10 +62,12 @@ export function rendererFixture(threadId: string, environmentId: string) {
     file(WORKSPACE_PATH, "modified"),
     file(RENAMED_PATH, "renamed", "bbp-215-previous-name.txt"),
     file(DELETED_PATH, "deleted"),
+    file(CONTEXT_PATH, "modified"),
   ];
   const patches = Object.fromEntries(
     files.map((item) => [item.path, patch(item.path, item.previousPath ?? item.path)]),
   );
+  patches[CONTEXT_PATH] = CONTEXT_PATCH;
   const marks = new Map<string, Record<string, string>>();
   let tabs = {
     revision: 1,
@@ -67,8 +78,27 @@ export function rendererFixture(threadId: string, environmentId: string) {
     ] as unknown[],
   };
   const calls: { method: string; input: Record<string, unknown> }[] = [];
+  let nextContextError: ContextFailure | null = null;
+  let nextContextDelay: Promise<void> | null = null;
   return {
     calls,
+    failNextContext(code: "read" | "stale") {
+      nextContextError = {
+        kind: "error",
+        code,
+        message:
+          code === "read"
+            ? "Could not load context. Retry."
+            : "Context does not match this diff. Refresh changes.",
+      };
+    },
+    deferNextContext() {
+      let release!: () => void;
+      nextContextDelay = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return () => release();
+    },
     tabs(method: string, input?: { expectedRevision: number; tabs: unknown[] }) {
       if (method === "GET") return tabs;
       if (method !== "PUT" || input?.expectedRevision !== tabs.revision)
@@ -87,9 +117,44 @@ export function rendererFixture(threadId: string, environmentId: string) {
             environmentId,
             query: diffQuery(target, "origin/main"),
             files,
+            imageBasis: {
+              environmentId,
+              headSha: "a".repeat(40),
+              mergeBaseRef: "b".repeat(40),
+              target,
+            },
             patches,
             commits: [],
           };
+        case "getTextContext": {
+          const snapshot = input as unknown as Snapshot;
+          if (
+            snapshot.file.path !== CONTEXT_PATH ||
+            snapshot.patch !== CONTEXT_PATCH ||
+            snapshot.basis.environmentId !== environmentId
+          )
+            throw new Error("Unexpected context snapshot");
+          const revisions = textRevisions(snapshot.basis, snapshot.file);
+          const result = nextContextError ?? {
+            kind: "ready",
+            old: {
+              kind: "text",
+              revision: revisions.old,
+              contents: CONTEXT_OLD,
+              sizeBytes: new TextEncoder().encode(CONTEXT_OLD).length,
+            },
+            new: {
+              kind: "text",
+              revision: revisions.new,
+              contents: CONTEXT_NEW,
+              sizeBytes: new TextEncoder().encode(CONTEXT_NEW).length,
+            },
+          };
+          nextContextError = null;
+          const delay = nextContextDelay;
+          nextContextDelay = null;
+          return delay ? delay.then(() => result) : result;
+        }
         case "getPatches":
           return { kind: "ok", patches };
         case "getViewed":

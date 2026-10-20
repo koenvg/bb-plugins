@@ -1,6 +1,9 @@
+import { validateContext, type Snapshot } from "../../core/text-context";
 import { describe, expect, it } from "vitest";
 import {
   DELETED_PATH,
+  CONTEXT_PATH,
+  CONTEXT_PATCH,
   RENAMED_PATH,
   WORKSPACE_PATH,
   loopbackOrigin,
@@ -45,6 +48,7 @@ describe("BB renderer fixture boundary", () => {
         { path: WORKSPACE_PATH, status: "modified", previousPath: null },
         { path: RENAMED_PATH, status: "renamed", previousPath: "bbp-215-previous-name.txt" },
         { path: DELETED_PATH, status: "deleted", previousPath: null },
+        { path: CONTEXT_PATH, status: "modified", previousPath: null },
       ],
     });
   });
@@ -111,5 +115,54 @@ describe("BB renderer fixture boundary", () => {
     expect(() =>
       fixture.rpc("sendFeedback", { threadId: "thr-owned", text: "must not send" }),
     ).toThrow("Unexpected Changes RPC: sendFeedback");
+  });
+  it("provides exact context, recoverable failure and delayed-response fixtures", async () => {
+    const fixture = rendererFixture("thr-owned", "env-worktree");
+    const snapshot: Snapshot = {
+      threadId: "thr-owned",
+      generation: 1,
+      basis: {
+        environmentId: "env-worktree",
+        headSha: "a".repeat(40),
+        mergeBaseRef: "b".repeat(40),
+        target: { kind: "all" },
+      },
+      file: {
+        path: CONTEXT_PATH,
+        previousPath: null,
+        status: "modified",
+        binary: false,
+        loadMode: "auto",
+        additions: 1,
+        deletions: 1,
+      },
+      patch: CONTEXT_PATCH,
+    };
+    const texts = validateContext(snapshot, fixture.rpc("getTextContext", snapshot));
+    expect(texts.new.split("\n").slice(197, 202)).toEqual([
+      "unchanged line 198",
+      "unchanged line 199",
+      "new value",
+      "unchanged line 201",
+      "unchanged line 202",
+    ]);
+    fixture.failNextContext("read");
+    expect(fixture.rpc("getTextContext", snapshot)).toEqual({
+      kind: "error",
+      code: "read",
+      message: "Could not load context. Retry.",
+    });
+    const release = fixture.deferNextContext();
+    const pending = fixture.rpc("getTextContext", snapshot);
+    release();
+    expect(validateContext(snapshot, await pending).new.split("\n")[399]).toBe(
+      "unchanged line 400",
+    );
+    fixture.failNextContext("stale");
+    expect(fixture.rpc("getTextContext", snapshot)).toEqual({
+      kind: "error",
+      code: "stale",
+      message: "Context does not match this diff. Refresh changes.",
+    });
   });
 });

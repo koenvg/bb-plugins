@@ -1,16 +1,18 @@
 import { isVideoPath } from "../core/video-content";
 import { ReviewVideoDiff } from "../../review-ui/video-diff";
+import { contextEligibility, prepareContextControls, useFileContext } from "./use-file-context";
+import type { Snapshot } from "../core/text-context";
 import { useCallback } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import type { ChangesBasis } from "../core/changes";
 import { isRasterPath } from "../core/image-content";
 import { ReviewImageDiff, imageBlobResult, type ImageSide } from "../../review-ui/image-diff";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
 import { useBbNavigate, experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
-import { commentAnchorLine, type DiffLines } from "../../review-ui/diff-lines";
+import { diffLines, commentAnchorLine, type DiffLines } from "../../review-ui/diff-lines";
 import { DiffStat } from "../../review-ui/diff-stat";
 import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
@@ -23,6 +25,7 @@ import type { PatchState } from "./use-patches";
 import type { FileViewedState } from "./use-viewed";
 
 type Annotation = { kind: "comment"; comment: PendingComment } | { kind: "form"; form: OpenForm };
+type HeaderControl = "collapse" | "filename" | "viewed";
 
 interface FileSectionProps {
   threadId: string;
@@ -30,6 +33,7 @@ interface FileSectionProps {
   imageBasis?: ChangesBasis | null;
   imagesActive?: boolean;
   imageGeneration?: number;
+  contextCurrent?: boolean;
   file: ChangedFile;
   patch: PatchState;
   lines: DiffLines | null;
@@ -46,6 +50,7 @@ export function FileSection({
   imageBasis,
   imagesActive = true,
   imageGeneration = 0,
+  contextCurrent = false,
   file,
   patch,
   lines,
@@ -95,6 +100,10 @@ export function FileSection({
       ) : (
         <FileDiffWithComments
           threadId={threadId}
+          imageBasis={imageBasis}
+          imagesActive={imagesActive}
+          imageGeneration={imageGeneration}
+          contextCurrent={contextCurrent}
           openFileButton={openFileButton}
           file={file}
           patch={patch.patch}
@@ -197,6 +206,10 @@ function ChangesPreview({
 
 function FileDiffWithComments({
   threadId,
+  imageBasis,
+  imagesActive,
+  imageGeneration = 0,
+  contextCurrent,
   file,
   patch,
   lines,
@@ -211,6 +224,70 @@ function FileDiffWithComments({
 }) {
   const theme = useCodeTheme();
   const fileDiff = useMemo(() => parseFileDiff(patch), [patch]);
+  const originalLines = useMemo(() => lines ?? diffLines(patch), [lines, patch]);
+  const snapshot = useMemo(
+    (): Snapshot | null =>
+      imageBasis && imagesActive && contextCurrent && !viewed.collapsed
+        ? { threadId, basis: imageBasis, generation: imageGeneration, file, patch }
+        : null,
+    [
+      threadId,
+      imageBasis,
+      imagesActive,
+      contextCurrent,
+      viewed.collapsed,
+      imageGeneration,
+      file,
+      patch,
+    ],
+  );
+  const unavailable = useMemo(() => contextEligibility(snapshot, fileDiff), [snapshot, fileDiff]);
+  const context = useFileContext(unavailable === null ? snapshot : null);
+  const header = useRef<HTMLDivElement>(null);
+  const headerFocus = useRef<HeaderControl | null>(null);
+  const headerLabels: Record<HeaderControl, string> = {
+    collapse: `${viewed.collapsed ? "Expand" : "Collapse"} ${file.path}`,
+    filename: `Toggle diff for ${file.path}`,
+    viewed: `Viewed ${file.path}`,
+  };
+  function captureHeaderFocus() {
+    const focused = document.activeElement;
+    headerFocus.current = null;
+    if (!header.current?.contains(focused)) return;
+    for (const control of ["collapse", "filename", "viewed"] as const) {
+      if (focused?.getAttribute("aria-label") === headerLabels[control])
+        headerFocus.current = control;
+    }
+  }
+  useLayoutEffect(() => {
+    const control = headerFocus.current;
+    headerFocus.current = null;
+    if (control === null) return;
+    Array.from(header.current?.querySelectorAll<HTMLElement>("[aria-label]") ?? [])
+      .find((element) => element.getAttribute("aria-label") === headerLabels[control])
+      ?.focus();
+  });
+  const [commentNotice, setCommentNotice] = useState<string | null>(null);
+  useEffect(() => setCommentNotice(null), [patch, imageGeneration, threadId]);
+  const contextAction = unavailable === null && context.state.kind !== "ready" && (
+    <button
+      type="button"
+      disabled={
+        context.state.kind === "loading" ||
+        (context.state.kind === "failed" && context.state.error.code !== "read")
+      }
+      onClick={context.activate}
+      className="shrink-0 cursor-pointer rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {context.state.kind === "loading"
+        ? "Loading context…"
+        : context.state.kind === "failed" && context.state.error.code === "read"
+          ? "Retry context"
+          : "Load context"}
+    </button>
+  );
+  const contextNotice =
+    context.state.kind === "failed" ? context.state.error.message : unavailable || null;
   const annotations = useMemo(
     (): DiffLineAnnotation<Annotation>[] => [
       ...comments.map((comment) => ({
@@ -234,18 +311,48 @@ function FileDiffWithComments({
     );
   return (
     <ReviewFileDiff
-      fileDiff={fileDiff}
+      key={
+        context.state.kind === "ready" ? context.state.diff.cacheKey : `partial-${imageGeneration}`
+      }
+      fileDiff={context.state.kind === "ready" ? context.state.diff : fileDiff}
+      onPostRender={prepareContextControls}
       annotations={annotations}
       view={view}
       theme={theme}
       collapsed={viewed.collapsed}
-      customHeader={<FileHeaderRow file={file} openFileButton={openFileButton} viewed={viewed} />}
-      onAddComment={(side, line) =>
+      customHeader={
+        <div ref={header} onClickCapture={captureHeaderFocus} className="w-full">
+          <FileHeaderRow
+            file={file}
+            openFileButton={openFileButton}
+            viewed={viewed}
+            contextAction={contextAction}
+          />
+          {contextNotice && (
+            <div role="status" className="px-4 pb-2 text-xs text-muted-foreground">
+              {contextNotice}
+            </div>
+          )}
+          {commentNotice && (
+            <div role="status" className="px-4 pb-2 text-xs text-muted-foreground">
+              {commentNotice}
+            </div>
+          )}
+        </div>
+      }
+      onAddComment={(side, line) => {
+        if (!originalLines[side].has(line)) {
+          setCommentNotice(
+            "Revealed context is read-only. Comment on a line in the original diff.",
+          );
+          return;
+        }
+        setCommentNotice(null);
         pendingReviews.openForm(threadId, {
           path: file.path,
-          ...(lines === null ? { side, line } : commentAnchorLine(lines, side, line)),
-        })
-      }
+          ...commentAnchorLine(originalLines, side, line),
+        });
+      }}
       renderAnnotation={({ metadata }) =>
         metadata.kind === "comment" ? (
           <PendingCommentCard
@@ -338,10 +445,12 @@ function FileHeaderRow({
   file,
   openFileButton,
   viewed,
+  contextAction,
 }: {
   file: ChangedFile;
   openFileButton: ReactNode;
   viewed?: FileViewedState;
+  contextAction?: ReactNode;
 }) {
   const fullPath = file.previousPath === null ? file.path : `${file.previousPath} → ${file.path}`;
   const statusLabel = `${file.status.replace("_", " ")} file`;
@@ -387,6 +496,7 @@ function FileHeaderRow({
         </span>
       </Filename>
       {openFileButton}
+      {contextAction}
       <span className="ml-auto flex shrink-0 items-center whitespace-nowrap">
         <DiffStat additions={file.additions} deletions={file.deletions} />
         {viewed !== undefined && (

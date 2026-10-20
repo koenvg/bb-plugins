@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { textContextResultSchema } from "./core/text-context";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import plugin from "./server";
@@ -106,9 +107,12 @@ async function setup(
     status?: (args: { mergeBaseBranch?: string }) => StatusResult | Promise<StatusResult>;
     diffFiles?: DiffFilesResult | Error | (() => Promise<DiffFilesResult>);
     diffPatch?: DiffPatchResult;
-    diffFile?: (
-      args: unknown,
-    ) => Promise<{ content: string; contentEncoding: "base64"; sizeBytes: number }>;
+    diffFile?: (args: unknown) => Promise<{
+      content: string;
+      contentEncoding: "base64" | "utf8";
+      sizeBytes: number;
+      path?: string;
+    }>;
     send?: SendResult | Error;
     remoteBranches?: string[];
     kv?: Record<string, unknown>;
@@ -175,6 +179,193 @@ async function setup(
   dispose = () => harness.dispose();
   return { harness, calls, kv: bb.storage.kv };
 }
+describe("getTextContext", () => {
+  const file = {
+    path: "a.txt",
+    previousPath: null,
+    additions: 1,
+    deletions: 1,
+    binary: false,
+    loadMode: "auto",
+    status: "modified",
+  };
+  const basis = {
+    environmentId: "env-1",
+    headSha: "a".repeat(40),
+    mergeBaseRef: "b".repeat(40),
+    target: { kind: "all" },
+  };
+  const patch = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -2 +2 @@\n-old\n+new\n";
+  const request = { threadId: "thr-1", basis, file, patch };
+  const readArgs: Record<string, unknown>[] = [];
+  const read = async (args: unknown) => {
+    const input = args as Record<string, unknown>;
+    readArgs.push(input);
+    const content = input.target === "commit" ? "prefix\nold\nsuffix\n" : "prefix\nnew\nsuffix\n";
+    return {
+      path: String(input.path),
+      content,
+      contentEncoding: "utf8" as const,
+      sizeBytes: Buffer.byteLength(content),
+    };
+  };
+  beforeEach(() => {
+    readArgs.length = 0;
+  });
+  it.each(["all", "uncommitted", "branch_committed", "commit"])(
+    "reads the captured %s revisions",
+    async (kind) => {
+      const reader = async (args: unknown) => {
+        const input = args as Record<string, unknown>;
+        readArgs.push(input);
+        const content = readArgs.length === 1 ? "prefix\nold\nsuffix\n" : "prefix\nnew\nsuffix\n";
+        return {
+          path: "a.txt",
+          content: Buffer.from(content).toString("base64"),
+          contentEncoding: "base64" as const,
+          sizeBytes: Buffer.byteLength(content),
+        };
+      };
+      const { harness } = await setup({ diffFile: reader });
+      const target = kind === "commit" ? { kind, sha: "c".repeat(40) } : { kind };
+      const result = textContextResultSchema.parse(
+        await harness.callRpc("getTextContext", { ...request, basis: { ...basis, target } }),
+      );
+      expect(result.kind).toBe("ready");
+      if (result.kind !== "ready") throw new Error(result.message);
+      expect(result.new.kind === "text" ? result.new.contents : "absent").toBe(
+        "prefix\nnew\nsuffix\n",
+      );
+      expect(readArgs).toEqual([
+        {
+          environmentId: "env-1",
+          path: "a.txt",
+          target: "commit",
+          sha:
+            kind === "commit"
+              ? "c".repeat(40)
+              : kind === "uncommitted"
+                ? "a".repeat(40)
+                : "b".repeat(40),
+          side: kind === "commit" ? "old" : "new",
+        },
+        kind === "all" || kind === "uncommitted"
+          ? { environmentId: "env-1", path: "a.txt", target: "uncommitted", side: "new" }
+          : {
+              environmentId: "env-1",
+              path: "a.txt",
+              target: "commit",
+              sha: kind === "commit" ? "c".repeat(40) : "a".repeat(40),
+              side: "new",
+            },
+      ]);
+    },
+  );
+  it("reads the previous rename path", async () => {
+    const { harness } = await setup({ diffFile: read });
+    const result = await harness.callRpc("getTextContext", {
+      ...request,
+      file: { ...file, previousPath: "old.txt", status: "renamed" },
+      patch: patch.replaceAll("a/a.txt", "a/old.txt"),
+    });
+    expect(textContextResultSchema.parse(result).kind).toBe("ready");
+    expect(readArgs.map((args) => args.path)).toEqual(["old.txt", "a.txt"]);
+  });
+  it.each(["added", "untracked", "deleted"])("does not read the absent %s side", async (status) => {
+    const content = status === "deleted" ? "old\n" : "new\n";
+    const { harness } = await setup({
+      diffFile: async (args) => {
+        readArgs.push(args as Record<string, unknown>);
+        return { path: "a.txt", content, contentEncoding: "utf8", sizeBytes: 4 };
+      },
+    });
+    const p =
+      status === "deleted"
+        ? "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-old\n"
+        : "diff --git a/a.txt b/a.txt\n--- /dev/null\n+++ b/a.txt\n@@ -0,0 +1 @@\n+new\n";
+    const result = textContextResultSchema.parse(
+      await harness.callRpc("getTextContext", { ...request, file: { ...file, status }, patch: p }),
+    );
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") throw new Error(result.message);
+    expect(result[status === "deleted" ? "new" : "old"]).toEqual({ kind: "absent" });
+    expect(readArgs).toHaveLength(1);
+  });
+  it("refuses an environment mismatch before any file read", async () => {
+    const { harness } = await setup({ environmentId: "other", diffFile: read });
+    expect(await harness.callRpc("getTextContext", request)).toEqual({
+      kind: "error",
+      code: "stale",
+      message: "Environment changed. Refresh changes.",
+    });
+    expect(readArgs).toEqual([]);
+  });
+  it("checks environment ownership again after reading both sides", async () => {
+    const options = {
+      environmentId: "env-1",
+      diffFile: async (args: unknown) => {
+        options.environmentId = "env-moved";
+        return read(args);
+      },
+    };
+    const { harness } = await setup(options);
+    expect(await harness.callRpc("getTextContext", request)).toEqual({
+      kind: "error",
+      code: "stale",
+      message: "Environment changed. Refresh changes.",
+    });
+    expect(readArgs.map((args) => args.path)).toEqual(["a.txt", "a.txt"]);
+  });
+  it("requires immutable revisions rather than branch names", async () => {
+    const { harness } = await setup({ diffFile: read });
+    expect(
+      await harness.callRpc("getTextContext", {
+        ...request,
+        basis: { ...basis, mergeBaseRef: "main" },
+      }),
+    ).toEqual({
+      kind: "error",
+      code: "stale",
+      message: "Context revision unavailable. Refresh changes.",
+    });
+  });
+  it.each([
+    ["wrong path", { path: "other" }, "Context path changed. Refresh changes."],
+    ["byte mismatch", { sizeBytes: 0 }, "Context is not valid UTF-8 text."],
+    [
+      "invalid base64",
+      { contentEncoding: "base64", content: "!!!!" },
+      "Context is not valid UTF-8 text.",
+    ],
+    [
+      "invalid UTF-8",
+      { contentEncoding: "base64", content: "/w==", sizeBytes: 1 },
+      "Context is not valid UTF-8 text.",
+    ],
+    [
+      "oversized side",
+      { sizeBytes: 1024 * 1024 + 1 },
+      "Context exceeds the 1 MiB or 20,000 line limit.",
+    ],
+    [
+      "too many lines",
+      { content: "x\n".repeat(20_001), sizeBytes: 40_002 },
+      "Context exceeds the 1 MiB or 20,000 line limit.",
+    ],
+    [
+      "outside-hunk drift",
+      { content: "drift\nnew\nsuffix\n", sizeBytes: 17 },
+      "Context does not match this diff. Refresh changes.",
+    ],
+  ])("rejects %s and retains a recoverable error", async (_label, override, message) => {
+    const { harness } = await setup({
+      diffFile: async (args) =>
+        ({ ...(await read(args)), ...override }) as Awaited<ReturnType<typeof read>>,
+    });
+    const result = await harness.callRpc("getTextContext", request);
+    expect(result).toMatchObject({ kind: "error", message });
+  });
+});
 describe("getImage", () => {
   const file = {
     path: "new.png",
