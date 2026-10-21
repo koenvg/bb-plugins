@@ -3,6 +3,9 @@ import fixture from "../test/fixtures/review-queue.json";
 import trackedFixture from "../test/fixtures/review-queue-tracked.json";
 import { parseGithubRepo, parseReviewQueue, type QueueList, type QueuePr } from "./review-queue";
 
+const NOW = Date.parse("2026-10-02T10:00:00Z");
+const DAY = 24 * 3_600_000;
+
 function prs(list: QueueList): QueuePr[] {
   return list.groups.flatMap((group) => group.prs);
 }
@@ -39,7 +42,7 @@ describe("parseGithubRepo", () => {
 });
 
 describe("parseReviewQueue", () => {
-  const queue = parseReviewQueue([fixture], []).requests;
+  const queue = parseReviewQueue([fixture], [], NOW).requests;
 
   it("maps a node to a QueuePr", () => {
     expect(byNumber(queue, 12)).toEqual({
@@ -55,6 +58,8 @@ describe("parseReviewQueue", () => {
       headRefName: "alice/retries",
       headOid: "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
       url: "https://github.com/acme/api/pull/12",
+      state: "open",
+      closedAt: null,
       activity: null,
     });
   });
@@ -108,21 +113,21 @@ describe("parseReviewQueue", () => {
 
   it("flags the list as truncated when GitHub reports more than 50", () => {
     expect(queue.truncated).toBe(false);
-    expect(parseReviewQueue([withIssueCount(70)], []).requests.truncated).toBe(true);
+    expect(parseReviewQueue([withIssueCount(70)], [], NOW).requests.truncated).toBe(true);
   });
 
   it("flags 50 results as complete", () => {
-    expect(parseReviewQueue([withIssueCount(50)], []).requests.truncated).toBe(false);
+    expect(parseReviewQueue([withIssueCount(50)], [], NOW).requests.truncated).toBe(false);
   });
 
   it("rejects a response without the viewer", () => {
     const { viewer: _, ...data } = fixture.data;
 
-    expect(() => parseReviewQueue([{ data }], [])).toThrow();
+    expect(() => parseReviewQueue([{ data }], [], NOW)).toThrow();
   });
 
   it("rejects a response without the review requests search", () => {
-    expect(() => parseReviewQueue([{ data: {} }], [])).toThrow();
+    expect(() => parseReviewQueue([{ data: {} }], [], NOW)).toThrow();
   });
 });
 
@@ -134,17 +139,36 @@ describe("parseReviewQueue with tracked PRs", () => {
     { owner: "acme", repo: "api", number: 99 },
     { owner: "acme", repo: "api", number: 12 },
   ];
-  const fetched = parseReviewQueue([trackedFixture], refs);
+  const fetched = parseReviewQueue([trackedFixture], refs, NOW);
 
-  it("reads an open tracked PR with its head commit", () => {
-    expect(fetched.tracked.map((pr) => [pr.repo, pr.number, pr.headOid])).toEqual([
-      ["acme/api", 15, "e15e15e15e15e15e15e15e15e15e15e15e15e15e"],
-      ["acme/api", 12, "a12a12a12a12a12a12a12a12a12a12a12a12a12a"],
+  it("reads open tracked PRs with their head commit and recently merged ones with their merge time", () => {
+    expect(
+      fetched.tracked.map((pr) => [pr.repo, pr.number, pr.headOid, pr.state, pr.closedAt]),
+    ).toEqual([
+      ["acme/api", 15, "e15e15e15e15e15e15e15e15e15e15e15e15e15e", "open", null],
+      ["acme/web", 8, "f08f08f08f08f08f08f08f08f08f08f08f08f08f", "merged", "2026-10-01T12:00:00Z"],
+      ["acme/api", 12, "a12a12a12a12a12a12a12a12a12a12a12a12a12a", "open", null],
     ]);
   });
 
-  it("reports merged PRs, missing repositories, and missing PRs as gone", () => {
-    expect(fetched.gone).toEqual([refs[1], refs[2], refs[3]]);
+  it("reports missing repositories and missing PRs as gone", () => {
+    expect(fetched.gone).toEqual([refs[2], refs[3]]);
+  });
+
+  it("reports a PR merged more than 7 days ago as gone", () => {
+    const later = Date.parse("2026-10-01T12:00:00Z") + 7 * DAY + 1;
+
+    expect(parseReviewQueue([trackedFixture], refs, later).gone).toEqual([
+      refs[1],
+      refs[2],
+      refs[3],
+    ]);
+  });
+
+  it("keeps a PR merged exactly 7 days ago", () => {
+    const later = Date.parse("2026-10-01T12:00:00Z") + 7 * DAY;
+
+    expect(parseReviewQueue([trackedFixture], refs, later).gone).toEqual([refs[2], refs[3]]);
   });
 
   it("keeps the review requests next to the tracked PRs", () => {
@@ -152,7 +176,7 @@ describe("parseReviewQueue with tracked PRs", () => {
   });
 
   it("reports a tracked PR that the response leaves out as gone", () => {
-    expect(parseReviewQueue([fixture], [refs[0]!]).gone).toEqual([refs[0]]);
+    expect(parseReviewQueue([fixture], [refs[0]!], NOW).gone).toEqual([refs[0]]);
   });
 
   it("reads the same PRs when the tracked PRs come in a separate batch response", () => {
@@ -161,6 +185,7 @@ describe("parseReviewQueue with tracked PRs", () => {
     const batched = parseReviewQueue(
       [{ data: { viewer, reviewRequests } }, { data: { viewer, ...trackedData } }],
       refs,
+      NOW,
     );
 
     expect(batched).toEqual(fetched);
@@ -188,7 +213,7 @@ describe("parseReviewQueue activity on tracked PRs", () => {
         },
       },
     };
-    return parseReviewQueue([response], [ref]).tracked[0]!.activity;
+    return parseReviewQueue([response], [ref], NOW).tracked[0]!.activity;
   }
 
   function review(
@@ -210,7 +235,7 @@ describe("parseReviewQueue activity on tracked PRs", () => {
   }
 
   it("has no activity on review request rows", () => {
-    expect(byNumber(parseReviewQueue([fixture], []).requests, 12).activity).toBeNull();
+    expect(byNumber(parseReviewQueue([fixture], [], NOW).requests, 12).activity).toBeNull();
   });
 
   it("reports nothing when nobody posted", () => {

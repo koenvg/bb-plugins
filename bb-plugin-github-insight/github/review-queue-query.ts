@@ -7,6 +7,8 @@ fragment QueuePr on PullRequest {
   title
   url
   state
+  mergedAt
+  closedAt
   isDraft
   createdAt
   updatedAt

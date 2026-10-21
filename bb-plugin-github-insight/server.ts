@@ -145,6 +145,7 @@ export default async function plugin(bb: BbPluginApi) {
       parseReviewQueue(
         unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })),
         tracked,
+        Date.now(),
       ),
     listProjects: () => bb.sdk.projects.list(),
     listThreads: () => bb.sdk.threads.list({ includeHidden: true }),

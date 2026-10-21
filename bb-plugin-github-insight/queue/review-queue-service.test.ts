@@ -27,6 +27,8 @@ function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {})
     headRefName: `feature-${number}`,
     headOid: `head-${number}`,
     url: `https://github.com/${repo}/pull/${number}`,
+    state: "open",
+    closedAt: null,
     activity: null,
     ...overrides,
   };
@@ -505,7 +507,7 @@ describe("PR list content", () => {
     expect(allPrs(await service.refreshReviewQueue())).toEqual([]);
   });
 
-  it("deletes the marks of merged, closed, and missing PRs and leaves them out", async () => {
+  it("deletes the marks of gone PRs and leaves them out", async () => {
     const { service, kv } = serviceWith({
       fetchReviewQueue: async () =>
         queueOf(
@@ -842,6 +844,7 @@ describe("new activity after the mark", () => {
   it.each([
     ["inline comment tracking", 2],
     ["conversation comment ids", 3],
+    ["PR states", 4],
   ])("drops a stored queue from before %s", async (_, v) => {
     const { service, kv } = serviceWith();
     const loaded = await service.refreshReviewQueue();
@@ -857,7 +860,7 @@ describe("new activity after the mark", () => {
     const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
     delete prs[0]!.newActivity;
     delete prs[0]!.activity;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
       { activity: null, newActivity: [] },
@@ -1354,7 +1357,7 @@ describe("unseen PRs", () => {
   it("reads a stored view from before unseen tracking as all seen", async () => {
     const { service, kv } = serviceWith();
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
-      v: 4,
+      v: 5,
       result: { kind: "ok", needsReview: [], reviewed: [], truncated: false, loadedAt: 1 },
     });
 
@@ -1439,7 +1442,7 @@ describe("returned review threads", () => {
     delete stored.hasReturned;
     const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
     delete prs[0]!.thread.returned;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result: stored });
 
     expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
       row: null,
