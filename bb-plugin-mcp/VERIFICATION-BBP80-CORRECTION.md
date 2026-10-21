@@ -9,7 +9,7 @@ The corrected commit and fresh completion-review evidence are recorded in a new 
 
 ## Bounded correction
 
-The catalog, `ThreadTool` type, failure logs, tests, README example and package skill now use the planned name `bb_get_thread`. The contract is recorded in [the design tool table](../openspec/changes/bb-chatgpt-mcp/design.md) and [task 3.2](../openspec/changes/bb-chatgpt-mcp/tasks.md). No alias is registered. Discovery tests require the exact three-tool catalog and verify that the earlier name is rejected without an SDK call.
+The catalog, `ThreadTool` type, failure logs, tests, README example and package skill now use the planned name `bb_get_thread`. The contract is recorded in [the design tool table](../openspec/changes/archive/2026-10-15-bb-chatgpt-mcp/design.md) and [task 3.2](../openspec/changes/archive/2026-10-15-bb-chatgpt-mcp/tasks.md). No alias is registered. Discovery tests require the exact three-tool catalog and verify that the earlier name is rejected without an SDK call.
 
 This correction changes only the public tool name and its references. Schemas, selected output fields, access checks, pagination, UTF-8 limits, pending-interaction behavior and transport limits are unchanged. No settings, dependency manifests, lockfiles, historical specifications, task descriptions, comments or attachments are changed.
 
