@@ -1,6 +1,6 @@
 # Captured subagent conversation viewer
 
-This PR implements OpenSpec [`subagent-viewer-thread-parity`](../../../openspec/changes/subagent-viewer-thread-parity/proposal.md). It is ready for review, not yet accepted for merge. Working-UI approval and the full installed lifecycle gate are open. The user explicitly deferred the follow-up repair.
+This PR implements OpenSpec [`subagent-viewer-thread-parity`](../../../openspec/changes/archive/2026-10-16-subagent-viewer-thread-parity/proposal.md). It is ready for review, not yet accepted for merge. Working-UI approval and the full installed lifecycle gate are open. The user explicitly deferred the follow-up repair.
 
 ## What changed
 
@@ -16,7 +16,7 @@ This PR implements OpenSpec [`subagent-viewer-thread-parity`](../../../openspec/
 - [Legacy tool-result presentation finding](installed-legacy-tool-prose.png).
 - [Validation summary and artifact hashes](checks.json).
 - [Independent review excerpt and finding resolution](independent-review.md).
-- [Approved standalone prototype and its limits](../../prototypes/subagent-viewer/README.md).
+- Approved standalone prototype and its limits.
 
 Screenshots show real retained child output. The old review verdict and timestamp finding displayed inside that output are historical, not a new review verdict. The timestamp finding was fixed with chronological replay and regressions. The prototype's controls are not all production controls.
 

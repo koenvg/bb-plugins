@@ -10,7 +10,7 @@ A later parallel Pi rerun timed out in one resumed-session case at the existing 
 
 A later authorized CI-only follow-up addresses that test limit. The full lifecycle case now has a bounded 15-second test budget, without changing runtime or per-operation limits. Its resume/recovery waits use returned delta offsets so they cannot accept an earlier turn boundary. Assertions and parallel execution remain enabled. Local validation passed the 14 speed tests and two complete default-parallel Pi runs, each with 533 tests; typecheck and build also pass. This does not resolve BBP-201 or grant release approval.
 
-No installation or reload accompanies this rebase. [BBP-201](bbtask://BBP-201) remains a release prerequisite: installed BB 0.46.0 can silently replace saved Fast with Default after failed discovery and a reasoning-only edit. The local BB core fix is not published or installed. Limited earlier installed acceptance and its remaining gaps are recorded in [verification](openspec/changes/openai-codex-speed-options/verification.md). Historical scope, checks, and limits below are not current deployment approval.
+No installation or reload accompanies this rebase. [BBP-201](bbtask://BBP-201) remains a release prerequisite: installed BB 0.46.0 can silently replace saved Fast with Default after failed discovery and a reasoning-only edit. The local BB core fix is not published or installed. Limited earlier installed acceptance and its remaining gaps are recorded in [verification](openspec/changes/archive/2026-10-14-openai-codex-speed-options/verification.md). Historical scope, checks, and limits below are not current deployment approval.
 
 ## Initial migration scope
 
@@ -59,4 +59,4 @@ Independent migration review: **request changes**, one P2 native-stream recovery
 - Ultrafast entitlement and wire behavior remain unverified and are not exposed by the shared controller.
 - The standalone Pi package remains separate, on its owning project's PR branch.
 
-See [Pi compatibility](bb-plugin-pi-subagents-provider/COMPATIBILITY.md) and [speed delivery gates](openspec/changes/openai-codex-speed-options/verification.md). The [BB 0.45 report](BB-0.45-COMPATIBILITY.md) records historical evidence, not the current target.
+See [Pi compatibility](bb-plugin-pi-subagents-provider/COMPATIBILITY.md) and [speed delivery gates](openspec/changes/archive/2026-10-14-openai-codex-speed-options/verification.md). The [BB 0.45 report](BB-0.45-COMPATIBILITY.md) records historical evidence, not the current target.
