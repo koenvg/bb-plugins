@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { chromium, expect, type Browser, type Page } from "@playwright/test";
 import {
   DELETED_PATH,
+  CONTEXT_PATH,
   RENAMED_PATH,
   RENAMED_TEXT,
   WORKSPACE_PATH,
@@ -134,7 +135,7 @@ async function candidate(browser: Browser, code: string) {
       await route.fulfill({ contentType: "text/css", body: css });
     } else if (url.pathname.startsWith("/api/v1/plugins/changes/rpc/")) {
       try {
-        const result = fixture.rpc(url.pathname.split("/").at(-1)!, request.postDataJSON());
+        const result = await fixture.rpc(url.pathname.split("/").at(-1)!, request.postDataJSON());
         await route.fulfill({ json: { ok: true, result } });
       } catch (error) {
         unexpected.push(String(error));
@@ -304,6 +305,135 @@ try {
     ).toBeVisible();
     checks.push(
       "Deleted-file activation is disabled. Renamed files open the current path and actual content.",
+    );
+    await good.page.getByRole("button", { name: "Changes", exact: true }).click();
+    const contextSection = good.page.getByRole("region", { name: CONTEXT_PATH, exact: true });
+    await contextSection.locator('[data-column-number="200"]').last().hover();
+    await contextSection.locator("[data-utility-button]").click();
+    await contextSection
+      .getByRole("textbox", { name: "Comment", exact: true })
+      .fill("Original diff comment survives context loading.");
+    await contextSection.getByRole("button", { name: "Add to review", exact: true }).click();
+    const existingComment = contextSection.getByText(
+      "Original diff comment survives context loading.",
+      { exact: true },
+    );
+    await expect(existingComment).toBeVisible();
+    for (const view of ["Unified view", "Split view"] as const) {
+      await good.page.getByRole("button", { name: view, exact: true }).click();
+      await good.page.getByRole("button", { name: "Refresh", exact: true }).click();
+      const load = contextSection.getByRole("button", { name: "Load context", exact: true });
+      await expect(load).toBeEnabled();
+      await expect(contextSection.locator("[data-expand-button]")).toHaveCount(0);
+      good.fixture.failNextContext("read");
+      await load.click();
+      const retry = contextSection.getByRole("button", { name: "Retry context", exact: true });
+      await expect(retry).toBeEnabled();
+      await expect(contextSection.getByRole("status")).toHaveText("Could not load context. Retry.");
+      await expect(contextSection.getByText("new value", { exact: true }).first()).toBeVisible();
+      await retry.focus();
+      await good.page.keyboard.press("Enter");
+      await expect(contextSection.getByText("unchanged line 1", { exact: true })).toHaveCount(0);
+      const above = contextSection
+        .getByRole("button", { name: "Expand unchanged lines above", exact: true })
+        .first();
+      const below = contextSection
+        .getByRole("button", { name: "Expand unchanged lines below", exact: true })
+        .first();
+      await expect(above).toBeVisible();
+      await expect(below).toBeVisible();
+      await expect(contextSection.getByText("unchanged line 198", { exact: true })).toHaveCount(0);
+      await above.focus();
+      await good.page.keyboard.press("Enter");
+      await expect(
+        contextSection.getByText("unchanged line 198", { exact: true }).first(),
+      ).toBeVisible();
+      await below.focus();
+      await good.page.keyboard.press("Space");
+      await expect(
+        contextSection.getByText("unchanged line 202", { exact: true }).first(),
+      ).toBeVisible();
+      await above.click();
+      await below.click();
+      await expect(
+        contextSection.getByText("unchanged line 1", { exact: true }).first(),
+      ).toBeVisible();
+      await expect(
+        contextSection.getByText("unchanged line 400", { exact: true }).first(),
+      ).toBeVisible();
+      await contextSection.locator('[data-column-number="198"]').first().hover();
+      await contextSection.locator("[data-utility-button]").click();
+      await expect(existingComment).toBeVisible();
+      await expect(
+        good.page.getByRole("button", { name: "Send feedback (1)", exact: true }),
+      ).toBeVisible();
+      await expect(contextSection.getByRole("status")).toHaveText(
+        "Revealed context is read-only. Comment on a line in the original diff.",
+      );
+      await expect(contextSection.getByRole("textbox", { name: "Comment" })).toHaveCount(0);
+      await contextSection.getByText("new value", { exact: true }).first().scrollIntoViewIfNeeded();
+      await good.page.screenshot({
+        path: resolve(evidenceDir, `${view === "Unified view" ? "unified" : "split"}-context.png`),
+      });
+      const collapseLoaded = contextSection.getByRole("button", {
+        name: `Collapse ${CONTEXT_PATH}`,
+        exact: true,
+      });
+      await collapseLoaded.focus();
+      await good.page.keyboard.press("Enter");
+      const expandLoaded = contextSection.getByRole("button", {
+        name: `Expand ${CONTEXT_PATH}`,
+        exact: true,
+      });
+      await expect(expandLoaded).toBeFocused();
+      await good.page.keyboard.press("Enter");
+      await contextSection.getByRole("button", { name: "Load context", exact: true }).click();
+      await expect(above).toBeVisible();
+      const viewedLoaded = contextSection.getByRole("checkbox", {
+        name: `Viewed ${CONTEXT_PATH}`,
+        exact: true,
+      });
+      await viewedLoaded.focus();
+      await good.page.keyboard.press("Space");
+      await expect(viewedLoaded).toBeChecked();
+      await expect(viewedLoaded).toBeFocused();
+      await good.page.keyboard.press("Space");
+      await expect(viewedLoaded).not.toBeChecked();
+      await expect(existingComment).toBeVisible();
+      checks.push(
+        `${view} loads lazily, retains the partial diff on failure, retries with Enter, and expands native above/below controls using keyboard and pointer. Revealed lines refuse comments with visible feedback. Loaded-context Collapse and Viewed controls retain keyboard focus.`,
+      );
+    }
+    await good.page.getByRole("button", { name: "Refresh", exact: true }).click();
+    const loadContext = contextSection.getByRole("button", { name: "Load context", exact: true });
+    await expect(loadContext).toBeEnabled();
+    const release = good.fixture.deferNextContext();
+    const previousCalls = good.fixture.calls.filter(
+      (call) => call.method === "getTextContext",
+    ).length;
+    await loadContext.click();
+    await expect
+      .poll(() => good.fixture.calls.filter((call) => call.method === "getTextContext").length)
+      .toBe(previousCalls + 1);
+    await good.page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(loadContext).toBeEnabled();
+    const lateResponse = good.page.waitForResponse((response) =>
+      response.url().endsWith("/rpc/getTextContext"),
+    );
+    release();
+    await lateResponse;
+    await expect(contextSection.locator("[data-expand-button]")).toHaveCount(0);
+    await expect(contextSection.getByText("new value", { exact: true }).first()).toBeVisible();
+    good.fixture.failNextContext("stale");
+    await loadContext.click();
+    await expect(contextSection.getByRole("status")).toHaveText(
+      "Context does not match this diff. Refresh changes.",
+    );
+    await expect(
+      contextSection.getByRole("button", { name: "Load context", exact: true }),
+    ).toBeDisabled();
+    checks.push(
+      "Refresh invalidates an in-flight context response. A stale snapshot retains the partial diff and asks for refresh.",
     );
     report.nativeFileReads = good.fileReads;
     report.rpcCalls = good.fixture.calls;

@@ -29,6 +29,14 @@ Git LFS pointer files remain text diffs, with their comments, drafts and Viewed 
 
 Video reads run on the environment's host. Historical sides use pinned Git blobs and the first parent for a single-commit comparison. Live sides read only the working tree. The host checks sizes before reading, caps output, and permits at most two concurrent video reads. SDK 0.6.49 has no range option on revision file reads or binary host-RPC transport, so previews use bounded whole-file RPC after an explicit click.
 
+## Expand unchanged lines
+
+Choose **Load context** in a text file's header. Then use the gap controls to expand unchanged lines above or below a change, or reveal the whole gap. The controls support Enter and Space in Unified and Split views.
+
+Context loading keeps the original diff visible. A read failure offers **Retry context**. If the file no longer matches the patch, choose **Refresh** before loading context again. Refresh, target changes, and collapsing a file discard its loaded context.
+
+Each file revision and patch must fit within 1 MiB and 20,000 lines. Binary files, type changes, and paths that require quoting do not support context loading. Newly revealed lines are read-only. Existing comments and Viewed marks still refer to the original patch.
+
 ## Viewed files
 
 - Check **Viewed** in a file header to mark the file as viewed. The file collapses to its header.
@@ -113,6 +121,6 @@ bb plugin build
 
 The diff, comment form, and comment card come from [`../review-ui`](../review-ui).
 
-Run [`test:bb-renderer`](tests/bb-renderer/README.md) to check filename controls against running BB without installing the candidate plugin. This separate acceptance check uses BB's renderer and native file viewer. It requires an owned local thread; CI's fixture tests do not replace it.
+Run [`test:bb-renderer`](tests/bb-renderer/README.md) to check filename controls and context expansion against running BB without installing the candidate plugin. This separate acceptance check uses BB's renderer and native file viewer. It requires an owned local thread; CI's fixture tests do not replace it.
 
 Run [`test:video-browser`](tests/video-browser/README.md) for an unauthenticated, owned local component fixture. This proves native video playback and responsive layout, not installed BB playback or GitHub authentication.

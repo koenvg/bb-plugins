@@ -1,5 +1,16 @@
 import { videoError, isVideoPath, type VideoWireResult } from "./core/video-content";
 import {
+  ContextError,
+  MAX_CONTEXT_BYTES,
+  contextFailure,
+  textRevisions,
+  validateText,
+  validateContext,
+  type TextContextResult,
+  type TextRevision,
+  type TextSide,
+} from "./core/text-context";
+import {
   imageError,
   imagePath,
   imageShaSchema,
@@ -92,6 +103,62 @@ async function checkoutHead(sdk: Sdk, environmentId: string): Promise<string | n
       : null;
   } catch {
     return null;
+  }
+}
+
+async function getTextContext(
+  sdk: Sdk,
+  threadId: string,
+  basis: ChangesBasis,
+  file: ChangedFile,
+  patch: string,
+): Promise<TextContextResult> {
+  try {
+    validateText(patch, new TextEncoder().encode(patch).length);
+    const ownsEnvironment = async () => {
+      if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId)
+        throw new ContextError("stale", "Environment changed. Refresh changes.");
+    };
+    await ownsEnvironment();
+    const revisions = textRevisions(basis, file);
+    const read = async (revision: TextRevision): Promise<TextSide> => {
+      if (revision.kind === "absent") return revision;
+      const result = await sdk.environments.diffFile({
+        environmentId: basis.environmentId,
+        path: revision.path,
+        ...(revision.kind === "working_tree"
+          ? { target: "uncommitted" as const, side: "new" as const }
+          : { target: "commit" as const, sha: revision.sha, side: revision.side }),
+      });
+      if (result.path !== revision.path)
+        throw new ContextError("stale", "Context path changed. Refresh changes.");
+      if (
+        result.sizeBytes > MAX_CONTEXT_BYTES ||
+        result.content.length > Math.ceil(MAX_CONTEXT_BYTES / 3) * 4
+      )
+        throw new ContextError("too_large", "Context exceeds the 1 MiB or 20,000 line limit.");
+      let contents: string;
+      if (result.contentEncoding === "utf8") contents = result.content;
+      else if (result.contentEncoding === "base64") {
+        const bytes = Buffer.from(result.content, "base64");
+        if (bytes.toString("base64") !== result.content || bytes.length !== result.sizeBytes)
+          throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+        try {
+          contents = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+        } catch {
+          throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+        }
+      } else throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+      validateText(contents, result.sizeBytes);
+      return { kind: "text", revision, contents, sizeBytes: result.sizeBytes };
+    };
+    const [old, after] = await Promise.all([read(revisions.old), read(revisions.new)]);
+    await ownsEnvironment();
+    const result = { kind: "ready" as const, old, new: after };
+    validateContext({ threadId, basis, file, patch, generation: 0 }, result);
+    return result;
+  } catch (error) {
+    return contextFailure(error);
   }
 }
 
@@ -321,6 +388,8 @@ export default async function plugin(bb: BbPluginApi) {
         );
       }
     },
+    getTextContext: ({ threadId, basis, file, patch }) =>
+      getTextContext(bb.sdk, threadId, basis, file, patch),
     getImage: ({ threadId, basis, file, side }) => getImage(bb.sdk, threadId, basis, file, side),
     getChanges: ({ threadId, target }) =>
       getChanges(bb.sdk, (message) => bb.log.warn(message), threadId, target),

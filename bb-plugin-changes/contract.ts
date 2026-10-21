@@ -14,6 +14,7 @@ export const workspaceVideoRequestSchema = z
 export const hostContract = defineRpcContract({
   readVideo: { input: workspaceVideoRequestSchema, output: videoResultSchema },
 });
+import { MAX_CONTEXT_BYTES, textContextResultSchema } from "./core/text-context";
 import { imageResultSchema, imageSideSchema } from "./core/image-content";
 import { changedFileSchema, changesBasisSchema } from "./core/changes";
 import { defineRpcContract } from "@get-bb/plugin-sdk";
@@ -42,6 +43,22 @@ export const rpcContract = defineRpcContract({
       })
       .strict(),
     output: videoResultSchema,
+  },
+  getTextContext: {
+    input: z
+      .object({
+        threadId: z.string().min(1),
+        basis: changesBasisSchema,
+        file: changedFileSchema
+          .extend({ path: imagePathSchema, previousPath: imagePathSchema.nullable() })
+          .strict(),
+        patch: z
+          .string()
+          .max(MAX_CONTEXT_BYTES)
+          .refine((patch) => new TextEncoder().encode(patch).length <= MAX_CONTEXT_BYTES),
+      })
+      .strict(),
+    output: textContextResultSchema,
   },
   getImage: {
     input: z

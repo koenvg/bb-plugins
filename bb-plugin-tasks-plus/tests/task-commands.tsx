@@ -73,12 +73,15 @@ const presets = [
     createdAt: project.createdAt,
   },
 ];
+type PendingCommand = (() => void) | null;
 function Fixture() {
   const [subPath, setSubPath] = useState("task/TSK-1");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [, refresh] = useState(0);
+  const [paletteHandoffs, setPaletteHandoffs] = useState(0);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const pendingRunRef = useRef<PendingCommand>(null);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "p") {
@@ -115,7 +118,8 @@ function Fixture() {
       entry.title.toLowerCase().includes(query.toLowerCase()),
   );
   const select = () => {
-    void matches[0]?.run(context);
+    const command = matches[0];
+    pendingRunRef.current = command ? () => void command.run(context) : null;
     setOpen(false);
   };
   return (
@@ -126,6 +130,7 @@ function Fixture() {
       <output aria-label="Fixture updates">{JSON.stringify(updates)}</output>
       <output aria-label="Fixture project updates">{JSON.stringify(projectUpdates)}</output>
       <output aria-label="Fixture delegations">{JSON.stringify(delegations)}</output>
+      <output aria-label="Fixture palette handoffs">{paletteHandoffs}</output>
       {refreshOrder && (
         <>
           <output aria-label="Preview reads">{previewReads}</output>
@@ -158,7 +163,16 @@ function Fixture() {
             }}
             onCloseAutoFocus={(event) => {
               event.preventDefault();
-              returnFocus.current?.focus();
+              const handoff = () => {
+                const pending = pendingRunRef.current;
+                pendingRunRef.current = null;
+                returnFocus.current?.focus();
+                setPaletteHandoffs((value) => value + 1);
+                pending?.();
+              };
+              if (new URLSearchParams(window.location.search).has("delayedPaletteHandoff"))
+                window.setTimeout(handoff, 150);
+              else handoff();
             }}
           >
             <Dialog.Title>Fixture command palette</Dialog.Title>
