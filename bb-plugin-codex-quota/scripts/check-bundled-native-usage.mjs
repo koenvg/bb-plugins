@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const root = await realpath(await mkdtemp(join(tmpdir(), "codex-speed-bundle-")));
+const root = await realpath(await mkdtemp(join(tmpdir(), "codex-native-usage-bundle-")));
 const priorHome = process.env.CODEX_HOME,
   originalDate = Date,
   originalFetch = globalThis.fetch;
@@ -25,7 +25,7 @@ try {
   process.env.CODEX_HOME = join(root, "codex");
   await mkdir(join(process.env.CODEX_HOME, "sessions"), { recursive: true });
   await mkdir(join(process.env.CODEX_HOME, "archived_sessions"));
-  const source = await readFile(new URL("../fixtures/native-speed-policy.jsonl", import.meta.url));
+  const source = await readFile(new URL("../fixtures/native-legacy-usage.jsonl", import.meta.url));
   const file = join(process.env.CODEX_HOME, "sessions", "rollout.jsonl");
   await writeFile(file, source);
   const artifact = join(root, "host.mjs");
@@ -54,6 +54,12 @@ try {
     scope: { kind: "host" },
   };
   await prepare();
+  const legacyNative = await bundled.default.handlers.calendarReport(query, context);
+  assert.equal(legacyNative.summary.totalTokens, 370);
+  assert.deepEqual(
+    legacyNative.days.flatMap((day) => day.models?.named ?? []),
+    [{ model: "synthetic", totalTokens: 370 }],
+  );
   const directory = join(context.experimental_paths.dataDir, "history"),
     path = join(directory, "usage-v1.sqlite");
   let db = await bundled.openHistoryDatabase(path);
@@ -67,22 +73,16 @@ try {
   await writeFile(join(directory, "collector-control-v1.json"), control);
   await writeFile(
     join(directory, "events-v1-2026-10-01.jsonl"),
-    await readFile(new URL("../fixtures/pi-speed.jsonl", import.meta.url)),
+    await readFile(new URL("../fixtures/pi-legacy-usage.jsonl", import.meta.url)),
   );
   await prepare();
   const report = await bundled.default.handlers.calendarReport(query, context);
   assert.equal(report.state, "partial");
   assert.equal(report.summary.totalTokens, 450);
-  assert.deepEqual(report.summary.speedTokens, { normal: 150, fast: 180, ultrafast: 120 });
+  assert(!/speedTokens|otherSpeedTokens/.test(JSON.stringify(report)));
   assert.equal(report.summary.money.capturedCost, 0.03);
   const modelRows = report.days.flatMap((day) => day.models?.named ?? []);
-  assert(modelRows.some((row) => row.speedTokens?.fast > 0));
-  assert(modelRows.some((row) => row.speedTokens?.ultrafast > 0));
-  for (const row of modelRows)
-    assert.equal(
-      row.speedTokens.normal + row.speedTokens.fast + row.speedTokens.ultrafast,
-      row.totalTokens,
-    );
+  assert.deepEqual(modelRows, [{ model: "synthetic", totalTokens: 450 }]);
   assert.equal(report.summary.money.pricedRecords, 1);
   await prepare();
   await prepare();
@@ -122,15 +122,19 @@ try {
   await prepare(nativeContext);
   const normal = await bundled.default.handlers.calendarReport(query, nativeContext);
   assert.equal(normal.summary.totalTokens, 370);
-  assert.deepEqual(normal.summary.speedTokens, { normal: 370, fast: 0, ultrafast: 0 });
+  assert(!/speedTokens|otherSpeedTokens/.test(JSON.stringify(normal)));
+  assert.deepEqual(
+    normal.days.flatMap((day) => day.models?.named ?? []),
+    [{ model: "synthetic", totalTokens: 370 }],
+  );
   console.log(
     JSON.stringify({
       passed: true,
       entry: "dist/host.js handlers.reportPreparation/calendarReport",
-      forwardPolicy: report.summary.speedTokens,
+      models: modelRows,
       totalTokens: 450,
       capturedPiCost: 0.03,
-      installedFormat: normal.summary.speedTokens,
+      nativeOnlyTokens: normal.summary.totalTokens,
       readOnly: true,
       replaySafe: true,
     }),

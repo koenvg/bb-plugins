@@ -1,4 +1,3 @@
-import { SpeedTotals } from "../history/calendar/speed-totals.js";
 import { useMemo, useState } from "react";
 import { tokenCountText } from "../token-counts.js";
 import { CalendarValues, reportButton } from "../history/calendar/calendar-view.js";
@@ -161,7 +160,6 @@ export function MachineReportPanel({ now, read, snapshot, prepare }: Props) {
           </p>
         </div>
       </div>
-      <SpeedTotals tokens={view?.summary.speedTokens ?? null} />
       <div className="min-h-[280px]">{view && <CalendarValues view={view} metric={metric} />}</div>
       <div className="mt-2 min-h-5 text-xs text-muted-foreground" aria-live="polite">
         {loading && <p>Loading recorded usage…</p>}

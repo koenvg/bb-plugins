@@ -153,8 +153,7 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
       !!db.prepare("SELECT name FROM native_sources WHERE incomplete=1 LIMIT 1").get() ||
       !!db
         .prepare("SELECT response_key FROM usage_response_owners WHERE native_conflicted=1 LIMIT 1")
-        .get() ||
-      !!db.prepare("SELECT event_id FROM usage_metadata WHERE speed_conflict=1 LIMIT 1").get());
+        .get());
   const sourcePending = !!db
     .prepare("SELECT name FROM collector_sources WHERE offset<size OR dropping=1 LIMIT 1")
     .get();

@@ -33,6 +33,44 @@ const eligible = (report: CalendarSnapshot, query: CalendarQuery, clock: number)
     (day) => day.date >= query.startDate && day.date <= shiftDate(query.startDate, 29),
   );
 
+function decodeLegacyReport(raw: unknown): unknown {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === "object" && !Array.isArray(value);
+  const strip = (value: unknown, keys: string[]) => {
+    if (!object(value)) return value;
+    return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+  };
+  if (!object(raw)) return raw;
+  const days = Array.isArray(raw.days)
+    ? raw.days.map((value) => {
+        const day = strip(value, ["speedTokens"]);
+        if (!object(day) || !object(day.models)) return day;
+        const models = strip(day.models, ["otherSpeedTokens"]) as Record<string, unknown>;
+        if (Array.isArray(models.named))
+          models.named = models.named.map((row) => strip(row, ["speedTokens"]));
+        return { ...day, models };
+      })
+    : raw.days;
+  const comparison =
+    object(raw.comparison) && object(raw.comparison.prior)
+      ? {
+          ...raw.comparison,
+          prior: {
+            ...raw.comparison.prior,
+            ...(raw.comparison.prior.summary === undefined
+              ? {}
+              : { summary: strip(raw.comparison.prior.summary, ["speedTokens"]) }),
+          },
+        }
+      : raw.comparison;
+  return {
+    ...raw,
+    ...(raw.days === undefined ? {} : { days }),
+    ...(raw.summary === undefined ? {} : { summary: strip(raw.summary, ["speedTokens"]) }),
+    ...(raw.comparison === undefined ? {} : { comparison }),
+  };
+}
+
 /** Serialized ownership includes physical expiry, not only filtering expired reads. */
 export function createReportCache(storage: SummaryStorage, now = Date.now) {
   let writes = Promise.resolve();
@@ -51,7 +89,9 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
     const clock = now(),
       cutoff = retentionCutoffs(clock).compact;
     for (const key of keys) {
-      const parsed = calendarReportSchema.safeParse(await storage.get<unknown>(root + key));
+      const parsed = calendarReportSchema.safeParse(
+        decodeLegacyReport(await storage.get<unknown>(root + key)),
+      );
       const report = parsed.success && parsed.data.state !== "unavailable" ? parsed.data : null;
       if (
         !report ||
@@ -118,7 +158,9 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
         const keys = indexSchema.parse((await storage.get<unknown>(root + "index")) ?? []);
         const remove: string[] = [];
         for (const key of keys) {
-          const parsed = calendarReportSchema.safeParse(await storage.get<unknown>(root + key));
+          const parsed = calendarReportSchema.safeParse(
+            decodeLegacyReport(await storage.get<unknown>(root + key)),
+          );
           if (
             !parsed.success ||
             parsed.data.state === "unavailable" ||

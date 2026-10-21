@@ -19,7 +19,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */ function collectorExtension(pi, configuration) {
   let queue = Promise.resolve(), pending = 0;
-  const confirmations = new Map(), responses = new Map();
+  const confirmations = new Map();
   const scalar = (value, max) => typeof value === "string" && value.length > 0 && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value) ? value : null;
   const tokens = value => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
   const diagnostic = () => console.error("[bb-codex-usage] Collector work incomplete");
@@ -51,31 +51,13 @@ SOFTWARE.
     finally { await destination.close(); }
     return true;
   }
-  pi.on("turn_start", () => responses.clear());
-  pi.on("provider_stream_event", (event) => {
-    // Only bounded terminal scalars. Never retain response bodies or throw into provider retries.
-    try {
-      if (event.provider !== "openai-codex") return;
-      const data = event.data;
-      if (!data || !["response.done", "response.completed", "response.incomplete"].includes(data.type)) return;
-      const response = data.response, id = scalar(response && response.id, 256);
-      if (!id || !/^resp_[A-Za-z0-9_-]{1,250}$/.test(id)) return;
-      const metadata = { responseId: id };
-      if (Object.prototype.hasOwnProperty.call(response, "service_tier")) metadata.serviceTier = scalar(response.service_tier, 128);
-      const prior = responses.get(id);
-      if (prior && Object.prototype.hasOwnProperty.call(prior, "serviceTier") && Object.prototype.hasOwnProperty.call(metadata, "serviceTier") && prior.serviceTier !== metadata.serviceTier) { metadata.serviceTier = "unrecognized-conflict"; diagnostic(); }
-      responses.set(id, metadata);
-      while (responses.size > 128) responses.delete(responses.keys().next().value);
-    } catch {}
-  });
   pi.on("message_end", (event, ctx) => {
     try {
       const message = event.message;
       if (!message || message.role !== "assistant" || message.provider !== "openai-codex") return;
       if (pending >= 128) { diagnostic(); return; }
       const responseId = scalar(message.responseId, 256);
-      const metadata = responseId && /^resp_[A-Za-z0-9_-]{1,250}$/.test(responseId) ? responses.get(responseId) || { responseId } : null;
-      if (responseId) responses.delete(responseId);
+      const metadata = responseId && /^resp_[A-Za-z0-9_-]{1,250}$/.test(responseId) ? { responseId } : null;
       const usage = message.usage;
       if (!usage || !ctx || !ctx.sessionManager || typeof ctx.sessionManager.getSessionId !== "function") return;
       const inputTokens = tokens(usage.input), outputTokens = tokens(usage.output), cacheReadTokens = tokens(usage.cacheRead), cacheWriteTokens = tokens(usage.cacheWrite), totalTokens = tokens(usage.totalTokens), reasoningTokens = tokens(usage.reasoning === undefined ? 0 : usage.reasoning);
@@ -123,5 +105,5 @@ SOFTWARE.
   }
   pi.on("turn_end", confirm);
   pi.on("agent_end", confirm);
-  pi.on("session_shutdown", async (event, ctx) => { await confirm(event, ctx); await queue; confirmations.clear(); responses.clear(); });
+  pi.on("session_shutdown", async (event, ctx) => { await confirm(event, ctx); await queue; confirmations.clear(); });
 }`;

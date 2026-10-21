@@ -21,7 +21,7 @@ try {
   const home = join(root, "home"),
     inherited = join(root, "inherited-codex"),
     ambientRoots = [join(home, ".codex"), inherited];
-  const fixture = readFileSync(new URL("../fixtures/native-speed-policy.jsonl", import.meta.url));
+  const fixture = readFileSync(new URL("../fixtures/native-legacy-usage.jsonl", import.meta.url));
   const sources = [];
   for (const nativeRoot of ambientRoots) {
     for (const directory of ["sessions", "archived_sessions"]) {

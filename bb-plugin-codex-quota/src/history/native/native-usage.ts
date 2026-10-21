@@ -5,13 +5,12 @@ import { join, resolve, isAbsolute } from "node:path";
 import { z } from "zod";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { RecordedUsageFact } from "../recorded-usage.js";
-import { normalizeSpeed } from "../usage-speed.js";
 import { insertCompact, effectiveRetentionState } from "../storage/history-retention.js";
 import {
   hash,
   responseId,
   responseKey,
-  recordSpeed,
+  recordSourceMetadata,
   excludeNative,
 } from "../storage/usage-metadata.js";
 import { missing, openSource, proveDirectory, stamp } from "./native-source.js";
@@ -48,7 +47,6 @@ type Context = {
   workspace: string | null;
   turn: string | null;
   model: string | null;
-  tier?: string | null;
   blocked: boolean;
 };
 const emptyContext = (): Context => ({
@@ -223,6 +221,7 @@ export function createNativeUsage(options: Options = {}) {
           let offset = source.offset,
             context: Context = JSON.parse(source.context),
             bad = source.incomplete;
+          delete (context as Context & { tier?: unknown }).tier;
           if (
             source.identity !== opened.identity ||
             opened.size < offset ||
@@ -282,19 +281,11 @@ export function createNativeUsage(options: Options = {}) {
                   }
                 } else if (thread !== context.thread) {
                   context.turn = null;
-                  delete context.tier;
                   bad = 1;
                 }
               } else if (row.type === "turn_context") {
                 context.turn = scalar(payload.turn_id);
                 context.model = scalar(payload.model, 128);
-                delete context.tier;
-                // Forward-format policy only. The pinned installed Codex TurnContextItem has no tier field.
-                if ("service_tier" in payload)
-                  context.tier =
-                    typeof payload.service_tier === "string"
-                      ? payload.service_tier.slice(0, 128)
-                      : null;
               } else if (row.type === "token_usage_record") {
                 const fact = decodeFact(db, row, context, options.now?.() ?? Date.now());
                 if (fact) facts.push(fact);
@@ -309,7 +300,6 @@ export function createNativeUsage(options: Options = {}) {
               }
             } catch {
               context.turn = null;
-              delete context.tier;
               bad = 1;
             }
             consumed = end + 1;
@@ -409,8 +399,7 @@ function decodeFact(
     total !== input + output
   )
     return null;
-  const tierPresent = "service_tier" in payload,
-    turnMatches = !!context.turn && payload.turn_id === context.turn;
+  const turnMatches = !!context.turn && payload.turn_id === context.turn;
   const key = responseKey(db, id);
   return {
     eventId: uuid(key),
@@ -423,12 +412,6 @@ function decodeFact(
       write === 0
         ? { input: input - cached, cacheRead: cached, cacheWrite: 0, output, reasoning }
         : null,
-    speed: {
-      mode: normalizeSpeed(
-        tierPresent ? payload.service_tier : turnMatches ? context.tier : undefined,
-      ),
-      origin: tierPresent ? "response" : turnMatches && "tier" in context ? "turn" : "policy",
-    },
     source: {
       kind: "codex-native",
       responseId: id,
@@ -444,7 +427,6 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
   const proof = hash(
     JSON.stringify({
       ...fact,
-      speed: undefined,
       source: {
         kind: "codex-native",
         responseId: fact.source.responseId,
@@ -467,10 +449,7 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
     );
     return;
   }
-  if (owner?.native_event || owner?.pi_event) {
-    if (owner.native_event) recordSpeed(db, owner.native_event, "codex-native", fact.speed);
-    return;
-  }
+  if (owner?.native_event || owner?.pi_event) return;
   if (
     fact.occurredAt < retention.compact_cutoff ||
     db.prepare("SELECT event_id FROM usage_expired WHERE event_id=?").get(fact.eventId)
@@ -519,11 +498,10 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
     .prepare("SELECT total_tokens,events FROM workspace_totals WHERE workspace=?")
     .get(fact.workspace) as { total_tokens: number; events: number };
   if (![totals.total_tokens, totals.events].every(count)) throw Error("Native total unavailable");
-  recordSpeed(
+  recordSourceMetadata(
     db,
     fact.eventId,
     "codex-native",
-    fact.speed,
     fact.source.providerThreadId,
     !!fact.classes,
   );

@@ -251,7 +251,7 @@ it("formats excluded tokens in cost tooltips without changing money", () => {
       cell.getAttribute("title"),
     ]),
   ).toEqual([
-    ["$0.39813160000000003", null],
+    ["$0.40", "USD 0.39813160000000003"],
     ["745.92 million", "745,920,001 tokens"],
   ]);
 });

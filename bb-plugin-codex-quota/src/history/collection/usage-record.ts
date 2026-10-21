@@ -49,7 +49,6 @@ const envelopeSchema = z
     metadata: z
       .object({
         responseId: scalar(256).nullable(),
-        serviceTier: z.string().max(128).nullable().optional(),
       })
       .strict(),
   })
@@ -57,6 +56,14 @@ const envelopeSchema = z
 export function parseCompact(line: string, confirmation: boolean) {
   try {
     const input = JSON.parse(line);
+    if (
+      !confirmation &&
+      input?.version === 2 &&
+      input.metadata &&
+      typeof input.metadata === "object"
+    ) {
+      delete input.metadata.serviceTier;
+    }
     const envelope = !confirmation && input?.version === 2 ? envelopeSchema.safeParse(input) : null;
     if (envelope && !envelope.success) return null;
     const result = (confirmation ? confirmationSchema : usageRecordSchema).safeParse(

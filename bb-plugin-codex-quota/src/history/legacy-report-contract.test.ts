@@ -1,20 +1,11 @@
 import { expect, it } from "vitest";
-import { normalizeSpeed, normalTokens, speedModes } from "./usage-speed.js";
 import { calendarSnapshot } from "./calendar/calendar-test-support.js";
 import { calendarReportSchema } from "./calendar/calendar-contract.js";
 import { combineReports } from "../machines/combined-report.js";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 
-it("uses exactly three speeds and puts absent and unknown tiers in Normal", () => {
-  expect(speedModes.map((value) => value.mode)).toEqual(["normal", "fast", "ultrafast"]);
-  for (const value of [undefined, null, "default", "normal", "unknown", "FAST", 17])
-    expect(normalizeSpeed(value)).toBe("normal");
-  expect(normalizeSpeed("priority")).toBe("fast");
-  expect(normalizeSpeed("fast")).toBe("fast");
-  expect(normalizeSpeed("ultrafast")).toBe("ultrafast");
-});
-it("decodes old day, summary and comparison totals, but rejects malformed present buckets", () => {
+it("publishes scalar totals and rejects obsolete fields on the strict new contract", () => {
   const report = calendarSnapshot({
     startDate: "2026-09-02",
     timezone: "UTC",
@@ -24,10 +15,11 @@ it("decodes old day, summary and comparison totals, but rejects malformed presen
   });
   const decoded = calendarReportSchema.parse(report);
   if (decoded.state === "unavailable") throw Error(decoded.reason);
-  expect(decoded.summary.speedTokens).toEqual(normalTokens(600));
-  expect(decoded.days[14].speedTokens).toEqual(normalTokens(600));
+  expect(decoded.summary.totalTokens).toBe(600);
+  expect(decoded.days[14].totalTokens).toBe(600);
   if (decoded.comparison?.prior.state === "unavailable") throw Error("Missing comparison");
-  expect(decoded.comparison?.prior.summary.speedTokens).toEqual(normalTokens(600));
+  expect(decoded.comparison?.prior.summary.totalTokens).toBe(600);
+  expect(JSON.stringify(decoded)).not.toMatch(/speedTokens|otherSpeedTokens/);
   for (const speedTokens of [
     { normal: 1, fast: 0, ultrafast: 0 },
     { normal: 600, fast: -1, ultrafast: 1 },
@@ -40,6 +32,55 @@ it("decodes old day, summary and comparison totals, but rejects malformed presen
     ).toBe(false);
   }
 });
+
+it.each(["day", "model", "overflow", "prior"])(
+  "rejects obsolete %s fields on new report writes",
+  (target) => {
+    const report: any = calendarSnapshot({
+      startDate: "2026-09-02",
+      timezone: "UTC",
+      group: "workspace",
+      scope: { kind: "host" },
+      comparison: true,
+    });
+    if (target === "day") report.days[14].speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
+    if (target === "model")
+      report.days[14].models = {
+        named: [
+          { model: "named", totalTokens: 600, speedTokens: { normal: 600, fast: 0, ultrafast: 0 } },
+        ],
+        otherTokens: 0,
+      };
+    if (target === "overflow")
+      report.days[14].models = {
+        named: [],
+        otherTokens: 600,
+        otherSpeedTokens: { normal: 600, fast: 0, ultrafast: 0 },
+      };
+    if (target === "prior")
+      report.comparison.prior.summary.speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
+    expect(calendarReportSchema.safeParse(report).success).toBe(false);
+  },
+);
+
+it("keeps the removed feature API absent from runtime modules", async () => {
+  const root = resolve(import.meta.dirname, "..");
+  for (const path of ["history/usage-speed.ts", "history/calendar/speed-totals.tsx"])
+    await expect(readFile(join(root, path), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  async function inspect(folder: string): Promise<void> {
+    for (const entry of await readdir(folder, { withFileTypes: true })) {
+      const path = join(folder, entry.name);
+      if (entry.isDirectory()) await inspect(path);
+      else if (/\.(?:ts|tsx)$/u.test(path) && !path.includes(".test.")) {
+        const source = await readFile(path, "utf8");
+        expect(source, path).not.toMatch(
+          /\b(?:SpeedMode|SpeedTokens|SpeedEvidence|SpeedTotals|normalizeSpeed|normalTokens|sumSpeed|withSpeed|recordSpeed|jointModels)\b/,
+        );
+      }
+    }
+  }
+  await inspect(root);
+});
 it("combines aligned offline dates and does not deduplicate equal reports from separate machines", () => {
   const query = {
     startDate: "2026-09-02",
@@ -48,7 +89,6 @@ it("combines aligned offline dates and does not deduplicate equal reports from s
     scope: { kind: "host" as const },
   };
   const report = calendarSnapshot({ ...query, startDate: "2026-09-01" });
-  report.days[14].speedTokens = { normal: 100, fast: 200, ultrafast: 300 };
   const result = combineReports(
     {
       machines: ["one", "two"].map((id) => ({
@@ -63,8 +103,8 @@ it("combines aligned offline dates and does not deduplicate equal reports from s
     query,
   )!;
   expect(result.summary.totalTokens).toBe(1200);
-  expect(result.summary.speedTokens).toEqual({ normal: 200, fast: 400, ultrafast: 600 });
-  expect(result.days[13].speedTokens).toEqual(result.summary.speedTokens);
+  expect(result.days[13].totalTokens).toBe(1200);
+  expect(JSON.stringify(result)).not.toMatch(/speedTokens|otherSpeedTokens/);
 });
 it("keeps native-private imports inside history", async () => {
   const root = resolve(import.meta.dirname, "..");

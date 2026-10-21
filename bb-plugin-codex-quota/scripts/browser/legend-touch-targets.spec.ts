@@ -7,17 +7,20 @@ for (const coarse of [false, true]) {
       for (const theme of ["light", "dark"] as const)
         test(`legend targets ${width}px ${theme}`, async ({ page }, info) => {
           await page.setViewportSize({ width, height: 1100 });
-          await page.goto("/calendar.html?state=model-speeds");
+          await page.goto("/calendar.html?state=model-totals");
           await reportTheme(page, theme);
           expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(coarse);
           const legend = page.getByRole("group", { name: "Models", exact: true });
-          const fast = legend.getByRole("button", { name: "gpt-6.1-sol Fast", exact: true });
-          await expect(fast).toHaveAttribute("aria-pressed", "true");
+          const model = legend.getByRole("button", { name: "gpt-6.1-sol", exact: true });
+          await expect(model).toHaveAttribute("aria-pressed", "true");
           const measurements = [];
           for (const scale of [100, 200]) {
             await page.evaluate((scale) => {
               document.documentElement.style.fontSize = `${scale}%`;
             }, scale);
+            await expect(legend.getByRole("button")).toHaveText(["gpt-6.1", "gpt-6.1-sol"]);
+            await expect(legend.getByRole("button").first()).toHaveAccessibleName("gpt-6.1");
+            await expect(model).toHaveAccessibleName("gpt-6.1-sol");
             const expectedHeight = coarse ? 44 : scale === 100 ? 16 : 32;
             const boxes = await legend.getByRole("button").evaluateAll((nodes) =>
               nodes.map((node) => {
@@ -39,8 +42,10 @@ for (const coarse of [false, true]) {
                 };
               }),
             );
-            expect(boxes).toHaveLength(3);
+            expect(boxes).toHaveLength(2);
             for (const box of boxes) {
+              expect(box.x).toBeGreaterThanOrEqual(0);
+              expect(box.x + box.width).toBeLessThanOrEqual(width);
               expect(box.height).toBe(expectedHeight);
               if (coarse) expect(box.width).toBeGreaterThanOrEqual(44);
               expect(box).toMatchObject({
@@ -72,11 +77,11 @@ for (const coarse of [false, true]) {
                 `legend-${coarse ? "touch" : "mouse"}-${width}-${theme}`,
                 false,
               );
-            const box = (await fast.boundingBox())!;
+            const box = (await model.boundingBox())!;
             const position = { x: box.width / 2, y: box.height - 2 };
-            if (coarse) await fast.tap({ position });
-            else await fast.click({ position });
-            await expect(fast).toHaveAttribute("aria-pressed", "false");
+            if (coarse) await model.tap({ position });
+            else await model.click({ position });
+            await expect(model).toHaveAttribute("aria-pressed", "false");
             const restore = legend.getByRole("button", { name: "Restore all series", exact: true });
             const restoreBox = (await restore.boundingBox())!;
             expect(restoreBox.height).toBe(expectedHeight);
@@ -86,8 +91,17 @@ for (const coarse of [false, true]) {
                 position: { x: restoreBox.width / 2, y: restoreBox.height - 2 },
               });
             } else await restore.click();
-            await expect(fast).toHaveAttribute("aria-pressed", "true");
-            await expect(fast).toBeFocused();
+            await expect(model).toHaveAttribute("aria-pressed", "true");
+            await expect(model).toBeFocused();
+            await expect(restore).toHaveCount(0);
+            await page.keyboard.press("Space");
+            await expect(model).toHaveAttribute("aria-pressed", "false");
+            await expect(model).toBeFocused();
+            await page.keyboard.press("Tab");
+            await expect(restore).toBeFocused();
+            await page.keyboard.press("Enter");
+            await expect(model).toHaveAttribute("aria-pressed", "true");
+            await expect(model).toBeFocused();
             await expect(restore).toHaveCount(0);
           }
           await jsonEvidence(info, "legend-targets.json", { coarse, width, theme, measurements });

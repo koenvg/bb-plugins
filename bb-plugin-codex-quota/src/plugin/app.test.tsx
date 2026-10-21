@@ -105,7 +105,7 @@ describe("all-machine Codex slots", () => {
     expect(costTable.getByRole("columnheader", { name: "USD estimate" }).textContent).toBe(
       "USD estimate",
     );
-    expect(costTable.getByRole("cell", { name: "$6" }).textContent).toBe("$6");
+    expect(costTable.getByRole("cell", { name: "$6.00" }).textContent).toBe("$6.00");
     expect(costTable.queryByRole("columnheader", { name: "Tokens" })).toBeNull();
     expect(f.machineReports).toHaveBeenCalledTimes(before);
     expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);

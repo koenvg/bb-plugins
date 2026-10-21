@@ -159,32 +159,15 @@ it("bounds confirmation traversal, does not match equal message values, and reso
   );
 });
 
-it("captures only terminal tier scalars joined to the exact response ID and never throws from the observer", async () => {
+it("captures assistant response IDs without subscribing to obsolete legacy tier events", async () => {
   const f = await fixture();
-  const observe = f.handlers.get("provider_stream_event")!;
-  observe({
-    provider: "openai-codex",
-    data: {
-      type: "response.completed",
-      response: { id: "resp_match", service_tier: "priority", output: "synthetic-secret-body" },
-    },
-  });
-  observe({
-    provider: "openai-codex",
-    data: {
-      type: "response.completed",
-      response: { id: "resp_unrelated", service_tier: "ultrafast" },
-    },
-  });
-  expect(() =>
-    observe({
-      get data() {
-        throw Error("synthetic-private-error");
-      },
-      provider: "openai-codex",
-    }),
-  ).not.toThrow();
-  const message = { ...f.message(0.03), responseId: "resp_match" };
+  expect(f.handlers.has("provider_stream_event")).toBe(false);
+  const message = {
+    ...f.message(0.03),
+    responseId: "resp_match",
+    service_tier: "priority",
+    content: "synthetic-secret-body",
+  };
   await f.handlers.get("message_end")!({ message }, f.ctx);
   f.persist(message, "entry-match");
   await f.handlers.get("message_end")!(
@@ -200,8 +183,10 @@ it("captures only terminal tier scalars joined to the exact response ID and neve
   expect(records[0]).toMatchObject({
     version: 2,
     usage: { capturedCost: 0.03, totalTokens: 10 },
-    metadata: { responseId: "resp_match", serviceTier: "priority" },
+    metadata: { responseId: "resp_match" },
   });
+  expect(records[0].metadata).toEqual({ responseId: "resp_match" });
+  expect(body).not.toMatch(/serviceTier|service_tier/);
   expect(records[1].metadata).toEqual({ responseId: "resp_missing" });
   expect(body).not.toContain("secret");
 });

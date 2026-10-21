@@ -102,6 +102,66 @@ export function calendarSnapshot(
   return value;
 }
 
+export function calendarModelCostSnapshot(query: CalendarQuery): CalendarSnapshot {
+  const view = calendarSnapshot(query);
+  const day = view.days[14];
+  day.excludedTokens = view.summary.excludedTokens = 0;
+  day.money = {
+    state: "partial",
+    capturedCost: 323.7267296,
+    records: 8072,
+    pricedRecords: 8053,
+    pricedEntities: 3,
+    reason: "missing-prices",
+  };
+  const empty = {
+    state: "unavailable" as const,
+    capturedCost: null,
+    records: 0,
+    pricedRecords: 0,
+    reason: "missing-prices" as const,
+  };
+  day.modelCosts = {
+    named: [
+      { model: "gpt5.5", money: { ...empty, records: 3 } },
+      {
+        model: "gpt6-astra",
+        money: {
+          state: "available",
+          capturedCost: 55.753468,
+          records: 360,
+          pricedRecords: 360,
+          reason: "ok",
+        },
+      },
+      {
+        model: "gpt6-sol",
+        money: {
+          state: "partial",
+          capturedCost: 1.6619412,
+          records: 35,
+          pricedRecords: 31,
+          reason: "missing-prices",
+        },
+      },
+      {
+        model: "gpt6.1-sol",
+        money: {
+          state: "partial",
+          capturedCost: 266.3113204,
+          records: 7674,
+          pricedRecords: 7662,
+          reason: "missing-prices",
+        },
+      },
+    ],
+    other: empty,
+    unknown: empty,
+  };
+  view.summary.money = { ...day.money };
+  return view;
+}
+
 // Tiny recorded totals beside a large day, with and without retained detail.
 export function calendarMixedMagnitudeSnapshot(query: CalendarQuery): CalendarSnapshot {
   const view = calendarEmptySnapshot(query, "unknown");

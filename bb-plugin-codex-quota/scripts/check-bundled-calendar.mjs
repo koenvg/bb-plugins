@@ -92,7 +92,6 @@ try {
   assert.equal(report.state, "partial");
   assert.deepEqual(report.summary, {
     totalTokens: 120600,
-    speedTokens: { normal: 120600, fast: 0, ultrafast: 0 },
     activeEntities: 60,
     excludedTokens: 0,
     money: {

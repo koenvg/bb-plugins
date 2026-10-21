@@ -209,7 +209,7 @@ it("labels unavailable category detail rather than inventing zero counts", () =>
   expect(screen.getByRole("tooltip").textContent).toContain("Token breakdownUnavailable");
   expect(screen.queryByText("Input (uncached) tokens")).toBeNull();
 });
-it("keeps precise captured prices without the lower tooltip details", () => {
+it("rounds captured prices and keeps model pricing details in the title", () => {
   const view = calendarSnapshot(query),
     day = view.days[14];
   day.money = {
@@ -221,10 +221,16 @@ it("keeps precise captured prices without the lower tooltip details", () => {
     reason: "missing-prices",
   };
   render(<UsageTooltip day={day} metric="cost" />);
-  expect(screen.getByText("$0.39813160000000003", { exact: true })).toBeTruthy();
+  expect(screen.getAllByText("$0.40", { exact: true })).toHaveLength(2);
   const tip = screen.getByRole("tooltip");
   expect(within(tip).getByText("Tue, Sep 15, 2026")).toBeTruthy();
-  expect(tip.textContent).not.toMatch(/partial|accepted records priced|priced active entities/i);
+  expect(within(tip).getByLabelText("Captured cost by model").textContent).toBe(
+    "Unknown modelPartial$0.40",
+  );
+  expect(within(tip).getByRole("listitem").getAttribute("title")).toBe(
+    "$0.40 · 1 of 3 records priced · pricing partial; captured USD 0.39813160000000003",
+  );
+  expect(tip.textContent).not.toMatch(/accepted records priced|priced active entities/i);
   expect(within(tip).queryByText("Captured estimate, not billed charges.")).toBeNull();
 });
 it("shows weekdays and exact values without zero-estimate clutter", () => {
@@ -254,14 +260,14 @@ it.each(["tokens", "cost"] as const)(
   },
 );
 it.each([
-  [0.39813160000000003, "<$1"],
-  [1.384036, "$1"],
-  [287.24, "$287"],
-  [1234567.89, "$1M"],
-  [Number.MAX_SAFE_INTEGER, "$9007T"],
-  [0.0000001, "<$1"],
-  [Number.MIN_VALUE, "<$1"],
-] as const)("formats axis estimates without rounding %s to zero", (value, expected) => {
+  [0.39813160000000003, "<$1", "$0.40"],
+  [1.384036, "$1", "$1.38"],
+  [287.24, "$287", "$287.24"],
+  [1234567.89, "$1M", "$1,234,567.89"],
+  [Number.MAX_SAFE_INTEGER, "$9007T", "$9,007,199,254,740,991.00"],
+  [0.0000001, "<$1", "<$0.01"],
+  [Number.MIN_VALUE, "<$1", "<$0.01"],
+] as const)("formats axis estimates without rounding %s to zero", (value, expected, displayed) => {
   expect(axisValue(value, "cost")).toBe(expected);
   const view = calendarSnapshot(query);
   view.days[14].money = {
@@ -280,7 +286,7 @@ it.each([
   const captured = screen
     .getByRole("table", { name: "Daily recorded usage" })
     .querySelectorAll("tbody tr")[14].textContent;
-  expect(captured?.replaceAll(",", "")).toContain(`$${value}`);
+  expect(captured).toContain(displayed);
 });
 it("keeps billing limits and daily attribution exclusions in the screen-reader table", () => {
   const view = calendarSnapshot(query),
@@ -301,7 +307,7 @@ it("keeps billing limits and daily attribution exclusions in the screen-reader t
   );
   expect(within(table).getByRole("columnheader", { name: "Recorded exclusions" })).toBeTruthy();
   const row = table.querySelectorAll("tbody tr")[14];
-  expect(row.textContent).toContain("$0.39813160000000003");
+  expect(row.textContent).toContain("$0.40");
   expect(row.textContent).toContain(
     "1 of 60 accepted records priced; 1 priced active entities; pricing partial",
   );
@@ -371,10 +377,8 @@ it("uses the same model counts and labels in legend, tooltip, and accessible dai
       <UsageTooltip day={view.days[14]} metric="tokens" />
     </>,
   );
-  expect(screen.getByLabelText("Models").textContent).toBe(
-    "gpt.5[fast] DefaultOther models DefaultUnknown model Default",
-  );
-  const models = screen.getByLabelText("Tokens by model and speed");
+  expect(screen.getByLabelText("Models").textContent).toBe("gpt.5[fast]Other modelsUnknown model");
+  const models = screen.getByLabelText("Tokens by model");
   expect(models.querySelectorAll("li")).toHaveLength(3);
   expect(
     Array.from(models.querySelectorAll("li [title]"), (node) => node.getAttribute("title")),
@@ -384,11 +388,7 @@ it("uses the same model counts and labels in legend, tooltip, and accessible dai
     Array.from(table.querySelectorAll("thead th"))
       .slice(-3)
       .map((node) => node.textContent),
-  ).toEqual([
-    "gpt.5[fast] Default tokens",
-    "Other models Default tokens",
-    "Unknown model Default tokens",
-  ]);
+  ).toEqual(["gpt.5[fast] tokens", "Other models tokens", "Unknown model tokens"]);
   expect(
     Array.from(table.querySelectorAll("tbody tr")[14].children)
       .slice(-3)
@@ -416,12 +416,10 @@ it.each([14, 0])(
         />
       </>,
     );
-    expect(screen.getByLabelText("Models").textContent).toBe(
-      "gpt-5.4 DefaultUnknown model Default",
-    );
+    expect(screen.getByLabelText("Models").textContent).toBe("gpt-5.4Unknown model");
     const tooltip = screen.getByRole("tooltip");
     expect(tooltip.querySelector("dl dd")?.textContent).toBe(index === 14 ? "600" : "Unavailable");
-    expect(within(tooltip).queryByLabelText("Tokens by model and speed")).toBeNull();
+    expect(within(tooltip).queryByLabelText("Tokens by model")).toBeNull();
     const cells = screen
       .getByRole("table", { name: "Daily recorded usage" })
       .querySelectorAll("tbody tr")[index].children;

@@ -26,7 +26,11 @@ type DrawingRow = {
   uncertain: boolean;
 };
 
-function dailyInspection(rows: DailyRow[], models: ChartData["models"], metric: TokenMetric) {
+function dailyInspection(
+  rows: DailyRow[],
+  models: Array<ChartData["models"][number]>,
+  metric: TokenMetric,
+) {
   return createMark<DailyRow, string, number>(() => ({
     id: "calendar-days",
     channels: { x: { scale: "x", values: rows.map((row) => row.date) } },
@@ -36,12 +40,13 @@ function dailyInspection(rows: DailyRow[], models: ChartData["models"], metric: 
         const x = scales.x.map(row.date);
         const y = scales.y.map(0);
         const height =
-          metric === "tokens"
+          metric === "tokens" || metric === "cost"
             ? models.reduce((sum, series) => sum + (row.modelHeights[series.key] ?? 0), 0)
             : (row.height ?? 0);
         const positive =
-          metric === "tokens"
-            ? models.some((series) => (row.modelFacts[series.key] ?? 0) > 0)
+          metric === "tokens" || metric === "cost"
+            ? (metric !== "cost" || row.value !== null) &&
+              models.some((series) => (row.modelFacts[series.key] ?? 0) > 0)
             : (row.value ?? 0) > 0;
         if (positive && height * chart.height < 2)
           nodes.push({
@@ -82,7 +87,7 @@ export function CalendarChart({
   helpId,
 }: {
   data: ChartData;
-  visibleModels: ChartData["models"];
+  visibleModels: Array<ChartData["models"][number]>;
   metric: TokenMetric;
   includeUncertain: boolean;
   helpId?: string;
@@ -90,7 +95,7 @@ export function CalendarChart({
   const definition = useMemo(() => {
     const drawing: DrawingRow[] = data.rows.flatMap((row) => {
       const recorded: DrawingRow[] =
-        metric === "tokens"
+        metric === "tokens" || metric === "cost"
           ? visibleModels.flatMap((series) => {
               const height = row.modelHeights[series.key];
               return height == null
@@ -142,7 +147,7 @@ export function CalendarChart({
             stroke: (row) => (row.uncertain ? "var(--muted-foreground)" : "none"),
             strokeDasharray: (row) => (row.uncertain ? "3 2" : ""),
             maxThickness: 28,
-            radius: metric === "tokens" ? 0 : { end: 3 },
+            radius: metric === "tokens" || metric === "cost" ? 0 : { end: 3 },
             layout: stack({
               order: [...data.models.map((series) => series.key), "recorded", "uncertain"],
             }),
@@ -211,18 +216,26 @@ export function CalendarChart({
           ? "Graph filters affect bars only. Recorded totals and table include all series."
           : undefined
       }
-      renderTooltipBody={({ primaryPoint, pinned }) =>
-        primaryPoint ? (
+      renderTooltipBody={({ primaryPoint, pinned }) => {
+        const row = primaryPoint
+          ? data.rows.find((candidate) => candidate.date === primaryPoint.datum.date)
+          : undefined;
+        if (!row) return null;
+        return (
           <div data-bb-plugin="codex-quota">
             <UsageTooltip
-              day={primaryPoint.datum.day}
+              day={row.day}
               pinned={pinned}
               metric={metric}
-              modelView={{ series: data.models, values: primaryPoint.datum.modelFacts }}
+              modelView={{
+                series: data.models,
+                values: row.modelFacts,
+                costFacts: row.costFacts,
+              }}
             />
           </div>
-        ) : null
-      }
+        );
+      }}
     />
   );
 }

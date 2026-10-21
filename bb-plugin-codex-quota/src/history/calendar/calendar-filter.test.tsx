@@ -20,78 +20,132 @@ function snapshot(nextQuery = query) {
   const view = calendarSnapshot(nextQuery);
   view.days[14].models = {
     named: [
-      { model: "gpt-6.1", totalTokens: 100, speedTokens: { normal: 100, fast: 0, ultrafast: 0 } },
+      { model: "gpt-6.1", totalTokens: 100 },
       {
         model: "gpt-6.1-sol",
         totalTokens: 500,
-        speedTokens: { normal: 100, fast: 400, ultrafast: 0 },
       },
     ],
     otherTokens: 0,
   };
-  view.days[14].speedTokens = { normal: 200, fast: 400, ultrafast: 0 };
   return view;
 }
 const button = (name: string) => screen.getByRole("button", { name });
 const table = () => screen.getByRole("table", { name: "Daily recorded usage" });
-it("toggles one exact model/speed locally and restores complete recorded facts", () => {
+it("toggles one exact model locally and restores complete recorded facts", () => {
   const view = snapshot();
   render(<CalendarValues view={view} metric="tokens" />);
   const original = table().textContent;
-  const fast = button("gpt-6.1-sol Fast");
+  const fast = button("gpt-6.1-sol");
   expect(fast.getAttribute("aria-pressed")).toBe("true");
   fireEvent.click(fast);
   expect(fast.getAttribute("aria-pressed")).toBe("false");
-  expect(button("gpt-6.1-sol Default").getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByRole("status").textContent).toBe("1 model/speed series hidden.");
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("status").textContent).toBe("1 model series hidden.");
   expect(table().textContent).toBe(original);
-  fireEvent.click(button("gpt-6.1 Default"));
-  fireEvent.click(button("gpt-6.1-sol Default"));
+  fireEvent.click(button("gpt-6.1"));
   expect(screen.getByRole("status").textContent).toBe(
-    "All model/speed series hidden. Recorded usage is not zero.",
+    "All model series hidden. Recorded usage is not zero.",
   );
   fireEvent.click(button("Restore all series"));
   expect(
     within(screen.getByRole("group", { name: "Models" }))
       .getAllByRole("button")
       .map((node) => node.getAttribute("aria-pressed")),
-  ).toEqual(["true", "true", "true"]);
+  ).toEqual(["true", "true"]);
   expect(table().textContent).toBe(original);
+});
+it("filters captured models independently of token model identities and retains complete currency facts", () => {
+  const view = snapshot();
+  const day = view.days[14];
+  day.money = {
+    state: "partial",
+    capturedCost: 10,
+    records: 3,
+    pricedRecords: 2,
+    pricedEntities: 2,
+    reason: "missing-prices",
+  };
+  const empty = {
+    state: "unavailable" as const,
+    capturedCost: null,
+    records: 0,
+    pricedRecords: 0,
+    reason: "missing-prices" as const,
+  };
+  day.modelCosts = {
+    named: [
+      {
+        model: "gpt-6.1",
+        money: {
+          state: "partial",
+          capturedCost: 4,
+          records: 2,
+          pricedRecords: 1,
+          reason: "missing-prices",
+        },
+      },
+      {
+        model: "gpt-6.1-sol",
+        money: {
+          state: "available",
+          capturedCost: 6,
+          records: 1,
+          pricedRecords: 1,
+          reason: "ok",
+        },
+      },
+    ],
+    other: empty,
+    unknown: empty,
+  };
+  const page = render(<CalendarValues view={view} metric="cost" />);
+  const original = table().textContent;
+  expect(within(table()).getAllByRole("row")[15].textContent).toContain("$10.00");
+  expect(original).toContain("$4.00 · 1 of 2 records priced · pricing partial");
+  fireEvent.click(button("gpt-6.1"));
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("false");
+  expect(table().textContent).toBe(original);
+  page.rerender(<CalendarValues view={view} metric="tokens" />);
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(button("gpt-6.1"));
+  page.rerender(<CalendarValues view={view} metric="cost" />);
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(button("Restore all series"));
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("true");
+  page.rerender(<CalendarValues view={view} metric="tokens" />);
+  expect(button("gpt-6.1").getAttribute("aria-pressed")).toBe("false");
 });
 it("retains semantic selection through changed drawing keys, metrics and absent identities", () => {
   const view = snapshot();
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   page.rerender(<CalendarValues view={view} metric="cost" />);
   page.rerender(<CalendarValues view={{ ...view, query: { ...query } }} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("false");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("false");
   const refreshed = snapshot();
   refreshed.days[14].models!.named.push({
     model: "a.new[model]",
     totalTokens: 1,
-    speedTokens: { normal: 1, fast: 0, ultrafast: 0 },
   });
-  refreshed.days[14].models!.named[1].speedTokens = { normal: 99, fast: 400, ultrafast: 1 };
-  refreshed.days[14].speedTokens = { normal: 200, fast: 400, ultrafast: 1 };
   refreshed.days[14].totalTokens = 601;
   page.rerender(<CalendarValues view={refreshed} metric="tokens" />);
-  expect(button("a.new[model] Default").getAttribute("aria-pressed")).toBe("true");
-  expect(button("gpt-6.1-sol Ultrafast").getAttribute("aria-pressed")).toBe("true");
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("false");
+  expect(button("a.new[model]").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("false");
   const absent = calendarEmptySnapshot(query, "unknown");
   page.rerender(<CalendarValues view={absent} metric="tokens" />);
-  expect(screen.getByRole("status").textContent).toBe("No recorded model/speed series.");
+  expect(screen.getByRole("status").textContent).toBe("No recorded model series.");
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("false");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("false");
   page.rerender(<CalendarValues view={absent} metric="tokens" />);
   fireEvent.click(button("Restore all series"));
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
   act(() => {
-    button("gpt-6.1-sol Fast").click();
-    button("gpt-6.1-sol Fast").click();
+    button("gpt-6.1-sol").click();
+    button("gpt-6.1-sol").click();
   });
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
 it.each([
   { ...query, startDate: "2026-08-01" },
@@ -103,11 +157,11 @@ it.each([
 ])("resets when query changes and does not revive old filters: %j", (nextQuery) => {
   const view = snapshot();
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   page.rerender(<CalendarValues view={{ ...view, query: nextQuery }} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
 it("distinguishes reserved display names, unknown buckets, and punctuation without changing table names", () => {
   const view = calendarSnapshot(query);
@@ -122,12 +176,12 @@ it("distinguishes reserved display names, unknown buckets, and punctuation witho
   };
   render(<CalendarValues view={view} metric="tokens" />);
   const names = [
-    "Unknown model Default named model",
-    "Other models Default named model",
-    "unknown Default",
-    "m0.[fast] Default",
-    "Other models Default",
-    "Unknown model Default",
+    "Unknown model named model",
+    "Other models named model",
+    "unknown",
+    "m0.[fast]",
+    "Other models",
+    "Unknown model",
   ];
   for (const name of names) {
     const control = button(name);
@@ -146,7 +200,7 @@ it.each(["unknown", "observed-inactivity"] as const)(
   "keeps %s distinct from all-hidden and permits restoration",
   (state) => {
     render(<CalendarValues view={calendarEmptySnapshot(query, state)} metric="tokens" />);
-    expect(screen.getByRole("status").textContent).toBe("No recorded model/speed series.");
+    expect(screen.getByRole("status").textContent).toBe("No recorded model series.");
     expect(screen.queryByRole("button", { name: "Restore all series" })).toBeNull();
     expect(table().querySelector("tbody tr td")!.textContent).toBe(
       state === "unknown" ? "Unavailable" : "0",
@@ -174,18 +228,18 @@ it("filters the projected overflow bucket without changing its constituents or f
       .getAllByRole("button")
       .map((node) => node.textContent),
   ).toEqual([
-    "model-0 Default",
-    "model-1 Default",
-    "model-2 Default",
-    "model-3 Default",
-    "model-4 Default",
-    "model-5 Default",
-    "model-6 Default",
-    "model-7 Default",
-    "Other models Default",
+    "model-0",
+    "model-1",
+    "model-2",
+    "model-3",
+    "model-4",
+    "model-5",
+    "model-6",
+    "model-7",
+    "Other models",
   ]);
-  fireEvent.click(button("Other models Default"));
-  expect(button("model-7 Default").getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(button("Other models"));
+  expect(button("model-7").getAttribute("aria-pressed")).toBe("true");
   expect(table().textContent).toBe(original);
   expect(
     Array.from(table().querySelectorAll("tbody tr")[15].children)
@@ -196,10 +250,10 @@ it("filters the projected overflow bucket without changing its constituents or f
 it("discards selection on unmount", () => {
   const view = snapshot();
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   page.unmount();
   render(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
 
 it("keeps the host report request, money and facts unchanged by local filters", async () => {
@@ -229,7 +283,7 @@ it("keeps the host report request, money and facts unchanged by local filters", 
   );
   await screen.findByRole("group", { name: "Models" });
   const original = table().textContent;
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   fireEvent.click(button("Restore all series"));
   expect(table().textContent).toBe(original);
   fireEvent.change(screen.getByRole("combobox", { name: "Report metric" }), {
@@ -257,10 +311,10 @@ it("keeps the default legend compact and exposes selection status without routin
   render(<CalendarValues view={snapshot()} metric="tokens" />);
   expect(screen.queryByRole("button", { name: "Restore all series" })).toBeNull();
   expect(screen.getByRole("status").className).toBe("sr-only");
-  const fast = button("gpt-6.1-sol Fast");
-  expect(fast.textContent).toBe("gpt-6.1-sol Fast");
+  const fast = button("gpt-6.1-sol");
+  expect(fast.textContent).toBe("gpt-6.1-sol");
   fireEvent.click(fast);
-  expect(fast.textContent).toBe("gpt-6.1-sol Fast");
+  expect(fast.textContent).toBe("gpt-6.1-sol");
   expect(fast.querySelector("span:last-child")!.className).toContain("line-through");
   expect(screen.getByRole("status").className).toBe("sr-only");
   fast.focus();
@@ -271,7 +325,7 @@ it("keeps the default legend compact and exposes selection status without routin
 it("restores focus before the trailing restore disappears", () => {
   const view = snapshot();
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  const fast = button("gpt-6.1-sol Fast");
+  const fast = button("gpt-6.1-sol");
   fireEvent.click(fast);
   button("Restore all series").focus();
   fireEvent.click(button("Restore all series"));
@@ -283,34 +337,34 @@ it("restores focus before the trailing restore disappears", () => {
   expect(document.activeElement).toBe(screen.getByRole("group", { name: "Daily recorded values" }));
   expect(document.activeElement!.getAttribute("tabindex")).toBe("-1");
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
 it("recovers from a focused restore removed by query reset without stealing surviving focus", () => {
   const view = snapshot();
   const next = { ...view, query: { ...query, startDate: "2026-08-01" } };
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   button("Restore all series").focus();
   page.rerender(<CalendarValues view={next} metric="tokens" />);
-  expect(document.activeElement).toBe(button("gpt-6.1-sol Fast"));
-  fireEvent.click(button("gpt-6.1-sol Fast"));
-  button("gpt-6.1 Default").focus();
+  expect(document.activeElement).toBe(button("gpt-6.1-sol"));
+  fireEvent.click(button("gpt-6.1-sol"));
+  button("gpt-6.1").focus();
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(document.activeElement).toBe(button("gpt-6.1 Default"));
+  expect(document.activeElement).toBe(button("gpt-6.1"));
 });
 it("falls back to the first current series if the last toggled identity is absent", () => {
   const view = snapshot();
   const page = render(<CalendarValues view={view} metric="tokens" />);
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   const refreshed = snapshot();
   refreshed.days[14].models!.named = refreshed.days[14].models!.named.slice(0, 1);
   page.rerender(<CalendarValues view={refreshed} metric="tokens" />);
-  expect(screen.getByRole("status").textContent).toBe("0 model/speed series hidden.");
+  expect(screen.getByRole("status").textContent).toBe("0 model series hidden.");
   button("Restore all series").focus();
   fireEvent.click(button("Restore all series"));
-  expect(document.activeElement).toBe(button("gpt-6.1 Default"));
+  expect(document.activeElement).toBe(button("gpt-6.1"));
   page.rerender(<CalendarValues view={view} metric="tokens" />);
-  expect(button("gpt-6.1-sol Fast").getAttribute("aria-pressed")).toBe("true");
+  expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
 
 it("keeps focus on a surviving metric control and uses the stable group for an empty query reset", () => {
@@ -322,7 +376,7 @@ it("keeps focus on a surviving metric control and uses the stable group for an e
       <CalendarValues view={view} metric="tokens" />
     </>,
   );
-  fireEvent.click(button("gpt-6.1-sol Fast"));
+  fireEvent.click(button("gpt-6.1-sol"));
   button("Change metric").focus();
   page.rerender(
     <>

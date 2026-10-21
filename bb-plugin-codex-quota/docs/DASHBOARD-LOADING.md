@@ -19,7 +19,7 @@ This comparison measures saved display instead of a live-host wait. It does not 
 After rebasing onto the TanStack charts:
 
 - 102 focused tests passed, including cache invalidation, query isolation, SDK boundaries and chart layout.
-- 28 owned browser checks passed at desktop and narrow widths. They include saved and cold loading, literal token and cost updates, page reload, speed controls and stable chart geometry.
+- 28 owned browser checks passed at desktop and narrow widths. They include saved and cold loading, literal token and cost updates, page reload, recorded-usage controls and stable chart geometry.
 - Typechecking passed with SDK 0.6.49.
 - The full package attempt did not finish within its 180-second command limit. Earlier validation timeouts are tracked in BBP-212. No timeout or assertion was weakened.
 

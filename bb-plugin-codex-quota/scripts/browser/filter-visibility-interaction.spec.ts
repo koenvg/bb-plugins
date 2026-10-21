@@ -23,12 +23,12 @@ for (const width of [375, 1280]) {
         { width: "6", height: "2", hidden: "true" },
         { width: "6", height: "2", hidden: "true" },
       ]);
-      await legend.getByRole("button", { name: "gpt-5.3-codex Default", exact: true }).click();
+      await legend.getByRole("button", { name: "gpt-5.3-codex", exact: true }).click();
       await expect(markers).toHaveCount(2);
-      await legend.getByRole("button", { name: "gpt-5.4 Default", exact: true }).click();
+      await legend.getByRole("button", { name: "gpt-5.4", exact: true }).click();
       await expect(markers).toHaveCount(1);
       await expect(markers).toHaveAttribute("data-ts-key", `positive:${daily[16][0]}`);
-      await legend.getByRole("button", { name: "Unknown model Default", exact: true }).click();
+      await legend.getByRole("button", { name: "Unknown model", exact: true }).click();
       await expect(markers).toHaveCount(0);
       expect(await rows(page)).toEqual(daily);
       await page.getByRole("button", { name: "Restore all series", exact: true }).click();

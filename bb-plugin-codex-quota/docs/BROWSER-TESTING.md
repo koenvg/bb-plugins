@@ -12,7 +12,7 @@ bun run typecheck
 
 `@playwright/test` is locked to 1.64.0. `bun run test` remains Vitest. Its default exclusions are retained, with only `scripts/browser/**/*.spec.ts` added. `proof.test.ts` remains in Vitest.
 
-No Python, Pillow, Browser Use, Browser Harness, BB CLI or prebuilt `dist/` is required for browser checks. The `.mjs` bundle checks remain separate backend verification. `test:bundle` also runs the actual built-entry speed/native proof.
+No Python, Pillow, Browser Use, Browser Harness, BB CLI or prebuilt `dist/` is required for browser checks. The `.mjs` bundle checks remain separate backend verification. `test:bundle` also runs the actual built-entry native-usage proof.
 
 ## Ownership and local resources
 
@@ -75,6 +75,6 @@ Use `bun run test:browser --list` to discover the current suite without launchin
 - Browser cancellation fixtures use identical host values and the retained 200ms settle windows. They cannot independently prove rejection of a different wrong-host payload or cancellation of already dispatched work. Existing deterministic public SDK Vitest regressions remain the stronger request-boundary checks.
 - This is not installed BB navigation, live capture, identity completeness, complete active collection, source-root mutation, recovery of real data, subscription billing or signed-in account acceptance. No external traffic is authorized.
 
-## Speed and native fixture
+## Native usage fixture
 
-`speed.spec.ts` adds eight desktop/375px cases using reports from `createHostHistory.prepare/report`, not hand-written UI speed totals. It checks the three labels and exact accessible counts, both metrics, date navigation, host/all-machine scope, ranking, stable loading-group space, explicit retry and offline display. Screenshots and `backend-reports.json` retain these facts. Native tiers are forward-format policy only; installed-format supported requests are Normal. See [SPEED.md](SPEED.md).
+`native-usage.spec.ts` has eight desktop and 375px cases using reports from `createHostHistory.prepare/report`. It checks literal model-only token and captured-cost values, both metrics, date navigation, host and all-machine scope, ranking, loading chart space, explicit retry, and offline display. Screenshots and `backend-reports.json` retain these facts. Legacy tier fields in the owned fixtures do not affect totals or model attribution. See [Native usage](NATIVE-USAGE.md).

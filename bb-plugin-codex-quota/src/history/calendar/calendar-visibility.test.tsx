@@ -105,6 +105,6 @@ it("marks an original positive cost even when its drawing ratio underflows", () 
   const rows = screen
     .getByRole("table", { name: "Daily recorded usage" })
     .querySelectorAll("tbody tr");
-  expect(rows[14].children[1].textContent).toBe("$9,007,199,254,740,991");
-  expect(rows[15].children[1].textContent).toBe("$5e-324");
+  expect(rows[14].children[1].textContent).toBe("$9,007,199,254,740,991.00");
+  expect(rows[15].children[1].textContent).toBe("<$0.01");
 });
