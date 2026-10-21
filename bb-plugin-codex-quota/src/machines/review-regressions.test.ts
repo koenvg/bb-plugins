@@ -147,11 +147,8 @@ it("merges model IDs across machines while retaining an older report remainder",
   const day = combineReports(data, query)!.days[14];
   expect(day.totalTokens).toBe(1200);
   expect(day.models).toEqual({
-    named: [
-      { model: "gpt-5", totalTokens: 400, speedTokens: { normal: 400, fast: 0, ultrafast: 0 } },
-    ],
+    named: [{ model: "gpt-5", totalTokens: 400 }],
     otherTokens: 100,
-    otherSpeedTokens: { normal: 100, fast: 0, ultrafast: 0 },
   });
   const second = reports[1];
   if (second.state === "unavailable") throw Error("Fixture unavailable");
@@ -164,14 +161,164 @@ it("merges model IDs across machines while retaining an older report remainder",
   };
   expect(combineReports(data, query)!.days[14].models).toEqual({
     named: [
-      { model: "gpt-5", totalTokens: 700, speedTokens: { normal: 700, fast: 0, ultrafast: 0 } },
-      { model: "gpt-6", totalTokens: 300, speedTokens: { normal: 300, fast: 0, ultrafast: 0 } },
+      { model: "gpt-5", totalTokens: 700 },
+      { model: "gpt-6", totalTokens: 300 },
     ],
     otherTokens: 100,
-    otherSpeedTokens: { normal: 100, fast: 0, ultrafast: 0 },
   });
 });
 
+it("merges new captured model money with an old cached report without inferring names", async () => {
+  const data = reportsFixture(query, now);
+  const [first, second] = data.machines.map((row) => row.report);
+  if (first.state === "unavailable" || second.state === "unavailable")
+    throw Error("Fixture unavailable");
+  const empty = {
+    state: "unavailable" as const,
+    capturedCost: null,
+    records: 0,
+    pricedRecords: 0,
+    reason: "missing-prices" as const,
+  };
+  first.days[14].money = {
+    state: "available",
+    capturedCost: 4,
+    records: 1,
+    pricedRecords: 1,
+    pricedEntities: 1,
+    reason: "ok",
+  };
+  first.days[14].modelCosts = {
+    named: [
+      {
+        model: "A",
+        money: { state: "available", capturedCost: 4, records: 1, pricedRecords: 1, reason: "ok" },
+      },
+    ],
+    other: empty,
+    unknown: empty,
+  };
+  first.days[14].activeEntities = second.days[14].activeEntities = 1;
+  first.summary.money = { ...first.days[14].money };
+  first.summary.activeEntities = second.summary.activeEntities = 1;
+  second.days[14].money = { ...first.days[14].money, capturedCost: 3 };
+  second.summary.money = { ...second.days[14].money };
+  second.days[14].models = { named: [{ model: "A", totalTokens: 600 }], otherTokens: 0 };
+  data.machines[1].cached = true;
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
+  await cache.save("host_one", first);
+  await cache.save("host_two", second);
+  const newReport = await cache.read("host_one", query),
+    oldReport = await cache.read("host_two", query);
+  if (!newReport || !oldReport) throw Error("Cache unavailable");
+  data.machines[0].report = newReport;
+  data.machines[1].report = oldReport;
+  const combined = combineReports(data, query)!;
+  expect(combined.incomplete).toBe(true);
+  expect(combined.days[14].money.capturedCost).toBe(7);
+  expect(combined.days[14].modelCosts).toEqual({
+    named: [
+      {
+        model: "A",
+        money: { state: "available", capturedCost: 4, records: 1, pricedRecords: 1, reason: "ok" },
+      },
+    ],
+    other: empty,
+    unknown: { state: "available", capturedCost: 3, records: 1, pricedRecords: 1, reason: "ok" },
+  });
+});
+it("caps model dollars again across machines and withholds unsafe sums without losing tokens", () => {
+  const data = reportsFixture(query, now);
+  for (let machine = 0; machine < 2; machine++) {
+    const report = data.machines[machine].report;
+    if (report.state === "unavailable") throw Error("Fixture unavailable");
+    const day = report.days[14];
+    const empty = {
+      state: "unavailable" as const,
+      capturedCost: null,
+      records: 0,
+      pricedRecords: 0,
+      reason: "missing-prices" as const,
+    };
+    day.money = {
+      state: "available",
+      capturedCost: 5,
+      records: 5,
+      pricedRecords: 5,
+      pricedEntities: 1,
+      reason: "ok",
+    };
+    day.modelCosts = {
+      named: Array.from({ length: 5 }, (_, n) => ({
+        model: `model-${machine * 5 + n}`,
+        money: {
+          state: "available" as const,
+          capturedCost: 1,
+          records: 1,
+          pricedRecords: 1,
+          reason: "ok" as const,
+        },
+      })),
+      other: empty,
+      unknown: empty,
+    };
+  }
+  const day = combineReports(data, query)!.days[14];
+  expect(day.money.capturedCost).toBe(10);
+  expect(day.modelCosts?.named.map((row) => row.model)).toEqual([
+    "model-0",
+    "model-1",
+    "model-2",
+    "model-3",
+    "model-4",
+    "model-5",
+    "model-6",
+    "model-7",
+  ]);
+  expect(day.modelCosts?.other).toEqual({
+    state: "available",
+    capturedCost: 2,
+    records: 2,
+    pricedRecords: 2,
+    reason: "ok",
+  });
+  for (const machine of data.machines) {
+    if (machine.report.state === "unavailable") throw Error("Fixture unavailable");
+    const value = machine.report.days[14];
+    value.money = {
+      ...value.money,
+      capturedCost: Number.MAX_SAFE_INTEGER,
+      records: 1,
+      pricedRecords: 1,
+    };
+    value.modelCosts!.named = [
+      {
+        model: "same",
+        money: {
+          state: "available",
+          capturedCost: Number.MAX_SAFE_INTEGER,
+          records: 1,
+          pricedRecords: 1,
+          reason: "ok",
+        },
+      },
+    ];
+  }
+  const unsafe = combineReports(data, query)!.days[14];
+  expect(unsafe.money).toMatchObject({ capturedCost: null, reason: "unsafe-sum" });
+  expect(unsafe.modelCosts?.named[0]).toEqual({
+    model: "same",
+    money: {
+      state: "unavailable",
+      capturedCost: null,
+      records: 2,
+      pricedRecords: 2,
+      reason: "unsafe-sum",
+    },
+  });
+  expect(unsafe.totalTokens).toBe(1200);
+});
 it("exposes a strict saved-only report RPC without host dispatch", async () => {
   const call = vi.fn(async ({ input }: { input: unknown }) =>
     recordedFixture(input as CalendarQuery, Date.now()),

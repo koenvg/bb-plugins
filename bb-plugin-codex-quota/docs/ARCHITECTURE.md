@@ -50,7 +50,7 @@ Every selected-host RPC uses the same request guard. It checks the host before d
 - Canceling a request can release its caller without releasing the database queue. The next operation cannot enter storage until the previous operation actually settles.
 - Imports must also finish database cleanup before the host entry releases their retained-worker lease.
 
-Schema 5 stores source/speed metadata outside unchanged Pi v1 proofs. Reports remain read-only, and schema-4 reports decode absent speed as Normal. The changed collector asset requires explicit repair after future deployment. Pi prices, retention dates and import controls remain. See [SPEED.md](SPEED.md) for native identity, alias and speed rules.
+Schema 5 stores source and class metadata outside unchanged Pi v1 proofs. Reports remain read-only, including supported schema-4 reports. Historical column layout remains unchanged. The changed collector asset requires explicit repair after future deployment. Pi prices, retention dates, and import controls remain. See [Native usage](NATIVE-USAGE.md) for request ownership, aliases, and legacy ingress.
 
 ## Collector maintenance
 

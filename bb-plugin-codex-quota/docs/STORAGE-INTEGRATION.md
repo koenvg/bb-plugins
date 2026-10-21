@@ -4,7 +4,7 @@ This combines reviewed identity/import work at `11be5e0c04a5d9c5631e4626a9a4c5bf
 
 ## One schema owner
 
-`initializeHistory` owns the transactional migration to **schema 5**. It checks the supported version and base layout before mutation. It initializes retention, writer observation, identity and import together, adds source/speed/native metadata, then publishes `user_version=5` last. Supported schema-4 read-only reports stay all Normal; see [SPEED.md](SPEED.md).
+`initializeHistory` owns the transactional migration to **schema 5**. It checks the supported version and base layout before mutation. It initializes retention, writer observation, identity, and import together, adds source, class, and native metadata, then publishes `user_version=5` last. Supported schema-4 read-only reports remain available. See [Native usage](NATIVE-USAGE.md).
 
 - Schema 1: resumable, bounded compact ownership backfill. Supported additive identity/import layouts keep their configuration and receipts.
 - Schemas 2 and 3: keep compact rows, original ownership, cutoffs, completed cursors and scalar values. Reset only the bounded identity projection backfill.

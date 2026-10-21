@@ -5,8 +5,8 @@ import { MachineReportPanel } from "../src/machines/report-view.js";
 import type { CalendarQuery, CalendarSnapshot } from "../src/history/calendar/calendar-contract.js";
 import type { MachineReports } from "../src/machines/machines-contract.js";
 
-declare const __SPEED_REPORTS__: CalendarSnapshot[];
-const reports = __SPEED_REPORTS__;
+declare const __NATIVE_USAGE_REPORTS__: CalendarSnapshot[];
+const reports = __NATIVE_USAGE_REPORTS__;
 const now = Date.parse("2026-10-01T12:00:00Z");
 const RealDate = Date;
 globalThis.Date = class extends RealDate {
@@ -44,9 +44,9 @@ function Preview() {
   const [scope, setScope] = useState(new URLSearchParams(location.search).get("scope") ?? "all");
   return (
     <main className="mx-auto max-w-5xl p-5 text-foreground">
-      <h1 className="text-xl font-semibold">Recorded speed fixture</h1>
+      <h1 className="text-xl font-semibold">Recorded native usage fixture</h1>
       <p className="mt-2 text-xs text-muted-foreground">
-        Native tiers are forward-format policy fixtures, not current Codex persistence evidence.
+        Synthetic public backend reports. Not installed collector acceptance.
       </p>
       <nav aria-label="Fixture machine scope" className="mt-3 flex flex-wrap gap-3">
         <button onClick={() => setScope("all")} aria-pressed={scope === "all"}>
@@ -101,5 +101,5 @@ function Preview() {
     </main>
   );
 }
-Object.assign(window, { speedFixture: { calls, reports } });
+Object.assign(window, { nativeUsageFixture: { calls, reports } });
 createRoot(document.getElementById("root")!).render(<Preview />);

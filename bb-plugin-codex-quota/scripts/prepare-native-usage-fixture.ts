@@ -7,13 +7,10 @@ import { initializeHistory } from "../src/history/storage/history-projection.js"
 import { openHistoryDatabase } from "../src/history/storage/history-storage.js";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
 
-/** Browser input is an actual public prepare/report result, not a favorable hand-written subtotal.
- * Native tiers in this fixture test forward-format policy. Installed Codex does not persist them.
- */
-export async function prepareSpeedFixture(
+export async function prepareNativeUsageFixture(
   fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url)),
 ) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "speed-browser-history-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "native-browser-history-")));
   const home = join(root, "codex"),
     dataDir = join(root, "data");
   const now = Date.parse("2026-10-01T12:00:00Z");
@@ -24,7 +21,7 @@ export async function prepareSpeedFixture(
     await mkdir(join(dataDir, "history"), { recursive: true });
     await writeFile(
       join(home, "sessions", "rollout.jsonl"),
-      await readFile(join(fixtures, "native-speed-policy.jsonl")),
+      await readFile(join(fixtures, "native-legacy-usage.jsonl")),
     );
     const db = (await openHistoryDatabase(join(dataDir, "history", "usage-v1.sqlite")))!;
     initializeHistory(db, new Date(now).toISOString());
@@ -39,7 +36,7 @@ export async function prepareSpeedFixture(
     );
     await writeFile(
       join(dataDir, "history", "events-v1-2026-10-01.jsonl"),
-      await readFile(join(fixtures, "pi-speed.jsonl")),
+      await readFile(join(fixtures, "pi-legacy-usage.jsonl")),
     );
     const context = {
       dataDir,
@@ -70,7 +67,7 @@ export async function prepareSpeedFixture(
       const result = await history.prepare!(context);
       if (result.state !== "available") throw Error(result.reason);
       if (!result.ingestionPending && !result.attribution.backlog) break;
-      if (i === 29) throw Error("Speed fixture did not settle");
+      if (i === 29) throw Error("Native usage fixture did not settle");
     }
     const query: CalendarQuery = {
       startDate: "2026-09-02",

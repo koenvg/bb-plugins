@@ -144,7 +144,7 @@ describe("public SDK and quota-only boundary", () => {
         "scripts/check-bundled-money.mjs",
         ["pathToFileURL(artifact).href", 'pathToFileURL(artifact).href + "?reopen=1"'],
       ],
-      ["scripts/check-bundled-speed.mjs", ["pathToFileURL(artifact).href"]],
+      ["scripts/check-bundled-native-usage.mjs", ["pathToFileURL(artifact).href"]],
       ["scripts/preview-server.mjs", ["pathToFileURL(fixtureArtifact).href"]],
     ]);
     const probeRoot = mkdtempSync(join(tmpdir(), "quota-sdk-expressions-"));

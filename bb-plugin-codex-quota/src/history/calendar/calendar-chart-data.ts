@@ -1,5 +1,6 @@
 import type { CalendarSnapshot } from "./calendar-contract.js";
 import { projectTokenModels } from "./calendar-models.js";
+import { projectCostModels } from "./calendar-model-costs.js";
 
 export type TokenMetric = import("./calendar-comparison.js").ComparisonMetric;
 export type CalendarDay = CalendarSnapshot["days"][number];
@@ -72,7 +73,15 @@ export function recordedValue(day: CalendarDay, metric: TokenMetric): number | n
 }
 export function chartData(days: CalendarDay[], metric: TokenMetric) {
   const values = days.map((day) => recordedValue(day, metric));
-  const models = projectTokenModels(days);
+  const tokens = projectTokenModels(days);
+  const costs = projectCostModels(days);
+  const models = metric === "cost" ? costs.series : tokens.series;
+  const facts =
+    metric === "cost"
+      ? costs.facts.map((day) =>
+          Object.fromEntries(models.map((series) => [series.key, day[series.key].capturedCost])),
+        )
+      : tokens.facts;
   const maximum = Math.max(
     0,
     ...values.map(
@@ -83,7 +92,7 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
   // Scale only the drawing coordinates. Facts and tooltip values stay unchanged.
   // A unit domain also avoids unsafe tick arithmetic for subnormal captured prices.
   return {
-    models: models.series,
+    models: models,
     maximum,
     rows: days.map((day, index) => ({
       date: day.date,
@@ -99,11 +108,13 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
             : 0,
       uncertainHeight:
         metric === "tokens" && maximum ? (day.uncertain?.totalTokens ?? 0) / maximum : 0,
-      modelFacts: models.facts[index],
+      modelFacts: facts[index],
+      costFacts: costs.facts[index],
       modelHeights: Object.fromEntries(
-        Object.entries(models.facts[index]).map(([key, value]) => [
+        Object.entries(facts[index]).map(([key, value]) => [
           key,
-          value === null && !(day.uncertain?.totalTokens ?? 0)
+          (metric === "cost" && day.money.capturedCost === null) ||
+          (value === null && !(metric === "tokens" && day.uncertain?.totalTokens))
             ? null
             : maximum
               ? (value ?? 0) / maximum

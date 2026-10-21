@@ -74,17 +74,17 @@ for (const width of [375, 1280])
       });
       await page.setViewportSize({ width, height: 1100 });
       await page.emulateMedia({ colorScheme: theme });
-      await page.goto("/calendar.html?state=model-speeds");
+      await page.goto("/calendar.html?state=model-totals");
       await reportTheme(page, theme);
       await settled(page);
-      const names = ["gpt-6.1 Default", "gpt-6.1-sol Default", "gpt-6.1-sol Fast"];
+      const names = ["gpt-6.1", "gpt-6.1-sol"];
       const daily = await rows(page);
-      expect(daily[14].slice(-3)).toEqual(["100", "100", "400"]);
+      expect(daily[14].slice(-2)).toEqual(["100", "500"]);
       const initial = await bars(page);
       const initialBarBox = (await page.locator(".ts-chart__bar rect").first().boundingBox())!;
-      expect(initial.map((group) => group.length)).toEqual([1, 1, 1]);
+      expect(initial.map((group) => group.length)).toEqual([1, 1]);
       expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(
-        await expectedStack(page, [100, 100, 400], 600),
+        await expectedStack(page, [100, 500], 600),
       );
       const ticks = await axis(page);
       expect(ticks).toEqual(["0", "150", "300", "450", "600"]);
@@ -113,7 +113,7 @@ for (const width of [375, 1280])
           })),
         ).toEqual({ position: "absolute", width: "1px", height: "1px" });
       }
-      const fast = series(page, names[2]);
+      const fast = series(page, names[1]);
       await fast.focus();
       await expect(restore(page)).toHaveCount(0);
       for (const name of names) {
@@ -152,7 +152,7 @@ for (const width of [375, 1280])
       await page.keyboard.press("Space");
       await expect(fast).toHaveAttribute("aria-pressed", "false");
       await expect(fast).toBeFocused();
-      await expect(fast).toHaveText(names[2]);
+      await expect(fast).toHaveText(names[1]);
       expect(
         await fast
           .locator("span")
@@ -169,13 +169,14 @@ for (const width of [375, 1280])
           outline: getComputedStyle(node).outlineWidth,
         })),
       ).toEqual({ visible: true, outline: "2px" });
-      await expect.poll(() => bars(page)).toEqual(initial.slice(0, 2));
+      await expect.poll(() => bars(page)).toEqual(initial.slice(0, 1));
       expect(await axis(page)).toEqual(ticks);
       expect(await rows(page)).toEqual(daily);
       await tooltip(page, "tokens", daily);
-      await expect(
-        page.getByLabel("Tokens by model and speed", { exact: true }).locator("li"),
-      ).toHaveText(["gpt-6.1 Default100", "gpt-6.1-sol Default100", "gpt-6.1-sol Fast400"]);
+      await expect(page.getByLabel("Tokens by model", { exact: true }).locator("li")).toHaveText([
+        "gpt-6.1100",
+        "gpt-6.1-sol500",
+      ]);
       await fast.focus();
       await page.keyboard.press("Enter");
       await expect.poll(() => bars(page)).toEqual(initial);
@@ -190,7 +191,7 @@ for (const width of [375, 1280])
         );
         const endpoints = await expectedStack(
           page,
-          [100, 100, 400].filter((_value, index) => index !== hiddenIndex),
+          [100, 500].filter((_value, index) => index !== hiddenIndex),
           600,
         );
         for (let index = 0; index < remaining.length; index++)
@@ -235,7 +236,7 @@ for (const width of [375, 1280])
         for (const name of names) await series(page, name).click();
         await expect(
           page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
-        ).toHaveText("All model/speed series hidden. Recorded usage is not zero.");
+        ).toHaveText("All model series hidden. Recorded usage is not zero.");
         expect(await bars(page)).toEqual([]);
         expect(await rows(page)).toEqual(daily);
         expect(await axis(page)).toEqual(ticks);
@@ -255,16 +256,16 @@ for (const width of [375, 1280])
         await restore(page).focus();
         await page.keyboard.press("Enter");
         await expect.poll(() => bars(page)).toEqual(initial);
-        await expect(series(page, names[2])).toBeFocused();
+        await expect(series(page, names[1])).toBeFocused();
         await expect(restore(page)).toHaveCount(0);
       }
       expect(await calls(page)).toEqual(requests);
       expect(writes).toEqual(stored);
       expect(await page.getByLabel("Shared account allowance").textContent()).toBe(allowance);
       expect(await page.getByLabel("Recorded token subtotal").textContent()).toBe(summary);
-      await series(page, names[2]).click();
+      await series(page, names[1]).click();
       await page.getByRole("button", { name: "Workspaces", exact: true }).click();
-      await expect(series(page, names[2])).toHaveAttribute("aria-pressed", "false");
+      await expect(series(page, names[1])).toHaveAttribute("aria-pressed", "false");
       await noOverflow(page);
       await capture(page, info, `filtered-${width}-${theme}`);
       await jsonEvidence(info, "filter-geometry.json", {
@@ -278,7 +279,7 @@ for (const width of [375, 1280])
       });
       await page.reload();
       await settled(page);
-      await expect(series(page, names[2])).toHaveAttribute("aria-pressed", "true");
+      await expect(series(page, names[1])).toHaveAttribute("aria-pressed", "true");
     });
 
 test("uncertainty restacks unfiltered on the unchanged full scale", async ({ page }, info) => {
@@ -296,7 +297,7 @@ test("uncertainty restacks unfiltered on the unchanged full scale", async ({ pag
     endpoints[0].height / endpoints[1].height,
     5,
   );
-  await series(page, "Unknown model Default").click();
+  await series(page, "Unknown model").click();
   const filtered = await bars(page);
   expect(filtered).toEqual([[{ ...uncertainty, y: (await expectedStack(page, [300], 900))[0].y }]]);
   expect(await axis(page)).toEqual(ticks);
@@ -309,39 +310,35 @@ test("uncertainty restacks unfiltered on the unchanged full scale", async ({ pag
   await jsonEvidence(info, "uncertainty.json", { initial, filtered, ticks, daily });
 });
 
-test("unknown speed filters keep independent complete attribution", async ({ page }) => {
-  await page.goto("/calendar.html?state=unknown-model-speeds");
+test("unknown model filter keeps complete attribution", async ({ page }) => {
+  await page.goto("/calendar.html?state=unknown-models");
   await settled(page);
   const daily = await rows(page);
-  expect(daily[14].slice(-3)).toEqual(["100", "200", "300"]);
+  expect(daily[14].slice(-1)).toEqual(["600"]);
   const initial = await bars(page);
-  await series(page, "Unknown model Fast").click();
-  expect(await bars(page)).toEqual([
-    initial[0],
-    [{ ...initial[2][0], y: (await expectedStack(page, [100, 300], 600))[1].y }],
-  ]);
-  await expect(series(page, "Unknown model Default")).toHaveAttribute("aria-pressed", "true");
-  await expect(series(page, "Unknown model Ultrafast")).toHaveAttribute("aria-pressed", "true");
+  await series(page, "Unknown model").click();
+  expect(await bars(page)).toEqual([]);
+  await expect(series(page, "Unknown model")).toHaveAttribute("aria-pressed", "false");
   expect(await rows(page)).toEqual(daily);
   await tooltip(page, "tokens", daily);
-  await expect(
-    page.getByLabel("Tokens by model and speed", { exact: true }).locator("li"),
-  ).toHaveText(["Unknown model Default100", "Unknown model Fast200", "Unknown model Ultrafast300"]);
+  await expect(page.getByRole("tooltip")).toContainText("Recorded tokens600");
+  await restore(page).click();
+  expect(await bars(page)).toEqual(initial);
 });
 
 test("failed same-query refresh keeps selection, range navigation resets it", async ({ page }) => {
   await page.goto("/calendar.html?state=stale");
   await settled(page);
-  await series(page, "Unknown model Default").click();
+  await series(page, "Unknown model").click();
   await page.getByRole("button", { name: "Refresh chart", exact: true }).click();
   await expect(page.getByText("Recorded values are out of date.", { exact: false })).toBeVisible();
-  await expect(series(page, "Unknown model Default")).toHaveAttribute("aria-pressed", "false");
-  await page.goto("/calendar.html?state=model-speeds");
+  await expect(series(page, "Unknown model")).toHaveAttribute("aria-pressed", "false");
+  await page.goto("/calendar.html?state=model-totals");
   await settled(page);
-  await series(page, "gpt-6.1-sol Fast").click();
+  await series(page, "gpt-6.1-sol").click();
   const previous = page.getByRole("button", { name: "Previous 30 days" });
   await previous.click();
-  await expect(series(page, "gpt-6.1-sol Fast")).toHaveAttribute("aria-pressed", "true");
+  await expect(series(page, "gpt-6.1-sol")).toHaveAttribute("aria-pressed", "true");
   await expect(previous).toBeFocused();
 });
 
@@ -355,13 +352,13 @@ for (const width of [375, 1280])
       await settled(page);
       expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
       const names = [
-        "Other models Default named model",
-        "Unknown model Default named model",
-        "long-model." + "x".repeat(117) + " Default",
-        "tiny.[model] Default",
-        "unknown Default",
-        "Other models Default",
-        "Unknown model Default",
+        "Other models named model",
+        "Unknown model named model",
+        "long-model." + "x".repeat(117),
+        "tiny.[model]",
+        "unknown",
+        "Other models",
+        "Unknown model",
       ];
       const legend = page.getByRole("group", { name: "Models", exact: true });
       await expect(legend.getByRole("button")).toHaveCount(7);
@@ -398,10 +395,10 @@ for (const width of [375, 1280])
       expect(filtered[0][0].height).toBe(initial[7][0].height);
       expect(filtered[0][0].y + filtered[0][0].height).toBe(initial[0][0].y + initial[0][0].height);
       await tooltip(page, "tokens", daily);
-      await expect(
-        page.getByLabel("Tokens by model and speed", { exact: true }).locator("li"),
-      ).toHaveCount(7);
-      await expect(page.getByRole("tooltip")).toContainText("tiny.[model] Default1");
+      await expect(page.getByLabel("Tokens by model", { exact: true }).locator("li")).toHaveCount(
+        7,
+      );
+      await expect(page.getByRole("tooltip")).toContainText("tiny.[model]1");
       await restore(page).focus();
       await page.keyboard.press("Space");
       expect(await bars(page)).toEqual(initial);
@@ -438,7 +435,7 @@ for (const state of ["unknown", "inactive", "filter-uncertain-only"])
     ).toHaveCount(0);
     await expect(
       page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
-    ).toHaveText("No recorded model/speed series.");
+    ).toHaveText("No recorded model series.");
     await expect(restore(page)).toHaveCount(0);
     expect(await rows(page)).toEqual(daily);
     if (state === "filter-uncertain-only") {
@@ -450,6 +447,6 @@ for (const state of ["unknown", "inactive", "filter-uncertain-only"])
       await tooltip(page, "tokens", daily);
       await expect(page.getByRole("tooltip")).toContainText("Recorded tokensUnavailable");
       await expect(page.getByRole("tooltip")).toContainText("Uncertain estimate300 tokens");
-      await expect(page.getByLabel("Tokens by model and speed", { exact: true })).toHaveCount(0);
+      await expect(page.getByLabel("Tokens by model", { exact: true })).toHaveCount(0);
     } else expect(await bars(page)).toEqual([]);
   });

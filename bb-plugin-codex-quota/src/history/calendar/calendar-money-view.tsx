@@ -1,11 +1,11 @@
 import type { CalendarMoney } from "./calendar-contract.js";
 
 export function capturedEstimate(value: number): string {
-  return `$${value < 0.01 ? value.toString() : value.toLocaleString("en-US", { maximumSignificantDigits: 21 })}`;
+  return value > 0 && value < 0.01
+    ? "<$0.01"
+    : `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-export function compactEstimate(value: number): string {
-  return `$${value > 0 && value < 0.01 ? value.toPrecision(3) : value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+export { capturedEstimate as compactEstimate };
 export function pricedAverage(money: CalendarMoney): string {
   if (money.capturedCost === null || !money.pricedEntities)
     return "Unavailable, no safe priced subtotal";

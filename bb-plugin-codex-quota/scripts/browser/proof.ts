@@ -61,7 +61,7 @@ export function accessibleFacts(
       "Uncertain token estimate",
     );
   else headers.push("Pricing");
-  if (metric === "tokens") headers.push(...modelHeaders);
+  headers.push(...modelHeaders);
   assert.deepEqual(
     descendants(axRows[0])
       .filter((node) => role(node) === "columnheader")

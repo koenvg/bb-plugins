@@ -20,7 +20,7 @@ const suites = [
   "identity",
   `import`,
   "calendar",
-  "speed",
+  "native-usage",
   "saved",
   "footer",
 ];
@@ -34,9 +34,9 @@ try {
   root = await mkdtemp(join(process.env.BB_FIXTURE_RUN_DIR ?? tmpdir(), "codex-quota-preview-"));
   cancellation.signal.throwIfAborted();
   // Node also runs this preview lifecycle test. Compile .js-to-.ts source imports before loading.
-  const fixtureArtifact = join(root, "speed-fixture.mjs");
+  const fixtureArtifact = join(root, "native-usage-fixture.mjs");
   await build({
-    entryPoints: [join(scripts, "prepare-speed-fixture.ts")],
+    entryPoints: [join(scripts, "prepare-native-usage-fixture.ts")],
     outfile: fixtureArtifact,
     bundle: true,
     platform: "node",
@@ -55,8 +55,8 @@ try {
     ],
   });
   cancellation.signal.throwIfAborted();
-  const { prepareSpeedFixture } = await import(pathToFileURL(fixtureArtifact).href);
-  const speedReports = await prepareSpeedFixture(join(packageRoot, "fixtures"));
+  const { prepareNativeUsageFixture } = await import(pathToFileURL(fixtureArtifact).href);
+  const nativeUsageReports = await prepareNativeUsageFixture(join(packageRoot, "fixtures"));
   cancellation.signal.throwIfAborted();
   const css = await compile(await readFile(join(scripts, "preview.css"), "utf8"), {
     base: scripts,
@@ -83,7 +83,7 @@ try {
       // The public SDK testing renderer uses React.act, which requires the development build.
       define: {
         "process.env.NODE_ENV": '"development"',
-        __SPEED_REPORTS__: JSON.stringify(speedReports),
+        __NATIVE_USAGE_REPORTS__: JSON.stringify(nativeUsageReports),
       },
     });
     await writeFile(

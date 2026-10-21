@@ -151,6 +151,7 @@ it("regroups repeated DST instants and indexes executed compact aggregate and mo
     timezone: "America/Los_Angeles",
   });
   expect(view.days).toMatchObject([{ date: "2026-11-01", totalTokens: 10, events: 2 }]);
+  expect(view.days[0]).toMatchObject({ capturedCost: 0.246, pricedEvents: 2 });
   const compactReads = capture.executed.filter((execution) =>
     /\bFROM usage_compact\b/i.test(execution.sql),
   );
@@ -158,20 +159,35 @@ it("regroups repeated DST instants and indexes executed compact aggregate and mo
   const aggregates = compactReads.filter(
     (execution) => execution.method === "get" && execution.sql.includes("sum(c.total)"),
   );
-  const models = compactReads.filter(
-    (execution) => execution.method === "all" && execution.sql.includes("GROUP BY model"),
+  const tokenModels = compactReads.filter(
+    (execution) =>
+      execution.method === "all" &&
+      execution.sql.includes("GROUP BY model") &&
+      execution.sql.includes("AS knownTokens"),
+  );
+  const costModels = compactReads.filter(
+    (execution) =>
+      execution.method === "all" &&
+      execution.sql.includes("GROUP BY model") &&
+      execution.sql.includes("AS pricedRecords"),
   );
   expect(aggregates).toHaveLength(3);
-  expect(models).toHaveLength(3);
+  expect(tokenModels).toHaveLength(3);
+  expect(costModels).toHaveLength(3);
   expect(aggregates[1].values.slice(-3)).toEqual([
     "/original",
     "2026-11-01T07:00:00.000Z",
     "2026-11-02T08:00:00.000Z",
   ]);
-  expect(models[1].values[0]).toBe("/original");
-  expect(models[1].values.slice(-2)).toEqual([
+  expect(tokenModels[1].values[0]).toBe("/original");
+  expect(tokenModels[1].values.slice(-2)).toEqual([
     "2026-11-01T07:00:00.000Z",
     "2026-11-02T08:00:00.000Z",
+  ]);
+  expect(costModels.map((execution) => execution.values.slice(-3))).toEqual([
+    ["/original", "2026-11-01T00:00:00.000Z", "2026-11-01T07:00:00.000Z"],
+    ["/original", "2026-11-01T07:00:00.000Z", "2026-11-02T08:00:00.000Z"],
+    ["/original", "2026-11-02T08:00:00.000Z", "2026-11-02T12:00:00.000Z"],
   ]);
   for (const execution of compactReads) {
     const plan = explainHistoryExecution(f.db, execution).join("\n");

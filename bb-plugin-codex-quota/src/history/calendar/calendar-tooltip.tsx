@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
-import { projectTokenModels, type ModelSeries } from "./calendar-models.js";
+import type { ModelSeries } from "./calendar-models.js";
+import type { CostSeries, CapturedSubtotal } from "./calendar-model-costs.js";
 import { tokenCountText } from "../../token-counts.js";
 import { capturedEstimate } from "./calendar-money-view.js";
 import {
+  chartData,
   dateLabel,
   metricName,
   recordedValue,
@@ -20,6 +22,9 @@ export function displayValue(day: CalendarDay, metric: TokenMetric) {
       ? capturedEstimate(value)
       : exact(value);
 }
+export function subtotalText(money: CapturedSubtotal): string {
+  return `${money.capturedCost === null ? "Unavailable" : capturedEstimate(money.capturedCost)} · ${money.pricedRecords} of ${money.records} records priced · pricing ${money.state}${money.reason === "unsafe-sum" ? ", unsafe monetary sum" : ""}`;
+}
 export function UsageTooltip({
   day,
   metric,
@@ -29,7 +34,11 @@ export function UsageTooltip({
 }: {
   day: CalendarDay;
   metric: TokenMetric;
-  modelView?: { series: ModelSeries[]; values: Record<string, number | null> };
+  modelView?: {
+    series: (ModelSeries | CostSeries)[];
+    values: Record<string, number | null>;
+    costFacts?: Record<string, CapturedSubtotal>;
+  };
   maxWidth?: number;
   pinned?: boolean;
 }) {
@@ -40,9 +49,13 @@ export function UsageTooltip({
       element.focus({ preventScroll: true });
   }, [pinned]);
   const recorded = recordedValue(day, metric);
-  const projection = modelView ? null : projectTokenModels([day]);
-  const modelSeries = modelView?.series ?? projection!.series;
-  const modelValues = modelView?.values ?? projection!.facts[0];
+  const projection = modelView ? null : chartData([day], metric);
+  const modelSeries = modelView?.series ?? projection!.models;
+  const modelValues = modelView?.values ?? projection!.rows[0].modelFacts;
+  const costFacts =
+    modelView?.costFacts ??
+    projection?.rows[0].costFacts ??
+    (metric === "cost" ? chartData([day], metric).rows[0].costFacts : {});
   const positiveModels = modelSeries.filter((series) => (modelValues[series.key] ?? 0) > 0);
   const tokens = metric === "tokens" && recorded !== null ? tokenCountText(recorded) : null;
   const value = tokens?.readable ?? displayValue(day, metric);
@@ -71,7 +84,13 @@ export function UsageTooltip({
           </dt>
           <dd
             className="text-sm font-semibold tabular-nums"
-            title={tokens ? `${tokens.exact} tokens` : undefined}
+            title={
+              tokens
+                ? `${tokens.exact} tokens`
+                : (metric === "cost" || metric === "cost-per-entity") && recorded !== null
+                  ? `USD ${recorded}`
+                  : undefined
+            }
           >
             {value}
           </dd>
@@ -138,11 +157,9 @@ export function UsageTooltip({
         )}
       </dl>
       {metric === "tokens" &&
-        positiveModels.some(
-          (series) => series.model || series.key.startsWith("other") || series.speed !== "normal",
-        ) && (
-          <div className="mt-3 border-t border-border pt-2" aria-label="Tokens by model and speed">
-            <p className="font-medium">Tokens by model and speed</p>
+        positiveModels.some((series) => series.model || series.key === "other") && (
+          <div className="mt-3 border-t border-border pt-2" aria-label="Tokens by model">
+            <p className="font-medium">Tokens by model</p>
             <ul className="mt-2 space-y-2">
               {positiveModels.map((series) => {
                 const text = tokenCountText(modelValues[series.key] ?? 0);
@@ -165,6 +182,41 @@ export function UsageTooltip({
             </ul>
           </div>
         )}
+      {metric === "cost" && modelSeries.length > 0 && (
+        <ul className="mt-3 space-y-2" aria-label="Captured cost by model">
+          {modelSeries
+            .filter((series) => costFacts[series.key].records > 0)
+            .map((series) => {
+              const money = costFacts[series.key];
+              return (
+                <li
+                  key={series.key}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4"
+                  title={`${subtotalText(money)}${money.capturedCost === null ? "" : `; captured USD ${money.capturedCost}`}`}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: series.color }}
+                    />
+                    {series.label}
+                  </span>
+                  <span className="inline-flex items-baseline justify-end gap-2 text-right tabular-nums">
+                    {money.state === "partial" && (
+                      <span className="text-[10px] text-muted-foreground">Partial</span>
+                    )}
+                    {money.capturedCost !== null
+                      ? capturedEstimate(money.capturedCost)
+                      : money.reason === "unsafe-sum"
+                        ? "Unsafe sum"
+                        : "No price"}
+                  </span>
+                </li>
+              );
+            })}
+        </ul>
+      )}
     </div>
   );
 }

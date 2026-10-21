@@ -1,6 +1,7 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ModelSeries } from "./calendar-models.js";
-import { displayValue } from "./calendar-tooltip.js";
+import type { CostSeries } from "./calendar-model-costs.js";
+import { displayValue, subtotalText } from "./calendar-tooltip.js";
 export { UsageTooltip } from "./calendar-tooltip.js";
 import { CalendarChart } from "./calendar-tanstack.js";
 import type { CalendarSnapshot } from "./calendar-contract.js";
@@ -32,11 +33,11 @@ function usageFacts(day: CalendarDay, metric: TokenMetric) {
   };
 }
 type SeriesSelection = { query: string; hidden: ReadonlySet<string> };
-function seriesId(series: ModelSeries): string {
-  if (series.model !== undefined) return JSON.stringify(["model", series.model, series.speed]);
-  const suffix = series.speed === "normal" ? "" : `_${series.speed}`;
-  if (series.key === `other${suffix}`) return JSON.stringify(["other", series.speed]);
-  if (series.key === `unknown${suffix}`) return JSON.stringify(["unknown", series.speed]);
+function seriesId(series: ModelSeries | CostSeries): string {
+  if ("selectionId" in series) return series.selectionId;
+  if (series.model !== undefined) return JSON.stringify(["tokens", "model", series.model]);
+  if (series.key === "other" || series.key === "unknown")
+    return JSON.stringify(["tokens", series.key]);
   throw Error("Unrecognized model bucket");
 }
 const graphFilterHelp =
@@ -80,7 +81,10 @@ export function CalendarValues({
     const id = seriesId(series);
     return { id, series, hidden: hidden.has(id) };
   });
-  const hasSelection = hidden.size > 0;
+  const metricPrefix = `["${metric}",`;
+  const hasSelection = [...hidden].some((id) => id.startsWith(metricPrefix));
+  const stacked = metric === "tokens" || metric === "cost";
+  const seriesName = metric === "cost" ? "model cost" : "model";
   const currentHiddenCount = entries.filter((entry) => entry.hidden).length;
   const allCurrentHidden = entries.length > 0 && currentHiddenCount === entries.length;
   const focusSeries = () => {
@@ -112,9 +116,9 @@ export function CalendarValues({
         visibleModels={entries.filter((entry) => !entry.hidden).map((entry) => entry.series)}
         metric={metric}
         includeUncertain={!!view.query.includeUncertain}
-        helpId={metric === "tokens" ? helpId : undefined}
+        helpId={stacked ? helpId : undefined}
       />
-      {metric === "tokens" && (
+      {stacked && (
         <>
           <p
             role="group"
@@ -147,7 +151,8 @@ export function CalendarValues({
                 <span className={`min-w-0${hidden ? " line-through" : ""}`}>{series.label}</span>
               </button>
             ))}
-            {view.query.includeUncertain &&
+            {metric === "tokens" &&
+              view.query.includeUncertain &&
               view.days.some((day) => (day.uncertain?.totalTokens ?? 0) > 0) && (
                 <span className="inline-flex items-center gap-2">
                   <span
@@ -164,7 +169,10 @@ export function CalendarValues({
                 className={legendButton}
                 onClick={() => {
                   if (restoreButton.current === document.activeElement) focusSeries();
-                  setSelection({ query, hidden: new Set() });
+                  setSelection({
+                    query,
+                    hidden: new Set([...hidden].filter((id) => !id.startsWith(metricPrefix))),
+                  });
                 }}
               >
                 Restore all series
@@ -180,10 +188,10 @@ export function CalendarValues({
             className={allCurrentHidden ? "mt-1 text-xs" : "sr-only"}
           >
             {models.length === 0
-              ? "No recorded model/speed series."
+              ? `No recorded ${seriesName} series.`
               : allCurrentHidden
-                ? "All model/speed series hidden. Recorded usage is not zero."
-                : `${currentHiddenCount} model/speed series hidden.`}
+                ? `All ${seriesName} series hidden. Recorded usage is not zero.`
+                : `${currentHiddenCount} ${seriesName} series hidden.`}
           </p>
         </>
       )}
@@ -197,7 +205,7 @@ export function CalendarValues({
                 ? "Unknown history"
                 : "Partial history"}
             . {isMoney(metric) && billingLimit}
-            {metric === "tokens" && " Graph filters do not change this table."}
+            {stacked && " Graph filters do not change this table."}
           </caption>
           <thead>
             <tr>
@@ -220,10 +228,10 @@ export function CalendarValues({
               <th scope="col">Coverage</th>
               <th scope="col">Recorded exclusions</th>
               {isMoney(metric) && <th scope="col">Pricing</th>}
-              {metric === "tokens" &&
+              {stacked &&
                 models.map((series) => (
                   <th scope="col" key={series.key}>
-                    {series.label} tokens
+                    {series.label} {metric === "cost" ? "USD estimate and pricing" : "tokens"}
                   </th>
                 ))}
             </tr>
@@ -258,14 +266,20 @@ export function CalendarValues({
                   <td>{facts.coverage}</td>
                   <td>{facts.exclusions}</td>
                   {facts.pricing && <td>{facts.pricing}</td>}
-                  {metric === "tokens" &&
+                  {stacked &&
                     models.map((series) => {
                       const value = rows.find((row) => row.date === day.date)?.modelFacts[
                         series.key
                       ];
                       return (
                         <td key={series.key}>
-                          {value === null || value === undefined ? "Unavailable" : exact(value)}
+                          {metric === "cost"
+                            ? subtotalText(
+                                rows.find((row) => row.date === day.date)!.costFacts[series.key],
+                              )
+                            : value === null || value === undefined
+                              ? "Unavailable"
+                              : exact(value)}
                         </td>
                       );
                     })}

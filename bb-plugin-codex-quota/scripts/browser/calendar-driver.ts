@@ -41,7 +41,7 @@ async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?
     );
   const lines = await page
     .locator(
-      '.calendar-tooltip [role="tooltip"] > div:not([aria-label="Tokens by model and speed"]) p',
+      '.calendar-tooltip [role="tooltip"] > div:not([aria-label="Tokens by model"]):not([aria-label="Captured cost by model"]) p',
     )
     .allTextContents();
   const date = await page.locator(".calendar-tooltip time").getAttribute("datetime");
@@ -122,11 +122,16 @@ export async function axFacts(page: Page, dailyRows: string[][], metric: Metric)
   const session = await page.context().newCDPSession(page);
   try {
     const result = await session.send("Accessibility.getFullAXTree");
-    const headers =
-      metric === "tokens"
-        ? await page.locator('table[aria-label="Daily recorded usage"] thead th').allTextContents()
-        : [];
-    return accessibleFacts(result.nodes as AxNode[], dailyRows, metric, "UTC", headers.slice(11));
+    const headers = await page
+      .locator('table[aria-label="Daily recorded usage"] thead th')
+      .allTextContents();
+    return accessibleFacts(
+      result.nodes as AxNode[],
+      dailyRows,
+      metric,
+      "UTC",
+      headers.slice(metric === "tokens" ? 11 : 5),
+    );
   } finally {
     await session.detach();
   }

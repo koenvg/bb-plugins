@@ -61,6 +61,7 @@ function put(
   workspace: string,
   capturedCost: number | null,
   occurredAt = "2026-09-15T12:00:00.000Z",
+  details: { model?: string; totalTokens?: number } = {},
 ) {
   const record = usageRecordSchema.parse({
     version: 1,
@@ -80,9 +81,152 @@ function put(
     cacheWriteTokens: 0,
     totalTokens: 10,
     capturedCost,
+    ...details,
   });
   projectCompactRecord(db, record);
 }
+it("reports captured dollars by model independently of token ranking and missing prices", async () => {
+  const f = await fixture();
+  put(f.db, 1, "/a", 4, undefined, { model: "A" });
+  put(f.db, 2, "/b", 6, undefined, { model: "B" });
+  put(f.db, 3, "/a", null, undefined, { model: "A" });
+  f.db.close();
+  const result = await f.read();
+  expect(result).toMatchObject({
+    summary: { money: { capturedCost: 10 } },
+    days: expect.arrayContaining([
+      expect.objectContaining({
+        date: "2026-09-15",
+        modelCosts: {
+          named: [
+            {
+              model: "B",
+              money: {
+                state: "available",
+                capturedCost: 6,
+                records: 1,
+                pricedRecords: 1,
+                reason: "ok",
+              },
+            },
+            {
+              model: "A",
+              money: {
+                state: "partial",
+                capturedCost: 4,
+                records: 2,
+                pricedRecords: 1,
+                reason: "missing-prices",
+              },
+            },
+          ],
+          other: {
+            state: "unavailable",
+            capturedCost: null,
+            records: 0,
+            pricedRecords: 0,
+            reason: "missing-prices",
+          },
+          unknown: {
+            state: "unavailable",
+            capturedCost: null,
+            records: 0,
+            pricedRecords: 0,
+            reason: "missing-prices",
+          },
+        },
+      }),
+    ]),
+  });
+  await f.harness.experimental_dispose();
+});
+it("caps money by captured dollars, includes zero-token prices, and directly sums known overflow", async () => {
+  const f = await fixture();
+  for (let n = 0; n < 10; n++)
+    put(f.db, n + 1, "/many", n + 1, undefined, {
+      model: `model-${n}`,
+      totalTokens: n === 9 ? 0 : 10,
+    });
+  put(f.db, 11, "/many", Number.MIN_VALUE, undefined, { model: "tiny" });
+  f.db.close();
+  const report = await f.read();
+  if (report.state === "unavailable") throw Error(report.reason);
+  const day = report.days[14];
+  expect(day.money).toMatchObject({ capturedCost: 55, records: 11, pricedRecords: 11 });
+  expect(day.modelCosts?.named.map((row) => [row.model, row.money.capturedCost])).toEqual([
+    ["model-9", 10],
+    ["model-8", 9],
+    ["model-7", 8],
+    ["model-6", 7],
+    ["model-5", 6],
+    ["model-4", 5],
+    ["model-3", 4],
+    ["model-2", 3],
+  ]);
+  expect(day.modelCosts?.other).toEqual({
+    state: "available",
+    capturedCost: 3,
+    records: 3,
+    pricedRecords: 3,
+    reason: "ok",
+  });
+  expect(day.models?.named.map((row) => row.model)).not.toContain("model-9");
+  await f.harness.experimental_dispose();
+});
+it("withholds model identities at logical detail expiry before maintenance", async () => {
+  const f = await fixture();
+  put(f.db, 1, "/old", 0.125, "2026-08-05T12:00:00.000Z", { model: "expired" });
+  f.db.close();
+  const report = await f.read({ ...query, startDate: "2026-08-02" });
+  if (report.state === "unavailable") throw Error(report.reason);
+  expect(report.days[3].modelCosts).toEqual({
+    named: [],
+    other: {
+      state: "unavailable",
+      capturedCost: null,
+      records: 0,
+      pricedRecords: 0,
+      reason: "missing-prices",
+    },
+    unknown: {
+      state: "available",
+      capturedCost: 0.125,
+      records: 1,
+      pricedRecords: 1,
+      reason: "ok",
+    },
+  });
+  expect(report.summary.money.capturedCost).toBe(0.125);
+  await f.harness.experimental_dispose();
+});
+it("does not erase subnormal Other or Unknown prices beside large named subtotals", async () => {
+  const f = await fixture();
+  for (let n = 0; n < 8; n++) put(f.db, n + 1, "/large", 1e9, undefined, { model: `large-${n}` });
+  put(f.db, 9, "/tiny", Number.MIN_VALUE, undefined, { model: "tiny" });
+  put(f.db, 10, "/unknown", Number.MIN_VALUE);
+  f.db
+    .prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?")
+    .run("00000000-0000-4000-8000-000000000010");
+  f.db.close();
+  const report = await f.read();
+  if (report.state === "unavailable") throw Error(report.reason);
+  expect(report.days[14].money.capturedCost).toBe(8e9);
+  expect(report.days[14].modelCosts?.other).toEqual({
+    state: "available",
+    capturedCost: Number.MIN_VALUE,
+    records: 1,
+    pricedRecords: 1,
+    reason: "ok",
+  });
+  expect(report.days[14].modelCosts?.unknown).toEqual({
+    state: "available",
+    capturedCost: Number.MIN_VALUE,
+    records: 1,
+    pricedRecords: 1,
+    reason: "ok",
+  });
+  await f.harness.experimental_dispose();
+});
 it("keeps the known captured estimate and priced denominator separate from all token entities", async () => {
   const f = await fixture();
   f.db.transaction(() => {

@@ -111,8 +111,8 @@ for (const width of [375, 1280])
         .getByRole("button", { name: "Estimated cost", exact: true })
         .click();
       const daily = await rows(page);
-      expect(daily[14][1]).toBe("$9,007,199,254,740,991");
-      expect(daily[15][1]).toBe("$5e-324");
+      expect(daily[14][1]).toBe("$9,007,199,254,740,991.00");
+      expect(daily[15][1]).toBe("<$0.01");
       const marker = page.locator(".calendar-positive-usage");
       await expect(marker).toHaveCount(1);
       await expect(marker).toHaveAttribute("data-ts-key", `positive:${daily[15][0]}`);
@@ -131,10 +131,10 @@ for (const width of [375, 1280])
           "datetime",
           daily[15][0],
         );
-        await expect(page.getByRole("tooltip").locator("dl dd").first()).toHaveText("$5e-324");
+        await expect(page.getByRole("tooltip").locator("dl dd").first()).toHaveText("<$0.01");
         await expect(page.locator(".calendar-tooltip")).toHaveAttribute(
           "aria-label",
-          `${daily[15][0]}: $5e-324`,
+          `${daily[15][0]}: <$0.01`,
         );
       }
       await capture(page, info, `cost-underflow-${width}-${theme}`);

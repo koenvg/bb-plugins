@@ -562,7 +562,34 @@ it("reports retained import-only usage independently of collector assets without
       {
         date: "2026-09-15",
         totalTokens: 10,
-        speedTokens: { normal: 10, fast: 0, ultrafast: 0 },
+        modelCosts: {
+          named: [
+            {
+              model: "synthetic",
+              money: {
+                state: "unavailable",
+                capturedCost: null,
+                records: 1,
+                pricedRecords: 0,
+                reason: "missing-prices",
+              },
+            },
+          ],
+          other: {
+            state: "unavailable",
+            capturedCost: null,
+            records: 0,
+            pricedRecords: 0,
+            reason: "missing-prices",
+          },
+          unknown: {
+            state: "unavailable",
+            capturedCost: null,
+            records: 0,
+            pricedRecords: 0,
+            reason: "missing-prices",
+          },
+        },
         activeEntities: 1,
         coverage: expect.objectContaining({ state: "imported" }),
         money: expect.objectContaining({ capturedCost: null }),
@@ -580,11 +607,9 @@ it("reports retained import-only usage independently of collector assets without
             {
               model: "synthetic",
               totalTokens: 10,
-              speedTokens: { normal: 10, fast: 0, ultrafast: 0 },
             },
           ],
           otherTokens: 0,
-          otherSpeedTokens: { normal: 0, fast: 0, ultrafast: 0 },
         },
       },
     ]),
@@ -680,7 +705,6 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
       expect.objectContaining({
         date: "2026-09-15",
         totalTokens: 10,
-        speedTokens: { normal: 10, fast: 0, ultrafast: 0 },
         classes: { state: "unavailable" },
       }),
     ]),
@@ -828,10 +852,8 @@ it("bounds model attribution without losing unknown totals or including excluded
     named: Array.from({ length: 8 }, (_, n) => ({
       model: `model-${String(n + 1).padStart(2, "0")}`,
       totalTokens: 10,
-      speedTokens: { normal: 10, fast: 0, ultrafast: 0 },
     })),
     otherTokens: 20,
-    otherSpeedTokens: { normal: 20, fast: 0, ultrafast: 0 },
   });
   expect(day.classes.state).toBe("unavailable");
   expect(view.summary.totalTokens).toBe(105);

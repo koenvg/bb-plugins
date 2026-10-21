@@ -6,7 +6,7 @@ for (const width of sizes) {
   for (const scope of ["all", "host"] as const) {
     test(`named keyboard chart ${scope} ${width}px`, async ({ page }, info) => {
       await viewport(page, width);
-      await page.goto(`/speed.html?scope=${scope}`);
+      await page.goto(`/native-usage.html?scope=${scope}`);
       const receipts = [];
       for (const metric of ["tokens", "cost", "tokens"] as const) {
         if (scope === "host") {
@@ -143,13 +143,13 @@ for (const width of sizes) {
 }
 
 for (const width of sizes) {
-  for (const state of ["model-speeds", "unknown", "inactive", "filter-uncertain-only"]) {
+  for (const state of ["model-totals", "unknown", "inactive", "filter-uncertain-only"]) {
     test(`native inspection every date ${state} ${width}px`, async ({ page }, info) => {
       await viewport(page, width);
       await page.goto(`/calendar.html?state=${state}`);
       await chart(page);
       const daily = await rows(page);
-      if (state === "model-speeds") {
+      if (state === "model-totals") {
         for (const button of await page
           .getByRole("group", { name: "Models", exact: true })
           .getByRole("button")
@@ -159,7 +159,7 @@ for (const width of sizes) {
           page
             .getByRole("group", { name: "Daily recorded values", exact: true })
             .locator('p[role="status"]'),
-        ).toContainText("All model/speed series hidden. Recorded usage is not zero.");
+        ).toContainText("All model series hidden. Recorded usage is not zero.");
       }
       const requests = await calls(page);
       const surface = page.getByRole("img", { name: "Daily usage chart: Tokens", exact: true });
@@ -267,7 +267,7 @@ test("native pinned date identity survives filtering, metric switches and same-q
   await expect(page.locator(".calendar-tooltip")).toHaveAttribute("data-sticky", "true");
   const model = page
     .getByRole("group", { name: "Models", exact: true })
-    .getByRole("button", { name: "Unknown model Default", exact: true });
+    .getByRole("button", { name: "Unknown model", exact: true });
   await model.focus();
   await page.keyboard.press("Space");
   await expect(model).toBeFocused();

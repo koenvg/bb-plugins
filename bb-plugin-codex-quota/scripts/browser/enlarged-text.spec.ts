@@ -77,7 +77,7 @@ for (const coarse of [true, false]) {
         page,
       }, info) => {
         await page.setViewportSize({ width: 320, height: 900 });
-        await page.goto(`/speed.html?scope=${scope}`);
+        await page.goto(`/native-usage.html?scope=${scope}`);
         await reportTheme(page, "light");
         const panel = page.getByRole("region", {
           name: scope === "all" ? "All-machine recorded usage" : "Calendar token report",
@@ -108,9 +108,22 @@ for (const coarse of [true, false]) {
         await expect(next).toBeFocused();
         await page.keyboard.press("Enter");
         await expect(next).toBeDisabled();
-        await expect(panel.getByLabel("Normal tokens", { exact: true })).toHaveText(
-          scope === "all" ? "300" : "150",
-        );
+        const total = scope === "all" ? "900" : "450";
+        const daily = panel.getByRole("table", { name: "Daily recorded usage", exact: true });
+        const recordedDay = daily.getByRole("row", { name: /^2026-09-15 / });
+        await expect(recordedDay.locator("td").first()).toHaveText(total);
+        const surface = panel.getByRole("img", { name: "Daily usage chart: Tokens", exact: true });
+        await surface.focus();
+        await page.keyboard.press("Home");
+        for (let index = 0; index < 13; index++) {
+          await page.evaluate(() => new Promise(requestAnimationFrame));
+          await page.keyboard.press("ArrowRight");
+        }
+        const tooltip = page.getByRole("tooltip");
+        await expect(tooltip.locator("time")).toHaveAttribute("datetime", "2026-09-15");
+        await expect(tooltip.locator("dd").first()).toBeVisible();
+        await expect(tooltip.locator("dd").first()).toHaveText(total);
+        await expect(tooltip.locator("dd").first()).toHaveAttribute("title", `${total} tokens`);
         if (scope === "all") {
           const metrics = panel.getByRole("group", { name: "Chart metric" });
           await metrics.getByRole("button", { name: "Tokens", exact: true }).focus();

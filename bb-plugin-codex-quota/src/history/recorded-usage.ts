@@ -1,5 +1,3 @@
-import type { SpeedEvidence } from "./usage-speed.js";
-
 export type TokenClasses = {
   input: number;
   output: number;
@@ -16,7 +14,6 @@ export type RecordedUsageFact = {
   totalTokens: number;
   classes: TokenClasses | null;
   capturedCost: number | null;
-  speed: SpeedEvidence;
   source:
     | { kind: "pi"; sessionId: string; entryId: string | null; responseId: string | null }
     | {

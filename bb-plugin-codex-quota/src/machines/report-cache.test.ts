@@ -2,6 +2,8 @@ import { expect, it } from "vitest";
 import { createReportCache } from "./report-cache.js";
 import { memorySummaries, recordedFixture } from "./machines.test-support.js";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
+import { calendarModelCostSnapshot } from "../history/calendar/calendar-test-support.js";
+import { comparisonReasons } from "../history/calendar/calendar-comparison.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const query: CalendarQuery = {
@@ -99,3 +101,82 @@ it("keeps only eight query payloads and preserves daily exact totals when rankin
   expect(latest?.ranking).toEqual([]);
   expect(latest?.truncated).toBe(true);
 });
+
+it("decodes legacy speed keys before both cache validation paths without deleting valid history", async () => {
+  const storage = memorySummaries(),
+    cache = createReportCache(storage, () => now);
+  await cache.save("host_one", recordedFixture(query, now));
+  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
+  const legacy = await storage.get<any>(key);
+  legacy.summary.speedTokens = "obsolete malformed bucket";
+  legacy.days[14].speedTokens = { fast: "obsolete" };
+  legacy.days[14].models = {
+    named: [{ model: "legacy-named", totalTokens: 300, speedTokens: false }],
+    otherTokens: 0,
+    otherSpeedTokens: "obsolete",
+  };
+  await storage.set(key, legacy);
+  const report = await cache.read("host_one", query);
+  expect(report?.summary.totalTokens).toBe(600);
+  expect(report?.summary.money.capturedCost).toBe(3);
+  expect(report?.days[14].models).toEqual({
+    named: [{ model: "legacy-named", totalTokens: 300 }],
+    otherTokens: 0,
+  });
+  expect(JSON.stringify(report)).not.toMatch(/speedTokens|otherSpeedTokens/);
+  const unrelated = { ...query, timezone: "Europe/Paris" };
+  await cache.removeQuery("host_one", unrelated);
+  expect(await storage.get(key)).toEqual(legacy);
+  expect((await cache.read("host_one", query))?.summary.totalTokens).toBe(600);
+});
+
+it.each([-1, 601])("rejects genuine malformed legacy model attribution %s", async (tokens) => {
+  const storage = memorySummaries(),
+    cache = createReportCache(storage, () => now);
+  await cache.save("host_one", recordedFixture(query, now));
+  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
+  const legacy = await storage.get<any>(key);
+  legacy.days[14].models = {
+    named: [{ model: "legacy-named", totalTokens: tokens }],
+    otherTokens: 0,
+  };
+  legacy.days[14].speedTokens = "ignored";
+  await storage.set(key, legacy);
+  expect(await cache.read("host_one", query)).toBeNull();
+});
+
+it("preserves captured model money and comparison summaries through legacy cache decoding", async () => {
+  const storage = memorySummaries(),
+    cache = createReportCache(storage, () => now);
+  const compared = { ...query, includeUncertain: false, comparison: true };
+  const original = calendarModelCostSnapshot(compared);
+  original.comparison!.reasons = comparisonReasons(original, original.comparison!.prior);
+  await cache.save("host_one", original);
+  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
+  const legacy = await storage.get<any>(key);
+  legacy.comparison.prior.summary.speedTokens = { malformed: true };
+  legacy.summary.speedTokens = null;
+  legacy.days[14].speedTokens = -1;
+  await storage.set(key, legacy);
+  const decoded = await cache.read("host_one", compared);
+  expect(decoded).toEqual(original);
+  expect(decoded?.days[14].money.capturedCost).toBe(323.7267296);
+  expect(decoded?.days[14].modelCosts).toEqual(original.days[14].modelCosts);
+  await cache.removeQuery("host_one", { ...compared, timezone: "Europe/Paris" });
+  expect(await storage.get(key)).toEqual(legacy);
+});
+
+it.each([-1, Number.MAX_SAFE_INTEGER + 1, "600"])(
+  "rejects malformed legacy scalar totals %s rather than accepting obsolete buckets",
+  async (totalTokens) => {
+    const storage = memorySummaries(),
+      cache = createReportCache(storage, () => now);
+    await cache.save("host_one", recordedFixture(query, now));
+    const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
+    const legacy = await storage.get<any>(key);
+    legacy.days[14].totalTokens = totalTokens;
+    legacy.days[14].speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
+    await storage.set(key, legacy);
+    expect(await cache.read("host_one", query)).toBeNull();
+  },
+);

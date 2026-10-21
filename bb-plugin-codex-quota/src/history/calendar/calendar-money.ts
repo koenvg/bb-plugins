@@ -7,7 +7,7 @@ export type MoneyAggregate = {
   pricedEntities: number;
 };
 // Matches the original canonical capture/import price contract. Never consult model prices.
-const eligiblePrice =
+export const eligiblePrice =
   "typeof(c.captured_cost) IN ('integer','real') AND c.captured_cost>0 AND c.captured_cost<=1e9";
 export function moneyColumns(entity: string): string {
   return `sum(CASE WHEN ${eligiblePrice} THEN c.captured_cost ELSE 0.0 END) AS capturedCost,

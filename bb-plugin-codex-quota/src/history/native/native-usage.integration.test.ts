@@ -22,6 +22,7 @@ import { parseCompact } from "../collection/usage-record.js";
 import type { IdentityBatch } from "../identity/identity-contract.js";
 import type { HistoryReadContext } from "../history-maintenance.js";
 import type { CalendarQuery } from "../calendar/calendar-contract.js";
+import { createHash } from "node:crypto";
 
 const roots: string[] = [],
   histories: HostHistory[] = [];
@@ -97,7 +98,7 @@ function pi(n = 1, total = 20) {
   };
 }
 async function fixture(rows: unknown[], options: { lines?: number; read?: () => void } = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "native-speed-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "native-usage-")));
   roots.push(root);
   const home = join(root, "codex"),
     dataDir = join(root, "data"),
@@ -141,7 +142,7 @@ async function fixture(rows: unknown[], options: { lines?: number; read?: () => 
   return { root, home, sessions, file, dataDir, path, context, make, history, prepare, report };
 }
 
-it("feeds public prepare/report with mixed Pi and forward-format speed policy, preserving prices and subset classes", async () => {
+it("feeds public prepare/report with mixed legacy Pi and native usage, preserving prices and subset classes", async () => {
   const small = usage("unknown", 10);
   small.payload.usage = {
     input_tokens: 10,
@@ -185,7 +186,6 @@ it("feeds public prepare/report with mixed Pi and forward-format speed policy, p
   const view = await f.report();
   expect(view.summary).toMatchObject({
     totalTokens: 450,
-    speedTokens: { normal: 150, fast: 180, ultrafast: 120 },
     money: { capturedCost: 0.03, pricedRecords: 1, records: 6 },
   });
   expect(view.days[14].classes).toEqual({
@@ -214,12 +214,57 @@ it("feeds public prepare/report with mixed Pi and forward-format speed policy, p
   ).toEqual({ n: 5 });
   checked.close();
 });
-it("installed-format usage remains Normal; snapshots, identical counters, replay, archive move and reopen do not inflate it", async () => {
+
+it("preserves historical metadata and native proof bytes while stripping legacy resumed context tier", async () => {
+  const f = await fixture([header(), turn(), usage("proof")]);
+  await f.prepare();
+  const db = (await openHistoryDatabase(f.path))!;
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+  const row = db.prepare("SELECT * FROM usage_metadata").get() as any;
+  expect(row).toMatchObject({
+    source: "codex-native",
+    speed: "",
+    origin: "",
+    speed_conflict: 0,
+    classes_available: 1,
+  });
+  const owner = db.prepare("SELECT * FROM usage_response_owners").get() as any;
+  const expected = JSON.stringify({
+    eventId: row.event_id,
+    occurredAt: "2026-09-15T12:00:00.000Z",
+    workspace: "/fixture",
+    model: "synthetic",
+    totalTokens: 120,
+    capturedCost: null,
+    classes: { input: 60, cacheRead: 40, cacheWrite: 0, output: 20, reasoning: 5 },
+    source: { kind: "codex-native", responseId: "resp_proof", providerThreadId: "native-A" },
+  });
+  expect(owner.native_evidence).toBe(createHash("sha256").update(expected).digest("hex"));
+  db.prepare("UPDATE usage_metadata SET speed='fast',origin='response',speed_conflict=1").run();
+  const historic = db.prepare("SELECT * FROM usage_metadata").all();
+  const source = db.prepare("SELECT context FROM native_sources").get() as { context: string };
+  db.prepare("UPDATE native_sources SET context=?").run(
+    JSON.stringify({ ...JSON.parse(source.context), tier: "ultrafast" }),
+  );
+  db.close();
+  await appendFile(f.file, text([usage("proof", 120, { service_tier: "future" })]));
+  await f.prepare(f.make());
+  const checked = (await openHistoryDatabase(f.path, true))!;
+  expect(checked.prepare("SELECT * FROM usage_metadata").all()).toEqual(historic);
+  expect(checked.prepare("SELECT * FROM usage_response_owners").get()).toEqual(owner);
+  const resumed = checked.prepare("SELECT context FROM native_sources").get() as {
+    context: string;
+  };
+  expect(JSON.parse(resumed.context)).not.toHaveProperty("tier");
+  checked.close();
+  expect((await f.report()).summary.totalTokens).toBe(120);
+  expect((await f.report()).days[14].coverage.uncertain).toBe(false);
+});
+it("installed-format usage keeps scalar totals; snapshots, identical counters, replay, archive move and reopen do not inflate it", async () => {
   const f = await fixture([header(), turn(), usage("a"), snapshot, usage("b"), snapshot, snapshot]);
   await f.prepare();
   expect((await f.report()).summary).toMatchObject({
     totalTokens: 240,
-    speedTokens: { normal: 240, fast: 0, ultrafast: 0 },
   });
   await appendFile(f.file, text([usage("a"), usage("b")]));
   await f.prepare();
@@ -237,7 +282,7 @@ it("child-before-parent replay rejects inherited identities and conflicting head
   expect((await f.report()).summary.totalTokens).toBe(240);
   expect((await f.report()).days[14].coverage.state).toBe("incomplete");
 });
-it("response tier including null/unknown overrides exact-turn tiers; mismatched turns do not inherit speed", async () => {
+it("ignores obsolete legacy tier fields and attributes models only to matching turns", async () => {
   const f = await fixture([
     header(),
     turn("t1", "ultrafast"),
@@ -247,9 +292,15 @@ it("response tier including null/unknown overrides exact-turn tiers; mismatched 
     usage("priority", 120, { service_tier: "priority" }),
   ]);
   await f.prepare();
-  expect((await f.report()).summary.speedTokens).toEqual({ normal: 360, fast: 120, ultrafast: 0 });
+  const view = await f.report();
+  expect(view.summary.totalTokens).toBe(480);
+  expect(view.days[14].models).toEqual({
+    named: [{ model: "synthetic", totalTokens: 360 }],
+    otherTokens: 0,
+  });
+  expect(JSON.stringify(view)).not.toMatch(/speedTokens|serviceTier/);
 });
-it("separates speed-only disagreement from token ownership, and quarantines contradictory native counts", async () => {
+it("separates obsolete legacy tier disagreement from token ownership, and quarantines contradictory native counts", async () => {
   const f = await fixture([
     header(),
     turn(),
@@ -259,14 +310,13 @@ it("separates speed-only disagreement from token ownership, and quarantines cont
   await f.prepare();
   expect((await f.report()).summary).toMatchObject({
     totalTokens: 120,
-    speedTokens: { normal: 120, fast: 0, ultrafast: 0 },
   });
   await appendFile(f.file, text([usage("conflict", 121, { service_tier: "fast" })]));
   await f.prepare();
   expect((await f.report()).summary.totalTokens).toBe(0);
 });
 for (const order of ["pi-first", "native-first"])
-  it(`exact response aliases count once in ${order} order and keep Pi price`, async () => {
+  it(`exact legacy response aliases count once in ${order} order and keep Pi price`, async () => {
     const f = await fixture(
       order === "pi-first" ? [header(), turn()] : [header(), turn(), usage("alias")],
     );
@@ -290,7 +340,6 @@ for (const order of ["pi-first", "native-first"])
     await f.prepare();
     expect((await f.report()).summary).toMatchObject({
       totalTokens: 120,
-      speedTokens: { normal: 0, fast: 120, ultrafast: 0 },
       money: { capturedCost: 0.03, pricedRecords: 1, records: 1 },
     });
     await appendFile(f.file, text([usage("alias", 121)]));
@@ -387,7 +436,7 @@ it("bounds discovery/lines, eventually revisits files, and gives native identity
   const report = await f.report({ ...query, group: "thread" });
   expect(report.ranking.map((row) => row.key)).toEqual(["thr_native"]);
 }, 15_000);
-it("supports schema-4 read-only Normal projection and transactional writer migration", async () => {
+it("supports schema-4 read-only scalar projection and transactional writer migration", async () => {
   const f = await fixture([header(), turn()]);
   await f.prepare();
   let db = (await openHistoryDatabase(f.path))!;
@@ -397,20 +446,20 @@ it("supports schema-4 read-only Normal projection and transactional writer migra
   );
   db.close();
   const before = await readFile(f.path);
-  expect((await f.report()).summary.speedTokens).toEqual({ normal: 20, fast: 0, ultrafast: 0 });
+  expect((await f.report()).summary.totalTokens).toBe(20);
   expect(await readFile(f.path)).toEqual(before);
   await f.prepare();
   db = (await openHistoryDatabase(f.path, true))!;
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
   db.close();
 });
-it("compact speed survives detail expiry, physical expiry removes numbers, and expired rescans cannot restore them", async () => {
-  const f = await fixture([header(), turn(), usage("retained", 120, { service_tier: "fast" })]);
+it("compact usage survives detail expiry, physical expiry removes numbers, and expired rescans cannot restore them", async () => {
+  const f = await fixture([header(), turn(), usage("retained", 120)]);
   await f.prepare();
   let db = (await openHistoryDatabase(f.path))!;
   maintainHistory(db, Date.parse("2026-11-10T12:00:00Z"));
   db.close();
-  expect((await f.report()).summary.speedTokens).toEqual({ normal: 0, fast: 120, ultrafast: 0 });
+  expect((await f.report()).summary.totalTokens).toBe(120);
   expect((await f.report()).days[14].classes.state).toBe("unavailable");
   db = (await openHistoryDatabase(f.path))!;
   maintainHistory(db, Date.parse("2027-02-01T12:00:00Z"));
@@ -453,7 +502,6 @@ it("drains existing Pi logs even while native oversized work stays pending", asy
   expect(pending).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary).toMatchObject({
     totalTokens: 140,
-    speedTokens: { normal: 140, fast: 0, ultrafast: 0 },
   });
 });
 
@@ -518,7 +566,7 @@ it("rolls back schema-4 migration, facts and controls when version publication f
     reason: "storage-unavailable",
   });
   expect(await readFile(f.path)).toEqual(before);
-  expect((await f.report()).summary.speedTokens).toEqual({ normal: 20, fast: 0, ultrafast: 0 });
+  expect((await f.report()).summary.totalTokens).toBe(20);
   expect(await readdir(join(f.dataDir, "history"))).toEqual(["usage-v1.sqlite"]);
 });
 
@@ -553,7 +601,6 @@ it("drains the 80-token Pi backlog when native descriptor replacement fails and 
   });
   expect((await f.report()).summary).toMatchObject({
     totalTokens: 200,
-    speedTokens: { normal: 200, fast: 0, ultrafast: 0 },
   });
   await f.prepare();
   expect((await f.report()).summary.totalTokens).toBe(320);
@@ -582,7 +629,6 @@ for (const field of ["id", "cwd"])
       const report = await f.report();
       expect(report.summary).toMatchObject({
         totalTokens: 120,
-        speedTokens: { normal: 120, fast: 0, ultrafast: 0 },
       });
       expect(report.days[14].coverage.state).toBe("incomplete");
     },

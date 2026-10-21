@@ -123,13 +123,12 @@ for (const [suite, states] of Object.entries(matrices))
                 unknown: "Unavailable",
                 inactive: "Unavailable",
                 "no-prices": "Unavailable",
-                huge: "$9,007,199,254,740,991",
-                tiny: "$5e-324",
-                offline: "$0.7962632000000001",
+                huge: "$9,007,199,254,740,991.00",
+                tiny: "<$0.01",
+                offline: "$0.80",
               },
             };
-            const expected =
-              values[metric][state] ?? (metric === "cost" ? "$0.39813160000000003" : "600");
+            const expected = values[metric][state] ?? (metric === "cost" ? "$0.40" : "600");
             expect(dailyRows[14][1]).toBe(expected);
             expect(dailyRows[14][metric === "tokens" ? 9 : 2]).toContain(
               state === "inactive" ? "Observed inactivity" : "Partial, coverage gaps",

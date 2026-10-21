@@ -3,6 +3,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import {
   calendarEmptySnapshot,
   calendarMixedMagnitudeSnapshot,
+  calendarModelCostSnapshot,
   calendarSnapshot,
 } from "../src/history/calendar/calendar-test-support.js";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
@@ -53,6 +54,7 @@ const emptySnapshot = (query: CalendarQuery) => {
 };
 function snapshot(query: CalendarQuery) {
   if (state === "mixed-magnitude") return calendarMixedMagnitudeSnapshot(query);
+  if (state === "cost-distilled") return calendarModelCostSnapshot(query);
   if (state === "filter-uncertain-only") {
     const view = emptySnapshot(query);
     view.days[14].uncertain = { totalTokens: 300, records: 1 };
@@ -191,49 +193,27 @@ function snapshot(query: CalendarQuery) {
       };
     }
   }
-  if (state === "model-speeds") {
+  if (state === "model-totals") {
     for (const day of view.days) {
-      const normal = Math.floor(day.totalTokens / 6);
-      const fast = day.totalTokens - normal * 2;
-      day.speedTokens = { normal: normal * 2, fast, ultrafast: 0 };
+      const first = Math.floor(day.totalTokens / 6);
       day.models = {
         named: day.totalTokens
           ? [
               {
                 model: "gpt-6.1",
-                totalTokens: normal,
-                speedTokens: { normal, fast: 0, ultrafast: 0 },
+                totalTokens: first,
               },
               {
                 model: "gpt-6.1-sol",
-                totalTokens: normal + fast,
-                speedTokens: { normal, fast, ultrafast: 0 },
+                totalTokens: day.totalTokens - first,
               },
             ]
           : [],
         otherTokens: 0,
-        otherSpeedTokens: { normal: 0, fast: 0, ultrafast: 0 },
       };
     }
-    view.summary.speedTokens = {
-      normal: Math.floor(view.summary.totalTokens / 6) * 2,
-      fast: view.summary.totalTokens - Math.floor(view.summary.totalTokens / 6) * 2,
-      ultrafast: 0,
-    };
   }
-  if (state === "unknown-model-speeds") {
-    const total = { normal: 0, fast: 0, ultrafast: 0 };
-    for (const day of view.days) {
-      const normal = Math.floor(day.totalTokens / 6);
-      const speedTokens = { normal, fast: normal * 2, ultrafast: day.totalTokens - normal * 3 };
-      day.speedTokens = speedTokens;
-      delete day.models;
-      total.normal += speedTokens.normal;
-      total.fast += speedTokens.fast;
-      total.ultrafast += speedTokens.ultrafast;
-    }
-    view.summary.speedTokens = total;
-  }
+  if (state === "unknown-models") for (const day of view.days) delete day.models;
   if (state === "filter-edges") {
     const day = view.days[14];
     day.models = {
@@ -253,19 +233,67 @@ function snapshot(query: CalendarQuery) {
   if (state === "tooltip-max") {
     const day = view.days[14];
     day.totalTokens = view.summary.totalTokens = 3000;
-    day.speedTokens = { normal: 1000, fast: 1000, ultrafast: 1000 };
     day.models = {
       named: Array.from({ length: 8 }, (_, index) => ({
         model: `model-${index}-` + "x".repeat(120),
         totalTokens: 300,
-        speedTokens: { normal: 100, fast: 100, ultrafast: 100 },
       })),
       otherTokens: 300,
-      otherSpeedTokens: { normal: 100, fast: 100, ultrafast: 100 },
     };
     day.uncertain = { totalTokens: 300, records: 1 };
-    view.summary.speedTokens = { ...day.speedTokens };
     view.summary.uncertain = { ...day.uncertain };
+  }
+  if (state === "model-costs") {
+    const day = view.days[14];
+    day.money = {
+      state: "partial",
+      capturedCost: 10,
+      records: 60,
+      pricedRecords: 2,
+      pricedEntities: 2,
+      reason: "missing-prices",
+    };
+    const empty = {
+      state: "unavailable" as const,
+      capturedCost: null,
+      records: 0,
+      pricedRecords: 0,
+      reason: "missing-prices" as const,
+    };
+    day.modelCosts = {
+      named: [
+        {
+          model: "A",
+          money: {
+            state: "partial",
+            capturedCost: 4,
+            records: 59,
+            pricedRecords: 1,
+            reason: "missing-prices",
+          },
+        },
+        {
+          model: "B",
+          money: {
+            state: "available",
+            capturedCost: 6,
+            records: 1,
+            pricedRecords: 1,
+            reason: "ok",
+          },
+        },
+      ],
+      other: empty,
+      unknown: empty,
+    };
+    day.models = {
+      named: [
+        { model: "A", totalTokens: 500 },
+        { model: "B", totalTokens: day.totalTokens - 500 },
+      ].filter((row) => row.totalTokens > 0),
+      otherTokens: 0,
+    };
+    view.summary.money = { ...day.money };
   }
   return view;
 }

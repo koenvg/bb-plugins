@@ -20,7 +20,7 @@ function table(metric: Metric = "cost") {
     return metric === "cost"
       ? [
           date,
-          "$0.39813160000000003",
+          "$0.40",
           "Partial, recorded usage",
           "2 excluded tokens",
           "1 of 60 accepted records priced; 1 priced active entities; pricing partial",
@@ -106,7 +106,7 @@ for (const metric of ["tokens", "cost"] as const) {
     const definitions =
       metric === "cost"
         ? [
-            ["USD estimate", "$0.39813160000000003"],
+            ["USD estimate", "$0.40"],
             ["Excluded tokens", "2"],
           ]
         : [
@@ -219,20 +219,14 @@ test("readable tooltip facts stay separate from exact daily facts", () => {
   );
 });
 
-test("cost tooltip proof rounds only the excluded token count", () => {
+test("cost tooltip proof preserves rounded dollars and formats the excluded token count", () => {
   expect(
     tooltipDefinitions(
-      [
-        "2026-09-15",
-        "$0.39813160000000003",
-        "Partial",
-        "745,920,001 excluded tokens",
-        "Pricing partial",
-      ],
+      ["2026-09-15", "$0.40", "Partial", "745,920,001 excluded tokens", "Pricing partial"],
       "cost",
     ),
   ).toEqual([
-    ["USD estimate", "$0.39813160000000003"],
+    ["USD estimate", "$0.40"],
     ["Excluded tokens", "745.92 million"],
   ]);
 });

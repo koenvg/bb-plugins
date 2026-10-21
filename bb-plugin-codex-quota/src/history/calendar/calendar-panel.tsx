@@ -1,5 +1,3 @@
-import { SpeedTotals } from "./speed-totals.js";
-import { normalTokens } from "../usage-speed.js";
 import { useEffect, useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../../plugin/server.js";
@@ -251,9 +249,6 @@ export function CalendarReportPanel({
           {current.view.reason === "range-unavailable" ? "Latest 30 days" : "Retry chart"}
         </button>
       )}
-      <SpeedTotals
-        tokens={view ? (view.summary.speedTokens ?? normalTokens(view.summary.totalTokens)) : null}
-      />
       {view && (
         <>
           {view.state !== "partial" && (

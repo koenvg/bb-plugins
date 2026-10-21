@@ -4,7 +4,7 @@ import { layout } from "./chart-layout.js";
 
 for (const theme of ["light", "dark"] as const)
   for (const portalMode of ["popover", "fallback"] as const)
-    for (const state of ["model-speeds", "tooltip-max"])
+    for (const state of ["model-totals", "tooltip-max"])
       for (const metric of ["tokens", "cost"] as const)
         test(`viewport tooltip ${state} ${metric} ${portalMode} ${theme}`, async ({
           page,
@@ -58,11 +58,7 @@ for (const theme of ["light", "dark"] as const)
           await page.keyboard.press("Enter");
           await expect(native).toHaveAttribute("data-sticky", "true");
           const expected =
-            metric === "cost"
-              ? "$0.39813160000000003"
-              : state === "tooltip-max"
-                ? "3,000 tokens"
-                : "600 tokens";
+            metric === "cost" ? "$0.40" : state === "tooltip-max" ? "3,000 tokens" : "600 tokens";
           if (metric === "tokens")
             await expect(card.locator("dd").first()).toHaveAttribute("title", expected);
           else await expect(card.locator("dd").first()).toHaveText(expected);
@@ -75,20 +71,16 @@ for (const theme of ["light", "dark"] as const)
               "Cache write tokens0",
               "Reasoning tokens (in output)100",
             ]);
-            const detail = card.getByLabel("Tokens by model and speed").locator("li");
-            if (state === "model-speeds")
-              await expect(detail).toHaveText([
-                "gpt-6.1 Default100",
-                "gpt-6.1-sol Default100",
-                "gpt-6.1-sol Fast400",
-              ]);
+            const detail = card.getByLabel("Tokens by model").locator("li");
+            if (state === "model-totals")
+              await expect(detail).toHaveText(["gpt-6.1100", "gpt-6.1-sol500"]);
             else {
-              await expect(detail).toHaveCount(30);
-              await expect(detail.locator("span.tabular-nums")).toHaveText(Array(30).fill("100"));
-              await expect(detail.first()).toHaveText(`model-0-${"x".repeat(120)} Default100`);
-              await expect(detail.nth(23)).toHaveText(`model-7-${"x".repeat(120)} Ultrafast100`);
-              await expect(detail.nth(24)).toHaveText("Other models Default100");
-              await expect(detail.last()).toHaveText("Unknown model Ultrafast100");
+              await expect(detail).toHaveCount(10);
+              await expect(detail.locator("span.tabular-nums")).toHaveText(Array(10).fill("300"));
+              await expect(detail.first()).toHaveText(`model-0-${"x".repeat(120)}300`);
+              await expect(detail.nth(7)).toHaveText(`model-7-${"x".repeat(120)}300`);
+              await expect(detail.nth(8)).toHaveText("Other models300");
+              await expect(detail.last()).toHaveText("Unknown model300");
               await expect(card).toContainText("Unclassified tokens2.4 thousand");
               await expect(card).toContainText("Uncertain estimate300 tokens");
             }
@@ -121,14 +113,25 @@ for (const theme of ["light", "dark"] as const)
           expect(geometry.card.left).toBeGreaterThanOrEqual(8);
           expect(geometry.card.right).toBeLessThanOrEqual(367);
           if (state === "tooltip-max" && metric === "tokens") {
-            expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+            // Keep the pinned anchor inside both viewports so resize cannot hide it and drop focus.
+            const originalScroll = await page.locator("#scrolling-shell").evaluate((shell) => {
+              const original = shell.scrollTop;
+              shell.scrollTop +=
+                document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
+              return original;
+            });
+            await expect.poll(async () => (await surface.boundingBox())!.y).toBe(300);
+            await page.setViewportSize({ width: 375, height: 600 });
+            await expect
+              .poll(() => card.evaluate((element) => element.scrollHeight > element.clientHeight))
+              .toBe(true);
             const session = await page.context().newCDPSession(page);
             try {
               await session.send("Input.dispatchTouchEvent", {
                 type: "touchStart",
-                touchPoints: [{ x: 180, y: 600 }],
+                touchPoints: [{ x: 180, y: 500 }],
               });
-              for (const y of [550, 450, 350, 250, 150])
+              for (const y of [450, 350, 250, 150, 50])
                 await session.send("Input.dispatchTouchEvent", {
                   type: "touchMove",
                   touchPoints: [{ x: 180, y }],
@@ -163,10 +166,22 @@ for (const theme of ["light", "dark"] as const)
                 ),
               )
               .toBe(true);
-            await expect(
-              card.getByLabel("Tokens by model and speed").locator("li").last(),
-            ).toBeInViewport({ ratio: 1 });
+            await expect(card.getByLabel("Tokens by model").locator("li").last()).toBeInViewport({
+              ratio: 1,
+            });
             await page.screenshot({ path: info.outputPath("scrolled-last-row.png") });
+            await page.setViewportSize({ width: 375, height: 812 });
+            await page.locator("#scrolling-shell").evaluate((shell, top) => {
+              shell.scrollTop = top;
+            }, originalScroll);
+            await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
+            await expect(card).toBeFocused();
+            await expect(native).toHaveAttribute("data-sticky", "true");
+            await jsonEvidence(info, "escape-focus.json", {
+              focusedRole: await card.evaluate(() => document.activeElement?.getAttribute("role")),
+              originalScroll,
+              bounds: await card.boundingBox(),
+            });
           }
           await page.keyboard.press("Escape");
           await expect(native).toBeHidden();
@@ -194,8 +209,8 @@ for (const theme of ["light", "dark"] as const)
           await jsonEvidence(info, "resized-placement.json", resized);
           await page.keyboard.press("Escape");
           await expect(native).toBeHidden();
-          if (metric === "tokens" && state === "model-speeds") {
-            const filter = page.getByRole("button", { name: "gpt-6.1-sol Fast", exact: true });
+          if (metric === "tokens" && state === "model-totals") {
+            const filter = page.getByRole("button", { name: "gpt-6.1-sol", exact: true });
             await filter.focus();
             await page.keyboard.press("Space");
             await expect(filter).toHaveAttribute("aria-pressed", "false");
@@ -207,9 +222,7 @@ for (const theme of ["light", "dark"] as const)
             }
             await page.keyboard.press("Enter");
             await expect(card.locator("dd").first()).toHaveAttribute("title", "600 tokens");
-            await expect(card.getByLabel("Tokens by model and speed")).toContainText(
-              "gpt-6.1-sol Fast400",
-            );
+            await expect(card.getByLabel("Tokens by model")).toContainText("gpt-6.1-sol500");
             await page.keyboard.press("Escape");
           }
           expect(await rows(page)).toEqual(beforeRows);
@@ -219,7 +232,7 @@ for (const theme of ["light", "dark"] as const)
 for (const portalMode of ["popover", "fallback"] as const) {
   for (const textSize of ["default", "larger"] as const) {
     test(`keyboard tall content ${portalMode} ${textSize}`, async ({ page }, info) => {
-      await page.setViewportSize({ width: 375, height: 812 });
+      await page.setViewportSize({ width: 375, height: 600 });
       if (portalMode === "fallback")
         await page.addInitScript(() => {
           Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
@@ -238,10 +251,10 @@ for (const portalMode of ["popover", "fallback"] as const) {
         spacer.style.height = "900px";
         document.body.append(shell);
         shell.append(spacer, document.getElementById("root")!);
-        shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 532;
+        shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
       });
       const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
-      await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
+      await expect.poll(async () => (await surface.boundingBox())!.y).toBe(300);
       await surface.focus();
       await page.keyboard.press("Home");
       for (let index = 0; index < 14; index++) {
@@ -270,9 +283,9 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await jsonEvidence(info, "keyboard-entry.json", trace);
       await expect(card).toBeFocused();
       await expect(native).toBeVisible();
-      const detail = card.getByLabel("Tokens by model and speed").locator("li");
-      await expect(detail).toHaveCount(30);
-      await expect(detail.locator("span.tabular-nums")).toHaveText(Array(30).fill("100"));
+      const detail = card.getByLabel("Tokens by model").locator("li");
+      await expect(detail).toHaveCount(10);
+      await expect(detail.locator("span.tabular-nums")).toHaveText(Array(10).fill("300"));
       await expect(card.locator("dd").first()).toHaveAttribute("title", "3,000 tokens");
       const scroll = [];
       for (let pages = 0; pages < 32; pages++) {
@@ -306,14 +319,14 @@ for (const portalMode of ["popover", "fallback"] as const) {
         )
         .toBeLessThanOrEqual(1);
       await jsonEvidence(info, "keyboard-scroll.json", scroll);
-      await expect(detail.last()).toHaveText("Unknown model Ultrafast100");
+      await expect(detail.last()).toHaveText("Unknown model300");
       await expect(detail.last()).toBeInViewport({ ratio: 1 });
       await expect(detail.last().locator("span.tabular-nums")).toBeInViewport({ ratio: 1 });
       await expect(native).toHaveAttribute("data-sticky", "true");
       await expect(surface).toBeInViewport({ ratio: 1 });
       const bounds = (await card.boundingBox())!;
       expect(bounds.y).toBeGreaterThanOrEqual(8);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(804);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(592);
       await page.screenshot({ path: info.outputPath("keyboard-final-row.png") });
       await page.keyboard.press("Escape");
       await expect(native).toBeHidden();
@@ -342,7 +355,7 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await page.addInitScript(() => {
         Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
       });
-    await page.goto("/calendar.html?state=model-speeds");
+    await page.goto("/calendar.html?state=model-totals");
     await chart(page);
     const metric = page.getByRole("button", { name: "Tokens", exact: true });
     await metric.focus();
