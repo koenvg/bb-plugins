@@ -20,7 +20,7 @@ Set `PLUGIN` to the package suffix below; the installed plugin ID matches unless
 | [changes](changes.md) | SDK/UI tests; owned local video playback runner; BB-backed filename/context controls with page-local fixtures | Changes right-panel tab, diff target, Viewed and review; owned Git diff, sibling review-ui |
 | [code-cleanup](code-cleanup.md) | Actual Settings preview on an owned port, temporary SQLite | Settings project overview/dialog and bb code-cleanup; project/setting ledger |
 | [codex-inspired](codex-inspired.md) | Theme/font integrity tests; no frontend bundle | Appearance and bb theme; theme selection affects other clients |
-| [codex-quota](codex-quota.md) | Owned ephemeral-port Playwright runner; maintenance RPC and packaged temporary-host fixtures | Dashboard/sidebar, selected enrolled host, Pi OAuth, activity/history/import |
+| [codex-quota](codex-quota.md) | Owned ephemeral-port Playwright runner; maintenance RPC and packaged temporary-host fixtures | All-machine dashboard/sidebar, Settings account activity, explicit-host history management/import, Pi OAuth |
 | [compose-chat](compose-chat.md) | Owned ephemeral-port Playwright runner | Native composer, Settings effects, speed metadata and content-script activation |
 | [github-insight](github-insight.md) | SDK/GitHub fixtures; no standalone browser suite | PR Overview/Files, badge/banner, Pull Requests and CLI; signed-in gh on actual host, linked PR, sibling pr-thread-list install |
 | [live-output](live-output.md) | SDK tests; no standalone browser suite | Navigation page, footer gauge, chart and contributor; existing approved stream |
