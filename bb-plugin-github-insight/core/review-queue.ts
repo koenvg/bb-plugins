@@ -5,6 +5,7 @@ import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
+export const TEAM_PR_WINDOW_MS = 7 * 24 * 3_600_000;
 
 const GITHUB_REMOTE =
   /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/]+)\/([^/]+?)(?:\.git)?\/?$/i;
@@ -23,6 +24,8 @@ const prNodeSchema = z.object({
   title: z.string(),
   url: z.string(),
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
+  mergedAt: z.string().nullable(),
+  closedAt: z.string().nullable(),
   isDraft: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -98,6 +101,11 @@ const CI_STATE: Record<z.infer<typeof rollupStateSchema>, CiState> = {
   EXPECTED: "running",
 };
 
+const PR_STATE = { OPEN: "open", MERGED: "merged", CLOSED: "closed" } as const;
+
+export const prStateSchema = z.enum(["open", "merged", "closed"]);
+export type PrState = z.infer<typeof prStateSchema>;
+
 const postedCommentSchema = z.object({ id: z.string(), postedAt: z.string() });
 
 const prActivitySchema = z.object({
@@ -120,6 +128,8 @@ export const queuePrSchema = z.object({
   headRefName: z.string(),
   headOid: z.string(),
   url: z.string(),
+  state: prStateSchema,
+  closedAt: z.string().nullable(),
   activity: prActivitySchema.nullable().default(null),
 });
 export type QueuePr = z.infer<typeof queuePrSchema>;
@@ -143,6 +153,7 @@ export interface FetchedQueue {
 export function parseReviewQueue(
   batchResponses: unknown,
   trackedRefs: readonly PullRequestRef[],
+  now: number,
 ): FetchedQueue {
   const batches = batchResponsesSchema.parse(batchResponses);
   const data = reviewQueueDataSchema.parse(
@@ -153,11 +164,15 @@ export function parseReviewQueue(
   const gone: PullRequestRef[] = [];
   trackedRefs.forEach((ref, index) => {
     const node = trackedNodeSchema.parse(data[trackedAlias(index)])?.pullRequest ?? null;
-    if (node?.state === "OPEN")
-      tracked.push({ ...toQueuePr(node), activity: activityOf(node, viewer) });
-    else gone.push(ref);
+    if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS)) gone.push(ref);
+    else tracked.push({ ...toQueuePr(node), activity: activityOf(node, viewer) });
   });
   return { requests: toQueueList(data.reviewRequests), tracked, gone };
+}
+
+function closedBefore(node: PrNode, at: number): boolean {
+  const closedAt = node.mergedAt ?? node.closedAt;
+  return node.state !== "OPEN" && (closedAt === null || Date.parse(closedAt) < at);
 }
 
 function latest(times: string[]): string | null {
@@ -206,6 +221,8 @@ function toQueuePr(node: PrNode): QueuePr {
     headRefName: node.headRefName,
     headOid: node.headRefOid,
     url: node.url,
+    state: PR_STATE[node.state],
+    closedAt: node.mergedAt ?? node.closedAt,
     activity: null,
   };
 }

@@ -193,6 +193,29 @@ describe("Pull Requests lists", () => {
   });
 
   it.each([
+    ["merged", "Merged"],
+    ["closed", "Closed"],
+  ] as const)("shows a %s PR with its state label instead of Draft", async (state, text) => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ state, closedAt: new Date().toISOString(), draft: true })])),
+    );
+
+    const meta = within(await findCard(slot, "Needs review", "acme/api#15")).getByTestId(
+      "queue-meta",
+    );
+    expect(within(meta).getByText(text)).toBeTruthy();
+    expect(within(meta).queryByText("Draft")).toBeNull();
+  });
+
+  it("shows no state label on an open PR", async () => {
+    const slot = renderPanel("", () => ok(view([queuePr()])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(within(card).queryByText("Merged")).toBeNull();
+    expect(within(card).queryByText("Closed")).toBeNull();
+  });
+
+  it.each([
     ["passed", "CI passed"],
     ["failed", "CI failed"],
     ["running", "CI running"],

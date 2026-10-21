@@ -9,7 +9,13 @@ import type {
 import { newCommentIds } from "../core/new-comments";
 import type { PullRequestRef } from "../core/pr-ref";
 import { readReviewPr, type ReviewPr } from "../core/review-pr";
-import { parseGithubRepo, type FetchedQueue, type PrActivity } from "../core/review-queue";
+import {
+  parseGithubRepo,
+  TEAM_PR_WINDOW_MS,
+  type FetchedQueue,
+  type PrActivity,
+  type QueueList,
+} from "../core/review-queue";
 import {
   isReviewed,
   loadedReviewQueueSchema,
@@ -25,12 +31,14 @@ import {
   type ReviewThreadStatus,
 } from "../core/review-queue-view";
 import { reviewState } from "../core/review-state";
+import type { TeamScan, TeamScanRequest } from "../core/team-prs";
 import type { PrResolution } from "../pr-lookup";
 import { isSharedEnvironment } from "./review-environment";
 import { createReturnedThreads } from "./returned-threads";
 import { createReviewedMarks, type ReviewedMark } from "./reviewed-marks";
 import { createSeenComments } from "./seen-comments";
 import { createSeenPrs } from "./seen-prs";
+import { createTeamPrs, type TeamPrs } from "./team-prs";
 
 export const NO_HOST_MESSAGE = "No host available";
 export const NOT_A_REVIEW_THREAD_MESSAGE = "This thread is not a review thread";
@@ -38,6 +46,7 @@ export const SHARED_ENVIRONMENT_MESSAGE = "Review threads need a new worktree";
 export const INVALID_REPOSITORY_MESSAGE = "Repository must be owner/name";
 export const REVIEW_QUEUE_INTERVAL_MS = 5 * 60_000;
 export const REVIEW_QUEUE_STORAGE_KEY = "review-queue";
+export const TEAM_SCAN_OVERLAP_MS = 10 * 60_000;
 
 export interface QueueProject {
   id: string;
@@ -59,6 +68,7 @@ export interface QueueThread {
 export interface ReviewQueueServiceDeps {
   primaryHostId(): Promise<string | null>;
   fetchReviewQueue(hostId: string, tracked: PullRequestRef[]): Promise<FetchedQueue>;
+  scanTeamPrs(hostId: string, request: TeamScanRequest): Promise<TeamScan>;
   listProjects(): Promise<QueueProject[]>;
   listThreads(): Promise<QueueThread[]>;
   listReviewThreads(): Promise<QueueThread[]>;
@@ -96,6 +106,34 @@ function refOf(repo: string, number: number): PullRequestRef | null {
   return { owner, repo: name, number };
 }
 
+function uniqueRefs(refs: readonly (PullRequestRef | null)[]): PullRequestRef[] {
+  const byKey = new Map<string, PullRequestRef>();
+  for (const ref of refs) {
+    if (ref !== null && !byKey.has(refKey(ref))) byKey.set(refKey(ref), ref);
+  }
+  return [...byKey.values()];
+}
+
+function trackedRefsOf(
+  marked: readonly ReviewedMark[],
+  reviews: readonly StartedReview[],
+  team: TeamPrs,
+): PullRequestRef[] {
+  return uniqueRefs([
+    ...marked.map((mark) => mark.ref),
+    ...reviews.map(({ pr }) => refOf(pr.repo, pr.number)),
+    ...team.refs,
+  ]);
+}
+
+function withMoreTracked(fetched: FetchedQueue, more: FetchedQueue): FetchedQueue {
+  return {
+    requests: fetched.requests,
+    tracked: [...fetched.tracked, ...more.tracked],
+    gone: [...fetched.gone, ...more.gone],
+  };
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -107,7 +145,7 @@ function threadStatus(thread: QueueThread): ReviewThreadStatus {
   return "running";
 }
 
-const storedReviewQueueSchema = z.object({ v: z.literal(4), result: loadedReviewQueueSchema });
+const storedReviewQueueSchema = z.object({ v: z.literal(5), result: loadedReviewQueueSchema });
 
 function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
   if (result.kind === "error") return result.lastGood;
@@ -203,6 +241,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   const seenPrs = createSeenPrs(deps.kv);
   const returnedThreads = createReturnedThreads(deps.kv);
   const seenComments = createSeenComments(deps.kv);
+  const teamPrs = createTeamPrs(deps.kv);
   let running: Promise<LoadedReviewQueue> | null = null;
   let queued: Promise<LoadedReviewQueue> | null = null;
 
@@ -212,7 +251,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   }
 
   async function store(result: LoadedReviewQueue): Promise<void> {
-    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 4, result });
+    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result });
     deps.publish(result);
   }
 
@@ -284,7 +323,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     const loadingLive = liveReviewThreads();
     const loadingReviews = loadingLive.then(startedReviews);
     const loadingMarks = marks.list();
-    const [projectIds, live, reviews, threads, marked, seenByPr, seen, returned] =
+    const [projectIds, live, reviews, threads, marked, seenByPr, seen, returned, team] =
       await Promise.all([
         projectIdsByRepo(),
         loadingLive,
@@ -294,11 +333,12 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
         loadingMarks.then(seenCommentsByPr),
         seenPrs.list(),
         returnedThreads.list(),
+        teamPrs.read(),
       ]);
     const marksByPr = new Map(marked.map((mark) => [refKey(mark.ref), mark]));
     const reviewThreadIds = new Set(reviews.map(({ thread }) => thread.id));
     const liveIds = new Set(live.map(({ id }) => id));
-    const prsWithReviewThread = new Set(reviews.map(({ pr }) => prKey(pr.repo, pr.number)));
+    const tracked = new Set(trackedRefsOf(marked, reviews, team).map(refKey));
     const linkThread = (thread: QueueThread | undefined): LinkedThread | null => {
       if (thread === undefined) return null;
       const status = threadStatus(thread);
@@ -313,7 +353,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     const linked = rows.flatMap((row): LinkedQueuePr[] => {
       const key = prKey(row.repo, row.number);
       const mark = marksByPr.get(key);
-      if (!row.requested && mark === undefined && !prsWithReviewThread.has(key)) return [];
+      if (!row.requested && !tracked.has(key)) return [];
       return [
         {
           ...row,
@@ -353,20 +393,44 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
     );
   }
 
-  async function trackedRefs(): Promise<PullRequestRef[]> {
+  async function trackedRefs(team: TeamPrs): Promise<PullRequestRef[]> {
     const [marked, reviews] = await Promise.all([
       marks.list(),
       liveReviewThreads().then(startedReviews),
     ]);
-    const refs = [
-      ...marked.map((mark) => mark.ref),
-      ...reviews.map(({ pr }) => refOf(pr.repo, pr.number)),
-    ];
-    const byKey = new Map<string, PullRequestRef>();
-    for (const ref of refs) {
-      if (ref !== null && !byKey.has(refKey(ref))) byKey.set(refKey(ref), ref);
+    return trackedRefsOf(marked, reviews, team);
+  }
+
+  async function discoverTeamPrs(
+    hostId: string,
+    requests: QueueList,
+    team: TeamPrs,
+    tracked: readonly PullRequestRef[],
+  ): Promise<PullRequestRef[]> {
+    const repos = new Set([
+      ...requests.groups.map((group) => group.repo.toLowerCase()),
+      ...team.refs.map(({ owner, repo }) => `${owner}/${repo}`.toLowerCase()),
+    ]);
+    if (repos.size === 0) return [];
+    const startedAt = deps.now();
+    const sinceOf = (through: string | undefined) =>
+      new Date(
+        through === undefined
+          ? startedAt - TEAM_PR_WINDOW_MS
+          : Date.parse(through) - TEAM_SCAN_OVERLAP_MS,
+      ).toISOString();
+    try {
+      const scan = await deps.scanTeamPrs(hostId, {
+        repos: [...repos].map((repo) => ({ repo, since: sinceOf(team.scannedThrough[repo]) })),
+        startedAt: new Date(startedAt).toISOString(),
+      });
+      await teamPrs.recordScan(scan);
+      const known = new Set(tracked.map(refKey));
+      return uniqueRefs(scan.refs).filter((ref) => !known.has(refKey(ref)));
+    } catch (error) {
+      deps.warn(`Team pull request scan failed: ${errorText(error)}`);
+      return [];
     }
-    return [...byKey.values()];
   }
 
   async function deleteEach<T>(
@@ -407,9 +471,21 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   async function load(): Promise<ReviewQueueView> {
     const hostId = await deps.primaryHostId();
     if (hostId === null) throw new Error(NO_HOST_MESSAGE);
-    const fetched = await deps.fetchReviewQueue(hostId, await trackedRefs());
-    await deleteEach(fetched.gone, marks.delete, (ref) => `the reviewed mark of ${refKey(ref)}`);
-    return linkAndForget(mergeRows(fetched), fetched.requests.truncated, deps.now());
+    const team = await teamPrs.read();
+    const tracked = await trackedRefs(team);
+    const fetched = await deps.fetchReviewQueue(hostId, tracked);
+    const found = await discoverTeamPrs(hostId, fetched.requests, team, tracked);
+    const all =
+      found.length === 0
+        ? fetched
+        : withMoreTracked(fetched, await deps.fetchReviewQueue(hostId, found));
+    await Promise.all([
+      deleteEach(all.gone, marks.delete, (ref) => `the reviewed mark of ${refKey(ref)}`),
+      teamPrs
+        .remove(all.gone)
+        .catch((error) => deps.warn(`Could not prune team PRs: ${errorText(error)}`)),
+    ]);
+    return linkAndForget(mergeRows(all), all.requests.truncated, deps.now());
   }
 
   async function runLoad(): Promise<LoadedReviewQueue> {

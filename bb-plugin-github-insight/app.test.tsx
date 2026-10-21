@@ -51,6 +51,8 @@ const queuePrRow = {
   headRefName: "rate-limits",
   headOid: "head-15",
   url: "https://github.com/acme/api/pull/15",
+  state: "open",
+  closedAt: null,
   requested: true,
   projectIds: [],
   review: "needs_review",

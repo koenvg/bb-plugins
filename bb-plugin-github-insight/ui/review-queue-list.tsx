@@ -10,7 +10,7 @@ import type {
 } from "../contract";
 import { relativeTime } from "../core/relative-time";
 import { isReviewed } from "../core/review-queue-view";
-import type { CiState, QueuePr } from "../core/review-queue";
+import type { CiState, PrState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { messageOf } from "./error-message";
@@ -40,6 +40,16 @@ const REVIEW_DECISION_LABEL: Record<
   APPROVED: { text: "Approved", className: cn("font-medium", SUCCESS_TEXT) },
   CHANGES_REQUESTED: { text: "Changes requested", className: "font-medium text-destructive" },
   REVIEW_REQUIRED: null,
+};
+
+const STATE_LABEL: Record<PrState, { text: string; icon: IconName; className: string } | null> = {
+  open: null,
+  merged: {
+    text: "Merged",
+    icon: "GitMerge",
+    className: "border-violet-500/40 text-violet-700 [.dark_&]:text-violet-300",
+  },
+  closed: { text: "Closed", icon: "GitPullRequestClosed", className: "" },
 };
 
 const ATTENTION_LABEL: Record<
@@ -493,6 +503,8 @@ function QueueRow({
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
   const attention = attentionLabels(pr);
+  const state = STATE_LABEL[pr.state];
+  const draft = pr.draft && state === null;
   return (
     <li
       aria-label={`${pr.repo}#${pr.number}`}
@@ -549,8 +561,14 @@ function QueueRow({
               </span>
             </>
           )}
-          {(pr.draft || attention.length > 0) && <span className="w-1" />}
-          {pr.draft && <span className={LABEL_CLASS}>Draft</span>}
+          {(draft || state !== null || attention.length > 0) && <span className="w-1" />}
+          {state !== null && (
+            <span className={cn(LABEL_CLASS, "flex items-center gap-1", state.className)}>
+              <Icon name={state.icon} className="size-3" />
+              {state.text}
+            </span>
+          )}
+          {draft && <span className={LABEL_CLASS}>Draft</span>}
           {attention.map(({ icon, text }) => (
             <span
               key={text}

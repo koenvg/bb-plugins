@@ -22,6 +22,8 @@ export function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
     headRefName: "rate-limits",
     headOid: "head-15",
     url: "https://github.com/acme/api/pull/15",
+    state: "open",
+    closedAt: null,
     activity: null,
     requested: true,
     projectIds: ["prj_api", "prj_api_old"],
