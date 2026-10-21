@@ -263,6 +263,8 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
         markThreadOpened: () => ({ kind: "error", message: "unused" }),
         runPrAction: () => ({ kind: "error", message: "unused" }),
         localCommitsAhead: () => ({ kind: "unknown" }),
+        getPrInsight: () => ({ kind: "no_pr" }),
+        refreshPrInsight: () => ({ kind: "no_pr" }),
       },
     },
   );

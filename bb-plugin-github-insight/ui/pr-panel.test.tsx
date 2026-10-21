@@ -92,6 +92,8 @@ function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
         markThreadOpened: fail,
         runPrAction: fail,
         localCommitsAhead: () => ({ kind: "unknown" }),
+        getPrInsight: () => ({ kind: "no_pr" }),
+        refreshPrInsight: () => ({ kind: "no_pr" }),
       },
     },
   );

@@ -99,6 +99,8 @@ const unusedReviewRpc = {
   markThreadOpened: () => ({ kind: "error" as const, message: "unused" }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
   localCommitsAhead: () => ({ kind: "unknown" as const }),
+  getPrInsight: () => ({ kind: "no_pr" as const }),
+  refreshPrInsight: () => ({ kind: "no_pr" as const }),
 };
 
 const REFRESHED_AT = Date.parse("2026-09-24T10:00:00Z");

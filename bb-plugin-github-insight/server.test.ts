@@ -318,6 +318,176 @@ describe("refresh", () => {
   });
 });
 
+describe("getPrInsight", () => {
+  const REF = { owner: "collibra", repo: "frontend", number: 25337 };
+
+  it("reads a PR without a thread through the primary host", async () => {
+    const harness = await setup({ threads: [], primaryHostId: "host-7", host: pages() });
+
+    const result = await harness.behavior.callRpc("getPrInsight", REF);
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      insight: { pr: { number: 25337, state: "open" } },
+      error: null,
+    });
+    expect(overviewRefreshes(harness)).toEqual([
+      expect.objectContaining({ hostId: "host-7", input: { ...REF, after: null } }),
+    ]);
+  });
+
+  it("writes no thread summary for a PR without a thread", async () => {
+    const harness = await setup({ threads: [], host: pages() });
+
+    await harness.behavior.callRpc("getPrInsight", REF);
+
+    expect(metadataUpdates(harness)).toEqual([]);
+  });
+
+  it("serves the reading a thread already made", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    const fromThread = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    const fromRef = await harness.behavior.callRpc("getPrInsight", REF);
+
+    expect(fromRef).toEqual(fromThread);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("gives a thread the reading the PR request made", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    const fromRef = await harness.behavior.callRpc("getPrInsight", REF);
+
+    const fromThread = await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    expect(fromThread).toEqual(fromRef);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+  });
+
+  it("serves a stored reading and reads GitHub again in the background", async () => {
+    const harness = await setup({ threads: [], host: pages() });
+    await harness.behavior.callRpc("getPrInsight", REF);
+    const stored = await harness.kv.get("insight:collibra/frontend#25337");
+    const restarted = await setup({
+      threads: [],
+      host: pages(withPrState("MERGED")),
+      kv: { "insight:collibra/frontend#25337": stored },
+    });
+
+    const result = await restarted.behavior.callRpc("getPrInsight", REF);
+    await settle();
+
+    expect(result).toMatchObject({ kind: "ok", insight: { pr: { state: "open" } } });
+    expect(await restarted.behavior.callRpc("getPrInsight", REF)).toMatchObject({
+      kind: "ok",
+      insight: { pr: { state: "merged" } },
+    });
+  });
+
+  it("reads GitHub again in the background once the reading is a minute old", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-12T10:00:00Z") });
+    let first: unknown = pageOne;
+    const harness = await setup({ threads: [], host: (call) => pages(first)(call) });
+    await harness.behavior.callRpc("getPrInsight", REF);
+    first = withPrState("MERGED");
+
+    await harness.behavior.callRpc("getPrInsight", REF);
+    expect(overviewRefreshes(harness)).toHaveLength(1);
+
+    vi.advanceTimersByTime(60_000);
+    const stale = await harness.behavior.callRpc("getPrInsight", REF);
+    await settle();
+
+    expect(stale).toMatchObject({ kind: "ok", insight: { pr: { state: "open" } } });
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+    expect(harness.realtimeSignals.at(-1)).toEqual({
+      channel: "insight.updated",
+      payload: { threadIds: [], prKeys: ["collibra/frontend#25337"] },
+    });
+  });
+
+  it("reports an error and calls GitHub not at all without a primary host", async () => {
+    const harness = await setup({ threads: [], primaryHostId: null, host: pages() });
+
+    expect(await harness.behavior.callRpc("getPrInsight", REF)).toEqual({
+      kind: "error",
+      message: "No host to read GitHub from",
+    });
+    expect(harness.experimental_hostRpcCalls).toEqual([]);
+  });
+
+  it("makes no GitHub call while rate limited", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25338) },
+      host: () => failed({ kind: "rate_limited", resetAt: null }),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+    const callsBefore = harness.experimental_hostRpcCalls.length;
+
+    expect(await harness.behavior.callRpc("getPrInsight", REF)).toEqual({
+      kind: "error",
+      message: "rate limited",
+    });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(callsBefore);
+  });
+
+  it("calls GitHub again at once on refresh", async () => {
+    let first: unknown = pageOne;
+    const harness = await setup({ threads: [], host: (call) => pages(first)(call) });
+    await harness.behavior.callRpc("getPrInsight", REF);
+    first = withPrState("MERGED");
+
+    const result = await harness.behavior.callRpc("refreshPrInsight", REF);
+
+    expect(overviewRefreshes(harness)).toHaveLength(2);
+    expect(result).toMatchObject({ kind: "ok", insight: { pr: { state: "merged" } } });
+  });
+
+  it("refreshes the summary of a thread on the same PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
+
+    await harness.behavior.callRpc("refreshPrInsight", REF);
+
+    expect(harness.realtimeSignals.at(-1)?.payload).toEqual({
+      threadIds: ["thr_1"],
+      prKeys: ["collibra/frontend#25337"],
+    });
+  });
+
+  it("keeps the stored reading of a thread PR when the poller prunes", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25337) },
+      host: pages(),
+    });
+    await harness.behavior.callRpc("getPrInsight", REF);
+    await harness.behavior.callRpc("getPrInsight", { ...REF, number: 25338 });
+
+    const run = harness.behavior.runService("pr-poller");
+    try {
+      await settle();
+      expect(await harness.kv.list("insight:")).toEqual(["insight:collibra/frontend#25337"]);
+    } finally {
+      run.controller.abort();
+      await run.done;
+    }
+  });
+});
+
 describe("insight snapshot", () => {
   const KEY = "insight:collibra/frontend#25337";
 
@@ -613,9 +783,12 @@ describe("pr-poller", () => {
             },
           },
         ]);
-        expect
-          .soft(harness.realtimeSignals.slice(signalsBefore))
-          .toEqual([{ channel: "insight.updated", payload: { threadIds: ["thr_1"] } }]);
+        expect.soft(harness.realtimeSignals.slice(signalsBefore)).toEqual([
+          {
+            channel: "insight.updated",
+            payload: { threadIds: ["thr_1"], prKeys: ["collibra/frontend#25337"] },
+          },
+        ]);
         expect(await harness.kv.get("insight:collibra/frontend#25338")).toEqual(unresolvedReading);
         expect(metadataUpdates(harness).filter((update) => update.threadId === "thr_2")).toEqual([
           unresolvedSummary,
@@ -673,7 +846,10 @@ describe("pr-poller", () => {
     await settle();
 
     expect(harness.realtimeSignals).toEqual([
-      { channel: "insight.updated", payload: { threadIds: ["thr_1", "thr_2"] } },
+      {
+        channel: "insight.updated",
+        payload: { threadIds: ["thr_1", "thr_2"], prKeys: ["collibra/frontend#25337"] },
+      },
     ]);
     run.controller.abort();
   });
@@ -1003,7 +1179,10 @@ describe("pr-poller", () => {
     await Promise.all([first, second]);
 
     expect(harness.realtimeSignals).toEqual([
-      { channel: "insight.updated", payload: { threadIds: ["thr_1", "thr_2"] } },
+      {
+        channel: "insight.updated",
+        payload: { threadIds: ["thr_1", "thr_2"], prKeys: ["collibra/frontend#25337"] },
+      },
     ]);
   });
 

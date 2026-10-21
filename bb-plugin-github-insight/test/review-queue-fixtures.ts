@@ -88,6 +88,8 @@ export const unusedRpc = {
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
   localCommitsAhead: () => ({ kind: "unknown" as const }),
+  getPrInsight: () => ({ kind: "no_pr" as const }),
+  refreshPrInsight: () => ({ kind: "no_pr" as const }),
 };
 
 export type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;
