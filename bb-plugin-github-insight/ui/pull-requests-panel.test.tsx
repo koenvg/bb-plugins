@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { NewThreadComposerProps, PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
@@ -22,6 +22,7 @@ import {
   type QueueHandler,
 } from "../test/review-queue-fixtures";
 import { isBuiltinIconName } from "../components/ui/icon";
+import { OVERVIEW_LAYOUT_KEY } from "./use-overview-layout";
 import manifest from "../package.json";
 
 const submitOutcomes: Promise<"cleared" | "kept">[] = [];
@@ -451,7 +452,7 @@ describe("PR overview side panel", () => {
       within(panel)
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label") ?? button.textContent),
-    ).toEqual(["Close overview", "Refresh"]);
+    ).toEqual(["Maximize overview", "Close overview", "Refresh"]);
   });
 
   it("marks the selected row and closes the overview from its GitHub icon", async () => {
@@ -529,6 +530,149 @@ describe("PR overview side panel", () => {
     await slot.behavior.emitRealtime("insight.updated", { threadIds: [], prKeys: ["acme/api#15"] });
 
     expect(await within(panel).findByRole("heading", { name: "Add rate limits v2" })).toBeTruthy();
+  });
+
+  describe("layout", () => {
+    beforeEach(() => {
+      localStorage.clear();
+      Element.prototype.setPointerCapture = vi.fn();
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const width = parseFloat(this.style.getPropertyValue("--overview-width")) || 0;
+        return {
+          top: 0,
+          bottom: 0,
+          height: 0,
+          left: 0,
+          right: width,
+          width,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      delete (Element.prototype as Partial<Element>).setPointerCapture;
+    });
+
+    function renderOverview() {
+      return renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+        getPrInsight: () => prInsight(),
+      });
+    }
+
+    async function handleOf(slot: ReturnType<typeof renderPanel>) {
+      const handle = within(await overview(slot)).getByRole("separator", {
+        name: "Resize overview",
+      });
+      return { handle, width: () => Number(handle.getAttribute("aria-valuenow")) };
+    }
+
+    function saved() {
+      return JSON.parse(localStorage.getItem(OVERVIEW_LAYOUT_KEY) ?? "null");
+    }
+
+    it("starts 440px wide", async () => {
+      const slot = renderOverview();
+      const { width } = await handleOf(slot);
+
+      expect(width()).toBe(440);
+      expect((await overview(slot)).style.getPropertyValue("--overview-width")).toBe("440px");
+    });
+
+    it("grows 10px per ArrowLeft and shrinks per ArrowRight, and saves the width", async () => {
+      const { handle, width } = await handleOf(renderOverview());
+
+      fireEvent.keyDown(handle, { key: "ArrowLeft" });
+      expect(width()).toBe(450);
+
+      fireEvent.keyDown(handle, { key: "ArrowRight" });
+      fireEvent.keyDown(handle, { key: "ArrowRight" });
+      expect(width()).toBe(430);
+      expect(saved()).toEqual({ width: 430, maximized: false });
+    });
+
+    it("grows when dragged left and saves the width on release", async () => {
+      const { handle, width } = await handleOf(renderOverview());
+
+      fireEvent.pointerDown(handle, { clientX: 500, pointerId: 1, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: 400, pointerId: 1 });
+
+      expect(width()).toBe(540);
+      expect(saved()).toBeNull();
+
+      fireEvent.pointerUp(handle, { clientX: 400, pointerId: 1 });
+
+      expect(saved()).toEqual({ width: 540, maximized: false });
+    });
+
+    it.each([
+      ["left", 0, 960],
+      ["right", 1100, 360],
+    ])("stops at the bounds when dragged far %s", async (_, to, expected) => {
+      const { handle, width } = await handleOf(renderOverview());
+
+      fireEvent.pointerDown(handle, { clientX: 1000, pointerId: 1, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: to, pointerId: 1 });
+      fireEvent.pointerUp(handle, { clientX: to, pointerId: 1 });
+
+      expect(width()).toBe(expected);
+    });
+
+    it("resets to 440px on double-click", async () => {
+      localStorage.setItem(OVERVIEW_LAYOUT_KEY, JSON.stringify({ width: 700, maximized: false }));
+      const { handle, width } = await handleOf(renderOverview());
+
+      fireEvent.doubleClick(handle);
+
+      expect(width()).toBe(440);
+    });
+
+    it("opens with the saved width after a remount", async () => {
+      const first = renderOverview();
+      fireEvent.keyDown((await handleOf(first)).handle, { key: "ArrowLeft" });
+      first.unmount();
+
+      const { width } = await handleOf(renderOverview());
+
+      expect(width()).toBe(450);
+    });
+
+    it("hides the list while maximized and shows it again on restore", async () => {
+      const slot = renderOverview();
+      const panel = await overview(slot);
+      await findCard(slot, "Needs review", "acme/api#15");
+
+      fireEvent.click(within(panel).getByRole("button", { name: "Maximize overview" }));
+
+      expect(slot.queryByRole("region", { name: "Needs review" })).toBeNull();
+      expect(within(panel).queryByRole("separator")).toBeNull();
+      expect(saved()).toEqual({ width: 440, maximized: true });
+
+      fireEvent.click(within(panel).getByRole("button", { name: "Restore overview" }));
+
+      expect(slot.getByRole("region", { name: "Needs review" })).toBeTruthy();
+      expect(within(panel).getByRole("separator", { name: "Resize overview" })).toBeTruthy();
+    });
+
+    it("reopens maximized after a remount", async () => {
+      const first = renderOverview();
+      fireEvent.click(
+        within(await overview(first)).getByRole("button", { name: "Maximize overview" }),
+      );
+      first.unmount();
+
+      const slot = renderOverview();
+
+      expect(
+        within(await overview(slot)).getByRole("button", { name: "Restore overview" }),
+      ).toBeTruthy();
+      expect(slot.queryByRole("region", { name: "Needs review" })).toBeNull();
+    });
   });
 
   function prTitle(title: string) {
