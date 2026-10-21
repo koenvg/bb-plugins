@@ -3,7 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { NewThreadComposerProps, PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
-import type { ActionResult, LoadedReviewQueue, ReviewQueueResult, rpcContract } from "../contract";
+import type {
+  ActionResult,
+  InsightResult,
+  LoadedReviewQueue,
+  ReviewQueueResult,
+  rpcContract,
+} from "../contract";
+import type { PrInsight } from "../core/overview";
 import { buildReviewPrompt } from "../core/review-prompt";
 import {
   ok,
@@ -181,7 +188,7 @@ describe("Pull Requests lists", () => {
     expect(within(meta).getByText("Draft")).toBeTruthy();
     expect(within(meta).queryByRole("button")).toBeNull();
     expect(within(card).getByRole("button", { name: "Start review" })).toBeTruthy();
-    expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Show overview" })).toBeTruthy();
   });
 
   it("shows Draft on a draft card", async () => {
@@ -248,15 +255,6 @@ describe("Pull Requests lists", () => {
     },
   );
 
-  it("links every card to the PR on GitHub", async () => {
-    const slot = renderPanel("", () => ok(view([queuePr()])));
-
-    const review = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(review).getByRole("link", { name: "Open on GitHub" }).getAttribute("href")).toBe(
-      "https://github.com/acme/api/pull/15",
-    );
-  });
-
   it("says when a list holds only the first 50 PRs", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()], true)));
 
@@ -317,7 +315,7 @@ describe("Pull Requests card actions", () => {
       const card = within(reviews).getByRole("listitem", { name });
       expect(within(card).queryByText("No bb project for this repository")).toBeNull();
       expect(within(card).queryByRole("button", { name: "Start review" })).toBeNull();
-      expect(within(card).getByRole("link", { name: "Open on GitHub" })).toBeTruthy();
+      expect(within(card).getByRole("button", { name: "Show overview" })).toBeTruthy();
     }
   });
 
@@ -352,6 +350,192 @@ describe("Pull Requests card actions", () => {
 
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_linked" }]);
   });
+});
+
+describe("PR overview side panel", () => {
+  const prInsight = (overrides: Partial<PrInsight> = {}): InsightResult => ({
+    kind: "ok",
+    refreshedAt: Date.now(),
+    error: null,
+    insight: {
+      pr: {
+        number: 15,
+        title: "Add rate limits",
+        state: "open",
+        url: "https://github.com/acme/api/pull/15",
+        headOid: "head-15",
+        headRefName: "rate-limits",
+        headOwner: null,
+        isCrossRepository: false,
+        baseRefName: "main",
+        author: "alice",
+        additions: 12,
+        deletions: 3,
+        changedFiles: 2,
+      },
+      mergeAction: { kind: "none" },
+      mergeQueue: null,
+      autoMergeAction: { kind: "none" },
+      canUpdateBranch: false,
+      blockers: [],
+      reviewers: [],
+      checks: [],
+      ...overrides,
+    },
+  });
+
+  function overview(slot: ReturnType<typeof renderPanel>) {
+    return slot.findByRole("complementary", { name: "Pull request overview" });
+  }
+
+  function prInsightCalls(slot: ReturnType<typeof renderPanel>) {
+    return slot.inspection.rpcCalls.filter(
+      (call) => call.method === "getPrInsight" || call.method === "refreshPrInsight",
+    );
+  }
+
+  it.each([
+    ["without a thread", queuePr({ projectIds: [] })],
+    ["with a thread", queuePr({ thread: reviewThread })],
+  ])("opens the overview from the GitHub icon of a row %s", async (_, pr) => {
+    const slot = renderPanel("", () => ok(view([pr])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    fireEvent.click(within(card).getByRole("button", { name: "Show overview" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "toPluginPanel", path: "pull-requests", options: { subPath: "pr/acme/api/15" } },
+    ]);
+  });
+
+  it("shows the list and the overview of the selected PR", async () => {
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () => prInsight(),
+    });
+
+    const panel = await overview(slot);
+    expect(await within(panel).findByRole("heading", { name: "Add rate limits" })).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Open on GitHub" }).getAttribute("href")).toBe(
+      "https://github.com/acme/api/pull/15",
+    );
+    expect(slot.getByRole("region", { name: "Needs review" })).toBeTruthy();
+    expect(prInsightCalls(slot).map(({ method, input }) => ({ method, input }))).toEqual([
+      { method: "getPrInsight", input: { owner: "acme", repo: "api", number: 15 } },
+    ]);
+  });
+
+  it("shows blockers, reviewers, and checks without thread actions", async () => {
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () =>
+        prInsight({
+          mergeAction: { kind: "merge", method: "SQUASH" },
+          autoMergeAction: { kind: "enable", method: "SQUASH" },
+          canUpdateBranch: true,
+          blockers: [
+            { code: "behind", text: "Branch out of date" },
+            { code: "conflicts", text: "Merge conflicts" },
+          ],
+          reviewers: [{ kind: "user", name: "bob", state: "approved", codeOwner: false }],
+          checks: [{ name: "lint", status: "passed", required: true, url: null, failure: null }],
+        }),
+    });
+
+    const panel = await overview(slot);
+    const blockers = await within(panel).findByRole("list", { name: "Merge blockers" });
+    expect(within(blockers).getByText("Branch out of date")).toBeTruthy();
+    expect(within(blockers).getByRole("link", { name: /Resolve on GitHub/ })).toBeTruthy();
+    expect(within(panel).getByRole("list", { name: "Reviewers" }).textContent).toContain("bob");
+    expect(within(panel).getByRole("region", { name: "Checks" }).textContent).toContain("1 passed");
+    expect(within(panel).getByText(/^Updated/)).toBeTruthy();
+    expect(
+      within(panel)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label") ?? button.textContent),
+    ).toEqual(["Close overview", "Refresh"]);
+  });
+
+  it("marks the selected row and closes the overview from its GitHub icon", async () => {
+    const slot = renderPanel(
+      "pr/acme/api/15",
+      () => ok(view([queuePr(), queuePr({ number: 12 })])),
+      {
+        getPrInsight: () => prInsight(),
+      },
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    expect(card.getAttribute("aria-current")).toBe("true");
+    const other = await findCard(slot, "Needs review", "acme/api#12");
+    expect(other.getAttribute("aria-current")).toBeNull();
+    fireEvent.click(within(card).getByRole("button", { name: "Hide overview" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "toPluginPanel", path: "pull-requests", options: { subPath: "" } },
+    ]);
+  });
+
+  it("goes back to the plain list on Close overview", async () => {
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () => prInsight(),
+    });
+
+    fireEvent.click(within(await overview(slot)).getByRole("button", { name: "Close overview" }));
+
+    expect(slot.inspection.navigateCalls).toEqual([
+      { method: "toPluginPanel", path: "pull-requests", options: { subPath: "" } },
+    ]);
+  });
+
+  it("asks the server to read GitHub again on Refresh", async () => {
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () => prInsight(),
+      refreshPrInsight: () => prInsight({ pr: { ...prTitle("Add rate limits v2") } }),
+    });
+
+    const panel = await overview(slot);
+    fireEvent.click(await within(panel).findByRole("button", { name: "Refresh" }));
+
+    expect(await within(panel).findByRole("heading", { name: "Add rate limits v2" })).toBeTruthy();
+    expect(prInsightCalls(slot).map(({ method }) => method)).toEqual([
+      "getPrInsight",
+      "refreshPrInsight",
+    ]);
+  });
+
+  it("keeps the last good overview when a refresh fails", async () => {
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () => prInsight(),
+      refreshPrInsight: () => ({ kind: "error", message: "gh not logged in" }),
+    });
+
+    const panel = await overview(slot);
+    fireEvent.click(await within(panel).findByRole("button", { name: "Refresh" }));
+
+    expect((await within(panel).findByRole("alert")).textContent).toContain("gh not logged in");
+    expect(within(panel).getByRole("heading", { name: "Add rate limits" })).toBeTruthy();
+  });
+
+  it("reloads when the server publishes an update for the PR", async () => {
+    let title = "Add rate limits";
+    const slot = renderPanel("pr/acme/api/15", () => ok(view([queuePr()])), {
+      getPrInsight: () => prInsight({ pr: prTitle(title) }),
+    });
+    const panel = await overview(slot);
+    await within(panel).findByRole("heading", { name: "Add rate limits" });
+
+    title = "Add rate limits v2";
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: [], prKeys: ["acme/api#14"] });
+    expect(prInsightCalls(slot)).toHaveLength(1);
+    await slot.behavior.emitRealtime("insight.updated", { threadIds: [], prKeys: ["acme/api#15"] });
+
+    expect(await within(panel).findByRole("heading", { name: "Add rate limits v2" })).toBeTruthy();
+  });
+
+  function prTitle(title: string) {
+    const result = prInsight();
+    if (result.kind !== "ok") throw new Error("unreachable");
+    return { ...result.insight.pr, title };
+  }
 });
 
 describe("Pull Requests updates", () => {
@@ -1117,13 +1301,13 @@ describe("Row control tooltips", () => {
     expect((await slot.findByRole("tooltip")).textContent).toBe("Mark as needs review");
   });
 
-  it("shows Open on GitHub on keyboard focus", async () => {
+  it("shows Show overview on keyboard focus", async () => {
     const slot = renderPanel("", () => ok(view([queuePr()])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    focusWithKeyboard(within(card).getByRole("link", { name: "Open on GitHub" }));
+    focusWithKeyboard(within(card).getByRole("button", { name: "Show overview" }));
 
-    expect((await slot.findByRole("tooltip")).textContent).toBe("Open on GitHub");
+    expect((await slot.findByRole("tooltip")).textContent).toBe("Show overview");
   });
 
   it("shows the CI state on hover over the CI icon", async () => {

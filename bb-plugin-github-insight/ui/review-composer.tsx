@@ -10,7 +10,11 @@ import { buildReviewPrompt } from "../core/review-prompt";
 import { Icon } from "@/components/ui/icon";
 import { messageOf } from "./error-message";
 import { Notice } from "./feedback";
-import { usePullRequestsNavigation, type PullRequestsRoute } from "./pull-requests-routes";
+import {
+  LIST_ROUTE,
+  usePullRequestsNavigation,
+  type PullRequestsRoute,
+} from "./pull-requests-routes";
 import type { ReviewQueueState } from "./use-review-queue";
 
 type ReviewEnvironment = NewThreadComposerProps["defaultEnvironment"];
@@ -74,7 +78,7 @@ export function ReviewComposerPage({
         <button
           type="button"
           className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150 hover:bg-state-hover hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          onClick={() => navigation.go({ kind: "list" })}
+          onClick={() => navigation.go(LIST_ROUTE)}
         >
           <Icon name="ChevronLeft" className="size-4" />
           Back
