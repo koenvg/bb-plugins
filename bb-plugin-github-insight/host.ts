@@ -25,6 +25,7 @@ import { fitPrFilesPage, prFilesPageArgs } from "./github/pr-files-query";
 import { prHeadArgs } from "./github/pr-head-query";
 import { reviewQueueBatchArgs } from "./github/review-queue-query";
 import { ADD_REVIEW_ARGS, addPullRequestReviewInput } from "./github/review-mutations";
+import { teamPrPageArgs, VIEWER_TEAMS_ARGS } from "./github/team-prs-query";
 import { replyToThreadArgs, setThreadResolvedArgs } from "./github/review-thread-mutations";
 import { reviewThreadsPageArgs } from "./github/review-threads-query";
 import { timelinePageArgs } from "./github/timeline-query";
@@ -59,6 +60,8 @@ export default experimental_defineHostEntry({
       runGhJson(setThreadResolvedArgs(request), context.signal),
     fetchReviewQueue: ({ tracked }, context) =>
       fetchReviewQueue(reviewQueueBatchArgs(tracked), context.signal),
+    fetchViewerTeams: (_request, context) => runGhJson(VIEWER_TEAMS_ARGS, context.signal),
+    fetchTeamPrPage: (request, context) => runGhJson(teamPrPageArgs(request), context.signal),
     mergePullRequest: (request, context) =>
       runGhJson(mergePullRequestArgs(request), context.signal),
     enqueuePullRequest: (request, context) =>

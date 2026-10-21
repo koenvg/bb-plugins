@@ -3,6 +3,7 @@ import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 import type { LinkedQueuePr, LoadedReviewQueue, ReviewQueueView } from "../contract";
 import type { PullRequestRef } from "../core/pr-ref";
 import type { FetchedQueue, QueuePr } from "../core/review-queue";
+import type { TeamScanRequest } from "../core/team-prs";
 import type { PrResolution } from "../pr-lookup";
 import {
   createReviewQueueService,
@@ -133,6 +134,7 @@ function serviceWith(overrides: Partial<ReviewQueueServiceDeps> = {}) {
       trackedCalls.push(tracked);
       return queueOf([queuePr("Acme/API", 15)]);
     },
+    scanTeamPrs: async () => ({ refs: [], scannedThrough: {} }),
     listProjects: async () => [],
     listThreads: async () => [],
     listReviewThreads: async () => [],
@@ -527,6 +529,171 @@ describe("PR list content", () => {
 
     expect(allPrs(result)).toEqual([]);
     expect([...kv.entries.keys()].filter((key) => key.startsWith("reviewed:"))).toEqual([]);
+  });
+});
+
+describe("team PRs", () => {
+  const NOW = Date.parse("2026-10-21T09:00:00Z");
+  const WEEK = 7 * 24 * 3_600_000;
+  const pr41 = { owner: "acme", repo: "api", number: 41 };
+
+  function teamStore(refs: PullRequestRef[], scannedThrough: Record<string, string> = {}) {
+    return ["team-prs", { v: 1, refs, scannedThrough }] as const;
+  }
+
+  function scanning(found: PullRequestRef[] | Error) {
+    const requests: TeamScanRequest[] = [];
+    return {
+      requests,
+      scanTeamPrs: async (_hostId: string, request: TeamScanRequest) => {
+        requests.push(request);
+        if (found instanceof Error) throw found;
+        return {
+          refs: found,
+          scannedThrough: Object.fromEntries(
+            request.repos.map(({ repo }) => [repo, request.startedAt]),
+          ),
+        };
+      },
+    };
+  }
+
+  it("lists a team PR after its review request is gone", async () => {
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      fetchReviewQueue: async () => queueOf([], [queuePr("acme/api", 41)]),
+    });
+    kv.entries.set(...teamStore([pr41]));
+
+    expect(sections(await service.refreshReviewQueue())).toEqual({
+      needsReview: [["acme/api", [41]]],
+      reviewed: [],
+    });
+  });
+
+  it("lists a merged team PR with its merged state", async () => {
+    const mergedAt = new Date(NOW - 3_600_000).toISOString();
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      fetchReviewQueue: async () =>
+        queueOf([], [queuePr("acme/api", 41, { state: "merged", closedAt: mergedAt })]),
+    });
+    kv.entries.set(...teamStore([pr41]));
+
+    expect(firstReviewRequest(await service.refreshReviewQueue())).toMatchObject({
+      number: 41,
+      state: "merged",
+      closedAt: mergedAt,
+    });
+  });
+
+  it("drops a gone team PR and forgets it", async () => {
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      fetchReviewQueue: async () => queueOf([], [], [pr41]),
+    });
+    kv.entries.set(...teamStore([pr41]));
+
+    expect(allPrs(await service.refreshReviewQueue())).toEqual([]);
+    expect(kv.entries.get("team-prs")).toMatchObject({ refs: [] });
+  });
+
+  it("fetches and lists the team PRs a scan finds, and remembers them", async () => {
+    const trackedCalls: PullRequestRef[][] = [];
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      scanTeamPrs: scanning([pr41]).scanTeamPrs,
+      fetchReviewQueue: async (_hostId, tracked) => {
+        trackedCalls.push(tracked);
+        return tracked.length === 0
+          ? queueOf([queuePr("acme/api", 15)])
+          : queueOf([queuePr("acme/api", 15)], [queuePr("acme/api", 41)]);
+      },
+    });
+
+    const result = await service.refreshReviewQueue();
+
+    expect(trackedCalls).toEqual([[], [pr41]]);
+    expect(sections(result).needsReview).toEqual([["acme/api", [15, 41]]]);
+    expect(kv.entries.get("team-prs")).toEqual({
+      v: 1,
+      refs: [pr41],
+      scannedThrough: { "acme/api": new Date(NOW).toISOString() },
+    });
+  });
+
+  it("scans the repositories of review requests and team PRs, a week back the first time", async () => {
+    const scan = scanning([]);
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      scanTeamPrs: scan.scanTeamPrs,
+      fetchReviewQueue: async () => queueOf([queuePr("Acme/API", 15)], [queuePr("acme/web", 3)]),
+    });
+    kv.entries.set(
+      ...teamStore([{ owner: "acme", repo: "web", number: 3 }], {
+        "acme/web": "2026-10-21T08:00:00.000Z",
+      }),
+    );
+
+    await service.refreshReviewQueue();
+
+    expect(scan.requests).toEqual([
+      {
+        repos: [
+          { repo: "acme/api", since: new Date(NOW - WEEK).toISOString() },
+          { repo: "acme/web", since: "2026-10-21T07:50:00.000Z" },
+        ],
+        startedAt: new Date(NOW).toISOString(),
+      },
+    ]);
+  });
+
+  it("finds a stored team PR again without adding or fetching it twice", async () => {
+    const trackedCalls: PullRequestRef[][] = [];
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      scanTeamPrs: scanning([pr41]).scanTeamPrs,
+      fetchReviewQueue: async (_hostId, tracked) => {
+        trackedCalls.push(tracked);
+        return queueOf([], [queuePr("acme/api", 41)]);
+      },
+    });
+    kv.entries.set(...teamStore([pr41]));
+
+    await service.refreshReviewQueue();
+
+    expect(trackedCalls).toEqual([[pr41]]);
+    expect(kv.entries.get("team-prs")).toMatchObject({ refs: [pr41] });
+  });
+
+  it("keeps the scanned time and still loads the queue when the scan fails", async () => {
+    const warnings: string[] = [];
+    const { service, kv } = serviceWith({
+      now: () => NOW,
+      scanTeamPrs: scanning(new Error("gh: HTTP 502")).scanTeamPrs,
+      fetchReviewQueue: async () => queueOf([], [queuePr("acme/api", 41)]),
+      warn: (message) => warnings.push(message),
+    });
+    const stored = teamStore([pr41], { "acme/api": "2026-10-21T08:00:00.000Z" });
+    kv.entries.set(...stored);
+
+    const result = await service.refreshReviewQueue();
+
+    expect(sections(result).needsReview).toEqual([["acme/api", [41]]]);
+    expect(kv.entries.get("team-prs")).toEqual(stored[1]);
+    expect(warnings).toEqual(["Team pull request scan failed: gh: HTTP 502"]);
+  });
+
+  it("scans nothing without review requests or team PRs", async () => {
+    const scan = scanning([]);
+    const { service } = serviceWith({
+      scanTeamPrs: scan.scanTeamPrs,
+      fetchReviewQueue: async () => queueOf([]),
+    });
+
+    await service.refreshReviewQueue();
+
+    expect(scan.requests).toEqual([]);
   });
 });
 

@@ -20,6 +20,7 @@ import { reviewPrMetadata } from "./core/review-pr";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
+import { scanTeamPrs } from "./core/team-prs";
 import { createLocalCommitsLookup } from "./merge/local-commits-lookup";
 import { createPrWrites } from "./merge/pr-writes";
 import { createPrLookup } from "./pr-lookup";
@@ -146,6 +147,14 @@ export default async function plugin(bb: BbPluginApi) {
         unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })),
         tracked,
         Date.now(),
+      ),
+    scanTeamPrs: (hostId, request) =>
+      scanTeamPrs(
+        {
+          fetchViewerTeams: async () => unwrap(await host.call("fetchViewerTeams", {}, { hostId })),
+          fetchPage: async (page) => unwrap(await host.call("fetchTeamPrPage", page, { hostId })),
+        },
+        request,
       ),
     listProjects: () => bb.sdk.projects.list(),
     listThreads: () => bb.sdk.threads.list({ includeHidden: true }),

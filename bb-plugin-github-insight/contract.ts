@@ -55,6 +55,15 @@ const timelinePageRequestSchema = z
   .strict();
 export type TimelinePageRequest = z.infer<typeof timelinePageRequestSchema>;
 
+const teamPrPageRequestSchema = z
+  .object({
+    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
+    since: z.string().datetime(),
+    after: z.string().nullable(),
+  })
+  .strict();
+export type TeamPrPageRequest = z.infer<typeof teamPrPageRequestSchema>;
+
 const addCommentRequestSchema = z
   .object({ subjectId: z.string().min(1), body: z.string().regex(/\S/) })
   .strict();
@@ -198,6 +207,14 @@ export const hostContract = defineRpcContract({
   },
   fetchReviewQueue: {
     input: z.object({ tracked: z.array(z.object(prRequestFields).strict()) }).strict(),
+    output: ghResultSchema,
+  },
+  fetchViewerTeams: {
+    input: z.object({}).strict(),
+    output: ghResultSchema,
+  },
+  fetchTeamPrPage: {
+    input: teamPrPageRequestSchema,
     output: ghResultSchema,
   },
   mergePullRequest: {
