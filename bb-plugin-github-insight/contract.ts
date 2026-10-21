@@ -290,6 +290,9 @@ export type DraftsResult = z.infer<typeof draftsResultSchema>;
 
 const threadRequestSchema = z.object({ threadId: z.string().min(1) }).strict();
 
+const prInsightRequestSchema = z.object(prRequestFields).strict();
+export type PrInsightRequest = z.infer<typeof prInsightRequestSchema>;
+
 const sendToAgentRequestSchema = z
   .object({ threadId: z.string().min(1), reviewThreadIds: z.array(z.string().min(1)).min(1) })
   .strict();
@@ -507,6 +510,8 @@ export const rpcContract = defineRpcContract({
   },
   getInsight: { input: threadRequestSchema, output: insightResultSchema },
   refresh: { input: threadRequestSchema, output: insightResultSchema },
+  getPrInsight: { input: prInsightRequestSchema, output: insightResultSchema },
+  refreshPrInsight: { input: prInsightRequestSchema, output: insightResultSchema },
   getReview: { input: threadRequestSchema, output: reviewResultSchema },
   getDrafts: { input: threadRequestSchema, output: draftsResultSchema },
   getTimeline: { input: timelineRequestSchema, output: timelineResultSchema },

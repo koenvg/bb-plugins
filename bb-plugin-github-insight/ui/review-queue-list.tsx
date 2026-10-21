@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
+import { useRpc } from "@get-bb/plugin-sdk/app";
 import type {
   LinkedQueuePr,
   NewActivity,
@@ -8,6 +8,7 @@ import type {
   ReviewThreadStatus,
   rpcContract,
 } from "../contract";
+import { prKey, type PullRequestRef } from "../core/pr-ref";
 import { relativeTime } from "../core/relative-time";
 import { isReviewed } from "../core/review-queue-view";
 import type { CiState, PrState, QueuePr } from "../core/review-queue";
@@ -17,7 +18,7 @@ import { messageOf } from "./error-message";
 import { IconTooltip } from "./icon-tooltip";
 import { Notice, RefreshButton, RefreshError } from "./feedback";
 import { usePullRequestsNavigation } from "./pull-requests-routes";
-import { ACTION_CLASS, COUNT_CLASS, LABEL_CLASS } from "./queue-styles";
+import { ACTION_CLASS, COUNT_CLASS, ICON_ACTION_CLASS, LABEL_CLASS } from "./queue-styles";
 import type { ReviewQueueState } from "./use-review-queue";
 import { SUCCESS_TEXT } from "./text-tones";
 import "./thread-status.css";
@@ -129,11 +130,17 @@ function agentStateOf(thread: NonNullable<LinkedQueuePr["thread"]>): AgentState 
 const STATUS_PILL_CLASS =
   "group inline-flex h-9 shrink-0 pointer-coarse:h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-const ICON_ACTION_CLASS =
-  "inline-flex size-9 shrink-0 pointer-coarse:size-11 cursor-pointer items-center justify-center rounded-md disabled:cursor-default text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground";
-
 function keyOf(pr: LinkedQueuePr): string {
   return `${pr.repo.toLowerCase()}#${pr.number}`;
+}
+
+function refOf(pr: LinkedQueuePr): PullRequestRef {
+  const [owner = "", repo = ""] = pr.repo.split("/");
+  return { owner, repo, number: pr.number };
+}
+
+function isSelected(pr: LinkedQueuePr, selected: PullRequestRef | null): boolean {
+  return selected !== null && keyOf(pr) === prKey(selected).toLowerCase();
 }
 
 function countOf(section: QueueSection): number {
@@ -150,7 +157,13 @@ function onlyAgentState(section: QueueSection, state: AgentState): QueueSection 
     .filter((group) => group.prs.length > 0);
 }
 
-export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
+export function ReviewQueueLists({
+  queue,
+  selected,
+}: {
+  queue: ReviewQueueState;
+  selected: PullRequestRef | null;
+}) {
   const { view, error, refreshing, refresh } = queue;
   const rpc = useRpc<typeof rpcContract>();
   const [archived, setArchived] = useState<ReadonlySet<string>>(new Set());
@@ -221,6 +234,7 @@ export function ReviewQueueLists({ queue }: { queue: ReviewQueueState }) {
   if (needsReviewCount === 0 && agentFilter !== null) setAgentFilter(null);
   const actions: CardHandlers = {
     busy: (pr) => busy.has(keyOf(pr)),
+    selected: (pr) => isSelected(pr, selected),
     mark: (pr, value) => void mark(pr, value),
     archive: (pr, threadId) => void archive(pr, threadId),
   };
@@ -378,6 +392,7 @@ function AgentFilter({
 
 interface CardHandlers {
   busy(pr: LinkedQueuePr): boolean;
+  selected(pr: LinkedQueuePr): boolean;
   mark(pr: LinkedQueuePr, reviewed: boolean): void;
   archive(pr: LinkedQueuePr, threadId: string): void;
 }
@@ -505,10 +520,15 @@ function QueueRow({
   const attention = attentionLabels(pr);
   const state = STATE_LABEL[pr.state];
   const draft = pr.draft && state === null;
+  const selected = actions.selected(pr);
   return (
     <li
       aria-label={`${pr.repo}#${pr.number}`}
-      className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]"
+      aria-current={selected || undefined}
+      className={cn(
+        "grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-3 py-3 @lg:grid-cols-[1rem_minmax(0,1fr)_auto]",
+        selected && "bg-state-hover",
+      )}
     >
       <IconTooltip label={ci.text}>
         <span
@@ -594,6 +614,8 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
   const busy = actions.busy(pr);
   const reviewed = isReviewed(pr);
   const markLabel = reviewed ? "Mark as needs review" : "Mark reviewed";
+  const overviewShown = actions.selected(pr);
+  const overviewLabel = overviewShown ? "Hide overview" : "Show overview";
   const archiveThreadId = thread?.isReviewThread ? thread.id : null;
   return (
     <div className="col-start-2 -ml-2 flex flex-wrap items-center gap-0.5 @lg:col-start-3 @lg:row-start-1 @lg:-mr-1.5 @lg:ml-0 @lg:self-center">
@@ -645,10 +667,17 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
           />
         </button>
       </IconTooltip>
-      <IconTooltip label="Open on GitHub">
-        <UrlLink href={pr.url} aria-label="Open on GitHub" className={ICON_ACTION_CLASS}>
+      <IconTooltip label={overviewLabel}>
+        <button
+          type="button"
+          aria-label={overviewLabel}
+          className={cn(ICON_ACTION_CLASS, overviewShown && "bg-state-active text-foreground")}
+          onClick={() =>
+            navigation.go({ kind: "list", selected: overviewShown ? null : refOf(pr) })
+          }
+        >
           <Icon name="Github" className="size-4" />
-        </UrlLink>
+        </button>
       </IconTooltip>
     </div>
   );

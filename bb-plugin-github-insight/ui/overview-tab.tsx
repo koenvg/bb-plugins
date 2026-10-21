@@ -3,6 +3,7 @@ import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { countOf, type Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { CheckFailure } from "../core/failure";
+import type { InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { relativeTime } from "../core/relative-time";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
@@ -81,14 +82,56 @@ export function OverviewTab({ threadId, scrollRoot }: OverviewTabProps) {
 
 function OverviewTabContent({ threadId, scrollRoot }: OverviewTabProps) {
   const insight = useInsight(threadId);
-  const { result, refreshing, revalidating, refresh } = insight;
   const [branchUpdated, setBranchUpdated] = useState(false);
   usePrCommands(threadId, insight);
-  useReportedSummary(result);
+  useReportedSummary(insight.result);
+  return (
+    <PrOverview
+      insight={insight}
+      noPrText="No pull request for this thread"
+      controls={{ threadId, onBranchUpdated: () => setBranchUpdated(true) }}
+      notice={branchUpdated && <PullReminder dismiss={() => setBranchUpdated(false)} />}
+      renderDetails={(details, refreshedAt) => (
+        <TimelineSections
+          threadId={threadId}
+          refreshedAt={refreshedAt}
+          scrollRoot={scrollRoot}
+          between={details}
+        />
+      )}
+    />
+  );
+}
+
+export interface InsightView {
+  result: InsightResult | null;
+  refreshing: boolean;
+  revalidating: boolean;
+  refresh: () => void;
+}
+
+export interface ThreadControls {
+  threadId: string;
+  onBranchUpdated: () => void;
+}
+
+interface PrOverviewProps {
+  insight: InsightView;
+  noPrText: string;
+  controls: ThreadControls | null;
+  notice?: ReactNode;
+  renderDetails?: (details: ReactNode, refreshedAt: number) => ReactNode;
+}
+
+export function PrOverview({
+  insight: { result, refreshing, revalidating, refresh },
+  noPrText,
+  controls,
+  notice,
+  renderDetails = (details) => details,
+}: PrOverviewProps) {
   if (result === null) return <Notice>Loading pull request…</Notice>;
-  if (result.kind === "no_pr") {
-    return <Notice>No pull request for this thread</Notice>;
-  }
+  if (result.kind === "no_pr") return <Notice>{noPrText}</Notice>;
   if (result.kind === "error") {
     return (
       <RefreshError message={result.message} refreshedAt={null} retry={refresh} busy={refreshing} />
@@ -114,30 +157,21 @@ function OverviewTabContent({ threadId, scrollRoot }: OverviewTabProps) {
             busy={refreshing}
           />
         )}
-        {branchUpdated && <PullReminder dismiss={() => setBranchUpdated(false)} />}
-        <MergeStatusCard
-          threadId={threadId}
-          insight={result.insight}
-          status={status}
-          onBranchUpdated={() => setBranchUpdated(true)}
-        />
+        {notice}
+        <MergeStatusCard insight={result.insight} status={status} controls={controls} />
       </div>
-      <TimelineSections
-        threadId={threadId}
-        refreshedAt={result.refreshedAt}
-        scrollRoot={scrollRoot}
-        between={
-          <>
-            {!reviewersInCard(status.blockers) && (
-              <ReviewerList reviewers={result.insight.reviewers} />
-            )}
-            <CheckList
-              checks={result.insight.checks}
-              shownInCard={checkStatusesInCard(status.blockers)}
-            />
-          </>
-        }
-      />
+      {renderDetails(
+        <>
+          {!reviewersInCard(status.blockers) && (
+            <ReviewerList reviewers={result.insight.reviewers} />
+          )}
+          <CheckList
+            checks={result.insight.checks}
+            shownInCard={checkStatusesInCard(status.blockers)}
+          />
+        </>,
+        result.refreshedAt,
+      )}
     </div>
   );
 }
@@ -262,13 +296,12 @@ function PrMeta({ pr }: { pr: PrInsight["pr"] }) {
 }
 
 interface MergeStatusCardProps {
-  threadId: string;
   insight: PrInsight;
   status: PrStatusView;
-  onBranchUpdated: () => void;
+  controls: ThreadControls | null;
 }
 
-function MergeStatusCard({ threadId, insight, status, onBranchUpdated }: MergeStatusCardProps) {
+function MergeStatusCard({ insight, status, controls }: MergeStatusCardProps) {
   const line = prSummaryLine(insight);
   if (line === null && insight.pr.state !== "draft") return null;
   const blockers = listedBlockers(status.blockers);
@@ -276,14 +309,10 @@ function MergeStatusCard({ threadId, insight, status, onBranchUpdated }: MergeSt
   const ready = status.action !== null && blockers.length === 0;
   const verdict =
     autoMergeAction.kind === "disable" && line !== null ? line : verdictOf(line, blockers);
-  const fixes: BlockerFixes = {
-    threadId,
-    pr,
-    canUpdateBranch: insight.canUpdateBranch,
-    onBranchUpdated,
-  };
   const updateInFooter = insight.canUpdateBranch && !blockers.some(({ code }) => code === "behind");
-  const footer = status.action !== null || autoMergeAction.kind === "enable" || updateInFooter;
+  const footer =
+    controls !== null &&
+    (status.action !== null || autoMergeAction.kind === "enable" || updateInFooter);
   return (
     <section
       aria-label="Merge status"
@@ -313,8 +342,8 @@ function MergeStatusCard({ threadId, insight, status, onBranchUpdated }: MergeSt
             {countOf(blockers.length, "blocker")}
           </span>
         )}
-        {autoMergeAction.kind === "disable" && (
-          <AutoMergeButton threadId={threadId} pr={pr} action={autoMergeAction} />
+        {controls !== null && autoMergeAction.kind === "disable" && (
+          <AutoMergeButton threadId={controls.threadId} pr={pr} action={autoMergeAction} />
         )}
       </div>
       {blockers.length > 0 && (
@@ -338,7 +367,12 @@ function MergeStatusCard({ threadId, insight, status, onBranchUpdated }: MergeSt
                 ) : checkStatus === undefined ? (
                   <>
                     <BlockerLabel blocker={blocker} />
-                    <BlockerFix code={blocker.code} fixes={fixes} />
+                    <BlockerFix
+                      code={blocker.code}
+                      pr={pr}
+                      canUpdateBranch={insight.canUpdateBranch}
+                      controls={controls}
+                    />
                   </>
                 ) : (
                   <CheckBlocker
@@ -354,13 +388,17 @@ function MergeStatusCard({ threadId, insight, status, onBranchUpdated }: MergeSt
       {footer && (
         <div className="flex flex-wrap items-start gap-2 border-t border-border px-3 py-2.5">
           {status.action !== null && (
-            <MergeActionButton threadId={threadId} pr={pr} action={status.action} />
+            <MergeActionButton threadId={controls.threadId} pr={pr} action={status.action} />
           )}
           {autoMergeAction.kind === "enable" && (
-            <AutoMergeButton threadId={threadId} pr={pr} action={autoMergeAction} />
+            <AutoMergeButton threadId={controls.threadId} pr={pr} action={autoMergeAction} />
           )}
           {updateInFooter && (
-            <BranchUpdateButton threadId={threadId} pr={pr} onUpdated={onBranchUpdated} />
+            <BranchUpdateButton
+              threadId={controls.threadId}
+              pr={pr}
+              onUpdated={controls.onBranchUpdated}
+            />
           )}
         </div>
       )}
@@ -438,25 +476,37 @@ function verdictOf(line: SummaryLine | null, blockers: readonly Blocker[]): Stat
   return line ?? DRAFT_VERDICT;
 }
 
-interface BlockerFixes {
-  threadId: string;
-  pr: PrInsight["pr"];
-  canUpdateBranch: boolean;
-  onBranchUpdated: () => void;
-}
-
 const LINK_ACTION =
   "-mx-1.5 inline-flex min-h-7 shrink-0 items-center gap-1 rounded-sm px-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
-function BlockerFix({ code, fixes }: { code: Blocker["code"]; fixes: BlockerFixes }) {
+function BlockerFix({
+  code,
+  pr,
+  canUpdateBranch,
+  controls,
+}: {
+  code: Blocker["code"];
+  pr: PrInsight["pr"];
+  canUpdateBranch: boolean;
+  controls: ThreadControls | null;
+}) {
   const showFiles = useShowFiles();
+  if (code === "conflicts") {
+    return (
+      <UrlLink href={`${pr.url}/conflicts`} className={LINK_ACTION}>
+        Resolve on GitHub
+        <Icon name="ArrowUpRight" aria-hidden="true" className="size-3" />
+      </UrlLink>
+    );
+  }
+  if (controls === null) return null;
   switch (code) {
     case "behind":
-      return fixes.canUpdateBranch ? (
+      return canUpdateBranch ? (
         <BranchUpdateButton
-          threadId={fixes.threadId}
-          pr={fixes.pr}
-          onUpdated={fixes.onBranchUpdated}
+          threadId={controls.threadId}
+          pr={pr}
+          onUpdated={controls.onBranchUpdated}
         />
       ) : null;
     case "unresolved_threads":
@@ -465,13 +515,6 @@ function BlockerFix({ code, fixes }: { code: Blocker["code"]; fixes: BlockerFixe
           Open in Files
           <Icon name="ChevronRight" aria-hidden="true" className="size-3" />
         </button>
-      );
-    case "conflicts":
-      return (
-        <UrlLink href={`${fixes.pr.url}/conflicts`} className={LINK_ACTION}>
-          Resolve on GitHub
-          <Icon name="ArrowUpRight" aria-hidden="true" className="size-3" />
-        </UrlLink>
       );
     default:
       return null;

@@ -44,6 +44,7 @@ function unwrap(result: GhResult): unknown {
 export default async function plugin(bb: BbPluginApi) {
   const host = bb.hosts.experimental_client({ contract: hostContract });
   const pause = createRateLimitPause();
+  const primaryHostId = async () => (await bb.sdk.system.config()).primaryHostId;
   const { resolvePr, resolveEnvironmentPr } = createPrLookup({
     sdk: bb.sdk,
     pause,
@@ -65,8 +66,8 @@ export default async function plugin(bb: BbPluginApi) {
         fetchCheckRunDetails: async (ids) =>
           unwrap(await host.call("fetchCheckRunDetails", { ids }, { hostId })),
       }),
-    publish: (threadIds) =>
-      bb.realtime.publish(INSIGHT_UPDATED_CHANNEL, { threadIds } satisfies InsightUpdated),
+    primaryHostId,
+    publish: (update: InsightUpdated) => bb.realtime.publish(INSIGHT_UPDATED_CHANNEL, update),
     writeSummary: async (threadId, summary) => {
       await bb.sdk.threads.updatePluginMetadata({
         threadId,
@@ -141,7 +142,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   const reviewQueue = createReviewQueueService({
-    primaryHostId: async () => (await bb.sdk.system.config()).primaryHostId,
+    primaryHostId,
     fetchReviewQueue: async (hostId, tracked) =>
       parseReviewQueue(
         unwrap(await host.call("fetchReviewQueue", { tracked }, { hostId })),
@@ -234,6 +235,8 @@ export default async function plugin(bb: BbPluginApi) {
       review.getPrImage(threadId, expectedBasisKey, path, side),
     getInsight: ({ threadId }) => service.getInsight(threadId),
     refresh: ({ threadId }) => service.refresh(threadId),
+    getPrInsight: (ref) => service.getPrInsight(ref),
+    refreshPrInsight: (ref) => service.refreshPrInsight(ref),
     getReview: ({ threadId }) => getReview(threadId),
     getDrafts: ({ threadId }) => getDrafts(threadId),
     getTimeline: ({ threadId, before }) => timeline.getTimeline(threadId, before),
@@ -255,7 +258,7 @@ export default async function plugin(bb: BbPluginApi) {
     startReview: async ({ pr, request }) => ({
       threadId: await reviewQueue.startReview(pr, request),
     }),
-    getPrimaryHost: async () => ({ hostId: (await bb.sdk.system.config()).primaryHostId }),
+    getPrimaryHost: async () => ({ hostId: await primaryHostId() }),
     archiveReview: ({ threadId }) => reviewQueue.archiveReview(threadId),
     markReviewed: (request) => reviewQueue.markReviewed(request),
     markNeedsReview: (request) => reviewQueue.markNeedsReview(request),

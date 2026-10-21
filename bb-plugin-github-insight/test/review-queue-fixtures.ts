@@ -1,6 +1,7 @@
 import { isReviewed } from "../core/review-queue-view";
 import type {
   ActionResult,
+  InsightResult,
   LinkedQueuePr,
   LoadedReviewQueue,
   QueueSection,
@@ -88,6 +89,8 @@ export const unusedRpc = {
   submitReview: () => ({ kind: "error" as const, message: "unused", url: null }),
   runPrAction: () => ({ kind: "error" as const, message: "unused" }),
   localCommitsAhead: () => ({ kind: "unknown" as const }),
+  getPrInsight: () => ({ kind: "no_pr" as const }),
+  refreshPrInsight: () => ({ kind: "no_pr" as const }),
 };
 
 export type QueueHandler = () => ReviewQueueResult | Promise<ReviewQueueResult>;
@@ -101,6 +104,8 @@ export interface PanelRpc {
   markNeedsReview: () => ActionResult | Promise<ActionResult>;
   markQueueSeen: () => ActionResult | Promise<ActionResult>;
   markThreadOpened: () => ActionResult | Promise<ActionResult>;
+  getPrInsight: () => InsightResult | Promise<InsightResult>;
+  refreshPrInsight: () => InsightResult | Promise<InsightResult>;
 }
 
 export function panelRpc(getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = {}) {
