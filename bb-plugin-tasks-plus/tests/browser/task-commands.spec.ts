@@ -139,6 +139,19 @@ for (const width of [1200, 650]) {
     await expect(page.getByText("Tasks: Change linked BB project", { exact: true })).toBeHidden();
     await page.keyboard.press("Escape");
   });
+  test(`linked-project waits for palette focus restoration at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/tests/task-commands.html?delayedPaletteHandoff");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible();
+    await page.keyboard.press("Tab");
+    await palette(page, "Change linked BB project");
+    await expect(page.getByLabel("Fixture palette handoffs")).toHaveText("1");
+    await expect(page.getByRole("combobox", { name: "Linked bb project" })).toBeFocused();
+    await expect(page.getByLabel("Fixture project updates")).toHaveText("[]");
+    await page.keyboard.press("Escape");
+    const layout = page.locator(`[data-properties-layout="${width === 1200 ? "rail" : "inline"}"]`);
+    await expect(layout.getByRole("button", { name: "Edit dispatch target" })).toBeFocused();
+  });
   test(`due-date command explicit choices and focus at ${width}px`, async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date("2026-07-15T12:00:00"));
     await page.setViewportSize({ width, height: 900 });

@@ -78,6 +78,7 @@ function Fixture() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [, refresh] = useState(0);
+  const [paletteHandoffs, setPaletteHandoffs] = useState(0);
   const returnFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -126,6 +127,7 @@ function Fixture() {
       <output aria-label="Fixture updates">{JSON.stringify(updates)}</output>
       <output aria-label="Fixture project updates">{JSON.stringify(projectUpdates)}</output>
       <output aria-label="Fixture delegations">{JSON.stringify(delegations)}</output>
+      <output aria-label="Fixture palette handoffs">{paletteHandoffs}</output>
       {refreshOrder && (
         <>
           <output aria-label="Preview reads">{previewReads}</output>
@@ -158,7 +160,13 @@ function Fixture() {
             }}
             onCloseAutoFocus={(event) => {
               event.preventDefault();
-              returnFocus.current?.focus();
+              const handoff = () => {
+                returnFocus.current?.focus();
+                setPaletteHandoffs((value) => value + 1);
+              };
+              if (new URLSearchParams(window.location.search).has("delayedPaletteHandoff"))
+                window.setTimeout(handoff, 150);
+              else handoff();
             }}
           >
             <Dialog.Title>Fixture command palette</Dialog.Title>
