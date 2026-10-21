@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRpc, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
-import { SNOOZES_CHANGED_CHANNEL, rpcContract } from "./contract";
+import type { rpcContract } from "./contract";
+import { SNOOZES_CHANGED_CHANNEL, snoozesSchema } from "./contract-schemas";
 import { useLiveRpc } from "./live-rpc";
 import { activeSnoozes, canSnoozeSubtree, snoozesToEnd, type SnoozeControls } from "./snooze-model";
 
@@ -18,7 +19,7 @@ export function useSnoozes(
 } {
   const rpc = useRpc<typeof rpcContract>();
   const read = useCallback(
-    async () => rpcContract.listSnoozes.output.parse(await rpc.call("listSnoozes", {})),
+    async () => snoozesSchema.parse(await rpc.call("listSnoozes", {})),
     [rpc],
   );
   const [result, reload, status] = useLiveRpc(SNOOZES_CHANGED_CHANNEL, read);
