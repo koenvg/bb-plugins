@@ -54,7 +54,9 @@ export function createSubagentObservation(options: ObservationOptions) {
           inspect: options.inspect,
           resolveModel: options.resolveModel,
           current: options.current,
-          accept: (_id, capture, target) => view.captureIfCurrent(target, capture),
+          accept: (_id, capture, target) => {
+            if (!disposed) view.captureIfCurrent(target, capture);
+          },
           now,
         })
       : undefined;
@@ -213,9 +215,9 @@ export function createSubagentObservation(options: ObservationOptions) {
       if (pending === read) pending = undefined;
       armRead();
     }
-    if (!viewCommitted && availability !== "available") {
+    if (!disposed && !viewCommitted && availability !== "available") {
       try {
-        view?.availability(availability, reason);
+        view?.availability(availability, reason, owner());
       } catch {
         /* Keep observation alive when detail publication fails. */
       }
@@ -263,7 +265,7 @@ export function createSubagentObservation(options: ObservationOptions) {
         return;
       const result = event.type === "tool_execution_update" ? event.partialResult : event.result;
       if (!boundedJson(result, 128 * 1024)) {
-        view?.availability("unavailable", "Foreground detail exceeds the payload limit");
+        view?.availability("unavailable", "Foreground detail exceeds the payload limit", owner());
         return;
       }
       const details = (

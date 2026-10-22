@@ -3,7 +3,8 @@ import { z } from "zod";
 export const VIEW_KIND = "pi-subagents-view";
 export const PLUGIN_ID = "pi-subagents-provider";
 export const VIEW_EXTENSION_KIND = `${PLUGIN_ID}/${VIEW_KIND}` as const;
-export const VIEW_BYTES = 256 * 1024;
+export const VIEW_BYTES = 65_536;
+export const LEGACY_VIEW_BYTES = 256 * 1024;
 const count = z.number().int().nonnegative().max(8_640_000_000_000_000);
 export const captureSchema = z.object({
   status: z.enum([
@@ -102,7 +103,7 @@ export function boundedValue(value: unknown, bytes: number): boolean {
   }
 }
 export function parseViewState(value: unknown): ViewState | undefined {
-  if (!boundedValue(value, VIEW_BYTES)) return;
+  if (!boundedValue(value, LEGACY_VIEW_BYTES)) return;
   const parsed = viewSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
 }
