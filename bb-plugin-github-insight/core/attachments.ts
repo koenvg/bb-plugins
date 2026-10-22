@@ -68,6 +68,10 @@ export function withAttachments(body: string, images: readonly Attachment[]): st
   return text === "" ? tags : `${text}\n\n${tags}`;
 }
 
+export function isAttachmentUrl(url: string): boolean {
+  return ATTACHMENT_URL.test(url);
+}
+
 export function draftAttachments(body: string): Attachment[] {
   const attachments: Attachment[] = [];
   for (const [tag] of body.matchAll(IMG_TAG)) {
@@ -75,7 +79,7 @@ export function draftAttachments(body: string): Attachment[] {
       [...tag.matchAll(ATTRIBUTE)].map(([, name, value]) => [name!.toLowerCase(), value!]),
     );
     const url = attributes.get("src");
-    if (url === undefined || !ATTACHMENT_URL.test(url)) continue;
+    if (url === undefined || !isAttachmentUrl(url)) continue;
     attachments.push({ alt: unescapeHtml(attributes.get("alt") ?? ""), url });
   }
   return attachments;
