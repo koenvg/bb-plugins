@@ -1681,6 +1681,34 @@ describe("Files tab comment drafts", () => {
     );
   });
 
+  it("shows the screenshots of a comment draft below its text, with their signed URLs", async () => {
+    const asset = "https://github.com/user-attachments/assets/1bc7aa19-b5b1-40ea-95c8-ab8be878d7ba";
+    const signed = "https://private-user-images.githubusercontent.com/1/2-shot.png?jwt=x";
+    const slot = renderTab({
+      ...recorded,
+      commentDrafts: [
+        commentDraft("c1", { body: `Broken\n\n<img alt="Dialog &amp; menu" src="${asset}">` }),
+      ],
+      draftMedia: { [asset]: signed },
+    });
+
+    const { card, box } = await findCommentDraft(slot);
+    const preview = within(card).getByTestId("bb-markdown");
+    expect(preview.textContent).toBe(`<img alt="Dialog &amp; menu" src="${signed}">`);
+    expect(box.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows a screenshot added in the text box before the review reloads", async () => {
+    const asset = "https://github.com/user-attachments/assets/5676ccda-f9b1-4eb5-b1b2-b5370588b2b5";
+    const slot = renderTab(withCommentDrafts(commentDraft("c1")));
+    const { card, box } = await findCommentDraft(slot);
+    expect(within(card).queryByTestId("bb-markdown")).toBeNull();
+
+    fireEvent.change(box, { target: { value: `See <img src="${asset}">` } });
+
+    expect(within(card).getByTestId("bb-markdown").textContent).toBe(`<img alt="" src="${asset}">`);
+  });
+
   it("names the range of a draft on more than one line", async () => {
     const slot = renderTab(withCommentDrafts(commentDraft("c1", { startLine: 2 })));
 
