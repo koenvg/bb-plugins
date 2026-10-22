@@ -137,6 +137,7 @@ const noReviewDrafts = {
   },
   commentDrafts: [],
   summaryDraft: null,
+  draftMedia: {},
   viewedMarks: {},
   newCommentIds: [],
 } satisfies Partial<ReviewResult>;
@@ -218,8 +219,8 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
   const getDrafts = (): DraftsResult => {
     const latest = results[Math.min(call, results.length - 1)]!;
     if (latest.kind !== "ok") return latest;
-    const { drafts, commentDrafts, summaryDraft } = latest;
-    return { kind: "ok", drafts, commentDrafts, summaryDraft };
+    const { drafts, commentDrafts, summaryDraft, draftMedia } = latest;
+    return { kind: "ok", drafts, commentDrafts, summaryDraft, draftMedia };
   };
   return renderSlot<{ threadId: string; jump: null }, typeof rpcContract>(
     filesTab,

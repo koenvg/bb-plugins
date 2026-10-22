@@ -93,6 +93,15 @@ export default async function plugin(bb: BbPluginApi) {
   const review = createReviewService({
     resolvePr,
     signMedia,
+    renderMarkdown: async ({ ref, hostId }, text) => {
+      const result = await host.call(
+        "renderMarkdown",
+        { owner: ref.owner, repo: ref.repo, text },
+        { hostId },
+      );
+      if (!result.ok) throw new GhFailureError(result.failure);
+      return result.html;
+    },
     now: Date.now,
     newDraftId: newCommentDraftId,
     fetchPrFilesPage: async ({ ref, hostId }, page) =>
@@ -272,6 +281,8 @@ export default async function plugin(bb: BbPluginApi) {
     createReviewCli({
       review,
       readTextFile: (hostId, request) => host.call("readTextFile", request, { hostId }),
+      uploadImage: (hostId, request) =>
+        host.call("uploadImage", request, { hostId, timeoutMs: 150_000 }),
       now: Date.now,
     }),
   );

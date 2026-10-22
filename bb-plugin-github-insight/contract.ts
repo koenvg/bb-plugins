@@ -301,10 +301,15 @@ const reviewDraftsSchema = z.object({
 });
 export type ReviewDrafts = z.infer<typeof reviewDraftsSchema>;
 
+const displayedDraftsSchema = reviewDraftsSchema.extend({
+  draftMedia: z.record(z.string(), z.string()),
+});
+export type DisplayedDrafts = z.infer<typeof displayedDraftsSchema>;
+
 export const reviewResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("no_pr") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
-  reviewDraftsSchema.extend({
+  displayedDraftsSchema.extend({
     kind: z.literal("ok"),
     head: prHeadSchema,
     imageBasis: prImageBasisSchema.nullable().optional(),
@@ -319,7 +324,7 @@ export type ReviewResult = z.infer<typeof reviewResultSchema>;
 export const draftsResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("no_pr") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
-  reviewDraftsSchema.extend({ kind: z.literal("ok") }),
+  displayedDraftsSchema.extend({ kind: z.literal("ok") }),
 ]);
 export type DraftsResult = z.infer<typeof draftsResultSchema>;
 

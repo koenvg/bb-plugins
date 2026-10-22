@@ -43,6 +43,7 @@ const emptyReview: ReviewResult = {
     viewerReview: null,
   },
   commentDrafts: [],
+  draftMedia: {},
   summaryDraft: null,
   viewedMarks: {},
   newCommentIds: [],

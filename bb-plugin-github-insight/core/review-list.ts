@@ -1,3 +1,4 @@
+import { draftAttachments, type Attachment } from "./attachments";
 import type { Drafts } from "./drafts";
 import type { ListedCommentDraft, SummaryDraft } from "./review-drafts";
 import { capCommentBody } from "./review-threads";
@@ -56,14 +57,22 @@ function formatEntry(entry: ReviewListEntry): string {
   return `${lines.join("\n")}\n`;
 }
 
-export type ReviewCommentEntry = Omit<ListedCommentDraft, "updatedAt" | "source">;
+export type ReviewCommentEntry = Omit<ListedCommentDraft, "updatedAt" | "source"> & {
+  attachments: Attachment[];
+};
 
 export function reviewCommentEntries(drafts: readonly ListedCommentDraft[]): ReviewCommentEntry[] {
-  return drafts.map(({ updatedAt: _, source: __, ...entry }) => entry);
+  return drafts.map(({ updatedAt: _, source: __, ...entry }) => ({
+    ...entry,
+    attachments: draftAttachments(entry.body),
+  }));
 }
 
 export function formatReviewDrafts(
-  comments: readonly ReviewCommentEntry[],
+  comments: readonly Pick<
+    ListedCommentDraft,
+    "id" | "path" | "side" | "line" | "startLine" | "body"
+  >[],
   summary: SummaryDraft | null,
 ): string {
   const sections: string[] = [];
