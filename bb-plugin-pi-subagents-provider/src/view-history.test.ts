@@ -232,7 +232,7 @@ it("drops absent rows and does not attribute repeated local step IDs to another 
   expect(restoreViewHistory([state([row])], removed)!.rows[0]!.capture).toBeUndefined();
 });
 
-it("applies the existing row and byte budgets after retaining attribution", () => {
+it("preserves row metadata and useful excerpts within the publication budget after retaining attribution", () => {
   const rows = Array.from({ length: 64 }, (_, index) => ({ ...row, id: `row-${index}` }));
   const previous = restoreViewHistory([
     state(
@@ -251,11 +251,15 @@ it("applies the existing row and byte budgets after retaining attribution", () =
   expect(previous.rows).toHaveLength(64);
   expect(restoreViewHistory([current])!.rows).toHaveLength(64);
   const retained = restoreViewHistory([current], previous)!;
-  expect(retained.rows.length).toBeGreaterThan(0);
-  expect(retained.rows.length).toBeLessThan(64);
-  expect(retained.omitted).toBe(64 - retained.rows.length);
-  expect(Buffer.byteLength(JSON.stringify(retained))).toBeLessThanOrEqual(256 * 1024);
-  expect(retained.rows[0]!.capture?.task).toBe("t".repeat(2000));
+  expect(retained.rows).toHaveLength(64);
+  expect(retained.omitted).toBe(0);
+  expect(Buffer.byteLength(JSON.stringify(retained))).toBeLessThanOrEqual(65536);
+  expect(retained.rows[0]!.capture).toMatchObject({
+    task: "t".repeat(128),
+    finalOutput: "o".repeat(512),
+    truncated: { task: true, finalOutput: true, messages: 0 },
+  });
+  expect(restoreViewHistory([retained], retained)).toEqual(retained);
   const large = restoreViewHistory(
     [
       state(Array.from({ length: 128 }, (_, index) => ({ ...row, id: `new-${index}` }))),

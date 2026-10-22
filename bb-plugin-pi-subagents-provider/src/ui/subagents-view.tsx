@@ -218,7 +218,13 @@ function CapturedConversation({
           </p>
           <p>{modelLabel(row)}</p>
           {capture?.task === undefined && <p>Task attribution not captured.</p>}
-          {!capture?.messages?.length && <p>Recent transcript not captured.</p>}
+          {!capture?.messages?.length && (
+            <p>
+              {capture?.truncated?.messages
+                ? "Recent transcript omitted by the capture budget."
+                : "Recent transcript not captured."}
+            </p>
+          )}
           <p>Observed {new Date(row.observedAt).toISOString()}</p>
           <p>
             {capture ? `Captured ${new Date(capture.capturedAt).toISOString()}` : "Not captured"}

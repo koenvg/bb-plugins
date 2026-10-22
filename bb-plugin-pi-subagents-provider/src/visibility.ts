@@ -62,6 +62,10 @@ interface PiUnknownSdkRawEvent {
   kind: "sdk/unknown";
 }
 
+interface PiBookkeepingRawEvent {
+  kind: "sdk/entry_appended:bookkeeping";
+}
+
 interface PiSimpleSdkRawEvent {
   kind: "sdk/simple";
   sdkType: Exclude<
@@ -89,6 +93,7 @@ interface PiToolExecutionStartRawEvent {
 }
 
 type PiRawEvent =
+  | PiBookkeepingRawEvent
   | PiErrorRawEvent
   | PiMessageBoundaryRawEvent
   | PiMessageUpdateRawEvent
@@ -98,6 +103,40 @@ type PiRawEvent =
   | PiThreadIdentityRawEvent
   | PiToolExecutionStartRawEvent
   | PiUnknownSdkRawEvent;
+
+const REVIEWED_BOOKKEEPING_CUSTOM_TYPES = new Set([
+  "codemode-store",
+  "token-audit:report",
+  "token-audit:usage",
+  "token-audit:watch",
+  "com.openforge.codex-usage.confirmation.v2",
+]);
+
+function isReviewedBookkeepingAppend(message: Record<string, unknown>): boolean {
+  if (getStringProperty(message, "type") !== "entry_appended") {
+    return false;
+  }
+  const entry = getRecordProperty(message, "entry");
+  if (!entry || getStringProperty(entry, "type") !== "custom") {
+    return false;
+  }
+  const customType = getStringProperty(entry, "customType");
+  const id = getStringProperty(entry, "id");
+  const parentId = entry["parentId"];
+  const timestamp = getStringProperty(entry, "timestamp");
+  const timestampMs = timestamp ? Date.parse(timestamp) : NaN;
+  return (
+    customType !== undefined &&
+    REVIEWED_BOOKKEEPING_CUSTOM_TYPES.has(customType) &&
+    id !== undefined &&
+    id.length > 0 &&
+    id.trim() === id &&
+    (parentId === null ||
+      (typeof parentId === "string" && parentId.length > 0 && parentId.trim() === parentId)) &&
+    Number.isFinite(timestampMs) &&
+    new Date(timestampMs).toISOString() === timestamp
+  );
+}
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled Pi visibility value: ${String(value)}`);
@@ -201,6 +240,10 @@ function parsePiRawEvent(event: JsonRpcMessage): PiRawEvent {
     return { kind: "sdk/unknown" };
   }
 
+  if (isReviewedBookkeepingAppend(message)) {
+    return { kind: "sdk/entry_appended:bookkeeping" };
+  }
+
   const sdkType = toPiSdkEventType(getStringProperty(message, "type"));
   switch (sdkType) {
     case "message_start":
@@ -275,6 +318,9 @@ function describeParsedPiRawEvent(event: PiRawEvent): ProviderRawEventDescriptio
 
     case "sdk/unknown":
       return { kind: "sdk/unknown", coverage: "unknown" };
+
+    case "sdk/entry_appended:bookkeeping":
+      return { kind: "sdk/entry_appended:bookkeeping", coverage: "noise" };
 
     case "sdk/simple":
       switch (event.sdkType) {

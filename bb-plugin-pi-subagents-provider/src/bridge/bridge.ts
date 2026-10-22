@@ -262,6 +262,15 @@ function createForwardToolCall(getThreadId: () => string): ToolCallForwarder {
   };
 }
 
+function pruneSubagentViews(): void {
+  for (const [threadId, view] of subagentViews) {
+    if (subagentViews.size <= 64) break;
+    if (sessions.has(threadId)) continue;
+    view.retire();
+    subagentViews.delete(threadId);
+  }
+}
+
 async function closeThreadSession(args: {
   message: string;
   threadId: string;
@@ -285,6 +294,7 @@ async function closeThreadSession(args: {
         sessions.delete(args.threadId);
       }
       closingSessions.delete(args.threadId);
+      pruneSubagentViews();
     });
   closingSessions.set(args.threadId, closePromise);
   return closePromise;
@@ -744,7 +754,6 @@ async function constructPiThreadSession(
         { kind: "extension.state", extensionKind: VIEW_EXTENSION_KIND, payload },
       ]),
     );
-    if (subagentViews.size >= 64) subagentViews.delete(subagentViews.keys().next().value!);
     subagentViews.set(threadId, view);
   }
   const threadSession: ThreadSession = {
@@ -776,6 +785,7 @@ async function constructPiThreadSession(
     constructionModel: sessionOptions.model,
   };
   sessions.set(threadId, threadSession);
+  pruneSubagentViews();
   try {
     await session.start();
     const liveModel = session.getLiveModel();

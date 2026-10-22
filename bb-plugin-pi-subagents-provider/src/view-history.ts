@@ -1,11 +1,6 @@
 import { retainCapture } from "./capture-history.js";
-import {
-  parseViewState,
-  boundedValue,
-  VIEW_BYTES,
-  type ViewState,
-  type ViewRow,
-} from "./subagents-contract.js";
+import { fitViewState } from "./view-budget.js";
+import { parseViewState, type ViewState, type ViewRow } from "./subagents-contract.js";
 /** Newest first. Previous attribution is local to one mounted thread reader. */
 export function restoreViewHistory(
   values: readonly unknown[],
@@ -64,10 +59,7 @@ export function restoreViewHistory(
         : {}),
     };
   }
-  const result = { ...latest, rows: [...rows.values()], omitted: latest.omitted };
-  while (result.rows.length > 128 || !boundedValue(result, VIEW_BYTES)) {
-    result.rows.pop();
-    result.omitted++;
-  }
-  return parseViewState(result);
+  return parseViewState(
+    fitViewState({ ...latest, rows: [...rows.values()], omitted: latest.omitted }),
+  );
 }

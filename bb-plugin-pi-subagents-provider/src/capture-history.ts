@@ -7,7 +7,9 @@ export function retainCapture(
 ): Capture | undefined {
   if (!newer) return older;
   if (!older) return newer;
-  const hasMessages = !!newer.messages?.length;
+  const hasMessages =
+    !!newer.messages?.length ||
+    (newer.messages !== undefined && (newer.truncated?.messages ?? 0) > 0);
   return {
     ...older,
     ...newer,
