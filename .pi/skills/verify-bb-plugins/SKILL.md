@@ -11,7 +11,7 @@ BB is the real application. This checkout contains 13 plugin packages, not BB's 
 
 ## Launch
 
-Use Bun 1.4.3 and Node `>=24.15.0 <25`. Start at the repository root. Inspect package scripts/lifecycle hooks before execution. Set the selected package and a new private evidence directory:
+Use Bun 1.4.3 and Node `>=26.0.0 <27`. Start at the repository root. Inspect package scripts/lifecycle hooks before execution. Set the selected package and a new private evidence directory:
 
 ```sh
 SKILL="$PWD/.pi/skills/verify-bb-plugins"

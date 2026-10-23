@@ -7,7 +7,7 @@ The local preview renders production `Reader` and `app.css` through Vite. `tests
 
 ## Launch
 
-Use Bun 1.4.3 and Node 24.15 or newer within Node 24. Require `curl`, `lsof`, and POSIX Bash. Inspect package scripts before setup. From the repository root:
+Use Bun 1.4.3 and Node 26.0 or newer within Node 26. Require `curl`, `lsof`, and POSIX Bash. Inspect package scripts before setup. From the repository root:
 
 ```sh
 bun install --cwd bb-plugin-markdown-reader --frozen-lockfile

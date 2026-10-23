@@ -2,7 +2,7 @@
 
 | Component    | Declared/tested boundary                                                                                                                 |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Node         | 24.15.0 or newer within Node 24                                                                                                          |
+| Node         | 26.0.0 or newer within Node 26                                                                                                           |
 | BB           | 0.46.1 through 0.46.x; build tooling pinned to 0.46.1                                                                                    |
 | Public SDK   | 0.6.49; manifest accepts 0.6.49 through 0.6.x; development and runtime alias pins match                                                  |
 | Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |

@@ -63,7 +63,7 @@ The preview borrows the approved inline source and request mode. It does not res
 
 ## Build and verify
 
-Use Bun 1.4.3 and Node 24.15 or newer within Node 24:
+Use Bun 1.4.3 and Node 26.0 or newer within Node 26:
 
 ```sh
 bun install --frozen-lockfile

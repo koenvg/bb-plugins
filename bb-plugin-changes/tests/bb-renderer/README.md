@@ -4,7 +4,7 @@ Run this check from an owned BB thread whose environment is this checkout. Keep 
 
 ## Run the check
 
-1. Use Bun 1.4.3, Node 24, and the official `bb` CLI on PATH. Install the locked package dependencies:
+1. Use Bun 1.4.3, Node 26, and the official `bb` CLI on PATH. Install the locked package dependencies:
 
    ```sh
    bun install --cwd bb-plugin-changes --frozen-lockfile

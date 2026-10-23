@@ -6,7 +6,7 @@ The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provi
 
 ## Local checks
 
-Use Bun 1.4.3 for installs and scripts, with Node 24.15.0 or newer within Node 24 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
+Use Bun 1.4.3 for installs and scripts, with Node 26.0.0 or newer within Node 26 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
 
 ```sh
 cd bb-plugin-pi-subagents-provider

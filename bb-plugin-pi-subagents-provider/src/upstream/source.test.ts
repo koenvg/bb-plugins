@@ -142,7 +142,7 @@ it("runs the checker against committed data without changing dirty source, depen
   const revision = "a".repeat(40);
   const output = await checkerCommand(["--source", r.pkg, "--project", "proj_fixture"], {
     now: () => 0,
-    nodeVersion: "24.15.0",
+    nodeVersion: "26.12.1",
     transport: async (p) => ({
       status: 200,
       next: false,

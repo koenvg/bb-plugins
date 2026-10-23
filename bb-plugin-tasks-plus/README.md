@@ -11,7 +11,7 @@ Task comments are removed by migration 12. Read [the upgrade and rollback proced
 
 ## Development checks
 
-Use Bun 1.4.3 with the committed lockfiles, and Node `>=24.15.0 <25` for Vitest. Install repository
+Use Bun 1.4.3 with the committed lockfiles, and Node `>=26.0.0 <27` for Vitest. Install repository
 lint/format tooling with `bun install --frozen-lockfile` at the root. Then run from this directory:
 
 Verify the local shared package before consumer checks. From the repository root, run:

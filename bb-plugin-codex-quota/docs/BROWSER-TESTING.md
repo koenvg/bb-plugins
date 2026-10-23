@@ -1,6 +1,6 @@
 # Synthetic browser verification
 
-Run from `bb-plugin-codex-quota/` with Bun 1.4.3. Vitest also needs Node 24.15 or newer within Node 24:
+Run from `bb-plugin-codex-quota/` with Bun 1.4.3. Vitest also needs Node 26.0 or newer within Node 26:
 
 ```sh
 bun install --frozen-lockfile

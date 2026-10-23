@@ -82,7 +82,7 @@ The shared [lint config](.oxlintrc.json) makes correctness violations errors. Ex
 
 ## Running tests and typechecks
 
-Use Bun 1.4.3 for installs and package scripts. Keep Node 24.15 or newer within Node 24 on `PATH` for Vitest and Node-host bundle checks. Several existing Vitest/jsdom suites and Quota's artifact-reload check do not run correctly under Bun, so these checks retain their supported Node runtime. Each plugin has its own dependencies, test command, and typecheck command. From the repository root, for example:
+Use Bun 1.4.3 for installs and package scripts. Keep Node 26.0 or newer within Node 26 on `PATH` for Vitest and Node-host bundle checks. Several existing Vitest/jsdom suites and Quota's artifact-reload check do not run correctly under Bun, so these checks retain their supported Node runtime. Each plugin has its own dependencies, test command, and typecheck command. From the repository root, for example:
 
 ```sh
 cd bb-plugin-code-cleanup
@@ -119,7 +119,7 @@ Each suite builds or serves current local fixture code and launches its own Chro
 
 ## GitHub Actions
 
-The [Tests workflow](.github/workflows/tests.yml) runs the plugin matrix on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Bun from `.bun-version`, Node 24.15 or newer within Node 24 for Vitest, and the same `bun install --frozen-lockfile`, `bun run test`, and `bun run typecheck` commands shown above. CI installs the SQLite CLI for Tasks Plus and runs its `bun run lint` command with the local Oxlint dependency. GitHub Insight gets the sibling PR thread-list's locked dependencies before validation.
+The [Tests workflow](.github/workflows/tests.yml) runs the plugin matrix on pull requests and pushes to `main`. Each plugin gets a separate Ubuntu job with Bun from `.bun-version`, Node 26.0 or newer within Node 26 for Vitest, and the same `bun install --frozen-lockfile`, `bun run test`, and `bun run typecheck` commands shown above. CI installs the SQLite CLI for Tasks Plus and runs its `bun run lint` command with the local Oxlint dependency. GitHub Insight gets the sibling PR thread-list's locked dependencies before validation.
 
 Each plugin has one combined result. After required setup succeeds, both validation steps run, with tests before typecheck, even if lint or tests fail. Failed setup stops both steps. Missing scripts, missing local compilers, and failed lint, test, or typecheck commands fail the job. Cancellation or the 20-minute timeout can stop unfinished checks.
 

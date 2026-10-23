@@ -4,7 +4,7 @@ This is the maintained source for the repository's user-facing verification reci
 
 ## Baseline preconditions
 
-- Use Bun 1.4.3 and Node `>=24.15.0 <25`. Inspect scripts, run frozen setup and keep both test and typecheck exit codes.
+- Use Bun 1.4.3 and Node `>=26.0.0 <27`. Inspect scripts, run frozen setup and keep both test and typecheck exit codes.
 - Run the selected map's additional prerequisites. Root tooling does not install each package's dependencies.
 - Create private evidence outside tracked source. Each browser run gets its own new directory; never overwrite an earlier proof.
 - Own every browser context/tab, listener, process and test record driven by the run. A signed-in BB browser shares the server/database even with a separate profile.

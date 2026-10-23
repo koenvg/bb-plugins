@@ -23,6 +23,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node.js for validation
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ">=26.0.0 <27"
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -79,7 +84,7 @@ jobs:
         id: setup_node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ">=24.15.0 <25"
+          node-version: ">=26.0.0 <27"
 
       - name: Set up Bun
         id: setup_bun
@@ -230,11 +235,10 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Set up Node.js for shared Markdown checks
-        if: matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader'
+      - name: Set up Node.js for browser checks
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ">=24.15.0 <25"
+          node-version: ">=26.0.0 <27"
 
       - name: Verify and build shared Markdown for document consumers
         if: matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader'

@@ -8,7 +8,7 @@ Other incomplete, malformed, newer, unfinished-backfill or WAL-mode storage is n
 
 ## Operator procedure, approval required
 
-Use Node 24 or later and a complete built package. Do not run this against live storage until the owner approves the upgrade. Close the graph and history management during backup and apply. Do not pause collection or change settings for this operation.
+Use Node 26.0 or newer within Node 26 and a complete built package. Do not run this against live storage until the owner approves the upgrade. Close the graph and history management during backup and apply. Do not pause collection or change settings for this operation.
 
 Inspect without mutation:
 

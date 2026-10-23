@@ -23,7 +23,7 @@ fail() {
 }
 
 command -v sqlite3 >/dev/null || fail "sqlite3 is not installed"
-command -v node >/dev/null || fail "Node 24.15 or newer is required for the schema migration"
+command -v node >/dev/null || fail "Node 26.0 or newer within Node 26 is required for the schema migration"
 [ -f "$from/data.db" ] || fail "no database at $from/data.db"
 
 if command -v bb >/dev/null && bb plugin list 2>/dev/null | grep -Eq '^tasks-plus@[^ ]+ +running'; then
