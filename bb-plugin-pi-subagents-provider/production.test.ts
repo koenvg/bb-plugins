@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  globSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +22,7 @@ const hostTestingUrl = pathToFileURL(require.resolve("@get-bb/plugin-sdk/testing
 
 it("builds and loads the public provider artifacts without development dependencies", () => {
   const directory = mkdtempSync(join(tmpdir(), "bb-pi-production-"));
-  const packageDir = join(directory, "provider");
+  const packageDir = join(directory, "bb-plugin-pi-subagents-provider");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     BB_DATA_DIR: join(directory, "build-data"),
@@ -27,6 +35,22 @@ it("builds and loads the public provider artifacts without development dependenc
       recursive: true,
       filter: (path) => path !== join(root, "node_modules") && path !== join(root, "dist"),
     });
+    const repository = join(root, "..");
+    const lock = readFileSync(join(repository, "bun.lock"), "utf8");
+    for (const name of ["package.json", "bun.lock", "bunfig.toml"]) {
+      cpSync(join(repository, name), join(directory, name));
+    }
+    const manifest = JSON.parse(readFileSync(join(repository, "package.json"), "utf8"));
+    for (const path of globSync(
+      manifest.workspaces.map((workspace: string) => `${workspace}/package.json`),
+      {
+        cwd: repository,
+      },
+    )) {
+      const target = join(directory, path);
+      mkdirSync(join(target, ".."), { recursive: true });
+      cpSync(join(repository, path), target);
+    }
     const run = (command: string, args: string[]) => {
       const result = spawnSync(command, args, {
         cwd: packageDir,
@@ -42,11 +66,14 @@ it("builds and loads the public provider artifacts without development dependenc
     expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe("0.46.1");
     run("bun", [
       "install",
+      "--filter",
+      "bb-plugin-pi-subagents-provider",
       "--frozen-lockfile",
       "--production",
       "--omit=optional",
       "--ignore-scripts",
     ]);
+    expect(readFileSync(join(directory, "bun.lock"), "utf8")).toBe(lock);
     for (const name of [
       "@get-bb/plugin-sdk",
       "bb-app",
@@ -55,6 +82,7 @@ it("builds and loads the public provider artifacts without development dependenc
       "@earendil-works/pi-coding-agent",
     ]) {
       expect(existsSync(join(packageDir, "node_modules", name)), name).toBe(false);
+      expect(existsSync(join(directory, "node_modules", name)), name).toBe(false);
     }
     run(process.execPath, [bbCli, "plugin", "types", packageDir, "--check"]);
     run(process.execPath, [bbCli, "plugin", "build", packageDir]);

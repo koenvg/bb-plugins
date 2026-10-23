@@ -3,7 +3,9 @@ import { createRequire } from "node:module";
 import { createInterface } from "node:readline";
 import { mock } from "bun:test";
 
-const require = createRequire(`${process.cwd()}/package.json`);
+const require = createRequire(
+  createRequire(`${process.cwd()}/package.json`).resolve("vite/package.json"),
+);
 const esbuild = require("esbuild");
 const vitePath = require.resolve("vite");
 const gates = {

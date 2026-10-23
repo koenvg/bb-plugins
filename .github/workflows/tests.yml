@@ -33,16 +33,8 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Install tooling
-        run: bun install --frozen-lockfile
-
-      - name: Install browser lifecycle dependencies
-        run: |
-          bun install --cwd packages/markdown-document --frozen-lockfile
-          bun install --cwd bb-plugin-compose-chat --frozen-lockfile
-          bun install --cwd bb-plugin-markdown-reader --frozen-lockfile
-          bun install --cwd bb-plugin-codex-quota --frozen-lockfile
-          bun install --cwd bb-plugin-tasks-plus --frozen-lockfile
+      - name: Install workspace dependencies and build shared Markdown
+        run: bash .bb-env-setup.sh
 
       - name: Check root tests, lint, and formatting
         run: bun run check
@@ -100,38 +92,26 @@ jobs:
           sudo apt-get install --yes sqlite3 build-essential python3
           sqlite3 --version
 
-      - name: Verify and build shared Markdown for document consumers
+      - name: Install workspace dependencies and build shared Markdown
+        id: install_dependencies
+        working-directory: .
+        run: bash .bb-env-setup.sh
+
+      - name: Verify shared Markdown for document consumers
         id: shared_markdown
         if: matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader'
         working-directory: packages/markdown-document
         run: |
-          bun install --frozen-lockfile
-          bun run build
           bun run test --maxWorkers=1
           bun run typecheck
-
-      - name: Install dependencies
-        id: install_dependencies
-        run: |
-          bun install --frozen-lockfile
 
       - name: Check Quota installed glob dependencies
         if: matrix.plugin == 'bb-plugin-codex-quota'
         run: bun run check:installed-globs
 
-      - name: Install Tasks navigation lab dependencies
-        id: install_tasks_navigation_lab
-        if: matrix.plugin == 'bb-plugin-tasks-plus'
-        run: bun install --cwd ../bb-plugin-codex-quota --frozen-lockfile
-
       - name: Lint Tasks Plus
         if: matrix.plugin == 'bb-plugin-tasks-plus'
         run: bun run lint
-
-      - name: Install PR thread list integration dependencies
-        id: install_pr_thread_list
-        if: matrix.plugin == 'bb-plugin-github-insight'
-        run: bun install --cwd ../bb-plugin-pr-thread-list --frozen-lockfile
 
       # Run both checks after successful setup, even if lint or tests fail.
       - name: Run tests
@@ -144,9 +124,7 @@ jobs:
             steps.setup_node.outcome == 'success' &&
             steps.install_dependencies.outcome == 'success' &&
             ((matrix.plugin != 'bb-plugin-tasks-plus' && matrix.plugin != 'bb-plugin-markdown-reader') || steps.shared_markdown.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_tasks_navigation_lab.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success')
           }}
         run: bun run test ${{ (matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader') && '--maxWorkers=1' || '' }}
 
@@ -160,9 +138,7 @@ jobs:
             steps.setup_node.outcome == 'success' &&
             steps.install_dependencies.outcome == 'success' &&
             ((matrix.plugin != 'bb-plugin-tasks-plus' && matrix.plugin != 'bb-plugin-markdown-reader') || steps.shared_markdown.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_tasks_navigation_lab.outcome == 'success') &&
-            (matrix.plugin != 'bb-plugin-github-insight' || steps.install_pr_thread_list.outcome == 'success')
+            (matrix.plugin != 'bb-plugin-tasks-plus' || steps.install_sqlite.outcome == 'success')
           }}
         run: |
           if [ ! -x node_modules/.bin/tsc ]; then
@@ -240,17 +216,16 @@ jobs:
         with:
           node-version: ">=26.0.0 <27"
 
-      - name: Verify and build shared Markdown for document consumers
+      - name: Install workspace dependencies and build shared Markdown
+        working-directory: .
+        run: bash .bb-env-setup.sh
+
+      - name: Verify shared Markdown for document consumers
         if: matrix.plugin == 'bb-plugin-tasks-plus' || matrix.plugin == 'bb-plugin-markdown-reader'
         working-directory: packages/markdown-document
         run: |
-          bun install --frozen-lockfile
-          bun run build
           bun run test --maxWorkers=1
           bun run typecheck
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
 
       - name: Check Tasks fixture ownership and shutdown
         if: matrix.plugin == 'bb-plugin-tasks-plus'

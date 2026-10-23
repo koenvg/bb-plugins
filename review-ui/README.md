@@ -14,5 +14,6 @@ Rules:
 
 A plugin that uses this folder needs:
 
+- `"@bb-plugins/review-ui": "workspace:*"` in its dependencies. The shared folder owns its React peers and diff-renderer dependency through its own workspace manifest.
 - `"../review-ui"` in `tsconfig.json` `include`, and `paths` entries that map `react`, `react/*`, `@pierre/diffs`, `@pierre/diffs/react`, `vitest`, and `@testing-library/react` to its own `node_modules`. See `bb-plugin-changes/tsconfig.json`.
 - In `vitest.config.ts`: the same packages in `resolve.dedupe`, `server.fs.allow: [".."]`, and `"../review-ui/**/*.test.{ts,tsx}"` in `test.include`.

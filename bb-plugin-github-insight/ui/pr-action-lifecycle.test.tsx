@@ -7,7 +7,7 @@ import { prOperations } from "./pr-operations";
 
 // React DOM imports Scheduler through CommonJS. Install its controlled clock
 // before loading React DOM so we can stop between paint and passive effects.
-const require = createRequire(import.meta.url);
+const require = createRequire(createRequire(import.meta.url).resolve("react-dom/package.json"));
 const realScheduler = require("scheduler");
 const originalScheduler = { ...realScheduler };
 const scheduler = require("scheduler/unstable_mock") as {

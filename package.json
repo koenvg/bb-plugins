@@ -3,15 +3,24 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.3",
+  "workspaces": [
+    "bb-plugin-*",
+    "packages/*",
+    "review-ui"
+  ],
+  "overrides": {
+    "npm": "11.21.0"
+  },
   "scripts": {
     "test:setup": "bun test ./scripts/environment-setup.test.mjs",
+    "test:workspaces": "bun test scripts/workspaces.test.mjs",
     "test:browser-lifecycle": "bun test scripts/browser-fixture-runner.test.mjs scripts/browser-preview-servers.test.mjs",
     "test:browser": "bun run --cwd bb-plugin-compose-chat test:browser && bun run --cwd bb-plugin-markdown-reader test:browser && bun run --cwd bb-plugin-codex-quota test:browser",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "check": "bun run test:setup && bun run test:browser-lifecycle && bun run lint && bun run format:check"
+    "check": "bun run test:setup && bun run test:workspaces && bun run test:browser-lifecycle && bun run lint && bun run format:check"
   },
   "engines": {
     "node": ">=26.0.0 <27",
