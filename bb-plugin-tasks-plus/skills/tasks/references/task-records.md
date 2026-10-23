@@ -1,5 +1,16 @@
 # Task records
 
+## Draft follow-up tasks
+
+Separate approved requirements from unresolved decisions. When sources conflict,
+record each source and what it approved or excluded. Keep the conflict visible
+until the user explicitly resolves it.
+
+A request to defer a feature or create a follow-up task authorizes recording the
+work, not either policy alternative. Put unresolved choices in an open-decisions
+section, not firm acceptance criteria. Do not describe an inferred choice as
+explicitly requested.
+
 ## List project tasks
 
 `--project` takes a tracker prefix or ID, not a BB project ID such as
