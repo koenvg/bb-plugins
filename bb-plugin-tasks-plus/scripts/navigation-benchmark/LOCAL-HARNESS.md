@@ -38,6 +38,8 @@ All recorded benchmark resources are closed and their removal is independently c
 
 ## Setup and checks
 
+This section records the historical Node 24 / SDK 0.6.37 baseline setup and its results. For current Node 26 setup and validation, follow [Development checks](../../README.md#development-checks). Do not use the archived header paths or SDK pins below for a new checkout.
+
 Inspect package lifecycle scripts, lockfile hook declarations and installed hook bodies first. Use existing frozen locks with hooks disabled. Native SQLite addons require an inspected build before SDK storage tests. Setup restored the existing Tasks and quota addons offline against cached Node 24.15.0 headers. No dependency, lock, SDK or production source changed.
 
 Both installed SDK versions must be exactly 0.6.37. No browser install is needed when the recorded Chromium executable is available.

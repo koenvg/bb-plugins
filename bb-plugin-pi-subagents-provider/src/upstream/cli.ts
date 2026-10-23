@@ -28,9 +28,8 @@ export async function checkerCommand(
   }
   if (options.projectId !== undefined && options.projectId !== args[3])
     return fail("Automation project does not match explicit scope");
-  const version = (options.nodeVersion ?? process.versions.node).split(".").map(Number);
-  if (!/^24\.\d+\.\d+$/.test(options.nodeVersion ?? process.versions.node) || version[1] < 15)
-    return fail("Checker requires Node 24.15.0 or newer within Node 24");
+  if (!/^26\.\d+\.\d+$/.test(options.nodeVersion ?? process.versions.node))
+    return fail("Checker requires Node 26.0.0 or newer within Node 26");
   try {
     const baseline = await (options.readBaseline ?? readCommittedBaseline)(args[1]);
     return runOutput(

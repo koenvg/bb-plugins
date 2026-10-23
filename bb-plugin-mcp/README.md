@@ -2,7 +2,7 @@
 
 A headless BB plugin for authenticated project discovery, standard-project thread reads, ordinary thread starts, follow-up instructions and stop requests. It uses BB's standard plugin settings. It exposes `bb_list_projects`, `bb_list_providers`, `bb_list_threads`, `bb_get_thread`, `bb_start_thread`, `bb_send_message`, `bb_stop_thread`, and `bb_get_operation`. It has no deletion, remote approval, task-board, shell, file, admin, or generic forwarding tools.
 
-Requires BB 0.46 with SDK 0.6.37 and Node 24.15 or later in Node 24. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
+Requires BB 0.46 with SDK 0.6.37 and Node 26.0 or newer within Node 26. The official MCP SDK and `jose` versions are pinned in [package.json](package.json). Each request uses a new stateless Streamable HTTP transport with JSON responses. GET streams and session deletion are not supported. A reconnect can initialize again or send a protected request without a previous session ID.
 
 ## Safety and consent
 
@@ -323,7 +323,7 @@ For cleanup, preserve the plugin database while unresolved records exist. Comple
 
 ## Local checks and release limits
 
-Use Bun 1.4.3 and Node 24.15 or later within Node 24. From `bb-plugin-mcp`, run:
+Use Bun 1.4.3 and Node 26.0 or newer within Node 26. From `bb-plugin-mcp`, run:
 
 ```sh
 bun install --frozen-lockfile

@@ -23,7 +23,7 @@ BB stores the palette server-side and applies it to all clients. Each client kee
 
 ## Develop and install locally
 
-Use Node `>=24.15.0 <25`, matching the repository's test workflow. Run these commands in a durable checkout. BB references a local-path plugin in place, so do not use a temporary worktree for a permanent installation.
+Use Node `>=26.0.0 <27`, matching the repository's test workflow. Run these commands in a durable checkout. BB references a local-path plugin in place, so do not use a temporary worktree for a permanent installation.
 
 ```sh
 cd bb-plugin-codex-inspired

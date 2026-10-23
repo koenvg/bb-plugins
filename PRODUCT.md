@@ -45,7 +45,7 @@ Current plugins:
 | Compose Chat     | Restyles native chat and adds keyboard access to native voice controls                                                      | Native composer, follow-up footer, conversation messages, and active tool indicators                                     |
 
 - Each plugin is a separate package with its own dependencies, tests, and README. Install one at a time.
-- React 19 and the BB Plugin SDK. Node 24.15+ within Node 24.
+- React 19 and the BB Plugin SDK. Node 26.0+ within Node 26.
 - Plugin UI must work inside host slots and with the active BB theme, including light, dark, and third-party themes such as Codex Inspired.
 - Code Cleanup settings control the default for standard projects without an override, explicit project enablement, and custom prompt text. The plugin supplies agent guidance; it does not inspect code or create tasks itself. Guidance changes apply to new agent sessions.
 - Codex Quota keeps account-wide activity separate from selected-host recorded usage. Collection and historical import require explicit setup. Reports can be incomplete; missing values are not zero. Captured cost estimates are not billed subscription charges.

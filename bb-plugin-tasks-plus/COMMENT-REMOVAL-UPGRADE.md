@@ -30,7 +30,7 @@ BBP-54 verifies this task-file behavior under the approved replacement scope. It
 
 ## Import bundled data
 
-Use `scripts/import-bundled-data.sh` while the fork is disabled. It backs up the source database to a temporary copy, rewrites retained description download links and applies the same forward migration before publishing the imported database. It copies blobs without changing the bundled source and refuses a populated target. Node 24.15 or newer, package dependencies and SQLite CLI are required.
+Use `scripts/import-bundled-data.sh` while the fork is disabled. It backs up the source database to a temporary copy, rewrites retained description download links and applies the same forward migration before publishing the imported database. It copies blobs without changing the bundled source and refuses a populated target. Node 26.0 or newer within Node 26, package dependencies and SQLite CLI are required.
 
 Imported comment text is deleted from the copy, not the source. Files retain IDs and metadata and become task files. Bundled download routes in descriptions become Tasks Plus routes.
 
