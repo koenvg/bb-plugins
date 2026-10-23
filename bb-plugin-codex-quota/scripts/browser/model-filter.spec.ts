@@ -169,8 +169,9 @@ for (const width of [375, 1280])
           outline: getComputedStyle(node).outlineWidth,
         })),
       ).toEqual({ visible: true, outline: "2px" });
-      await expect.poll(() => bars(page)).toEqual(initial.slice(0, 1));
-      expect(await axis(page)).toEqual(ticks);
+      const filteredStack = await expectedStack(page, [100], 100);
+      await expect.poll(() => bars(page)).toEqual([[{ ...initial[0][0], ...filteredStack[0] }]]);
+      expect(await axis(page)).toEqual(["0", "25", "50", "75", "100"]);
       expect(await rows(page)).toEqual(daily);
       await tooltip(page, "tokens", daily);
       await expect(page.getByLabel("Tokens by model", { exact: true }).locator("li")).toHaveText([
@@ -186,17 +187,17 @@ for (const width of [375, 1280])
         await series(page, names[hiddenIndex]).click();
         const remaining = await bars(page);
         const expected = initial.filter((_group, index) => index !== hiddenIndex);
-        expect(remaining.map((group) => group.map(({ y: _y, ...bar }) => bar))).toEqual(
-          expected.map((group) => group.map(({ y: _y, ...bar }) => bar)),
-        );
         const endpoints = await expectedStack(
           page,
           [100, 500].filter((_value, index) => index !== hiddenIndex),
-          600,
+          hiddenIndex === 0 ? 500 : 100,
         );
-        for (let index = 0; index < remaining.length; index++)
-          expect(remaining[index][0].y).toBeCloseTo(endpoints[index].y, 3);
-        expect(await axis(page)).toEqual(ticks);
+        expect(remaining).toEqual(
+          expected.map((group, index) => group.map((bar) => ({ ...bar, ...endpoints[index] }))),
+        );
+        expect(await axis(page)).toEqual(
+          hiddenIndex === 0 ? ["0", "125", "250", "375", "500"] : ["0", "25", "50", "75", "100"],
+        );
         expect(await page.locator(".ts-chart-host").boundingBox()).toEqual(plot);
         await restore(page).click();
         expect(await bars(page)).toEqual(initial);
@@ -239,7 +240,7 @@ for (const width of [375, 1280])
         ).toHaveText("All model series hidden. Recorded usage is not zero.");
         expect(await bars(page)).toEqual([]);
         expect(await rows(page)).toEqual(daily);
-        expect(await axis(page)).toEqual(ticks);
+        expect(await axis(page)).toEqual(["0"]);
         const allHiddenTip = await tooltip(page, "tokens", daily);
         expect(allHiddenTip.definitions).toEqual(fullTip.definitions);
         expect(allHiddenTip.tooltip).toBe(fullTip.tooltip);
@@ -282,7 +283,7 @@ for (const width of [375, 1280])
       await expect(series(page, names[1])).toHaveAttribute("aria-pressed", "true");
     });
 
-test("uncertainty restacks unfiltered on the unchanged full scale", async ({ page }, info) => {
+test("uncertainty restacks unfiltered on the visible daily scale", async ({ page }, info) => {
   await page.goto("/calendar.html?state=partial");
   await settled(page);
   const daily = await rows(page);
@@ -299,8 +300,8 @@ test("uncertainty restacks unfiltered on the unchanged full scale", async ({ pag
   );
   await series(page, "Unknown model").click();
   const filtered = await bars(page);
-  expect(filtered).toEqual([[{ ...uncertainty, y: (await expectedStack(page, [300], 900))[0].y }]]);
-  expect(await axis(page)).toEqual(ticks);
+  expect(filtered).toEqual([[{ ...uncertainty, ...(await expectedStack(page, [300], 300))[0] }]]);
+  expect(await axis(page)).toEqual(["0", "75", "150", "225", "300"]);
   expect(await rows(page)).toEqual(daily);
   await tooltip(page, "tokens", daily);
   await expect(page.getByRole("tooltip")).toContainText("Recorded tokens600");
@@ -392,8 +393,10 @@ for (const width of [375, 1280])
       }
       const filtered = await bars(page);
       expect(filtered.map((group) => group[0].uncertain)).toEqual([true]);
-      expect(filtered[0][0].height).toBe(initial[7][0].height);
-      expect(filtered[0][0].y + filtered[0][0].height).toBe(initial[0][0].y + initial[0][0].height);
+      expect(filtered).toEqual([
+        [{ ...initial[7][0], ...(await expectedStack(page, [300], 300))[0] }],
+      ]);
+      expect(await axis(page)).toEqual(["0", "75", "150", "225", "300"]);
       await tooltip(page, "tokens", daily);
       await expect(page.getByLabel("Tokens by model", { exact: true }).locator("li")).toHaveCount(
         7,

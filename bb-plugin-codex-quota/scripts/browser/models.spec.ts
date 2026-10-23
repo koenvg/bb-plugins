@@ -65,13 +65,20 @@ for (const width of [375, 1280])
             .filter((node) => Number(node.getAttribute("height")) > 0)
             .map((node) => ({
               height: Number(node.getAttribute("height")),
+              y: Number(node.getAttribute("y")),
               fill: getComputedStyle(node).fill,
             })),
         );
       const initial = await fullBars();
       expect(initial).toHaveLength(2);
       expect(initial[0].height / initial[1].height).toBeCloseTo(4 / 6, 2);
+      const bounds = await page.locator(".ts-chart__grid line").evaluateAll((lines) => {
+        const positions = lines.map((line) => Number(line.getAttribute("y1")));
+        return { top: Math.min(...positions), bottom: Math.max(...positions) };
+      });
+      const plotHeight = Math.round((bounds.bottom - bounds.top) * 100) / 100;
       const ticks = await page.locator("[data-ts-key^='y-tick-label:']").allTextContents();
+      expect(ticks).toEqual(["$0", "$3", "$5", "$8", "$10"]);
       const facts = await axFacts(page, daily, "cost");
       await tooltip(page, "cost", daily);
       const costTip = page.getByLabel("Captured cost by model", { exact: true });
@@ -80,14 +87,23 @@ for (const width of [375, 1280])
       await page.keyboard.press("Space");
       await expect(a).toHaveAttribute("aria-pressed", "false");
       await expect(a).toBeFocused();
-      expect(await fullBars()).toEqual([initial[1]]);
+      expect(await fullBars()).toEqual([{ ...initial[1], height: plotHeight, y: bounds.top }]);
       expect(await rows(page)).toEqual(daily);
-      expect(await page.locator("[data-ts-key^='y-tick-label:']").allTextContents()).toEqual(ticks);
+      expect(await page.locator("[data-ts-key^='y-tick-label:']").allTextContents()).toEqual([
+        "$0",
+        "$2",
+        "$3",
+        "$5",
+        "$6",
+      ]);
       await expect(page.getByLabel("Captured cost subtotal")).toHaveText("$10.00");
       await tooltip(page, "cost", daily);
       await expect(costTip.locator("li")).toHaveCount(2);
       await b.click();
       expect(await fullBars()).toEqual([]);
+      expect(await page.locator("[data-ts-key^='y-tick-label:']").allTextContents()).toEqual([
+        "$0",
+      ]);
       await expect(
         page.getByRole("status").filter({ hasText: "All model cost series hidden" }),
       ).toHaveText("All model cost series hidden. Recorded usage is not zero.");
@@ -95,6 +111,7 @@ for (const width of [375, 1280])
       await page.keyboard.press("Enter");
       await expect(b).toBeFocused();
       expect(await fullBars()).toEqual(initial);
+      expect(await page.locator("[data-ts-key^='y-tick-label:']").allTextContents()).toEqual(ticks);
       await metric.getByRole("button", { name: "Tokens", exact: true }).click();
       await expect(legend.getByRole("button", { name: "A", exact: true })).toHaveAttribute(
         "aria-pressed",
