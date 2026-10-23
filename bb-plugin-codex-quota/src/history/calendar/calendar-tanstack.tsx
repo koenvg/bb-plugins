@@ -41,12 +41,14 @@ function dailyInspection(
         const y = scales.y.map(0);
         const height =
           metric === "tokens" || metric === "cost"
-            ? models.reduce((sum, series) => sum + (row.modelHeights[series.key] ?? 0), 0)
+            ? models.reduce((sum, series) => sum + (row.modelHeights[series.key] ?? 0), 0) +
+              row.uncertainHeight
             : (row.height ?? 0);
         const positive =
           metric === "tokens" || metric === "cost"
             ? (metric !== "cost" || row.value !== null) &&
-              models.some((series) => (row.modelFacts[series.key] ?? 0) > 0)
+              (models.some((series) => (row.modelFacts[series.key] ?? 0) > 0) ||
+                row.uncertainHeight > 0)
             : (row.value ?? 0) > 0;
         if (positive && height * chart.height < 2)
           nodes.push({
@@ -93,7 +95,43 @@ export function CalendarChart({
   helpId?: string;
 }) {
   const definition = useMemo(() => {
-    const drawing: DrawingRow[] = data.rows.flatMap((row) => {
+    const modelMetric = metric === "tokens" || metric === "cost";
+    const maximum = modelMetric
+      ? Math.max(
+          0,
+          ...data.rows.map(
+            (row) =>
+              (metric === "cost" && row.value === null
+                ? 0
+                : visibleModels.reduce(
+                    (sum, series) => sum + (row.modelFacts[series.key] ?? 0),
+                    0,
+                  )) +
+              (includeUncertain && metric === "tokens" ? (row.day.uncertain?.totalTokens ?? 0) : 0),
+          ),
+        )
+      : data.maximum;
+    // Rebuild coordinates from facts; an all-model ratio may already have underflowed.
+    const rows = modelMetric
+      ? data.rows.map((row) => ({
+          ...row,
+          modelHeights: Object.fromEntries(
+            visibleModels.map(({ key }) => [
+              key,
+              row.modelHeights[key] == null
+                ? null
+                : maximum
+                  ? (row.modelFacts[key] ?? 0) / maximum
+                  : 0,
+            ]),
+          ),
+          uncertainHeight:
+            includeUncertain && metric === "tokens" && maximum
+              ? (row.day.uncertain?.totalTokens ?? 0) / maximum
+              : 0,
+        }))
+      : data.rows;
+    const drawing: DrawingRow[] = rows.flatMap((row) => {
       const recorded: DrawingRow[] =
         metric === "tokens" || metric === "cost"
           ? visibleModels.flatMap((series) => {
@@ -153,7 +191,7 @@ export function CalendarChart({
             }),
           }),
         ),
-        dailyInspection(data.rows, visibleModels, metric),
+        dailyInspection(rows, visibleModels, metric),
       ],
       scales: {
         x: {
@@ -182,9 +220,10 @@ export function CalendarChart({
           axis: {
             line: false,
             ticks: {
-              values: data.maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1],
+              values:
+                modelMetric && maximum === 0 ? [0] : maximum < 4 ? [0, 1] : [0, 0.25, 0.5, 0.75, 1],
               line: false,
-              format: (value) => axisValue(value * data.maximum, metric),
+              format: (value) => axisValue(value * maximum, metric),
             },
             tickLabels: { fontSize: 12, opacity: 1 },
             label: { text: metricName(metric), fontSize: 11, offset: 64 },
