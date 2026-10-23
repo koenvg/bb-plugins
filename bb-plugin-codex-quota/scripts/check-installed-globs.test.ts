@@ -17,7 +17,7 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 const pluginRoot = fileURLToPath(new URL("../", import.meta.url));
 const script = join(pluginRoot, "scripts/check-installed-globs.mjs");
 const piRequire = createRequire(
-  join(pluginRoot, "node_modules/@earendil-works/pi-coding-agent/package.json"),
+  realpathSync(join(pluginRoot, "node_modules/@earendil-works/pi-coding-agent/package.json")),
 );
 const minimatchSource = dirname(piRequire.resolve("minimatch/package.json"));
 const braceSource = dirname(

@@ -3,7 +3,9 @@ import { createInterface } from "node:readline";
 import { mock } from "bun:test";
 
 const require = createRequire(
-  new URL("../../bb-plugin-markdown-reader/package.json", import.meta.url),
+  createRequire(new URL("../../bb-plugin-markdown-reader/package.json", import.meta.url)).resolve(
+    "vite/package.json",
+  ),
 );
 const reported = new Set();
 const report = (event) => {

@@ -2,9 +2,11 @@
 
 An independent fork of BB's Pi provider. It registers provider `pi-subagents` alongside bundled `pi` and preserves ordinary Pi work. The source implements native background observation and a read-only Subagents panel with bounded task, transcript, output, parallel/nested structure, and captured-history recovery. Installed lifecycle and persistence acceptance remain unproved; this is not a lifecycle-safety claim.
 
-The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provider`. It ships server, host, and frontend entries, published dependencies, a committed Bun lockfile, and the upstream MIT notice. See [UPSTREAM.json](UPSTREAM.json), [local adaptations](UPSTREAM.md), and [compatibility and check limits](COMPATIBILITY.md).
+The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provider`. It ships server, host, and frontend entries, published dependencies, a committed repository-level Bun lockfile, and the upstream MIT notice. See [UPSTREAM.json](UPSTREAM.json), [local adaptations](UPSTREAM.md), and [compatibility and check limits](COMPATIBILITY.md).
 
 ## Local checks
+
+This package is a Bun workspace. Run `bash .bb-env-setup.sh` at the repository root to prepare all local dependencies. Package-local Bun commands also discover the shared root lockfile. The production packaging test uses that root lock with a filtered production-only install.
 
 Use Bun 1.4.3 for installs and scripts, with Node 26.0.0 or newer within Node 26 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
 

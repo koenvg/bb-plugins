@@ -23,10 +23,10 @@ mkdir -m 700 "$EVIDENCE"
 
 Choose `PLUGIN` from the index, not an installed catalog name. Follow its additional prerequisites before checks. GitHub Insight needs its sibling PR thread-list dependencies. Tasks Plus needs SQLite, the built local Markdown package, Quota fixture dependencies, and its pinned TypeScript 7 compiler. Do not use generic setup to bypass these requirements.
 
-After the package-specific preparation succeeds, install that package from its lockfile:
+After the package-specific prerequisites are available, install workspace dependencies from the root lockfile and build shared Markdown:
 
 ```sh
-bun install --cwd "$PACKAGE" --frozen-lockfile
+bash .bb-env-setup.sh
 ```
 
 After successful setup, run tests and typecheck separately so a test failure does not skip typecheck:

@@ -343,7 +343,7 @@ Normal global BB app upgrades do not change this locked development validation. 
 
 The runtime declarations remain `engines.bb >=0.46` and `engines.bbPluginSdk >=0.6.37 <0.7`. BB checks `engines.bb` with semver. The inspected runtime treats the SDK declaration as a same-major API floor, so `<0.7` is not an enforced runtime ceiling. Local checks do not certify arbitrary future releases or live-host compatibility.
 
-For a deliberate toolchain upgrade, update both exact development pins and regenerate `bun.lock`. Then run the frozen install, tests, typecheck, SDK check, and build above. Verify that `dist/server.meta.json` records the selected SDK and BB versions. Investigate real declaration or behavior failures. Do not suppress them or raise the runtime floor merely to satisfy a freshness check.
+For a deliberate toolchain upgrade, update both exact development pins and regenerate the repository root `bun.lock`. Then run the frozen install, tests, typecheck, SDK check, and build above. Verify that `dist/server.meta.json` records the selected SDK and BB versions. Investigate real declaration or behavior failures. Do not suppress them or raise the runtime floor merely to satisfy a freshness check.
 
 The development builder's npm bundle still has dependency advisories. See [the standalone dependency review](VERIFICATION-BBP173.md) for the exact npm override, installed-version evidence, audit limits and bounded build use. A zero lockfile audit alone does not prove that npm's bundled files are patched.
 

@@ -11,7 +11,12 @@ it("publishes normal-chat line height for prose outside conditional styles", () 
 
 it("reserves reading height and limits motion to controls with reduced-motion pseudo-elements", () => {
   const css = readFileSync(new URL("./subagents.css", import.meta.url), "utf8");
-  expect(css).toMatch(/\.pi-subagents nav ul\s*\{[^}]*max-height:\s*8rem/);
+  const overviewList = css.match(/\.pi-subagents nav ul\s*\{([^}]*)\}/)?.[1];
+  expect(overviewList).toBeDefined();
+  expect(overviewList).not.toMatch(/max-height|overflow-y/);
+  expect(css).toMatch(
+    /\.pi-subagents:has\(\.pi-subagents-detail\) nav ul\s*\{[^}]*max-height:\s*8rem;\s*overflow-y:\s*auto/,
+  );
   expect(css).toMatch(/\.pi-subagents-detail\s*\{[^}]*flex:\s*1\s+0\s+auto/);
   expect(css).toMatch(/\.pi-subagents\s*\{[^}]*overflow:\s*auto/);
   expect(css).toMatch(/\.pi-subagents-identity\s*\{[^}]*flex-shrink:\s*0/);

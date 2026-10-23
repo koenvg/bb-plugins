@@ -19,5 +19,15 @@ fi
 
 # Include development tools even when the host sets NODE_ENV=production.
 unset NODE_ENV
-echo "Installing locked root development tools. Plugin dependencies are not included."
-exec bun install --frozen-lockfile
+if [ ! -f bun.lock ]; then
+  echo "Setup requires bun.lock. Restore the committed root lockfile and retry." >&2
+  exit 1
+fi
+
+echo "Installing locked workspace development dependencies"
+bun install --frozen-lockfile
+echo "Building shared Markdown for plugin consumers"
+(cd packages/markdown-document && bun run build)
+
+echo "Local dependency setup complete. BB plugins were not installed or reloaded."
+echo "Browser tests and Tasks Plus checks also need browser binaries and the SQLite CLI."

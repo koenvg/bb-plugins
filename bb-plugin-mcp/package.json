@@ -18,9 +18,6 @@
       "skills"
     ]
   },
-  "overrides": {
-    "npm": "11.21.0"
-  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
