@@ -97,6 +97,33 @@ const readTextFileResultSchema = z.discriminatedUnion("ok", [
 ]);
 export type ReadTextFileResult = z.infer<typeof readTextFileResultSchema>;
 
+const uploadImageRequestSchema = z
+  .object({
+    owner: prRequestFields.owner,
+    repo: prRequestFields.repo,
+    path: z.string().min(1),
+    cwd: z.string().nullable(),
+  })
+  .strict();
+export type UploadImageRequest = z.infer<typeof uploadImageRequestSchema>;
+
+const uploadImageResultSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), url: z.string() }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export type UploadImageResult = z.infer<typeof uploadImageResultSchema>;
+
+const renderMarkdownRequestSchema = z
+  .object({ owner: prRequestFields.owner, repo: prRequestFields.repo, text: z.string() })
+  .strict();
+export type RenderMarkdownRequest = z.infer<typeof renderMarkdownRequestSchema>;
+
+const renderMarkdownResultSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), html: z.string() }),
+  z.object({ ok: z.literal(false), failure: ghFailureSchema }),
+]);
+export type RenderMarkdownResult = z.infer<typeof renderMarkdownResultSchema>;
+
 const localCommitsRequestSchema = z
   .object({ path: z.string().min(1), branch: z.string().min(1) })
   .strict();
@@ -193,6 +220,14 @@ export const hostContract = defineRpcContract({
     input: readTextFileRequestSchema,
     output: readTextFileResultSchema,
   },
+  uploadImage: {
+    input: uploadImageRequestSchema,
+    output: uploadImageResultSchema,
+  },
+  renderMarkdown: {
+    input: renderMarkdownRequestSchema,
+    output: renderMarkdownResultSchema,
+  },
   countLocalCommitsAhead: {
     input: localCommitsRequestSchema,
     output: localCommitsAheadSchema,
@@ -266,10 +301,15 @@ const reviewDraftsSchema = z.object({
 });
 export type ReviewDrafts = z.infer<typeof reviewDraftsSchema>;
 
+const displayedDraftsSchema = reviewDraftsSchema.extend({
+  draftMedia: z.record(z.string(), z.string()),
+});
+export type DisplayedDrafts = z.infer<typeof displayedDraftsSchema>;
+
 export const reviewResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("no_pr") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
-  reviewDraftsSchema.extend({
+  displayedDraftsSchema.extend({
     kind: z.literal("ok"),
     head: prHeadSchema,
     imageBasis: prImageBasisSchema.nullable().optional(),
@@ -284,7 +324,7 @@ export type ReviewResult = z.infer<typeof reviewResultSchema>;
 export const draftsResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("no_pr") }),
   z.object({ kind: z.literal("error"), message: z.string() }),
-  reviewDraftsSchema.extend({ kind: z.literal("ok") }),
+  displayedDraftsSchema.extend({ kind: z.literal("ok") }),
 ]);
 export type DraftsResult = z.infer<typeof draftsResultSchema>;
 

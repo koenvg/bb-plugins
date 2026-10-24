@@ -191,6 +191,7 @@ function FilesTabContent({ threadId, jump }: FilesTabProps) {
       <CommentDraftsProvider
         key={threadId}
         threadId={threadId}
+        draftMedia={result.draftMedia}
         onDeleteStarted={removeCommentDraft}
         onDeleteFailed={reloadDrafts}
       >

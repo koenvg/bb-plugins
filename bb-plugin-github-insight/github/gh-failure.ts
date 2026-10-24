@@ -27,6 +27,16 @@ export function isGithubTimeout(failure: GhFailure): boolean {
   return failure.kind === "failed" && GITHUB_TIMEOUT.test(failure.message);
 }
 
+export function ghProcessError(error: unknown): GhProcessError {
+  const fields = typeof error === "object" && error !== null ? error : {};
+  const code = "code" in fields ? fields.code : undefined;
+  return {
+    code: typeof code === "string" || typeof code === "number" ? code : undefined,
+    stderr: "stderr" in fields ? String(fields.stderr) : "",
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
 export function classifyGhFailure(error: GhProcessError): GhFailure {
   if (error.code === "ENOENT") return { kind: "gh_missing" };
   const stderr = error.stderr.trim();

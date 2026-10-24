@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
-import type { ReviewResult } from "../contract";
+import type { ReviewResult, UploadImageRequest, UploadImageResult } from "../contract";
 import plugin from "../server";
 import {
   failed,
@@ -17,10 +17,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const asset = (n: number) =>
+  `https://github.com/user-attachments/assets/${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
+
 describe("review CLI", () => {
   const OPEN = "PRRT_kwDOHI7l-86jxula";
   const RESOLVED = "PRRT_kwDOHI7l-86jvKxS";
   const READ_METHODS = ["fetchPrFiles", "fetchPrHead", "fetchReviewThreads", "readTextFile"];
+
+  function callsTo(harness: Awaited<ReturnType<typeof setup>>, method: string) {
+    return harness.experimental_hostRpcCalls
+      .filter((call) => call.method === method)
+      .map(({ input }) => input);
+  }
 
   function threadsWithResolved(threadId: string) {
     const pullRequest = reviewThreads.data.repository.pullRequest;
@@ -47,9 +56,14 @@ describe("review CLI", () => {
       file?: unknown;
       headOid?: () => string;
       state?: "OPEN" | "CLOSED" | "MERGED";
+      upload?: (request: UploadImageRequest) => UploadImageResult;
     } = {},
   ) {
-    return ({ method }: HostCall) => {
+    let uploads = 0;
+    return ({ method, input }: HostCall) => {
+      if (method === "uploadImage")
+        return options.upload?.(input as UploadImageRequest) ?? { ok: true, url: asset(++uploads) };
+      if (method === "renderMarkdown") return { ok: true, html: "" };
       if (method === "fetchPrFiles") return ok(prFiles[0]);
       if (method === "fetchReviewThreads") return ok(options.threads?.() ?? reviewThreads);
       if (method === "fetchPrHead")
@@ -641,6 +655,97 @@ describe("review CLI", () => {
       expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["One", "Two"]);
     });
 
+    it("uploads each --attach screenshot and adds it below the text", async () => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(
+        comment(
+          "--line",
+          "3",
+          "--body",
+          "Broken layout\n",
+          "--attach",
+          "shots/before.png#Before: the #1 bug",
+          "--attach",
+          "after.png",
+        ),
+        { threadId: "thr_1", cwd: "/work/repo" },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(callsTo(harness, "uploadImage")).toEqual([
+        { owner: "collibra", repo: "frontend", path: "shots/before.png", cwd: "/work/repo" },
+        { owner: "collibra", repo: "frontend", path: "after.png", cwd: "/work/repo" },
+      ]);
+      expect((await commentDraftsOf(harness)).map(({ body }) => body)).toEqual([
+        `Broken layout\n\n<img alt="Before: the #1 bug" src="${asset(1)}">\n<img alt="after" src="${asset(2)}">`,
+      ]);
+    });
+
+    it("saves a draft with only a screenshot", async () => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(comment("--line", "3", "--attach", "shot.png"), {
+        threadId: "thr_1",
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect((await commentDraftsOf(harness)).map(({ body }) => body)).toEqual([
+        `<img alt="shot" src="${asset(1)}">`,
+      ]);
+    });
+
+    it("saves nothing and names the file when an upload fails", async () => {
+      const harness = await setupWithPr(
+        reviewHost({
+          upload: ({ path }) =>
+            path === "big.png"
+              ? { ok: false, message: "File is larger than 10 MB" }
+              : { ok: true, url: asset(1) },
+        }),
+      );
+
+      const result = await harness.behavior.runCli(
+        comment("--line", "3", "--body", "Hm", "--attach", "small.png", "--attach", "big.png"),
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Could not attach big.png: File is larger than 10 MB");
+      expect(await commentDraftsOf(harness)).toEqual([]);
+      expect(harness.realtimeSignals).toHaveLength(0);
+    });
+
+    it("checks the line before uploading a screenshot", async () => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(
+        comment("--line", "300", "--attach", "shot.png"),
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Line 300 is not in the diff");
+      expect(callsTo(harness, "uploadImage")).toEqual([]);
+    });
+
+    it.each([
+      [["--line", "3"], "one of --body, --body-file, --attach"],
+      [
+        ["--line", "3", "--body", "a", "--body-file", "b.md", "--attach", "shot.png"],
+        "--body and --body-file cannot be combined",
+      ],
+    ])("needs one text option or a screenshot: %j", async (args, message) => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(comment(...args), { threadId: "thr_1" });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(message);
+      expect(callsTo(harness, "uploadImage")).toEqual([]);
+      expect(await commentDraftsOf(harness)).toEqual([]);
+    });
+
     it("fails outside a bb thread", async () => {
       const harness = await setupWithPr();
 
@@ -742,6 +847,83 @@ describe("review CLI", () => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Comment is empty");
       expect((await commentDraftsOf(harness)).map((draft) => draft.body)).toEqual(["Old"]);
+    });
+
+    it("adds a screenshot below the text with only --attach", async () => {
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Broken layout");
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--attach", "shot.png#Dialog"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect((await commentDraftsOf(harness)).map(({ body }) => body)).toEqual([
+        `Broken layout\n\n<img alt="Dialog" src="${asset(1)}">`,
+      ]);
+    });
+
+    it("replaces the text and adds the screenshot with --body and --attach", async () => {
+      const harness = await setupWithPr();
+      const draftId = await saveComment(harness, "Old");
+      await harness.behavior.runCli(["review", "comment", "edit", draftId, "--attach", "a.png"], {
+        threadId: "thr_1",
+      });
+
+      await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--body", "New", "--attach", "b.png"],
+        { threadId: "thr_1" },
+      );
+
+      expect((await commentDraftsOf(harness)).map(({ body }) => body)).toEqual([
+        `New\n\n<img alt="b" src="${asset(2)}">`,
+      ]);
+    });
+
+    it("uploads nothing for an unknown draft id", async () => {
+      const harness = await setupWithPr();
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", "nope1234", "--attach", "shot.png"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Unknown comment draft: nope1234");
+      expect(callsTo(harness, "uploadImage")).toEqual([]);
+    });
+
+    it("keeps the old text when an upload fails", async () => {
+      const harness = await setupWithPr(
+        reviewHost({ upload: () => ({ ok: false, message: "Not a PNG, JPEG, or GIF image" }) }),
+      );
+      const draftId = await saveComment(harness, "Old");
+
+      const result = await harness.behavior.runCli(
+        ["review", "comment", "edit", draftId, "--body", "New", "--attach", "notes.txt"],
+        { threadId: "thr_1" },
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Could not attach notes.txt: Not a PNG, JPEG, or GIF image");
+      expect((await commentDraftsOf(harness)).map(({ body }) => body)).toEqual(["Old"]);
+    });
+
+    it("deletes a draft with a screenshot", async () => {
+      const harness = await setupWithPr();
+      const saved = await harness.behavior.runCli(
+        ["review", "comment", FILE, "--line", "3", "--attach", "shot.png"],
+        { threadId: "thr_1" },
+      );
+      const draftId = saved.stdout.trim().split(" ").at(-1)!;
+
+      const result = await harness.behavior.runCli(["review", "comment", "delete", draftId], {
+        threadId: "thr_1",
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(await commentDraftsOf(harness)).toEqual([]);
     });
 
     it("deletes a comment draft and tells the open tab", async () => {
@@ -950,6 +1132,7 @@ describe("review CLI", () => {
           startLine: null,
           body: "First",
           commitOid: "def456",
+          attachments: [],
         },
         {
           id: expect.any(String),
@@ -959,9 +1142,28 @@ describe("review CLI", () => {
           startLine: 146,
           body: "Second",
           commitOid: "def456",
+          attachments: [],
         },
       ]);
       expect(listed.summary).toBe("Two notes.");
+    });
+
+    it("lists the screenshots of a comment draft in --json without asking GitHub to render them", async () => {
+      const harness = await setupWithPr();
+      await harness.behavior.runCli(
+        ["review", "comment", FILE, "--line", "3", "--body", "See", "--attach", "a.png#Before"],
+        { threadId: "thr_1" },
+      );
+
+      const result = await harness.behavior.runCli(["review", "list", "--json"], {
+        threadId: "thr_1",
+      });
+
+      const { comments } = JSON.parse(result.stdout) as { comments: unknown[] };
+      expect(comments).toEqual([
+        expect.objectContaining({ attachments: [{ alt: "Before", url: asset(1) }] }),
+      ]);
+      expect(callsTo(harness, "renderMarkdown")).toEqual([]);
     });
 
     it("has empty comments and a null summary in --json without drafts", async () => {

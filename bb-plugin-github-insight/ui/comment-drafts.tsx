@@ -9,8 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
-import type { rpcContract } from "../contract";
+import { Markdown, useRpc } from "@get-bb/plugin-sdk/app";
+import type { DisplayedDrafts, rpcContract } from "../contract";
+import { attachmentTag, draftAttachments } from "../core/attachments";
 import { draftLineText } from "../core/comment-draft-view";
 import type { DiffSide } from "../core/diff-lines";
 import type { ListedCommentDraft } from "../core/review-drafts";
@@ -36,6 +37,7 @@ interface CommentDraftState {
 }
 
 interface CommentDrafts {
+  draftMedia: DisplayedDrafts["draftMedia"];
   stateOf(draft: ListedCommentDraft): CommentDraftState;
   setText(draftId: string, text: string): void;
   remove(draftId: string): Promise<void>;
@@ -54,11 +56,13 @@ const NewCommentsContext = createContext<NewComments | null>(null);
 
 export function CommentDraftsProvider({
   threadId,
+  draftMedia,
   onDeleteStarted,
   onDeleteFailed,
   children,
 }: {
   threadId: string;
+  draftMedia: DisplayedDrafts["draftMedia"];
   onDeleteStarted: (draftId: string) => void;
   onDeleteFailed: () => void;
   children: ReactNode;
@@ -138,8 +142,8 @@ export function CommentDraftsProvider({
   const clearFocus = useCallback(() => setFocusDraftId(null), []);
 
   const value = useMemo<CommentDrafts>(
-    () => ({ stateOf, setText, remove, flushAll: draftSaves.flushAll }),
-    [stateOf, setText, remove, draftSaves],
+    () => ({ draftMedia, stateOf, setText, remove, flushAll: draftSaves.flushAll }),
+    [draftMedia, stateOf, setText, remove, draftSaves],
   );
   const newComments = useMemo<NewComments>(
     () => ({ create, createError, focusDraftId, clearFocus }),
@@ -215,6 +219,7 @@ export function CommentDraftCard({
         disabled={busy}
         onChange={(event) => drafts.setText(draft.id, event.target.value)}
       />
+      <DraftImages text={text} draftMedia={drafts.draftMedia} />
       {error !== null && (
         <p role="alert" className="flex items-start gap-1.5 break-words text-xs text-destructive">
           <Icon name="AlertCircle" className="mt-px size-3.5 shrink-0" />
@@ -233,6 +238,28 @@ export function CommentDraftCard({
         </button>
       </div>
     </section>
+  );
+}
+
+function DraftImages({
+  text,
+  draftMedia,
+}: {
+  text: string;
+  draftMedia: DisplayedDrafts["draftMedia"];
+}) {
+  const content = useMemo(
+    () =>
+      draftAttachments(text)
+        .map(({ alt, url }) => attachmentTag({ alt, url: draftMedia[url] ?? url }))
+        .join("\n"),
+    [text, draftMedia],
+  );
+  if (content === "") return null;
+  return (
+    <div className="leading-relaxed [&_img]:max-h-80 [&_img]:rounded-md">
+      <Markdown content={content} />
+    </div>
   );
 }
 

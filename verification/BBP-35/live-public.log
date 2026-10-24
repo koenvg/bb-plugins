@@ -1,0 +1,5 @@
+not an image -> {"ok":false,"message":"Not a PNG, JPEG, or GIF image"}
+upload -> {"ok":true,"url":"https://github.com/user-attachments/assets/be8385b9-5a91-4d2d-a897-9cceeee19fe3"}
+draftMedia -> {"https://github.com/user-attachments/assets/be8385b9-5a91-4d2d-a897-9cceeee19fe3":"https://private-user-images.githubusercontent.com/103425830/681627799-be8385b9-5a91-4d2d-a897-9cceeee19fe3.png?jwt=eyJ0eXAiOiJKV1QiLCJhb
+signed fetch -> 200 image/png 1181 bytes
+anonymous original url -> 404

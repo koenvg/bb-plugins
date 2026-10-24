@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ghStdout = vi.hoisted(() => ({ value: "" }));
 const ghFailures = vi.hoisted(() => [] as object[]);
 const ghCalls = vi.hoisted(() => [] as string[][]);
+const ghStdin = vi.hoisted(() => [] as (string | undefined)[]);
 
 vi.mock("node:child_process", async () => {
   const { promisify } = await import("node:util");
@@ -14,7 +15,7 @@ vi.mock("node:child_process", async () => {
         failure === undefined
           ? Promise.resolve({ stdout: ghStdout.value })
           : Promise.reject(failure),
-        { child: { stdin: { end: () => undefined } } },
+        { child: { stdin: { end: (input?: string) => ghStdin.push(input) } } },
       );
     },
   });
@@ -130,5 +131,42 @@ describe("fetchReviewQueue", () => {
       failure: { kind: "failed", message: "gh: HTTP 504" },
     });
     expect(ghCalls).toHaveLength(2);
+  });
+});
+
+describe("renderMarkdown", () => {
+  const context = { signal: new AbortController().signal } as Parameters<
+    typeof host.handlers.renderMarkdown
+  >[1];
+
+  beforeEach(() => {
+    ghCalls.length = 0;
+    ghStdin.length = 0;
+    ghFailures.length = 0;
+  });
+
+  it("renders the text in the repository's context and returns the HTML", async () => {
+    ghStdout.value = '<p><img src="https://private-user-images.githubusercontent.com/x"></p>\n';
+
+    const result = await host.handlers.renderMarkdown(
+      { owner: "octo", repo: "app", text: "<img src=x>" },
+      context,
+    );
+
+    expect(result).toEqual({ ok: true, html: ghStdout.value });
+    expect(ghCalls).toEqual([["api", "markdown", "--input", "-"]]);
+    expect(JSON.parse(ghStdin[0]!)).toEqual({
+      text: "<img src=x>",
+      mode: "gfm",
+      context: "octo/app",
+    });
+  });
+
+  it("returns the gh failure", async () => {
+    ghFailures.push({ code: 1, stderr: "gh: HTTP 502\n", stdout: "" });
+
+    expect(
+      await host.handlers.renderMarkdown({ owner: "octo", repo: "app", text: "x" }, context),
+    ).toEqual({ ok: false, failure: { kind: "failed", message: "gh: HTTP 502" } });
   });
 });

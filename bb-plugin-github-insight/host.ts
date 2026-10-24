@@ -3,7 +3,7 @@ import { imageMergeBaseArgs, readPrImage } from "./github/pr-image-content";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
-import { hostContract, type GhResult } from "./contract";
+import { hostContract, type GhResult, type RenderMarkdownResult } from "./contract";
 import {
   disableAutoMergeArgs,
   enableAutoMergeArgs,
@@ -13,10 +13,10 @@ import { checkRunDetailsArgs } from "./github/check-run-details-query";
 import { addCommentArgs } from "./github/comment-mutation";
 import {
   classifyGhFailure,
+  ghProcessError,
   isGithubTimeout,
   parseGraphqlRateLimitReset,
   RATE_LIMIT_ARGS,
-  type GhProcessError,
 } from "./github/gh-failure";
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { readNotFoundPartial } from "./github/not-found-partial";
@@ -31,6 +31,7 @@ import { reviewThreadsPageArgs } from "./github/review-threads-query";
 import { timelinePageArgs } from "./github/timeline-query";
 import { countLocalCommitsAhead } from "./local-commits";
 import { readTextFile } from "./read-text-file";
+import { uploadImage } from "./github/upload-image";
 
 const execFileAsync = promisify(execFile);
 
@@ -54,6 +55,16 @@ export default experimental_defineHostEntry({
     fetchTimeline: (request, context) => runGhJson(timelinePageArgs(request), context.signal),
     addComment: (request, context) => runGhJson(addCommentArgs(request), context.signal),
     readTextFile: (request) => readTextFile(request),
+    uploadImage: (request, context) =>
+      uploadImage(request, context.signal, { fetch: globalThis.fetch, gh: ghText }),
+    renderMarkdown: async ({ owner, repo, text }, context): Promise<RenderMarkdownResult> => {
+      const input = JSON.stringify({ text, mode: "gfm", context: `${owner}/${repo}` });
+      try {
+        return { ok: true, html: await ghText(RENDER_MARKDOWN_ARGS, context.signal, input) };
+      } catch (error) {
+        return ghFailureResult(error, context.signal);
+      }
+    },
     countLocalCommitsAhead: (request) => countLocalCommitsAhead(request),
     replyToThread: (request, context) => runGhJson(replyToThreadArgs(request), context.signal),
     setThreadResolved: (request, context) =>
@@ -80,14 +91,20 @@ export default experimental_defineHostEntry({
   },
 });
 
-async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<unknown> {
+const RENDER_MARKDOWN_ARGS = ["api", "markdown", "--input", "-"];
+
+async function ghText(args: string[], signal: AbortSignal, stdin?: string): Promise<string> {
   const run = execFileAsync("gh", args, {
     signal,
     maxBuffer: 64 * 1024 * 1024,
   });
   run.child.stdin?.end(stdin);
   const { stdout } = await run;
-  return JSON.parse(stdout) as unknown;
+  return stdout;
+}
+
+async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<unknown> {
+  return JSON.parse(await ghText(args, signal, stdin)) as unknown;
 }
 
 async function fetchReviewQueue(batches: string[][], signal: AbortSignal): Promise<GhResult> {
@@ -123,8 +140,11 @@ async function runGhJson(args: string[], signal: AbortSignal, stdin?: string): P
   }
 }
 
-async function ghFailureResult(error: unknown, signal: AbortSignal): Promise<GhResult> {
-  const failure = classifyGhFailure(processError(error));
+async function ghFailureResult(
+  error: unknown,
+  signal: AbortSignal,
+): Promise<Extract<GhResult, { ok: false }>> {
+  const failure = classifyGhFailure(ghProcessError(error));
   if (failure.kind !== "rate_limited") return { ok: false, failure };
   return {
     ok: false,
@@ -145,14 +165,4 @@ function stdoutOf(error: unknown): string {
   return typeof error === "object" && error !== null && "stdout" in error
     ? String(error.stdout)
     : "";
-}
-
-function processError(error: unknown): GhProcessError {
-  const fields = typeof error === "object" && error !== null ? error : {};
-  const code = "code" in fields ? fields.code : undefined;
-  return {
-    code: typeof code === "string" || typeof code === "number" ? code : undefined,
-    stderr: "stderr" in fields ? String(fields.stderr) : "",
-    message: error instanceof Error ? error.message : String(error),
-  };
 }
