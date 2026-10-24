@@ -3,14 +3,16 @@
   --pi-subagents-accent-ink: color-mix(in oklab, var(--pi-subagents-accent) 70%, var(--foreground));
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0;
   height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: auto;
-  padding: 0.75rem;
+  padding: 0.5rem;
   box-sizing: border-box;
   color: var(--foreground);
   font-size: 0.875rem;
+  container-type: inline-size;
 }
 .pi-subagents .pi-subagents-prose {
   line-height: 1.65;
@@ -19,6 +21,9 @@
 .pi-subagents *::before,
 .pi-subagents *::after {
   box-sizing: border-box;
+}
+.pi-subagents [hidden] {
+  display: none !important;
 }
 .pi-subagents > * {
   flex-shrink: 0;
@@ -29,10 +34,14 @@
 .pi-subagents-heading > h4,
 .pi-subagents-output > h4 {
   margin: 0;
+  font-size: inherit;
   font-weight: 600;
 }
 .pi-subagents > p,
+.pi-subagents-inventory p,
 .pi-subagents-identity p,
+.pi-subagents-overview p,
+.pi-subagents-unavailable,
 .pi-subagents-capture p,
 .pi-subagents-notice {
   margin: 0;
@@ -101,79 +110,225 @@
   outline: 2px solid var(--pi-subagents-accent);
   outline-offset: -2px;
 }
-.pi-subagents-runs {
+.pi-subagents-tablist {
+  display: flex;
+  align-items: stretch;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
 }
-.pi-subagents nav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0.25rem;
-}
-.pi-subagents:has(.pi-subagents-detail) nav ul {
-  max-height: 8rem;
-  overflow-y: auto;
-}
-.pi-subagents nav li {
+.pi-subagents-tab-slot {
+  display: flex;
+  align-items: stretch;
+  flex: none;
   min-width: 0;
+  border-bottom: 2px solid transparent;
 }
-.pi-subagents nav button {
-  position: relative;
-  display: block;
-  width: 100%;
-  min-width: 0;
-  padding: 0.5rem 0.75rem;
-  text-align: start;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  background: transparent;
-}
-.pi-subagents nav button::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block: 0.5rem;
-  width: 1px;
-  background: var(--pi-subagents-accent);
-  transform: scaleY(0);
-  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.pi-subagents nav button:hover {
-  background: var(--state-hover);
-}
-.pi-subagents nav button[aria-pressed="true"] {
+.pi-subagents-tab-slot[data-selected="true"] {
+  border-bottom-color: var(--pi-subagents-accent);
   background: color-mix(in oklab, var(--pi-subagents-accent) 10%, var(--card));
 }
-.pi-subagents nav button[aria-pressed="true"]::before {
-  transform: scaleY(1);
-}
-.pi-subagents-purpose {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+.pi-subagents-open-tabs {
+  display: flex;
+  align-items: stretch;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+  overscroll-behavior-inline: contain;
 }
-.pi-subagents-conversation-heading > h3 {
-  flex: 1 1 12rem;
+.pi-subagents-open-tabs::-webkit-scrollbar {
+  display: none;
+}
+.pi-subagents [role="tab"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 12rem;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+}
+.pi-subagents [role="tab"][aria-selected="true"] {
+  font-weight: 600;
+}
+.pi-subagents-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-subagents-tab-count,
+.pi-subagents-tab-reference {
+  flex: none;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.pi-subagents .pi-subagents-close-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 32px;
+  min-height: 40px;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.pi-subagents [role="tab"]:hover,
+.pi-subagents .pi-subagents-close-tab:hover {
+  background: var(--state-hover);
+}
+.pi-subagents-inventory {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+  padding: 0.5rem 0.5rem 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.pi-subagents-history-warning {
+  color: var(--warning-text, var(--muted-foreground));
+}
+.pi-subagents .pi-subagents-panels {
+  display: flex;
+  flex: 1 0 200px;
+  min-height: 0;
+  min-width: 0;
+}
+.pi-subagents-tabpanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.pi-subagents-overview nav {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.pi-subagents-overview nav ul {
+  width: 100%;
+  max-width: 900px;
+  list-style: none;
+  margin: 0 auto;
+  padding: 0 0 1rem;
+}
+.pi-subagents-overview nav li {
+  min-width: 0;
+}
+.pi-subagents .pi-subagents-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.5rem, max-content);
+  align-items: start;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 68px;
+  min-width: 0;
+  padding: 0.5rem;
+  text-align: start;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  transition: none;
+}
+.pi-subagents .pi-subagents-row:hover,
+.pi-subagents .pi-subagents-row[data-open="true"] {
+  background: var(--state-hover);
+}
+.pi-subagents .pi-subagents-row:active {
+  background: var(--state-active);
+}
+.pi-subagents-row-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+.pi-subagents-row-title {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: 0.5rem;
+  line-height: 1.4;
+}
+.pi-subagents-row-title > .pi-subagents-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 .pi-subagents-reference {
   font-variant-numeric: tabular-nums;
 }
+.pi-subagents-row-title > .pi-subagents-reference {
+  flex: none;
+  font-size: 0.6875rem;
+}
+.pi-subagents .pi-subagents-purpose {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  line-height: 1.3334;
+}
 .pi-subagents-row-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
-  margin-top: 0.25rem;
+  gap: 0.125rem 0.5rem;
+  min-width: 0;
   overflow-wrap: anywhere;
+  font-size: 0.6875rem;
+  line-height: 1.3;
 }
 .pi-subagents-row-meta > * {
   min-width: 0;
 }
+.pi-subagents-capture-gap {
+  color: var(--warning-text, var(--muted-foreground));
+}
+.pi-subagents-row-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  gap: 0.25rem;
+}
 .pi-subagents-state {
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   font-weight: 500;
+}
+.pi-subagents-row-side > .pi-subagents-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+.pi-subagents-state-dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pi-subagents-open-marker {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.3;
 }
 .pi-subagents-state[data-state="failed"],
 .pi-subagents-state[data-state="rejected"],
@@ -198,7 +353,7 @@
   flex: 1 0 auto;
   gap: 0.75rem;
   min-width: 0;
-  min-height: auto;
+  min-height: 0;
 }
 .pi-subagents-identity {
   display: grid;
@@ -206,6 +361,9 @@
   min-width: 0;
   gap: 0.25rem;
   padding: 0.5rem 0.5rem 0;
+}
+.pi-subagents-conversation-heading > h3 {
+  flex: 1 1 12rem;
 }
 .pi-subagents-metadata {
   display: flex;
@@ -297,6 +455,20 @@
 .pi-subagents-capture p {
   padding: 0.3rem 0.5rem;
 }
+.pi-subagents-unavailable {
+  padding: 0.75rem;
+}
+@container (max-width: 480px) {
+  .pi-subagents .pi-subagents-optional-meta {
+    display: none;
+  }
+  .pi-subagents .pi-subagents-row {
+    gap: 0.5rem;
+  }
+  .pi-subagents [role="tab"] {
+    max-width: 10rem;
+  }
+}
 @media (pointer: coarse) {
   .pi-subagents {
     font-size: 1rem;
@@ -305,9 +477,17 @@
     font-size: 1rem;
   }
   .pi-subagents button,
+  .pi-subagents [role="tab"],
   .pi-subagents summary {
     min-height: 44px;
     font-size: 1rem;
+  }
+  .pi-subagents .pi-subagents-row {
+    min-height: 68px;
+  }
+  .pi-subagents .pi-subagents-close-tab {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -315,7 +495,6 @@
   .pi-subagents button,
   .pi-subagents summary,
   .pi-subagents summary::before,
-  .pi-subagents nav button::before,
   .pi-subagents *,
   .pi-subagents *::before,
   .pi-subagents *::after {

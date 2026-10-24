@@ -176,7 +176,9 @@ The view SHALL use the active BB theme, provide keyboard-accessible child select
 
 ### Requirement: Thread-style captured conversation
 
-The Subagents panel SHALL place the run list above the selected conversation and present the captured task, messages, and final output with the normal thread reading treatment. Tool calls and results SHALL start collapsed and expand on user action. The viewer SHALL preserve foreground, background, workflow, and nested child identity and SHALL NOT create BB threads to display captures.
+The Subagents panel SHALL default to a full-height Agents overview. Selecting a captured row SHALL open or reactivate a uniquely identified agent tab without reordering an existing tab. Agents SHALL remain pinned while open agent tabs scroll horizontally at the same height without a reserved scrollbar gutter. Available detail readers SHALL remain mounted but hidden and inaccessible to keyboard navigation when inactive. Closing a view SHALL NOT stop execution, delete captured history, or submit a parent turn. Closing the active view SHALL select the preceding open tab, or Agents when no preceding agent tab remains. A tab whose row leaves bounded captured history SHALL release captured content and retain only an ID-based unavailable view.
+
+The panel SHALL present the captured task, messages, and final output with the normal thread reading treatment. Tool calls and results SHALL start collapsed and expand on user action. The viewer SHALL preserve foreground, background, workflow, and nested child identity and SHALL NOT create BB threads to display captures.
 
 #### Scenario: Read a captured child
 

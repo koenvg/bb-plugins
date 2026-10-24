@@ -44,13 +44,15 @@ These commands are examples, not actions taken by this task. A thread worktree c
 
 ### Read captured conversations
 
-The run list stays above the selected conversation. Choose a run with the pointer, Enter, Space, ArrowUp, ArrowDown, Home, or End.
+The Agents tab uses the full available panel height for the captured run list. ArrowUp, ArrowDown, Home, and End move list focus. Choose a run with the pointer, Enter, or Space to open its own tab. Opening the same run reactivates its existing tab without reordering it. Agents stays pinned while agent tabs scroll horizontally.
+
+Switch tabs with Left, Right, Home, or End. Close an agent view with its close button or Delete on its tab. Closing a view does not stop the run or delete captured history. Closing the active view selects the preceding tab, or Agents if no earlier agent tab remains.
 
 Run rows show the agent label, a short distinguishing reference, captured task context and a model name only when captured. Full run IDs stay in Capture details. Selected-run state, duration and model provenance appear once above the reader. Control feedback and disclosure chevrons use short transitions; reduced motion makes them immediate. Conversation content does not animate on refresh.
 Task, prose, and final output use BB's public Markdown renderer. Tool calls and results start collapsed; expand a tool to read escaped input or output.
 The renderer's `pi-subagents-prose` class is the reading-style hook for task, text messages, and final output only. Codex Inspired uses it to share normal chat's Libron reading typography. Coarse-pointer prose uses 16px primary text; labels, metadata, and escaped tool payloads stay outside that hook.
 The final-output button scrolls to and focuses captured output. It is disabled when output is absent.
-Selecting the same run or receiving a metadata-only refresh preserves reading position and open tools.
+Open conversations retain reading position and disclosure choices across tab switches and metadata-only refreshes within the mounted thread panel. If a run leaves bounded captured history, its open tab becomes an unavailable view and releases its captured content. Closing a tab or changing threads releases its reader state.
 
 Each run shows execution state, known total duration or elapsed time at observation, and the captured child model/provider when supported.
 Model values come from attributed foreground assistant records or the restricted completion-time session reader described in [capture limits](SUBAGENTS.md#restricted-background-model-evidence). Workflow containers, old captures without evidence, and unsupported background cases show Model unavailable.

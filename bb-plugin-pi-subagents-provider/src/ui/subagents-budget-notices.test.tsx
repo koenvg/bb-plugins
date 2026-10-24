@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SubagentsView } from "./subagents-view.js";
 import type { ViewState } from "../subagents-contract.js";
 installTestPluginRuntime();
+beforeEach(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+});
 afterEach(cleanup);
 
 const state: ViewState = {
@@ -39,6 +42,7 @@ const state: ViewState = {
 };
 it("distinguishes budget-omitted excerpts from content that was never captured", () => {
   const view = render(<SubagentsView state={state} />);
+  fireEvent.click(view.getByRole("button", { name: /reader.*Entry/ }));
   expect(view.getByText("Task text was truncated.").textContent).toBe("Task text was truncated.");
   expect(view.getByText("Final output was truncated.").textContent).toBe(
     "Final output was truncated.",
