@@ -9,31 +9,48 @@ it("publishes normal-chat line height for prose outside conditional styles", () 
   );
 });
 
-it("reserves reading height and limits motion to controls with reduced-motion pseudo-elements", () => {
+it("fills the overview and stretches equal-height tabs without a scrollbar gutter", () => {
   const css = readFileSync(new URL("./subagents.css", import.meta.url), "utf8");
-  const overviewList = css.match(/\.pi-subagents nav ul\s*\{([^}]*)\}/)?.[1];
-  expect(overviewList).toBeDefined();
-  expect(overviewList).not.toMatch(/max-height|overflow-y/);
-  expect(css).toMatch(
-    /\.pi-subagents:has\(\.pi-subagents-detail\) nav ul\s*\{[^}]*max-height:\s*8rem;\s*overflow-y:\s*auto/,
-  );
-  expect(css).toMatch(/\.pi-subagents-detail\s*\{[^}]*flex:\s*1\s+0\s+auto/);
+  expect(css).toMatch(/\.pi-subagents\s*\{[^}]*min-height:\s*0/);
   expect(css).toMatch(/\.pi-subagents\s*\{[^}]*overflow:\s*auto/);
+  expect(css).toMatch(/\.pi-subagents \.pi-subagents-panels\s*\{[^}]*flex:\s*1\s+0\s+200px/);
+  expect(css).toMatch(/\.pi-subagents-tabpanel\s*\{[^}]*min-height:\s*0/);
+  expect(css).toMatch(
+    /\.pi-subagents-overview nav\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow:\s*auto/,
+  );
+  expect(css).not.toContain("max-height: 8rem");
+  expect(css).toMatch(/\.pi-subagents-tablist\s*\{[^}]*align-items:\s*stretch/);
+  expect(css).toMatch(/\.pi-subagents-tab-slot\s*\{[^}]*align-items:\s*stretch/);
+  expect(css).toMatch(
+    /\.pi-subagents-open-tabs\s*\{[^}]*align-items:\s*stretch;[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;[^}]*scrollbar-gutter:\s*auto/,
+  );
+  expect(css).toMatch(/\.pi-subagents-open-tabs::-webkit-scrollbar\s*\{[^}]*display:\s*none/);
+  expect(css).toMatch(/\.pi-subagents \[hidden\]\s*\{[^}]*display:\s*none\s*!important/);
   expect(css).toMatch(/\.pi-subagents-identity\s*\{[^}]*flex-shrink:\s*0/);
   expect(css).toMatch(/\.pi-subagents-transcript\s*\{[^}]*flex:\s*1\s+1\s+0/);
   expect(css).toMatch(/\.pi-subagents-transcript\s*\{[^}]*min-height:\s*200px/);
   expect(css).toMatch(/\.pi-subagents-transcript\s*\{[^}]*contain:\s*size/);
   expect(css).not.toMatch(/(?:^|[;{])\s*height:\s*200px/);
-  expect(css).not.toContain("280px");
-  expect(css).toMatch(/\.pi-subagents-purpose\s*\{[^}]*-webkit-line-clamp:\s*2/);
+  expect(css).toMatch(
+    /\.pi-subagents \.pi-subagents-purpose\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/,
+  );
+  expect(css).not.toContain("-webkit-line-clamp");
+  expect(css).toMatch(/\.pi-subagents\s*\{[^}]*container-type:\s*inline-size/);
+  expect(css).toContain("@container (max-width: 480px)");
+  expect(css).toMatch(
+    /\.pi-subagents \.pi-subagents-row\s*\{[^}]*display:\s*grid;[^}]*min-height:\s*68px/,
+  );
+  expect(css).not.toMatch(/\.pi-subagents nav button/);
   expect(css).toMatch(/\.pi-subagents-row-meta\s*\{[^}]*flex-wrap:\s*wrap/);
-  expect(css).not.toContain("white-space: nowrap");
-  expect(css).toContain("transition: transform 160ms");
-  expect(css).toContain(".pi-subagents *::before");
+  expect(css).toMatch(/\.pi-subagents-tab-label\s*\{[^}]*white-space:\s*nowrap/);
+  const coarse = css.split("@media (pointer: coarse)")[1]!.split("@media")[0]!;
+  expect(coarse).toMatch(/\.pi-subagents \[role="tab"\][^{]*\{[^}]*min-height:\s*44px/);
+  expect(coarse).toContain("min-width: 44px");
   const reduced = css.split("@media (prefers-reduced-motion: reduce)")[1]!;
   expect(reduced).toContain(".pi-subagents button,");
   expect(reduced).toContain(".pi-subagents summary::before,");
-  expect(reduced).toContain(".pi-subagents nav button::before,");
+  expect(reduced).toContain(".pi-subagents *::before");
+  expect(reduced).toContain("transition: none");
   expect(css).not.toMatch(/transition:\s*(?:all|height|width)/);
   expect(css).not.toContain("@keyframes");
 });
@@ -43,7 +60,7 @@ it("uses host color roles for interaction without coloring conversation prose", 
   expect(css).toContain("--pi-subagents-accent: var(--timeline-accent, var(--ring))");
   expect(css).toContain("outline: 2px solid var(--pi-subagents-accent)");
   expect(css).toMatch(
-    /\.pi-subagents nav button\[aria-pressed="true"\]\s*\{[^}]*color-mix\(in oklab, var\(--pi-subagents-accent\) 10%, var\(--card\)\)/,
+    /\.pi-subagents-tab-slot\[data-selected="true"\]\s*\{[^}]*color-mix\(in oklab, var\(--pi-subagents-accent\) 10%, var\(--card\)\)/,
   );
   expect(css).toMatch(
     /\.pi-subagents-conversation-heading button:not\(:disabled\)\s*\{[^}]*color: var\(--pi-subagents-accent-ink\)/,

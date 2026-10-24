@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => {
   const list = vi.fn();
   return { list, sdk: { threads: { events: { list } } } };
@@ -11,6 +11,9 @@ vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
 }));
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 installTestPluginRuntime();
+beforeEach(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+});
 import { SubagentsPanel } from "./subagents-panel.js";
 const state = {
   kind: "pi-subagents-view",
@@ -49,6 +52,7 @@ it("uses the public event list, filters its qualified kind and restores accepted
     event("pi-subagents-provider/pi-subagents-view", state),
   ]);
   const first = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  fireEvent.click(await first.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(first.getByText("accepted answer")).toBeDefined());
   expect(h.list.mock.calls[0]![0]).toMatchObject({
     threadId: "owned-thread",
@@ -71,6 +75,7 @@ it("uses the public event list, filters its qualified kind and restores accepted
     event("pi-subagents-provider/pi-subagents-view", state),
   ]);
   const second = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  fireEvent.click(await second.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(second.getByText("accepted answer")).toBeDefined());
   expect(second.getByText(/Capture unavailable: Artifact missing/)).toBeDefined();
 });
@@ -79,6 +84,7 @@ it("keeps a full-window history notice without treating accepted current data as
     Array.from({ length: 64 }, () => event("pi-subagents-provider/pi-subagents-view", state)),
   );
   const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  fireEvent.click(await view.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(view.getByText("accepted answer")).toBeDefined());
   expect(view.getByRole("status").textContent).toContain(
     "Older history may be outside this bounded window.",
@@ -122,6 +128,7 @@ it("selects a requested background root after loading and keeps manual selection
     expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
       "background answer",
     );
+    fireEvent.click(view.getByRole("tab", { name: "Agents" }));
     fireEvent.click(view.getByRole("button", { name: /reviewer/ }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4000);
@@ -161,7 +168,8 @@ it("applies a changed target without using a stale selection", async () => {
     }),
   ]);
   const view = render(<SubagentsPanel threadId="owned-thread" params={null} />);
-  await waitFor(() => expect(view.getByText("accepted answer")).toBeDefined());
+  fireEvent.click(await view.findByRole("button", { name: /reviewer.*Entry/ }));
+  expect(view.getByRole("article").textContent).toContain("accepted answer");
   view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
   expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
     "background answer",
@@ -182,7 +190,12 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
       await Promise.resolve();
     });
     expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
-    expect(view.getByText("Select a captured run to view its detail.")).toBeDefined();
+    expect(view.getByRole("tabpanel", { name: "Agents" }).hidden).toBe(false);
+    expect(
+      view.getByRole("tab", { name: "Agents" }).querySelector(".pi-subagents-tab-count")!
+        .textContent,
+    ).toBe("2");
+    expect(view.queryByText("Select a captured run to view its detail.")).toBeNull();
     expect(view.queryByRole("alert")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: /Builder/ }));
     await act(async () => {
@@ -194,6 +207,7 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
     view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
     view.rerender(<SubagentsPanel threadId="owned-thread" params={{ overview: true }} />);
     expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
+    expect(view.getAllByRole("article", { hidden: true })).toHaveLength(1);
     view.unmount();
   } finally {
     vi.useRealTimers();
@@ -231,6 +245,7 @@ it("retains task attribution when its event leaves the window without replacing 
       await Promise.resolve();
     });
     const selected = view.getByRole("button", { name: /Original task attribution/ });
+    fireEvent.click(selected);
     const reader = view.getByRole("region", { name: "Captured conversation" });
     const task = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
     const conversation = view.container.querySelector<HTMLDetailsElement>(
@@ -247,8 +262,13 @@ it("retains task attribution when its event leaves the window without replacing 
       await vi.advanceTimersByTimeAsync(4000);
     });
     expect(h.list).toHaveBeenCalledTimes(2);
-    expect(view.getByRole("heading", { name: "Original task attribution" })).toBeDefined();
-    expect(view.getByRole("button", { name: /Original task attribution/ })).toBe(selected);
+    expect(view.getByRole("heading", { level: 3, name: "Builder" }).textContent).toBe("Builder");
+    expect(task.querySelector('[data-testid="bb-markdown"]')!.textContent).toBe(
+      "Original task attribution",
+    );
+    expect(view.getByRole("button", { name: /Original task attribution/, hidden: true })).toBe(
+      selected,
+    );
     expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
     expect(view.container.querySelector(".pi-subagents-task")).toBe(task);
     expect(view.container.querySelector(".pi-subagents-conversation")).toBe(conversation);
@@ -262,6 +282,7 @@ it("retains task attribution when its event leaves the window without replacing 
     await act(async () => {
       await Promise.resolve();
     });
+    fireEvent.click(reopened.getByRole("button", { name: /Builder.*Entry/ }));
     expect(reopened.queryByRole("heading", { name: "Original task attribution" })).toBeNull();
     expect(reopened.getByText("Task attribution not captured.")).toBeDefined();
   } finally {
@@ -297,7 +318,10 @@ it("clears retained attribution on thread changes and ignores a late reply from 
     await act(async () => {
       await Promise.resolve();
     });
-    expect(view.getByRole("heading", { name: "Thread A task" })).toBeDefined();
+    fireEvent.click(view.getByRole("button", { name: /Builder.*Entry/ }));
+    expect(view.container.querySelector(".pi-subagents-task")!.textContent).toContain(
+      "Thread A task",
+    );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4000);
     });
@@ -307,7 +331,13 @@ it("clears retained attribution on thread changes and ignores a late reply from 
       await Promise.resolve();
     });
     expect(oldSignal.aborted).toBe(true);
-    expect(view.queryByRole("heading", { name: "Thread A task" })).toBeNull();
+    expect(
+      view
+        .getAllByRole("tab")
+        .map((tab) => tab.querySelector(".pi-subagents-tab-label")!.textContent),
+    ).toEqual(["Agents"]);
+    expect(view.queryByText("Thread A task")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: /Builder.*Entry/ }));
     expect(view.getByText("Task attribution not captured.")).toBeDefined();
     await act(async () => {
       finishOld(payload("Late thread A task"));
