@@ -270,6 +270,7 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
   );
 }
 describe("PR raster review", () => {
+  let lfsThreadCount = 0;
   const imageBasis = {
     baseRepo: { owner: "base", repo: "private" },
     headRepo: { owner: "fork", repo: "private" },
@@ -283,7 +284,8 @@ describe("PR raster review", () => {
     async (extension) => {
       const path = `clip.${extension}`;
       const patch = `@@ -1,3 +1,3 @@\n version https://git-lfs.github.com/spec/v1\n-oid sha256:${"1".repeat(64)}\n+oid sha256:${"2".repeat(64)}\n-size 10000000\n+size 10000001`;
-      const slot = renderTabWith(
+      const slot = renderTabFor(
+        `thr_lfs_${++lfsThreadCount}`,
         {},
         {
           ...recorded,
