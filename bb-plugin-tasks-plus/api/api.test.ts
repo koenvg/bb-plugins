@@ -6,6 +6,7 @@ import { registerAttachments } from "../attachments";
 import { attachmentDownloadUrl } from "../shared/attachments";
 import { tasksRpcContract } from "../shared/contract";
 import { createStore, registerTasksApi } from ".";
+import { mockPrStatusRpc } from "../test-fixtures.js";
 
 describe("Tasks RPC domain API", () => {
   it("correlates each successful update reply with its event and does not publish failures", async () => {
@@ -875,9 +876,10 @@ describe("Tasks RPC domain API", () => {
             });
           },
         },
-        environments: {
-          pullRequest: async ({ environmentId }: { environmentId: string }) =>
-            pullRequestsByEnvironment[environmentId]!,
+        plugins: {
+          callRpc: mockPrStatusRpc(
+            async ({ environmentId }) => pullRequestsByEnvironment[environmentId]!,
+          ),
         },
       },
     });
@@ -932,8 +934,8 @@ describe("Tasks RPC domain API", () => {
     expect(result.unavailableThreadIds).toEqual(["thr_deleted00"]);
     expect(
       harness.sdk
-        .callsTo("environments.pullRequest")
-        .map(([input]) => (input as { environmentId: string }).environmentId)
+        .callsTo("plugins.callRpc")
+        .map(([args]) => (args as { input: { keys: string[] } }).input.keys[0])
         .sort(),
     ).toEqual(["env_merged", "env_no_pr", "env_shared"]);
 
@@ -956,21 +958,19 @@ describe("Tasks RPC domain API", () => {
                     : "env_no_auth",
             }),
         },
-        environments: {
-          pullRequest: async ({
-            environmentId,
-          }: {
-            environmentId: string;
-          }): Promise<PullRequestLookup> => {
-            if (environmentId === "env_absent") return { outcome: "absent" };
-            if (environmentId === "env_crash") {
-              throw new Error("host offline");
-            }
-            return {
-              outcome: "unavailable",
-              message: "gh pr view failed: authentication required",
-            };
-          },
+        plugins: {
+          callRpc: mockPrStatusRpc(
+            async ({ environmentId }: { environmentId: string }): Promise<PullRequestLookup> => {
+              if (environmentId === "env_absent") return { outcome: "absent" };
+              if (environmentId === "env_crash") {
+                throw new Error("host offline");
+              }
+              return {
+                outcome: "unavailable",
+                message: "gh pr view failed: authentication required",
+              };
+            },
+          ),
         },
       },
     });
@@ -1020,11 +1020,13 @@ describe("Tasks RPC domain API", () => {
               environmentId: threadId === "thr_beta00000" ? "env_b" : "env_a",
             }),
         },
-        environments: {
-          pullRequest: ({ environmentId }: { environmentId: string }) =>
-            new Promise<PullRequestLookup>((resolve) => {
-              resolvers.set(environmentId, resolve);
-            }),
+        plugins: {
+          callRpc: mockPrStatusRpc(
+            ({ environmentId }) =>
+              new Promise<PullRequestLookup>((resolve) => {
+                resolvers.set(environmentId, resolve);
+              }),
+          ),
         },
       },
     });
@@ -1055,7 +1057,7 @@ describe("Tasks RPC domain API", () => {
     await vi.waitFor(() => {
       expect([...resolvers.keys()].sort()).toEqual(["env_a", "env_b"]);
     });
-    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(2);
+    expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(2);
 
     resolvers.get("env_a")!({
       outcome: "available",
@@ -1073,7 +1075,7 @@ describe("Tasks RPC domain API", () => {
       "thr_alpha0000",
       "thr_alpha0001",
     ]);
-    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(2);
+    expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(2);
 
     await harness.dispose();
   });
@@ -1111,9 +1113,10 @@ describe("Tasks RPC domain API", () => {
               environmentId: threadId === "thr_stale0000" ? "env_stale" : "env_fresh",
             }),
         },
-        environments: {
-          pullRequest: async ({ environmentId }: { environmentId: string }) =>
-            lookupByEnvironment[environmentId]!,
+        plugins: {
+          callRpc: mockPrStatusRpc(
+            async ({ environmentId }) => lookupByEnvironment[environmentId]!,
+          ),
         },
       },
     });

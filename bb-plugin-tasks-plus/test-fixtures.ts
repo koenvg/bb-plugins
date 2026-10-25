@@ -1,4 +1,21 @@
 import type { Task } from "./shared/contract.js";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+
+export function mockPrStatusRpc(
+  lookup: (input: { environmentId: string }) => Promise<unknown>,
+): BbPluginApi["sdk"]["plugins"]["callRpc"] {
+  return async ({ pluginId, method, input, outputSchema }) => {
+    if (pluginId !== "bb--github-pr-status" || method !== "pullRequests") {
+      throw new Error(`Unexpected plugin RPC ${pluginId}.${method}`);
+    }
+    const { keys } = z.object({ keys: z.array(z.string()) }).parse(input);
+    const results = await Promise.all(
+      keys.map(async (environmentId) => [environmentId, await lookup({ environmentId })]),
+    );
+    return outputSchema.parse(Object.fromEntries(results));
+  };
+}
 
 export function makeTask(overrides: Partial<Task> = {}): Task {
   return {

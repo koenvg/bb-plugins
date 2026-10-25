@@ -1,12 +1,12 @@
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+import type { PullRequestResult } from "../pr-status";
 import type { GhFailure } from "../github/gh-failure";
 import prHead from "./fixtures/pr-43-head.json";
 import plugin from "../server";
 
-export type PullRequestResult = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>
->;
+export type { PullRequestResult } from "../pr-status";
 type AvailablePullRequest = Extract<PullRequestResult, { outcome: "available" }>;
 type Environment = Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["get"]>>;
 type ThreadListItem = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["list"]>>[number];
@@ -113,10 +113,24 @@ export async function setup(options: {
         send: async () => ({ ok: true as const, delivery: "sent" as const }),
       },
       environments: {
-        pullRequest: async ({ environmentId }) =>
-          options.pullRequests?.[environmentId] ?? { outcome: "absent" as const },
         get: async ({ environmentId }) =>
           ({ hostId: "host-1", ...options.environments?.[environmentId] }) as Environment,
+      },
+      plugins: {
+        callRpc: async ({ pluginId, method, input, outputSchema }) => {
+          if (pluginId !== "bb--github-pr-status" || method !== "pullRequests") {
+            throw new Error(`Unexpected plugin RPC ${pluginId}.${method}`);
+          }
+          const { keys } = z.object({ keys: z.array(z.string()) }).parse(input);
+          return outputSchema.parse(
+            Object.fromEntries(
+              keys.map((environmentId) => [
+                environmentId,
+                options.pullRequests?.[environmentId] ?? { outcome: "absent" },
+              ]),
+            ),
+          );
+        },
       },
       projects: {
         list: async () => (options.projects ?? []) as ProjectListItem[],

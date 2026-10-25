@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../api";
 import plugin from "../server";
 import { registerTasksCli } from "./index";
+import { mockPrStatusRpc } from "../test-fixtures.js";
 
 vi.mock("../attachments", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../attachments")>();
@@ -1161,8 +1162,8 @@ describe("bb tasks CLI", () => {
                   : null,
           }),
         },
-        environments: {
-          pullRequest: async ({ environmentId }: { environmentId: string }) =>
+        plugins: {
+          callRpc: mockPrStatusRpc(async ({ environmentId }) =>
             environmentId === "env_absent"
               ? { outcome: "absent" }
               : {
@@ -1191,6 +1192,7 @@ describe("bb tasks CLI", () => {
                     attention: "draft",
                   },
                 },
+          ),
         },
       },
     });
@@ -1236,11 +1238,11 @@ describe("bb tasks CLI", () => {
             environmentId: "env_down",
           }),
         },
-        environments: {
-          pullRequest: async () => ({
+        plugins: {
+          callRpc: mockPrStatusRpc(async () => ({
             outcome: "unavailable",
             message: "gh pr view failed: authentication required",
-          }),
+          })),
         },
       },
     });

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createPrLookup, LOOKUP_SHARE_MS } from "./pr-lookup";
 import { createRateLimitPause, RATE_LIMIT_FALLBACK_MS } from "./github/rate-limit-pause";
 import { linkedPr, type PullRequestResult } from "./test/plugin-harness";
@@ -6,7 +7,7 @@ import { linkedPr, type PullRequestResult } from "./test/plugin-harness";
 const MINUTE = 60_000;
 const RATE_LIMIT_MESSAGE = "gh pr view failed: GraphQL: API rate limit already exceeded";
 
-function setup(initial: PullRequestResult = linkedPr(7)) {
+function setup(initial: PullRequestResult = linkedPr(7), rpcResult?: unknown) {
   let answer: () => Promise<PullRequestResult> = async () => initial;
   const pullRequest = vi.fn((_request: { environmentId: string }) => answer());
   const readRateLimitReset = vi.fn(async (_hostId: string): Promise<number | null> => null);
@@ -15,7 +16,23 @@ function setup(initial: PullRequestResult = linkedPr(7)) {
   const lookup = createPrLookup({
     sdk: {
       threads: { get: async () => ({ environmentId: "env_1" }) },
-      environments: { pullRequest, get },
+      environments: { get },
+      plugins: {
+        callRpc: async ({ input, outputSchema }: { input: unknown; outputSchema: z.ZodType }) => {
+          const { keys } = z.object({ keys: z.array(z.string()) }).parse(input);
+          return outputSchema.parse(
+            rpcResult ??
+              Object.fromEntries(
+                await Promise.all(
+                  keys.map(async (environmentId) => [
+                    environmentId,
+                    await pullRequest({ environmentId }),
+                  ]),
+                ),
+              ),
+          );
+        },
+      },
     } as unknown as Parameters<typeof createPrLookup>[0]["sdk"],
     pause,
     readRateLimitReset,
@@ -50,6 +67,14 @@ describe("createPrLookup", () => {
         openOnBb: true,
       },
     });
+  });
+
+  it.each([
+    ["missing environment key", {}],
+    ["malformed PR", { env_1: { outcome: "available", pullRequest: { state: "unexpected" } } }],
+  ])("returns an error for a %s in the PR status RPC", async (_name, response) => {
+    const lookup = setup(linkedPr(7), response);
+    expect(await lookup.resolveEnvironmentPr("env_1")).toMatchObject({ kind: "error" });
   });
 
   it.each([

@@ -26,6 +26,7 @@ import {
 import type { Webhooks } from "../webhooks";
 
 import { createWorkStatusReader } from "./work-status.js";
+import { lookupPullRequest, type PullRequestResult } from "./pr-status.js";
 interface TaskLabelIdRow {
   task_id: string;
   label_id: string;
@@ -380,9 +381,9 @@ async function listTaskPullRequests(
     [...threadIdsByEnvironment.entries()],
     PULL_REQUEST_LOOKUP_CONCURRENCY,
     async ([environmentId, threadIds]) => {
-      let result: Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>>;
+      let result: PullRequestResult;
       try {
-        result = await bb.sdk.environments.pullRequest({ environmentId });
+        result = await lookupPullRequest(bb.sdk.plugins, environmentId);
       } catch {
         for (const threadId of threadIds) unavailable.add(threadId);
         return;
@@ -478,7 +479,6 @@ export function registerHandlers(
   const readWorkStatus = createWorkStatusReader({
     store: store.tasks,
     threads: bb.sdk.threads,
-    environments: bb.sdk.environments,
     plugins: bb.sdk.plugins,
     metadata: bb.sdk.threads,
     now: () => new Date(),

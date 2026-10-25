@@ -6,6 +6,7 @@ import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { tasksRpcContract, type TaskWorkStatus } from "../../shared/contract.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
+import { mockPrStatusRpc } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
 import { TaskRow } from "./row.js";
 
@@ -34,6 +35,20 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
       pluginId: "tasks",
       sdk: {
         plugins: {
+          callRpc: mockPrStatusRpc(async ({ environmentId }) => {
+            reads.environments++;
+            const id = environmentId.slice(4);
+            if (["environment", "shared", "distinct"].includes(failure) && affected(id))
+              throw Error("offline");
+            return {
+              outcome: "available",
+              pullRequest: {
+                ...identity(id),
+                title: "Work",
+                updatedAt: "2020-01-01T00:00:00Z",
+              },
+            };
+          }),
           list: async () => {
             reads.plugins++;
             return {
@@ -77,22 +92,6 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
                 blockers: [],
                 mergeQueue: null,
                 error: null,
-              },
-            };
-          },
-        },
-        environments: {
-          pullRequest: async ({ environmentId }: { environmentId: string }) => {
-            reads.environments++;
-            const id = environmentId.slice(4);
-            if (["environment", "shared", "distinct"].includes(failure) && affected(id))
-              throw Error("offline");
-            return {
-              outcome: "available",
-              pullRequest: {
-                ...identity(id),
-                title: "Work",
-                updatedAt: "2020-01-01T00:00:00Z",
               },
             };
           },
