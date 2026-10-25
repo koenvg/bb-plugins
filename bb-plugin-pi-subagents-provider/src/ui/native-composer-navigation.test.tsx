@@ -126,7 +126,7 @@ function fixture(
 }
 async function mount(
   rows = roots,
-  openThreadPanel = vi.fn(() => true),
+  openTab = vi.fn(() => true),
   list = vi.fn(async () => events(rows) as never),
   providerId = "pi-subagents",
 ) {
@@ -148,11 +148,11 @@ async function mount(
         selection: { providerId },
       },
       sdk: { threads: { events: { list } } },
-      openThreadPanel,
+      experimental_openTab: openTab,
     },
   );
   if (providerId === "pi-subagents") await waitFor(() => expect(list).toHaveBeenCalled());
-  return { view, openThreadPanel, list };
+  return { view, openTab, list };
 }
 it.each(["singleton", "aggregate", "narrow"] as const)(
   "binds a validated %s from a full bounded history window",
@@ -161,15 +161,16 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
     const list = vi.fn(
       async (_args?: unknown) => Array.from({ length: 64 }, () => events()[0]!) as never,
     );
-    const { openThreadPanel } = await mount(
+    const { openTab } = await mount(
       roots,
       vi.fn(() => true),
       list,
     );
     await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
     fireEvent.click(header);
-    expect(openThreadPanel).toHaveBeenCalledExactlyOnceWith({
-      actionId: "subagents",
+    expect(openTab).toHaveBeenCalledExactlyOnceWith({
+      surface: { kind: "current" },
+      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
       params: shape === "singleton" ? { rowId: roots[0]!.id } : { overview: true },
     });
     expect(list.mock.calls[0]![0]).toMatchObject({ limit: "64" });
@@ -188,7 +189,7 @@ it("still rejects malformed latest state when older valid data fills the window"
         ...Array.from({ length: 63 }, () => events()[0]!),
       ] as never,
   );
-  const { openThreadPanel } = await mount(
+  const { openTab } = await mount(
     roots,
     vi.fn(() => true),
     list,
@@ -197,7 +198,7 @@ it("still rejects malformed latest state when older valid data fills the window"
   await act(async () => {});
   expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(false);
   fireEvent.click(header);
-  expect(openThreadPanel).not.toHaveBeenCalled();
+  expect(openTab).not.toHaveBeenCalled();
 });
 
 describe("native composer navigation", () => {
@@ -205,11 +206,12 @@ describe("native composer navigation", () => {
     const { card, header } = fixture();
     const originalText = card.textContent;
     const elements = card.querySelectorAll("*").length;
-    const { view, openThreadPanel } = await mount();
+    const { view, openTab } = await mount();
     await waitFor(() => expect(header.getAttribute("role")).toBe("button"));
     fireEvent.click(header);
-    expect(openThreadPanel).toHaveBeenCalledWith({
-      actionId: "subagents",
+    expect(openTab).toHaveBeenCalledWith({
+      surface: { kind: "current" },
+      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
       params: { rowId: roots[0]!.id },
     });
     expect(view.container.childNodes.length).toBe(0);
@@ -218,33 +220,34 @@ describe("native composer navigation", () => {
     expect(view.inspection.composer.text).toBe("Unsent parent draft");
     expect(view.inspection.sdkCalls.map((call) => call.method)).toEqual(["threads.events.list"]);
     fireEvent.click(header);
-    expect(openThreadPanel.mock.calls[1]).toEqual(openThreadPanel.mock.calls[0]);
+    expect(openTab.mock.calls[1]).toEqual(openTab.mock.calls[0]);
   });
 
   it.each(["Enter", " "])("makes the singleton keyboard accessible with %s", async (key) => {
     const { header } = fixture();
-    const { openThreadPanel } = await mount();
+    const { openTab } = await mount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
     header.focus();
     expect(document.activeElement).toBe(header);
     expect(fireEvent.keyDown(header, { key })).toBe(false);
-    expect(openThreadPanel).toHaveBeenCalledTimes(1);
+    expect(openTab).toHaveBeenCalledTimes(1);
   });
 
   it.each(["aggregate", "narrow"] as const)(
     "retains native %s disclosure and uses its click path once",
     async (shape) => {
       const { header } = fixture(shape);
-      const { openThreadPanel } = await mount();
+      const { openTab } = await mount();
       await waitFor(() => expect(header.getAttribute("aria-description")).toContain("Subagents"));
       // jsdom does not synthesize a native button click from a keyboard event.
       fireEvent.keyDown(header, { key: "Enter" });
-      expect(openThreadPanel).not.toHaveBeenCalled();
+      expect(openTab).not.toHaveBeenCalled();
       fireEvent.click(header);
       expect(header.getAttribute("aria-expanded")).toBe("true");
-      expect(openThreadPanel).toHaveBeenCalledTimes(1);
-      expect(openThreadPanel).toHaveBeenCalledWith({
-        actionId: "subagents",
+      expect(openTab).toHaveBeenCalledTimes(1);
+      expect(openTab).toHaveBeenCalledWith({
+        surface: { kind: "current" },
+        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
         params: { overview: true },
       });
     },
@@ -264,30 +267,28 @@ describe("native composer navigation", () => {
       if (kind === "ambiguous")
         rows = [...roots, { ...roots[0]!, id: "other-session/run-1", sessionId: "other-session" }];
       const original = card.outerHTML;
-      const { view, openThreadPanel } = await mount(rows);
+      const { view, openTab } = await mount(rows);
       await waitFor(() => expect(view.inspection.sdkCalls.length).toBe(1));
       fireEvent.click(header);
-      expect(openThreadPanel).not.toHaveBeenCalled();
+      expect(openTab).not.toHaveBeenCalled();
       expect(card.outerHTML).toBe(original);
     },
   );
 
   it("does not bind foreground-only observations", async () => {
     const { header } = fixture();
-    const { view, openThreadPanel } = await mount(
-      roots.map((row) => ({ ...row, source: "foreground" })),
-    );
+    const { view, openTab } = await mount(roots.map((row) => ({ ...row, source: "foreground" })));
     await waitFor(() => expect(view.inspection.sdkCalls.length).toBe(1));
     fireEvent.click(header);
     expect(header.hasAttribute("role")).toBe(false);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
   });
 
   it("reports a declined open on the existing element without retrying", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { card, header } = fixture();
     const text = card.textContent;
-    const { openThreadPanel } = await mount(
+    const { openTab } = await mount(
       roots,
       vi.fn(() => false),
     );
@@ -296,34 +297,34 @@ describe("native composer navigation", () => {
     expect(header.title).toContain("Could not open Subagents");
     expect(header.getAttribute("aria-description")).toContain("panel actions");
     expect(card.textContent).toBe(text);
-    expect(openThreadPanel).toHaveBeenCalledTimes(1);
+    expect(openTab).toHaveBeenCalledTimes(1);
   });
 
   it("rebinds a replaced bar once and removes detached handlers", async () => {
     const first = fixture();
-    const { openThreadPanel } = await mount();
+    const { openTab } = await mount();
     await waitFor(() => expect(first.header.tabIndex).toBe(0));
     first.card.remove();
     const next = fixture();
     await waitFor(() => expect(next.header.tabIndex).toBe(0));
     expect(first.header.hasAttribute("role")).toBe(false);
     fireEvent.click(first.header);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
     next.header.querySelector("span:last-child")!.textContent = "2s";
     await act(async () => {
       await Promise.resolve();
     });
     fireEvent.click(next.header);
-    expect(openThreadPanel).toHaveBeenCalledTimes(1);
+    expect(openTab).toHaveBeenCalledTimes(1);
   });
 
   it("revalidates a reused element before its mutation observer runs", async () => {
     const { header } = fixture();
-    const { openThreadPanel } = await mount();
+    const { openTab } = await mount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
     header.setAttribute("aria-label", "Background agent: Foreign [foreign]");
     fireEvent.click(header);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
     expect(header.hasAttribute("role")).toBe(false);
   });
 
@@ -331,7 +332,7 @@ describe("native composer navigation", () => {
     const { header, card } = fixture();
     header.setAttribute("aria-description", "Native hint");
     const original = card.outerHTML;
-    const { view, openThreadPanel } = await mount();
+    const { view, openTab } = await mount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
     await scripts!.lifecycle.dispose();
     expect(card.outerHTML).toBe(original);
@@ -339,7 +340,7 @@ describe("native composer navigation", () => {
       "data-pi-subagents-navigation",
     );
     fireEvent.click(header);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
     scripts = await mountPluginContentScripts(app, {
       pluginId: "pi-subagents-provider",
       generation: 2,
@@ -352,7 +353,7 @@ describe("native composer navigation", () => {
     expect(header.tabIndex).toBe(3);
     expect(header.hasAttribute("role")).toBe(false);
     fireEvent.click(header);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
   });
 
   it("does not accept late history from a previous thread", async () => {
@@ -366,7 +367,7 @@ describe("native composer navigation", () => {
       .mockImplementationOnce(async () => pending)
       .mockImplementationOnce(async () => events(nextRoots) as never);
     const first = fixture();
-    const { view, openThreadPanel } = await mount(
+    const { view, openTab } = await mount(
       roots,
       vi.fn(() => true),
       list,
@@ -380,14 +381,15 @@ describe("native composer navigation", () => {
     });
     fireEvent.click(first.header);
     expect(first.header.hasAttribute("role")).toBe(false);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
     expect(list).toHaveBeenCalledTimes(2);
     first.card.remove();
     const next = fixture("singleton", nextRoots);
     await waitFor(() => expect(next.header.tabIndex).toBe(0));
     fireEvent.click(next.header);
-    expect(openThreadPanel).toHaveBeenCalledWith({
-      actionId: "subagents",
+    expect(openTab).toHaveBeenCalledWith({
+      surface: { kind: "current" },
+      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
       params: { rowId: nextRoots[0]!.id },
     });
   });
@@ -409,12 +411,12 @@ describe("native composer navigation", () => {
           selection: { providerId: "pi-subagents" },
         },
         sdk: { threads: { events: { list: async () => events() as never } } },
-        openThreadPanel: open,
+        experimental_openTab: open,
       },
     );
     await waitFor(() => expect(header.hasAttribute("role")).toBe(false));
     fireEvent.click(header);
-    expect(first.openThreadPanel).not.toHaveBeenCalled();
+    expect(first.openTab).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
     first.view.unmount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
@@ -428,17 +430,18 @@ describe("native composer navigation", () => {
     "opens the %s overview before first expansion without a guessed root",
     async (shape) => {
       const { header, card } = fixture(shape, roots, false);
-      const { openThreadPanel } = await mount();
+      const { openTab } = await mount();
       await waitFor(() => expect(header.getAttribute("aria-description")).toContain("Subagents"));
       expect(card.querySelector("#thread-background-commands-card-body span[title]")).toBeNull();
       fireEvent.click(header);
       expect(header.getAttribute("aria-expanded")).toBe("true");
-      expect(openThreadPanel).toHaveBeenCalledExactlyOnceWith({
-        actionId: "subagents",
+      expect(openTab).toHaveBeenCalledExactlyOnceWith({
+        surface: { kind: "current" },
+        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
         params: { overview: true },
       });
       fireEvent.click(header);
-      expect(openThreadPanel.mock.calls[1]).toEqual(openThreadPanel.mock.calls[0]);
+      expect(openTab.mock.calls[1]).toEqual(openTab.mock.calls[0]);
     },
   );
 
@@ -447,7 +450,7 @@ describe("native composer navigation", () => {
     async (providerId) => {
       const { header, card } = fixture("narrow", roots, false);
       const original = card.outerHTML;
-      const { list, openThreadPanel } = await mount(
+      const { list, openTab } = await mount(
         roots,
         vi.fn(() => true),
         vi.fn(async () => events() as never),
@@ -455,7 +458,7 @@ describe("native composer navigation", () => {
       );
       fireEvent.click(header);
       expect(list).not.toHaveBeenCalled();
-      expect(openThreadPanel).not.toHaveBeenCalled();
+      expect(openTab).not.toHaveBeenCalled();
       expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(false);
       expect(card.getAttribute("aria-label")).toBe("Background agents");
       expect(original).not.toContain("data-pi-subagents-navigation");
@@ -484,13 +487,13 @@ describe("native composer navigation", () => {
       ];
     }
     const original = card.outerHTML;
-    const { openThreadPanel } = await mount(observations);
+    const { openTab } = await mount(observations);
     await act(async () => {
       await Promise.resolve();
     });
     expect(card.outerHTML).toBe(original);
     fireEvent.click(header);
-    expect(openThreadPanel).not.toHaveBeenCalled();
+    expect(openTab).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -502,7 +505,7 @@ describe("native composer navigation", () => {
     "removes lost bindings after %s changes without activation or refresh",
     async (name, value, target) => {
       const { card, header } = fixture("narrow");
-      const { openThreadPanel, list } = await mount();
+      const { openTab, list } = await mount();
       await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
       const element =
         target === "body"
@@ -512,7 +515,7 @@ describe("native composer navigation", () => {
       await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(false));
       expect(header.hasAttribute("aria-description")).toBe(false);
       expect(element.getAttribute(name)).toBe(value);
-      expect(openThreadPanel).not.toHaveBeenCalled();
+      expect(openTab).not.toHaveBeenCalled();
       expect(list).toHaveBeenCalledTimes(1);
     },
   );

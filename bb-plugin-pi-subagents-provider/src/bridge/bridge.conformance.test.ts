@@ -21,6 +21,15 @@ afterEach(async () => {
   await harness.teardown();
 });
 
+it("declares that provider command listing is unsupported during initialization", async () => {
+  const response = await harness.request(1, "initialize", {
+    protocolVersion: 2,
+    client: { name: "test", version: "0" },
+    grammarVersions: [3, 3],
+  });
+  expect(response.result).toMatchObject({ capabilities: { commands: { list: false } } });
+});
+
 it("passes the canonical protocol suite against a scripted pi rpc child", async () => {
   const report = await runBridgeConformance({
     transport: { send: handleLine, takeMessages: harness.takeMessages },

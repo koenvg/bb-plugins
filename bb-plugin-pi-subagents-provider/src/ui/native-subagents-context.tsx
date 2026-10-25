@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useBbNavigate, useComposer } from "@get-bb/plugin-sdk/app";
+import { experimental_useAppPanel, useComposer } from "@get-bb/plugin-sdk/app";
 import { bindNativeSubagents } from "./native-composer-navigation.js";
 import { useSubagentsHistory } from "./use-subagents-history.js";
 
@@ -9,7 +9,7 @@ export function NativeSubagentsContext() {
   const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : undefined;
   const providerId = composer.selection?.providerId;
   const current = useSubagentsHistory(providerId === "pi-subagents" ? threadId : undefined);
-  const navigate = useBbNavigate();
+  const panel = experimental_useAppPanel();
   useEffect(() => {
     if (!threadId) return;
     return bindNativeSubagents({
@@ -20,11 +20,12 @@ export function NativeSubagentsContext() {
           ? current.state.rows
           : [],
       open: (rowId) =>
-        navigate.openThreadPanel({
-          actionId: "subagents",
+        panel.experimental_openTab({
+          surface: { kind: "current" },
+          tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
           params: rowId === null ? { overview: true } : { rowId },
         }),
     });
-  }, [threadId, providerId, current.state, current.loading, current.error, navigate]);
+  }, [threadId, providerId, current.state, current.loading, current.error, panel]);
   return null;
 }

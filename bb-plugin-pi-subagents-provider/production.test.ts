@@ -15,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+const pluginManifest = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const require = createRequire(import.meta.url);
 const bbCli = fileURLToPath(new URL("./bb.js", pathToFileURL(require.resolve("bb-app"))));
 const testingUrl = pathToFileURL(require.resolve("@get-bb/plugin-sdk/testing")).href;
@@ -63,7 +64,9 @@ it("builds and loads the public provider artifacts without development dependenc
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
       return result.stdout;
     };
-    expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe("0.46.1");
+    expect(run(process.execPath, [bbCli, "--version"]).trim()).toBe(
+      pluginManifest.devDependencies["bb-app"],
+    );
     run("bun", [
       "install",
       "--filter",
@@ -92,10 +95,13 @@ it("builds and loads the public provider artifacts without development dependenc
       );
       expect(metadata).toMatchObject({
         pluginId: "pi-subagents-provider",
-        pluginVersion: "0.1.0",
+        pluginVersion: pluginManifest.version,
         artifactFormatVersion: 1,
-        sdkVersion: "0.6.49",
-        builtWith: { bbVersion: "0.46.1", pluginSdkVersion: "0.6.49" },
+        sdkVersion: pluginManifest.devDependencies["@get-bb/plugin-sdk"],
+        builtWith: {
+          bbVersion: pluginManifest.devDependencies["bb-app"],
+          pluginSdkVersion: pluginManifest.devDependencies["@get-bb/plugin-sdk"],
+        },
       });
     }
     const output = run(process.execPath, [

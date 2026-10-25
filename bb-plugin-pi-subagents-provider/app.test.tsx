@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ExperimentalTabRegistration } from "@get-bb/plugin-sdk/app";
+import type { PluginBrowserBbSdk } from "@get-bb/plugin-sdk";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { PI_EXTENSION_UI_KIND } from "./src/extension-ui-contract.js";
 
@@ -141,4 +143,75 @@ it("reports read-only subagent support and installed acceptance limits without c
   expect(view.getByText(/Open the Subagents tab/)).toBeDefined();
   expect(view.getByText(/Ordinary Pi work remains available/)).toBeDefined();
   expect(view.queryByRole("button")).toBeNull();
+});
+
+it("registers a thread action tab that restores the requested captured child", async () => {
+  const tab = app.tabs.find(
+    (
+      slot,
+    ): slot is Extract<
+      ExperimentalTabRegistration,
+      { context: { kind: "thread" }; availability: "action" }
+    > =>
+      slot.id === "subagents" && slot.context.kind === "thread" && slot.availability === "action",
+  );
+  expect(tab).toMatchObject({ id: "subagents", title: "Subagents", icon: "Users" });
+  if (!tab) throw new Error("Subagents thread action tab is missing");
+  const list = vi.fn<PluginBrowserBbSdk["threads"]["events"]["list"]>(async () => [
+    {
+      id: "event-1",
+      scope: { kind: "thread" },
+      threadId: "owned-thread",
+      seq: 1,
+      createdAt: 1,
+      type: "thread/extensionState/updated",
+      data: {
+        providerThreadId: "pi-owned",
+        kind: "pi-subagents-provider/pi-subagents-view",
+        payload: {
+          kind: "pi-subagents-view",
+          version: 1,
+          updatedAt: 1,
+          availability: "available",
+          reason: "",
+          omitted: 0,
+          rows: [
+            {
+              id: "child-1",
+              runId: "run-1",
+              sessionId: "pi-owned",
+              generation: 1,
+              source: "background",
+              kind: "subagent",
+              label: "Reviewer",
+              state: "complete",
+              incomplete: false,
+              observedAt: 1,
+              capture: { status: "captured", capturedAt: 1, finalOutput: "Review accepted" },
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const scrollIntoView = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  try {
+    const view = renderSlot(
+      tab,
+      { threadId: "owned-thread", params: { rowId: "child-1" } },
+      { sdk: { threads: { events: { list } } } },
+    );
+    expect((await view.findByRole("article", { name: "Child detail" })).textContent).toContain(
+      "Review accepted",
+    );
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "owned-thread",
+        types: ["thread/extensionState/updated"],
+      }),
+    );
+  } finally {
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  }
 });

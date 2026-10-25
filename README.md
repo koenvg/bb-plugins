@@ -4,7 +4,7 @@ Current packages target BB 0.46 and SDK 0.6.37. See [source compatibility and ve
 
 MCP targets BB 0.46 and SDK 0.6.37. See its [compatibility checkpoint](bb-plugin-mcp/VERIFICATION-BBP85-BB046.md).
 
-Pi with subagents targets BB 0.46.0 and SDK 0.6.37 in source. Installed lifecycle acceptance remains incomplete. See its [compatibility limits](bb-plugin-pi-subagents-provider/COMPATIBILITY.md).
+Pi with subagents targets BB 0.47.1 and SDK 0.6.79 in source. Installed lifecycle acceptance remains incomplete. See its [compatibility limits](bb-plugin-pi-subagents-provider/COMPATIBILITY.md).
 
 Each directory is a separate BB plugin. GitHub Insight and Tasks Plus were copied from [koenvangeert/bb-plugins-collibra](https://github.com/koenvangeert/bb-plugins-collibra) at commit `178c5c8e8dafa2f8f4f2567e855cbad7bd869836`.
 

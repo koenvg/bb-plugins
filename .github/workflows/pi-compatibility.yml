@@ -1,0 +1,168 @@
+name: Pi latest-release compatibility
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - bb-plugin-pi-subagents-provider/**
+      - .github/workflows/pi-compatibility.yml
+      - package.json
+      - bun.lock
+      - bunfig.toml
+      - .bun-version
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: Check latest published BB and SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: bb-plugin-pi-subagents-provider
+    steps:
+      - name: Check out disposable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Preserve source pins
+        run: |
+          mkdir -p "$RUNNER_TEMP/pi-compatibility"
+          cp package.json "$RUNNER_TEMP/pi-compatibility/source-package.json"
+          git rev-parse HEAD > "$RUNNER_TEMP/pi-compatibility/source-commit.txt"
+          {
+            echo "COMPATIBILITY_REPORT=$RUNNER_TEMP/pi-compatibility"
+            echo "BB_DATA_DIR=$RUNNER_TEMP/pi-compatibility-bb-data"
+            echo "PI_CODING_AGENT_DIR=$RUNNER_TEMP/pi-compatibility-pi"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ">=26.0.0 <27"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install locked dependencies
+        id: dependencies
+        working-directory: .
+        run: |
+          unset BB_CLI NODE_ENV
+          bun install --frozen-lockfile 2>&1 | tee "$COMPATIBILITY_REPORT/locked-install.log"
+
+      - name: Install latest exact candidate versions
+        id: candidate
+        run: |
+          unset BB_CLI NODE_ENV
+          bun add --dev --exact bb-app@latest @get-bb/plugin-sdk@latest 2>&1 | tee "$COMPATIBILITY_REPORT/candidate-install.log"
+          sdk_version="$(bun -e 'console.log((await Bun.file("package.json").json()).devDependencies["@get-bb/plugin-sdk"])')"
+          bun add --exact "@get-bb/plugin-sdk-runtime@npm:@get-bb/plugin-sdk@$sdk_version" 2>&1 | tee "$COMPATIBILITY_REPORT/runtime-install.log"
+
+      - name: Check candidate admission, SDK alignment, types, tests, and build
+        id: checks
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' }}
+        run: |
+          unset BB_CLI NODE_ENV
+          run_check() {
+            local name="$1"
+            shift
+            set +e
+            "$@" 2>&1 | tee "$COMPATIBILITY_REPORT/$name.log"
+            local status="${PIPESTATUS[0]}"
+            set -e
+            printf '%s\t%s\n' "$name" "$status" >> "$COMPATIBILITY_REPORT/exits.tsv"
+          }
+          run_check admission bun run - <<'BUN'
+            const manifest = await Bun.file("package.json").json();
+            const bb = await Bun.file("node_modules/bb-app/package.json").json();
+            const sdk = await Bun.file("node_modules/@get-bb/plugin-sdk/package.json").json();
+            const runtime = await Bun.file("node_modules/@get-bb/plugin-sdk-runtime/package.json").json();
+            const versions = {
+              node: process.version,
+              bun: Bun.version,
+              bb: bb.version,
+              sdk: sdk.version,
+              runtimeSdk: runtime.version,
+              engines: manifest.engines,
+              candidatePins: manifest.devDependencies,
+              runtimePin: manifest.dependencies["@get-bb/plugin-sdk-runtime"],
+            };
+            await Bun.write(`${process.env.COMPATIBILITY_REPORT}/versions.json`, JSON.stringify(versions, null, 2));
+            console.log(JSON.stringify(versions, null, 2));
+            if (bb.version !== manifest.devDependencies["bb-app"] ||
+                sdk.version !== manifest.devDependencies["@get-bb/plugin-sdk"] ||
+                runtime.version !== sdk.version ||
+                manifest.dependencies["@get-bb/plugin-sdk-runtime"] !== `npm:@get-bb/plugin-sdk@${sdk.version}`) {
+              throw new Error("Installed packages do not match the exact candidate pins.");
+            }
+            if (!Bun.semver.satisfies(bb.version, manifest.engines.bb) ||
+                !Bun.semver.satisfies(sdk.version, manifest.engines.bbPluginSdk)) {
+              throw new Error("Latest candidate is outside the declared engine ranges. Support needs review.");
+            }
+          BUN
+          run_check cli-version node_modules/.bin/bb --version
+          run_check official-types node_modules/.bin/bb plugin types . --check
+          run_check typecheck bun run typecheck
+          run_check tests bun run test
+          run_check build node_modules/.bin/bb plugin build .
+          test "$(awk '$2 != 0 { count++ } END { print count+0 }' "$COMPATIBILITY_REPORT/exits.tsv")" = 0
+
+      - name: Save candidate diff and check summary
+        if: ${{ always() }}
+        working-directory: .
+        env:
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          CANDIDATE_OUTCOME: ${{ steps.candidate.outcome }}
+          CHECKS_OUTCOME: ${{ steps.checks.outcome }}
+        run: |
+          mkdir -p "$COMPATIBILITY_REPORT"
+          git diff -- bb-plugin-pi-subagents-provider/package.json bun.lock > "$COMPATIBILITY_REPORT/candidate.diff"
+          cp bb-plugin-pi-subagents-provider/package.json "$COMPATIBILITY_REPORT/candidate-package.json"
+          {
+            echo '## Latest published BB and SDK candidate'
+            echo
+            echo 'This disposable candidate does not change source pins or engine ranges.'
+            echo
+            echo '| Stage | Outcome |'
+            echo '| --- | --- |'
+            printf '| Locked install | %s |\n' "$DEPENDENCIES_OUTCOME"
+            printf '| Latest candidate install | %s |\n' "$CANDIDATE_OUTCOME"
+            printf '| Candidate checks | %s |\n' "$CHECKS_OUTCOME"
+            if [ -f "$COMPATIBILITY_REPORT/exits.tsv" ]; then
+              echo
+              echo '| Check | Exit code |'
+              echo '| --- | --- |'
+              awk -F '\t' '{ printf "| %s | %s |\n", $1, $2 }' "$COMPATIBILITY_REPORT/exits.tsv"
+            fi
+            if [ -f "$COMPATIBILITY_REPORT/versions.json" ]; then
+              echo
+              echo '```json'
+              cat "$COMPATIBILITY_REPORT/versions.json"
+              echo
+              echo '```'
+            fi
+          } | tee "$COMPATIBILITY_REPORT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload candidate evidence and build artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pi-latest-release-compatibility
+          path: |
+            ${{ runner.temp }}/pi-compatibility/
+            bb-plugin-pi-subagents-provider/dist/
+          if-no-files-found: error
+          retention-days: 14
