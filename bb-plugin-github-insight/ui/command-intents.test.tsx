@@ -87,6 +87,7 @@ describe("command intents", () => {
     postIntent("thr_gone", "overview", "refresh");
 
     expect(tab.received).toEqual([]);
+    expect(listen("thr_gone", "overview").received).toEqual(["refresh"]);
   });
 
   it("shows a pending intent without handing it over", () => {
