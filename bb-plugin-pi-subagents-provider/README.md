@@ -18,11 +18,13 @@ bun run typecheck
 bun run build
 ```
 
-`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.46.1` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.49, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0460).
+`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.47.1` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.79, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0471).
 
 `bun run update:codex-speed`, `bun run check:codex-speed`, and the generator tests require system `tar` with gzip and stdin support. The generator verifies installed package inputs against the pinned archive before bundling the verified archive bytes.
 
 Also run the read-only `bb plugin types . --check` and retain its actual exit code and complete output. The normal current-host gate must pass before building. When updating BB compatibility, synchronize the canonical SDK with `bb plugin types`, update the runtime alias to the same exact version, and rerun all checks. The historical BB 0.44.0 / SDK 0.5.29 exception does not apply. Local checks do not authorize installation or paid tests.
+
+The [latest-release CI check](../.github/workflows/pi-compatibility.yml) tests published BB and SDK upgrades daily, on relevant pull requests, and on manual dispatch. It uses a disposable checkout and retains failure evidence. Production pins and supported ranges require an explicit update after review. See [release compatibility checks](COMPATIBILITY.md#release-compatibility-checks) for the limits.
 
 ## Install after approval
 

@@ -8,8 +8,8 @@
   "engines": {
     "node": ">=26.0.0 <27",
     "bun": "1.4.3",
-    "bb": ">=0.46.1 <0.47.0",
-    "bbPluginSdk": ">=0.6.49 <0.7.0"
+    "bb": ">=0.47.1 <0.48.0",
+    "bbPluginSdk": ">=0.6.79 <0.7.0"
   },
   "bb": {
     "name": "Pi with subagents",
@@ -35,13 +35,13 @@
     "check:codex-speed": "bun scripts/update-codex-speed.mjs --check"
   },
   "dependencies": {
-    "@get-bb/plugin-sdk-runtime": "npm:@get-bb/plugin-sdk@0.6.49",
+    "@get-bb/plugin-sdk-runtime": "npm:@get-bb/plugin-sdk@0.6.79",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "1.1.0",
     "@earendil-works/pi-coding-agent": "1.1.0",
-    "@get-bb/plugin-sdk": "0.6.49",
+    "@get-bb/plugin-sdk": "0.6.79",
     "@koenvg/pi-openai-codex-speed": "file:vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",
@@ -49,7 +49,7 @@
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "bb-app": "0.46.1",
+    "bb-app": "0.47.1",
     "better-sqlite3": "12.10.0",
     "cron-parser": "5.5.0",
     "esbuild": "0.28.2",

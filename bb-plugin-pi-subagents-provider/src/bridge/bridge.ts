@@ -498,6 +498,7 @@ async function handleRequest(request: PiCommand & { id: string | number }): Prom
       const result: InitializeResult = {
         protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
         capabilities: {
+          commands: { list: false },
           sessionRestore: true,
           threadArchive: false,
           threadRename: false,

@@ -1,4 +1,4 @@
-import { type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import { type ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { boundedValue } from "../subagents-contract.js";
 import { useSubagentsHistory } from "./use-subagents-history.js";
 import { SubagentsView } from "./subagents-view.js";
@@ -20,7 +20,7 @@ function parseTarget(params: unknown): { rowId?: string | null; overview?: boole
   return { rowId: value.rowId };
 }
 
-export function SubagentsPanel({ threadId, params }: PluginThreadPanelProps) {
+export function SubagentsPanel({ threadId, params }: ExperimentalThreadActionTabProps) {
   const current = useSubagentsHistory(threadId);
   const target = parseTarget(params);
   return (

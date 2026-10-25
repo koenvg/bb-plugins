@@ -185,7 +185,14 @@ function SubagentSupport() {
 }
 
 export default definePluginApp((app) => {
-  app.slots.threadPanelAction({ id: "subagents", title: "Subagents", component: SubagentsPanel });
+  app.slots.experimental_tab({
+    context: { kind: "thread" },
+    availability: "action",
+    id: "subagents",
+    title: "Subagents",
+    icon: "Users",
+    component: SubagentsPanel,
+  });
   app.contentScripts.register(nativeComposerNavigation);
   app.composer.customize({
     id: "native-subagents-navigation",
