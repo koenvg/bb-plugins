@@ -6,6 +6,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { tasksRpcContract } from "../../shared/contract.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
+import { mockPrStatusRpc } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
 import { TaskRow } from "./row.js";
 import { LIST_PREFERENCE_STORAGE_KEY } from "./list-preference.js";
@@ -61,6 +62,19 @@ function host(
   const reads: string[] = [];
   const sdk = {
     plugins: {
+      callRpc: mockPrStatusRpc(async () => {
+        reads.push("environment");
+        return {
+          outcome: "available",
+          pullRequest: {
+            url,
+            number: 42,
+            state: "open",
+            title: "Work",
+            updatedAt: "2020-01-01T00:00:00Z",
+          },
+        };
+      }),
       list: async () => {
         reads.push("plugins");
         if (integration === "error") throw Error("offline");
@@ -92,21 +106,6 @@ function host(
         reads.push(`metadata:${threadId}`);
         if (metadataError) throw Error("offline");
         return { prSummary: packet };
-      },
-    },
-    environments: {
-      pullRequest: async () => {
-        reads.push("environment");
-        return {
-          outcome: "available",
-          pullRequest: {
-            url,
-            number: 42,
-            state: "open",
-            title: "Work",
-            updatedAt: "2020-01-01T00:00:00Z",
-          },
-        };
       },
     },
   };
@@ -438,6 +437,16 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     pluginId: "tasks",
     sdk: {
       plugins: {
+        callRpc: mockPrStatusRpc(({ environmentId }) =>
+          sdkRead("environments", () => ({
+            outcome: "available",
+            pullRequest: {
+              ...packet(environmentId.slice(4)).pr,
+              title: environmentId,
+              updatedAt: "2020-01-01T00:00:00Z",
+            },
+          })),
+        ),
         list: () =>
           sdkRead("plugins", () => ({
             plugins: [{ id: "github-insight", enabled: true, status: "running" }],
@@ -462,17 +471,6 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
               ? {}
               : { prSummary: packet(threadId.slice(4)) },
           ),
-      },
-      environments: {
-        pullRequest: ({ environmentId }: { environmentId: string }) =>
-          sdkRead("environments", () => ({
-            outcome: "available",
-            pullRequest: {
-              ...packet(environmentId.slice(4)).pr,
-              title: environmentId,
-              updatedAt: "2020-01-01T00:00:00Z",
-            },
-          })),
       },
     },
   });

@@ -3,6 +3,7 @@ import type { TasksStore } from "../db/index.js";
 import type { TaskWorkStatus, ThreadExecution, WorkStatusRefresh } from "../shared/contract.js";
 import { normalizeHostPr, taskPullRequests, type PrObservation } from "./work-status-pr.js";
 import { projectThreadActivity } from "../shared/thread-activity.js";
+import { lookupPullRequest } from "./pr-status.js";
 
 import {
   normalizeRichMetadata,
@@ -34,15 +35,13 @@ type ThreadObservation = {
 export function createWorkStatusReader({
   store,
   threads,
-  environments,
   plugins,
   metadata,
   now,
 }: {
   store: Pick<TasksStore, "getTask" | "listTaskThreads">;
   threads: Pick<BbPluginApi["sdk"]["threads"], "get">;
-  environments?: Pick<BbPluginApi["sdk"]["environments"], "pullRequest">;
-  plugins?: Pick<BbPluginApi["sdk"]["plugins"], "list">;
+  plugins?: Pick<BbPluginApi["sdk"]["plugins"], "list" | "callRpc">;
   metadata?: Pick<BbPluginApi["sdk"]["threads"], "getPluginMetadata">;
   now: () => Date;
 }) {
@@ -171,7 +170,7 @@ export function createWorkStatusReader({
     session: RefreshSession | null | undefined,
   ): Promise<PrObservation> => {
     const unavailable: PrObservation = { outcome: "unavailable" };
-    if (disposed || session === null || !environments) return Promise.resolve(unavailable);
+    if (disposed || session === null || !plugins) return Promise.resolve(unavailable);
     const reads = session?.environmentReads ?? environmentsInFlight;
     const existing = reads.get(environmentId);
     if (existing) return existing;
@@ -184,7 +183,7 @@ export function createWorkStatusReader({
     const result = schedule(
       async () => {
         try {
-          return normalizeHostPr(await environments.pullRequest({ environmentId }));
+          return normalizeHostPr(await lookupPullRequest(plugins, environmentId));
         } catch {
           return unavailable;
         }

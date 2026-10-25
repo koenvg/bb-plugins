@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
 import { createWorkStatusReader } from "./work-status.js";
 import { tasksRpcContract } from "../shared/contract.js";
+import { mockPrStatusRpc } from "../test-fixtures.js";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -27,7 +28,7 @@ function setup(
 ) {
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
-    sdk: { threads: { get }, environments: { pullRequest } },
+    sdk: { threads: { get }, plugins: { callRpc: mockPrStatusRpc(pullRequest) } },
   });
   disposers.push(() => harness.lifecycle.dispose());
   const store = createStore(bb);
@@ -114,7 +115,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
     expect(
       harness.inspection.sdk.calls.every((call) =>
-        ["threads.get", "environments.pullRequest", "plugins.list"].includes(call.path),
+        ["threads.get", "plugins.callRpc", "plugins.list"].includes(call.path),
       ),
     ).toBe(true);
     expect(harness.realtimeSignals).toEqual([]);
@@ -294,7 +295,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const reader = createWorkStatusReader({
       store: store.tasks,
       threads: bb.sdk.threads,
-      environments: bb.sdk.environments,
+      plugins: bb.sdk.plugins,
       now: () => new Date(),
     });
     const first = reader([task.id], refresh(1, "start"));
@@ -334,7 +335,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const reader = createWorkStatusReader({
       store: { getTask: () => task, listTaskThreads: () => attached },
       threads: bb.sdk.threads,
-      environments: bb.sdk.environments,
+      plugins: bb.sdk.plugins,
       now: () => new Date(),
     });
     const first = await reader([task.id], refresh(1, "start"));

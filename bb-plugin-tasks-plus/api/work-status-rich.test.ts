@@ -1,4 +1,5 @@
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import { mockPrStatusRpc } from "../test-fixtures.js";
 import { afterEach, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
 import { tasksRpcContract } from "../shared/contract.js";
@@ -421,7 +422,7 @@ function setup(
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: {
-      plugins: { list: plugins },
+      plugins: { list: plugins, callRpc: mockPrStatusRpc(host) },
       threads: {
         get: async ({ threadId }: { threadId: string }) =>
           makeThreadResponse({
@@ -431,7 +432,6 @@ function setup(
           }),
         getPluginMetadata: getMetadata,
       },
-      environments: { pullRequest: host },
     },
   });
   disposers.push(() => harness.lifecycle.dispose());

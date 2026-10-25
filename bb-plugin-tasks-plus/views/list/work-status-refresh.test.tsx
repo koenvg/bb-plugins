@@ -7,7 +7,7 @@ import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
 import type { Task, TaskWorkStatus } from "../../shared/contract.js";
-import { rpcInput } from "../../test-fixtures.js";
+import { mockPrStatusRpc, rpcInput } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
 import { ListView } from "./index.js";
 import { registerLifecycle } from "../../lifecycle/index.js";
@@ -342,7 +342,7 @@ it("shares settled environment successes, absence and failures across 501 sequen
   });
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
-    sdk: { threads: { get }, environments: { pullRequest } },
+    sdk: { threads: { get }, plugins: { callRpc: mockPrStatusRpc(pullRequest) } },
   });
   disposers.push(() => harness.lifecycle.dispose());
   const store = createStore(bb);
@@ -436,7 +436,7 @@ it("shares settled environment successes, absence and failures across 501 sequen
   expect(store.tasks.getTask(tasks[0]!.id)!.status).toBe("in_review");
   expect(
     harness.inspection.sdk.calls.every((call) =>
-      ["threads.get", "environments.pullRequest", "plugins.list"].includes(call.path),
+      ["threads.get", "plugins.callRpc", "plugins.list"].includes(call.path),
     ),
   ).toBe(true);
   expect(harness.realtimeSignals).toEqual([]);

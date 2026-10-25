@@ -6,7 +6,7 @@ import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
 import type { TaskWorkStatus } from "../../shared/contract.js";
-import { makeTask } from "../../test-fixtures.js";
+import { makeTask, mockPrStatusRpc } from "../../test-fixtures.js";
 import { useTaskListMeta } from "./data.js";
 import { PrSummary } from "./pr-summary.js";
 const disposers: (() => Promise<void>)[] = [];
@@ -204,9 +204,8 @@ it("shares optional detection and settled metadata successes, absence and failur
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: {
-      plugins: { list: plugins },
+      plugins: { list: plugins, callRpc: mockPrStatusRpc(pullRequest) },
       threads: { get, getPluginMetadata },
-      environments: { pullRequest },
     },
   });
   disposers.push(() => harness.lifecycle.dispose());

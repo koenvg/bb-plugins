@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { PullRequestResult } from "./pr-status.js";
 import type { TaskWorkStatus } from "../shared/contract.js";
 import { canonicalPrIdentity } from "./work-status-pr-identity.js";
 import { richDetails, type RichObservation } from "./work-status-rich.js";
@@ -11,9 +11,7 @@ export type PrObservation =
   | { outcome: "unavailable" };
 
 /** Identity/lifecycle are independent from rich check/review quality. */
-export function normalizeHostPr(
-  result: Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>>,
-): PrObservation {
+export function normalizeHostPr(result: PullRequestResult): PrObservation {
   if (result.outcome === "absent") return { outcome: "absent" };
   if (result.outcome !== "available") return { outcome: "unavailable" };
   try {

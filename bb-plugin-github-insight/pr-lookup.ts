@@ -2,6 +2,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { parsePullRequestUrl, type PullRequestRef } from "./core/pr-ref";
 import { isRateLimitMessage, RATE_LIMITED_TEXT } from "./github/gh-failure";
 import type { RateLimitPause } from "./github/rate-limit-pause";
+import { lookupPullRequest, type PullRequestResult } from "./pr-status";
 
 export interface PrTarget {
   ref: PullRequestRef;
@@ -41,7 +42,7 @@ interface StoredLookup {
 }
 
 export interface PrLookupDeps {
-  sdk: Pick<BbPluginApi["sdk"], "threads" | "environments">;
+  sdk: Pick<BbPluginApi["sdk"], "threads" | "environments" | "plugins">;
   pause: RateLimitPause;
   readRateLimitReset(hostId: string): Promise<number | null>;
 }
@@ -61,11 +62,11 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
   }
 
   async function lookUp(environmentId: string): Promise<PrResolution> {
-    let linked: Awaited<ReturnType<typeof sdk.environments.pullRequest>>;
+    let linked: PullRequestResult;
     let environment: Awaited<ReturnType<typeof sdk.environments.get>>;
     try {
       [linked, environment] = await Promise.all([
-        sdk.environments.pullRequest({ environmentId }),
+        lookupPullRequest(sdk.plugins, environmentId),
         sdk.environments.get({ environmentId }),
       ]);
     } catch (error) {

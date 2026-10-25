@@ -1,8 +1,10 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { PullRequestResult as Lookup } from "./pr-status.js";
+import type { ZodType } from "zod";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createStore } from ".";
 import plugin from "../server";
+import { mockPrStatusRpc } from "../test-fixtures.js";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -17,7 +19,6 @@ afterEach(async () => {
   while (disposers.length) await disposers.pop()!();
 });
 
-type Lookup = Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["pullRequest"]>>;
 function pullRequest(state: "open" | "draft" | "merged" | "closed") {
   return {
     outcome: "available",
@@ -47,7 +48,7 @@ async function setup(lookup: Lookup = pullRequest("open")) {
         get: async ({ threadId }) =>
           makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: 1 }),
       },
-      environments: { pullRequest: async () => lookup },
+      plugins: { callRpc: mockPrStatusRpc(async () => lookup) },
     },
   });
   disposers.push(() => harness.dispose());
@@ -182,17 +183,20 @@ describe("task completion PR gate", () => {
         environmentId: threadId === "thr_open" ? "env_open" : "env_work",
       });
     });
-    harness.sdk.stub("environments.pullRequest", async ({ environmentId }) =>
-      environmentId === "env_open"
-        ? {
-            ...pullRequest("open"),
-            pullRequest: {
-              ...pullRequest("open").pullRequest,
-              number: 322,
-              url: "https://github.com/acme/bb/pull/322",
-            },
-          }
-        : pullRequest("merged"),
+    harness.sdk.stub(
+      "plugins.callRpc",
+      mockPrStatusRpc(async ({ environmentId }) =>
+        environmentId === "env_open"
+          ? {
+              ...pullRequest("open"),
+              pullRequest: {
+                ...pullRequest("open").pullRequest,
+                number: 322,
+                url: "https://github.com/acme/bb/pull/322",
+              },
+            }
+          : pullRequest("merged"),
+      ),
     );
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
@@ -207,7 +211,10 @@ describe("task completion PR gate", () => {
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
     ).toMatchObject({ ok: false });
-    harness.sdk.stub("environments.pullRequest", async () => pullRequest("merged"));
+    harness.sdk.stub(
+      "plugins.callRpc",
+      mockPrStatusRpc(async () => pullRequest("merged")),
+    );
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
     ).toMatchObject({
@@ -219,18 +226,29 @@ describe("task completion PR gate", () => {
 
   it.each(["thread", "environment"] as const)("blocks a thrown %s lookup", async (boundary) => {
     const { harness, task } = await setup();
-    harness.sdk.stub(
-      boundary === "thread" ? "threads.get" : "environments.pullRequest",
-      async () => {
-        throw new Error("offline");
-      },
-    );
+    harness.sdk.stub(boundary === "thread" ? "threads.get" : "plugins.callRpc", async () => {
+      throw new Error("offline");
+    });
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
     ).toMatchObject({
       ok: false,
       error: { code: "task_pr_unavailable" },
     });
+  });
+
+  it.each([
+    ["missing environment key", {}],
+    ["malformed PR", { env_work: { outcome: "available", pullRequest: { state: "unexpected" } } }],
+  ])("blocks completion for a %s in the PR status RPC", async (_name, response) => {
+    const { harness, store, task } = await setup();
+    harness.sdk.stub("plugins.callRpc", async ({ outputSchema }: { outputSchema: ZodType }) =>
+      outputSchema.parse(response),
+    );
+    expect(
+      await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+    ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+    expect(store.tasks.getTask(task.id)?.status).toBe(task.status);
   });
 
   it("allows unattached tasks and confirmed threads without environments", async () => {
@@ -277,11 +295,14 @@ describe("task completion PR gate", () => {
         const { harness, store, task } = await setup({ outcome: "absent" });
         const lookupStarted = deferred<void>();
         const lookup = deferred<Lookup>();
-        harness.sdk.stub("environments.pullRequest", async ({ environmentId }) => {
-          if (environmentId === "env_open") return pullRequest("open");
-          lookupStarted.resolve();
-          return lookup.promise;
-        });
+        harness.sdk.stub(
+          "plugins.callRpc",
+          mockPrStatusRpc(async ({ environmentId }) => {
+            if (environmentId === "env_open") return pullRequest("open");
+            lookupStarted.resolve();
+            return lookup.promise;
+          }),
+        );
         harness.sdk.stub("threads.get", async ({ threadId }) =>
           makeThreadResponse({
             id: threadId,

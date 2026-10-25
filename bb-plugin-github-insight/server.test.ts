@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import pageOne from "./test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "./test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "./test/fixtures/pr-25337-check-run-details.json";
@@ -705,8 +706,8 @@ describe("pr-poller", () => {
     run.controller.abort();
   });
 
-  it.each(["pullRequest", "get"] as const)(
-    "refreshes healthy PRs during rejected environments.%s reads and recovers before pruning",
+  it.each(["plugins.callRpc", "environments.get"] as const)(
+    "refreshes healthy PRs during rejected %s reads and recovers before pruning",
     async (method) => {
       let state: "OPEN" | "MERGED" = "OPEN";
       let unavailable = true;
@@ -749,17 +750,26 @@ describe("pr-poller", () => {
         set: { prSummary: { pr: { number: 25338, state: "open" }, error: null } },
       });
       await harness.kv.set("insight:orphan/repo#1", unresolvedReading);
-      harness.sdk.stub(
-        `environments.${method}`,
-        async ({ environmentId }: { environmentId: string }) => {
-          if (environmentId === "env_2" && unavailable) {
-            throw new Error("HTTP 409: Environment unavailable");
-          }
-          return method === "pullRequest"
-            ? pullRequests[environmentId as keyof typeof pullRequests]
-            : { hostId: "host-1" };
-        },
-      );
+      const read = (environmentId: string) => {
+        if (environmentId === "env_2" && unavailable) {
+          throw new Error("HTTP 409: Environment unavailable");
+        }
+        return pullRequests[environmentId as keyof typeof pullRequests];
+      };
+      if (method === "plugins.callRpc") {
+        harness.sdk.stub(
+          method,
+          async ({ input, outputSchema }: { input: unknown; outputSchema: z.ZodType }) => {
+            const { keys } = z.object({ keys: z.array(z.string()) }).parse(input);
+            return outputSchema.parse(Object.fromEntries(keys.map((key) => [key, read(key)])));
+          },
+        );
+      } else {
+        harness.sdk.stub(method, async ({ environmentId }: { environmentId: string }) => {
+          read(environmentId);
+          return { hostId: "host-1" };
+        });
+      }
       state = "MERGED";
       vi.advanceTimersByTime(60_000);
       const updatesBefore = metadataUpdates(harness).length;
@@ -1324,7 +1334,7 @@ describe("refresh on idle", () => {
     await goIdle(harness, "thr_1");
     await advance(60_000);
 
-    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(2);
+    expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(2);
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
   });
 
@@ -1390,7 +1400,7 @@ describe("refresh on idle", () => {
     await harness.dispose();
     await advance(10_000);
 
-    expect(harness.sdk.callsTo("environments.pullRequest")).toHaveLength(1);
+    expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(1);
   });
 });
 
