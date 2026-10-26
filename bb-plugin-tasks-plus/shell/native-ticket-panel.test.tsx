@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import {
   acceptNavigation,
-  panel,
+  ticketRegistration,
   deferred,
   tasks,
   row,
@@ -16,7 +16,7 @@ useWorkspaceTestLifecycle();
 
 describe("native Ticket tab", () => {
   it("keeps the list in Tasks and opens the editable ticket in the host tab", async () => {
-    const tab = panel.fixedTabs?.find((entry) => entry.id === "ticket");
+    const tab = ticketRegistration;
     expect(tab?.title).toBe("Ticket");
     const page = setup("all", {}, { nativeTab: false });
     const ticket = renderSlot(tab!, { subPath: "all" });
@@ -30,10 +30,14 @@ describe("native Ticket tab", () => {
     expect(page.container.contains(title)).toBe(false);
     expect(page.getByRole("region", { name: "Ticket list" }).style.width).toBe("");
     expect(row(page, 1).getAttribute("aria-current")).toBe("true");
+    expect(page.inspection.experimental_tabOpenCalls[0]).toEqual({
+      surface: { kind: "current" },
+      tab: ticketRegistration,
+    });
   });
   it("navigates from the native editor without claiming another BB pane's keys", async () => {
     const page = setup("all?task=TSK-1", {}, { nativeTab: false });
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     await within(ticket.container).findByRole("textbox", {
@@ -66,7 +70,7 @@ describe("native Ticket tab", () => {
   });
   it("dismisses an editor overlay when the host switches away from Ticket", async () => {
     const page = setup("all?task=TSK-1", {}, { nativeTab: false });
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     await within(ticket.container).findByRole("textbox", {
@@ -89,7 +93,7 @@ describe("native Ticket tab", () => {
       },
       { nativeTab: false },
     );
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     const title = await within(ticket.container).findByRole("textbox", {
@@ -98,10 +102,10 @@ describe("native Ticket tab", () => {
     title.textContent = "Unsent title";
     fireEvent.input(title);
     ticket.lifecycle.unmount();
-    const opens = page.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = page.inspection.experimental_tabOpenCalls.length;
     fireEvent.click(row(page, 2));
-    expect(page.inspection.experimental_fixedTabOpenCalls.length).toBeGreaterThan(opens);
-    const restored = renderSlot(panel.fixedTabs![0]!, {
+    expect(page.inspection.experimental_tabOpenCalls.length).toBeGreaterThan(opens);
+    const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     expect((await within(restored.container).findByRole("alert")).textContent).toContain("Offline");
@@ -112,7 +116,7 @@ describe("native Ticket tab", () => {
   it("does not reopen Ticket after the user switches tabs during a pending save", async () => {
     const saved = deferred<unknown>();
     const page = setup("all?task=TSK-1", { updateTask: () => saved.promise }, { nativeTab: false });
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     const title = await within(ticket.container).findByRole("textbox", {
@@ -125,14 +129,14 @@ describe("native Ticket tab", () => {
     const outside = document.createElement("input");
     document.body.append(outside);
     outside.focus();
-    const opens = page.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = page.inspection.experimental_tabOpenCalls.length;
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await acceptNavigation(page);
-    expect(page.inspection.experimental_fixedTabOpenCalls).toHaveLength(opens);
+    expect(page.inspection.experimental_tabOpenCalls).toHaveLength(opens);
     expect(page.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(document.activeElement).toBe(outside);
     outside.remove();
-    const restored = renderSlot(panel.fixedTabs![0]!, {
+    const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-2",
     });
     expect(
@@ -145,7 +149,7 @@ describe("native Ticket tab", () => {
   });
   it("releases the retained editor and drafts when the Tasks page closes", async () => {
     const page = setup("all?task=TSK-1", {}, { nativeTab: false });
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     const title = await within(ticket.container).findByRole("textbox", {
@@ -168,7 +172,7 @@ describe("native Ticket tab", () => {
     expect(nextPage.inspection.navigateCalls).toEqual([]);
   });
   it("offers the existing standalone editor if BB declines to open Ticket", async () => {
-    const page = setup("all", {}, { nativeTab: false, openFixedTab: () => false });
+    const page = setup("all", {}, { nativeTab: false, openTab: () => false });
     await page.findByRole("button", { name: "Open TSK-1: Title 1" });
     fireEvent.click(row(page, 1));
     await acceptNavigation(page);
@@ -183,13 +187,13 @@ describe("native Ticket tab", () => {
     "keeps one explicit outlet owner when disposing %s",
     async (dispose) => {
       setup("all?task=TSK-1", {}, { nativeTab: false });
-      const first = renderSlot(panel.fixedTabs![0]!, {
+      const first = renderSlot(ticketRegistration, {
         subPath: "all?task=TSK-1",
       });
       const title = await within(first.container).findByRole("textbox", {
         name: "Task title",
       });
-      const second = renderSlot(panel.fixedTabs![0]!, {
+      const second = renderSlot(ticketRegistration, {
         subPath: "all?task=TSK-1",
       });
       expect(first.container.contains(title)).toBe(true);
@@ -222,7 +226,7 @@ describe("native Ticket tab", () => {
       },
       { nativeTab: false },
     );
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     const title = await within(ticket.container).findByRole("textbox", {
@@ -234,10 +238,10 @@ describe("native Ticket tab", () => {
     await within(ticket.container).findByRole("alert");
     fireEvent.click(within(ticket.container).getByRole("button", { name: "Retry save" }));
     ticket.lifecycle.unmount();
-    const opens = page.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = page.inspection.experimental_tabOpenCalls.length;
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await acceptNavigation(page);
-    expect(page.inspection.experimental_fixedTabOpenCalls).toHaveLength(opens);
+    expect(page.inspection.experimental_tabOpenCalls).toHaveLength(opens);
   });
   it("makes the same failed origin editable when the host declines reopening", async () => {
     let canOpen = true;
@@ -248,9 +252,9 @@ describe("native Ticket tab", () => {
         updateTask: () =>
           canSave ? { ok: true, task: tasks[0] } : { ok: false, error: { message: "Offline" } },
       },
-      { nativeTab: false, openFixedTab: () => canOpen },
+      { nativeTab: false, openTab: () => canOpen },
     );
-    const ticket = renderSlot(panel.fixedTabs![0]!, {
+    const ticket = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
     const title = await within(ticket.container).findByRole("textbox", {
@@ -286,7 +290,7 @@ describe("native Ticket tab", () => {
         name: "Try Ticket pane again",
       }),
     );
-    const restored = renderSlot(panel.fixedTabs![0]!, {
+    const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-2",
     });
     expect(

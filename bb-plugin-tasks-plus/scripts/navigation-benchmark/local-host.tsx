@@ -6,6 +6,8 @@ import type {
   BbContext,
   BbNavigate,
   ExperimentalAppPanel,
+  ExperimentalTabOpenOptions,
+  ExperimentalTabRegistration,
   PluginNavPanelRegistration,
   PluginRealtimeConnectionState,
   PluginSdkApp,
@@ -19,6 +21,7 @@ type RuntimeGlobal = typeof globalThis & {
 };
 export interface LocalHostOptions {
   panel: PluginNavPanelRegistration;
+  tabs: readonly ExperimentalTabRegistration[];
   rpc(method: string, input: unknown): Promise<unknown>;
   context?: BbContext;
 }
@@ -35,7 +38,7 @@ export function createLocalHost(options: LocalHostOptions) {
     path: string;
     options: { subPath: string; replace: boolean };
   }> = [];
-  const fixedTabOpenCalls: Parameters<ExperimentalAppPanel["openFixedTab"]>[0][] = [];
+  const tabOpenCalls: ExperimentalTabOpenOptions[] = [];
   const context = Object.freeze({ projectId: null, threadId: null, ...options.context });
   const settings = Object.freeze({ values: undefined, isLoading: false });
   const live = () => {
@@ -127,16 +130,38 @@ export function createLocalHost(options: LocalHostOptions) {
     },
   ) as BbNavigate;
   const panel: ExperimentalAppPanel = {
-    openFixedTab(input) {
+    experimental_openTab(input) {
       live();
-      const eligible = options.panel.fixedTabs?.find(
-        (tab) => tab.id === input.tab.id && tab.panelId === input.tab.panelId,
-      );
+      const requested = input.tab;
+      const eligible =
+        requested.availability === "fixed" &&
+        requested.context.kind === "nav-panel" &&
+        requested.context.panelId === options.panel.id &&
+        options.tabs.some(
+          (tab) =>
+            tab.id === requested.id &&
+            tab.availability === "fixed" &&
+            tab.context.kind === "nav-panel" &&
+            tab.context.panelId === options.panel.id,
+        );
       if (input.surface.kind !== "current" || !eligible || input.target !== undefined)
-        throw new Error("Owned host blocks unsupported fixed tab");
-      fixedTabOpenCalls.push(input);
+        throw new Error("Owned host blocks unsupported tab");
+      tabOpenCalls.push(input);
       ticket.set(true);
       return true;
+    },
+    openFixedTab(input) {
+      live();
+      if (input.tab.panelId !== options.panel.id || input.target !== undefined)
+        throw new Error("Owned host blocks unsupported fixed tab");
+      return panel.experimental_openTab({
+        surface: input.surface,
+        tab: {
+          id: input.tab.id,
+          context: { kind: "nav-panel", panelId: input.tab.panelId },
+          availability: "fixed",
+        },
+      });
     },
   };
   function useOwner() {
@@ -223,7 +248,7 @@ export function createLocalHost(options: LocalHostOptions) {
       routePublications,
       rpcCalls,
       navigateCalls,
-      experimental_fixedTabOpenCalls: fixedTabOpenCalls,
+      experimental_tabOpenCalls: tabOpenCalls,
     },
     behavior: {
       async emitRealtime(channel: string, payload: unknown) {

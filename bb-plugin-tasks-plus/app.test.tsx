@@ -8,19 +8,39 @@ const app = await loadPluginApp(() => import("./app"));
 
 afterEach(cleanup);
 
+function Badge() {
+  const badge = app.navPanels[0]!.experimental_useBadge!();
+  return badge ? <output aria-label={badge.label}>{badge.count}</output> : null;
+}
+
 it("does not register the removed Orchestrator approval renderer", () => {
   expect(app.pendingInteractions.map(({ id }) => id)).not.toContain("orchestrator-run");
   expect(app.navPanels.map(({ id }) => id)).toContain("tasks");
-  expect(app.threadPanelActions.map(({ id }) => id)).toContain("task");
+  expect(app.tabs).toContainEqual(
+    expect.objectContaining({
+      id: "task",
+      context: { kind: "thread" },
+      availability: "action",
+    }),
+  );
 });
 it("registers inline Tasks navigation without a fixed Navigation pane", () => {
-  expect(app.navPanels[0]?.fixedTabs?.map(({ id }) => id) ?? []).toEqual(["ticket"]);
-  expect(app.navPanels[0]?.experimental_sidebarAccessory).toBeTypeOf("function");
+  expect(app.tabs.filter((tab) => tab.availability === "fixed")).toMatchObject([
+    {
+      id: "ticket",
+      context: { kind: "nav-panel", panelId: "tasks" },
+      availability: "fixed",
+      title: "Ticket",
+      icon: "ListTodo",
+      layout: "flush",
+    },
+  ]);
+  expect(app.navPanels[0]?.experimental_useBadge).toBeTypeOf("function");
 });
-describe("Tasks nav panel sidebar accessory", () => {
+describe("Tasks navigation badge data", () => {
   it("renders the durable open count and refreshes it on task changes", async () => {
-    let openTaskCount = 12;
-    const Accessory = app.navPanels[0]?.experimental_sidebarAccessory;
+    let openTaskCount = 123;
+    const Accessory = Badge;
     expect(Accessory).toBeTypeOf("function");
 
     const slot = renderSlot(
@@ -33,7 +53,8 @@ describe("Tasks nav panel sidebar accessory", () => {
       },
     );
 
-    expect(await slot.findByText("12")).toBeDefined();
+    expect(await slot.findByText("123")).toBeDefined();
+    expect(slot.getByLabelText("123 open tasks").textContent).toBe("123");
     openTaskCount = 13;
     await slot.behavior.emitRealtime("tasks:changed", {
       taskId: "01HZZZZZZZZZZZZZZZZZZZZZT1",
@@ -53,7 +74,7 @@ describe("Tasks nav panel sidebar accessory", () => {
 
   it("hides the count when there are no open tasks", async () => {
     let openTaskCount = 0;
-    const Accessory = app.navPanels[0]?.experimental_sidebarAccessory;
+    const Accessory = Badge;
 
     const slot = renderSlot(
       { component: Accessory! },
@@ -94,7 +115,7 @@ describe("Tasks nav panel sidebar accessory", () => {
     const firstRequest = new Promise<{ openTaskCount: number }>((resolve) => {
       resolveFirstRequest = resolve;
     });
-    const Accessory = app.navPanels[0]?.experimental_sidebarAccessory;
+    const Accessory = Badge;
 
     const slot = renderSlot(
       { component: Accessory! },
@@ -110,6 +131,7 @@ describe("Tasks nav panel sidebar accessory", () => {
     );
 
     await waitFor(() => expect(calls).toBe(1));
+    expect(slot.queryByRole("status")).toBeNull();
     await slot.behavior.emitRealtime("tasks:changed", {
       taskId: "01HZZZZZZZZZZZZZZZZZZZZZT1",
       projectId: "01HZZZZZZZZZZZZZZZZZZZZZP1",
@@ -130,5 +152,6 @@ describe("Tasks nav panel sidebar accessory", () => {
 
     await waitFor(() => expect(calls).toBe(2));
     expect(await slot.findByText("13")).toBeDefined();
+    expect(slot.getByLabelText("13 open tasks").textContent).toBe("13");
   });
 });

@@ -65,7 +65,7 @@ for (const collapsed of [true, false]) {
       ...DEFAULT_LIST_PREFERENCE,
       collapsedStatuses: collapsed ? [...TASK_STATUSES] : [],
     });
-    const page = setup("all", rpc, { nativeTab: false, openFixedTab: () => false });
+    const page = setup("all", rpc, { nativeTab: false, openTab: () => false });
     await waitFor(() => expect(scrollContainer(page).scrollTop).toBe(70));
     expect(page.container.querySelectorAll("[data-task-key]")).toHaveLength(collapsed ? 0 : 6);
     // Deliver an accepted selected route while BB declines the native Ticket tab.
@@ -101,7 +101,7 @@ for (const collapsed of [true, false]) {
       ...DEFAULT_LIST_PREFERENCE,
       collapsedStatuses: collapsed ? [...TASK_STATUSES] : [],
     });
-    const page = setup("all", rpc, { nativeTab: false, openFixedTab: () => false });
+    const page = setup("all", rpc, { nativeTab: false, openTab: () => false });
     await waitFor(() => expect(scrollContainer(page).scrollTop).toBe(70));
     page.lifecycle.rerender(<TasksPage subPath="all?task=TSK-2" />);
     await page.findByText(/couldn't open the Ticket pane/);

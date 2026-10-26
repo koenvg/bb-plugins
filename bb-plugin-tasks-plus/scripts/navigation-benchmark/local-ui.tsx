@@ -25,11 +25,17 @@ const qualification = installQualificationObservers(
   window,
   Object.fromEntries(fixture.tasks.map((task: any) => [task.key, task.revision])),
 );
-// Capture real definePluginApp registrations before installing the owned host runtime.
 const app = collectPluginAppRegistrations((await import("../../app.js")).default);
 const panel = app.navPanels[0]!;
+const ticketRegistration = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+    tab.id === "ticket" &&
+    tab.availability === "fixed" &&
+    tab.context.kind === "nav-panel" &&
+    tab.context.panelId === "tasks",
+)!;
 const Page = panel.component;
-const Ticket = panel.fixedTabs![0]!.component;
+const Ticket = ticketRegistration.component;
 function NativeHost({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) {
   return (
     <div className="lab-workspace">
@@ -46,6 +52,7 @@ function NativeHost({ subPath, ticketVisible }: { subPath: string; ticketVisible
 let slot: ReturnType<typeof createLocalHost>;
 slot = createLocalHost({
   panel,
+  tabs: app.tabs,
   async rpc(method, input) {
     const response = await fetch(`/api/v1/plugins/tasks-plus/rpc/${method}`, {
       method: "POST",

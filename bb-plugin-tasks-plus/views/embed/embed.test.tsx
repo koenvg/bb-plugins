@@ -18,6 +18,10 @@ if (!window.matchMedia) {
 }
 
 const app = await loadPluginApp(() => import("../../app"));
+const taskRegistration = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "thread" }; availability: "action" }> =>
+    tab.id === "task" && tab.availability === "action" && tab.context.kind === "thread",
+)!;
 
 afterEach(cleanup);
 
@@ -67,8 +71,10 @@ describe("Tasks app slots", () => {
   it("registers the task directive card and thread panel action", () => {
     expect(app.messageDirectives).toHaveLength(1);
     expect(app.messageDirectives[0]?.id).toBe("task");
-    expect(app.threadPanelActions[0]).toMatchObject({
+    expect(taskRegistration).toMatchObject({
       id: "task",
+      context: { kind: "thread" },
+      availability: "action",
       title: "Task",
     });
   });
@@ -239,7 +245,7 @@ describe("Task directive card", () => {
 describe("Task embed panel", () => {
   it("renders the task detail for the panel params and links to the app", async () => {
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: { taskKey: "TSK-4" } },
       {
         rpc: taskDetailRpc(() => ({ task })),
@@ -255,7 +261,7 @@ describe("Task embed panel", () => {
   });
 
   it("keeps the thread header, open link and detail on A after a rejected switch, then retries to B", async () => {
-    const Panel = app.threadPanelActions[0]!.component;
+    const Panel = taskRegistration.component;
     const other = makeTask({
       id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
       key: "TSK-5",
@@ -272,7 +278,7 @@ describe("Task embed panel", () => {
       )
       .mockResolvedValue({ ok: true, task: { ...task, title: "Edited A" } });
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: { taskKey: "TSK-4" } },
       {
         rpc: {
@@ -317,7 +323,7 @@ describe("Task embed panel", () => {
   it("waits for thread-side edits before opening the ticket in Tasks", async () => {
     let finishSave!: (result: unknown) => void;
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: { taskKey: "TSK-4" } },
       {
         rpc: {
@@ -349,7 +355,7 @@ describe("Task embed panel", () => {
   it("resyncs the embedded task detail after reconnect", async () => {
     let title = "Stale embedded detail";
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: { taskKey: "TSK-4" } },
       {
         realtimeConnectionState: "connected",
@@ -367,7 +373,7 @@ describe("Task embed panel", () => {
 
   it("opens the first linked task when the launcher supplies no key", async () => {
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: null },
       {
         rpc: {
@@ -393,7 +399,7 @@ describe("Task embed panel", () => {
       const other = makeTask({ key: "TSK-5", title: "Later linked task" });
       const restore = () =>
         renderSlot(
-          app.threadPanelActions[0]!,
+          taskRegistration,
           { threadId: "thr_1", params: null },
           {
             rpc: {
@@ -418,7 +424,7 @@ describe("Task embed panel", () => {
     async (taskKey) => {
       const other = makeTask({ key: "TSK-5", title: "Explicit task" });
       const slot = renderSlot(
-        app.threadPanelActions[0]!,
+        taskRegistration,
         { threadId: "thr_1", params: { taskKey } },
         {
           rpc: {
@@ -439,7 +445,7 @@ describe("Task embed panel", () => {
   it("shows loading while the linked-task lookup is pending", async () => {
     let resolve!: (result: { tasks: (typeof task)[] }) => void;
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: null },
       {
         rpc: {
@@ -460,7 +466,7 @@ describe("Task embed panel", () => {
   it("distinguishes lookup failure from no linked tasks and supports manual retry", async () => {
     let fail = true;
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: null },
       {
         rpc: {
@@ -487,7 +493,7 @@ describe("Task embed panel", () => {
     let fail = false;
     const other = makeTask({ id: "01HZZZZZZZZZZZZZZZZZZZZZT2", key: "TSK-5", title: "Next task" });
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: null },
       {
         realtimeConnectionState: "connected",
@@ -531,7 +537,7 @@ describe("Task embed panel", () => {
         }),
     );
     const slot = renderSlot(
-      app.threadPanelActions[0]!,
+      taskRegistration,
       { threadId: "thr_1", params: null },
       {
         rpc: {
@@ -573,12 +579,12 @@ describe("Task embed panel", () => {
   it.each(["same task", "lookup failure", "no linked task"])(
     "retains the explicit editor while default lookup is delayed, then returns %s",
     async (outcome) => {
-      const Panel = app.threadPanelActions[0]!.component;
+      const Panel = taskRegistration.component;
       let finishLookup!: (result: { tasks: (typeof task)[] }) => void;
       let failLookup!: (error: Error) => void;
       const updateTask = vi.fn().mockResolvedValue({ ok: true, task });
       const slot = renderSlot(
-        app.threadPanelActions[0]!,
+        taskRegistration,
         { threadId: "thr_1", params: { taskKey: "TSK-4" } },
         {
           rpc: {
@@ -631,7 +637,7 @@ describe("Task embed panel", () => {
   it.each(["same task", "lookup failure", "no linked task"])(
     "autosaves the retained editor while default lookup is delayed, then returns %s",
     async (outcome) => {
-      const Panel = app.threadPanelActions[0]!.component;
+      const Panel = taskRegistration.component;
       let savedTask = task;
       let finishLookup!: (result: { tasks: (typeof task)[] }) => void;
       let failLookup!: (error: Error) => void;
@@ -640,7 +646,7 @@ describe("Task embed panel", () => {
         return { ok: true, task: savedTask };
       });
       const slot = renderSlot(
-        app.threadPanelActions[0]!,
+        taskRegistration,
         { threadId: "thr_1", params: { taskKey: "TSK-4" } },
         {
           rpc: {

@@ -1,6 +1,6 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { TasksAppShell } from "./shell/app-shell.js";
-import { TasksSidebarAccessory } from "./shell/sidebar-accessory.js";
+import { useTasksBadge } from "./shell/sidebar-accessory.js";
 import { ticketTab } from "./shell/ticket-panel.js";
 import { TaskDirectiveCard, TaskEmbedPanel } from "./views/embed/index.js";
 import { TASKS_COMMANDS } from "./shell/commands.js";
@@ -13,10 +13,12 @@ export default definePluginApp((app) => {
     icon: "ListTodo",
     path: "tasks",
     component: TasksAppShell,
-    fixedTabs: [ticketTab],
-    experimental_sidebarAccessory: TasksSidebarAccessory,
+    experimental_useBadge: useTasksBadge,
   });
-  app.slots.threadPanelAction({
+  app.slots.experimental_tab(ticketTab);
+  app.slots.experimental_tab({
+    context: { kind: "thread" },
+    availability: "action",
     id: "task",
     title: "Task",
     icon: "ListTodo",
